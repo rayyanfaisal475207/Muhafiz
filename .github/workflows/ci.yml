@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      # The suite mocks every external boundary and blocks network access,
+      # so no API keys or database are needed here.
+      - run: pytest
+
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [frontend, admin-frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: ${{ matrix.app }}/package-lock.json
+
+      - run: npm ci
+        working-directory: ${{ matrix.app }}
+
+      - run: npm run build
+        working-directory: ${{ matrix.app }}
