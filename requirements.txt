@@ -1,0 +1,60 @@
+# ============================================================
+# requirements.txt — All Python Dependencies (TaxIQ)
+# Install: pip install -r requirements.txt
+# ============================================================
+
+# ── 1. Web Framework ──────────────────────────────────────────────────────────
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+python-dotenv>=1.0.1
+
+# ── 2. LLM Providers ─────────────────────────────────────────────────────────
+# Primary: Groq (fast LLaMA 3.3 inference)
+groq>=0.9.0
+
+# Primary embeddings + vision: Google Gemini (new SDK)
+google-genai>=1.0.0
+
+# Optional fallbacks (kept for compatibility)
+openai>=1.30.0
+anthropic>=0.28.0
+
+# ── 3. Vector Database ────────────────────────────────────────────────────────
+chromadb>=0.5.0
+
+# ── 4. Document Loaders ───────────────────────────────────────────────────────
+docling>=2.113.0         # PDF loading — layout + table-structure extraction, built-in OCR
+pymupdf>=1.24.0          # PDF page rasterization for the vision-fallback path only (import as fitz)
+pandas>=2.2.0            # Excel/CSV processing
+openpyxl>=3.1.0          # Excel .xlsx engine for pandas
+beautifulsoup4>=4.12.0   # HTML parsing
+python-docx>=1.1.0       # Word .docx loading
+Pillow>=10.3.0           # Image resizing before vision calls
+reportlab>=4.0.0         # PDF generation
+
+# ── 5. Retrieval Utilities ────────────────────────────────────────────────────
+rank-bm25>=0.2.2         # BM25 keyword search for hybrid retrieval + RRF
+
+# ── 6. PostgreSQL & MCP (Phase 1/5B) ─────────────────────────────────────────
+sqlalchemy[asyncio]>=2.0.0   # Async ORM for PostgreSQL
+asyncpg>=0.29.0              # Async PostgreSQL driver
+alembic>=1.13.0              # Database migration management
+mcp>=1.1.2                   # Model Context Protocol SDK
+
+# --- Phase 2: Authentication ---
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+python-multipart>=0.0.9
+slowapi>=0.1.9
+email-validator>=2.1.0
+
+
+# ── 7. Testing ────────────────────────────────────────────────────────────────
+pytest>=8.2.0
+pytest-asyncio>=0.23.0
+httpx>=0.27.0
+tenacity>=8.3.0
+
+# ── 8. Knowledge Graph (Phase 4) ──────────────────────────────────────────────
+rapidfuzz>=3.9.0             # Edit-distance/token-set name similarity for entity-resolution name-fallback (pure-Python wheel, no native build step)

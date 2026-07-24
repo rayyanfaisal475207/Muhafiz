@@ -1,0 +1,76 @@
+# ============================================================
+# Muhafiz — Docker Compose (Development)
+#
+# Usage:
+#   docker compose up -d          # Start Postgres
+#   docker compose down           # Stop
+#   docker compose down -v        # Stop + delete data volume
+# ============================================================
+
+services:
+  postgres:
+    # Phase 4.1: swapped from postgres:16-alpine to an AGE-enabled image so
+    # the graph layer (Apache AGE) runs as a Postgres extension inside the
+    # existing instance rather than a separate graph service — see
+    # docs/graph_schema.md. Same Postgres major version (16) as before, so
+    # the existing pgdata volume is compatible; no re-init needed.
+    image: apache/age:release_PG16_1.5.0
+    container_name: muhafiz-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-muhafiz}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./certs:/certs_src:ro
+    # Copy certs to a temporary location and set permissions because Postgres 
+    # demands 0600 on the key file, which volume mounts from Windows don't support.
+    entrypoint: >
+      sh -c '
+        mkdir -p /tmp/certs &&
+        cp /certs_src/postgres.crt /tmp/certs/postgres.crt &&
+        cp /certs_src/postgres.key /tmp/certs/postgres.key &&
+        chown postgres:postgres /tmp/certs/postgres.key &&
+        chmod 600 /tmp/certs/postgres.key &&
+        exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/tmp/certs/postgres.crt -c ssl_key_file=/tmp/certs/postgres.key
+      '
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d muhafiz"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: muhafiz-vllm
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN:-}
+    volumes:
+      - ./certs:/certs_src:ro
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    # Example arguments for running vLLM with Qwen3-14B and embeddings concurrently
+    # Note: vLLM handles TLS via standard uvicorn args
+    command: >
+      --model Qwen/Qwen2.5-14B-Instruct
+      --ssl-keyfile /certs_src/vllm.key
+      --ssl-certfile /certs_src/vllm.crt
+      --max-model-len 4096
+      --tensor-parallel-size 1
+      --gpu-memory-utilization 0.8
+
+volumes:
+  # Pinned to the volume actually holding the live data (created under this
+  # project's old directory name, "rag-chatbot") rather than the
+  # auto-derived "evidenceintelligenceplatform_pgdata" name Compose would
+  # otherwise use from the current folder name — that name mismatch is why
+  # `docker compose down`/`up` doesn't touch the real container/data by
+  # default here. Pinning by explicit `name:` makes Compose attach to the
+  # existing volume instead of silently creating a second, empty one.
+  pgdata:
+    name: rag-chatbot_pgdata
