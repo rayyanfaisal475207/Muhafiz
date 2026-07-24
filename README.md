@@ -17,8 +17,6 @@ _A case-centric, graph-backed investigative assistant — bilingual (Urdu/Englis
 [![ChromaDB](https://img.shields.io/badge/ChromaDB-Vector_Store_1024d-6A5ACD?style=for-the-badge&logoColor=white)](https://www.trychroma.com/)
 <br/>
 [![Local LLM](https://img.shields.io/badge/Local-Qwen3--14B_%2B_Qalb--8B-8A2BE2?style=for-the-badge)](#technology-stack)
-[![Groq](https://img.shields.io/badge/Groq-Fallback_Only-F55036?style=for-the-badge&logo=groq&logoColor=white)](https://groq.com/)
-[![Google Gemini](https://img.shields.io/badge/Gemini-Fallback_%26_Web_Search-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://deepmind.google/technologies/gemini/)
 
 </div>
 
