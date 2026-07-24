@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Muhafiz — horizontal lockup for LIGHT / off-white backgrounds.
+  Mark + wordmark, single warm-ink colour (no two-tone split — the old
+  "Tax" + "IQ" split doesn't map onto "Muhafiz", so the whole wordmark
+  reads in one weight/colour; the accent still lives in the mark).
+
+  Clear space = the height of the mark's inner spark on all sides.
+  Minimum width: 96px (below that, use the mark alone).
+
+  NOTE: the wordmark uses live <text> with an Inter fallback so it stays
+  editable. For print or third-party handoff, outline the text first
+  (Figma: Type ▸ Outline stroke) so it can't re-render in a fallback face.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 56" width="200" height="56" role="img" aria-label="Muhafiz">
+  <title>Muhafiz</title>
+
+  <!-- Mark -->
+  <g transform="translate(4 8) scale(0.625)">
+    <path d="M0 0h50a14 14 0 0 1 14 14v36a14 14 0 0 1-14 14H14A14 14 0 0 1 0 50V0Z" fill="#27477D"/>
+    <path
+      d="M32 12
+         C33.1 21.4 42.6 30.9 52 32
+         C42.6 33.1 33.1 42.6 32 52
+         C30.9 42.6 21.4 33.1 12 32
+         C21.4 30.9 30.9 21.4 32 12Z"
+      fill="#F4F2ED"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text
+    x="56" y="36"
+    font-family="Inter, 'Helvetica Neue', system-ui, sans-serif"
+    font-size="22"
+    font-weight="600"
+    letter-spacing="-0.6"
+    fill="#1C1B18">Muhafiz</text>
+</svg>

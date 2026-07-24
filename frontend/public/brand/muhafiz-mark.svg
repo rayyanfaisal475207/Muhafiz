@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Muhafiz — app icon / square mark (primary).
+  Navy tile, spark knocked out in off-white.
+  The top-left corner is squared while the other three are rounded:
+  a quiet nod to a page corner, without drawing a document.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Muhafiz">
+  <title>Muhafiz</title>
+  <defs>
+    <clipPath id="tile">
+      <path d="M0 0h50a14 14 0 0 1 14 14v36a14 14 0 0 1-14 14H14A14 14 0 0 1 0 50V0Z"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#tile)">
+    <rect width="64" height="64" fill="#27477D"/>
+    <!-- Four-point spark: concave diamond. Reads as insight/precision,
+         and as a cursor at small sizes. -->
+    <path
+      d="M32 12
+         C33.1 21.4 42.6 30.9 52 32
+         C42.6 33.1 33.1 42.6 32 52
+         C30.9 42.6 21.4 33.1 12 32
+         C21.4 30.9 30.9 21.4 32 12Z"
+      fill="#F4F2ED"/>
+  </g>
+</svg>
