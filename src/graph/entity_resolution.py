@@ -137,16 +137,19 @@ def _has_shared_structured_id(mention: dict, candidate_props: dict) -> bool:
 
 # ── Graph reads (blocking/candidate generation) ────────────────────────
 
-async def _find_by_primary_id(label: str, id_key: str, id_value: str) -> Optional[dict]:
+async def _find_by_primary_id(
+    label: str, id_key: str, id_value: str, *, graph: str = age_client.GRAPH_NAME
+) -> Optional[dict]:
     rows = await age_client.execute_cypher(
         f"MATCH (n:{label} {{{id_key}: $id_value}}) RETURN n",
         params={"id_value": id_value},
         columns=["n"],
+        graph=graph,
     )
     return rows[0]["n"] if rows else None
 
 
-async def _fetch_all_nodes(label: str) -> list[dict]:
+async def _fetch_all_nodes(label: str, *, graph: str = age_client.GRAPH_NAME) -> list[dict]:
     """
     Full scan of every existing node of this type. Cross-case by design —
     not case_id-filtered — because cross-case resolution (the P-006
@@ -155,27 +158,29 @@ async def _fetch_all_nodes(label: str) -> list[dict]:
     at POC entity-count scale; revisit with a blocking index if the
     canonical-entity count grows large enough for a full scan to matter.
     """
-    rows = await age_client.execute_cypher(f"MATCH (n:{label}) RETURN n", columns=["n"])
+    rows = await age_client.execute_cypher(f"MATCH (n:{label}) RETURN n", columns=["n"], graph=graph)
     return [r["n"] for r in rows]
 
 
-async def _shares_case(entity_id: str, case_id: str) -> bool:
+async def _shares_case(entity_id: str, case_id: str, *, graph: str = age_client.GRAPH_NAME) -> bool:
     rows = await scoped_cypher(
         "MATCH (n {entity_id: $entity_id})-[:BELONGS_TO_CASE]->(c:Case {case_id: $case_id}) "
         "RETURN n LIMIT 1",
         case_id,
         params={"entity_id": entity_id},
         columns=["n"],
+        graph=graph,
     )
     return bool(rows)
 
 
 async def _generate_candidates(
-    label: str, mention: dict, case_id: str, id_key: Optional[str] = None
+    label: str, mention: dict, case_id: str, id_key: Optional[str] = None,
+    *, graph: str = age_client.GRAPH_NAME,
 ) -> list[Candidate]:
     mention_id = mention.get(id_key) if id_key else None
     mention_name = mention.get("canonical_name", "")
-    all_nodes = await _fetch_all_nodes(label)
+    all_nodes = await _fetch_all_nodes(label, graph=graph)
 
     candidates: list[Candidate] = []
     for node in all_nodes:
@@ -196,7 +201,7 @@ async def _generate_candidates(
         if not entity_id:
             continue
 
-        shared_case = await _shares_case(entity_id, case_id)
+        shared_case = await _shares_case(entity_id, case_id, graph=graph)
         shared_structured = _has_shared_structured_id(mention, props)
 
         score = min(
@@ -245,12 +250,22 @@ async def _adjudicate(mention: dict, candidate: Candidate, case_id: str) -> Opti
 
 # ── Core resolution decision ────────────────────────────────────────────
 
-async def resolve_mention(entity_type: str, mention: dict, case_id: str) -> ResolutionDecision:
+async def resolve_mention(
+    entity_type: str, mention: dict, case_id: str, *, graph: str = age_client.GRAPH_NAME
+) -> ResolutionDecision:
     """
     Decide how a newly-extracted mention resolves against existing
     canonical entities of `entity_type` ("person" | "vehicle" | "phone" |
     "address" | "organization"). Does not write anything — see
     resolve_and_write() for the write-through-versioning.py step.
+
+    `graph` defaults to the production graph. Every read this function
+    triggers (primary-id lookup, full-label scan, case-membership check)
+    is scoped to it — this must match whatever `graph` resolve_and_write()
+    is about to write to, or resolution decisions would be computed
+    against a different graph's data than the one being written (Phase 3,
+    Module 3.1: this is what keeps eval runs from silently scoring
+    candidates against real production entities).
     """
     label = TYPE_TO_LABEL.get(entity_type)
     if label is None:
@@ -259,7 +274,7 @@ async def resolve_mention(entity_type: str, mention: dict, case_id: str) -> Reso
     id_key = TYPE_PRIMARY_ID_KEY.get(entity_type)
     id_value = mention.get(id_key) if id_key else None
     if id_value:
-        existing = await _find_by_primary_id(label, id_key, id_value)
+        existing = await _find_by_primary_id(label, id_key, id_value, graph=graph)
         if existing:
             target_id = existing["properties"].get("entity_id")
             return ResolutionDecision(
@@ -267,7 +282,7 @@ async def resolve_mention(entity_type: str, mention: dict, case_id: str) -> Reso
                 basis=f"matched on {id_key} ({id_value})", candidates_considered=1,
             )
 
-    candidates = await _generate_candidates(label, mention, case_id, id_key=id_key)
+    candidates = await _generate_candidates(label, mention, case_id, id_key=id_key, graph=graph)
     if not candidates:
         return ResolutionDecision(tier=TIER_NEW, target_entity_id=None, confidence=0.0,
                                    basis="no matching candidate found", candidates_considered=0)
@@ -323,6 +338,8 @@ async def resolve_and_write(
     case_id: str,
     source_doc_id: str,
     source_chunk_id: Optional[str] = None,
+    *,
+    graph: str = age_client.GRAPH_NAME,
 ) -> dict:
     """
     Resolve `mention` and write the result through versioning.py.
@@ -332,9 +349,17 @@ async def resolve_and_write(
     (the existing canonical node for cnic_auto, otherwise a freshly minted
     node for the mention itself — see module docstring for why
     name-fallback tiers never physically merge into the candidate node).
+
+    `graph` defaults to the production graph — production ingestion never
+    overrides it, so this is a no-op for real behavior. It is threaded
+    into BOTH the resolve_mention() read path and every versioning.py
+    write below, so a caller targeting a non-default graph (currently only
+    scripts/eval_entity_resolution.py, passing "evidence_graph_eval") gets
+    fully isolated reads and writes, not writes-only isolation (Phase 3,
+    Module 3.1).
     """
     label = TYPE_TO_LABEL[entity_type]
-    decision = await resolve_mention(entity_type, mention, case_id)
+    decision = await resolve_mention(entity_type, mention, case_id, graph=graph)
 
     if decision.tier == TIER_CNIC_AUTO:
         entity_id = decision.target_entity_id
@@ -347,17 +372,20 @@ async def resolve_and_write(
     await versioning.write_node(
         label, {"entity_id": entity_id}, node_properties,
         source_doc_id=source_doc_id, confidence=decision.confidence if decision.tier != TIER_NEW else 1.0,
+        graph=graph,
     )
 
     await versioning.write_edge(
         "BELONGS_TO_CASE", label, {"entity_id": entity_id}, "Case", {"case_id": case_id},
         {}, source_doc_id=source_doc_id, source_chunk_id=source_chunk_id, confidence=1.0,
+        graph=graph,
     )
     await versioning.write_edge(
         "APPEARS_IN", label, {"entity_id": entity_id}, "Document", {"doc_id": source_doc_id},
         {"surface_text": mention.get("canonical_name", "")},
         source_doc_id=source_doc_id, source_chunk_id=source_chunk_id,
         confidence=mention.get("extraction_confidence", 1.0),
+        graph=graph,
     )
 
     if entity_type == "incident" and mention.get("date"):
@@ -365,10 +393,12 @@ async def resolve_and_write(
         await versioning.write_node(
             "Date", {"date": date_str}, {},
             source_doc_id=source_doc_id, confidence=1.0,
+            graph=graph,
         )
         await versioning.write_edge(
             "OCCURRED_ON", label, {"entity_id": entity_id}, "Date", {"date": date_str},
             {}, source_doc_id=source_doc_id, source_chunk_id=source_chunk_id, confidence=1.0,
+            graph=graph,
         )
 
     if decision.tier in (TIER_FLAGGED, TIER_REVIEW) and decision.target_entity_id:
@@ -381,6 +411,7 @@ async def resolve_and_write(
             },
             source_doc_id=source_doc_id, source_chunk_id=source_chunk_id,
             confidence=decision.confidence,
+            graph=graph,
         )
 
     return {

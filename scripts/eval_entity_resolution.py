@@ -19,10 +19,21 @@ Phase 4.10) — that's the "does extraction find the right spans" story;
 this script is the "does resolution decide correctly, given the mentions
 ground truth says exist" story.
 
-DESTRUCTIVE: this script wipes the entire evidence_graph before running,
-so results are reproducible run over run rather than accumulating stale
-entities/edges from a prior run. This is a dev/eval tool, not something
-to point at a graph containing real ingested case data.
+DESTRUCTIVE, BUT ISOLATED (Phase 3, Module 3.1): this script wipes its
+own graph before running, so results are reproducible run over run
+rather than accumulating stale entities/edges from a prior run. It runs
+entirely against EVAL_GRAPH ("evidence_graph_eval" — see migration
+011_age_eval_graph.sql), a second, physically separate Apache AGE graph
+from the production "evidence_graph" real case data lives in. Every
+versioning.py/entity_resolution.py call this script makes passes
+graph=EVAL_GRAPH explicitly, including the wipe itself, and evaluate()
+refuses to run at all if EVAL_GRAPH doesn't look like an eval graph name
+(see _assert_eval_graph below) — so a future edit that drops a graph=
+argument from one call site fails loudly instead of silently wiping or
+reading production data. Before this migration, this script ran
+`MATCH (n) DETACH DELETE n` against the shared production graph on every
+invocation — a full wipe of all real case data. That is what this
+isolation closes.
 """
 import asyncio
 import csv
@@ -44,6 +55,32 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src.graph import age_client, entity_resolution as er, versioning
 
 _ROSTER_PATH = Path(__file__).resolve().parent.parent / "data" / "memory" / "entity_roster.csv"
+
+# Second, physically separate AGE graph — see migration
+# 011_age_eval_graph.sql. Every graph-touching call in this script passes
+# graph=EVAL_GRAPH explicitly; never rely on any function's default.
+EVAL_GRAPH = "evidence_graph_eval"
+
+
+def _assert_eval_graph() -> None:
+    """
+    Hard, unmissable guard: refuse to run at all unless EVAL_GRAPH
+    resolves to a graph name containing "eval". Deliberately a simple
+    substring check, not sophisticated — the point is that a future edit
+    which accidentally repoints EVAL_GRAPH at the production graph name
+    (or drops a graph= argument at a call site, which this alone can't
+    catch, but narrows the blast radius for the most likely mistake)
+    fails loudly here rather than silently wiping/polluting production
+    data.
+    """
+    if "eval" not in EVAL_GRAPH:
+        raise RuntimeError(
+            f"Refusing to run: EVAL_GRAPH={EVAL_GRAPH!r} does not look like "
+            "an eval graph name (must contain 'eval'). This guard exists "
+            "specifically to stop this script from ever wiping the "
+            "production evidence_graph again — see this file's module "
+            "docstring."
+        )
 
 
 def _parse_attributes(raw: str) -> dict:
@@ -92,12 +129,14 @@ async def resolve_roster(rows: list[dict]) -> dict:
     file order. Returns {roster_entity_id: [{"case_id", "result"}]} —
     every mention's resolution outcome, keyed by the roster's OWN entity_id
     (the ground-truth label), not the graph's freshly-minted one.
+
+    Every graph write/read below is explicitly pinned to EVAL_GRAPH.
     """
     # Pre-create every Case node referenced — write_edge() never
     # implicitly creates an endpoint.
     all_case_ids = {c for row in rows for c in row["case_id_list"]}
     for case_id in all_case_ids:
-        await versioning.write_node("Case", {"case_id": case_id}, {}, source_doc_id=None)
+        await versioning.write_node("Case", {"case_id": case_id}, {}, source_doc_id=None, graph=EVAL_GRAPH)
 
     outcomes: dict[str, list[dict]] = defaultdict(list)
 
@@ -162,13 +201,13 @@ async def resolve_roster(rows: list[dict]) -> dict:
                     mention["plate"] = plates[0].normalized
 
             doc_id = f"EVAL-{row['entity_id']}-{case_id}-{i}"
-            await versioning.write_node("Document", {"doc_id": doc_id}, {}, source_doc_id=doc_id)
+            await versioning.write_node("Document", {"doc_id": doc_id}, {}, source_doc_id=doc_id, graph=EVAL_GRAPH)
             await versioning.write_edge(
                 "BELONGS_TO_CASE", "Document", {"doc_id": doc_id}, "Case", {"case_id": case_id},
-                {}, source_doc_id=doc_id, confidence=1.0,
+                {}, source_doc_id=doc_id, confidence=1.0, graph=EVAL_GRAPH,
             )
 
-            result = await er.resolve_and_write(entity_type, mention, case_id, doc_id)
+            result = await er.resolve_and_write(entity_type, mention, case_id, doc_id, graph=EVAL_GRAPH)
             outcomes[row["entity_id"]].append({"case_id": case_id, "mention": variant, **result})
 
     return outcomes
@@ -180,8 +219,9 @@ def _same_graph_entity(outcomes: dict, roster_id: str) -> set:
 
 
 async def evaluate() -> None:
-    print("WARNING: wiping evidence_graph for a clean, reproducible run...")
-    await age_client.execute_cypher("MATCH (n) DETACH DELETE n", columns=["result"])
+    _assert_eval_graph()
+    print(f"WARNING: wiping {EVAL_GRAPH} for a clean, reproducible run...")
+    await age_client.execute_cypher("MATCH (n) DETACH DELETE n", columns=["result"], graph=EVAL_GRAPH)
 
     rows = load_roster()
     by_id = {r["entity_id"]: r for r in rows}

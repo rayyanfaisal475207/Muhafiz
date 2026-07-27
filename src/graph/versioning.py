@@ -108,6 +108,7 @@ async def write_node(
     *,
     source_doc_id: Optional[str] = None,
     confidence: float = 1.0,
+    graph: str = age_client.GRAPH_NAME,
 ) -> Optional[dict]:
     """
     Upsert a node: MERGE on `match` (the node's identity key, e.g.
@@ -115,6 +116,11 @@ async def write_node(
 
     Idempotent — calling this again with the same `match` updates the
     existing node rather than creating a duplicate.
+
+    `graph` defaults to the production graph — production call sites never
+    override it. scripts/eval_entity_resolution.py is the one caller that
+    passes `graph="evidence_graph_eval"`, so eval fixtures never land in
+    real case data (Phase 3, Module 3.1).
     """
     prop_clause, prop_params = _build_set_clause("n", properties or {}, "p")
     set_clauses = ["n.as_of = $as_of", "n.confidence = $confidence", "n.source_doc_id = $source_doc_id"]
@@ -133,7 +139,7 @@ async def write_node(
         "confidence": confidence,
         "source_doc_id": source_doc_id,
     }
-    rows = await age_client.execute_cypher(cypher, params=params, columns=["n"])
+    rows = await age_client.execute_cypher(cypher, params=params, columns=["n"], graph=graph)
     node = rows[0]["n"] if rows else None
     
     if node:
@@ -149,12 +155,13 @@ async def write_node(
 
 # ── Edges (append-only) ─────────────────────────────────────────────────
 
-async def get_edge(edge_id: int) -> Optional[dict]:
+async def get_edge(edge_id: int, *, graph: str = age_client.GRAPH_NAME) -> Optional[dict]:
     """Fetch an edge by its AGE-internal id, for locked/superseded checks."""
     rows = await age_client.execute_cypher(
         "MATCH ()-[r]->() WHERE id(r) = $edge_id RETURN r",
         params={"edge_id": edge_id},
         columns=["r"],
+        graph=graph,
     )
     return rows[0]["r"] if rows else None
 
@@ -171,6 +178,7 @@ async def write_edge(
     source_chunk_id: Optional[str] = None,
     confidence: float = 1.0,
     supersedes_edge_id: Optional[int] = None,
+    graph: str = age_client.GRAPH_NAME,
 ) -> Optional[dict]:
     """
     Append a new versioned edge from an existing `from` node to an
@@ -186,9 +194,12 @@ async def write_edge(
 
     Returns the new edge (as a parsed AGE dict), or None if the write was
     refused or either endpoint node doesn't exist.
+
+    `graph` defaults to the production graph, same as write_node() — see
+    its docstring.
     """
     if supersedes_edge_id is not None:
-        prior = await get_edge(supersedes_edge_id)
+        prior = await get_edge(supersedes_edge_id, graph=graph)
         if prior is None:
             logger.warning("write_edge: supersedes_edge_id %s not found — refusing write", supersedes_edge_id)
             return None
@@ -242,7 +253,7 @@ async def write_edge(
         RETURN r
     """
 
-    rows = await age_client.execute_cypher(cypher, params=params, columns=["r"])
+    rows = await age_client.execute_cypher(cypher, params=params, columns=["r"], graph=graph)
     if not rows:
         logger.warning(
             "write_edge: no rows returned — one or both endpoint nodes "
@@ -257,6 +268,7 @@ async def write_edge(
             "SET old.superseded_by = $new_id RETURN old",
             params={"old_id": supersedes_edge_id, "new_id": new_edge["id"]},
             columns=["old"],
+            graph=graph,
         )
 
     gateway = await get_gateway()

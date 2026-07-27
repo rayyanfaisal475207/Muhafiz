@@ -35,17 +35,17 @@ class FakeVersioning:
         self.nodes_written: list[dict] = []
         self.edges_written: list[dict] = []
 
-    async def write_node(self, label, match, properties=None, *, source_doc_id=None, confidence=1.0):
-        record = {"label": label, "match": match, "properties": properties or {}}
+    async def write_node(self, label, match, properties=None, *, source_doc_id=None, confidence=1.0, graph=None):
+        record = {"label": label, "match": match, "properties": properties or {}, "graph": graph}
         self.nodes_written.append(record)
         return {"id": 1, "label": label, "properties": {**match, **(properties or {})}}
 
     async def write_edge(self, edge_label, from_label, from_match, to_label, to_match,
                           properties=None, *, source_doc_id, source_chunk_id=None,
-                          confidence=1.0, supersedes_edge_id=None):
+                          confidence=1.0, supersedes_edge_id=None, graph=None):
         record = {
             "edge_label": edge_label, "from_label": from_label, "from_match": from_match,
-            "to_label": to_label, "to_match": to_match, "properties": properties or {},
+            "to_label": to_label, "to_match": to_match, "properties": properties or {}, "graph": graph,
         }
         self.edges_written.append(record)
         return {"id": 99, "label": edge_label, "properties": properties or {}}
@@ -151,7 +151,7 @@ async def test_weak_match_goes_to_human_review(monkeypatch):
     )
     assert er.REVIEW_FLOOR <= 0.45 < er.MEDIUM_BAND_FLOOR
 
-    async def fake_generate_candidates(label, mention, case_id, id_key=None):
+    async def fake_generate_candidates(label, mention, case_id, id_key=None, *, graph=None):
         return [weak]
     monkeypatch.setattr(er, "_generate_candidates", fake_generate_candidates)
 
@@ -179,7 +179,7 @@ def _medium_band_candidate(entity_id="P-CANDIDATE", name="کچھ ملتا جلت
 
 @pytest.mark.asyncio
 async def test_medium_band_calls_llm_and_respects_same_entity_false(monkeypatch):
-    async def fake_generate_candidates(label, mention, case_id, id_key=None):
+    async def fake_generate_candidates(label, mention, case_id, id_key=None, *, graph=None):
         return [_medium_band_candidate()]
     monkeypatch.setattr(er, "_generate_candidates", fake_generate_candidates)
 
@@ -202,7 +202,7 @@ async def test_medium_band_calls_llm_and_respects_same_entity_false(monkeypatch)
 
 @pytest.mark.asyncio
 async def test_medium_band_llm_confirms_match_gets_flagged(monkeypatch):
-    async def fake_generate_candidates(label, mention, case_id, id_key=None):
+    async def fake_generate_candidates(label, mention, case_id, id_key=None, *, graph=None):
         return [_medium_band_candidate()]
     monkeypatch.setattr(er, "_generate_candidates", fake_generate_candidates)
 
@@ -219,7 +219,7 @@ async def test_medium_band_llm_confirms_match_gets_flagged(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_llm_never_grants_auto_merge_tier(monkeypatch):
-    async def fake_generate_candidates(label, mention, case_id, id_key=None):
+    async def fake_generate_candidates(label, mention, case_id, id_key=None, *, graph=None):
         return [_medium_band_candidate()]
     monkeypatch.setattr(er, "_generate_candidates", fake_generate_candidates)
 

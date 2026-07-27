@@ -68,6 +68,7 @@ async def scoped_cypher(
     case_id: str,
     params: Optional[dict] = None,
     columns: Sequence[str] = ("result",),
+    graph: str = age_client.GRAPH_NAME,
 ) -> list[dict]:
     """
     Execute a Cypher template that MUST be scoped to one case.
@@ -83,6 +84,13 @@ async def scoped_cypher(
 
     `case_id` is always merged into `params` under the `case_id` key —
     callers must not also pass a `case_id` key in `params` (would collide).
+
+    `graph` defaults to the production graph. entity_resolution.py's
+    `_shares_case` is the one call site that overrides it, so that when
+    scripts/eval_entity_resolution.py resolves against
+    `evidence_graph_eval` (Phase 3, Module 3.1), its case-membership check
+    reads from the same graph its writes land in, rather than silently
+    reading real case data from production.
     """
     if not case_id:
         raise ValueError(
@@ -102,4 +110,4 @@ async def scoped_cypher(
         raise ValueError("case_scope.scoped_cypher()'s params must not already contain 'case_id'.")
 
     merged_params = {**(params or {}), "case_id": case_id}
-    return await age_client.execute_cypher(cypher_query, params=merged_params, columns=columns)
+    return await age_client.execute_cypher(cypher_query, params=merged_params, columns=columns, graph=graph)
