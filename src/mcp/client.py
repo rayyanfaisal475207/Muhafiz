@@ -5,7 +5,7 @@ from typing import Dict, Any, List
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-from src.config import DATABASE_URL, MCP_DATABASE_URL
+from src.config import MCP_DATABASE_URL
 
 logger = logging.getLogger(__name__)
 
@@ -20,17 +20,19 @@ async def execute_query(statement: str) -> List[Dict[str, Any]]:
     the npx process will crash/fail to connect to the database when initializing or executing.
     """
 
-    # Prefer the least-privilege MCP_DATABASE_URL (see
-    # migrations/009_mcp_readonly_role.sql) over the superuser DATABASE_URL.
-    # validate_config() already surfaces a startup warning when this falls
-    # back — this is not a silent degradation.
+    # Requires the least-privilege MCP_DATABASE_URL (see
+    # migrations/009_mcp_readonly_role.sql) — verified end-to-end against a
+    # live role (Task 1 of the Phase 0-3 closeout). No superuser fallback:
+    # a missing MCP_DATABASE_URL must fail loudly, not silently degrade the
+    # MCP SQL route to full superuser access.
     if not MCP_DATABASE_URL:
-        logger.warning(
-            "MCP_DATABASE_URL is not set — MCP Postgres route is using the "
-            "superuser DATABASE_URL. Provision migrations/009_mcp_readonly_role.sql "
-            "and set MCP_DATABASE_URL to close this."
+        raise RuntimeError(
+            "MCP_DATABASE_URL is not set. Provision "
+            "migrations/009_mcp_readonly_role.sql and set MCP_DATABASE_URL — "
+            "the MCP Postgres route no longer falls back to the superuser "
+            "DATABASE_URL."
         )
-    raw_url = MCP_DATABASE_URL or DATABASE_URL
+    raw_url = MCP_DATABASE_URL
 
     # We must format the database URL for the Node process.
     # If using SQLAlchemy's asyncpg URL (postgresql+asyncpg://), strip the "+asyncpg" part

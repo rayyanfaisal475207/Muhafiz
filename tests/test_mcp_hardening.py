@@ -6,9 +6,11 @@ Guards:
     .ilike()/literal-bind renderer, not hand-rolled string concatenation
     with manual quote-doubling — a single quote in user-influenced input
     must come out escaped, never break out of its string literal.
-  * src/mcp/client.py's execute_query() prefers MCP_DATABASE_URL (the
-    least-privilege role from migrations/009_mcp_readonly_role.sql) over
-    the superuser DATABASE_URL, falling back only when unset.
+  * src/mcp/client.py's execute_query() requires MCP_DATABASE_URL (the
+    least-privilege role from migrations/009_mcp_readonly_role.sql) and
+    raises immediately if it's unset — no superuser DATABASE_URL fallback
+    (removed once the role was verified end-to-end against a live
+    Postgres instance, per the Phase 0-3 closeout's Task 1).
 
 None of this requires a live Postgres/MCP process — the SQL-building test
 is pure Python, and the URL-selection test intercepts stdio_client before
@@ -81,9 +83,8 @@ def _capture_stdio_client(captured):
     return _fake
 
 
-async def test_execute_query_prefers_mcp_database_url(monkeypatch):
+async def test_execute_query_uses_mcp_database_url(monkeypatch):
     monkeypatch.setattr(mcp_client, "MCP_DATABASE_URL", "postgresql://muhafiz_mcp_readonly:pw@localhost:5432/muhafiz")
-    monkeypatch.setattr(mcp_client, "DATABASE_URL", "postgresql+asyncpg://postgres:dev@localhost:5432/muhafiz")
 
     captured = {}
     monkeypatch.setattr(mcp_client, "stdio_client", _capture_stdio_client(captured))
@@ -94,17 +95,14 @@ async def test_execute_query_prefers_mcp_database_url(monkeypatch):
     assert captured["args"][-1] == "postgresql://muhafiz_mcp_readonly:pw@localhost:5432/muhafiz"
 
 
-async def test_execute_query_falls_back_to_database_url_with_warning(monkeypatch, caplog):
+async def test_execute_query_raises_when_mcp_database_url_unset(monkeypatch):
     monkeypatch.setattr(mcp_client, "MCP_DATABASE_URL", "")
-    monkeypatch.setattr(mcp_client, "DATABASE_URL", "postgresql+asyncpg://postgres:dev@localhost:5432/muhafiz")
 
     captured = {}
     monkeypatch.setattr(mcp_client, "stdio_client", _capture_stdio_client(captured))
 
-    with caplog.at_level("WARNING"):
-        with pytest.raises(_StopEarly):
-            await mcp_client.execute_query("SELECT 1")
+    with pytest.raises(RuntimeError, match="MCP_DATABASE_URL"):
+        await mcp_client.execute_query("SELECT 1")
 
-    # +asyncpg is stripped for the Node pg driver either way.
-    assert captured["args"][-1] == "postgresql://postgres:dev@localhost:5432/muhafiz"
-    assert any("MCP_DATABASE_URL" in rec.message for rec in caplog.records)
+    # Must fail before ever spawning the stdio process.
+    assert captured == {}

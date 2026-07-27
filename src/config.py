@@ -215,15 +215,17 @@ def validate_config() -> tuple[list[str], list[str]]:
             "PostgreSQL — see REQUIRE_POSTGRES."
         )
 
-    # MCP_DATABASE_URL unset means src/mcp/client.py falls back to the
-    # superuser DATABASE_URL for the MCP SQL route instead of the
-    # least-privilege role from migrations/009_mcp_readonly_role.sql.
+    # MCP_DATABASE_URL unset means src/mcp/client.py's execute_query() will
+    # raise RuntimeError the moment the MCP SQL route is actually called —
+    # there is no superuser fallback (removed once migrations/009's
+    # muhafiz_mcp_readonly role was verified end-to-end). This warning exists
+    # so an operator finds out at startup, not at first request.
     if DATABASE_URL and not MCP_DATABASE_URL:
         errors.append(
-            "MCP_DATABASE_URL is not set — the MCP Postgres route is falling "
-            "back to DATABASE_URL (superuser access to every table) instead "
-            "of the least-privilege muhafiz_mcp_readonly role. See "
-            "migrations/009_mcp_readonly_role.sql."
+            "MCP_DATABASE_URL is not set — the MCP Postgres route "
+            "(src/mcp/client.py) will raise RuntimeError on first use. "
+            "Provision the least-privilege muhafiz_mcp_readonly role and set "
+            "MCP_DATABASE_URL. See migrations/009_mcp_readonly_role.sql."
         )
 
     # AIR_GAP_MODE consistency: with no local LLM endpoint configured, every
