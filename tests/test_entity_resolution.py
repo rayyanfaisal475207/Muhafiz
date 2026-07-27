@@ -12,6 +12,7 @@ against regressions without requiring either live dependency.
 import pytest
 
 import src.graph.entity_resolution as er
+import src.graph.case_scope as case_scope
 
 
 class FakeAgeClient:
@@ -54,6 +55,10 @@ class FakeVersioning:
 def fake_age(monkeypatch):
     client = FakeAgeClient()
     monkeypatch.setattr(er, "age_client", client)
+    # Phase 2: _shares_case() now goes through case_scope.scoped_cypher(),
+    # which calls its OWN module-level `age_client` reference (a separate
+    # binding from er.age_client) — both must point at the fake.
+    monkeypatch.setattr(case_scope, "age_client", client)
     return client
 
 

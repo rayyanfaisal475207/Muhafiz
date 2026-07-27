@@ -35,7 +35,6 @@ from src.generation.xlsx_builder import build_xlsx
 from src.generation.docx_builder import build_docx
 
 from src.database import pipeline_logger
-from src.database.postgres import current_rls_active, current_case_id, current_cross_case
 
 logger = logging.getLogger(__name__)
 
@@ -177,16 +176,28 @@ async def process_query(
     its own classification (e.g. "what's today's weather" — general
     knowledge, unrelated to the police corpus) independent of this flag;
     that direct-invocation path is unchanged.
+
+    RLS CONTEXT — NOT SET HERE (Phase 2): `current_rls_active`/
+    `current_case_id` are armed by the CALLER (src/main.py's chat_endpoint,
+    via src.auth.rls_context.set_case_scope()) before this coroutine is
+    ever entered, not by this function. This was deliberately moved
+    upstream so RLS activation lives at one single chokepoint every
+    authenticated entry point goes through, rather than each pipeline
+    module deciding for itself whether/how to enable it — the previous
+    in-function `.set()` calls here were themselves the root of the
+    NULL-vs-NULL bug (issues.md's Critical finding). ANY caller of
+    process_query() other than chat_endpoint MUST call
+    src.auth.rls_context.set_case_scope(case_id) (or set_cross_case_scope())
+    itself before calling this function — otherwise every Postgres query
+    this pipeline run makes executes with RLS fully inactive (fail-open,
+    the same gap this phase exists to close). As of this writing,
+    chat_endpoint is the only production caller; grep for
+    `process_query(` before adding a new one.
     """
     import time
     # Resolve the acting user once — used for session ownership and history.
     user_id = user_id or (user_profile.get("id") if user_profile else None)
     user_role = user_profile.get("role", "investigator") if user_profile else "investigator"
-
-    # Enable strict Postgres RLS for the duration of this pipeline invocation
-    current_rls_active.set(True)
-    if case_id:
-        current_case_id.set(case_id)
 
     # Init session and query in DB (SQLite audit log — off the event loop)
     await asyncio.to_thread(pipeline_logger.upsert_session, session_id)
@@ -423,11 +434,17 @@ async def process_query(
         route_str = route_result.get("route", "RAG").upper()
         output_format = route_result.get("output_format", "chat").lower()
         case_scope = route_result.get("case_scope", "within_case")
-        
-        # Enforce cross_case RLS bypass based on routing
-        if case_scope == "cross_case" or route_str in ("XGRAPH", "XAGG"):
-            current_cross_case.set(True)
-            
+
+        # Phase 2: current_cross_case is NO LONGER armed here. It used to be
+        # set the instant the router classified a query as cross-case —
+        # before the role check that actually authorizes cross-case access
+        # (inside retrieve_graph()/run_aggregate()) ever ran, and it was
+        # never reset if that check then denied the request (issues.md's
+        # High "cross-case RLS bypass flag is armed before its own role
+        # check" finding). It's now armed by retrieve_graph()/run_aggregate()
+        # themselves, only after they've confirmed the caller's role —
+        # see src/retrieval/graph_retriever.py and src/pipeline/xagg.py.
+
         target_entity = route_result.get("target_entity")
         router_confidence = route_result.get("confidence")
         elapsed_ms = int((time.monotonic() - t0) * 1000)

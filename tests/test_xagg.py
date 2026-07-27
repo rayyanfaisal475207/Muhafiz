@@ -123,3 +123,31 @@ async def test_investigator_cannot_run_cross_case_aggregate():
         await xagg.run_aggregate(
             "how many cases of fraud this year", None, gateway=None, user_role="investigator"
         )
+
+
+async def test_denied_aggregate_never_arms_the_rls_bypass():
+    """
+    Phase 2 regression test — same fix/rationale as
+    test_graph_retriever.py's equivalent: current_cross_case must not be
+    armed by a denied XAGG attempt (issues.md's High "cross-case RLS
+    bypass flag is armed before its own role check" finding).
+    """
+    from src.database.postgres import current_cross_case
+
+    current_cross_case.set(False)
+    with pytest.raises(PermissionError):
+        await xagg.run_aggregate(
+            "how many cases of fraud this year", None, gateway=None, user_role="investigator"
+        )
+    assert current_cross_case.get() is False
+
+
+async def test_authorized_aggregate_arms_the_rls_bypass():
+    from src.database.postgres import current_cross_case
+
+    current_cross_case.set(False)
+    monkeypatch_gateway = FakeGateway(cases=[])
+    await xagg.run_aggregate(
+        "how many cases are open right now", None, gateway=monkeypatch_gateway, user_role="supervisor"
+    )
+    assert current_cross_case.get() is True

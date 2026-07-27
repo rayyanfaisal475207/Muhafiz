@@ -47,6 +47,7 @@ from src.api.cases import router as cases_router
 from src.api.case_assignments import router as case_assignments_router
 from src.api.attachments import router as attachments_router
 from src.api.graph_review import router as graph_review_router
+from src.auth.rls_context import set_case_scope
 from src.observability import errors as error_capture
 
 from slowapi.errors import RateLimitExceeded
@@ -286,6 +287,13 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, current_use
     # rows belong to this case_id, not that this user is allowed to see it.
     if case_id and not await gateway.check_case_access(case_id, user_id, current_user.role):
         raise HTTPException(status_code=403, detail="Not assigned to this case")
+
+    # Phase 2: arm Postgres RLS for this request HERE, once case_id is
+    # resolved and access-checked — process_query() no longer sets this
+    # itself (see its docstring). Set before the session-creation gateway
+    # call below too, since a general (no-case) session's INSERT needs
+    # app.case_id='' already set to satisfy the FOR ALL policy's WITH CHECK.
+    set_case_scope(case_id)
 
     # Create the session up-front WITH its owner. Sessions must never be
     # created as a side effect of logging (that produced ownerless rows

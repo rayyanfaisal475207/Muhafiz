@@ -36,6 +36,7 @@ from rapidfuzz import fuzz
 
 from src.extraction.llm_json import parse_json_response
 from src.graph import age_client, versioning
+from src.graph.case_scope import scoped_cypher
 from src.ingestion.text_normalizer import normalize_urdu
 from src.llm.client import call_llm
 
@@ -159,10 +160,11 @@ async def _fetch_all_nodes(label: str) -> list[dict]:
 
 
 async def _shares_case(entity_id: str, case_id: str) -> bool:
-    rows = await age_client.execute_cypher(
+    rows = await scoped_cypher(
         "MATCH (n {entity_id: $entity_id})-[:BELONGS_TO_CASE]->(c:Case {case_id: $case_id}) "
         "RETURN n LIMIT 1",
-        params={"entity_id": entity_id, "case_id": case_id},
+        case_id,
+        params={"entity_id": entity_id},
         columns=["n"],
     )
     return bool(rows)

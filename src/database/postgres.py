@@ -99,22 +99,31 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
             case_id = current_case_id.get()
             cross_case = current_cross_case.get()
             rls_active = current_rls_active.get()
-            
+
             if rls_active:
                 await session.execute(text("SET LOCAL app.rls_active = 'true'"))
-            if case_id:
-                # Postgres's SET/SET LOCAL command does not accept bind
-                # parameters at all ("SET LOCAL app.case_id = $1" is a syntax
-                # error, not a runtime one) — set_config() is a regular
-                # function call and does, with is_local=true reproducing
-                # SET LOCAL's transaction-scoped behavior.
+                # Phase 2: ALWAYS set app.case_id when RLS is active for
+                # this request — never leave it unset. Migration 010's
+                # policies compare against the empty string explicitly
+                # (case_id = '' means "general, no case") instead of
+                # relying on Postgres's NULL = NULL semantics, which
+                # previously made every general (no-case) row invisible —
+                # and, since these are FOR ALL policies with no separate
+                # WITH CHECK, made inserting one fail too (issues.md's
+                # Critical NULL-vs-NULL finding). set_config() is used
+                # instead of "SET LOCAL app.case_id = ..." because
+                # SET/SET LOCAL do not accept bind parameters at all
+                # ("SET LOCAL app.case_id = $1" is a syntax error, not a
+                # runtime one) — set_config() is a regular function call
+                # and does, with is_local=true reproducing SET LOCAL's
+                # transaction-scoped behavior.
                 await session.execute(
                     text("SELECT set_config('app.case_id', :case_id, true)"),
-                    {"case_id": case_id},
+                    {"case_id": case_id or ""},
                 )
             if cross_case:
                 await session.execute(text("SET LOCAL app.cross_case = 'true'"))
-                
+
             yield session
             await session.commit()
         except Exception:

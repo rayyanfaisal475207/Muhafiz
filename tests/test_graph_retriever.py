@@ -20,6 +20,7 @@ Guards the rules this module exists to enforce:
 import pytest
 
 import src.retrieval.graph_retriever as gr
+import src.graph.case_scope as case_scope
 
 
 class FakeGraph:
@@ -161,6 +162,12 @@ class FakeGraph:
 def fake_graph(monkeypatch):
     graph = FakeGraph()
     monkeypatch.setattr(gr, "age_client", graph)
+    # Phase 2: several within-case queries now go through
+    # case_scope.scoped_cypher(), which calls its OWN module-level
+    # `age_client` reference (a separate binding from gr.age_client) —
+    # both must point at the fake or the case-scoped call sites would
+    # hit the real (unpatched) age_client module instead.
+    monkeypatch.setattr(case_scope, "age_client", graph)
     return graph
 
 
@@ -331,6 +338,41 @@ async def test_cross_case_traversal_by_investigator_is_hard_blocked(fake_graph, 
         await gr.retrieve_graph(
             "Person A elsewhere", "Person A", case_id=None, cross_case=True, user_role="investigator"
         )
+
+
+async def test_denied_cross_case_traversal_never_arms_the_rls_bypass(fake_graph, fake_chunks):
+    """
+    Phase 2 regression test for issues.md's High "cross-case RLS bypass
+    flag is armed before its own role check" finding. Before the fix,
+    current_cross_case was set to True by the orchestrator the instant the
+    router classified a query as cross-case — before this function's role
+    check ran, and it was never reset on a PermissionError. Now it's armed
+    HERE, only after the role check passes, so a denied attempt must leave
+    it False — there's no window where an unauthorized caller had it
+    armed and then had it (not) cleared; it was never armed for them.
+    """
+    from src.database.postgres import current_cross_case
+
+    current_cross_case.set(False)
+    with pytest.raises(PermissionError):
+        await gr.retrieve_graph(
+            "Person A elsewhere", "Person A", case_id=None, cross_case=True, user_role="investigator"
+        )
+    assert current_cross_case.get() is False
+
+
+async def test_authorized_cross_case_traversal_arms_the_rls_bypass(fake_graph, fake_chunks):
+    """Mirror of the above: an authorized (supervisor+) cross-case call DOES arm the bypass, after its role check passes."""
+    from src.database.postgres import current_cross_case
+
+    fake_graph.add_node("P-200", "Person", canonical_name="Person C")
+    fake_graph.add_case("P-200", "CASE-200")
+
+    current_cross_case.set(False)
+    await gr.retrieve_graph(
+        "Person C elsewhere", "Person C", case_id=None, cross_case=True, user_role="supervisor"
+    )
+    assert current_cross_case.get() is True
 
 
 # ── ADDR-002 negative test ───────────────────────────────────────────────────

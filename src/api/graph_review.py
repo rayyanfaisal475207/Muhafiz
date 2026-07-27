@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from src.auth.jwt import require_role
+from src.auth.rls_context import cross_case_rls_dependency
 from src.database.models import User
 from src.graph import age_client, versioning
 
@@ -27,7 +28,15 @@ logger = logging.getLogger(__name__)
 # Nested under /api/admin — admin-frontend's shared axios client
 # (admin-frontend/src/api.ts) is hardcoded to that baseURL, matching
 # every other admin-dashboard router (admin.py, cases.py's admin surface).
-router = APIRouter(prefix="/api/admin/graph-review", tags=["graph-review"])
+#
+# Phase 2: this queue is deliberately cross-case by product design (see
+# this module's own docstring and solution.md §9.2, an open decision not
+# resolved by this phase) — RLS is armed but the case dimension is
+# bypassed here, same as admin.py, pending that decision.
+router = APIRouter(
+    prefix="/api/admin/graph-review", tags=["graph-review"],
+    dependencies=[Depends(cross_case_rls_dependency)],
+)
 
 
 class ReviewAction(BaseModel):

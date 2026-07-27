@@ -22,6 +22,7 @@ from collections import Counter
 from typing import Optional
 
 from src.graph import age_client
+from src.database.postgres import current_cross_case
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +130,11 @@ async def run_aggregate(
         )
     except Exception as e:
         logger.error("Failed to audit log cross-case aggregate query: %s", e)
+
+    # Phase 2: arm the Postgres RLS cross-case bypass only now that the
+    # role check above has passed — same fix/rationale as
+    # graph_retriever.py::retrieve_graph(). See that function's comment.
+    current_cross_case.set(True)
 
     query_lower = query_text.lower()
 

@@ -5,9 +5,14 @@ from typing import List, Optional
 from pydantic import BaseModel
 from src.data_gateway import get_gateway
 from src.auth.routes import get_current_user
+from src.auth.rls_context import cross_case_rls_dependency
 from src.database.models import User
 
-router = APIRouter(tags=["projects"])
+# Phase 2: `projects` carries no RLS policy at all (not one of migration
+# 008/010's covered tables) — wiring this in is a documented no-op today,
+# kept for consistency and so a future policy on this table isn't
+# silently unprotected the way every other router was before this phase.
+router = APIRouter(tags=["projects"], dependencies=[Depends(cross_case_rls_dependency)])
 
 class ProjectCreate(BaseModel):
     name: str

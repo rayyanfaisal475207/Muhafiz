@@ -6,6 +6,7 @@ from typing import List, Optional, Any
 from pydantic import BaseModel
 from src.data_gateway import get_gateway
 from src.auth.routes import get_current_user, limiter
+from src.auth.rls_context import set_case_scope, cross_case_rls_dependency
 from src.database.models import User
 
 router = APIRouter(tags=["cases"])
@@ -13,6 +14,11 @@ router = APIRouter(tags=["cases"])
 # Phase 7: RBAC/ABAC case-assignment scoping via case_assignments table.
 
 async def require_case_access(case_id: str, current_user: User = Depends(get_current_user)) -> str:
+    # Phase 2: arm Postgres RLS scoped to this case_id BEFORE the gateway
+    # call below (and every gateway call the route handler itself makes)
+    # runs — real per-case enforcement, not just the app-layer check that
+    # was previously the only backstop. See src/auth/rls_context.py.
+    set_case_scope(case_id)
     gateway = await get_gateway()
     if not await gateway.check_case_access(case_id, str(current_user.id), current_user.role):
         raise HTTPException(status_code=403, detail="Not assigned to this case")
@@ -70,8 +76,14 @@ _CASE_ID_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
 @router.get("/", response_model=List[CaseResponse])
-async def list_cases(current_user: User = Depends(get_current_user)):
-    """List assigned cases."""
+async def list_cases(current_user: User = Depends(get_current_user), _rls=Depends(cross_case_rls_dependency)):
+    """
+    List assigned cases. No single case_id to scope RLS to (this spans
+    every case the caller is assigned to, or all of them for
+    platform-admin) — RLS is armed but the case dimension is bypassed
+    here; gateway.get_cases() already does the real RBAC filtering by
+    user_id/role. See src/auth/rls_context.py.
+    """
     gateway = await get_gateway()
     return await gateway.get_cases(str(current_user.id), current_user.role)
 
@@ -94,6 +106,11 @@ async def create_case(request: Request, case: CaseCreate, current_user: User = D
     case_id = payload.pop("case_id", None) or _generate_case_id()
     if not _CASE_ID_RE.match(case_id):
         raise HTTPException(status_code=400, detail="case_id may only contain letters, numbers, '.', '_' and '-'")
+    # Arm RLS scoped to the case_id being created NOW that it's known —
+    # this row's INSERT is checked against the same policy predicate as
+    # any read (FOR ALL policies reuse USING as WITH CHECK), so app.case_id
+    # must equal this case_id before create_case()'s INSERT runs below.
+    set_case_scope(case_id)
     if await gateway.get_case(case_id):
         raise HTTPException(status_code=409, detail=f"Case '{case_id}' already exists")
 

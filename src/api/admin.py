@@ -27,6 +27,7 @@ from sqlalchemy.dialects import postgresql
 from src import config
 from src.auth.jwt import require_role
 from src.auth.routes import limiter
+from src.auth.rls_context import cross_case_rls_dependency
 from src.database.models import User, PoliceReferenceData
 from src.data_gateway import get_gateway
 from src.observability import analytics, errors as error_capture
@@ -35,7 +36,13 @@ from src.mcp.client import execute_query
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/admin", tags=["admin"])
+# Phase 2: admin dashboards deliberately aggregate across every case for
+# station-admin/platform-admin (pipeline_runs/error_logs/etc. platform-wide
+# stats) — a real per-case RLS restriction here wouldn't narrow these
+# views, it would silently break them. RLS is armed but the case dimension
+# is bypassed; the existing require_role() gates remain the real access
+# control. See src/auth/rls_context.py.
+router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(cross_case_rls_dependency)])
 
 # Formats the ingestion loaders can actually read.
 ALLOWED_EXTENSIONS = {

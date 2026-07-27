@@ -8,10 +8,15 @@ import os
 
 from src.database.models import User
 from src.auth.routes import get_current_user
+from src.auth.rls_context import cross_case_rls_dependency
 from src.data_gateway import get_gateway
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+# Phase 2: sessions are looked up by their own session_id, whose case_id
+# (if any) is a property of the row, not knowable before the query runs —
+# gated by user-ownership checks below, not case membership. RLS is armed
+# here but the case dimension is bypassed; see src/auth/rls_context.py.
+router = APIRouter(dependencies=[Depends(cross_case_rls_dependency)])
 
 class SessionRenameRequest(BaseModel):
     title: str

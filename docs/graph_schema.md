@@ -149,3 +149,31 @@ not a stylistic choice.
 `d`/`d2` above give the source-document provenance for every hop, per the
 "never hand graph results to the generator without their supporting chunks"
 rule (architecture Figure 3).
+
+## Case isolation for the graph — what actually backstops it (Phase 2)
+
+AGE has **no native row-level-security equivalent**. Its vertex/edge
+labels are real Postgres tables under the hood (`create_vlabel`/
+`create_elabel` in `migrations/005_age_graph.sql`), but matching AGE's
+internal row shape to an RLS predicate isn't a supported, documented AGE
+interface — a Postgres RLS policy the way `documents`/`sessions`/`cases`/
+`messages` have (migrations 008/010) is not practically usable here.
+
+The closest structural equivalent this build offers is
+`src/graph/case_scope.py::scoped_cypher()` — a chokepoint that every
+template *meant* to be single-case-scoped is routed through, and which
+refuses (raises, doesn't just log) to run a template that doesn't
+reference `$case_id` at all. This is a much weaker guarantee than
+relational RLS: it catches "a case-scoped template's filter got deleted,"
+not "a bug in `case_scope.py` itself," and it does nothing for templates
+that are legitimately, deliberately cross-case (entity resolution's
+global CNIC/plate dedup in `entity_resolution.py`, the identity/hop
+expansion helpers in `graph_retriever.py` that operate on an
+already-scoped entity-id frontier, and the entity-resolution review queue
+in `graph_review.py`, which is cross-case by product design — see the
+implementation plan's §9.2 open decision). **State this plainly to anyone
+relying on it: `case_scope.py` is a hygiene backstop against future drift
+in the small set of templates registered through it, not database-level
+defense-in-depth for the graph as a whole.** If that gap matters for a
+specific future feature, it needs a bespoke check at that feature's own
+call site, not an assumption that `case_scope.py` already covers it.

@@ -4,9 +4,16 @@ from pydantic import BaseModel
 from src.data_gateway import get_gateway
 from src.auth.routes import get_current_user, limiter
 from src.auth.jwt import require_role
+from src.auth.rls_context import case_rls_dependency
 from src.database.models import User
 
-router = APIRouter(prefix="/api/cases/{case_id}/assignments", tags=["case-assignments"])
+# Phase 2: every route here has case_id as a genuine path parameter, so a
+# single router-level dependency can arm RLS scoped to it before any
+# handler body runs. See src/auth/rls_context.py.
+router = APIRouter(
+    prefix="/api/cases/{case_id}/assignments", tags=["case-assignments"],
+    dependencies=[Depends(case_rls_dependency)],
+)
 
 class CaseAssignmentResponse(BaseModel):
     user_id: str

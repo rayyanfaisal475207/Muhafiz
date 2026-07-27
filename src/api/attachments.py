@@ -25,12 +25,17 @@ from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
 
 from src import config
 from src.auth.routes import get_current_user, limiter
+from src.auth.rls_context import cross_case_rls_dependency
 from src.database.models import User
 from src.data_gateway import get_gateway
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+# Phase 2: attachments are looked up by session_id/attachment_id, whose
+# case_id (if any) is a property of the row, not knowable before the query
+# runs — gated by user-ownership checks below, not case membership. RLS is
+# armed here but the case dimension is bypassed; see src/auth/rls_context.py.
+router = APIRouter(dependencies=[Depends(cross_case_rls_dependency)])
 
 ALLOWED_EXTENSIONS = {
     ".pdf", ".txt", ".md", ".csv", ".xlsx", ".xls",

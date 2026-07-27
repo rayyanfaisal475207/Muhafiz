@@ -57,9 +57,11 @@ from typing import Optional
 
 from src.extraction.structured_fields import _CNIC_RE, _PHONE_RE, _PLATE_RE
 from src.graph import age_client
+from src.graph.case_scope import scoped_cypher
 from src.ingestion.text_normalizer import normalize_urdu
 from src.retrieval.vector_store import get_chunks_by_ids
 from src.data_gateway import get_gateway
+from src.database.postgres import current_cross_case
 
 logger = logging.getLogger(__name__)
 
@@ -154,23 +156,23 @@ async def _find_seed_nodes(
         for cand in candidates:
             where_parts = [f"toLower(n.{prop}) CONTAINS toLower($cand)" for prop in id_props]
             where_clause = " OR ".join(where_parts)
-            if cross_case:
-                cypher = f"""
-                    MATCH (n:{label})
-                    WHERE {where_clause}
-                    RETURN n
-                """
-                params = {"cand": cand}
-            else:
-                cypher = f"""
-                    MATCH (n:{label})-[:BELONGS_TO_CASE]->(c:Case {{case_id: $case_id}})
-                    WHERE {where_clause}
-                    RETURN n
-                """
-                params = {"cand": cand, "case_id": case_id}
-
             try:
-                rows = await age_client.execute_cypher(cypher, params=params, columns=["n"])
+                if cross_case:
+                    cypher = f"""
+                        MATCH (n:{label})
+                        WHERE {where_clause}
+                        RETURN n
+                    """
+                    rows = await age_client.execute_cypher(cypher, params={"cand": cand}, columns=["n"])
+                else:
+                    # Case-scoped: routed through case_scope.scoped_cypher()
+                    # so a future edit can't silently drop the case filter.
+                    cypher = f"""
+                        MATCH (n:{label})-[:BELONGS_TO_CASE]->(c:Case {{case_id: $case_id}})
+                        WHERE {where_clause}
+                        RETURN n
+                    """
+                    rows = await scoped_cypher(cypher, case_id, params={"cand": cand}, columns=["n"])
             except Exception as exc:
                 logger.error("Graph seed lookup failed for %r (%s): %s", cand, label, exc)
                 continue
@@ -198,9 +200,9 @@ async def _find_all_case_entities(case_id: str) -> list[dict]:
     seen_ids: set[str] = set()
     for label in _SEED_LABELS:
         try:
-            rows = await age_client.execute_cypher(
+            rows = await scoped_cypher(
                 f"MATCH (n:{label})-[:BELONGS_TO_CASE]->(c:Case {{case_id: $case_id}}) RETURN n",
-                params={"case_id": case_id},
+                case_id,
                 columns=["n"],
             )
         except Exception as exc:
@@ -346,11 +348,12 @@ async def _filter_to_case(entity_ids: set[str], case_id: str) -> set[str]:
     """Keep only entities that BELONG_TO_CASE `case_id` — prevents a within-case traversal wandering into another case at any hop."""
     if not entity_ids:
         return set()
-    rows = await age_client.execute_cypher(
+    rows = await scoped_cypher(
         "MATCH (n)-[:BELONGS_TO_CASE]->(c:Case {case_id: $case_id}) "
         "WHERE n.entity_id IN $ids "
         "RETURN n",
-        params={"ids": list(entity_ids), "case_id": case_id},
+        case_id,
+        params={"ids": list(entity_ids)},
         columns=["n"],
     )
     return {eid for eid in (_entity_id_of(row.get("n")) for row in rows) if eid}
@@ -368,10 +371,10 @@ async def _fetch_case_conflicts(case_id: str) -> list[dict]:
     doesn't resolve to a graph node (e.g. a case/FIR number rather than a
     person/vehicle/phone/org).
     """
-    rows = await age_client.execute_cypher(
+    rows = await scoped_cypher(
         "MATCH (a:Incident)-[r:CONFLICTS_WITH]->(b:Incident)-[:BELONGS_TO_CASE]->(c:Case {case_id: $case_id}) "
         "RETURN a, r, b",
-        params={"case_id": case_id},
+        case_id,
         columns=["a", "r", "b"],
     )
     if not rows:
@@ -500,6 +503,18 @@ async def retrieve_graph(
                 )
             except Exception as e:
                 logger.error("Failed to audit log cross-case traversal: %s", e)
+
+            # Phase 2: arm the Postgres RLS cross-case bypass ONLY now that
+            # the role check above has actually passed — this is the fix
+            # for issues.md's High "cross-case RLS bypass flag is armed
+            # before its own role check" finding. It used to be armed by
+            # the orchestrator the instant the router classified the query
+            # as cross-case, before this function's role check ever ran,
+            # and was never reset on a PermissionError above. Arming it
+            # here instead of there means an unauthorized caller never
+            # arms it at all — there's no window to close, because it's
+            # never opened for them in the first place.
+            current_cross_case.set(True)
 
     if not cross_case and not case_id:
         # A within-case graph query with no active case has nothing to
