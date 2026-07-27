@@ -120,22 +120,60 @@ async def lifespan(app: FastAPI):
                 )
             else:
                 logger.info("Legacy SQLite already archived: %s", archived.name)
-    else:
-        # Fallback: keep using SQLite (no DATABASE_URL configured)
-        from src.database.db import init_db
-        init_db()
-        logger.info("[OK] SQLite initialized (legacy mode — set DATABASE_URL to use PostgreSQL)")
-
-    # Validate configuration — warn about missing API keys but don't crash
-    config_errors = validate_config()
-    if config_errors:
-        for error in config_errors:
-            logger.warning("[WARN] Config warning: %s", error)
-        logger.warning(
-            "Server starting with configuration warnings. "
-            "API calls will fail until API keys are set in .env"
+    elif config.REQUIRE_POSTGRES:
+        # DATABASE_URL isn't configured and nothing explicitly opted out of
+        # requiring Postgres. The legacy SQLite schema predates the entire
+        # case/auth/RBAC model — silently falling back to it is the actual
+        # bug (see issues.md's DATABASE_URL enforcement finding), not a
+        # feature to preserve. Refuse to start rather than serve traffic
+        # against a schema that has no users/cases/RBAC tables at all.
+        logger.critical(
+            "[CRITICAL] DATABASE_URL is not configured and REQUIRE_POSTGRES "
+            "is not disabled. Refusing to start in the legacy SQLite mode "
+            "that predates the case/auth/RBAC model. Set DATABASE_URL, or "
+            "set REQUIRE_POSTGRES=false to explicitly opt into the degraded "
+            "legacy mode."
+        )
+        raise RuntimeError(
+            "DATABASE_URL is not configured. Refusing to start "
+            "(REQUIRE_POSTGRES=true). Set DATABASE_URL, or set "
+            "REQUIRE_POSTGRES=false to explicitly accept the legacy "
+            "SQLite-only mode."
         )
     else:
+        # Explicit opt-out: keep using SQLite (legacy mode)
+        from src.database.db import init_db
+        init_db()
+        logger.critical(
+            "[CRITICAL] Running in legacy SQLite mode (REQUIRE_POSTGRES=false). "
+            "This schema predates the case/auth/RBAC model — cases, users, "
+            "and access control will not work. Intended only for narrow "
+            "legacy/local debugging."
+        )
+
+    # Validate configuration. Warnings are non-fatal (individual calls will
+    # fail until the relevant setting is fixed); critical errors (a public
+    # JWT secret, an unrecognized ENVIRONMENT) stop a production deployment
+    # from starting at all — see src/config.py::validate_config.
+    config_warnings, config_critical = validate_config()
+    for warning in config_warnings:
+        logger.warning("[WARN] Config warning: %s", warning)
+
+    if config_critical:
+        for error in config_critical:
+            logger.critical("[CRITICAL] Config error: %s", error)
+        if config.ENVIRONMENT == "production":
+            raise RuntimeError(
+                "Refusing to start in production with critical configuration "
+                "errors: " + "; ".join(config_critical)
+            )
+        logger.critical(
+            "Server starting DESPITE the critical configuration errors above "
+            "because ENVIRONMENT='%s' (only 'production' is refused at "
+            "startup). Do not deploy this configuration as-is.",
+            config.ENVIRONMENT,
+        )
+    elif not config_warnings:
         logger.info("[OK] Configuration valid. LLM provider: %s", config.LLM_PROVIDER)
 
     logger.info("ChromaDB persist dir: %s", config.CHROMA_PERSIST_DIR)

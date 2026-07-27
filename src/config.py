@@ -126,6 +126,7 @@ HOST: str = os.getenv("HOST", "0.0.0.0")
 PORT: int = int(os.getenv("PORT", "8000"))
 RELOAD: bool = os.getenv("RELOAD", "true").lower() == "true"
 ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
+VALID_ENVIRONMENTS: set[str] = {"development", "staging", "production"}
 
 
 # ── Document Ingestion ────────────────────────────────────────────────────────
@@ -142,6 +143,16 @@ DB_PATH: Path = Path(
     os.getenv("DB_PATH", str(_PROJECT_ROOT / "data" / "pipeline_logs.db"))
 )
 
+# The legacy SQLite schema (src/database/db.py) predates the entire
+# case/auth/RBAC/RLS model — it has no users, cases, case_assignments, or
+# audit_logs tables. Silently falling back to it when DATABASE_URL isn't
+# configured means the app "starts successfully" and then fails per-request
+# the moment anyone registers, logs in, or touches a case. Defaulting this
+# to true makes that fallback something an operator must consciously opt
+# into (e.g. for narrow local/legacy debugging), not something that happens
+# by accident.
+REQUIRE_POSTGRES: bool = os.getenv("REQUIRE_POSTGRES", "true").strip().lower() == "true"
+
 
 # ── Directory Setup ───────────────────────────────────────────────────────────
 def ensure_directories() -> None:
@@ -152,12 +163,21 @@ def ensure_directories() -> None:
 
 
 # ── Validation ────────────────────────────────────────────────────────────────
-def validate_config() -> list[str]:
+def validate_config() -> tuple[list[str], list[str]]:
     """
-    Check that required API keys and settings are present.
-    Returns a list of warning strings. Empty list = fully configured.
+    Check required API keys and settings.
+
+    Returns (warnings, critical_errors):
+      * warnings — non-fatal; the server can still start (individual calls
+        that depend on the missing setting will fail at request time).
+      * critical_errors — a real security or availability defect (a public
+        JWT secret, an unrecognized ENVIRONMENT value) that should stop a
+        production deployment from serving traffic. The caller decides how
+        to enforce that (see src/main.py's lifespan handler); this function
+        only classifies, it never raises or exits itself.
     """
     errors: list[str] = []
+    critical: list[str] = []
 
     # LLM provider key check
     if LLM_PROVIDER == "groq" and not GROQ_API_KEY:
@@ -186,7 +206,44 @@ def validate_config() -> list[str]:
             f"CHUNK_OVERLAP ({CHUNK_OVERLAP}) must be less than CHUNK_SIZE ({CHUNK_SIZE})."
         )
 
-    return errors
+    # DATABASE_URL presence. src/main.py's lifespan is the actual enforcement
+    # point (it can refuse to start); this is a defense-in-depth warning for
+    # any other caller of validate_config() that doesn't go through main.py.
+    if not DATABASE_URL:
+        errors.append(
+            "DATABASE_URL is not set. Muhafiz's case/auth/RBAC model requires "
+            "PostgreSQL — see REQUIRE_POSTGRES."
+        )
+
+    # AIR_GAP_MODE consistency: with no local LLM endpoint configured, every
+    # LLM call refuses cloud fallback and fails outright (src/llm/client.py).
+    if AIR_GAP_MODE and not LOCAL_LLM_URL:
+        errors.append(
+            "AIR_GAP_MODE is enabled but LOCAL_LLM_URL is not set — every LLM "
+            "call will refuse the cloud fallback and fail."
+        )
+
+    # ENVIRONMENT must be a real, recognized value. The cookie Secure flag
+    # (src/auth/routes.py) and this function's own JWT-secret check below
+    # both key off it — an unrecognized value (unset, typo) should never be
+    # silently treated as equivalent to "development".
+    if ENVIRONMENT not in VALID_ENVIRONMENTS:
+        critical.append(
+            f"ENVIRONMENT='{ENVIRONMENT}' is not one of {sorted(VALID_ENVIRONMENTS)}. "
+            "Cookie security and other environment-gated behavior depend on "
+            "this being set explicitly and exactly."
+        )
+
+    # The single most security-critical secret in the app must not still be
+    # the public, hardcoded default outside of local development.
+    if JWT_SECRET_KEY == "your-secret-key-for-dev" and ENVIRONMENT != "development":
+        critical.append(
+            "JWT_SECRET_KEY is still the public default value "
+            "('your-secret-key-for-dev'). Anyone can forge a valid JWT for "
+            "any user, including platform-admin. Set a real secret."
+        )
+
+    return errors, critical
 
 
 import os
