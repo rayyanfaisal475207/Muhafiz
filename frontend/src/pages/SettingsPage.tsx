@@ -11,7 +11,7 @@ export const SettingsPage: React.FC = () => {
   
   const [formData, setFormData] = useState<UserContextProfile>({
     context_text: '',
-    preferred_language: 'english',
+    preferred_language: 'auto',
     llm_mode: 'cloud'
   });
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -84,6 +84,9 @@ export const SettingsPage: React.FC = () => {
                 <label htmlFor="preferred_language" className="block text-sm font-semibold text-[var(--text-primary)] mb-1">
                   Preferred Language
                 </label>
+                <p className="text-xs text-[var(--text-muted)] mb-3">
+                  "Auto" replies in whatever language you ask your question in (Urdu or English), regardless of what language the source documents are written in. Pick a fixed language only if you always want answers in that one language.
+                </p>
                 <select
                   id="preferred_language"
                   name="preferred_language"
@@ -91,8 +94,9 @@ export const SettingsPage: React.FC = () => {
                   onChange={handleChange}
                   className="w-full max-w-xs rounded-md border border-[var(--border)] bg-[var(--bg-base)] text-[var(--text-primary)] px-3 py-2 text-sm focus:outline-none focus:border-[var(--accent)]"
                 >
-                  <option value="english">English</option>
-                  <option value="urdu">Urdu</option>
+                  <option value="auto">Auto (match my question)</option>
+                  <option value="english">English (always)</option>
+                  <option value="urdu">Urdu (always)</option>
                 </select>
               </div>
 

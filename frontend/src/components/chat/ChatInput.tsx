@@ -25,6 +25,8 @@ export function ChatInput({ onSend, onNewSession, disabled }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const attachFile = useChatStore((s) => s.attachFile);
+  const webSearchEnabled = useChatStore((s) => s.webSearchEnabled);
+  const setWebSearchEnabled = useChatStore((s) => s.setWebSearchEnabled);
 
   const handleFiles = useCallback(
     (files: FileList | null) => {
@@ -108,6 +110,28 @@ export function ChatInput({ onSend, onNewSession, disabled }: Props) {
         >
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
             <path d="M15.5 9.2 10 14.7a3.4 3.4 0 0 1-4.8-4.8l6-6a2.3 2.3 0 0 1 3.2 3.2l-6 6a1.1 1.1 0 0 1-1.6-1.6l5.4-5.4" />
+          </svg>
+        </button>
+
+        {/* Explicit, per-message web-search opt-in. Never triggered
+            automatically — only reachable this way or by the router
+            classifying the question as general/off-corpus knowledge. */}
+        <button
+          id="web-search-toggle-btn"
+          type="button"
+          onClick={() => setWebSearchEnabled(!webSearchEnabled)}
+          title={webSearchEnabled ? 'Web search on for your next message (click to turn off)' : 'Search the web for this question'}
+          aria-pressed={webSearchEnabled}
+          aria-label="Toggle web search for this message"
+          className="shrink-0 w-8 h-8 rounded-sm flex items-center justify-center transition-colors"
+          style={{
+            color: webSearchEnabled ? 'var(--accent-on)' : 'var(--text-muted)',
+            background: webSearchEnabled ? 'var(--accent)' : 'transparent',
+          }}
+        >
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+            <circle cx="10" cy="10" r="7" />
+            <path d="M3 10h14M10 3a11 11 0 0 1 0 14M10 3a11 11 0 0 0 0 14" />
           </svg>
         </button>
 

@@ -29,7 +29,22 @@ logger = logging.getLogger(__name__)
 # (nothing analogous to CNIC/plate), so they're written as simple graph
 # nodes without going through entity resolution at all (see
 # _write_unresolved_mention below).
-_RESOLVABLE_MENTION_TYPES = {"person", "location", "organization", "vehicle"}
+#
+# "incident" belongs here too, and its absence was a real bug (found in
+# a retrieval-quality audit, not by design): entity_resolution.resolve_and_write
+# is the ONLY place that writes an Incident's OCCURRED_ON edge to a Date
+# node (see its `if entity_type == "incident" and mention.get("date")`
+# branch) — domain_entities.py has extracted "incident" mentions with a
+# "date" attribute since Phase 4.6, but every one of them was routed
+# through _write_unresolved_mention() instead (no id_key in
+# TYPE_PRIMARY_ID_KEY needed it to be there for CNIC-style resolution;
+# it was simply missing from this set), which never writes OCCURRED_ON at
+# all. The result: NO document, old or newly ingested, ever got a
+# timeline edge for its incidents — not a partial/older-documents gap,
+# a total one. Confirmed by grepping every write_edge() call site in this
+# codebase for "OCCURRED_ON": only entity_resolution.py's dead branch
+# had it.
+_RESOLVABLE_MENTION_TYPES = {"person", "location", "organization", "vehicle", "incident"}
 
 
 async def _write_unresolved_mention(label: str, mention_text: str, case_id: str, doc_id: str,
@@ -97,10 +112,13 @@ async def _run_graph_extraction(
     already got its chunks embedded and stored before this runs.
     """
     from src.extraction import structured_fields as sf
-    from src.extraction import doc_classifier, ner, domain_entities
+    from src.extraction import doc_classifier, ner, domain_entities, relationship_extraction
     from src.graph import entity_resolution, versioning
 
-    stats = {"doc_type": None, "entities_resolved": 0, "entities_unresolved": 0, "errors": []}
+    stats = {
+        "doc_type": None, "entities_resolved": 0, "entities_unresolved": 0,
+        "relationships_written": 0, "errors": [],
+    }
 
     try:
         full_text = "\n".join(d.text for d in documents)
@@ -165,6 +183,11 @@ async def _run_graph_extraction(
             all_mentions = ner_mentions + domain_mentions
             person_count = sum(1 for m in all_mentions if m["type"] == "person")
 
+            # canonical_name -> entity_id for every person resolved in THIS
+            # chunk, so the relationship pass below (after this loop) can
+            # map the names it's given back to the graph nodes to connect.
+            resolved_persons: dict[str, str] = {}
+
             for m in all_mentions:
                 mention_type = m["type"]
                 mention_dict = {"canonical_name": m["text"], **(m.get("attributes") or {})}
@@ -174,10 +197,12 @@ async def _run_graph_extraction(
 
                 try:
                     if mention_type in _RESOLVABLE_MENTION_TYPES:
-                        await entity_resolution.resolve_and_write(
+                        resolution = await entity_resolution.resolve_and_write(
                             mention_type, mention_dict, case_id, doc_id, chunk_id,
                         )
                         stats["entities_resolved"] += 1
+                        if mention_type == "person":
+                            resolved_persons[m["text"]] = resolution["entity_id"]
                     else:
                         label = entity_resolution.TYPE_TO_LABEL.get(mention_type, mention_type.capitalize())
                         await _write_unresolved_mention(
@@ -187,6 +212,43 @@ async def _run_graph_extraction(
                 except Exception as exc:
                     logger.warning("Graph write failed for mention %r in %s: %s", m["text"], chunk_id, exc)
                     stats["errors"].append(f"write[{chunk_id}]: {exc}")
+
+            # 4.6 (completing the gap docs/graph_schema.md always described
+            # this phase as covering, but never implemented — see
+            # src/extraction/relationship_extraction.py's module docstring):
+            # person-to-person ASSOCIATED_WITH edges, extracted from this
+            # same chunk's text over the people just resolved above. Only
+            # meaningful with 2+ distinct people in the chunk.
+            if len(resolved_persons) >= 2:
+                try:
+                    relationships = await relationship_extraction.extract_relationships(
+                        chunk.text, list(resolved_persons.keys())
+                    )
+                except Exception as exc:
+                    logger.warning("relationship_extraction failed for chunk %s: %s", chunk_id, exc)
+                    relationships = []
+                    stats["errors"].append(f"relationship_extraction[{chunk_id}]: {exc}")
+
+                for rel in relationships:
+                    entity_a = resolved_persons.get(rel["person_a"])
+                    entity_b = resolved_persons.get(rel["person_b"])
+                    if not entity_a or not entity_b or entity_a == entity_b:
+                        continue
+                    try:
+                        await versioning.write_edge(
+                            "ASSOCIATED_WITH", "Person", {"entity_id": entity_a},
+                            "Person", {"entity_id": entity_b},
+                            {"basis": rel["basis"]},
+                            source_doc_id=doc_id, source_chunk_id=chunk_id,
+                            confidence=rel["confidence"],
+                        )
+                        stats["relationships_written"] += 1
+                    except Exception as exc:
+                        logger.warning(
+                            "ASSOCIATED_WITH write failed for %s<->%s in %s: %s",
+                            rel["person_a"], rel["person_b"], chunk_id, exc,
+                        )
+                        stats["errors"].append(f"associated_with[{chunk_id}]: {exc}")
 
     except Exception as exc:
         logger.error("Graph extraction failed for %s (case %s): %s", file_path.name, case_id, exc)

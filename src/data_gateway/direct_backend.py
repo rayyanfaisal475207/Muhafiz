@@ -65,7 +65,7 @@ class DirectGateway:
             p = res.scalars().first()
             if p:
                 return {"id": str(user_id), "context_text": p.context_text, "preferred_language": p.preferred_language, "llm_mode": p.llm_mode}
-            return {"id": str(user_id), "context_text": "", "preferred_language": "english", "llm_mode": "cloud"}
+            return {"id": str(user_id), "context_text": "", "preferred_language": "auto", "llm_mode": "cloud"}
 
     async def update_user_context_profile(self, user_id: str, data: dict) -> dict:
         async with get_session() as db:

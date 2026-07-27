@@ -111,6 +111,34 @@ export function PipelineStepCard({ step }: Props) {
           </p>
         )}
 
+        {/* Graph-traversal confidence degradation — a multi-hop, weakly
+            confirmed connection must never look as certain as a direct
+            one. Only rendered when a GRAPH/GRAPH_HYBRID/XGRAPH traversal
+            actually ran (graphConfidence present). */}
+        {step.graphConfidence !== undefined && step.status === 'done' && (
+          <div className="flex items-center gap-1.5 mt-1">
+            <span
+              className="text-[10px] px-1.5 py-0.5 rounded-pill tabular-nums"
+              style={{
+                background: step.graphConfidence >= 0.7
+                  ? 'var(--success-soft, rgba(34,197,94,0.12))'
+                  : step.graphConfidence >= 0.4
+                    ? 'var(--warning-soft)'
+                    : 'var(--error-soft)',
+                color: step.graphConfidence >= 0.7
+                  ? 'var(--success)'
+                  : step.graphConfidence >= 0.4
+                    ? 'var(--warning)'
+                    : 'var(--error)',
+              }}
+              title="Confidence compounds (weakens) with every relationship hop away from the seed entity"
+            >
+              confidence {(step.graphConfidence * 100).toFixed(0)}%
+              {step.hopCount !== undefined && step.hopCount > 0 ? ` · ${step.hopCount} hop${step.hopCount > 1 ? 's' : ''}` : ' · direct'}
+            </span>
+          </div>
+        )}
+
         {/* Active: a navy sweep, not a fake percentage */}
         {step.status === 'active' && (
           <div

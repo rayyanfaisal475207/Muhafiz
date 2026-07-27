@@ -11,6 +11,13 @@ export interface PipelineEvent {
   ms?: number;
   retry_num?: number;
   sources?: Source[];
+  /** Deepest hop a GRAPH/GRAPH_HYBRID/XGRAPH traversal actually reached. */
+  hop_count?: number;
+  /** Compounded (multiplied-across-hops) confidence of that traversal —
+   * degrades the further a connection is from the seed entity. Surfaced
+   * so a multi-hop, weakly-confirmed connection isn't shown with the same
+   * visual certainty as a direct, hop-0 one. */
+  graph_confidence?: number;
 }
 
 /** Visual state of one step card in the pipeline panel */
@@ -21,6 +28,8 @@ export interface PipelineStep {
   detail?: string;
   ms?: number;
   retryNum?: number;
+  hopCount?: number;
+  graphConfidence?: number;
 }
 
 /** A source citation extracted from retrieval events */

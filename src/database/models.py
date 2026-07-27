@@ -109,7 +109,15 @@ class UserContextProfile(Base):
         primary_key=True,
     )
     context_text: Mapped[str] = mapped_column(Text, default="")
-    preferred_language: Mapped[str] = mapped_column(Text, default="english")
+    # "auto" (the default) means "match the language of the user's own
+    # question" — NOT a fixed language. A concrete value ("english",
+    # "urdu") pins every response to that language regardless of what
+    # language the question or the retrieved evidence is in. Previously
+    # defaulted to the literal "english", which the orchestrator could not
+    # distinguish from an explicit choice — every user who never opened
+    # Settings got every answer forced into English even when they asked
+    # in Urdu. See src/pipeline/orchestrator.py's _resolve_language_directive.
+    preferred_language: Mapped[str] = mapped_column(Text, default="auto")
     llm_mode: Mapped[str] = mapped_column(Text, default="cloud")
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now(),

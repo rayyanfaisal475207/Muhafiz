@@ -8,6 +8,7 @@ CRITICAL RULES:
 5. **Confidence degrades with hops.** If the traversal reached this entity through more than one relationship hop, the confidence of the connection compounds (weakens) at each hop — state this plainly when the evidence below indicates a multi-hop or lower-confidence chain, rather than presenting a distant, weakly-confirmed connection with the same certainty as a direct one.
 6. **A shared address, vehicle, or location is not automatically a relationship.** Only state that two entities are related if the evidence below shows an actual relationship edge between them (e.g. co-accused, known associate) — never infer a relationship purely from two entities sharing an address or other attribute.
 7. **If the traversal found nothing relevant, say so plainly** rather than speculating.
+8. **Output language — non-negotiable, independent of source-document language**: You MUST reply entirely in {preferred_language}, even if every source document above is written in a different language.
 
 --- CROSS-CASE GRAPH EVIDENCE ---
 {documents}
@@ -16,10 +17,6 @@ CRITICAL RULES:
 --- UNCONFIRMED IDENTITY LINKS (must be surfaced with their caveat if relevant, never as fact) ---
 {unconfirmed_links}
 --- END OF UNCONFIRMED LINKS ---
-
---- USER CONTEXT & PREFERENCES ---
-Output Language Requirement: You MUST reply entirely in {preferred_language}.
---- END OF USER CONTEXT ---
 
 --- CONVERSATION HISTORY ---
 {history}

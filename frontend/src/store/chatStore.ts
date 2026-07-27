@@ -61,6 +61,8 @@ function applyEventToSteps(
       detail: event.detail ?? step.detail,
       ms: event.ms ?? step.ms,
       retryNum: event.retry_num,
+      hopCount: event.hop_count ?? step.hopCount,
+      graphConfidence: event.graph_confidence ?? step.graphConfidence,
     };
   });
 }
@@ -89,6 +91,17 @@ interface ChatState {
   /** Files attached to THIS conversation (not knowledge-base documents). */
   attachments: Attachment[];
   pendingAttachments: PendingAttachment[];
+
+  /**
+   * Explicit per-query web-search opt-in (a UI toggle the user sets before
+   * sending). Never inferred from message content and never triggered
+   * automatically when RAG retrieval comes up empty — that automatic
+   * fallback was removed. Read once at send time by sendMessage(), not
+   * "sticky" across messages by design: it resets after each send so a web
+   * search is never silently reused for a later, unrelated question.
+   */
+  webSearchEnabled: boolean;
+  setWebSearchEnabled: (enabled: boolean) => void;
 
   // Actions
   newSession: () => void;
@@ -126,6 +139,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   error: null,
   attachments: [],
   pendingAttachments: [],
+  webSearchEnabled: false,
+  setWebSearchEnabled: (enabled: boolean) => set({ webSearchEnabled: enabled }),
 
   newSession: () => {
     abortActiveStream();
@@ -238,7 +253,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   clearError: () => set({ error: null }),
 
   sendMessage: async (text: string) => {
-    const { sessionId } = get();
+    const { sessionId, webSearchEnabled } = get();
+    // Read-once, per-message: resets immediately so an explicit web-search
+    // opt-in never silently carries over to the next, unrelated question.
+    set({ webSearchEnabled: false });
 
     // Add user message immediately
     const userMsg: ChatMessage = {
@@ -342,7 +360,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             ),
           }));
         }
-      }, controller.signal, activeProjectId, activeCaseId);
+      }, controller.signal, activeProjectId, activeCaseId, webSearchEnabled);
 
       if (!isCurrent()) return;
 

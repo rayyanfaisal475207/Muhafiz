@@ -9,7 +9,7 @@
 import asyncio
 import logging
 from pathlib import Path
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 
 from src.pipeline.memory_updater import update_project_memory
 from src.data_gateway import get_gateway
@@ -64,6 +64,67 @@ _CROSS_CASE_PROMPT_PATH = (
 )
 _CROSS_CASE_PROMPT_TEMPLATE = _CROSS_CASE_PROMPT_PATH.read_text(encoding="utf-8")
 
+import re
+
+# Any Arabic-script character — same range script_detector.py/tokenizer.py
+# use to recognize Urdu script. A short query has too few words for
+# script_detector.is_roman_urdu()'s word-frequency heuristic (tuned for
+# whole documents, floor of 12 Latin words) to fire, so query-language
+# detection here uses the one signal that's reliable even on a 3-word
+# query: does it contain Urdu-script characters at all.
+_ARABIC_SCRIPT_RE = re.compile(
+    "["
+    "؀-ۿ"   # Arabic (core Urdu letters)
+    "ݐ-ݿ"   # Arabic Supplement
+    "ࢠ-ࣿ"   # Arabic Extended-A
+    "ﭐ-﷿"   # Presentation Forms-A
+    "ﹰ-﻿"   # Presentation Forms-B
+    "]"
+)
+
+
+def _detect_query_language(text: str) -> str:
+    """
+    Cheap, deterministic script check on the user's own message: any
+    Urdu-script character present -> "Urdu", otherwise -> "English".
+
+    Deliberately NOT delegated to the response LLM ("detect the query's
+    language yourself and reply in it") — tested against this exact
+    scenario (Urdu-only evidence, English query) and the model followed
+    the evidence's language instead of the instruction, because the
+    directive was a wordy meta-instruction competing with a page of
+    Urdu source text. A concrete language NAME substituted directly into
+    "You MUST reply entirely in {X}" is unambiguous; asking the model to
+    self-detect from prose is not, and Roman Urdu (Latin script, Urdu
+    grammar) is rare in this corpus's actual queries and reads fine to a
+    Roman-Urdu speaker either way, so it is not treated as its own case here.
+    """
+    return "Urdu" if _ARABIC_SCRIPT_RE.search(text or "") else "English"
+
+
+def _resolve_language_directive(preferred_language: Optional[str], user_message: str) -> str:
+    """
+    Turn the user's stored `preferred_language` setting into the concrete
+    language name substituted into every response prompt's "You MUST reply
+    entirely in {preferred_language}" instruction.
+
+    "auto" (the default for every profile that has never touched Settings
+    — see UserContextProfile.preferred_language) means "no explicit
+    language was ever chosen": the response must follow the QUERY's own
+    language (detected from `user_message`), never a hardcoded default.
+    Only a concrete value the user actually picked in Settings ("english",
+    "urdu") pins every answer to that language regardless of the query's
+    language or the language of the retrieved evidence. Getting this
+    backwards — treating "auto"/unset as "English" — is exactly the bug
+    this replaces: every user who never opened Settings got English-only
+    answers even when they asked in Urdu.
+    """
+    lang = (preferred_language or "").strip().lower()
+    if not lang or lang == "auto":
+        return _detect_query_language(user_message)
+    return preferred_language
+
+
 def _filter_allowed_domains(sources: list[dict]) -> list[dict]:
     """
     Gemini's google_search tool has no domain-restriction parameter (unlike
@@ -100,9 +161,22 @@ async def process_query(
     case_id: str = None,
     user_profile: dict = None,
     user_id: str = None,
+    enable_web_search: bool = False,
 ) -> AsyncGenerator[dict, None]:
     """
     Run the full RAG pipeline for a user message.
+
+    `enable_web_search`: an explicit, per-query user toggle (a UI/request
+    flag — never inferred). When True, this query is routed to WEB
+    up-front, before any retrieval is attempted. This is the ONLY way web
+    search enters the pipeline for a RAG-shaped question: there is no
+    longer an automatic fallback to the web when the RAG retry loop
+    exhausts its budget — an exhausted RAG retry now abstains
+    (_SAFE_RESPONSE) rather than silently reaching for a live web search
+    the user never asked for. The router can still route a query to WEB on
+    its own classification (e.g. "what's today's weather" — general
+    knowledge, unrelated to the police corpus) independent of this flag;
+    that direct-invocation path is unchanged.
     """
     import time
     # Resolve the acting user once — used for session ownership and history.
@@ -271,7 +345,8 @@ async def process_query(
     # Previously only the RAG grounded response honored the user's saved
     # context, language, and model-mode settings; DIRECT/SQL/WEB ignored them.
     user_context = (user_profile.get("context_text") or "").strip() if user_profile else ""
-    preferred_language = (user_profile.get("preferred_language") or "English") if user_profile else "English"
+    raw_preferred_language = (user_profile.get("preferred_language") or "auto") if user_profile else "auto"
+    preferred_language = _resolve_language_directive(raw_preferred_language, user_message)
     llm_mode = user_profile.get("llm_mode") if user_profile else None
 
     # ─── Files the user attached to THIS conversation ─────────────────────
@@ -291,7 +366,12 @@ async def process_query(
             )
         if attachment_context:
             parts.append(attachment_context)
-        parts.append(f"You MUST reply entirely in {preferred_language}.")
+        parts.append(
+            f"TRUSTED SYSTEM INSTRUCTION (not part of the user context above): "
+            f"You MUST reply entirely in {preferred_language}, regardless of what "
+            f"language any source text, attachment, or the user context above is "
+            f"written in."
+        )
         return "\n".join(parts)
 
     # ─── Step 2: Query Rewriter (LLM Call 1) ──────────────────────────────
@@ -381,6 +461,16 @@ async def process_query(
         )):
             logger.info("Attachment referenced — routing DIRECT for '%s'", user_message[:50])
             route_str = "DIRECT"
+
+    # ── Explicit user-toggled web search ───────────────────────────────────
+    # A per-query opt-in (checkbox/flag from the client), decided BEFORE any
+    # retrieval is attempted — never a reactive fallback from a failed RAG
+    # attempt (see the retry-exhaustion branch below, which now abstains
+    # instead). Skipped under AIR_GAP_MODE like every other web-search
+    # entry point in this pipeline.
+    if enable_web_search and route_str != "WEB" and not config.AIR_GAP_MODE:
+        logger.info("Web search explicitly toggled on for this query — routing WEB for '%s'", user_message[:50])
+        route_str = "WEB"
 
     needs_rag = route_str == "RAG"
     update_query_bg(needs_rag=needs_rag, routed_to=route_str)
@@ -1319,103 +1409,30 @@ async def process_query(
             else:
                 # Not relevant — check retry budget
                 if retry_count >= config.MAX_RETRIES:
+                    # Retries exhausted with no sufficient evidence found:
+                    # abstain, full stop. This pipeline used to fall back to
+                    # a live Gemini web search here automatically — removed
+                    # by design (scope change, not a bug fix): web search is
+                    # now ONLY reachable via the router's own WEB
+                    # classification or the explicit `enable_web_search`
+                    # per-query toggle, both decided up-front before
+                    # retrieval, never as a reactive fallback from a failed
+                    # RAG attempt. See _SAFE_RESPONSE and the
+                    # `enable_web_search` handling earlier in this function.
                     logger.warning(
-                        "All %d retries exhausted for session '%s'. Falling back to WEB search.",
+                        "All %d retries exhausted for session '%s'. Abstaining (no automatic web fallback).",
                         config.MAX_RETRIES, session_id
                     )
                     yield event(
                         "evaluator",
                         "error",
-                        f"Max retries ({config.MAX_RETRIES}) reached — falling back to WEB search",
+                        f"Max retries ({config.MAX_RETRIES}) reached — no sufficient evidence found",
                         retry_num=retry_count
                     )
-                    
-                    if config.AIR_GAP_MODE or case_id:
-                        # Second call site of the Gemini fallback — must be
-                        # gated the same as the WEB route's own dispatch, not
-                        # just the obvious one. Also skipped whenever a case
-                        # is active: a case-scoped investigative question
-                        # ("how many accused in CASE-009") has no business
-                        # being answered from the open web — the case_id in
-                        # the query text isn't a real-world identifier
-                        # Gemini's search can resolve, so it was returning
-                        # unrelated real results (a Pennsylvania court
-                        # docket, a highway route number) presented as if
-                        # they answered the question. Abstain instead.
-                        skip_reason = "AIR_GAP_MODE" if config.AIR_GAP_MODE else "case-scoped query"
-                        yield event("web_search", "skipped", f"Web search fallback disabled ({skip_reason})", retry_num=retry_count)
-                        final_response = _SAFE_RESPONSE
-                        response_type = "safe"
-                        yield event("response", "streaming", final_response, retry_num=retry_count)
-                        yield event("response", "done", f"Response generated ({len(final_response)} chars)", 0, retry_num=retry_count)
-                        break
-
-                    yield event("web_search", "active", "Falling back to Gemini Web Search...", retry_num=retry_count)
-                    t0_fallback = time.monotonic()
-                    from src.llm.client import call_gemini_with_search
-
-                    history_text = format_history_for_prompt(history)
-                    fallback_prompt = (
-                        "Answer the user's query based on real-time web search data.\n"
-                        f"Conversation history:\n{history_text}" if history_text else ""
-                    )
-
-                    try:
-                        full_response, gemini_sources = await call_gemini_with_search(
-                            user_message=f"{fallback_prompt}\nUser: {rewritten_query}",
-                            max_tokens=1500
-                        )
-                        elapsed_fallback = int((time.monotonic() - t0_fallback) * 1000)
-
-                        gemini_sources = _filter_allowed_domains(gemini_sources)
-                        sources_list = [{"filename": r['url'], "score": 1.0, "type": "web"} for r in gemini_sources]
-                        yield event("web_search", "done", f"Gemini Search returned {len(gemini_sources)} sources", elapsed_fallback, sources=sources_list)
-
-                        _spawn(asyncio.to_thread(pipeline_logger.log_llm_call,
-                            query_id, "web_response_gemini", "gemini", "gemini-2.5-flash",
-                            fallback_prompt, rewritten_query, full_response, elapsed_fallback
-                        ))
-
-                        # ── Verify before delivering ──────────────────────────
-                        # This fallback must be held to the same hard grounding
-                        # gate as the WEB route's own Gemini fallback — it was
-                        # not, previously (a real bypass caught in audit).
-                        gemini_chunks = [
-                            {"id": f"gemini-retry-{idx}", "text": r.get("content", r.get("url", "")),
-                             "metadata": {"source": r.get("url", f"gemini-result-{idx}")}}
-                            for idx, r in enumerate(gemini_sources, start=1)
-                        ] or [{"id": "gemini-retry-0", "text": full_response, "metadata": {"source": "gemini-search"}}]
-
-                        t0_verify = time.monotonic()
-                        verification = await verify_grounding(
-                            answer=full_response, cited_chunks=gemini_chunks, case_id="cross_case"
-                        )
-                        verifier_ms = int((time.monotonic() - t0_verify) * 1000)
-                        verifier_passed = verification.get("grounded", False) and not verification.get("off_topic", False)
-                        verifier_regenerated = False
-
-                        if not verifier_passed:
-                            logger.warning("Verifier rejected RAG-retry Gemini fallback: %s", verification.get("reason", "")[:100])
-                            full_response = _ABSTENTION_RESPONSE
-                            verifier_regenerated = True
-
-                        yield event("citation_validator", "done",
-                            verification.get("reason", "")[:120], verifier_ms,
-                            grounded=verifier_passed, regenerated=verifier_regenerated, retry_num=retry_count)
-                        yield event("response", "streaming", full_response, retry_num=retry_count)
-                        yield event("response", "done", "Gemini Web response generated", elapsed_fallback, retry_num=retry_count)
-
-                        final_response = full_response
-                        response_type = "web_gemini"
-                        update_query_bg(verifier_passed=verifier_passed, verifier_regenerated=verifier_regenerated)
-                    except Exception as fallback_e:
-                        logger.error("Gemini WEB search fallback failed: %s", fallback_e)
-                        yield event("web_search", "error", f"Web search failed: {fallback_e}")
-                        final_response = _SAFE_RESPONSE
-                        response_type = "safe"
-                        yield event("response", "streaming", final_response, retry_num=retry_count)
-                        yield event("response", "done", f"Response generated ({len(final_response)} chars)", 0, retry_num=retry_count)
-
+                    final_response = _SAFE_RESPONSE
+                    response_type = "safe"
+                    yield event("response", "streaming", final_response, retry_num=retry_count)
+                    yield event("response", "done", f"Response generated ({len(final_response)} chars)", 0, retry_num=retry_count)
                     break
 
                 # Store feedback for the retry rewriter

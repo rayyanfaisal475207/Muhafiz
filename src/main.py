@@ -190,6 +190,10 @@ class ChatRequest(BaseModel):
     message: str
     project_id: Optional[str] = None
     case_id: Optional[str] = None
+    # Explicit, per-query opt-in for live web search (a UI checkbox/toggle).
+    # Never inferred and never triggered automatically as a fallback from a
+    # failed RAG attempt — see process_query()'s docstring.
+    enable_web_search: bool = False
 
 
 # ── Health Check ───────────────────────────────────────────────────────────────
@@ -256,6 +260,7 @@ async def chat_endpoint(request: ChatRequest, current_user: User = Depends(get_c
             async for event in process_query(
                 request.session_id, request.message,
                 project_id=project_id, case_id=case_id, user_profile=user_profile, user_id=user_id,
+                enable_web_search=request.enable_web_search,
             ):
                 yield f"data: {json.dumps(event)}\n\n"
 
