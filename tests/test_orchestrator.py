@@ -697,19 +697,22 @@ async def test_verifier_not_run_for_direct_route(run_pipeline):
     )
 
 
-async def test_rag_retry_exhausted_gemini_fallback_is_verified(run_pipeline, monkeypatch):
+async def test_rag_retry_exhausted_abstains_without_web_fallback(run_pipeline, monkeypatch):
     """
-    Regression: the Gemini web-search fallback triggered when RAG's evaluator
-    rejects results MAX_RETRIES times used to deliver `full_response` as
-    `final_response` with no `verify_grounding()` call at all — a real bypass
-    of the Phase 6 hard gate, unlike the near-identical Gemini fallback inside
-    the WEB route itself (which does verify). This fallback must be held to
-    the same gate.
+    Regression: RAG retry-exhaustion must abstain (_SAFE_RESPONSE), not fall
+    back to a live Gemini web search. That automatic fallback was removed by
+    design (scope change, not a bug fix) — web search is now reachable only
+    via the router's own WEB classification or the explicit
+    `enable_web_search` per-query toggle, both decided up-front before
+    retrieval, never as a reactive fallback from a failed RAG attempt. See
+    the comment at the retry-exhaustion branch in orchestrator.py.
     """
     from src.llm import client as llm_client
 
     async def fake_call_gemini_with_search(user_message, max_tokens=1500):
-        return "Cloud-sourced answer.", [{"url": "https://example.gov.pk", "content": "source text"}]
+        raise AssertionError(
+            "RAG retry exhaustion must not reach for a live Gemini web search"
+        )
 
     monkeypatch.setattr(llm_client, "call_gemini_with_search", fake_call_gemini_with_search)
 
@@ -719,12 +722,7 @@ async def test_rag_retry_exhausted_gemini_fallback_is_verified(run_pipeline, mon
         evaluator_relevant=False,  # forces every retry to be rejected, exhausting MAX_RETRIES
     )
 
-    cv_done = next(
-        (e for e in events if e["step"] == "citation_validator" and e["status"] == "done"),
-        None,
+    assert not any(e["step"] == "citation_validator" for e in events), (
+        "no verification should run — there is nothing to verify when we abstain"
     )
-    assert cv_done is not None, "the RAG-retry Gemini fallback must be verified like every other route"
-    assert cv_done.get("grounded") is True
-
-    response_done = [e for e in events if e["step"] == "response" and e["status"] == "streaming"]
-    assert any("Cloud-sourced answer." in e["detail"] for e in response_done)
+    assert orch._SAFE_RESPONSE.split(" ")[0] in _text_of(events)
