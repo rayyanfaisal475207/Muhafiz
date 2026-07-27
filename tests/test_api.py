@@ -104,7 +104,7 @@ def test_register_returns_role_and_derived_is_admin(api):
     client, gateway = api
 
     response = client.post("/api/auth/register", json={
-        "email": "new.investigator@example.com", "password": "hunter2pass",
+        "email": "new.investigator@example.com", "password": "hunter2pass2",
     })
 
     assert response.status_code == 200

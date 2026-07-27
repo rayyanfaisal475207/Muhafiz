@@ -21,10 +21,10 @@ import os
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 
 from src import config
-from src.auth.routes import get_current_user
+from src.auth.routes import get_current_user, limiter
 from src.database.models import User
 from src.data_gateway import get_gateway
 
@@ -57,7 +57,9 @@ async def _extract_text(path: Path) -> str:
 
 
 @router.post("")
+@limiter.limit("20/minute")
 async def upload_attachment(
+    request: Request,
     session_id: str = Form(...),
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),

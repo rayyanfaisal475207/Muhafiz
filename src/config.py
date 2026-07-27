@@ -260,7 +260,9 @@ def validate_config() -> tuple[list[str], list[str]]:
 import os
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-for-dev")
 JWT_ALGORITHM = "HS256"
-CORS_ORIGINS = ["http://localhost:5173", "http://localhost:3000", "http://localhost:5174"]
+CORS_ORIGINS = os.getenv(
+    "CORS_ORIGINS", "http://localhost:5173,http://localhost:3000,http://localhost:5174"
+).split(",")
 
 # Added for MCP
 # The MCP Postgres server used to connect with DATABASE_URL directly — the

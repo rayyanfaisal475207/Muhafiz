@@ -19,13 +19,14 @@ import uuid
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, BackgroundTasks
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.dialects import postgresql
 
 from src import config
 from src.auth.jwt import require_role
+from src.auth.routes import limiter
 from src.database.models import User, PoliceReferenceData
 from src.data_gateway import get_gateway
 from src.observability import analytics, errors as error_capture
@@ -234,7 +235,9 @@ async def get_audit_logs(
 
 
 @router.post("/kb/upload")
+@limiter.limit("10/minute")
 async def upload_kb_document(
+    request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     admin: User = Depends(require_role("platform-admin")),

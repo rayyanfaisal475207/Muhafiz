@@ -1,11 +1,11 @@
 import re
 import uuid
 from datetime import date, datetime
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from typing import List, Optional, Any
 from pydantic import BaseModel
 from src.data_gateway import get_gateway
-from src.auth.routes import get_current_user
+from src.auth.routes import get_current_user, limiter
 from src.database.models import User
 
 router = APIRouter(tags=["cases"])
@@ -86,7 +86,8 @@ async def get_case(case_id: str = Depends(require_case_access), current_user: Us
 
 
 @router.post("/", response_model=CaseResponse)
-async def create_case(case: CaseCreate, current_user: User = Depends(get_current_user)):
+@limiter.limit("20/minute")
+async def create_case(request: Request, case: CaseCreate, current_user: User = Depends(get_current_user)):
     gateway = await get_gateway()
     payload = case.dict(exclude_unset=True)
 

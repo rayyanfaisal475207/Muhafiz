@@ -24,7 +24,7 @@ from contextlib import asynccontextmanager
 import json
 import uvicorn
 from typing import Optional
-from fastapi import FastAPI, BackgroundTasks, HTTPException
+from fastapi import FastAPI, BackgroundTasks, HTTPException, Request
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -262,7 +262,8 @@ async def health_check():
 
 # ── API Routes ────────────────────────────────────────────────────────────────
 @app.post("/api/chat", tags=["Chat"])
-async def chat_endpoint(request: ChatRequest, current_user: User = Depends(get_current_user)):
+@limiter.limit("60/minute")
+async def chat_endpoint(request: Request, chat_request: ChatRequest, current_user: User = Depends(get_current_user)):
 
     """
     Main chat endpoint — accepts a user message and streams pipeline trace events
@@ -275,10 +276,10 @@ async def chat_endpoint(request: ChatRequest, current_user: User = Depends(get_c
     # Fetch profile and session concurrently — both are independent reads.
     user_profile, session = await asyncio.gather(
         gateway.get_user_context_profile(user_id),
-        gateway.get_session(request.session_id),
+        gateway.get_session(chat_request.session_id),
     )
-    project_id = request.project_id or (session.get("project_id") if session else None)
-    case_id = request.case_id or (session.get("case_id") if session else None)
+    project_id = chat_request.project_id or (session.get("project_id") if session else None)
+    case_id = chat_request.case_id or (session.get("case_id") if session else None)
 
     # RBAC/ABAC: a case_id from the client (or a session it never verified either)
     # must never reach the pipeline unchecked — RLS only enforces that retrieved
@@ -290,15 +291,15 @@ async def chat_endpoint(request: ChatRequest, current_user: User = Depends(get_c
     # created as a side effect of logging (that produced ownerless rows
     # that the sidebar can't list and /api/sessions/{id} 403s on).
     if session is None:
-        provisional_title = " ".join(request.message.split()[:6])[:80] or "New Conversation"
-        await gateway.create_session(request.session_id, user_id, provisional_title, project_id, case_id)
+        provisional_title = " ".join(chat_request.message.split()[:6])[:80] or "New Conversation"
+        await gateway.create_session(chat_request.session_id, user_id, provisional_title, project_id, case_id)
 
     async def event_generator():
         try:
             async for event in process_query(
-                request.session_id, request.message,
+                chat_request.session_id, chat_request.message,
                 project_id=project_id, case_id=case_id, user_profile=user_profile, user_id=user_id,
-                enable_web_search=request.enable_web_search,
+                enable_web_search=chat_request.enable_web_search,
             ):
                 yield f"data: {json.dumps(event)}\n\n"
 

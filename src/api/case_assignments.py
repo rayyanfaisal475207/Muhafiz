@@ -1,8 +1,8 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from typing import List
 from pydantic import BaseModel
 from src.data_gateway import get_gateway
-from src.auth.routes import get_current_user
+from src.auth.routes import get_current_user, limiter
 from src.auth.jwt import require_role
 from src.database.models import User
 
@@ -28,7 +28,8 @@ async def list_assignments(case_id: str, current_user: User = Depends(require_ro
     return await gateway.get_case_assignments(case_id)
 
 @router.post("/")
-async def assign_user(case_id: str, assignment: CaseAssignmentCreate, current_user: User = Depends(require_role("station-admin"))):
+@limiter.limit("20/minute")
+async def assign_user(request: Request, case_id: str, assignment: CaseAssignmentCreate, current_user: User = Depends(require_role("station-admin"))):
     """Assign a user (by email) to a case with a specific role."""
     gateway = await get_gateway()
     target_user = await gateway.get_user_by_email(assignment.email)
@@ -45,7 +46,8 @@ async def assign_user(case_id: str, assignment: CaseAssignmentCreate, current_us
     return {"status": "assigned"}
 
 @router.delete("/{user_id}")
-async def unassign_user(case_id: str, user_id: str, current_user: User = Depends(require_role("station-admin"))):
+@limiter.limit("20/minute")
+async def unassign_user(request: Request, case_id: str, user_id: str, current_user: User = Depends(require_role("station-admin"))):
     """Remove a user from a case."""
     gateway = await get_gateway()
     await gateway.unassign_user_from_case(case_id, user_id)
