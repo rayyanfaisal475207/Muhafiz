@@ -11,8 +11,6 @@
   "type": "commonjs",
   "description": "",
   "dependencies": {
-    "@modelcontextprotocol/server-filesystem": "^2026.7.10",
-    "mcp-server-pg": "^0.0.1-security",
-    "postgres-mcp": "^1.0.4"
+    "@modelcontextprotocol/server-postgres": "0.6.2"
   }
 }

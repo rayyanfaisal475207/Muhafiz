@@ -21,10 +21,12 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.dialects import postgresql
 
 from src import config
 from src.auth.jwt import require_role
-from src.database.models import User
+from src.database.models import User, PoliceReferenceData
 from src.data_gateway import get_gateway
 from src.observability import analytics, errors as error_capture
 from src.pipeline.sql_extractor import extract_sql_params
@@ -377,6 +379,42 @@ class McpDemoRequest(BaseModel):
     query: str
 
 
+def _build_police_reference_sql(params: dict | None) -> str:
+    """
+    Builds the police_reference_data SELECT for the MCP demo route.
+
+    The MCP `query` tool (@modelcontextprotocol/server-postgres) only
+    accepts a single literal `sql` string — it has no bind-parameter
+    support at the protocol level — so there's no way to hand it a
+    genuinely parameterized query. This uses SQLAlchemy's own Core query
+    builder (the same .ilike() pattern
+    direct_backend.py::query_police_reference_data uses) plus literal-bind
+    compilation to render safely-escaped SQL text, instead of hand-rolled
+    string concatenation with manual quote-doubling.
+    """
+    conditions = []
+    if params:
+        if params.get("category"):
+            conditions.append(PoliceReferenceData.category.ilike(f"%{params['category']}%"))
+        if params.get("subject"):
+            conditions.append(PoliceReferenceData.subject.ilike(f"%{params['subject']}%"))
+        if params.get("section_ref"):
+            conditions.append(PoliceReferenceData.section_ref.ilike(f"%{params['section_ref']}%"))
+
+    stmt = select(PoliceReferenceData)
+    if conditions:
+        stmt = stmt.where(*conditions)
+
+    # paramstyle="named" (rather than the dialect default, pyformat) avoids
+    # SQLAlchemy doubling literal '%' characters to escape them for a
+    # printf-style DBAPI substitution that will never actually happen here
+    # (literal_binds means there are no bind params left to substitute) —
+    # functionally harmless either way for LIKE/ILIKE, but this keeps the
+    # rendered SQL text exactly what it appears to be.
+    dialect = postgresql.dialect(paramstyle="named")
+    return str(stmt.compile(dialect=dialect, compile_kwargs={"literal_binds": True}))
+
+
 @router.post("/mcp-demo")
 async def mcp_demo(request: McpDemoRequest, admin: User = Depends(require_role("platform-admin"))):
     """
@@ -395,23 +433,14 @@ async def mcp_demo(request: McpDemoRequest, admin: User = Depends(require_role("
     run_id = await gateway.create_run(session_id, request.query)
 
     params = None
-    sql_query = "SELECT * FROM police_reference_data WHERE 1=1"
+    sql_query = _build_police_reference_sql(None)
     db_results = []
     status = "success"
     output_summary = None
     t0 = time.monotonic()
     try:
         params = await extract_sql_params(request.query)
-        if params:
-            if params.get("category"):
-                val = str(params["category"]).replace("'", "''")
-                sql_query += f" AND category ILIKE '%{val}%'"
-            if params.get("subject"):
-                val = str(params["subject"]).replace("'", "''")
-                sql_query += f" AND subject ILIKE '%{val}%'"
-            if params.get("section_ref"):
-                val = str(params["section_ref"]).replace("'", "''")
-                sql_query += f" AND section_ref ILIKE '%{val}%'"
+        sql_query = _build_police_reference_sql(params)
 
         db_results = await execute_query(sql_query)
         output_summary = {"row_count": len(db_results)}

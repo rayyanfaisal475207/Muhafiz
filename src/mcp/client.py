@@ -5,25 +5,37 @@ from typing import Dict, Any, List
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-from src.config import DATABASE_URL
+from src.config import DATABASE_URL, MCP_DATABASE_URL
 
 logger = logging.getLogger(__name__)
 
-async def execute_query(statement: str, params: list = None) -> List[Dict[str, Any]]:
+async def execute_query(statement: str) -> List[Dict[str, Any]]:
     """
     Execute a SQL query against the database using the official MCP postgres server via stdio.
-    
+
     This function spawns the `npx @modelcontextprotocol/server-postgres` process,
     connects to it over stdin/stdout, initializes the MCP session, and calls the `query` tool.
-    
-    Note: If the network blocks outbound TCP 5432 (e.g., WinError 64 / ECONNRESET), 
+
+    Note: If the network blocks outbound TCP 5432 (e.g., WinError 64 / ECONNRESET),
     the npx process will crash/fail to connect to the database when initializing or executing.
     """
-    
+
+    # Prefer the least-privilege MCP_DATABASE_URL (see
+    # migrations/009_mcp_readonly_role.sql) over the superuser DATABASE_URL.
+    # validate_config() already surfaces a startup warning when this falls
+    # back — this is not a silent degradation.
+    if not MCP_DATABASE_URL:
+        logger.warning(
+            "MCP_DATABASE_URL is not set — MCP Postgres route is using the "
+            "superuser DATABASE_URL. Provision migrations/009_mcp_readonly_role.sql "
+            "and set MCP_DATABASE_URL to close this."
+        )
+    raw_url = MCP_DATABASE_URL or DATABASE_URL
+
     # We must format the database URL for the Node process.
     # If using SQLAlchemy's asyncpg URL (postgresql+asyncpg://), strip the "+asyncpg" part
     # so the Node pg driver recognizes it.
-    node_db_url = DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
+    node_db_url = raw_url.replace("postgresql+asyncpg://", "postgresql://")
     
     logger.info(f"Spawning MCP Postgres server via npx...")
     

@@ -90,6 +90,37 @@ def test_air_gap_mode_with_local_llm_configured_is_not_flagged(monkeypatch):
     assert not any("AIR_GAP_MODE" in w for w in warnings)
 
 
+def test_missing_mcp_database_url_is_a_warning_when_postgres_is_configured(monkeypatch):
+    """Falling back to the superuser DATABASE_URL for the MCP SQL route
+    (migrations/009_mcp_readonly_role.sql) must be visible at startup, not silent."""
+    monkeypatch.setattr(config, "DATABASE_URL", "postgresql+asyncpg://postgres:dev@localhost:5432/muhafiz")
+    monkeypatch.setattr(config, "MCP_DATABASE_URL", "")
+
+    warnings, _ = config.validate_config()
+
+    assert any("MCP_DATABASE_URL" in w for w in warnings)
+
+
+def test_mcp_database_url_configured_is_not_flagged(monkeypatch):
+    monkeypatch.setattr(config, "DATABASE_URL", "postgresql+asyncpg://postgres:dev@localhost:5432/muhafiz")
+    monkeypatch.setattr(config, "MCP_DATABASE_URL", "postgresql://muhafiz_mcp_readonly:pw@localhost:5432/muhafiz")
+
+    warnings, _ = config.validate_config()
+
+    assert not any("MCP_DATABASE_URL" in w for w in warnings)
+
+
+def test_missing_mcp_database_url_not_double_flagged_without_database_url(monkeypatch):
+    """No point warning about the MCP fallback when there's no DATABASE_URL
+    to fall back to either — that's already its own, separate warning."""
+    monkeypatch.setattr(config, "DATABASE_URL", "")
+    monkeypatch.setattr(config, "MCP_DATABASE_URL", "")
+
+    warnings, _ = config.validate_config()
+
+    assert not any("MCP_DATABASE_URL" in w for w in warnings)
+
+
 # ── main.py lifespan: Postgres requirement gate ──────────────────────────────
 
 def _quiet_startup_side_effects(monkeypatch, tmp_path):

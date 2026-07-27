@@ -215,6 +215,17 @@ def validate_config() -> tuple[list[str], list[str]]:
             "PostgreSQL — see REQUIRE_POSTGRES."
         )
 
+    # MCP_DATABASE_URL unset means src/mcp/client.py falls back to the
+    # superuser DATABASE_URL for the MCP SQL route instead of the
+    # least-privilege role from migrations/009_mcp_readonly_role.sql.
+    if DATABASE_URL and not MCP_DATABASE_URL:
+        errors.append(
+            "MCP_DATABASE_URL is not set — the MCP Postgres route is falling "
+            "back to DATABASE_URL (superuser access to every table) instead "
+            "of the least-privilege muhafiz_mcp_readonly role. See "
+            "migrations/009_mcp_readonly_role.sql."
+        )
+
     # AIR_GAP_MODE consistency: with no local LLM endpoint configured, every
     # LLM call refuses cloud fallback and fails outright (src/llm/client.py).
     if AIR_GAP_MODE and not LOCAL_LLM_URL:
@@ -252,4 +263,12 @@ JWT_ALGORITHM = "HS256"
 CORS_ORIGINS = ["http://localhost:5173", "http://localhost:3000", "http://localhost:5174"]
 
 # Added for MCP
+# The MCP Postgres server used to connect with DATABASE_URL directly — the
+# same superuser role as the rest of the app, full read/write to every
+# table. MCP_DATABASE_URL should point at a least-privilege role (see
+# migrations/009_mcp_readonly_role.sql) that can only SELECT from
+# police_reference_data. Falls back to DATABASE_URL (with a startup
+# warning — see validate_config()) so an environment that hasn't
+# provisioned the role yet doesn't hard-break.
+MCP_DATABASE_URL: str = os.getenv("MCP_DATABASE_URL", "")
 DATABASE_URL = os.getenv("DATABASE_URL", "")
