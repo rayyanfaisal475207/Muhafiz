@@ -61,7 +61,7 @@ from src.graph.case_scope import scoped_cypher
 from src.ingestion.text_normalizer import normalize_urdu
 from src.retrieval.vector_store import get_chunks_by_ids
 from src.data_gateway import get_gateway
-from src.database.postgres import current_cross_case
+from src.database.postgres import current_cross_case, current_rls_active
 
 logger = logging.getLogger(__name__)
 
@@ -514,6 +514,14 @@ async def retrieve_graph(
             # here instead of there means an unauthorized caller never
             # arms it at all — there's no window to close, because it's
             # never opened for them in the first place.
+            # Also self-arm rls_active here (security-review addendum):
+            # this used to rely entirely on the caller (chat_endpoint's
+            # set_case_scope()) having already armed it, a convention
+            # enforced only by docstring — a future second caller of
+            # retrieve_graph() that forgets to arm RLS upstream would
+            # otherwise run with app.rls_active never set, which migration
+            # 010's policies treat as "RLS fully inactive" (fail-open).
+            current_rls_active.set(True)
             current_cross_case.set(True)
 
     if not cross_case and not case_id:

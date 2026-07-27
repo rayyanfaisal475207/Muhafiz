@@ -22,7 +22,7 @@ from collections import Counter
 from typing import Optional
 
 from src.graph import age_client
-from src.database.postgres import current_cross_case
+from src.database.postgres import current_cross_case, current_rls_active
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +134,13 @@ async def run_aggregate(
     # Phase 2: arm the Postgres RLS cross-case bypass only now that the
     # role check above has passed — same fix/rationale as
     # graph_retriever.py::retrieve_graph(). See that function's comment.
+    # Also self-arm rls_active here (security-review addendum): this used
+    # to rely entirely on the caller (chat_endpoint's set_case_scope())
+    # having already armed it, a convention enforced only by docstring —
+    # a future second caller of run_aggregate() that forgets to arm RLS
+    # upstream would otherwise run with app.rls_active never set, which
+    # migration 010's policies treat as "RLS fully inactive" (fail-open).
+    current_rls_active.set(True)
     current_cross_case.set(True)
 
     query_lower = query_text.lower()
