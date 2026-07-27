@@ -92,9 +92,9 @@ async def test_general_no_case_session_is_creatable_and_readable(pg_engine):
         await conn.execute(
             text(
                 "INSERT INTO sessions (session_id, user_id, title, case_id) "
-                "VALUES (:sid, :uid, 'General chat', NULL)"
+                "VALUES (:sid, NULL, 'General chat', NULL)"
             ),
-            {"sid": session_id, "uid": str(uuid.uuid4())},
+            {"sid": session_id},
         )
 
     async with pg_engine.begin() as conn:
@@ -128,9 +128,9 @@ async def test_case_scoped_session_invisible_to_a_different_case_context(pg_engi
         await conn.execute(
             text(
                 "INSERT INTO sessions (session_id, user_id, title, case_id) "
-                "VALUES (:sid, :uid, 'Case A chat', :cid)"
+                "VALUES (:sid, NULL, 'Case A chat', :cid)"
             ),
-            {"sid": session_id, "uid": str(uuid.uuid4()), "cid": case_a},
+            {"sid": session_id, "cid": case_a},
         )
 
     async with pg_engine.begin() as conn:
