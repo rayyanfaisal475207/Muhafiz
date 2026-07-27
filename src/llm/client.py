@@ -229,11 +229,31 @@ async def _call_local(system_prompt: str, user_message: str, temperature: float,
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message},
         ],
-        max_tokens=min(max_tokens, 800),
+        # NOT clamped to 800 (as this used to silently do regardless of what
+        # the caller passed) — confirmed live: verifier.py/evaluator.py both
+        # already pass max_tokens=800 believing that IS the real ceiling
+        # ("800 matches the ceiling used in evaluator.py"), so this second,
+        # hidden cap at the same value was a no-op until a real, complex
+        # verification prompt needed more than 800 tokens for Qwen3-14B's
+        # thinking trace + a multi-claim JSON answer — it got silently
+        # truncated mid-string ("Unterminated string...") instead, which
+        # this cap masked as "the caller's own limit" rather than an extra
+        # one nobody asked for. The caller decides its own budget now.
+        max_tokens=max_tokens,
         temperature=temperature,
     )
     content = response.choices[0].message.content
-    if content is None:
+    # A blank string is just as unusable as None — confirmed live: Qwen3-14B
+    # (the local reasoning model) sometimes spends its ENTIRE max_tokens
+    # budget on its own thinking trace (the server can't be told to skip
+    # it — see every other max_tokens=800 comment in this codebase) and
+    # returns a normal 200 response with empty `content`, not an error.
+    # Treating only `None` as failure let that empty string silently pass
+    # through as if it were a real answer — the caller (verifier.py in
+    # this case) then failed to parse it and defaulted to a confusing
+    # "fail-closed" rejection instead of reaching this function's existing
+    # automatic Groq/Gemini fallback, which is what should have happened.
+    if not content or not content.strip():
         raise ValueError("Local LLM returned empty content")
     return content
 
@@ -247,7 +267,7 @@ async def _stream_local(system_prompt: str, user_message: str, temperature: floa
             {"role": "user", "content": user_message}
         ],
         temperature=temperature,
-        max_tokens=min(max_tokens, 800),
+        max_tokens=max_tokens,  # see _call_local's comment on why this is no longer clamped
         stream=True
     )
 

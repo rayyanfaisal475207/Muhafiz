@@ -27,6 +27,7 @@
 
 import json
 import logging
+import re
 from pathlib import Path
 
 from src.llm.client import call_llm
@@ -35,6 +36,18 @@ logger = logging.getLogger(__name__)
 
 _PROMPT_PATH = Path(__file__).resolve().parent.parent.parent / "prompts" / "evaluator.txt"
 _SYSTEM_PROMPT = _PROMPT_PATH.read_text(encoding="utf-8")
+
+
+def _extract_json(response: str) -> str:
+    """
+    Pull the {...} substring out of a raw LLM response before parsing —
+    see src/pipeline/verifier.py's _extract_json for why a bare
+    json.loads(raw.strip()) is unsafe against Qwen3-14B's thinking-trace
+    preamble (router.py already guards against this; this call site
+    previously did not).
+    """
+    match = re.search(r"\{.*\}", response, re.DOTALL)
+    return match.group(0) if match else response.strip()
 
 
 async def evaluate_relevance(
@@ -82,12 +95,16 @@ async def evaluate_relevance(
             temperature=0.0,
             # Qwen3-14B's thinking trace consumes max_tokens before its JSON
             # answer, and this server can't be told to skip it — 200 was
-            # truncating to an empty response every time.
-            max_tokens=800,
+            # truncating to an empty response every time. 800 itself was
+            # later confirmed (in verifier.py, the identical call shape)
+            # still too tight for a real multi-chunk prompt, cutting the
+            # JSON off mid-string rather than just squeezing the thinking
+            # trace — 2000 gives real headroom for both.
+            max_tokens=2000,
         )
 
         try:
-            result = json.loads(raw_response.strip())
+            result = json.loads(_extract_json(raw_response))
             # Validate expected keys exist
             if "relevant" in result and "reason" in result:
                 logger.info(

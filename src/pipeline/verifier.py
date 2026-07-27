@@ -58,6 +58,26 @@ _HEDGE_PHRASES = (
 _HEDGE_WINDOW = 250
 
 
+def _extract_json(response: str) -> str:
+    """
+    Pull the {...} substring out of a raw LLM response before parsing.
+
+    Qwen3-14B (the local reasoning-role model this call routes to first)
+    sometimes prefixes its JSON answer with a visible thinking trace the
+    server can't be told to suppress (documented at every other call site
+    in this pipeline — router.py, query_rewriter.py, evaluator.py) — a
+    bare `json.loads(raw.strip())` then raises on the leading prose and
+    this verifier fails CLOSED (not-grounded) on what may be a perfectly
+    good, correctly-grounded answer. Confirmed live: with the local model
+    reachable, a real RAG query that DID find its answer (evaluator said
+    relevant=True, citing the correct document) was abstained anyway
+    because this exact parse failed. router.py already guards against
+    this with the same regex; this call site and evaluator.py's did not.
+    """
+    match = re.search(r"\{.*\}", response, re.DOTALL)
+    return match.group(0) if match else response.strip()
+
+
 def _format_chunks_for_verifier(chunks: list[dict]) -> str:
     """
     Format cited chunks for the verifier prompt.
@@ -255,12 +275,17 @@ async def verify_grounding(
             user_message=user_input,
             temperature=0.0,
             # Qwen3-14B's thinking trace consumes max_tokens before its JSON
-            # answer — 800 matches the ceiling used in evaluator.py.
-            max_tokens=800,
+            # answer. 800 was confirmed live to be too tight for a real
+            # verification prompt (multiple retrieved chunks, several
+            # unsupported_claims): the model's own JSON got cut off
+            # mid-string ("Unterminated string...") rather than just
+            # running out of room for the thinking trace. 2000 gives real
+            # headroom for both on realistically-sized input.
+            max_tokens=2000,
             role="reasoning",
         )
         try:
-            parsed = json.loads(raw.strip())
+            parsed = json.loads(_extract_json(raw))
             if "grounded" in parsed and "reason" in parsed:
                 llm_result = parsed
                 break
