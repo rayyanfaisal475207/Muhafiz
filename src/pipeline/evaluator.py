@@ -25,29 +25,16 @@
 # trigger the retry loop rather than crashing.
 # ============================================================
 
-import json
 import logging
-import re
 from pathlib import Path
 
 from src.llm.client import call_llm
+from src.pipeline.json_extract import extract_json
 
 logger = logging.getLogger(__name__)
 
 _PROMPT_PATH = Path(__file__).resolve().parent.parent.parent / "prompts" / "evaluator.txt"
 _SYSTEM_PROMPT = _PROMPT_PATH.read_text(encoding="utf-8")
-
-
-def _extract_json(response: str) -> str:
-    """
-    Pull the {...} substring out of a raw LLM response before parsing —
-    see src/pipeline/verifier.py's _extract_json for why a bare
-    json.loads(raw.strip()) is unsafe against Qwen3-14B's thinking-trace
-    preamble (router.py already guards against this; this call site
-    previously did not).
-    """
-    match = re.search(r"\{.*\}", response, re.DOTALL)
-    return match.group(0) if match else response.strip()
 
 
 async def evaluate_relevance(
@@ -104,9 +91,9 @@ async def evaluate_relevance(
         )
 
         try:
-            result = json.loads(_extract_json(raw_response))
+            result = extract_json(raw_response)
             # Validate expected keys exist
-            if "relevant" in result and "reason" in result:
+            if isinstance(result, dict) and "relevant" in result and "reason" in result:
                 logger.info(
                     "Evaluator: relevant=%s — %s",
                     result["relevant"], result["reason"][:80]
@@ -117,7 +104,7 @@ async def evaluate_relevance(
                     "Evaluator JSON missing expected keys (attempt %d): %s",
                     attempt + 1, raw_response[:100]
                 )
-        except json.JSONDecodeError as exc:
+        except ValueError as exc:
             logger.warning(
                 "Evaluator returned invalid JSON (attempt %d): %s — %s",
                 attempt + 1, exc, raw_response[:100]

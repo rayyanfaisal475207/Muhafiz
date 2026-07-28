@@ -22,10 +22,10 @@
 # ============================================================
 
 import logging
-import json
 from pathlib import Path
 
 from src.llm.client import call_llm
+from src.pipeline.json_extract import extract_json
 
 logger = logging.getLogger(__name__)
 
@@ -58,14 +58,10 @@ async def route_query(rewritten_query: str) -> dict:
     )
 
     try:
-        import re
-        match = re.search(r'\{.*\}', response, re.DOTALL)
-        if match:
-            cleaned = match.group(0)
-        else:
-            cleaned = response
-        result = json.loads(cleaned.strip())
-        
+        result = extract_json(response)
+        if not isinstance(result, dict):
+            raise ValueError(f"Router JSON was not an object: {response[:200]!r}")
+
         # Ensure default values if LLM misses them
         route = result.get("route", "RAG").upper()
         if route not in ["DIRECT", "RAG", "WEB", "SQL", "GRAPH", "GRAPH_HYBRID", "XGRAPH", "XAGG"]:

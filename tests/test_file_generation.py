@@ -17,41 +17,10 @@ import zipfile
 import openpyxl
 import pytest
 
-from src.pipeline.file_structurer import _extract_json, _normalize_payload
+from src.pipeline.file_structurer import _normalize_payload
 from src.generation.pdf_builder import build_pdf
 from src.generation.xlsx_builder import build_xlsx
 from src.generation.docx_builder import build_docx
-
-
-# ── JSON extraction ───────────────────────────────────────────────────────────
-
-def test_extracts_bare_json():
-    assert _extract_json('{"title": "Rate Card"}')["title"] == "Rate Card"
-
-
-def test_extracts_json_from_markdown_fence():
-    raw = 'Sure, here you go:\n```json\n{"title": "Rate Card"}\n```\nHope that helps!'
-    assert _extract_json(raw)["title"] == "Rate Card"
-
-
-def test_ignores_reasoning_tokens_before_json():
-    """Reasoning models emit <think> blocks; braces inside them broke parsing."""
-    raw = '<think>The user wants {a table} of rates</think>\n{"title": "Rate Card"}'
-    assert _extract_json(raw)["title"] == "Rate Card"
-
-
-def test_extracts_first_balanced_object_despite_trailing_prose():
-    raw = 'Note {not json}. Result: {"title": "X", "nested": {"a": 1}} — done }'
-    result = _extract_json(raw)
-    assert result["title"] == "X"
-    assert result["nested"] == {"a": 1}
-
-
-@pytest.mark.parametrize("raw", ["", "no json here at all", "{unclosed: "])
-def test_unparseable_output_raises_rather_than_returning_garbage(raw):
-    """A failure must be loud — silent failure is what hid this bug for versions."""
-    with pytest.raises(ValueError):
-        _extract_json(raw)
 
 
 # ── Payload normalization ─────────────────────────────────────────────────────

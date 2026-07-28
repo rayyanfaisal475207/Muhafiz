@@ -1,7 +1,7 @@
 import logging
-import json
 from pathlib import Path
 from src.llm.client import call_llm
+from src.pipeline.json_extract import extract_json
 
 logger = logging.getLogger(__name__)
 
@@ -20,13 +20,7 @@ async def extract_sql_params(query: str) -> dict:
     )
     
     try:
-        cleaned = response.strip()
-        if cleaned.startswith("```json"):
-            cleaned = cleaned[7:]
-        if cleaned.endswith("```"):
-            cleaned = cleaned[:-3]
-        result = json.loads(cleaned.strip())
-        return result
+        return extract_json(response)
     except Exception as e:
         logger.error(f"SQL Extractor failed to parse JSON: {e}. Raw: {response}")
         return None

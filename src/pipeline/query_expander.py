@@ -25,12 +25,11 @@
 # runs in ~200-400ms concurrently with the embedding call.
 # ============================================================
 
-import json
 import logging
-import re
 from pathlib import Path
 
 from src.llm.client import call_llm
+from src.pipeline.json_extract import extract_json
 
 logger = logging.getLogger(__name__)
 
@@ -76,19 +75,11 @@ async def expand_query(rewritten_query: str, n: int = 2) -> list[str]:
         logger.warning("Query expander LLM call failed: %s — skipping expansion", exc)
         return []
 
-    # Parse the JSON array from the response
-    cleaned = raw.strip()
-
-    # Strip markdown fences if present
-    cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
-    cleaned = re.sub(r"\s*```$", "", cleaned)
-    cleaned = cleaned.strip()
-
     try:
-        variants = json.loads(cleaned)
+        variants = extract_json(raw)
         if not isinstance(variants, list):
             logger.warning(
-                "Query expander returned non-list JSON: %s", cleaned[:100]
+                "Query expander returned non-list JSON: %s", raw[:100]
             )
             return []
 
@@ -100,8 +91,8 @@ async def expand_query(rewritten_query: str, n: int = 2) -> list[str]:
         )
         return result
 
-    except json.JSONDecodeError as exc:
+    except ValueError as exc:
         logger.warning(
-            "Query expander returned invalid JSON: %s — raw: %s", exc, cleaned[:100]
+            "Query expander returned invalid JSON: %s — raw: %s", exc, raw[:100]
         )
         return []

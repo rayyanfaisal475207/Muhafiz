@@ -35,13 +35,13 @@
 #   }
 # ============================================================
 
-import json
 import logging
 import re
 from pathlib import Path
 from typing import Optional
 
 from src.llm.client import call_llm
+from src.pipeline.json_extract import extract_json
 
 logger = logging.getLogger(__name__)
 
@@ -56,26 +56,6 @@ _HEDGE_PHRASES = (
 
 # Characters to scan around a [Document N] citation when checking hedging.
 _HEDGE_WINDOW = 250
-
-
-def _extract_json(response: str) -> str:
-    """
-    Pull the {...} substring out of a raw LLM response before parsing.
-
-    Qwen3-14B (the local reasoning-role model this call routes to first)
-    sometimes prefixes its JSON answer with a visible thinking trace the
-    server can't be told to suppress (documented at every other call site
-    in this pipeline — router.py, query_rewriter.py, evaluator.py) — a
-    bare `json.loads(raw.strip())` then raises on the leading prose and
-    this verifier fails CLOSED (not-grounded) on what may be a perfectly
-    good, correctly-grounded answer. Confirmed live: with the local model
-    reachable, a real RAG query that DID find its answer (evaluator said
-    relevant=True, citing the correct document) was abstained anyway
-    because this exact parse failed. router.py already guards against
-    this with the same regex; this call site and evaluator.py's did not.
-    """
-    match = re.search(r"\{.*\}", response, re.DOTALL)
-    return match.group(0) if match else response.strip()
 
 
 def _format_chunks_for_verifier(chunks: list[dict]) -> str:
@@ -285,15 +265,15 @@ async def verify_grounding(
             role="reasoning",
         )
         try:
-            parsed = json.loads(_extract_json(raw))
-            if "grounded" in parsed and "reason" in parsed:
+            parsed = extract_json(raw)
+            if isinstance(parsed, dict) and "grounded" in parsed and "reason" in parsed:
                 llm_result = parsed
                 break
             logger.warning(
                 "Verifier JSON missing expected keys (attempt %d): %s",
                 attempt + 1, raw[:120],
             )
-        except json.JSONDecodeError as exc:
+        except ValueError as exc:
             logger.warning(
                 "Verifier returned invalid JSON (attempt %d): %s — %s",
                 attempt + 1, exc, raw[:120],
