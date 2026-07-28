@@ -1,6 +1,13 @@
 # ============================================================
 # requirements.txt — All Python Dependencies (Muhafiz)
-# Install: pip install -r requirements.txt
+#
+# This is the floor-pinned INTENT file (>= bounds only, for
+# readability/onboarding) — for local dev: pip install -r requirements.txt
+#
+# CI and deployments install from requirements.lock.txt instead, which
+# pins every direct + transitive dependency to an exact version for
+# reproducible builds. Bump a version here, then regenerate the lockfile
+# (see requirements.lock.txt's own header for how).
 # ============================================================
 
 # ── 1. Web Framework ──────────────────────────────────────────────────────────
