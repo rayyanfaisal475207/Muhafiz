@@ -6,6 +6,7 @@
 # pushes them to ChromaDB, and logs them to the SQLite DB.
 # ============================================================
 
+import asyncio
 import logging
 from pathlib import Path
 
@@ -348,8 +349,10 @@ async def ingest_file(
     """
     logger.info("Ingesting file: %s", file_path.name)
     try:
-        # 1. Load
-        documents = route_and_load(file_path)
+        # 1. Load — offloaded to a thread: a scanned PDF can hit the
+        # vision-fallback retry loop's blocking time.sleep(120) x10, which
+        # would otherwise freeze the event loop for up to 20 minutes.
+        documents = await asyncio.to_thread(route_and_load, file_path)
         if not documents:
             logger.warning("No content extracted from %s", file_path.name)
             return {"chunks_added": 0, "error": "No text could be extracted from this file."}
@@ -469,7 +472,6 @@ async def ingest_file(
                 graph_stats = {"errors": [str(exc)]}
             
             # Phase 8.2: Run case-level conflict detection in the background
-            import asyncio
             asyncio.create_task(_run_conflict_detection_bg(case_id, str(doc_id)))
 
         # Module 4.3: total_pages must always mean the PDF's true page count
