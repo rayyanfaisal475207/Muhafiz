@@ -25,6 +25,7 @@ class DirectGateway:
                 "id": str(u.id), "email": u.email, "password_hash": u.password_hash,
                 "role": u.role, "is_admin": u.role == "platform-admin",
                 "company_name": u.company_name, "plan": u.plan,
+                "police_station": u.police_station,
             } if u else None
 
     async def get_user_by_email(self, email: str) -> Optional[dict]:
@@ -35,6 +36,7 @@ class DirectGateway:
                 "id": str(u.id), "email": u.email, "password_hash": u.password_hash,
                 "role": u.role, "is_admin": u.role == "platform-admin",
                 "company_name": u.company_name, "plan": u.plan,
+                "police_station": u.police_station,
             } if u else None
 
     async def create_user(self, user_data: dict) -> dict:
@@ -513,7 +515,7 @@ class DirectGateway:
                 )
             return [self._case_to_dict(c) for c in res.scalars().all()]
 
-    async def check_case_access(self, case_id: str, user_id: str, user_role: str) -> bool:
+    async def check_case_access(self, case_id: str, user_id: str, user_role: str, min_role: str = None) -> bool:
         if user_role == "platform-admin":
             return True
         from src.database.models import CaseAssignment
@@ -522,7 +524,19 @@ class DirectGateway:
                 CaseAssignment.case_id == case_id,
                 CaseAssignment.user_id == uuid.UUID(str(user_id))
             ))
-            return res.scalars().first() is not None
+            assignment = res.scalars().first()
+            if assignment is None:
+                return False
+            if min_role is None:
+                return True
+            # Per-case role, NOT the caller's global role — a global
+            # supervisor assigned to this specific case as "investigator"
+            # must not get supervisor-level destructive access here.
+            roles = ["investigator", "supervisor", "station-admin", "platform-admin"]
+            try:
+                return roles.index(assignment.role) >= roles.index(min_role)
+            except ValueError:
+                return False
 
     async def get_case_assignments(self, case_id: str) -> list[dict]:
         from src.database.models import CaseAssignment

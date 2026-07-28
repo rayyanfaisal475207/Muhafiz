@@ -20,7 +20,7 @@ from src.data_gateway import get_gateway as real_get_gateway
 
 
 class _User:
-    def __init__(self, user_id, is_admin=False, role=None):
+    def __init__(self, user_id, is_admin=False, role=None, police_station=None):
         self.id = uuid.UUID(user_id)
         self.email = "test@example.com"
         self.is_admin = is_admin
@@ -30,6 +30,8 @@ class _User:
         self.role = role or ("platform-admin" if is_admin else "investigator")
         self.company_name = "TestCo"
         self.plan = "free"
+        # Phase 5, Module 5.1: station-scoping anchor, nullable until backfilled.
+        self.police_station = police_station
 
 
 @pytest.fixture
@@ -43,7 +45,8 @@ def api(gateway, user_id, monkeypatch):
     # which resolves against the package at call time.
     for module in ("src.data_gateway", "src.data_gateway.selector", "src.main",
                    "src.api.sessions", "src.api.projects", "src.api.profile",
-                   "src.api.admin", "src.auth.routes", "src.api.case_assignments"):
+                   "src.api.admin", "src.auth.routes", "src.api.case_assignments",
+                   "src.api.cases"):
         monkeypatch.setattr(f"{module}.get_gateway", _get_gateway, raising=False)
 
     app.dependency_overrides[get_current_user] = lambda: _User(user_id)
@@ -208,6 +211,128 @@ def test_supervisor_cannot_assign_case_users(api):
     })
 
     assert response.status_code == 403
+
+
+# ── Case mutation scoping (Phase 5, Module 5.1) ──────────────────────────────
+#
+# Any user assigned to a case, at any role, used to be able to permanently
+# edit or delete the case record — check_case_access() only checked row
+# EXISTENCE in case_assignments, ignoring the assignment's own role column.
+# These guard the fix: update_case/delete_case now require the caller's
+# PER-CASE assignment role to be supervisor-or-above; read/list access is
+# unaffected.
+
+def test_investigator_assignment_cannot_update_case(api, user_id):
+    client, gateway = api
+    gateway.cases["CASE-001"] = {"case_id": "CASE-001", "fir_number": "FIR-1"}
+    gateway.case_assignments["CASE-001"] = [{"user_id": user_id, "email": "x@example.com", "role": "investigator"}]
+
+    response = client.put("/api/cases/CASE-001", json={"fir_number": "FIR-2"})
+
+    assert response.status_code == 403
+
+
+def test_investigator_assignment_cannot_delete_case(api, user_id):
+    client, gateway = api
+    gateway.cases["CASE-001"] = {"case_id": "CASE-001", "fir_number": "FIR-1"}
+    gateway.case_assignments["CASE-001"] = [{"user_id": user_id, "email": "x@example.com", "role": "investigator"}]
+
+    response = client.delete("/api/cases/CASE-001")
+
+    assert response.status_code == 403
+    assert "CASE-001" in gateway.cases, "case must not be deleted on a 403"
+
+
+def test_supervisor_assignment_can_update_and_delete_case(api, user_id):
+    client, gateway = api
+    gateway.cases["CASE-001"] = {"case_id": "CASE-001", "fir_number": "FIR-1"}
+    gateway.case_assignments["CASE-001"] = [{"user_id": user_id, "email": "x@example.com", "role": "supervisor"}]
+
+    update_response = client.put("/api/cases/CASE-001", json={"fir_number": "FIR-2"})
+    assert update_response.status_code == 200
+    assert gateway.cases["CASE-001"]["fir_number"] == "FIR-2"
+
+    delete_response = client.delete("/api/cases/CASE-001")
+    assert delete_response.status_code == 200
+    assert "CASE-001" not in gateway.cases
+
+
+def test_investigator_assignment_can_still_read_case(api, user_id):
+    """Read access stays at the original 'any assignment' threshold."""
+    client, gateway = api
+    gateway.cases["CASE-001"] = {"case_id": "CASE-001", "fir_number": "FIR-1"}
+    gateway.case_assignments["CASE-001"] = [{"user_id": user_id, "email": "x@example.com", "role": "investigator"}]
+
+    response = client.get("/api/cases/CASE-001")
+
+    assert response.status_code == 200
+
+
+# ── Case-assignment station-scoping (Phase 5, Module 5.1) ────────────────────
+#
+# Case-assignment routes used to be gated only by the global "station-admin"
+# role, with no check that the case actually belongs to that admin's
+# station. These guard the fix, and its explicit NULL-police_station bridge
+# (no backfill data exists yet, so a station-admin with police_station=None
+# must keep working, not get locked out of every case).
+
+def test_station_admin_mismatched_station_cannot_assign(api, user_id):
+    client, gateway = api
+    gateway.cases["CASE-001"] = {"case_id": "CASE-001", "police_station": "Kohsar"}
+    gateway.users[user_id] = {"id": user_id, "email": "investigator@example.com", "role": "investigator"}
+    app.dependency_overrides[get_current_user] = lambda: _User(user_id, role="station-admin", police_station="Aabpara")
+
+    response = client.post("/api/cases/CASE-001/assignments/", json={
+        "email": "investigator@example.com", "role": "investigator",
+    })
+
+    assert response.status_code == 403
+
+
+def test_station_admin_matching_station_can_assign(api, user_id):
+    client, gateway = api
+    gateway.cases["CASE-001"] = {"case_id": "CASE-001", "police_station": "Kohsar"}
+    target_id = str(uuid.uuid4())
+    gateway.users[target_id] = {"id": target_id, "email": "investigator@example.com", "role": "investigator"}
+    app.dependency_overrides[get_current_user] = lambda: _User(user_id, role="station-admin", police_station="Kohsar")
+
+    response = client.post("/api/cases/CASE-001/assignments/", json={
+        "email": "investigator@example.com", "role": "investigator",
+    })
+
+    assert response.status_code == 200
+
+
+def test_station_admin_with_no_station_backfilled_falls_back_to_unrestricted(api, user_id):
+    """
+    Bridge behavior: police_station IS NULL means "not yet backfilled", not
+    "belongs to no station" — must not be locked out of every case.
+    """
+    client, gateway = api
+    gateway.cases["CASE-001"] = {"case_id": "CASE-001", "police_station": "Kohsar"}
+    target_id = str(uuid.uuid4())
+    gateway.users[target_id] = {"id": target_id, "email": "investigator@example.com", "role": "investigator"}
+    app.dependency_overrides[get_current_user] = lambda: _User(user_id, role="station-admin", police_station=None)
+
+    response = client.post("/api/cases/CASE-001/assignments/", json={
+        "email": "investigator@example.com", "role": "investigator",
+    })
+
+    assert response.status_code == 200
+
+
+def test_platform_admin_always_can_assign_regardless_of_station(api, user_id):
+    client, gateway = api
+    gateway.cases["CASE-001"] = {"case_id": "CASE-001", "police_station": "Kohsar"}
+    target_id = str(uuid.uuid4())
+    gateway.users[target_id] = {"id": target_id, "email": "investigator@example.com", "role": "investigator"}
+    app.dependency_overrides[get_current_user] = lambda: _User(user_id, role="platform-admin", police_station="Somewhere Else")
+
+    response = client.post("/api/cases/CASE-001/assignments/", json={
+        "email": "investigator@example.com", "role": "investigator",
+    })
+
+    assert response.status_code == 200
 
 
 def test_unassign_user_from_case(station_admin_api):

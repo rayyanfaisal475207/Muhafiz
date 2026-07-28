@@ -67,6 +67,11 @@ class User(Base):
     email: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     role: Mapped[str] = mapped_column(role_enum, default="investigator")
+    # Which police station this user belongs to, for case_assignments.py's
+    # station-scoping (Phase 5, Module 5.1) — nullable since most existing
+    # users predate this column and have not been backfilled. See
+    # migrations/012_user_station.sql.
+    police_station: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     company_name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     plan: Mapped[str] = mapped_column(Text, default="free")
     created_at: Mapped[datetime] = mapped_column(

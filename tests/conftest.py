@@ -54,6 +54,7 @@ class FakeGateway:
         # allowed by default — tests opt IN to denial rather than every
         # other test needing to opt out of a default-deny.
         self.denied_case_ids: set[str] = set()
+        self.cases: dict[str, dict] = {}
 
     # ── Audit log (Phase 7) ──
     async def log_audit_event(self, event_type: str, details: dict = None, user_id: str = None, case_id: str = None) -> None:
@@ -62,8 +63,48 @@ class FakeGateway:
         })
 
     # ── Case access (Phase 7 RBAC/ABAC) ──
-    async def check_case_access(self, case_id: str, user_id: str, user_role: str) -> bool:
-        return case_id not in self.denied_case_ids
+    async def check_case_access(self, case_id: str, user_id: str, user_role: str, min_role: str = None) -> bool:
+        if case_id in self.denied_case_ids:
+            return False
+        if user_role == "platform-admin":
+            return True
+        if min_role is None:
+            return True
+        # min_role set (Phase 5, Module 5.1 destructive-op check): consult
+        # the caller's PER-CASE assignment role, not their global role.
+        assignments = self.case_assignments.get(case_id, [])
+        assignment = next((a for a in assignments if a["user_id"] == str(user_id)), None)
+        if assignment is None:
+            return False
+        roles = ["investigator", "supervisor", "station-admin", "platform-admin"]
+        try:
+            return roles.index(assignment["role"]) >= roles.index(min_role)
+        except ValueError:
+            return False
+
+    # ── Cases (Phase 5, Module 5.1 test support) ──
+    _CASE_DEFAULTS = {"created_at": "2026-01-01T00:00:00", "updated_at": "2026-01-01T00:00:00"}
+
+    async def get_case(self, case_id: str) -> Optional[dict]:
+        case = self.cases.get(case_id)
+        return {**self._CASE_DEFAULTS, **case} if case else None
+
+    async def get_cases(self, user_id: str = None, user_role: str = None) -> list[dict]:
+        return [{**self._CASE_DEFAULTS, **c} for c in self.cases.values()]
+
+    async def create_case(self, data: dict) -> Optional[dict]:
+        case_id = data["case_id"]
+        self.cases[case_id] = dict(data)
+        return {**self._CASE_DEFAULTS, **self.cases[case_id]}
+
+    async def update_case(self, case_id: str, data: dict) -> Optional[dict]:
+        if case_id not in self.cases:
+            return None
+        self.cases[case_id].update(data)
+        return {**self._CASE_DEFAULTS, **self.cases[case_id]}
+
+    async def delete_case(self, case_id: str) -> None:
+        self.cases.pop(case_id, None)
 
     # ── Case assignments (Phase 7 RBAC) ──
     async def assign_user_to_case(self, case_id: str, user_id: str, role: str) -> None:

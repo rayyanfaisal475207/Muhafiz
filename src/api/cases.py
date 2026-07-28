@@ -13,16 +13,29 @@ router = APIRouter(tags=["cases"])
 
 # Phase 7: RBAC/ABAC case-assignment scoping via case_assignments table.
 
-async def require_case_access(case_id: str, current_user: User = Depends(get_current_user)) -> str:
-    # Phase 2: arm Postgres RLS scoped to this case_id BEFORE the gateway
-    # call below (and every gateway call the route handler itself makes)
-    # runs — real per-case enforcement, not just the app-layer check that
-    # was previously the only backstop. See src/auth/rls_context.py.
-    set_case_scope(case_id)
-    gateway = await get_gateway()
-    if not await gateway.check_case_access(case_id, str(current_user.id), current_user.role):
-        raise HTTPException(status_code=403, detail="Not assigned to this case")
-    return case_id
+def require_case_access(min_role: str = None):
+    """
+    Dependency factory: require the caller to be assigned to :case_id,
+    optionally at or above a specific per-case assignment role.
+
+    Phase 5, Module 5.1: `update_case`/`delete_case` pass min_role="supervisor"
+    — any assignee could otherwise edit or permanently delete a case record.
+    Read/list access is unaffected (min_role=None keeps the original
+    "any assignment" threshold), since the finding was about destructive
+    operations specifically.
+    """
+    async def dependency(case_id: str, current_user: User = Depends(get_current_user)) -> str:
+        # Phase 2: arm Postgres RLS scoped to this case_id BEFORE the gateway
+        # call below (and every gateway call the route handler itself makes)
+        # runs — real per-case enforcement, not just the app-layer check that
+        # was previously the only backstop. See src/auth/rls_context.py.
+        set_case_scope(case_id)
+        gateway = await get_gateway()
+        if not await gateway.check_case_access(case_id, str(current_user.id), current_user.role, min_role=min_role):
+            detail = "Not assigned to this case" if min_role is None else f"Case role '{min_role}' or higher required"
+            raise HTTPException(status_code=403, detail=detail)
+        return case_id
+    return dependency
 
 
 class CaseCreate(BaseModel):
@@ -89,7 +102,7 @@ async def list_cases(current_user: User = Depends(get_current_user), _rls=Depend
 
 
 @router.get("/{case_id}", response_model=CaseResponse)
-async def get_case(case_id: str = Depends(require_case_access), current_user: User = Depends(get_current_user)):
+async def get_case(case_id: str = Depends(require_case_access()), current_user: User = Depends(get_current_user)):
     gateway = await get_gateway()
     case = await gateway.get_case(case_id)
     if not case:
@@ -126,7 +139,7 @@ async def create_case(request: Request, case: CaseCreate, current_user: User = D
 
 
 @router.put("/{case_id}", response_model=CaseResponse)
-async def update_case(case: CaseUpdate, case_id: str = Depends(require_case_access), current_user: User = Depends(get_current_user)):
+async def update_case(case: CaseUpdate, case_id: str = Depends(require_case_access(min_role="supervisor")), current_user: User = Depends(get_current_user)):
     # Verify it exists
 
     payload = case.dict(exclude_unset=True)
@@ -142,7 +155,7 @@ async def update_case(case: CaseUpdate, case_id: str = Depends(require_case_acce
 
 
 @router.delete("/{case_id}")
-async def delete_case(case_id: str = Depends(require_case_access), current_user: User = Depends(get_current_user)):
+async def delete_case(case_id: str = Depends(require_case_access(min_role="supervisor")), current_user: User = Depends(get_current_user)):
     # Verify it exists
     gateway = await get_gateway()
     await gateway.log_audit_event("admin_action", {"action": "delete_case"}, str(current_user.id), case_id)

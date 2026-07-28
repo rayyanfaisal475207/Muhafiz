@@ -1,0 +1,21 @@
+-- Migration 012: Add police_station to users, for case-assignment station-scoping.
+--
+-- Background (see issues.md's High "Case-assignment routes are gated only by
+-- a global role, not by per-case or per-station access" finding, Phase 5
+-- Module 5.1): `Case.police_station` already exists, but there is nothing on
+-- `User` to scope a station-admin's assignment authority against — any
+-- station-admin can assign/unassign users on ANY case today, regardless of
+-- which station it belongs to. This column is that anchor.
+--
+-- No backfill is included here: this environment currently has exactly one
+-- station-admin user, with zero existing case_assignments to infer a station
+-- from (verified directly against this database before writing this
+-- migration) — there is no real mapping to backfill from yet. Application
+-- code (src/api/case_assignments.py) treats `police_station IS NULL` as "not
+-- yet backfilled" and falls back to the pre-fix unrestricted behavior with a
+-- loud warning log, rather than silently locking out every station-admin
+-- until an operator sets this column by hand.
+--
+--   python scripts/apply_migration.py migrations/012_user_station.sql
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS police_station TEXT;
