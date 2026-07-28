@@ -32,7 +32,8 @@ def run_pipeline(monkeypatch, patched_gateway):
                    query_similar_exc=None,
                    graph_result=None,
                    agg_result=None,
-                   evaluator_relevant=True):
+                   evaluator_relevant=True,
+                   generation_exc=None):
 
         async def fake_call_llm(system_prompt, user_message, **kwargs):
             # Order matters: match the most specific prompt first (the file
@@ -65,6 +66,8 @@ def run_pipeline(monkeypatch, patched_gateway):
             # generation prompt (RAG, GRAPH, etc. now use call_llm, not stream_llm).
             fake_call_llm.last_system = system_prompt
             fake_call_llm.last_kwargs = kwargs
+            if generation_exc is not None:
+                raise generation_exc
             return answer
 
         fake_call_llm.last_system = ""
@@ -354,6 +357,26 @@ async def test_rag_retrieval_failure_degrades_to_safe_response(run_pipeline):
     assert orch._SAFE_RESPONSE.split(" ")[0] in _text_of(events)
     # It must NOT have gone on to re-rank / evaluate on non-existent results.
     assert not any(e["step"] == "reranker" for e in events)
+
+
+async def test_rag_generation_failure_degrades_to_safe_response(run_pipeline):
+    """
+    Module 6.2: the RAG route's final generation/verification call had no
+    exception guard — unlike every sibling route (SQL/WEB/GRAPH/GRAPH_HYBRID),
+    which catch failures and fall back to RAG. RAG itself has nowhere further
+    to fall back to, so a generation failure (e.g. an LLM call erroring out)
+    must degrade to the safe response instead of raising out of process_query.
+    """
+    events, _ = await run_pipeline(
+        route='{"route": "RAG", "output_format": "chat"}',
+        message="What documents are required for a certified copy of an FIR?",
+        generation_exc=RuntimeError("LLM call failed"),
+    )
+
+    assert any(e["step"] == "response" and e["status"] == "error" for e in events)
+    assert orch._SAFE_RESPONSE.split(" ")[0] in _text_of(events)
+    # It must have gotten past retrieval/evaluation before failing here.
+    assert any(e["step"] == "evaluator" and e["status"] == "done" for e in events)
 
 
 async def test_rag_case_scoped_query_filters_on_case_id_alone(run_pipeline):

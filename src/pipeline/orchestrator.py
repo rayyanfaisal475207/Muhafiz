@@ -1388,60 +1388,71 @@ async def process_query(
                 yield event("response", "active", "Generating grounded response...", retry_num=retry_count)
                 t0 = time.monotonic()
 
-                documents_text = _format_documents_for_prompt(reranked)
-                history_text = format_history_for_prompt(history)
-                # Attached files ride along with the user's saved context: the
-                # grounded answer may cite them, but they were never retrieved
-                # from (and never entered) the knowledge base.
-                grounded_user_context = "\n\n".join(
-                    part for part in (user_context, attachment_context) if part
-                ) or "None"
-                system_prompt = _FINAL_PROMPT_TEMPLATE.format(
-                    documents=documents_text,
-                    project_memory=project_memory_text or "(no established project context for this conversation)",
-                    history=history_text or "(no previous conversation)",
-                    user_context=grounded_user_context,
-                    preferred_language=preferred_language,
-                )
+                try:
+                    documents_text = _format_documents_for_prompt(reranked)
+                    history_text = format_history_for_prompt(history)
+                    # Attached files ride along with the user's saved context: the
+                    # grounded answer may cite them, but they were never retrieved
+                    # from (and never entered) the knowledge base.
+                    grounded_user_context = "\n\n".join(
+                        part for part in (user_context, attachment_context) if part
+                    ) or "None"
+                    system_prompt = _FINAL_PROMPT_TEMPLATE.format(
+                        documents=documents_text,
+                        project_memory=project_memory_text or "(no established project context for this conversation)",
+                        history=history_text or "(no previous conversation)",
+                        user_context=grounded_user_context,
+                        preferred_language=preferred_language,
+                    )
 
-                full_response = await call_llm(system_prompt, user_message, llm_mode=llm_mode, role="generation")
-                elapsed_ms = int((time.monotonic() - t0) * 1000)
+                    full_response = await call_llm(system_prompt, user_message, llm_mode=llm_mode, role="generation")
+                    elapsed_ms = int((time.monotonic() - t0) * 1000)
 
-                _spawn(asyncio.to_thread(pipeline_logger.log_llm_call,
-                    query_id, "response", config.LLM_PROVIDER, config.GROQ_MODEL if config.LLM_PROVIDER=="groq" else config.GEMINI_MODEL,
-                    system_prompt, user_message, full_response, elapsed_ms, retry_count
-                ))
+                    _spawn(asyncio.to_thread(pipeline_logger.log_llm_call,
+                        query_id, "response", config.LLM_PROVIDER, config.GROQ_MODEL if config.LLM_PROVIDER=="groq" else config.GEMINI_MODEL,
+                        system_prompt, user_message, full_response, elapsed_ms, retry_count
+                    ))
 
-                # ── Verify before delivering ──────────────────────────────
-                t0_verify = time.monotonic()
-                verification = await verify_grounding(
-                    answer=full_response, cited_chunks=reranked, case_id=case_id
-                )
-                verifier_ms = int((time.monotonic() - t0_verify) * 1000)
-                verifier_passed = verification.get("grounded", False) and not verification.get("off_topic", False)
-                verifier_regenerated = False
+                    # ── Verify before delivering ──────────────────────────────
+                    t0_verify = time.monotonic()
+                    verification = await verify_grounding(
+                        answer=full_response, cited_chunks=reranked, case_id=case_id
+                    )
+                    verifier_ms = int((time.monotonic() - t0_verify) * 1000)
+                    verifier_passed = verification.get("grounded", False) and not verification.get("off_topic", False)
+                    verifier_regenerated = False
 
-                if not verifier_passed:
-                    logger.warning("Verifier rejected RAG response: %s", verification.get("reason", "")[:100])
-                    full_response = _ABSTENTION_RESPONSE
-                    verifier_regenerated = True
+                    if not verifier_passed:
+                        logger.warning("Verifier rejected RAG response: %s", verification.get("reason", "")[:100])
+                        full_response = _ABSTENTION_RESPONSE
+                        verifier_regenerated = True
 
-                yield event("citation_validator", "done",
-                    verification.get("reason", "")[:120], verifier_ms,
-                    grounded=verifier_passed, regenerated=verifier_regenerated,
-                    retry_num=retry_count)
-                yield event("response", "streaming", full_response, retry_num=retry_count)
-                yield event("response", "done", f"Response generated ({len(full_response)} chars)", elapsed_ms, retry_num=retry_count)
+                    yield event("citation_validator", "done",
+                        verification.get("reason", "")[:120], verifier_ms,
+                        grounded=verifier_passed, regenerated=verifier_regenerated,
+                        retry_num=retry_count)
+                    yield event("response", "streaming", full_response, retry_num=retry_count)
+                    yield event("response", "done", f"Response generated ({len(full_response)} chars)", elapsed_ms, retry_num=retry_count)
 
-                final_response = full_response
-                response_type = "rag"
-                update_query_bg(verifier_passed=verifier_passed, verifier_regenerated=verifier_regenerated)
+                    final_response = full_response
+                    response_type = "rag"
+                    update_query_bg(verifier_passed=verifier_passed, verifier_regenerated=verifier_regenerated)
 
-                # Trigger Background Project Memory Update
-                if project_id and final_response:
-                    asyncio.create_task(update_project_memory(project_id, [{"role": "user", "content": user_message}, {"role": "assistant", "content": final_response}], gateway))
+                    # Trigger Background Project Memory Update
+                    if project_id and final_response:
+                        asyncio.create_task(update_project_memory(project_id, [{"role": "user", "content": user_message}, {"role": "assistant", "content": final_response}], gateway))
+                except Exception as gen_exc:
+                    # Unlike the sibling SQL/WEB/GRAPH/GRAPH_HYBRID routes, RAG has
+                    # nowhere further to fall back to — degrade straight to the safe
+                    # response, same as the retrieval-stage guard above.
+                    logger.error("RAG generation/verification failed: %s", gen_exc)
+                    yield event("response", "error", f"Response generation failed: {gen_exc}", retry_num=retry_count)
+                    final_response = _SAFE_RESPONSE
+                    response_type = "safe"
+                    yield event("response", "streaming", final_response, retry_num=retry_count)
+                    yield event("response", "done", f"Response generated ({len(final_response)} chars)", 0, retry_num=retry_count)
 
-                break  # Success — exit retry loop
+                break  # Success (or safe-response fallback) — exit retry loop
 
             else:
                 # Not relevant — check retry budget
