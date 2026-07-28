@@ -49,20 +49,52 @@ class FieldMatch:
 
 # ── Regexes (operate on ASCII digits — normalize_urdu() runs first) ──────
 
-# CNIC: 5-7-1 digit groups, e.g. 00000-1234567-8.
-_CNIC_RE = re.compile(r"\b\d{5}-\d{7}-\d\b")
+# A separator between two identifier groups: zero or more of ASCII hyphen,
+# any Unicode whitespace (incl. non-breaking space), or a dash/minus
+# variant (non-breaking hyphen, figure/en/em dash, horizontal bar, minus
+# sign). Matches nothing (the group ran together with no punctuation at
+# all), a single hyphen (the corpus norm), or OCR/vision-extraction noise
+# in between — the Gemini Vision OCR fallback path's prompt never
+# instructs punctuation normalization, so real scanned evidence realistically
+# produces all three. Scoped to *inside* each already fully-anchored
+# identifier pattern below (never a free-standing text-wide substitution),
+# so it can't widen matching anywhere else in a document — only the exact
+# digit/letter counts on either side of it can trigger a match.
+_SEP = r"[-‐‑‒–—―−\s]*"
+
+# Same separator class, but REQUIRED (1+), for a boundary between two
+# letter groups specifically. A fully-collapsed letter-letter boundary is
+# indistinguishable from an ordinary word run — live-caught during
+# implementation: with _SEP (0+) at both of _PLATE_RE's gaps, plain prose
+# like "CASE-009" parsed as city_code="CAS" + series="E" + number="009"
+# (zero-length separator between "CAS" and "E"), a real false positive on
+# an existing regression test, not a hypothetical one. Digit-adjacent gaps
+# don't have this problem (a bare 13-digit run colliding with a real CNIC
+# is already an accepted, pre-existing risk per the audit) so only the
+# letter-letter gap needs this stricter class.
+_SEP_LETTERS = r"[-‐‑‒–—―−\s]+"
+
+# CNIC: 5-7-1 digit groups, e.g. 00000-1234567-8. Groups captured so the
+# canonical (hyphenated) form can be rebuilt regardless of which separator
+# variant (or none) actually matched.
+_CNIC_RE = re.compile(r"\b(\d{5})" + _SEP + r"(\d{7})" + _SEP + r"(\d)\b")
 
 # Pakistani mobile: 03XX-XXXXXXX (4 digits, dash, 7 digits).
-_PHONE_RE = re.compile(r"\b03\d{2}-\d{7}\b")
+_PHONE_RE = re.compile(r"\b(03\d{2})" + _SEP + r"(\d{7})\b")
 
 # Vehicle plate: ICT-XX-NNN (city code - series letters - number). Corpus
 # uses 3-letter city codes and 2-letter series consistently (ICT-LE-309,
 # ICT-FL-273); kept slightly permissive (2-4 / 1-2 letters, 2-4 digits) so
-# a plausible real-world variant isn't silently dropped.
-_PLATE_RE = re.compile(r"\b[A-Z]{2,4}-[A-Z]{1,2}-\d{2,4}\b")
+# a plausible real-world variant isn't silently dropped. Case-insensitive
+# — OCR/vision extraction has no reason to reliably preserve the corpus's
+# uppercase convention.
+_PLATE_RE = re.compile(
+    r"\b([A-Z]{2,4})" + _SEP_LETTERS + r"([A-Z]{1,2})" + _SEP + r"(\d{2,4})\b",
+    re.IGNORECASE,
+)
 
 # FIR number: FIR-YYYY-<CATEGORY>-NNN, e.g. FIR-2026-ARMS-001.
-_FIR_RE = re.compile(r"\bFIR-\d{4}-[A-Z]+-\d{3}\b")
+_FIR_RE = re.compile(r"\bFIR" + _SEP + r"(\d{4})" + _SEP + r"([A-Z]+)" + _SEP + r"(\d{3})\b")
 
 # Dates: ISO (YYYY-MM-DD, optionally with a time) and DD-MM-YYYY. The
 # latter shows up in rendered Urdu narrative text (IMPLEMENTATION_PLAN.md
@@ -103,12 +135,19 @@ def _normalize(text: str) -> str:
 # ── CNIC ───────────────────────────────────────────────────────────────────
 
 def extract_cnics(text: str) -> list[FieldMatch]:
-    """Find every CNIC-shaped identifier (5-7-1 digit groups) in text."""
+    """
+    Find every CNIC-shaped identifier (5-7-1 digit groups) in text. The
+    canonical form is rebuilt from the three digit groups, not the raw
+    match, so OCR punctuation noise between groups never leaks into it —
+    the same CNIC hyphenated differently across two documents still
+    normalizes identically for entity-resolution matching.
+    """
     norm = _normalize(text)
-    return [
-        FieldMatch("cnic", m.group(0), m.group(0), m.start(), m.end())
-        for m in _CNIC_RE.finditer(norm)
-    ]
+    out = []
+    for m in _CNIC_RE.finditer(norm):
+        canonical = f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+        out.append(FieldMatch("cnic", m.group(0), canonical, m.start(), m.end()))
+    return out
 
 
 # ── Phone ──────────────────────────────────────────────────────────────────
@@ -116,10 +155,11 @@ def extract_cnics(text: str) -> list[FieldMatch]:
 def extract_phones(text: str) -> list[FieldMatch]:
     """Find every Pakistani-mobile-shaped number (03XX-XXXXXXX) in text."""
     norm = _normalize(text)
-    return [
-        FieldMatch("phone", m.group(0), m.group(0), m.start(), m.end())
-        for m in _PHONE_RE.finditer(norm)
-    ]
+    out = []
+    for m in _PHONE_RE.finditer(norm):
+        canonical = f"{m.group(1)}-{m.group(2)}"
+        out.append(FieldMatch("phone", m.group(0), canonical, m.start(), m.end()))
+    return out
 
 
 # ── Vehicle plate ────────────────────────────────────────────────────────
@@ -129,8 +169,8 @@ def extract_plates(text: str) -> list[FieldMatch]:
     norm = _normalize(text)
     out = []
     for m in _PLATE_RE.finditer(norm):
-        raw = m.group(0)
-        out.append(FieldMatch("plate", raw, raw.upper(), m.start(), m.end()))
+        canonical = f"{m.group(1)}-{m.group(2)}-{m.group(3)}".upper()
+        out.append(FieldMatch("plate", m.group(0), canonical, m.start(), m.end()))
     return out
 
 
@@ -141,8 +181,8 @@ def extract_fir_numbers(text: str) -> list[FieldMatch]:
     norm = _normalize(text)
     out = []
     for m in _FIR_RE.finditer(norm):
-        raw = m.group(0)
-        out.append(FieldMatch("fir_number", raw, raw.upper(), m.start(), m.end()))
+        canonical = f"FIR-{m.group(1)}-{m.group(2)}-{m.group(3)}".upper()
+        out.append(FieldMatch("fir_number", m.group(0), canonical, m.start(), m.end()))
     return out
 
 

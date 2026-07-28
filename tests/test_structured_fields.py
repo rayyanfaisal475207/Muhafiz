@@ -33,6 +33,76 @@ def test_no_false_positive_cnic_on_short_digit_run():
     assert sf.extract_cnics("case FIR-2026-ARMS-001 registered") == []
 
 
+# ── Module 6.5: separator-tolerant matching (OCR/vision-extraction noise) ──
+
+def test_extract_cnic_with_en_dash_separator():
+    # Realistic Gemini Vision OCR output: en-dash (U+2013) instead of a
+    # plain hyphen. The canonical form must still come out ASCII-hyphenated
+    # so the same CNIC matches across differently-OCR'd documents.
+    text = "CNIC 00000–9119877–0 noted"
+    matches = sf.extract_cnics(text)
+    assert len(matches) == 1
+    assert matches[0].normalized == "00000-9119877-0"
+
+
+def test_extract_cnic_with_space_separator():
+    matches = sf.extract_cnics("CNIC 00000 9119877 0 noted")
+    assert len(matches) == 1
+    assert matches[0].normalized == "00000-9119877-0"
+
+
+def test_extract_cnic_with_no_separator_at_all():
+    matches = sf.extract_cnics("CNIC 0000091198770 noted")
+    assert len(matches) == 1
+    assert matches[0].normalized == "00000-9119877-0"
+
+
+def test_extract_phone_with_space_separator():
+    matches = sf.extract_phones("call 0300 1234567")
+    assert len(matches) == 1
+    assert matches[0].normalized == "0300-1234567"
+
+
+def test_extract_phone_with_no_separator():
+    matches = sf.extract_phones("call 03001234567")
+    assert len(matches) == 1
+    assert matches[0].normalized == "0300-1234567"
+
+
+def test_extract_plate_is_case_insensitive():
+    matches = sf.extract_plates("ict-le-309 spotted")
+    assert len(matches) == 1
+    assert matches[0].normalized == "ICT-LE-309"
+
+
+def test_extract_plate_with_em_dash_and_missing_separator():
+    matches = sf.extract_plates("plate ICT—LE309 on record")
+    assert len(matches) == 1
+    assert matches[0].normalized == "ICT-LE-309"
+
+
+def test_no_false_positive_plate_on_ordinary_word_then_number():
+    # Regression: with a fully-optional separator at BOTH of the plate
+    # pattern's gaps, "CASE-009" parsed as city_code="CAS" + series="E" +
+    # number="009" (zero-length separator between "CAS" and "E") -- a real
+    # false positive caught by test_graph_retriever.py's case-wide-
+    # enumeration test. The letter-to-letter gap must require an actual
+    # separator character; only letter-to-digit gaps may be fully optional.
+    assert sf.extract_plates("How many accused are involved in CASE-009?") == []
+
+
+def test_extract_fir_number_with_space_separators():
+    matches = sf.extract_fir_numbers("مقدمہ نمبر FIR 2026 ARMS 001 کے تحت")
+    assert len(matches) == 1
+    assert matches[0].normalized == "FIR-2026-ARMS-001"
+
+
+def test_extract_fir_number_with_no_separators():
+    matches = sf.extract_fir_numbers("FIR2026ARMS001 filed")
+    assert len(matches) == 1
+    assert matches[0].normalized == "FIR-2026-ARMS-001"
+
+
 # ── Phone ───────────────────────────────────────────────────────────────
 
 def test_extract_phone():
