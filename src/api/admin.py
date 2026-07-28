@@ -224,21 +224,23 @@ async def get_kb_jobs(limit: int = 50, offset: int = 0, admin: User = Depends(re
 
 @router.get("/audit-logs")
 async def get_audit_logs(
-    limit: int = 100, 
-    offset: int = 0, 
-    event_type: str = None, 
-    case_id: str = None, 
+    limit: int = 100,
+    offset: int = 0,
+    days: int = 30,
+    event_type: str = None,
+    case_id: str = None,
     user_id: str = None,
     admin: User = Depends(require_role("platform-admin"))
 ):
     """View system audit logs."""
     gateway = await get_gateway()
     return await gateway.get_audit_logs(
-        limit=limit, 
-        offset=offset, 
-        event_type=event_type, 
-        case_id=case_id, 
-        user_id=user_id
+        limit=limit,
+        offset=offset,
+        event_type=event_type,
+        case_id=case_id,
+        user_id=user_id,
+        since=analytics.since_iso(days),
     )
 
 

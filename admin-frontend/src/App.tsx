@@ -52,7 +52,7 @@ const ProtectedLayout: React.FC = () => {
         <Route path="/users" element={<RequireRole min={PLATFORM_ADMIN}><UsersPage /></RequireRole>} />
         <Route path="/review-queue" element={<RequireRole min={SUPERVISOR_PLUS}><ReviewQueuePage /></RequireRole>} />
         <Route path="/eval/entity-resolution" element={<RequireRole min={SUPERVISOR_PLUS}><EntityEvalPage /></RequireRole>} />
-        <Route path="/audit-logs" element={<RequireRole min={SUPERVISOR_PLUS}><AuditLogPage /></RequireRole>} />
+        <Route path="/audit-logs" element={<RequireRole min={PLATFORM_ADMIN}><AuditLogPage /></RequireRole>} />
         <Route path="/cases" element={<RequireRole min={SUPERVISOR_PLUS}><CaseManagementPage /></RequireRole>} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

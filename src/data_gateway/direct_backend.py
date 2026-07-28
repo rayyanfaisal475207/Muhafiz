@@ -764,7 +764,7 @@ class DirectGateway:
             if not self._missing_table(exc):
                 logger.error(f"Audit log failed: {exc}")
 
-    async def get_audit_logs(self, limit: int = 100, offset: int = 0, event_type: str = None, case_id: str = None, user_id: str = None) -> list[dict]:
+    async def get_audit_logs(self, limit: int = 100, offset: int = 0, event_type: str = None, case_id: str = None, user_id: str = None, since: str = None) -> list[dict]:
         from src.database.models import AuditLog
         try:
             async with get_session() as db:
@@ -775,6 +775,8 @@ class DirectGateway:
                     q = q.where(AuditLog.case_id == case_id)
                 if user_id:
                     q = q.where(AuditLog.user_id == uuid.UUID(str(user_id)))
+                if since:
+                    q = q.where(AuditLog.timestamp >= self._naive_utc(since))
                 res = await db.execute(q.order_by(desc(AuditLog.timestamp)).limit(limit).offset(offset))
                 return [{
                     "log_id": str(log.log_id),

@@ -1,140 +1,234 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react'
+import api from '../api'
+import { Card, RangePicker } from '../components/common'
 
 interface AuditLog {
-  log_id: string;
-  timestamp: string;
-  event_type: string;
-  user_id: string | null;
-  case_id: string | null;
-  details: Record<string, any>;
+  log_id: string
+  timestamp: string
+  event_type: string
+  user_id: string | null
+  case_id: string | null
+  details: Record<string, any>
 }
 
-export const AuditLogPage: React.FC = () => {
-  const [logs, setLogs] = useState<AuditLog[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  
-  // Filters
-  const [eventType, setEventType] = useState('');
-  const [caseId, setCaseId] = useState('');
-  const [userId, setUserId] = useState('');
+// Field names (matched case-insensitively, by substring) whose values are
+// redacted before the details blob is rendered — checked against every
+// gateway.log_audit_event() call site: cases.py writes the full case
+// create/update payload (victim_info/suspect_info PII) into details.payload;
+// case_assignments.py writes target_email; graph_retriever.py/xagg.py write
+// free-text query strings that may echo investigation content.
+const SENSITIVE_KEYS = ['payload', 'victim', 'suspect', 'email', 'query', 'cnic', 'phone', 'address', 'password']
 
-  const fetchLogs = async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (eventType) params.append('event_type', eventType);
-      if (caseId) params.append('case_id', caseId);
-      if (userId) params.append('user_id', userId);
-
-      const res = await fetch(`/api/admin/audit-logs?${params.toString()}`);
-      if (!res.ok) {
-        throw new Error(`Failed to fetch logs: ${res.statusText}`);
-      }
-      const data = await res.json();
-      setLogs(data);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+function redact(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redact)
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = SENSITIVE_KEYS.some((s) => k.toLowerCase().includes(s)) ? '[redacted]' : redact(v)
     }
-  };
+    return out
+  }
+  return value
+}
+
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleString('en-PK', { hour12: true, dateStyle: 'medium', timeStyle: 'short' })
+}
+
+function eventBadgeClass(eventType: string): string {
+  if (eventType === 'authorization_violation') return 'badge-error'
+  if (eventType.startsWith('admin_')) return 'badge-accent'
+  return ''
+}
+
+const PAGE_SIZE = 100
+
+const AuditLogPage: React.FC = () => {
+  const [logs, setLogs] = useState<AuditLog[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [error, setError] = useState('')
+  const [hasMore, setHasMore] = useState(true)
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [days, setDays] = useState(30)
+
+  // Text filters debounce into these before a request actually fires.
+  const [eventTypeInput, setEventTypeInput] = useState('')
+  const [caseIdInput, setCaseIdInput] = useState('')
+  const [userIdInput, setUserIdInput] = useState('')
+  const [eventType, setEventType] = useState('')
+  const [caseId, setCaseId] = useState('')
+  const [userId, setUserId] = useState('')
 
   useEffect(() => {
-    fetchLogs();
-  }, [eventType, caseId, userId]);
+    const t = setTimeout(() => setEventType(eventTypeInput.trim()), 300)
+    return () => clearTimeout(t)
+  }, [eventTypeInput])
+  useEffect(() => {
+    const t = setTimeout(() => setCaseId(caseIdInput.trim()), 300)
+    return () => clearTimeout(t)
+  }, [caseIdInput])
+  useEffect(() => {
+    const t = setTimeout(() => setUserId(userIdInput.trim()), 300)
+    return () => clearTimeout(t)
+  }, [userIdInput])
+
+  const fetchLogs = useCallback(async (offset: number, append: boolean) => {
+    if (append) setLoadingMore(true)
+    else setLoading(true)
+    try {
+      const res = await api.get<AuditLog[]>('/audit-logs', {
+        params: {
+          limit: PAGE_SIZE,
+          offset,
+          days,
+          event_type: eventType || undefined,
+          case_id: caseId || undefined,
+          user_id: userId || undefined,
+        },
+      })
+      setLogs((prev) => (append ? [...prev, ...res.data] : res.data))
+      setHasMore(res.data.length === PAGE_SIZE)
+      setError('')
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || err.message || 'Failed to fetch logs')
+      // Don't leave a stale, filter-mismatched result set on screen under
+      // the error banner — a failed fetch means "we don't know", not
+      // "here's what matched your new filter".
+      if (!append) {
+        setLogs([])
+        setHasMore(false)
+      }
+    } finally {
+      if (append) setLoadingMore(false)
+      else setLoading(false)
+    }
+  }, [days, eventType, caseId, userId])
+
+  useEffect(() => { fetchLogs(0, false) }, [fetchLogs])
+
+  const hasFilters = eventTypeInput || caseIdInput || userIdInput
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Audit Logs (Chain of Custody)</h1>
-        <button
-          onClick={fetchLogs}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          Refresh
-        </button>
-      </div>
-
-      {error && (
-        <div className="p-4 bg-red-100 text-red-700 rounded-md">
-          {error}
+    <div className="main-content">
+      <div className="page-header row-between">
+        <div>
+          <h1 className="page-title">Audit Logs</h1>
+          <p className="page-sub">Chain of custody — every logged administrative and access-control event.</p>
         </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <input
-          type="text"
-          placeholder="Filter by Event Type"
-          value={eventType}
-          onChange={(e) => setEventType(e.target.value)}
-          className="p-2 border rounded dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-        />
-        <input
-          type="text"
-          placeholder="Filter by Case ID"
-          value={caseId}
-          onChange={(e) => setCaseId(e.target.value)}
-          className="p-2 border rounded dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-        />
-        <input
-          type="text"
-          placeholder="Filter by User ID"
-          value={userId}
-          onChange={(e) => setUserId(e.target.value)}
-          className="p-2 border rounded dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-        />
+        <RangePicker value={days} onChange={(d) => setDays(d)} />
       </div>
 
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
-        {loading ? (
-          <div className="p-6 text-center text-gray-500">Loading logs...</div>
-        ) : logs.length === 0 ? (
-          <div className="p-6 text-center text-gray-500">No logs found matching criteria.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-900">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Event Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Case / User</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {logs.map((log) => (
-                  <tr key={log.log_id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-300">
-                      {new Date(log.timestamp).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        log.event_type === 'authorization_violation' ? 'bg-red-100 text-red-800' :
-                        log.event_type.startsWith('admin_') ? 'bg-purple-100 text-purple-800' :
-                        'bg-blue-100 text-blue-800'
-                      }`}>
-                        {log.event_type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      <div><span className="font-semibold text-gray-700 dark:text-gray-300">Case:</span> {log.case_id || 'N/A'}</div>
-                      <div className="mt-1"><span className="font-semibold text-gray-700 dark:text-gray-300">User:</span> {log.user_id ? log.user_id.substring(0,8) + '...' : 'System'}</div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                      <pre className="text-xs max-h-32 overflow-y-auto bg-gray-50 dark:bg-gray-900 p-2 rounded">
-                        {JSON.stringify(log.details, null, 2)}
-                      </pre>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <div className="page-body">
+        {error && (
+          <div className="banner banner-warning">
+            <span aria-hidden>⚠</span>
+            <span><strong>Could not load audit logs.</strong> {error}</span>
           </div>
         )}
+
+        <Card
+          title="Events"
+          sub={`${logs.length} shown${hasMore ? '+' : ''} · last ${days === 1 ? '24 hours' : `${days} days`}`}
+          right={
+            <button className="btn" onClick={() => fetchLogs(0, false)}>
+              ↻ Refresh
+            </button>
+          }
+        >
+          <div className="filter-bar">
+            <span className="filter-label">Event type</span>
+            <input
+              type="text"
+              placeholder="e.g. admin_action"
+              value={eventTypeInput}
+              onChange={(e) => setEventTypeInput(e.target.value)}
+              aria-label="Filter by event type"
+            />
+            <span className="filter-label">Case ID</span>
+            <input
+              type="text"
+              placeholder="e.g. CASE-2026-014"
+              value={caseIdInput}
+              onChange={(e) => setCaseIdInput(e.target.value)}
+              aria-label="Filter by case ID"
+            />
+            <span className="filter-label">User ID</span>
+            <input
+              type="text"
+              placeholder="user UUID"
+              value={userIdInput}
+              onChange={(e) => setUserIdInput(e.target.value)}
+              aria-label="Filter by user ID"
+            />
+            {hasFilters && (
+              <button
+                className="btn"
+                onClick={() => { setEventTypeInput(''); setCaseIdInput(''); setUserIdInput('') }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          {loading ? (
+            <div className="loading-state"><div className="spinner" /><span>Loading…</span></div>
+          ) : logs.length === 0 ? (
+            <div className="empty-state">No logs found matching these criteria.</div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Timestamp</th>
+                      <th>Event type</th>
+                      <th>Case</th>
+                      <th>User</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {logs.map((log) => (
+                      <React.Fragment key={log.log_id}>
+                        <tr
+                          className="expand-row"
+                          onClick={() => setExpanded(expanded === log.log_id ? null : log.log_id)}
+                        >
+                          <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(log.timestamp)}</td>
+                          <td>
+                            <span className={`badge ${eventBadgeClass(log.event_type)}`}>{log.event_type}</span>
+                          </td>
+                          <td className="font-mono">{log.case_id || '—'}</td>
+                          <td className="font-mono">{log.user_id ? `${log.user_id.slice(0, 8)}…` : 'System'}</td>
+                        </tr>
+                        {expanded === log.log_id && (
+                          <tr>
+                            <td colSpan={4} style={{ padding: 0 }}>
+                              <div className="expand-panel font-mono">
+                                {JSON.stringify(redact(log.details), null, 2)}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {hasMore && (
+                <div style={{ textAlign: 'center', marginTop: 14 }}>
+                  <button className="btn" disabled={loadingMore} onClick={() => fetchLogs(logs.length, true)}>
+                    {loadingMore ? 'Loading…' : 'Load more'}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </Card>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default AuditLogPage;
+export default AuditLogPage

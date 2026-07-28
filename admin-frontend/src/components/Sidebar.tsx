@@ -63,7 +63,7 @@ const navGroups: Array<{ label: string; items: Array<{ to: string; label: string
         to: '/audit-logs',
         label: 'Audit Logs',
         icon: icon(<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></>),
-        minRole: SUPERVISOR_PLUS,
+        minRole: PLATFORM_ADMIN,
       },
       {
         to: '/errors',
