@@ -20,6 +20,7 @@ from pydantic import BaseModel
 
 from src.auth.jwt import require_role
 from src.auth.rls_context import cross_case_rls_dependency
+from src.data_gateway import get_gateway
 from src.database.models import User
 from src.graph import age_client, versioning
 
@@ -40,7 +41,7 @@ router = APIRouter(
 
 
 class ReviewAction(BaseModel):
-    reviewed_by: str = "admin"
+    pass
 
 
 def _entity_summary(node: dict) -> dict:
@@ -63,8 +64,10 @@ async def list_pending(case_id: str | None = None, tier: str | None = None, admi
     rows = await age_client.execute_cypher(
         "MATCH (a)-[r:SAME_AS]->(b) "
         "WHERE r.status = 'pending' AND r.superseded_by IS NULL "
-        "RETURN a, r, b",
-        columns=["a", "r", "b"],
+        "OPTIONAL MATCH (a)-[:BELONGS_TO_CASE]->(ca:Case) "
+        "OPTIONAL MATCH (b)-[:BELONGS_TO_CASE]->(cb:Case) "
+        "RETURN a, r, b, ca.case_id AS a_case_id, cb.case_id AS b_case_id",
+        columns=["a", "r", "b", "a_case_id", "b_case_id"],
     )
 
     results = []
@@ -72,6 +75,16 @@ async def list_pending(case_id: str | None = None, tier: str | None = None, admi
         edge = row["r"]
         props = edge.get("properties", {})
         if tier and props.get("tier") != tier:
+            continue
+        # A caller passing case_id gets the queue narrowed to matches
+        # touching that case — an opt-in filter, not a default
+        # restriction. Deliberately NOT the default: this queue is meant
+        # to surface cross-case matches too (the P-006 flagship case), so
+        # case-scoping it by default would hide exactly the matches most
+        # worth an investigator's attention (see module docstring,
+        # solution.md §9.2 — unresolved whether that cross-case exposure
+        # itself needs a product decision; this filter doesn't touch that).
+        if case_id and case_id not in (row.get("a_case_id"), row.get("b_case_id")):
             continue
         results.append({
             "edge_id": edge["id"],
@@ -84,15 +97,6 @@ async def list_pending(case_id: str | None = None, tier: str | None = None, admi
             "mention": _entity_summary(row["a"]),
             "candidate": _entity_summary(row["b"]),
         })
-
-    # case_id isn't a SAME_AS edge property — filtering by it means
-    # checking whether either endpoint belongs to that case, which is a
-    # second query per candidate. Deliberately not done here: this queue
-    # is meant to surface cross-case matches too (the P-006 flagship
-    # case), so case-scoping the review queue by default would hide
-    # exactly the matches most worth an investigator's attention.
-    if case_id:
-        logger.debug("case_id filter on the review queue is not applied — see docstring")
 
     results.sort(key=lambda r: r["as_of"] or "", reverse=True)
     return {"pending": results, "count": len(results)}
@@ -150,7 +154,7 @@ async def confirm_match(edge_id: int, action: ReviewAction, admin: User = Depend
             "tier": r["properties"].get("tier"),
             "basis": r["properties"].get("basis"),
             "status": "confirmed",
-            "reviewed_by": action.reviewed_by,
+            "reviewed_by": str(admin.id),
         },
         source_doc_id=r["properties"].get("source_doc_id"),
         source_chunk_id=r["properties"].get("source_chunk_id"),
@@ -159,6 +163,18 @@ async def confirm_match(edge_id: int, action: ReviewAction, admin: User = Depend
     )
     if new_edge is None:
         raise HTTPException(status_code=500, detail="Failed to write confirmation")
+
+    gateway = await get_gateway()
+    await gateway.log_audit_event(
+        "graph_review_confirm",
+        {
+            "edge_id": edge_id,
+            "new_edge_id": new_edge["id"],
+            "mention_entity_id": a["properties"].get("entity_id"),
+            "candidate_entity_id": b["properties"].get("entity_id"),
+        },
+        str(admin.id),
+    )
     return {"status": "confirmed", "new_edge_id": new_edge["id"]}
 
 
@@ -181,7 +197,7 @@ async def reject_match(edge_id: int, action: ReviewAction, admin: User = Depends
             "tier": r["properties"].get("tier"),
             "basis": r["properties"].get("basis"),
             "status": "rejected",
-            "reviewed_by": action.reviewed_by,
+            "reviewed_by": str(admin.id),
         },
         source_doc_id=r["properties"].get("source_doc_id"),
         source_chunk_id=r["properties"].get("source_chunk_id"),
@@ -190,4 +206,16 @@ async def reject_match(edge_id: int, action: ReviewAction, admin: User = Depends
     )
     if new_edge is None:
         raise HTTPException(status_code=500, detail="Failed to write rejection")
+
+    gateway = await get_gateway()
+    await gateway.log_audit_event(
+        "graph_review_reject",
+        {
+            "edge_id": edge_id,
+            "new_edge_id": new_edge["id"],
+            "mention_entity_id": a["properties"].get("entity_id"),
+            "candidate_entity_id": b["properties"].get("entity_id"),
+        },
+        str(admin.id),
+    )
     return {"status": "rejected", "new_edge_id": new_edge["id"]}
