@@ -141,8 +141,24 @@ class PgConversationStore:
         gateway = await get_gateway()
         session_obj = await gateway.get_session(session_id)
         if not session_obj:
+            # Fresh insert, not a lookup — the caller is this session's
+            # first-ever writer, so there's no existing owner to check
+            # against. Matches the same "already-audited legitimate case"
+            # load_history/delete_history don't need to special-case
+            # either, since they only ever look up existing rows.
             await gateway.create_session(session_id, user_id, title or "New Conversation", project_id)
-        
+        elif user_id and session_obj["user_id"] != user_id:
+            # Phase 5, Module 5.3: save_history previously had NO ownership
+            # check at all — asymmetric with load_history/delete_history in
+            # this same module, both of which already gate on this same
+            # condition. Without it, a caller supplying another user's
+            # session_id could have messages appended into that user's
+            # conversation, invisibly (the victim's own reads are
+            # correctly gated and would never surface the intrusion).
+            raise PermissionError(
+                f"User {user_id!r} is not authorized to write to session {session_id!r}"
+            )
+
         await gateway.save_message(session_id, "user", user_message)
         await gateway.save_message(session_id, "assistant", assistant_response)
 

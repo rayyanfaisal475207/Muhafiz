@@ -60,6 +60,25 @@ async def test_conversation_store_creates_session_with_owner(patched_gateway, us
 
 
 @pytest.mark.asyncio
+async def test_save_history_rejects_writing_into_another_users_session(patched_gateway, user_id, session_id):
+    """
+    Phase 5, Module 5.3 regression: save_history previously had NO
+    ownership check at all — asymmetric with load_history/delete_history
+    in the same module. A caller supplying another user's session_id
+    could have messages appended into that user's conversation.
+    """
+    from src.memory.conversation import async_save_history
+
+    await patched_gateway.create_session(session_id, str(uuid.uuid4()), "someone else's", None)
+
+    with pytest.raises(PermissionError):
+        await async_save_history(session_id, "hijacked message", "hijacked response", user_id)
+
+    history = await patched_gateway.get_session_history(session_id)
+    assert history == [], "the message must not have been written"
+
+
+@pytest.mark.asyncio
 async def test_load_history_rejects_other_users_session(patched_gateway, user_id, session_id):
     """History must not leak across users."""
     from src.memory.conversation import async_load_history

@@ -86,6 +86,18 @@ async def upload_attachment(
 
     gateway = await get_gateway()
 
+    # Phase 5, Module 5.3: unlike list_attachments/delete_attachment below,
+    # this endpoint took session_id from the client with zero ownership
+    # check — any authenticated user could attach a file (and therefore
+    # inject its extracted text into the LLM prompt) for another user's
+    # session_id they could guess or observe. A session that doesn't exist
+    # yet is allowed through: the frontend generates session_id client-side
+    # before the conversation's first message is ever sent, so a brand-new
+    # conversation legitimately has no `sessions` row yet at upload time.
+    session = await gateway.get_session(session_id)
+    if session and session.get("user_id") != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Not authorized to attach files to this session.")
+
     existing = await gateway.get_attachments_for_session(session_id)
     if len(existing) >= MAX_ATTACHMENTS_PER_SESSION:
         raise HTTPException(
@@ -150,7 +162,12 @@ async def list_attachments(session_id: str, current_user: User = Depends(get_cur
     """Attachments on a conversation (metadata only — never the extracted text)."""
     gateway = await get_gateway()
     session = await gateway.get_session(session_id)
-    if session and session.get("user_id") and session["user_id"] != str(current_user.id):
+    # Phase 5, Module 5.3: was `session.get("user_id") and ...`, which
+    # skipped the check entirely for a session with a missing/NULL owner —
+    # fail-open on exactly the case a need-to-know system should deny by
+    # default. No current code path creates an ownerless session (grepped
+    # every create_session call site), so this only closes a latent gap.
+    if session and session.get("user_id") != str(current_user.id):
         raise HTTPException(status_code=403, detail="Not authorized to access this session.")
     return await gateway.get_attachments_for_session(session_id)
 
@@ -161,7 +178,8 @@ async def delete_attachment(attachment_id: str, current_user: User = Depends(get
     record = await gateway.get_attachment(attachment_id)
     if not record:
         raise HTTPException(status_code=404, detail="Attachment not found")
-    if record.get("user_id") and record["user_id"] != str(current_user.id):
+    # Phase 5, Module 5.3: same falsy-ownership fix as list_attachments above.
+    if record.get("user_id") != str(current_user.id):
         raise HTTPException(status_code=403, detail="Not authorized to delete this attachment")
 
     await gateway.delete_attachment(attachment_id)

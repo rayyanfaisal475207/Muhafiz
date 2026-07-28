@@ -46,7 +46,7 @@ def api(gateway, user_id, monkeypatch):
     for module in ("src.data_gateway", "src.data_gateway.selector", "src.main",
                    "src.api.sessions", "src.api.projects", "src.api.profile",
                    "src.api.admin", "src.auth.routes", "src.api.case_assignments",
-                   "src.api.cases"):
+                   "src.api.cases", "src.api.attachments"):
         monkeypatch.setattr(f"{module}.get_gateway", _get_gateway, raising=False)
 
     app.dependency_overrides[get_current_user] = lambda: _User(user_id)
@@ -441,6 +441,105 @@ def test_cannot_touch_another_users_session(api, session_id, method, payload):
 def test_missing_session_is_404(api):
     client, _ = api
     assert client.get(f"/api/sessions/{uuid.uuid4()}").status_code == 404
+
+
+# ── Chat attachment ownership (Phase 5, Module 5.3) ──────────────────────────
+#
+# Regression: upload_attachment took session_id from the client with zero
+# ownership check, unlike list_attachments/delete_attachment in the same
+# file — any authenticated user could attach a file (and inject its
+# extracted text into the LLM prompt) into another user's session_id.
+# These guard the fix, and the accompanying "deny by default on a missing
+# owner" fix to list/delete's own (previously fail-open) checks.
+
+@pytest.fixture(autouse=False)
+def no_op_extract(monkeypatch):
+    """Upload tests only care about the ownership gate, not real parsing."""
+    async def _fake_extract(path):
+        return "extracted text"
+    monkeypatch.setattr("src.api.attachments._extract_text", _fake_extract)
+
+
+def test_upload_attachment_to_another_users_session_is_forbidden(api, gateway, no_op_extract):
+    client, gw = api
+    other_session = str(uuid.uuid4())
+    gw.sessions[other_session] = {
+        "session_id": other_session, "user_id": str(uuid.uuid4()), "project_id": None, "title": "Theirs",
+    }
+
+    response = client.post(
+        "/api/attachments",
+        data={"session_id": other_session},
+        files={"file": ("note.txt", b"hello", "text/plain")},
+    )
+
+    assert response.status_code == 403
+
+
+def test_upload_attachment_to_a_brand_new_session_succeeds(api, gateway, no_op_extract):
+    """
+    The frontend generates session_id client-side before the conversation's
+    first message is sent — a session_id with no `sessions` row yet is a
+    legitimate brand-new conversation, not someone else's, and must not be
+    blocked by the new ownership check.
+    """
+    client, gw = api
+    new_session = str(uuid.uuid4())
+
+    response = client.post(
+        "/api/attachments",
+        data={"session_id": new_session},
+        files={"file": ("note.txt", b"hello", "text/plain")},
+    )
+
+    assert response.status_code == 200
+
+
+def test_upload_attachment_to_own_existing_session_succeeds(api, gateway, user_id, no_op_extract):
+    client, gw = api
+    own_session = str(uuid.uuid4())
+    gw.sessions[own_session] = {
+        "session_id": own_session, "user_id": user_id, "project_id": None, "title": "Mine",
+    }
+
+    response = client.post(
+        "/api/attachments",
+        data={"session_id": own_session},
+        files={"file": ("note.txt", b"hello", "text/plain")},
+    )
+
+    assert response.status_code == 200
+
+
+def test_list_attachments_denies_a_session_with_no_owner(api, gateway):
+    """
+    Falsy-ownership fix: a session row with user_id=None must deny by
+    default, not fail open just because there's no owner to compare
+    against. No current code path creates such a row (grepped every
+    create_session call site) — this guards the latent gap regardless.
+    """
+    client, gw = api
+    ownerless_session = str(uuid.uuid4())
+    gw.sessions[ownerless_session] = {
+        "session_id": ownerless_session, "user_id": None, "project_id": None, "title": "Legacy",
+    }
+
+    response = client.get("/api/attachments", params={"session_id": ownerless_session})
+
+    assert response.status_code == 403
+
+
+def test_delete_attachment_denies_an_attachment_with_no_owner(api, gateway):
+    client, gw = api
+    attachment_id = str(uuid.uuid4())
+    gw.attachments.append({
+        "attachment_id": attachment_id, "session_id": str(uuid.uuid4()),
+        "user_id": None, "filename": "x.txt", "status": "ready",
+    })
+
+    response = client.delete(f"/api/attachments/{attachment_id}")
+
+    assert response.status_code == 403
 
 
 # ── Downloads ─────────────────────────────────────────────────────────────────
