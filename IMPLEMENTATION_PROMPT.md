@@ -372,7 +372,7 @@ carefully — they contain constraints that are not obvious from the phase list 
      `**RESOLVED**` in place, not just flagged.
   - Full suite after all three tasks: **604 passed, 4 skipped, 6 deselected (slow), 0
     failed**.
-- Test suite on `main` (current tip `3370d66`): **545 passed, 4 skipped, 0 failed**,
+- Test suite on `main` at Phase 7 tip (`3370d66`): **545 passed, 4 skipped, 0 failed**,
   excluding `test_pdf_loader.py`'s real-Docling `slow`-marked tests, which intermittently
   error in this environment with a Docling `ConversionError`/`std::bad_alloc` unrelated to
   any of this work (reproduced in isolation; passes cleanly on some runs, not others —
@@ -380,7 +380,71 @@ carefully — they contain constraints that are not obvious from the phase list 
   `tests/test_rls_integration.py`'s `requires_postgres`-marked tests, still confirmed
   passing for real against live Postgres+AGE from the Phase 0-3 closeout, just skipped by
   default in a plain `pytest` run without `RUN_POSTGRES_TESTS=1 TEST_DATABASE_URL=...` set.
-- **Not pushed to origin** — `main` is 25 commits ahead of `origin/main` (1 behind, from
+  **This backend suite was not re-run during Phase 8** (Phase 8 is frontend-only and
+  touched no backend files) — treat the numbers above as current until Phase 9 or later
+  actually changes backend code again.
+- **Phase 8 — Frontend security & state hygiene (main chat app)**: All three modules
+  done, **committed to `main`** (commits `cd45540`/`681271e`/`0b7839b`/`5fcdea6`/`8181c35`
+  — see below for why there are five commits for three modules). Module 8.4 remains
+  **deliberately deferred**, per `solution.md` §10 — not attempted.
+  - **Test infra**: the main frontend had **no test runner at all** before this phase —
+    `package.json` had no `vitest`/`jest`/`@testing-library/*`. Added Vitest +
+    `@testing-library/react`/`jest-dom`/`user-event` + `jsdom`
+    (`frontend/vitest.config.ts`, `frontend/src/test/setup.ts`,
+    `npm test`/`npm run test:watch`). Explicit `import { describe, it, expect } from
+    'vitest'` used throughout rather than `globals: true`, so `tsc -b`'s production
+    build type-checks test files without a second tsconfig. **Bug found and fixed while
+    writing Module 8.3's component test**: `@testing-library/react`'s `cleanup()` was
+    never wired into `afterEach`, so two `render()` calls in the same test file stacked
+    their DOM together — fixed in `setup.ts`.
+  - **Module 8.1 — Cross-case data leak on case/session switch**: `Sidebar.tsx`'s Case
+    and Project `<select>` `onChange` handlers now call `newSession()` and
+    `navigate('/', { state: { fresh: true } })` (the existing "New Chat" mechanism)
+    instead of a bare `navigate('/')`. `ChatPage.tsx`'s session-restore effect now always
+    clears `activeSource` (the citation panel) and its dependency array is `[id,
+    location.key]` instead of `[id]`. **Real gap found beyond the plan's stated lines**:
+    a case/project switch stays on `/` with `id` remaining `undefined`, so the old
+    `[id]`-only effect never re-ran on that navigation at all — the citation panel kept
+    silently showing the prior case's evidence. `location.key` (changes on every
+    `navigate()` call, even to the same path) was the fix.
+  - **Module 8.2 — Store hygiene and streaming robustness**: `authStore.logout()` now
+    resets `chatStore`/`caseStore`/`projectStore`/`sessionStore` and clears the unscoped
+    `LAST_SESSION_KEY` from `localStorage`. `chatStore.sendMessage`: a rapid double-send
+    no longer permanently orphans the prior assistant message in `isStreaming: true` — it's
+    closed out (with an "Interrupted" marker if still empty) before the new send's abort
+    takes effect. `lib/api.ts`'s `streamChat` gained a 90s stall timeout, re-armed on every
+    received chunk, that cancels the reader and throws a `StreamStallError` instead of
+    looking permanently "still working" on a dead connection — no reconnect logic added,
+    per plan scope. Each fix's regression test was verified to actually fail against the
+    pre-fix code (temporarily reverted, watched it fail/hang, restored).
+  - **Module 8.3 — Swallowed frontend errors**: `lib/api.ts`'s two empty `catch` blocks
+    around SSE-chunk JSON parsing now `console.warn` with the offending raw chunk instead
+    of silently dropping it. `Sidebar.tsx`: session delete/rename/export failures now set
+    a local `actionError`, rendered as a dismissible inline banner (matching
+    `ChatPanel.tsx`'s existing error-banner pattern), in addition to the existing
+    `console.error`. `projectStore`/`caseStore`/`sessionStore`'s existing but
+    previously-unconsumed `error`/`isLoading` fields are now surfaced as small inline
+    lines under each selector and the Chat History section — additive only, no redesign.
+  - **Found and fixed, not part of any single module — `.gitignore`'s bare `lib/`
+    pattern** (a Python setuptools build-artifact exclude, meant for a root-level
+    `lib/`/`lib64/`) was also matching `frontend/src/lib/` anywhere in the tree.
+    `git log -- frontend/src/lib/api.ts` returned nothing: `api.ts`, `constants.ts`,
+    `theme.ts`, and `utils.ts` had **never been tracked by git**, including the Module
+    8.2 `streamChat` fix that lives in that exact file. Fixed by anchoring both patterns
+    to the repo root (`/lib/`, `/lib64/`); committed separately (`cd45540`) before Module
+    8.2's actual commit, with the three untouched files added alongside it and `api.ts`
+    added as part of Module 8.2's own commit. **Worth checking whether the same bare-`lib/`
+    problem exists for any other untracked directory before assuming git history is
+    complete anywhere else in this repo** — this was found by accident, not a deliberate
+    audit.
+  - **Verification across all of Phase 8**: `npx tsc -b` clean, `npx oxlint` no new
+    warnings (same pre-existing set throughout), full `npx vitest run` — 5 files, 7 tests,
+    all passing at Module 8.3's close. **Not verified**: no live browser click-through for
+    any of the three modules — would need the FastAPI backend + Postgres + an
+    authenticated session running, which wasn't available/attempted in this session.
+    Component/unit tests are real (each one proven to catch its own regression), but they
+    are not a substitute for exercising the actual UI.
+- **Not pushed to origin** — `main` is 42 commits ahead of `origin/main` (1 behind, from
   an unrelated remote-side commit). Push only when explicitly asked.
 
 ## Environment constraints
@@ -463,48 +527,75 @@ For each module assigned:
 
 ## Start here
 
-Phase 0-7 is genuinely complete: all seven phases implemented and merged to `main`,
-every security-heavy phase covered by `/security-review` (clean on all), and
-`issues.md`'s 13th Critical finding (superuser `DATABASE_URL`) resolved and
-live-verified, not just flagged. `main` tip after the closeout: run `git log --oneline -1`
-to confirm (the closeout's commits land after `0a76aa1`, "Phase 7, Module 7.4..."). Full
-suite: **604 passed, 4 skipped, 6 deselected (slow), 0 failed**.
+Phase 0-8 is complete: all eight phases implemented and committed to `main` (backend
+phases merged via the earlier branch workflow; Phase 8's frontend modules were committed
+directly, one commit per module, per explicit instruction in that session — no separate
+branch/merge step was requested for it). Every security-heavy backend phase is covered by
+`/security-review` (clean on all), and `issues.md`'s 13th Critical finding (superuser
+`DATABASE_URL`) is resolved and live-verified. Frontend test infra (Vitest + React Testing
+Library) now exists where it didn't before Phase 8. `main` tip: run `git log --oneline -1`
+to confirm (Phase 8's commits land after `e2f774c`, "Phase 0-7 closeout..." — see the
+Progress log above for the full commit list and what each one contains).
 
-**One live-infra note for whoever picks this up next**: this closeout session had real
-Postgres access and used it — `migrations/015_app_least_privilege_role.sql` was applied
-live, `muhafiz_app` has a real (session-local, not committed) password set on the actual
-instance, and `.env`'s `DATABASE_URL` may or may not have been switched over to it
-depending on what the user decided after this handoff. Check `.env` and `git log -p --
-.env.example` before assuming either way, and re-read the closeout's Task 3 entry in the
-Progress log above for the full trail (migration content, `scripts/verify_app_role.py`,
-what was and wasn't verified).
+**One live-infra note carried over from the Phase 0-7 closeout, still relevant**: that
+closeout session had real Postgres access — `migrations/015_app_least_privilege_role.sql`
+was applied live, `muhafiz_app` has a real (session-local, not committed) password set on
+the actual instance, and `.env`'s `DATABASE_URL` may or may not have been switched over to
+it depending on what the user decided afterward. Check `.env` and `git log -p --
+.env.example` before assuming either way. Phase 8 was frontend-only and had no live-infra
+access/needs of its own (no Postgres, no browser click-through — see Phase 8's "Not
+verified" note above), so this note is unchanged since the last handoff.
 
-**Phase 8 — Frontend security & state hygiene (main chat app).** Three modules
-(`solution.md` §Phase 8; a fourth, 8.4, is deliberately deferred — see §10):
+**Phase 9 — Admin frontend fixes.** Four modules (`solution.md` §Phase 9):
 
-- **Module 8.1 — Cross-case data leak on case/session switch.**
-  `frontend/src/components/layout/Sidebar.tsx:195-201` (Case `<select>` `onChange`),
-  `frontend/src/pages/ChatPage.tsx:20-40,59-71` (`activeSource`, session-restore
-  effect) — switching the active case doesn't scope the visible conversation, and the
-  citation panel isn't cleared on case/session navigation; both leak cross-case content
-  visibly into the UI. Reuse the existing "New Chat" button's `navigate('/', { state: {
-  fresh: true } })` mechanism instead of a bare `navigate('/')`.
-- **Module 8.2 — Store hygiene and streaming robustness.**
-  `frontend/src/store/authStore.ts:81-89` (`logout()`), `chatStore`/`caseStore`/
-  `projectStore`/`sessionStore`, `frontend/src/store/chatStore.ts:255-404`
-  (`sendMessage`), `frontend/src/lib/api.ts:40-117` (`streamChat`) — no store reset on
-  logout (stale state can persist into the next login on a shared workstation), rapid
-  double-send can permanently orphan a "streaming" message, and the SSE stream has no
-  client-side stall timeout.
-- **Module 8.3 — Swallowed frontend errors.**
-  `frontend/src/components/layout/Sidebar.tsx:76-95,108-149`,
-  `frontend/src/lib/api.ts:97-116` — Sidebar session delete/rename/export failures are
-  swallowed with only `console.error`; store fetch errors/loading states are never
-  rendered; malformed SSE chunks are dropped with zero logging.
+- **Module 9.1 — Audit Logs page hardening.** `admin-frontend/src/pages/AuditLogPage.tsx`
+  (whole file), `admin-frontend/src/App.tsx:55`, `admin-frontend/src/components/
+  Sidebar.tsx:63-67`, `src/api/admin.py:214-221` — the frontend's role gate is looser
+  than the backend's (see §9.3 below); stale results aren't cleared on a failed fetch;
+  filters fire a full backend request on every keystroke with no debounce; the raw
+  `details` JSON blob is rendered with no field-level redaction; no date-range filter;
+  raw `fetch()` calls omit explicit `credentials`/CSRF handling. **BLOCKED — do not start
+  this module.** §9.3 ("Audit Logs role gate: frontend vs. backend authoritative") is
+  still an open product decision per the Open Decisions section below. `solution.md`'s
+  own approach text assumes a specific answer ("implementing it here assuming the
+  decision lands as 'match the backend, `platform-admin`-only'") that has not actually
+  been confirmed — get that decision first, or do the other three modules first and
+  come back to this one.
+- **Module 9.2 — Confirmation dialogs and attribution.**
+  `admin-frontend/src/pages/CaseManagementPage.tsx:113-122` (`handleUnassign`),
+  `admin-frontend/src/pages/ReviewQueuePage.tsx:72-85` (`act('confirm'|'reject')`), and
+  the admin frontend's hardcoded `reviewed_by: "admin"` literal — case-assignment removal
+  and entity-match confirm/reject have no confirmation dialog before an irreversible
+  action fires. Add `window.confirm(...)` matching the existing KB-document-delete/
+  generated-file-delete pattern; remove the hardcoded `reviewed_by: "admin"` since backend
+  Module 5.2 (already done, Phase 5) no longer accepts a client-supplied value anyway.
+  Not blocked by anything — a reasonable module to start with.
+- **Module 9.3 — CSS drift and accessibility sweep.** Seven admin pages
+  (`CaseManagementPage.tsx`, `EntityEvalPage.tsx`, `GeneratedFilesPage.tsx`,
+  `McpCallLogPage.tsx`, `ProfilePage.tsx`, `RunHistoryPage.tsx`, `UsersPage.tsx`),
+  `admin-frontend/src/components/common.tsx:53-72`, plus main-app `LoginPage.tsx`/
+  `RegisterPage.tsx`/`CaseSettingsModal.tsx`/`ProjectSettingsModal.tsx`/`Sidebar.tsx` and
+  admin `LoginPage.tsx`/`CaseManagementPage.tsx`/`SettingsPage.tsx:125` — nonexistent CSS
+  class/variable references (audit lists the exact wrong→right mapping per finding),
+  missing `aria-pressed`/`aria-selected`/`aria-label`, unassociated form labels, creation
+  modals with no dialog semantics/focus-trap/Escape handling, one hardcoded Tailwind color
+  breaking the design-token system, a branding inconsistency between Login/Register. This
+  is the largest module by file count in Phase 9 — a mechanical sweep per the plan, not a
+  design decision, but touches the most surface area. Not blocked; independent of 9.1/9.2.
+- **Module 9.4 — Remaining admin-page error/loading-state gaps.**
+  `admin-frontend/src/pages/ErrorsPage.tsx:51-80`, `admin-frontend/src/pages/
+  DashboardPage.tsx:110-116`, `admin-frontend/src/pages/KnowledgeBasePage.tsx:58-113` —
+  Errors page has no `.catch()` on its fetch; Dashboard's loading indicator only guards
+  the very first load; Knowledge Base page load/delete have no error handling. Same shape
+  as Module 8.3, just in the admin app. Not blocked.
 
-Re-read `solution.md`'s Phase 8 section in full before starting — line numbers above are
-from the 2026-07-27 audit and will have drifted, same as every phase so far. This is the
-first frontend-only phase — check whether the frontend has React Testing Library or
-equivalent set up before promising component-test verification in your report. Cut a
-fresh branch off current `main` for Module 8.1, per the standard one-module-at-a-time
-rule — implement **Module 8.1 only**, then stop and report.
+Re-read `solution.md`'s Phase 9 section in full before starting — line numbers above are
+from the 2026-07-27 audit and, per every phase so far, will have drifted. The admin
+frontend (`admin-frontend/`) has its own `package.json` — **check separately whether it
+already has Vitest/RTL set up or needs the same test-infra bootstrap Phase 8 just did for
+the main frontend**; do not assume the two frontends share tooling. Cut a fresh branch or
+just proceed directly on `main` per whatever the user asks (Phase 8 committed straight to
+`main` per explicit instruction; that is not a standing default, confirm per-phase). Given
+Module 9.1 is blocked, a reasonable next step is to raise §9.3's open decision with the
+user before picking which module to implement first — implement **one module only**, then
+stop and report, per the standard rule.
