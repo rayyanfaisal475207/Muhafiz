@@ -144,6 +144,7 @@ const DashboardPage: React.FC = () => {
           <h1 className="page-title">Dashboard</h1>
           <p className="page-sub">
             Live system health — requests, routing, latency, errors and the knowledge base.
+            {loading && usage && <span style={{ marginLeft: 8, color: 'var(--text-muted)' }}>Updating…</span>}
           </p>
         </div>
         <RangePicker

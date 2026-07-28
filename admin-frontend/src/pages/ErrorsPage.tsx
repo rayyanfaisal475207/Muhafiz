@@ -43,10 +43,12 @@ const ErrorsPage: React.FC = () => {
   const [missing, setMissing] = useState<string[]>([])
   const [expanded, setExpanded] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [failure, setFailure] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
+    setFailure(null)
 
     Promise.all([
       api.get<{ errors: ErrorRow[]; facets: Facets }>('/errors', {
@@ -73,6 +75,9 @@ const ErrorsPage: React.FC = () => {
             .filter(([, present]) => !present)
             .map(([name]) => name),
         )
+      })
+      .catch((err) => {
+        if (!cancelled) setFailure(err?.response?.data?.detail ?? 'Failed to load errors')
       })
       .finally(() => !cancelled && setLoading(false))
 
@@ -113,6 +118,13 @@ const ErrorsPage: React.FC = () => {
 
       <div className="page-body">
         <InstrumentationBanner missing={missing.filter((m) => m === 'error_logs')} />
+
+        {failure && (
+          <div className="banner banner-warning">
+            <span aria-hidden>⚠</span>
+            <span><strong>Could not load errors.</strong> {failure}</span>
+          </div>
+        )}
 
         <div className="stat-grid">
           <StatCard

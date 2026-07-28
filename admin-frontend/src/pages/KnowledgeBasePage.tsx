@@ -53,23 +53,35 @@ const KnowledgeBasePage: React.FC = () => {
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
   const refresh = useCallback(async () => {
-    const [s, j, inst] = await Promise.all([
-      api.get<KbStats>('/kb/stats'),
-      api.get<Job[]>('/kb/jobs'),
-      api.get<{ tables: Record<string, boolean> }>('/instrumentation'),
-    ])
-    setStats(s.data)
-    setJobs(j.data)
-    setMissing(
-      Object.entries(inst.data.tables)
-        .filter(([, present]) => !present)
-        .map(([name]) => name),
-    )
-    setLoading(false)
-    return j.data
+    try {
+      const [s, j, inst] = await Promise.all([
+        api.get<KbStats>('/kb/stats'),
+        api.get<Job[]>('/kb/jobs'),
+        api.get<{ tables: Record<string, boolean> }>('/instrumentation'),
+      ])
+      setStats(s.data)
+      setJobs(j.data)
+      setMissing(
+        Object.entries(inst.data.tables)
+          .filter(([, present]) => !present)
+          .map(([name]) => name),
+      )
+      setLoadError(null)
+      return j.data
+    } catch (err: unknown) {
+      const detail =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+        'Failed to load the knowledge base'
+      setLoadError(detail)
+      return []
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { refresh() }, [refresh])
@@ -104,9 +116,15 @@ const KnowledgeBasePage: React.FC = () => {
   const remove = useCallback(async (filename: string) => {
     if (!window.confirm(`Delete "${filename}" and all of its chunks from the knowledge base?`)) return
     setDeleting(filename)
+    setDeleteError(null)
     try {
       await api.delete(`/kb/documents/${encodeURIComponent(filename)}`)
       await refresh()
+    } catch (err: unknown) {
+      const detail =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+        `Could not delete ${filename}`
+      setDeleteError(detail)
     } finally {
       setDeleting(null)
     }
@@ -130,6 +148,20 @@ const KnowledgeBasePage: React.FC = () => {
         <InstrumentationBanner
           missing={missing.filter((m) => m === 'ingestion_jobs')}
         />
+
+        {loadError && (
+          <div className="banner banner-warning">
+            <span aria-hidden>⚠</span>
+            <span><strong>Could not load the knowledge base.</strong> {loadError}</span>
+          </div>
+        )}
+
+        {deleteError && (
+          <div className="banner banner-warning">
+            <span aria-hidden>⚠</span>
+            <span><strong>Delete failed.</strong> {deleteError}</span>
+          </div>
+        )}
 
         <div className="stat-grid">
           <StatCard
