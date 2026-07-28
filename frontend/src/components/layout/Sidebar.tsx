@@ -169,7 +169,8 @@ export function Sidebar() {
           value={activeProjectId || ''}
           onChange={(e) => {
             setActiveProject(e.target.value || null);
-            navigate('/');
+            newSession();
+            navigate('/', { state: { fresh: true } });
           }}
         >
           <option value="">Global (All Projects)</option>
@@ -197,7 +198,8 @@ export function Sidebar() {
           value={activeCaseId || ''}
           onChange={(e) => {
             setActiveCase(e.target.value || null);
-            navigate('/');
+            newSession();
+            navigate('/', { state: { fresh: true } });
           }}
         >
           <option value="">No Case</option>

@@ -20,13 +20,19 @@ export function ChatPage() {
   const [activeSource, setActiveSource] = useState<Source | null>(null);
 
   useEffect(() => {
+    // Clear any open citation on every navigation into this page (session
+    // switch, case/project switch, explicit New Chat) so cross-case evidence
+    // never lingers on screen after the underlying conversation has changed.
+    setActiveSource(null);
+
     if (id) {
       // Persist this session so a refresh on '/' can restore it
       localStorage.setItem(LAST_SESSION_KEY, id);
       loadSession(id);
     } else if ((location.state as { fresh?: boolean } | null)?.fresh) {
-      // Explicit "New Chat" from the sidebar: the store was already reset by
-      // the handler. Do NOT restore the last session — that bounce-back was
+      // Explicit "New Chat" from the sidebar (or a case/project switch, which
+      // reuses this same mechanism): the store was already reset by the
+      // handler. Do NOT restore the last session — that bounce-back was
       // exactly why the sidebar button appeared to do nothing.
     } else {
       // No session in URL — try to restore the last active session
@@ -37,7 +43,7 @@ export function ChatPage() {
         newSession();
       }
     }
-  }, [id]);
+  }, [id, location.key]);
 
   // Layout is unchanged: chat on the left, pipeline/citation on the right.
   // Only the surface treatment changed — one soft shadow, warm border.
