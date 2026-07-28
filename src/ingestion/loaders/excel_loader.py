@@ -151,8 +151,13 @@ def _dataframe_to_documents(
     # Forward-fill to handle merged cells (NaN propagated from empty rows)
     df = df.ffill()
 
-    # Convert all columns to string, handle NaN gracefully
-    df = df.astype(str).replace("nan", "")
+    # Blank only genuinely-missing (NaN) cells, then convert to string.
+    # Module 4.3: the old `.astype(str).replace("nan", "")` blanked a cell
+    # whose real content happens to be the literal string "nan" identically
+    # to a truly-missing cell — running `where(notna(df), "")` BEFORE the
+    # str cast distinguishes them, since it only touches cells that are
+    # actually NaN, not ones that stringify to "nan".
+    df = df.where(pd.notna(df), "").astype(str)
 
     # Column headers used in every chunk (so each chunk is self-contained)
     headers = list(df.columns)

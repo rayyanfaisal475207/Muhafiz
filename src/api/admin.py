@@ -276,8 +276,27 @@ async def upload_kb_document(
     # Keep the original name (retrieval cites it), but never let it escape the
     # documents directory.
     safe_name = os.path.basename(file.filename or f"upload{ext}")
-    dest = config.DOCUMENTS_DIR / safe_name
     config.DOCUMENTS_DIR.mkdir(parents=True, exist_ok=True)
+    dest = config.DOCUMENTS_DIR / safe_name
+
+    # Module 4.3: never silently overwrite an existing file of the same
+    # name — the original bytes are part of the evidentiary record. On a
+    # collision, disambiguate instead (filename__2.ext, incrementing) and
+    # carry the renamed name through the job/response so the caller knows
+    # a collision occurred, rather than losing the original file with no
+    # error or log distinguishing "new" from "overwrote".
+    if dest.exists():
+        stem, suffix = Path(safe_name).stem, Path(safe_name).suffix
+        counter = 2
+        while dest.exists():
+            safe_name = f"{stem}__{counter}{suffix}"
+            dest = config.DOCUMENTS_DIR / safe_name
+            counter += 1
+        logger.warning(
+            "KB upload filename collision for %r — saved as %r instead.",
+            file.filename, safe_name,
+        )
+
     dest.write_bytes(contents)
 
     gateway = await get_gateway()

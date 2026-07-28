@@ -118,6 +118,13 @@ def load_pdf(file_path: Path) -> list[Document]:
     total_pages = doc.num_pages()
     logger.info("Opened PDF %s (%d pages) via Docling", file_path.name, total_pages)
 
+    # Pages that fail BOTH Docling and the vision fallback contribute zero
+    # Documents — with no record of which page numbers those were. Module
+    # 4.3: track them explicitly so `total_pages` (the true page count)
+    # never has to double as "how many pages actually made it", which
+    # previously masked partial-ingestion silently.
+    dropped_pages: list[int] = []
+
     for page_no in sorted(doc.pages.keys()):
         text = doc.export_to_markdown(page_no=page_no).strip()
 
@@ -149,10 +156,20 @@ def load_pdf(file_path: Path) -> list[Document]:
             vision_docs = _load_scanned_page_with_vision(
                 file_path, page_no, total_pages, effective_from, effective_to
             )
+            if not vision_docs:
+                dropped_pages.append(page_no)
             documents.extend(vision_docs)
 
+    # Every loader in LOADER_MAP shares one contract — (file_path) ->
+    # list[Document] — so dropped_pages/total_pages ride along on the
+    # returned Documents' own metadata rather than widening that contract.
+    # ingestion/service.py reads it off documents[0], the same way it
+    # already reads effective_from/effective_to.
+    for d in documents:
+        d.metadata["dropped_pages"] = dropped_pages
+
     logger.info(
-        "Loaded %d pages from %s", len(documents), file_path.name
+        "Loaded %d pages from %s (%d dropped)", len(documents), file_path.name, len(dropped_pages)
     )
     return documents
 

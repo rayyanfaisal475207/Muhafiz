@@ -63,11 +63,17 @@ def build_pdf(payload: dict) -> tuple[str, int]:
             if not headers and not rows:
                 continue
                 
+            # Module 4.3: Table() cells aren't XML-parsed today (unlike
+            # Paragraph() above), so raw '&'/'<'/'>' in a cell doesn't
+            # currently crash the build — but it's a latent trap for
+            # whichever future change wraps cells in Paragraph() for
+            # richer formatting. Escaping now closes that defensively,
+            # consistent with every other text element in this file.
             table_data = []
             if headers:
-                table_data.append(headers)
-            table_data.extend(rows)
-            
+                table_data.append([escape(str(h)) for h in headers])
+            table_data.extend([escape(str(cell)) for cell in row] for row in rows)
+
             t = Table(table_data)
             t.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E3A8A')),

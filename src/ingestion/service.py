@@ -155,7 +155,11 @@ async def _run_graph_extraction(
         if classification:
             await versioning.write_node(
                 "Document", {"doc_id": doc_id},
-                {"doc_type": classification["doc_type"], "date_registered": classification.get("date_registered")},
+                {
+                    "doc_type": classification["doc_type"],
+                    "date_registered": classification.get("date_registered"),
+                    "date_registered_confidence": classification.get("date_registered_confidence"),
+                },
                 source_doc_id=doc_id, confidence=classification["confidence"],
             )
             stats["doc_type"] = classification["doc_type"]
@@ -468,12 +472,23 @@ async def ingest_file(
             import asyncio
             asyncio.create_task(_run_conflict_detection_bg(case_id, str(doc_id)))
 
+        # Module 4.3: total_pages must always mean the PDF's true page count
+        # (doc.num_pages(), carried in pdf_loader's per-Document metadata),
+        # never silently shrink to "however many pages survived". Other
+        # loaders never had a "true" page count distinct from their output,
+        # so len(documents) is still the right value there — same as before.
+        raw_total_pages = documents[0].metadata.get("total_pages") if documents else None
+        total_pages = raw_total_pages if raw_total_pages is not None else len(documents)
+        dropped_pages = documents[0].metadata.get("dropped_pages", []) if documents else []
+
         return {
             "doc_id": str(doc_id) if doc_id else None,
             "chunks_added": len(chunks),
             "char_count": sum(len(d.text) for d in documents),
             "ocr_pages": sum(1 for d in documents if d.metadata.get("extraction_method") == "vision_llm"),
-            "total_pages": len(documents),
+            "total_pages": total_pages,
+            "pages_ingested": len(documents),
+            "dropped_pages": dropped_pages,
             "effective_from": documents[0].metadata.get("effective_from") if documents else None,
             "effective_to": documents[0].metadata.get("effective_to") if documents else None,
             "graph": graph_stats,

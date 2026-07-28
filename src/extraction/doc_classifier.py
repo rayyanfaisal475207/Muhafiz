@@ -14,6 +14,7 @@
 # ============================================================
 
 import logging
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -25,6 +26,42 @@ logger = logging.getLogger(__name__)
 
 _PROMPT_PATH = Path(__file__).resolve().parent.parent.parent / "prompts" / "doc_classifier.txt"
 _SYSTEM_PROMPT = _PROMPT_PATH.read_text(encoding="utf-8")
+
+# Module 4.3: `dates[0]` (the first date-shaped substring anywhere in the
+# document) is not necessarily the actual registration date — a document
+# often mentions an earlier incident date before its own registration date.
+# Prefer a date found near one of these labels instead; only fall back to
+# the first-date heuristic when no labeled date is found.
+_DATE_LABEL_RE = re.compile(
+    r"date[\s_]+registered|date[\s_]+of[\s_]+registration|registration[\s_]+date|\bdated\b|fir[\s_]+date",
+    re.IGNORECASE,
+)
+# How many characters on either side of a date match count as "near" a label.
+_LABEL_PROXIMITY_CHARS = 40
+
+
+def _find_registration_date(text: str, dates: list) -> tuple[Optional[str], Optional[str]]:
+    """
+    Returns (date_registered, date_registered_confidence).
+
+    confidence is "labeled" when a recognized label appears within
+    _LABEL_PROXIMITY_CHARS BEFORE the chosen date match, "unlabeled_fallback"
+    when falling back to the first date found with no nearby label, or
+    None when the document has no date-shaped text at all.
+
+    Only the window before the date is checked, not after: this corpus's
+    field convention is always "Label: value" (e.g. "Date Registered:
+    2026-01-20", "Report No.: TEST-2026-001"), and a label found near a
+    LATER, unrelated date would otherwise incorrectly attach to an earlier
+    date that happens to fall within the same proximity window.
+    """
+    for d in dates:
+        window = text[max(0, d.start - _LABEL_PROXIMITY_CHARS): d.start]
+        if _DATE_LABEL_RE.search(window):
+            return d.normalized, "labeled"
+    if dates:
+        return dates[0].normalized, "unlabeled_fallback"
+    return None, None
 
 DOC_TYPES = (
     "FIR",
@@ -49,7 +86,8 @@ async def classify_document(text: str) -> Optional[dict]:
 
     Returns:
         {"doc_type": str, "confidence": float, "reasoning": str,
-         "date_registered": str | None}
+         "date_registered": str | None,
+         "date_registered_confidence": "labeled" | "unlabeled_fallback" | None}
         or None if the LLM call/parse failed entirely (logged, not raised
         — one document's classification failure must not abort a batch,
         per 4.10's per-document resilience requirement).
@@ -83,11 +121,12 @@ async def classify_document(text: str) -> Optional[dict]:
         return None
 
     dates = sf.extract_dates(text)
-    date_registered = dates[0].normalized if dates else None
+    date_registered, date_registered_confidence = _find_registration_date(text, dates)
 
     return {
         "doc_type": doc_type,
         "confidence": float(parsed.get("confidence", 0.0) or 0.0),
         "reasoning": parsed.get("reasoning", ""),
         "date_registered": date_registered,
+        "date_registered_confidence": date_registered_confidence,
     }
