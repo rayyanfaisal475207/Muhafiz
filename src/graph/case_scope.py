@@ -86,8 +86,8 @@ async def scoped_cypher(
     callers must not also pass a `case_id` key in `params` (would collide).
 
     `graph` defaults to the production graph. entity_resolution.py's
-    `_shares_case` is the one call site that overrides it, so that when
-    scripts/eval_entity_resolution.py resolves against
+    `_shares_case_batch` is the one call site that overrides it, so that
+    when scripts/eval_entity_resolution.py resolves against
     `evidence_graph_eval` (Phase 3, Module 3.1), its case-membership check
     reads from the same graph its writes land in, rather than silently
     reading real case data from production.

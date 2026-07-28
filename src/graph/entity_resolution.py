@@ -162,16 +162,31 @@ async def _fetch_all_nodes(label: str, *, graph: str = age_client.GRAPH_NAME) ->
     return [r["n"] for r in rows]
 
 
-async def _shares_case(entity_id: str, case_id: str, *, graph: str = age_client.GRAPH_NAME) -> bool:
+async def _shares_case_batch(
+    entity_ids: list[str], case_id: str, *, graph: str = age_client.GRAPH_NAME
+) -> set[str]:
+    """
+    Module 7.3: which of `entity_ids` share `case_id`, in one round trip.
+
+    Replaces what used to be one _shares_case() Cypher call per surviving
+    candidate in _generate_candidates()'s loop (an N+1 during ingestion —
+    the audit's own note is this is bounded by "dozens" of candidates per
+    mention, not thousands, but still N round trips where one suffices).
+    Same result set as calling the old per-entity check for each id —
+    this is a query-shape change, not a resolution-logic change.
+    """
+    if not entity_ids:
+        return set()
     rows = await scoped_cypher(
-        "MATCH (n {entity_id: $entity_id})-[:BELONGS_TO_CASE]->(c:Case {case_id: $case_id}) "
-        "RETURN n LIMIT 1",
+        "MATCH (n)-[:BELONGS_TO_CASE]->(c:Case {case_id: $case_id}) "
+        "WHERE n.entity_id IN $entity_ids "
+        "RETURN n.entity_id AS entity_id",
         case_id,
-        params={"entity_id": entity_id},
-        columns=["n"],
+        params={"entity_ids": entity_ids},
+        columns=["entity_id"],
         graph=graph,
     )
-    return bool(rows)
+    return {row["entity_id"] for row in rows}
 
 
 async def _generate_candidates(
@@ -182,7 +197,10 @@ async def _generate_candidates(
     mention_name = mention.get("canonical_name", "")
     all_nodes = await _fetch_all_nodes(label, graph=graph)
 
-    candidates: list[Candidate] = []
+    # Pass 1: apply the hard block + name-similarity floor, same as
+    # before — just deferring the shared_case lookup so every surviving
+    # candidate's check can be batched into one call below.
+    surviving: list[tuple[dict, str, float]] = []
     for node in all_nodes:
         props = node.get("properties", {})
         node_id = props.get(id_key) if id_key else None
@@ -201,7 +219,16 @@ async def _generate_candidates(
         if not entity_id:
             continue
 
-        shared_case = await _shares_case(entity_id, case_id, graph=graph)
+        surviving.append((node, entity_id, name_sim))
+
+    shared_case_ids = await _shares_case_batch(
+        [entity_id for _, entity_id, _ in surviving], case_id, graph=graph
+    )
+
+    candidates: list[Candidate] = []
+    for node, entity_id, name_sim in surviving:
+        props = node.get("properties", {})
+        shared_case = entity_id in shared_case_ids
         shared_structured = _has_shared_structured_id(mention, props)
 
         score = min(

@@ -55,7 +55,7 @@ class FakeVersioning:
 def fake_age(monkeypatch):
     client = FakeAgeClient()
     monkeypatch.setattr(er, "age_client", client)
-    # Phase 2: _shares_case() now goes through case_scope.scoped_cypher(),
+    # Phase 2: _shares_case_batch() now goes through case_scope.scoped_cypher(),
     # which calls its OWN module-level `age_client` reference (a separate
     # binding from er.age_client) — both must point at the fake.
     monkeypatch.setattr(case_scope, "age_client", client)
@@ -120,6 +120,49 @@ async def test_different_cnic_never_merges_regardless_of_name_similarity(fake_ag
     assert decision.candidates_considered == 0
 
 
+# ── Module 7.3: shares-case check is batched, not one call per candidate ──
+
+@pytest.mark.asyncio
+async def test_shares_case_check_is_batched_not_per_candidate(fake_age):
+    """The audit's N+1 finding: candidate generation used to call
+    _shares_case() once per surviving candidate. With 5 surviving
+    candidates, the old code made 1 (fetch-all-nodes) + 5 (one per
+    candidate) = 6 Cypher round trips; the batched version makes exactly
+    2 — fetch-all-nodes, then one shared-case check covering every
+    candidate at once — regardless of how many candidates survive."""
+    candidate_nodes = [_node(f"P-{i}", "زید علی خان") for i in range(5)]
+    fake_age.queue([{"n": n} for n in candidate_nodes])          # _fetch_all_nodes
+    fake_age.queue([{"entity_id": "P-0"}, {"entity_id": "P-2"}])  # batched shares-case
+
+    candidates = await er._generate_candidates(
+        "Person", {"canonical_name": "زید علی خان"}, "CASE-001",
+    )
+
+    assert len(candidates) == 5
+    assert len(fake_age.calls) == 2, (
+        f"expected 2 Cypher calls (fetch-all-nodes + one batched shares-case "
+        f"check), got {len(fake_age.calls)} — did shares-case regress to per-candidate?"
+    )
+    shared = {c.entity_id for c in candidates if c.shared_case}
+    assert shared == {"P-0", "P-2"}
+    not_shared = {c.entity_id for c in candidates if not c.shared_case}
+    assert not_shared == {"P-1", "P-3", "P-4"}
+
+
+@pytest.mark.asyncio
+async def test_shares_case_batch_short_circuits_with_no_candidates(fake_age):
+    """Zero surviving candidates must not issue a shares-case query at all —
+    an empty entity_ids list has nothing to ask the database."""
+    fake_age.queue([])  # _fetch_all_nodes: nothing in the graph
+
+    candidates = await er._generate_candidates(
+        "Person", {"canonical_name": "کوئی نہیں"}, "CASE-001",
+    )
+
+    assert candidates == []
+    assert len(fake_age.calls) == 1  # just the fetch-all-nodes call
+
+
 # ── Name-fallback tiers ─────────────────────────────────────────────────
 
 @pytest.mark.asyncio
@@ -130,7 +173,7 @@ async def test_near_exact_name_flags_even_without_corroboration(fake_age):
     # placeholder response is queued for it (see the candidate-scan
     # response landing there instead was the original bug this fixed).
     fake_age.queue([{"n": _node("P-006", "عدنان قریشی وحید")}])
-    fake_age.queue([[]])  # _shares_case query — not sharing a case
+    fake_age.queue([])  # batched shared-case query — no entity_ids come back, so none share the case
 
     decision = await er.resolve_mention(
         "person", {"canonical_name": "عدنان قریشی وحید"}, "CASE-016"
@@ -256,7 +299,7 @@ async def test_resolve_and_write_cnic_auto_reuses_node_no_same_as_edge(fake_age,
 async def test_resolve_and_write_flagged_creates_new_node_and_same_as_edge(fake_age, fake_versioning, monkeypatch):
     # No CNIC on the mention -> no _find_by_cnic() call, no placeholder queued for it.
     fake_age.queue([{"n": _node("P-006", "عدنان قریشی وحید")}])
-    fake_age.queue([[]])
+    fake_age.queue([])  # batched shared-case query — no entity_ids come back, so none share the case
 
     result = await er.resolve_and_write(
         "person", {"canonical_name": "عدنان قریشی وحید"}, "CASE-016", "DOC-016",
