@@ -68,14 +68,21 @@ class FakeGateway:
             return False
         if user_role == "platform-admin":
             return True
-        if min_role is None:
-            return True
-        # min_role set (Phase 5, Module 5.1 destructive-op check): consult
-        # the caller's PER-CASE assignment role, not their global role.
+        # Phase 5, Module 5.4: this used to short-circuit to True whenever
+        # min_role was None ("any assignment" threshold), without actually
+        # consulting case_assignments — fine while every real caller of
+        # that threshold happened to set up an assignment anyway, but it
+        # meant this fake couldn't distinguish "assigned" from "not
+        # assigned" for a station-admin's case-scoped file download (Module
+        # 5.4's new check). Now always requires a real per-case
+        # case_assignments row (matching DirectGateway.check_case_access),
+        # then additionally enforces the role hierarchy when min_role is set.
         assignments = self.case_assignments.get(case_id, [])
         assignment = next((a for a in assignments if a["user_id"] == str(user_id)), None)
         if assignment is None:
             return False
+        if min_role is None:
+            return True
         roles = ["investigator", "supervisor", "station-admin", "platform-admin"]
         try:
             return roles.index(assignment["role"]) >= roles.index(min_role)

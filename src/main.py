@@ -345,8 +345,26 @@ async def download_file(file_id: str, current_user: User = Depends(get_current_u
     if not file_record:
         raise HTTPException(status_code=404, detail="File not found")
 
-    # Admins may download any user's file (the admin panel lists all files)
-    if str(file_record["user_id"]) != str(current_user.id) and current_user.role not in ("station-admin", "platform-admin"):
+    # Phase 5, Module 5.4: station-admin used to get blanket cross-case
+    # access here, unlike everywhere else in the system (only
+    # platform-admin gets that). Now scoped by case_assignments when the
+    # file has a case_id; a NULL case_id (no backfill for pre-migration
+    # rows, or genuinely not case-derived) keeps the old blanket
+    # station-admin/platform-admin access — an explicit, accepted
+    # limitation for existing files, not a silent gap. See
+    # migrations/013_generated_files_case_id.sql.
+    is_owner = str(file_record["user_id"]) == str(current_user.id)
+    file_case_id = file_record.get("case_id")
+    if is_owner or current_user.role == "platform-admin":
+        authorized = True
+    elif file_case_id is None:
+        authorized = current_user.role in ("station-admin", "platform-admin")
+    elif current_user.role == "station-admin":
+        authorized = await gateway.check_case_access(file_case_id, str(current_user.id), current_user.role)
+    else:
+        authorized = False
+
+    if not authorized:
         raise HTTPException(status_code=403, detail="Unauthorized to access this file")
 
     if not os.path.exists(file_record["storage_path"]):

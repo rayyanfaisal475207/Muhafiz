@@ -499,6 +499,16 @@ class GeneratedFile(Base):
         ForeignKey("messages.message_id"),
         nullable=True,
     )
+    # Which case this file was generated from, if any (Phase 5, Module
+    # 5.4) — nullable, no backfill for existing rows. NULL means either
+    # "generated before this column existed" or "genuinely not
+    # case-derived"; src/main.py::download_file treats both the same way
+    # (today's blanket station-admin/platform-admin access), and only
+    # scopes station-admin access by case_assignments when this is set.
+    # See migrations/013_generated_files_case_id.sql.
+    case_id: Mapped[Optional[str]] = mapped_column(
+        Text, ForeignKey("cases.case_id", ondelete="SET NULL"), nullable=True,
+    )
     file_type: Mapped[str] = mapped_column(Text, nullable=False)
     file_name: Mapped[str] = mapped_column(Text, nullable=False)
     storage_path: Mapped[str] = mapped_column(Text, nullable=False)

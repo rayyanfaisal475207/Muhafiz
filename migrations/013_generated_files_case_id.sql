@@ -1,0 +1,21 @@
+-- Migration 013: Add case_id to generated_files, for download_file's
+-- case-level access scoping (Phase 5, Module 5.4).
+--
+-- Background (see issues.md's Medium "Generated-file download bypasses
+-- case-level access control for station-admin accounts" finding):
+-- download_file() gives every station-admin blanket access to every
+-- generated file, purely on global role — unlike everywhere else in the
+-- system, where station-admin does NOT get cross-case visibility (only
+-- platform-admin does). There was nothing to scope against even if the
+-- code wanted to, since generated_files carries no case_id at all.
+--
+-- No backfill: existing rows have no reliable way to retroactively derive
+-- a case_id (not always cleanly derivable from the associated session/
+-- pipeline_runs). They keep case_id = NULL, which src/main.py::download_file
+-- treats as "not case-derived" and keeps today's blanket station-admin/
+-- platform-admin access for — an explicit, accepted limitation, not a
+-- silent gap. Only newly-generated files get properly case-scoped.
+--
+--   python scripts/apply_migration.py migrations/013_generated_files_case_id.sql
+
+ALTER TABLE generated_files ADD COLUMN IF NOT EXISTS case_id TEXT REFERENCES cases(case_id) ON DELETE SET NULL;

@@ -617,6 +617,75 @@ def test_admin_may_download_any_users_file(admin_api, gateway, tmp_path):
     assert client.get(f"/api/files/{file_id}/download").status_code == 200
 
 
+# ── Generated-file download case-scoping (Phase 5, Module 5.4) ──────────────
+#
+# Regression: station-admin got blanket cross-case access to every
+# generated file, purely on global role — unlike everywhere else in the
+# system, where station-admin does NOT get cross-case visibility (only
+# platform-admin does). These guard the fix: a file with a real case_id is
+# now scoped by case_assignments for station-admin; a NULL case_id (no
+# backfill for pre-migration rows) keeps the old blanket access.
+
+def test_station_admin_with_case_assignment_can_download(station_admin_api, gateway, user_id, tmp_path):
+    client, gw = station_admin_api
+    path = tmp_path / "report.pdf"
+    path.write_bytes(b"%PDF-1.4")
+    file_id = str(uuid.uuid4())
+    gw.files[file_id] = {
+        "file_id": file_id, "session_id": str(uuid.uuid4()), "user_id": str(uuid.uuid4()),
+        "case_id": "CASE-001", "file_type": "pdf", "file_name": "report.pdf",
+        "file_size_bytes": 8, "storage_path": str(path),
+    }
+    gw.case_assignments["CASE-001"] = [{"user_id": user_id, "email": "x@example.com", "role": "investigator"}]
+
+    assert client.get(f"/api/files/{file_id}/download").status_code == 200
+
+
+def test_station_admin_without_case_assignment_cannot_download(station_admin_api, gateway, tmp_path):
+    client, gw = station_admin_api
+    path = tmp_path / "report.pdf"
+    path.write_bytes(b"%PDF-1.4")
+    file_id = str(uuid.uuid4())
+    gw.files[file_id] = {
+        "file_id": file_id, "session_id": str(uuid.uuid4()), "user_id": str(uuid.uuid4()),
+        "case_id": "CASE-001", "file_type": "pdf", "file_name": "report.pdf",
+        "file_size_bytes": 8, "storage_path": str(path),
+    }
+    # No case_assignments entry for CASE-001 at all.
+
+    assert client.get(f"/api/files/{file_id}/download").status_code == 403
+
+
+def test_station_admin_can_download_a_file_with_no_case_id(station_admin_api, gateway, tmp_path):
+    """Legacy/not-case-derived files (case_id IS NULL) keep the old blanket access."""
+    client, gw = station_admin_api
+    path = tmp_path / "report.pdf"
+    path.write_bytes(b"%PDF-1.4")
+    file_id = str(uuid.uuid4())
+    gw.files[file_id] = {
+        "file_id": file_id, "session_id": str(uuid.uuid4()), "user_id": str(uuid.uuid4()),
+        "file_type": "pdf", "file_name": "report.pdf",
+        "file_size_bytes": 8, "storage_path": str(path),
+    }
+
+    assert client.get(f"/api/files/{file_id}/download").status_code == 200
+
+
+def test_platform_admin_downloads_case_scoped_file_regardless_of_assignment(admin_api, gateway, tmp_path):
+    client, gw = admin_api
+    path = tmp_path / "report.pdf"
+    path.write_bytes(b"%PDF-1.4")
+    file_id = str(uuid.uuid4())
+    gw.files[file_id] = {
+        "file_id": file_id, "session_id": str(uuid.uuid4()), "user_id": str(uuid.uuid4()),
+        "case_id": "CASE-001", "file_type": "pdf", "file_name": "report.pdf",
+        "file_size_bytes": 8, "storage_path": str(path),
+    }
+    # No case_assignments entry — platform-admin must not need one.
+
+    assert client.get(f"/api/files/{file_id}/download").status_code == 200
+
+
 def test_malformed_file_id_is_rejected(api):
     client, _ = api
     assert client.get("/api/files/not-a-uuid/download").status_code == 400

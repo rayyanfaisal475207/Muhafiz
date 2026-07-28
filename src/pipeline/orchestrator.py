@@ -541,7 +541,7 @@ async def process_query(
         # A DIRECT route can still request a file ("make me a PDF of X") —
         # fall through to file generation instead of returning early.
         if output_format in ["file_pdf", "file_xlsx", "file_docx"]:
-            async for evt in _generate_file(event, gateway, output_format, full_response, session_id, user_id):
+            async for evt in _generate_file(event, gateway, output_format, full_response, session_id, user_id, case_id):
                 yield evt
 
         return  # End of no-RAG path
@@ -1505,11 +1505,14 @@ async def process_query(
 
     # ─── File Generation ────────────────────────────────────────────────────
     if output_format in ["file_pdf", "file_xlsx", "file_docx"]:
-        async for evt in _generate_file(event, gateway, output_format, final_response, session_id, user_id):
+        async for evt in _generate_file(event, gateway, output_format, final_response, session_id, user_id, case_id):
             yield evt
 
 
-async def _generate_file(event, gateway, output_format: str, content: str, session_id: str, user_id: str):
+async def _generate_file(
+    event, gateway, output_format: str, content: str, session_id: str, user_id: str,
+    case_id: str | None = None,
+):
     """Structure `content` via LLM and build the requested file, yielding SSE events."""
     yield event("file_generation", "running", f"Generating {output_format}...")
     try:
@@ -1530,6 +1533,7 @@ async def _generate_file(event, gateway, output_format: str, content: str, sessi
         file_id = await gateway.log_generated_file({
             "session_id": session_id,
             "user_id": user_id,
+            "case_id": case_id,
             "file_type": file_type,
             "file_name": file_name,
             "file_size_bytes": size,
