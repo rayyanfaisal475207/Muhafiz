@@ -49,10 +49,6 @@ def _get_local_client() -> Optional[AsyncOpenAI]:
     always-first regression it replaced. The difference from that regression
     is the fallback: that had none, so an unreachable local endpoint broke
     every call instead of costing one failed attempt before falling through.
-
-    `_use_local()` below is now unused dead code (both call sites moved to
-    the unconditional `bool(config.LOCAL_LLM_URL)` check) — left in place
-    rather than removed unprompted; flag for cleanup if picked up later.
     """
     global _local_client
     if not config.LOCAL_LLM_URL:
@@ -83,10 +79,6 @@ def _get_local_gen_client() -> Optional[AsyncOpenAI]:
             timeout=config.LOCAL_GEN_LLM_TIMEOUT,
         )
     return _local_gen_client
-
-
-def _use_local(llm_mode: Optional[str]) -> bool:
-    return bool(config.LOCAL_LLM_URL) and (llm_mode or "").lower() == "local"
 
 
 def _is_rate_limit(exc: Exception) -> bool:

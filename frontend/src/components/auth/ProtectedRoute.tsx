@@ -1,15 +1,8 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
-import { useEffect } from 'react';
 
 export function ProtectedRoute() {
   const { isAuthenticated, isLoading } = useAuthStore();
-
-  useEffect(() => {
-    // We only need to trigger checkAuth if it's the first load and we don't know the status.
-    // Actually, it's safer to have App.tsx trigger checkAuth globally so it loads before rendering routes.
-    // Assuming App.tsx handles checkAuth on mount, we just rely on isLoading.
-  }, []);
 
   if (isLoading) {
     return (

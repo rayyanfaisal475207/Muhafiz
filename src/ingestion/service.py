@@ -17,7 +17,6 @@ from src.ingestion.script_detector import is_roman_urdu
 from src.ingestion.chunker import chunk_documents
 from src.retrieval.embedder import embed_texts
 from src.retrieval.vector_store import upsert_documents
-from src.database.pipeline_logger import log_ingested_chunk
 from src.ingestion.conflict_bg import _run_conflict_detection_bg
 
 logger = logging.getLogger(__name__)
@@ -420,21 +419,6 @@ async def ingest_file(
             embeddings=embeddings,
             metadatas=metadatas
         )
-
-        # 5. Log to SQLite
-        # ext = file_path.suffix.lower().lstrip(".")
-        # for c, emb in zip(chunks, embeddings):
-        #     log_ingested_chunk(
-        #         chunk_id=c.doc_id,
-        #         source_file=file_path.name,
-        #         source_path=str(file_path),
-        #         file_type=ext,
-        #         chunk_index=c.metadata.get("chunk_index", 0),
-        #         chunk_total=c.metadata.get("chunk_total", 1),
-        #         chunk_text=c.text,
-        #         embedding_model=config.GEMINI_EMBEDDING_MODEL,
-        #         embedding_dims=len(emb)
-        #     )
 
         # Record the chunk count on the document row so the dashboard's
         # "chunks per document" breakdown is accurate without counting 88k rows.
