@@ -146,6 +146,7 @@ async def call_llm(
 
     max_retries = 3
     for attempt in range(max_retries):
+        observed_index = key_manager.get_current_index(provider)
         try:
             if provider == "groq":
                 return await _call_groq(system_prompt, user_message, temperature, resolved_cloud_max_tokens)
@@ -154,7 +155,7 @@ async def call_llm(
         except Exception as e:
             if _is_rate_limit(e):
                 logger.warning(f"Rate limit hit on {provider}. Rotating key... (Attempt {attempt+1}/{max_retries})")
-                key_manager.rotate_key(provider)
+                key_manager.rotate_key(provider, observed_index)
                 await asyncio.sleep(2)
             else:
                 raise e
@@ -199,6 +200,7 @@ async def stream_llm(
 
     max_retries = 3
     for attempt in range(max_retries):
+        observed_index = key_manager.get_current_index(provider)
         try:
             if provider == "groq":
                 async for chunk in _stream_groq(system_prompt, user_message, temperature, max_tokens, enable_tools):
@@ -210,7 +212,7 @@ async def stream_llm(
         except Exception as e:
             if _is_rate_limit(e):
                 logger.warning(f"Rate limit hit on {provider} (stream). Rotating key... (Attempt {attempt+1}/{max_retries})")
-                key_manager.rotate_key(provider)
+                key_manager.rotate_key(provider, observed_index)
                 await asyncio.sleep(2)
             else:
                 raise e
@@ -279,9 +281,23 @@ async def _stream_local(system_prompt: str, user_message: str, temperature: floa
         stream=True
     )
 
+    got_content = False
     async for chunk in stream:
         if chunk.choices and chunk.choices[0].delta.content:
-            yield chunk.choices[0].delta.content
+            piece = chunk.choices[0].delta.content
+            if piece.strip():
+                got_content = True
+            yield piece
+
+    # Same empty/whitespace-only failure _call_local() guards against (see
+    # its comment) — Qwen3-14B can spend its whole budget on the hidden
+    # thinking trace and stream nothing real at all. Unlike _call_local,
+    # this can only be checked once the stream is exhausted; if we never
+    # yielded any real content, nothing has reached the caller yet, so
+    # raising here is safe and correctly triggers stream_llm()'s existing
+    # Groq/Gemini fallback instead of silently "succeeding" with no output.
+    if not got_content:
+        raise ValueError("Local LLM stream returned empty content")
 
 
 # ── Gemini ────────────────────────────────────────────────────────────────────
@@ -326,6 +342,7 @@ async def call_gemini_with_search(user_message: str, max_tokens: int = 1500) -> 
     """
     max_retries = 3
     for attempt in range(max_retries):
+        observed_index = key_manager.get_current_index("gemini")
         try:
             client = _get_gemini_client()
             response = await client.aio.models.generate_content(
@@ -357,7 +374,7 @@ async def call_gemini_with_search(user_message: str, max_tokens: int = 1500) -> 
         except Exception as e:
             if _is_rate_limit(e):
                 logger.warning(f"Rate limit hit on Gemini Search. Rotating key... (Attempt {attempt+1}/{max_retries})")
-                key_manager.rotate_key("gemini")
+                key_manager.rotate_key("gemini", observed_index)
                 await asyncio.sleep(2)
             else:
                 raise e
