@@ -622,6 +622,7 @@ class DirectGateway:
                     INSERT INTO documents (doc_id, filename, doc_type, is_global, project_id, case_id)
                     VALUES (:doc_id, :filename, :doc_type, :is_global, :project_id, :case_id)
                     ON CONFLICT (doc_id) DO UPDATE SET
+                        filename = EXCLUDED.filename,
                         case_id = EXCLUDED.case_id,
                         project_id = EXCLUDED.project_id,
                         is_global = EXCLUDED.is_global,
