@@ -51,6 +51,20 @@ def _sanitize_metadata(meta: dict) -> dict:
     }
 
 
+class EmbeddingDimensionMismatch(Exception):
+    """
+    Raised when a chunk's embedding vector doesn't match
+    config.EXPECTED_EMBEDDING_DIM for the currently-configured
+    EMBEDDING_PROVIDER.
+
+    Chroma itself only raises its own dimension-mismatch error once a
+    collection is non-empty — a freshly-created or manually-cleared
+    collection silently adopts whatever dimension the first-written vector
+    happens to have, with no warning (Phase 4, Module 4.2). This check fires
+    before every write, regardless of collection state.
+    """
+
+
 class ChromaVectorStore:
     """
     Local-persistent Chroma collection wrapper.
@@ -119,12 +133,28 @@ class ChromaVectorStore:
         """
         if not chunks:
             return
+        first_dim = len(chunks[0]["embedding"])
+        if first_dim != config.EXPECTED_EMBEDDING_DIM:
+            raise EmbeddingDimensionMismatch(
+                f"Embedding dimension mismatch: got {first_dim}, expected "
+                f"{config.EXPECTED_EMBEDDING_DIM} for EMBEDDING_PROVIDER="
+                f"{config.EMBEDDING_PROVIDER!r}. Refusing to write — this would "
+                "otherwise succeed silently against an empty/freshly-created "
+                "Chroma collection."
+            )
         self._collection.upsert(
             ids=[c["id"] for c in chunks],
             documents=[c["text"] for c in chunks],
             embeddings=[c["embedding"] for c in chunks],
             metadatas=[_sanitize_metadata(c.get("metadata") or {}) for c in chunks],
         )
+
+    def delete_by_ids(self, ids: list[str]) -> None:
+        """Remove chunks by their exact ids. Used as a compensating action
+        when a downstream write (Postgres) fails after this store's write
+        already succeeded (Module 4.2)."""
+        if ids:
+            self._collection.delete(ids=ids)
 
     def search(
         self,
@@ -346,11 +376,30 @@ async def upsert_documents(
 
     unique_docs = list({d["doc_id"]: d for d in doc_params}.values())
 
-    gateway = await get_gateway()
-    await gateway.insert_documents(unique_docs)
-
+    # Chroma first, Postgres second (Module 4.2). Eliminates the orphaned-
+    # documents-row class: if the Chroma write fails (dimension mismatch,
+    # disk error, process kill), nothing is committed to Postgres either, so
+    # a `documents` row can no longer exist with zero retrievable chunks
+    # behind it. If Chroma succeeds but the Postgres write then fails, the
+    # just-written Chroma chunks are deleted (compensating action) before
+    # re-raising, so the operation is effectively atomic from the caller's
+    # perspective in either failure direction.
     store = _get_store()
     await asyncio.to_thread(store.upsert, chroma_chunks)
+
+    gateway = await get_gateway()
+    try:
+        await gateway.insert_documents(unique_docs)
+    except Exception:
+        chroma_ids = [c["id"] for c in chroma_chunks]
+        logger.error(
+            "Postgres insert_documents failed after Chroma write succeeded — "
+            "rolling back %d Chroma chunk(s) to avoid a Chroma-only orphan.",
+            len(chroma_ids),
+        )
+        await asyncio.to_thread(store.delete_by_ids, chroma_ids)
+        raise
+
     logger.info("Upserted %d chunks into Chroma", len(ids))
 
 

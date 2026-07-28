@@ -10,10 +10,25 @@ a fake.
 """
 import pytest
 
+from src import config
 from src.retrieval.vector_store import ChromaVectorStore
 
 PROJECT_A = "11111111-1111-1111-1111-111111111111"
 PROJECT_B = "22222222-2222-2222-2222-222222222222"
+
+
+@pytest.fixture(autouse=True)
+def _small_expected_dim(monkeypatch):
+    """
+    This file's fixtures use 8-dim toy vectors — isolation/upsert-dedup
+    logic doesn't care about real embedding dimensions. Module 4.2 added a
+    dimension guard to ChromaVectorStore.upsert() checked against
+    config.EXPECTED_EMBEDDING_DIM (1024 by default, for the real e5
+    provider); without this, every upsert() call here would raise
+    EmbeddingDimensionMismatch for reasons unrelated to what these tests
+    actually verify.
+    """
+    monkeypatch.setattr(config, "EXPECTED_EMBEDDING_DIM", 8)
 
 
 @pytest.fixture

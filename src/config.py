@@ -74,6 +74,21 @@ EMBEDDING_PROVIDER: str = os.getenv("EMBEDDING_PROVIDER", "e5")  # "e5" | "gemin
 GEMINI_EMBEDDING_MODEL: str = os.getenv("GEMINI_EMBEDDING_MODEL", "models/gemini-embedding-001")
 OPENAI_EMBEDDING_MODEL: str = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
 
+# Expected vector dimension for whichever EMBEDDING_PROVIDER is active — see
+# src/retrieval/embedder.py's per-provider docstrings for where these numbers
+# come from (e5: multilingual-e5-large-instruct; gemini: gemini-embedding-001;
+# openai: text-embedding-3-small; local: chromadb's DefaultEmbeddingFunction,
+# all-MiniLM-L6-v2). Used by ChromaVectorStore.upsert() to reject a
+# wrong-dimension write before it reaches Chroma — Chroma itself only raises a
+# dimension-mismatch error once a collection is non-empty, so a freshly-created
+# or manually-cleared collection would otherwise silently adopt whatever
+# dimension the first vector happens to have. Override via env if a
+# non-default model changes a provider's output size.
+_EMBEDDING_DIMS: dict[str, int] = {"e5": 1024, "gemini": 3072, "openai": 1536, "local": 384}
+EXPECTED_EMBEDDING_DIM: int = int(
+    os.getenv("EXPECTED_EMBEDDING_DIM", "") or _EMBEDDING_DIMS.get(EMBEDDING_PROVIDER, 1024)
+)
+
 # Local e5 embeddings + reranker (served via the same ngrok/FastAPI model server
 # as LOCAL_LLM_URL / LOCAL_GEN_LLM_URL).
 EMBEDDINGS_URL: str = os.getenv("EMBEDDINGS_URL", "")
