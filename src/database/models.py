@@ -34,6 +34,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     Date,
@@ -294,6 +295,11 @@ class Message(Base):
 
 class PipelineRun(Base):
     __tablename__ = "pipeline_runs"
+    __table_args__ = (
+        # Phase 7, Module 7.4: get_runs_since()'s only filter — see
+        # migrations/014_analytics_indexes.sql.
+        Index("ix_pipeline_runs_created_at", "created_at"),
+    )
 
     run_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,
@@ -344,6 +350,9 @@ class PipelineStep(Base):
             "status IN ('success', 'skipped', 'retry', 'failed')",
             name="ck_pipeline_steps_status",
         ),
+        # Phase 7, Module 7.4: get_step_latencies_since()'s filter — see
+        # migrations/014_analytics_indexes.sql.
+        Index("ix_pipeline_steps_run_id_created_at", "run_id", "created_at"),
     )
 
     step_id: Mapped[int] = mapped_column(
@@ -536,6 +545,11 @@ class ErrorLog(Base):
     was a line in a terminal.
     """
     __tablename__ = "error_logs"
+    __table_args__ = (
+        # Phase 7, Module 7.4: get_errors_since()'s filter — see
+        # migrations/014_analytics_indexes.sql.
+        Index("ix_error_logs_occurred_at", "occurred_at"),
+    )
 
     error_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,

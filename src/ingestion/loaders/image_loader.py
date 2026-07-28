@@ -12,13 +12,37 @@
 import base64
 import hashlib
 import logging
+from collections import OrderedDict
 from pathlib import Path
 
 from src.ingestion.document import Document
 
 logger = logging.getLogger(__name__)
 
-_vision_cache: dict[str, str] = {}
+# Phase 7, Module 7.4: was an unbounded dict living for the process's
+# lifetime — every distinct image/scanned-page ever OCR'd stayed in memory
+# forever. Vision results are small strings, so the cap is about entry
+# count, not byte size; bounded LRU (OrderedDict, move-to-end on access,
+# evict oldest on overflow) keeps the common case (re-ingesting the same
+# small set of scanned pages) just as fast while capping worst-case growth.
+_VISION_CACHE_MAX_ENTRIES = 500
+_vision_cache: "OrderedDict[str, str]" = OrderedDict()
+
+
+def _vision_cache_get(key: str) -> str | None:
+    if key not in _vision_cache:
+        return None
+    _vision_cache.move_to_end(key)
+    return _vision_cache[key]
+
+
+def _vision_cache_put(key: str, value: str) -> None:
+    _vision_cache[key] = value
+    _vision_cache.move_to_end(key)
+    if len(_vision_cache) > _VISION_CACHE_MAX_ENTRIES:
+        _vision_cache.popitem(last=False)
+
+
 MAX_IMAGE_DIMENSION = 2000
 
 
@@ -56,9 +80,10 @@ def _describe_image_bytes(image_bytes: bytes, image_format: str) -> str:
     """
     # Cache check
     cache_key = hashlib.md5(image_bytes).hexdigest()
-    if cache_key in _vision_cache:
+    cached = _vision_cache_get(cache_key)
+    if cached is not None:
         logger.debug("Vision cache hit (md5=%s)", cache_key[:8])
-        return _vision_cache[cache_key]
+        return cached
 
     image_bytes = _resize_if_large(image_bytes, image_format)
 
@@ -71,7 +96,7 @@ def _describe_image_bytes(image_bytes: bytes, image_format: str) -> str:
     extracted = _call_gemini_vision(image_bytes, image_format)
 
     if extracted:
-        _vision_cache[cache_key] = extracted
+        _vision_cache_put(cache_key, extracted)
     return extracted
 
 

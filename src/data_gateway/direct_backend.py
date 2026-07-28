@@ -15,6 +15,20 @@ from src.database.models import (
 
 logger = logging.getLogger(__name__)
 
+# Phase 7, Module 7.4: get_runs_since()/get_step_latencies_since()/
+# get_errors_since() feed admin analytics timeseries/aggregates (usage,
+# latency, error trends) — they intentionally return every row in the
+# caller's `since` window, not a page of results (there is no "load more"
+# consumer for these; get_errors() is the separate, already-paginated
+# listing endpoint). A hard row cap here is a defensive backstop against
+# genuinely pathological unbounded growth (e.g. an old install with years
+# of history, or a caller requesting a huge `days` window) — at realistic
+# data volumes it never triggers and the aggregates are exact; past it,
+# the most recent max_rows are used instead of silently loading everything
+# into memory. Not real pagination — see issues.md/solution.md's own
+# "unbounded" framing, which describes the missing LIMIT, not a listing UI.
+ANALYTICS_MAX_ROWS = 50_000
+
 class DirectGateway:
     # ── User Operations ──
     async def get_user_by_id(self, user_id: str) -> Optional[dict]:
@@ -822,7 +836,7 @@ class DirectGateway:
                 return {"modules": [], "error_types": [], "severities": []}
             raise
 
-    async def get_errors_since(self, since: str) -> list[dict]:
+    async def get_errors_since(self, since: str, max_rows: int = ANALYTICS_MAX_ROWS) -> list[dict]:
         from src.database.models import ErrorLog
         from datetime import datetime as _dt
         try:
@@ -830,6 +844,8 @@ class DirectGateway:
                 res = await db.execute(
                     select(ErrorLog.occurred_at, ErrorLog.severity)
                     .where(ErrorLog.occurred_at >= self._naive_utc(since))
+                    .order_by(desc(ErrorLog.occurred_at))
+                    .limit(max_rows)
                 )
                 return [{"occurred_at": r[0].isoformat() if r[0] else None, "severity": r[1]} for r in res.all()]
         except Exception as exc:
@@ -966,13 +982,14 @@ class DirectGateway:
         }
 
     # ── Usage / routing / latency ──
-    async def get_runs_since(self, since: str) -> list[dict]:
+    async def get_runs_since(self, since: str, max_rows: int = ANALYTICS_MAX_ROWS) -> list[dict]:
         from datetime import datetime as _dt
         async with get_session() as db:
             res = await db.execute(
-                select(PipelineRun).where(
-                    PipelineRun.created_at >= self._naive_utc(since)
-                )
+                select(PipelineRun)
+                .where(PipelineRun.created_at >= self._naive_utc(since))
+                .order_by(desc(PipelineRun.created_at))
+                .limit(max_rows)
             )
             return [{
                 "run_id": str(r.run_id), "routed_to": r.routed_to, "final_outcome": r.final_outcome,
@@ -980,13 +997,15 @@ class DirectGateway:
                 "created_at": r.created_at.isoformat() if r.created_at else None,
             } for r in res.scalars().all()]
 
-    async def get_step_latencies_since(self, since: str) -> list[dict]:
+    async def get_step_latencies_since(self, since: str, max_rows: int = ANALYTICS_MAX_ROWS) -> list[dict]:
         from datetime import datetime as _dt
         async with get_session() as db:
             res = await db.execute(
                 select(PipelineStep.step_name, PipelineStep.duration_ms, PipelineStep.status,
                        PipelineStep.created_at)
                 .where(PipelineStep.created_at >= self._naive_utc(since))
+                .order_by(desc(PipelineStep.created_at))
+                .limit(max_rows)
             )
             return [{
                 "step_name": r[0], "duration_ms": r[1], "status": r[2],

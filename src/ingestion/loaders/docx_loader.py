@@ -145,17 +145,20 @@ def _iter_blocks(word_doc):
     """
     from docx.oxml.ns import qn
 
+    # Phase 7, Module 7.4: build each lookup once (keyed by the XML
+    # element's identity, matching the `is` comparison this replaces)
+    # instead of a linear re-scan of .paragraphs/.tables per body child —
+    # the previous version was O(body children x paragraphs/tables), i.e.
+    # roughly O(n^2) on document length.
+    para_by_element_id = {id(p._element): p for p in word_doc.paragraphs}
+    table_by_element_id = {id(t._element): t for t in word_doc.tables}
+
     body = word_doc.element.body
     for child in body.iterchildren():
         tag = child.tag
 
         if tag == qn("w:p"):
-            # Paragraph element
-            para = None
-            for p in word_doc.paragraphs:
-                if p._element is child:
-                    para = p
-                    break
+            para = para_by_element_id.get(id(child))
             if para is not None:
                 yield {
                     "type": "paragraph",
@@ -164,11 +167,9 @@ def _iter_blocks(word_doc):
                 }
 
         elif tag == qn("w:tbl"):
-            # Table element
-            for table in word_doc.tables:
-                if table._element is child:
-                    yield {"type": "table", "table": table}
-                    break
+            table = table_by_element_id.get(id(child))
+            if table is not None:
+                yield {"type": "table", "table": table}
 
 
 def _table_to_text(table) -> str:
