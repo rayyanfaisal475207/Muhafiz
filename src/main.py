@@ -90,7 +90,7 @@ async def lifespan(app: FastAPI):
     logger.info("Error capture installed.")
 
     # ── Database Initialization ──────────────────────────────────────────
-    from src.database.postgres import is_postgres_configured, init_postgres
+    from src.database.postgres import is_postgres_configured, init_postgres, MissingSchemaError
 
     if is_postgres_configured():
         # PostgreSQL (local/self-hosted, direct SQL) is the only database —
@@ -101,6 +101,13 @@ async def lifespan(app: FastAPI):
         try:
             await init_postgres()
             logger.info("[OK] PostgreSQL initialized (primary database)")
+        except MissingSchemaError:
+            # init_postgres() already logged a specific, actionable
+            # CRITICAL for this — don't also log the generic "unreachable"
+            # warning below, which would misdirect troubleshooting toward
+            # connectivity when Postgres is reachable and the real cause is
+            # a missing plain-SQL migration.
+            pass
         except Exception as exc:
             logger.warning(
                 "[WARN] PostgreSQL unreachable at startup (%s). "

@@ -36,6 +36,13 @@ from src import config
 logger = logging.getLogger(__name__)
 
 
+class MissingSchemaError(RuntimeError):
+    """Raised when a required Postgres schema object created by the
+    plain-SQL migrations/ chain (not by SQLAlchemy's create_all()) is
+    missing — e.g. the `user_role` enum type from migrations/006_rbac.sql.
+    """
+
+
 # ── Engine & Session Factory ──────────────────────────────────────────────────
 # Both are set to None when DATABASE_URL is absent, keeping the module
 # importable without a running Postgres instance.
@@ -150,9 +157,28 @@ async def init_postgres() -> None:
         from src.database.models import Base  # noqa: WPS433 (nested import)
 
         async with engine.begin() as conn:
+            # models.py's role_enum is declared with create_type=False —
+            # SQLAlchemy expects this type to already exist (created by
+            # migrations/006_rbac.sql), it will not create it via
+            # create_all(). Check first with a cheap, specific query so a
+            # missing-migration environment gets a clear, actionable error
+            # instead of create_all() failing with a raw Postgres
+            # "type does not exist" error that looks like a connectivity
+            # problem.
+            result = await conn.execute(
+                text("SELECT 1 FROM pg_type WHERE typname = 'user_role'")
+            )
+            if result.first() is None:
+                raise MissingSchemaError(
+                    "required enum type `user_role` missing — run "
+                    "`migrations/006_rbac.sql` before starting the app"
+                )
             await conn.run_sync(Base.metadata.create_all)
 
         logger.info("PostgreSQL tables created / verified successfully.")
+    except MissingSchemaError as exc:
+        logger.critical("[CRITICAL] %s", exc)
+        raise
     except Exception as exc:
         logger.error("Failed to initialise PostgreSQL tables: %s", exc)
         raise
