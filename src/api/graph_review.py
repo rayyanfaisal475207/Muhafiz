@@ -30,10 +30,12 @@ logger = logging.getLogger(__name__)
 # (admin-frontend/src/api.ts) is hardcoded to that baseURL, matching
 # every other admin-dashboard router (admin.py, cases.py's admin surface).
 #
-# Phase 2: this queue is deliberately cross-case by product design (see
-# this module's own docstring and solution.md §9.2, an open decision not
-# resolved by this phase) — RLS is armed but the case dimension is
-# bypassed here, same as admin.py, pending that decision.
+# This queue is deliberately cross-case by product design — reviewed and
+# confirmed 2026-07-29 (see docs/graph_schema.md's "Reviewed tradeoff"
+# section). Finding the same real-world person across different cases is
+# the entire point of this queue; RLS is armed but the case dimension is
+# intentionally bypassed here, same as admin.py, as a permanent design
+# decision, not a pending gap.
 router = APIRouter(
     prefix="/api/admin/graph-review", tags=["graph-review"],
     dependencies=[Depends(cross_case_rls_dependency)],
@@ -81,9 +83,10 @@ async def list_pending(case_id: str | None = None, tier: str | None = None, admi
         # restriction. Deliberately NOT the default: this queue is meant
         # to surface cross-case matches too (the P-006 flagship case), so
         # case-scoping it by default would hide exactly the matches most
-        # worth an investigator's attention (see module docstring,
-        # solution.md §9.2 — unresolved whether that cross-case exposure
-        # itself needs a product decision; this filter doesn't touch that).
+        # worth an investigator's attention (see module docstring and
+        # docs/graph_schema.md's "Reviewed tradeoff" section — the
+        # cross-case exposure itself is a confirmed, permanent design
+        # decision, not an open question).
         if case_id and case_id not in (row.get("a_case_id"), row.get("b_case_id")):
             continue
         results.append({

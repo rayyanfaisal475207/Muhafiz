@@ -70,7 +70,9 @@ cross-check `src/config.py` directly if in doubt.
 
 | Variable | Required | Notes |
 |---|---|---|
-| `DATABASE_URL` | **yes** | `postgresql+asyncpg://postgres:dev@localhost:5432/muhafiz` for the bundled `docker-compose.yml`. Must start `postgresql+asyncpg://`. |
+| `DATABASE_URL` | **yes** | For a real deployment this must point at the least-privilege `muhafiz_app` role (migration 015), **not** the `postgres` superuser — a superuser/`BYPASSRLS` connection silently defeats every RLS policy regardless of correctness. For a quick local dev run against the bundled `docker-compose.yml` before that role is provisioned, `postgresql+asyncpg://postgres:dev@localhost:5432/muhafiz` still works, but see §4's "Least-privilege roles" note before treating that as production-ready. Must start `postgresql+asyncpg://`. |
+| `REQUIRE_POSTGRES` | no | `true` (default) refuses to start rather than silently falling back to the legacy pre-Phase-1 SQLite schema when `DATABASE_URL` isn't configured. Only set `false` for narrow legacy/local debugging. |
+| `MCP_DATABASE_URL` | no | Least-privilege connection string for the MCP SQL route (`muhafiz_mcp_readonly`, migration 009 — SELECT-only on `police_reference_data`). If unset, the MCP Postgres route raises `RuntimeError` on first use rather than falling back to the app's main `DATABASE_URL`. |
 | `JWT_SECRET_KEY` | **yes** | Any long random string — `python -c "import secrets; print(secrets.token_hex(32))"`. **The code's own default (`your-secret-key-for-dev`) is an insecure placeholder — don't ship it.** |
 | `ENVIRONMENT` | yes | `development` locally (non-secure cookies, so `http://localhost` works). |
 | `LLM_PROVIDER` | yes | `groq` or `gemini` — this is the **cloud fallback** identity, not the primary path (see below). |
@@ -147,6 +149,32 @@ python scripts/apply_migration.py migrations/007_verifier_fields.sql
 
 # 7. Row-Level Security policies on cases/documents/sessions/pipeline_runs
 python scripts/apply_migration.py migrations/008_rls_policies.sql
+
+# 8. Least-privilege role for the MCP SQL route (Phase 1, Module 1.2) —
+#    SELECT-only on police_reference_data, nothing else
+python scripts/apply_migration.py migrations/009_mcp_readonly_role.sql
+
+# 9. Fixes migration 008's NULL-vs-NULL RLS bug, adds a messages policy (Phase 2)
+python scripts/apply_migration.py migrations/010_rls_null_case_fix.sql
+
+# 10. Second, physically separate AGE graph for the entity-resolution eval
+#     harness (Phase 3, Module 3.1) — keeps eval fixtures out of real cases
+python scripts/apply_migration.py migrations/011_age_eval_graph.sql
+
+# 11. police_station on users, anchors station-admin case-assignment scoping (Phase 5)
+python scripts/apply_migration.py migrations/012_user_station.sql
+
+# 12. case_id on generated_files, for download_file's case-level scoping (Phase 5)
+python scripts/apply_migration.py migrations/013_generated_files_case_id.sql
+
+# 13. Indexes for the admin analytics queries (Phase 7)
+python scripts/apply_migration.py migrations/014_analytics_indexes.sql
+
+# 14. Least-privilege role for the application's own runtime connection
+#     (Phase 11 / issues.md's 13th Critical finding) — see the dedicated
+#     note right after this list; this one needs manual follow-up steps,
+#     it is not "just run it and move on" like the others.
+python scripts/apply_migration.py migrations/015_app_least_privilege_role.sql
 ```
 
 All of these are idempotent — safe to re-run. **Check what's actually applied
@@ -179,6 +207,34 @@ If `apply_migration.py` fails with a connection error, Postgres isn't
 reachable — confirm Docker Desktop is actually running (not just
 `docker compose up -d` issued into a dead daemon — see §9) and `DATABASE_URL`
 in `.env` points at the right host/port/credentials.
+
+**Least-privilege roles (migrations 009 and 015) need manual follow-up —
+applying the SQL alone does not finish the job.** Both create a role with
+`LOGIN` but no password, and neither migration repoints your app's
+connection string for you:
+
+- **`muhafiz_mcp_readonly`** (migration 009, Phase 1) — the MCP SQL route's
+  connection. Set a password
+  (`ALTER ROLE muhafiz_mcp_readonly WITH PASSWORD '...'`), then set
+  `MCP_DATABASE_URL` in `.env` to a connection string using it (see the
+  commented example in `.env.example`). Verify with
+  `python scripts/verify_mcp_role.py` (needs live Postgres). Until
+  `MCP_DATABASE_URL` is set, the MCP Postgres route raises `RuntimeError` on
+  first use — this is deliberate fail-closed behavior, not a bug.
+- **`muhafiz_app`** (migration 015, `issues.md`'s 13th Critical finding) —
+  the application's own normal runtime connection (`DATABASE_URL` itself).
+  **This one matters most**: as long as `DATABASE_URL` still points at the
+  `postgres` superuser, every RLS policy from migrations 008/010 is silently
+  inert regardless of correctness — a Postgres superuser or `BYPASSRLS` role
+  unconditionally bypasses row-level security. Set a password
+  (`ALTER ROLE muhafiz_app WITH PASSWORD '...'`), repoint `DATABASE_URL` at
+  it (`postgresql+asyncpg://muhafiz_app:<password>@localhost:5432/muhafiz`),
+  restart the backend, and confirm it starts cleanly and every route still
+  works (this role also needs `CREATE ON SCHEMA public` for
+  `init_postgres()`'s startup `create_all()` call — migration 015 grants
+  this already). Verify with `python scripts/verify_app_role.py` (needs live
+  Postgres). Existing `.env` files pointing at the superuser role do **not**
+  auto-update; this is a manual, per-deployment step.
 
 **Vector store.** Embeddings live in ChromaDB, a local persistent collection
 at `CHROMA_PERSIST_DIR` (default `./data/chroma_db`) — no separate setup

@@ -36,6 +36,7 @@ _A case-centric, graph-backed investigative assistant — bilingual (Urdu/Englis
 - [Configuration](#configuration)
 - [API Reference](#api-reference)
 - [Admin Dashboard](#admin-dashboard)
+- [Security & Audit Remediation](#security--audit-remediation)
 - [Known Limitations & Deferred Scope](#known-limitations--deferred-scope)
 - [Design System](#design-system)
 
@@ -534,6 +535,21 @@ A separate React app (`admin-frontend/`) on the `/api/admin/*` namespace. Every 
 | **Users**                | Registered accounts                                                                                                                                                                                                                                                                                                                                                                          |
 
 All views share a date-range filter (24h / 7d / 30d / 90d), which also switches bucketing between hourly and daily. Percentiles are nearest-rank, so a reported p95 is a latency a real request actually experienced.
+
+---
+
+## Security & Audit Remediation
+
+An independent code audit against the codebase as of 2026-07-27 (`issues.md`) produced 127 findings (13 Critical, 19 High, 56 Medium, 39 Low — one Critical was added 2026-07-28, the first point the audit had live Postgres access, since a superuser-connection RLS bypass isn't findable by static review alone). A 12-phase remediation plan (`solution.md`) triaged every finding; **all 12 phases (0 through 11) are implemented and committed to `main`** — see `IMPLEMENTATION_PROMPT.md` for the full per-module progress log, including what deviated from the plan and what was live-verified against real Postgres/AGE versus confirmed only by code review and the test suite.
+
+Not every finding got a code change, and this README won't claim otherwise:
+
+- **Deliberately deferred, by design** (`solution.md` §10, six items, each with its own stated reason) — never code-fixed, and not scheduled to be: rich sanitized markdown rendering for the chat UI (needs its own XSS review), a full responsive/mobile-tablet redesign, fully reconciling Alembic's migration history with the plain-SQL chain, retroactively repairing already-corrupted pre-fix historical data, a full dependency-compatibility audit beyond pinning, and making `mypy`/`ruff`/ESLint blocking CI gates rather than report-only. See `solution.md` §10 for the reasoning behind each.
+- **Product decisions, not code bugs** (`solution.md` §9, four items) — all four now have a confirmed decision and are implemented: the graph-review entity-resolution queue's cross-case visibility is a **confirmed, permanent product exemption** from per-case confidentiality (documented in [`docs/graph_schema.md`](docs/graph_schema.md)'s "Reviewed tradeoff" section); the Audit Logs page's role gate is confirmed **`platform-admin`-only**, matching the backend (implemented in `App.tsx`/`Sidebar.tsx`); the graph-contamination severity correction was folded into Phase 3's fix; and the one failing CI test at the start of this project was confirmed stale (code was correct) and replaced, not a product reversal.
+
+**Current test suite** (re-run 2026-07-29, `python -m pytest tests/ --continue-on-collection-errors`): **604 passed, 4 skipped, 0 failed** — the 4 skips are `@pytest.mark.requires_postgres` tests that need a live database (`RUN_POSTGRES_TESTS=1 TEST_DATABASE_URL=...` to run them for real). `tests/test_pdf_loader.py`'s 6 real-Docling tests are excluded from this count — they fail in this environment on a genuine memory-exhaustion error (`OSError: The paging file is too small...`, see RUN.md §9), not a code defect; run them separately on a machine with more headroom.
+
+This section, plus the "Fixed since the initial audit" note and every claim in [Known Limitations](#known-limitations--deferred-scope) below, is re-verified against the current code rather than carried forward from what the plan intended — if you find a gap between what's claimed here and what the code does, that's a doc bug, report it.
 
 ---
 

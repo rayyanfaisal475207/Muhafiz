@@ -444,7 +444,181 @@ carefully — they contain constraints that are not obvious from the phase list 
     authenticated session running, which wasn't available/attempted in this session.
     Component/unit tests are real (each one proven to catch its own regression), but they
     are not a substitute for exercising the actual UI.
-- **Not pushed to origin** — `main` is 42 commits ahead of `origin/main` (1 behind, from
+- **Phase 9 — Admin frontend fixes**: All four modules done, **committed to `main`**
+  (commits `4207270`/`f95ff02`/`87a63d2`/`81d8519`), committed directly per explicit
+  instruction each time (no separate branch/merge step requested for this phase).
+  - **Module 9.2 — Confirmation dialogs and attribution**: `CaseManagementPage.tsx`'s
+    `handleUnassign` and `ReviewQueuePage.tsx`'s `act('confirm'|'reject')` now require
+    `window.confirm(...)` before firing, matching the existing KB-document-delete
+    pattern. The hardcoded `reviewed_by: 'admin'` literal dropped from the graph-review
+    request body (confirmed via reading `graph_review.py` that backend Module 5.2's
+    `ReviewAction` is already an empty Pydantic model — the field was already ignored
+    server-side). **Bootstrapped Vitest + React Testing Library for `admin-frontend`**,
+    which had zero test infra before this (same shape as Phase 8's setup for the main
+    frontend) — new `vitest.config.ts`/`src/test/setup.ts`/`npm test` script. New
+    component tests for both confirmation dialogs (5 tests).
+  - **Module 9.4 — Remaining admin-page error/loading-state gaps**: `ErrorsPage.tsx`'s
+    `Promise.all` fetch chain gained a `.catch()` (previously a failed fetch rendered as
+    a healthy "0 errors" period — see `issues.md`'s High finding on this). `DashboardPage.tsx`
+    gained a lightweight "Updating…" text indicator for range changes after the first
+    load (the old `loading && !usage` guard only ever fired once). `KnowledgeBasePage.tsx`'s
+    `refresh` wrapped in try/catch/finally so a failed load surfaces an error banner and
+    `setLoading(false)` always fires instead of hanging on "Loading…" forever; `remove`'s
+    delete failures now surface a banner too. New tests for all three failure paths (5
+    tests).
+  - **Module 9.3 — CSS drift and accessibility sweep**: the largest module by file count
+    (19 files). Mechanical sweep across both frontends per `issues.md`'s exact
+    wrong→right class/variable mapping (`.page-subtitle`→`.page-sub`,
+    `.table-wrapper`→`.overflow-x-auto`, `var(--gold)`→`var(--accent)`,
+    `var(--surface-2)`→`var(--bg-surface-2)`, `var(--error-bg)`/`var(--error-border)`→
+    `var(--error-soft)`/`color-mix(...)`, `.td-mono`→`.font-mono`,
+    `.badge-unknown`/`.badge-neutral`→plain `.badge`, `.text-input`/`.btn-ghost`/
+    `.btn-accent`→removed/`.btn .btn-danger`/`.btn .btn-primary` — these three exist in
+    the *main* frontend's stylesheet but not admin's, confirming the audit's finding
+    precisely; `.filter-btn`→the existing `.segmented` pattern). **Two same-pattern
+    instances found beyond the audit's literal list, fixed as same-file extensions**:
+    `GeneratedFilesPage.tsx`'s dynamic `badge-${file_type}` (pdf/xlsx have no defined
+    badge color) and `RunHistoryPage.tsx`'s undefined `.table-header-bar`/`.step-name`/
+    `.step-ms`. New CSS added for classes referenced everywhere but never defined
+    anywhere (`.spinner`, `.step-list`/`.step-item`/`.step-dot` + status variants,
+    `.table-header-bar`) — a real spinner animation and step-trace styling, not a swap.
+    Accessibility: `aria-pressed` on `RangePicker` and both filter button groups;
+    `htmlFor`/`id` pairs on every unassociated label/input across both apps'
+    Login/Register/CaseSettingsModal/ProjectSettingsModal/CaseManagementPage;
+    `aria-label` on Sidebar's Workspace/Case selects and icon-only row actions (Delete
+    previously had neither `title` nor `aria-label`). New shared
+    `frontend/src/hooks/useModalA11y.ts`: Escape-to-close, a real focus trap
+    (Tab/Shift+Tab wrapping), auto-focus on open, focus restoration on close — applied to
+    both `CaseSettingsModal`/`ProjectSettingsModal` via `role="dialog"`/`aria-modal`/
+    `aria-labelledby`, plus backdrop-click-to-close. Also: `SettingsPage.tsx`'s hardcoded
+    `text-green-600`→`var(--success)`, and `RegisterPage.tsx` now uses the shared
+    `LogoLockup` component matching `LoginPage.tsx`. **One item flagged, not fixed** —
+    admin `LoginPage.tsx`'s `.login-logo-icon` class is also undefined (an unstyled "M"
+    placeholder box), left alone since fixing it means inventing new icon-tile CSS, not
+    swapping to a real equivalent; out of the audit's named scope. New
+    `useModalA11y.test.tsx` (5 tests covering Escape-close, no-op when closed, auto-focus,
+    both Tab-wrap directions).
+  - **Module 9.1 — Audit Logs page hardening**: **§9.3 resolved first** (user confirmed:
+    match the backend, `platform-admin`-only) — this unblocked the module. Role gate fix:
+    `App.tsx`'s `/audit-logs` route and `Sidebar.tsx`'s nav item both move from
+    `SUPERVISOR_PLUS` to `PLATFORM_ADMIN`. `AuditLogPage.tsx` rewritten end to end — it
+    was the one page in the app still using raw Tailwind utility classes on a stylesheet
+    that doesn't define them (the audit's cross-referenced "stray Tailwind styling"),
+    plus a bare `fetch()` with no `credentials`/CSRF handling. Now: shared `api` axios
+    instance; stale rows clear on a failed fetch instead of sitting under the error
+    banner; text filters debounce ~300ms; the same `RangePicker` `DashboardPage`/
+    `ErrorsPage` use, plus real offset-based "Load more" pagination; a `redact()`
+    function blanks sensitive keys (`payload`, `victim`, `suspect`, `email`, `query`,
+    `cnic`, `phone`, `address`, `password`) in the `details` JSON dump before rendering —
+    built by actually reading every `log_audit_event` call site, not guessed (`cases.py`'s
+    full case-payload write and `case_assignments.py`'s `target_email` were the concrete
+    drivers); markup rewritten with the app's real design system instead of Tailwind.
+    **Backend widening, flagged before implementing**: the RangePicker needed a real
+    date-range parameter that `get_audit_logs()` didn't have (unlike `get_errors()`,
+    which already has this exact `since`/`days` pattern) — added `days: int = 30` to the
+    `/audit-logs` route (`admin.py`), threaded `since` through
+    `DirectGateway.get_audit_logs()` (`direct_backend.py`) and the `DataGateway` Protocol
+    (`base.py`), mirroring `get_errors()`'s `since_iso(days)` call exactly. **Deliberately
+    not done** — the audit's broader "no pagination on `RunHistoryPage`/
+    `GeneratedFilesPage`/`McpCallLogPage`/`UsersPage` either" observation; Module 9.1's
+    file list is `AuditLogPage.tsx` only, fixing the other four would be real scope creep
+    with no other Phase 9 module covering them — flagged as still open, not silently
+    dropped. New `AuditLogPage.test.tsx` (5 tests) + `Sidebar.test.tsx` (3 tests, nav
+    visibility per role).
+  - **Verification across all of Phase 9**: `admin-frontend`: `npx tsc -b` clean, full
+    `npx vitest run` — 7 files, 18 tests, all passing at Module 9.1's close, `npx oxlint`
+    no new warnings throughout. `frontend`: `npx tsc -b` clean, `npx vitest run` — 6
+    files, 12 tests, all passing, `npx oxlint` no new warnings. Backend full suite
+    re-verified after Module 9.1's `admin.py`/`direct_backend.py`/`base.py` changes:
+    **604 passed, 4 skipped, 6 deselected (slow), 0 failed** — no regressions. **Not
+    verified**: no live browser click-through for any Phase 9 module (no backend/Postgres/
+    auth session available), and no live-Postgres check of the new `since` filter on
+    `get_audit_logs` specifically — `DirectGateway`'s methods have no existing unit-test
+    convention in this codebase (only exercised by `requires_postgres`-marked integration
+    tests, none of which cover `get_audit_logs` even before this change); the
+    `since_iso`/`_naive_utc` plumbing is copied verbatim from `get_errors()`'s
+    already-working pattern, the strongest available evidence of correctness without
+    live infra.
+- **Phase 10 — Dead code, contract drift, and cleanup**: Both real modules done,
+  **committed to `main`** (commits `0890abd`/`c554b39`). Module 10.3 needed no work — see
+  below.
+  - **Module 10.1 — Remove confirmed-dead code**: each deletion re-confirmed via a fresh
+    repo-wide grep immediately before removal (not just trusting the 2026-07-27 audit's
+    count). Deleted: `src/llm/client.py`'s self-documented dead `_use_local()`;
+    `prompts/citation_validator.txt` and `prompts/search_query_constructor.txt` (orphaned,
+    no live reader) plus `src/pipeline/query_constructor.py` (zero callers anywhere);
+    `frontend/src/App.css`/`admin-frontend/src/App.css` and unreferenced Vite-scaffold
+    assets (`react.svg`/`vite.svg`/`hero.png`) in both frontends' `src/assets/`; `frontend/
+    src/lib/utils.ts`'s 4 unused exported functions (`getFileTypeColor`,
+    `getFileTypeBadgeBg`, `getFileTypeIcon`, `formatDate`); `frontend/src/components/auth/
+    ProtectedRoute.tsx`'s no-op `useEffect` left over from a refactor.
+  - **Module 10.2 — `DataGateway` Protocol reconciliation**: `src/data_gateway/base.py`'s
+    Protocol now matches `direct_backend.py`'s real `DirectGateway` implementation — added
+    the 6 methods that existed in the implementation but not the Protocol
+    (`check_case_access`, `get_case_assignments`, `assign_user_to_case`,
+    `unassign_user_from_case`, `log_step`, `table_exists`); fixed `create_session`
+    (was missing `project_id`/`case_id`) and `get_ingested_files_summary` (was missing
+    `project_id`); fixed `get_cases()`'s signature from a no-arg call to requiring
+    `user_id`/`user_role`, matching reality (the old signature invited a call the real
+    implementation can't handle — `uuid.UUID(str(None))` raises `ValueError` on the
+    non-admin branch — now a caller coding against the Protocol gets a type error instead
+    of a misleading green light). Zero runtime blast radius (Python Protocols are
+    structural/type-checking only) — a static-analysis correctness fix.
+  - **Module 10.3 — MCP scaffolding cleanup**: no work needed, as flagged in the prior
+    handoff — already covered by Module 1.2 back in Phase 1.
+- **Phase 11 — Documentation, deployment risk, and CI**: All four modules done,
+  **committed to `main`** (commits `b6b6ab5`/`0f685d6`/`78bf3d3`/`4c1eb40`).
+  - **Module 11.1 — Remaining documentation drift**: corrected five stale claims named in
+    `issues.md`'s Documentation section: `README.md`'s inaccurate `MEMORY_BACKEND` note
+    removed (confirmed via grep and `git log -S` that this variable has never existed in
+    `src/config.py`, and `src/memory/conversation.py` has zero JSON/file I/O — fully
+    Postgres-backed); `src/retrieval/embedder.py`'s `embed_text()`/`embed_texts()`
+    docstrings, which unconditionally claimed 3072 dimensions (the Gemini provider's
+    number), now state the real default (1024, `e5`) with the other three providers'
+    dimensions noted; `requirements.txt`'s leftover "TaxIQ" header corrected to "Muhafiz".
+    Also wrote `admin-frontend/README.md` from scratch (was the unmodified Vite scaffold
+    template before this) and substantially rewrote `frontend/README.md` (also
+    scaffold-level before this) to match.
+  - **Module 11.2 — Migration/startup drift guard**: `src/database/postgres.py` gained a
+    `MissingSchemaError`; `init_postgres()` now checks `pg_type` for the `user_role` enum
+    (declared `create_type=False` in `models.py`, so SQLAlchemy expects
+    `migrations/006_rbac.sql` to have created it already) before calling `create_all()` —
+    missing it raises `MissingSchemaError` with an actionable message instead of a
+    misleading generic "PostgreSQL unreachable" warning. `src/main.py` catches this
+    specifically. Per `solution.md`'s explicit scoping, this does **not** attempt to
+    reconcile Alembic's migration history with the plain-SQL chain's actual schema — that
+    stays a §10 deliberately-deferred item; this module only fixes the misleading error
+    message when the two have drifted.
+  - **Module 11.3 — Dependency pinning**: new `requirements.lock.txt` (146 exact-pinned
+    packages) for reproducible CI/deployment installs, computed as the transitive
+    dependency closure of `requirements.txt`'s direct packages from this environment's
+    already-installed package metadata (`importlib.metadata`, no new installs — per an
+    explicit instruction not to install anything on this machine), **not** a literal `pip
+    freeze` (this machine's Python environment is a large shared/global install with 290+
+    unrelated packages, which a raw freeze would have pulled in wholesale).
+    `requirements.txt`'s header now documents the split: itself as the floor-pinned intent
+    file for local dev, `requirements.lock.txt` as what CI/deployment actually installs
+    from. Per `solution.md`'s explicit scoping, this is pinning to current-known-working
+    versions, **not** a full dependency-compatibility audit — that stays a §10
+    deliberately-deferred item.
+  - **Module 11.4 — CI hardening (scoped narrowly)**: `.github/workflows/ci.yml`'s backend
+    job now runs `pytest --cov=src --cov-report=term-missing --cov-report=xml` (no
+    `--cov-fail-under` — visible, not a merge gate) and uploads the report as an artifact,
+    then runs `pip-audit` against `requirements.lock.txt` with `continue-on-error: true`;
+    the frontend job (both `frontend`/`admin-frontend` matrix legs) runs `npm audit`, same
+    `continue-on-error: true`. Per `solution.md`'s explicit scoping, **no**
+    `mypy`/`ruff`/ESLint blocking gate was added — retrofitting lint compliance across a
+    never-linted codebase is a separate, deferred effort (§10), and CI stays informational
+    for these new checks rather than blocking merges.
+  - **Verification across Phase 10-11**: full backend suite re-run after each module,
+    **604 passed, 4 skipped, 0 failed** throughout (excluding `test_pdf_loader.py`'s
+    real-Docling tests, which fail in this environment on a genuine memory-exhaustion
+    error unrelated to any of these changes — see RUN.md §9) — no regressions from either
+    phase. **Not verified**: no live CI run of the new `pytest-cov`/`pip-audit`/`npm audit`
+    steps (would need an actual GitHub Actions run, not available in this environment) —
+    the YAML was hand-checked against the existing job structure and each tool's own CLI
+    flags, not executed end-to-end.
+- **Not pushed to origin** — `main` is 53 commits ahead of `origin/main` (1 behind, from
   an unrelated remote-side commit). Push only when explicitly asked.
 
 ## Environment constraints
@@ -466,20 +640,29 @@ carefully — they contain constraints that are not obvious from the phase list 
   separators and encoding (several scripts in this repo already handle cp1252/UTF-8 issues).
 - The test suite is `python -m pytest tests/ --continue-on-collection-errors` (~100s).
 
-## Open decisions still outstanding (do not start the affected work without an answer)
+## Open decisions — all four now resolved (last one closed 2026-07-29)
 
-- **§9.2 — graph-review cross-case bypass**: Module 5.2's three unblocked items
-  (`reviewed_by` spoofing, missing audit-log calls, `list_pending`'s `case_id` filter)
-  are done. The cross-case-`case_assignments`-bypass item itself is **still open** — do
-  not implement case-scoped access control on `src/api/graph_review.py`'s confirm/reject/
-  list endpoints without a product answer to "is cross-case entity-resolution review
-  deliberately exempt from per-case confidentiality, or a gap?"
-- **§9.3 — Audit Logs role gate (frontend vs. backend authoritative)**: blocks Module 9.1.
+- **§9.2 — graph-review cross-case bypass**: **resolved 2026-07-29** — confirmed as a
+  deliberate, permanent product exemption from per-case confidentiality (the queue's
+  entire purpose is surfacing the same real-world person across different cases; scoping
+  it to reviewers assigned to *both* cases in a match would defeat that). Documented in
+  `docs/graph_schema.md`'s "Reviewed tradeoff" section and cross-referenced from
+  `src/api/graph_review.py`'s module docstring and `list_pending`'s inline comment. No
+  further code change follows from this — `src/api/graph_review.py`'s confirm/reject/list
+  endpoints keep their existing global `supervisor`-or-above gate, now on record as
+  intentional rather than pending. Module 5.2's three unblocked items (`reviewed_by`
+  spoofing, missing audit-log calls, `list_pending`'s `case_id` filter) were already done.
+- **§9.3 — Audit Logs role gate (frontend vs. backend authoritative)**: **resolved** —
+  user confirmed match-the-backend, `platform-admin`-only. Implemented in Module 9.1
+  (`App.tsx`/`Sidebar.tsx` moved from `SUPERVISOR_PLUS` to `PLATFORM_ADMIN`).
 - **§9.4 — the failing CI test**: resolved. Module 0.1 confirmed the code was correct and
   the test was stale; already fixed and committed.
 
 §9.1 (the eval harness wipes the entire graph, not just adds fixtures) is a correction to
 the issue description, folded into Phase 3's design — no decision needed.
+
+All four §9 items are now closed. Nothing in the plan is blocked on an outstanding product
+decision as of this entry.
 
 ## Formerly-untracked follow-up — RESOLVED (Phase 0-7 closeout, 2026-07-28)
 
@@ -525,77 +708,48 @@ For each module assigned:
 - `/code-review` is run manually at phase boundaries — don't attempt to launch it.
 
 
-## Start here
+## Closing entry (2026-07-29) — all 12 phases complete
 
-Phase 0-8 is complete: all eight phases implemented and committed to `main` (backend
-phases merged via the earlier branch workflow; Phase 8's frontend modules were committed
-directly, one commit per module, per explicit instruction in that session — no separate
-branch/merge step was requested for it). Every security-heavy backend phase is covered by
-`/security-review` (clean on all), and `issues.md`'s 13th Critical finding (superuser
-`DATABASE_URL`) is resolved and live-verified. Frontend test infra (Vitest + React Testing
-Library) now exists where it didn't before Phase 8. `main` tip: run `git log --oneline -1`
-to confirm (Phase 8's commits land after `e2f774c`, "Phase 0-7 closeout..." — see the
-Progress log above for the full commit list and what each one contains).
+**All 12 phases (0 through 11) of `solution.md`'s remediation plan are implemented and
+committed to `main`.** `main` tip is `4c1eb40` ("Phase 11, Module 11.4: CI hardening
+(scoped narrowly)"); run `git log --oneline -1` to confirm, and see the Progress log above
+for the full per-module commit list and what each one actually did. Nothing in the plan is
+blocked on an outstanding product decision — all four §9 items are resolved (see "Open
+decisions" above), and every §10 item remains exactly what it always was: a deliberately
+scoped-out follow-up with a stated reason, not an oversight.
 
-**One live-infra note carried over from the Phase 0-7 closeout, still relevant**: that
-closeout session had real Postgres access — `migrations/015_app_least_privilege_role.sql`
-was applied live, `muhafiz_app` has a real (session-local, not committed) password set on
-the actual instance, and `.env`'s `DATABASE_URL` may or may not have been switched over to
-it depending on what the user decided afterward. Check `.env` and `git log -p --
-.env.example` before assuming either way. Phase 8 was frontend-only and had no live-infra
-access/needs of its own (no Postgres, no browser click-through — see Phase 8's "Not
-verified" note above), so this note is unchanged since the last handoff.
+**Final test count**: `python -m pytest tests/ --continue-on-collection-errors` —
+**604 passed, 4 skipped, 0 failed**, re-run fresh at this closeout, no regressions from
+Phase 10 or 11. The 4 skips are `@pytest.mark.requires_postgres` tests needing a live
+database. `tests/test_pdf_loader.py`'s 6 real-Docling tests are excluded from this count —
+they fail in this environment on a genuine memory-exhaustion `OSError` (see RUN.md §9),
+not a code defect.
 
-**Phase 9 — Admin frontend fixes.** Four modules (`solution.md` §Phase 9):
+**What's permanently out of scope (`solution.md` §10, six items, none touched by this
+plan and none scheduled to be)**: rich sanitized markdown rendering for the chat UI (needs
+its own XSS-safety review before landing, since it renders untrusted retrieved content);
+a full responsive/mobile-tablet redesign of the fixed-width three-column chat layout
+(needs a product decision on whether tablet/field-officer use is an actual target
+platform); fully reconciling Alembic's migration history with the plain-SQL `migrations/`
+chain (Module 11.2 added a narrow drift *guard* instead — a misleading error becomes an
+actionable one — deliberately not a full reconciliation, which is higher-risk than the
+problem it solves); retroactively repairing already-corrupted historical data from before
+Module 4.1/4.2's fixes landed (needs a live-data audit + case-by-case human review, not
+something to automate); a full dependency-compatibility audit beyond the pinning Module
+11.3 did (pinning to current-known-working versions is not the same claim as verifying
+every package is the best/safest choice); and blocking `mypy`/`ruff`/ESLint CI gates
+(Module 11.4 added coverage measurement and vulnerability scanning in report-only mode
+instead — landing a blocking lint gate on a never-linted codebase would surface a large,
+unrelated backlog as a side effect of this plan, and needs its own decision on when/how).
 
-- **Module 9.1 — Audit Logs page hardening.** `admin-frontend/src/pages/AuditLogPage.tsx`
-  (whole file), `admin-frontend/src/App.tsx:55`, `admin-frontend/src/components/
-  Sidebar.tsx:63-67`, `src/api/admin.py:214-221` — the frontend's role gate is looser
-  than the backend's (see §9.3 below); stale results aren't cleared on a failed fetch;
-  filters fire a full backend request on every keystroke with no debounce; the raw
-  `details` JSON blob is rendered with no field-level redaction; no date-range filter;
-  raw `fetch()` calls omit explicit `credentials`/CSRF handling. **BLOCKED — do not start
-  this module.** §9.3 ("Audit Logs role gate: frontend vs. backend authoritative") is
-  still an open product decision per the Open Decisions section below. `solution.md`'s
-  own approach text assumes a specific answer ("implementing it here assuming the
-  decision lands as 'match the backend, `platform-admin`-only'") that has not actually
-  been confirmed — get that decision first, or do the other three modules first and
-  come back to this one.
-- **Module 9.2 — Confirmation dialogs and attribution.**
-  `admin-frontend/src/pages/CaseManagementPage.tsx:113-122` (`handleUnassign`),
-  `admin-frontend/src/pages/ReviewQueuePage.tsx:72-85` (`act('confirm'|'reject')`), and
-  the admin frontend's hardcoded `reviewed_by: "admin"` literal — case-assignment removal
-  and entity-match confirm/reject have no confirmation dialog before an irreversible
-  action fires. Add `window.confirm(...)` matching the existing KB-document-delete/
-  generated-file-delete pattern; remove the hardcoded `reviewed_by: "admin"` since backend
-  Module 5.2 (already done, Phase 5) no longer accepts a client-supplied value anyway.
-  Not blocked by anything — a reasonable module to start with.
-- **Module 9.3 — CSS drift and accessibility sweep.** Seven admin pages
-  (`CaseManagementPage.tsx`, `EntityEvalPage.tsx`, `GeneratedFilesPage.tsx`,
-  `McpCallLogPage.tsx`, `ProfilePage.tsx`, `RunHistoryPage.tsx`, `UsersPage.tsx`),
-  `admin-frontend/src/components/common.tsx:53-72`, plus main-app `LoginPage.tsx`/
-  `RegisterPage.tsx`/`CaseSettingsModal.tsx`/`ProjectSettingsModal.tsx`/`Sidebar.tsx` and
-  admin `LoginPage.tsx`/`CaseManagementPage.tsx`/`SettingsPage.tsx:125` — nonexistent CSS
-  class/variable references (audit lists the exact wrong→right mapping per finding),
-  missing `aria-pressed`/`aria-selected`/`aria-label`, unassociated form labels, creation
-  modals with no dialog semantics/focus-trap/Escape handling, one hardcoded Tailwind color
-  breaking the design-token system, a branding inconsistency between Login/Register. This
-  is the largest module by file count in Phase 9 — a mechanical sweep per the plan, not a
-  design decision, but touches the most surface area. Not blocked; independent of 9.1/9.2.
-- **Module 9.4 — Remaining admin-page error/loading-state gaps.**
-  `admin-frontend/src/pages/ErrorsPage.tsx:51-80`, `admin-frontend/src/pages/
-  DashboardPage.tsx:110-116`, `admin-frontend/src/pages/KnowledgeBasePage.tsx:58-113` —
-  Errors page has no `.catch()` on its fetch; Dashboard's loading indicator only guards
-  the very first load; Knowledge Base page load/delete have no error handling. Same shape
-  as Module 8.3, just in the admin app. Not blocked.
+**Open product decisions**: none remain. All four §9 items (graph-review cross-case
+exemption, Audit Logs role gate, the graph-contamination severity correction, and the
+stale CI test) are resolved and implemented — see "Open decisions" above for each one's
+resolution and where it's documented in the code/docs.
 
-Re-read `solution.md`'s Phase 9 section in full before starting — line numbers above are
-from the 2026-07-27 audit and, per every phase so far, will have drifted. The admin
-frontend (`admin-frontend/`) has its own `package.json` — **check separately whether it
-already has Vitest/RTL set up or needs the same test-infra bootstrap Phase 8 just did for
-the main frontend**; do not assume the two frontends share tooling. Cut a fresh branch or
-just proceed directly on `main` per whatever the user asks (Phase 8 committed straight to
-`main` per explicit instruction; that is not a standing default, confirm per-phase). Given
-Module 9.1 is blocked, a reasonable next step is to raise §9.3's open decision with the
-user before picking which module to implement first — implement **one module only**, then
-stop and report, per the standard rule.
+**What this closeout did NOT do**: no live Postgres/Apache AGE/GPU verification beyond
+what earlier phase closeouts already ran (this session had no live infra access) — the
+"Not verified" notes scattered through each phase's progress entry above are still
+accurate and haven't been retroactively closed. No live CI run of Module 11.4's new
+`pytest-cov`/`pip-audit`/`npm audit` steps. `main` has not been pushed to `origin` (still
+53 commits ahead) — push only when explicitly asked, per Git discipline above.

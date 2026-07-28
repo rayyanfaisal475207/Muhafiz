@@ -170,10 +170,32 @@ that are legitimately, deliberately cross-case (entity resolution's
 global CNIC/plate dedup in `entity_resolution.py`, the identity/hop
 expansion helpers in `graph_retriever.py` that operate on an
 already-scoped entity-id frontier, and the entity-resolution review queue
-in `graph_review.py`, which is cross-case by product design — see the
-implementation plan's §9.2 open decision). **State this plainly to anyone
-relying on it: `case_scope.py` is a hygiene backstop against future drift
-in the small set of templates registered through it, not database-level
-defense-in-depth for the graph as a whole.** If that gap matters for a
-specific future feature, it needs a bespoke check at that feature's own
-call site, not an assumption that `case_scope.py` already covers it.
+in `graph_review.py`. **State this plainly to anyone relying on it:
+`case_scope.py` is a hygiene backstop against future drift in the small
+set of templates registered through it, not database-level defense-in-depth
+for the graph as a whole.** If that gap matters for a specific future
+feature, it needs a bespoke check at that feature's own call site, not an
+assumption that `case_scope.py` already covers it.
+
+### Reviewed tradeoff: the entity-resolution review queue is deliberately cross-case
+
+`src/api/graph_review.py`'s `/pending`, `/confirm`, `/reject` endpoints
+are gated only by a global `supervisor`-or-above role — they do **not**
+check `case_assignments` for either case a candidate `SAME_AS` match
+touches. This was flagged by the 2026-07-27 audit (`issues.md`) as an
+open question (solution.md §9.2): is this a deliberate exemption from
+per-case confidentiality, or a gap?
+
+**Resolved (2026-07-29): deliberate exemption, reviewed and confirmed.**
+The whole point of this queue is finding the same real-world person across
+different cases (the `SAME_AS` name-fallback tier exists precisely because
+CNIC-based auto-merge can't catch every match) — restricting it to
+reviewers already assigned to *both* cases in a candidate match would
+mean the platform could never surface the cross-case link it exists to
+find. Any global `supervisor`+ can see and act on cross-case identity
+matches; this is intentionally broader than the per-case
+`case_assignments` model everything else in the platform uses, and is not
+scheduled to change. If a future feature needs this narrowed (e.g. a
+dedicated cross-case-reviewer role, or surfacing matches only to both
+cases' assigned reviewers), that is new scoped work, not a fix to an
+existing bug.
