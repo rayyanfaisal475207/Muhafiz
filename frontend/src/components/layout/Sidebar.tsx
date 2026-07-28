@@ -60,10 +60,10 @@ function groupSessions(sessions: any[]) {
 
 export function Sidebar() {
   const { logout, isAuthenticated } = useAuthStore();
-  const { sessions, deleteSession, renameSession } = useSessionStore();
+  const { sessions, deleteSession, renameSession, error: sessionsError, isLoading: sessionsLoading } = useSessionStore();
   const newSession = useChatStore((s) => s.newSession);
-  const { projects, activeProjectId, fetchProjects, setActiveProject } = useProjectStore();
-  const { cases, activeCaseId, fetchCases, setActiveCase } = useCaseStore();
+  const { projects, activeProjectId, fetchProjects, setActiveProject, error: projectsError, isLoading: projectsLoading } = useProjectStore();
+  const { cases, activeCaseId, fetchCases, setActiveCase, error: casesError, isLoading: casesLoading } = useCaseStore();
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [isCaseModalOpen, setIsCaseModalOpen] = useState(false);
   const navigate = useNavigate();
@@ -72,6 +72,15 @@ export function Sidebar() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+
+  // Delete/rename/export failures used to be swallowed with only
+  // console.error — nothing told the user the action didn't work.
+  const [actionError, setActionError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!actionError) return;
+    const t = setTimeout(() => setActionError(null), 5000);
+    return () => clearTimeout(t);
+  }, [actionError]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -118,6 +127,7 @@ export function Sidebar() {
       }
     } catch (e) {
       console.error(e);
+      setActionError('Failed to delete session. Please try again.');
     }
   };
 
@@ -127,6 +137,7 @@ export function Sidebar() {
         await renameSession(id, editTitle.trim());
       } catch (e) {
         console.error(e);
+        setActionError('Failed to rename session. Please try again.');
       }
     }
     setEditingId(null);
@@ -145,6 +156,7 @@ export function Sidebar() {
       window.URL.revokeObjectURL(url);
     } catch (e) {
       console.error('Export failed', e);
+      setActionError('Failed to export session. Please try again.');
     }
   };
 
@@ -180,6 +192,12 @@ export function Sidebar() {
             </option>
           ))}
         </select>
+        {projectsLoading && projects.length === 0 && !projectsError && (
+          <p className="mt-1 text-[10.5px]" style={{ color: 'var(--text-faint)' }}>Loading workspaces…</p>
+        )}
+        {projectsError && (
+          <p className="mt-1 text-[11px]" style={{ color: 'var(--error)' }} role="alert">Failed to load workspaces: {projectsError}</p>
+        )}
         <p className="mt-1 text-[10.5px] leading-snug" style={{ color: 'var(--text-faint)' }}>
           Personal workspace — notes &amp; general chats, not tied to an investigation.
         </p>
@@ -209,6 +227,12 @@ export function Sidebar() {
             </option>
           ))}
         </select>
+        {casesLoading && cases.length === 0 && !casesError && (
+          <p className="mt-1 text-[10.5px]" style={{ color: 'var(--text-faint)' }}>Loading cases…</p>
+        )}
+        {casesError && (
+          <p className="mt-1 text-[11px]" style={{ color: 'var(--error)' }} role="alert">Failed to load cases: {casesError}</p>
+        )}
         <p className="mt-1 text-[10.5px] leading-snug" style={{ color: 'var(--text-faint)' }}>
           Formal investigation — evidence &amp; entities scoped to this case.
         </p>
@@ -231,7 +255,37 @@ export function Sidebar() {
         <div className="text-[11px] font-semibold uppercase tracking-wider mb-2 pl-3" style={{ color: 'var(--text-faint)' }}>
           Chat History
         </div>
-        
+
+        {actionError && (
+          <div
+            className="mx-1 mb-2 flex items-center justify-between gap-2 px-3 py-2 rounded-sm text-[12px]"
+            style={{
+              background: 'var(--error-soft)',
+              border: '1px solid color-mix(in srgb, var(--error) 30%, transparent)',
+              color: 'var(--text-secondary)',
+            }}
+            role="alert"
+          >
+            <span className="min-w-0 truncate">{actionError}</span>
+            <button
+              onClick={() => setActionError(null)}
+              className="shrink-0 px-1 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              aria-label="Dismiss error"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {sessionsError && (
+          <p className="mb-2 pl-3 text-[11px]" style={{ color: 'var(--error)' }} role="alert">
+            Failed to load chat history: {sessionsError}
+          </p>
+        )}
+        {sessionsLoading && sessions.length === 0 && !sessionsError && (
+          <p className="mb-2 pl-3 text-[11px]" style={{ color: 'var(--text-faint)' }}>Loading chat history…</p>
+        )}
+
         {Object.entries(groups).map(([label, items]) => (
           items.length > 0 && (
             <div key={label} className="mb-4">

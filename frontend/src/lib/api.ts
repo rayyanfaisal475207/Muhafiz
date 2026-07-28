@@ -131,8 +131,8 @@ export async function streamChat(
         try {
           const event = JSON.parse(line.slice(6)) as PipelineEvent;
           onEvent(event);
-        } catch {
-          // silently ignore malformed JSON
+        } catch (parseErr) {
+          console.warn('streamChat: dropped malformed SSE chunk', line, parseErr);
         }
       }
     }
@@ -147,8 +147,8 @@ export async function streamChat(
     try {
       const event = JSON.parse(buffer.trim().slice(6)) as PipelineEvent;
       onEvent(event);
-    } catch {
-      // ignore
+    } catch (parseErr) {
+      console.warn('streamChat: dropped malformed trailing SSE chunk', buffer.trim(), parseErr);
     }
   }
 }

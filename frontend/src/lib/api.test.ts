@@ -57,3 +57,47 @@ describe('streamChat — stall detection', () => {
     expect(cancel).toHaveBeenCalled()
   })
 })
+
+describe('streamChat — malformed SSE chunks', () => {
+  const originalFetch = globalThis.fetch
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+  })
+
+  it('logs a console.warn with the offending raw chunk instead of silently dropping it', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const chunks = [
+      new TextEncoder().encode('data: {not valid json}\n\n'),
+      sseChunk({ step: 'retrieval', status: 'active' }),
+    ]
+    let i = 0
+    const reader = {
+      read: vi.fn().mockImplementation(() => {
+        if (i < chunks.length) {
+          const value = chunks[i]
+          i += 1
+          return Promise.resolve({ done: false, value })
+        }
+        return Promise.resolve({ done: true, value: undefined })
+      }),
+      cancel: vi.fn().mockResolvedValue(undefined),
+    }
+
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      body: { getReader: () => reader },
+      text: () => Promise.resolve(''),
+    }) as unknown as typeof fetch
+
+    const onEvent = vi.fn()
+    await streamChat('session-1', 'hello', onEvent)
+
+    expect(onEvent).toHaveBeenCalledTimes(1)
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('malformed SSE chunk'),
+      expect.stringContaining('{not valid json}'),
+      expect.anything(),
+    )
+  })
+})
