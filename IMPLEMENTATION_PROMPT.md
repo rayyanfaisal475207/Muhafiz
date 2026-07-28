@@ -320,6 +320,58 @@ carefully — they contain constraints that are not obvious from the phase list 
     plate's letter-to-letter gap; digit-adjacent gaps stay fully optional. 10 new cases
     in `tests/test_structured_fields.py`, including a regression test for the false
     positive.
+- **Phase 7 — Ingestion performance & safety**: All four modules done, **merged to
+  `main`** (commits `e89b200`/`ca7f5c8`/`ad5cc3d`/`0a76aa1`) — implemented in a
+  different session/tool that this tracker wasn't updated from at the time; confirmed
+  present on `main` and reviewed retroactively during the Phase 0-7 closeout below.
+  - **Module 7.1** — the blocking vision-OCR retry chain (`pdf_loader.py`) offloaded via
+    `asyncio.to_thread` at `ingest_file`'s call site.
+  - **Module 7.2** — new `src/ingestion/validation.py::validate_file()` (size cap,
+    magic-byte/content-type check, zip-bomb/decompression-ratio guard for docx/xlsx),
+    wired into the shared `loader_router.py` chokepoint and `admin.py`'s `/kb/upload`.
+  - **Module 7.3** — `entity_resolution.py`'s per-candidate `_shares_case` N+1 Cypher
+    round-trips batched into one query.
+  - **Module 7.4** — new indexes (`migrations/014_analytics_indexes.sql`), pagination on
+    `direct_backend.py`'s analytics queries, a bounded `_vision_cache`
+    (`image_loader.py`), and an O(n²) fix in `docx_loader.py::_iter_blocks`.
+- **Phase 0-7 Closeout (2026-07-28)** — three items, requested explicitly to close the
+  gap between "implemented" and "actually closed out":
+  1. **Retroactive `/security-review` on Phase 5** (never gated at merge time) — scoped
+     to `cases.py`/`case_assignments.py`/`graph_review.py`/`attachments.py`/
+     `conversation.py`/`main.py::download_file`/migrations 012-013. **Zero findings.**
+     Reviewer confirmed each fix matches its documented design intent (per-case role
+     checks, server-derived `reviewed_by`, deny-on-NULL ownership, station-scoped
+     download access) with no bypass introduced.
+  2. **Retroactive `/security-review` on Phase 7.** Scoped to `service.py`/
+     `validation.py`/`loader_router.py`/`admin.py`'s upload path/`entity_resolution.py`/
+     `case_scope.py`/`direct_backend.py`/`models.py`/`image_loader.py`/`docx_loader.py`/
+     migration 014. **Zero findings.** Reviewer specifically verified: no path traversal
+     in `validate_file()`, the zip-bomb guard runs before decompression (not a post-hoc
+     no-op), the batched `_shares_case` query is parameterized (not string-concatenated)
+     and preserves original case-scoping semantics, and the upload endpoint's
+     `platform-admin` auth dependency survived the validation refactor unchanged.
+  3. **Fixed `issues.md`'s untracked 13th Critical finding**: the app's runtime
+     `DATABASE_URL` connected as the Postgres superuser (`rolsuper=true,
+     rolbypassrls=true`), making Phase 2's entire RLS backstop structurally inert.
+     New `migrations/015_app_least_privilege_role.sql`: non-superuser, non-BYPASSRLS
+     `muhafiz_app` role, explicit per-table SELECT/INSERT/UPDATE/DELETE grants (same
+     convention as migration 009's `muhafiz_mcp_readonly`) on all 18 application tables.
+     **Real gotcha found and flagged before implementing, not guessed past**:
+     `src/database/postgres.py::init_postgres()` runs `Base.metadata.create_all()`
+     using this same connection on every startup, so the role also needs
+     `CREATE ON SCHEMA public` — confirmed with the user before adding it, since it's a
+     genuine widening beyond pure DML the plan hadn't anticipated. `.env.example`'s
+     `DATABASE_URL` now points at `muhafiz_app` by default with an explicit
+     won't-auto-update warning. **Live-verified** (this session had real Postgres
+     access): new `scripts/verify_app_role.py` confirms not-superuser, not-BYPASSRLS,
+     full CRUD on every table, `DROP TABLE`/`CREATE ROLE` correctly denied, and —
+     the actual point of the fix — RLS now genuinely restricts visibility under this
+     role (previously only ever true under a separate verification-only role). All 8
+     existing live-Postgres RLS integration tests pass under `muhafiz_app`, and
+     `init_postgres()` itself succeeds under it. `issues.md`'s finding marked
+     `**RESOLVED**` in place, not just flagged.
+  - Full suite after all three tasks: **604 passed, 4 skipped, 6 deselected (slow), 0
+    failed**.
 - Test suite on `main` (current tip `3370d66`): **545 passed, 4 skipped, 0 failed**,
   excluding `test_pdf_loader.py`'s real-Docling `slow`-marked tests, which intermittently
   error in this environment with a Docling `ConversionError`/`std::bad_alloc` unrelated to
@@ -365,15 +417,16 @@ carefully — they contain constraints that are not obvious from the phase list 
 §9.1 (the eval harness wipes the entire graph, not just adds fixtures) is a correction to
 the issue description, folded into Phase 3's design — no decision needed.
 
-## Untracked, unscoped follow-up (surfaced during Phase 2 live-verification, not yet a module)
+## Formerly-untracked follow-up — RESOLVED (Phase 0-7 closeout, 2026-07-28)
 
-**The application's runtime `DATABASE_URL` connects as the Postgres superuser**
+**The application's runtime `DATABASE_URL` connected as the Postgres superuser**
 (`rolsuper=true, rolbypassrls=true`), unconditionally bypassing every RLS policy —
-written into `issues.md` §2 as a 13th Critical finding. Phase 2's RLS backstop is
-currently inert wherever this connection is used (app-layer checks, the real protection
-today, are unaffected). Not scoped into any phase yet — flag it if a future phase's work
-touches `src/database/postgres.py`'s connection setup, and don't let "Phase 2 landed"
-imply this is fixed.
+`issues.md`'s 13th Critical finding. Fixed via `migrations/015_app_least_privilege_role.sql`
+(new non-superuser `muhafiz_app` role) and repointing `.env.example`'s `DATABASE_URL`.
+Live-verified: RLS now genuinely restricts visibility under this role. Full detail in the
+Phase 0-7 Closeout entry above. Remaining action for any REAL deployment: an operator
+must actually change their own `.env`'s `DATABASE_URL` — this fix does not auto-migrate
+existing environments, exactly like Module 1.2's `MCP_DATABASE_URL` split.
 
 ## Git discipline
 
@@ -399,55 +452,59 @@ For each module assigned:
 
 ## Recommended gates
 
-- After each security-heavy phase (Phase 1 done, **Phase 2 done — `/security-review` ran
-  clean (zero HIGH/MEDIUM) with one Low addressed as an addendum, merged to `main`**,
-  Phase 5): run `/security-review` on the branch before review. **Phase 5 was merged to
-  `main` without this gate having been run**, and was never retroactively covered
-  either — still an outstanding gap, worth doing before Phase 5-touched files
-  (RBAC/ownership: `cases.py`, `case_assignments.py`, `graph_review.py`,
-  `attachments.py`, `conversation.py`, `main.py::download_file`) are touched again.
-  **Phase 6 — `/security-review` run on the full branch before merge: zero
-  HIGH/MEDIUM/LOW findings.** Merged clean.
+- After each security-heavy phase: run `/security-review` on the branch before merge.
+  Status per phase: Phase 1 done. Phase 2 done — ran clean (zero HIGH/MEDIUM) with one
+  Low addressed as an addendum. **Phase 5 and Phase 7 both merged without this gate at
+  the time, but both covered retroactively during the Phase 0-7 closeout (2026-07-28) —
+  zero findings on either.** Phase 6 — run on the full branch before merge, zero
+  findings. Every phase through 7 is now covered, one way or the other.
 - `/code-review` is run manually at phase boundaries — don't attempt to launch it.
+
 
 ## Start here
 
-Phase 6 is complete and merged to `main` (fast-forward; `main` tip: `9a3ad4f`). Full
-suite on `main` post-merge: **574 passed, 4 skipped, 6 deselected (slow), 0 failed**.
-Before doing anything else, run `git log --oneline -3` to confirm `main` is at or past
-this tip, and `git branch` to check no Phase 6 module branches are still sitting
-un-merged (they shouldn't be — all five landed in one fast-forward).
+Phase 0-7 is genuinely complete: all seven phases implemented and merged to `main`,
+every security-heavy phase covered by `/security-review` (clean on all), and
+`issues.md`'s 13th Critical finding (superuser `DATABASE_URL`) resolved and
+live-verified, not just flagged. `main` tip after the closeout: run `git log --oneline -1`
+to confirm (the closeout's commits land after `0a76aa1`, "Phase 7, Module 7.4..."). Full
+suite: **604 passed, 4 skipped, 6 deselected (slow), 0 failed**.
 
-**Note the still-outstanding gap directly above**: Phase 5's RBAC/ownership changes
-were never covered by `/security-review`, retroactively or otherwise. Not blocking for
-Phase 7 (which doesn't touch those files), but flag it if a future phase does.
+**One live-infra note for whoever picks this up next**: this closeout session had real
+Postgres access and used it — `migrations/015_app_least_privilege_role.sql` was applied
+live, `muhafiz_app` has a real (session-local, not committed) password set on the actual
+instance, and `.env`'s `DATABASE_URL` may or may not have been switched over to it
+depending on what the user decided after this handoff. Check `.env` and `git log -p --
+.env.example` before assuming either way, and re-read the closeout's Task 3 entry in the
+Progress log above for the full trail (migration content, `scripts/verify_app_role.py`,
+what was and wasn't verified).
 
-**Phase 7 — Ingestion performance & safety.** Four modules (`solution.md` §Phase 7):
+**Phase 8 — Frontend security & state hygiene (main chat app).** Three modules
+(`solution.md` §Phase 8; a fourth, 8.4, is deliberately deferred — see §10):
 
-- **Module 7.1 — Blocking vision-OCR retry loop.** `src/ingestion/loaders/pdf_loader.py`
-  (`_load_scanned_page_with_vision`, `load_pdf`), `src/ingestion/loader_router.py:85`,
-  `src/ingestion/service.py:348` (`ingest_file`) — a blocking `time.sleep(120)` retried
-  up to 10 times runs inside an `async def` with no executor offload; a single bad file
-  can freeze the whole server. Wrap the call chain in `await asyncio.to_thread(...)` at
-  `ingest_file`'s call site.
-- **Module 7.2 — Upload validation and size caps.** `src/ingestion/loader_router.py:55-90`,
-  `src/api/admin.py:249-262`, `src/ingestion/service.py:260-306` (`ingest_directory`) — no
-  MIME/magic-byte validation anywhere in the upload-to-ingestion path, and the 50MB size
-  cap lives only on the admin HTTP endpoint, not the shared ingestion path. New shared
-  `src/ingestion/validation.py::validate_file(path)`.
-- **Module 7.3 — Entity-resolution N+1 batching.**
-  `src/graph/entity_resolution.py:171-213` (`_generate_candidates`) — one Cypher
-  round-trip per surviving candidate per mention during ingestion; batch into one query.
-- **Module 7.4 — Analytics indexes, pagination, and bounded caches.**
-  `src/database/models.py`, `src/data_gateway/direct_backend.py:948-973,804-817`,
-  `src/ingestion/loaders/image_loader.py:21` (`_vision_cache`),
-  `src/ingestion/loaders/docx_loader.py:134-171` — missing indexes on analytics tables,
-  unbounded admin-page queries, an unbounded in-memory vision-OCR cache, and an O(n²)
-  docx loader helper. Coordinate the pagination-contract change with Phase 9's admin
-  frontend work per `solution.md`.
+- **Module 8.1 — Cross-case data leak on case/session switch.**
+  `frontend/src/components/layout/Sidebar.tsx:195-201` (Case `<select>` `onChange`),
+  `frontend/src/pages/ChatPage.tsx:20-40,59-71` (`activeSource`, session-restore
+  effect) — switching the active case doesn't scope the visible conversation, and the
+  citation panel isn't cleared on case/session navigation; both leak cross-case content
+  visibly into the UI. Reuse the existing "New Chat" button's `navigate('/', { state: {
+  fresh: true } })` mechanism instead of a bare `navigate('/')`.
+- **Module 8.2 — Store hygiene and streaming robustness.**
+  `frontend/src/store/authStore.ts:81-89` (`logout()`), `chatStore`/`caseStore`/
+  `projectStore`/`sessionStore`, `frontend/src/store/chatStore.ts:255-404`
+  (`sendMessage`), `frontend/src/lib/api.ts:40-117` (`streamChat`) — no store reset on
+  logout (stale state can persist into the next login on a shared workstation), rapid
+  double-send can permanently orphan a "streaming" message, and the SSE stream has no
+  client-side stall timeout.
+- **Module 8.3 — Swallowed frontend errors.**
+  `frontend/src/components/layout/Sidebar.tsx:76-95,108-149`,
+  `frontend/src/lib/api.ts:97-116` — Sidebar session delete/rename/export failures are
+  swallowed with only `console.error`; store fetch errors/loading states are never
+  rendered; malformed SSE chunks are dropped with zero logging.
 
-Re-read `solution.md`'s Phase 7 section in full before starting — line numbers above are
-from the 2026-07-27 audit and may have drifted; this note has been true for every phase
-so far. Cut a fresh branch off current `main` for Module 7.1, per the standard
-one-module-at-a-time rule — implement **Module 7.1 only**, then stop and report.
-
+Re-read `solution.md`'s Phase 8 section in full before starting — line numbers above are
+from the 2026-07-27 audit and will have drifted, same as every phase so far. This is the
+first frontend-only phase — check whether the frontend has React Testing Library or
+equivalent set up before promising component-test verification in your report. Cut a
+fresh branch off current `main` for Module 8.1, per the standard one-module-at-a-time
+rule — implement **Module 8.1 only**, then stop and report.
