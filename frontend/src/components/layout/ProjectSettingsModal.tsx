@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useProjectStore, type Project } from '../../store/projectStore';
+import { useModalA11y } from '../../hooks/useModalA11y';
 
 interface ProjectSettingsModalProps {
   isOpen: boolean;
@@ -29,6 +30,8 @@ export function ProjectSettingsModal({ isOpen, onClose, editProject }: ProjectSe
       setError(null);
     }
   }, [isOpen, editProject]);
+
+  const dialogRef = useModalA11y(isOpen, onClose);
 
   if (!isOpen) return null;
 
@@ -60,13 +63,23 @@ export function ProjectSettingsModal({ isOpen, onClose, editProject }: ProjectSe
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="rounded-lg w-full max-w-lg overflow-hidden" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)' }}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="project-modal-title"
+        tabIndex={-1}
+        className="rounded-lg w-full max-w-lg overflow-hidden" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)' }}
+      >
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)]" style={{ background: 'var(--bg-surface-2)' }}>
-          <h2 className="text-xl font-bold text-[var(--text-primary)]">
+          <h2 id="project-modal-title" className="text-xl font-bold text-[var(--text-primary)]">
             {editProject ? 'Edit Project' : 'New Project'}
           </h2>
-          <button onClick={onClose} className="p-1 rounded-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-3)] transition-colors">
+          <button onClick={onClose} aria-label="Close" className="p-1 rounded-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-3)] transition-colors">
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -89,10 +102,11 @@ export function ProjectSettingsModal({ isOpen, onClose, editProject }: ProjectSe
 
           <div className="space-y-4">
             <div>
-              <label className="block text-[13px] font-medium text-[var(--text-secondary)] mb-1">
+              <label htmlFor="project-name" className="block text-[13px] font-medium text-[var(--text-secondary)] mb-1">
                 Project Name *
               </label>
               <input
+                id="project-name"
                 type="text"
                 required
                 className="w-full rounded-sm px-3 py-2 text-[15px] bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-strong)] transition-colors hover:border-[var(--border-hover)] focus:outline-none focus:border-[var(--accent)]"
@@ -103,10 +117,11 @@ export function ProjectSettingsModal({ isOpen, onClose, editProject }: ProjectSe
             </div>
 
             <div>
-              <label className="block text-[13px] font-medium text-[var(--text-secondary)] mb-1">
+              <label htmlFor="project-description" className="block text-[13px] font-medium text-[var(--text-secondary)] mb-1">
                 Description
               </label>
               <input
+                id="project-description"
                 type="text"
                 className="w-full rounded-sm px-3 py-2 text-[15px] bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-strong)] transition-colors hover:border-[var(--border-hover)] focus:outline-none focus:border-[var(--accent)]"
                 value={description}
@@ -116,11 +131,12 @@ export function ProjectSettingsModal({ isOpen, onClose, editProject }: ProjectSe
             </div>
 
             <div>
-              <label className="block text-[13px] font-medium text-[var(--text-secondary)] mb-1 flex justify-between items-center">
+              <label htmlFor="project-domain-context" className="block text-[13px] font-medium text-[var(--text-secondary)] mb-1 flex justify-between items-center">
                 <span>Domain Context</span>
                 <span className="text-xs text-[var(--text-faint)] font-normal">Injected into LLM memory</span>
               </label>
               <textarea
+                id="project-domain-context"
                 className="w-full h-32 rounded-sm px-3 py-2 text-[15px] bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-strong)] transition-colors hover:border-[var(--border-hover)] focus:outline-none focus:border-[var(--accent)] resize-none"
                 value={domainContext}
                 onChange={(e) => setDomainContext(e.target.value)}

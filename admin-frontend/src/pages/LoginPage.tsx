@@ -32,8 +32,9 @@ const LoginPage: React.FC = () => {
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Email</label>
+            <label className="form-label" htmlFor="login-email">Email</label>
             <input
+              id="login-email"
               className="form-input"
               type="text"
               autoComplete="username"
@@ -43,8 +44,9 @@ const LoginPage: React.FC = () => {
             />
           </div>
           <div className="form-group">
-            <label className="form-label">Password</label>
+            <label className="form-label" htmlFor="login-password">Password</label>
             <input
+              id="login-password"
               className="form-input"
               type="password"
               autoComplete="current-password"

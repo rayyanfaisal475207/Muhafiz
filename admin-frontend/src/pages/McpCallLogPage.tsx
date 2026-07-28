@@ -43,7 +43,7 @@ const McpCallLogPage: React.FC = () => {
       <div className="page-header">
         <div>
           <div className="page-title">MCP Call Log</div>
-          <div className="page-subtitle">History of Model Context Protocol server interactions</div>
+          <div className="page-sub">History of Model Context Protocol server interactions</div>
         </div>
         <button className="btn btn-primary" onClick={fetchCalls} style={{ fontSize: 12 }}>
           ↻ Refresh
@@ -51,7 +51,7 @@ const McpCallLogPage: React.FC = () => {
       </div>
 
       <div className="page-body">
-        <div className="table-wrapper">
+        <div className="overflow-x-auto">
           {loading && <div className="loading-state"><div className="spinner"/><span>Loading…</span></div>}
           {error && <div className="loading-state" style={{ color: 'var(--error)' }}>{error}</div>}
 
@@ -85,14 +85,14 @@ const McpCallLogPage: React.FC = () => {
                         <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>{c.tool_name}</div>
                       </td>
                       <td>
-                        <span className={`badge ${c.status === 'success' ? 'badge-success' : c.status === 'failed' ? 'badge-error' : 'badge-neutral'}`}>
+                        <span className={`badge ${c.status === 'success' ? 'badge-success' : c.status === 'failed' ? 'badge-error' : ''}`}>
                           {c.status}
                         </span>
                       </td>
                       <td>{c.run?.original_query ? c.run.original_query : <span className="text-muted">N/A</span>}</td>
                       <td>
                         {c.input_params ? (
-                          <pre style={{ fontSize: 11, background: 'var(--surface-2)', padding: 4, borderRadius: 4, margin: 0, maxWidth: 200, overflowX: 'auto' }}>
+                          <pre style={{ fontSize: 11, background: 'var(--bg-surface-2)', padding: 4, borderRadius: 4, margin: 0, maxWidth: 200, overflowX: 'auto' }}>
                             {JSON.stringify(c.input_params, null, 2)}
                           </pre>
                         ) : '—'}

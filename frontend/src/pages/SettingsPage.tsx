@@ -122,7 +122,7 @@ export const SettingsPage: React.FC = () => {
             <div className="bg-[var(--bg-surface-2)] px-6 py-4 border-t border-[var(--border)] flex items-center justify-between">
               <div className="text-sm">
                 {error && <span className="text-[var(--error)]">{error}</span>}
-                {saveSuccess && <span className="text-green-600 font-medium">Settings saved successfully!</span>}
+                {saveSuccess && <span className="font-medium" style={{ color: 'var(--success)' }}>Settings saved successfully!</span>}
               </div>
               <button
                 type="submit"

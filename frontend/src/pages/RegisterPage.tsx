@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { LogoLockup } from '../components/brand/Logo';
 
 export function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -29,9 +30,11 @@ export function RegisterPage() {
     <div className="flex h-screen items-center justify-center px-6" style={{ background: 'var(--bg-base)' }}>
       <div className="w-full max-w-md bg-[var(--bg-surface)] p-8 shadow-[var(--shadow-lg)] rounded-lg border border-[var(--border)]">
 
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">Muhafiz</h1>
-          <p className="text-sm text-[var(--text-muted)] mt-2">Create an Account</p>
+        <div className="mb-7 flex flex-col items-center gap-3 text-center">
+          <LogoLockup />
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            Create an Account
+          </p>
         </div>
 
         {error && (
@@ -42,8 +45,9 @@ export function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-[var(--text-primary)]">Email Address</label>
+            <label htmlFor="register-email" className="block text-sm font-medium text-[var(--text-primary)]">Email Address</label>
             <input
+              id="register-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -53,9 +57,10 @@ export function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[var(--text-primary)]">Password</label>
+            <label htmlFor="register-password" className="block text-sm font-medium text-[var(--text-primary)]">Password</label>
             <div className="relative mt-1">
               <input
+                id="register-password"
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -74,8 +79,9 @@ export function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[var(--text-primary)]">Company Name (Optional)</label>
+            <label htmlFor="register-company" className="block text-sm font-medium text-[var(--text-primary)]">Company Name (Optional)</label>
             <input
+              id="register-company"
               type="text"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}

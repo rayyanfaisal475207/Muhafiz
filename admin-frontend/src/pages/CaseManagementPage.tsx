@@ -127,7 +127,7 @@ const CaseManagementPage: React.FC = () => {
       <div className="page-header">
         <div>
           <div className="page-title">Case Management</div>
-          <div className="page-subtitle">
+          <div className="page-sub">
             {cases.length} case{cases.length !== 1 ? 's' : ''}
             {role === 'platform-admin' ? ' (all cases)' : ' (cases you are assigned to)'}
           </div>
@@ -142,7 +142,7 @@ const CaseManagementPage: React.FC = () => {
             cases.length === 0 ? (
               <div className="empty-state">No cases visible to your account.</div>
             ) : (
-              <div className="table-wrapper">
+              <div className="overflow-x-auto">
                 <table>
                   <thead>
                     <tr>
@@ -216,7 +216,7 @@ const CaseManagementPage: React.FC = () => {
                         {canManage && (
                           <button
                             onClick={() => handleUnassign(a.user_id)}
-                            className="btn-ghost"
+                            className="btn btn-danger"
                             style={{ fontSize: 12, padding: '2px 8px' }}
                           >
                             Remove
@@ -231,30 +231,30 @@ const CaseManagementPage: React.FC = () => {
               {canManage && (
                 <form onSubmit={handleAssign} style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
                   <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
+                    <label htmlFor="assign-email" style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
                       Assign by email
                     </label>
                     <input
+                      id="assign-email"
                       type="email"
                       required
                       value={newEmail}
                       onChange={(e) => setNewEmail(e.target.value)}
                       placeholder="investigator@example.com"
-                      className="text-input"
                       style={{ width: '100%' }}
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
+                    <label htmlFor="assign-role" style={{ display: 'block', fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>
                       Role
                     </label>
-                    <select value={newRole} onChange={(e) => setNewRole(e.target.value)} className="text-input">
+                    <select id="assign-role" value={newRole} onChange={(e) => setNewRole(e.target.value)}>
                       {ASSIGNMENT_ROLES.map((r) => (
                         <option key={r} value={r}>{r}</option>
                       ))}
                     </select>
                   </div>
-                  <button type="submit" disabled={submitting || !newEmail.trim()} className="btn-accent" style={{ padding: '7px 14px' }}>
+                  <button type="submit" disabled={submitting || !newEmail.trim()} className="btn btn-primary" style={{ padding: '7px 14px' }}>
                     {submitting ? 'Assigning…' : 'Assign'}
                   </button>
                 </form>

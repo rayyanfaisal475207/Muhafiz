@@ -122,6 +122,7 @@ const ReviewQueuePage: React.FC = () => {
                 <button
                   key={t || 'all'}
                   className={tierFilter === t ? 'active' : ''}
+                  aria-pressed={tierFilter === t}
                   onClick={() => setTierFilter(t)}
                 >
                   {t ? TIER_LABEL[t] : 'All'}

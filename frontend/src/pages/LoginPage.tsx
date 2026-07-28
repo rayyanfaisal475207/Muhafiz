@@ -65,12 +65,14 @@ export function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label
+              htmlFor="login-email"
               className="block text-[13px] font-medium"
               style={{ color: 'var(--text-secondary)' }}
             >
               Email address
             </label>
             <input
+              id="login-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -82,6 +84,7 @@ export function LoginPage() {
 
           <div>
             <label
+              htmlFor="login-password"
               className="block text-[13px] font-medium"
               style={{ color: 'var(--text-secondary)' }}
             >
@@ -89,6 +92,7 @@ export function LoginPage() {
             </label>
             <div className="relative">
               <input
+                id="login-password"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

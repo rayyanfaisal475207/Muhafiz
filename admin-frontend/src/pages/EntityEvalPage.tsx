@@ -101,7 +101,7 @@ const EntityEvalPage: React.FC = () => {
         </div>
 
         <Card title="Precision by tier" sub="Recall is explicitly bounded by the 37-entity roster size and not estimated here.">
-          <div className="table-wrapper">
+          <div className="overflow-x-auto">
             <table>
               <thead>
                 <tr>
@@ -128,7 +128,7 @@ const EntityEvalPage: React.FC = () => {
         </Card>
 
         <Card title="Hard invariant test cases">
-          <div className="table-wrapper">
+          <div className="overflow-x-auto">
             <table>
               <thead>
                 <tr>

@@ -172,11 +172,12 @@ export function Sidebar() {
       <div className="px-4 mb-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>Workspace</span>
-          <button onClick={() => setIsProjectModalOpen(true)} title="New project" className="p-1 rounded-xs text-[var(--text-muted)] hover:text-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors">
+          <button onClick={() => setIsProjectModalOpen(true)} title="New project" aria-label="New project" className="p-1 rounded-xs text-[var(--text-muted)] hover:text-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
           </button>
         </div>
         <select
+          aria-label="Workspace"
           className="w-full bg-[var(--bg-surface)] border border-[var(--border)] rounded-sm px-2.5 py-1.5 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--border-hover)] focus:outline-none focus:border-[var(--accent)]"
           value={activeProjectId || ''}
           onChange={(e) => {
@@ -207,11 +208,12 @@ export function Sidebar() {
       <div className="px-4 mb-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>Case</span>
-          <button onClick={() => setIsCaseModalOpen(true)} title="New case" className="p-1 rounded-xs text-[var(--text-muted)] hover:text-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors">
+          <button onClick={() => setIsCaseModalOpen(true)} title="New case" aria-label="New case" className="p-1 rounded-xs text-[var(--text-muted)] hover:text-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
           </button>
         </div>
         <select
+          aria-label="Case"
           className="w-full bg-[var(--bg-surface)] border border-[var(--border)] rounded-sm px-2.5 py-1.5 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--border-hover)] focus:outline-none focus:border-[var(--accent)]"
           value={activeCaseId || ''}
           onChange={(e) => {
@@ -326,6 +328,7 @@ export function Sidebar() {
                           <button
                             className="p-1 rounded-xs text-[var(--text-muted)] hover:text-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors"
                             title="Export as PDF"
+                            aria-label="Export as PDF"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleDownload(s.session_id, s.title);
@@ -336,6 +339,7 @@ export function Sidebar() {
                           <button
                             className="p-1 rounded-xs text-[var(--text-muted)] hover:text-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors"
                             title="Rename"
+                            aria-label="Rename session"
                             onClick={(e) => {
                               e.stopPropagation();
                               setEditTitle(s.title);
@@ -346,6 +350,8 @@ export function Sidebar() {
                           </button>
                           <button
                             className="p-1 rounded-xs text-[var(--text-muted)] hover:text-[var(--error)] hover:bg-[var(--error-soft)] transition-colors"
+                            title="Delete session"
+                            aria-label="Delete session"
                             onClick={(e) => {
                               e.stopPropagation();
                               setDeleteConfirmId(s.session_id);

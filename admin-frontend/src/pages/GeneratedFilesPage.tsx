@@ -63,7 +63,7 @@ const GeneratedFilesPage: React.FC = () => {
       <div className="page-header">
         <div>
           <div className="page-title">Generated Files</div>
-          <div className="page-subtitle">
+          <div className="page-sub">
             {files.length} file{files.length !== 1 ? 's' : ''} · {fmtSize(total)} total storage
           </div>
         </div>
@@ -73,7 +73,7 @@ const GeneratedFilesPage: React.FC = () => {
       </div>
 
       <div className="page-body">
-        <div className="table-wrapper">
+        <div className="overflow-x-auto">
           {loading && <div className="loading-state"><div className="spinner"/><span>Loading…</span></div>}
           {error && <div className="loading-state" style={{ color: 'var(--error)' }}>{error}</div>}
 
@@ -103,7 +103,7 @@ const GeneratedFilesPage: React.FC = () => {
                       <td>
                         <a
                           href={`/api/files/${f.file_id}/download`}
-                          style={{ color: 'var(--gold)', fontWeight: 600 }}
+                          style={{ color: 'var(--accent)', fontWeight: 600 }}
                           target="_blank"
                           rel="noreferrer"
                           onClick={e => e.stopPropagation()}
@@ -112,12 +112,12 @@ const GeneratedFilesPage: React.FC = () => {
                         </a>
                       </td>
                       <td>
-                        <span className={`badge badge-${f.file_type}`}>
+                        <span className="badge">
                           {f.file_type?.toUpperCase()}
                         </span>
                       </td>
                       <td>{fmtSize(f.file_size_bytes)}</td>
-                      <td className="td-mono">{f.user_id?.slice(0, 8)}…</td>
+                      <td className="font-mono">{f.user_id?.slice(0, 8)}…</td>
                       <td style={{ color: 'var(--text-muted)', fontSize: 12 }}>
                         {f.created_at ? fmtDate(f.created_at) : '—'}
                       </td>

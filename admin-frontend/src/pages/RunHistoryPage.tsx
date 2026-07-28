@@ -62,16 +62,16 @@ const RunRow: React.FC<{ run: PipelineRun }> = ({ run }) => {
     setExpanded(v => !v)
   }
 
-  const badgeClass = ROUTE_BADGE[run.routed_to?.toUpperCase()] || 'badge-unknown'
+  const badgeClass = ROUTE_BADGE[run.routed_to?.toUpperCase()] || ''
 
   return (
     <>
       <tr onClick={toggleExpand} style={{ cursor: 'pointer' }}>
         <td>
-          <span style={{ fontSize: 11, color: 'var(--gold)', marginRight: 6 }}>
+          <span style={{ fontSize: 11, color: 'var(--accent)', marginRight: 6 }}>
             {expanded ? '▼' : '▶'}
           </span>
-          <span className="td-mono">{run.run_id.slice(0, 8)}…</span>
+          <span className="font-mono">{run.run_id.slice(0, 8)}…</span>
         </td>
         <td style={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {run.original_query || '—'}
@@ -149,18 +149,19 @@ const RunHistoryPage: React.FC = () => {
       <div className="page-header">
         <div>
           <div className="page-title">Run History</div>
-          <div className="page-subtitle">All pipeline runs — click any row to expand step trace</div>
+          <div className="page-sub">All pipeline runs — click any row to expand step trace</div>
         </div>
       </div>
 
       <div className="page-body">
-        <div className="table-wrapper">
+        <div className="overflow-x-auto">
           <div className="table-header-bar">
-            <div className="filter-bar">
+            <div className="segmented" role="group" aria-label="Route filter">
               {[null, 'RAG', 'SQL', 'WEB', 'DIRECT'].map(r => (
                 <button
                   key={String(r)}
-                  className={`filter-btn${filter === r ? ' active' : ''}`}
+                  className={filter === r ? 'active' : ''}
+                  aria-pressed={filter === r}
                   onClick={() => setFilter(r)}
                 >
                   {r ?? 'All'}

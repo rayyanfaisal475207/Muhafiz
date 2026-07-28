@@ -560,3 +560,50 @@ select:focus, input:focus { outline: none; border-color: var(--accent); }
 .overflow-x-auto { overflow-x: auto; }
 .text-muted { color: var(--text-muted); }
 .row-between { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+/* ── Spinner ────────────────────────────────────────────────── */
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Filter bar header row (label + result count) ──────────── */
+.table-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+/* ── Pipeline step trace ────────────────────────────────────── */
+.step-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+.step-name { flex: 1; font-size: 12.5px; color: var(--text-primary); }
+.step-ms { font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--text-faint);
+}
+.step-dot-success { background: var(--success); }
+.step-dot-failed { background: var(--error); }
+.step-dot-active { background: var(--accent); }
+.step-dot-skipped { background: var(--text-faint); }
+.step-dot-retry { background: var(--warning); }

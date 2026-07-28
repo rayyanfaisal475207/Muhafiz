@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useCaseStore } from '../../store/caseStore';
+import { useModalA11y } from '../../hooks/useModalA11y';
 
 interface CaseSettingsModalProps {
   isOpen: boolean;
@@ -18,8 +19,6 @@ export function CaseSettingsModal({ isOpen, onClose }: CaseSettingsModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!isOpen) return null;
-
   const reset = () => {
     setFirNumber('');
     setCrimeCategory('');
@@ -27,6 +26,11 @@ export function CaseSettingsModal({ isOpen, onClose }: CaseSettingsModalProps) {
     setPoliceStation('');
     setError(null);
   };
+
+  const closeAndReset = () => { reset(); onClose(); };
+  const dialogRef = useModalA11y(isOpen, closeAndReset);
+
+  if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,11 +55,21 @@ export function CaseSettingsModal({ isOpen, onClose }: CaseSettingsModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="rounded-lg w-full max-w-lg overflow-hidden" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)' }}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) closeAndReset(); }}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="case-modal-title"
+        tabIndex={-1}
+        className="rounded-lg w-full max-w-lg overflow-hidden" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)' }}
+      >
         <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)]" style={{ background: 'var(--bg-surface-2)' }}>
-          <h2 className="text-xl font-bold text-[var(--text-primary)]">New Case</h2>
-          <button onClick={() => { reset(); onClose(); }} className="p-1 rounded-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-3)] transition-colors">
+          <h2 id="case-modal-title" className="text-xl font-bold text-[var(--text-primary)]">New Case</h2>
+          <button onClick={closeAndReset} aria-label="Close" className="p-1 rounded-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-3)] transition-colors">
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -78,10 +92,11 @@ export function CaseSettingsModal({ isOpen, onClose }: CaseSettingsModalProps) {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-[13px] font-medium text-[var(--text-secondary)] mb-1">
+              <label htmlFor="case-fir-number" className="block text-[13px] font-medium text-[var(--text-secondary)] mb-1">
                 FIR Number
               </label>
               <input
+                id="case-fir-number"
                 type="text"
                 className="w-full rounded-sm px-3 py-2 text-[15px] bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-strong)] transition-colors hover:border-[var(--border-hover)] focus:outline-none focus:border-[var(--accent)]"
                 value={firNumber}
@@ -91,10 +106,11 @@ export function CaseSettingsModal({ isOpen, onClose }: CaseSettingsModalProps) {
             </div>
 
             <div>
-              <label className="block text-[13px] font-medium text-[var(--text-secondary)] mb-1">
+              <label htmlFor="case-crime-category" className="block text-[13px] font-medium text-[var(--text-secondary)] mb-1">
                 Crime Category
               </label>
               <input
+                id="case-crime-category"
                 type="text"
                 className="w-full rounded-sm px-3 py-2 text-[15px] bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-strong)] transition-colors hover:border-[var(--border-hover)] focus:outline-none focus:border-[var(--accent)]"
                 value={crimeCategory}
@@ -104,10 +120,11 @@ export function CaseSettingsModal({ isOpen, onClose }: CaseSettingsModalProps) {
             </div>
 
             <div>
-              <label className="block text-[13px] font-medium text-[var(--text-secondary)] mb-1">
+              <label htmlFor="case-investigation-officer" className="block text-[13px] font-medium text-[var(--text-secondary)] mb-1">
                 Investigation Officer
               </label>
               <input
+                id="case-investigation-officer"
                 type="text"
                 className="w-full rounded-sm px-3 py-2 text-[15px] bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-strong)] transition-colors hover:border-[var(--border-hover)] focus:outline-none focus:border-[var(--accent)]"
                 value={investigationOfficer}
@@ -117,10 +134,11 @@ export function CaseSettingsModal({ isOpen, onClose }: CaseSettingsModalProps) {
             </div>
 
             <div>
-              <label className="block text-[13px] font-medium text-[var(--text-secondary)] mb-1">
+              <label htmlFor="case-police-station" className="block text-[13px] font-medium text-[var(--text-secondary)] mb-1">
                 Police Station
               </label>
               <input
+                id="case-police-station"
                 type="text"
                 className="w-full rounded-sm px-3 py-2 text-[15px] bg-[var(--bg-surface)] text-[var(--text-primary)] border border-[var(--border-strong)] transition-colors hover:border-[var(--border-hover)] focus:outline-none focus:border-[var(--accent)]"
                 value={policeStation}
@@ -133,7 +151,7 @@ export function CaseSettingsModal({ isOpen, onClose }: CaseSettingsModalProps) {
           <div className="mt-8 flex justify-end gap-3">
             <button
               type="button"
-              onClick={() => { reset(); onClose(); }}
+              onClick={closeAndReset}
               className="btn-ghost px-4 py-2 text-sm"
             >
               Cancel

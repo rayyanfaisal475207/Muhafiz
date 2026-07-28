@@ -62,6 +62,7 @@ export function RangePicker({
         <button
           key={r.days}
           className={value === r.days ? 'active' : ''}
+          aria-pressed={value === r.days}
           onClick={() => onChange(r.days, r.granularity)}
         >
           {r.label}

@@ -48,9 +48,9 @@ const ProfilePage: React.FC = () => {
           onClick={handleLogout}
           style={{
             padding: '8px 16px',
-            background: 'var(--error-bg)',
+            background: 'var(--error-soft)',
             color: 'var(--error)',
-            border: '1px solid var(--error-border)',
+            border: '1px solid color-mix(in srgb, var(--error) 30%, transparent)',
             borderRadius: 6,
             cursor: 'pointer',
             fontWeight: 500

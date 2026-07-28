@@ -16,13 +16,13 @@ function fmtDate(iso: string) {
 }
 
 const PLAN_COLORS: Record<string, string> = {
-  free: 'badge-unknown',
+  free: '',
   pro: 'badge-rag',
   firm: 'badge-sql',
 }
 
 const ROLE_COLORS: Record<string, string> = {
-  'investigator': 'badge-unknown',
+  'investigator': '',
   'supervisor': 'badge-rag',
   'station-admin': 'badge-web',
   'platform-admin': 'badge-sql',
@@ -54,12 +54,12 @@ const UsersPage: React.FC = () => {
       <div className="page-header">
         <div>
           <div className="page-title">Users</div>
-          <div className="page-subtitle">{users.length} registered account{users.length !== 1 ? 's' : ''}</div>
+          <div className="page-sub">{users.length} registered account{users.length !== 1 ? 's' : ''}</div>
         </div>
       </div>
 
       <div className="page-body">
-        <div className="table-wrapper">
+        <div className="overflow-x-auto">
           {loading && <div className="loading-state"><div className="spinner"/><span>Loading…</span></div>}
           {error && <div className="loading-state" style={{ color: 'var(--error)' }}>{error}</div>}
 
@@ -83,12 +83,12 @@ const UsersPage: React.FC = () => {
                       <td style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{u.email}</td>
                       <td>{u.company_name || <span style={{ color: 'var(--text-muted)' }}>—</span>}</td>
                       <td>
-                        <span className={`badge ${PLAN_COLORS[u.plan] || 'badge-unknown'}`}>
+                        <span className={`badge ${PLAN_COLORS[u.plan] || ''}`}>
                           {u.plan}
                         </span>
                       </td>
                       <td>
-                        <span className={`badge ${ROLE_COLORS[u.role] || 'badge-unknown'}`}>
+                        <span className={`badge ${ROLE_COLORS[u.role] || ''}`}>
                           {u.role || 'investigator'}
                         </span>
                       </td>
