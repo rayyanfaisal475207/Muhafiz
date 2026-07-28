@@ -14,6 +14,7 @@ import uuid
 import pytest
 from fastapi.testclient import TestClient
 
+from src import config
 from src.main import app
 from src.auth.routes import get_current_user
 from src.data_gateway import get_gateway as real_get_gateway
@@ -744,3 +745,47 @@ def test_admin_metrics_include_the_fields_the_dashboard_renders(admin_api):
 
     assert "route_metrics" in body
     assert "table_stats" in body
+
+
+# ── Phase 7, Module 7.2: KB upload validation ───────────────────────────────
+#
+# validate_file()'s own checks are unit-tested directly in
+# tests/test_ingestion_validation.py. These two cover the endpoint wiring:
+# a bad upload must be rejected synchronously (400), not silently accepted
+# and only failed later in the background ingestion job — and the
+# rejected file must not be left behind on disk.
+
+def test_kb_upload_rejects_mismatched_magic_bytes_synchronously(admin_api, monkeypatch, tmp_path):
+    client, _ = admin_api
+    monkeypatch.setattr(config, "DOCUMENTS_DIR", tmp_path)
+
+    response = client.post(
+        "/api/admin/kb/upload",
+        files={"file": ("evidence.pdf", b"MZ\x90\x00 not actually a pdf", "application/pdf")},
+    )
+
+    assert response.status_code == 400
+    assert not (tmp_path / "evidence.pdf").exists(), "a rejected upload must not be left on disk"
+
+
+def test_kb_upload_accepts_a_correctly_signed_file(admin_api, monkeypatch, tmp_path):
+    client, _ = admin_api
+    monkeypatch.setattr(config, "DOCUMENTS_DIR", tmp_path)
+
+    # The actual chunk/embed/graph pipeline (real Docling etc.) is out of
+    # scope for this endpoint-validation test — only the upload/validation
+    # response matters here, not the background ingestion outcome.
+    import src.api.admin as admin_module
+
+    async def _noop_ingest(path, job_id):
+        pass
+
+    monkeypatch.setattr(admin_module, "_ingest_uploaded_file", _noop_ingest)
+
+    response = client.post(
+        "/api/admin/kb/upload",
+        files={"file": ("evidence.pdf", b"%PDF-1.4\nreal-looking content", "application/pdf")},
+    )
+
+    assert response.status_code == 200
+    assert (tmp_path / "evidence.pdf").exists()

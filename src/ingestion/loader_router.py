@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Callable
 
 from src.ingestion.document import Document
+from src.ingestion.validation import validate_file
 
 # Import all format-specific loaders
 from src.ingestion.loaders.text_loader import load_text_file
@@ -64,7 +65,9 @@ def route_and_load(file_path: Path) -> list[Document]:
         (one per page, chunk, or row batch) rather than one giant document.
 
     Raises:
-        ValueError: If the file extension is not in LOADER_MAP.
+        ValueError: If the file extension is not in LOADER_MAP, or (via
+            validate_file's FileValidationError) if the file fails the
+            shared size/magic-byte/zip-bomb checks.
         FileNotFoundError: If the file does not exist.
     """
     if not file_path.exists():
@@ -78,6 +81,11 @@ def route_and_load(file_path: Path) -> list[Document]:
             f"Unsupported file format '{extension}'. "
             f"Supported formats: {supported}"
         )
+
+    # Module 7.2: every entry point that loads a file funnels through
+    # here, so this is the one place a size/content-type/zip-bomb check
+    # can't be bypassed by a caller that forgets to validate independently.
+    validate_file(file_path)
 
     loader_fn = LOADER_MAP[extension]
     logger.info("Loading %s using %s", file_path.name, loader_fn.__name__)

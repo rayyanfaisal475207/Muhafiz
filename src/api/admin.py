@@ -30,6 +30,7 @@ from src.auth.routes import limiter
 from src.auth.rls_context import cross_case_rls_dependency
 from src.database.models import User, PoliceReferenceData
 from src.data_gateway import get_gateway
+from src.ingestion.validation import validate_file, FileValidationError
 from src.observability import analytics, errors as error_capture
 from src.pipeline.sql_extractor import extract_sql_params
 from src.mcp.client import execute_query
@@ -298,6 +299,17 @@ async def upload_kb_document(
         )
 
     dest.write_bytes(contents)
+
+    # Module 7.2: magic-byte/claimed-extension match and the zip-bomb
+    # guard (for .docx/.xlsx) — route_and_load() also enforces this
+    # later during ingestion, but checking here rejects synchronously
+    # with a 400 instead of letting the caller believe the upload
+    # succeeded ("processing") only for the background job to fail silently.
+    try:
+        validate_file(dest)
+    except FileValidationError as exc:
+        dest.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail=str(exc))
 
     gateway = await get_gateway()
     job_id = await gateway.create_ingestion_job({
