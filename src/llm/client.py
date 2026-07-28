@@ -104,9 +104,17 @@ async def call_llm(
     provider_override: str = None,
     llm_mode: str = None,
     role: str = "reasoning",
+    cloud_max_tokens: int = None,
 ) -> str:
     provider = provider_override or config.LLM_PROVIDER
     local_url = config.LOCAL_GEN_LLM_URL if role == "generation" else config.LOCAL_LLM_URL
+    # The caller can't know in advance whether this call will resolve to the
+    # local model or a cloud fallback — that's decided below, per attempt.
+    # cloud_max_tokens lets a caller give the cloud branch a smaller budget
+    # than the local one without touching the (confirmed, live-verified)
+    # local value: Qwen3-14B's thinking trace needs real headroom that a
+    # cloud model, with no equivalent hidden trace, never did.
+    resolved_cloud_max_tokens = cloud_max_tokens if cloud_max_tokens is not None else max_tokens
 
     # ── First priority: local model for every call (router, evaluator, rewriter,
     # citation validator, memory summarizer included), falls back to Groq/Gemini
@@ -140,9 +148,9 @@ async def call_llm(
     for attempt in range(max_retries):
         try:
             if provider == "groq":
-                return await _call_groq(system_prompt, user_message, temperature, max_tokens)
+                return await _call_groq(system_prompt, user_message, temperature, resolved_cloud_max_tokens)
             else:
-                return await _call_gemini(system_prompt, user_message, temperature, max_tokens)
+                return await _call_gemini(system_prompt, user_message, temperature, resolved_cloud_max_tokens)
         except Exception as e:
             if _is_rate_limit(e):
                 logger.warning(f"Rate limit hit on {provider}. Rotating key... (Attempt {attempt+1}/{max_retries})")

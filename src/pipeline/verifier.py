@@ -9,7 +9,8 @@
 #
 # DESIGN (mirrors evaluator.py):
 #   - call_llm() with role="reasoning" (Qwen3-14B) — same model/
-#     cost as evaluator, max_tokens=800 for thinking-trace budget
+#     cost as evaluator, max_tokens=2000 locally (thinking-trace budget),
+#     800 on the cloud fallback (no thinking trace to pad for there)
 #   - Deterministic pre-checks run in pure Python first (temporal
 #     validity, cross-case leakage, confidence hedging) — these are
 #     fast and never need an LLM
@@ -260,8 +261,12 @@ async def verify_grounding(
             # unsupported_claims): the model's own JSON got cut off
             # mid-string ("Unterminated string...") rather than just
             # running out of room for the thinking trace. 2000 gives real
-            # headroom for both on realistically-sized input.
+            # headroom for both on realistically-sized input. Module 6.3:
+            # the cloud fallback (Groq/Gemini) has no equivalent
+            # thinking-trace tax, so it keeps the original, cheaper
+            # 800-token budget — only the local branch needs the extra room.
             max_tokens=2000,
+            cloud_max_tokens=800,
             role="reasoning",
         )
         try:

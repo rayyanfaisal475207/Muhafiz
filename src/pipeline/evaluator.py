@@ -86,8 +86,12 @@ async def evaluate_relevance(
             # later confirmed (in verifier.py, the identical call shape)
             # still too tight for a real multi-chunk prompt, cutting the
             # JSON off mid-string rather than just squeezing the thinking
-            # trace — 2000 gives real headroom for both.
+            # trace — 2000 gives real headroom for both. Module 6.3: the
+            # cloud fallback (Groq/Gemini) never had a thinking-trace to pad
+            # for, so it keeps the original, cheaper 800-token budget —
+            # only the local branch needs the extra headroom.
             max_tokens=2000,
+            cloud_max_tokens=800,
         )
 
         try:
