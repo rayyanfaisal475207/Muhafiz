@@ -112,6 +112,7 @@ const CaseManagementPage: React.FC = () => {
 
   const handleUnassign = async (userId: string) => {
     if (!selected) return
+    if (!window.confirm('Remove this user from the case? They will immediately lose access.')) return
     setAssignError('')
     try {
       await casesApi.delete(`/cases/${selected.case_id}/assignments/${userId}`)

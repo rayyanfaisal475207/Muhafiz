@@ -70,9 +70,10 @@ const ReviewQueuePage: React.FC = () => {
   useEffect(() => { refresh() }, [refresh])
 
   const act = useCallback(async (edgeId: number, action: 'confirm' | 'reject') => {
+    if (!window.confirm(`${action === 'confirm' ? 'Confirm' : 'Reject'} this entity match? This cannot be undone.`)) return
     setActing(edgeId)
     try {
-      await api.post(`/graph-review/${edgeId}/${action}`, { reviewed_by: 'admin' })
+      await api.post(`/graph-review/${edgeId}/${action}`, {})
       await refresh()
     } catch (err: unknown) {
       const detail =
