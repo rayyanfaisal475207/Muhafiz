@@ -102,7 +102,10 @@ def run_pipeline(monkeypatch, patched_gateway):
         ]
         patched_gateway.chunks = chunks
 
+        where_calls = []
+
         async def fake_query_similar(_query, _embedding, top_k=10, where=None):
+            where_calls.append(where)
             if query_similar_exc is not None:
                 raise query_similar_exc
             return chunks
@@ -152,6 +155,7 @@ def run_pipeline(monkeypatch, patched_gateway):
         #   _run.call    — last non-special call_llm call (RAG, GRAPH, SQL, etc.)
         _run.stream = fake_stream_llm
         _run.call = fake_call_llm
+        _run.where_calls = where_calls
         return events, patched_gateway
 
     return _run
@@ -350,6 +354,52 @@ async def test_rag_retrieval_failure_degrades_to_safe_response(run_pipeline):
     assert orch._SAFE_RESPONSE.split(" ")[0] in _text_of(events)
     # It must NOT have gone on to re-rank / evaluate on non-existent results.
     assert not any(e["step"] == "reranker" for e in events)
+
+
+async def test_rag_case_scoped_query_filters_on_case_id_alone(run_pipeline):
+    """
+    Module 4.1: a case-scoped query with no project_id must filter on
+    case_id alone, never fall back to is_global=True ANDed with case_id —
+    real case evidence is ingested with is_global=False, so the old
+    fallback structurally excluded it from its own case's retrieval.
+    """
+    events, _ = await run_pipeline(
+        route='{"route": "RAG", "output_format": "chat"}',
+        case_id="CASE-014",
+    )
+    assert run_pipeline.where_calls, "query_similar was never called"
+    for where in run_pipeline.where_calls:
+        assert where == {"case_id": "CASE-014"}
+
+
+async def test_rag_no_case_or_project_falls_back_to_is_global(run_pipeline):
+    """Pre-Phase-1 behavior preserved: no case_id and no project_id still means is_global=True."""
+    events, _ = await run_pipeline(route='{"route": "RAG", "output_format": "chat"}')
+    assert run_pipeline.where_calls, "query_similar was never called"
+    for where in run_pipeline.where_calls:
+        assert where == {"is_global": True}
+
+
+async def test_rag_project_scoped_query_unaffected_by_case_fix(run_pipeline):
+    """A project-scoped query (no case_id) keeps its existing project_id filter."""
+    events, _ = await run_pipeline(
+        route='{"route": "RAG", "output_format": "chat"}',
+        project_id="11111111-1111-1111-1111-111111111111",
+    )
+    assert run_pipeline.where_calls, "query_similar was never called"
+    for where in run_pipeline.where_calls:
+        assert where == {"project_id": "11111111-1111-1111-1111-111111111111"}
+
+
+async def test_graph_hybrid_case_scoped_query_filters_on_case_id_alone(run_pipeline):
+    """Same Module 4.1 fix, at the GRAPH_HYBRID route's separate where_clause site."""
+    events, _ = await run_pipeline(
+        route='{"route": "GRAPH_HYBRID", "case_scope": "within_case", "target_entity": null, "output_format": "chat"}',
+        case_id="CASE-014",
+    )
+    assert run_pipeline.where_calls, "query_similar was never called"
+    for where in run_pipeline.where_calls:
+        assert where == {"case_id": "CASE-014"}
 
 
 async def test_greeting_short_circuits_retrieval(run_pipeline):

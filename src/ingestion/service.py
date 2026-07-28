@@ -364,7 +364,9 @@ async def ingest_file(
         chunks = chunk_documents(
             documents,
             chunk_size=config.CHUNK_SIZE,
-            chunk_overlap=config.CHUNK_OVERLAP
+            chunk_overlap=config.CHUNK_OVERLAP,
+            case_id=case_id,
+            project_id=project_id,
         )
         if not chunks:
             logger.warning("No chunks generated for %s", file_path.name)

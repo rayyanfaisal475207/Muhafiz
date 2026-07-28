@@ -52,16 +52,24 @@ class Document:
 
     def _generate_id(self) -> str:
         """
-        Create a deterministic ID from the source path + a short hash of the text.
+        Create a deterministic ID from the case/project scope + source path +
+        a short hash of the text.
 
-        Using source + text hash means:
-        - Same file re-ingested → same ID → ChromaDB upsert replaces it (no duplicate)
+        Using scope + source + text hash means:
+        - Same file re-ingested under the same case/project → same ID →
+          ChromaDB upsert replaces it (no duplicate)
         - Different files with identical text → different IDs (different source)
+        - The same filename/text ingested under a *different* case or project
+          → a different ID, so one case's evidence can never overwrite
+          another's in Chroma (case_id/project_id are only present in
+          self.metadata once the caller has tagged them on — see
+          chunker.chunk_documents, which re-derives this id after tagging).
         """
         source = self.metadata.get("source", "unknown")
         page = str(self.metadata.get("page", ""))
+        scope = self.metadata.get("case_id") or self.metadata.get("project_id") or "global"
         # Take first 200 chars of text for the hash seed (fast, stable)
-        seed = f"{source}::{page}::{self.text[:200]}"
+        seed = f"{scope}::{source}::{page}::{self.text[:200]}"
         short_hash = hashlib.md5(seed.encode()).hexdigest()[:8]
         # Replace path separators so the ID is filesystem-safe
         safe_source = source.replace("/", "_").replace("\\", "_").replace(".", "_")

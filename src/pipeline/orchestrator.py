@@ -886,9 +886,18 @@ async def process_query(
         yield event("retrieval", "active", "Running graph + hybrid retrieval...")
         t0 = time.monotonic()
         try:
-            where_clause = {"project_id": project_id} if project_id else {"is_global": True}
+            # Module 4.1: filter on case_id alone when present, only falling
+            # back to is_global=True when there's neither a project_id nor a
+            # case_id — see the matching where_clause site later in this
+            # function for why the old project_id-or-is_global fallback
+            # excluded real case evidence (is_global=False) from results.
+            where_clause = {}
+            if project_id:
+                where_clause["project_id"] = project_id
             if case_id:
                 where_clause["case_id"] = case_id
+            if not project_id and not case_id:
+                where_clause["is_global"] = True
 
             graph_task = retrieve_graph(
                 rewritten_query, target_entity, case_id, cross_case=False, max_hops=2,
@@ -1262,9 +1271,20 @@ async def process_query(
                 # above. No case_id means no case filtering — the pre-Phase-1
                 # corpus (no case attached to any of it) keeps working exactly
                 # as before.
-                where_clause = {"project_id": project_id} if project_id else {"is_global": True}
+                #
+                # Module 4.1: a case-scoped query with no project_id must
+                # filter on case_id alone, NOT fall back to is_global=True —
+                # case evidence is ingested with is_global=False, so ANDing
+                # that fallback against a real case_id excluded it entirely.
+                # is_global=True is only correct when there is genuinely no
+                # project_id AND no case_id (a true general-KB query).
+                where_clause = {}
+                if project_id:
+                    where_clause["project_id"] = project_id
                 if case_id:
                     where_clause["case_id"] = case_id
+                if not project_id and not case_id:
+                    where_clause["is_global"] = True
 
                 search_tasks = [query_similar(q, emb, top_k=config.TOP_K_RETRIEVAL, where=where_clause) for q, emb in zip(all_queries, embeddings)]
                 search_results = await asyncio.gather(*search_tasks)

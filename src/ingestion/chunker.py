@@ -137,6 +137,8 @@ def chunk_documents(
     documents: list[Document],
     chunk_size: int = config.CHUNK_SIZE,
     chunk_overlap: int = config.CHUNK_OVERLAP,
+    case_id: str = None,
+    project_id: str = None,
 ) -> list[Document]:
     """
     Take a list of raw Documents (one per page / sheet / etc.) and produce a
@@ -153,6 +155,14 @@ def chunk_documents(
         documents:     Raw documents from a loader.
         chunk_size:    Max characters per chunk.
         chunk_overlap: Overlap between chunks.
+        case_id:       Case this ingestion belongs to, if any. The loader
+                       that produced `documents` has no notion of case_id, so
+                       each parent doc's `doc_id` was generated (in
+                       `Document.__post_init__`) before this scope was known.
+                       Tagging it here and re-deriving `doc_id` is what
+                       prevents two different cases' same-named files from
+                       colliding to the same id in Chroma/Postgres.
+        project_id:    Same idea as case_id, for the project dimension.
 
     Returns:
         Flat list of chunked Document objects ready for embedding.
@@ -160,6 +170,15 @@ def chunk_documents(
     chunked: list[Document] = []
 
     for doc in documents:
+        if case_id or project_id:
+            if case_id:
+                doc.metadata["case_id"] = case_id
+            if project_id:
+                doc.metadata["project_id"] = project_id
+            # Re-derive now that case_id/project_id are known — the id
+            # computed at load time had no case/project dimension to seed with.
+            doc.doc_id = doc._generate_id()
+
         text_chunks = split_text_into_chunks(doc.text, chunk_size, chunk_overlap)
 
         if not text_chunks:
