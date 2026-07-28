@@ -105,6 +105,8 @@ interface ChatState {
 
   // Actions
   newSession: () => void;
+  /** Full reset for logout — same as newSession() plus the web-search toggle. */
+  reset: () => void;
   loadSession: (id: string) => Promise<void>;
   sendMessage: (text: string) => Promise<void>;
 
@@ -155,6 +157,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       attachments: [],
       pendingAttachments: [],
     });
+  },
+
+  reset: () => {
+    get().newSession();
+    set({ webSearchEnabled: false });
   },
 
   loadSession: async (id: string) => {
@@ -293,7 +300,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
     };
 
     set((state) => ({
-      messages: [...state.messages, userMsg, assistantMsg],
+      // A prior in-flight assistant message (rapid double-send) is about to
+      // be abandoned by the abortActiveStream() call below. Its own stream
+      // handler will short-circuit on the abort and never reach the code
+      // that clears isStreaming, so it must be closed out here instead —
+      // otherwise it's stuck showing a spinner forever.
+      messages: [
+        ...state.messages.map((m) =>
+          m.isStreaming
+            ? { ...m, isStreaming: false, content: m.content || '⚠️ Interrupted by a new message.' }
+            : m,
+        ),
+        userMsg,
+        assistantMsg,
+      ],
       currentSteps: buildInitialSteps(),
       currentEvents: [],
       currentSources: [],

@@ -25,6 +25,7 @@ interface SessionState {
   addSessionOptimistic: (session: Session, projectId?: string | null, caseId?: string | null) => void;
   // Optimistically update a session's title (called when title_generation event arrives)
   updateSessionTitleOptimistic: (id: string, title: string) => void;
+  reset: () => void;
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
@@ -90,5 +91,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         s.session_id === id ? { ...s, title } : s
       ),
     });
-  }
+  },
+
+  reset: () => {
+    set({ sessions: [], isLoading: false, error: null });
+  },
 }));

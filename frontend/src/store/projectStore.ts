@@ -23,6 +23,7 @@ interface ProjectState {
   updateProject: (id: string, data: { name?: string; description?: string; domain_context?: string }) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   setActiveProject: (id: string | null) => void;
+  reset: () => void;
 }
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
@@ -89,5 +90,9 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
 
   setActiveProject: (id: string | null) => {
     set({ activeProjectId: id });
-  }
+  },
+
+  reset: () => {
+    set({ projects: [], activeProjectId: null, isLoading: false, error: null });
+  },
 }));

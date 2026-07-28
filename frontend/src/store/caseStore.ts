@@ -39,6 +39,7 @@ interface CaseState {
   updateCase: (id: string, data: Partial<CaseCreatePayload>) => Promise<void>;
   deleteCase: (id: string) => Promise<void>;
   setActiveCase: (id: string | null) => void;
+  reset: () => void;
 }
 
 export const useCaseStore = create<CaseState>((set, get) => ({
@@ -102,5 +103,9 @@ export const useCaseStore = create<CaseState>((set, get) => ({
 
   setActiveCase: (id: string | null) => {
     set({ activeCaseId: id });
+  },
+
+  reset: () => {
+    set({ cases: [], activeCaseId: null, isLoading: false, error: null });
   },
 }));

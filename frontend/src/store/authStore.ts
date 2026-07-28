@@ -1,5 +1,10 @@
 import { create } from 'zustand';
 import { apiClient } from '../lib/api';
+import { LAST_SESSION_KEY } from '../lib/constants';
+import { useChatStore } from './chatStore';
+import { useCaseStore } from './caseStore';
+import { useProjectStore } from './projectStore';
+import { useSessionStore } from './sessionStore';
 
 export interface User {
   id: string;
@@ -85,6 +90,13 @@ export const useAuthStore = create<AuthState>((set) => ({
       // ignore logout errors
     } finally {
       set({ user: null, isAuthenticated: false, error: null });
+      // Clear every other store's state too, so a shared workstation never
+      // carries one user's case/session/chat content into the next login.
+      useChatStore.getState().reset();
+      useCaseStore.getState().reset();
+      useProjectStore.getState().reset();
+      useSessionStore.getState().reset();
+      localStorage.removeItem(LAST_SESSION_KEY);
     }
   },
 
