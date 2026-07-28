@@ -251,29 +251,75 @@ carefully — they contain constraints that are not obvious from the phase list 
     relied on the old shortcut. Live-verified against real Postgres (migration applied;
     `case_id` round-trips through `log_generated_file`/`get_generated_file`; a stranger
     with no real assignment correctly denied; cleaned up after).
-- **Phase 6, Module 6.1 — Shared, safe JSON extraction**: Done, **committed** as
-  `47aa530` on branch `fix/phase-6-module-6.1-json-extract` (cut from `main` tip
-  `3370d66`) — **not yet merged to `main`**. New `src/pipeline/json_extract.py`:
-  `extract_json(response) -> Any`, moved verbatim from `file_structurer.py`'s existing
-  correct implementation, extended to also handle JSON arrays (needed by
-  `query_expander.py`'s list-returning case, per the plan). `file_structurer.py`'s local
-  `_extract_json` replaced by an import alias so its existing call site/tests needed no
-  changes. `evaluator.py`/`verifier.py`: local greedy-regex implementations deleted,
-  call sites use `extract_json(raw)` directly (removes the old double-parse), `except
-  json.JSONDecodeError` widened to `except ValueError` (the shared function raises plain
-  `ValueError` on total failure). `router.py`: inline regex block replaced with
-  `extract_json(response)` + an explicit `isinstance(result, dict)` check.
-  `query_expander.py`: manual fence-stripping replaced with `extract_json(raw)`, same
-  `except ValueError` widening. `sql_extractor.py`: hardcoded fence-strip replaced with
-  `extract_json(response)`. Dead `import json`/`import re` removed where nothing else
-  used them (verified via grep first; `verifier.py` keeps `re` for its hedging/leakage
-  regexes). Tests: the 5 existing `_extract_json` tests moved from
-  `tests/test_file_generation.py` into new `tests/test_json_extract.py`, plus 6 new
-  cases covering each call site's historical failure shape. Full suite: **550 passed, 4
-  skipped, 7 deselected (slow), 0 failed** — same 4 pre-existing skips, no regressions.
-  **Not verified**: no live LLM access in that session, so the plan's "a real call
-  through one of the five updated call sites is a stronger check than mocked unit tests
-  alone" was not done.
+- **Phase 6 — LLM pipeline correctness**: All five modules done, **merged to `main`**
+  (fast-forward, commits `47aa530`/`c122daf`/`7c35bea`/`86f663b`/`7e6d21e`, plus a
+  docs-tracking commit `9a3ad4f`). `/security-review` run on the full branch before
+  merge: zero HIGH/MEDIUM/LOW findings. Full suite on `main` post-merge: **574 passed,
+  4 skipped, 6 deselected (slow), 0 failed** — same 4 pre-existing live-Postgres skips,
+  no regressions.
+  - **Module 6.1 — Shared, safe JSON extraction**: New `src/pipeline/json_extract.py`:
+    `extract_json(response) -> Any`, moved verbatim from `file_structurer.py`'s existing
+    correct implementation, extended to also handle JSON arrays (needed by
+    `query_expander.py`'s list-returning case, per the plan). `file_structurer.py`'s local
+    `_extract_json` replaced by an import alias so its existing call site/tests needed no
+    changes. `evaluator.py`/`verifier.py`: local greedy-regex implementations deleted,
+    call sites use `extract_json(raw)` directly (removes the old double-parse), `except
+    json.JSONDecodeError` widened to `except ValueError` (the shared function raises plain
+    `ValueError` on total failure). `router.py`: inline regex block replaced with
+    `extract_json(response)` + an explicit `isinstance(result, dict)` check.
+    `query_expander.py`: manual fence-stripping replaced with `extract_json(raw)`, same
+    `except ValueError` widening. `sql_extractor.py`: hardcoded fence-strip replaced with
+    `extract_json(response)`. Dead `import json`/`import re` removed where nothing else
+    used them (verified via grep first; `verifier.py` keeps `re` for its hedging/leakage
+    regexes). Tests: the 5 existing `_extract_json` tests moved from
+    `tests/test_file_generation.py` into new `tests/test_json_extract.py`, plus 6 new
+    cases covering each call site's historical failure shape. **Not verified**: no live
+    LLM access in that session, so the plan's "a real call through one of the five
+    updated call sites is a stronger check than mocked unit tests alone" was not done.
+  - **Module 6.2 — RAG route exception guard**: `orchestrator.py`'s RAG route's
+    generation+verification block (the one dispatch branch with no exception guard)
+    wrapped in try/except degrading to `_SAFE_RESPONSE` on failure. **Deviation from the
+    plan, found and flagged before implementing**: the plan called this "the same
+    try/except pattern every sibling branch already uses," but the siblings
+    (SQL/WEB/GRAPH/GRAPH_HYBRID) actually catch and fall back to `route_str = "RAG"` —
+    RAG itself has nowhere further to fall back to, so the correct sibling to copy is
+    RAG's own retrieval-stage guard a few lines above, which already degrades straight
+    to `_SAFE_RESPONSE`. New regression test in `tests/test_orchestrator.py`.
+  - **Module 6.3 — Local-vs-cloud aware `max_tokens`**: **Deviation from the plan, found
+    and flagged before implementing**: `git log -p` on `evaluator.py` confirmed commit
+    `f108833` raised `max_tokens` 800→2000 specifically to fix a *live-confirmed*
+    Qwen3-14B truncation bug — lowering the local number back down (the plan's literal
+    suggestion) would have reintroduced it. Also, the caller can't know local-vs-cloud in
+    advance (`call_llm()` decides that per-attempt internally), so the fix necessarily
+    widened into `src/llm/client.py`: new optional `cloud_max_tokens` param (defaults to
+    `max_tokens`, every other call site unaffected). `evaluator.py`/`verifier.py` now
+    pass `max_tokens=2000, cloud_max_tokens=800` — local keeps its live-verified value,
+    cloud (no thinking-trace tax) drops to 800. Also fixed `verifier.py`'s adjacent stale
+    docstring. The Suspected-confidence context-overflow risk on local was left
+    unaddressed by agreement — the real fix (trimming chunk input text) is a separate,
+    larger change. New `tests/test_llm_client.py`.
+  - **Module 6.4 — Streaming/rotation robustness**: `_stream_local` gained the same
+    empty/whitespace-content cloud-fallback trigger `_call_local` already had (tracks
+    whether any chunk had real content; raises after the stream is exhausted if not —
+    safe since nothing has reached the caller yet in that case).
+    `key_manager.rotate_key()` changed from unconditional increment to a compare-and-swap
+    keyed on the index the caller observed before its own call failed (new
+    `get_current_index(provider)`; all three `client.py` call sites updated), so
+    concurrent rate-limit failures on the same key no longer over-rotate. New
+    `tests/test_key_manager.py` (5 tests, pure sync logic — directly covers the "N
+    concurrent failures rotate only once" scenario).
+  - **Module 6.5 — Extraction regex robustness**: `_CNIC_RE`/`_PHONE_RE`/`_PLATE_RE`/
+    `_FIR_RE` now tolerate a missing separator, whitespace, or a non-ASCII dash/minus
+    variant between identifier groups (real OCR/vision-extraction noise); canonical
+    forms are rebuilt from captured groups, not the raw match, so the same identifier
+    OCR'd two different ways still normalizes identically. `_PLATE_RE` is now
+    case-insensitive. **Real false positive caught during implementation, not just the
+    plan's theoretical risk**: making every separator fully optional let `"CASE-009"` in
+    an existing test parse as a plate (`"CAS"` + zero-length separator + `"E"` + `"-"` +
+    `"009"`) — fixed by requiring at least one separator character specifically at the
+    plate's letter-to-letter gap; digit-adjacent gaps stay fully optional. 10 new cases
+    in `tests/test_structured_fields.py`, including a regression test for the false
+    positive.
 - Test suite on `main` (current tip `3370d66`): **545 passed, 4 skipped, 0 failed**,
   excluding `test_pdf_loader.py`'s real-Docling `slow`-marked tests, which intermittently
   error in this environment with a Docling `ConversionError`/`std::bad_alloc` unrelated to
@@ -355,110 +401,53 @@ For each module assigned:
 
 - After each security-heavy phase (Phase 1 done, **Phase 2 done — `/security-review` ran
   clean (zero HIGH/MEDIUM) with one Low addressed as an addendum, merged to `main`**,
-  Phase 5): run `/security-review` on the branch before review. **Note: Phase 5 was
-  merged to `main` without this gate having been run** — it's still worth doing
-  retroactively against `main` before Phase 6 gets far, since Phase 5 was
-  security-heavy (RBAC/ownership fixes) and the gate was never explicitly executed.
+  Phase 5): run `/security-review` on the branch before review. **Phase 5 was merged to
+  `main` without this gate having been run**, and was never retroactively covered
+  either — still an outstanding gap, worth doing before Phase 5-touched files
+  (RBAC/ownership: `cases.py`, `case_assignments.py`, `graph_review.py`,
+  `attachments.py`, `conversation.py`, `main.py::download_file`) are touched again.
+  **Phase 6 — `/security-review` run on the full branch before merge: zero
+  HIGH/MEDIUM/LOW findings.** Merged clean.
 - `/code-review` is run manually at phase boundaries — don't attempt to launch it.
 
 ## Start here
 
-Phase 5 is complete and merged (`main` tip: `3370d66`). Module 6.1 is done and
-**committed** (`47aa530`) on `fix/phase-6-module-6.1-json-extract`, cut from that same
-`main` tip — **not yet merged to `main`**. Before doing anything else, run `git status`
-and `git log --oneline -3` to confirm this branch/commit state matches what's described
-above; if it doesn't, stop and flag it rather than assuming.
+Phase 6 is complete and merged to `main` (fast-forward; `main` tip: `9a3ad4f`). Full
+suite on `main` post-merge: **574 passed, 4 skipped, 6 deselected (slow), 0 failed**.
+Before doing anything else, run `git log --oneline -3` to confirm `main` is at or past
+this tip, and `git branch` to check no Phase 6 module branches are still sitting
+un-merged (they shouldn't be — all five landed in one fast-forward).
 
-**Phase 6 — LLM pipeline correctness.** Five modules. Why here, per `solution.md`:
-independent of every phase before it; grouped as one phase because most of it touches
-the same handful of files (`evaluator.py`, `verifier.py`, `router.py`,
-`query_expander.py`, `sql_extractor.py`) and should land together to avoid re-touching
-them repeatedly. Unlike Phase 5, nothing in Phase 6 is blocked by any open §9 decision —
-all five modules are implementable in sequence without waiting on a product answer.
+**Note the still-outstanding gap directly above**: Phase 5's RBAC/ownership changes
+were never covered by `/security-review`, retroactively or otherwise. Not blocking for
+Phase 7 (which doesn't touch those files), but flag it if a future phase does.
 
-Resolve with the user whether to merge Module 6.1 to `main` now or continue stacking on
-the same branch, then implement **Module 6.2 only**, per the standard
-one-module-at-a-time rule.
+**Phase 7 — Ingestion performance & safety.** Four modules (`solution.md` §Phase 7):
 
-- **Module 6.1 — Shared, safe JSON extraction (replaces 3 duplicated buggy
-  implementations + 2 missing ones)**
-  - **Issues addressed:** *Greedy `_extract_json` regex — duplicated in three files —
-    re-implements a pattern this codebase already diagnosed and fixed as broken*;
-    *Thinking-trace JSON-parsing fix applied inconsistently — several identical call
-    sites skipped.*
-  - **Files/functions:** `src/pipeline/file_structurer.py:13-69` (the correct
-    implementation, to be extracted, not rewritten), `src/pipeline/evaluator.py:41-50,107`,
-    `src/pipeline/verifier.py:61-78,288`, `src/pipeline/router.py:60-67`,
-    `src/pipeline/query_expander.py:80-93`, `src/pipeline/sql_extractor.py:22-31`.
-  - **Approach:** Move `file_structurer.py`'s existing `_extract_json` (the
-    `<think>`-tag strip + fenced-block check + string-aware brace-depth scan — already
-    correct, confirmed by direct read in `solution.md`, but re-read the file fresh —
-    line numbers are from 2026-07-27) verbatim into a new shared module,
-    `src/pipeline/json_extract.py`, as the single `extract_json(response: str) -> dict`
-    (or `-> Any`, to also support the list-returning callers below). Update every call
-    site:
-    - `evaluator.py`/`verifier.py`: replace their local `_extract_json` (the greedy
-      `r"\{.*\}"` regex) with the shared import.
-    - `router.py`: replace its inline `re.search(r'\{.*\}', ...)` block with the shared
-      import.
-    - `query_expander.py`: replace its markdown-fence-only strip with the shared import
-      (it needs the list-returning case — the shared function should return whatever
-      `json.loads` produces, list or dict, and let each caller validate the shape it
-      expects, same as `query_expander.py` already does after parsing).
-    - `sql_extractor.py`: replace its hardcoded ` ```json ` prefix/suffix strip with the
-      shared import.
-  - **Blast radius/risk:** Low — strictly a robustness improvement (the shared function
-    is a superset of what each broken version already tried to do: whole-response
-    parse, then fenced-block, then brace-scan). The only behavior change is that
-    previously-failing parses (preamble-contaminated JSON) now succeed — the intended
-    fix, not a risk. No case where the new function is stricter than any of the old ones.
-  - **Verification:** Move `file_structurer.py`'s existing tests (if any target
-    `_extract_json` directly) to target the new shared module; add cases for each of the
-    five call sites' actual historical failure mode (a `<think>...</think>` preamble
-    before a JSON array, for `query_expander.py`; a bare ` ```json ` fence with no
-    closing brace-scan needed, for `sql_extractor.py`). Fully unit-testable, no live
-    infra needed — but if you have live LLM/model access this session, a real call
-    through one of the five updated call sites is a stronger check than the mocked unit
-    tests alone.
-  - **Migration/infra needs:** None.
-  - **Rollback:** Revert the five call sites back to their local implementations; the
-    shared module itself is inert if unused.
+- **Module 7.1 — Blocking vision-OCR retry loop.** `src/ingestion/loaders/pdf_loader.py`
+  (`_load_scanned_page_with_vision`, `load_pdf`), `src/ingestion/loader_router.py:85`,
+  `src/ingestion/service.py:348` (`ingest_file`) — a blocking `time.sleep(120)` retried
+  up to 10 times runs inside an `async def` with no executor offload; a single bad file
+  can freeze the whole server. Wrap the call chain in `await asyncio.to_thread(...)` at
+  `ingest_file`'s call site.
+- **Module 7.2 — Upload validation and size caps.** `src/ingestion/loader_router.py:55-90`,
+  `src/api/admin.py:249-262`, `src/ingestion/service.py:260-306` (`ingest_directory`) — no
+  MIME/magic-byte validation anywhere in the upload-to-ingestion path, and the 50MB size
+  cap lives only on the admin HTTP endpoint, not the shared ingestion path. New shared
+  `src/ingestion/validation.py::validate_file(path)`.
+- **Module 7.3 — Entity-resolution N+1 batching.**
+  `src/graph/entity_resolution.py:171-213` (`_generate_candidates`) — one Cypher
+  round-trip per surviving candidate per mention during ingestion; batch into one query.
+- **Module 7.4 — Analytics indexes, pagination, and bounded caches.**
+  `src/database/models.py`, `src/data_gateway/direct_backend.py:948-973,804-817`,
+  `src/ingestion/loaders/image_loader.py:21` (`_vision_cache`),
+  `src/ingestion/loaders/docx_loader.py:134-171` — missing indexes on analytics tables,
+  unbounded admin-page queries, an unbounded in-memory vision-OCR cache, and an O(n²)
+  docx loader helper. Coordinate the pagination-contract change with Phase 9's admin
+  frontend work per `solution.md`.
 
-**Queued after Module 6.1** (do not start without being told to proceed):
+Re-read `solution.md`'s Phase 7 section in full before starting — line numbers above are
+from the 2026-07-27 audit and may have drifted; this note has been true for every phase
+so far. Cut a fresh branch off current `main` for Module 7.1, per the standard
+one-module-at-a-time rule — implement **Module 7.1 only**, then stop and report.
 
-- **Module 6.2 — RAG route exception guard.** `src/pipeline/orchestrator.py:1349-1401`
-  — the RAG route's final generation + verifier call is the one dispatch branch with no
-  exception guard; wrap it in the same `try/except` → `_SAFE_RESPONSE`/
-  `_ABSTENTION_RESPONSE` pattern every sibling branch already uses.
-- **Module 6.3 — max_tokens / context-window safety.** `src/pipeline/evaluator.py:103`,
-  `src/pipeline/verifier.py:284` — make `max_tokens` local-vs-cloud aware instead of a
-  flat `2000`, since the local model's ~4096-token ceiling (`file_structurer.py:131-136`
-  documents this empirically) risks overflow at the raised value. **Before picking the
-  new local-model number, check `git log -p -- src/pipeline/evaluator.py` for the
-  commit that raised 800→2000** — if that was to fix local-model truncation
-  specifically, reverting the local number closer to 800 could reintroduce that
-  original bug, and the real fix might be trimming prompt *input* instead of the output
-  budget. Flag what you find before implementing, per the "plan may be wrong" rule if
-  the git history changes the picture.
-- **Module 6.4 — Streaming/rotation robustness.** `src/llm/client.py:224-276`
-  (`_call_local`/`_stream_local`) — port `_call_local`'s empty/whitespace-content
-  cloud-fallback trigger into `_stream_local`, which never got it.
-  `src/llm/key_manager.py:33-46` (`rotate_key`) — change from an unconditional
-  index-increment to a compare-and-swap keyed on the index the caller last observed, so
-  concurrent rate-limit failures don't over-rotate. Needs a concurrency test (simulated
-  concurrent `rotate_key` calls all observing the same starting index) — no live infra
-  needed, pure async logic + mocks.
-- **Module 6.5 — Extraction regex robustness.**
-  `src/extraction/structured_fields.py:53-65` (`_CNIC_RE`, `_PHONE_RE`, `_PLATE_RE`,
-  `_FIR_RE`) — add a punctuation-normalization pass before matching (collapse
-  whitespace/en-dash/em-dash/non-breaking-hyphen around digit groups to a plain ASCII
-  hyphen) and make the separator optional-but-anchored in each regex, so OCR'd/scanned
-  documents with inconsistent separators are caught. Keep the digit-count/grouping exact
-  — only the separator becomes optional — to avoid meaningfully widening the
-  false-positive surface the audit already flags as a pre-existing risk. Make
-  `_PLATE_RE` case-insensitive too.
-
-Full detail for 6.2/6.3/6.4/6.5 (issues addressed, approach, blast radius, verification,
-migration needs, rollback) is in `solution.md`'s Phase 6 section — re-read the relevant
-module's section fresh when you get to it, per the per-module workflow below; line
-numbers there are from 2026-07-27 and may have drifted.
