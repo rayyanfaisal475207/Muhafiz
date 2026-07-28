@@ -42,7 +42,9 @@ async def embed_text(text: str, task_type: str = "RETRIEVAL_QUERY") -> list[floa
         task_type: "RETRIEVAL_QUERY" for queries (default).
 
     Returns:
-        A 3072-dimensional embedding vector.
+        An embedding vector — 1024-dimensional with the default "e5"
+        provider (3072 for "gemini", 1536 for "openai", 384 for "local";
+        see EMBEDDING_PROVIDER).
     """
     vectors = await embed_texts([text], task_type=task_type)
     return vectors[0]
@@ -60,7 +62,9 @@ async def embed_texts(
         task_type: "RETRIEVAL_DOCUMENT" for stored chunks (default).
 
     Returns:
-        List of 3072-dimensional vectors in the same order as input.
+        List of embedding vectors, same order as input — 1024-dimensional
+        with the default "e5" provider (3072 for "gemini", 1536 for
+        "openai", 384 for "local"; see EMBEDDING_PROVIDER).
     """
     if not texts:
         return []

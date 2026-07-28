@@ -441,7 +441,7 @@ Key `.env` values, per `src/config.py` (the source of truth — `.env.example` h
 | `TOP_K_RETRIEVAL` / `TOP_K_RERANK`                              | Candidates retrieved / kept after cross-encoder rerank                             | `10` / `5`      |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP`                                  | Chunking (now snapped to Urdu-aware sentence boundaries, not raw offsets)           | `512` / `64`    |
 
-> **Please confirm:** `MEMORY_BACKEND` is still read by `src/config.py` in some builds, but conversation history always persists through the data gateway (Postgres). The JSON-file memory path in `src/memory/conversation.py` is dead code. Recommend removing both.
+> Conversation memory (`src/memory/conversation.py`) is entirely Postgres-backed via the data gateway — there is no JSON-file storage path and no `MEMORY_BACKEND` variable anywhere in `src/config.py`.
 
 ---
 

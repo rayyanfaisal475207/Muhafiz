@@ -1,32 +1,39 @@
-# React + TypeScript + Vite
+# Muhafiz Admin Console
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+The admin/operator frontend for the Muhafiz Evidence Intelligence Platform — a
+React + TypeScript + Vite app for platform-admin/station-admin/supervisor
+users to manage cases, review the knowledge base, monitor pipeline runs and
+errors, and audit system activity. Separate from the main investigator-facing
+chat app in [`../frontend`](../frontend).
 
-Currently, two official plugins are available:
+## Running locally
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Requires the backend API running (see the repo root `README.md` for backend
+setup — Postgres + Apache AGE, `.env`, etc). By default the dev server proxies
+`/api` to `http://127.0.0.1:8000` (see `vite.config.ts`).
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Opens on `http://localhost:5174`.
+
+## Scripts
+
+| Command           | Purpose                                   |
+| ------------------ | ------------------------------------------ |
+| `npm run dev`       | Start the Vite dev server (port 5174)      |
+| `npm run build`     | Type-check (`tsc -b`) and production build |
+| `npm run preview`   | Preview the production build locally       |
+| `npm run lint`      | Run Oxlint                                  |
+| `npm test`          | Run the Vitest suite once                   |
+| `npm run test:watch`| Run Vitest in watch mode                    |
+
+## Notes
+
+- Auth is a JWT in an HttpOnly cookie, shared with the backend's session
+  model — log in via the console's own login page, not the main chat app's.
+- Access to most pages is role-gated (`platform-admin` / `station-admin` /
+  `supervisor`); see `src/App.tsx` and `src/AuthContext.tsx` for the role
+  hierarchy.
