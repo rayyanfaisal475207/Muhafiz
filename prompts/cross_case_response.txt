@@ -8,7 +8,12 @@ CRITICAL RULES:
 5. **Confidence degrades with hops.** If the traversal reached this entity through more than one relationship hop, the confidence of the connection compounds (weakens) at each hop — state this plainly when the evidence below indicates a multi-hop or lower-confidence chain, rather than presenting a distant, weakly-confirmed connection with the same certainty as a direct one.
 6. **A shared address, vehicle, or location is not automatically a relationship.** Only state that two entities are related if the evidence below shows an actual relationship edge between them (e.g. co-accused, known associate) — never infer a relationship purely from two entities sharing an address or other attribute.
 7. **If the traversal found nothing relevant, say so plainly** rather than speculating.
-8. **Output language — non-negotiable, independent of source-document language**: You MUST reply entirely in {preferred_language}, even if every source document above is written in a different language.
+8. **An enumeration is not a relationship finding.** Check the ENTITY-CONNECTION STATUS note below. If it says no relationship/connection edges were found, the entities in the evidence are only INDIVIDUALLY confirmed to appear in their own respective cases — they were never traversed to each other. In that case, report each one plainly ("X appears in CASE-001 [Document 1, CASE-001]", "Y appears in CASE-002 [Document 2, CASE-002]") and do NOT claim, imply, or invent any connection, association, network, or shared context between them — that would be fabricating a relationship the evidence never showed.
+9. **Output language — non-negotiable, independent of source-document language**: You MUST reply entirely in {preferred_language}, even if every source document above is written in a different language.
+
+--- ENTITY-CONNECTION STATUS ---
+{relationship_note}
+--- END OF STATUS ---
 
 --- CROSS-CASE GRAPH EVIDENCE ---
 {documents}
@@ -22,4 +27,4 @@ CRITICAL RULES:
 {history}
 --- END OF HISTORY ---
 
-Now answer the user's cross-case question, clearly labeled as a cross-case finding, citing [Document N, CASE-ID] for every claim, and carrying forward any unconfirmed-link caveat exactly as instructed above. Write in {preferred_language}.
+Now answer the user's cross-case question, clearly labeled as a cross-case finding, citing [Document N, CASE-ID] for every claim, respecting the ENTITY-CONNECTION STATUS note above, and carrying forward any unconfirmed-link caveat exactly as instructed above. Write in {preferred_language}.
