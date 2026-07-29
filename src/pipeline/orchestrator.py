@@ -1251,8 +1251,18 @@ async def process_query(
 
             try:
                 from src.pipeline.query_expander import expand_query
+                from src.pipeline.cross_script_variant import generate_cross_script_variant
                 expanded_queries = await expand_query(current_query, n=2)
-                all_queries = [current_query] + expanded_queries
+                # RETRIEVAL_CROSS_LINGUAL_FIX_PROMPT.md, Fix 3: fold in one
+                # variant translated into "the other" script so BM25 (script-
+                # blind otherwise) and the embedding step both get a
+                # same-script chance at the corpus's Urdu/English documents,
+                # regardless of which language the user actually asked in.
+                # None on failure/empty — degrades to pre-Fix-3 behavior.
+                cross_script_query = await generate_cross_script_variant(current_query)
+                all_queries = [current_query] + expanded_queries + (
+                    [cross_script_query] if cross_script_query else []
+                )
 
                 embed_tasks = [embed_text(q) for q in all_queries]
                 embeddings = await asyncio.gather(*embed_tasks)

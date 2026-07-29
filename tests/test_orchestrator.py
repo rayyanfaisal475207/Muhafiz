@@ -35,7 +35,8 @@ def run_pipeline(monkeypatch, patched_gateway):
                    evaluator_relevant=True,
                    generation_exc=None,
                    bm25_pool=None,
-                   vector_chunks_fn=None):
+                   vector_chunks_fn=None,
+                   cross_script_query=None):
 
         async def fake_call_llm(system_prompt, user_message, **kwargs):
             # Order matters: match the most specific prompt first (the file
@@ -101,6 +102,14 @@ def run_pipeline(monkeypatch, patched_gateway):
         async def fake_expand(_q, n=2):
             return []
 
+        # Fix 3: default None (no cross-script variant) so every pre-existing
+        # test's behavior is unaffected — real generate_cross_script_variant()
+        # would otherwise reach the real call_llm (network) in a test
+        # environment. Individual tests pass cross_script_query= to simulate
+        # a real variant being generated.
+        async def fake_cross_script_variant(_q):
+            return cross_script_query
+
         chunks = [
             {"id": "c1", "text": "Theft of movable property is punishable under 379 PPC.",
              "metadata": {"source": "PPC.pdf"}, "rrf_score": 0.9}
@@ -129,6 +138,10 @@ def run_pipeline(monkeypatch, patched_gateway):
         monkeypatch.setattr(orch, "query_similar", fake_query_similar)
         monkeypatch.setattr(orch, "get_all_chunks", fake_get_all_chunks)
         monkeypatch.setattr("src.pipeline.query_expander.expand_query", fake_expand)
+        monkeypatch.setattr(
+            "src.pipeline.cross_script_variant.generate_cross_script_variant",
+            fake_cross_script_variant,
+        )
 
         # Graph retrieval / cross-case aggregate boundaries (Phase 5).
         # Defaults are empty/no-op so tests that don't care about GRAPH/
@@ -630,6 +643,68 @@ async def test_cross_case_query_result_set_includes_more_than_one_case(run_pipel
     # the per-case cap (2) must have been applied.
     case_a_count = sum(1 for c in semantic_results if c["metadata"]["case_id"] == "CASE-A")
     assert case_a_count <= 2, f"CASE-A should be capped at 2 chunks, got {case_a_count}"
+
+
+# ── Cross-script retrieval variant (RETRIEVAL_CROSS_LINGUAL_FIX_PROMPT.md, Fix 3) ──
+
+async def test_cross_script_variant_none_leaves_behavior_unchanged(run_pipeline):
+    """
+    Regression guard: when generate_cross_script_variant() returns None
+    (its failure/no-op contract — see cross_script_variant.py), the pipeline
+    must behave exactly as it did before Fix 3 existed. This is the fixture's
+    default (cross_script_query=None), so every pre-Fix-3 test in this file
+    is itself already a regression guard for this — this test just makes
+    that explicit.
+    """
+    events, _ = await run_pipeline(
+        route='{"route": "RAG", "output_format": "chat"}',
+    )
+    assert any(e["step"] == "response" and e["status"] == "done" for e in events)
+
+
+async def test_cross_script_variant_widens_the_bm25_pool(run_pipeline):
+    """
+    The actual bug this fix targets: a chunk lexically matchable only via
+    the cross-script variant's vocabulary (simulating a same-script token
+    the original-language query never used) must still be able to surface
+    in the final grounded answer — because the variant is folded into
+    `all_queries`, which feeds BOTH the embedding step and BM25's
+    `combined_query` (see orchestrator.py's RAG route, just after
+    `expand_query`).
+
+    The message itself never mentions "Falcon-Nine-Zulu" — only the
+    (mocked) cross-script variant does, standing in for a real translation
+    that would carry an identifier through verbatim per
+    prompts/cross_script_query.txt's rule 1. Before Fix 3, nothing in
+    `all_queries` would contain that token, so BM25 could never match
+    this chunk at all, no matter how strong the keyword.
+    """
+    vector_missed_chunk = {
+        "id": "cross-script-missed-1",
+        "text": "Falcon-Nine-Zulu evidence locker mobile phone recovered from the accused",
+        "metadata": {"source": "supplementary.pdf"},
+    }
+    events, _ = await run_pipeline(
+        route='{"route": "RAG", "output_format": "chat"}',
+        message="What happened in this case?",
+        cross_script_query="Falcon-Nine-Zulu evidence locker mobile phone",
+        bm25_pool=[
+            {"id": "c1", "text": "Theft of movable property is punishable under 379 PPC.",
+             "metadata": {"source": "PPC.pdf"}},
+            vector_missed_chunk,
+            {"id": "c3", "text": "FIR registration threshold requires an original CNIC for verification",
+             "metadata": {"source": "sop.pdf"}},
+            {"id": "c4", "text": "Penalty for late filing of an FIR complaint under section 182 of the code",
+             "metadata": {"source": "sop.pdf"}},
+        ],
+    )
+
+    system_prompt = run_pipeline.call.last_system
+    assert "Falcon-Nine-Zulu" in system_prompt, (
+        "a chunk matchable only via the cross-script variant's vocabulary "
+        "must still reach the generation prompt via RRF fusion, since the "
+        "variant is folded into all_queries / BM25's combined_query"
+    )
 
 
 async def test_greeting_short_circuits_retrieval(run_pipeline):
