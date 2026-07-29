@@ -181,6 +181,49 @@ class TestCaseScopedIsolation:
         assert "c4" not in _ids(results_other_case)
 
 
+class TestGetAllScopedForBm25:
+    """
+    RETRIEVAL_DIVERSITY_FIX_PROMPT.md, Fix 1: BM25 needs the full scoped
+    candidate pool (id/text/metadata), not just a vector-search top-k.
+    `get_all()` must apply the EXACT same `_build_where` scoping `search()`
+    does — widening BM25's pool must never widen access control.
+    """
+
+    def test_get_all_returns_full_text_not_just_metadata(self, populated_store):
+        results = populated_store.get_all(metadata_filter={"is_global": True})
+        assert {"g1"} == _ids(results)
+        assert results[0]["text"] == "Shared knowledge-base content"
+
+    def test_get_all_respects_project_isolation(self, populated_store):
+        results = populated_store.get_all(metadata_filter={"project_id": PROJECT_A})
+        assert _ids(results) == {"a1", "g1"}
+        assert "b1" not in _ids(results), "Project B's document leaked into Project A's BM25 pool"
+
+    def test_get_all_respects_non_project_is_global_scope(self, populated_store):
+        results = populated_store.get_all(metadata_filter={"is_global": True})
+        assert _ids(results) == {"g1"}
+        assert "a1" not in _ids(results) and "b1" not in _ids(results)
+
+    def test_get_all_respects_case_scoping(self, case_populated_store):
+        results = case_populated_store.get_all(metadata_filter={"is_global": True, "case_id": CASE_1})
+        assert _ids(results) == {"c1"}
+        assert "c2" not in _ids(results), "Case 2's evidence leaked into Case 1's BM25 pool"
+
+    def test_get_all_is_not_limited_to_a_small_top_k(self, store):
+        """
+        The actual bug this method exists to fix: unlike `search()` (bounded
+        by top_k / nearest-neighbor distance), `get_all()` must return every
+        matching chunk in scope, however many there are — BM25's whole point
+        is to see documents vector search's top-k would never surface.
+        """
+        store.upsert([
+            _chunk(f"doc{i}", is_global=True, text=f"chunk number {i}")
+            for i in range(25)
+        ])
+        results = store.get_all(metadata_filter={"is_global": True})
+        assert len(results) == 25
+
+
 class TestUpsertSemantics:
     def test_upsert_same_id_overwrites_not_duplicates(self, store):
         store.upsert([_chunk("x1", text="original text")])

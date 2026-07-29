@@ -33,7 +33,8 @@ def run_pipeline(monkeypatch, patched_gateway):
                    graph_result=None,
                    agg_result=None,
                    evaluator_relevant=True,
-                   generation_exc=None):
+                   generation_exc=None,
+                   bm25_pool=None):
 
         async def fake_call_llm(system_prompt, user_message, **kwargs):
             # Order matters: match the most specific prompt first (the file
@@ -113,8 +114,15 @@ def run_pipeline(monkeypatch, patched_gateway):
                 raise query_similar_exc
             return chunks
 
+        bm25_pool_calls = []
+
+        async def fake_get_all_chunks(where=None):
+            bm25_pool_calls.append(where)
+            return bm25_pool if bm25_pool is not None else chunks
+
         monkeypatch.setattr(orch, "embed_text", fake_embed)
         monkeypatch.setattr(orch, "query_similar", fake_query_similar)
+        monkeypatch.setattr(orch, "get_all_chunks", fake_get_all_chunks)
         monkeypatch.setattr("src.pipeline.query_expander.expand_query", fake_expand)
 
         # Graph retrieval / cross-case aggregate boundaries (Phase 5).
@@ -159,6 +167,7 @@ def run_pipeline(monkeypatch, patched_gateway):
         _run.stream = fake_stream_llm
         _run.call = fake_call_llm
         _run.where_calls = where_calls
+        _run.bm25_pool_calls = bm25_pool_calls
         return events, patched_gateway
 
     return _run
@@ -412,6 +421,71 @@ async def test_rag_project_scoped_query_unaffected_by_case_fix(run_pipeline):
     assert run_pipeline.where_calls, "query_similar was never called"
     for where in run_pipeline.where_calls:
         assert where == {"project_id": "11111111-1111-1111-1111-111111111111"}
+
+
+# ── BM25 full-corpus pool (RETRIEVAL_DIVERSITY_FIX_PROMPT.md, Fix 1) ───────────
+
+async def test_bm25_pool_is_fetched_with_the_same_scope_as_vector_search(run_pipeline):
+    """
+    Fix 1: BM25 must search the full scoped corpus, not just
+    `semantic_results`. The pool fetch must still be scoped by the exact
+    same project/case/is_global filter query_similar uses — widening BM25's
+    pool must never widen its access-control scope.
+    """
+    events, _ = await run_pipeline(
+        route='{"route": "RAG", "output_format": "chat"}',
+        case_id="CASE-014",
+    )
+    assert run_pipeline.bm25_pool_calls, "get_all_chunks (BM25's full-corpus pool) was never called"
+    for where in run_pipeline.bm25_pool_calls:
+        assert where == {"case_id": "CASE-014"}
+    # And it must match query_similar's scope call-for-call.
+    assert run_pipeline.bm25_pool_calls == run_pipeline.where_calls
+
+
+async def test_bm25_surfaces_a_keyword_match_vector_search_missed(run_pipeline):
+    """
+    The actual bug this fix targets: a chunk that vector search's top-k
+    never returned (it's not in `semantic_results`) but that lexically
+    matches the query must still be able to surface in the final grounded
+    answer, because BM25 now searches the full corpus pool
+    (`get_all_chunks`), not just what semantic search already found.
+
+    Before Fix 1, `retrieve_bm25` was called with `semantic_results` as its
+    candidate set — a chunk absent from that list could never be scored by
+    BM25 at all, no matter how strong the keyword match.
+    """
+    vector_missed_chunk = {
+        "id": "vector-missed-1",
+        "text": "Falcon-Nine-Zulu evidence locker mobile phone recovered from the accused",
+        "metadata": {"source": "supplementary.pdf"},
+    }
+    # semantic_results (what query_similar returns) stays the default single
+    # chunk — `vector_missed_chunk` is ONLY present in the full BM25 pool,
+    # simulating a chunk vector search's top-k never surfaced. The pool has
+    # a few unrelated docs alongside it (not just a 2-doc corpus) so BM25's
+    # IDF for the matching terms doesn't clamp to zero on a too-tiny corpus
+    # (see test_bm25_contributes_nothing_on_a_tiny_corpus in
+    # test_retrieval_and_memory.py for that quirk).
+    events, _ = await run_pipeline(
+        route='{"route": "RAG", "output_format": "chat"}',
+        message="Falcon-Nine-Zulu evidence locker mobile phone",
+        bm25_pool=[
+            {"id": "c1", "text": "Theft of movable property is punishable under 379 PPC.",
+             "metadata": {"source": "PPC.pdf"}},
+            vector_missed_chunk,
+            {"id": "c3", "text": "FIR registration threshold requires an original CNIC for verification",
+             "metadata": {"source": "sop.pdf"}},
+            {"id": "c4", "text": "Penalty for late filing of an FIR complaint under section 182 of the code",
+             "metadata": {"source": "sop.pdf"}},
+        ],
+    )
+
+    system_prompt = run_pipeline.call.last_system
+    assert "Falcon-Nine-Zulu" in system_prompt, (
+        "a chunk absent from semantic_results but present in the full BM25 "
+        "pool must still reach the generation prompt via RRF fusion"
+    )
 
 
 async def test_graph_hybrid_case_scoped_query_filters_on_case_id_alone(run_pipeline):

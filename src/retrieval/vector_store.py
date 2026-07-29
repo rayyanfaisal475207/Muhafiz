@@ -201,6 +201,27 @@ class ChromaVectorStore:
         result = self._collection.get(include=["metadatas"])
         return result.get("metadatas") or []
 
+    def get_all(self, metadata_filter: Optional[dict] = None) -> list[dict]:
+        """
+        Fetch every chunk (id + text + metadata) matching the given scope
+        filter — the full candidate pool for BM25, not just a vector-search
+        top-k (RETRIEVAL_DIVERSITY_FIX_PROMPT.md, Fix 1).
+
+        Runs the SAME `_build_where` translation `search()` uses, so this
+        can never return chunks outside the caller's project/global/case
+        access-control scope — it only ever widens the pool BM25 sees
+        within whatever scope the caller already passed to vector search,
+        never beyond it.
+        """
+        where = _build_where(metadata_filter)
+        result = self._collection.get(where=where, include=["documents", "metadatas"])
+        out: list[dict] = []
+        for chunk_id, text, meta in zip(
+            result.get("ids") or [], result.get("documents") or [], result.get("metadatas") or []
+        ):
+            out.append({"id": chunk_id, "text": text, "metadata": dict(meta or {})})
+        return out
+
     def get_by_ids(self, ids: list[str]) -> list[dict]:
         """
         Fetch specific chunks by id — the provenance-lookup primitive
@@ -426,6 +447,22 @@ async def query_similar(
 def get_all_documents_metadata() -> list[dict]:
     """Used by pipeline tests/evaluation to fetch all documents."""
     return _get_store().get_all_metadata()
+
+
+async def get_all_chunks(where: Optional[dict] = None) -> list[dict]:
+    """
+    Fetch the full scoped candidate pool (id/text/metadata) that BM25 should
+    search over, instead of being limited to whatever vector search's top-k
+    already returned (RETRIEVAL_DIVERSITY_FIX_PROMPT.md, Fix 1: "BM25 never
+    sees the whole corpus").
+
+    `where` uses the exact same shape the orchestrator already builds for
+    `query_similar` (project_id / case_id / is_global) and is translated by
+    the same `_build_where` used for vector search, so BM25's pool is scoped
+    identically — it can never leak chunks outside the access-control
+    boundary the vector query already enforces.
+    """
+    return await asyncio.to_thread(_get_store().get_all, where)
 
 
 async def get_chunks_by_ids(ids: list[str]) -> list[dict]:

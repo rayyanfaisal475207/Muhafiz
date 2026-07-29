@@ -22,7 +22,7 @@ import json
 from src.pipeline.evaluator import evaluate_relevance
 from src.pipeline.verifier import verify_grounding
 from src.retrieval.embedder import embed_text
-from src.retrieval.vector_store import query_similar
+from src.retrieval.vector_store import query_similar, get_all_chunks
 from src.retrieval.bm25_retriever import retrieve_bm25
 from src.retrieval.reranker import rerank_results
 from src.retrieval.cross_reranker import cross_rerank
@@ -1308,9 +1308,40 @@ async def process_query(
                         seen_ids.add(chunk_id)
                         semantic_results.append(chunk)
 
-            # For BM25: we pass all unique semantic results, scoring against the combined query
+            # BM25 must search the FULL scoped corpus, not just the chunks
+            # vector search already surfaced — otherwise it can only re-rank
+            # what semantic search found and can never rescue a
+            # keyword-relevant chunk vector search missed (e.g. a Urdu vs.
+            # English phrasing that pulls the nearest-neighbor window from a
+            # different case entirely). See RETRIEVAL_DIVERSITY_FIX_PROMPT.md,
+            # Fix 1.
+            #
+            # `where_clause` here is the SAME project/case/is_global filter
+            # already built above for `query_similar` — reusing it (rather
+            # than passing None) means BM25's wider pool stays inside the
+            # exact access-control scope semantic search is already limited
+            # to; it never leaks cross-project or cross-case content that
+            # `_build_where` would otherwise exclude.
+            #
+            # Cost: this rebuilds an in-memory BM25 index over the full
+            # scoped corpus on every retrieval (and every retry), not just
+            # over TOP_K_RETRIEVAL chunks. For a project/case-scoped query
+            # that's small and cheap; for a fully global, unscoped corpus at
+            # real production scale this tokenize+index pass becomes the
+            # dominant cost per query. No caching/persistent-index layer is
+            # added here — flagged as a follow-up if profiling shows it's
+            # needed, not solved in this change.
             combined_query = " ".join(all_queries)
-            bm25_results = retrieve_bm25(combined_query, semantic_results, top_k=config.TOP_K_RETRIEVAL)
+            try:
+                full_candidate_pool = await get_all_chunks(where=where_clause)
+            except Exception as pool_exc:
+                logger.error(
+                    "Fetching full BM25 candidate pool failed: %s. "
+                    "Falling back to semantic_results only for this query.",
+                    pool_exc,
+                )
+                full_candidate_pool = semantic_results
+            bm25_results = retrieve_bm25(combined_query, full_candidate_pool, top_k=config.TOP_K_RETRIEVAL)
 
             elapsed_ms = int((time.monotonic() - t0) * 1000)
             yield event(
