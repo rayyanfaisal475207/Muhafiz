@@ -75,6 +75,27 @@ async def test_person_query_routes_to_person_recurrence(monkeypatch):
     assert result["results"][0]["case_count"] == 2
 
 
+async def test_urdu_word_for_people_routes_to_person_recurrence(monkeypatch):
+    """
+    Regression guard: "لوگوں" ("people", the everyday Urdu word) used to be
+    missing from _PERSON_KEYWORDS even though "شخص" was present — mirrors
+    the same fix in src/retrieval/graph_retriever.py's _LABEL_KEYWORDS.
+    """
+    rows = [
+        {"n": _node("P-700", "Person", canonical_name="Waqas Ali Niazi"), "c": _case("CASE-700")},
+        {"n": _node("P-700", "Person", canonical_name="Waqas Ali Niazi"), "c": _case("CASE-701")},
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        "مقدمات میں مذکور تمام لوگوں کی فہرست", None, gateway=None, user_role="supervisor"
+    )
+
+    assert result["kind"] == "graph_recurrence"
+    assert result["entity_type"] == "Person"
+    assert result["results"][0]["case_count"] == 2
+
+
 # ── Relational aggregate (station/category) ─────────────────────────────────
 
 async def test_station_query_groups_by_police_station(monkeypatch):

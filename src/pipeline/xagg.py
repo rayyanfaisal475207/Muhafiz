@@ -27,7 +27,7 @@ from src.database.postgres import current_cross_case, current_rls_active
 logger = logging.getLogger(__name__)
 
 _VEHICLE_KEYWORDS = ("vehicle", "car", "motorcycle", "plate", "گاڑی")
-_PERSON_KEYWORDS = ("person", "suspect", "offender", "recidivist", "شخص")
+_PERSON_KEYWORDS = ("person", "people", "suspect", "offender", "recidivist", "شخص", "افراد", "لوگ")
 _STATION_KEYWORDS = ("station", "تھانہ")
 _STATUS_KEYWORDS = ("open", "closed", "status", "pending")
 _CATEGORY_KEYWORDS = ("theft", "burglary", "fraud", "category", "type of case")
