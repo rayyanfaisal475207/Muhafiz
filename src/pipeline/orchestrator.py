@@ -22,7 +22,7 @@ import json
 from src.pipeline.evaluator import evaluate_relevance
 from src.pipeline.verifier import verify_grounding
 from src.retrieval.embedder import embed_text
-from src.retrieval.vector_store import query_similar, get_all_chunks
+from src.retrieval.vector_store import query_similar, get_all_chunks, cap_case_diversity
 from src.retrieval.bm25_retriever import retrieve_bm25
 from src.retrieval.reranker import rerank_results
 from src.retrieval.cross_reranker import cross_rerank
@@ -1286,7 +1286,27 @@ async def process_query(
                 if not project_id and not case_id:
                     where_clause["is_global"] = True
 
-                search_tasks = [query_similar(q, emb, top_k=config.TOP_K_RETRIEVAL, where=where_clause) for q, emb in zip(all_queries, embeddings)]
+                # RETRIEVAL_DIVERSITY_FIX_PROMPT.md, Fix 2: a query is
+                # "cross-case" (more than one case could legitimately match)
+                # exactly when where_clause has no case_id — that's the same
+                # condition _build_where uses to decide whether to AND a
+                # case filter onto the vector search at all. For a
+                # case-scoped query this branch must not fire: fetch exactly
+                # TOP_K_RETRIEVAL as before, so that path's behavior is
+                # unchanged. For an unscoped query, over-fetch a wider pool
+                # per expanded-query embedding so a second/third relevant
+                # case's chunks actually land in the candidate set instead
+                # of being crowded out by whichever case sits nearest in
+                # embedding space for this exact phrasing — capping below
+                # can only redistribute chunks that were fetched, it can't
+                # rescue ones that weren't.
+                is_cross_case = not case_id
+                fetch_top_k = (
+                    config.TOP_K_RETRIEVAL * config.CROSS_CASE_RETRIEVAL_MULTIPLIER
+                    if is_cross_case
+                    else config.TOP_K_RETRIEVAL
+                )
+                search_tasks = [query_similar(q, emb, top_k=fetch_top_k, where=where_clause) for q, emb in zip(all_queries, embeddings)]
                 search_results = await asyncio.gather(*search_tasks)
             except Exception as retr_exc:
                 # Retrieval-infrastructure failure (e.g. a ChromaDB query error).
@@ -1307,6 +1327,22 @@ async def process_query(
                     if chunk_id not in seen_ids:
                         seen_ids.add(chunk_id)
                         semantic_results.append(chunk)
+
+            # RETRIEVAL_DIVERSITY_FIX_PROMPT.md, Fix 2 (continued): trim the
+            # over-fetched, deduped pool back down to TOP_K_RETRIEVAL, but
+            # via the diversity cap instead of a plain top-k slice, so no
+            # single case can occupy the whole window that goes into RRF
+            # fusion below. Only for cross-case queries — a case-scoped
+            # query already fetched exactly TOP_K_RETRIEVAL above and skips
+            # this entirely, leaving `semantic_results` (and therefore RRF
+            # fusion, cross-rerank, and everything downstream) identical to
+            # pre-Fix-2 behavior.
+            if is_cross_case:
+                semantic_results = cap_case_diversity(
+                    semantic_results,
+                    per_case_cap=config.CROSS_CASE_PER_CASE_CAP,
+                    total_cap=config.TOP_K_RETRIEVAL,
+                )
 
             # BM25 must search the FULL scoped corpus, not just the chunks
             # vector search already surfaced — otherwise it can only re-rank

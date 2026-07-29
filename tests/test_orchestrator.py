@@ -34,7 +34,8 @@ def run_pipeline(monkeypatch, patched_gateway):
                    agg_result=None,
                    evaluator_relevant=True,
                    generation_exc=None,
-                   bm25_pool=None):
+                   bm25_pool=None,
+                   vector_chunks_fn=None):
 
         async def fake_call_llm(system_prompt, user_message, **kwargs):
             # Order matters: match the most specific prompt first (the file
@@ -107,11 +108,15 @@ def run_pipeline(monkeypatch, patched_gateway):
         patched_gateway.chunks = chunks
 
         where_calls = []
+        top_k_calls = []
 
         async def fake_query_similar(_query, _embedding, top_k=10, where=None):
             where_calls.append(where)
+            top_k_calls.append(top_k)
             if query_similar_exc is not None:
                 raise query_similar_exc
+            if vector_chunks_fn is not None:
+                return vector_chunks_fn(top_k, where)
             return chunks
 
         bm25_pool_calls = []
@@ -147,9 +152,21 @@ def run_pipeline(monkeypatch, patched_gateway):
         monkeypatch.setattr(orch, "retrieve_graph", fake_retrieve_graph)
         monkeypatch.setattr(orch, "run_aggregate", fake_run_aggregate)
 
-        # SQLite audit log — irrelevant here, and it would touch disk
+        # SQLite audit log — irrelevant here, and it would touch disk.
+        # log_retrieved_docs is captured (not just no-op'd) so Fix 2 tests
+        # can inspect exactly what `semantic_results` looked like at the
+        # point it was logged, without needing to parse the final answer
+        # text for case attribution.
+        log_retrieved_docs_calls = []
+
+        def _capture_log_retrieved_docs(*a, **k):
+            log_retrieved_docs_calls.append((a, k))
+            return 1
+
+        monkeypatch.setattr(orch.pipeline_logger, "log_retrieved_docs",
+                            _capture_log_retrieved_docs, raising=False)
         for fn in ("upsert_session", "create_query", "log_step", "log_llm_call",
-                   "log_retrieved_docs", "update_retrieved_docs_relevance", "update_query"):
+                   "update_retrieved_docs_relevance", "update_query"):
             monkeypatch.setattr(orch.pipeline_logger, fn,
                                 lambda *a, **k: 1, raising=False)
 
@@ -167,7 +184,9 @@ def run_pipeline(monkeypatch, patched_gateway):
         _run.stream = fake_stream_llm
         _run.call = fake_call_llm
         _run.where_calls = where_calls
+        _run.top_k_calls = top_k_calls
         _run.bm25_pool_calls = bm25_pool_calls
+        _run.log_retrieved_docs_calls = log_retrieved_docs_calls
         return events, patched_gateway
 
     return _run
@@ -497,6 +516,120 @@ async def test_graph_hybrid_case_scoped_query_filters_on_case_id_alone(run_pipel
     assert run_pipeline.where_calls, "query_similar was never called"
     for where in run_pipeline.where_calls:
         assert where == {"case_id": "CASE-014"}
+
+
+# ── Cross-case diversity in vector retrieval (RETRIEVAL_DIVERSITY_FIX_PROMPT.md, Fix 2) ──
+
+def _semantic_results_from(log_calls):
+    """Pull the `semantic_results` list logged for the "semantic" stage out
+    of captured pipeline_logger.log_retrieved_docs(...) calls — see
+    orchestrator.py's `_spawn(... pipeline_logger.log_retrieved_docs(query_id,
+    semantic_results, "semantic", ...))` call site."""
+    for args, _kwargs in log_calls:
+        if len(args) >= 3 and args[2] == "semantic":
+            return args[1]
+    return None
+
+
+async def test_cross_case_query_widens_the_vector_fetch(run_pipeline, monkeypatch):
+    """
+    Fix 2: a query with no case_id filter (more than one case could
+    legitimately match) must fetch a wider candidate pool from vector
+    search than TOP_K_RETRIEVAL — the over-fetch that makes room for a
+    second/third case's chunks to be seen at all, before diversity capping
+    trims back down. See orchestrator.py's `is_cross_case` /
+    `fetch_top_k` logic and config.CROSS_CASE_RETRIEVAL_MULTIPLIER.
+    """
+    from src import config
+    monkeypatch.setattr(config, "TOP_K_RETRIEVAL", 4)
+    monkeypatch.setattr(config, "CROSS_CASE_RETRIEVAL_MULTIPLIER", 3)
+
+    events, _ = await run_pipeline(
+        route='{"route": "RAG", "output_format": "chat"}',
+        case_id=None, project_id=None,
+    )
+    assert run_pipeline.top_k_calls, "query_similar was never called"
+    assert all(k == 12 for k in run_pipeline.top_k_calls), (
+        f"expected every unscoped-query fetch to widen to "
+        f"TOP_K_RETRIEVAL(4) * CROSS_CASE_RETRIEVAL_MULTIPLIER(3) = 12, "
+        f"got {run_pipeline.top_k_calls}"
+    )
+
+
+async def test_case_scoped_query_fetch_is_unchanged_by_the_diversity_fix(run_pipeline, monkeypatch):
+    """
+    Regression guard: a query already scoped to a single case via
+    where_clause's case_id must behave EXACTLY as it did before Fix 2 — it
+    fetches exactly TOP_K_RETRIEVAL from vector search (no over-fetch), and
+    the diversity cap never runs (nothing to diversify across within one
+    case's own evidence).
+    """
+    from src import config
+    monkeypatch.setattr(config, "TOP_K_RETRIEVAL", 4)
+    monkeypatch.setattr(config, "CROSS_CASE_RETRIEVAL_MULTIPLIER", 3)
+
+    events, _ = await run_pipeline(
+        route='{"route": "RAG", "output_format": "chat"}',
+        case_id="CASE-014",
+    )
+    assert run_pipeline.top_k_calls, "query_similar was never called"
+    assert all(k == 4 for k in run_pipeline.top_k_calls), (
+        "a case-scoped query must fetch exactly TOP_K_RETRIEVAL, unaffected "
+        "by the cross-case over-fetch multiplier"
+    )
+
+
+async def test_cross_case_query_result_set_includes_more_than_one_case(run_pipeline, monkeypatch):
+    """
+    The actual bug this fix targets: for an unscoped (cross-case) query,
+    simulate a case (CASE-A) whose chunks are nearest in embedding space
+    and would fill the entire narrow top-k window, plus a second case
+    (CASE-B) with one relevant chunk that only shows up once the fetch
+    widens past the narrow window. Before Fix 2, CASE-B's chunk would never
+    even be fetched (top_k=4 only ever returns CASE-A's 4 nearest chunks) —
+    after Fix 2, the wider fetch plus per-case cap must let CASE-B survive
+    into `semantic_results`.
+    """
+    from src import config
+    monkeypatch.setattr(config, "TOP_K_RETRIEVAL", 4)
+    monkeypatch.setattr(config, "CROSS_CASE_RETRIEVAL_MULTIPLIER", 3)
+    monkeypatch.setattr(config, "CROSS_CASE_PER_CASE_CAP", 2)
+
+    case_a_chunks = [
+        {"id": f"a{i}", "text": f"case A chunk {i}",
+         "metadata": {"case_id": "CASE-A"}, "rrf_score": 1.0 - i * 0.01}
+        for i in range(9)
+    ]
+    case_b_chunk = {
+        "id": "b1", "text": "case B chunk",
+        "metadata": {"case_id": "CASE-B"}, "rrf_score": 0.5,
+    }
+    # Nearest-neighbor order: all 9 of CASE-A's chunks rank ahead of
+    # CASE-B's single chunk. A plain top_k=4 slice (pre-Fix-2 behavior)
+    # would be 100% CASE-A. Only the widened top_k=12 fetch reaches index 9
+    # and surfaces CASE-B at all.
+    full_pool = case_a_chunks + [case_b_chunk]
+
+    def vector_chunks_fn(top_k, _where):
+        return full_pool[:top_k]
+
+    events, _ = await run_pipeline(
+        route='{"route": "RAG", "output_format": "chat"}',
+        case_id=None, project_id=None,
+        vector_chunks_fn=vector_chunks_fn,
+    )
+
+    semantic_results = _semantic_results_from(run_pipeline.log_retrieved_docs_calls)
+    assert semantic_results is not None, "no 'semantic' stage was logged"
+    case_ids = {c["metadata"]["case_id"] for c in semantic_results}
+    assert case_ids == {"CASE-A", "CASE-B"}, (
+        f"expected the diversity-capped semantic pool to include both "
+        f"cases, got {case_ids}"
+    )
+    # And CASE-A must not have been allowed to occupy the whole window —
+    # the per-case cap (2) must have been applied.
+    case_a_count = sum(1 for c in semantic_results if c["metadata"]["case_id"] == "CASE-A")
+    assert case_a_count <= 2, f"CASE-A should be capped at 2 chunks, got {case_a_count}"
 
 
 async def test_greeting_short_circuits_retrieval(run_pipeline):

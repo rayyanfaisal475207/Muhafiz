@@ -465,6 +465,60 @@ async def get_all_chunks(where: Optional[dict] = None) -> list[dict]:
     return await asyncio.to_thread(_get_store().get_all, where)
 
 
+def cap_case_diversity(
+    chunks: list[dict],
+    per_case_cap: int,
+    total_cap: int,
+    score_key: str = "rrf_score",
+) -> list[dict]:
+    """
+    Cross-case diversity cap for vector-search results (RETRIEVAL_DIVERSITY_
+    FIX_PROMPT.md, Fix 2).
+
+    Pure nearest-neighbor top-k has no notion of "case" — whichever single
+    case's chunks happen to sit closest in embedding space for a given
+    query's exact phrasing can fill the entire candidate window, starving
+    out other cases that also have relevant content (this is the mechanism
+    behind the Urdu-vs-English divergence: cross-script embedding drift
+    changes which case's chunks are nearest for the same underlying
+    question). This only matters for queries that aren't already scoped to
+    one case — a `case_id`-filtered query has nothing to diversify across
+    and must not call this function at all (see orchestrator.py's RAG
+    route).
+
+    Algorithm: bucket the (already vector-search-ranked) candidates by
+    `metadata.case_id`, take each case's top `per_case_cap` chunks by
+    `score_key`, then re-sort the union by `score_key` and trim to
+    `total_cap`. This bounds how much of the final pool any single case can
+    occupy without discarding a genuinely stronger match from a case that
+    only contributed one or two chunks — the highest-scoring chunks overall
+    still win the final trim, diversity capping only prevents one case's
+    chunks from crowding out every slot before that trim happens.
+
+    Chunks with no case_id (e.g. pre-case-model corpus, is_global content)
+    are bucketed under the key `None`, same as any other case — they are
+    not exempted from the per-case cap.
+    """
+    if total_cap <= 0 or not chunks:
+        return []
+
+    buckets: dict[Any, list[dict]] = {}
+    order: list[Any] = []
+    for chunk in sorted(chunks, key=lambda c: c.get(score_key, 0.0), reverse=True):
+        cid = (chunk.get("metadata") or {}).get("case_id")
+        if cid not in buckets:
+            buckets[cid] = []
+            order.append(cid)
+        buckets[cid].append(chunk)
+
+    capped: list[dict] = []
+    for cid in order:
+        capped.extend(buckets[cid][:per_case_cap])
+
+    capped.sort(key=lambda c: c.get(score_key, 0.0), reverse=True)
+    return capped[:total_cap]
+
+
 async def get_chunks_by_ids(ids: list[str]) -> list[dict]:
     """Fetch chunks by id — see ChromaVectorStore.get_by_ids for why this is a direct lookup."""
     if not ids:

@@ -107,6 +107,27 @@ MAX_RETRIES: int = int(os.getenv("MAX_RETRIES", "1"))
 TOP_K_RETRIEVAL: int = int(os.getenv("TOP_K_RETRIEVAL", "10"))
 TOP_K_RERANK: int = int(os.getenv("TOP_K_RERANK", "5"))
 
+# RETRIEVAL_DIVERSITY_FIX_PROMPT.md, Fix 2: when a query is NOT scoped to a
+# single case (no case_id in the where_clause — more than one case could
+# legitimately match), pure nearest-neighbor vector search lets whichever
+# single case's chunks happen to sit closest in embedding space for that
+# exact phrasing dominate the entire TOP_K_RETRIEVAL window. Two knobs
+# control the mitigation (see orchestrator.py's RAG route and
+# vector_store.cap_case_diversity):
+#   - CROSS_CASE_RETRIEVAL_MULTIPLIER widens the per-query Chroma fetch for
+#     unscoped queries only (e.g. top-30 instead of top-10), so chunks from
+#     a second/third relevant case actually make it into the candidate pool
+#     in the first place — capping alone can't rescue a case whose chunks
+#     were never fetched.
+#   - CROSS_CASE_PER_CASE_CAP then limits how many of those candidates any
+#     single case can contribute before the pool is trimmed back down to
+#     TOP_K_RETRIEVAL and handed to RRF fusion, unchanged from before.
+# A case-scoped query (case_id present) uses neither knob — it fetches
+# exactly TOP_K_RETRIEVAL as before, with no capping, so that path's
+# behavior is byte-for-byte unchanged.
+CROSS_CASE_RETRIEVAL_MULTIPLIER: int = int(os.getenv("CROSS_CASE_RETRIEVAL_MULTIPLIER", "3"))
+CROSS_CASE_PER_CASE_CAP: int = int(os.getenv("CROSS_CASE_PER_CASE_CAP", "5"))
+
 
 # ── Guarded web search (Phase 5.7) ────────────────────────────────────────────
 # Air-gap deployments disable ALL outbound web access — this is the one route

@@ -224,6 +224,67 @@ class TestGetAllScopedForBm25:
         assert len(results) == 25
 
 
+class TestCapCaseDiversity:
+    """
+    RETRIEVAL_DIVERSITY_FIX_PROMPT.md, Fix 2: vector search has no notion of
+    "case" — whichever case's chunks happen to sit nearest in embedding
+    space for a query's exact phrasing can fill the entire candidate
+    window. `cap_case_diversity` bounds that after the fact: bucket by
+    case_id, cap each case's contribution, then re-sort by score and trim
+    to `total_cap`.
+    """
+
+    def _chunk(self, chunk_id, case_id, score):
+        return {"id": chunk_id, "text": chunk_id,
+                "metadata": {"case_id": case_id}, "rrf_score": score}
+
+    def test_single_case_dominance_is_broken_up(self):
+        from src.retrieval.vector_store import cap_case_diversity
+        chunks = [self._chunk(f"a{i}", "CASE-A", 1.0 - i * 0.01) for i in range(8)]
+        chunks.append(self._chunk("b1", "CASE-B", 0.5))
+
+        result = cap_case_diversity(chunks, per_case_cap=2, total_cap=4)
+
+        case_ids = {c["metadata"]["case_id"] for c in result}
+        assert case_ids == {"CASE-A", "CASE-B"}, (
+            "CASE-B's only chunk must survive the cap instead of being "
+            "crowded out by CASE-A's higher-scoring chunks"
+        )
+        assert sum(1 for c in result if c["metadata"]["case_id"] == "CASE-A") <= 2
+
+    def test_highest_scoring_chunks_still_win_the_final_trim(self):
+        from src.retrieval.vector_store import cap_case_diversity
+        chunks = [
+            self._chunk("a1", "CASE-A", 0.9),
+            self._chunk("a2", "CASE-A", 0.8),
+            self._chunk("b1", "CASE-B", 0.7),
+            self._chunk("c1", "CASE-C", 0.1),
+        ]
+        # total_cap=3, per_case_cap=2: CASE-C's lone chunk scores lowest
+        # overall and must be the one dropped by the final trim, not an
+        # arbitrary bucket-order drop.
+        result = cap_case_diversity(chunks, per_case_cap=2, total_cap=3)
+        assert [c["id"] for c in result] == ["a1", "a2", "b1"]
+
+    def test_no_op_when_pool_already_fits(self):
+        from src.retrieval.vector_store import cap_case_diversity
+        chunks = [self._chunk("a1", "CASE-A", 0.9), self._chunk("b1", "CASE-B", 0.8)]
+        result = cap_case_diversity(chunks, per_case_cap=5, total_cap=10)
+        assert [c["id"] for c in result] == ["a1", "b1"]
+
+    def test_empty_input_returns_empty(self):
+        from src.retrieval.vector_store import cap_case_diversity
+        assert cap_case_diversity([], per_case_cap=2, total_cap=4) == []
+
+    def test_chunks_with_no_case_id_are_bucketed_together(self):
+        """Caseless chunks (pre-Phase-1 corpus) all share the `None` bucket
+        key and are still subject to the per-case cap, same as any real case."""
+        from src.retrieval.vector_store import cap_case_diversity
+        chunks = [self._chunk(f"n{i}", None, 1.0 - i * 0.01) for i in range(5)]
+        result = cap_case_diversity(chunks, per_case_cap=2, total_cap=10)
+        assert len(result) == 2
+
+
 class TestUpsertSemantics:
     def test_upsert_same_id_overwrites_not_duplicates(self, store):
         store.upsert([_chunk("x1", text="original text")])
