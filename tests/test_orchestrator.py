@@ -876,6 +876,46 @@ async def test_xgraph_is_labeled_cross_case_and_never_falls_back_to_rag(run_pipe
     assert any(e.get("case_scope") == "cross_case" for e in cross_case_events)
     assert not any(e["step"] == "retrieval" for e in events), "XGRAPH must never run the case-scoped retrieval path"
     assert "CASE-005" in _text_of(events) or "CASE-006" in _text_of(events)
+    # Gap 4 regression guard: hop_count=1 here is a REAL traversed relationship
+    # (phone -> CASE-005/006), so the "no relationship found" caveat must NOT
+    # be injected — only the hop_count=0, independently-listed case (below)
+    # gets it.
+    assert "No relationship/connection edges were found" not in run_pipeline.call.last_system
+
+
+async def test_xgraph_enumeration_result_warns_against_inventing_relationships(run_pipeline):
+    """
+    Gap 4: found live immediately after the Gap 3 enumeration fix — a
+    hop_count=0 result (every entity seeded independently, no traversed
+    connection between any of them, exactly what "list of all people
+    mentioned in the cases" now correctly returns) was fed to the
+    generation model with no signal that these entities are NOT related,
+    and it invented relationship-sounding language between them. The
+    Verifier caught it ("unconfirmed relationship assertions... lack
+    direct support") and the whole answer got replaced with an abstention.
+    The system prompt must carry an explicit caveat whenever hop_count=0
+    with real chunks present, so the model never has room to invent a
+    connection the evidence never showed.
+    """
+    events, _ = await run_pipeline(
+        route='{"route": "XGRAPH", "case_scope": "cross_case", "target_entity": null, "output_format": "chat"}',
+        message="List all the people mentioned in the cases.",
+        graph_result={
+            "chunks": [
+                _graph_chunk(chunk_id="g10", case_id="CASE-700"),
+                _graph_chunk(chunk_id="g11", case_id="CASE-701"),
+            ],
+            "hop_count": 0, "compounded_confidence": 1.0,
+            "seed_entities": [
+                {"entity_id": "P-700", "type": "Person", "name": "Waqas Ali Niazi"},
+                {"entity_id": "P-701", "type": "Person", "name": "Bilal Shahzad"},
+            ],
+            "unconfirmed_links": [],
+        },
+    )
+
+    assert events  # sanity — pipeline actually ran
+    assert "No relationship/connection edges were found" in run_pipeline.call.last_system
 
 
 async def test_xgraph_surfaces_unconfirmed_same_as_caveat(run_pipeline):

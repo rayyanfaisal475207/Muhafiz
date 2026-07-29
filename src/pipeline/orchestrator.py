@@ -1101,10 +1101,29 @@ async def process_query(
                     "— UNCONFIRMED, pending investigator review"
                     for link in graph_result["unconfirmed_links"]
                 ) or "(none)"
+                # Gap 4: hop_count == 0 means every entity below was seeded
+                # independently (an enumeration match, or a single-hop-less
+                # lookup) — no ASSOCIATED_WITH edge was ever traversed
+                # between any of them. Without this note, the generation
+                # model (asked by this same prompt to describe a "cross-case
+                # finding") tended to invent connective/relationship-sounding
+                # language between people who aren't actually linked — caught
+                # live by the Verifier ("unconfirmed relationship assertions
+                # ... lack direct support"). See prompts/cross_case_response.txt
+                # rule 8.
+                relationship_note = (
+                    "No relationship/connection edges were found between the "
+                    "entities in the evidence below — each appears "
+                    "independently in its own case, with no traversed link to "
+                    "the others."
+                    if chunks and graph_result["hop_count"] == 0
+                    else "(relationships/connections, if any, are shown directly in the evidence below)"
+                )
                 history_text = format_history_for_prompt(history)
                 system_prompt = _CROSS_CASE_PROMPT_TEMPLATE.format(
                     documents=documents_text,
                     unconfirmed_links=unconfirmed_text,
+                    relationship_note=relationship_note,
                     preferred_language=preferred_language,
                     history=history_text or "(no previous conversation)",
                 )
@@ -1189,6 +1208,11 @@ async def process_query(
             system_prompt = _CROSS_CASE_PROMPT_TEMPLATE.format(
                 documents=aggregate_text,
                 unconfirmed_links="(none — this is an aggregate query, not an identity traversal)",
+                # XAGG's aggregate_text is a summary table (counts/rankings),
+                # never raw per-entity evidence the model could misread as a
+                # relationship between two of the listed rows — the Gap 4
+                # failure mode is XGRAPH-specific. No caveat needed here.
+                relationship_note="(not applicable — this is an aggregate summary, not an entity-relationship traversal)",
                 preferred_language=preferred_language,
                 history=history_text or "(no previous conversation)",
             )
