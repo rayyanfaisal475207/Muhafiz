@@ -314,6 +314,7 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, current_use
             async for event in process_query(
                 chat_request.session_id, chat_request.message,
                 project_id=project_id, case_id=case_id, user_profile=user_profile, user_id=user_id,
+                user_role=current_user.role,
                 enable_web_search=chat_request.enable_web_search,
             ):
                 yield f"data: {json.dumps(event)}\n\n"

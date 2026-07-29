@@ -160,10 +160,18 @@ async def process_query(
     case_id: str = None,
     user_profile: dict = None,
     user_id: str = None,
+    user_role: str = "investigator",
     enable_web_search: bool = False,
 ) -> AsyncGenerator[dict, None]:
     """
     Run the full RAG pipeline for a user message.
+
+    `user_role`: the caller's real RBAC role (`current_user.role` in
+    main.py's chat_endpoint — "investigator" | "supervisor" |
+    "station-admin" | "platform-admin"), used to gate GRAPH/XGRAPH/XAGG
+    cross-case access (graph_retriever.py, xagg.py). Deliberately a
+    separate parameter from `user_profile` — the latter is only
+    preferences (language/context/llm_mode), never RBAC role.
 
     `enable_web_search`: an explicit, per-query user toggle (a UI/request
     flag — never inferred). When True, this query is routed to WEB
@@ -197,7 +205,18 @@ async def process_query(
     import time
     # Resolve the acting user once — used for session ownership and history.
     user_id = user_id or (user_profile.get("id") if user_profile else None)
-    user_role = user_profile.get("role", "investigator") if user_profile else "investigator"
+    # `user_role` MUST come from the `user_role` parameter (the caller's real
+    # RBAC role, e.g. current_user.role in main.py's chat_endpoint) — NOT
+    # from `user_profile`. `user_profile` here is
+    # gateway.get_user_context_profile()'s result (preferred_language,
+    # context_text, llm_mode) — it has no "role" key at all, so
+    # `user_profile.get("role", "investigator")` silently defaulted to
+    # "investigator" for every request regardless of the caller's actual
+    # role. That bug made every GRAPH/XGRAPH/XAGG role gate (graph_retriever.py,
+    # xagg.py) check against "investigator" for everyone, always — denying
+    # real supervisors/station-admins/platform-admins XAGG access rather than
+    # granting it.
+    user_role = user_role or "investigator"
 
     # Init session and query in DB (SQLite audit log — off the event loop)
     await asyncio.to_thread(pipeline_logger.upsert_session, session_id)
