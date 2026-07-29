@@ -36,7 +36,8 @@ def run_pipeline(monkeypatch, patched_gateway):
                    generation_exc=None,
                    bm25_pool=None,
                    vector_chunks_fn=None,
-                   cross_script_query=None):
+                   cross_script_query=None,
+                   user_role="investigator"):
 
         async def fake_call_llm(system_prompt, user_message, **kwargs):
             # Order matters: match the most specific prompt first (the file
@@ -152,11 +153,16 @@ def run_pipeline(monkeypatch, patched_gateway):
             "seed_entities": [], "unconfirmed_links": [],
         }
 
+        retrieve_graph_calls = []
+        run_aggregate_calls = []
+
         async def fake_retrieve_graph(_query, _target_entity, case_id=None, cross_case=False,
                                        max_hops=2, user_id=None, user_role="investigator"):
+            retrieve_graph_calls.append(user_role)
             return graph_result if graph_result is not None else default_graph_result
 
         async def fake_run_aggregate(_query, _target_entity, _gateway, user_id=None, user_role="investigator"):
+            run_aggregate_calls.append(user_role)
             return agg_result if agg_result is not None else {
                 "kind": "relational_aggregate", "group_by": "police_station",
                 "counts": [], "total_cases_considered": 0,
@@ -186,7 +192,7 @@ def run_pipeline(monkeypatch, patched_gateway):
         events = []
         async for event in orch.process_query(
             session_id, message, project_id=project_id, case_id=case_id,
-            user_profile=user_profile, user_id=user_id,
+            user_profile=user_profile, user_id=user_id, user_role=user_role,
         ):
             events.append(event)
 
@@ -200,6 +206,8 @@ def run_pipeline(monkeypatch, patched_gateway):
         _run.top_k_calls = top_k_calls
         _run.bm25_pool_calls = bm25_pool_calls
         _run.log_retrieved_docs_calls = log_retrieved_docs_calls
+        _run.retrieve_graph_calls = retrieve_graph_calls
+        _run.run_aggregate_calls = run_aggregate_calls
         return events, patched_gateway
 
     return _run
@@ -913,6 +921,61 @@ async def test_xagg_is_labeled_cross_case(run_pipeline):
     assert cross_case_events
     assert any(e.get("case_scope") == "cross_case" for e in cross_case_events)
     assert "Kohsar" in _text_of(events)
+
+
+# ── Real RBAC role reaches XGRAPH/XAGG (role-threading fix) ────────────────────
+#
+# Bug: orchestrator.py used to compute `user_role` from `user_profile.get(
+# "role", "investigator")`, but `user_profile` is
+# gateway.get_user_context_profile()'s result (preferred_language/
+# context_text/llm_mode only — no "role" key at all), so `user_role` always
+# silently defaulted to "investigator" regardless of the caller's actual
+# RBAC role. That made xagg.py's/graph_retriever.py's supervisor-or-higher
+# gates check against "investigator" for every request, denying real
+# supervisors/station-admins/platform-admins access rather than granting
+# it. Fixed by adding a dedicated `user_role` parameter to process_query(),
+# populated by main.py's chat_endpoint from current_user.role (the real
+# authenticated user's role), never from user_profile.
+
+async def test_supervisor_role_reaches_xagg(run_pipeline):
+    """A real supervisor's role must reach run_aggregate() as "supervisor",
+    not silently default to "investigator"."""
+    await run_pipeline(
+        route='{"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat"}',
+        message="Which police stations have the most open theft cases?",
+        user_role="supervisor",
+    )
+    assert run_pipeline.run_aggregate_calls == ["supervisor"]
+
+
+async def test_platform_admin_role_reaches_xagg(run_pipeline):
+    await run_pipeline(
+        route='{"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat"}',
+        message="Which police stations have the most open theft cases?",
+        user_role="platform-admin",
+    )
+    assert run_pipeline.run_aggregate_calls == ["platform-admin"]
+
+
+async def test_supervisor_role_reaches_xgraph(run_pipeline):
+    """Same bug, same fix, the other cross-case route (retrieve_graph())."""
+    await run_pipeline(
+        route='{"route": "XGRAPH", "case_scope": "cross_case", "target_entity": "0372-1590538", "output_format": "chat"}',
+        message="Has phone number 0372-1590538 appeared in other cases?",
+        user_role="supervisor",
+    )
+    assert run_pipeline.retrieve_graph_calls == ["supervisor"]
+
+
+async def test_default_role_is_still_investigator_when_unset(run_pipeline):
+    """Regression guard: a caller that doesn't pass user_role at all (the
+    pre-fix default, and every attachments/legacy test harness call) must
+    still behave exactly as before — "investigator", not None or an error."""
+    await run_pipeline(
+        route='{"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat"}',
+        message="Which police stations have the most open theft cases?",
+    )
+    assert run_pipeline.run_aggregate_calls == ["investigator"]
 
 
 # ── Phase 6: Verifier Gate ─────────────────────────────────────────────────────
