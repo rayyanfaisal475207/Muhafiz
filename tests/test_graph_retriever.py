@@ -556,9 +556,39 @@ async def test_cross_case_recurrence_matches_the_everyday_urdu_word_for_people(f
     to be missing from _LABEL_KEYWORDS' Person entry even though the more
     formal synonym "افراد" was present — a query phrased with the everyday
     word matched no label at all and silently returned empty instead of
-    seeding from recurring Person nodes. "مقدمات میں مذکور تمام لوگوں کی
-    فہرست" ("list of all people mentioned in the cases") is the exact query
-    this was found on.
+    seeding from recurring Person nodes. Uses a recurrence-shaped query (no
+    _ENUMERATION_KEYWORDS present) to isolate the keyword-matching fix from
+    the separate enumeration behavior covered below.
+    """
+    fake_graph.add_node("P-700", "Person", canonical_name="Waqas Ali Niazi")
+    fake_graph.add_node("P-701", "Person", canonical_name="Bilal Shahzad")
+    fake_graph.add_node("P-999", "Person", canonical_name="Only One Case")
+    fake_graph.add_case("P-700", "CASE-700")
+    fake_graph.add_case("P-700", "CASE-701")
+    fake_graph.add_case("P-701", "CASE-701")
+    fake_graph.add_case("P-701", "CASE-702")
+    fake_graph.add_case("P-999", "CASE-700")
+
+    result = await gr.retrieve_graph(
+        "کیا کوئی لوگوں کا تعلق متعدد مقدمات میں ہے؟",
+        target_entity=None, case_id=None, cross_case=True, user_role="supervisor",
+    )
+
+    seeded_ids = {e["entity_id"] for e in result["seed_entities"]}
+    assert seeded_ids == {"P-700", "P-701"}
+    assert "P-999" not in seeded_ids
+
+
+async def test_cross_case_enumeration_returns_every_instance_not_just_recurring(fake_graph, fake_chunks):
+    """
+    Gap 3 fix: "list of all people mentioned in the cases" is an
+    ENUMERATION question, not a recurrence question — it must return every
+    Person across every case, including P-999 which appears in only one
+    case and would be excluded by the default min_cases=2 recurrence path.
+    This is the exact query that surfaced the "no connections found" UX
+    problem live: XGRAPH's old recurrence-only behavior legitimately found
+    nothing here (no one recurs), which is a different, narrower answer
+    than what was actually asked.
     """
     fake_graph.add_node("P-700", "Person", canonical_name="Waqas Ali Niazi")
     fake_graph.add_node("P-701", "Person", canonical_name="Bilal Shahzad")
@@ -575,8 +605,39 @@ async def test_cross_case_recurrence_matches_the_everyday_urdu_word_for_people(f
     )
 
     seeded_ids = {e["entity_id"] for e in result["seed_entities"]}
-    assert seeded_ids == {"P-700", "P-701"}
-    assert "P-999" not in seeded_ids
+    assert seeded_ids == {"P-700", "P-701", "P-999"}
+
+
+async def test_cross_case_enumeration_is_capped_and_favors_higher_case_counts(fake_graph, fake_chunks):
+    """
+    An unbounded "list everyone" over a large corpus would trigger a
+    hop-traversal/chunk-fetch pass over every single entity — cap it, and
+    make the cut deterministic (higher case-recurrence count survives
+    first) rather than an arbitrary Cypher row order.
+    """
+    for i in range(60):
+        node_id = f"P-{i:03d}"
+        fake_graph.add_node(node_id, "Person", canonical_name=f"Person {i}")
+        fake_graph.add_case(node_id, f"CASE-{i:03d}")
+    # Two entities that recur across 2 cases each — must survive the cap
+    # ahead of the 60 single-case entities above.
+    fake_graph.add_node("P-HIGH-1", "Person", canonical_name="High Recurrence 1")
+    fake_graph.add_case("P-HIGH-1", "CASE-900")
+    fake_graph.add_case("P-HIGH-1", "CASE-901")
+    fake_graph.add_node("P-HIGH-2", "Person", canonical_name="High Recurrence 2")
+    fake_graph.add_case("P-HIGH-2", "CASE-902")
+    fake_graph.add_case("P-HIGH-2", "CASE-903")
+
+    result = await gr.retrieve_graph(
+        "list all the people mentioned in the cases",
+        target_entity=None, case_id=None, cross_case=True, user_role="supervisor",
+    )
+
+    seeded_ids = {e["entity_id"] for e in result["seed_entities"]}
+    assert len(seeded_ids) == 50, "must be capped at the 50-entity limit"
+    assert {"P-HIGH-1", "P-HIGH-2"} <= seeded_ids, (
+        "higher-recurrence entities must survive the cap ahead of single-case ones"
+    )
 
 
 async def test_cross_case_recurrence_stays_empty_with_no_type_hint(fake_graph, fake_chunks):
