@@ -96,6 +96,16 @@ _LABEL_KEYWORDS: dict[str, tuple[str, ...]] = {
     "Organization": ("organization", "gang", "group", "ring", "گروہ"),
 }
 
+# Distinguishes "has X recurred across cases" (the narrower question
+# _find_recurring_entities_for_query's default min_cases=2 answers) from
+# "list/enumerate every X mentioned across the cases" (the broader
+# question actually being asked when there's no specific instance in
+# mind and no recurrence claim at all — "list of all people mentioned in
+# the cases"/"مقدمات میں مذکور تمام لوگوں کی فہرست"). Checked in
+# retrieve_graph()'s cross-case, no-entity branch to pick min_cases=1
+# (every instance, not just recurring ones) for this shape of question.
+_ENUMERATION_KEYWORDS = ("list", "every", "all", "تمام", "فہرست")
+
 
 def _display_name(node: Optional[dict]) -> str:
     if not node:
@@ -222,21 +232,36 @@ async def _find_all_case_entities(case_id: str) -> list[dict]:
     return seeds
 
 
-async def _find_recurring_entities_for_query(query_text: str, min_cases: int = 2) -> list[dict]:
+async def _find_recurring_entities_for_query(
+    query_text: str, min_cases: int = 2, limit: Optional[int] = None
+) -> list[dict]:
     """
-    Cross-case fallback seed set for a "has ANY X recurred across cases"
-    question that names no specific instance ("has any phone number been
-    used across multiple cyber fraud cases?", "کیا کوئی فون نمبر متعدد
-    ... مقدمات میں استعمال ہوا ہے؟") — there is no literal number/plate/
-    name to seed a traversal from; the recurrence itself IS the answer.
+    Cross-case fallback seed set for either of two related but different
+    questions that name no specific instance, distinguished by `min_cases`:
+      - min_cases=2 (default): "has ANY X recurred across cases?" ("has any
+        phone number been used across multiple cyber fraud cases?", "کیا
+        کوئی فون نمبر متعدد ... مقدمات میں استعمال ہوا ہے؟") — the
+        recurrence itself IS the answer.
+      - min_cases=1: "list/enumerate every X across the cases" ("list of
+        all people mentioned in the cases"/"مقدمات میں مذکور تمام لوگوں کی
+        فہرست") — every instance, not just recurring ones. See
+        retrieve_graph()'s `_ENUMERATION_KEYWORDS` check for which callers
+        pass this.
     Picks the label(s) the query text hints at via `_LABEL_KEYWORDS`. If
     nothing hints at a type (e.g. a query about a shared attribute like an
-    address, not an entity type this graph tracks recurrence for), this
-    deliberately returns empty rather than scanning every label — a
-    graph-wide, unscoped "anything that recurs anywhere" seed set would
-    inject irrelevant cross-case noise into an otherwise-unrelated query
-    (the ADDR-002 negative test this project's own eval set guards against:
-    a shared address must never be presented as a relationship).
+    address, not an entity type this graph tracks), this deliberately
+    returns empty rather than scanning every label — a graph-wide,
+    unscoped "anything anywhere" seed set would inject irrelevant
+    cross-case noise into an otherwise-unrelated query (the ADDR-002
+    negative test this project's own eval set guards against: a shared
+    address must never be presented as a relationship).
+
+    `limit`, when set, caps the returned seed count (kept deterministic —
+    sorted by case-recurrence count descending, so the most
+    cross-case-relevant entities survive the cut, not an arbitrary
+    Cypher row order) — real-corpus enumeration ("list everyone") could
+    otherwise return an unbounded wall of names and, downstream, trigger a
+    hop-traversal/chunk-fetch pass over every one of them.
     """
     lowered = (query_text or "").lower()
     labels = [label for label, kws in _LABEL_KEYWORDS.items() if any(kw in lowered for kw in kws)]
@@ -245,6 +270,7 @@ async def _find_recurring_entities_for_query(query_text: str, min_cases: int = 2
 
     seeds: list[dict] = []
     seen_ids: set[str] = set()
+    seed_case_counts: dict[str, int] = {}
     for label in labels:
         try:
             rows = await age_client.execute_cypher(
@@ -268,7 +294,17 @@ async def _find_recurring_entities_for_query(query_text: str, min_cases: int = 2
         for entity_id, cases in cases_by_entity.items():
             if len(cases) >= min_cases and entity_id not in seen_ids:
                 seen_ids.add(entity_id)
+                seed_case_counts[entity_id] = len(cases)
                 seeds.append(node_by_entity[entity_id])
+
+    if limit is not None and len(seeds) > limit:
+        seeds.sort(key=lambda n: seed_case_counts.get(_entity_id_of(n), 0), reverse=True)
+        logger.warning(
+            "Cross-case enumeration for %r returned %d entities, capped to %d",
+            query_text[:60], len(seeds), limit,
+        )
+        seeds = seeds[:limit]
+
     return seeds
 
 
@@ -553,11 +589,18 @@ async def retrieve_graph(
         # of returning empty just because nothing was named.
         seed_nodes = await _find_all_case_entities(case_id)
     elif cross_case:
-        # Same gap, cross-case flavor: "has ANY phone number recurred
-        # across cases" names no specific number — the recurrence itself
-        # is the answer, so seed from whichever label(s) the query hints
-        # at that appear in 2+ cases, rather than an empty seed set.
-        seed_nodes = await _find_recurring_entities_for_query(query_text)
+        # Same gap, cross-case flavor, but two different questions share
+        # this "no entity named" shape: "has ANY phone number recurred
+        # across cases" (the recurrence itself is the answer) vs. "list
+        # every person mentioned across the cases" (enumeration — every
+        # instance, not just recurring ones). _ENUMERATION_KEYWORDS picks
+        # which one this is; min_cases=1 with a cap is the enumeration
+        # case, the untouched default (min_cases=2, no cap) is recurrence.
+        lowered_query = (query_text or "").lower()
+        if any(kw in lowered_query for kw in _ENUMERATION_KEYWORDS):
+            seed_nodes = await _find_recurring_entities_for_query(query_text, min_cases=1, limit=50)
+        else:
+            seed_nodes = await _find_recurring_entities_for_query(query_text)
     else:
         seed_nodes = []
     if not seed_nodes:
