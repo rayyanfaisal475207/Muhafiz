@@ -1064,6 +1064,19 @@ async def process_query(
                 )
                 final_response = "No connections to other cases were found for this entity."
                 response_type = "xgraph_empty"
+                # This shortcut skips the LLM call (nothing to summarize), but
+                # it must still tell the client what final_response actually
+                # is — every other branch in this file follows a
+                # `final_response = ...` with these same two events. This one
+                # didn't, so the frontend never received the text at all: the
+                # pipeline trace showed "No cross-case connections found." but
+                # the chat bubble stayed completely empty, even though
+                # final_response was set correctly and persisted to memory/DB
+                # further down. Confirmed live: a real XGRAPH query that
+                # legitimately finds nothing reproduced exactly this — a
+                # blank response with no visible text.
+                yield event("response", "streaming", final_response)
+                yield event("response", "done", f"Response generated ({len(final_response)} chars)", elapsed_ms)
             else:
                 yield event(
                     "cross_case_finding", "done",

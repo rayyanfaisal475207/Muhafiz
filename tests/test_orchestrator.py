@@ -905,6 +905,36 @@ async def test_xgraph_surfaces_unconfirmed_same_as_caveat(run_pipeline):
     assert "UNCONFIRMED" in _text_of(events)
 
 
+async def test_xgraph_with_no_connections_still_emits_a_response_event(run_pipeline):
+    """
+    Bug found live: when an XGRAPH search finds zero chunks AND zero
+    unconfirmed links (the default fixture graph_result — no override
+    needed, this is exactly what a real "nothing found" search returns),
+    the route used to set `final_response` locally and yield
+    "cross_case_finding done" but NEVER yield a "response" event at all —
+    every other branch in orchestrator.py follows a final_response
+    assignment with `response`/streaming+done events; this one skipped
+    both. The pipeline trace looked like it completed ("Memory: Saved to
+    session" checked) but the chat bubble stayed completely empty, because
+    nothing ever told the frontend what final_response was.
+    """
+    events, _ = await run_pipeline(
+        route='{"route": "XGRAPH", "case_scope": "cross_case", "target_entity": null, "output_format": "chat"}',
+        message="List all the people mentioned in the cases.",
+        # graph_result deliberately omitted — the fixture's default is
+        # exactly {"chunks": [], ..., "unconfirmed_links": []}, the shape
+        # that triggers the buggy branch.
+    )
+
+    cross_case_done = next(e for e in events if e["step"] == "cross_case_finding" and e["status"] == "done")
+    assert cross_case_done["detail"] == "No cross-case connections found."
+
+    response_events = [e for e in events if e["step"] == "response"]
+    assert response_events, "no 'response' event was ever emitted — the frontend never receives final_response's text"
+    assert any(e["status"] == "done" for e in response_events)
+    assert "No connections to other cases were found" in _text_of(events)
+
+
 async def test_xagg_is_labeled_cross_case(run_pipeline):
     events, _ = await run_pipeline(
         route='{"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat"}',
