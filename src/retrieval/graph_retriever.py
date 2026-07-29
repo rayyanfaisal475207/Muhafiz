@@ -87,7 +87,12 @@ _HOP_EDGE_TYPE = "ASSOCIATED_WITH"
 _LABEL_KEYWORDS: dict[str, tuple[str, ...]] = {
     "PhoneNumber": ("phone", "number", "فون", "نمبر"),
     "Vehicle": ("vehicle", "car", "motorcycle", "plate", "گاڑی"),
-    "Person": ("person", "people", "suspect", "offender", "شخص", "افراد"),
+    # "لوگ" ("people", the common everyday Urdu word — substring-matches
+    # "لوگوں" too, see _matches_any's `kw in lowered`) was missing here even
+    # though "افراد" (a more formal synonym) was present — a query using the
+    # everyday word matched nothing at all and silently returned an empty
+    # seed set instead of falling through to this label.
+    "Person": ("person", "people", "suspect", "offender", "شخص", "افراد", "لوگ"),
     "Organization": ("organization", "gang", "group", "ring", "گروہ"),
 }
 

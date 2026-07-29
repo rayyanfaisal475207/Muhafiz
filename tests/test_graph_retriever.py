@@ -550,6 +550,35 @@ async def test_cross_case_recurrence_seeds_phone_numbers_appearing_in_multiple_c
     assert "PH-999" not in seeded_ids
 
 
+async def test_cross_case_recurrence_matches_the_everyday_urdu_word_for_people(fake_graph, fake_chunks):
+    """
+    Regression guard: "لوگوں" ("people", the common everyday Urdu word) used
+    to be missing from _LABEL_KEYWORDS' Person entry even though the more
+    formal synonym "افراد" was present — a query phrased with the everyday
+    word matched no label at all and silently returned empty instead of
+    seeding from recurring Person nodes. "مقدمات میں مذکور تمام لوگوں کی
+    فہرست" ("list of all people mentioned in the cases") is the exact query
+    this was found on.
+    """
+    fake_graph.add_node("P-700", "Person", canonical_name="Waqas Ali Niazi")
+    fake_graph.add_node("P-701", "Person", canonical_name="Bilal Shahzad")
+    fake_graph.add_node("P-999", "Person", canonical_name="Only One Case")
+    fake_graph.add_case("P-700", "CASE-700")
+    fake_graph.add_case("P-700", "CASE-701")
+    fake_graph.add_case("P-701", "CASE-701")
+    fake_graph.add_case("P-701", "CASE-702")
+    fake_graph.add_case("P-999", "CASE-700")
+
+    result = await gr.retrieve_graph(
+        "مقدمات میں مذکور تمام لوگوں کی فہرست",
+        target_entity=None, case_id=None, cross_case=True, user_role="supervisor",
+    )
+
+    seeded_ids = {e["entity_id"] for e in result["seed_entities"]}
+    assert seeded_ids == {"P-700", "P-701"}
+    assert "P-999" not in seeded_ids
+
+
 async def test_cross_case_recurrence_stays_empty_with_no_type_hint(fake_graph, fake_chunks):
     """
     ADDR-002-style negative test: "Are the occupants of the shared boarding
