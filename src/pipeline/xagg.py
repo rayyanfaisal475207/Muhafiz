@@ -26,11 +26,15 @@ from src.database.postgres import current_cross_case, current_rls_active
 
 logger = logging.getLogger(__name__)
 
-_VEHICLE_KEYWORDS = ("vehicle", "car", "motorcycle", "plate", "گاڑی")
+_VEHICLE_KEYWORDS = ("vehicle", "car", "motorcycle", "plate", "گاڑی", "موٹرسائیکل", "نمبر پلیٹ")
 _PERSON_KEYWORDS = ("person", "people", "suspect", "offender", "recidivist", "شخص", "افراد", "لوگ")
 _STATION_KEYWORDS = ("station", "تھانہ")
-_STATUS_KEYWORDS = ("open", "closed", "status", "pending")
-_CATEGORY_KEYWORDS = ("theft", "burglary", "fraud", "category", "type of case")
+# Previously English-only, unlike the three keyword sets above — an Urdu
+# query mentioning "بند" (closed) or "چوری" (theft) silently skipped the
+# status/category filter entirely rather than applying it, since none of
+# these matched. Same class of gap as verifier.py's _HEDGE_PHRASES.
+_STATUS_KEYWORDS = ("open", "closed", "status", "pending", "کھلا", "بند", "حالت", "زیر التواء")
+_CATEGORY_KEYWORDS = ("theft", "burglary", "fraud", "category", "type of case", "چوری", "ڈکیتی", "نقب زنی", "دھوکہ دہی", "قسم")
 # A plain "list/show every case" request — distinct from the grouped-count
 # queries below (which always answer "counts of cases by X", never the raw
 # records). Router previously had nowhere to send this ("list of all cases"
@@ -38,7 +42,7 @@ _CATEGORY_KEYWORDS = ("theft", "burglary", "fraud", "category", "type of case")
 # either) — it fell through to XGRAPH by wording proximity to "list of all
 # PEOPLE mentioned in the cases" and traversed nothing, since "a case" isn't
 # a graph node XGRAPH can seed from.
-_LIST_ALL_KEYWORDS = ("list", "show", "all cases", "every case", "فہرست", "تمام مقدمات")
+_LIST_ALL_KEYWORDS = ("list", "show", "all cases", "every case", "فہرست", "تمام مقدمات", "دکھائیں")
 
 
 def _matches_any(text: str, keywords: tuple[str, ...]) -> bool:
