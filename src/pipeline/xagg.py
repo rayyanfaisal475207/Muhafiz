@@ -31,6 +31,14 @@ _PERSON_KEYWORDS = ("person", "people", "suspect", "offender", "recidivist", "ش
 _STATION_KEYWORDS = ("station", "تھانہ")
 _STATUS_KEYWORDS = ("open", "closed", "status", "pending")
 _CATEGORY_KEYWORDS = ("theft", "burglary", "fraud", "category", "type of case")
+# A plain "list/show every case" request — distinct from the grouped-count
+# queries below (which always answer "counts of cases by X", never the raw
+# records). Router previously had nowhere to send this ("list of all cases"
+# names no entity, so it isn't XGRAPH's people/vehicle/org enumeration
+# either) — it fell through to XGRAPH by wording proximity to "list of all
+# PEOPLE mentioned in the cases" and traversed nothing, since "a case" isn't
+# a graph node XGRAPH can seed from.
+_LIST_ALL_KEYWORDS = ("list", "show", "all cases", "every case", "فہرست", "تمام مقدمات")
 
 
 def _matches_any(text: str, keywords: tuple[str, ...]) -> bool:
@@ -152,6 +160,29 @@ async def run_aggregate(
     if _matches_any(query_lower, _PERSON_KEYWORDS):
         top = await _top_recurring_nodes("Person")
         return {"kind": "graph_recurrence", "entity_type": "Person", "results": top}
+
+    # A plain enumeration ("list of all cases") with no station/category/status
+    # grouping language present — answer with the raw case records rather than
+    # forcing it through _station_or_category_counts's group-by, which would
+    # silently turn "list all cases" into "counts of cases by category" instead
+    # of actually listing them.
+    if _matches_any(query_lower, _LIST_ALL_KEYWORDS) and not _matches_any(
+        query_lower, _STATION_KEYWORDS + _STATUS_KEYWORDS + _CATEGORY_KEYWORDS
+    ):
+        cases = await gateway.get_cases(user_id=None, user_role="platform-admin")
+        return {
+            "kind": "case_listing",
+            "cases": [
+                {
+                    "case_id": c.get("case_id"),
+                    "fir_number": c.get("fir_number"),
+                    "crime_category": c.get("crime_category"),
+                    "investigation_status": c.get("investigation_status"),
+                    "police_station": c.get("police_station"),
+                }
+                for c in cases
+            ],
+        }
 
     result = await _station_or_category_counts(gateway, query_text)
     return {"kind": "relational_aggregate", **result}
