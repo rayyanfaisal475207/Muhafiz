@@ -1769,8 +1769,24 @@ def _format_documents_for_prompt(chunks: list[dict]) -> str:
         conflict_basis = meta.get("conflict_basis")
         conflict_line = f"[Known contradiction] {conflict_basis}\n" if conflict_basis else ""
 
+        # Cross-case (XGRAPH) chunks carry a per-chunk case_id and graph_confidence
+        # that the Verifier's deterministic hedging check (verifier.py:_check_hedging)
+        # enforces against — but were never surfaced to the generation model itself,
+        # so it had no way to know which citations needed a hedge word. Surface both
+        # here so the model can comply with cross_case_response.txt's hedging rule.
+        case_id_val = meta.get("case_id")
+        case_str = f" [CASE-ID: {case_id_val}]" if case_id_val else ""
+        gc = chunk.get("graph_confidence")
+        if gc is not None:
+            conf_str = (
+                f" [entity-resolution confidence: {gc:.2f} — LOW, must be hedged]"
+                if gc < 0.85 else f" [entity-resolution confidence: {gc:.2f}]"
+            )
+        else:
+            conf_str = ""
+
         parts.append(
-            f"[Document {i}] {source}{location_str}{year_str}{score_str}\n"
+            f"[Document {i}] {source}{location_str}{year_str}{score_str}{case_str}{conf_str}\n"
             f"{conflict_line}"
             f"{chunk.get('text', '')}"
         )
