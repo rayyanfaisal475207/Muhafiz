@@ -50,9 +50,23 @@ _PROMPT_PATH = Path(__file__).resolve().parent.parent.parent / "prompts" / "veri
 _SYSTEM_PROMPT = _PROMPT_PATH.read_text(encoding="utf-8")
 
 # Phrases that satisfy the hedging requirement for low-confidence / unconfirmed links.
+# Urdu-script equivalents are required, not optional: cross_case_response.txt
+# rule 9 forces the model to answer entirely in the user's preferred language,
+# so an English-only list here guarantees every correctly-hedged Urdu-language
+# answer fails this check — there is no way for it to ever contain one of the
+# English words. Urdu is the majority-corpus language for this platform's
+# users, so this was a real (not theoretical) rejection path, not just a gap.
 _HEDGE_PHRASES = (
     "unconfirmed", "possible", "pending", "not yet verified",
     "under review", "flagged", "uncertain", "may be",
+    "غیر تصدیق شدہ",  # unconfirmed
+    "ممکنہ", "ممکن ہے",  # possible / it is possible
+    "زیر التواء", "زیر التوا",  # pending
+    "تصدیق نہیں ہوئی",  # not yet verified
+    "زیر جائزہ", "زیر غور",  # under review
+    "نشان زد",  # flagged
+    "غیر یقینی",  # uncertain
+    "ہو سکتا ہے",  # may be
 )
 
 # Characters to scan around a [Document N] citation when checking hedging.
