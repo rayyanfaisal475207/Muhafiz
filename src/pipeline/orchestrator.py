@@ -63,6 +63,17 @@ _CROSS_CASE_PROMPT_PATH = (
 )
 _CROSS_CASE_PROMPT_TEMPLATE = _CROSS_CASE_PROMPT_PATH.read_text(encoding="utf-8")
 
+# XAGG gets its own template rather than reusing cross_case_response.txt's
+# per-case [Document N, CASE-ID] citation rule — that rule fits XGRAPH's
+# multi-document entity traversal, but XAGG's result is always a single
+# synthetic summary/listing chunk. Reusing the XGRAPH prompt made the model
+# try (and fail) to produce a per-case citation for each row, which the
+# Verifier's LLM judge then correctly flagged as missing grounding.
+_CROSS_CASE_AGG_PROMPT_PATH = (
+    Path(__file__).resolve().parent.parent.parent / "prompts" / "cross_case_aggregate.txt"
+)
+_CROSS_CASE_AGG_PROMPT_TEMPLATE = _CROSS_CASE_AGG_PROMPT_PATH.read_text(encoding="utf-8")
+
 import re
 
 # Any Arabic-script character — same range script_detector.py/tokenizer.py
@@ -1193,6 +1204,12 @@ async def process_query(
                     f"- {r['name']} ({agg_result['entity_type']}): appears in {r['case_count']} cases — {', '.join(r['case_ids'])}"
                     for r in agg_result["results"]
                 ]
+            elif agg_result["kind"] == "case_listing":
+                lines = [
+                    f"- {c['case_id']} (FIR {c['fir_number'] or 'N/A'}): {c['crime_category'] or 'uncategorized'} "
+                    f"— {c['investigation_status'] or 'unknown status'}, {c['police_station'] or 'unknown station'}"
+                    for c in agg_result["cases"]
+                ]
             else:
                 lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
             aggregate_text = "\n".join(lines) or "(no matching cases found)"
@@ -1205,14 +1222,8 @@ async def process_query(
             yield event("response", "active", "Generating cross-case aggregate summary...")
             t0_resp = time.monotonic()
             history_text = format_history_for_prompt(history)
-            system_prompt = _CROSS_CASE_PROMPT_TEMPLATE.format(
+            system_prompt = _CROSS_CASE_AGG_PROMPT_TEMPLATE.format(
                 documents=aggregate_text,
-                unconfirmed_links="(none — this is an aggregate query, not an identity traversal)",
-                # XAGG's aggregate_text is a summary table (counts/rankings),
-                # never raw per-entity evidence the model could misread as a
-                # relationship between two of the listed rows — the Gap 4
-                # failure mode is XGRAPH-specific. No caveat needed here.
-                relationship_note="(not applicable — this is an aggregate summary, not an entity-relationship traversal)",
                 preferred_language=preferred_language,
                 history=history_text or "(no previous conversation)",
             )
