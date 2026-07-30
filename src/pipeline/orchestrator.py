@@ -929,17 +929,59 @@ async def process_query(
             if not project_id and not case_id:
                 where_clause["is_global"] = True
 
+            # Parity with the RAG route's retrieval (query expansion + cross-script
+            # variant + full-corpus BM25 scope) — this branch used to run a single,
+            # untranslated query through vector search and BM25'd only against
+            # whatever that one search returned, silently missing both the fix
+            # that lets BM25 rescue a keyword-relevant chunk vector search missed
+            # (RETRIEVAL_DIVERSITY_FIX_PROMPT.md, Fix 1) and the fix that gives an
+            # Urdu-script or English query a fair BM25 shot at the corpus's
+            # opposite-script documents (RETRIEVAL_CROSS_LINGUAL_FIX_PROMPT.md,
+            # Fix 3). GRAPH (pure) inherits both fixes for free by falling back to
+            # RAG when it finds nothing; this hybrid branch has its own separate
+            # retrieval leg and never got either fix until now.
+            from src.pipeline.query_expander import expand_query
+            from src.pipeline.cross_script_variant import generate_cross_script_variant
+            expanded_queries = await expand_query(rewritten_query, n=2)
+            cross_script_query = await generate_cross_script_variant(rewritten_query)
+            all_queries = [rewritten_query] + expanded_queries + (
+                [cross_script_query] if cross_script_query else []
+            )
+
             graph_task = retrieve_graph(
                 rewritten_query, target_entity, case_id, cross_case=False, max_hops=2,
                 user_id=user_id, user_role=user_role
             )
-            embed_task = embed_text(rewritten_query)
-            graph_result, query_embedding = await asyncio.gather(graph_task, embed_task)
+            embed_tasks = [embed_text(q) for q in all_queries]
+            graph_result, *embeddings = await asyncio.gather(graph_task, *embed_tasks)
 
-            vector_results = await query_similar(
-                rewritten_query, query_embedding, top_k=config.TOP_K_RETRIEVAL, where=where_clause
-            )
-            bm25_results = retrieve_bm25(rewritten_query, vector_results, top_k=config.TOP_K_RETRIEVAL)
+            search_tasks = [
+                query_similar(q, emb, top_k=config.TOP_K_RETRIEVAL, where=where_clause)
+                for q, emb in zip(all_queries, embeddings)
+            ]
+            search_results = await asyncio.gather(*search_tasks)
+
+            vector_results = []
+            seen_ids = set()
+            for res in search_results:
+                for chunk in res:
+                    chunk_id = chunk.get("id")
+                    if chunk_id not in seen_ids:
+                        seen_ids.add(chunk_id)
+                        vector_results.append(chunk)
+
+            combined_query = " ".join(all_queries)
+            try:
+                full_candidate_pool = await get_all_chunks(where=where_clause)
+            except Exception as pool_exc:
+                logger.error(
+                    "Fetching full BM25 candidate pool failed (GRAPH_HYBRID): %s. "
+                    "Falling back to vector_results only for this query.",
+                    pool_exc,
+                )
+                full_candidate_pool = vector_results
+            bm25_results = retrieve_bm25(combined_query, full_candidate_pool, top_k=config.TOP_K_RETRIEVAL)
+
             combined_semantic = vector_results + graph_result["chunks"]
             elapsed_ms = int((time.monotonic() - t0) * 1000)
 
