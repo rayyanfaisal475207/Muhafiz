@@ -25,7 +25,7 @@ import logging
 from pathlib import Path
 
 from src.llm.client import call_llm
-from src.pipeline.json_extract import extract_json
+from src.pipeline.json_extract import call_llm_json
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,14 @@ async def route_query(rewritten_query: str) -> dict:
     Returns:
         Dict: {"route": str, "output_format": str, "confidence": str, "reason": str}
     """
-    response = await call_llm(
+    # Also handles a distinct failure mode from truncated/malformed JSON:
+    # Qwen3 sometimes ignores the "respond with ONLY JSON" instruction
+    # entirely and answers conversationally instead — e.g. asking "Could
+    # you clarify which cases you mean?" for a vague-but-answerable query
+    # like "list of people mentioned in cases". That has no JSON to
+    # extract at all, so a same-prompt retry just repeats it; call_llm_json
+    # appends an explicit correction on retry that forbids exactly this.
+    result, response = await call_llm_json(
         system_prompt=_SYSTEM_PROMPT,
         user_message=rewritten_query,
         temperature=0.0,
@@ -55,15 +62,25 @@ async def route_query(rewritten_query: str) -> dict:
         # mid-"route"; 800 matches the client's own local-call ceiling
         # (src/llm/client.py) and leaves room for both.
         max_tokens=800,
+        validate=lambda r: isinstance(r, dict) and "route" in r,
+        schema_hint='"route", "case_scope", "target_entity", "output_format", "target_year", "confidence", "reason"',
+        _call_llm=call_llm,
     )
 
     try:
-        result = extract_json(response)
-        if not isinstance(result, dict):
-            raise ValueError(f"Router JSON was not an object: {response[:200]!r}")
+        if result is None:
+            raise ValueError(f"No valid JSON after retries. Raw response: {response[:200]!r}")
+
+        # str(...) every field before .upper()/.lower() — confirmed live:
+        # a corrected retry can produce syntactically valid JSON with the
+        # right field names but a wrong-typed value (e.g. "confidence": 0.8
+        # as a float instead of "medium"/"low"), and .lower() on a float
+        # crashed this whole function, discarding an otherwise-usable
+        # "route" value along with it and falling all the way back to the
+        # generic "failed to parse" RAG default instead of the real route.
 
         # Ensure default values if LLM misses them
-        route = result.get("route", "RAG").upper()
+        route = str(result.get("route") or "RAG").upper()
         if route not in ["DIRECT", "RAG", "WEB", "SQL", "GRAPH", "GRAPH_HYBRID", "XGRAPH", "XAGG"]:
             route = "RAG"
 
@@ -71,24 +88,36 @@ async def route_query(rewritten_query: str) -> dict:
         # A GRAPH/RAG/etc. route can never carry case_scope="cross_case" —
         # cross-case must go through XGRAPH/XAGG's structurally separate
         # path, never silently blended into a case-scoped answer.
-        case_scope = str(result.get("case_scope", "within_case")).lower()
+        case_scope = str(result.get("case_scope") or "within_case").lower()
         if case_scope not in ["within_case", "cross_case"]:
             case_scope = "within_case"
         if route not in ["XGRAPH", "XAGG"]:
             case_scope = "within_case"
 
-        output_format = result.get("output_format", "chat").lower()
+        output_format = str(result.get("output_format") or "chat").lower()
         if output_format not in ["chat", "file_xlsx", "file_docx", "file_pdf"]:
             output_format = "chat"
+
+        target_year = result.get("target_year")
+        if not isinstance(target_year, int):
+            target_year = None
+
+        confidence = str(result.get("confidence") or "high").lower()
+        if confidence not in ["high", "medium", "low"]:
+            confidence = "medium"
+
+        target_entity = result.get("target_entity") or None
+        if target_entity is not None and not isinstance(target_entity, str):
+            target_entity = str(target_entity)
 
         return {
             "route": route,
             "case_scope": case_scope,
-            "target_entity": result.get("target_entity") or None,
+            "target_entity": target_entity,
             "output_format": output_format,
-            "target_year": result.get("target_year", None),
-            "confidence": result.get("confidence", "high").lower(),
-            "reason": result.get("reason", "No reason provided")
+            "target_year": target_year,
+            "confidence": confidence,
+            "reason": str(result.get("reason") or "No reason provided"),
         }
     except Exception as e:
         logger.error("Router failed to parse JSON: %s. Raw response: %s", e, response)

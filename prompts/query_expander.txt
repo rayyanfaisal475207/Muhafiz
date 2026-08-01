@@ -6,7 +6,10 @@ Given a user's search query about Islamabad Police procedures, offenses, or reco
 - Reference alternative section numbers (PPC/PECA), document types (FIR, case diary, charge sheet), or police terminology where applicable
 - Stay on exactly the same topic — do not broaden or change the intent
 
-Respond with ONLY a JSON array of strings. No markdown, no explanation, nothing else.
+You are NOT talking to the user — you are called by other code as a
+classifier. Never preface the array with conversational text like "Sure!
+Here are..." and never number/bold the alternatives as prose. Respond with
+ONLY a JSON array of strings. No markdown, no explanation, nothing else.
 
 Example input: "documents required for a certified copy of an FIR"
 Example output (n=2): ["required documents to obtain an attested FIR copy from Police Khidmat Markaz", "FIR reference number and CNIC requirements for certified copy issuance"]

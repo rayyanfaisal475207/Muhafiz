@@ -28,8 +28,7 @@
 import logging
 from pathlib import Path
 
-from src.llm.client import call_llm
-from src.pipeline.json_extract import extract_json
+from src.pipeline.json_extract import call_llm_json
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +61,12 @@ async def expand_query(rewritten_query: str, n: int = 2) -> list[str]:
     )
 
     try:
-        raw = await call_llm(
+        # call_llm_json retries with an explicit correction if Qwen3 answers
+        # conversationally instead of with a JSON array — confirmed live:
+        # "Sure! Here are two alternative phrasings for ...: 1. **...** 2.
+        # **...**" instead of ["...", "..."]. A same-prompt retry reliably
+        # repeats that; the correction forbids it.
+        variants, raw = await call_llm_json(
             system_prompt=system_prompt,
             user_message=f"Generate {n} alternatives for: {rewritten_query}",
             temperature=0.3,   # Some creativity, but grounded
@@ -70,29 +74,21 @@ async def expand_query(rewritten_query: str, n: int = 2) -> list[str]:
             # array appears, and this server ignores enable_thinking=False —
             # 200 was truncating to an empty response every time.
             max_tokens=800,
+            validate=lambda r: isinstance(r, list),
+            schema_hint="a bare JSON array of strings, e.g. [\"alt phrasing 1\", \"alt phrasing 2\"]",
         )
     except Exception as exc:
         logger.warning("Query expander LLM call failed: %s — skipping expansion", exc)
         return []
 
-    try:
-        variants = extract_json(raw)
-        if not isinstance(variants, list):
-            logger.warning(
-                "Query expander returned non-list JSON: %s", raw[:100]
-            )
-            return []
-
-        # Filter to non-empty strings only, cap at n
-        result = [v for v in variants if isinstance(v, str) and v.strip()][:n]
-        logger.debug(
-            "Query expansion: '%s' -> %d variants: %s",
-            rewritten_query[:50], len(result), result
-        )
-        return result
-
-    except ValueError as exc:
-        logger.warning(
-            "Query expander returned invalid JSON: %s — raw: %s", exc, raw[:100]
-        )
+    if variants is None:
+        logger.warning("Query expander returned no valid JSON after retries: %s", raw[:100])
         return []
+
+    # Filter to non-empty strings only, cap at n
+    result = [v for v in variants if isinstance(v, str) and v.strip()][:n]
+    logger.debug(
+        "Query expansion: '%s' -> %d variants: %s",
+        rewritten_query[:50], len(result), result
+    )
+    return result

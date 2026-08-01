@@ -52,9 +52,20 @@ async def call_llm(
     llm_mode: str = None,
     role: str = "reasoning",
     cloud_max_tokens: int = None,
+    force_cloud: bool = False,
 ) -> str:
     provider = provider_override or config.LLM_PROVIDER
-    local_url = config.LOCAL_GEN_LLM_URL if role == "generation" else config.LOCAL_LLM_URL
+    # force_cloud skips the local branch entirely — for callers where a
+    # "successful" local response that isn't usable (e.g. JSON-classification
+    # call sites getting a conversational non-JSON reply back) doesn't count
+    # as a call_llm-level failure, so the normal local-first-with-fallback
+    # logic below never reaches the cloud branch on its own; AIR_GAP_MODE
+    # still applies below regardless of this flag — a data-sovereignty
+    # boundary a caller-side quality issue must never override.
+    local_url = (
+        None if force_cloud else
+        (config.LOCAL_GEN_LLM_URL if role == "generation" else config.LOCAL_LLM_URL)
+    )
     # The caller can't know in advance whether this call will resolve to the
     # local model or a cloud fallback — that's decided below, per attempt.
     # cloud_max_tokens lets a caller give the cloud branch a smaller budget
