@@ -152,10 +152,11 @@ async def _embed_gemini(texts: list[str], task_type: str) -> list[list[float]]:
 
 # ── Local e5 Embeddings (multilingual-e5-large-instruct, served locally) ──────
 
-# Kept small so a bulk-ingestion request never risks timing out the
+# The model server's /embed route only accepts one text per request (no
+# batch parameter), so pacing happens between individual requests rather
+# than between batches — keeps a bulk-ingestion run from hammering the
 # free-tier ngrok tunnel in front of the model server.
-_E5_BATCH_SIZE = 16
-_E5_INTER_BATCH_DELAY = 0.3  # seconds between batches
+_E5_INTER_REQUEST_DELAY = 0.3  # seconds between requests
 
 
 async def _embed_local_e5(texts: list[str], is_query: bool) -> list[list[float]]:
@@ -180,39 +181,36 @@ async def _embed_local_e5(texts: list[str], is_query: bool) -> list[list[float]]
     if not texts:
         return []
 
-    # Batched + sequential (not concurrent), with a small inter-batch pause
-    # and retry/backoff on transient failures — the model server sits behind
-    # a free-tier ngrok tunnel, which has no hard payload-size limit but is
-    # one process on one machine: a single huge batch (a whole document's
-    # worth of chunks in one request) risks a request timeout or overloading
-    # the underlying model server. Small sequential batches keep each
-    # request fast and let the free tunnel keep up during bulk ingestion.
+    # Sequential, one request per text, with retry/backoff on transient
+    # failures — the model server's /embed route takes a single {"text": ...}
+    # per call (no batch parameter; a {"texts": [...]} payload 422s), so
+    # "batching" here means pacing many small sequential requests rather than
+    # bundling them into one, which also keeps each request fast and lets the
+    # free-tier ngrok tunnel keep up during bulk ingestion.
     @retry(
         stop=stop_after_attempt(4),
         wait=wait_exponential(multiplier=2, min=2, max=30),
         retry=retry_if_exception_type((httpx.HTTPError, httpx.TimeoutException)),
         reraise=True,
     )
-    async def _post_batch(batch: list[str]) -> list[list[float]]:
+    async def _post_one(text: str) -> list[float]:
         async with httpx.AsyncClient(timeout=90.0) as client:
             response = await client.post(
                 config.EMBEDDINGS_URL,
-                json={"texts": batch, "is_query": is_query},
+                json={"text": text, "is_query": is_query},
             )
             response.raise_for_status()
-            return response.json()["embeddings"]
+            return response.json()["embedding"]
 
     all_embeddings: list[list[float]] = []
-    for i in range(0, len(texts), _E5_BATCH_SIZE):
-        batch = texts[i:i + _E5_BATCH_SIZE]
-        all_embeddings.extend(await _post_batch(batch))
-        if i + _E5_BATCH_SIZE < len(texts):
-            await asyncio.sleep(_E5_INTER_BATCH_DELAY)
+    for i, text in enumerate(texts):
+        all_embeddings.append(await _post_one(text))
+        if i + 1 < len(texts):
+            await asyncio.sleep(_E5_INTER_REQUEST_DELAY)
 
     logger.debug(
-        "Local e5 embedded %d text(s) in %d batch(es) (is_query=%s, dims=%d)",
-        len(texts), (len(texts) + _E5_BATCH_SIZE - 1) // _E5_BATCH_SIZE,
-        is_query, len(all_embeddings[0]) if all_embeddings else 0,
+        "Local e5 embedded %d text(s) (is_query=%s, dims=%d)",
+        len(texts), is_query, len(all_embeddings[0]) if all_embeddings else 0,
     )
     return all_embeddings
 
