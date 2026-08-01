@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 from src.llm.client import call_llm
-from src.pipeline.json_extract import extract_json
+from src.pipeline.json_extract import call_llm_json
 
 logger = logging.getLogger(__name__)
 
@@ -9,7 +9,13 @@ _PROMPT_PATH = Path(__file__).resolve().parent.parent.parent / "prompts" / "sql_
 _SYSTEM_PROMPT = _PROMPT_PATH.read_text(encoding="utf-8")
 
 async def extract_sql_params(query: str) -> dict:
-    response = await call_llm(
+    # call_llm_json retries with an explicit schema-naming correction if
+    # Qwen3 answers conversationally instead of with JSON, then makes one
+    # guaranteed cloud attempt before giving up — same fix as
+    # router.py/evaluator.py/verifier.py for the identical failure shape.
+    # Previously this was a single attempt that returned None on any
+    # failure at all, silently falling back to RAG downstream.
+    result, response = await call_llm_json(
         system_prompt=_SYSTEM_PROMPT,
         user_message=query,
         temperature=0.0,
@@ -17,10 +23,10 @@ async def extract_sql_params(query: str) -> dict:
         # answer, and this server ignores enable_thinking=False — 150 was
         # truncating to an empty response every time.
         max_tokens=800,
+        validate=lambda r: isinstance(r, dict) and "category" in r,
+        schema_hint='"category" (string), "subject" (string), "section_ref" (string or null), "date" (string or null)',
+        _call_llm=call_llm,
     )
-    
-    try:
-        return extract_json(response)
-    except Exception as e:
-        logger.error(f"SQL Extractor failed to parse JSON: {e}. Raw: {response}")
-        return None
+    if result is None:
+        logger.error("SQL Extractor failed to parse JSON after retries. Raw: %s", response[:200])
+    return result
