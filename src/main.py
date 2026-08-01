@@ -128,6 +128,22 @@ async def lifespan(app: FastAPI):
                 )
             else:
                 logger.info("Legacy SQLite already archived: %s", archived.name)
+
+        # pipeline_logger.py's write-only side-log (LLM call previews,
+        # per-step timings) runs unconditionally regardless of Postgres vs
+        # legacy mode — it is NOT the "legacy SQLite mode" this file's other
+        # branch warns about (nothing reads case/user/RBAC data from it).
+        # Confirmed live: because init_db() used to only run in the
+        # Postgres-NOT-configured branch below, a pipeline_logs.db file
+        # created before the verifier feature shipped (Phase 6) never got
+        # its ALTER TABLE migration and silently errored on every single
+        # query's verifier_passed/verifier_regenerated write from then on —
+        # harmless (caught, logged, doesn't affect the real Postgres-backed
+        # dashboard) but noisy. Ensuring the schema/migration here too,
+        # independent of which DB is primary, is the actual fix rather than
+        # patching the one broken file by hand.
+        from src.database.db import init_db as init_sqlite_log_db
+        init_sqlite_log_db()
     elif config.REQUIRE_POSTGRES:
         # DATABASE_URL isn't configured and nothing explicitly opted out of
         # requiring Postgres. The legacy SQLite schema predates the entire
