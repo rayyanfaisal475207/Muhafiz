@@ -5,8 +5,8 @@ from typing import AsyncGenerator, Optional
 from google import genai
 from google.genai import types
 
+import httpx
 from groq import AsyncGroq
-from openai import AsyncOpenAI
 
 from src import config
 from src.llm.key_manager import key_manager
@@ -20,8 +20,6 @@ logger = logging.getLogger(__name__)
 
 _groq_clients: dict[str, AsyncGroq] = {}
 _gemini_clients: dict[str, genai.Client] = {}
-_local_client: Optional[AsyncOpenAI] = None
-_local_gen_client: Optional[AsyncOpenAI] = None
 
 
 def _get_groq_client() -> AsyncGroq:
@@ -36,49 +34,6 @@ def _get_gemini_client() -> genai.Client:
     if api_key not in _gemini_clients:
         _gemini_clients[api_key] = genai.Client(api_key=api_key)
     return _gemini_clients[api_key]
-
-
-def _get_local_client() -> Optional[AsyncOpenAI]:
-    """OpenAI-compatible local model endpoint (e.g. LM Studio / vLLM via ngrok).
-
-    Only instantiated when LOCAL_LLM_URL is configured. Both call_llm()
-    (routing, rewriting, evaluation, citation validation, memory
-    summarization) and stream_llm() (the final, user-facing response) now
-    try local FIRST whenever LOCAL_LLM_URL is set, for every call, falling
-    back to Groq/Gemini on any failure — this is deliberate, not the earlier
-    always-first regression it replaced. The difference from that regression
-    is the fallback: that had none, so an unreachable local endpoint broke
-    every call instead of costing one failed attempt before falling through.
-    """
-    global _local_client
-    if not config.LOCAL_LLM_URL:
-        return None
-    if _local_client is None:
-        _local_client = AsyncOpenAI(
-            base_url=f"{config.LOCAL_LLM_URL.rstrip('/')}/v1",
-            api_key=config.LOCAL_LLM_API_KEY or "local-key",
-            timeout=config.LOCAL_LLM_TIMEOUT,
-        )
-    return _local_client
-
-
-def _get_local_gen_client() -> Optional[AsyncOpenAI]:
-    """OpenAI-compatible local generation endpoint (Qalb, via ngrok).
-
-    Mirrors _get_local_client() above but points at LOCAL_GEN_LLM_URL — the
-    dedicated final-answer-writer slot, kept separate from the reasoning
-    slot (Qwen3-14B) so the two roles can point at different models/servers.
-    """
-    global _local_gen_client
-    if not config.LOCAL_GEN_LLM_URL:
-        return None
-    if _local_gen_client is None:
-        _local_gen_client = AsyncOpenAI(
-            base_url=f"{config.LOCAL_GEN_LLM_URL.rstrip('/')}/v1",
-            api_key=config.LOCAL_GEN_LLM_API_KEY or "local-key",
-            timeout=config.LOCAL_GEN_LLM_TIMEOUT,
-        )
-    return _local_gen_client
 
 
 def _is_rate_limit(exc: Exception) -> bool:
@@ -211,85 +166,79 @@ async def stream_llm(
     raise Exception(f"Failed to stream {provider} after {max_retries} attempts due to rate limits.")
 
 
-# ── Local (OpenAI-compatible) ─────────────────────────────────────────────────
+# ── Local (bespoke FastAPI wrapper, not OpenAI-compatible) ────────────────────
+#
+# Confirmed live against the actual model server: POST {LOCAL_LLM_URL} (no
+# /v1 suffix — it is NOT an OpenAI-style /v1/chat/completions route) with
+# {"system": ..., "prompt": ...} returns {"response": "...", "model": ...,
+# "thinking": ..., "eval_count": ..., "total_duration_ms": ...}. It has no
+# streaming mode (a /stream sibling route and a ?stream=true query param
+# both 404/no-op) — _stream_local below fakes streaming by yielding the
+# whole response as one chunk, which is enough for stream_llm()'s callers
+# (they consume chunks incrementally but work fine with a single one).
 
-def _local_client_and_model(role: str) -> tuple[AsyncOpenAI, str]:
-    """Pick the local client + model for a role: "generation" → Qalb, else Qwen3 (reasoning)."""
-    if role == "generation":
-        client = _get_local_gen_client()
-        if client is not None:
-            return client, config.LOCAL_GEN_LLM_MODEL
-    client = _get_local_client()
-    return client, config.LOCAL_LLM_MODEL
+def _local_url_and_model(role: str) -> tuple[str, str]:
+    """Pick the local endpoint + model name for a role: "generation" → Qalb, else Qwen3 (reasoning)."""
+    if role == "generation" and config.LOCAL_GEN_LLM_URL:
+        return config.LOCAL_GEN_LLM_URL, config.LOCAL_GEN_LLM_MODEL
+    return config.LOCAL_LLM_URL, config.LOCAL_LLM_MODEL
+
+
+async def _post_local(system_prompt: str, user_message: str, temperature: float, max_tokens: int, role: str) -> str:
+    url, model = _local_url_and_model(role)
+    timeout = config.LOCAL_GEN_LLM_TIMEOUT if role == "generation" else config.LOCAL_LLM_TIMEOUT
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        response = await client.post(
+            url,
+            json={
+                "system": system_prompt,
+                "prompt": user_message,
+                "model": model,
+                "temperature": temperature,
+                # NOT clamped to 800 (as this used to silently do regardless of
+                # what the caller passed) — confirmed live: verifier.py/
+                # evaluator.py both already pass max_tokens=800 believing
+                # that IS the real ceiling, so a second, hidden cap at the
+                # same value was a no-op until a real, complex verification
+                # prompt needed more than 800 tokens for Qwen3-14B's thinking
+                # trace + a multi-claim JSON answer — it got silently
+                # truncated mid-string instead. The caller decides its own
+                # budget now.
+                "max_tokens": max_tokens,
+            },
+        )
+        response.raise_for_status()
+        return response.json()["response"]
 
 
 async def _call_local(system_prompt: str, user_message: str, temperature: float, max_tokens: int, role: str = "reasoning") -> str:
-    client, model = _local_client_and_model(role)
-    response = await client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message},
-        ],
-        # NOT clamped to 800 (as this used to silently do regardless of what
-        # the caller passed) — confirmed live: verifier.py/evaluator.py both
-        # already pass max_tokens=800 believing that IS the real ceiling
-        # ("800 matches the ceiling used in evaluator.py"), so this second,
-        # hidden cap at the same value was a no-op until a real, complex
-        # verification prompt needed more than 800 tokens for Qwen3-14B's
-        # thinking trace + a multi-claim JSON answer — it got silently
-        # truncated mid-string ("Unterminated string...") instead, which
-        # this cap masked as "the caller's own limit" rather than an extra
-        # one nobody asked for. The caller decides its own budget now.
-        max_tokens=max_tokens,
-        temperature=temperature,
-    )
-    content = response.choices[0].message.content
+    content = await _post_local(system_prompt, user_message, temperature, max_tokens, role)
     # A blank string is just as unusable as None — confirmed live: Qwen3-14B
     # (the local reasoning model) sometimes spends its ENTIRE max_tokens
     # budget on its own thinking trace (the server can't be told to skip
-    # it — see every other max_tokens=800 comment in this codebase) and
-    # returns a normal 200 response with empty `content`, not an error.
-    # Treating only `None` as failure let that empty string silently pass
-    # through as if it were a real answer — the caller (verifier.py in
-    # this case) then failed to parse it and defaulted to a confusing
-    # "fail-closed" rejection instead of reaching this function's existing
-    # automatic Groq/Gemini fallback, which is what should have happened.
+    # it) and returns a normal 200 response with empty `response`, not an
+    # error. Treating only `None`/missing as failure let that empty string
+    # silently pass through as if it were a real answer — the caller
+    # (verifier.py in this case) then failed to parse it and defaulted to a
+    # confusing "fail-closed" rejection instead of reaching this function's
+    # existing automatic Groq/Gemini fallback, which is what should have
+    # happened.
     if not content or not content.strip():
         raise ValueError("Local LLM returned empty content")
     return content
 
 
 async def _stream_local(system_prompt: str, user_message: str, temperature: float, max_tokens: int, role: str = "reasoning"):
-    client, model = _local_client_and_model(role)
-    stream = await client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message}
-        ],
-        temperature=temperature,
-        max_tokens=max_tokens,  # see _call_local's comment on why this is no longer clamped
-        stream=True
-    )
-
-    got_content = False
-    async for chunk in stream:
-        if chunk.choices and chunk.choices[0].delta.content:
-            piece = chunk.choices[0].delta.content
-            if piece.strip():
-                got_content = True
-            yield piece
-
+    # See the module-level note above — the server has no real streaming
+    # mode, so this awaits the full (non-streamed) response and yields it
+    # as a single chunk.
+    content = await _post_local(system_prompt, user_message, temperature, max_tokens, role)
     # Same empty/whitespace-only failure _call_local() guards against (see
-    # its comment) — Qwen3-14B can spend its whole budget on the hidden
-    # thinking trace and stream nothing real at all. Unlike _call_local,
-    # this can only be checked once the stream is exhausted; if we never
-    # yielded any real content, nothing has reached the caller yet, so
-    # raising here is safe and correctly triggers stream_llm()'s existing
+    # its comment) — raising here correctly triggers stream_llm()'s existing
     # Groq/Gemini fallback instead of silently "succeeding" with no output.
-    if not got_content:
+    if not content or not content.strip():
         raise ValueError("Local LLM stream returned empty content")
+    yield content
 
 
 # ── Gemini ────────────────────────────────────────────────────────────────────
