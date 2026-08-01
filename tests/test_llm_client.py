@@ -101,80 +101,43 @@ async def test_local_branch_uses_max_tokens_not_cloud_max_tokens(monkeypatch):
 # _stream_local() never got that guard, so a stream that produced nothing
 # real would complete "successfully" and stream_llm() would never fall back
 # to Groq/Gemini.
+#
+# The local server turned out not to be OpenAI-compatible at all (bespoke
+# {"prompt": ...} -> {"response": ...} API, confirmed live, no streaming
+# mode) — _call_local/_stream_local both now go through _post_local, a
+# single non-streaming httpx call; _stream_local fakes "streaming" by
+# yielding that one response as a single chunk. These tests mock
+# _post_local directly instead of an AsyncOpenAI-shaped fake client.
 
-class _FakeDelta:
-    def __init__(self, content):
-        self.content = content
+async def test_stream_local_raises_when_response_is_empty_or_whitespace(monkeypatch):
+    async def fake_post_local(system_prompt, user_message, temperature, max_tokens, role):
+        return "   "
 
-
-class _FakeChoice:
-    def __init__(self, content):
-        self.delta = _FakeDelta(content)
-
-
-class _FakeChunk:
-    def __init__(self, content):
-        self.choices = [_FakeChoice(content)]
-
-
-class _FakeStream:
-    def __init__(self, contents):
-        self._contents = contents
-
-    def __aiter__(self):
-        return self._gen()
-
-    async def _gen(self):
-        for content in self._contents:
-            yield _FakeChunk(content)
-
-
-class _FakeCompletions:
-    def __init__(self, contents):
-        self._contents = contents
-
-    async def create(self, **kwargs):
-        return _FakeStream(self._contents)
-
-
-class _FakeChat:
-    def __init__(self, contents):
-        self.completions = _FakeCompletions(contents)
-
-
-class _FakeLocalClient:
-    def __init__(self, contents):
-        self.chat = _FakeChat(contents)
-
-
-async def test_stream_local_raises_when_every_chunk_is_empty_or_whitespace(monkeypatch):
-    monkeypatch.setattr(
-        client, "_local_client_and_model",
-        lambda role: (_FakeLocalClient(["", "   ", ""]), "fake-model"),
-    )
+    monkeypatch.setattr(client, "_post_local", fake_post_local)
     with pytest.raises(ValueError):
         async for _ in client._stream_local("system", "user", 0.0, 100):
             pass
 
 
 async def test_stream_local_passes_through_real_content_without_raising(monkeypatch):
-    monkeypatch.setattr(
-        client, "_local_client_and_model",
-        lambda role: (_FakeLocalClient(["Hello", " world"]), "fake-model"),
-    )
+    async def fake_post_local(system_prompt, user_message, temperature, max_tokens, role):
+        return "Hello world"
+
+    monkeypatch.setattr(client, "_post_local", fake_post_local)
     chunks = [chunk async for chunk in client._stream_local("system", "user", 0.0, 100)]
-    assert chunks == ["Hello", " world"]
+    assert chunks == ["Hello world"]
 
 
-async def test_stream_local_falls_back_to_cloud_when_stream_is_empty(monkeypatch):
-    """End-to-end through stream_llm(): an all-empty local stream must still
+async def test_stream_local_falls_back_to_cloud_when_response_is_empty(monkeypatch):
+    """End-to-end through stream_llm(): an all-empty local response must still
     trigger the existing Groq fallback, not silently yield nothing."""
     monkeypatch.setattr(client.config, "LOCAL_LLM_URL", "http://local-model")
     monkeypatch.setattr(client.config, "LLM_PROVIDER", "groq")
-    monkeypatch.setattr(
-        client, "_local_client_and_model",
-        lambda role: (_FakeLocalClient([""]), "fake-model"),
-    )
+
+    async def fake_post_local(system_prompt, user_message, temperature, max_tokens, role):
+        return ""
+
+    monkeypatch.setattr(client, "_post_local", fake_post_local)
 
     async def fake_stream_groq(system_prompt, user_message, temperature, max_tokens, enable_tools):
         yield "fallback answer"

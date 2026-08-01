@@ -29,7 +29,7 @@ import logging
 from pathlib import Path
 
 from src.llm.client import call_llm
-from src.pipeline.json_extract import extract_json
+from src.pipeline.json_extract import call_llm_json
 
 logger = logging.getLogger(__name__)
 
@@ -74,48 +74,43 @@ async def evaluate_relevance(
         f"Retrieved documents:\n{documents_text}"
     )
 
-    # Try up to 2 times to get valid JSON from the evaluator
-    for attempt in range(2):
-        raw_response = await call_llm(
-            system_prompt=_SYSTEM_PROMPT,
-            user_message=user_input,
-            temperature=0.0,
-            # Qwen3-14B's thinking trace consumes max_tokens before its JSON
-            # answer, and this server can't be told to skip it — 200 was
-            # truncating to an empty response every time. 800 itself was
-            # later confirmed (in verifier.py, the identical call shape)
-            # still too tight for a real multi-chunk prompt, cutting the
-            # JSON off mid-string rather than just squeezing the thinking
-            # trace — 2000 gives real headroom for both. Module 6.3: the
-            # cloud fallback (Groq/Gemini) never had a thinking-trace to pad
-            # for, so it keeps the original, cheaper 800-token budget —
-            # only the local branch needs the extra headroom.
-            max_tokens=2000,
-            cloud_max_tokens=800,
-        )
+    # call_llm_json retries with an explicit correction if Qwen3 answers
+    # conversationally instead of with JSON — confirmed live: for a query
+    # the documents genuinely answer well, it sometimes just writes out the
+    # answer directly ("Here is a list of people mentioned in the cases:
+    # 1. ...") instead of the {"relevant": ..., "reason": ...} classification
+    # this function needs. A same-prompt retry reliably repeats that; the
+    # correction message explicitly forbids answering the question directly.
+    result, raw_response = await call_llm_json(
+        system_prompt=_SYSTEM_PROMPT,
+        user_message=user_input,
+        temperature=0.0,
+        # Qwen3-14B's thinking trace consumes max_tokens before its JSON
+        # answer, and this server can't be told to skip it — 200 was
+        # truncating to an empty response every time. 800 itself was
+        # later confirmed (in verifier.py, the identical call shape)
+        # still too tight for a real multi-chunk prompt, cutting the
+        # JSON off mid-string rather than just squeezing the thinking
+        # trace — 2000 gives real headroom for both. Module 6.3: the
+        # cloud fallback (Groq/Gemini) never had a thinking-trace to pad
+        # for, so it keeps the original, cheaper 800-token budget —
+        # only the local branch needs the extra headroom.
+        max_tokens=2000,
+        cloud_max_tokens=800,
+        validate=lambda r: isinstance(r, dict) and "relevant" in r and "reason" in r,
+        schema_hint='"relevant" (true/false), "reason" (string)',
+        _call_llm=call_llm,
+    )
 
-        try:
-            result = extract_json(raw_response)
-            # Validate expected keys exist
-            if isinstance(result, dict) and "relevant" in result and "reason" in result:
-                logger.info(
-                    "Evaluator: relevant=%s — %s",
-                    result["relevant"], result["reason"][:80]
-                )
-                return result
-            else:
-                logger.warning(
-                    "Evaluator JSON missing expected keys (attempt %d): %s",
-                    attempt + 1, raw_response[:100]
-                )
-        except ValueError as exc:
-            logger.warning(
-                "Evaluator returned invalid JSON (attempt %d): %s — %s",
-                attempt + 1, exc, raw_response[:100]
-            )
+    if result is not None:
+        logger.info("Evaluator: relevant=%s — %s", result["relevant"], result["reason"][:80])
+        return result
 
     # All attempts failed — default to "not relevant" so the retry loop kicks in
-    logger.error("Evaluator failed to return valid JSON after 2 attempts. Defaulting to not relevant.")
+    logger.error(
+        "Evaluator failed to return valid JSON after retries. Raw: %s. Defaulting to not relevant.",
+        raw_response[:150],
+    )
     return {
         "relevant": False,
         "reason": "Could not parse evaluator response. Retrying with a different query.",
