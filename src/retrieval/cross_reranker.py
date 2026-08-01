@@ -51,7 +51,7 @@ async def cross_rerank(query: str, candidates: list[dict], top_k: int = None) ->
             json={"query": query, "documents": documents, "top_k": top_k},
         )
         response.raise_for_status()
-        results = response.json()["results"]  # [{"document": str, "score": float}, ...]
+        results = response.json()  # bare list: [{"document": str, "score": float}, ...]
 
     # The API returns matched document TEXT + score, not an index — map each
     # result back to its source candidate by text. A per-text queue handles
