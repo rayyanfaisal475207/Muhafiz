@@ -11,6 +11,8 @@ import logging
 from pathlib import Path
 from typing import AsyncGenerator, Optional
 
+import httpx
+
 from src.pipeline.memory_updater import update_project_memory
 from src.data_gateway import get_gateway
 from src import config
@@ -146,11 +148,30 @@ def _filter_allowed_domains(sources: list[dict]) -> list[dict]:
     return [s for s in sources if any(domain in s.get("url", "") for domain in config.WEB_ALLOWED_DOMAINS)]
 
 
-# Safe response when all retries are exhausted (infrastructure / no-docs failure)
+# Safe response when all retries are exhausted because genuinely no relevant
+# documents were found — a content gap, where rephrasing or ingesting more
+# documents is real, actionable advice.
 _SAFE_RESPONSE = (
     "I couldn't find sufficient information in the knowledge base to accurately "
     "answer your question. You may want to try rephrasing your question or "
     "ensure the relevant documents have been ingested into the system."
+)
+
+# Distinct from _SAFE_RESPONSE above: this fires when retrieval itself threw
+# (embedding/vector-search infrastructure down), not when it ran fine and
+# found nothing. Confirmed live: EMBEDDING_PROVIDER=e5 has no cloud
+# fallback (unlike LLM calls) — when the local model server's tunnel drops,
+# embed_text() raises outright. _SAFE_RESPONSE's "try rephrasing / ensure
+# documents have been ingested" is actively misleading here — the documents
+# may well be there; rephrasing doesn't fix an unreachable embedding
+# service, and telling the user their own knowledge base might be
+# incomplete when it's actually a transient infra outage sends them
+# chasing the wrong problem.
+_RETRIEVAL_INFRA_UNAVAILABLE_RESPONSE = (
+    "I couldn't search the knowledge base right now because the retrieval "
+    "service (embedding/vector search) is temporarily unavailable — this "
+    "isn't about your question or missing documents. Please try again in a "
+    "moment; if it persists, the local model server may need to be restarted."
 )
 
 # Abstention when the verifier rejects a grounded-but-unverifiable answer.
@@ -1428,13 +1449,25 @@ async def process_query(
                 search_tasks = [query_similar(q, emb, top_k=fetch_top_k, where=where_clause) for q, emb in zip(all_queries, embeddings)]
                 search_results = await asyncio.gather(*search_tasks)
             except Exception as retr_exc:
-                # Retrieval-infrastructure failure (e.g. a ChromaDB query error).
-                # Unlike a "no relevant docs" outcome, a retry just re-hits the
-                # same fault, so degrade straight to the safe response instead of
-                # letting it bubble up as a hard "Chat pipeline error".
+                # Retrieval-infrastructure failure (e.g. a ChromaDB query error,
+                # or the embedding service being unreachable — httpx.HTTPError
+                # covers embed_text()'s failure mode specifically, confirmed
+                # live: EMBEDDING_PROVIDER=e5 has no cloud fallback, so a
+                # dropped local-model tunnel raises here outright). Unlike a
+                # "no relevant docs" outcome, a retry just re-hits the same
+                # fault, so degrade straight to a safe response instead of
+                # letting it bubble up as a hard "Chat pipeline error" — but
+                # an infra outage gets its own honest message rather than
+                # _SAFE_RESPONSE's "try rephrasing / ensure documents are
+                # ingested", which is actively misleading when the real
+                # problem is nothing to do with the query or the corpus.
                 logger.error("Retrieval stage failed: %s", retr_exc)
                 yield event("retrieval", "error", f"Retrieval unavailable: {retr_exc}", retry_num=retry_count)
-                final_response = _SAFE_RESPONSE
+                final_response = (
+                    _RETRIEVAL_INFRA_UNAVAILABLE_RESPONSE
+                    if isinstance(retr_exc, httpx.HTTPError)
+                    else _SAFE_RESPONSE
+                )
                 response_type = "safe"
                 yield event("response", "streaming", final_response, retry_num=retry_count)
                 yield event("response", "done", f"Response generated ({len(final_response)} chars)", 0, retry_num=retry_count)
