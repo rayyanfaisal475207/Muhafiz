@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 from src.llm.client import call_llm
-from src.pipeline.json_extract import extract_json as _extract_json
+from src.pipeline.json_extract import call_llm_json
 
 logger = logging.getLogger(__name__)
 
@@ -63,20 +63,28 @@ async def structure_for_file(content: str, requested_format: str) -> dict:
     """
     user_message = f"Requested format: {requested_format}\n\nContent to structure:\n{content}"
 
-    try:
-        response = await call_llm(
-            system_prompt=_PROMPT,
-            user_message=user_message,
-            temperature=0.0,
-            # 4000 alone left no headroom under the local model's 4096-token
-            # total context window (input + output), so every local attempt
-            # hard-failed (400) and fell through to a rate-limited Groq.
-            # 3000 leaves ~1000 tokens of input headroom while still fitting
-            # realistic file-structuring payloads.
-            max_tokens=3000,
-        )
-        return _normalize_payload(_extract_json(response))
+    # call_llm_json retries with an explicit schema-naming correction if
+    # Qwen3 answers conversationally instead of with JSON, then makes one
+    # guaranteed cloud attempt before giving up — same fix as
+    # router.py/evaluator.py/verifier.py/sql_extractor.py for the identical
+    # failure shape. Previously this was a single attempt that raised
+    # straight through to the caller on any failure at all.
+    result, response = await call_llm_json(
+        system_prompt=_PROMPT,
+        user_message=user_message,
+        temperature=0.0,
+        # 4000 alone left no headroom under the local model's 4096-token
+        # total context window (input + output), so every local attempt
+        # hard-failed (400) and fell through to a rate-limited Groq.
+        # 3000 leaves ~1000 tokens of input headroom while still fitting
+        # realistic file-structuring payloads.
+        max_tokens=3000,
+        validate=lambda r: isinstance(r, dict) and "sections" in r,
+        schema_hint='"title" (string), "description" (string), "sections" (array of {"type", "content"/"headers"/"rows", "level"})',
+        _call_llm=call_llm,
+    )
+    if result is None:
+        logger.error("Failed to structure file payload after retries. Raw: %s", response[:200])
+        raise ValueError(f"Could not structure file payload — LLM never returned valid JSON: {response[:200]!r}")
 
-    except Exception as e:
-        logger.error("Failed to structure file payload: %s", e)
-        raise
+    return _normalize_payload(result)

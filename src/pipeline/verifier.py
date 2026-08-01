@@ -42,7 +42,7 @@ from pathlib import Path
 from typing import Optional
 
 from src.llm.client import call_llm
-from src.pipeline.json_extract import extract_json
+from src.pipeline.json_extract import call_llm_json
 
 logger = logging.getLogger(__name__)
 
@@ -262,46 +262,39 @@ async def verify_grounding(
         f"ALLOWED_CASE_IDS: [{allowed_str}]"
     )
 
-    # ── LLM judge (up to 2 attempts) ─────────────────────────────────────
-    llm_result: Optional[dict] = None
-    for attempt in range(2):
-        raw = await call_llm(
-            system_prompt=_SYSTEM_PROMPT,
-            user_message=user_input,
-            temperature=0.0,
-            # Qwen3-14B's thinking trace consumes max_tokens before its JSON
-            # answer. 800 was confirmed live to be too tight for a real
-            # verification prompt (multiple retrieved chunks, several
-            # unsupported_claims): the model's own JSON got cut off
-            # mid-string ("Unterminated string...") rather than just
-            # running out of room for the thinking trace. 2000 gives real
-            # headroom for both on realistically-sized input. Module 6.3:
-            # the cloud fallback (Groq/Gemini) has no equivalent
-            # thinking-trace tax, so it keeps the original, cheaper
-            # 800-token budget — only the local branch needs the extra room.
-            max_tokens=2000,
-            cloud_max_tokens=800,
-            role="reasoning",
-        )
-        try:
-            parsed = extract_json(raw)
-            if isinstance(parsed, dict) and "grounded" in parsed and "reason" in parsed:
-                llm_result = parsed
-                break
-            logger.warning(
-                "Verifier JSON missing expected keys (attempt %d): %s",
-                attempt + 1, raw[:120],
-            )
-        except ValueError as exc:
-            logger.warning(
-                "Verifier returned invalid JSON (attempt %d): %s — %s",
-                attempt + 1, exc, raw[:120],
-            )
+    # ── LLM judge ──────────────────────────────────────────────────────
+    # call_llm_json retries with an explicit schema-naming correction if
+    # Qwen3 answers conversationally instead of with JSON (confirmed live —
+    # the identical failure shape already fixed in router.py/evaluator.py),
+    # then makes one guaranteed cloud attempt before giving up, rather than
+    # fail-closing on the first sign of local-model trouble.
+    llm_result, raw = await call_llm_json(
+        system_prompt=_SYSTEM_PROMPT,
+        user_message=user_input,
+        temperature=0.0,
+        # Qwen3-14B's thinking trace consumes max_tokens before its JSON
+        # answer. 800 was confirmed live to be too tight for a real
+        # verification prompt (multiple retrieved chunks, several
+        # unsupported_claims): the model's own JSON got cut off
+        # mid-string ("Unterminated string...") rather than just
+        # running out of room for the thinking trace. 2000 gives real
+        # headroom for both on realistically-sized input. Module 6.3:
+        # the cloud fallback (Groq/Gemini) has no equivalent
+        # thinking-trace tax, so it keeps the original, cheaper
+        # 800-token budget — only the local branch needs the extra room.
+        max_tokens=2000,
+        cloud_max_tokens=800,
+        role="reasoning",
+        validate=lambda r: isinstance(r, dict) and "grounded" in r and "reason" in r,
+        schema_hint='"grounded" (true/false), "off_topic" (true/false), "leaked_case_id" (string or null), "unsupported_claims" (array of strings), "reason" (string)',
+        _call_llm=call_llm,
+    )
 
     if llm_result is None:
         logger.error(
-            "Verifier failed to return valid JSON after 2 attempts. "
-            "Defaulting to not grounded (fail-closed)."
+            "Verifier failed to return valid JSON after retries. Raw: %s. "
+            "Defaulting to not grounded (fail-closed).",
+            raw[:150],
         )
         llm_result = {
             "grounded": False,
