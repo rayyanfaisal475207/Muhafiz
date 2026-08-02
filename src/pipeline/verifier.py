@@ -202,6 +202,53 @@ def _check_hedging(answer: str, chunks: list[dict]) -> list[str]:
     return issues
 
 
+# Confirmed live: the local generation model sometimes ignores the
+# retrieved chunks entirely and answers as a generic assistant with "no
+# database access" — a privacy/confidentiality refusal roleplay — even
+# though the actual record was right there in its prompt (e.g. "I don't
+# have access to specific case files, police records, or databases... this
+# information is typically confidential... contact the appropriate law
+# enforcement agency"). The LLM verifier judge is supposed to catch this
+# under its own "off_topic" definition (a generic non-answer when
+# case-specific content was available) but unreliably does — it marked
+# this exact refusal grounded=true, off_topic=false and let it straight
+# through to the user. A deterministic phrase check is a much more
+# reliable backstop than relying on the same class of local model to
+# correctly judge another local model's refusal.
+_REFUSAL_PHRASES = (
+    "i don't have access to", "i do not have access to",
+    "i don't have direct access to", "i do not have direct access to",
+    "contact the appropriate", "contact the relevant", "through the proper channels",
+    "consult official police records", "typically confidential",
+    "i'm not able to access", "i am not able to access",
+    "i cannot provide information about specific",
+    "no access to specific case files", "no access to police records",
+)
+
+
+def _check_refusal(answer: str) -> Optional[str]:
+    """
+    Deterministic pre-check: flag an answer that reads as a generic
+    "I don't have access" / "consult the proper channels" refusal instead
+    of actually using the provided chunks. Only meaningful when chunks were
+    provided at all (verify_grounding already returns not-grounded outright
+    for an empty chunk list) — a real refusal in the presence of real
+    evidence is never correct, since the evaluator already confirmed
+    relevance before this function is ever called.
+
+    Returns an issue string, or None if no refusal pattern was found.
+    """
+    lowered = answer.lower()
+    for phrase in _REFUSAL_PHRASES:
+        if phrase in lowered:
+            return (
+                f"Answer reads as a generic access/privacy refusal (contains "
+                f"{phrase!r}) instead of using the provided evidence, which the "
+                f"evaluator already confirmed was relevant."
+            )
+    return None
+
+
 async def verify_grounding(
     answer: str,
     cited_chunks: list[dict],
@@ -240,15 +287,17 @@ async def verify_grounding(
             "leaked_case_id": None,
             "unsupported_claims": [],
             "reason": "No source chunks were provided; cannot verify grounding.",
+            "refusal_detected": False,
         }
 
     # ── Deterministic pre-checks (fast, no LLM) ──────────────────────────
     temporal_issues = _check_temporal(cited_chunks, target_date)
     leaked_case = _check_leakage(answer, cited_chunks, case_id, cross_case_ids)
     hedging_issues = _check_hedging(answer, cited_chunks)
+    refusal_issue = _check_refusal(answer)
 
     pre_check_issues: list[str] = temporal_issues + hedging_issues
-    pre_check_failed = bool(pre_check_issues or leaked_case)
+    pre_check_failed = bool(pre_check_issues or leaked_case or refusal_issue)
 
     # ── Build LLM judge input ─────────────────────────────────────────────
     chunks_text = _format_chunks_for_verifier(cited_chunks)
@@ -302,6 +351,7 @@ async def verify_grounding(
             "leaked_case_id": None,
             "unsupported_claims": [],
             "reason": "Verifier failed to parse — defaulting to not grounded (fail-closed).",
+            "refusal_detected": False,
         }
 
     # ── Merge deterministic findings into LLM result ──────────────────────
@@ -319,6 +369,18 @@ async def verify_grounding(
             f"Cross-case evidence leakage detected: chunk from case '{leaked_case}' "
             f"cited in answer for case '{active_case_str}'."
         )
+
+    # Distinct from off_topic/grounded — callers use this to decide whether
+    # regenerating with a corrective prompt is worth trying (a refusal is a
+    # different, likely-fixable failure from "the evidence genuinely
+    # doesn't answer the question," where regenerating would just produce
+    # the same non-answer again).
+    llm_result["refusal_detected"] = bool(refusal_issue)
+
+    if refusal_issue:
+        llm_result["off_topic"] = True
+        llm_result["grounded"] = False
+        llm_result["reason"] = refusal_issue
 
     logger.info(
         "Verifier: grounded=%s off_topic=%s leaked=%s unsupported=%d — %s",
