@@ -265,10 +265,88 @@ per-query, but the complete set hasn't been exercised against it yet).
 - The extraction-framing and synthetic-data-framing experiments are recorded
   above specifically so they aren't re-tried from scratch next time — both were
   measured, not just theorized, and neither is the fix.
-- **Certified-copy-of-FIR query evaluator instability** — this specific
-  question failed retrieval/evaluator relevance 3/3 attempts twice in a row on
-  the fixed code, while a single control run on the old code eventually
-  succeeded on its 2nd retry. Too small a sample to call definitively, but
-  worth a dedicated, larger-sample investigation of evaluator-stage reliability
-  for this query independent of the refusal issue this document is about —
-  don't assume it's "just flakiness" without checking further.
+- ~~**Certified-copy-of-FIR query evaluator instability**~~ — **root-caused,
+  see section 8 below.** Not evaluator flakiness at all: retrieval itself was
+  silently dropping the one correct document from the candidate pool before
+  the evaluator ever saw it in some runs.
+
+---
+
+## 8. Update (2026-08-02, continued) — a second, unrelated bug found during the
+30-question re-audit: RRF fusion silently drops high-confidence semantic-only
+hits
+
+Running the fix against the **full** `demo_1.md` question set (not just the
+refusal-prone subset) surfaced a second, structurally different problem — nothing
+to do with generation refusal, this one is upstream in **retrieval fusion**.
+Several Part 1 (official SOP) queries — certified-copy-of-FIR, foreigner
+registration, safety tips, and a Part 2 case query (cyber-005 investigating
+officer) — failed at the **evaluator** stage (`relevant: false` across all 3
+retries), even though `demo_1.md` documented them as reliable.
+
+**Root cause, confirmed directly against the pipeline's own SQLite retrieval
+log** (`data/pipeline_logs.db`, `retrieved_documents` table) for the
+certified-copy-of-FIR query: `REAL-004-copy-of-fir-procedure.pdf` — the one
+genuinely relevant document — was semantic search's **#1 or #2 highest-scoring
+hit** (cosine similarity 0.90-0.94) on every single retry. But it **never once
+appeared** in the fused (RRF) top-10 that reached the evaluator, because BM25
+never found it at all.
+
+This is not a tokenization or indexing bug — checked directly, the shared
+tokenizer overlaps `certified`/`copy`/`fir`/`procedure`/`fee` correctly on both
+the query and the document. It's a real, structural property of Reciprocal
+Rank Fusion: RRF's score is `sum of 1/(rank + k)` **per list a document
+appears in** — it only ever weighs *ordinal rank*, never raw similarity
+magnitude. A document found ONLY by semantic search, even at a very high
+similarity, contributes a single term and routinely loses to documents that
+rank only moderately in *both* lists (two smaller terms summed beat one large
+one). Here, BM25 misses `REAL-004` specifically because its distinguishing
+terms get diluted by the word "FIR" appearing in hundreds of unrelated case
+documents across the corpus — a real corpus-scale side effect, not a defect
+in any single component.
+
+### The fix
+
+`src/retrieval/reranker.py`'s `rerank_results()` — the orchestrator-facing RRF
+wrapper — now applies a **semantic confidence floor** after fusion: any chunk
+with raw semantic similarity ≥ `SEMANTIC_FLOOR_SCORE` (0.85) that RRF's fusion
+would have dropped entirely gets appended back in (capped at
+`SEMANTIC_FLOOR_MAX_RESCUED = 2`, so this rescues a small number of
+very-high-confidence hits, not an unbounded semantic-search bypass of hybrid
+fusion). This applies to both call sites (RAG and GRAPH_HYBRID), since it's a
+property of the fusion algorithm itself, not route-specific behavior.
+
+The two hypotheses originally proposed for this ("BM25 doesn't find it" vs.
+"the diversity cap drops it") turned out to be **the same underlying gap**:
+`cap_case_diversity()` was checked and cleared first (`REAL-004` survives it —
+it's the top scorer within its own bucket); the actual gap is RRF's rank-only
+fusion math, which the floor fixes directly. There is no separate "BM25 fix"
+needed beyond this.
+
+### Verification
+
+- Unit: two new tests in `tests/test_retrieval_and_memory.py` —
+  `test_semantic_floor_rescues_a_high_confidence_bm25_invisible_chunk` (proves
+  the exact failure mode: a 0.93-similarity semantic-only chunk that plain RRF
+  drops from a top-10 of 10 dual-list-ranked chunks is rescued by
+  `rerank_results()`) and `test_semantic_floor_ignores_chunks_below_the_threshold`
+  (a merely-decent 0.5-similarity semantic-only chunk is NOT force-included —
+  the floor doesn't become a backdoor around hybrid fusion). Full suite:
+  `pytest tests/ -q` passing.
+- Live re-verification against the actual previously-failing queries (not just
+  unit-level) was in progress when this note was written — see the session's
+  running commentary for the latest live results before treating this as fully
+  closed end-to-end.
+
+### Scope note
+
+This is a genuinely separate bug from the generation-refusal issue in sections
+1-7 above — it lives entirely in retrieval fusion, before the evaluator or
+generator ever run. Finding it doesn't change anything about the refusal
+diagnosis/fix; it does mean this document's original headline claim ("RAG
+itself / retrieval is not the problem") needs a caveat: retrieval was reliable
+for every *specific-case-number* query tested in the original refusal audit,
+but not for every query shape — a full-corpus, high-similarity semantic hit
+can still be dropped by fusion when BM25 doesn't independently corroborate it,
+particularly for reference/SOP-style content competing against a much larger
+case-document corpus using overlapping generic terms.
