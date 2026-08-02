@@ -215,10 +215,18 @@ def _check_hedging(answer: str, chunks: list[dict]) -> list[str]:
 # through to the user. A deterministic phrase check is a much more
 # reliable backstop than relying on the same class of local model to
 # correctly judge another local model's refusal.
+# Scoped to phrases that are near-unambiguous signals of the actual refusal
+# roleplay, not generic helpful-closing-remark language. Confirmed live:
+# "contact the appropriate/relevant..." and "through the proper channels"
+# were broad enough to false-positive on an otherwise-correct, grounded
+# answer that simply ended with an innocuous "for further details, contact
+# the relevant department" pleasantry — rejecting a good answer over one
+# throwaway sentence, not catching a real refusal. Dropped those; kept the
+# phrases that only ever appear in the actual "I have no access to this
+# data" pattern.
 _REFUSAL_PHRASES = (
     "i don't have access to", "i do not have access to",
     "i don't have direct access to", "i do not have direct access to",
-    "contact the appropriate", "contact the relevant", "through the proper channels",
     "consult official police records", "typically confidential",
     "i'm not able to access", "i am not able to access",
     "i cannot provide information about specific",

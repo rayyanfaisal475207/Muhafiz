@@ -71,43 +71,17 @@ async def route_query(rewritten_query: str) -> dict:
         if result is None:
             raise ValueError(f"No valid JSON after retries. Raw response: {response[:200]!r}")
 
-        # A syntactically valid classification the local model itself flags
-        # as low-confidence is a different problem than the JSON-shape
-        # failures call_llm_json already retries — the model DID produce a
-        # real answer, it just isn't sure of it. Escalating on "medium" too
-        # (not just "low") was confirmed more accurate live, but also the
-        # single biggest consumer of Groq's free-tier quota across this
-        # session — "medium" is common enough that it hit rate limits under
-        # sustained load (confirmed live: 429 across all rotated keys),
-        # which then blocks EVERY OTHER call_llm_json cloud fallback in the
-        # pipeline too (evaluator, verifier, query rewriter), not just this
-        # one. Scoped back to "low" only as the load/accuracy trade-off —
-        # give Groq (dramatically more reliable at this exact classification
-        # task in every comparison run live today) an independent second
-        # opinion only when the local model is actually unsure, not merely
-        # non-committal. Any failure escalating is non-fatal — the original
-        # result is still usable and stays in place.
-        if str(result.get("confidence", "")).strip().lower() == "low":
-            try:
-                escalated, _ = await call_llm_json(
-                    system_prompt=_SYSTEM_PROMPT,
-                    user_message=rewritten_query,
-                    temperature=0.0,
-                    max_tokens=800,
-                    validate=lambda r: isinstance(r, dict) and "route" in r,
-                    schema_hint='"route", "case_scope", "target_entity", "output_format", "target_year", "confidence", "reason"',
-                    _call_llm=call_llm,
-                    force_cloud=True,
-                )
-                if escalated is not None:
-                    logger.info(
-                        "Router: local classification was low-confidence (%s) — "
-                        "using cloud second opinion instead: %s",
-                        result.get("reason", "")[:60], escalated.get("route"),
-                    )
-                    result = escalated
-            except Exception as exc:
-                logger.warning("Router: low-confidence escalation to cloud failed: %s", exc)
+        # No cloud escalation on low confidence, by design: cloud is reserved
+        # for genuine local unavailability (handled inside call_llm() itself
+        # via its own local-first/cloud-on-exception logic, independent of
+        # anything here), not for local content-quality/confidence issues.
+        # Confirmed live: proactively escalating on confidence alone was the
+        # single biggest consumer of Groq's free-tier quota under sustained
+        # testing, exhausting it across all rotated keys — and once
+        # exhausted, that ALSO blocks the genuinely important escalations
+        # elsewhere (e.g. RAG's refusal-regeneration). call_llm_json's own
+        # increased local-attempt budget (3, up from 2) is the retry lever
+        # now instead.
 
         # str(...) every field before .upper()/.lower() — confirmed live:
         # a corrected retry can produce syntactically valid JSON with the
