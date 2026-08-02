@@ -15,8 +15,11 @@ from src.memory.conversation import (
 )
 
 
-def _chunk(chunk_id, text="some text"):
-    return {"id": chunk_id, "text": text, "metadata": {"source": "doc.pdf"}}
+def _chunk(chunk_id, text="some text", rrf_score=None):
+    chunk = {"id": chunk_id, "text": text, "metadata": {"source": "doc.pdf"}}
+    if rrf_score is not None:
+        chunk["rrf_score"] = rrf_score
+    return chunk
 
 
 # ── Reciprocal Rank Fusion ────────────────────────────────────────────────────
@@ -82,6 +85,49 @@ def test_rerank_results_is_the_orchestrator_facing_wrapper():
 
     assert len(reranked) == 1
     assert reranked[0]["id"] == "b"
+
+
+# ── Semantic confidence floor ──────────────────────────────────────────────────
+
+def test_semantic_floor_rescues_a_high_confidence_bm25_invisible_chunk():
+    """
+    Root cause confirmed live (2026-08-02): a chunk with very high raw
+    semantic similarity but zero BM25 presence loses pure RRF fusion to
+    chunks that rank only moderately in BOTH lists, because RRF only ever
+    weighs ORDINAL rank, never similarity magnitude. rerank_results() must
+    rescue it rather than silently drop it.
+    """
+    # "real" is the single strongest semantic hit (0.93) but BM25 never
+    # finds it at all — exactly the observed REAL-004-copy-of-fir-procedure
+    # failure. "d1".."d10" are 10 mediocre chunks that rank in BOTH lists,
+    # which is enough for plain RRF to push "real" out of top_k=10 entirely.
+    semantic = [_chunk("real", rrf_score=0.93)] + [
+        _chunk(f"d{i}", rrf_score=0.5) for i in range(1, 11)
+    ]
+    bm25 = [_chunk(f"d{i}") for i in range(10, 0, -1)]
+
+    reranked = rerank_results(semantic, bm25, top_k=10)
+
+    assert "real" not in {c["id"] for c in reciprocal_rank_fusion([semantic, bm25], top_k=10)}, (
+        "test setup check: plain RRF must actually drop it, or this test proves nothing"
+    )
+    assert "real" in {c["id"] for c in reranked}, (
+        "a very-high-confidence semantic-only hit must be rescued into the pool"
+    )
+
+
+def test_semantic_floor_ignores_chunks_below_the_threshold():
+    """A merely-decent semantic-only score must NOT be force-included — only
+    confidently-strong hits get the floor, or this becomes an unbounded
+    semantic-search bypass of hybrid fusion."""
+    semantic = [_chunk("weak", rrf_score=0.5)] + [
+        _chunk(f"d{i}", rrf_score=0.5) for i in range(1, 11)
+    ]
+    bm25 = [_chunk(f"d{i}") for i in range(10, 0, -1)]
+
+    reranked = rerank_results(semantic, bm25, top_k=10)
+
+    assert "weak" not in {c["id"] for c in reranked}
 
 
 # ── BM25 ──────────────────────────────────────────────────────────────────────

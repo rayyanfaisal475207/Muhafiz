@@ -42,6 +42,26 @@ logger = logging.getLogger(__name__)
 
 RRF_K = 60  # The standard smoothing constant
 
+# Semantic confidence floor (root-caused 2026-08-02): pure RRF only ever
+# looks at a document's ORDINAL RANK in each list, never its raw similarity
+# magnitude — a chunk found ONLY by semantic search, even at cosine
+# similarity 0.90+, contributes a single term (1/(rank+RRF_K)) that
+# routinely loses to a chunk ranking merely moderately in BOTH lists (two
+# smaller terms summed). Confirmed live: for "What is the procedure to get
+# a certified copy of an FIR, and what's the fee?", REAL-004-copy-of-fir-
+# procedure.pdf — the only actually-relevant document — scored the #1 or #2
+# highest raw semantic similarity (0.90-0.94) on every retry, but never
+# appeared in the fused top-10 because BM25 never surfaced it at all: its
+# distinguishing terms ("certified", "copy", "procedure", "fee") get diluted
+# by the word "FIR" appearing in hundreds of unrelated case documents across
+# the corpus. This is a real gap in RRF, not a tokenization or indexing bug
+# (checked directly — the tokenizer overlaps correctly on both sides).
+SEMANTIC_FLOOR_SCORE = 0.85
+# Capped, not unconditional — this rescues a small number of very-high-
+# confidence chunks RRF's math would otherwise discard, it must not become
+# a backdoor that lets semantic search alone flood the candidate pool.
+SEMANTIC_FLOOR_MAX_RESCUED = 2
+
 
 def reciprocal_rank_fusion(
     ranked_lists: list[list[dict]],
@@ -157,7 +177,31 @@ def rerank_results(
         logger.warning("Both semantic and BM25 results are empty — no documents to rerank.")
         return []
 
-    return reciprocal_rank_fusion(
+    fused = reciprocal_rank_fusion(
         ranked_lists=non_empty_lists,
         top_k=top_k,
     )
+
+    # Semantic floor: rescue very-high-confidence semantic-only hits RRF's
+    # rank-only math would otherwise drop entirely (see SEMANTIC_FLOOR_SCORE
+    # above). semantic_results' own "rrf_score" is still the raw cosine
+    # similarity at this point — reciprocal_rank_fusion() copies dicts
+    # rather than mutating them, so this reads the pre-fusion value, not the
+    # fused one. Appending (not replacing) means the pool can grow by up to
+    # SEMANTIC_FLOOR_MAX_RESCUED beyond top_k; downstream cross-encoder
+    # reranking narrows it back down, so this is a bounded, safe pool grow,
+    # not a candidate to actually deliver un-reranked.
+    fused_ids = {doc.get("id") for doc in fused}
+    rescued = [
+        doc for doc in semantic_results
+        if doc.get("id") not in fused_ids and doc.get("rrf_score", 0.0) >= SEMANTIC_FLOOR_SCORE
+    ][:SEMANTIC_FLOOR_MAX_RESCUED]
+    if rescued:
+        logger.info(
+            "Semantic floor rescued %d chunk(s) RRF fusion would have dropped: %s",
+            len(rescued),
+            [d.get("id") for d in rescued],
+        )
+        fused = fused + rescued
+
+    return fused
