@@ -137,6 +137,23 @@ def _resolve_language_directive(preferred_language: Optional[str], user_message:
     return preferred_language
 
 
+def _generation_role(resolved_language: str) -> str:
+    """
+    Pick which local model slot answers the final, user-facing response.
+
+    Confirmed live: Qalb (LOCAL_GEN_LLM_URL, previously always role="generation") is an
+    Urdu-fine-tuned model that ignores an explicit "You MUST reply entirely
+    in English" instruction outright and answers in Urdu regardless — not
+    a weak-instruction-following issue like the JSON-adherence bugs
+    elsewhere in this pipeline, but a genuine fine-tuning bias, confirmed
+    by the same prompt correctly producing an English answer from the
+    reasoning-slot model (Qwen) instead. Routing every non-Urdu answer to
+    "reasoning" (Qwen) sidesteps that bias entirely rather than fighting
+    it with a stronger prompt, which live-tested no better.
+    """
+    return "generation" if resolved_language == "Urdu" else "reasoning"
+
+
 def _filter_allowed_domains(sources: list[dict]) -> list[dict]:
     """
     Gemini's google_search tool has no domain-restriction parameter (unlike
@@ -565,7 +582,7 @@ async def process_query(
         )
 
         full_response = ""
-        async for token in stream_llm(direct_system, rewritten_query, llm_mode=llm_mode, role="generation"):
+        async for token in stream_llm(direct_system, rewritten_query, llm_mode=llm_mode, role=_generation_role(preferred_language)):
             full_response += token
             yield event("response", "streaming", token)
 
@@ -646,7 +663,7 @@ async def process_query(
                 ]
 
                 t0_resp = time.monotonic()
-                full_response = await call_llm(sql_system, rewritten_query, llm_mode=llm_mode, role="generation")
+                full_response = await call_llm(sql_system, rewritten_query, llm_mode=llm_mode, role=_generation_role(preferred_language))
                 elapsed_ms_resp = int((time.monotonic() - t0_resp) * 1000)
 
                 _spawn(asyncio.to_thread(pipeline_logger.log_llm_call,
@@ -714,7 +731,7 @@ async def process_query(
             )
 
             t0_resp = time.monotonic()
-            full_response = await call_llm(web_system, rewritten_query, llm_mode=llm_mode, role="generation")
+            full_response = await call_llm(web_system, rewritten_query, llm_mode=llm_mode, role=_generation_role(preferred_language))
             elapsed_ms_resp = int((time.monotonic() - t0_resp) * 1000)
 
             _spawn(asyncio.to_thread(pipeline_logger.log_llm_call,
@@ -893,7 +910,7 @@ async def process_query(
                         user_context=grounded_user_context,
                         preferred_language=preferred_language,
                     )
-                    full_response = await call_llm(system_prompt, user_message, llm_mode=llm_mode, role="generation")
+                    full_response = await call_llm(system_prompt, user_message, llm_mode=llm_mode, role=_generation_role(preferred_language))
                     elapsed_ms_resp = int((time.monotonic() - t0_resp) * 1000)
 
                     _spawn(asyncio.to_thread(pipeline_logger.log_llm_call,
@@ -1064,7 +1081,7 @@ async def process_query(
                         user_context=grounded_user_context,
                         preferred_language=preferred_language,
                     )
-                    full_response = await call_llm(system_prompt, user_message, llm_mode=llm_mode, role="generation")
+                    full_response = await call_llm(system_prompt, user_message, llm_mode=llm_mode, role=_generation_role(preferred_language))
                     elapsed_ms_resp = int((time.monotonic() - t0_resp) * 1000)
 
                     _spawn(asyncio.to_thread(pipeline_logger.log_llm_call,
@@ -1201,7 +1218,7 @@ async def process_query(
                     preferred_language=preferred_language,
                     history=history_text or "(no previous conversation)",
                 )
-                full_response = await call_llm(system_prompt, user_message, llm_mode=llm_mode, role="generation")
+                full_response = await call_llm(system_prompt, user_message, llm_mode=llm_mode, role=_generation_role(preferred_language))
                 elapsed_ms_resp = int((time.monotonic() - t0_resp) * 1000)
 
                 _spawn(asyncio.to_thread(pipeline_logger.log_llm_call,
@@ -1290,7 +1307,7 @@ async def process_query(
                 preferred_language=preferred_language,
                 history=history_text or "(no previous conversation)",
             )
-            full_response = await call_llm(system_prompt, user_message, llm_mode=llm_mode, role="generation")
+            full_response = await call_llm(system_prompt, user_message, llm_mode=llm_mode, role=_generation_role(preferred_language))
             elapsed_ms_resp = int((time.monotonic() - t0_resp) * 1000)
 
             _spawn(asyncio.to_thread(pipeline_logger.log_llm_call,
@@ -1624,7 +1641,7 @@ async def process_query(
                         preferred_language=preferred_language,
                     )
 
-                    full_response = await call_llm(system_prompt, user_message, llm_mode=llm_mode, role="generation")
+                    full_response = await call_llm(system_prompt, user_message, llm_mode=llm_mode, role=_generation_role(preferred_language))
                     elapsed_ms = int((time.monotonic() - t0) * 1000)
 
                     _spawn(asyncio.to_thread(pipeline_logger.log_llm_call,
