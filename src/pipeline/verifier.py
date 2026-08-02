@@ -215,22 +215,35 @@ def _check_hedging(answer: str, chunks: list[dict]) -> list[str]:
 # through to the user. A deterministic phrase check is a much more
 # reliable backstop than relying on the same class of local model to
 # correctly judge another local model's refusal.
-# Scoped to phrases that are near-unambiguous signals of the actual refusal
-# roleplay, not generic helpful-closing-remark language. Confirmed live:
-# "contact the appropriate/relevant..." and "through the proper channels"
-# were broad enough to false-positive on an otherwise-correct, grounded
-# answer that simply ended with an innocuous "for further details, contact
-# the relevant department" pleasantry — rejecting a good answer over one
-# throwaway sentence, not catching a real refusal. Dropped those; kept the
-# phrases that only ever appear in the actual "I have no access to this
-# data" pattern.
-_REFUSAL_PHRASES = (
+# Two tiers, not one flat list — confirmed live this distinction matters:
+# a genuinely good, cited answer ("Witness Name: Kamran...") got rejected
+# because it ALSO included an honest closing caveat mentioning "not
+# publicly available" (e.g. "further personal details are not publicly
+# available beyond what's summarized here") — a legitimate hedge, not a
+# refusal, but a flat phrase list can't tell those apart.
+#
+# _STRONG_REFUSAL_PHRASES: near-unambiguous even standing alone — an
+# answer built around one of these IS the refusal, so these always flag
+# regardless of whether a citation also happens to be present.
+#
+# _WEAK_REFUSAL_PHRASES: plausible as either a full refusal OR an honest
+# caveat inside an otherwise-real answer — only flag these when the answer
+# has NO [Document N] citation at all (i.e. it isn't using the evidence in
+# the first place, so the phrase is load-bearing, not a hedge).
+#
+# Dropped entirely (confirmed live too broad even weak-tier): "contact the
+# appropriate/relevant..." and "through the proper channels" — routine
+# closing language on plenty of genuinely good answers, not a refusal
+# signal at all.
+_STRONG_REFUSAL_PHRASES = (
     "i don't have access to", "i do not have access to",
     "i don't have direct access to", "i do not have direct access to",
-    "consult official police records", "typically confidential",
     "i'm not able to access", "i am not able to access",
     "i cannot provide information about specific",
     "no access to specific case files", "no access to police records",
+)
+_WEAK_REFUSAL_PHRASES = (
+    "consult official police records", "typically confidential",
     "not publicly available", "closed legal or law enforcement investigation",
     "closed investigation", "part of an ongoing investigation and cannot",
 )
@@ -249,13 +262,27 @@ def _check_refusal(answer: str) -> Optional[str]:
     Returns an issue string, or None if no refusal pattern was found.
     """
     lowered = answer.lower()
-    for phrase in _REFUSAL_PHRASES:
+    for phrase in _STRONG_REFUSAL_PHRASES:
         if phrase in lowered:
             return (
                 f"Answer reads as a generic access/privacy refusal (contains "
                 f"{phrase!r}) instead of using the provided evidence, which the "
                 f"evaluator already confirmed was relevant."
             )
+
+    # Weak-tier phrases are ambiguous on their own — plausible as either a
+    # full refusal or an honest caveat inside an otherwise-real, cited
+    # answer. Only load-bearing (and therefore worth flagging) when there's
+    # no citation backing the rest of the answer up.
+    if not _DOCUMENT_CITATION_RE.search(answer):
+        for phrase in _WEAK_REFUSAL_PHRASES:
+            if phrase in lowered:
+                return (
+                    f"Answer reads as a generic access/privacy refusal (contains "
+                    f"{phrase!r}, and cites no [Document N] source) instead of "
+                    f"using the provided evidence, which the evaluator already "
+                    f"confirmed was relevant."
+                )
     return None
 
 
