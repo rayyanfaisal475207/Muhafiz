@@ -72,23 +72,22 @@ async def route_query(rewritten_query: str) -> dict:
             raise ValueError(f"No valid JSON after retries. Raw response: {response[:200]!r}")
 
         # A syntactically valid classification the local model itself flags
-        # as anything less than fully confident is a different problem than
-        # the JSON-shape failures call_llm_json already retries — the model
-        # DID produce a real answer, it just isn't sure of it (or, worse,
-        # "medium" is what this codebase's own field-normalization below
-        # silently substitutes for a confidence value that wasn't a real
-        # high/medium/low at all — confirmed live: a corrected retry that
-        # answers with unrelated made-up fields like {"target_entity":
-        # "unknown", ...} still lands on a "medium" that looks legitimate
-        # but isn't). Escalating only on "low" left "medium" wrongly
-        # trusted at face value — confirmed live misrouting "Hello" and a
-        # previously-correct SQL query to RAG. Give Groq (dramatically more
-        # reliable at this exact classification task in every comparison
-        # run live today) an independent second opinion whenever the local
-        # model isn't fully confident, rather than accepting anything short
-        # of "high" at face value. Any failure escalating is non-fatal —
-        # the original result is still usable and stays in place.
-        if str(result.get("confidence", "")).strip().lower() != "high":
+        # as low-confidence is a different problem than the JSON-shape
+        # failures call_llm_json already retries — the model DID produce a
+        # real answer, it just isn't sure of it. Escalating on "medium" too
+        # (not just "low") was confirmed more accurate live, but also the
+        # single biggest consumer of Groq's free-tier quota across this
+        # session — "medium" is common enough that it hit rate limits under
+        # sustained load (confirmed live: 429 across all rotated keys),
+        # which then blocks EVERY OTHER call_llm_json cloud fallback in the
+        # pipeline too (evaluator, verifier, query rewriter), not just this
+        # one. Scoped back to "low" only as the load/accuracy trade-off —
+        # give Groq (dramatically more reliable at this exact classification
+        # task in every comparison run live today) an independent second
+        # opinion only when the local model is actually unsure, not merely
+        # non-committal. Any failure escalating is non-fatal — the original
+        # result is still usable and stays in place.
+        if str(result.get("confidence", "")).strip().lower() == "low":
             try:
                 escalated, _ = await call_llm_json(
                     system_prompt=_SYSTEM_PROMPT,
