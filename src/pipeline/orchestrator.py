@@ -1641,10 +1641,10 @@ async def process_query(
                         preferred_language=preferred_language,
                     )
 
-                    # Up to 2 generation attempts: a refusal ("I don't have
-                    # access to case files/police records... this is
-                    # confidential") is a different, likely-fixable failure
-                    # from "the evidence genuinely doesn't answer the
+                    # Up to 3 generation attempts, all local: a refusal ("I
+                    # don't have access to case files/police records... this
+                    # is confidential") is a different, likely-fixable
+                    # failure from "the evidence genuinely doesn't answer the
                     # question" — confirmed live, the local generation model
                     # sometimes ignores the retrieved chunks entirely and
                     # roleplays a generic privacy-conscious assistant with no
@@ -1652,33 +1652,32 @@ async def process_query(
                     # prompt. Immediately abstaining on that (as every other
                     # verifier-reject reason correctly does) throws away a
                     # perfectly good, already-retrieved answer for a model
-                    # quirk that a second attempt with an explicit correction
+                    # quirk that another attempt with an explicit correction
                     # can often route around. Every other rejection reason
                     # (unsupported claims, leakage, missing hedge, genuinely
                     # insufficient evidence) still abstains on the first
                     # attempt, unchanged.
+                    #
+                    # Stays local-only by design, not escalated to cloud:
+                    # confirmed live under sustained testing that forcing
+                    # this retry to Groq made refusal-recovery one of the
+                    # heaviest cloud-quota consumers, repeatedly hit rate
+                    # limits (429 across all rotated keys) and then failed
+                    # anyway — while the local model's own raw output was
+                    # often already substantively correct on a subsequent
+                    # local attempt. More local shots with an explicit
+                    # correction is now the only retry lever here.
                     generation_prompt = system_prompt
                     verification = {}
                     verifier_ms = 0
-                    for gen_attempt in range(2):
-                        # The correction alone often isn't enough — confirmed
-                        # live, the local model can repeat the identical
-                        # refusal even after being told explicitly not to
-                        # (a deep safety-training reflex, not a simple
-                        # prompt-following gap). Force the retry attempt to
-                        # the cloud model instead of hoping a second local
-                        # attempt behaves differently. force_cloud still
-                        # respects AIR_GAP_MODE inside call_llm — an
-                        # air-gapped deployment raises here instead, caught
-                        # by this block's own outer exception handling same
-                        # as any other generation failure.
+                    for gen_attempt in range(3):
                         if gen_attempt == 0:
                             # First attempt: let a call_llm failure propagate
                             # to this block's own outer exception handler,
                             # unchanged from before — a genuine generation
                             # infrastructure failure (no prior attempt to
                             # fall back to) is a different situation from the
-                            # retry attempt below and must still surface as
+                            # retry attempts below and must still surface as
                             # its own "response"/"error" event + _SAFE_RESPONSE,
                             # not get silently absorbed here.
                             full_response = await call_llm(
@@ -1686,34 +1685,22 @@ async def process_query(
                                 role=_generation_role(preferred_language),
                             )
                         else:
-                            # Retry attempt only: force cloud instead of
-                            # hoping a second local attempt behaves
-                            # differently — confirmed live, the local model
-                            # can repeat the identical refusal even after an
-                            # explicit correction (a deep safety-training
-                            # reflex, not a simple prompt-following gap).
-                            # force_cloud still respects AIR_GAP_MODE inside
-                            # call_llm. This attempt CAN fail on its own
-                            # (confirmed live: Groq rate-limited across all
-                            # rotated keys under heavy load) — that must not
-                            # crash the whole response when the first
-                            # attempt's answer + verification (already
-                            # correctly rejected as a refusal) are sitting
-                            # right here; keep them and fall through to the
-                            # standard verifier-rejected abstention path
-                            # below instead of losing that context to an
-                            # unrelated transient cloud error.
+                            # Retry attempts only: a local call_llm failure
+                            # here (e.g. a transient tunnel hiccup) must not
+                            # crash the whole response when a prior attempt's
+                            # answer + verification are sitting right here;
+                            # keep them and fall through to the standard
+                            # verifier-rejected abstention path below instead.
                             try:
                                 full_response = await call_llm(
                                     generation_prompt, user_message, llm_mode=llm_mode,
                                     role=_generation_role(preferred_language),
-                                    force_cloud=True,
                                 )
                             except Exception as regen_exc:
                                 logger.warning(
-                                    "Refusal-regeneration retry failed: %s. "
+                                    "Refusal-regeneration retry %d/2 failed: %s. "
                                     "Keeping the prior attempt's (rejected) response.",
-                                    regen_exc,
+                                    gen_attempt, regen_exc,
                                 )
                                 break
                         elapsed_ms = int((time.monotonic() - t0) * 1000)
@@ -1733,7 +1720,7 @@ async def process_query(
                         if not verification.get("refusal_detected"):
                             break
                         logger.warning(
-                            "Verifier caught a refusal instead of using the evidence (attempt %d/2): %s",
+                            "Verifier caught a refusal instead of using the evidence (attempt %d/3): %s",
                             gen_attempt + 1, verification.get("reason", "")[:100],
                         )
                         generation_prompt = system_prompt + (

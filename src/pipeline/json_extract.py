@@ -112,16 +112,30 @@ async def call_llm_json(
     temperature: float = 0.0,
     cloud_max_tokens: Optional[int] = None,
     role: str = "reasoning",
-    max_attempts: int = 2,
+    max_attempts: int = 3,
     validate: Optional[Callable[[Any], bool]] = None,
     schema_hint: Optional[str] = None,
     _call_llm: Optional[Callable[..., Any]] = None,
     force_cloud: bool = False,
+    escalate_to_cloud_on_failure: bool = False,
 ) -> tuple[Optional[Any], str]:
     """
     Call an LLM expecting a JSON response, retrying with an explicit
     correction message (see _json_only_correction above) if the model
     responds conversationally instead of with valid JSON.
+
+    Local-only by explicit choice: cloud is reserved for genuine local
+    unavailability (a connection/HTTP error — call_llm's own existing
+    local-first/cloud-on-exception logic already handles that case,
+    unaffected by anything here), not for local content-quality issues
+    like a conversational non-JSON reply. Confirmed live under sustained
+    testing: proactively escalating every JSON-shape failure to Groq made
+    a single user query fire 6+ cloud calls, exhausted the free-tier quota
+    across all rotated keys, and then still failed anyway (rate-limited) —
+    while the local model's own raw output was often already substantively
+    correct. max_attempts defaults to 3 (up from 2) to give local more
+    chances before giving up, since that's now the only lever available
+    for a content-quality retry.
 
     Args:
         validate:    Optional predicate the parsed JSON must satisfy (e.g. "is
@@ -145,11 +159,14 @@ async def call_llm_json(
                      collapse onto one single global patch point and break
                      that. Defaults to the real client.call_llm.
         force_cloud: Skip the local-first attempts entirely and go straight
-                     to a cloud attempt. For callers that want a fresh,
-                     independent cloud opinion on demand (e.g. router.py
-                     escalating a low-confidence local classification to
-                     Groq for a second opinion), not just as the last-resort
-                     fallback after local attempts fail outright.
+                     to a cloud attempt. Only meaningful when a caller
+                     explicitly wants a fresh cloud opinion on demand — not
+                     used by anything in this pipeline by default anymore.
+        escalate_to_cloud_on_failure: After exhausting local attempts with
+                     no usable result, make one last-resort cloud attempt
+                     before giving up. Defaults to False — opt-in only, for
+                     a caller that has decided the specific failure mode
+                     genuinely warrants spending cloud quota on it.
 
     Returns:
         (parsed_result, last_raw_response) — parsed_result is None if every
@@ -194,6 +211,9 @@ async def call_llm_json(
                 continue
 
             return result, last_raw
+
+    if not (force_cloud or escalate_to_cloud_on_failure):
+        return None, last_raw
 
     # Reached either because every local-first attempt above produced
     # something call_llm itself considers "successful" (non-empty text) but
