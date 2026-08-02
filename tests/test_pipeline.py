@@ -13,9 +13,14 @@ from src.pipeline.evaluator import evaluate_relevance, _format_chunks_for_prompt
 
 
 # ── Query rewriter ────────────────────────────────────────────────────────────
+#
+# _sanitize_rewrite returns None (not a fallback string) when the output is
+# unusable — callers decide their own fallback (the original message for
+# rewrite_query, the previous query for rewrite_for_retry's multi-attempt
+# loop), which a single baked-in "orig" fallback couldn't express.
 
 def test_rewrite_passes_through_a_clean_query():
-    assert _sanitize_rewrite("What PPC section covers mobile theft?", "orig") == "What PPC section covers mobile theft?"
+    assert _sanitize_rewrite("What PPC section covers mobile theft?") == "What PPC section covers mobile theft?"
 
 
 @pytest.mark.parametrize("raw", [
@@ -26,26 +31,55 @@ def test_rewrite_passes_through_a_clean_query():
 ])
 def test_rewrite_strips_preambles_and_quotes(raw):
     """Models add labels and quotes despite being told not to."""
-    assert _sanitize_rewrite(raw, "orig") == "What PPC section covers mobile theft?"
+    assert _sanitize_rewrite(raw) == "What PPC section covers mobile theft?"
 
 
 def test_rewrite_takes_only_the_first_line():
     raw = "What PPC section covers mobile theft?\n\nExplanation: this resolves the pronoun."
-    assert _sanitize_rewrite(raw, "orig") == "What PPC section covers mobile theft?"
+    assert _sanitize_rewrite(raw) == "What PPC section covers mobile theft?"
 
 
 @pytest.mark.parametrize("raw", ["", "   ", None])
-def test_empty_rewrite_falls_back_to_the_original(raw):
-    assert _sanitize_rewrite(raw, "original message") == "original message"
+def test_empty_rewrite_returns_none(raw):
+    assert _sanitize_rewrite(raw) is None
 
 
-def test_rewrite_that_answers_the_question_falls_back():
+def test_rewrite_that_answers_the_question_returns_none():
     """
     A "rewrite" the length of an essay means the model answered instead of
     rewriting. Searching the vector DB with an essay wrecks retrieval.
     """
     essay = "The PPC section for mobile phone theft is 379 PPC. " * 20
-    assert _sanitize_rewrite(essay, "orig") == "orig"
+    assert _sanitize_rewrite(essay) is None
+
+
+@pytest.mark.parametrize("raw", [
+    "Improved search query:",
+    "**Improved search query:**",
+])
+def test_rewrite_echoing_the_retry_prompt_label_returns_none(raw):
+    """
+    Regression: rewrite_for_retry()'s own trailing prompt line used to read
+    "Write an improved search query:", and the model sometimes echoed that
+    exact label back verbatim instead of writing a real query — which used
+    to pass sanitization as a very short "valid" single line and get used
+    as the actual search query outright.
+    """
+    assert _sanitize_rewrite(raw) is None
+
+
+def test_rewrite_that_discusses_the_question_returns_none():
+    """
+    Regression: distinct from the label-echo case above — the model treats
+    the rewrite task as a real question to discuss ("The question 'X' is
+    unclear because...") instead of producing a new query. Short enough to
+    survive the length check, so needs its own detection.
+    """
+    commentary = (
+        'The question "What PPC section covers mobile phone theft?" is '
+        "unclear because PPC could refer to different things."
+    )
+    assert _sanitize_rewrite(commentary) is None
 
 
 async def test_rewrite_skips_the_llm_when_there_is_no_history(monkeypatch):

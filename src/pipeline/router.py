@@ -71,6 +71,45 @@ async def route_query(rewritten_query: str) -> dict:
         if result is None:
             raise ValueError(f"No valid JSON after retries. Raw response: {response[:200]!r}")
 
+        # A syntactically valid classification the local model itself flags
+        # as anything less than fully confident is a different problem than
+        # the JSON-shape failures call_llm_json already retries — the model
+        # DID produce a real answer, it just isn't sure of it (or, worse,
+        # "medium" is what this codebase's own field-normalization below
+        # silently substitutes for a confidence value that wasn't a real
+        # high/medium/low at all — confirmed live: a corrected retry that
+        # answers with unrelated made-up fields like {"target_entity":
+        # "unknown", ...} still lands on a "medium" that looks legitimate
+        # but isn't). Escalating only on "low" left "medium" wrongly
+        # trusted at face value — confirmed live misrouting "Hello" and a
+        # previously-correct SQL query to RAG. Give Groq (dramatically more
+        # reliable at this exact classification task in every comparison
+        # run live today) an independent second opinion whenever the local
+        # model isn't fully confident, rather than accepting anything short
+        # of "high" at face value. Any failure escalating is non-fatal —
+        # the original result is still usable and stays in place.
+        if str(result.get("confidence", "")).strip().lower() != "high":
+            try:
+                escalated, _ = await call_llm_json(
+                    system_prompt=_SYSTEM_PROMPT,
+                    user_message=rewritten_query,
+                    temperature=0.0,
+                    max_tokens=800,
+                    validate=lambda r: isinstance(r, dict) and "route" in r,
+                    schema_hint='"route", "case_scope", "target_entity", "output_format", "target_year", "confidence", "reason"',
+                    _call_llm=call_llm,
+                    force_cloud=True,
+                )
+                if escalated is not None:
+                    logger.info(
+                        "Router: local classification was low-confidence (%s) — "
+                        "using cloud second opinion instead: %s",
+                        result.get("reason", "")[:60], escalated.get("route"),
+                    )
+                    result = escalated
+            except Exception as exc:
+                logger.warning("Router: low-confidence escalation to cloud failed: %s", exc)
+
         # str(...) every field before .upper()/.lower() — confirmed live:
         # a corrected retry can produce syntactically valid JSON with the
         # right field names but a wrong-typed value (e.g. "confidence": 0.8
