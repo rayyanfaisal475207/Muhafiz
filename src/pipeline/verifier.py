@@ -231,6 +231,8 @@ _REFUSAL_PHRASES = (
     "i'm not able to access", "i am not able to access",
     "i cannot provide information about specific",
     "no access to specific case files", "no access to police records",
+    "not publicly available", "closed legal or law enforcement investigation",
+    "closed investigation", "part of an ongoing investigation and cannot",
 )
 
 
@@ -255,6 +257,43 @@ def _check_refusal(answer: str) -> Optional[str]:
                 f"evaluator already confirmed was relevant."
             )
     return None
+
+
+# Minimum length before a citation-less answer is treated as suspicious —
+# a short, honest "the documents don't contain X" (final_response.txt rule
+# 3's own explicitly sanctioned wording for genuinely missing evidence) has
+# nothing to cite and shouldn't be flagged; a long, substantive-looking
+# answer with zero citations is a different, much more suspicious shape.
+_SUBSTANTIAL_ANSWER_LEN = 150
+
+_DOCUMENT_CITATION_RE = re.compile(r"\[Document\s+\d+\]", re.IGNORECASE)
+
+
+def _check_no_citation(answer: str) -> Optional[str]:
+    """
+    Deterministic pre-check, complementary to _check_refusal: catches any
+    phrasing of "I won't/can't use the evidence" without relying on a fixed
+    phrase list, which is inherently incomplete — confirmed live, the local
+    model produces new refusal wordings ("not publicly available", "part of
+    a closed... investigation", etc.) faster than a phrase list can be kept
+    current. final_response.txt's own rule 2 requires citing every claim as
+    [Document N]; a substantive-looking answer with zero such citations,
+    for a query the evaluator already confirmed relevant chunks exist for,
+    is almost never actually using the evidence — a real grounded answer
+    of any length past a one-liner cites something.
+
+    Returns an issue string, or None if the answer looks properly cited (or
+    is short enough to plausibly be a legitimate no-citation "not found").
+    """
+    if len(answer) < _SUBSTANTIAL_ANSWER_LEN:
+        return None
+    if _DOCUMENT_CITATION_RE.search(answer):
+        return None
+    return (
+        "Answer is substantial in length but cites no [Document N] source at "
+        "all, despite the evaluator already confirming relevant chunks exist — "
+        "reads as avoiding the provided evidence rather than using it."
+    )
 
 
 async def verify_grounding(
@@ -302,7 +341,7 @@ async def verify_grounding(
     temporal_issues = _check_temporal(cited_chunks, target_date)
     leaked_case = _check_leakage(answer, cited_chunks, case_id, cross_case_ids)
     hedging_issues = _check_hedging(answer, cited_chunks)
-    refusal_issue = _check_refusal(answer)
+    refusal_issue = _check_refusal(answer) or _check_no_citation(answer)
 
     pre_check_issues: list[str] = temporal_issues + hedging_issues
     pre_check_failed = bool(pre_check_issues or leaked_case or refusal_issue)
