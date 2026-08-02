@@ -69,12 +69,14 @@ def run_pipeline(monkeypatch, patched_gateway):
             # Track the last non-special call so tests can inspect the
             # generation prompt (RAG, GRAPH, etc. now use call_llm, not stream_llm).
             fake_call_llm.last_system = system_prompt
+            fake_call_llm.last_user = user_message
             fake_call_llm.last_kwargs = kwargs
             if generation_exc is not None:
                 raise generation_exc
             return answer
 
         fake_call_llm.last_system = ""
+        fake_call_llm.last_user = ""
         fake_call_llm.last_kwargs = {}
 
         async def fake_stream_llm(system_prompt, user_message, **kwargs):
@@ -287,7 +289,7 @@ async def test_rag_answers_honour_the_language_setting(run_pipeline):
 
     system_prompt = run_pipeline.call.last_system
     assert "Urdu" in system_prompt
-    assert "textile SME" in system_prompt
+    assert "textile SME" in run_pipeline.call.last_user
 
 
 async def test_llm_mode_setting_is_passed_to_the_client(run_pipeline):
@@ -521,8 +523,8 @@ async def test_bm25_surfaces_a_keyword_match_vector_search_missed(run_pipeline):
         ],
     )
 
-    system_prompt = run_pipeline.call.last_system
-    assert "Falcon-Nine-Zulu" in system_prompt, (
+    generation_prompt = run_pipeline.call.last_system + run_pipeline.call.last_user
+    assert "Falcon-Nine-Zulu" in generation_prompt, (
         "a chunk absent from semantic_results but present in the full BM25 "
         "pool must still reach the generation prompt via RRF fusion"
     )
@@ -707,8 +709,8 @@ async def test_cross_script_variant_widens_the_bm25_pool(run_pipeline):
         ],
     )
 
-    system_prompt = run_pipeline.call.last_system
-    assert "Falcon-Nine-Zulu" in system_prompt, (
+    generation_prompt = run_pipeline.call.last_system + run_pipeline.call.last_user
+    assert "Falcon-Nine-Zulu" in generation_prompt, (
         "a chunk matchable only via the cross-script variant's vocabulary "
         "must still reach the generation prompt via RRF fusion, since the "
         "variant is folded into all_queries / BM25's combined_query"
