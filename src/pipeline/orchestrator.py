@@ -1641,20 +1641,110 @@ async def process_query(
                         preferred_language=preferred_language,
                     )
 
-                    full_response = await call_llm(system_prompt, user_message, llm_mode=llm_mode, role=_generation_role(preferred_language))
-                    elapsed_ms = int((time.monotonic() - t0) * 1000)
+                    # Up to 2 generation attempts: a refusal ("I don't have
+                    # access to case files/police records... this is
+                    # confidential") is a different, likely-fixable failure
+                    # from "the evidence genuinely doesn't answer the
+                    # question" — confirmed live, the local generation model
+                    # sometimes ignores the retrieved chunks entirely and
+                    # roleplays a generic privacy-conscious assistant with no
+                    # database access, even with the actual record in its own
+                    # prompt. Immediately abstaining on that (as every other
+                    # verifier-reject reason correctly does) throws away a
+                    # perfectly good, already-retrieved answer for a model
+                    # quirk that a second attempt with an explicit correction
+                    # can often route around. Every other rejection reason
+                    # (unsupported claims, leakage, missing hedge, genuinely
+                    # insufficient evidence) still abstains on the first
+                    # attempt, unchanged.
+                    generation_prompt = system_prompt
+                    verification = {}
+                    verifier_ms = 0
+                    for gen_attempt in range(2):
+                        # The correction alone often isn't enough — confirmed
+                        # live, the local model can repeat the identical
+                        # refusal even after being told explicitly not to
+                        # (a deep safety-training reflex, not a simple
+                        # prompt-following gap). Force the retry attempt to
+                        # the cloud model instead of hoping a second local
+                        # attempt behaves differently. force_cloud still
+                        # respects AIR_GAP_MODE inside call_llm — an
+                        # air-gapped deployment raises here instead, caught
+                        # by this block's own outer exception handling same
+                        # as any other generation failure.
+                        if gen_attempt == 0:
+                            # First attempt: let a call_llm failure propagate
+                            # to this block's own outer exception handler,
+                            # unchanged from before — a genuine generation
+                            # infrastructure failure (no prior attempt to
+                            # fall back to) is a different situation from the
+                            # retry attempt below and must still surface as
+                            # its own "response"/"error" event + _SAFE_RESPONSE,
+                            # not get silently absorbed here.
+                            full_response = await call_llm(
+                                generation_prompt, user_message, llm_mode=llm_mode,
+                                role=_generation_role(preferred_language),
+                            )
+                        else:
+                            # Retry attempt only: force cloud instead of
+                            # hoping a second local attempt behaves
+                            # differently — confirmed live, the local model
+                            # can repeat the identical refusal even after an
+                            # explicit correction (a deep safety-training
+                            # reflex, not a simple prompt-following gap).
+                            # force_cloud still respects AIR_GAP_MODE inside
+                            # call_llm. This attempt CAN fail on its own
+                            # (confirmed live: Groq rate-limited across all
+                            # rotated keys under heavy load) — that must not
+                            # crash the whole response when the first
+                            # attempt's answer + verification (already
+                            # correctly rejected as a refusal) are sitting
+                            # right here; keep them and fall through to the
+                            # standard verifier-rejected abstention path
+                            # below instead of losing that context to an
+                            # unrelated transient cloud error.
+                            try:
+                                full_response = await call_llm(
+                                    generation_prompt, user_message, llm_mode=llm_mode,
+                                    role=_generation_role(preferred_language),
+                                    force_cloud=True,
+                                )
+                            except Exception as regen_exc:
+                                logger.warning(
+                                    "Refusal-regeneration retry failed: %s. "
+                                    "Keeping the prior attempt's (rejected) response.",
+                                    regen_exc,
+                                )
+                                break
+                        elapsed_ms = int((time.monotonic() - t0) * 1000)
 
-                    _spawn(asyncio.to_thread(pipeline_logger.log_llm_call,
-                        query_id, "response", config.LLM_PROVIDER, config.GROQ_MODEL if config.LLM_PROVIDER=="groq" else config.GEMINI_MODEL,
-                        system_prompt, user_message, full_response, elapsed_ms, retry_count
-                    ))
+                        _spawn(asyncio.to_thread(pipeline_logger.log_llm_call,
+                            query_id, "response", config.LLM_PROVIDER, config.GROQ_MODEL if config.LLM_PROVIDER=="groq" else config.GEMINI_MODEL,
+                            generation_prompt, user_message, full_response, elapsed_ms, retry_count
+                        ))
 
-                    # ── Verify before delivering ──────────────────────────────
-                    t0_verify = time.monotonic()
-                    verification = await verify_grounding(
-                        answer=full_response, cited_chunks=reranked, case_id=case_id
-                    )
-                    verifier_ms = int((time.monotonic() - t0_verify) * 1000)
+                        # ── Verify before delivering ──────────────────────
+                        t0_verify = time.monotonic()
+                        verification = await verify_grounding(
+                            answer=full_response, cited_chunks=reranked, case_id=case_id
+                        )
+                        verifier_ms += int((time.monotonic() - t0_verify) * 1000)
+
+                        if not verification.get("refusal_detected"):
+                            break
+                        logger.warning(
+                            "Verifier caught a refusal instead of using the evidence (attempt %d/2): %s",
+                            gen_attempt + 1, verification.get("reason", "")[:100],
+                        )
+                        generation_prompt = system_prompt + (
+                            "\n\n[SYSTEM CORRECTION] Your previous reply refused to answer, claiming "
+                            "you don't have access to case files/records or that the information is "
+                            "confidential. That is wrong — the PROVIDED DOCUMENTS section above already "
+                            "contains the actual record needed to answer this question. Do not refuse "
+                            "and do not suggest contacting another agency. Answer directly from the "
+                            "documents provided, with citations, as instructed."
+                        )
+
                     verifier_passed = verification.get("grounded", False) and not verification.get("off_topic", False)
                     verifier_regenerated = False
 

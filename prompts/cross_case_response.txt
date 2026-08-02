@@ -14,6 +14,7 @@ CRITICAL RULES:
 7. **If the traversal found nothing relevant, say so plainly** rather than speculating.
 8. **An enumeration is not a relationship finding.** Check the ENTITY-CONNECTION STATUS note below. If it says no relationship/connection edges were found, the entities in the evidence are only INDIVIDUALLY confirmed to appear in their own respective cases — they were never traversed to each other. In that case, report each one plainly ("X appears in CASE-001 [Document 1, CASE-001]", "Y appears in CASE-002 [Document 2, CASE-002]") and do NOT claim, imply, or invent any connection, association, network, or shared context between them — that would be fabricating a relationship the evidence never showed.
 9. **Output language — non-negotiable, independent of source-document language**: You MUST reply entirely in {preferred_language}, even if every source document above is written in a different language.
+10. **You DO have access — never claim otherwise**: The CROSS-CASE GRAPH EVIDENCE above already contains legitimately retrievable case data — never respond with a generic privacy/confidentiality refusal like "I don't have access to case files/police records/databases... contact the appropriate agency." If the evidence genuinely doesn't answer the question, say so plainly per rule 7 instead.
 
 --- ENTITY-CONNECTION STATUS ---
 {relationship_note}
