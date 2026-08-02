@@ -116,6 +116,7 @@ async def call_llm_json(
     validate: Optional[Callable[[Any], bool]] = None,
     schema_hint: Optional[str] = None,
     _call_llm: Optional[Callable[..., Any]] = None,
+    force_cloud: bool = False,
 ) -> tuple[Optional[Any], str]:
     """
     Call an LLM expecting a JSON response, retrying with an explicit
@@ -143,6 +144,12 @@ async def call_llm_json(
                      here would make every caller of this shared helper
                      collapse onto one single global patch point and break
                      that. Defaults to the real client.call_llm.
+        force_cloud: Skip the local-first attempts entirely and go straight
+                     to a cloud attempt. For callers that want a fresh,
+                     independent cloud opinion on demand (e.g. router.py
+                     escalating a low-confidence local classification to
+                     Groq for a second opinion), not just as the last-resort
+                     fallback after local attempts fail outright.
 
     Returns:
         (parsed_result, last_raw_response) — parsed_result is None if every
@@ -165,36 +172,39 @@ async def call_llm_json(
 
     message = user_message
     last_raw = ""
-    for attempt in range(max_attempts):
-        last_raw = await _attempt(attempt, force_cloud=False)
-        try:
-            result = extract_json(last_raw)
-        except ValueError as exc:
-            logger.warning(
-                "call_llm_json: invalid JSON on attempt %d/%d: %s — raw: %s",
-                attempt + 1, max_attempts, exc, last_raw[:150],
-            )
-            message = user_message + _json_only_correction(schema_hint)
-            continue
+    if not force_cloud:
+        for attempt in range(max_attempts):
+            last_raw = await _attempt(attempt, force_cloud=False)
+            try:
+                result = extract_json(last_raw)
+            except ValueError as exc:
+                logger.warning(
+                    "call_llm_json: invalid JSON on attempt %d/%d: %s — raw: %s",
+                    attempt + 1, max_attempts, exc, last_raw[:150],
+                )
+                message = user_message + _json_only_correction(schema_hint)
+                continue
 
-        if validate is not None and not validate(result):
-            logger.warning(
-                "call_llm_json: JSON failed validation on attempt %d/%d: %s",
-                attempt + 1, max_attempts, last_raw[:150],
-            )
-            message = user_message + _json_only_correction(schema_hint)
-            continue
+            if validate is not None and not validate(result):
+                logger.warning(
+                    "call_llm_json: JSON failed validation on attempt %d/%d: %s",
+                    attempt + 1, max_attempts, last_raw[:150],
+                )
+                message = user_message + _json_only_correction(schema_hint)
+                continue
 
-        return result, last_raw
+            return result, last_raw
 
-    # Every local-first attempt produced something call_llm itself considers
-    # "successful" (non-empty text), so the normal local-first/cloud-fallback
-    # logic inside call_llm never actually reached Groq/Gemini — a
-    # conversational non-JSON reply isn't an exception. Force one real cloud
-    # attempt as the last resort before giving up, since Groq/Gemini were
-    # confirmed reliable at this exact kind of structured-JSON task even when
-    # the local model isn't (AIR_GAP_MODE still blocks this inside call_llm —
-    # force_cloud never overrides that boundary).
+    # Reached either because every local-first attempt above produced
+    # something call_llm itself considers "successful" (non-empty text) but
+    # unusable here — a conversational non-JSON reply isn't an exception, so
+    # the normal local-first/cloud-fallback logic inside call_llm never
+    # actually reached Groq/Gemini on its own — or because the caller passed
+    # force_cloud=True and skipped the local loop entirely. Either way, one
+    # real cloud attempt, since Groq/Gemini were confirmed reliable at this
+    # exact kind of structured-JSON task even when the local model isn't
+    # (AIR_GAP_MODE still blocks this inside call_llm — force_cloud never
+    # overrides that boundary).
     try:
         last_raw = await _attempt(max_attempts, force_cloud=True)
         result = extract_json(last_raw)

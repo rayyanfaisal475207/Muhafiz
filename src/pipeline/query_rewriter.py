@@ -23,6 +23,7 @@
 
 import logging
 from pathlib import Path
+from typing import Optional
 
 from src.llm.client import call_llm
 
@@ -65,7 +66,7 @@ async def rewrite_query(
         f"Latest message: {user_message}"
     )
 
-    rewritten = await call_llm(
+    raw = await call_llm(
         system_prompt=_SYSTEM_PROMPT,
         user_message=user_input,
         temperature=0.0,   # Deterministic: same input should always produce same rewrite
@@ -76,37 +77,73 @@ async def rewrite_query(
         max_tokens=800,
     )
 
-    rewritten = _sanitize_rewrite(rewritten, user_message)
+    rewritten = _sanitize_rewrite(raw) or user_message.strip()
 
     logger.info("Query rewritten: '%s' -> '%s'", user_message[:50], rewritten[:80])
     return rewritten
 
 
-def _sanitize_rewrite(rewritten: str, original: str) -> str:
+def _sanitize_rewrite(rewritten: str) -> Optional[str]:
     """
     Guard against common LLM failure modes: empty output, preambles,
     wrapping quotes, multi-line answers, or answering instead of rewriting.
-    Falls back to the original message when the output is unusable.
+    Returns None (rather than silently substituting a fallback) when the
+    output is unusable, so callers can decide whether to retry or fall back.
     """
     text = (rewritten or "").strip()
     if not text:
-        logger.warning("Query rewriter returned empty string. Using original message.")
-        return original.strip()
+        return None
 
-    # Strip label-style preambles the model sometimes adds despite instructions
-    for prefix in ("output:", "rewritten query:", "query:", "rewritten:"):
+    # Strip markdown emphasis markers first — confirmed live, the model
+    # often wraps an echoed label in "**" ("**Improved search query:**"),
+    # which would otherwise survive the prefix-strip below untouched.
+    text = text.strip("*").strip()
+
+    # Strip label-style preambles the model sometimes adds despite
+    # instructions — including "improved search query:", confirmed live as
+    # a genuine echo of rewrite_for_retry()'s own trailing prompt line
+    # ("Write an improved search query:") rather than an actual rewrite.
+    # Without this, the echoed label passed sanitization as a very short
+    # "valid" single line and became the next retry's search query outright
+    # — and, since rewrite_for_retry() feeds its own previous output back in
+    # as `previous_query` on a second retry, an uncaught echo compounds:
+    # confirmed live producing 'Improved search query: **"Which section of
+    # the PPC' -> 'Improved search query: **"Which section of the PPC
+    # Act...' across two retries.
+    for prefix in (
+        "output:", "rewritten query:", "query:", "rewritten:",
+        "improved search query:", "improved query:", "search query:",
+    ):
         if text.lower().startswith(prefix):
             text = text[len(prefix):].strip()
+    text = text.strip("*").strip()
 
     # Take the first non-empty line — a rewrite is always a single line
     text = next((ln.strip() for ln in text.splitlines() if ln.strip()), "")
     text = text.strip('"').strip("'").strip()
 
     # A "rewrite" several times longer than a reasonable query is almost
-    # certainly the model answering the question. Fall back.
-    if not text or len(text) > 400:
-        logger.warning("Query rewriter output unusable (len=%d). Using original message.", len(text))
-        return original.strip()
+    # certainly the model answering the question. A suspiciously short
+    # leftover (the label stripped to nothing, or near enough) is the
+    # compounding-echo failure above with no real query left behind either
+    # way — both are unusable.
+    if not text or len(text) < 3 or len(text) > 400:
+        logger.warning("Query rewriter output unusable (len=%d).", len(text))
+        return None
+
+    # A third confirmed failure mode, distinct from both above: the model
+    # discusses the query instead of rewriting it — short enough to survive
+    # the length check, but recognizably commentary ("The question '...' is
+    # unclear because...", "This appears to be asking about..."). A real
+    # rewritten query never talks about "the question"/"the query" itself
+    # in the third person, so that phrase alone is a reliable tell.
+    lowered = text.lower()
+    if any(marker in lowered for marker in (
+        "the question ", "the query ", "this appears to be", "seems to be asking",
+        "is unclear", "could refer to", "is not a standard",
+    )):
+        logger.warning("Query rewriter produced commentary, not a query: %r.", text[:100])
+        return None
 
     return text
 
@@ -136,8 +173,13 @@ async def rewrite_for_retry(
         "You are a search query optimizer for a police reference document database. "
         "A previous search query failed to retrieve relevant documents. Use the "
         "feedback below to write ONE better search query.\n\n"
-        "Output ONLY the improved query on a single line. No explanation. No quotes. "
-        "Never answer the question itself.\n\n"
+        "You are NOT talking to the user and you are NOT answering the question — "
+        "your only output is the raw query text itself, nothing else: no label, no "
+        "heading, no leading phrase like \"Improved search query:\", no markdown "
+        "formatting or bold text, no quotes, no explanation. Confirmed failure mode: "
+        "a response that starts with a label like that (even just echoing this "
+        "prompt's own wording) gets used verbatim as the next search query, which "
+        "finds nothing — the label itself is not a query.\n\n"
         "Rules:\n"
         "- Target specifically what the feedback says is missing.\n"
         "- Use DIFFERENT keywords than the previous query: swap plain language for "
@@ -145,26 +187,63 @@ async def rewrite_for_retry(
         "'PPC section' <-> 'penal code provision'.\n"
         "- Add the likely PPC/PECA section number if the feedback hints at one; "
         "drop section numbers that already failed.\n"
-        "- Keep it focused: one topic, under 25 words."
+        "- Keep it focused: one topic, under 25 words.\n\n"
+        "Another confirmed failure mode, distinct from the label-echo one above: "
+        "treating this as a real question to discuss instead of a rewriting task, "
+        "e.g. producing \"The question 'X' is unclear because...\" or \"This appears "
+        "to be asking about...\". That is commentary about the query, not a query — "
+        "never write about the question, only rewrite it.\n\n"
+        "Example — WRONG (commentary, not a rewrite):\n"
+        "Previous query: What PPC section covers mobile phone theft?\n"
+        "Bad output: The question \"What PPC section covers mobile phone theft?\" is "
+        "unclear because PPC could refer to different things.\n"
+        "Example — RIGHT (an actual alternative query):\n"
+        "Good output: Penal code provision for theft of mobile phone under PPC 379"
     )
 
     user_input = (
         f"Original user question: {original_message}\n\n"
         f"Previous search query (which failed): {previous_query}\n\n"
-        f"Why it failed (evaluator feedback): {evaluator_feedback}\n\n"
-        f"Write an improved search query:"
+        f"Why it failed (evaluator feedback): {evaluator_feedback}"
     )
 
-    improved = await call_llm(
-        system_prompt=retry_prompt,
-        user_message=user_input,
-        temperature=0.2,  # Slight creativity to try different keywords
-        # See rewrite_query() above — Qwen3-14B's thinking trace needs room
-        # inside max_tokens on this server, which can't be told to skip it.
-        max_tokens=800,
-    )
+    # Up to 2 attempts: a plain retry with the same prompt tends to repeat
+    # the same failure (confirmed live for both the label-echo and the
+    # commentary failure modes above), so the second attempt appends an
+    # explicit correction naming what went wrong in the first — same
+    # pattern as call_llm_json's schema-repair retry for the JSON-output
+    # call sites elsewhere in this pipeline, adapted for free-text output.
+    message = user_input
+    improved = None
+    for attempt in range(2):
+        raw = await call_llm(
+            system_prompt=retry_prompt,
+            user_message=message,
+            temperature=0.2,  # Slight creativity to try different keywords
+            # See rewrite_query() above — Qwen3-14B's thinking trace needs room
+            # inside max_tokens on this server, which can't be told to skip it.
+            max_tokens=800,
+        )
+        improved = _sanitize_rewrite(raw)
+        if improved is not None:
+            break
+        logger.warning(
+            "Retry rewrite attempt %d/2 unusable: %r", attempt + 1, raw[:120],
+        )
+        message = (
+            user_input
+            + "\n\n[SYSTEM CORRECTION] Your previous reply was not usable as a search "
+            "query — it was either a label/heading instead of query text, or "
+            "commentary discussing the question instead of rewriting it. Reply with "
+            "ONLY the raw improved query text, nothing else."
+        )
 
-    improved = _sanitize_rewrite(improved, previous_query)
+    if improved is None:
+        logger.warning(
+            "Retry rewrite failed after 2 attempts (feedback: %s). Using previous query unchanged.",
+            evaluator_feedback[:60],
+        )
+        improved = previous_query.strip()
 
     logger.info(
         "Retry rewrite: '%s' -> '%s' (feedback: %s)",
