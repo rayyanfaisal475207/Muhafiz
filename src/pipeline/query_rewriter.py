@@ -145,6 +145,30 @@ def _sanitize_rewrite(rewritten: str) -> Optional[str]:
         logger.warning("Query rewriter produced commentary, not a query: %r.", text[:100])
         return None
 
+    # A fourth confirmed failure mode (2026-08-03, query_ids 887/889):
+    # distinct from the commentary case above, the model treats the message
+    # as a real question and answers it directly with a refusal — "I
+    # currently do not have access to specific information regarding
+    # which..." — rather than rewriting it. This is long enough (under 400
+    # chars) and phrased in the first person, so it survives every check
+    # above, and it's actively harmful once it survives: this text becomes
+    # the literal search query handed to embedding + BM25, and it compounds
+    # across turns — the very next message in the same session got
+    # contaminated by this refusal sitting in conversation history and
+    # produced a second one. A real rewritten query is never phrased in the
+    # first person about the rewriter's own knowledge.
+    if any(marker in lowered for marker in (
+        "i currently do not have access", "i do not currently have access",
+        "i currently don't have access", "i don't currently have access",
+        "i do not have access to", "i don't have access to",
+        "i do not have information", "i don't have information",
+        "i cannot provide", "i can't provide", "i am not able to provide",
+        "i'm not able to provide", "i recommend contacting",
+        "i recommend referring to", "i suggest contacting",
+    )):
+        logger.warning("Query rewriter produced a refusal, not a query: %r.", text[:100])
+        return None
+
     return text
 
 

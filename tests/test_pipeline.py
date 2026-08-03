@@ -82,6 +82,32 @@ def test_rewrite_that_discusses_the_question_returns_none():
     assert _sanitize_rewrite(commentary) is None
 
 
+@pytest.mark.parametrize("raw", [
+    "I currently do not have access to specific information regarding which "
+    "reports are handled by Nilore Station. For the most accurate and "
+    "up-to-date information, I recommend contacting the local police "
+    "department or referring to official police records.",
+    "I don't have access to that information. I recommend contacting the "
+    "relevant department directly.",
+    "Based on the information available in the documents, there is no "
+    "specific mention of items that have been recovered in the "
+    "investigation. I recommend referring to official case records.",
+])
+def test_rewrite_that_refuses_instead_of_rewriting_returns_none(raw):
+    """
+    Regression (2026-08-03, live query_ids 887/889): distinct from the
+    commentary case above — the model treats the message as a real question
+    and answers it with a first-person refusal ("I currently do not have
+    access to...") instead of rewriting it. This is short enough (under 400
+    chars) and phrased differently enough from "the question is unclear"
+    that it survived every prior check and got used verbatim as the actual
+    search query handed to embedding + BM25 — and, sitting in conversation
+    history, contaminated the very next turn's rewrite in the same session
+    into producing a second refusal.
+    """
+    assert _sanitize_rewrite(raw) is None
+
+
 async def test_rewrite_skips_the_llm_when_there_is_no_history(monkeypatch):
     """First message in a session is already standalone — don't pay for a call."""
     called = False

@@ -293,7 +293,17 @@ def _check_refusal(answer: str) -> Optional[str]:
 # answer with zero citations is a different, much more suspicious shape.
 _SUBSTANTIAL_ANSWER_LEN = 150
 
-_DOCUMENT_CITATION_RE = re.compile(r"\[Document\s+\d+\]", re.IGNORECASE)
+# Confirmed live (2026-08-03, query_id 889): the generator sometimes writes
+# "**Document 1**" (markdown bold, no brackets) instead of the prompted
+# "[Document 1]" — a genuinely grounded, correctly-cited answer ("In
+# Document 1, it is mentioned that 'the stolen items were recovered'...")
+# then got rejected here as if it cited nothing at all, burning two
+# regeneration attempts before falling back to a generic abstention. The
+# check's actual purpose is "did this answer engage with a specific
+# numbered source," not "did it use exact bracket syntax" — so the pattern
+# now also accepts optional brackets/parens and optional markdown bold
+# around "Document N", not just the bracketed form.
+_DOCUMENT_CITATION_RE = re.compile(r"[\[(]?\*{0,2}Document\s+\d+\*{0,2}[\])]?", re.IGNORECASE)
 
 
 def _check_no_citation(answer: str) -> Optional[str]:

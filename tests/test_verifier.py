@@ -8,6 +8,7 @@ import pytest
 from src.pipeline.verifier import (
     _check_hedging,
     _check_leakage,
+    _check_no_citation,
     _check_temporal,
     _format_chunks_for_verifier,
     verify_grounding,
@@ -179,6 +180,50 @@ def test_hedging_no_graph_confidence_key_skipped():
     chunk = _chunk()  # no graph_confidence
     answer = "[Document 1] Definitive statement without hedge."
     assert _check_hedging(answer, [chunk]) == []
+
+
+# ── _check_no_citation ───────────────────────────────────────────────────────
+
+def test_no_citation_bracket_form_passes():
+    answer = "[Document 1] " + "This is a substantial, properly cited answer. " * 5
+    assert _check_no_citation(answer) is None
+
+
+def test_no_citation_short_answer_is_not_flagged():
+    """Too short to be 'substantial' — a legitimate one-line no-match answer."""
+    assert _check_no_citation("Not found in the documents.") is None
+
+
+def test_no_citation_flags_a_substantial_answer_with_no_document_reference():
+    answer = "This is a long answer with no reference to any source at all. " * 5
+    issue = _check_no_citation(answer)
+    assert issue is not None
+    assert "cites no" in issue
+
+
+def test_no_citation_accepts_bold_markdown_document_reference():
+    """
+    Regression (2026-08-03, live query_id 889): the generator wrote
+    "**Document 1**" (markdown bold, no brackets) in an otherwise correctly
+    grounded answer — "In Document 1, it is mentioned that 'the stolen
+    items were recovered'..." — and this deterministic check rejected it as
+    if it cited nothing, burning two regeneration attempts before falling
+    back to a generic abstention. The check's job is to catch answers that
+    never engage with a specific source, not to enforce exact bracket
+    syntax.
+    """
+    answer = (
+        "Based on the information provided in the documents, the following "
+        "items have been recovered in the investigation:\n\n"
+        "- In **Document 1**, it is mentioned that the stolen items were "
+        "recovered. However, the specific items are not listed in the text."
+    )
+    assert _check_no_citation(answer) is None
+
+
+def test_no_citation_accepts_bare_document_reference_without_brackets_or_bold():
+    answer = "As stated in Document 2, the vehicle was recovered near the site. " * 3
+    assert _check_no_citation(answer) is None
 
 
 # ── verify_grounding (async, with LLM monkeypatched) ─────────────────────────
