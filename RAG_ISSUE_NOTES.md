@@ -451,3 +451,108 @@ should push users toward selecting a case before asking case-relative
 questions, or this class of query should route to XAGG (currently gated to
 supervisor-or-higher — see the GRAPH/XGRAPH case_id discussion). Not
 addressed in this change.
+
+## 10. Update (2026-08-03) — the query rewriter itself answers or refuses
+   instead of rewriting, in three distinct shapes
+
+### Symptom
+
+Live-tested via the actual chat UI: a follow-up question in an existing
+session ("which reports are handled by nilore station", then "what items
+have been recorvered in investigation") produced a `rewritten_query` that
+was itself a first-person refusal — e.g. *"I currently do not have access to
+specific information regarding which reports are handled by Nilore
+Station..."* — and this text then became the literal search query handed to
+embedding + BM25. Sitting in conversation history, it contaminated the next
+turn's rewrite into producing a second refusal.
+
+### Root cause and fix (`src/pipeline/query_rewriter.py`)
+
+`_sanitize_rewrite()` already guarded against three known LLM failure modes
+(preambles, essay-length answers, "the question is unclear"-style
+commentary) but had no check for the rewriter model treating the message as
+a real question and either refusing it or answering it directly. Confirmed
+live across three distinct shapes, each requiring its own detection:
+
+1. **First-person refusal** — "I currently do not have access to...",
+   "I don't have specific information about...". Caught by a regex on
+   negated first-person possession (`i (don't|do not) ... have`) plus
+   meta-commentary patterns ("to provide a more accurate response", "it's
+   important to clarify", "without specific details") — patterns target the
+   *structure* of the sentence, not exact wording, because a literal phrase
+   list turned out to be exactly as incomplete here as verifier.py's own
+   docstring already warns for refusal phrases in general: re-testing the
+   same live scenario after the first (phrase-list) version of this fix
+   shipped produced two more refusal wordings that matched none of the
+   listed phrases.
+2. **Answering using conversation history** — given enough history, the
+   model answered a follow-up directly: *"Based on the information provided
+   in **Document 1 (Recovery Memo)** for **FIR-2026-THEFT-012**, the
+   specific items that have been recovered..."* This has a clean, almost
+   zero-false-positive tell: the rewriter runs *before* retrieval, so it has
+   never seen a "Document N" citation — any such reference in its output can
+   only be an echo from history, never a legitimate rewrite.
+3. **Addressing the user during a retry** — a retry-rewrite of a genuinely
+   vague query wrote *"To improve the search query and make it more specific
+   and effective, you can provide more context such as:..."* instead of
+   producing an improved query itself.
+
+All three return `None` from `_sanitize_rewrite()`, which makes both callers
+(`rewrite_query()`, `rewrite_for_retry()`) fall back to the original
+message/previous query — the existing, already-correct fallback path for
+every other unusable-output case.
+
+### Verification
+
+- Unit: 6 new tests across the three failure shapes plus two false-positive
+  guards (a legitimate rewrite that quotes a witness's own first-person
+  statement, e.g. "Did the witness say I saw the accused near the scene?",
+  must not be rejected). Full suite: `pytest -q` — all passing.
+- Live re-verification, iterated three times against the actual running
+  backend (each round surfaced a new variant, which was then fixed and
+  re-tested): the exact two-turn scenario now completes without any
+  rewriter refusal or history-echo at all; the first turn succeeds
+  end-to-end with a grounded, correctly cited answer. A live spot-check
+  across English, Urdu, and Roman-Urdu case-identifier queries (from Part 2
+   of `demo_1.md`) also passed cleanly, first try, no retries.
+
+### Scope note / residual risk
+
+This is a "the model doesn't reliably follow the system prompt's meta-
+instruction" class of bug, not a logic bug with a finite fix surface —
+structural regex patterns generalize much better than a literal phrase list,
+but cannot be guaranteed to catch every future wording the underlying LLM
+might produce. Treat this as substantially improved and live-verified for
+every case tried, not as a claim that rewriter refusals are now provably
+impossible.
+
+## 11. Update (2026-08-03) — a fourth, independent bug: verifier's
+   no-citation check missed a bold-markdown citation
+
+### Symptom
+
+For "what items have been recorvered in investigation" (case-scoped via the
+FIR-number auto-scope fix in section 9): retrieval found the right chunk,
+the evaluator correctly marked it relevant, and generation produced a real,
+grounded answer — but wrote `**Document 1**` (markdown bold, no brackets)
+instead of the prompted `[Document 1]`. The verifier's deterministic
+no-citation check (`_check_no_citation` / `_DOCUMENT_CITATION_RE` in
+`verifier.py`) only recognized the exact bracketed form, saw zero matches,
+and rejected a genuinely correct answer as if it cited nothing — burning two
+regeneration attempts before falling back to a generic abstention.
+
+### Fix
+
+`_DOCUMENT_CITATION_RE` now also accepts `**Document N**` (bold) and bare
+`Document N` (no wrapper at all), not just `[Document N]`. The check's
+actual purpose is "did this answer engage with a specific numbered source,"
+not "did it use exact bracket syntax" — broadening the pattern reduces false
+rejections without weakening what the check catches (a genuinely
+citation-less answer still has zero matches under the broadened pattern
+too).
+
+### Verification
+
+5 new unit tests in `tests/test_verifier.py` covering the bracket, bold, and
+bare forms plus both the already-passing and already-failing control cases.
+Full suite passing.
