@@ -350,3 +350,104 @@ but not for every query shape — a full-corpus, high-similarity semantic hit
 can still be dropped by fusion when BM25 doesn't independently corroborate it,
 particularly for reference/SOP-style content competing against a much larger
 case-document corpus using overlapping generic terms.
+
+## 9. Update (2026-08-03) — a third bug: unscoped queries naming a specific
+   FIR number were never actually scoped to that case
+
+### Symptom
+
+Live-tested (no case selected in the UI, matching how every query in this
+document has been tested so far):
+
+- "Trace the full case history for FIR-2026-THEFT-001 from the initial
+  complaint through to the charge sheet." → retrieval failed on all 3
+  retries, final response: "I couldn't find sufficient information in the
+  knowledge base..."
+- "list of people accused" (no case number at all) → evaluator eventually
+  marked scattered, unrelated documents "relevant" on retry 2, but
+  generation correctly refused to synthesize a coherent answer from them.
+
+### Root cause (confirmed via direct SQLite pipeline-log inspection, not
+   guessed)
+
+`data/pipeline_logs.db`'s `retrieved_documents` table showed the FIR-2026-
+THEFT-001 query's retrieval was **never scoped to that case at all** — every
+retry ran RRF fusion across the entire unscoped corpus (270+ chunks spanning
+40+ unrelated cases: THEFT-010/011/012, BUR-007/008/009, FRAUD-015/016,
+HAR-001/002/018, DOM-013/014, CYBER-005/006, ARMS-001/003, etc.). With
+`TOP_K_RETRIEVAL=10` and this many same-shaped competitors (every case
+document contains the tokens "FIR", "2026", a crime category, and a 3-digit
+number), THEFT-001's own 4 documents (FIR, Darkhast/complaint, case diary,
+charge sheet) routinely lost the RRF fusion cut entirely — confirmed in the
+logs: `FIR-2026-THEFT-001.pdf` itself never appeared in the fused top-10 on
+any of the 3 retries, crowded out by THEFT-010/011/012 and others that merely
+share the same generic tokens.
+
+The obvious fix — "just select the case first" — doesn't work for this
+corpus: the Chroma `case_id` metadata used by this bulk synthetic dataset
+(e.g. `CASE-B0-THEFT-001`) uses a different naming scheme than the Postgres
+`cases` table's rows (e.g. `CASE-002`), and **the `cases` table has no row
+for it at all** (confirmed: `SELECT case_id, fir_number FROM cases WHERE
+fir_number LIKE '%THEFT-001%'` → 0 rows). There is currently no way to select
+this case from the UI's case picker — it isn't a bug in the picker, this
+dataset was never registered as a `cases` row when it was ingested. So for
+this whole corpus, the fixed TOP_K_RETRIEVAL window is the *only* mechanism
+standing between a specific-case query and drowning in every other case's
+chunks, and it wasn't enough once the corpus grew past a handful of cases per
+crime category.
+
+### The fix (`src/pipeline/orchestrator.py`, RAG route only)
+
+Before the RAG route's retry loop, if no `case_id` is already active, extract
+any FIR-number-shaped identifier from the query text using the existing
+`extract_fir_numbers()` (`src/extraction/structured_fields.py` — already used
+at ingestion time, never previously wired into the query path). If found,
+resolve it to a concrete `case_id` by scanning the already-fetched,
+project/global-scoped chunk pool for any chunk whose `source` filename
+contains that FIR number, and reuse its `case_id` metadata to scope the rest
+of retrieval for this query (`where_clause["case_id"] = resolved`,
+`is_cross_case = False`). This works entirely off Chroma's own metadata — it
+does not depend on the `cases` Postgres table having a matching row, so it
+fixes this corpus's gap without needing to backfill 43 `cases` rows to match
+the demo dataset's `CASE-B0-*` scheme.
+
+Deliberately narrow: only fires when no case is already active (never
+overrides an explicit UI case selection), and only when the query names an
+explicit FIR number — it does not attempt to solve genuinely ambiguous,
+case-less aggregate queries like "list of people accused" (see below).
+
+### Verification
+
+- Unit: three new tests in `tests/test_orchestrator.py` —
+  `test_fir_number_in_query_auto_scopes_retrieval_even_with_no_case_active`
+  (the exact failure mode: a FIR number in the query text, no case active,
+  must resolve `where` to `{"case_id": ...}` instead of `{"is_global": True}`),
+  `test_no_fir_number_in_query_leaves_case_scoping_untouched` (regression
+  guard — a query with no identifier must not trigger the lookup at all), and
+  `test_fir_number_auto_scope_never_overrides_an_already_active_case`
+  (regression guard — an explicit UI case selection always wins). Full suite:
+  `pytest -q` — all passing, no regressions.
+- Live re-verification against the real running backend (port 8001, restarted
+  to pick up the change), the exact previously-failing query, 3/3:
+  `router/done` now reports `case_scope: within_case` (was `cross_case`
+  before the fix); retrieval, evaluator, and citation validator all pass on
+  the *first* attempt (0 retries needed, vs. exhausting all 3 retries and
+  failing before the fix); the response correctly traces the case from the
+  2026-01-02 Darkhast complaint through to the charge sheet, fully grounded.
+
+### Still open: "list of people accused" (no case number, no case active)
+
+This is a genuinely different, unsolved problem — not a retrieval bug in the
+same sense. With no FIR number and no case active, there is no signal to scope
+retrieval to a single case; the query is inherently asking "across the entire
+corpus" for something ("the accused") that is only meaningful *relative to a
+specific case*. The evaluator's retry-2 behavior (marking scattered,
+unrelated-case chunks "relevant") is itself questionable, but the generator's
+refusal to synthesize a fabricated cross-case "list of accused" from them is
+arguably correct — the alternative would be hallucinating a merged list from
+unrelated cases. The real fix here isn't a retrieval change; it's a product
+decision (see the session's broader project-status discussion): either the UI
+should push users toward selecting a case before asking case-relative
+questions, or this class of query should route to XAGG (currently gated to
+supervisor-or-higher — see the GRAPH/XGRAPH case_id discussion). Not
+addressed in this change.

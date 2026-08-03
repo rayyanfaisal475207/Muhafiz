@@ -1353,6 +1353,47 @@ async def process_query(
     # ─── Retrieval path: retry loop ────────────────────────────────────────
     if route_str == "RAG":
 
+        # Auto-scope to the case an explicit FIR number names, even when no
+        # case is "active" in the UI. Root-caused 2026-08-03: a query like
+        # "Trace the full case history for FIR-2026-THEFT-001..." with no
+        # case selected searches the ENTIRE unscoped corpus (currently 270+
+        # chunks across 40+ cases) — TOP_K_RETRIEVAL=10 gets diluted across
+        # every other case sharing tokens like "FIR"/"2026"/the crime
+        # category, and the handful of chunks that actually belong to
+        # THEFT-001 routinely lose the fusion/cross-rerank cut entirely
+        # (confirmed live: FIR-2026-THEFT-001.pdf itself never made the
+        # fused top-10 even by retry 2, crowded out by THEFT-010/011/012
+        # etc.). The `cases` Postgres table can't resolve this either — the
+        # bulk demo corpus's Chroma `case_id` metadata (e.g.
+        # "CASE-B0-THEFT-001") uses a different scheme than the `cases`
+        # table's rows (e.g. "CASE-002") and has no row for it at all — so
+        # this resolves directly off Chroma metadata instead: find any
+        # chunk whose `source` filename contains the FIR number, and reuse
+        # its `case_id` to scope the rest of retrieval. Only fires when no
+        # case is already active — never overrides an explicit UI selection.
+        if not case_id:
+            from src.extraction.structured_fields import extract_fir_numbers
+            fir_matches = extract_fir_numbers(rewritten_query)
+            if fir_matches:
+                target_fir = fir_matches[0].normalized
+                scope_only_where = {"project_id": project_id} if project_id else {"is_global": True}
+                try:
+                    candidate_pool_for_scoping = await get_all_chunks(where=scope_only_where)
+                except Exception as scope_exc:
+                    logger.warning("FIR-based auto-scope lookup failed: %s", scope_exc)
+                    candidate_pool_for_scoping = []
+                for chunk in candidate_pool_for_scoping:
+                    source = (chunk.get("metadata") or {}).get("source", "")
+                    if target_fir in source.upper():
+                        resolved_case_id = chunk["metadata"].get("case_id")
+                        if resolved_case_id:
+                            logger.info(
+                                "Auto-scoped query to case_id=%s via FIR number %s found in query text",
+                                resolved_case_id, target_fir,
+                            )
+                            case_id = resolved_case_id
+                            break
+
         retry_count = 0
         current_query = rewritten_query
         evaluator_feedback = None

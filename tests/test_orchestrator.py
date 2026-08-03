@@ -465,6 +465,72 @@ async def test_rag_project_scoped_query_unaffected_by_case_fix(run_pipeline):
         assert where == {"project_id": "11111111-1111-1111-1111-111111111111"}
 
 
+async def test_fir_number_in_query_auto_scopes_retrieval_even_with_no_case_active(run_pipeline):
+    """
+    2026-08-03 fix: a query naming an explicit FIR number (e.g. "Trace the
+    full case history for FIR-2026-THEFT-001...") must auto-scope retrieval
+    to that case even when no case is selected in the UI — otherwise the
+    query is diluted across the entire unscoped corpus and the case's own
+    documents can lose the fusion/rerank cut to unrelated cases entirely
+    (confirmed live against the real corpus).
+    """
+    bm25_pool = [
+        {"id": "other-case", "text": "unrelated theft case",
+         "metadata": {"source": "FIR-2026-THEFT-011.pdf", "case_id": "CASE-B0-THEFT-011"}},
+        {"id": "target-case", "text": "Complaint text naming the actual case.",
+         "metadata": {"source": "FIR-2026-THEFT-001.pdf", "case_id": "CASE-B0-THEFT-001"}},
+    ]
+    events, _ = await run_pipeline(
+        message="Trace the full case history for FIR-2026-THEFT-001 from the initial complaint through to the charge sheet.",
+        route='{"route": "RAG", "output_format": "chat"}',
+        case_id=None,
+        bm25_pool=bm25_pool,
+    )
+    assert run_pipeline.where_calls, "query_similar was never called"
+    for where in run_pipeline.where_calls:
+        assert where == {"case_id": "CASE-B0-THEFT-001"}, (
+            f"expected the FIR number in the query to auto-scope retrieval "
+            f"to its case, got {where}"
+        )
+
+
+async def test_no_fir_number_in_query_leaves_case_scoping_untouched(run_pipeline):
+    """
+    Regression guard: a query with no FIR-number-shaped identifier must not
+    trigger the auto-scope lookup at all — no case_id is invented out of
+    thin air, and behavior for a genuinely unscoped query is unchanged.
+    """
+    events, _ = await run_pipeline(
+        message="What is the procedure to get a certified copy of an FIR?",
+        route='{"route": "RAG", "output_format": "chat"}',
+        case_id=None,
+    )
+    assert run_pipeline.where_calls, "query_similar was never called"
+    for where in run_pipeline.where_calls:
+        assert where == {"is_global": True}
+
+
+async def test_fir_number_auto_scope_never_overrides_an_already_active_case(run_pipeline):
+    """
+    Regression guard: if a case IS already active in the UI, a FIR number
+    mentioned in the query text (e.g. referring to a different case) must
+    never override the user's explicit selection.
+    """
+    bm25_pool = [
+        {"id": "other-case", "text": "a different case entirely",
+         "metadata": {"source": "FIR-2026-THEFT-001.pdf", "case_id": "CASE-B0-THEFT-001"}},
+    ]
+    events, _ = await run_pipeline(
+        message="Trace the full case history for FIR-2026-THEFT-001 from the initial complaint through to the charge sheet.",
+        route='{"route": "RAG", "output_format": "chat"}',
+        case_id="CASE-014",
+        bm25_pool=bm25_pool,
+    )
+    assert run_pipeline.where_calls, "query_similar was never called"
+    for where in run_pipeline.where_calls:
+        assert where == {"case_id": "CASE-014"}
+
+
 # ── BM25 full-corpus pool (RETRIEVAL_DIVERSITY_FIX_PROMPT.md, Fix 1) ───────────
 
 async def test_bm25_pool_is_fetched_with_the_same_scope_as_vector_search(run_pipeline):
