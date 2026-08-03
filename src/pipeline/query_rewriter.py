@@ -78,10 +78,54 @@ async def rewrite_query(
         max_tokens=800,
     )
 
-    rewritten = _sanitize_rewrite(raw) or user_message.strip()
+    sanitized = _sanitize_rewrite(raw)
+    if sanitized is not None and _echoes_prior_assistant_turn(sanitized, conversation_history):
+        logger.warning(
+            "Query rewriter echoed a prior assistant message instead of "
+            "rewriting: %r.", sanitized[:100],
+        )
+        sanitized = None
+    rewritten = sanitized or user_message.strip()
 
     logger.info("Query rewritten: '%s' -> '%s'", user_message[:50], rewritten[:80])
     return rewritten
+
+
+# Minimum overlap length before a rewrite is treated as "copied from
+# history" rather than coincidentally sharing a short common phrase — a
+# real rewrite legitimately reuses short fragments from history (a station
+# name, an FIR number); only a long verbatim run is suspicious.
+_ECHO_MIN_OVERLAP = 40
+
+
+def _echoes_prior_assistant_turn(rewritten: str, conversation_history: list[dict]) -> bool:
+    """
+    Structural catch-all, complementary to _sanitize_rewrite()'s pattern
+    list: confirmed live (2026-08-03), the rewriter sometimes verbatim-
+    echoes a PRIOR ASSISTANT MESSAGE from history — most often the app's
+    own canned abstention text truncated at the max_tokens boundary — and
+    uses that as the search query for the current, unrelated question. A
+    literal phrase list can only catch known wordings; this catches the
+    shape of the failure (the "rewrite" is substantially a copy of
+    something the assistant already said) regardless of what that text is,
+    including future canned messages or genuine past answers alike.
+    """
+    lowered = rewritten.lower()
+    for msg in conversation_history:
+        if msg.get("role") != "assistant":
+            continue
+        content = (msg.get("content") or "").lower()
+        if len(content) < _ECHO_MIN_OVERLAP:
+            continue
+        if lowered in content or content in lowered:
+            return True
+        # Prefix match: the rewrite is a truncated copy of a longer prior
+        # assistant message (the max_tokens-truncation shape actually seen
+        # live), not necessarily a full-string match either direction.
+        prefix_len = min(len(lowered), len(content), 80)
+        if prefix_len >= _ECHO_MIN_OVERLAP and lowered[:prefix_len] == content[:prefix_len]:
+            return True
+    return False
 
 
 def _sanitize_rewrite(rewritten: str) -> Optional[str]:
@@ -190,6 +234,19 @@ def _sanitize_rewrite(rewritten: str) -> Optional[str]:
         # specific and effective, you can provide more context such as:".
         r"\bto (?:improve|refine) the (?:search )?query\b",
         r"\byou can provide more (?:context|details|information)\b",
+        # Confirmed live (2026-08-03, second re-test): the rewriter didn't
+        # invent a refusal this time — it verbatim-echoed the APP'S OWN
+        # canned abstention text from the previous turn's assistant message
+        # in conversation history ("I couldn't find sufficient information
+        # in the knowledge base to accurately answer your question...",
+        # `orchestrator.py`'s `_SAFE_RESPONSE`), truncated at the max_tokens
+        # boundary, then used THAT as the search query for the current
+        # question. Exact known string, not a wording the model invented —
+        # matched permanently rather than left to the general history-echo
+        # check below, since it will recur exactly like this every time.
+        r"\bcouldn'?t find (?:sufficient|enough) information\b",
+        r"\btry rephrasing your question\b",
+        r"\b(?:ensure|make sure) (?:that )?(?:the )?relevant documents (?:have been|are) ingested\b",
     )
     if any(re.search(pattern, lowered) for pattern in _REFUSAL_PATTERNS):
         logger.warning("Query rewriter produced a refusal, not a query: %r.", text[:100])
