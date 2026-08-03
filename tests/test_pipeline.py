@@ -7,7 +7,11 @@ output. A component that mishandles those degrades answer quality silently.
 """
 import pytest
 
-from src.pipeline.query_rewriter import _sanitize_rewrite, rewrite_query
+from src.pipeline.query_rewriter import (
+    _echoes_prior_assistant_turn,
+    _sanitize_rewrite,
+    rewrite_query,
+)
 from src.pipeline.router import route_query
 from src.pipeline.evaluator import evaluate_relevance, _format_chunks_for_prompt
 
@@ -179,6 +183,67 @@ def test_rewrite_that_answers_using_a_document_citation_returns_none():
         "recovered are stolen mobile phones."
     )
     assert _sanitize_rewrite(raw) is None
+
+
+def test_rewrite_that_echoes_the_apps_own_abstention_text_returns_none():
+    """
+    Regression (2026-08-03, second live re-test): the rewriter verbatim-
+    echoed the app's own canned abstention text (`orchestrator.py`'s
+    `_SAFE_RESPONSE`) from the previous turn's assistant message — "I
+    couldn't find sufficient information in the knowledge base to
+    accurately answer your question. You may want to try rephrasing your
+    question or ensure the relevant documents have been ingested..." — and
+    used that as the search query for a completely unrelated follow-up
+    question. This is an exact, permanently-recurring known string (not a
+    novel wording), so it's matched directly in addition to the general
+    history-echo check below.
+    """
+    raw = (
+        "I couldn't find sufficient information in the knowledge base to "
+        "accurately answer your question. You may want to try rephrasing "
+        "your question or ensure the relevant documents have been ingested "
+        "into the system."
+    )
+    assert _sanitize_rewrite(raw) is None
+
+
+def test_echoes_prior_assistant_turn_detects_a_verbatim_copy():
+    history = [
+        {"role": "user", "content": "What happened in FIR-2026-HAR-001?"},
+        {"role": "assistant", "content": (
+            "I couldn't find sufficient information in the knowledge base "
+            "to accurately answer your question. You may want to try "
+            "rephrasing your question or ensure the relevant documents "
+            "have been ingested into the system."
+        )},
+    ]
+    rewritten = (
+        "I couldn't find sufficient information in the knowledge base to "
+        "accurately answer your question."
+    )
+    assert _echoes_prior_assistant_turn(rewritten, history) is True
+
+
+def test_echoes_prior_assistant_turn_ignores_a_genuinely_new_rewrite():
+    history = [
+        {"role": "user", "content": "What happened in FIR-2026-HAR-001?"},
+        {"role": "assistant", "content": (
+            "The complainant reported harassment at Kohsar police station "
+            "on 2026-02-10, filed under Section 509 PPC."
+        )},
+    ]
+    rewritten = "What was the harassment complaint filed under Section 509 PPC at Kohsar?"
+    assert _echoes_prior_assistant_turn(rewritten, history) is False
+
+
+def test_echoes_prior_assistant_turn_ignores_short_coincidental_overlap():
+    """A short shared fragment (a station name) is not suspicious on its own."""
+    history = [
+        {"role": "user", "content": "Which station handled it?"},
+        {"role": "assistant", "content": "Nilore police station handled the case."},
+    ]
+    rewritten = "What reports are handled by Nilore police station?"
+    assert _echoes_prior_assistant_turn(rewritten, history) is False
 
 
 async def test_rewrite_skips_the_llm_when_there_is_no_history(monkeypatch):
