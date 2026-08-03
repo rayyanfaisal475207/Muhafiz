@@ -22,6 +22,7 @@
 # ============================================================
 
 import logging
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -157,16 +158,60 @@ def _sanitize_rewrite(rewritten: str) -> Optional[str]:
     # contaminated by this refusal sitting in conversation history and
     # produced a second one. A real rewritten query is never phrased in the
     # first person about the rewriter's own knowledge.
-    if any(marker in lowered for marker in (
-        "i currently do not have access", "i do not currently have access",
-        "i currently don't have access", "i don't currently have access",
-        "i do not have access to", "i don't have access to",
-        "i do not have information", "i don't have information",
-        "i cannot provide", "i can't provide", "i am not able to provide",
-        "i'm not able to provide", "i recommend contacting",
-        "i recommend referring to", "i suggest contacting",
-    )):
+    #
+    # A literal phrase list turned out to be exactly as incomplete here as
+    # verifier.py's own docstring warns for refusal phrases in general —
+    # confirmed live: re-running the SAME live scenario after the phrase
+    # list above shipped, the model produced two more first-person refusals
+    # ("I don't have specific information about items recovered...", "To
+    # provide a more accurate and helpful response, it's important to
+    # clarify that...") that matched none of those exact phrases. Patterns
+    # below target the STRUCTURE of a refusal/meta-commentary sentence
+    # instead of exact wording, so new phrasings of the same failure mode
+    # don't each need their own literal entry:
+    #   - first-person negated possession of information ("I don't have
+    #     [any/specific/...] information/details/access/data")
+    #   - meta-commentary about the response itself ("to provide a more
+    #     accurate/helpful/better answer/response", "it's important to
+    #     clarify/note/understand", "without specific/more details/context")
+    _REFUSAL_PATTERNS = (
+        r"\bi (?:currently )?(?:don'?t|do not|can'?t|cannot|am not able to|'?m not able to) "
+        r"(?:currently )?have\b",
+        r"\bi (?:can'?t|cannot|am not able to|'?m not able to) provide\b",
+        r"\bi recommend (?:contacting|referring to)\b",
+        r"\bi suggest (?:contacting|referring to)\b",
+        r"\bto provide (?:a|an) (?:more|better) (?:accurate|helpful|complete)\b",
+        r"\bit'?s important to (?:clarify|note|understand)\b",
+        r"\bit is important to (?:clarify|note|understand)\b",
+        r"\bwithout (?:specific|more|additional) (?:details|information|context)\b",
+        # Confirmed live (2026-08-03, same re-test): a retry-rewrite of a
+        # genuinely vague query addressed the USER instead of producing an
+        # improved query — "To improve the search query and make it more
+        # specific and effective, you can provide more context such as:".
+        r"\bto (?:improve|refine) the (?:search )?query\b",
+        r"\byou can provide more (?:context|details|information)\b",
+    )
+    if any(re.search(pattern, lowered) for pattern in _REFUSAL_PATTERNS):
         logger.warning("Query rewriter produced a refusal, not a query: %r.", text[:100])
+        return None
+
+    # A fifth confirmed failure mode (2026-08-03, live re-test), distinct
+    # from refusing: given enough conversation history, the model instead
+    # ANSWERS the follow-up directly using facts from the previous turn —
+    # "Based on the information provided in **Document 1 (Recovery Memo)**
+    # for **FIR-2026-THEFT-012**, the specific items that have been
+    # recovered..." — rather than producing a new standalone search query.
+    # This one has a clean, almost zero-false-positive tell: the rewriter
+    # runs BEFORE retrieval, so it has never seen a "Document N" citation —
+    # any [Document N] / **Document N** reference in its output can only be
+    # the model echoing a citation from conversation history while
+    # answering, never a legitimate rewrite. "Based on the information
+    # provided/available" is the same failure's generic answering preamble,
+    # flagged independently in case a citation isn't quoted verbatim.
+    if re.search(r"[\[(]?\*{0,2}document\s+\d+\*{0,2}[\])]?", lowered) or re.search(
+        r"\bbased on the information (?:provided|available)\b", lowered
+    ):
+        logger.warning("Query rewriter answered using history, not a query: %r.", text[:100])
         return None
 
     return text

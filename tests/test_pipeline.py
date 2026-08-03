@@ -108,6 +108,79 @@ def test_rewrite_that_refuses_instead_of_rewriting_returns_none(raw):
     assert _sanitize_rewrite(raw) is None
 
 
+@pytest.mark.parametrize("raw", [
+    # Live-observed, 2026-08-03: after the phrase-list version of the fix
+    # above shipped, re-running the SAME two-turn scenario against the
+    # restored model server produced two MORE first-person refusals that
+    # matched none of that phrase list — confirming a literal list is as
+    # incomplete here as verifier.py's own docstring warns for refusal
+    # phrases generally. These wordings are why the detection was
+    # rewritten as structural regex patterns instead of literal phrases.
+    "I don't have specific information about items recovered in "
+    "investigations handled by Nilore Station or any other specific "
+    "station, as this requires access to case records.",
+    "To provide a more accurate and helpful response, it's important to "
+    "clarify that without specific details about the investigation in "
+    "question, I cannot determine what items were recovered.",
+])
+def test_rewrite_that_refuses_with_a_new_unlisted_phrasing_returns_none(raw):
+    """
+    Regression guard for the whack-a-mole failure mode itself: these exact
+    two sentences were NOT in the literal phrase list and would have
+    slipped through it — they must still be caught by the structural
+    (regex) patterns that replaced/extended it.
+    """
+    assert _sanitize_rewrite(raw) is None
+
+
+@pytest.mark.parametrize("raw", [
+    "What PPC section applies to mobile phone theft?",
+    "Did the witness say I saw the accused near the scene?",
+    "What did the witness who said I saw the man leave in a hurry report to police?",
+])
+def test_rewrite_refusal_patterns_do_not_false_positive_on_real_queries(raw):
+    """
+    Regression guard: the refusal patterns are anchored on first-person
+    negated-possession/meta-commentary structure, not the bare word "I" —
+    a legitimate rewritten query that happens to quote the user's or a
+    witness's own first-person phrasing must not be rejected.
+    """
+    assert _sanitize_rewrite(raw) == raw
+
+
+def test_rewrite_that_addresses_the_user_instead_of_rewriting_returns_none():
+    """
+    Regression (2026-08-03, live re-test): a retry-rewrite of a genuinely
+    vague query addressed the user directly instead of producing an
+    improved query — "To improve the search query and make it more
+    specific and effective, you can provide more context such as:".
+    """
+    raw = (
+        "To improve the search query and make it more specific and "
+        "effective, you can provide more context such as: the station name, "
+        "the FIR number, or the date of the incident."
+    )
+    assert _sanitize_rewrite(raw) is None
+
+
+def test_rewrite_that_answers_using_a_document_citation_returns_none():
+    """
+    Regression (2026-08-03, live re-test): given enough conversation
+    history, the model answered a follow-up directly instead of rewriting
+    it — "Based on the information provided in **Document 1 (Recovery
+    Memo)** for **FIR-2026-THEFT-012**, the specific items that have been
+    recovered..." The rewriter runs BEFORE retrieval and has never seen a
+    "Document N" citation, so any such reference in its output can only be
+    the model echoing history while answering — never a legitimate rewrite.
+    """
+    raw = (
+        "Based on the information provided in **Document 1 (Recovery Memo)** "
+        "for **FIR-2026-THEFT-012**, the specific items that have been "
+        "recovered are stolen mobile phones."
+    )
+    assert _sanitize_rewrite(raw) is None
+
+
 async def test_rewrite_skips_the_llm_when_there_is_no_history(monkeypatch):
     """First message in a session is already standalone — don't pay for a call."""
     called = False
