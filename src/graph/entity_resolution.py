@@ -27,6 +27,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -37,6 +38,7 @@ from rapidfuzz import fuzz
 from src.extraction.llm_json import parse_json_response
 from src.graph import age_client, versioning
 from src.graph.case_scope import scoped_cypher
+from src.ingestion.script_detector import _ARABIC_SCRIPT
 from src.ingestion.text_normalizer import normalize_urdu
 from src.llm.client import call_llm
 
@@ -131,10 +133,63 @@ def _new_entity_id(entity_type: str) -> str:
     return f"{entity_type.upper()}-{uuid.uuid4().hex[:10]}"
 
 
+# Roman-Urdu <-> Urdu-script name bridging (A-2). Ordinary token_sort_ratio
+# compares character sequences, so a genuinely same name in different
+# scripts ("Zafar Iqbal" / "ظفر اقبال") scores ~0 — the two strings share
+# no characters at all, regardless of how similar they sound. Rather than a
+# transliteration library (no Urdu-specific one is installed, and pulling
+# one in for this is a heavier dependency than the corpus currently
+# justifies) or an LLM call on every cross-script pair (adds latency/cost
+# and a new failure mode to a merge-decision path), this maps both names
+# down to a coarse CONSONANT SKELETON — Urdu consonant letters mapped to
+# their Roman equivalent, vowel/glide letters (ا و ی ے ع ء ھ) dropped on
+# the Urdu side, and plain vowels (a e i o u) dropped on the Roman side —
+# then fuzzy-compares the two skeletons. "Zafar"->"zfr", "ظفر"->"zfr":
+# exact match. Approximate by design (a heuristic starting point, same as
+# entity_roster.csv-tuned thresholds elsewhere in this file), not a
+# phonetically rigorous transliteration.
+_URDU_CONSONANT_MAP = {
+    "ب": "b", "پ": "p", "ت": "t", "ٹ": "t", "ث": "s", "ج": "j", "چ": "ch",
+    "ح": "h", "خ": "kh", "د": "d", "ڈ": "d", "ذ": "z", "ر": "r", "ڑ": "r",
+    "ز": "z", "ژ": "zh", "س": "s", "ش": "sh", "ص": "s", "ض": "z", "ط": "t",
+    "ظ": "z", "غ": "gh", "ف": "f", "ق": "q", "ک": "k", "گ": "g", "ل": "l",
+    "م": "m", "ن": "n", "ں": "n", "ہ": "h",
+    # Deliberately NOT mapped (vowel/glide carriers, dropped from the
+    # skeleton entirely): ا ع ء ھ و ی ے
+}
+_ROMAN_VOWELS_RE = re.compile(r"[aeiou]")
+_NON_LATIN_LETTER_RE = re.compile(r"[^a-z]")
+
+
+def _consonant_skeleton(text: str) -> str:
+    """Coarse cross-script phonetic skeleton — see comment above."""
+    norm = normalize_urdu(text)
+    if _ARABIC_SCRIPT.search(norm):
+        return "".join(_URDU_CONSONANT_MAP.get(ch, "") for ch in norm)
+    return _ROMAN_VOWELS_RE.sub("", _NON_LATIN_LETTER_RE.sub("", norm.lower()))
+
+
 def _name_similarity(a: str, b: str) -> float:
     if not a or not b:
         return 0.0
-    return fuzz.token_sort_ratio(normalize_urdu(a), normalize_urdu(b)) / 100.0
+    base = fuzz.token_sort_ratio(normalize_urdu(a), normalize_urdu(b)) / 100.0
+
+    # Only attempt the cross-script skeleton comparison when the two names
+    # are actually in DIFFERENT scripts — ordinary same-script comparisons
+    # already work via token_sort_ratio above and must be completely
+    # unaffected by this addition (a wrong merge isn't free to undo, per
+    # versioning.py's append-only edge model). This can only ever raise the
+    # score for a pair that scored ~0 above, never lower an existing
+    # same-script match.
+    a_is_arabic = bool(_ARABIC_SCRIPT.search(a))
+    b_is_arabic = bool(_ARABIC_SCRIPT.search(b))
+    if a_is_arabic != b_is_arabic:
+        skel_a, skel_b = _consonant_skeleton(a), _consonant_skeleton(b)
+        if skel_a and skel_b:
+            skeleton_score = fuzz.ratio(skel_a, skel_b) / 100.0
+            base = max(base, skeleton_score)
+
+    return base
 
 
 def _has_shared_structured_id(mention: dict, candidate_props: dict) -> bool:

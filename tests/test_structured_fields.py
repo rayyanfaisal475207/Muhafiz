@@ -1,5 +1,7 @@
 """Tests for src/extraction/structured_fields.py (Phase 4.3)."""
 
+import pytest
+
 from src.extraction import structured_fields as sf
 
 
@@ -173,6 +175,47 @@ def test_urdu_indic_date():
     matches = sf.extract_dates(urdu_indic)
     assert len(matches) == 1
     assert matches[0].normalized == "2026-05-02"
+
+
+# ── Urdu spelled-out month names (B-3) ──────────────────────────────────
+
+def test_urdu_month_name_date_confirmed_live_example():
+    # Real narrative sentence from WITNESS-FIR-2026-BUR-007-01's ground
+    # truth — the confirmed live example the audit found silently dropped.
+    text = "میں نے بتاریخ 10 فروری 2026ء کو شام 7 بجے ایک شخص کو دیکھا۔"
+    matches = sf.extract_dates(text)
+    assert len(matches) == 1
+    assert matches[0].normalized == "2026-02-10"
+
+
+@pytest.mark.parametrize("month_name,month_num", [
+    ("جنوری", "01"), ("فروری", "02"), ("مارچ", "03"), ("اپریل", "04"),
+    ("مئی", "05"), ("جون", "06"), ("جولائی", "07"), ("اگست", "08"),
+    ("ستمبر", "09"), ("اکتوبر", "10"), ("نومبر", "11"), ("دسمبر", "12"),
+])
+def test_urdu_month_name_all_twelve_months(month_name, month_num):
+    matches = sf.extract_dates(f"5 {month_name} 2026")
+    assert len(matches) == 1
+    assert matches[0].normalized == f"2026-{month_num}-05"
+
+
+def test_urdu_month_name_without_trailing_era_marker():
+    matches = sf.extract_dates("5 جون 2026 کو رپورٹ درج کی گئی۔")
+    assert len(matches) == 1
+    assert matches[0].normalized == "2026-06-05"
+
+
+def test_urdu_month_name_invalid_day_is_dropped():
+    assert sf.extract_dates("32 دسمبر 2026ء") == []
+
+
+def test_urdu_month_name_not_duplicated_when_iso_date_also_present():
+    # A document could plausibly contain both a narrative Urdu-month date
+    # and an unrelated ISO-format field date — must not collide/double-count.
+    text = "date_registered: 2026-02-01\nمیں نے بتاریخ 10 فروری 2026ء کو دیکھا۔"
+    matches = sf.extract_dates(text)
+    normalized = {m.normalized for m in matches}
+    assert normalized == {"2026-02-01", "2026-02-10"}
 
 
 # ── Section references (Urdu comma, not ASCII) ────────────────────────

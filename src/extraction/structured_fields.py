@@ -103,6 +103,23 @@ _FIR_RE = re.compile(r"\bFIR" + _SEP + r"(\d{4})" + _SEP + r"([A-Z]+)" + _SEP + 
 _DATE_ISO_RE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?\b")
 _DATE_DMY_RE = re.compile(r"\b(\d{2})-(\d{2})-(\d{4})\b")
 
+# Urdu spelled-out month name, numeric day/year (B-3): "10 فروری 2026ء" —
+# confirmed live in the real corpus (WITNESS-FIR-2026-BUR-007-01.pdf and
+# 8 other documents, via a full-corpus grep, not a guessed single case).
+# The day/year stay numeric (Indic digits already folded to ASCII by
+# normalize_urdu() before this runs, same as every other pattern in this
+# module) — only the month is spelled out, so this is a lookup + one new
+# pattern, not a full Urdu date-in-words parser (day/year fully spelled
+# out, e.g. "دو اپریل دو ہزار چھبیس", is out of scope here).
+_URDU_MONTHS = {
+    "جنوری": "01", "فروری": "02", "مارچ": "03", "اپریل": "04",
+    "مئی": "05", "جون": "06", "جولائی": "07", "اگست": "08",
+    "ستمبر": "09", "اکتوبر": "10", "نومبر": "11", "دسمبر": "12",
+}
+_DATE_URDU_MONTH_RE = re.compile(
+    r"\b(\d{1,2})\s+(" + "|".join(_URDU_MONTHS) + r")\s+(\d{4})ء?\b"
+)
+
 # Section-reference anchor tokens. A "run" of section references is a
 # comma-separated list where at least one token looks like a legal
 # citation — digits plus one of these markers (PPC/PECA/Ordinance/Act and
@@ -232,6 +249,15 @@ def extract_dates(text: str) -> list[FieldMatch]:
         if any(o.start <= m.start() < o.end for o in out):
             continue
         iso = _valid_iso(y, mo, d)
+        if iso is None:
+            continue
+        out.append(FieldMatch("date", m.group(0), iso, m.start(), m.end()))
+
+    for m in _DATE_URDU_MONTH_RE.finditer(norm):
+        d, month_name, y = m.groups()
+        if any(o.start <= m.start() < o.end for o in out):
+            continue
+        iso = _valid_iso(y, _URDU_MONTHS[month_name], d.zfill(2))
         if iso is None:
             continue
         out.append(FieldMatch("date", m.group(0), iso, m.start(), m.end()))

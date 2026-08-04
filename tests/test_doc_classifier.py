@@ -8,6 +8,42 @@ autouse) guards against an unpatched call slipping through.
 import pytest
 
 import src.extraction.doc_classifier as doc_classifier
+from src.extraction import structured_fields as sf
+
+
+# ── _find_registration_date label coverage (B-2) ────────────────────────
+# Real corpus label variants confirmed via a full-corpus text grep (not a
+# guessed list) — the original regex only recognized "date registered" /
+# "date of registration" / "registration date" / "dated" / "fir date" and
+# missed every one of these.
+
+@pytest.mark.parametrize("text,expected_date", [
+    ("Some intro text.\nDate Reported: 2026-03-11\nMore text.", "2026-03-11"),
+    ("Person Details\nDate Last Seen: 2026-04-02\nDescription follows.", "2026-04-02"),
+    ("Recovery Memo\nDate of Submission: 2026-02-20\n", "2026-02-20"),
+    ("Report\nEntry Dates: 2026-05-01\n", "2026-05-01"),
+    ("Case Diary\nDate: 2026-06-06\n", "2026-06-06"),
+    ("تاریخ اندراج: 2026-01-20", "2026-01-20"),
+])
+def test_find_registration_date_recognizes_real_corpus_labels(text, expected_date):
+    dates = sf.extract_dates(text)
+    date, confidence = doc_classifier._find_registration_date(text, dates)
+    assert date == expected_date
+    assert confidence == "labeled"
+
+
+def test_find_registration_date_falls_back_when_no_label_present():
+    text = "Narrative: incident occurred on 2026-05-13, reported later."
+    dates = sf.extract_dates(text)
+    date, confidence = doc_classifier._find_registration_date(text, dates)
+    assert date == "2026-05-13"
+    assert confidence == "unlabeled_fallback"
+
+
+def test_find_registration_date_none_when_no_date_at_all():
+    date, confidence = doc_classifier._find_registration_date("No dates here.", [])
+    assert date is None
+    assert confidence is None
 
 
 @pytest.mark.asyncio
