@@ -32,8 +32,31 @@ _SYSTEM_PROMPT = _PROMPT_PATH.read_text(encoding="utf-8")
 # often mentions an earlier incident date before its own registration date.
 # Prefer a date found near one of these labels instead; only fall back to
 # the first-date heuristic when no labeled date is found.
+#
+# B-2: the original phrase-only list (date registered/date of registration/
+# registration date/dated/fir date) was audited against the real corpus
+# (grep of every document's extracted text, not a guessed list) and found
+# to miss the labels this corpus actually uses: "Date Reported:", "Date
+# Last Seen:", "Date of Submission:", "Date/Time:", "Date and time of
+# occurrence:", "Entry Dates:", plain "Date:" — meaning the "labeled" path
+# was effectively dead for the very corpus it exists to serve. Rather than
+# hand-list every specific label (the same mistake this regex already
+# made once), the first alternative below generalizes to ANY "...date...:"
+# label — this corpus's field convention is always "Label: value" (see
+# _find_registration_date's docstring), so requiring colon-proximity to
+# the word "date" is a structural match, not a hand-picked phrase list.
+# The original specific phrases are kept alongside it for the (rarer)
+# colon-less "... registration date ..." narrative-prose case they were
+# written for. No Urdu-script date label was found in this corpus's
+# extractable PDF text (the Urdu documents are scanned/OCR'd, not
+# text-layer PDFs, so a direct grep can't see their labels) — تاریخ
+# اندراج/مورخہ are added defensively as the standard formal-Urdu
+# equivalents per the audit, purely additive so they carry no precision
+# risk even if unconfirmed live in this specific corpus snapshot.
 _DATE_LABEL_RE = re.compile(
-    r"date[\s_]+registered|date[\s_]+of[\s_]+registration|registration[\s_]+date|\bdated\b|fir[\s_]+date",
+    r"\bdate\w*\b[^\n:]{0,40}:"
+    r"|date[\s_]+registered|date[\s_]+of[\s_]+registration|registration[\s_]+date|\bdated\b|fir[\s_]+date"
+    r"|تاریخ\s*اندراج|مورخہ",
     re.IGNORECASE,
 )
 # How many characters on either side of a date match count as "near" a label.

@@ -116,7 +116,26 @@ def reciprocal_rank_fusion(
     for doc_id in sorted_ids:
         doc = dict(doc_lookup[doc_id])  # copy to avoid mutating original
         
-        # Apply a time-decay boost to prioritize newer documents
+        # Apply a time-decay boost to prioritize newer documents.
+        #
+        # C-1 (audit 2026-08-04): this reads the filename, not an actual
+        # document-date field, so it could in principle mis-boost a
+        # filename whose only 4-digit run happens to be a case/report
+        # number rather than a real year. Checked against this corpus
+        # (every case filename embeds its FIR's real registration year by
+        # the FIR-YYYY-CATEGORY-NNN naming convention, confirmed via a
+        # full-corpus scan): every case document's filename year is 2026,
+        # so this boost currently applies UNIFORMLY across all case docs
+        # (no differentiation between them) and only distinguishes
+        # case-specific documents from the ~9 generic procedural reference
+        # docs (REAL-*.pdf — "lost report procedure", "FIR copy
+        # procedure", etc.) that have no year in their filename at all and
+        # get zero boost. That's a reasonable outcome (nudge case-specific
+        # results above generic reference material on a tie), not a bug —
+        # kept as filename-based deliberately rather than switched to a
+        # doc-metadata date field, since introducing a new source of truth
+        # here for an issue not actually observed live carries more risk
+        # than the current behavior.
         year_boost = 0.0
         # Check source filename in metadata or root
         source_str = doc.get("source") or doc.get("metadata", {}).get("source", "")

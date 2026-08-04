@@ -160,6 +160,34 @@ _ENGLISH_STOPWORDS = {
 }
 _ENGLISH_NAME_RE = re.compile(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}\b")
 
+# English-side location/org structural cues (B-4). The Urdu side has
+# _STATION_RE/_ORG_SUFFIX_RE/the gazetteer above proposing a non-"person"
+# type from structure alone; the English side had nothing equivalent —
+# EVERY capitalized-word run (_ENGLISH_NAME_RE above) proposed "person"
+# regardless of content, relying 100% on the LLM fallback to correct it,
+# which the audit found has a silent-failure mode (an LLM-call exception
+# lets the mistagged "person" candidate through unchanged). Mirrors the
+# Urdu side's approach: a suffix/keyword list, not a gazetteer of specific
+# place names, so it generalizes past the two documents the audit sampled.
+_ENGLISH_LOCATION_SUFFIXES = (
+    "Highway", "Road", "Street", "Avenue", "Chowk", "Town", "Sector",
+    "Colony", "Bazaar", "Bazar", "Markaz",
+)
+_ENGLISH_LOCATION_RE = re.compile(
+    rf"\b(?P<name>[A-Z][a-z]+(?:\s+[A-Z][a-z]+){{0,3}}\s+"
+    rf"(?:{'|'.join(_ENGLISH_LOCATION_SUFFIXES)}|Police\s+Station))\b"
+)
+
+# "<Name...> Police" NOT followed by "Station" — an organization/unit
+# name ("Islamabad Traffic Police"), distinct from "<Name> Police
+# Station" above, which is a place. Also matches a trailing parenthetical
+# all-caps abbreviation ("Islamabad Traffic Police (ITP)") as one unit
+# when present.
+_ENGLISH_ORG_RE = re.compile(
+    r"\b(?P<name>[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}\s+Police)\b"
+    r"(?!\s+Station)(?:\s*\((?P<abbr>[A-Z]{2,6})\))?"
+)
+
 # Minimal gazetteer of Islamabad-area place-name tokens seen in this
 # corpus, used only as a location confidence booster — the تھانہ-prefixed
 # pattern above is the primary, generalizable location signal.
@@ -168,6 +196,21 @@ _LOCATION_GAZETTEER = {
     "سبزی منڈی", "بارہ کہو", "نیلور", "آبپارہ", "سیکرٹریٹ", "شہزاد ٹاؤن",
     "صنعتی علاقہ",
 }
+
+
+# Legal/procedural content words that commonly follow a role marker
+# ("ملزم", "مدعی"...) in a clause ABOUT the person rather than a name FOR
+# them — "ملزم کے خلاف قانونی کارروائی" ("legal action against the
+# accused") or "ملزم نے میرے گھر کا تالا توڑا" ("the accused broke my
+# house's lock"), neither of which names anyone. Unlike _STOPWORDS (pure
+# function words), these are real content words, so the leading/trailing
+# trim above never removes them — live-caught in the real corpus
+# (FIR-2026-BUR-009's ground truth) producing "خلاف قانونی کارروائی" and
+# "میرے گھر" as bogus Person candidates. A real personal name never
+# contains any of these, so their presence anywhere in the captured run
+# (not just leading/trailing) is treated the same as a mid-run stopword
+# below: reject the whole candidate.
+_NON_NAME_CONTENT_WORDS = {"خلاف", "قانونی", "کارروائی", "گھر", "شناخت"}
 
 
 def _trim_and_reposition(raw: str, group_start: int) -> tuple[str, int, int]:
@@ -190,7 +233,7 @@ def _trim_and_reposition(raw: str, group_start: int) -> tuple[str, int, int]:
     # contains a function word. Reject the whole candidate rather than
     # keep a contaminated partial match; the module favors precision over
     # forcing a salvage here.
-    if any(w in _STOPWORDS for w, _, _ in word_spans):
+    if any(w in _STOPWORDS or w in _NON_NAME_CONTENT_WORDS for w, _, _ in word_spans):
         return "", group_start, group_start
     if not word_spans:
         return "", group_start, group_start
@@ -261,6 +304,12 @@ def extract_statistical(text: str, source_chunk_id: Optional[str] = None) -> lis
         name, ns, ne = _trim_and_reposition(m.group("name"), m.start("name"))
         if name:
             out.append(NERMention(name, "organization", ns, ne, 0.75, "statistical", source_chunk_id))
+
+    for m in _ENGLISH_LOCATION_RE.finditer(norm):
+        out.append(NERMention(m.group("name"), "location", m.start("name"), m.end("name"), 0.7, "statistical", source_chunk_id))
+
+    for m in _ENGLISH_ORG_RE.finditer(norm):
+        out.append(NERMention(m.group("name"), "organization", m.start("name"), m.end("name"), 0.7, "statistical", source_chunk_id))
 
     for m in _ENGLISH_NAME_RE.finditer(norm):
         candidate = m.group(0)

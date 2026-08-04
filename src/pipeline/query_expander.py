@@ -26,8 +26,10 @@
 # ============================================================
 
 import logging
+import re
 from pathlib import Path
 
+from src.ingestion.script_detector import _ARABIC_SCRIPT
 from src.pipeline.json_extract import call_llm_json
 
 logger = logging.getLogger(__name__)
@@ -36,6 +38,24 @@ _PROMPT_PATH = (
     Path(__file__).resolve().parent.parent.parent / "prompts" / "query_expander.txt"
 )
 _PROMPT_TEMPLATE = _PROMPT_PATH.read_text(encoding="utf-8")
+
+# Devanagari block (U+0900-U+097F) — this system's corpus and users never
+# use it (English / Urdu-script / Roman-Urdu only). Live-caught (2026-08-04,
+# D-2 fix verification): a Roman-Urdu query ("cyber harassment ke liye
+# kaunsi section lagti hai") produced Devanagari/Hindi-script variants
+# ("कैसे साइबर हरसमेंत के लिए...") despite an explicit prompt instruction
+# not to translate — the prompt-only fix from Fix 6/7 wasn't reliable
+# enough on its own, so this is a structural post-hoc filter, same pattern
+# as query_rewriter.py's guards.
+_DEVANAGARI_RE = re.compile("[ऀ-ॿ]")
+
+
+def _script_class(text: str) -> str:
+    if _DEVANAGARI_RE.search(text):
+        return "devanagari"
+    if _ARABIC_SCRIPT.search(text):
+        return "arabic"
+    return "latin"
 
 
 async def expand_query(rewritten_query: str, n: int = 2) -> list[str]:
@@ -85,8 +105,26 @@ async def expand_query(rewritten_query: str, n: int = 2) -> list[str]:
         logger.warning("Query expander returned no valid JSON after retries: %s", raw[:100])
         return []
 
-    # Filter to non-empty strings only, cap at n
-    result = [v for v in variants if isinstance(v, str) and v.strip()][:n]
+    # Filter to non-empty strings, then drop any variant that switched
+    # script from the input query — a real, live-observed failure mode
+    # (see _DEVANAGARI_RE above), not a hypothetical one. Devanagari is
+    # rejected unconditionally regardless of input script since this
+    # system never legitimately produces it; otherwise the variant must
+    # match the input's own script class.
+    input_class = _script_class(rewritten_query)
+    result = []
+    for v in variants:
+        if not isinstance(v, str) or not v.strip():
+            continue
+        v_class = _script_class(v)
+        if v_class == "devanagari" or v_class != input_class:
+            logger.warning(
+                "Query expander dropped a script-switched variant (%s -> %s): %r",
+                input_class, v_class, v[:80],
+            )
+            continue
+        result.append(v)
+    result = result[:n]
     logger.debug(
         "Query expansion: '%s' -> %d variants: %s",
         rewritten_query[:50], len(result), result

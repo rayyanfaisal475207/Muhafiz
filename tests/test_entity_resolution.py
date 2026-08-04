@@ -103,6 +103,44 @@ async def test_no_cnic_match_falls_through_to_name_fallback(fake_age):
     assert decision.tier == er.TIER_NEW
 
 
+# ── Roman-Urdu <-> Urdu-script name bridging (A-2) ─────────────────────
+
+@pytest.mark.parametrize("roman,urdu", [
+    ("Zafar Iqbal", "ظفر اقبال"),
+    ("Muhammad Ali", "محمد علی"),
+    ("Faisal Shahzad Qureshi", "فیصل شہزاد قریشی"),
+    ("Usman Khalid Malik", "عثمان خالد ملک"),
+    ("Ahmed Raza Qureshi", "احمد رضا قریشی"),
+])
+def test_cross_script_same_name_scores_high(roman, urdu):
+    assert er._name_similarity(roman, urdu) >= er.HIGH_NAME_WITH_CONTEXT
+
+
+@pytest.mark.parametrize("roman,urdu", [
+    ("Ahmed Raza Qureshi", "عثمان خالد ملک"),
+    ("Zafar Iqbal", "فیصل شہزاد قریشی"),
+])
+def test_cross_script_different_name_scores_low(roman, urdu):
+    assert er._name_similarity(roman, urdu) < er.REVIEW_FLOOR
+
+
+@pytest.mark.parametrize("a,b", [
+    ("محمد علی", "محمد علی خان"),
+    ("عثمان خالد ملک", "عثمان خالد"),
+])
+def test_same_script_comparison_is_unaffected_by_cross_script_path(a, b):
+    """
+    The cross-script skeleton path must only ever engage when the two
+    names are in DIFFERENT scripts — same-script comparisons must produce
+    exactly the same score as plain token_sort_ratio, unchanged.
+    """
+    from rapidfuzz import fuzz as _fuzz
+    from src.ingestion.text_normalizer import normalize_urdu as _norm
+
+    expected = _fuzz.token_sort_ratio(_norm(a), _norm(b)) / 100.0
+    assert er._name_similarity(a, b) == pytest.approx(expected)
+
+
 # ── Hard CNIC-mismatch block ────────────────────────────────────────────
 
 @pytest.mark.asyncio

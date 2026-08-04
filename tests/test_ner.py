@@ -111,6 +111,51 @@ def test_gang_suffix_pattern():
     assert any(m.type == "organization" and "فراڈ" in m.text for m in mentions)
 
 
+# ── Role marker: content-word rejection (B-4 scope) ────────────────────
+
+def test_role_marker_rejects_legal_clause_not_a_name():
+    # Live-confirmed in FIR-2026-BUR-009's ground truth: "ملزم کے خلاف
+    # قانونی کارروائی" ("legal action against the accused") was mistagged
+    # as a Person because none of its words are in _STOPWORDS.
+    text = "میں پولیس سے مطالبہ کرتا ہوں کہ ملزم کے خلاف قانونی کارروائی کی جائے۔"
+    mentions = ner.extract_statistical(text)
+    assert not any(m.type == "person" and "خلاف" in m.text for m in mentions)
+
+
+def test_role_marker_rejects_action_clause_not_a_name():
+    # Live-confirmed in the same document: "ملزم نے میرے گھر کا تالا توڑا"
+    # mistagged "میرے گھر" ("my house") as a Person.
+    text = "ملزم نے میرے گھر کا تالا توڑ کر اندر داخل ہوا۔"
+    mentions = ner.extract_statistical(text)
+    assert not any(m.type == "person" and "گھر" in m.text for m in mentions)
+
+
+# ── English structural cues for location/organization (B-4) ────────────
+
+def test_english_location_suffix_highway():
+    text = "The incident occurred near Kashmir Highway around 8 PM."
+    mentions = ner.extract_statistical(text)
+    assert any(m.text == "Kashmir Highway" and m.type == "location" for m in mentions)
+
+
+def test_english_location_police_station_suffix():
+    text = "The complainant was taken to Nilore Police Station for statement recording."
+    mentions = ner.extract_statistical(text)
+    assert any(m.text == "Nilore Police Station" and m.type == "location" for m in mentions)
+
+
+def test_english_org_police_with_abbreviation():
+    text = "The case was reported to Islamabad Traffic Police (ITP) on the same day."
+    mentions = ner.extract_statistical(text)
+    assert any(m.text == "Islamabad Traffic Police" and m.type == "organization" for m in mentions)
+
+
+def test_english_org_police_not_mistagged_as_location():
+    text = "The case was reported to Islamabad Traffic Police (ITP) on the same day."
+    mentions = ner.extract_statistical(text)
+    assert not any(m.text == "Islamabad Traffic Police" and m.type == "location" for m in mentions)
+
+
 # ── English weak fallback ──────────────────────────────────────────────
 
 def test_english_candidate_is_low_confidence():

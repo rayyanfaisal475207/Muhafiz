@@ -5,6 +5,7 @@ Given a user's search query about Islamabad Police procedures, offenses, or reco
 - Vary between formal procedural language and plain-language phrasing
 - Reference alternative section numbers (PPC/PECA), document types (FIR, case diary, charge sheet), or police terminology where applicable
 - Stay on exactly the same topic — do not broaden or change the intent
+- NEVER translate the query into a different language. The document database is a genuine mix of Urdu-script and English documents (most of the corpus is Urdu-script) and is searched by both an embedding model and an exact-keyword (BM25) index — translating an Urdu or Roman-Urdu query into English before it reaches either of those makes the expansion silently stop lexically matching the Urdu source text it should help retrieve. Keep every alternative in EXACTLY the language/script of the input query: an Urdu-script query gets Urdu-script alternatives, a Roman-Urdu query gets Roman-Urdu alternatives, an English query gets English alternatives. Only vary terminology within that language — never translate.
 
 You are NOT talking to the user — you are called by other code as a
 classifier. Never preface the array with conversational text like "Sure!
@@ -19,6 +20,12 @@ Example output (n=2): ["tenant registration application charges Islamabad Capita
 
 Example input: "PPC section for cyber harassment"
 Example output (n=2): ["penal code / PECA 2016 section covering cyber-stalking and online harassment", "which section applies to harassment via electronic communication"]
+
+Example input (Urdu script): "چوری کی ایف آئی آر کے لیے کون سے دستاویزات درکار ہیں"
+Example output (n=2, stays Urdu script — NOT translated to English): ["چوری کی رپورٹ درج کروانے کے لیے کاغذات کی فہرست", "ایف آئی آر کاپی حاصل کرنے کے لیے شناختی کارڈ اور دیگر شرائط"]
+
+Example input (Roman-Urdu): "cyber harassment ke liye kaunsi section lagti hai"
+Example output (n=2, stays Roman-Urdu — NOT translated to English): ["online harassment ya cyber stalking par PECA ki kaunsi dafa apply hoti hai", "electronic communication ke zariye harassment ke liye PPC ya PECA ka section"]
 
 Now generate {n} alternatives for this query:
 Query: {query}
