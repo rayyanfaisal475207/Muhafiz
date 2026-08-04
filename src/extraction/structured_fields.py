@@ -169,6 +169,13 @@ def extract_plates(text: str) -> list[FieldMatch]:
     norm = _normalize(text)
     out = []
     for m in _PLATE_RE.finditer(norm):
+        # Every real plate in the corpus (and every OCR variant seen so far)
+        # uses a hyphen-like separator somewhere; a fully whitespace-only
+        # match is indistinguishable from ordinary prose (e.g. "...that on
+        # 2026-05-13..." parses as city="THAT" series="ON" number="2026") —
+        # a live false positive on real corpus text, not hypothetical.
+        if not any(c in m.group(0) for c in "-‐‑‒–—―−"):
+            continue
         canonical = f"{m.group(1)}-{m.group(2)}-{m.group(3)}".upper()
         out.append(FieldMatch("plate", m.group(0), canonical, m.start(), m.end()))
     return out

@@ -22,6 +22,7 @@
 # ============================================================
 
 import logging
+import re
 from pathlib import Path
 
 from src.llm.client import call_llm
@@ -31,6 +32,103 @@ logger = logging.getLogger(__name__)
 
 _PROMPT_PATH = Path(__file__).resolve().parent.parent.parent / "prompts" / "router.txt"
 _SYSTEM_PROMPT = _PROMPT_PATH.read_text(encoding="utf-8")
+
+# ── Deterministic pre-classification for unambiguous cross-case aggregate/
+# recurrence queries ─────────────────────────────────────────────────────
+#
+# Confirmed live (2026-08-04 audit): the LLM classifier (local Qwen3-14B,
+# the "reasoning" role's local-first model) reliably defaults these to RAG
+# — including the router prompt's OWN literal few-shot example verbatim —
+# even after adding more few-shot examples and an explicit "do not default
+# to RAG" instruction to prompts/router.txt. This isn't a JSON-formatting
+# failure call_llm_json's retry/correction logic can catch: the model
+# produces syntactically valid JSON each time, it's just the wrong route.
+# Cloud escalation was considered and explicitly ruled out (cost/dependency
+# reasons) — so for this specific, well-defined failure class, a
+# deterministic regex pre-check runs BEFORE the LLM call and short-circuits
+# straight to XAGG/XGRAPH when it matches, skipping the unreliable local
+# classification step entirely (a bonus: also saves the LLM round-trip
+# for these queries). Anything that doesn't match still goes through the
+# LLM classifier unchanged below — this is a narrow safety net for the
+# specific patterns confirmed failing live, not a general-purpose router
+# replacement, and it must stay narrow: a query naming an active case
+# (CASE-xxx/FIR-xxx) is deliberately excluded even if it matches one of
+# these patterns, since "how many X in CASE-009" is a within-case GRAPH
+# query (see router.txt), not a cross-case XAGG one.
+_ACTIVE_CASE_RE = re.compile(r"\b(CASE|FIR)[-\s]?\d", re.IGNORECASE)
+
+_XAGG_OVERRIDE_PATTERNS = [
+    # Case status/category count aggregates:
+    # "how many closed cases", "بند کیسز کی تعداد بتائیں", "band cases kitne hain"
+    re.compile(r"\bhow many\b.{0,30}\bcases?\b", re.IGNORECASE),
+    re.compile(r"\bcases?\b.{0,20}\bkitn[ei]\b", re.IGNORECASE),
+    re.compile(r"\bkitn[ei]\b.{0,20}\bcases?\b", re.IGNORECASE),
+    re.compile(r"کیسز?\s*کی\s*تعداد"),
+    re.compile(r"کتن[ےی]\s*کیس"),
+    # Recurring-entity aggregates:
+    # "recurring vehicles across cases", "top recurring vehicles",
+    # "kitni gariyan bar bar cases mein aayi hain"
+    re.compile(r"\brecurring\b.{0,25}\b(vehicles?|persons?|people)\b", re.IGNORECASE),
+    re.compile(r"\btop recurring\b", re.IGNORECASE),
+    re.compile(r"\b(vehicles?|persons?|people)\b.{0,30}\bacross\b.{0,20}\bcases\b", re.IGNORECASE),
+    re.compile(r"bar\s*bar\b.{0,20}\bcases\b", re.IGNORECASE),
+    # "which persons/suspects/vehicles appeared in multiple/more than one/
+    # several cases" — live-caught gap: no "recurring"/"across" keyword,
+    # so the patterns above miss it even though it's the exact same
+    # top-recurring-nodes question.
+    re.compile(
+        r"\b(persons?|people|suspects?|accused|offenders?|vehicles?|mulzim|shakhs)\b"
+        r".{0,40}\b(multiple|more than one|several|many)\s+cases?\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(multiple|more than one|several|many)\s+cases?\b"
+        r".{0,40}\b(persons?|people|suspects?|accused|offenders?|vehicles?|mulzim|shakhs)\b",
+        re.IGNORECASE,
+    ),
+    # Station/category "most" aggregate: "which stations have the most open theft cases"
+    re.compile(r"\bwhich (stations?|police stations?)\b.{0,50}\bmost\b", re.IGNORECASE),
+    # Bare case-record listing/count
+    re.compile(r"\blist of all cases\b", re.IGNORECASE),
+    re.compile(r"\bhow many cases (are there|in total|exist)\b", re.IGNORECASE),
+]
+
+_XGRAPH_OVERRIDE_PATTERNS = [
+    re.compile(r"\bacross\b.{0,15}\b(multiple |other )?cases\b", re.IGNORECASE),
+    re.compile(r"\b(other|another)\s+cases?\b", re.IGNORECASE),
+    re.compile(r"\belsewhere\b", re.IGNORECASE),
+    re.compile(r"\brepeat offender\b", re.IGNORECASE),
+    re.compile(r"کسی\s*اور\s*کیس"),
+    re.compile(r"دوسرے\s*کیسز"),
+    re.compile(r"\bkisi\s*aur\s*case\b", re.IGNORECASE),
+]
+
+
+def _deterministic_route_override(query: str) -> dict | None:
+    """Return a route dict for an unambiguous cross-case pattern, or None."""
+    if _ACTIVE_CASE_RE.search(query):
+        return None  # a named case anchors this within-case (GRAPH), not XAGG/XGRAPH
+
+    # XAGG checked first: "recurring vehicles across cases" matches both an
+    # XAGG pattern (recurring-entity aggregate) and the XGRAPH "across ...
+    # cases" pattern, and per router.txt's own examples ("top recurring
+    # vehicles across all cases") that shape is XAGG's aggregate/count job,
+    # not XGRAPH's single-entity network-mapping job — XAGG must win the tie.
+    for pat in _XAGG_OVERRIDE_PATTERNS:
+        if pat.search(query):
+            return {
+                "route": "XAGG", "case_scope": "cross_case", "target_entity": None,
+                "output_format": "chat", "target_year": None, "confidence": "high",
+                "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+            }
+    for pat in _XGRAPH_OVERRIDE_PATTERNS:
+        if pat.search(query):
+            return {
+                "route": "XGRAPH", "case_scope": "cross_case", "target_entity": None,
+                "output_format": "chat", "target_year": None, "confidence": "high",
+                "reason": "Deterministic override: unambiguous cross-case recurrence trigger language detected before the LLM call",
+            }
+    return None
 
 
 async def route_query(rewritten_query: str) -> dict:
@@ -43,6 +141,10 @@ async def route_query(rewritten_query: str) -> dict:
     Returns:
         Dict: {"route": str, "output_format": str, "confidence": str, "reason": str}
     """
+    override = _deterministic_route_override(rewritten_query)
+    if override is not None:
+        return override
+
     # Also handles a distinct failure mode from truncated/malformed JSON:
     # Qwen3 sometimes ignores the "respond with ONLY JSON" instruction
     # entirely and answers conversationally instead — e.g. asking "Could
@@ -65,6 +167,20 @@ async def route_query(rewritten_query: str) -> dict:
         validate=lambda r: isinstance(r, dict) and "route" in r,
         schema_hint='"route", "case_scope", "target_entity", "output_format", "target_year", "confidence", "reason"',
         _call_llm=call_llm,
+        # Router-specific opt-in (unlike evaluator/query_rewriter, which do
+        # NOT set this — see call_llm_json's own docstring for why blanket
+        # escalation was reverted elsewhere: it was the single biggest
+        # consumer of Groq's free-tier quota under sustained testing).
+        # Router differs in call shape: it fires once per turn, not once per
+        # retry-loop iteration, so the quota exposure here is bounded very
+        # differently. This only engages after 3 local attempts have all
+        # failed to produce ANY valid JSON (confirmed live: exactly the
+        # failure mode that currently causes route_query() to silently fall
+        # back to a low-confidence RAG default below) — it does not engage
+        # when local returns syntactically valid JSON with a questionable
+        # classification, since that's a calibration problem the few-shot
+        # examples in router.txt address, not a cloud-escalation problem.
+        escalate_to_cloud_on_failure=True,
     )
 
     try:

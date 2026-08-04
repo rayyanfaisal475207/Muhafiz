@@ -110,3 +110,69 @@ async def test_unparseable_response_falls_back_with_full_field_parity(monkeypatc
     assert "output_format" in result
     assert "confidence" in result
     assert "reason" in result
+
+
+# ── Deterministic pre-classification override (2026-08-04) ──────────────────
+#
+# Guards the live-confirmed failure: the LLM classifier reliably defaulted
+# these exact query shapes to RAG (in English, Urdu script, and Roman-Urdu)
+# even with calibrating few-shot examples. These queries must never reach
+# the LLM at all — call_llm must not even be invoked — so a fake that
+# raises proves the override fired without it.
+
+async def _no_llm_call(*args, **kwargs):
+    raise AssertionError("LLM must not be called — the deterministic override should have short-circuited")
+
+
+@pytest.mark.parametrize("query,expected_route", [
+    ("Which police stations have the most open theft cases?", "XAGG"),
+    ("How many recurring vehicles have appeared across multiple cases?", "XAGG"),
+    ("What are the top recurring vehicles across all cases this year?", "XAGG"),
+    ("How many cases are there in total?", "XAGG"),
+    ("List of all cases", "XAGG"),
+    ("بند کیسز کی تعداد بتائیں", "XAGG"),
+    ("band cases kitne hain", "XAGG"),
+    ("kitni gariyan bar bar cases mein aayi hain", "XAGG"),
+    ("Has this phone number appeared in other cases?", "XGRAPH"),
+    ("Is this suspect a repeat offender?", "XGRAPH"),
+    ("کسی اور کیس میں بھی ملوث رہا ہے؟", "XGRAPH"),
+    ("kya number 0372-1590538 kisi aur case mein bhi aya hai", "XGRAPH"),
+    ("Which persons have appeared as suspects in multiple cases?", "XAGG"),
+    ("Are there vehicles involved in more than one case?", "XAGG"),
+])
+async def test_deterministic_override_fires_for_confirmed_failure_patterns(monkeypatch, query, expected_route):
+    monkeypatch.setattr(router, "call_llm", _no_llm_call)
+    result = await router.route_query(query)
+    assert result["route"] == expected_route
+    assert result["case_scope"] == "cross_case"
+    assert result["confidence"] == "high"
+
+
+async def test_deterministic_override_does_not_fire_for_an_active_case(monkeypatch):
+    """
+    'how many...cases' matches the XAGG pattern textually, but a named
+    case/FIR anchors this as a within-case GRAPH question instead (per
+    router.txt) — the override must not hijack it. Falls through to the LLM.
+    """
+    async def fake_call_llm(system_prompt, user_message, **kwargs):
+        return json.dumps({"route": "GRAPH", "case_scope": "within_case"})
+
+    monkeypatch.setattr(router, "call_llm", fake_call_llm)
+    result = await router.route_query("How many cases like this has CASE-009 been linked to before?")
+    assert result["route"] == "GRAPH"
+
+
+@pytest.mark.parametrize("query", [
+    "What PPC section covers mobile phone theft?",
+    "Summarize the FIR for this case.",
+    "Who is connected to the accused in CASE-009?",
+    "Hello",
+])
+async def test_deterministic_override_does_not_fire_for_unrelated_queries(monkeypatch, query):
+    """Ordinary DIRECT/SQL/RAG/GRAPH-shaped queries must still reach the LLM classifier."""
+    async def fake_call_llm(system_prompt, user_message, **kwargs):
+        return json.dumps({"route": "RAG"})
+
+    monkeypatch.setattr(router, "call_llm", fake_call_llm)
+    result = await router.route_query(query)
+    assert result["route"] == "RAG"  # came from the fake LLM, not an override short-circuit

@@ -562,6 +562,7 @@ async def process_query(
     yield event(
         "router", "done", f"Route decided: {route_str}", elapsed_ms,
         confidence=router_confidence, case_scope=case_scope,
+        reason=route_result.get("reason"),
     )
 
     # ─── No retrieval needed path ──────────────────────────────────────────
@@ -1330,7 +1331,29 @@ async def process_query(
 
             if not verifier_passed:
                 logger.warning("Verifier rejected XAGG response: %s", verification.get("reason", "")[:100])
-                full_response = _ABSTENTION_RESPONSE
+                # NOT the generic _ABSTENTION_RESPONSE here — that text
+                # claims "the cited sources do not sufficiently support a
+                # specific claim," which is misleading for XAGG: the
+                # aggregate evidence is always a deterministic, already-
+                # computed, guaranteed-correct result (a real SQL/Cypher
+                # count or listing) — a verifier rejection here means the
+                # GENERATION step (an LLM paraphrase of that data) failed to
+                # faithfully reproduce it, not that the evidence was thin.
+                # Confirmed live (2026-08-04): the local generation model
+                # sometimes ignores the aggregate evidence entirely and
+                # returns an unrelated "I don't have access to that
+                # information" refusal even when the evidence block is
+                # non-empty and directly answers the question. Falling back
+                # to the raw deterministic aggregate_text is strictly more
+                # correct than either the model's bad paraphrase or a false
+                # "insufficient evidence" claim — it just isn't translated
+                # into preferred_language in this fallback path.
+                full_response = (
+                    "Here is the cross-case aggregate result computed directly "
+                    "from the case database (shown in its original form; a "
+                    "translated summary was not consistently faithful to it):\n\n"
+                    + aggregate_text
+                )
                 verifier_regenerated = True
 
             yield event("citation_validator", "done",
