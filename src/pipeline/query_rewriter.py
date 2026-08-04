@@ -271,6 +271,43 @@ def _sanitize_rewrite(rewritten: str) -> Optional[str]:
         logger.warning("Query rewriter answered using history, not a query: %r.", text[:100])
         return None
 
+    # A sixth confirmed failure mode (2026-08-04, live re-test, D-1): the
+    # model narrates ABOUT the rewriting task instead of doing it — e.g.
+    # 'The original question — "How many recurring vehicles have appeared
+    # across multiple cases?" — is similar in intent to the previous search
+    # query, but it may be interpreted differently depending on how
+    # "recurring vehicles" are defined.' and, on a second, independent live
+    # occurrence, 'To address your query effectively, we need to follow a
+    # structured approach...'. Both survived every guard above (well under
+    # 400 chars, no refusal/answering phrase, no "the question "/"the
+    # query " exact substring the commentary check above looks for). A real
+    # rewrite is always ONE standalone question/phrase, never multiple
+    # sentences of prose — so multi-sentence output alone is disqualifying,
+    # same structural-shape approach as every guard above it (this file's
+    # own history: literal-phrase lists keep needing re-patching for new
+    # wording of the same failure).
+    sentences = [s for s in re.split(r"(?<=[.!?])\s+", text) if s.strip()]
+    if len(sentences) > 1:
+        logger.warning("Query rewriter produced multi-sentence prose, not a query: %r.", text[:100])
+        return None
+
+    # Backstop for single-sentence narration that still evades the count
+    # above (e.g. a truncated multi-clause sentence) — first-person-plural
+    # planning language and self-reference to "the original question"/"the
+    # previous query" never appear in an actual standalone search query.
+    _META_PLANNING_PATTERNS = (
+        r"\bwe need to\b",
+        r"\blet'?s (?:follow|use|try|consider)\b",
+        r"\bto address (?:your|this) query\b",
+        r"\ba structured approach\b",
+        r"\bthe original question\b",
+        r"\bthe previous (?:search )?query\b",
+        r"\bis similar in intent\b",
+    )
+    if any(re.search(pattern, lowered) for pattern in _META_PLANNING_PATTERNS):
+        logger.warning("Query rewriter produced meta-planning commentary, not a query: %r.", text[:100])
+        return None
+
     return text
 
 
