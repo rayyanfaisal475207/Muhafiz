@@ -36,6 +36,59 @@ def test_role_marker_complainant():
     assert any(m.text == "احمد رضا قریشی" and m.type == "person" for m in mentions)
 
 
+# ── Self-introduction pattern (B-1) ────────────────────────────────────
+
+def test_self_intro_extracts_name_with_rihaishi_after_comma():
+    # Real narrative sentence from WITNESS-FIR-2026-BUR-007-01's ground truth.
+    text = "میں فیصل شہزاد قریشی، رہائشی ترنول، تھانہ ترنول کا رہائشی ہوں۔"
+    mentions = ner.extract_statistical(text)
+    assert any(m.text == "فیصل شہزاد قریشی" and m.type == "person" for m in mentions)
+
+
+def test_self_intro_extracts_name_before_thana_clause():
+    # Real narrative sentence from DARKHAST-FIR-2026-BUR-009's ground truth —
+    # "رہائشی" doesn't follow the name directly, it comes after an
+    # intervening "تھانہ X" clause.
+    text = "میں عثمان خالد ملک، تھانہ مارگلہ کا رہائشی ہوں۔"
+    mentions = ner.extract_statistical(text)
+    assert any(m.text == "عثمان خالد ملک" and m.type == "person" for m in mentions)
+
+
+def test_self_intro_handles_comma_immediately_after_main():
+    # Real narrative sentence from FIR-2026-BUR-009's ground truth — a comma
+    # directly after "میں" before the name.
+    text = "میں، محمد علی، سیکٹر ایچ ڈیبلیو ایچ ایس، اسلام آباد کا رہائشی ہوں۔"
+    mentions = ner.extract_statistical(text)
+    assert any(m.text == "محمد علی" and m.type == "person" for m in mentions)
+
+
+def test_self_intro_candidate_is_low_confidence():
+    # Deliberately below LOW_CONFIDENCE_THRESHOLD — "میں <name>" alone is
+    # less distinctive than the kinship/role markers, so it must always go
+    # through LLM adjudication rather than ship unreviewed.
+    text = "میں فیصل شہزاد قریشی، رہائشی ترنول کا رہائشی ہوں۔"
+    mentions = ner.extract_statistical(text)
+    match = next(m for m in mentions if m.text == "فیصل شہزاد قریشی")
+    assert match.confidence < ner.LOW_CONFIDENCE_THRESHOLD
+
+
+def test_self_intro_does_not_fire_on_plain_action_sentence():
+    # "میں نے ..." ("I did ...") is an ordinary action sentence with no
+    # self-introduction — must not misfire on it just because it starts
+    # with "میں".
+    text = "میں نے پولیس کو مطلع کیا۔"
+    mentions = ner.extract_statistical(text)
+    assert not any(m.type == "person" for m in mentions)
+
+
+def test_self_intro_does_not_cross_sentence_boundary():
+    # "رہائشی" appears in a LATER, unrelated sentence — must not be treated
+    # as the disambiguating cue for an unrelated "میں ..." in an earlier one.
+    text = "میں نے پولیس کو مطلع کیا۔ گواہ ایک رہائشی علاقے میں موجود تھا۔"
+    mentions = ner.extract_statistical(text)
+    assert not any(m.type == "person" and "پولیس" in m.text for m in mentions)
+
+
 # ── Station / location ─────────────────────────────────────────────────
 
 def test_station_pattern():

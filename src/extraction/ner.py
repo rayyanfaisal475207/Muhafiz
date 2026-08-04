@@ -129,6 +129,23 @@ _ROLE_RE = re.compile(
     rf"\b(?:{'|'.join(_ROLE_MARKERS)})\b\s*(?:کا نام)?\s*[:：]?\s*(?P<name>{_NAME_RUN})(?=[\s،۔,\.]|$)"
 )
 
+# "میں <name>، رہائشی/تھانہ .../رہنے والا/کا رہائشی ہوں" — the standard
+# first-person self-introduction a complainant/witness opens their
+# statement with (the corpus's single most common construction for
+# naming the reporting party, per the audit — 11+ ground-truth examples,
+# e.g. "میں فیصل شہزاد قریشی، رہائشی ترنول، تھانہ ترنول کا رہائشی ہوں۔",
+# "میں، محمد علی، سیکٹر ایچ ڈیبلیو ایچ ایس، اسلام آباد کا رہائشی ہوں۔").
+# Unlike _KINSHIP_RE/_ROLE_RE's distinctive markers, "میں <name>" alone is
+# not distinctive enough on its own — an ordinary "میں نے ..." ("I did
+# ...") action sentence would misfire — so this requires "رہائشی" or
+# "رہنے والا" (resident-of) to appear later in the SAME sentence (bounded
+# lookahead, stopped at the next ۔) as the disambiguating structural cue,
+# not just "میں" by itself.
+_SELF_INTRO_RE = re.compile(
+    rf"\bمیں\b\s*،?\s*(?P<name>{_NAME_RUN})\s*،?\s*"
+    r"(?=[^۔]{0,60}(?:رہائشی|رہنے\s*والا))"
+)
+
 # "تھانہ <station name>" — police station, the standard reference form.
 _STATION_RE = re.compile(rf"\bتھانہ\b\s+(?P<name>{_SHORT_NAME_RUN})(?=[\s،۔,\.]|$)")
 
@@ -217,6 +234,17 @@ def extract_statistical(text: str, source_chunk_id: Optional[str] = None) -> lis
         name, ns, ne = _trim_and_reposition(m.group("name"), m.start("name"))
         if name:
             out.append(NERMention(name, "person", ns, ne, 0.75, "statistical", source_chunk_id))
+
+    for m in _SELF_INTRO_RE.finditer(norm):
+        name, ns, ne = _trim_and_reposition(m.group("name"), m.start("name"))
+        # Below LOW_CONFIDENCE_THRESHOLD deliberately: "میں <name>" is less
+        # structurally distinctive than the kinship/role markers above (a
+        # generic self-reference like "میں شہری مارگلہ کا رہائشی ہوں" — "I,
+        # a resident of Margalla" — can match the same shape without a real
+        # name present), so this always routes through LLM adjudication
+        # rather than shipping unreviewed.
+        if name:
+            out.append(NERMention(name, "person", ns, ne, 0.55, "statistical", source_chunk_id))
 
     for m in _STATION_RE.finditer(norm):
         name, ns, ne = _trim_and_reposition(m.group("name"), m.start("name"))
