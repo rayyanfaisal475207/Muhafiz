@@ -52,10 +52,18 @@ def _match_clause(var: str, match: dict) -> str:
 
     Keys are always fixed identifiers from this codebase (entity_id,
     case_id, doc_id, ...), never raw request input — same trust model as
-    age_client.py's cypher_query/graph arguments.
+    age_client.py's cypher_query/graph arguments. Validated below anyway
+    (A-3, defense in depth): every current caller already passes hardcoded
+    literal keys, so this is a no-op today, but it closes the one place in
+    this file that DIDN'T validate before Cypher interpolation while its
+    sibling _build_set_clause already did — a future caller can't silently
+    reintroduce an injection point the sibling function would have caught.
     """
     if not match:
         return ""
+    for k in match:
+        if not _VALID_KEY_RE.match(k):
+            raise ValueError(f"Invalid match key for a graph write: {k!r}")
     parts = ", ".join(f"{k}: $m_{k}" for k in match)
     return f" {{{parts}}}"
 
@@ -285,8 +293,12 @@ async def write_edge(
 
 
 def _prefixed_match_clause(match: dict, prefix: str) -> str:
+    """See _match_clause's docstring — same A-3 defense-in-depth validation."""
     if not match:
         return ""
+    for k in match:
+        if not _VALID_KEY_RE.match(k):
+            raise ValueError(f"Invalid match key for a graph write: {k!r}")
     parts = ", ".join(f"{k}: ${prefix}_{k}" for k in match)
     return f" {{{parts}}}"
 

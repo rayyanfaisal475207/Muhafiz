@@ -211,3 +211,37 @@ async def test_lock_event_on_nonexistent_edge_returns_false(fake_client):
     fake_client.queue([])
     ok = await versioning.lock_event(999, locked_by="investigator1")
     assert ok is False
+
+
+# ── A-3: match-clause key validation ────────────────────────────────────
+# _build_set_clause already validated property keys against _VALID_KEY_RE
+# before Cypher interpolation; _match_clause/_prefixed_match_clause didn't.
+# No live exploit path exists (every current caller passes hardcoded
+# literal keys), but this closes the inconsistency defensively.
+
+def test_match_clause_accepts_normal_keys():
+    clause = versioning._match_clause("n", {"entity_id": "P-001", "case_id": "CASE-001"})
+    assert clause == " {entity_id: $m_entity_id, case_id: $m_case_id}"
+
+
+def test_match_clause_rejects_malicious_key():
+    with pytest.raises(ValueError, match="Invalid match key"):
+        versioning._match_clause("n", {"entity_id}) DETACH DELETE (n": "x"})
+
+
+def test_match_clause_empty_dict_is_a_noop():
+    assert versioning._match_clause("n", {}) == ""
+
+
+def test_prefixed_match_clause_accepts_normal_keys():
+    clause = versioning._prefixed_match_clause({"entity_id": "P-001"}, "a")
+    assert clause == " {entity_id: $a_entity_id}"
+
+
+def test_prefixed_match_clause_rejects_malicious_key():
+    with pytest.raises(ValueError, match="Invalid match key"):
+        versioning._prefixed_match_clause({"x); MATCH (n) DETACH DELETE (n": "y"}, "a")
+
+
+def test_prefixed_match_clause_empty_dict_is_a_noop():
+    assert versioning._prefixed_match_clause({}, "a") == ""
