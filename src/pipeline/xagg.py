@@ -26,15 +26,35 @@ from src.database.postgres import current_cross_case, current_rls_active
 
 logger = logging.getLogger(__name__)
 
-_VEHICLE_KEYWORDS = ("vehicle", "car", "motorcycle", "plate", "گاڑی", "موٹرسائیکل", "نمبر پلیٹ")
-_PERSON_KEYWORDS = ("person", "people", "suspect", "offender", "recidivist", "شخص", "افراد", "لوگ")
-_STATION_KEYWORDS = ("station", "تھانہ")
+_VEHICLE_KEYWORDS = (
+    "vehicle", "car", "motorcycle", "plate", "gari", "gaari", "motorcycle",
+    "گاڑی", "موٹرسائیکل", "نمبر پلیٹ",
+)
+_PERSON_KEYWORDS = (
+    "person", "people", "suspect", "offender", "recidivist", "accused",
+    "mulzim", "shakhs",
+    "شخص", "افراد", "لوگ", "ملزم",
+)
+_STATION_KEYWORDS = ("station", "thana", "تھانہ", "چوکی")
 # Previously English-only, unlike the three keyword sets above — an Urdu
 # query mentioning "بند" (closed) or "چوری" (theft) silently skipped the
 # status/category filter entirely rather than applying it, since none of
 # these matched. Same class of gap as verifier.py's _HEDGE_PHRASES.
-_STATUS_KEYWORDS = ("open", "closed", "status", "pending", "کھلا", "بند", "حالت", "زیر التواء")
-_CATEGORY_KEYWORDS = ("theft", "burglary", "fraud", "category", "type of case", "چوری", "ڈکیتی", "نقب زنی", "دھوکہ دہی", "قسم")
+# 2026-08-04: extended again — the Urdu-script fix above still had zero
+# Roman-Urdu coverage in any of the six lists (confirmed live: Roman-Urdu
+# queries never matched any keyword and silently fell through to the
+# generic category-count default), and "زیر تفتیش" (under investigation)
+# was missing from both language sides.
+_STATUS_KEYWORDS = (
+    "open", "closed", "status", "pending", "under investigation",
+    "band", "khula", "khuli", "zair-e-tafteesh", "zair e tafteesh", "kholay",
+    "کھلا", "بند", "حالت", "زیر التواء", "زیر تفتیش",
+)
+_CATEGORY_KEYWORDS = (
+    "theft", "burglary", "fraud", "category", "type of case",
+    "chori", "dhoka",
+    "چوری", "ڈکیتی", "نقب زنی", "دھوکہ دہی", "قسم",
+)
 # A plain "list/show every case" request — distinct from the grouped-count
 # queries below (which always answer "counts of cases by X", never the raw
 # records). Router previously had nowhere to send this ("list of all cases"
@@ -42,7 +62,10 @@ _CATEGORY_KEYWORDS = ("theft", "burglary", "fraud", "category", "type of case", 
 # either) — it fell through to XGRAPH by wording proximity to "list of all
 # PEOPLE mentioned in the cases" and traversed nothing, since "a case" isn't
 # a graph node XGRAPH can seed from.
-_LIST_ALL_KEYWORDS = ("list", "show", "all cases", "every case", "فہرست", "تمام مقدمات", "دکھائیں")
+_LIST_ALL_KEYWORDS = (
+    "list", "show", "all cases", "every case", "dikhao", "sab cases",
+    "فہرست", "تمام مقدمات", "دکھائیں",
+)
 
 
 def _matches_any(text: str, keywords: tuple[str, ...]) -> bool:
@@ -86,8 +109,26 @@ async def _station_or_category_counts(gateway, query_text: str) -> dict:
     # tries to join CaseAssignment on a non-existent user and raises.
     cases = await gateway.get_cases(user_id=None, user_role="platform-admin")
 
-    if _matches_any(query_text, _STATUS_KEYWORDS) and _matches_any(query_text, ("open",)):
-        cases = [c for c in cases if (c.get("investigation_status") or "").lower() not in ("closed", "resolved")]
+    # "open" and "closed" are opposite filters — a query naming one must
+    # never silently apply the other or (worse) apply neither. Previously
+    # only "open" had a branch at all: a query asking for CLOSED cases
+    # (English "closed", Urdu "بند"/Roman-Urdu "band") matched
+    # _STATUS_KEYWORDS (so the code below it, e.g. category filtering,
+    # still ran) but the status filter itself silently no-opped, returning
+    # every case regardless of status instead of just the closed ones.
+    # Real investigation_status values (see migrations/004_case_model.sql
+    # seed data) are "Closed – Convicted"/"Closed – Untraced" style, not a
+    # bare "Closed" — substring match on "closed", not an exact-value set.
+    _OPEN_TERMS = ("open", "khula", "khuli", "کھلا", "pending", "زیر التواء", "under investigation", "زیر تفتیش")
+    _CLOSED_TERMS = ("closed", "band", "بند")
+
+    def _is_closed(c: dict) -> bool:
+        return "closed" in (c.get("investigation_status") or "").lower()
+
+    if _matches_any(query_text, _CLOSED_TERMS):
+        cases = [c for c in cases if _is_closed(c)]
+    elif _matches_any(query_text, _OPEN_TERMS):
+        cases = [c for c in cases if not _is_closed(c)]
 
     if _matches_any(query_text, _CATEGORY_KEYWORDS):
         for kw in _CATEGORY_KEYWORDS:

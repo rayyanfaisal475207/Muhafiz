@@ -63,9 +63,19 @@ TYPE_TO_LABEL = {
 # "different CNICs never merge, regardless of name similarity." Types with
 # no entry here (organization, address) have no reliable exact-match
 # identifier and go through name-fallback only.
+#
+# "phone" added 2026-08-04 alongside wiring PhoneNumber mentions into the
+# graph for the first time (see ingestion/service.py's
+# _write_phone_mentions) — without this, two mentions of the identical
+# phone number would fall through to name-similarity scoring on
+# canonical_name (which IS the phone number here, so it would likely still
+# score near-exact and merge via TIER_FLAGGED) instead of the stronger,
+# immediate TIER_CNIC_AUTO an exact structured identifier deserves — same
+# reasoning TYPE_PRIMARY_ID_KEY already applies to cnic/plate.
 TYPE_PRIMARY_ID_KEY = {
     "person": "cnic",
     "vehicle": "plate",
+    "phone": "phone",
 }
 
 # Named after its original (and still primary) case — CNIC — but the

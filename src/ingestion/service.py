@@ -143,6 +143,61 @@ async def _run_graph_extraction(
             fields = {}
             stats["errors"].append(f"structured_fields: {exc}")
 
+        # 2026-08-04: `fields["phones"]` was computed above and then never
+        # used anywhere in this function — a real audit finding, not a
+        # design choice (entity_resolution.TYPE_TO_LABEL/graph_retriever.py/
+        # xagg.py all already treat "has this phone number recurred across
+        # cases" as a supported query; no extractor ever produced a
+        # PhoneNumber node to make that true). Phones are regex-extracted
+        # from the whole document, not per-chunk like NER/domain_entities
+        # mentions, so they get their own small resolve_and_write loop here
+        # rather than joining the per-chunk `all_mentions` loop below —
+        # source_chunk_id stays None, same as the Case/Document nodes above
+        # that also aren't tied to one chunk.
+        for phone in {p.normalized for p in fields.get("phones", [])}:
+            try:
+                await entity_resolution.resolve_and_write(
+                    "phone",
+                    {"canonical_name": phone, "phone": phone, "extraction_confidence": 1.0},
+                    case_id, doc_id,
+                )
+                stats["entities_resolved"] += 1
+            except Exception as exc:
+                logger.warning("PhoneNumber graph write failed for %r in %s: %s", phone, file_path.name, exc)
+                stats["errors"].append(f"phone_write: {exc}")
+
+        # 2026-08-04: same dead-code pattern as phones above, for vehicle
+        # PLATES specifically. domain_entities.py's per-chunk LLM pass is
+        # still the only source of full vehicle *descriptions*
+        # (make/model/color), and is the right tool for that — but the
+        # plate itself, the identifier XAGG's "recurring vehicle across
+        # cases" aggregate actually keys on, is a fixed structured format
+        # (like CNIC/phone) that a regex already extracts reliably. Relying
+        # solely on the LLM to both notice a vehicle mention AND transcribe
+        # its plate correctly means one bad LLM reply for a chunk (confirmed
+        # live: the local model sometimes answers this prompt conversationally
+        # instead of with JSON, same failure class documain_entities.py's
+        # retry fix addresses but doesn't fully eliminate) silently loses
+        # the vehicle for cross-case recurrence purposes even when the plate
+        # was sitting in the text in an obviously regex-matchable format.
+        # Writing plate-identified Vehicle nodes directly guarantees XAGG's
+        # Vehicle-recurrence path has data to work with independent of LLM
+        # extraction quality; the LLM-found vehicles (with fuller
+        # descriptions) still merge into the same node via
+        # TYPE_PRIMARY_ID_KEY["vehicle"]="plate"'s exact-match auto-merge
+        # when both are present.
+        for plate in {p.normalized for p in fields.get("plates", [])}:
+            try:
+                await entity_resolution.resolve_and_write(
+                    "vehicle",
+                    {"canonical_name": plate, "plate": plate, "extraction_confidence": 1.0},
+                    case_id, doc_id,
+                )
+                stats["entities_resolved"] += 1
+            except Exception as exc:
+                logger.warning("Vehicle graph write failed for plate %r in %s: %s", plate, file_path.name, exc)
+                stats["errors"].append(f"vehicle_plate_write: {exc}")
+
         # 4.4 — doc-type classification. Its own LLM-failure handling
         # returns None rather than raising; still guarded here.
         try:
