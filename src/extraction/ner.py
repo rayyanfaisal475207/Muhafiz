@@ -154,11 +154,62 @@ _ORG_SUFFIX_RE = re.compile(rf"(?P<name>{_NAME_RUN})\s*\b(?:گروہ|نیٹ\s*و
 
 # Weak fallback for English-language documents: capitalized-word runs,
 # excluding common structural tokens that are never names.
+#
+# Extended after live-tracing a real bug (root-caused, not the community-
+# detection-side filter that was papering over this): one document
+# rendering tier ("complex"/"retrofitted" per data/memory/case_index.csv —
+# every FIR/case-diary/charge-sheet in the CASE-B0-* batch) is an entirely
+# English, numbered form with colon-terminated field labels ("Police
+# Station:", "Entry Dates:", "Action Taken:", "Progress Summary:") rather
+# than free narrative prose — a document shape the original stopword list
+# was never tuned against (that was built from MP-2026-001.pdf/
+# TAR-2026-001.pdf's narrative style per the 2026-08-04 audit). Every one
+# of these labels is a capitalized-word run with no structural cue telling
+# _ENGLISH_NAME_RE it isn't a name — confirmed live: extracting
+# FIR-2026-THEFT-001.pdf/CASEDIARY-FIR-2026-THEFT-001-01.pdf/
+# CHARGESHEET-FIR-2026-THEFT-001.pdf directly showed dozens of these
+# labels shipping through as low-confidence "person" candidates, most
+# surviving to the graph because _adjudicate_low_confidence's own
+# documented fail-open behavior (return candidates unchanged on any LLM
+# failure, "a failed adjudication call should degrade to unresolved, not
+# silently delete evidence") means a struggling adjudication call for a
+# document with this many low-confidence candidates ships them all through
+# unfiltered rather than dropping them.
 _ENGLISH_STOPWORDS = {
     "FIR", "PPC", "PECA", "CNIC", "Section", "Sections", "Police", "Station",
     "Report", "Case", "Diary", "Statement", "Witness", "Recovery", "Memo",
+    # Form-label vocabulary directly observed in the CASE-B0-* batch above —
+    # a secondary, explicit defense alongside the structural colon-adjacency
+    # check below (some labels, e.g. "General Diary (Roznamcha) reference
+    # and number:", don't have the label word immediately before the colon,
+    # so the structural check alone doesn't catch every instance).
+    "Date", "Dates", "Day", "Total", "Name", "Place", "Street", "District",
+    "Document", "Description", "Identity", "Reasons", "Delay", "Related",
+    "Submitted", "Entry", "Roznamcha", "Action", "Taken", "Progress",
+    "Summary", "Current", "Status", "Investigation", "Investigating",
+    "Officer", "Complainant", "Signature", "Thumb", "Impression",
+    "Judicial", "Magistrate", "Under", "House", "General", "Court",
+    "Property", "Disposal", "Remarks", "Recommendation", "Sections",
+    "Whether", "List", "Prosecution", "Class", "Number",
+    # Crime-category vocabulary and an English rendering of the station
+    # name bleeding into the "person" channel — a real name-typed mistag
+    # (should ideally be "location"/dropped entirely, not just suppressed
+    # from "person"), but suppressing it here is an honest partial fix,
+    # not a claim this also fixes the location-mistyping gap.
+    "Bhara", "Kahu", "Vehicle", "Theft", "Mobile", "Unknown",
 }
 _ENGLISH_NAME_RE = re.compile(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3}\b")
+
+# Structural exclusion (the actual root-cause fix, generalizes past any
+# specific label ever seen): a capitalized-word run immediately followed
+# by a colon (optionally one space between) is a form-field LABEL, not a
+# name — "Police Station:", "Entry Dates:", "Action Taken:" all match this
+# shape regardless of what the label text is, the same way the Urdu side's
+# patterns key off a structural marker (ولد/تھانہ/role words) rather than
+# an enumerable name list. A real name is never immediately followed by a
+# colon in this corpus's usage (it's followed by a comma, a kinship
+# marker, or a sentence boundary).
+_LABEL_COLON_RE = re.compile(r"\s?:")
 
 # English-side location/org structural cues (B-4). The Urdu side has
 # _STATION_RE/_ORG_SUFFIX_RE/the gazetteer above proposing a non-"person"
@@ -313,7 +364,27 @@ def extract_statistical(text: str, source_chunk_id: Optional[str] = None) -> lis
 
     for m in _ENGLISH_NAME_RE.finditer(norm):
         candidate = m.group(0)
-        if candidate.split()[0] in _ENGLISH_STOPWORDS:
+        words = candidate.split()
+        # Single capitalized English word ("No", "Cr", "Islamabad",
+        # "Honda", "Nil", "This") — live-confirmed this is overwhelmingly
+        # noise in this corpus (boilerplate headers, page-break artifacts,
+        # abbreviations, isolated form values), never a bare single-token
+        # person name; every real English name sampled so far is 2-3 words
+        # ("Irfan Mirza", "Inspector Fariha Saeed"). Same "single-token
+        # filter" principle already validated for exactly this failure
+        # class in src/graph/community_detection.py's node-level guard —
+        # applied here at the source instead of only downstream.
+        if len(words) < 2:
+            continue
+        # Any word in the candidate, not just the first — a real bug fixed
+        # alongside the form-label additions above: "General Diary" was
+        # never excluded despite "Diary" already being listed, because the
+        # old check only looked at candidate.split()[0] ("General").
+        if any(w in _ENGLISH_STOPWORDS for w in words):
+            continue
+        # Structural check: immediately followed by a colon = a form-field
+        # label, not a name (see _LABEL_COLON_RE's comment above).
+        if _LABEL_COLON_RE.match(norm, m.end()):
             continue
         out.append(NERMention(candidate, "person", m.start(), m.end(), 0.45, "statistical", source_chunk_id))
 
