@@ -92,11 +92,12 @@ def _validate(result) -> bool:
 
 async def _summarize_one(
     community: dict, names_by_id: dict[str, str], known_stations: set[str],
+    canonical_map: dict[str, str],
 ) -> Optional[dict]:
     member_names = [names_by_id.get(eid, eid) for eid in community["member_entity_ids"]]
     cases = await _fetch_case_metadata(community["case_ids"])
     relationships = await community_detection.get_associated_with_context(
-        set(community["member_entity_ids"])
+        set(community["member_entity_ids"]), canonical_map=canonical_map, names=names_by_id,
     )
 
     cases_text = "; ".join(
@@ -225,6 +226,17 @@ async def summarize_communities(min_members: int = community_detection.MIN_MEMBE
     names_by_id = await community_detection.fetch_person_names()
     known_stations = await community_detection.fetch_known_police_stations()
 
+    # Hoisted out of the per-community loop below — these three reads are
+    # full-graph, run-wide data (not scoped to any one community), so they
+    # were being re-fetched identically on every loop iteration. Fine at
+    # today's ~25 communities/run, but a real O(communities) cost that
+    # doesn't scale — flagged as a known inefficiency when this module was
+    # first built, fixed here as its own scoped change. No behavior
+    # change: same data, computed once instead of once per community.
+    person_cases = await community_detection.fetch_person_case_membership()
+    same_as_pairs = await community_detection.fetch_confirmed_same_as()
+    canonical_map = community_detection.build_canonical_map(same_as_pairs)
+
     written = []
     skipped = 0
     for row in communities_raw:
@@ -252,9 +264,6 @@ async def summarize_communities(min_members: int = community_detection.MIN_MEMBE
         # migration 016) — re-derive by joining person-case membership for
         # this community's specific members, same source detect_communities()
         # used when it computed case_ids the first time.
-        person_cases = await community_detection.fetch_person_case_membership()
-        same_as_pairs = await community_detection.fetch_confirmed_same_as()
-        canonical_map = community_detection.build_canonical_map(same_as_pairs)
         member_set = set(member_ids)
         case_ids = sorted({
             case_id for entity_id, case_id in person_cases
@@ -269,7 +278,7 @@ async def summarize_communities(min_members: int = community_detection.MIN_MEMBE
             "case_ids": case_ids,
             "member_count": len(member_ids),
         }
-        summary = await _summarize_one(community, names_by_id, known_stations)
+        summary = await _summarize_one(community, names_by_id, known_stations, canonical_map)
         if summary is None:
             skipped += 1
             continue

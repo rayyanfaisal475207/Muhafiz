@@ -410,21 +410,36 @@ async def _persist(run_id: str, node_count: int, edge_count: int, communities: l
     )
 
 
-async def get_associated_with_context(member_entity_ids: set[str]) -> list[dict]:
+async def get_associated_with_context(
+    member_entity_ids: set[str],
+    *,
+    canonical_map: Optional[dict[str, str]] = None,
+    names: Optional[dict[str, str]] = None,
+) -> list[dict]:
     """
     Real ASSOCIATED_WITH edges (with their `basis` text) whose canonical
     endpoints both fall within a given community's member set — supplies
     community_summarization.py with actual extracted-relationship context,
-    not just co-membership. Re-derives canonicalization independently
-    (re-running the same cheap SAME_AS/ASSOCIATED_WITH reads
-    detect_communities() already did) rather than threading state through
-    from a prior run — this is a small, infrequent batch job, not a hot
-    path, so the duplicate read is a simplicity trade, not a real cost.
+    not just co-membership.
+
+    `canonical_map`/`names` are optional run-wide data a caller iterating
+    over many communities in one run can compute ONCE and pass in, instead
+    of this function re-deriving them (a fresh SAME_AS/fetch_person_names
+    read) on every single call — this was called once per community with
+    no caching, the more significant instance of the same per-run-data-
+    refetched-per-community inefficiency already fixed in
+    community_summarization.py's own loop. Still self-sufficient when
+    omitted (re-derives both, as before) — no existing caller breaks.
+    _fetch_associated_with() itself is deliberately NOT hoistable the same
+    way (it's genuinely per-call-relevant, filtered per member set), so
+    it's always freshly fetched here.
     """
-    same_as_pairs = await fetch_confirmed_same_as()
-    canonical_map = build_canonical_map(same_as_pairs)
+    if canonical_map is None:
+        same_as_pairs = await fetch_confirmed_same_as()
+        canonical_map = build_canonical_map(same_as_pairs)
+    if names is None:
+        names = await fetch_person_names()
     associated_with = await _fetch_associated_with()
-    names = await fetch_person_names()
 
     context = []
     for p1, p2, confidence, basis in associated_with:
