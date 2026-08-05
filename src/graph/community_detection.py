@@ -174,6 +174,37 @@ async def fetch_person_names() -> dict[str, str]:
 MIN_MEMBERS_FOR_SUMMARY = 2
 
 
+async def estimate_distinct_person_count(member_entity_ids: list[str], person_names: dict[str, str]) -> int:
+    """
+    Raw member_count over-counts real people: entity_resolution.py mints a
+    new node for every name-fallback mention rather than physically
+    merging (see docs/graph_schema.md's "Entity resolution &
+    canonicalization"), and confirmed SAME_AS collapse (canon(), used
+    building the community graph itself) only catches PENDING mentions
+    that have already been reviewed/confirmed — an unresolved but
+    obviously-the-same-person pending pair still counts as two separate
+    community members. A few small communities are really one person's
+    unresolved duplicate mentions, not a network of size 2+.
+
+    Greedy single-linkage grouping by name similarity (deliberately not a
+    real merge decision, no graph write — read-only estimation for the
+    MIN_MEMBERS_FOR_SUMMARY gate only). Reuses entity_resolution.py's own
+    name-similarity function and near-exact threshold rather than
+    reimplementing name comparison — imported directly (entity_resolution.py
+    itself is left untouched, per this section's own constraint) since
+    community_detection.py is a new, independent caller of an existing
+    private helper, not a reason to widen that module's public surface.
+    """
+    from src.graph.entity_resolution import NEAR_EXACT_NAME, _name_similarity
+
+    names = [person_names.get(eid, eid) for eid in member_entity_ids]
+    representatives: list[str] = []
+    for name in names:
+        if not any(_name_similarity(name, rep) >= NEAR_EXACT_NAME for rep in representatives):
+            representatives.append(name)
+    return len(representatives)
+
+
 # ── Graph reads ──────────────────────────────────────────────────────────
 
 async def fetch_confirmed_same_as() -> list[tuple[str, str]]:
@@ -326,11 +357,14 @@ async def detect_communities() -> dict:
     for idx, members in enumerate(partition):
         community_id = f"C-{run_date}-{idx:04d}"
         case_ids = sorted(set().union(*(canon_case_ids.get(m, set()) for m in members)))
+        member_list = sorted(members)
+        distinct_count = await estimate_distinct_person_count(member_list, person_names)
         communities.append({
             "community_id": community_id,
-            "member_entity_ids": sorted(members),
+            "member_entity_ids": member_list,
             "case_ids": case_ids,
             "member_count": len(members),
+            "distinct_member_count": distinct_count,
         })
 
     await _persist(run_id, node_count, edge_count, communities)
