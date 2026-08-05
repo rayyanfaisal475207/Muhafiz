@@ -30,8 +30,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
-from src.extraction.llm_json import parse_json_response
 from src.llm.client import call_llm
+from src.pipeline.json_extract import call_llm_json
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +39,7 @@ _PROMPT_PATH = Path(__file__).resolve().parent.parent.parent / "prompts" / "rela
 _SYSTEM_PROMPT = _PROMPT_PATH.read_text(encoding="utf-8")
 
 _MAX_CHARS = 3000
+_SCHEMA_HINT = '[{"person_a": <index>, "person_b": <index>, "basis": "...", "confidence": 0.0-1.0}, ...] (a JSON array, [] if none)'
 
 
 @dataclass
@@ -65,6 +66,22 @@ async def extract_relationships(text: str, person_names: list[str]) -> list[dict
     per-document resilience requirement (src/ingestion/service.py's
     _run_graph_extraction already treats a step's own failure as
     "this document/chunk has no [X] data," never as ingestion failure).
+
+    Uses call_llm_json (not a raw call_llm + parse_json_response, the
+    original shape of this function) — root-caused via a Branch 5 audit
+    into why ASSOCIATED_WITH edges were so sparse (~17 across ~1000 Person
+    nodes): confirmed live, 4/4 reproducible, the local model answers this
+    exact prompt with free-prose commentary instead of the required JSON
+    array DESPITE correctly understanding the relationship being asked
+    about (its prose response accurately described the stated
+    association) — the same "local model ignores an explicit JSON-only
+    instruction" failure class router.py's G-1 fix and
+    community_summarization.py's own bugs already found elsewhere in this
+    pipeline. This extractor was the one JSON-output call site in the
+    pipeline that never got call_llm_json's retry-with-correction
+    treatment, so every one of these failures silently returned [] with
+    zero retry — very likely the dominant cause of the low edge count,
+    not a genuine absence of stated relationships in the corpus.
     """
     distinct_names = list(dict.fromkeys(n for n in person_names if n and n.strip()))
     if len(distinct_names) < 2 or not text or not text.strip():
@@ -74,19 +91,17 @@ async def extract_relationships(text: str, person_names: list[str]) -> list[dict
     snippet = text[:_MAX_CHARS]
     user_message = f"People:\n{numbered}\n\nPassage: {snippet}"
 
-    try:
-        response = await call_llm(
-            system_prompt=_SYSTEM_PROMPT,
-            user_message=user_message,
-            temperature=0.0,
-            max_tokens=800,
-        )
-    except Exception as exc:
-        logger.error("relationship_extraction LLM call failed: %s", exc)
-        return []
-
-    parsed = parse_json_response(response, context="relationship_extraction")
-    if not isinstance(parsed, list):
+    parsed, raw = await call_llm_json(
+        system_prompt=_SYSTEM_PROMPT,
+        user_message=user_message,
+        temperature=0.0,
+        max_tokens=800,
+        validate=lambda r: isinstance(r, list),
+        schema_hint=_SCHEMA_HINT,
+        _call_llm=call_llm,
+    )
+    if parsed is None:
+        logger.warning("relationship_extraction: no valid JSON after retries — raw: %s", raw[:200])
         return []
 
     out: list[RelationshipMention] = []
