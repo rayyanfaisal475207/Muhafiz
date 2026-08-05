@@ -90,7 +90,9 @@ def _validate(result) -> bool:
     return True
 
 
-async def _summarize_one(community: dict, names_by_id: dict[str, str]) -> Optional[dict]:
+async def _summarize_one(
+    community: dict, names_by_id: dict[str, str], known_stations: set[str],
+) -> Optional[dict]:
     member_names = [names_by_id.get(eid, eid) for eid in community["member_entity_ids"]]
     cases = await _fetch_case_metadata(community["case_ids"])
     relationships = await community_detection.get_associated_with_context(
@@ -157,6 +159,28 @@ async def _summarize_one(community: dict, names_by_id: dict[str, str]) -> Option
         )
         return None
 
+    # Mechanical safety net, layered on top of the prompt's own exclusion
+    # instruction (which live-confirmed isn't airtight — community_reports
+    # "0010"/"0022" both leaked a non-name into the written summary despite
+    # it). Reuses the exact same plausibility check community_detection.py
+    # applies at the graph level, applied here to every member name that
+    # was actually fed to this prompt: any name that's implausible AND
+    # wasn't in the model's own excluded_non_names AND still shows up
+    # verbatim in the summary text is a leak the model didn't catch.
+    # Detection + logging only, not automatic text-splicing — naive string
+    # removal risks producing a grammatically broken sentence, which is a
+    # worse failure than a logged-but-visible leak.
+    excluded = set(result.get("excluded_non_names") or [])
+    for name in member_names:
+        if name in excluded:
+            continue
+        if not community_detection._is_plausible_person_name(name, known_stations) and name in summary:
+            logger.warning(
+                "community_summarization: %s — implausible name %r leaked into the "
+                "summary text despite not being in excluded_non_names",
+                community["community_id"], name,
+            )
+
     return {
         "community_id": community["community_id"],
         "run_id": community["run_id"],
@@ -199,6 +223,7 @@ async def summarize_communities(min_members: int = community_detection.MIN_MEMBE
         communities_raw = [dict(row) for row in res.mappings()]
 
     names_by_id = await community_detection.fetch_person_names()
+    known_stations = await community_detection.fetch_known_police_stations()
 
     written = []
     skipped = 0
@@ -226,7 +251,7 @@ async def summarize_communities(min_members: int = community_detection.MIN_MEMBE
             "case_ids": case_ids,
             "member_count": len(member_ids),
         }
-        summary = await _summarize_one(community, names_by_id)
+        summary = await _summarize_one(community, names_by_id, known_stations)
         if summary is None:
             skipped += 1
             continue
