@@ -33,6 +33,8 @@ logger = logging.getLogger(__name__)
 _PROMPT_PATH = Path(__file__).resolve().parent.parent.parent / "prompts" / "router.txt"
 _SYSTEM_PROMPT = _PROMPT_PATH.read_text(encoding="utf-8")
 
+_VALID_ROUTES = ["DIRECT", "RAG", "WEB", "SQL", "GRAPH", "GRAPH_HYBRID", "XGRAPH", "XAGG", "XNETWORK"]
+
 # ── Deterministic pre-classification for unambiguous cross-case aggregate/
 # recurrence queries ─────────────────────────────────────────────────────
 #
@@ -212,7 +214,42 @@ async def route_query(rewritten_query: str) -> dict:
         # mid-"route"; 800 matches the client's own local-call ceiling
         # (src/llm/client.py) and leaves room for both.
         max_tokens=800,
-        validate=lambda r: isinstance(r, dict) and "route" in r,
+        # isinstance(r.get("route"), str), not just "route" in r — live-
+        # confirmed (found while auditing for more issues after Section 2):
+        # a corrected retry can produce syntactically valid JSON with a
+        # "route" KEY present but a malformed VALUE, e.g.
+        # {"route": {"confidence": 0.1, "path": []}} — a nested object
+        # instead of a route string. The old check only verified the key
+        # existed, so this passed validation, then silently defaulted to
+        # RAG deep in this function's own str(result.get("route") or
+        # "RAG").upper() fallback below — no warning logged, no retry
+        # triggered, completely invisible. This is the exact same class of
+        # bug already found and fixed in community_summarization.py's
+        # "summary" field (a nested dict instead of a string) — router.py
+        # never got the equivalent fix. Confirmed this was live-active and
+        # not a one-off: 100% reproducible across DIRECT/SQL/WEB/GRAPH/
+        # GRAPH_HYBRID-shaped queries this session, none of which have a
+        # deterministic regex override (only XAGG/XGRAPH/XNETWORK do) — so
+        # this silently degraded a large fraction of the router's total
+        # surface to a blind RAG default.
+        #
+        # Also checks membership in _VALID_ROUTES, not just "is a non-
+        # empty string" — live-confirmed the type-only check above still
+        # wasn't enough: a corrected retry reliably produces
+        # {"route": "unknown", ...} for straightforward queries (including
+        # "Hello", the router prompt's own first few-shot example
+        # verbatim) — a syntactically fine, non-empty string that still
+        # isn't a real route. That passed the type check, so no further
+        # retry ever fired, and it silently defaulted to RAG via the same
+        # downstream str(...).upper() not in _VALID_ROUTES fallback below.
+        # Rejecting it here means the local model gets its full 3
+        # attempts before falling through to the cloud escalation already
+        # configured below, instead of quietly giving up after 2.
+        validate=lambda r: (
+            isinstance(r, dict)
+            and isinstance(r.get("route"), str)
+            and r["route"].strip().upper() in _VALID_ROUTES
+        ),
         schema_hint='"route", "case_scope", "target_entity", "output_format", "target_year", "confidence", "reason"',
         _call_llm=call_llm,
         # Router-specific opt-in (unlike evaluator/query_rewriter, which do
@@ -257,7 +294,7 @@ async def route_query(rewritten_query: str) -> dict:
 
         # Ensure default values if LLM misses them
         route = str(result.get("route") or "RAG").upper()
-        if route not in ["DIRECT", "RAG", "WEB", "SQL", "GRAPH", "GRAPH_HYBRID", "XGRAPH", "XAGG", "XNETWORK"]:
+        if route not in _VALID_ROUTES:
             route = "RAG"
 
         # Case-scoped is the default; only XGRAPH/XAGG/XNETWORK are ever
