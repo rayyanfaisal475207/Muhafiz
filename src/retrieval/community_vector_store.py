@@ -51,6 +51,31 @@ def reset_collection() -> None:
     _collection = None
 
 
+def clear_all_reports() -> None:
+    """
+    Delete every embedding in the community-reports collection.
+
+    Real bug found live (this session, not hypothetical): community_reports
+    in Postgres is fully replaced each detection run (community_runs'
+    cascading delete wipes community_membership/community_reports — see
+    community_detection.py's _persist()), but this Chroma collection only
+    ever upserts — nothing ever removed a prior run's now-orphaned
+    community_id entries. Confirmed live: after a detection run producing
+    17 fresh reports, this collection still held 25 entries — 8 stale
+    embeddings from earlier runs whose community_id no longer exists in
+    Postgres at all, meaning XNETWORK's similarity search could surface a
+    community summary with no backing membership/case data. Called at the
+    start of community_summarization.summarize_communities(), mirroring
+    the same "latest run only" invariant the Postgres side already
+    enforces.
+    """
+    global _client, _collection
+    collection = _get_collection()
+    existing_ids = collection.get(include=[])["ids"]
+    if existing_ids:
+        collection.delete(ids=existing_ids)
+
+
 async def upsert_community_reports(reports: list[dict]) -> None:
     """
     reports: list of {community_id, summary_text, case_ids, member_count}.

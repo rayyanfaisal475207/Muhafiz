@@ -106,7 +106,31 @@ _NON_NAME_PHRASES = {
     "judicial magistrate", "progress summary", "unknown mulzim",
     "bhara kahu", "statements recorded", "evidence collected",
     "next steps", "current status", "under investigation", "shahzad town",
+    # Third pass — found running scripts/cleanup_implausible_person_nodes.py
+    # and scripts/backfill_associated_with.py against the live graph:
+    # crime-category/status phrases and vehicle model names, both a
+    # different shape than the form-label/station noise the first two
+    # passes targeted. Same "growing blocklist, not a generalizable fix"
+    # limitation already flagged twice — accepted here for the same
+    # reason (cheap, targets what's actually been observed), not treated
+    # as a closed problem.
+    "active leads being pursued", "cyber cell", "cyber fraud", "fraud cell",
+    "honda civic car", "house theft", "online scam", "pending trial",
+    "roznamcha no", "suzuki alto car", "toyota corolla", "toyota corolla car",
+    "applicant",
+    "خلاف قانونی کارروائی", "شناخت ابھی تک", "مبینہ مجرم", "مجرم قرار",
+    "میرے ساتھ", "میرے گھر",
 }
+
+# Location-suffix substring check — same principle as the "police station"
+# substring check below, generalized: a capitalized run ending in a
+# road/highway/market word is a place, not a person, regardless of which
+# specific road. Directly observed: "Main Road", "Margalla Road", "Murree
+# Road", "Nilore Road", "Srinagar Highway", "Jinnah Super Market" all
+# slipped through the exact-phrase blocklist since each is a different
+# specific place — the shared structural marker (the suffix word) is what
+# generalizes, not any one of these strings.
+_LOCATION_SUFFIX_WORDS = ("road", "highway", "market")
 
 # A second pass, added after re-sampling a post-filter community and
 # finding two more failure shapes the exact-phrase blocklist above can't
@@ -154,6 +178,8 @@ def _is_plausible_person_name(name: Optional[str], known_stations: Optional[set[
     if " " not in stripped:
         return False
     if "police station" in normalized:
+        return False
+    if any(normalized.endswith(suffix) or f" {suffix} " in f" {normalized} " for suffix in _LOCATION_SUFFIX_WORDS):
         return False
     if len(stripped) > _MAX_PLAUSIBLE_NAME_LENGTH:
         return False
