@@ -229,6 +229,24 @@ async def summarize_communities(min_members: int = community_detection.MIN_MEMBE
     skipped = 0
     for row in communities_raw:
         member_ids = row["member_entity_ids"]
+
+        # Distinct-person gate, ahead of any LLM call — raw member_count
+        # (what the SQL HAVING clause above already filtered on) over-
+        # counts real people: a community with member_count=2 can still be
+        # one person's two unresolved duplicate mentions, not a network of
+        # two. See estimate_distinct_person_count()'s own docstring for
+        # why this can't just be folded into the SQL query above (name
+        # similarity isn't expressible as a HAVING clause).
+        distinct_count = await community_detection.estimate_distinct_person_count(member_ids, names_by_id)
+        if distinct_count < min_members:
+            logger.info(
+                "community_summarization: %s skipped — %d raw members but only "
+                "%d distinct person(s) after name-similarity dedup (below min_members=%d).",
+                row["community_id"], len(member_ids), distinct_count, min_members,
+            )
+            skipped += 1
+            continue
+
         # case_ids per community aren't stored in community_membership
         # (that table is entity_id/community_id/level/run_id only, per
         # migration 016) — re-derive by joining person-case membership for
