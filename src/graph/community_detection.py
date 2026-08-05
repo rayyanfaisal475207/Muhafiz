@@ -306,6 +306,16 @@ async def detect_communities() -> dict:
     shared_case = await _fetch_shared_case_pairs()
     person_cases = await fetch_person_case_membership()
 
+    # Raw, pre-filter counts — captured before the implausible-name
+    # filtering below reassigns these variables. Persisted alongside the
+    # post-filter node_count/edge_count so
+    # scripts/check_community_staleness.py has a genuinely comparable
+    # baseline against the live graph's own raw counts, rather than
+    # diffing filtered-vs-raw quantities (an apples-to-oranges comparison
+    # that would always show large fake "drift").
+    raw_node_count = len(person_names)
+    raw_edge_count = len(associated_with) + len(person_cases)
+
     associated_with = [
         (p1, p2, c, basis) for p1, p2, c, basis in associated_with
         if p1 not in implausible_ids and p2 not in implausible_ids
@@ -367,7 +377,7 @@ async def detect_communities() -> dict:
             "distinct_member_count": distinct_count,
         })
 
-    await _persist(run_id, node_count, edge_count, communities)
+    await _persist(run_id, node_count, edge_count, communities, raw_node_count, raw_edge_count)
 
     return {
         "run_id": run_id,
@@ -378,7 +388,10 @@ async def detect_communities() -> dict:
     }
 
 
-async def _persist(run_id: str, node_count: int, edge_count: int, communities: list[dict]) -> None:
+async def _persist(
+    run_id: str, node_count: int, edge_count: int, communities: list[dict],
+    raw_node_count: int, raw_edge_count: int,
+) -> None:
     async with get_session() as db:
         # Deleting every prior run cascades to community_membership and
         # community_reports (both FK ON DELETE CASCADE to community_runs)
@@ -387,12 +400,14 @@ async def _persist(run_id: str, node_count: int, edge_count: int, communities: l
         await db.execute(text("DELETE FROM community_runs"))
         await db.execute(
             text(
-                "INSERT INTO community_runs (run_id, node_count, edge_count, community_count, algorithm) "
-                "VALUES (:run_id, :node_count, :edge_count, :community_count, 'louvain')"
+                "INSERT INTO community_runs "
+                "(run_id, node_count, edge_count, community_count, algorithm, raw_node_count, raw_edge_count) "
+                "VALUES (:run_id, :node_count, :edge_count, :community_count, 'louvain', :raw_node_count, :raw_edge_count)"
             ),
             {
                 "run_id": run_id, "node_count": node_count, "edge_count": edge_count,
                 "community_count": len(communities),
+                "raw_node_count": raw_node_count, "raw_edge_count": raw_edge_count,
             },
         )
         for c in communities:
@@ -458,7 +473,8 @@ async def get_latest_run() -> Optional[dict]:
     """The most recent community_runs row, or None if detection has never run."""
     async with get_session() as db:
         res = await db.execute(text(
-            "SELECT run_id, computed_at, node_count, edge_count, community_count, algorithm "
+            "SELECT run_id, computed_at, node_count, edge_count, community_count, algorithm, "
+            "raw_node_count, raw_edge_count "
             "FROM community_runs ORDER BY computed_at DESC LIMIT 1"
         ))
         row = res.mappings().first()
