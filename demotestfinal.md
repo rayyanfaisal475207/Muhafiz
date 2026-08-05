@@ -40,11 +40,14 @@ response, no irrelevant context injected.
 **Response:**
 > معزز خواتین اور حضرات، السلام علیکم!
 
-**Demo note:** use plain `Hello`, not a compound greeting-plus-question
-("Hello, what can you help me with?") — the compound phrasing was tested
-live and misrouted to RAG. This is a known residual classifier gap after
-the router fix documented in this repo's own commit history — worth
-knowing before a live demo, not worth mentioning during one.
+**Update:** the compound phrasing gap noted here originally ("Hello, what
+can you help me with?" misrouting to RAG) is fixed — a few-shot example
+was added to `prompts/router.txt` and verified live:
+`route_query("Hello, what can you help me with?")` now returns `DIRECT`.
+Verified at the classification level only (not re-run through the full
+answer-generation pipeline, to conserve this session's Groq quota — see
+the note at the end of this document) — the routing decision itself is
+confirmed correct.
 
 ---
 
@@ -134,20 +137,29 @@ documents (most of the non-`CASE-B0-*` cases are Urdu-narrative FIRs).
 **Purpose:** named-entity relationship/network questions scoped to one
 active case.
 
-**Status: no clean live example landed on this exact route this session.**
-Both attempted GRAPH-shaped queries against `CASE-B0-THEFT-001` were
-classified `RAG`/`GRAPH_HYBRID` instead and still answered correctly (see
-§3's second example) — the router's calibration for GRAPH specifically,
-as distinct from RAG for a simple factual question, needs a query that
-more explicitly asks for a *relationship*, not a fact. Untested live for
-this document, from `prompts/router.txt`'s own calibration example:
+**Update — root cause found and fixed after this document was first
+written.** The original attempt below was classified `GRAPH_HYBRID`
+instead of `GRAPH`, with the model's own stated reasoning being that it
+wasn't confident "Irfan Mirza" was a literal identifier rather than a
+descriptive reference. That's a real, reproducible (3/3) calibration gap,
+not a one-off — fixed with an explicit rule added to `prompts/router.txt`
+("a capitalized proper-noun-shaped name IS a literal identifier — don't
+downgrade out of caution").
 
-**Try this for a demo instead** (not independently verified this session,
-but matches the router's own few-shot pattern exactly):
-`Is Irfan Mirza known to associate with anyone else in this case?`
-— expect `GRAPH`, citing the real `ASSOCIATED_WITH` edge `Irfan Mirza <->
-Bilal Malik` (father/son, confirmed present in the graph as of this
-session's cleanup — see §9).
+**Query:** `Is Irfan Mirza known to associate with anyone else in this case?`
+**Route (post-fix, verified at the classification level):** `GRAPH`,
+`target_entity: "Irfan Mirza"` (previously `GRAPH_HYBRID`,
+`target_entity: null`)
+
+This confirms the routing decision only — re-running the full
+answer-generation pipeline for this exact query to capture the actual
+response text was deliberately skipped this session to conserve Groq
+quota (this session's repeated live testing rotated through nearly all
+configured API keys — see §9). Expect it to cite the real
+`ASSOCIATED_WITH` edge `Irfan Mirza <-> Bilal Malik` (father/son,
+confirmed present in the graph as of this session's cleanup), but capture
+the actual response live before presenting it as a demo example — this
+document reports what's verified, not what's assumed.
 
 ---
 
@@ -339,15 +351,37 @@ This demo script was captured immediately after two rounds of work:
    a separately-fixed extractor — the graph this document's examples run
    against is the **cleaned, current** state, not the original corpus as
    ingested.
+4. **A second, smaller fix pass** (after this document's first draft):
+   two router.txt calibration gaps this document itself surfaced —
+   compound "Hello, what can you help me with?" phrasing (§1) and the
+   GRAPH-vs-GRAPH_HYBRID name-caution issue (§4) — were fixed with
+   targeted few-shot/rule additions and verified at the classification
+   level. This is a real instance of the demo script doing its job: it
+   found two gaps just by being written honestly.
+
+**A real operational constraint hit during this session, worth knowing
+before you run a live demo:** repeated live testing throughout this
+session's fix-verify cycles rotated through nearly all configured Groq
+API keys (`GROQ_API_KEY` + `_1` through `_4`) due to free-tier rate
+limiting. The system degrades gracefully when this happens (further
+key rotation, eventually a slower/queued response) rather than failing
+outright, but a demo immediately after a heavy testing session is a bad
+time to also be burning the same shared quota — check `GROQ_API_KEY`
+rotation state or simply wait a few minutes for the free-tier window to
+reset before presenting live.
 
 Residual, known, not fixed as of this document:
 - Urdu-language RAG queries against English-language source documents
-  (§3).
-- GRAPH vs. GRAPH_HYBRID vs. RAG routing calibration for factual
-  within-case questions (§4, §5) — functionally still answers correctly
-  most of the time via RAG, just not always through the "intended" route.
+  (§3) — a genuine cross-script retrieval-quality question, not a quick
+  prompt fix like the two above.
 - XAGG has no dedicated "grand total" aggregate path (§7).
 - The community-noise filter behind XNETWORK (`community_detection.py`)
   is an evolving blocklist, not a closed problem — a new document format
   could surface a new noise category the same way three earlier rounds
   each did this session.
+- `relationship_extraction.py` only ever considers people who co-occur in
+  the same physical chunk — it cannot find a relationship stated across
+  two different chunks/documents about the same case. A structural
+  limitation, not a bug; fixing it would mean a document-level (not
+  per-chunk) extraction pass, a larger change than anything in this
+  document's scope.
