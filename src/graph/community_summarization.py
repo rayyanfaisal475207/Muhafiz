@@ -212,6 +212,14 @@ async def summarize_communities(min_members: int = community_detection.MIN_MEMBE
         raise RuntimeError("No community detection run found — call detect_communities() first.")
     run_id = run["run_id"]
 
+    # Clear stale embeddings from prior runs before writing this run's —
+    # community_reports in Postgres is fully replaced each run (cascading
+    # delete from community_runs), but the Chroma collection only ever
+    # upserted, never removed anything. See clear_all_reports()'s own
+    # docstring for the live-confirmed bug this closes.
+    from src.retrieval.community_vector_store import clear_all_reports
+    clear_all_reports()
+
     async with get_session() as db:
         res = await db.execute(
             text(
