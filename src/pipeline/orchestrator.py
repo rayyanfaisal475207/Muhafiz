@@ -30,6 +30,7 @@ from src.retrieval.reranker import rerank_results
 from src.retrieval.cross_reranker import cross_rerank
 from src.retrieval.graph_retriever import retrieve_graph
 from src.pipeline.xagg import run_aggregate
+from src.pipeline.xnetwork import run_network_query
 from src.llm.client import call_llm, stream_llm
 from src.pipeline.file_structurer import structure_for_file
 from src.generation.pdf_builder import build_pdf
@@ -75,6 +76,14 @@ _CROSS_CASE_AGG_PROMPT_PATH = (
     Path(__file__).resolve().parent.parent.parent / "prompts" / "cross_case_aggregate.txt"
 )
 _CROSS_CASE_AGG_PROMPT_TEMPLATE = _CROSS_CASE_AGG_PROMPT_PATH.read_text(encoding="utf-8")
+
+# XNETWORK gets its own template too — its evidence is multiple already-
+# LLM-summarized community reports (RAG-shaped, cite-per-source), unlike
+# XAGG's single deterministic block or XGRAPH's per-case graph traversal.
+_CROSS_CASE_NETWORK_PROMPT_PATH = (
+    Path(__file__).resolve().parent.parent.parent / "prompts" / "cross_case_network.txt"
+)
+_CROSS_CASE_NETWORK_PROMPT_TEMPLATE = _CROSS_CASE_NETWORK_PROMPT_PATH.read_text(encoding="utf-8")
 
 import re
 
@@ -538,7 +547,7 @@ async def process_query(
     # refers to the attachment, answer DIRECT instead: the DIRECT path reads
     # the attachment straight out of the injected context. A file-format
     # request ("...as an Excel file") is preserved so it still generates.
-    if attachment_context and route_str in ("WEB", "RAG", "SQL", "GRAPH", "GRAPH_HYBRID", "XGRAPH", "XAGG"):
+    if attachment_context and route_str in ("WEB", "RAG", "SQL", "GRAPH", "GRAPH_HYBRID", "XGRAPH", "XAGG", "XNETWORK"):
         _ref = user_message.lower()
         if any(cue in _ref for cue in (
             "my ", "our ", "i attached", "attached", "attachment", "this file",
@@ -1368,6 +1377,99 @@ async def process_query(
         except Exception as e:
             logger.error("XAGG route failed: %s", e)
             yield event("cross_case_finding", "error", f"Cross-case aggregate failed: {e}")
+            final_response = _SAFE_RESPONSE
+            response_type = "safe"
+            yield event("response", "streaming", final_response)
+            yield event("response", "done", f"Response generated ({len(final_response)} chars)", 0)
+
+    # ─── XNETWORK Route — cross-case open-ended network/theme synthesis ────
+    # Same structural-separation rule as XAGG/XGRAPH: never falls back to
+    # RAG, never touches case_id filtering.
+    elif route_str == "XNETWORK":
+        yield event("cross_case_finding", "active", "Retrieving relevant network clusters...")
+        t0 = time.monotonic()
+        try:
+            net_result = await run_network_query(
+                rewritten_query, gateway, user_id=user_id, user_role=user_role
+            )
+            elapsed_ms = int((time.monotonic() - t0) * 1000)
+
+            results = net_result["results"]
+            if results:
+                network_text = "\n\n".join(
+                    f"[Community {i}] {r['summary_text']}" for i, r in enumerate(results, 1)
+                )
+            else:
+                network_text = "(no relevant community clusters found for this question)"
+
+            yield event(
+                "cross_case_finding", "done",
+                f"Retrieved {len(results)} relevant community cluster(s)",
+                elapsed_ms, case_scope="cross_case",
+            )
+
+            yield event("response", "active", "Synthesizing cross-case network summary...")
+            t0_resp = time.monotonic()
+            history_text = format_history_for_prompt(history)
+            system_prompt = _CROSS_CASE_NETWORK_PROMPT_TEMPLATE.format(
+                documents=network_text,
+                preferred_language=preferred_language,
+                history=history_text or "(no previous conversation)",
+            )
+            full_response = await call_llm(system_prompt, user_message, llm_mode=llm_mode, role=_generation_role(preferred_language))
+            elapsed_ms_resp = int((time.monotonic() - t0_resp) * 1000)
+
+            _spawn(asyncio.to_thread(pipeline_logger.log_llm_call,
+                query_id, "xnetwork_response", config.LLM_PROVIDER, config.GROQ_MODEL if config.LLM_PROVIDER=="groq" else config.GEMINI_MODEL,
+                system_prompt, user_message, full_response, elapsed_ms_resp
+            ))
+
+            # ── Verify before delivering ──────────────────────────────────
+            # One chunk per retrieved community, matching the [Community N]
+            # citation scheme above — same reasoning as XGRAPH's per-document
+            # verifier chunking, not XAGG's single-block shape, since here
+            # there genuinely can be multiple independent evidence sources.
+            net_chunks = [
+                {"id": f"community-{i}", "text": r["summary_text"],
+                 "metadata": {"source": r["community_id"]}}
+                for i, r in enumerate(results, 1)
+            ]
+            t0_verify = time.monotonic()
+            verification = await verify_grounding(
+                answer=full_response, cited_chunks=net_chunks, case_id="cross_case"
+            )
+            verifier_ms = int((time.monotonic() - t0_verify) * 1000)
+            verifier_passed = verification.get("grounded", False) and not verification.get("off_topic", False)
+            verifier_regenerated = False
+
+            if not verifier_passed:
+                logger.warning("Verifier rejected XNETWORK response: %s", verification.get("reason", "")[:100])
+                # Same fallback reasoning as XAGG: the community summaries
+                # are already-grounded evidence (generated and verified at
+                # summarization time — see community_summarization.py's own
+                # NOT_ENOUGH_DATA/exclusion guards), so a verifier rejection
+                # here means this generation step's paraphrase failed to
+                # faithfully represent them, not that the evidence is thin.
+                full_response = (
+                    "Here are the relevant network clusters found directly from "
+                    "the case graph (shown in their original form; a synthesized "
+                    "summary was not consistently faithful to them):\n\n"
+                    + network_text
+                )
+                verifier_regenerated = True
+
+            yield event("citation_validator", "done",
+                verification.get("reason", "")[:120], verifier_ms,
+                grounded=verifier_passed, regenerated=verifier_regenerated)
+            yield event("response", "streaming", full_response)
+            yield event("response", "done", f"Response generated ({len(full_response)} chars)", elapsed_ms_resp)
+
+            final_response = full_response
+            response_type = "xnetwork"
+            update_query_bg(verifier_passed=verifier_passed, verifier_regenerated=verifier_regenerated)
+        except Exception as e:
+            logger.error("XNETWORK route failed: %s", e)
+            yield event("cross_case_finding", "error", f"Cross-case network query failed: {e}")
             final_response = _SAFE_RESPONSE
             response_type = "safe"
             yield event("response", "streaming", final_response)
