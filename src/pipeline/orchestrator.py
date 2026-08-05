@@ -1396,8 +1396,19 @@ async def process_query(
 
             results = net_result["results"]
             if results:
+                # [Document N] here, not [Community N] — live-root-caused
+                # (Stage 3 testing): verifier.py's deterministic
+                # _check_no_citation() hardcodes the literal word
+                # "Document" in its citation regex, so [Community N]
+                # failed the verifier's pre-check on EVERY XNETWORK answer
+                # regardless of generation quality — local or cloud, since
+                # this check runs before the LLM-judge step even sees the
+                # answer. Not a model-quality problem; the community_id is
+                # still surfaced per document via the source metadata below
+                # for traceability.
                 network_text = "\n\n".join(
-                    f"[Community {i}] {r['summary_text']}" for i, r in enumerate(results, 1)
+                    f"[Document {i}] ({r['community_id']}) {r['summary_text']}"
+                    for i, r in enumerate(results, 1)
                 )
             else:
                 network_text = "(no relevant community clusters found for this question)"
@@ -1425,7 +1436,7 @@ async def process_query(
             ))
 
             # ── Verify before delivering ──────────────────────────────────
-            # One chunk per retrieved community, matching the [Community N]
+            # One chunk per retrieved community, matching the [Document N]
             # citation scheme above — same reasoning as XGRAPH's per-document
             # verifier chunking, not XAGG's single-block shape, since here
             # there genuinely can be multiple independent evidence sources.
@@ -1443,7 +1454,46 @@ async def process_query(
             verifier_regenerated = False
 
             if not verifier_passed:
-                logger.warning("Verifier rejected XNETWORK response: %s", verification.get("reason", "")[:100])
+                logger.warning("Verifier rejected XNETWORK response (local): %s", verification.get("reason", "")[:100])
+                # One cloud regeneration attempt before falling back to raw
+                # evidence — live-confirmed (Stage 3 testing) the local
+                # generation model failed this specific task shape in all 3
+                # test runs, the same class of finding that justified
+                # community_summarization.py's own narrow cloud-escalation
+                # opt-in. Scoped the same way that one was: XNETWORK fires
+                # at most once per turn and is already supervisor+ gated —
+                # same low-volume profile as router.py's G-1 escalation, not
+                # RAG/evaluator's high-volume retry loop that ruled out
+                # blanket escalation project-wide. If the cloud attempt
+                # ALSO fails verification (or can't run at all, e.g.
+                # AIR_GAP_MODE refuses cloud calls entirely — call_llm
+                # raises rather than silently falling back per its own
+                # documented AIR_GAP_MODE contract), fall through to the
+                # existing raw-evidence fallback below rather than letting
+                # that exception escape to the route's outer handler and
+                # degrade all the way to the generic _SAFE_RESPONSE instead
+                # of the strictly-more-useful cited raw evidence.
+                try:
+                    full_response = await call_llm(
+                        system_prompt, user_message, llm_mode=llm_mode,
+                        role=_generation_role(preferred_language), force_cloud=True,
+                    )
+                    verification = await verify_grounding(
+                        answer=full_response, cited_chunks=net_chunks, case_id="cross_case"
+                    )
+                    verifier_passed = verification.get("grounded", False) and not verification.get("off_topic", False)
+                    if verifier_passed:
+                        logger.info("XNETWORK cloud regeneration passed verification.")
+                    else:
+                        logger.warning(
+                            "Verifier rejected XNETWORK response (cloud retry too): %s",
+                            verification.get("reason", "")[:100],
+                        )
+                except Exception as cloud_exc:
+                    logger.warning("XNETWORK cloud regeneration attempt failed: %s", cloud_exc)
+                    verifier_passed = False
+
+            if not verifier_passed:
                 # Same fallback reasoning as XAGG: the community summaries
                 # are already-grounded evidence (generated and verified at
                 # summarization time — see community_summarization.py's own
