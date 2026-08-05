@@ -125,12 +125,31 @@ _NON_NAME_PHRASES = {
 _MAX_PLAUSIBLE_NAME_LENGTH = 45
 
 
-def _is_plausible_person_name(name: Optional[str]) -> bool:
+async def fetch_known_police_stations() -> set[str]:
+    """
+    Real police_station values from the `cases` table, lowercased — a
+    genuinely data-driven check rather than another guessed string.
+    Live-discovered why this matters: "Industrial Area" and "Lohi Bher"
+    both leaked into stored community summaries as if they were person
+    names (community_reports "0010"/"0022") — both turned out to be exact,
+    real police_station values, not coincidental phrase collisions. A
+    hardcoded blocklist entry only catches names already seen; querying
+    the actual station list catches every station name this dataset has,
+    present or future, without needing to spot each one manually first.
+    """
+    async with get_session() as db:
+        res = await db.execute(text("SELECT DISTINCT police_station FROM cases WHERE police_station IS NOT NULL"))
+        return {row[0].strip().lower() for row in res.fetchall() if row[0]}
+
+
+def _is_plausible_person_name(name: Optional[str], known_stations: Optional[set[str]] = None) -> bool:
     if not name or not name.strip():
         return False
     stripped = name.strip()
     normalized = stripped.lower()
     if normalized in _NON_NAME_PHRASES:
+        return False
+    if known_stations and normalized in known_stations:
         return False
     if " " not in stripped:
         return False
@@ -240,8 +259,10 @@ async def detect_communities() -> dict:
     canonical_map = build_canonical_map(same_as_pairs)
 
     person_names = await fetch_person_names()
+    known_stations = await fetch_known_police_stations()
     implausible_ids = {
-        eid for eid, name in person_names.items() if not _is_plausible_person_name(name)
+        eid for eid, name in person_names.items()
+        if not _is_plausible_person_name(name, known_stations)
     }
     if implausible_ids:
         logger.info(
