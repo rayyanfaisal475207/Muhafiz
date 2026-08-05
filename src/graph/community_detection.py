@@ -1,0 +1,395 @@
+# ============================================================
+# Community detection — GraphRAG-inspired layer, Section 2 (additive,
+# read-only against the Apache AGE graph; writes only to the new Postgres
+# side tables from migration 016). See docs/AUDIT_FINDINGS_2026-08-04.md /
+# FIX_PLAN_2026-08-04.md for the verified graph state this builds on.
+#
+# Does NOT touch age_client.py's connection handling, entity_resolution.py's
+# resolution logic, or versioning.py's append-only edge model — this module
+# only reads the graph (via age_client.execute_cypher, the same interface
+# every other read-side module uses) and writes a derived, recomputable
+# snapshot to Postgres.
+#
+# ── Why a projected "shared-case" edge, not ASSOCIATED_WITH alone ──
+# ASSOCIATED_WITH (the real extracted person-to-person relationship) is,
+# live-checked against the current graph, only ~17 edges across ~1000
+# Person nodes — far too sparse to cluster on by itself. BELONGS_TO_CASE
+# (~1700 edges) is dense but bipartite (entity->Case, not entity->entity).
+# This module projects BELONGS_TO_CASE into a derived Person<->Person
+# "shares N cases with" edge — the same underlying join xagg.py's
+# _top_recurring_nodes() already does for single-node recurrence counts,
+# generalized here to pairs. Real ASSOCIATED_WITH edges are weighted higher
+# than derived shared-case edges, since they're extracted facts, not
+# co-occurrence inference.
+#
+# ── Why canonicalize through SAME_AS before clustering ──
+# entity_resolution.py mints a new Person node for every name-fallback
+# mention rather than physically merging (see docs/graph_schema.md's
+# "Entity resolution & canonicalization" section) — so a real-world person
+# can be split across several graph nodes linked by *confirmed*,
+# non-superseded SAME_AS edges. Clustering on the un-collapsed graph would
+# fragment one person into multiple community members. This module
+# collapses confirmed SAME_AS components to a single canonical id
+# (read-time only — no write to SAME_AS or versioning.py) before building
+# the community graph.
+#
+# ── Storage ──
+# community_id is a derived analytical snapshot, not a document-sourced
+# fact, so it is NOT written back as an AGE node property through
+# versioning.write_node() (which would require fabricating a fake
+# source_doc_id). It lives in Postgres (migration 016), replaced wholesale
+# each run: deleting the prior community_runs row cascades to
+# community_membership and community_reports, so "latest run only" is
+# enforced by the FK, not by manual TRUNCATE bookkeeping.
+# ============================================================
+
+from __future__ import annotations
+
+import logging
+from collections import defaultdict
+from datetime import datetime, timezone
+from typing import Optional
+
+import networkx as nx
+from networkx.algorithms.community import louvain_communities
+from sqlalchemy import text
+
+from src.database.postgres import get_session
+from src.graph import age_client
+
+logger = logging.getLogger(__name__)
+
+# Edge weight components — ASSOCIATED_WITH is an extracted fact, so it
+# outweighs the derived shared-case co-occurrence signal per shared case.
+_ASSOCIATED_WITH_BASE_WEIGHT = 3.0
+_SHARED_CASE_WEIGHT_PER_CASE = 1.0
+
+# ── Non-name filter (narrow, additive guard — not an ner.py fix) ──────────
+# Live-discovered running this module against the real graph: one document
+# batch (the 13 CASE-B0-* cases, "complex"/"retrofitted" rendering tier per
+# data/memory/case_index.csv) averages ~70 Person nodes/case vs. ~7 for
+# every other case — sampling confirmed the excess is case-diary/General
+# Diary form-field labels ("Date", "District", "Under Section", "Roznamcha",
+# "House No", "Entry No") mistagged as Person entities, the same failure
+# *class* the 2026-08-04 audit's Finding B-4 caught two live instances of,
+# just systemic here rather than isolated.
+#
+# This is community_detection.py's own concern, not ner.py's: clustering on
+# un-filtered nodes would produce a fluent-sounding, confidently-written
+# LLM summary describing a fake "network" of form labels — worse than not
+# having the feature, for a tool whose whole premise is grounded answers.
+# Root-causing WHY this document tier's extraction goes wrong belongs to
+# Section 1's extraction pipeline (src/extraction/ner.py), not here — this
+# is a narrow, conservative guard scoped to keep obviously-non-name nodes
+# out of the community graph, not a fix to the extraction pipeline itself.
+#
+# Two rules, both derived from what was actually observed in the sample
+# (not a generic stoplist guessed in the abstract):
+#   1. A canonical_name with no space (a single token) is dropped — every
+#      real person mention sampled was 2+ tokens (e.g. "Irfan Mirza",
+#      "Inspector Fariha Saeed"); every single-token mention sampled was
+#      noise ("Date", "No", "Total", "The", "Mulzim"). This trades a little
+#      recall (a bare-surname fragment like "Saeed" already covered by
+#      "Fariha Saeed"/"Inspector Fariha Saeed" mentions of the same person)
+#      for a large precision gain.
+#   2. An exact-match blocklist for the multi-token administrative/
+#      procedural phrases sampled (form-section headers, role titles with
+#      no name attached, station/place names extracted as Person). Exact
+#      match only — "Inspector Fariha Saeed" is NOT dropped by the
+#      "Investigating Officer" entry below, since it's a different string
+#      that happens to contain a real name.
+_NON_NAME_PHRASES = {
+    "under sections", "under section", "general diary", "house no",
+    "golra road", "action taken", "thumb impression",
+    "complainant station house officer", "bhara kahu police station",
+    "investigating officer", "entry dates", "entry no",
+    "judicial magistrate", "progress summary", "unknown mulzim",
+    "bhara kahu", "statements recorded", "evidence collected",
+    "next steps", "current status", "under investigation", "shahzad town",
+}
+
+# A second pass, added after re-sampling a post-filter community and
+# finding two more failure shapes the exact-phrase blocklist above can't
+# generalize to (a growing blocklist alone doesn't scale to unseen document
+# tiers — flagged explicitly for the Stage 3 closeout, not treated as
+# solved):
+#   - an org/station name mistagged as Person ("Shahzad Town Police
+#     Station", "Town Police Station") — substring match on "police
+#     station", not exact match, since the station name prefix varies
+#   - a self-introduction pattern over-capturing the whole sentence
+#     instead of just the name ("Tahira Chaudhry D/O Rashid Mirza,
+#     resident of House No. 81, Street 25, Sector D-12, Islamabad") — a
+#     real name in this corpus was never observed exceeding ~40 characters,
+#     so an unusually long canonical_name is treated as a probable
+#     extraction over-capture, not a name to cluster on
+_MAX_PLAUSIBLE_NAME_LENGTH = 45
+
+
+def _is_plausible_person_name(name: Optional[str]) -> bool:
+    if not name or not name.strip():
+        return False
+    stripped = name.strip()
+    normalized = stripped.lower()
+    if normalized in _NON_NAME_PHRASES:
+        return False
+    if " " not in stripped:
+        return False
+    if "police station" in normalized:
+        return False
+    if len(stripped) > _MAX_PLAUSIBLE_NAME_LENGTH:
+        return False
+    return True
+
+
+async def fetch_person_names() -> dict[str, str]:
+    rows = await age_client.execute_cypher(
+        "MATCH (p:Person) RETURN p.entity_id AS entity_id, p.canonical_name AS name",
+        columns=["entity_id", "name"],
+    )
+    return {r["entity_id"]: r["name"] for r in rows if r["entity_id"]}
+
+# A "community" worth summarizing needs at least 2 members — a singleton
+# isn't a network. Singletons are still recorded in community_membership
+# (each gets its own community_id) for a complete partition, but are
+# skipped by the summarization job (community_summarization.py).
+MIN_MEMBERS_FOR_SUMMARY = 2
+
+
+# ── Graph reads ──────────────────────────────────────────────────────────
+
+async def fetch_confirmed_same_as() -> list[tuple[str, str]]:
+    rows = await age_client.execute_cypher(
+        "MATCH (a:Person)-[r:SAME_AS]->(b:Person) "
+        "WHERE r.superseded_by IS NULL AND r.status = 'confirmed' "
+        "RETURN a.entity_id AS from_id, b.entity_id AS to_id",
+        columns=["from_id", "to_id"],
+    )
+    return [(r["from_id"], r["to_id"]) for r in rows if r["from_id"] and r["to_id"]]
+
+
+async def _fetch_associated_with() -> list[tuple[str, str, float, Optional[str]]]:
+    rows = await age_client.execute_cypher(
+        "MATCH (p1:Person)-[r:ASSOCIATED_WITH]->(p2:Person) "
+        "WHERE r.superseded_by IS NULL "
+        "RETURN p1.entity_id AS p1_id, p2.entity_id AS p2_id, r.confidence AS confidence, r.basis AS basis",
+        columns=["p1_id", "p2_id", "confidence", "basis"],
+    )
+    return [
+        (r["p1_id"], r["p2_id"], float(r["confidence"]) if r["confidence"] is not None else 1.0, r.get("basis"))
+        for r in rows if r["p1_id"] and r["p2_id"]
+    ]
+
+
+async def _fetch_shared_case_pairs() -> list[tuple[str, str, int]]:
+    rows = await age_client.execute_cypher(
+        "MATCH (p1:Person)-[b1:BELONGS_TO_CASE]->(c:Case)<-[b2:BELONGS_TO_CASE]-(p2:Person) "
+        "WHERE b1.superseded_by IS NULL AND b2.superseded_by IS NULL AND p1.entity_id < p2.entity_id "
+        "RETURN p1.entity_id AS p1_id, p2.entity_id AS p2_id, count(DISTINCT c.case_id) AS shared_cases",
+        columns=["p1_id", "p2_id", "shared_cases"],
+    )
+    return [(r["p1_id"], r["p2_id"], int(r["shared_cases"])) for r in rows if r["p1_id"] and r["p2_id"]]
+
+
+async def fetch_person_case_membership() -> list[tuple[str, str]]:
+    """Every (person entity_id, case_id) pair — used to attach case_ids to communities after canonicalization."""
+    rows = await age_client.execute_cypher(
+        "MATCH (p:Person)-[b:BELONGS_TO_CASE]->(c:Case) "
+        "WHERE b.superseded_by IS NULL "
+        "RETURN p.entity_id AS entity_id, c.case_id AS case_id",
+        columns=["entity_id", "case_id"],
+    )
+    return [(r["entity_id"], r["case_id"]) for r in rows if r["entity_id"] and r["case_id"]]
+
+
+def build_canonical_map(same_as_pairs: list[tuple[str, str]]) -> dict[str, str]:
+    """
+    Collapse confirmed SAME_AS components to one canonical id per component
+    — the lexicographically smallest entity_id in the component, for a
+    deterministic choice independent of write order. Ids not involved in
+    any confirmed SAME_AS edge map to themselves.
+    """
+    g = nx.Graph()
+    g.add_edges_from(same_as_pairs)
+    canonical: dict[str, str] = {}
+    for component in nx.connected_components(g):
+        rep = min(component)
+        for node in component:
+            canonical[node] = rep
+    return canonical
+
+
+def canon(canonical_map: dict[str, str], entity_id: str) -> str:
+    return canonical_map.get(entity_id, entity_id)
+
+
+# ── Core detection ──────────────────────────────────────────────────────
+
+async def detect_communities() -> dict:
+    """
+    Run one full community-detection pass: export the Person subgraph from
+    AGE, canonicalize through confirmed SAME_AS links, project a
+    shared-case co-occurrence signal alongside real ASSOCIATED_WITH edges,
+    run Louvain, and replace the stored partition in Postgres.
+
+    Returns a summary dict — {run_id, node_count, edge_count,
+    community_count, communities: [{community_id, member_entity_ids,
+    case_ids, member_count}]} — the same shape community_summarization.py
+    consumes next.
+    """
+    same_as_pairs = await fetch_confirmed_same_as()
+    canonical_map = build_canonical_map(same_as_pairs)
+
+    person_names = await fetch_person_names()
+    implausible_ids = {
+        eid for eid, name in person_names.items() if not _is_plausible_person_name(name)
+    }
+    if implausible_ids:
+        logger.info(
+            "Community detection: excluding %d/%d Person nodes with implausible names "
+            "(form-field/administrative-text extraction noise, not real names) before clustering.",
+            len(implausible_ids), len(person_names),
+        )
+
+    associated_with = await _fetch_associated_with()
+    shared_case = await _fetch_shared_case_pairs()
+    person_cases = await fetch_person_case_membership()
+
+    associated_with = [
+        (p1, p2, c, basis) for p1, p2, c, basis in associated_with
+        if p1 not in implausible_ids and p2 not in implausible_ids
+    ]
+    shared_case = [
+        (p1, p2, n) for p1, p2, n in shared_case
+        if p1 not in implausible_ids and p2 not in implausible_ids
+    ]
+    person_cases = [
+        (eid, case_id) for eid, case_id in person_cases if eid not in implausible_ids
+    ]
+
+    g = nx.Graph()
+
+    for p1, p2, confidence, _basis in associated_with:
+        c1, c2 = canon(canonical_map, p1), canon(canonical_map, p2)
+        if c1 == c2:
+            continue  # collapsed to the same canonical person — not a real edge
+        w = g[c1][c2]["weight"] if g.has_edge(c1, c2) else 0.0
+        g.add_edge(c1, c2, weight=w + _ASSOCIATED_WITH_BASE_WEIGHT * confidence)
+
+    for p1, p2, shared_cases in shared_case:
+        c1, c2 = canon(canonical_map, p1), canon(canonical_map, p2)
+        if c1 == c2:
+            continue
+        w = g[c1][c2]["weight"] if g.has_edge(c1, c2) else 0.0
+        g.add_edge(c1, c2, weight=w + _SHARED_CASE_WEIGHT_PER_CASE * shared_cases)
+
+    node_count = g.number_of_nodes()
+    edge_count = g.number_of_edges()
+
+    if node_count == 0:
+        logger.warning("Community detection: no connected Person pairs found — nothing to cluster.")
+        partition: list[set[str]] = []
+    else:
+        partition = louvain_communities(g, weight="weight", seed=42)
+
+    # Canonical-person -> case_ids, aggregated from every mention (pre- and
+    # post-canonicalization ids alike) so a community's case list reflects
+    # every document/case any of its collapsed mentions touched.
+    canon_case_ids: dict[str, set[str]] = defaultdict(set)
+    for entity_id, case_id in person_cases:
+        canon_case_ids[canon(canonical_map, entity_id)].add(case_id)
+
+    run_id = f"RUN-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
+    run_date = datetime.now(timezone.utc).strftime("%Y%m%d")
+
+    communities = []
+    for idx, members in enumerate(partition):
+        community_id = f"C-{run_date}-{idx:04d}"
+        case_ids = sorted(set().union(*(canon_case_ids.get(m, set()) for m in members)))
+        communities.append({
+            "community_id": community_id,
+            "member_entity_ids": sorted(members),
+            "case_ids": case_ids,
+            "member_count": len(members),
+        })
+
+    await _persist(run_id, node_count, edge_count, communities)
+
+    return {
+        "run_id": run_id,
+        "node_count": node_count,
+        "edge_count": edge_count,
+        "community_count": len(communities),
+        "communities": communities,
+    }
+
+
+async def _persist(run_id: str, node_count: int, edge_count: int, communities: list[dict]) -> None:
+    async with get_session() as db:
+        # Deleting every prior run cascades to community_membership and
+        # community_reports (both FK ON DELETE CASCADE to community_runs)
+        # — this is what enforces "latest run only" without separate
+        # TRUNCATE statements on three tables.
+        await db.execute(text("DELETE FROM community_runs"))
+        await db.execute(
+            text(
+                "INSERT INTO community_runs (run_id, node_count, edge_count, community_count, algorithm) "
+                "VALUES (:run_id, :node_count, :edge_count, :community_count, 'louvain')"
+            ),
+            {
+                "run_id": run_id, "node_count": node_count, "edge_count": edge_count,
+                "community_count": len(communities),
+            },
+        )
+        for c in communities:
+            for entity_id in c["member_entity_ids"]:
+                await db.execute(
+                    text(
+                        "INSERT INTO community_membership (entity_id, community_id, level, run_id) "
+                        "VALUES (:entity_id, :community_id, 0, :run_id)"
+                    ),
+                    {"entity_id": entity_id, "community_id": c["community_id"], "run_id": run_id},
+                )
+    logger.info(
+        "Community detection run %s: %d nodes, %d edges, %d communities.",
+        run_id, node_count, edge_count, len(communities),
+    )
+
+
+async def get_associated_with_context(member_entity_ids: set[str]) -> list[dict]:
+    """
+    Real ASSOCIATED_WITH edges (with their `basis` text) whose canonical
+    endpoints both fall within a given community's member set — supplies
+    community_summarization.py with actual extracted-relationship context,
+    not just co-membership. Re-derives canonicalization independently
+    (re-running the same cheap SAME_AS/ASSOCIATED_WITH reads
+    detect_communities() already did) rather than threading state through
+    from a prior run — this is a small, infrequent batch job, not a hot
+    path, so the duplicate read is a simplicity trade, not a real cost.
+    """
+    same_as_pairs = await fetch_confirmed_same_as()
+    canonical_map = build_canonical_map(same_as_pairs)
+    associated_with = await _fetch_associated_with()
+    names = await fetch_person_names()
+
+    context = []
+    for p1, p2, confidence, basis in associated_with:
+        c1, c2 = canon(canonical_map, p1), canon(canonical_map, p2)
+        if c1 in member_entity_ids and c2 in member_entity_ids and c1 != c2:
+            context.append({
+                "person_1": names.get(p1, p1),
+                "person_2": names.get(p2, p2),
+                "confidence": confidence,
+                "basis": basis,
+            })
+    return context
+
+
+async def get_latest_run() -> Optional[dict]:
+    """The most recent community_runs row, or None if detection has never run."""
+    async with get_session() as db:
+        res = await db.execute(text(
+            "SELECT run_id, computed_at, node_count, edge_count, community_count, algorithm "
+            "FROM community_runs ORDER BY computed_at DESC LIMIT 1"
+        ))
+        row = res.mappings().first()
+        return dict(row) if row else None

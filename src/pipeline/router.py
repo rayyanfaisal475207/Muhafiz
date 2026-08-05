@@ -103,13 +103,61 @@ _XGRAPH_OVERRIDE_PATTERNS = [
     re.compile(r"\bkisi\s*aur\s*case\b", re.IGNORECASE),
 ]
 
+# XNETWORK (Section 2, GraphRAG-inspired layer) — added after live testing
+# found the exact same failure class G-1 already documented, one route
+# later: an XNETWORK-shaped query ("What's the overall picture on this
+# network of associates across cases?") got swallowed by
+# _XGRAPH_OVERRIDE_PATTERNS's own "across ... cases" pattern before the
+# LLM/few-shot layer ever ran, and the Urdu/Roman-Urdu XNETWORK phrasings
+# fell through to RAG at the LLM layer — the same local-model
+# unreliable-on-novel-classification pattern G-1's own comment already
+# describes, just for a third route now. The original Section 2 design
+# explicitly avoided a regex override for XNETWORK, reasoning that its
+# open-ended phrasing has no small enumerable trigger set the way XAGG/
+# XGRAPH's countable/named-entity queries do — that reasoning holds for
+# XNETWORK's SHARED vocabulary with XGRAPH ("network... across cases" is
+# genuinely ambiguous with XGRAPH's own "map ORG-002's network across all
+# cases" few-shot example, and no regex can tell "no entity named" from
+# "entity named" reliably). What it does NOT hold for is XNETWORK's
+# genuinely distinctive open-ended-synthesis phrasing ("overall picture",
+# "pattern emerges") — that vocabulary essentially never co-occurs with a
+# genuine XAGG/XGRAPH query, so intercepting on it specifically is safe
+# without reopening the ambiguous "network...across" case regex tried and
+# rejected here.
+_XNETWORK_OVERRIDE_PATTERNS = [
+    re.compile(r"\boverall\s+picture\b", re.IGNORECASE),
+    re.compile(r"\b(overall|general)\s+pattern\b", re.IGNORECASE),
+    re.compile(r"\bpattern\b.{0,20}\bemerge", re.IGNORECASE),
+    re.compile(r"\bgive me a sense\b", re.IGNORECASE),
+    re.compile(r"مجموعی\s*طور\s*پر"),
+    re.compile(r"نمونہ.{0,20}سامنے"),
+    # Roman-Urdu — narrower than the English patterns above since "overall"
+    # alone is too generic a token to intercept on by itself; requires a
+    # co-occurring synthesis/network word within a short span.
+    re.compile(r"\boverall\b.{0,40}\b(connection|dikhta|pattern|network)\b", re.IGNORECASE),
+]
+
 
 def _deterministic_route_override(query: str) -> dict | None:
     """Return a route dict for an unambiguous cross-case pattern, or None."""
     if _ACTIVE_CASE_RE.search(query):
-        return None  # a named case anchors this within-case (GRAPH), not XAGG/XGRAPH
+        return None  # a named case anchors this within-case (GRAPH), not XAGG/XGRAPH/XNETWORK
 
-    # XAGG checked first: "recurring vehicles across cases" matches both an
+    # XNETWORK checked first: its patterns are deliberately narrow/distinct
+    # open-ended-synthesis phrasing (see comment above _XNETWORK_OVERRIDE_
+    # PATTERNS) that doesn't overlap with XAGG's/XGRAPH's own trigger
+    # vocabulary, so there's no real tie-breaking concern checking it
+    # before them — unlike XAGG vs. XGRAPH below, which genuinely do share
+    # vocabulary ("across cases") and need an explicit precedence rule.
+    for pat in _XNETWORK_OVERRIDE_PATTERNS:
+        if pat.search(query):
+            return {
+                "route": "XNETWORK", "case_scope": "cross_case", "target_entity": None,
+                "output_format": "chat", "target_year": None, "confidence": "high",
+                "reason": "Deterministic override: unambiguous open-ended cross-case network/pattern trigger language detected before the LLM call",
+            }
+
+    # XAGG checked next: "recurring vehicles across cases" matches both an
     # XAGG pattern (recurring-entity aggregate) and the XGRAPH "across ...
     # cases" pattern, and per router.txt's own examples ("top recurring
     # vehicles across all cases") that shape is XAGG's aggregate/count job,
@@ -209,17 +257,18 @@ async def route_query(rewritten_query: str) -> dict:
 
         # Ensure default values if LLM misses them
         route = str(result.get("route") or "RAG").upper()
-        if route not in ["DIRECT", "RAG", "WEB", "SQL", "GRAPH", "GRAPH_HYBRID", "XGRAPH", "XAGG"]:
+        if route not in ["DIRECT", "RAG", "WEB", "SQL", "GRAPH", "GRAPH_HYBRID", "XGRAPH", "XAGG", "XNETWORK"]:
             route = "RAG"
 
-        # Case-scoped is the default; only XGRAPH/XAGG are ever cross-case.
-        # A GRAPH/RAG/etc. route can never carry case_scope="cross_case" —
-        # cross-case must go through XGRAPH/XAGG's structurally separate
-        # path, never silently blended into a case-scoped answer.
+        # Case-scoped is the default; only XGRAPH/XAGG/XNETWORK are ever
+        # cross-case. A GRAPH/RAG/etc. route can never carry
+        # case_scope="cross_case" — cross-case must go through one of
+        # these three structurally separate paths, never silently blended
+        # into a case-scoped answer.
         case_scope = str(result.get("case_scope") or "within_case").lower()
         if case_scope not in ["within_case", "cross_case"]:
             case_scope = "within_case"
-        if route not in ["XGRAPH", "XAGG"]:
+        if route not in ["XGRAPH", "XAGG", "XNETWORK"]:
             case_scope = "within_case"
 
         output_format = str(result.get("output_format") or "chat").lower()
