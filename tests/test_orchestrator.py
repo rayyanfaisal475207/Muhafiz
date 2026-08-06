@@ -266,7 +266,15 @@ async def test_streaming_tokens_are_not_written_to_the_step_log(run_pipeline):
 
 async def test_direct_answers_honour_the_language_setting(run_pipeline):
     """Regression: language/context applied only to the RAG path."""
+    # message= is route-neutral on purpose: the fixture's default message
+    # ("What PPC section covers mobile theft?") now matches router.py's
+    # own deterministic SQL override (added after this test was written),
+    # which short-circuits BEFORE the fixture's mocked call_llm is ever
+    # consulted — the mocked route='DIRECT' below would otherwise be
+    # silently ignored. This test cares about DIRECT-route generation
+    # behavior, not routing itself, hence a message the override can't match.
     await run_pipeline(
+        message="Tell me about yourself.",
         route='{"route": "DIRECT", "output_format": "chat"}',
         user_profile={"id": "u", "context_text": "I run a textile SME",
                       "preferred_language": "Urdu", "llm_mode": "cloud"},
@@ -295,7 +303,10 @@ async def test_rag_answers_honour_the_language_setting(run_pipeline):
 async def test_llm_mode_setting_is_passed_to_the_client(run_pipeline):
     """The llm_mode setting used to save but never be read by anything."""
     # DIRECT route still uses stream_llm — the mode flag is captured there.
+    # message= kept route-neutral — see test_direct_answers_honour_the_language_setting's
+    # comment for why the fixture's default message can no longer be used here.
     await run_pipeline(
+        message="Tell me about yourself.",
         route='{"route": "DIRECT", "output_format": "chat"}',
         user_profile={"id": "u", "context_text": "", "preferred_language": "English",
                       "llm_mode": "local"},
@@ -310,7 +321,9 @@ async def test_project_context_is_injected(run_pipeline, patched_gateway):
     )
     await patched_gateway.upsert_project_memory(project["id"], "Prior year turnover was 50M")
 
-    await run_pipeline(project_id=project["id"])
+    # message= kept route-neutral — see test_direct_answers_honour_the_language_setting's
+    # comment for why the fixture's default message can no longer be used here.
+    await run_pipeline(message="Tell me about yourself.", project_id=project["id"])
 
     # DIRECT route (the default) uses stream_llm, so project context
     # is captured in run_pipeline.stream.last_system.
@@ -342,7 +355,10 @@ async def test_direct_route_can_still_produce_a_file(run_pipeline):
 
 
 async def test_generated_file_is_owned_by_the_user(run_pipeline):
+    # message= kept route-neutral — see test_direct_answers_honour_the_language_setting's
+    # comment for why the fixture's default message can no longer be used here.
     events, gateway = await run_pipeline(
+        message="Tell me about yourself.",
         route='{"route": "DIRECT", "output_format": "file_pdf"}',
     )
 
@@ -362,7 +378,12 @@ async def test_file_generation_failure_is_surfaced_not_swallowed(run_pipeline, m
 
     monkeypatch.setattr(orch, "build_pdf", _boom)
 
-    events, _ = await run_pipeline(route='{"route": "DIRECT", "output_format": "file_pdf"}')
+    # message= kept route-neutral — see test_direct_answers_honour_the_language_setting's
+    # comment for why the fixture's default message can no longer be used here.
+    events, _ = await run_pipeline(
+        message="Tell me about yourself.",
+        route='{"route": "DIRECT", "output_format": "file_pdf"}',
+    )
 
     errors = [e for e in events if e["step"] == "file_generation" and e["status"] == "error"]
     assert errors, "file generation failed silently"
