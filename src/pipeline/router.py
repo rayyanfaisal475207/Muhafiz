@@ -140,8 +140,50 @@ _XNETWORK_OVERRIDE_PATTERNS = [
 ]
 
 
+# Narrow by design, matching router.txt's own SQL definition exactly:
+# "which PENAL CODE SECTION applies to an offense, or whether an offense
+# is cognizable." Not meant to catch every SQL-shaped phrasing — only the
+# unambiguous ones, the same scope discipline the other three override
+# lists already follow. A query about document content/procedures (RAG's
+# job) doesn't use this vocabulary.
+_SQL_OVERRIDE_PATTERNS = [
+    re.compile(r"\b(ppc|penal code)\s+section\b", re.IGNORECASE),
+    re.compile(r"\bsection\b.{0,20}\b(ppc|penal code)\b", re.IGNORECASE),
+    re.compile(r"\b(what|which) section\b.{0,30}\b(covers?|applies|applicable)\b", re.IGNORECASE),
+    re.compile(r"\bcognizable\s+offen[cs]e\b", re.IGNORECASE),
+    re.compile(r"\bis\b.{0,40}\b(a\s+)?cognizable\b", re.IGNORECASE),
+]
+
+
 def _deterministic_route_override(query: str) -> dict | None:
     """Return a route dict for an unambiguous cross-case pattern, or None."""
+    # SQL checked absolute first, ahead of even the active-case exclusion
+    # below — a penal-code/cognizability lookup is orthogonal to whether a
+    # case happens to be named in the same sentence ("what section applies
+    # to the offense in CASE-009?" is still SQL, not GRAPH). Added after
+    # live-testing found this is the SAME failure class as G-1/XNETWORK's
+    # own override, one route later still: "What PPC section covers
+    # mobile phone theft?" and "Is cyber harassment a cognizable offense?"
+    # — both this file's OWN few-shot examples, verbatim — misrouted to
+    # RAG live, repeatedly, across independent test runs (not a one-off:
+    # confirmed on a completely separate live pipeline run after the
+    # G-1-style JSON-validation bug was already fixed, so this is a
+    # genuine classification-reliability gap in the local model for this
+    # prompt shape, not the malformed-JSON bug found earlier). The answers
+    # happened to still be correct via RAG's fallback in THIS corpus only
+    # because the ingested FIR documents happen to restate the same PPC
+    # section numbers — a different corpus without that overlap would
+    # simply fail. SQL's own trigger vocabulary ("PPC section", "cognizable
+    # offense") never co-occurs with XAGG/XGRAPH/XNETWORK's cross-case
+    # vocabulary, so there's no tie-breaking concern checking it first.
+    for pat in _SQL_OVERRIDE_PATTERNS:
+        if pat.search(query):
+            return {
+                "route": "SQL", "case_scope": "within_case", "target_entity": None,
+                "output_format": "chat", "target_year": None, "confidence": "high",
+                "reason": "Deterministic override: unambiguous structured penal-code/cognizability lookup trigger language detected before the LLM call",
+            }
+
     if _ACTIVE_CASE_RE.search(query):
         return None  # a named case anchors this within-case (GRAPH), not XAGG/XGRAPH/XNETWORK
 

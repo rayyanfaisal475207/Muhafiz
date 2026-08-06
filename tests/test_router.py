@@ -148,6 +148,32 @@ async def test_deterministic_override_fires_for_confirmed_failure_patterns(monke
     assert result["confidence"] == "high"
 
 
+@pytest.mark.parametrize("query", [
+    "What PPC section covers mobile phone theft?",
+    "Is cyber harassment a cognizable offense?",
+    "What PPC section applies to burglary?",
+    "What section covers cyber harassment?",
+    "Is theft of a motorcycle a cognizable offense?",
+])
+async def test_deterministic_override_fires_for_sql_patterns(monkeypatch, query):
+    """
+    Added alongside the XAGG/XGRAPH/XNETWORK overrides above, for the same
+    confirmed-live failure class one route later: these exact queries
+    (including two of router.txt's own few-shot examples, verbatim)
+    reliably misrouted to RAG in live pipeline testing — not a JSON-
+    validation bug (that was fixed separately), a genuine classification-
+    reliability gap in the local model for this prompt shape, reproduced
+    across independent live test runs. SQL is within-case by design
+    (a penal-code lookup isn't a cross-case concept), unlike the
+    XAGG/XGRAPH/XNETWORK overrides above.
+    """
+    monkeypatch.setattr(router, "call_llm", _no_llm_call)
+    result = await router.route_query(query)
+    assert result["route"] == "SQL"
+    assert result["case_scope"] == "within_case"
+    assert result["confidence"] == "high"
+
+
 async def test_deterministic_override_does_not_fire_for_an_active_case(monkeypatch):
     """
     'how many...cases' matches the XAGG pattern textually, but a named
@@ -163,13 +189,18 @@ async def test_deterministic_override_does_not_fire_for_an_active_case(monkeypat
 
 
 @pytest.mark.parametrize("query", [
-    "What PPC section covers mobile phone theft?",
     "Summarize the FIR for this case.",
     "Who is connected to the accused in CASE-009?",
     "Hello",
 ])
 async def test_deterministic_override_does_not_fire_for_unrelated_queries(monkeypatch, query):
-    """Ordinary DIRECT/SQL/RAG/GRAPH-shaped queries must still reach the LLM classifier."""
+    """
+    Ordinary DIRECT/RAG/GRAPH-shaped queries must still reach the LLM
+    classifier. "What PPC section covers mobile phone theft?" used to be
+    in this list — it now correctly DOES fire a deterministic override
+    (see test_deterministic_override_fires_for_sql_patterns above), so it
+    moved there instead of being a regression.
+    """
     async def fake_call_llm(system_prompt, user_message, **kwargs):
         return json.dumps({"route": "RAG"})
 
