@@ -400,7 +400,7 @@ endpoint still does not call the Supervisor, per §6.
 ### Contract Retrofit — ExecutionContext & ConversationContext: COMPLETE
 
 Branch `feature/harness-contract-retrofit-execution-context`, merged to main via merge commit
-`<pending>`.
+`72ffe99`.
 
 **Built/changed, per §10's exact type definitions:**
 - `src/pipeline/harness/types.py` — added `ExecutionContext` (wraps `CallerContext`, adds
