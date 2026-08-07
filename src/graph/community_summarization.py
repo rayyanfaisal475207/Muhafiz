@@ -92,7 +92,7 @@ def _validate(result) -> bool:
 
 async def _summarize_one(
     community: dict, names_by_id: dict[str, str], known_stations: set[str],
-    canonical_map: dict[str, str],
+    canonical_map: dict[str, str], contaminated_names: Optional[set[str]] = None,
 ) -> Optional[dict]:
     member_names = [names_by_id.get(eid, eid) for eid in community["member_entity_ids"]]
     cases = await _fetch_case_metadata(community["case_ids"])
@@ -172,10 +172,12 @@ async def _summarize_one(
     # removal risks producing a grammatically broken sentence, which is a
     # worse failure than a logged-but-visible leak.
     excluded = set(result.get("excluded_non_names") or [])
+    contaminated_names = contaminated_names or set()
     for name in member_names:
         if name in excluded:
             continue
-        if not community_detection._is_plausible_person_name(name, known_stations) and name in summary:
+        is_noise = not community_detection._is_plausible_person_name(name, known_stations) or name in contaminated_names
+        if is_noise and name in summary:
             logger.warning(
                 "community_summarization: %s — implausible name %r leaked into the "
                 "summary text despite not being in excluded_non_names",
@@ -233,6 +235,7 @@ async def summarize_communities(min_members: int = community_detection.MIN_MEMBE
 
     names_by_id = await community_detection.fetch_person_names()
     known_stations = await community_detection.fetch_known_police_stations()
+    contaminated_names = community_detection._compute_prefix_contaminated_names(names_by_id)
 
     # Hoisted out of the per-community loop below — these three reads are
     # full-graph, run-wide data (not scoped to any one community), so they
@@ -286,7 +289,7 @@ async def summarize_communities(min_members: int = community_detection.MIN_MEMBE
             "case_ids": case_ids,
             "member_count": len(member_ids),
         }
-        summary = await _summarize_one(community, names_by_id, known_stations, canonical_map)
+        summary = await _summarize_one(community, names_by_id, known_stations, canonical_map, contaminated_names)
         if summary is None:
             skipped += 1
             continue

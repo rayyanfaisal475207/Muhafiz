@@ -370,15 +370,35 @@ time to also be burning the same shared quota — check `GROQ_API_KEY`
 rotation state or simply wait a few minutes for the free-tier window to
 reset before presenting live.
 
+**2026-08-06 update — XNETWORK community-noise filter (§8):** the
+blocklist described below as "an evolving blocklist, not a closed
+problem" got a full audit instead of a fourth incremental patch. Live
+audit of the real graph (161 Person nodes) found 10 nodes across 7
+distinct strings the exact-phrase/suffix/length checks all missed — e.g.
+`"Inspector Fariha Saeed Bhara"` (1 occurrence) sitting alongside the
+correctly-extracted `"Inspector Fariha Saeed"` (7 occurrences), traced to
+a document-rendering artifact (a table/field boundary collapsing with no
+separating punctuation, so an adjacent field's text bleeds directly onto
+a real name). Fixed structurally in `community_detection.py`, not with
+another word list: (1) reject any candidate containing a rendering-
+boundary character (newline, `|`, parens) — no real name ever contains
+one; (2) reject a candidate that is a low-frequency superstring of a
+shorter name already independently common in the same corpus (a
+data-driven prefix-contamination check, generalizes past any specific
+station/label word). `scripts/cleanup_implausible_person_nodes.py` was
+updated to apply the same combined check and confirmed live (`--dry-run`)
+to catch exactly these 10 nodes; not yet applied (`--apply`) — that's a
+real, destructive graph mutation left for a deliberate follow-up, not
+bundled into this fix. See the `fix/xnetwork-noise-filter-audit` branch.
+This closes the noise category found in this specific audit; whether it
+is the *last* category is not something a single audit pass can prove —
+watch for a fifth round the same way this filter has grown before.
+
 Residual, known, not fixed as of this document:
 - Urdu-language RAG queries against English-language source documents
   (§3) — a genuine cross-script retrieval-quality question, not a quick
   prompt fix like the two above.
 - XAGG has no dedicated "grand total" aggregate path (§7).
-- The community-noise filter behind XNETWORK (`community_detection.py`)
-  is an evolving blocklist, not a closed problem — a new document format
-  could surface a new noise category the same way three earlier rounds
-  each did this session.
 - `relationship_extraction.py` only ever considers people who co-occur in
   the same physical chunk — it cannot find a relationship stated across
   two different chunks/documents about the same case. A structural

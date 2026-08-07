@@ -39,6 +39,7 @@ except Exception:
 
 from src.graph import age_client
 from src.graph.community_detection import (
+    _compute_prefix_contaminated_names,
     _is_plausible_person_name,
     fetch_known_police_stations,
     fetch_person_names,
@@ -51,7 +52,11 @@ async def main() -> None:
 
     names = await fetch_person_names()
     stations = await fetch_known_police_stations()
-    bad = {eid: name for eid, name in names.items() if not _is_plausible_person_name(name, stations)}
+    contaminated = _compute_prefix_contaminated_names(names)
+    bad = {
+        eid: name for eid, name in names.items()
+        if not _is_plausible_person_name(name, stations) or name in contaminated
+    }
 
     print(f"Total Person nodes: {len(names)}")
     print(f"Implausible (to be removed): {len(bad)}")
@@ -76,7 +81,11 @@ async def main() -> None:
     print(f"Delete call result: {result}")
 
     remaining = await fetch_person_names()
-    still_bad = {eid: name for eid, name in remaining.items() if not _is_plausible_person_name(name, stations)}
+    remaining_contaminated = _compute_prefix_contaminated_names(remaining)
+    still_bad = {
+        eid: name for eid, name in remaining.items()
+        if not _is_plausible_person_name(name, stations) or name in remaining_contaminated
+    }
     print(f"\nPerson nodes remaining: {len(remaining)}")
     print(f"Still-implausible remaining (should be 0): {len(still_bad)}")
     if still_bad:

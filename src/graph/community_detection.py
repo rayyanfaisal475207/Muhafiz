@@ -46,7 +46,7 @@
 from __future__ import annotations
 
 import logging
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -148,6 +148,62 @@ _LOCATION_SUFFIX_WORDS = ("road", "highway", "market")
 #     extraction over-capture, not a name to cluster on
 _MAX_PLAUSIBLE_NAME_LENGTH = 45
 
+# ── Fourth-round audit (2026-08-06) ────────────────────────────────────────
+# A full audit (not another one-off patch — see the fix commit this section
+# belongs to) looked for a STRUCTURAL signal common to all three prior
+# blocklist rounds instead of adding a fourth category of specific words.
+# Live-sampling the current graph (161 Person nodes) found 10 nodes across
+# 7 distinct name strings that the exact-phrase/suffix/length checks above
+# all miss, e.g. "Inspector Fariha Saeed Bhara" (1 occurrence) alongside
+# the correctly-extracted "Inspector Fariha Saeed" (7 occurrences) — traced
+# to a document-rendering artifact: a table/field boundary collapsing with
+# no separating punctuation, so an adjacent field's text (a station-name
+# fragment, or a form-label bleeding across a blank line) gets appended
+# directly onto a real name with nothing but whitespace between them.
+#
+# Two structural checks below close this shape WITHOUT enumerating station
+# names or form labels (the set of possible trailing fragments is exactly
+# this dataset's own station/label list, unbounded in principle — the same
+# scaling problem each prior round hit):
+#
+#   1. Structural-artifact characters. A real extracted person name never
+#      contains a newline, carriage return, a markdown table pipe, or a
+#      parenthesis — every one of these is a direct signature of a
+#      rendering/table boundary bleeding into the captured span
+#      ("Inspector Tariq Khan\n\nStatus", "Yusra Nawaz\n\nApplicant",
+#      "Inspector (Golra)", all live-observed). Purely per-string, no
+#      corpus context needed.
+#   2. Prefix contamination (_compute_prefix_contaminated_names below).
+#      A candidate name is a contaminated superstring of a real name, not
+#      a real longer name in its own right, when dropping its last token
+#      yields a shorter string that (a) is itself a canonical_name actually
+#      present in the corpus and (b) occurs strictly more often than the
+#      candidate. A person's real, distinct longer name essentially never
+#      coincides with an unrelated shorter name that's already
+#      independently common in the same corpus purely by chance — trading
+#      a theoretical false positive for closing the whole category, the
+#      same precision-over-recall posture the checks above already take.
+_STRUCTURAL_ARTIFACT_CHARS = ("\n", "\r", "|", "(", ")")
+
+
+def _compute_prefix_contaminated_names(person_names: dict[str, str]) -> set[str]:
+    """
+    Corpus-frequency-driven — see the "Fourth-round audit" note above.
+    Returns the set of raw (untrimmed) canonical_name strings judged a
+    contaminated superstring of some other, more common name already
+    present in this same person_names population.
+    """
+    counts = Counter(n for n in person_names.values() if n)
+    contaminated: set[str] = set()
+    for name, count in counts.items():
+        tokens = name.split()
+        if len(tokens) < 3:
+            continue
+        prefix = " ".join(tokens[:-1])
+        if counts.get(prefix, 0) > count:
+            contaminated.add(name)
+    return contaminated
+
 
 async def fetch_known_police_stations() -> set[str]:
     """
@@ -174,6 +230,8 @@ def _is_plausible_person_name(name: Optional[str], known_stations: Optional[set[
     if normalized in _NON_NAME_PHRASES:
         return False
     if known_stations and normalized in known_stations:
+        return False
+    if any(ch in stripped for ch in _STRUCTURAL_ARTIFACT_CHARS):
         return False
     if " " not in stripped:
         return False
@@ -317,9 +375,10 @@ async def detect_communities() -> dict:
 
     person_names = await fetch_person_names()
     known_stations = await fetch_known_police_stations()
+    contaminated_names = _compute_prefix_contaminated_names(person_names)
     implausible_ids = {
         eid for eid, name in person_names.items()
-        if not _is_plausible_person_name(name, known_stations)
+        if not _is_plausible_person_name(name, known_stations) or name in contaminated_names
     }
     if implausible_ids:
         logger.info(
