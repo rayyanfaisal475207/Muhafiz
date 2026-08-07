@@ -388,6 +388,47 @@ def test_health_is_public(api):
     assert client.get("/health").status_code == 200
 
 
+def test_health_reports_degraded_when_postgres_unreachable(api, monkeypatch):
+    """
+    Regression, confirmed live: /health used to hardcode {"status": "ok"}
+    and never probed Postgres at all. With Postgres genuinely down (Docker
+    daemon stopped), every Postgres-backed call (register, login, ...) was
+    returning 500 in the same moment /health kept reporting "ok" — a
+    monitoring platform watching only `status` would never have caught it.
+    """
+    client, _ = api
+
+    async def _broken_get_session():
+        raise RuntimeError("connection refused")
+        yield  # pragma: no cover - makes this an async generator
+
+    monkeypatch.setattr("src.database.postgres.get_session", _broken_get_session)
+
+    resp = client.get("/health")
+    assert resp.status_code == 200  # still alive, just degraded
+    body = resp.json()
+    assert body["status"] == "degraded"
+    assert "error" in body["database_status"]
+
+
+def test_health_reports_ok_when_postgres_reachable(api, monkeypatch):
+    class _FakeSession:
+        async def execute(self, *args, **kwargs):
+            return None
+
+    async def _working_get_session():
+        yield _FakeSession()
+
+    monkeypatch.setattr("src.database.postgres.get_session", _working_get_session)
+
+    client, _ = api
+    resp = client.get("/health")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "ok"
+    assert body["database_status"] == "ok"
+
+
 # ── Session ownership ─────────────────────────────────────────────────────────
 
 def test_lists_only_the_callers_sessions(api, user_id, session_id):

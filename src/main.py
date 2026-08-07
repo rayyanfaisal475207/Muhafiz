@@ -263,8 +263,17 @@ class ChatRequest(BaseModel):
 async def health_check():
     """
     Simple health check endpoint.
-    Returns a 200 OK with system status.
-    Used by deployment platforms and monitoring to verify the service is alive.
+    Returns system status, degrading `status` to "degraded" when any real
+    dependency is unreachable — used by deployment platforms and monitoring
+    to verify the service is alive.
+
+    Live-reproduced gap this fixes: this endpoint used to return a
+    hardcoded {"status": "ok"} regardless of what it found, and never
+    probed Postgres at all. Confirmed live: with Postgres fully down
+    (Docker daemon stopped), /health still returned {"status": "ok",
+    "vector_store_status": "ok", ...} in the same moment every
+    Postgres-backed call (register, login, everything) was failing with a
+    500. Monitoring watching only `status` would never have caught it.
     """
     doc_count = 0
     store_status = "ok"
@@ -275,11 +284,33 @@ async def health_check():
     except Exception as exc:
         store_status = f"error: {exc}"
 
+    db_status = "ok"
+    try:
+        import asyncio
+        from sqlalchemy import text
+        from src.database.postgres import get_session
+
+        async def _probe():
+            async for session in get_session():
+                await session.execute(text("SELECT 1"))
+                break
+
+        # A health probe must never itself hang — a stalled/unreachable host
+        # (as opposed to a fast connection-refused) could otherwise block
+        # this endpoint for the OS-level TCP timeout, which defeats the
+        # point of a liveness check.
+        await asyncio.wait_for(_probe(), timeout=3.0)
+    except Exception as exc:
+        db_status = f"error: {exc}"
+
+    overall_status = "ok" if store_status == "ok" and db_status == "ok" else "degraded"
+
     return {
-        "status": "ok",
+        "status": overall_status,
         "version": "0.1.0",
         "llm_provider": config.LLM_PROVIDER,
         "vector_store_status": store_status,
+        "database_status": db_status,
         "documents_in_store": doc_count,
     }
 
