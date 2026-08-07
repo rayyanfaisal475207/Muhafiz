@@ -26,15 +26,28 @@ def fake_client(monkeypatch):
     return client
 
 @pytest.mark.asyncio
-async def test_deterministic_timeline_conflict(fake_client):
+async def test_deterministic_timeline_conflict(fake_client, monkeypatch):
     # Setup graph response: same incident, two different dates
     fake_client.queue([
         {"entity_id": "I-1", "description": "Robbery at bank", "date": "2023-10-01", "source_text": "robbery happened on 1st", "doc_id": "DOC-1"},
         {"entity_id": "I-1", "description": "Robbery at bank", "date": "2023-10-02", "source_text": "robbery happened on 2nd", "doc_id": "DOC-2"},
     ])
-    
+
     # write_edge call response
     fake_client.queue([{"r": {"id": 10}}])
+
+    # detect_conflicts() ALWAYS runs its grounded-LLM narrative phase after the
+    # deterministic phase — it is not conditional on the deterministic result.
+    # Without this patch the call escaped to the real provider (confirmed: it
+    # returned a live 400 API_KEY_INVALID from Google), so this test failed on
+    # any machine without credentials and made a billable request on any machine
+    # with them. Same pattern test_llm_grounded_conflict already uses; here the
+    # LLM must report NO narrative conflicts so the call count below stays a
+    # clean assertion about the DETERMINISTIC path only.
+    async def mock_call_llm(*args, **kwargs):
+        return json.dumps([])
+
+    monkeypatch.setattr(conflict_detection, "call_llm", mock_call_llm)
 
     await conflict_detection.detect_conflicts("CASE-1")
 
