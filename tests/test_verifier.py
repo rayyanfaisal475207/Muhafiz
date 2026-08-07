@@ -226,6 +226,45 @@ def test_no_citation_accepts_bare_document_reference_without_brackets_or_bold():
     assert _check_no_citation(answer) is None
 
 
+def test_no_citation_flags_short_uncited_enumerated_list():
+    """
+    Regression, confirmed live: an XGRAPH cross-case query asked in Urdu
+    returned a numbered list of 8 names with zero [Document N] citations —
+    a direct violation of cross_case_response.txt's mandatory citation
+    rule. The whole answer was 92 characters, under
+    _SUBSTANTIAL_ANSWER_LEN, so the length-only check let it straight
+    through while an equivalent English answer (longer prose, same lack of
+    citations) was correctly flagged. This is the Urdu-shaped repro
+    (Latin transliteration here only so the test file stays ASCII-only;
+    the character-count property that mattered is preserved).
+    """
+    answer = "Log yeh hain:\n1. Ahmed\n2. Ayesha\n3. Ali\n4. Zainab\n5. Hassan\n6. Sara\n7. Muhammad\n8. Fatima"
+    assert len(answer) < 150  # the exact gap this test guards against
+    issue = _check_no_citation(answer)
+    assert issue is not None
+    assert "cites no" in issue
+
+
+def test_no_citation_does_not_flag_a_short_non_list_answer():
+    """A short, honest, non-enumerated answer must still pass — the list
+    heuristic must not turn into a blanket "any 2 lines fails" rule."""
+    answer = "Ahmed appears in one case.\nAyesha appears in another case."
+    assert _check_no_citation(answer) is None
+
+
+def test_no_citation_flags_long_enumerated_list_same_as_before():
+    """The pre-existing length-based path must still work unchanged for a
+    list that's also long enough to trip _SUBSTANTIAL_ANSWER_LEN on its own."""
+    answer = (
+        "The following individuals are mentioned across the case evidence:\n"
+        "1. Ahmed Khan\n2. Ayesha Malik\n3. Ali Raza\n4. Zainab Bibi\n"
+        "5. Hassan Sheikh\n6. Sara Iqbal\n7. Muhammad Tariq\n8. Fatima Noor"
+    )
+    assert len(answer) >= 150
+    issue = _check_no_citation(answer)
+    assert issue is not None
+
+
 # ── verify_grounding (async, with LLM monkeypatched) ─────────────────────────
 
 @pytest.mark.asyncio

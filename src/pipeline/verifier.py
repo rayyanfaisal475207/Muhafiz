@@ -305,6 +305,22 @@ _SUBSTANTIAL_ANSWER_LEN = 150
 # around "Document N", not just the bracketed form.
 _DOCUMENT_CITATION_RE = re.compile(r"[\[(]?\*{0,2}Document\s+\d+\*{0,2}[\])]?", re.IGNORECASE)
 
+# Confirmed live: a raw character-length gate is gameable by a compact
+# script. An XGRAPH query asked in Urdu returned a numbered list of 8 names
+# with zero [Document N] citations — a direct violation of
+# cross_case_response.txt's mandatory "[Document N, CASE-ID]" citation rule
+# (which, per that prompt's rule 9, applies regardless of what language the
+# surrounding prose is written in). The whole list was 92 characters, well
+# under _SUBSTANTIAL_ANSWER_LEN, so it skipped this check entirely, while
+# the same underlying evidence asked in English (longer prose, same lack of
+# citations) correctly tripped it. A numbered/bulleted list is itself the
+# signal that matters, independent of raw length — each item is a discrete
+# factual claim (a name, in this case) that needs its own citation, and a
+# real "no information found" answer is never formatted as an enumerated
+# list of specifics.
+_LIST_ITEM_RE = re.compile(r"^\s*(?:[-*•]|\d+[.)])\s+\S", re.MULTILINE)
+_MIN_LIST_ITEMS_FOR_SUBSTANTIAL = 2
+
 
 def _check_no_citation(answer: str) -> Optional[str]:
     """
@@ -319,17 +335,27 @@ def _check_no_citation(answer: str) -> Optional[str]:
     is almost never actually using the evidence — a real grounded answer
     of any length past a one-liner cites something.
 
+    "Substantial" is judged two ways, either one is enough: raw length past
+    _SUBSTANTIAL_ANSWER_LEN, or a numbered/bulleted list with at least
+    _MIN_LIST_ITEMS_FOR_SUBSTANTIAL items (see _LIST_ITEM_RE's comment for
+    why length alone isn't a reliable proxy across scripts).
+
     Returns an issue string, or None if the answer looks properly cited (or
-    is short enough to plausibly be a legitimate no-citation "not found").
+    is short enough / unstructured enough to plausibly be a legitimate
+    no-citation "not found").
     """
-    if len(answer) < _SUBSTANTIAL_ANSWER_LEN:
+    is_substantial = len(answer) >= _SUBSTANTIAL_ANSWER_LEN
+    if not is_substantial:
+        is_substantial = len(_LIST_ITEM_RE.findall(answer)) >= _MIN_LIST_ITEMS_FOR_SUBSTANTIAL
+    if not is_substantial:
         return None
     if _DOCUMENT_CITATION_RE.search(answer):
         return None
     return (
-        "Answer is substantial in length but cites no [Document N] source at "
-        "all, despite the evaluator already confirming relevant chunks exist — "
-        "reads as avoiding the provided evidence rather than using it."
+        "Answer is substantial (long, or a multi-item list) but cites no "
+        "[Document N] source at all, despite the evaluator already "
+        "confirming relevant chunks exist — reads as avoiding the provided "
+        "evidence rather than using it."
     )
 
 
