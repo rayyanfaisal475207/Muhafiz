@@ -1,0 +1,727 @@
+"""
+Agent Harness — shared types (Phase 0, foundation layer).
+
+Source of truth: docs/SUBAGENT_INTERFACES.md (the exact contracts) and
+docs/AGENT_HARNESS_DESIGN.md (the *why* behind each [PRESERVE] note this
+module quotes from). This file is a verbatim-as-Python-allows transcription
+of SUBAGENT_INTERFACES.md's Pydantic models — no retrieval/generation logic,
+no behavior beyond the one validator that enforces an invariant the
+interfaces doc itself states (see ChunkMetadata below).
+
+SCOPE OF THIS FILE. SUBAGENT_INTERFACES.md §0 ("Shared types") in full,
+plus the parts of §1 ("Tool interfaces") that are genuinely common across
+every tool — §1.0's `ToolInput`/`ToolResult`/`Tool` base shapes, §1.1's
+`CrossCaseToolInput`/`CrossCaseToolResult` cross-case base, and §1.3.1's
+`SOURCE_TOOL_DISPLAY_LABELS` display contract — plus §2 ("Sub-agent
+interfaces")'s shared shapes. The SEVEN tool-SPECIFIC Input/Result pairs
+(RagToolInput/Result, GraphToolInput/Result, XGraphToolInput/Result,
+XAggToolInput/Result, XNetworkToolInput/Result, SqlToolInput/Result,
+WebToolInput/Result, plus XAGG's `AggregateKind`) are deliberately NOT
+here — each lives beside its own wrapper in src/pipeline/harness/tools/,
+since each is used by exactly one tool file and its own tests, and
+SUBAGENT_INTERFACES.md itself organizes them one-per-subsection (§1.2 RAG,
+§1.3 GRAPH, §1.4 XGRAPH, §1.5 XAGG, §1.6 XNETWORK, §1.7 SQL, §1.8 WEB).
+This split keeps exactly one canonical definition of every type (nothing to
+drift between two copies) while keeping each tool wrapper file
+self-contained for its own contract.
+
+PHASE 0 BUILD NOTE. The Supervisor and all 8 sub-agents are OUT OF SCOPE
+for this session (AGENT_HARNESS_IMPLEMENTATION_PLAN.md §2 restricts this
+session to §2's Foundation layer only; see also §8's build checklist).
+The §2 sub-agent shapes below (SubAgentResult, Citation, TimelineEvent,
+CrossCaseLink, PipelineEvent, ...) are forward-declared verbatim so a later
+session building those layers imports the same canonical types instead of
+redefining them — this is exactly what SUBAGENT_INTERFACES.md's own
+"stability contract" (no implementation types cross a boundary, contracts
+survive a rewrite of the internals) calls for. Nothing in Phase 0's own
+code (the tool wrappers, the compliance suite) constructs or imports these
+§2 types — they are inert until the Supervisor/sub-agent phases wire them
+in.
+
+CONFIDENCE FIELD SPLIT (the one amendment to SUBAGENT_INTERFACES.md's
+literal text, per AGENT_HARNESS_IMPLEMENTATION_PLAN.md §1, resolving the
+gap AGENT_HARNESS_DESIGN.md §7 tracked and deliberately left open):
+`ChunkMetadata.confidence` alone cannot distinguish "this tool computes no
+confidence for this chunk" (flat retrieval — legitimately absent) from
+"confidence computation was attempted and failed" (unknown) — both read as
+`None`. The Verifier's hedging check needs the two to be distinguishable:
+a genuinely low-confidence chain that failed to score must still read as
+"needs hedging," not silently pass as "no confidence signal present."
+`confidence_status` makes the three cases explicit and, per the validator
+below, mutually consistent with `confidence` itself.
+"""
+
+from __future__ import annotations
+
+from enum import Enum
+from typing import Any, Literal, Optional, Protocol
+
+from pydantic import BaseModel, Field, model_validator
+
+# ═══════════════════════════════════════════════════════════════════════
+# §0 — Roles
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class Role(str, Enum):
+    """
+    The four RBAC roles, ordered least- to most-privileged.
+
+    Cross-case tools (XGRAPH / XAGG / XNETWORK) require SUPERVISOR or above.
+    """
+
+    INVESTIGATOR = "investigator"
+    SUPERVISOR = "supervisor"
+    STATION_ADMIN = "station-admin"
+    PLATFORM_ADMIN = "platform-admin"
+
+
+CROSS_CASE_ROLES: frozenset[Role] = frozenset(
+    {Role.SUPERVISOR, Role.STATION_ADMIN, Role.PLATFORM_ADMIN}
+)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# §0 — Identity / scope, threaded through every hop
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class CallerContext(BaseModel):
+    """
+    Who is asking, and under what case scope. Threaded supervisor → sub-agent
+    → tool, unchanged, at every hop.
+
+    [PRESERVE — design §4.4] `role` MUST originate from the authenticated
+    user's real RBAC role (`current_user.role` / `process_query()`'s
+    `user_role` parameter today). It must NEVER be read out of a
+    user-profile / preferences object (`user_profile` —
+    `{context_text, preferred_language, llm_mode}`, no role key at all).
+    Those objects carry no role key, and a historical bug that read one
+    silently defaulted every cross-case check to `investigator`, denying
+    real supervisors/admins their own access. This model exists as a
+    separate type from any profile/preferences model specifically so the
+    two cannot be confused at a call site.
+
+    [PRESERVE — design §4.1, §4.2] Construction of this object does NOT
+    grant access. Case-access authorization (hard 403 — `main.py`'s
+    `chat_endpoint()` calling `gateway.check_case_access()`) and RLS scope
+    arming (`src.auth.rls_context.set_case_scope()`) are the API boundary's
+    responsibility and happen strictly BEFORE the supervisor is invoked. A
+    `CallerContext` that reaches a tool is assumed already authorized for
+    `active_case_id` — it is not re-checked below the boundary. Any NEW
+    entry point (scheduled job, internal API, batch runner) must perform
+    both steps itself; they are not inherited.
+    """
+
+    user_id: Optional[str] = None
+    role: Role
+    active_case_id: Optional[str] = Field(
+        default=None,
+        description="The case this query is scoped to. None for queries with no active case.",
+    )
+    preferred_language: Optional[str] = Field(
+        default=None,
+        description="Drives generation language on every route. Opaque here.",
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# §0 — Evidence
+# ═══════════════════════════════════════════════════════════════════════
+
+SourceTool = Literal["RAG", "GRAPH", "GRAPH_HYBRID", "XGRAPH", "XAGG", "XNETWORK", "SQL", "WEB"]
+
+ConfidenceStatus = Literal["computed", "not_computed", "check_failed"]
+
+
+class EvidenceChunk(BaseModel):
+    """
+    The single evidence currency of the entire harness. Every tool emits
+    these; every sub-agent hands these to the Verifier.
+
+    [PRESERVE — design §5] This flat shape is the Verifier's contract and
+    must not be replaced with a richer nested/grouped payload. The
+    Verifier's deterministic checks parse `[Document N]` citations out of
+    the generated answer and index positionally into the chunk list
+    (`chunks[n-1]`). A sub-agent composing several tools MUST flatten to
+    one ordered list, and the list it hands the Verifier MUST be exactly
+    the list the generator was shown — same objects, same order. Generator
+    and Verifier disagreeing about what evidence was displayed is a
+    correctness regression, not a cosmetic one.
+    """
+
+    id: str
+    text: str
+    metadata: "ChunkMetadata"
+    score: Optional[float] = Field(
+        default=None,
+        description=(
+            "Opaque relevance score. Higher is better WITHIN one result set "
+            "only. Never threshold on an absolute value; never compare "
+            "across tools."
+        ),
+    )
+
+
+class ChunkMetadata(BaseModel):
+    """
+    Open-ended per-chunk metadata. Consumers read known keys, ignore
+    unknown ones. Adding keys is non-breaking.
+
+    [PRESERVE — design §5 tradeoff] `source_tool` is REQUIRED on every
+    chunk emitted by any tool. It is what preserves per-tool provenance
+    once several tools' output is flattened into one list — the Verifier
+    sees one merged list and would otherwise have no way to tell
+    RAG-sourced from GRAPH-sourced evidence. This extends the existing
+    per-source metadata convention (graph-confidence, conflict-basis, etc.)
+    by one field; it is not a new mechanism.
+    """
+
+    model_config = {"extra": "allow"}
+
+    source_tool: SourceTool = Field(
+        description="[PRESERVE] Which tool produced this chunk. Required on every chunk."
+    )
+    case_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "Owning case. [PRESERVE — design §4.6] Read by the Verifier's "
+            "leakage backstop, which re-derives cited chunks' case_id from "
+            "the answer text and checks it against the active case plus any "
+            "explicitly allowed cross-case IDs. A chunk that omits this "
+            "cannot be leak-checked."
+        ),
+    )
+    source_file: Optional[str] = None
+    confidence: Optional[float] = Field(
+        default=None,
+        description=(
+            "Per-chunk confidence, set ONLY when confidence_status=='computed' "
+            "(graph traversal attaches chain confidence when it succeeds; "
+            "flat retrieval never computes one at all — legitimately absent). "
+            "[PRESERVE] Drives the Verifier's hedging check: low-confidence "
+            "evidence requires confidence-appropriate hedging in the "
+            "generated answer.\n\n"
+            "[AMENDMENT — design §7 / plan §1] Do not read this field alone "
+            "to decide whether hedging is required: a `None` here is "
+            "ambiguous on its own (nothing to compute vs. a failed "
+            "computation) unless disambiguated by `confidence_status`. Use "
+            "`confidence_status`, not `confidence is None`, as the branch "
+            "condition."
+        ),
+    )
+    confidence_status: ConfidenceStatus = Field(
+        default="not_computed",
+        description=(
+            "[AMENDMENT — design §7 / plan §1] Disambiguates why `confidence` "
+            "is `None` (or, for 'computed', asserts it is a real value).\n"
+            "  'computed'      — confidence was actually computed; "
+            "`confidence` is a real, non-None number.\n"
+            "  'not_computed'  — this tool/route does not compute a "
+            "confidence for this chunk at all (e.g. flat RAG retrieval). "
+            "Legitimately absent, not a failure. DEFAULT.\n"
+            "  'check_failed'  — confidence computation was attempted and "
+            "raised/errored. `confidence` is `None` here NOT because there "
+            "is nothing to hedge about, but because the check that would "
+            "tell the Verifier whether to hedge never completed.\n\n"
+            "This closes the exact gap design §7 flags: before this field "
+            "existed, a genuinely low-confidence chain that failed to score "
+            "read identically to 'no confidence signal present' and could "
+            "pass the hedging check unhedged. A consumer (the Verifier's "
+            "hedging check, once wired to read this field) MUST treat "
+            "'check_failed' at least as cautiously as a known-low "
+            "confidence score — never as 'no signal, proceed unhedged'."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _confidence_status_consistency(self) -> "ChunkMetadata":
+        """
+        Enforces the invariant the confidence_status split exists for:
+        'computed' and a real value always travel together, never apart.
+        Without this check, a tool could set confidence_status='computed'
+        with confidence=None (or vice versa) and silently reopen the exact
+        ambiguity this amendment was written to close.
+        """
+        if self.confidence_status == "computed" and self.confidence is None:
+            raise ValueError(
+                "ChunkMetadata.confidence_status=='computed' requires a "
+                "non-None confidence value — a tool that has not actually "
+                "computed a confidence must use 'not_computed' or "
+                "'check_failed' instead."
+            )
+        if self.confidence_status != "computed" and self.confidence is not None:
+            raise ValueError(
+                "ChunkMetadata.confidence is set but confidence_status is "
+                f"{self.confidence_status!r}, not 'computed' — a real "
+                "confidence value must be flagged 'computed' or downstream "
+                "consumers (the Verifier's hedging check) cannot trust it."
+            )
+        return self
+
+
+EvidenceChunk.model_rebuild()
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# §0 — Outcome discriminator
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class ToolStatus(str, Enum):
+    """
+    Why a tool call ended the way it did. The discriminator every caller
+    branches on. `OK` and `EMPTY` are distinct on purpose: `EMPTY` is a
+    successful call that legitimately found nothing, and for several tools
+    that is a materially different outcome from an error (see
+    `fallback_to_rag`).
+    """
+
+    OK = "ok"
+    EMPTY = "empty"
+    FAILED = "failed"
+    DENIED = "denied"
+
+
+class ToolError(BaseModel):
+    """
+    Structured failure detail. Present iff status is FAILED or DENIED.
+
+    [PRESERVE — design §4.3] A DENIED result means the caller's role failed
+    a cross-case gate. That check happens INSIDE the tool, before the tool
+    does anything else that touches cross-case scope, and writes an
+    authorization-violation audit record. See `CrossCaseToolInput`.
+    """
+
+    kind: Literal["permission_denied", "upstream_failure", "invalid_input", "timeout"]
+    message: str = Field(description="Operator-facing. Not shown verbatim to the end user.")
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# §1.0 — Common tool shape (shared across every tool wrapper)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class ToolInput(BaseModel):
+    """Base input. Every tool receives the caller context unchanged."""
+
+    query_text: str = Field(description="The rewritten, standalone query.")
+    caller: CallerContext
+
+
+class ToolResult(BaseModel):
+    """
+    Base result. Every tool returns this shape — no tool raises to signal a
+    routine outcome (empty result, permission denial, upstream failure).
+    Those are all values, so composing sub-agents can branch without
+    exception handling scattered through composition logic.
+    """
+
+    status: ToolStatus
+    chunks: list[EvidenceChunk] = Field(
+        default_factory=list,
+        description=(
+            "Evidence, ordered. Non-empty iff status is OK. Every chunk "
+            "carries metadata.source_tool identifying its producer."
+        ),
+    )
+    error: Optional[ToolError] = Field(
+        default=None, description="Present iff status is FAILED or DENIED."
+    )
+    fallback_to_rag: bool = Field(
+        default=False,
+        description=(
+            "[PRESERVE — design §2.2, §2.6, §2.7] Whether the CALLER should "
+            "now substitute the RAG tool for this tool's result. Only ever "
+            "True for GRAPH, GRAPH_HYBRID, SQL, and WEB. PERMANENTLY False "
+            "for XGRAPH, XAGG, and XNETWORK — see CrossCaseToolResult. The "
+            "tool does not perform the fallback itself; it reports that one "
+            "is warranted and the calling sub-agent acts on it. In today's "
+            "orchestrator this is implicit in the branch structure, so the "
+            "harness needs it made explicit."
+        ),
+    )
+
+
+class Tool(Protocol):
+    """Structural contract every primitive satisfies."""
+
+    name: SourceTool
+
+    async def __call__(self, tool_input: ToolInput) -> ToolResult: ...
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# §1.1 — Cross-case tool base (the role gate)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class CrossCaseToolInput(ToolInput):
+    """
+    Input to XGRAPH / XAGG / XNETWORK.
+
+    [PRESERVE — design §2.3, §4.3] Ordering inside every cross-case tool is
+    load-bearing and must be preserved verbatim:
+
+        1. Check caller.role against CROSS_CASE_ROLES.
+        2. On failure: write an authorization-violation audit record,
+           return status=DENIED. Nothing else runs.
+        3. ONLY on success: arm cross-case / RLS-bypass scope, then query.
+
+    This ordering is the fix for a documented historical bug in which the
+    RLS cross-case bypass flag was armed as soon as the router classified a
+    query as cross-case — before the role check ran, and never reset on
+    denial. Arming strictly after the check means an unauthorized caller
+    never arms it at all: there is no window to close because none is
+    opened.
+
+    A harness restructuring that hoists scope resolution "up" to the
+    supervisor or a shared middleware, so that scope is armed before
+    dispatch, REINTRODUCES THIS BUG. Do not do it. Each of the three tools
+    carries its own independent copy of this check today; the harness must
+    keep them independent (design §4.3 — none of the enforcement points
+    supersedes another).
+    """
+
+
+class CrossCaseToolResult(ToolResult):
+    """
+    [PRESERVE — design §2.3, §2.4, §2.5] Cross-case tools NEVER fall back to
+    RAG. Cross-case evidence must never blend into a case-scoped RAG answer
+    stream — that is the structural separation the whole cross-case design
+    rests on. `fallback_to_rag` is pinned False and callers must not
+    reintroduce a fallback at their own level.
+    """
+
+    fallback_to_rag: Literal[False] = False
+    case_ids_touched: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Every case ID contributing to this result. [PRESERVE — design "
+            "§4.6] Feeds the Verifier's allowed-cross-case-ID list; without "
+            "it the leakage backstop cannot distinguish legitimate "
+            "cross-case evidence from a genuine leak, and would reject "
+            "valid cross-case answers."
+        ),
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# §1.3.1 — source_tool display contract (GRAPH_HYBRID is user-visible)
+# ═══════════════════════════════════════════════════════════════════════
+
+# Investigator-facing labels for metadata.source_tool. Consumers MUST NOT
+# invent their own mapping, collapse distinct values, or fall back to the
+# raw enum name in user-facing surfaces.
+#
+# [RESOLVED-1a] GRAPH_HYBRID is a DISTINCT label — never displayed as
+# "GRAPH", never omitted. Wording below is indicative; see SUBAGENT_
+# INTERFACES.md §3's sign-off note.
+SOURCE_TOOL_DISPLAY_LABELS: dict[SourceTool, str] = {
+    "RAG": "document search",
+    "GRAPH": "case-graph search",
+    "GRAPH_HYBRID": "combined document + case-graph search",
+    "XGRAPH": "cross-case entity search",
+    "XAGG": "cross-case aggregate",
+    "XNETWORK": "cross-case pattern synthesis",
+    "SQL": "penal-code reference lookup",
+    "WEB": "external web search",
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# §2 — Sub-agent interfaces (forward-declared; unused until the Supervisor
+# / sub-agent phases wire them in — see the PHASE 0 BUILD NOTE at the top
+# of this file). Included here, not deferred, so every later phase imports
+# ONE canonical definition instead of each re-deriving its own.
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class SubAgentStatus(str, Enum):
+    OK = "ok"
+    PARTIAL = "partial"  # Degraded but useful.
+    EMPTY = "empty"  # Legitimately nothing to report. NOT an error.
+    ABSTAINED = "abstained"  # Could not answer safely. No answer text is served.
+    DENIED = "denied"
+    """
+    [RESOLVED-6] A role gate refused the request (cross-case sub-agents
+    only).
+
+    DENIED PROPAGATES AS ITS OWN STATUS — it must never be collapsed into
+    ABSTAINED or EMPTY. "Blocked by permissions" and "searched and found
+    nothing" are different facts about the system, and flattening them
+    destroys the audit and monitoring signal that distinguishes them: a
+    spike in denials is a security-relevant event, a spike in empties is a
+    data-coverage problem. They must stay separable downstream.
+    """
+
+
+class SubAgentInput(BaseModel):
+    """
+    [PRESERVE — design §4.4] `caller` is threaded through UNCHANGED to
+    every tool the sub-agent invokes. Do not reconstruct it, do not merge
+    it with a preferences/profile object, do not default its role.
+    """
+
+    query_text: str = Field(description="Rewritten, standalone query.")
+    caller: CallerContext
+    output_format: Literal["chat", "file_pdf", "file_xlsx", "file_docx"] = "chat"
+    conversation_context: Optional[str] = Field(
+        default=None,
+        description=(
+            "Pre-bounded conversation context, if the supervisor supplies "
+            "any. Bounding is the supervisor's job — a sub-agent never "
+            "receives full history."
+        ),
+    )
+
+
+class Citation(BaseModel):
+    """
+    One citation in the bounded handoff payload. Deliberately NOT an
+    EvidenceChunk: it carries no chunk text, so the supervisor can render
+    provenance without absorbing the evidence set.
+    """
+
+    document_index: int = Field(
+        description=(
+            "1-based index matching the `[Document N]` marker in "
+            "answer_text. [PRESERVE — design §5] Positional correspondence "
+            "with the evidence list shown to the generator; the Verifier "
+            "depends on it."
+        )
+    )
+    source_tool: SourceTool
+    case_id: Optional[str] = None
+    source_file: Optional[str] = None
+    confidence: Optional[float] = None
+
+
+class GeneratedFileRef(BaseModel):
+    """Reference to a produced file. No file bytes cross the boundary."""
+
+    file_id: str
+    file_name: str
+    storage_path: str
+    disclosure_rendered: bool = Field(
+        default=False,
+        description=(
+            "[RESOLVED-3] True iff a partial-evidence disclosure was "
+            "written INTO THE DOCUMENT BODY. Set only by the builder that "
+            "actually rendered it — this field is an assertion about the "
+            "file's contents, so it must never be set optimistically by a "
+            "caller that merely intended a disclosure.\n\n"
+            "[RESOLVED-3a] Set at step 5 of SUBAGENT_INTERFACES.md §2.1.3's "
+            "ordering — AFTER the Verifier has passed and the document is "
+            "assembled. It is therefore never True on a report that failed "
+            "verification: such a report is never built at all."
+        ),
+    )
+
+
+class SubAgentResult(BaseModel):
+    """
+    THE BOUNDED HANDOFF PAYLOAD — what the supervisor receives.
+
+    [PRESERVE — design §3] Carries NO EvidenceChunk list, no raw rows, no
+    graph rows. Adding one would be the specific regression this layer
+    exists to prevent. Evidence stays below this boundary.
+    """
+
+    status: SubAgentStatus
+    answer_text: Optional[str] = Field(
+        default=None,
+        description=(
+            "The synthesized, Verifier-passed answer. None when status is "
+            "ABSTAINED or DENIED. [PRESERVE] An answer that failed "
+            "verification is NEVER served — the safe abstention is served "
+            "instead, never the ungrounded draft."
+        ),
+    )
+    citations: list[Citation] = Field(default_factory=list)
+    tools_used: list[SourceTool] = Field(
+        default_factory=list,
+        description=(
+            "[RESOLVED-4] Tools that ACTUALLY CONTRIBUTED DATA to "
+            "answer_text, measured AFTER all fallbacks resolved — NOT tools "
+            "attempted. A tool that was invoked and then degraded past does "
+            "not appear here; it appears in `degraded_from`. Uniform across "
+            "all seven sub-agents. Deduplicated: if two tools both degrade "
+            "to RAG, RAG appears once."
+        ),
+    )
+    degraded_from: list[SourceTool] = Field(
+        default_factory=list,
+        description=(
+            "[RESOLVED-4] Tools that were ATTEMPTED but failed, returned "
+            "empty, or fell back — the counterpart to `tools_used`. "
+            "Non-empty implies status=PARTIAL for every sub-agent that can "
+            "degrade."
+        ),
+    )
+    caveats: list[str] = Field(
+        default_factory=list,
+        description=(
+            "[PRESERVE — design §3] User-facing qualifications that MUST "
+            "survive to the final response — notably unconfirmed identity "
+            "links, which are presented as caveats and never as confirmed "
+            "fact. The supervisor may reorder or reformat these; it may not "
+            "drop them."
+        ),
+    )
+    generated_file: Optional[GeneratedFileRef] = Field(
+        default=None, description="Set only by Report Drafting."
+    )
+    error: Optional[ToolError] = None
+
+
+class SubAgent(Protocol):
+    """Structural contract every sub-agent satisfies."""
+
+    name: str
+
+    async def __call__(self, agent_input: SubAgentInput) -> SubAgentResult: ...
+
+
+# [RESOLVED-3] PLACEHOLDER — EXACT WORDING PENDING PRODUCT SIGN-OFF.
+# The MECHANISM is settled: when Report Drafting builds from a degraded
+# summary, this line is rendered into the document body itself, naming the
+# unavailable source(s). The sentence below is a stand-in; replace it
+# wholesale once product signs off. Do not ship this string to
+# investigators as-is.
+#
+# [RESOLVED-3a] INJECTED POST-VERIFICATION, AND NEVER VERIFIED. See the
+# ordering contract in SUBAGENT_INTERFACES.md §2.1.3 — the disclosure is a
+# meta-statement ABOUT the generation process, not an evidentiary claim
+# drawn from the case. It has nothing to cite, so passing it through
+# grounding or citation verification could trip the no-citation check and
+# cause abstention — withholding the whole report BECAUSE it was honest
+# about being partial.
+#
+# Consequences for anyone editing this constant:
+#   - It is a FIXED, REVIEWED TEMPLATE. Only `{unavailable_sources}` is
+#     substituted, from `degraded_from`. Never LLM-generated, never
+#     paraphrased, never regenerated per-report.
+#   - Because it bypasses verification, its trustworthiness rests entirely
+#     on this string being human-reviewed. That is the tradeoff that makes
+#     the bypass safe — do not make it dynamic.
+PARTIAL_EVIDENCE_DISCLOSURE_TEMPLATE = (
+    "[PLACEHOLDER — PENDING PRODUCT SIGN-OFF] This report was generated from "
+    "partial evidence. The following source(s) were unavailable: {unavailable_sources}. "
+    "Findings below reflect only the evidence that could be retrieved and should not "
+    "be read as a complete account."
+)
+
+
+# [RESOLVED-2a] Case Summarization's own in-text disclosure, for the
+# GRAPH-only case. Same mechanism as PARTIAL_EVIDENCE_DISCLOSURE_TEMPLATE
+# above and governed by the same shared rules (SUBAGENT_INTERFACES.md
+# §2.1.1); ordering for this one is in §2.1.2: fixed reviewed string,
+# injected AFTER verification, never itself verified, never
+# model-generated.
+#
+# Unlike the report template this takes no substitution — it names one
+# specific gap. `status=PARTIAL` + `degraded_from` remain the
+# machine-readable signal; this is the human-readable one, and it travels
+# WITH THE TEXT rather than alongside it, so it survives being read,
+# quoted, or pasted somewhere the payload metadata does not follow.
+#
+# WORDING PENDING THE SAME PRODUCT SIGN-OFF. Do not ship as-is.
+GRAPH_ONLY_SUMMARY_DISCLOSURE = (
+    "[PLACEHOLDER — PENDING PRODUCT SIGN-OFF] No document-based summary "
+    "available — generated from case graph data only."
+)
+
+
+class ConflictState(str, Enum):
+    """
+    [RESOLVED-5] Three-state, deliberately NOT a bool.
+
+    `UNKNOWN` is the correct value whenever conflict detection did not
+    successfully run for an event — it is distinct from `NONE`, which
+    asserts the check ran and found nothing. A bool cannot represent that
+    difference, so a failed check would render as "no conflicts found":
+    the timeline would silently assert an all-clear it never verified. In
+    an investigative context that is a correctness defect, not a
+    stylistic one.
+
+    `UNKNOWN` is the DEFAULT: an event is not-yet-checked until a check
+    succeeds. Anything constructing a TimelineEvent must set NONE
+    explicitly, and may only do so on a successful check that found
+    nothing.
+    """
+
+    CONFLICT = "conflict"  # Checked; a contradictory record exists.
+    NONE = "none"  # Checked; no conflict found.
+    UNKNOWN = "unknown"  # Not successfully checked. Assert nothing.
+
+
+class TimelineEvent(BaseModel):
+    """Timeline Building's per-event payload element."""
+
+    event_id: str
+    description: str
+    occurred_on: Optional[str] = Field(default=None, description="ISO-8601. None if undated.")
+    conflict_state: ConflictState = Field(
+        default=ConflictState.UNKNOWN,
+        description=(
+            "Whether a contradictory record exists for this event. "
+            "[PRESERVE] Flagged, never silently resolved — surfacing the "
+            "contradiction IS the value. [RESOLVED-5] Three-state; see "
+            "ConflictState. Renderers MUST distinguish UNKNOWN from NONE in "
+            "user-facing output — presenting UNKNOWN as an unqualified "
+            "all-clear reintroduces exactly the defect the third state "
+            "exists to prevent."
+        ),
+    )
+    conflict_basis: Optional[str] = Field(
+        default=None,
+        description="Human-readable basis. Present iff conflict_state is CONFLICT.",
+    )
+    locked: bool = Field(
+        default=False, description="Investigator-locked against further automatic revision."
+    )
+
+
+class CrossCaseLink(BaseModel):
+    """Cross-Case Linkage's per-item payload element."""
+
+    description: str
+    case_ids: list[str] = Field(description="Cases this connection spans.")
+    confidence: Optional[float] = None
+    source_tool: Literal["XGRAPH", "XNETWORK"]
+    is_unconfirmed: bool = Field(
+        default=False,
+        description=(
+            "[PRESERVE] True for pending identity links. Such an item MUST "
+            "be presented as a caveat and must contribute a matching entry "
+            "to SubAgentResult.caveats — never asserted as confirmed fact."
+        ),
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# §2.2 — Logging contract (PipelineEvent type only; log_step() itself is
+# an existing DataGateway method, not a harness type — see
+# gateway.log_step() / DataGateway.log_step in src/data_gateway/.)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class PipelineEvent(BaseModel):
+    """
+    The live SSE trace event. Renders in the chat UI's trace panel; never
+    touches a database.
+
+    [PRESERVE] Granularity must not regress: ONE event per meaningful
+    transition — supervisor dispatch, sub-agent start/end, tool
+    fallback-triggered — NOT collapsed into a single "sub-agent ran" event.
+    Collapsing makes the live trace strictly less informative than today's.
+    """
+
+    model_config = {"extra": "allow"}
+
+    step: str
+    status: Literal["active", "done", "error", "retry", "skipped"]
+    detail: str
+    ms: Optional[int] = None
+    sources: Optional[list[dict[str, Any]]] = None

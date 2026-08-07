@@ -1,0 +1,133 @@
+"""
+XNETWORK tool — src/pipeline/harness/tools/xnetwork.py (Phase 0,
+foundation layer).
+
+Thin adapter over `run_network_query(query_text, gateway, user_id,
+user_role, top_k)` (AGENT_HARNESS_DESIGN.md §2.5), backed by
+`query_similar_communities()` — embedding search over a separate,
+precomputed community-summary Chroma collection, not the case graph. No
+new logic: this module only translates `run_network_query()`'s return
+shape / raised `PermissionError` into the standard `ToolResult` shape.
+
+[PRESERVE — design §2.5] NEVER falls back to RAG (`XNetworkToolResult`
+inherits `fallback_to_rag: Literal[False]`).
+
+[PRESERVE — design §2.5] `raw_summary_text` is the deterministic,
+already-grounded community-summary text — the fallback a SUB-AGENT serves
+if its own generation step's paraphrase fails verification. This tool
+always populates it; generation and verification (including XNETWORK's
+own one-shot cloud-regeneration-before-fallback retry) are NOT this
+primitive's job — the trust layer (Verifier) is an explicitly later phase
+(AGENT_HARNESS_IMPLEMENTATION_PLAN.md §5/§8), and design §2.5's own wrap
+boundary for this tool stops at `run_network_query()`. The XNETWORK-
+specific cloud-retry behavior belongs to whichever sub-agent (Cross-Case
+Linkage) eventually composes this tool with the Verifier — do not
+implement it here, and do not generalize it to XGRAPH/XAGG without the
+same live-failure evidence that justified it for XNETWORK specifically.
+
+[PRESERVE — design §2.3/§4.3, same pattern as XGRAPH/XAGG] All
+authorization logic stays inside `run_network_query()` itself; this
+wrapper only translates its `PermissionError` into `status=DENIED`.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Optional
+
+from pydantic import Field
+
+from src.data_gateway import get_gateway
+from src.pipeline.harness.types import (
+    ChunkMetadata,
+    CrossCaseToolInput,
+    CrossCaseToolResult,
+    EvidenceChunk,
+    ToolError,
+    ToolStatus,
+)
+from src.pipeline.xnetwork import DEFAULT_TOP_K, run_network_query
+
+logger = logging.getLogger(__name__)
+
+
+class XNetworkToolInput(CrossCaseToolInput):
+    """
+    Open-ended cross-case pattern/theme synthesis over precomputed
+    community summaries.
+
+    STALENESS: because summaries are precomputed offline
+    (community_detection.py / community_summarization.py), results reflect
+    the corpus as of the last summarization run, not live graph state.
+    """
+
+    top_k: int = Field(default=DEFAULT_TOP_K, ge=1, description="Community summaries to retrieve.")
+
+
+class XNetworkToolResult(CrossCaseToolResult):
+    """
+    [PRESERVE — design §2.5] Never falls back to RAG (inherited, pinned
+    False).
+    """
+
+    community_ids: list[str] = Field(default_factory=list)
+    raw_summary_text: Optional[str] = Field(
+        default=None,
+        description="[PRESERVE] Raw community-summary text — the sub-agent-level fallback.",
+    )
+
+
+def _render_raw_summary(results: list[dict]) -> Optional[str]:
+    if not results:
+        return None
+    return "\n\n".join(f"({r['community_id']}) {r['summary_text']}" for r in results)
+
+
+async def xnetwork_tool(tool_input: XNetworkToolInput) -> XNetworkToolResult:
+    """The XNETWORK primitive: cross-case thematic synthesis, never falls back to RAG."""
+    caller = tool_input.caller
+    gateway = await get_gateway()
+
+    try:
+        net_result = await run_network_query(
+            tool_input.query_text,
+            gateway,
+            user_id=caller.user_id,
+            user_role=caller.role.value,
+            top_k=tool_input.top_k,
+        )
+    except PermissionError as exc:
+        # run_network_query() has already written the authorization_violation
+        # audit record (see xnetwork.py) — this wrapper only translates the
+        # outcome, it does not re-derive or duplicate it.
+        return XNetworkToolResult(
+            status=ToolStatus.DENIED,
+            error=ToolError(kind="permission_denied", message=str(exc)),
+        )
+    except Exception as exc:
+        logger.error("XNETWORK tool: cross-case network query failed: %s", exc)
+        return XNetworkToolResult(
+            status=ToolStatus.FAILED,
+            error=ToolError(kind="upstream_failure", message=str(exc)),
+        )
+
+    results = net_result["results"]
+    chunks = [
+        EvidenceChunk(
+            id=f"community-{i}",
+            text=r["summary_text"],
+            metadata=ChunkMetadata(source_tool="XNETWORK", source_file=r["community_id"]),
+        )
+        for i, r in enumerate(results, start=1)
+    ]
+
+    return XNetworkToolResult(
+        status=ToolStatus.OK if results else ToolStatus.EMPTY,
+        chunks=chunks,
+        case_ids_touched=net_result["case_ids"],
+        community_ids=net_result["community_ids"],
+        raw_summary_text=_render_raw_summary(results),
+    )
+
+
+xnetwork_tool.name = "XNETWORK"
