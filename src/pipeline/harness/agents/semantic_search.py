@@ -102,8 +102,8 @@ logger = logging.getLogger(__name__)
 # `_FINAL_PROMPT_TEMPLATE`/history/project-memory machinery -- that
 # template's parameters (project memory, attached-file context, full
 # conversation history) have no equivalent in `SubAgentInput` (query_text,
-# caller, output_format, conversation_context only, per
-# SUBAGENT_INTERFACES.md §2.0), and reusing it would mean either padding in
+# execution, output_format, conversation_context only, per
+# SUBAGENT_INTERFACES.md §2.0 as amended by plan §10), and reusing it would mean either padding in
 # fake values for fields this sub-agent doesn't have or partially
 # reimplementing orchestrator.py's own prompt assembly here -- neither is
 # "composing the RAG tool", which is this module's actual scope. This is a
@@ -177,9 +177,10 @@ def _chunk_to_verifier_dict(chunk: EvidenceChunk) -> dict:
 
 async def semantic_search(agent_input: SubAgentInput) -> SubAgentResult:
     """The Semantic Search sub-agent. See module docstring for the contract."""
-    caller = agent_input.caller
+    execution = agent_input.execution
+    caller = execution.caller
 
-    tool_result = await rag_tool(RagToolInput(query_text=agent_input.query_text, caller=caller))
+    tool_result = await rag_tool(RagToolInput(query_text=agent_input.query_text, execution=execution))
 
     if tool_result.status == ToolStatus.FAILED:
         return SubAgentResult(
@@ -225,10 +226,19 @@ async def semantic_search(agent_input: SubAgentInput) -> SubAgentResult:
     # contract: "chunks non-empty iff status is OK").
     chunks = tool_result.chunks
     resolved_language = caller.preferred_language or "the same language as the user's question"
+    # [UPGRADED — plan §10.2] conversation_context is now Optional[ConversationContext],
+    # not a bare string. This sub-agent only ever consumed the pre-bounded prose
+    # summary, so `.summary` is the minimal, behavior-preserving read here --
+    # `.project_memory`/`.attachment_refs` are new fields this phase's scope
+    # does not use (composing them is a later sub-agent's concern, not a rename
+    # side effect).
+    conversation_summary = (
+        agent_input.conversation_context.summary if agent_input.conversation_context else None
+    )
     conversation_block = (
-        f"--- CONVERSATION CONTEXT ---\n{agent_input.conversation_context}\n"
+        f"--- CONVERSATION CONTEXT ---\n{conversation_summary}\n"
         "--- END OF CONVERSATION CONTEXT ---\n\n"
-        if agent_input.conversation_context
+        if conversation_summary
         else ""
     )
     system_prompt = _SYSTEM_PROMPT_TEMPLATE.format(
