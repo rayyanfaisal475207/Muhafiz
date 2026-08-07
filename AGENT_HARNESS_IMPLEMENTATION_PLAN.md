@@ -254,7 +254,7 @@ wired into live traffic yet, per §6.
 ### Phase 1 — Supervisor: COMPLETE
 
 Branch `feature/harness-phase-1-supervisor`, merged to main via merge commit
-`<merge-commit-sha>` (see git log — filled in at merge time below).
+`d41d759`.
 
 **Built:**
 - `src/pipeline/harness/supervisor.py`:
