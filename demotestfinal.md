@@ -272,10 +272,22 @@ translation, the system correctly falls back to showing the **raw,
 guaranteed-accurate result** rather than a possibly-mistranslated
 summary. This is a deliberate design choice, documented in this repo's own
 commit history, not a bug — say so if a viewer asks why it looks like a
-"grounded: false" red flag. Also note the Urdu "total cases" query
-answered with a category breakdown rather than one number — a real,
-minor gap in XAGG's keyword-matching (no dedicated "grand total" handler),
-worth knowing before demoing this specific phrasing.
+"grounded: false" red flag.
+
+**2026-08-06 fix (Priority 3 of `OPEN_GAPS_FIX_PROMPT.md`):** the Urdu
+"total cases" query answering with a category breakdown instead of one
+number is fixed. `src/pipeline/xagg.py` gained a bilingual
+`_TOTAL_KEYWORDS` family and a `_total_count()` path, dispatched ahead of
+the default group-by fallback whenever a total/grand-total phrasing is
+present with no explicit station/category grouping word also in the
+query (so "total cases per station" still gets the breakdown). Live-
+verified against the real stack: `کل کتنے کیسز ہیں؟` now returns
+`"Total cases: 43"` (via the same deterministic-fallback path shown
+above, since the citation validator still rejects the generation model's
+paraphrase the same way it does for every other XAGG query — expected,
+not a regression), and the English phrasing `"How many cases are there
+in total?"` returns the identical shape. See the `fix/xagg-grand-total`
+branch.
 
 ---
 
@@ -413,7 +425,6 @@ is the *last* category is not something a single audit pass can prove —
 watch for a fifth round the same way this filter has grown before.
 
 Residual, known, not fixed as of this document:
-- XAGG has no dedicated "grand total" aggregate path (§7).
 - `relationship_extraction.py` only ever considers people who co-occur in
   the same physical chunk — it cannot find a relationship stated across
   two different chunks/documents about the same case. A structural

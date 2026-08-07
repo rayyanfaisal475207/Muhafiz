@@ -133,6 +133,75 @@ async def test_default_relational_aggregate_groups_by_crime_category(monkeypatch
     assert counts.get("fraud") == 2
 
 
+# ── Grand total (Priority 3 of the 2026-08-06 open-gaps audit) ──────────────
+# demotestfinal.md §7: "کل کتنے کیسز ہیں؟" ("how many cases in total")
+# returned a category-by-category breakdown instead of one total number —
+# XAGG's keyword dispatch had no "no grouping" path at all.
+
+async def test_english_total_query_returns_bare_total_not_breakdown(monkeypatch):
+    gateway = FakeGateway([
+        {"police_station": "Kohsar", "crime_category": "fraud", "investigation_status": "open"},
+        {"police_station": "Ramna", "crime_category": "theft", "investigation_status": "closed"},
+        {"police_station": "Ramna", "crime_category": "burglary", "investigation_status": "open"},
+    ])
+
+    result = await xagg.run_aggregate(
+        "how many cases are there in total", None, gateway, user_role="supervisor"
+    )
+
+    assert result["kind"] == "total_count"
+    assert result["total_cases"] == 3
+
+
+async def test_urdu_total_query_returns_bare_total(monkeypatch):
+    """The exact live-observed failing query from demotestfinal.md §7."""
+    gateway = FakeGateway([
+        {"police_station": "Kohsar", "crime_category": "fraud", "investigation_status": "open"},
+        {"police_station": "Ramna", "crime_category": "theft", "investigation_status": "closed"},
+    ])
+
+    result = await xagg.run_aggregate(
+        "کل کتنے کیسز ہیں؟", None, gateway, user_role="supervisor"
+    )
+
+    assert result["kind"] == "total_count"
+    assert result["total_cases"] == 2
+
+
+async def test_total_query_still_honors_a_status_filter(monkeypatch):
+    """"How many cases in total" + an explicit status word should still
+    filter by that status, just skip the group-by breakdown."""
+    gateway = FakeGateway([
+        {"police_station": "Kohsar", "crime_category": "fraud", "investigation_status": "open"},
+        {"police_station": "Ramna", "crime_category": "theft", "investigation_status": "closed"},
+        {"police_station": "Ramna", "crime_category": "burglary", "investigation_status": "closed"},
+    ])
+
+    result = await xagg.run_aggregate(
+        "how many closed cases in total", None, gateway, user_role="supervisor"
+    )
+
+    assert result["kind"] == "total_count"
+    assert result["total_cases"] == 2
+
+
+async def test_total_keyword_yields_to_explicit_group_by_request(monkeypatch):
+    """"Total cases by station" names a grouping dimension explicitly — it
+    must still get the breakdown, not a bare number, even though "total"
+    is present."""
+    gateway = FakeGateway([
+        {"police_station": "Kohsar", "crime_category": "fraud", "investigation_status": "open"},
+        {"police_station": "Kohsar", "crime_category": "fraud", "investigation_status": "open"},
+    ])
+
+    result = await xagg.run_aggregate(
+        "total cases per police station", None, gateway, user_role="supervisor"
+    )
+
+    assert result["kind"] == "relational_aggregate"
+    assert result["group_by"] == "police_station"
+
+
 # ── RBAC gate ────────────────────────────────────────────────────────────────
 
 async def test_investigator_cannot_run_cross_case_aggregate():

@@ -1300,6 +1300,8 @@ async def process_query(
                     f"— {c['investigation_status'] or 'unknown status'}, {c['police_station'] or 'unknown station'}"
                     for c in agg_result["cases"]
                 ]
+            elif agg_result["kind"] == "total_count":
+                lines = [f"Total cases: {agg_result['total_cases']}"]
             else:
                 lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
             aggregate_text = "\n".join(lines) or "(no matching cases found)"

@@ -66,6 +66,22 @@ _LIST_ALL_KEYWORDS = (
     "list", "show", "all cases", "every case", "dikhao", "sab cases",
     "فہرست", "تمام مقدمات", "دکھائیں",
 )
+# A bare "how many total" request — distinct from _LIST_ALL_KEYWORDS (which
+# wants the raw records) and from the grouped-count default below (which
+# always breaks the answer down by station/category). Live-observed gap
+# (demotestfinal.md §7): "کل کتنے کیسز ہیں؟" ("how many cases in total")
+# had no keyword family routing to a single number, so it fell through to
+# _station_or_category_counts and came back as a category-by-category
+# breakdown instead of one total. Bilingual from the start (English +
+# Urdu-script + Roman-Urdu), matching the established pattern the other
+# keyword sets in this module were each retrofitted to after being found
+# English-only first.
+_TOTAL_KEYWORDS = (
+    "total", "grand total", "how many cases", "how many cases are there",
+    "how many cases in total", "overall count",
+    "kitne cases", "kul kitne", "kitne kul", "total kitne",
+    "کل کتنے", "کتنے کیسز", "کل تعداد", "مجموعی تعداد", "کل کیسز",
+)
 
 
 def _matches_any(text: str, keywords: tuple[str, ...]) -> bool:
@@ -100,7 +116,14 @@ async def _top_recurring_nodes(label: str, limit: int = 10) -> list[dict]:
     ]
 
 
-async def _station_or_category_counts(gateway, query_text: str) -> dict:
+async def _filtered_cases(gateway, query_text: str) -> list[dict]:
+    """
+    The open/closed + category filtering shared by both the grouped-count
+    path (_station_or_category_counts) and the grand-total path
+    (_total_count) below — pulled out so a query like "how many closed
+    cases in total" still respects the status filter instead of the
+    grand-total path bypassing it entirely.
+    """
     # The caller (run_aggregate) has already verified the requesting user is
     # supervisor-or-above before reaching here — a cross-case aggregate is
     # meant to cover every case platform-wide, not just ones the caller is
@@ -136,6 +159,11 @@ async def _station_or_category_counts(gateway, query_text: str) -> dict:
                 cases = [c for c in cases if kw in (c.get("crime_category") or "").lower()]
                 break
 
+    return cases
+
+
+async def _station_or_category_counts(gateway, query_text: str) -> dict:
+    cases = await _filtered_cases(gateway, query_text)
     group_field = "police_station" if _matches_any(query_text, _STATION_KEYWORDS) else "crime_category"
     counts = Counter(c.get(group_field) or "unknown" for c in cases)
     return {
@@ -143,6 +171,14 @@ async def _station_or_category_counts(gateway, query_text: str) -> dict:
         "counts": [{"key": k, "count": v} for k, v in counts.most_common(15)],
         "total_cases_considered": len(cases),
     }
+
+
+async def _total_count(gateway, query_text: str) -> dict:
+    """A bare "how many total" answer — no grouping, one number. Still
+    honors any status/category filter present (e.g. "how many closed
+    cases in total"), it just skips the group-by breakdown entirely."""
+    cases = await _filtered_cases(gateway, query_text)
+    return {"kind": "total_count", "total_cases": len(cases)}
 
 
 async def run_aggregate(
@@ -228,6 +264,17 @@ async def run_aggregate(
                 for c in cases
             ],
         }
+
+    # Grand-total: "how many cases in total", with no explicit group-by
+    # signal (station/category) present — a query naming a group-by
+    # dimension alongside "total" (e.g. "total cases per station") still
+    # wants the breakdown, not a bare number, so this only fires when no
+    # grouping keyword is also present, the same precedence _LIST_ALL_KEYWORDS
+    # already uses above.
+    if _matches_any(query_lower, _TOTAL_KEYWORDS) and not _matches_any(
+        query_lower, _STATION_KEYWORDS + _CATEGORY_KEYWORDS
+    ):
+        return await _total_count(gateway, query_text)
 
     result = await _station_or_category_counts(gateway, query_text)
     return {"kind": "relational_aggregate", **result}
