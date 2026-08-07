@@ -118,17 +118,35 @@ as shown.
 > I couldn't find sufficient information in the knowledge base to
 > accurately answer your question...
 
-**Demo note — real, unresolved gap:** the identical information need,
-asked in Urdu, failed where the English phrasing succeeded. The likely
-cause: `FIR-2026-THEFT-001.pdf` (and its case diary/charge sheet) is
-itself an **entirely English-language document** — a distinct rendering
-tier this session's audit already found and partly worked around
-elsewhere (see `git log` — "Fix NER mistagging English form-field labels
-as Person entities"). An Urdu query against an English source document is
-a genuine cross-script retrieval question this session did not fix. **For
-a live demo, use English phrasing for RAG questions about this specific
-case's documents**, or use a case known to have Urdu-language source
-documents (most of the non-`CASE-B0-*` cases are Urdu-narrative FIRs).
+**Demo note — original capture, real at the time:** the identical
+information need, asked in Urdu, failed where the English phrasing
+succeeded. The likely cause: `FIR-2026-THEFT-001.pdf` (and its case
+diary/charge sheet) is itself an **entirely English-language document** —
+a distinct rendering tier this session's audit already found and partly
+worked around elsewhere (see `git log` — "Fix NER mistagging English
+form-field labels as Person entities").
+
+**2026-08-06 re-verification (Priority 2 of `OPEN_GAPS_FIX_PROMPT.md`):
+does not reproduce.** Re-ran this exact Urdu query against this exact
+case live through `process_query()` four times (once standalone, three
+back-to-back). Every run routed `RAG` and retrieved 12-13 chunks — the
+same ballpark as the English phrasing's 11 — with `src/pipeline/
+cross_script_variant.py`'s translated-query retrieval leg (already wired
+into the RAG route, `orchestrator.py:1617`, predating this document) in
+play throughout. 3 of 4 runs were fully grounded with a correct, cited
+Urdu answer; 1 of 4 came back ungrounded, but for a distinct, already-
+tracked reason — the citation validator flagging a well-formed answer
+that happened to cite sparsely, the same class of flakiness fixed
+elsewhere in this repo's own history (see "Fix XNETWORK verifier
+rejections: citation format mismatch, not model quality" and "Fix
+verifier's uncited-answer check bypassable by short enumerated lists") —
+not a retrieval/cross-script failure. Conclusion: this gap is not
+currently open. The original capture was likely affected by this
+session's own documented Groq quota rotation (see §9) or was an unlucky
+single sample against an already-known, separately-tracked verifier
+flakiness — not a persistent cross-script retrieval defect. No code
+change made for this priority; re-run this query yourself before
+re-opening it as a gap.
 
 ---
 
@@ -395,9 +413,6 @@ is the *last* category is not something a single audit pass can prove —
 watch for a fifth round the same way this filter has grown before.
 
 Residual, known, not fixed as of this document:
-- Urdu-language RAG queries against English-language source documents
-  (§3) — a genuine cross-script retrieval-quality question, not a quick
-  prompt fix like the two above.
 - XAGG has no dedicated "grand total" aggregate path (§7).
 - `relationship_extraction.py` only ever considers people who co-occur in
   the same physical chunk — it cannot find a relationship stated across
