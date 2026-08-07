@@ -424,10 +424,40 @@ This closes the noise category found in this specific audit; whether it
 is the *last* category is not something a single audit pass can prove —
 watch for a fifth round the same way this filter has grown before.
 
+**2026-08-06 fix (Priority 4 of `OPEN_GAPS_FIX_PROMPT.md`):**
+`relationship_extraction.py`'s single-chunk limitation is partially
+closed. `src/ingestion/service.py`'s `_run_graph_extraction()` now also
+runs relationship extraction over each ADJACENT pair of chunks in a
+document (not just each chunk alone) — deliberately windowed to adjacent
+pairs, not a full document-level pass: `CHUNK_SIZE` (512 chars) keeps a
+two-chunk window comfortably inside `relationship_extraction.py`'s
+existing `_MAX_CHARS=3000` cap with no prompt/cap rework needed, and
+costs one bounded extra LLM call per adjacent pair (`O(chunks)`, not the
+`O(chunks²)` an all-pairs sweep or the much bigger single-call-per-
+document a true full-text pass would cost). A whole-document dedup set
+(`written_pairs`) prevents the same real-world pair being written twice
+when both the within-chunk and the adjacent-pair pass independently
+propose it. 5 new regression tests (`tests/test_ingestion_graph_
+extraction.py`) cover: within-chunk (unchanged), cross-chunk (the new
+case), the residual limitation this still doesn't close (people 2+
+chunks apart), and the dedup. Live-verified against the real model
+server: given a two-chunk window where chunk 1 names only "Irfan Mirza"
+and chunk 2 names only "his son, Bilal Malik" with no repeated name,
+`extract_relationships()` on the combined window correctly returns
+`Irfan Mirza <-> Bilal Malik, father/son, confidence 0.9` — the exact
+cross-chunk shape this fix targets. (Live-checking this against the
+*currently ingested* real corpus specifically was blocked by an
+unrelated, pre-existing data-drift issue found during this check: a
+meaningful fraction of `source_chunk_id` values recorded on graph edges
+no longer resolve to any chunk in the current Chroma store, most likely
+residue from an earlier partial re-ingestion/reset — `scripts/backfill_
+associated_with.py` already tolerates this same gap ("missing ones were
+never in Chroma or since deleted"). Worth a dedicated look before relying
+on further live corpus-based graph verification.)
+
 Residual, known, not fixed as of this document:
-- `relationship_extraction.py` only ever considers people who co-occur in
-  the same physical chunk — it cannot find a relationship stated across
-  two different chunks/documents about the same case. A structural
-  limitation, not a bug; fixing it would mean a document-level (not
-  per-chunk) extraction pass, a larger change than anything in this
-  document's scope.
+- `relationship_extraction.py` still cannot find a relationship stated
+  more than one chunk apart (people 2+ chunks apart, or in a different
+  document entirely, about the same case) — a true document-level pass
+  remains a larger, separate change; this fix only closes the adjacent-
+  chunk case.

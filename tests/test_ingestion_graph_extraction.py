@@ -150,6 +150,180 @@ async def test_attach_chunk_identifiers_only_fires_for_single_person_single_cnic
     assert "cnic" not in without_cnic
 
 
+# ── Relationship extraction (4.6) — within-chunk and cross-chunk (Priority
+# 4 of the 2026-08-06 open-gaps audit) ───────────────────────────────────
+
+def _stub_people_per_chunk(monkeypatch, people_by_chunk: dict[str, list[str]]):
+    """Make ner.extract_entities return a fixed set of "person" mentions
+    per chunk_id, and domain_entities.extract_domain_entities return
+    nothing — isolates these tests to the relationship-extraction step."""
+    import src.extraction.ner as ner_mod
+    import src.extraction.domain_entities as domain_entities_mod
+
+    async def fake_extract_entities(text, source_chunk_id=None):
+        names = people_by_chunk.get(source_chunk_id, [])
+        return [
+            {"text": name, "type": "person", "char_span": [0, len(name)],
+             "source_chunk_id": source_chunk_id, "confidence": 0.9, "attributes": {}}
+            for name in names
+        ]
+
+    async def fake_extract_domain_entities(text, source_chunk_id=None):
+        return []
+
+    monkeypatch.setattr(ner_mod, "extract_entities", fake_extract_entities)
+    monkeypatch.setattr(domain_entities_mod, "extract_domain_entities", fake_extract_domain_entities)
+
+
+def _stub_resolve_by_name(monkeypatch):
+    """entity_id = the mention's own name, so assertions can identify which
+    person a written edge connects without threading synthetic ids
+    through the fixture."""
+    import src.graph.entity_resolution as er_mod
+
+    async def fake_resolve_and_write(entity_type, mention, case_id, source_doc_id, source_chunk_id=None):
+        name = mention["canonical_name"]
+        return {"entity_id": f"P-{name}", "tier": "new", "confidence": 0.0, "basis": "", "is_new_node": True}
+
+    monkeypatch.setattr(er_mod, "resolve_and_write", fake_resolve_and_write)
+
+
+@pytest.mark.asyncio
+async def test_relationship_found_within_a_single_chunk(monkeypatch, stub_graph_deps):
+    _stub_people_per_chunk(monkeypatch, {"DOC-1_c0": ["Irfan Mirza", "Bilal Malik"]})
+    _stub_resolve_by_name(monkeypatch)
+
+    import src.extraction.relationship_extraction as rel_mod
+
+    async def fake_extract_relationships(text, person_names):
+        assert set(person_names) == {"Irfan Mirza", "Bilal Malik"}
+        return [{"person_a": "Irfan Mirza", "person_b": "Bilal Malik", "basis": "father/son", "confidence": 0.9}]
+    monkeypatch.setattr(rel_mod, "extract_relationships", fake_extract_relationships)
+
+    documents = [SimpleNamespace(text="text")]
+    chunks = [FakeChunk("DOC-1_c0", "Irfan Mirza's son Bilal Malik was present.")]
+
+    stats = await service._run_graph_extraction(
+        SimpleNamespace(name="t.pdf"), documents, chunks, "CASE-001", "DOC-1"
+    )
+
+    assert stats["relationships_written"] == 1
+    edges = [e for e in stub_graph_deps["edges"] if e["edge_label"] == "ASSOCIATED_WITH"]
+    assert len(edges) == 1
+
+
+@pytest.mark.asyncio
+async def test_relationship_found_across_adjacent_chunks(monkeypatch, stub_graph_deps):
+    """The exact gap this fix closes: two people who never co-occur in any
+    single chunk, but do in the concatenated text of two adjacent chunks."""
+    _stub_people_per_chunk(monkeypatch, {
+        "DOC-1_c0": ["Irfan Mirza"],
+        "DOC-1_c1": ["Bilal Malik"],
+    })
+    _stub_resolve_by_name(monkeypatch)
+
+    import src.extraction.relationship_extraction as rel_mod
+    calls = []
+
+    async def fake_extract_relationships(text, person_names):
+        calls.append(set(person_names))
+        # Only the combined two-person call (the cross-chunk pass) finds
+        # anything — mirrors a real single-chunk call never seeing both
+        # names and so never proposing a pair.
+        if set(person_names) == {"Irfan Mirza", "Bilal Malik"}:
+            return [{"person_a": "Irfan Mirza", "person_b": "Bilal Malik", "basis": "father/son", "confidence": 0.9}]
+        return []
+    monkeypatch.setattr(rel_mod, "extract_relationships", fake_extract_relationships)
+
+    documents = [SimpleNamespace(text="text")]
+    chunks = [
+        FakeChunk("DOC-1_c0", "Irfan Mirza filed the complaint."),
+        FakeChunk("DOC-1_c1", "His son Bilal Malik corroborated the account."),
+    ]
+
+    stats = await service._run_graph_extraction(
+        SimpleNamespace(name="t.pdf"), documents, chunks, "CASE-001", "DOC-1"
+    )
+
+    # Both single-chunk calls were skipped entirely (each chunk has only 1
+    # person — _extract_and_write_relationships's own len(persons)<2 guard)
+    # — only the adjacent-pair call ran, and it's the one that found the edge.
+    assert calls == [{"Irfan Mirza", "Bilal Malik"}]
+    assert stats["relationships_written"] == 1
+    edges = [e for e in stub_graph_deps["edges"] if e["edge_label"] == "ASSOCIATED_WITH"]
+    assert len(edges) == 1
+
+
+@pytest.mark.asyncio
+async def test_relationship_not_found_when_people_are_two_chunks_apart(monkeypatch, stub_graph_deps):
+    """Documents this fix's own stated residual limitation: only ADJACENT
+    chunk pairs are windowed, not the whole document."""
+    _stub_people_per_chunk(monkeypatch, {
+        "DOC-1_c0": ["Irfan Mirza"],
+        "DOC-1_c1": [],
+        "DOC-1_c2": ["Bilal Malik"],
+    })
+    _stub_resolve_by_name(monkeypatch)
+
+    import src.extraction.relationship_extraction as rel_mod
+
+    async def fake_extract_relationships(text, person_names):
+        if set(person_names) == {"Irfan Mirza", "Bilal Malik"}:
+            return [{"person_a": "Irfan Mirza", "person_b": "Bilal Malik", "basis": "father/son", "confidence": 0.9}]
+        return []
+    monkeypatch.setattr(rel_mod, "extract_relationships", fake_extract_relationships)
+
+    documents = [SimpleNamespace(text="text")]
+    chunks = [
+        FakeChunk("DOC-1_c0", "Irfan Mirza filed the complaint."),
+        FakeChunk("DOC-1_c1", "The station received the report."),
+        FakeChunk("DOC-1_c2", "Bilal Malik was later questioned."),
+    ]
+
+    stats = await service._run_graph_extraction(
+        SimpleNamespace(name="t.pdf"), documents, chunks, "CASE-001", "DOC-1"
+    )
+
+    assert stats["relationships_written"] == 0
+    edges = [e for e in stub_graph_deps["edges"] if e["edge_label"] == "ASSOCIATED_WITH"]
+    assert edges == []
+
+
+@pytest.mark.asyncio
+async def test_same_pair_from_within_chunk_and_cross_chunk_written_once(monkeypatch, stub_graph_deps):
+    """written_pairs dedup: the same two people can legitimately be
+    proposed by both the within-chunk pass (they co-occur in chunk 1) and
+    the adjacent-pair pass (chunk 1 + chunk 2 combined) — must not produce
+    two ASSOCIATED_WITH edges for one document."""
+    _stub_people_per_chunk(monkeypatch, {
+        "DOC-1_c0": ["Irfan Mirza", "Bilal Malik"],
+        "DOC-1_c1": ["Bilal Malik"],
+    })
+    _stub_resolve_by_name(monkeypatch)
+
+    import src.extraction.relationship_extraction as rel_mod
+
+    async def fake_extract_relationships(text, person_names):
+        if {"Irfan Mirza", "Bilal Malik"} <= set(person_names):
+            return [{"person_a": "Irfan Mirza", "person_b": "Bilal Malik", "basis": "father/son", "confidence": 0.9}]
+        return []
+    monkeypatch.setattr(rel_mod, "extract_relationships", fake_extract_relationships)
+
+    documents = [SimpleNamespace(text="text")]
+    chunks = [
+        FakeChunk("DOC-1_c0", "Irfan Mirza's son Bilal Malik was present."),
+        FakeChunk("DOC-1_c1", "Bilal Malik gave a statement."),
+    ]
+
+    stats = await service._run_graph_extraction(
+        SimpleNamespace(name="t.pdf"), documents, chunks, "CASE-001", "DOC-1"
+    )
+
+    assert stats["relationships_written"] == 1
+    edges = [e for e in stub_graph_deps["edges"] if e["edge_label"] == "ASSOCIATED_WITH"]
+    assert len(edges) == 1
+
+
 @pytest.mark.asyncio
 async def test_ingest_file_skips_graph_extraction_without_case_id(monkeypatch, stub_graph_deps):
     """ingest_file() must not call _run_graph_extraction at all when case_id is None."""

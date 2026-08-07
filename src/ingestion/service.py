@@ -9,6 +9,7 @@
 import asyncio
 import logging
 from pathlib import Path
+from typing import Optional
 
 from src import config
 from src.ingestion.loader_router import route_and_load
@@ -93,6 +94,54 @@ def _attach_chunk_identifiers(mention: dict, chunk_text: str, person_mentions_in
     if len(cnics) == 1:
         mention = {**mention, "cnic": cnics[0].normalized}
     return mention
+
+
+async def _extract_and_write_relationships(
+    relationship_extraction, versioning, text: str, persons: dict[str, str],
+    doc_id: str, chunk_id: str, written_pairs: set[frozenset], stats: dict,
+) -> None:
+    """
+    Shared by both the within-chunk pass and the adjacent-chunk-pair pass
+    in _run_graph_extraction() below — same extract-then-write shape,
+    parameterized on which text/person-set to run it against. `persons`
+    maps canonical_name -> entity_id (as resolved_persons is built above);
+    `written_pairs` is the caller's whole-document dedup set (a pair
+    already written once for this document, by either pass, is skipped
+    the second time it's proposed).
+    """
+    if len(persons) < 2:
+        return
+    try:
+        relationships = await relationship_extraction.extract_relationships(text, list(persons.keys()))
+    except Exception as exc:
+        logger.warning("relationship_extraction failed for chunk %s: %s", chunk_id, exc)
+        stats["errors"].append(f"relationship_extraction[{chunk_id}]: {exc}")
+        return
+
+    for rel in relationships:
+        entity_a = persons.get(rel["person_a"])
+        entity_b = persons.get(rel["person_b"])
+        if not entity_a or not entity_b or entity_a == entity_b:
+            continue
+        pair_key = frozenset({entity_a, entity_b})
+        if pair_key in written_pairs:
+            continue
+        try:
+            await versioning.write_edge(
+                "ASSOCIATED_WITH", "Person", {"entity_id": entity_a},
+                "Person", {"entity_id": entity_b},
+                {"basis": rel["basis"]},
+                source_doc_id=doc_id, source_chunk_id=chunk_id,
+                confidence=rel["confidence"],
+            )
+            written_pairs.add(pair_key)
+            stats["relationships_written"] += 1
+        except Exception as exc:
+            logger.warning(
+                "ASSOCIATED_WITH write failed for %s<->%s in %s: %s",
+                rel["person_a"], rel["person_b"], chunk_id, exc,
+            )
+            stats["errors"].append(f"associated_with[{chunk_id}]: {exc}")
 
 
 async def _run_graph_extraction(
@@ -221,6 +270,18 @@ async def _run_graph_extraction(
 
         # 4.5/4.6 — per-chunk NER + domain-entity extraction, then 4.8
         # resolution for every mention with a cross-document identity.
+        #
+        # `written_pairs` is scoped to this WHOLE document (not reset per
+        # chunk): the within-chunk pass and the adjacent-chunk-pair pass
+        # below can both propose the same real-world pair (e.g. two people
+        # who co-occur inside chunk N, and are then paired again in the
+        # chunk-N/chunk-N+1 window) — this dedups within one ingestion run
+        # so the same relationship isn't written twice as separate
+        # ASSOCIATED_WITH edges. `prev_chunk` carries the previous
+        # iteration's text/resolved-persons forward for that adjacent-pair
+        # pass — see its own comment below.
+        written_pairs: set[frozenset] = set()
+        prev_chunk: Optional[dict] = None
         for chunk in chunks:
             chunk_id = chunk.doc_id  # the CHUNK's own id (parent doc_id lives in chunk.metadata)
             try:
@@ -278,36 +339,40 @@ async def _run_graph_extraction(
             # person-to-person ASSOCIATED_WITH edges, extracted from this
             # same chunk's text over the people just resolved above. Only
             # meaningful with 2+ distinct people in the chunk.
-            if len(resolved_persons) >= 2:
-                try:
-                    relationships = await relationship_extraction.extract_relationships(
-                        chunk.text, list(resolved_persons.keys())
-                    )
-                except Exception as exc:
-                    logger.warning("relationship_extraction failed for chunk %s: %s", chunk_id, exc)
-                    relationships = []
-                    stats["errors"].append(f"relationship_extraction[{chunk_id}]: {exc}")
+            await _extract_and_write_relationships(
+                relationship_extraction, versioning, chunk.text, resolved_persons,
+                doc_id, chunk_id, written_pairs, stats,
+            )
 
-                for rel in relationships:
-                    entity_a = resolved_persons.get(rel["person_a"])
-                    entity_b = resolved_persons.get(rel["person_b"])
-                    if not entity_a or not entity_b or entity_a == entity_b:
-                        continue
-                    try:
-                        await versioning.write_edge(
-                            "ASSOCIATED_WITH", "Person", {"entity_id": entity_a},
-                            "Person", {"entity_id": entity_b},
-                            {"basis": rel["basis"]},
-                            source_doc_id=doc_id, source_chunk_id=chunk_id,
-                            confidence=rel["confidence"],
-                        )
-                        stats["relationships_written"] += 1
-                    except Exception as exc:
-                        logger.warning(
-                            "ASSOCIATED_WITH write failed for %s<->%s in %s: %s",
-                            rel["person_a"], rel["person_b"], chunk_id, exc,
-                        )
-                        stats["errors"].append(f"associated_with[{chunk_id}]: {exc}")
+            # 2026-08-06 (Priority 4 of OPEN_GAPS_FIX_PROMPT.md): a
+            # relationship stated across two ADJACENT chunks of the same
+            # document was never found — extract_relationships only ever
+            # saw one chunk's text and that chunk's own resolved people, so
+            # "Person A ... [chunk boundary] ... his son Person B" (a real,
+            # observed shape: FIR narrative text chunked mid-sentence or
+            # between adjacent paragraphs) silently produced no edge, not
+            # because no relationship was stated, but because neither
+            # single-chunk call ever saw both names at once. Deliberately
+            # windowed to ADJACENT pairs only, not a document-level pass
+            # over the full concatenated text: CHUNK_SIZE (512 chars) keeps
+            # a two-chunk window well inside relationship_extraction.py's
+            # existing _MAX_CHARS=3000 cap with no prompt/cap rework
+            # needed, and costs exactly one extra LLM call per adjacent
+            # pair (bounded, O(chunks), not the O(chunks^2) a naive
+            # all-pairs sweep or the much bigger single-call-per-document
+            # a full-text pass would cost). A relationship stated more than
+            # one chunk apart is still missed — a real, smaller residual
+            # limitation of this fix, not a claim of full document-level
+            # coverage.
+            if prev_chunk is not None:
+                combined_persons = {**prev_chunk["persons"], **resolved_persons}
+                if len(combined_persons) >= 2:
+                    combined_text = prev_chunk["text"] + "\n" + chunk.text
+                    await _extract_and_write_relationships(
+                        relationship_extraction, versioning, combined_text, combined_persons,
+                        doc_id, chunk_id, written_pairs, stats,
+                    )
+            prev_chunk = {"text": chunk.text, "persons": resolved_persons}
 
     except Exception as exc:
         logger.error("Graph extraction failed for %s (case %s): %s", file_path.name, case_id, exc)
