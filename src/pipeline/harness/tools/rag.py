@@ -150,6 +150,61 @@ def _build_where(caller: CallerContext, include_global: bool) -> dict:
     return where
 
 
+async def _retrieve_candidates(
+    query_text: str, where: dict, fetch_top_k: int, final_top_k: int, is_cross_case: bool
+) -> tuple[list[dict], list[dict]]:
+    """
+    The retrieval half of the RAG primitive — query expansion + cross-script
+    variant -> embed -> vector search (deduped, diversity-capped) -> full
+    scoped candidate pool -> BM25 — stopping short of RRF fusion.
+
+    Factored out so GRAPH_HYBRID (src/pipeline/harness/tools/graph.py) can
+    reuse it instead of re-implementing these steps inline, per
+    SUBAGENT_INTERFACES.md §1.3 [RESOLVED-1]: "Compose it as 'GRAPH tool +
+    RAG tool, RRF-merged' ... to avoid the current duplication
+    (GRAPH_HYBRID re-implements query expansion/cross-script-variant/
+    BM25-pool-fetch inline rather than sharing RAG's version)." Returns
+    (semantic_results, bm25_results) — the caller RRF-fuses them, possibly
+    together with graph chunks.
+    """
+    expanded_queries = await expand_query(query_text, n=2)
+    cross_script_query = await generate_cross_script_variant(query_text)
+    all_queries = [query_text] + expanded_queries + (
+        [cross_script_query] if cross_script_query else []
+    )
+
+    embeddings = [await embed_text(q) for q in all_queries]
+
+    semantic_results: list[dict] = []
+    seen_ids: set[str] = set()
+    for q, emb in zip(all_queries, embeddings):
+        for chunk in await query_similar(q, emb, top_k=fetch_top_k, where=where):
+            chunk_id = chunk.get("id")
+            if chunk_id not in seen_ids:
+                seen_ids.add(chunk_id)
+                semantic_results.append(chunk)
+
+    if is_cross_case:
+        semantic_results = cap_case_diversity(
+            semantic_results,
+            per_case_cap=config.CROSS_CASE_PER_CASE_CAP,
+            total_cap=final_top_k,
+        )
+
+    combined_query = " ".join(all_queries)
+    try:
+        full_candidate_pool = await get_all_chunks(where=where)
+    except Exception as pool_exc:
+        logger.error(
+            "RAG tool: fetching full BM25 candidate pool failed: %s. "
+            "Falling back to semantic_results only.", pool_exc,
+        )
+        full_candidate_pool = semantic_results
+    bm25_results = retrieve_bm25(combined_query, full_candidate_pool, top_k=final_top_k)
+
+    return semantic_results, bm25_results
+
+
 def _to_evidence_chunk(raw: dict) -> EvidenceChunk:
     meta = dict(raw.get("metadata") or {})
     return EvidenceChunk(
@@ -201,22 +256,9 @@ async def rag_tool(tool_input: RagToolInput) -> RagToolResult:
                 # orchestrator.py's own retry-rewriter exception handling.
 
         try:
-            expanded_queries = await expand_query(current_query, n=2)
-            cross_script_query = await generate_cross_script_variant(current_query)
-            all_queries = [current_query] + expanded_queries + (
-                [cross_script_query] if cross_script_query else []
+            semantic_results, bm25_results = await _retrieve_candidates(
+                current_query, where, fetch_top_k, top_k, is_cross_case
             )
-
-            embeddings = [await embed_text(q) for q in all_queries]
-
-            semantic_results: list[dict] = []
-            seen_ids: set[str] = set()
-            for q, emb in zip(all_queries, embeddings):
-                for chunk in await query_similar(q, emb, top_k=fetch_top_k, where=where):
-                    chunk_id = chunk.get("id")
-                    if chunk_id not in seen_ids:
-                        seen_ids.add(chunk_id)
-                        semantic_results.append(chunk)
         except Exception as retr_exc:
             logger.error("RAG tool: retrieval infrastructure failed: %s", retr_exc)
             return RagToolResult(
@@ -224,24 +266,6 @@ async def rag_tool(tool_input: RagToolInput) -> RagToolResult:
                 error=ToolError(kind="upstream_failure", message=str(retr_exc)),
                 retries_used=retry_count,
             )
-
-        if is_cross_case:
-            semantic_results = cap_case_diversity(
-                semantic_results,
-                per_case_cap=config.CROSS_CASE_PER_CASE_CAP,
-                total_cap=top_k,
-            )
-
-        combined_query = " ".join(all_queries)
-        try:
-            full_candidate_pool = await get_all_chunks(where=where)
-        except Exception as pool_exc:
-            logger.error(
-                "RAG tool: fetching full BM25 candidate pool failed: %s. "
-                "Falling back to semantic_results only.", pool_exc,
-            )
-            full_candidate_pool = semantic_results
-        bm25_results = retrieve_bm25(combined_query, full_candidate_pool, top_k=top_k)
 
         fused = rerank_results(semantic_results, bm25_results, top_k=top_k)
 
