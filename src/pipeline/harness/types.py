@@ -49,6 +49,21 @@ a genuinely low-confidence chain that failed to score must still read as
 "needs hedging," not silently pass as "no confidence signal present."
 `confidence_status` makes the three cases explicit and, per the validator
 below, mutually consistent with `confidence` itself.
+
+CONTRACT AMENDMENT — ExecutionContext & ConversationContext (post-Phase-2,
+AGENT_HARNESS_IMPLEMENTATION_PLAN.md §10, verbatim per §10.1/§10.2):
+`ToolInput.caller: CallerContext` and `SubAgentInput.caller: CallerContext`
+are RENAMED to `execution: ExecutionContext` — not additive. Every call
+site that read `.caller.role`, `.caller.active_case_id`, etc. now reads
+`.execution.caller.role`, `.execution.caller.active_case_id`.
+`ExecutionContext` wraps `CallerContext` (does not replace or flatten it)
+and adds scope that sits ABOVE a single case — `project_id` (restoring the
+project/global precedence rule RAG's Phase-0 tool wrapper had to drop, see
+§9's Phase 0 entry) plus `workspace_id`/`organization_id`/`feature_flags`,
+reserved and inert for MVP. `SubAgentInput.conversation_context` is
+upgraded from `Optional[str]` to `Optional[ConversationContext]` — same
+field name and slot, richer shape; still pre-bounded by the supervisor,
+never full history.
 """
 
 from __future__ import annotations
@@ -123,6 +138,60 @@ class CallerContext(BaseModel):
         default=None,
         description="Drives generation language on every route. Opaque here.",
     )
+
+
+class ExecutionContext(BaseModel):
+    """
+    The environment a query executes in. Threaded through supervisor ->
+    sub-agent -> tool in place of a bare CallerContext.
+
+    [PRESERVE] Wraps CallerContext rather than replacing or flattening it —
+    every existing [PRESERVE] rule on CallerContext (above: role must
+    originate from the authenticated user's real RBAC role, never a
+    profile/preferences object; construction does not grant access) applies
+    unchanged to the nested `caller` field. This type only adds scope that
+    sits ABOVE a single case.
+
+    [PRESERVE, extends design §4.4] Threaded unchanged at every hop, exactly
+    like CallerContext was before it — not reconstructed, not merged with
+    any profile/preferences object, not partially copied.
+    """
+
+    caller: CallerContext
+    project_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "Project-level scope. Restores the project/global precedence "
+            "rule RAG's Phase-0 tool wrapper had to drop for lack of a "
+            "carrier (AGENT_HARNESS_IMPLEMENTATION_PLAN.md §9, Phase 0 "
+            "entry). None = no project scoping applied — same behavior as "
+            "the Phase 0/1/2 code shipped with."
+        ),
+    )
+    workspace_id: Optional[str] = None
+    organization_id: Optional[str] = None
+    feature_flags: dict[str, bool] = Field(default_factory=dict)
+    # workspace_id / organization_id / feature_flags are RESERVED, UNUSED
+    # for MVP. Nothing may branch on them until a real spec exists for
+    # each — the point of adding them now is to avoid a second
+    # signature-wide change later, not to start building against them today.
+
+
+class ConversationContext(BaseModel):
+    """
+    Bounded, pre-summarized conversation/session context for a sub-agent.
+
+    [PRESERVE, carried forward from the original conversation_context
+    field] Bounding is the supervisor's job — a sub-agent never receives
+    full history, full project memory, or raw attachment bytes. This
+    object being richer than a bare string does not relax that rule; every
+    field on it must already be pre-bounded/summarized by the time it
+    reaches a sub-agent.
+    """
+
+    summary: Optional[str] = None
+    project_memory: Optional[str] = None
+    attachment_refs: list[str] = Field(default_factory=list)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -303,10 +372,14 @@ class ToolError(BaseModel):
 
 
 class ToolInput(BaseModel):
-    """Base input. Every tool receives the caller context unchanged."""
+    """Base input. Every tool receives the execution context unchanged.
+
+    [RENAMED — AGENT_HARNESS_IMPLEMENTATION_PLAN.md §10.1] Was `caller:
+    CallerContext`; every call site now reads `.execution.caller.*`.
+    """
 
     query_text: str = Field(description="The rewritten, standalone query.")
-    caller: CallerContext
+    execution: ExecutionContext
 
 
 class ToolResult(BaseModel):
@@ -458,20 +531,25 @@ class SubAgentStatus(str, Enum):
 
 class SubAgentInput(BaseModel):
     """
-    [PRESERVE — design §4.4] `caller` is threaded through UNCHANGED to
-    every tool the sub-agent invokes. Do not reconstruct it, do not merge
-    it with a preferences/profile object, do not default its role.
+    [PRESERVE — design §4.4] `execution` (and its nested `caller`) is
+    threaded through UNCHANGED to every tool the sub-agent invokes. Do not
+    reconstruct it, do not merge it with a preferences/profile object, do
+    not default its role.
+
+    [RENAMED — AGENT_HARNESS_IMPLEMENTATION_PLAN.md §10.1] Was `caller:
+    CallerContext`; every call site now reads `.execution.caller.*`.
     """
 
     query_text: str = Field(description="Rewritten, standalone query.")
-    caller: CallerContext
+    execution: ExecutionContext
     output_format: Literal["chat", "file_pdf", "file_xlsx", "file_docx"] = "chat"
-    conversation_context: Optional[str] = Field(
+    conversation_context: Optional[ConversationContext] = Field(
         default=None,
         description=(
             "Pre-bounded conversation context, if the supervisor supplies "
             "any. Bounding is the supervisor's job — a sub-agent never "
-            "receives full history."
+            "receives full history. [UPGRADED — plan §10.2] Was "
+            "Optional[str]; same field/slot, richer shape."
         ),
     )
 
