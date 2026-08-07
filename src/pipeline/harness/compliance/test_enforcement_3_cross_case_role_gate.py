@@ -61,7 +61,7 @@ def _denied_caller() -> CallerContext:
 
 
 def _denied_execution() -> ExecutionContext:
-    return ExecutionContext(execution=_denied_execution())
+    return ExecutionContext(caller=_denied_caller())
 
 
 @pytest.mark.asyncio
