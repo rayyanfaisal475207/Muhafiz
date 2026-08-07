@@ -14,11 +14,15 @@ import pytest
 
 import src.pipeline.harness.tools.xnetwork as xnetwork_mod
 from src.pipeline.harness.tools.xnetwork import XNetworkToolInput, XNetworkToolResult, xnetwork_tool
-from src.pipeline.harness.types import CallerContext, ToolStatus
+from src.pipeline.harness.types import CallerContext, ExecutionContext, ToolStatus
 
 
 def _caller(role="supervisor"):
     return CallerContext(user_id="u1", role=role, active_case_id=None)
+
+
+def _execution(role="supervisor"):
+    return ExecutionContext(caller=_caller(role))
 
 
 class _FakeGateway:
@@ -46,7 +50,7 @@ async def test_ok_result_shape(monkeypatch):
 
     monkeypatch.setattr(xnetwork_mod, "run_network_query", _run_network_query)
 
-    result = await xnetwork_tool(XNetworkToolInput(query_text="overall picture", caller=_caller()))
+    result = await xnetwork_tool(XNetworkToolInput(query_text="overall picture", execution=_execution()))
 
     assert isinstance(result, XNetworkToolResult)
     assert result.status == ToolStatus.OK
@@ -65,7 +69,7 @@ async def test_empty_results_maps_to_empty_status(monkeypatch):
 
     monkeypatch.setattr(xnetwork_mod, "run_network_query", _run_network_query)
 
-    result = await xnetwork_tool(XNetworkToolInput(query_text="q", caller=_caller()))
+    result = await xnetwork_tool(XNetworkToolInput(query_text="q", execution=_execution()))
 
     assert result.status == ToolStatus.EMPTY
     assert result.chunks == []
@@ -79,7 +83,7 @@ async def test_permission_error_maps_to_denied(monkeypatch):
 
     monkeypatch.setattr(xnetwork_mod, "run_network_query", _run_network_query)
 
-    result = await xnetwork_tool(XNetworkToolInput(query_text="q", caller=_caller(role="investigator")))
+    result = await xnetwork_tool(XNetworkToolInput(query_text="q", execution=_execution(role="investigator")))
 
     assert result.status == ToolStatus.DENIED
     assert result.error.kind == "permission_denied"
@@ -92,7 +96,7 @@ async def test_other_exception_maps_to_failed(monkeypatch):
 
     monkeypatch.setattr(xnetwork_mod, "run_network_query", _run_network_query)
 
-    result = await xnetwork_tool(XNetworkToolInput(query_text="q", caller=_caller()))
+    result = await xnetwork_tool(XNetworkToolInput(query_text="q", execution=_execution()))
 
     assert result.status == ToolStatus.FAILED
     assert result.error.kind == "upstream_failure"

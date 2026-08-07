@@ -13,11 +13,15 @@ import pytest
 
 import src.pipeline.harness.tools.sql as sql_mod
 from src.pipeline.harness.tools.sql import SqlToolInput, SqlToolResult, sql_tool
-from src.pipeline.harness.types import CallerContext, ToolStatus
+from src.pipeline.harness.types import CallerContext, ExecutionContext, ToolStatus
 
 
 def _caller(role="investigator"):
     return CallerContext(user_id="u1", role=role, active_case_id=None)
+
+
+def _execution(role="investigator"):
+    return ExecutionContext(caller=_caller(role))
 
 
 class _FakeGateway:
@@ -41,7 +45,7 @@ async def test_rows_found_returns_ok(monkeypatch):
     monkeypatch.setattr(sql_mod, "extract_sql_params", _extract)
     monkeypatch.setattr(sql_mod, "get_gateway", _get_gateway)
 
-    result = await sql_tool(SqlToolInput(query_text="what section covers theft", caller=_caller()))
+    result = await sql_tool(SqlToolInput(query_text="what section covers theft", execution=_execution()))
 
     assert isinstance(result, SqlToolResult)
     assert result.status == ToolStatus.OK
@@ -64,7 +68,7 @@ async def test_empty_rows_falls_back_to_rag(monkeypatch):
     monkeypatch.setattr(sql_mod, "extract_sql_params", _extract)
     monkeypatch.setattr(sql_mod, "get_gateway", _get_gateway)
 
-    result = await sql_tool(SqlToolInput(query_text="q", caller=_caller()))
+    result = await sql_tool(SqlToolInput(query_text="q", execution=_execution()))
 
     assert result.status == ToolStatus.EMPTY
     assert result.fallback_to_rag is True
@@ -79,7 +83,7 @@ async def test_extraction_exception_falls_back_and_fails(monkeypatch):
 
     monkeypatch.setattr(sql_mod, "extract_sql_params", _extract)
 
-    result = await sql_tool(SqlToolInput(query_text="q", caller=_caller()))
+    result = await sql_tool(SqlToolInput(query_text="q", execution=_execution()))
 
     assert result.status == ToolStatus.FAILED
     assert result.fallback_to_rag is True
@@ -99,7 +103,7 @@ async def test_extraction_returning_none_does_not_crash(monkeypatch):
     monkeypatch.setattr(sql_mod, "extract_sql_params", _extract)
     monkeypatch.setattr(sql_mod, "get_gateway", _get_gateway)
 
-    result = await sql_tool(SqlToolInput(query_text="q", caller=_caller()))
+    result = await sql_tool(SqlToolInput(query_text="q", execution=_execution()))
 
     assert result.status == ToolStatus.EMPTY
     assert result.fallback_to_rag is True
@@ -116,7 +120,7 @@ async def test_no_role_gate_same_result_for_every_role(monkeypatch):
     monkeypatch.setattr(sql_mod, "extract_sql_params", _extract)
     monkeypatch.setattr(sql_mod, "get_gateway", _get_gateway)
 
-    investigator_result = await sql_tool(SqlToolInput(query_text="q", caller=_caller("investigator")))
-    admin_result = await sql_tool(SqlToolInput(query_text="q", caller=_caller("platform-admin")))
+    investigator_result = await sql_tool(SqlToolInput(query_text="q", execution=_execution("investigator")))
+    admin_result = await sql_tool(SqlToolInput(query_text="q", execution=_execution("platform-admin")))
 
     assert investigator_result.status == admin_result.status == ToolStatus.OK

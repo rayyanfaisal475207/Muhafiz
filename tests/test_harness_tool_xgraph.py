@@ -16,11 +16,15 @@ import pytest
 
 import src.pipeline.harness.tools.xgraph as xgraph_mod
 from src.pipeline.harness.tools.xgraph import XGraphToolInput, XGraphToolResult, xgraph_tool
-from src.pipeline.harness.types import CallerContext, ToolStatus
+from src.pipeline.harness.types import CallerContext, ExecutionContext, ToolStatus
 
 
 def _caller(role="supervisor"):
     return CallerContext(user_id="u1", role=role, active_case_id=None)
+
+
+def _execution(role="supervisor"):
+    return ExecutionContext(caller=_caller(role))
 
 
 def _chunk(id_, case_id, confidence=0.8):
@@ -44,7 +48,7 @@ async def test_ok_result_never_falls_back(monkeypatch):
 
     monkeypatch.setattr(xgraph_mod, "retrieve_graph", _retrieve_graph)
 
-    result = await xgraph_tool(XGraphToolInput(query_text="find John across cases", caller=_caller()))
+    result = await xgraph_tool(XGraphToolInput(query_text="find John across cases", execution=_execution()))
 
     assert isinstance(result, XGraphToolResult)
     assert result.status == ToolStatus.OK
@@ -60,7 +64,7 @@ async def test_empty_with_no_unconfirmed_links_is_a_real_finding(monkeypatch):
 
     monkeypatch.setattr(xgraph_mod, "retrieve_graph", _retrieve_graph)
 
-    result = await xgraph_tool(XGraphToolInput(query_text="q", caller=_caller()))
+    result = await xgraph_tool(XGraphToolInput(query_text="q", execution=_execution()))
 
     assert result.status == ToolStatus.EMPTY
     assert result.fallback_to_rag is False
@@ -77,7 +81,7 @@ async def test_empty_chunks_with_unconfirmed_links_still_reported(monkeypatch):
 
     monkeypatch.setattr(xgraph_mod, "retrieve_graph", _retrieve_graph)
 
-    result = await xgraph_tool(XGraphToolInput(query_text="q", caller=_caller()))
+    result = await xgraph_tool(XGraphToolInput(query_text="q", execution=_execution()))
 
     assert result.status == ToolStatus.EMPTY
     assert len(result.unconfirmed_links) == 1
@@ -91,7 +95,7 @@ async def test_permission_error_maps_to_denied_not_exception(monkeypatch):
     monkeypatch.setattr(xgraph_mod, "retrieve_graph", _retrieve_graph)
 
     result = await xgraph_tool(
-        XGraphToolInput(query_text="q", caller=_caller(role="investigator"))
+        XGraphToolInput(query_text="q", execution=_execution(role="investigator"))
     )
 
     assert result.status == ToolStatus.DENIED
@@ -108,7 +112,7 @@ async def test_other_exception_maps_to_failed_not_denied(monkeypatch):
 
     monkeypatch.setattr(xgraph_mod, "retrieve_graph", _retrieve_graph)
 
-    result = await xgraph_tool(XGraphToolInput(query_text="q", caller=_caller()))
+    result = await xgraph_tool(XGraphToolInput(query_text="q", execution=_execution()))
 
     assert result.status == ToolStatus.FAILED
     assert result.error.kind == "upstream_failure"

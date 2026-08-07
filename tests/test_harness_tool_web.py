@@ -13,11 +13,15 @@ import pytest
 
 import src.pipeline.harness.tools.web as web_mod
 from src.pipeline.harness.tools.web import WebToolInput, WebToolResult, web_tool
-from src.pipeline.harness.types import CallerContext, ToolStatus
+from src.pipeline.harness.types import CallerContext, ExecutionContext, ToolStatus
 
 
 def _caller():
     return CallerContext(user_id="u1", role="investigator", active_case_id=None)
+
+
+def _execution():
+    return ExecutionContext(caller=_caller())
 
 
 @pytest.fixture(autouse=True)
@@ -37,7 +41,7 @@ async def test_tavily_success_returns_ok_without_gemini(monkeypatch):
     monkeypatch.setattr(web_mod, "perform_web_search", _tavily)
     monkeypatch.setattr(web_mod, "call_gemini_with_search", _gemini)
 
-    result = await web_tool(WebToolInput(query_text="q", caller=_caller()))
+    result = await web_tool(WebToolInput(query_text="q", execution=_execution()))
 
     assert isinstance(result, WebToolResult)
     assert result.status == ToolStatus.OK
@@ -59,7 +63,7 @@ async def test_tavily_empty_falls_through_to_gemini(monkeypatch):
     monkeypatch.setattr(web_mod, "perform_web_search", _tavily)
     monkeypatch.setattr(web_mod, "call_gemini_with_search", _gemini)
 
-    result = await web_tool(WebToolInput(query_text="q", caller=_caller()))
+    result = await web_tool(WebToolInput(query_text="q", execution=_execution()))
 
     assert result.status == ToolStatus.OK
     assert result.provider_used == "grounded_search_fallback"
@@ -77,7 +81,7 @@ async def test_both_tiers_failing_falls_back_to_rag(monkeypatch):
     monkeypatch.setattr(web_mod, "perform_web_search", _tavily)
     monkeypatch.setattr(web_mod, "call_gemini_with_search", _gemini)
 
-    result = await web_tool(WebToolInput(query_text="q", caller=_caller()))
+    result = await web_tool(WebToolInput(query_text="q", execution=_execution()))
 
     assert result.status == ToolStatus.EMPTY
     assert result.fallback_to_rag is True
@@ -95,7 +99,7 @@ async def test_gemini_exception_maps_to_failed_and_falls_back(monkeypatch):
     monkeypatch.setattr(web_mod, "perform_web_search", _tavily)
     monkeypatch.setattr(web_mod, "call_gemini_with_search", _gemini)
 
-    result = await web_tool(WebToolInput(query_text="q", caller=_caller()))
+    result = await web_tool(WebToolInput(query_text="q", execution=_execution()))
 
     assert result.status == ToolStatus.FAILED
     assert result.fallback_to_rag is True
@@ -115,7 +119,7 @@ async def test_air_gap_mode_reaches_neither_provider(monkeypatch):
     monkeypatch.setattr(web_mod, "perform_web_search", _tavily)
     monkeypatch.setattr(web_mod, "call_gemini_with_search", _gemini)
 
-    result = await web_tool(WebToolInput(query_text="q", caller=_caller()))
+    result = await web_tool(WebToolInput(query_text="q", execution=_execution()))
 
     assert result.status == ToolStatus.EMPTY
     assert result.fallback_to_rag is True
@@ -135,7 +139,7 @@ async def test_gemini_sources_filtered_to_allowed_domains(monkeypatch):
     monkeypatch.setattr(web_mod, "perform_web_search", _tavily)
     monkeypatch.setattr(web_mod, "call_gemini_with_search", _gemini)
 
-    result = await web_tool(WebToolInput(query_text="q", caller=_caller()))
+    result = await web_tool(WebToolInput(query_text="q", execution=_execution()))
 
     assert result.status == ToolStatus.OK
     assert len(result.chunks) == 1

@@ -34,6 +34,7 @@ from src.pipeline.harness.types import (
     CallerContext,
     ChunkMetadata,
     EvidenceChunk,
+    ExecutionContext,
     Role,
     SubAgentInput,
     SubAgentStatus,
@@ -54,8 +55,12 @@ def _caller(case_id="CASE-001", role=Role.INVESTIGATOR, **kw):
     return CallerContext(user_id="u1", role=role, active_case_id=case_id, **kw)
 
 
+def _execution(caller=None):
+    return ExecutionContext(caller=caller or _caller())
+
+
 def _agent_input(caller=None, query_text="who was involved in the theft?", **kw):
-    return SubAgentInput(query_text=query_text, caller=caller or _caller(), **kw)
+    return SubAgentInput(query_text=query_text, execution=_execution(caller=caller), **kw)
 
 
 def _stub_rag_tool(monkeypatch, result: RagToolResult):

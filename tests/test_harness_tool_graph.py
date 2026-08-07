@@ -13,11 +13,15 @@ import pytest
 
 import src.pipeline.harness.tools.graph as graph_mod
 from src.pipeline.harness.tools.graph import GraphToolInput, GraphToolResult, graph_tool
-from src.pipeline.harness.types import CallerContext, ToolStatus
+from src.pipeline.harness.types import CallerContext, ExecutionContext, ToolStatus
 
 
 def _caller(case_id="CASE-001", role="investigator"):
     return CallerContext(user_id="u1", role=role, active_case_id=case_id)
+
+
+def _execution(case_id="CASE-001", role="investigator"):
+    return ExecutionContext(caller=_caller(case_id, role))
 
 
 def _graph_chunk(id_="g1", via_entity="Some Person", graph_confidence=0.81, case_id="CASE-001"):
@@ -70,7 +74,7 @@ async def test_graph_relevant_chunks_returns_ok(monkeypatch):
     monkeypatch.setattr(graph_mod, "retrieve_graph", _retrieve_graph)
     _relevant_evaluator(monkeypatch)
 
-    result = await graph_tool(GraphToolInput(query_text="q", caller=_caller()))
+    result = await graph_tool(GraphToolInput(query_text="q", execution=_execution()))
 
     assert isinstance(result, GraphToolResult)
     assert result.status == ToolStatus.OK
@@ -91,7 +95,7 @@ async def test_graph_no_chunks_falls_back_to_rag(monkeypatch):
 
     monkeypatch.setattr(graph_mod, "retrieve_graph", _retrieve_graph)
 
-    result = await graph_tool(GraphToolInput(query_text="q", caller=_caller()))
+    result = await graph_tool(GraphToolInput(query_text="q", execution=_execution()))
 
     assert result.status == ToolStatus.EMPTY
     assert result.fallback_to_rag is True
@@ -106,7 +110,7 @@ async def test_graph_not_relevant_falls_back_to_rag(monkeypatch):
     monkeypatch.setattr(graph_mod, "retrieve_graph", _retrieve_graph)
     _not_relevant_evaluator(monkeypatch)
 
-    result = await graph_tool(GraphToolInput(query_text="q", caller=_caller()))
+    result = await graph_tool(GraphToolInput(query_text="q", execution=_execution()))
 
     assert result.status == ToolStatus.EMPTY
     assert result.fallback_to_rag is True
@@ -123,14 +127,14 @@ async def test_graph_conflicts_included_flag(monkeypatch):
     monkeypatch.setattr(graph_mod, "retrieve_graph", _retrieve_graph)
     _relevant_evaluator(monkeypatch)
 
-    result = await graph_tool(GraphToolInput(query_text="q", caller=_caller()))
+    result = await graph_tool(GraphToolInput(query_text="q", execution=_execution()))
     assert result.conflicts_included is True
 
 
 @pytest.mark.asyncio
 async def test_graph_max_hops_bounds_enforced():
     with pytest.raises(Exception):
-        GraphToolInput(query_text="q", caller=_caller(), max_hops=10)
+        GraphToolInput(query_text="q", execution=_execution(), max_hops=10)
 
 
 # ── GRAPH_HYBRID (hybrid=True) ───────────────────────────────────────────
@@ -149,7 +153,7 @@ async def test_graph_hybrid_tags_all_chunks_hybrid(monkeypatch):
     monkeypatch.setattr(graph_mod, "_retrieve_candidates", _retrieve_candidates)
     _relevant_evaluator(monkeypatch)
 
-    result = await graph_tool(GraphToolInput(query_text="q", caller=_caller(), hybrid=True))
+    result = await graph_tool(GraphToolInput(query_text="q", execution=_execution(), hybrid=True))
 
     assert result.status == ToolStatus.OK
     ids = {c.id for c in result.chunks}
@@ -170,7 +174,7 @@ async def test_graph_hybrid_empty_combined_falls_back(monkeypatch):
     monkeypatch.setattr(graph_mod, "retrieve_graph", _retrieve_graph)
     monkeypatch.setattr(graph_mod, "_retrieve_candidates", _retrieve_candidates)
 
-    result = await graph_tool(GraphToolInput(query_text="q", caller=_caller(), hybrid=True))
+    result = await graph_tool(GraphToolInput(query_text="q", execution=_execution(), hybrid=True))
 
     assert result.status == ToolStatus.EMPTY
     assert result.fallback_to_rag is True
