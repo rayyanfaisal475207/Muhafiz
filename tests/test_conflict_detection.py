@@ -12,7 +12,7 @@ class FakeAgeClient:
         self.responses.append(response)
 
     async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
-        self.calls.append({"cypher": cypher_query, "params": params or {}})
+        self.calls.append({"cypher": cypher_query, "params": params or {}, "columns": columns})
         if self.responses:
             return self.responses.pop(0)
         return []
@@ -24,6 +24,56 @@ def fake_client(monkeypatch):
     # Also patch versioning's age_client so we can track write_edge
     monkeypatch.setattr(versioning, "age_client", client)
     return client
+
+@pytest.mark.asyncio
+async def test_fetch_query_does_not_have_match_after_optional_match(fake_client):
+    """
+    Regression, confirmed live against real AGE (2026-08-07): detect_conflicts()'s
+    fetch query used to place a mandatory MATCH directly after an OPTIONAL
+    MATCH -- invalid openCypher/AGE ("MATCH cannot follow OPTIONAL MATCH"),
+    so this function always hit its own except-and-warn branch and never
+    ran conflict detection for any case, ever. FakeAgeClient accepts any
+    Cypher string unconditionally (a canned-response stub, not a real
+    Cypher engine), so the existing tests couldn't catch this on their
+    own -- this test pins the query's clause ORDER structurally instead:
+    no mandatory MATCH line may appear after the last OPTIONAL MATCH line.
+    """
+    fake_client.queue([])  # empty result is fine -- only the query shape is under test
+
+    await conflict_detection.detect_conflicts("CASE-1")
+
+    assert len(fake_client.calls) == 1
+    cypher = fake_client.calls[0]["cypher"]
+    lines = [line.strip() for line in cypher.strip().splitlines() if line.strip()]
+    match_lines = [i for i, line in enumerate(lines) if line.upper().startswith("MATCH")]
+    optional_match_lines = [i for i, line in enumerate(lines) if line.upper().startswith("OPTIONAL MATCH")]
+    assert optional_match_lines, "expected at least one OPTIONAL MATCH clause"
+    last_optional = max(optional_match_lines)
+    for m in match_lines:
+        assert m <= last_optional, (
+            f"mandatory MATCH at line {m} appears after OPTIONAL MATCH at line {last_optional} -- invalid AGE/Cypher"
+        )
+
+
+@pytest.mark.asyncio
+async def test_fetch_query_requests_matching_columns(fake_client):
+    """
+    Regression, confirmed live (2026-08-07): the fetch call never passed
+    `columns=` to execute_cypher(), defaulting to a single ("result",)
+    column while the query RETURNs 5 named columns -- AGE/asyncpg raises
+    DatatypeMismatchError ("return row and column definition list do not
+    match") the moment this actually runs against real AGE. FakeAgeClient
+    doesn't validate this (a stub, not a real Cypher engine), so this test
+    asserts on the call's actual `columns` argument instead.
+    """
+    fake_client.queue([])
+
+    await conflict_detection.detect_conflicts("CASE-1")
+
+    assert len(fake_client.calls) == 1
+    columns = list(fake_client.calls[0]["columns"])
+    assert set(columns) == {"entity_id", "description", "date", "source_text", "doc_id"}
+
 
 @pytest.mark.asyncio
 async def test_deterministic_timeline_conflict(fake_client):

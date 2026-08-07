@@ -34,15 +34,36 @@ async def detect_conflicts(case_id: str) -> None:
     verifies the LLM's claims against the source text, and writes CONFLICTS_WITH edges between Incident nodes.
     """
     # 1. Fetch Incident nodes and their associated dates and source texts
+    #
+    # 2026-08-07: found live, always failing -- an OPTIONAL MATCH directly
+    # followed by a mandatory MATCH is invalid openCypher/AGE ("MATCH
+    # cannot follow OPTIONAL MATCH"), confirmed against the real AGE
+    # instance. Every call to this function has been hitting the except
+    # branch below and silently returning since this module was written --
+    # conflict detection has never actually run for any case. Fixed by
+    # moving OPTIONAL MATCH to the end, after both mandatory MATCH clauses
+    # (Case and Document are required for an Incident row to be useful
+    # here; Date is genuinely optional -- an Incident may not have a
+    # resolved OCCURRED_ON edge) -- same semantics, valid clause order.
     query = """
     MATCH (i:Incident)-[:BELONGS_TO_CASE]->(c:Case {case_id: $case_id})
-    OPTIONAL MATCH (i)-[:OCCURRED_ON]->(d:Date)
     MATCH (i)-[app:APPEARS_IN]->(doc:Document)
-    RETURN i.entity_id AS entity_id, i.description AS description, 
+    OPTIONAL MATCH (i)-[:OCCURRED_ON]->(d:Date)
+    RETURN i.entity_id AS entity_id, i.description AS description,
            d.date AS date, app.surface_text AS source_text, doc.doc_id AS doc_id
     """
     try:
-        rows = await age_client.execute_cypher(query, params={"case_id": case_id})
+        # `columns` must be passed explicitly here -- execute_cypher()
+        # defaults to a single ("result",) column, but this query RETURNs
+        # 5 named columns. Without this, AGE/asyncpg raises
+        # DatatypeMismatchError ("return row and column definition list do
+        # not match") -- a second bug alongside the clause-order one above,
+        # confirmed live: fixing only the clause order still failed on
+        # this until columns was added too.
+        rows = await age_client.execute_cypher(
+            query, params={"case_id": case_id},
+            columns=["entity_id", "description", "date", "source_text", "doc_id"],
+        )
     except Exception as exc:
         logger.warning(f"Failed to fetch Incidents for conflict detection in case {case_id}: {exc}")
         return
