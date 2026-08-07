@@ -25,7 +25,7 @@ import re
 import pytest
 
 from src.pipeline.harness.compliance._source_scan import all_tool_wrapper_sources
-from src.pipeline.harness.types import CallerContext
+from src.pipeline.harness.types import CallerContext, ExecutionContext
 
 # NOTE: this module deliberately scans RAW source, not the code-only-stripped
 # text enforcement points 2/3 use — `.get("role"` (the exact shape of the
@@ -79,7 +79,8 @@ async def test_elevated_role_actually_reaches_xgraph_wrapped_function(monkeypatc
     monkeypatch.setattr(xgraph_mod, "retrieve_graph", _capture)
 
     caller = CallerContext(user_id="u1", role="platform-admin", active_case_id=None)
-    await xgraph_mod.xgraph_tool(xgraph_mod.XGraphToolInput(query_text="q", caller=caller))
+    execution = ExecutionContext(caller=caller)
+    await xgraph_mod.xgraph_tool(xgraph_mod.XGraphToolInput(query_text="q", execution=execution))
 
     assert captured["user_role"] == "platform-admin", (
         "An elevated role did not reach the wrapped function unchanged — "
@@ -104,7 +105,8 @@ async def test_elevated_role_actually_reaches_xagg_wrapped_function(monkeypatch)
     monkeypatch.setattr(xagg_mod, "run_aggregate", _capture)
 
     caller = CallerContext(user_id="u1", role="station-admin", active_case_id=None)
-    await xagg_mod.xagg_tool(xagg_mod.XAggToolInput(query_text="q", caller=caller))
+    execution = ExecutionContext(caller=caller)
+    await xagg_mod.xagg_tool(xagg_mod.XAggToolInput(query_text="q", execution=execution))
 
     assert captured["user_role"] == "station-admin"
 
@@ -126,6 +128,7 @@ async def test_elevated_role_actually_reaches_xnetwork_wrapped_function(monkeypa
     monkeypatch.setattr(xnetwork_mod, "run_network_query", _capture)
 
     caller = CallerContext(user_id="u1", role="supervisor", active_case_id=None)
-    await xnetwork_mod.xnetwork_tool(xnetwork_mod.XNetworkToolInput(query_text="q", caller=caller))
+    execution = ExecutionContext(caller=caller)
+    await xnetwork_mod.xnetwork_tool(xnetwork_mod.XNetworkToolInput(query_text="q", execution=execution))
 
     assert captured["user_role"] == "supervisor"

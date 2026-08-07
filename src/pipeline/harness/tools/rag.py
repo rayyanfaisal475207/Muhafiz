@@ -35,19 +35,20 @@ names would be scope creep past the documented wrap boundary. Flagged here,
 not silently dropped, in case a later phase decides a sub-agent (Case
 Summarization is the natural owner) should compose it back in.
 
-SCOPE NOTE — case vs. project scoping. `CallerContext` (types.py, per
-SUBAGENT_INTERFACES.md §0) carries `active_case_id` only, not a
-`project_id` — every sub-agent table row in the design/interfaces docs is
-case-scoped, none are project-scoped, so this is read as a deliberate
-narrowing: legacy "project chat" isolation stays on orchestrator.py's own
-path (§6's rollout explicitly allows a slice to stay unmigrated) and is out
-of this tool's contract. This wrapper therefore builds its Chroma `where`
-filter from `active_case_id` + `include_global` only. It never passes an
-unscoped (`None`/`{}`) filter to `query_similar`/`get_all_chunks` — doing so
-is the exact multi-tenant leak `orchestrator.py`'s own comments document
-(Phase 8, Bug 1) — so the one combination that contract can't legitimately
-scope (no case, `include_global=False`) returns `EMPTY` without calling
-retrieval at all, rather than searching unfiltered.
+SCOPE NOTE — case vs. project scoping. [UPDATED — contract retrofit,
+AGENT_HARNESS_IMPLEMENTATION_PLAN.md §10.3] `CallerContext` carries
+`active_case_id` only, not a `project_id`; Phase 0 shipped with this
+wrapper reading `active_case_id` + `include_global` alone for that reason.
+`ExecutionContext` (types.py, plan §10.1) now carries `project_id`
+alongside the nested `CallerContext`, restoring a carrier for the
+project/global precedence rule this wrapper previously had to drop. This
+wrapper's `where` filter now also folds in `execution.project_id` when
+present. It never passes an unscoped (`None`/`{}`) filter to
+`query_similar`/`get_all_chunks` — doing so is the exact multi-tenant leak
+`orchestrator.py`'s own comments document (Phase 8, Bug 1) — so the one
+combination that still can't legitimately scope (no case, no project,
+`include_global=False`) returns `EMPTY` without calling retrieval at all,
+rather than searching unfiltered.
 """
 
 from __future__ import annotations
@@ -134,17 +135,27 @@ class RagToolResult(ToolResult):
     )
 
 
-def _build_where(caller: CallerContext, include_global: bool) -> dict:
+def _build_where(
+    caller: CallerContext, include_global: bool, project_id: Optional[str] = None
+) -> dict:
     """
     Mirrors orchestrator.py's RAG-route where-clause precedence (Module
-    4.1), restricted to the scoping dimensions CallerContext actually
-    carries (see module docstring's project-scoping note): a case, when
-    active, always wins; otherwise fall back to global-only. Never returns
-    an empty dict when that would mean "unscoped" — see `_chunk_pool_scope`.
+    4.1): a case, when active, always wins; otherwise a project scope
+    (when the caller's `ExecutionContext.project_id` is set — see module
+    docstring's project-scoping note, plan §10.3) narrows to that project;
+    otherwise fall back to global-only. Never returns an empty dict when
+    that would mean "unscoped" — see `_chunk_pool_scope`.
+
+    `project_id` defaults to `None` for backward compatibility with
+    existing callers (e.g. GRAPH_HYBRID's within-case composition, which
+    passes no project scope) — `None` means "no project scoping applied",
+    the same behavior this wrapper had before `ExecutionContext` existed.
     """
     where: dict = {}
     if caller.active_case_id:
         where["case_id"] = caller.active_case_id
+    elif project_id:
+        where["project_id"] = project_id
     elif include_global:
         where["is_global"] = True
     return where
@@ -226,8 +237,8 @@ async def rag_tool(tool_input: RagToolInput) -> RagToolResult:
     -> evaluate, retrying with evaluator feedback up to `config.MAX_RETRIES`
     times before abstaining.
     """
-    caller = tool_input.caller
-    where = _build_where(caller, tool_input.include_global)
+    caller = tool_input.execution.caller
+    where = _build_where(caller, tool_input.include_global, tool_input.execution.project_id)
     if not where:
         # No case to scope to, and global material explicitly excluded —
         # nothing legitimate to search. Never fall through to an unscoped

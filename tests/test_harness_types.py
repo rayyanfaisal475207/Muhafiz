@@ -19,6 +19,7 @@ from src.pipeline.harness.types import (
     CrossCaseToolInput,
     CrossCaseToolResult,
     EvidenceChunk,
+    ExecutionContext,
     Role,
     SOURCE_TOOL_DISPLAY_LABELS,
     ToolError,
@@ -135,8 +136,26 @@ def test_cross_case_tool_result_fallback_pinned_false():
 
 def test_cross_case_tool_input_is_a_tool_input_subclass():
     ctx = CallerContext(role="supervisor")
-    inp = CrossCaseToolInput(query_text="q", caller=ctx)
+    inp = CrossCaseToolInput(query_text="q", execution=ExecutionContext(caller=ctx))
     assert isinstance(inp, ToolInput)
+
+
+# ── ExecutionContext — contract retrofit (plan §10.1) ────────────────────
+
+def test_execution_context_wraps_caller_and_defaults_reserved_fields_inert():
+    ctx = CallerContext(user_id="u1", role="supervisor", active_case_id="CASE-001")
+    execution = ExecutionContext(caller=ctx)
+    assert execution.caller is ctx
+    assert execution.project_id is None
+    assert execution.workspace_id is None
+    assert execution.organization_id is None
+    assert execution.feature_flags == {}
+
+
+def test_execution_context_project_id_is_optional_and_settable():
+    ctx = CallerContext(role="investigator")
+    execution = ExecutionContext(caller=ctx, project_id="PROJ-1")
+    assert execution.project_id == "PROJ-1"
 
 
 # ── source_tool display labels ───────────────────────────────────────────

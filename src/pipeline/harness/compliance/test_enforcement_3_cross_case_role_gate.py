@@ -32,7 +32,7 @@ from src.pipeline.harness.compliance._source_scan import (
     CROSS_CASE_TOOL_MODULE_NAMES,
     module_source,
 )
-from src.pipeline.harness.types import CallerContext, ToolStatus
+from src.pipeline.harness.types import CallerContext, ExecutionContext, ToolStatus
 
 _FORBIDDEN_ROLE_CHECK_PATTERNS = (
     "CROSS_CASE_ROLES",
@@ -60,6 +60,10 @@ def _denied_caller() -> CallerContext:
     return CallerContext(user_id="u1", role="investigator", active_case_id=None)
 
 
+def _denied_execution() -> ExecutionContext:
+    return ExecutionContext(caller=_denied_caller())
+
+
 @pytest.mark.asyncio
 async def test_xgraph_tool_surfaces_permission_error_as_denied(monkeypatch):
     import src.pipeline.harness.tools.xgraph as xgraph_mod
@@ -70,7 +74,7 @@ async def test_xgraph_tool_surfaces_permission_error_as_denied(monkeypatch):
     monkeypatch.setattr(xgraph_mod, "retrieve_graph", _denied)
 
     result = await xgraph_mod.xgraph_tool(
-        xgraph_mod.XGraphToolInput(query_text="q", caller=_denied_caller())
+        xgraph_mod.XGraphToolInput(query_text="q", execution=_denied_execution())
     )
     assert result.status == ToolStatus.DENIED
     assert result.fallback_to_rag is False
@@ -90,7 +94,7 @@ async def test_xagg_tool_surfaces_permission_error_as_denied(monkeypatch):
     monkeypatch.setattr(xagg_mod, "run_aggregate", _denied)
 
     result = await xagg_mod.xagg_tool(
-        xagg_mod.XAggToolInput(query_text="q", caller=_denied_caller())
+        xagg_mod.XAggToolInput(query_text="q", execution=_denied_execution())
     )
     assert result.status == ToolStatus.DENIED
     assert result.fallback_to_rag is False
@@ -110,7 +114,7 @@ async def test_xnetwork_tool_surfaces_permission_error_as_denied(monkeypatch):
     monkeypatch.setattr(xnetwork_mod, "run_network_query", _denied)
 
     result = await xnetwork_mod.xnetwork_tool(
-        xnetwork_mod.XNetworkToolInput(query_text="q", caller=_denied_caller())
+        xnetwork_mod.XNetworkToolInput(query_text="q", execution=_denied_execution())
     )
     assert result.status == ToolStatus.DENIED
     assert result.fallback_to_rag is False

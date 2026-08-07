@@ -115,7 +115,7 @@ def _to_evidence_chunk(raw: dict) -> EvidenceChunk:
 
 async def xgraph_tool(tool_input: XGraphToolInput) -> XGraphToolResult:
     """The XGRAPH primitive: cross-case entity traversal, never falls back to RAG."""
-    caller = tool_input.caller
+    caller = tool_input.execution.caller
     try:
         graph_result = await retrieve_graph(
             tool_input.query_text,

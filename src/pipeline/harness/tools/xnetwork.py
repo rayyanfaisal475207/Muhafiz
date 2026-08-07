@@ -85,7 +85,7 @@ def _render_raw_summary(results: list[dict]) -> Optional[str]:
 
 async def xnetwork_tool(tool_input: XNetworkToolInput) -> XNetworkToolResult:
     """The XNETWORK primitive: cross-case thematic synthesis, never falls back to RAG."""
-    caller = tool_input.caller
+    caller = tool_input.execution.caller
     gateway = await get_gateway()
 
     try:

@@ -4,8 +4,10 @@ Tests for src/pipeline/harness/supervisor.py (Phase 1).
 Covers:
   (a) correct classification -> dispatch using mock sub-agents satisfying
       the SubAgent Protocol (not real sub-agents — none exist yet);
-  (b) CallerContext passed through byte-for-byte unchanged (object
-      identity preserved, not merely equal);
+  (b) ExecutionContext (wrapping CallerContext, per the contract retrofit
+      in AGENT_HARNESS_IMPLEMENTATION_PLAN.md §10) passed through
+      byte-for-byte unchanged (object identity preserved, not merely
+      equal);
   (c) correct behavior on an unregistered route (typed ABSTAINED result,
       not a crash, not a silent fallback);
   (d) PipelineEvent emitted with the right shape (step/status/detail,
@@ -36,6 +38,7 @@ from src.pipeline.harness.supervisor import (
 )
 from src.pipeline.harness.types import (
     CallerContext,
+    ExecutionContext,
     PipelineEvent,
     Role,
     SubAgentInput,
@@ -48,8 +51,12 @@ def _caller(role=Role.INVESTIGATOR, **kw):
     return CallerContext(user_id="u1", role=role, active_case_id="CASE-001", **kw)
 
 
+def _execution(caller=None, **kw):
+    return ExecutionContext(caller=caller or _caller(), **kw)
+
+
 def _agent_input(caller=None, query_text="what happened in this case?", **kw):
-    return SubAgentInput(query_text=query_text, caller=caller or _caller(), **kw)
+    return SubAgentInput(query_text=query_text, execution=_execution(caller=caller), **kw)
 
 
 def _mock_sub_agent(name: str, result: SubAgentResult):
@@ -139,7 +146,8 @@ async def test_dispatch_does_not_call_unrelated_registered_mocks(monkeypatch, is
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# (b) CallerContext threaded through completely unchanged
+# (b) ExecutionContext (wrapping CallerContext) threaded through completely
+# unchanged — [RENAMED, AGENT_HARNESS_IMPLEMENTATION_PLAN.md §10.1]
 # ═══════════════════════════════════════════════════════════════════════
 
 @pytest.mark.asyncio
@@ -159,10 +167,10 @@ async def test_caller_context_passed_through_unchanged_by_identity(monkeypatch, 
     # Identity, not just equality: the Supervisor must not reconstruct,
     # copy, or merge this object with anything else.
     assert received is agent_input
-    assert received.caller is caller
-    assert received.caller.role is Role.PLATFORM_ADMIN
-    assert received.caller.preferred_language == "ur"
-    assert received.caller.active_case_id == "CASE-001"
+    assert received.execution.caller is caller
+    assert received.execution.caller.role is Role.PLATFORM_ADMIN
+    assert received.execution.caller.preferred_language == "ur"
+    assert received.execution.caller.active_case_id == "CASE-001"
 
 
 @pytest.mark.asyncio
@@ -179,7 +187,7 @@ async def test_caller_role_never_defaulted_for_investigator(monkeypatch, isolate
     sup = Supervisor(registry=isolated_registry)
     await sup.handle(_agent_input(caller=caller))
 
-    assert mock.calls[0].caller.role is Role.STATION_ADMIN
+    assert mock.calls[0].execution.caller.role is Role.STATION_ADMIN
 
 
 # ═══════════════════════════════════════════════════════════════════════

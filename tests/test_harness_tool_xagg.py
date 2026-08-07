@@ -15,11 +15,15 @@ import pytest
 
 import src.pipeline.harness.tools.xagg as xagg_mod
 from src.pipeline.harness.tools.xagg import XAggToolInput, XAggToolResult, xagg_tool
-from src.pipeline.harness.types import CallerContext, ToolStatus
+from src.pipeline.harness.types import CallerContext, ExecutionContext, ToolStatus
 
 
 def _caller(role="supervisor"):
     return CallerContext(user_id="u1", role=role, active_case_id=None)
+
+
+def _execution(role="supervisor"):
+    return ExecutionContext(caller=_caller(role))
 
 
 class _FakeGateway:
@@ -43,7 +47,7 @@ async def test_graph_recurrence_renders_and_touches_cases(monkeypatch):
 
     monkeypatch.setattr(xagg_mod, "run_aggregate", _run_aggregate)
 
-    result = await xagg_tool(XAggToolInput(query_text="top recurring vehicles across cases", caller=_caller()))
+    result = await xagg_tool(XAggToolInput(query_text="top recurring vehicles across cases", execution=_execution()))
 
     assert isinstance(result, XAggToolResult)
     assert result.status == ToolStatus.OK
@@ -67,7 +71,7 @@ async def test_total_count_kind_does_not_crash(monkeypatch):
 
     monkeypatch.setattr(xagg_mod, "run_aggregate", _run_aggregate)
 
-    result = await xagg_tool(XAggToolInput(query_text="how many cases in total", caller=_caller()))
+    result = await xagg_tool(XAggToolInput(query_text="how many cases in total", execution=_execution()))
 
     assert result.status == ToolStatus.OK
     assert result.aggregate_kind == "total_count"
@@ -84,7 +88,7 @@ async def test_case_listing_and_relational_aggregate_render(monkeypatch):
         }
 
     monkeypatch.setattr(xagg_mod, "run_aggregate", _run_aggregate)
-    result = await xagg_tool(XAggToolInput(query_text="list of all cases", caller=_caller()))
+    result = await xagg_tool(XAggToolInput(query_text="list of all cases", execution=_execution()))
     assert "CASE-009" in result.raw_summary_text
     assert result.case_ids_touched == ["CASE-009"]
 
@@ -96,7 +100,7 @@ async def test_permission_error_maps_to_denied(monkeypatch):
 
     monkeypatch.setattr(xagg_mod, "run_aggregate", _run_aggregate)
 
-    result = await xagg_tool(XAggToolInput(query_text="q", caller=_caller(role="investigator")))
+    result = await xagg_tool(XAggToolInput(query_text="q", execution=_execution(role="investigator")))
 
     assert result.status == ToolStatus.DENIED
     assert result.error.kind == "permission_denied"
@@ -110,7 +114,7 @@ async def test_other_exception_maps_to_failed(monkeypatch):
 
     monkeypatch.setattr(xagg_mod, "run_aggregate", _run_aggregate)
 
-    result = await xagg_tool(XAggToolInput(query_text="q", caller=_caller()))
+    result = await xagg_tool(XAggToolInput(query_text="q", execution=_execution()))
 
     assert result.status == ToolStatus.FAILED
     assert result.error.kind == "upstream_failure"

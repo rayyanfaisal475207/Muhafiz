@@ -13,7 +13,7 @@ import pytest
 
 import src.pipeline.harness.tools.rag as rag_mod
 from src.pipeline.harness.tools.rag import RagToolInput, RagToolResult, rag_tool
-from src.pipeline.harness.types import CallerContext, ToolStatus
+from src.pipeline.harness.types import CallerContext, ExecutionContext, ToolStatus
 
 
 def _chunk(id_, text="text", case_id="CASE-001", **extra):
@@ -63,6 +63,10 @@ def _caller(case_id="CASE-001"):
     return CallerContext(user_id="u1", role="investigator", active_case_id=case_id)
 
 
+def _execution(case_id="CASE-001", **kw):
+    return ExecutionContext(caller=_caller(case_id), **kw)
+
+
 @pytest.mark.asyncio
 async def test_relevant_on_first_try_returns_ok(monkeypatch):
     async def _relevant(orig, rewritten, chunks):
@@ -70,7 +74,7 @@ async def test_relevant_on_first_try_returns_ok(monkeypatch):
 
     monkeypatch.setattr(rag_mod, "evaluate_relevance", _relevant)
 
-    result = await rag_tool(RagToolInput(query_text="q", caller=_caller()))
+    result = await rag_tool(RagToolInput(query_text="q", execution=_execution()))
 
     assert isinstance(result, RagToolResult)
     assert result.status == ToolStatus.OK
@@ -96,7 +100,7 @@ async def test_retry_exhaustion_abstains_never_reaches_web(monkeypatch):
     monkeypatch.setattr(rag_mod, "evaluate_relevance", _not_relevant)
     monkeypatch.setattr(rag_mod, "rewrite_for_retry", _rewrite_for_retry)
 
-    result = await rag_tool(RagToolInput(query_text="q", caller=_caller()))
+    result = await rag_tool(RagToolInput(query_text="q", execution=_execution()))
 
     assert result.status == ToolStatus.EMPTY
     assert result.evaluator_verdict == "not_relevant"
@@ -117,7 +121,7 @@ async def test_retrieval_infra_failure_is_failed_not_empty(monkeypatch):
 
     monkeypatch.setattr(rag_mod, "embed_text", _broken_embed)
 
-    result = await rag_tool(RagToolInput(query_text="q", caller=_caller()))
+    result = await rag_tool(RagToolInput(query_text="q", execution=_execution()))
 
     assert result.status == ToolStatus.FAILED
     assert result.error is not None
@@ -134,8 +138,8 @@ async def test_no_case_and_no_global_returns_empty_without_searching(monkeypatch
 
     monkeypatch.setattr(rag_mod, "embed_text", _embed_text)
 
-    caller = CallerContext(user_id="u1", role="investigator", active_case_id=None)
-    result = await rag_tool(RagToolInput(query_text="q", caller=caller, include_global=False))
+    execution = _execution(case_id=None)
+    result = await rag_tool(RagToolInput(query_text="q", execution=execution, include_global=False))
 
     assert result.status == ToolStatus.EMPTY
     assert called["embed"] is False  # never even attempted an unscoped search
@@ -149,6 +153,23 @@ def test_build_where_prefers_case_over_global():
 def test_build_where_falls_back_to_global_when_no_case():
     caller = CallerContext(user_id="u1", role="investigator", active_case_id=None)
     assert rag_mod._build_where(caller, include_global=True) == {"is_global": True}
+
+
+def test_build_where_prefers_project_over_global_when_no_case():
+    # [Contract retrofit — plan §10.1/§10.3] project_id, newly carried on
+    # ExecutionContext, narrows scope when there's no active case, before
+    # falling back to global-only.
+    caller = CallerContext(user_id="u1", role="investigator", active_case_id=None)
+    assert rag_mod._build_where(caller, include_global=True, project_id="PROJ-1") == {
+        "project_id": "PROJ-1"
+    }
+
+
+def test_build_where_case_still_wins_over_project():
+    caller = CallerContext(user_id="u1", role="investigator", active_case_id="CASE-009")
+    assert rag_mod._build_where(caller, include_global=True, project_id="PROJ-1") == {
+        "case_id": "CASE-009"
+    }
 
 
 def test_rag_tool_result_fallback_cannot_be_true():
