@@ -201,7 +201,7 @@ Two implementation requirements surfaced while drafting these, both easy to miss
 
 - [x] Foundation — types.py, tool wrappers, compliance suite *(complete — see §9)*
 - [x] Supervisor *(complete — see §9)*
-- [ ] Semantic Search
+- [x] Semantic Search *(complete — see §9)*
 - [ ] Large-Scale Aggregate
 - [ ] Case Summarization
 - [ ] Timeline Building
@@ -320,3 +320,78 @@ regression). Phase 0's compliance suite: 51/51 checks still passing,
 unchanged. Nothing in `orchestrator.py`, `router.py`'s existing behavior,
 or `main.py`'s live `chat_endpoint` was touched — the Supervisor is not
 wired into live traffic, per §6.
+
+### Phase 2 — Semantic Search: COMPLETE
+
+Branch `feature/harness-phase-2-semantic-search`, merged to main via merge
+commit `<TO BE FILLED IN AFTER MERGE>`.
+
+**Built:**
+- `src/pipeline/harness/agents/semantic_search.py` — composes the Phase 0
+  RAG tool wrapper (`src/pipeline/harness/tools/rag.py::rag_tool`) only,
+  called as-is, never re-wrapped or re-implemented. On a successful RAG
+  result it generates one answer via `call_llm()` over the tool's own
+  (already bounded/reranked) chunks, prompting for `[Document N]`
+  citations, then runs the **existing, unchanged**
+  `src.pipeline.verifier.verify_grounding()` (design §5 decision (a)'s
+  flat `list[{id, text, metadata}]` shape) before returning anything.
+  Returns the standard `SubAgentResult` — bounded to `answer_text` +
+  `citations` (no chunk text, no `EvidenceChunk`, no raw rows).
+- Partial-failure mapping, per this phase's explicit brief: RAG `FAILED` →
+  `ABSTAINED` (error propagated); RAG `EMPTY` with
+  `evaluator_verdict=="not_relevant"` (retry loop ran, never got
+  "relevant") → `ABSTAINED`, no `answer_text` served; RAG `EMPTY` with no
+  evaluator ever run (nothing in scope to search at all) → `EMPTY`, not an
+  error; a generated answer that fails `verify_grounding()` →
+  `ABSTAINED`, `answer_text` stays `None` even though retrieval itself
+  succeeded. `degraded_from` is always `[]` for this sub-agent — it
+  composes exactly one tool, and RAG is the fallback *target* for every
+  other tool, not a tool with a fallback of its own (design §2.1), so
+  there is nothing here for it to degrade *from*.
+- `src/pipeline/harness/supervisor.py::register()` — a real `SemanticSearch`
+  instance (`semantic_search.name = SEMANTIC_SEARCH`) registers itself into
+  the module-level registry at import time, the exact pattern
+  `supervisor.py`'s own Phase 1 docstring documented for future sub-agent
+  modules.
+- `tests/test_harness_agent_semantic_search.py` — successful search with
+  citations, evaluator-rejection → `ABSTAINED`, empty-result handling
+  (both the evaluator-rejection and nothing-in-scope shapes, kept
+  distinct), verifier-rejection of a generated answer → `ABSTAINED`, RAG
+  `FAILED` → `ABSTAINED` with the tool's error propagated, and a
+  `Supervisor.handle()` → real Semantic Search → real `rag_tool()` →
+  `SubAgentResult` integration test (router's `route_query()` and
+  `rag_tool`'s own wrapped pipeline functions stubbed to deterministic
+  test data, not live infra) proving Phase 1 and Phase 2 actually connect.
+
+**Validation gate — explicitly not wired this phase, per this session's
+brief.** `validation.py` (§5/§7.1) does not exist yet, and confirmed
+against `src/pipeline/harness/types.py` before writing this module:
+`SubAgentResult` has no `validation_status` field — the §7.1 amendment was
+proposed but was never actually added to `types.py` in Phase 0. A
+`# TODO(phase-3)` marker is left in `semantic_search.py` at its intended
+insertion point (after the Verifier passes, before the result is
+returned — matching §7.1's ordering and §5's Verifier →
+Citation-Consistency [Report Drafting only] → Validation chain). No ad hoc
+validation logic was invented to fill the gap.
+
+**One deviation, flagged not guessed:** the interfaces doc's Semantic
+Search row and this session's brief specify composing RAG and generating +
+verifying an answer, but neither `SubAgentInput` nor the design docs
+specify a generation prompt template for sub-agents (orchestrator.py's own
+`_FINAL_PROMPT_TEMPLATE` takes parameters — project memory, attached-file
+context, full conversation history — that `SubAgentInput` doesn't carry;
+see SUBAGENT_INTERFACES.md §2.0). Rather than reuse that template with
+padded-in fake values (or partially reimplement orchestrator.py's own
+prompt assembly here), this module uses a smaller, self-contained,
+sub-agent-scoped system prompt that still enforces the same `[Document N]`
+citation contract `verify_grounding()`'s deterministic checks depend on.
+Flagged in `semantic_search.py`'s own module docstring.
+
+**Verification:** full existing test suite passes — 882 tests, 0 failures,
+0 errors, 4 skipped (the same pre-existing, unrelated docling/PDF
+`std::bad_alloc` environment failure already documented present on main
+before Phase 0's own merge — confirmed still present identically, not a
+regression). Phase 0's compliance suite (51 checks) and Phase 1's
+Supervisor suite (22 tests) both still pass unchanged. Nothing in
+`main.py`, `orchestrator.py`, or `router.py` was touched — the FastAPI
+endpoint still does not call the Supervisor, per §6.
