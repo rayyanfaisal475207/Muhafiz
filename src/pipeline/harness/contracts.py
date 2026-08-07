@@ -625,6 +625,63 @@ class SubAgentResult(BaseModel):
     error: Optional[ToolError] = None
 
 
+# ── Disclosure constants (§2.1.1 shared rules) ───────────────────────────
+#
+# Two sub-agents inject a user-facing disclosure into their own output text:
+# Case Summarization (§2.1.2) and Report Drafting (§2.1.3). Both obey the same
+# rules:
+#
+#   1. Injected AFTER verification, and NEVER themselves verified. A disclosure
+#      is a meta-statement about the generation process, not an evidentiary
+#      claim from the case — it has nothing to cite by construction. Verifying
+#      it would expose it to the no-citation check and could fail the output
+#      closed, withholding content BECAUSE it was honest about being partial.
+#   2. FIXED, REVIEWED TEMPLATE STRINGS ONLY. Never model-generated, never
+#      paraphrased, never per-invocation dynamic. The verification exemption is
+#      safe ONLY because the string is human-reviewed — making it dynamic would
+#      put unverified generated text into delivered output, exactly what the
+#      Verifier exists to prevent.
+#   3. The exemption is NOT transferable. It rests on 1 and 2 together, and is
+#      not a precedent for exempting any other element.
+#   4. In the TEXT, not only the metadata. `status`/`degraded_from` are the
+#      machine-readable signal; the disclosure is the human-readable one, and it
+#      travels WITH the content so it survives being read, quoted, or exported
+#      somewhere the payload never follows.
+#   5. ONE disclosure per underlying gap — a gap disclosed upstream is not
+#      re-disclosed downstream (§2.1.3's suppression rule).
+#
+# BOTH WORDINGS ARE PLACEHOLDERS PENDING PRODUCT SIGN-OFF. The MECHANISM is
+# settled; the sentences are not. Do not ship either string to investigators
+# as-is.
+
+PARTIAL_EVIDENCE_DISCLOSURE_TEMPLATE = (
+    "[PLACEHOLDER — PENDING PRODUCT SIGN-OFF] This report was generated from "
+    "partial evidence. The following source(s) were unavailable: {unavailable_sources}. "
+    "Findings below reflect only the evidence that could be retrieved and should not "
+    "be read as a complete account."
+)
+"""
+[RESOLVED-3] Report Drafting's document-body disclosure. Only
+`{unavailable_sources}` is substituted, from `degraded_from` — structured
+harness-held data, never model output.
+"""
+
+GRAPH_ONLY_SUMMARY_DISCLOSURE = (
+    "[PLACEHOLDER — PENDING PRODUCT SIGN-OFF] No document-based summary "
+    "available; generated from case graph data only."
+)
+"""
+[RESOLVED-2a] Case Summarization's in-text disclosure for the GRAPH-only case.
+
+Takes no substitution — it names one specific gap. A GRAPH-only summary is a
+materially thinner, entity-shaped artifact that a reader could mistake for a
+complete one, which is why `degraded_from` alone is not sufficient here.
+
+The symmetric case (GRAPH fails, RAG succeeds) needs NO in-text disclosure: it
+yields the document-based summary a user expects by default.
+"""
+
+
 class SubAgent(Protocol):
     """Structural contract every sub-agent satisfies."""
     name: str
