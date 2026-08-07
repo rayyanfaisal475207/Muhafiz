@@ -202,6 +202,7 @@ Two implementation requirements surfaced while drafting these, both easy to miss
 - [x] Foundation — types.py, tool wrappers, compliance suite *(complete — see §9)*
 - [x] Supervisor *(complete — see §9)*
 - [x] Semantic Search *(complete — see §9)*
+- [x] **Contract retrofit — ExecutionContext & ConversationContext (see §10)** *(complete — see §9)*
 - [ ] Large-Scale Aggregate
 - [ ] Case Summarization
 - [ ] Timeline Building
@@ -395,3 +396,170 @@ regression). Phase 0's compliance suite (51 checks) and Phase 1's
 Supervisor suite (22 tests) both still pass unchanged. Nothing in
 `main.py`, `orchestrator.py`, or `router.py` was touched — the FastAPI
 endpoint still does not call the Supervisor, per §6.
+
+### Contract Retrofit — ExecutionContext & ConversationContext: COMPLETE
+
+Branch `feature/harness-contract-retrofit-execution-context`, merged to main via merge commit
+`<pending>`.
+
+**Built/changed, per §10's exact type definitions:**
+- `src/pipeline/harness/types.py` — added `ExecutionContext` (wraps `CallerContext`, adds
+  `project_id`/`workspace_id`/`organization_id`/`feature_flags`, the last three reserved and
+  inert) and `ConversationContext` (`summary`/`project_memory`/`attachment_refs`), both
+  transcribed verbatim from plan §10.1/§10.2 including their `[PRESERVE]` docstrings.
+  `ToolInput.caller: CallerContext` -> `ToolInput.execution: ExecutionContext` and
+  `SubAgentInput.caller: CallerContext` -> `SubAgentInput.execution: ExecutionContext`, both
+  renames not additions. `SubAgentInput.conversation_context` upgraded
+  `Optional[str]` -> `Optional[ConversationContext]`, same field/slot.
+- All 7 tool wrappers (`src/pipeline/harness/tools/*.py`) — every `tool_input.caller.*` read
+  became `tool_input.execution.caller.*`. `rag.py`'s `_build_where()` gained a third
+  `project_id: Optional[str] = None` parameter (default preserves old behavior for every
+  existing caller): case still wins outright, then `execution.project_id` (when set) narrows
+  before falling back to global-only, closing the exact gap flagged in this doc's Phase 0
+  entry. `graph.py`'s GRAPH_HYBRID composition of `_build_where()` was left passing no
+  project scope — it stays within-case only per design §2.2, so case always wins there anyway
+  and threading `project_id` through would be a no-op; not done, to keep this session
+  mechanical. `sql.py`/`web.py` needed no change — neither ever read `.caller` (no case/role
+  scoping, per design §2.6/§2.7).
+- `src/pipeline/harness/supervisor.py` — `Supervisor.handle()` already only forwarded
+  `agent_input` opaquely (no direct `.caller` reads in code, only in docstrings/comments), so
+  the only changes here are documentation — updated to describe `execution`/`.execution.caller`
+  threading unchanged, same `[PRESERVE]` rule that applied to `caller` before.
+- `src/pipeline/harness/agents/semantic_search.py` — `agent_input.caller` ->
+  `agent_input.execution.caller`; the RAG tool call now passes `execution=execution` instead of
+  `caller=caller`. `conversation_context` usage updated for the type upgrade: reads
+  `agent_input.conversation_context.summary` (the one field this sub-agent ever used) instead of
+  treating the field as a raw string — flagged in-file as the minimal, behavior-preserving
+  adaptation; `.project_memory`/`.attachment_refs` are new fields this sub-agent does not yet
+  consume, composing them is out of this session's scope.
+- Every construction site across Phases 0/1/2's test files (`tests/test_harness_types.py`,
+  `tests/test_harness_supervisor.py`, `tests/test_harness_agent_semantic_search.py`,
+  `tests/test_harness_tool_{rag,graph,sql,web,xagg,xgraph,xnetwork}.py`) plus the compliance
+  suite's own `CallerContext`-constructing tests
+  (`src/pipeline/harness/compliance/test_enforcement_3_cross_case_role_gate.py`,
+  `test_enforcement_4_role_provenance.py`) — every bare `CallerContext` passed into a
+  `ToolInput`/`SubAgentInput` construction now goes through an `ExecutionContext` wrapping it
+  (`caller=ctx` -> `execution=ExecutionContext(caller=ctx)`, generally via a small `_execution()`
+  test helper placed next to each file's existing `_caller()` helper). No existing assertion was
+  weakened — assertions that read `.caller.role`/`.caller.active_case_id`/etc. on a captured
+  `SubAgentInput` now read the same values through `.execution.caller.*` instead. Added a few new
+  smoke tests alongside the existing ones: `ExecutionContext` construction/defaults in
+  `test_harness_types.py`, and `_build_where()`'s new project_id-vs-global precedence in
+  `test_harness_tool_rag.py`.
+
+**One caught-and-fixed authoring slip, flagged not hidden:** a first pass at the bulk
+find/replace in the compliance suite's `test_enforcement_3_cross_case_role_gate.py` rewrote
+`_denied_execution()`'s own body (`ExecutionContext(caller=_denied_caller())`) into
+`ExecutionContext(execution=_denied_execution())` — a self-referential replacement that caused
+infinite recursion. Caught by the verification test run (RecursionError, not a silent pass);
+fixed before merge, called out here per this session's "an easy rename to get subtly wrong"
+warning.
+
+**No deviations from the plan's §10.1/§10.2 type text** — `ExecutionContext`/`ConversationContext`
+were transcribed as given. `workspace_id`/`organization_id`/`feature_flags` remain present but
+unused, exactly as §10.1 specifies; nothing in this session's diff branches on them.
+
+**Verification:** full existing test suite (`pytest`, `testpaths = tests`) — 886 passed, 4 skipped
+(the same pre-existing, unrelated docling/PDF `std::bad_alloc` environment failure documented
+present on main since Phase 0's own merge — confirmed still present identically, not a
+regression), 0 failed. Compliance suite (`src/pipeline/harness/compliance/`, run separately since
+`pytest.ini` scopes default collection to `tests/`) — 51/51 checks still passing, unchanged count
+from Phase 0. Nothing in `main.py`, `orchestrator.py`, `router.py`'s existing behavior, or any
+`workspace_id`/`organization_id`/`feature_flags` branch was touched — still not wired into live
+traffic, per §6; the reserved fields are still inert, per §10.1.
+
+---
+
+## 10. Contract amendment — ExecutionContext & ConversationContext (post-Phase-2)
+
+Two deviations surfaced independently in Phase 0 and Phase 2 turned out to be the same underlying
+gap, recurring: the shared contract has no room for scope/context beyond a single case, so each
+sub-agent phase was starting to invent its own narrow workaround. Resolved as one contract change,
+**decided before Large-Scale Aggregate starts** so the next sub-agent is built against the settled
+shape rather than becoming an eighth ad hoc deviation.
+
+### 10.1 `ExecutionContext` — wraps `CallerContext`, does not replace it
+
+```python
+class ExecutionContext(BaseModel):
+    """
+    The environment a query executes in. Threaded through supervisor -> sub-agent
+    -> tool in place of a bare CallerContext.
+
+    [PRESERVE] Wraps CallerContext rather than replacing or flattening it — every
+    existing [PRESERVE] rule on CallerContext (SUBAGENT_INTERFACES.md §0: role
+    must originate from the authenticated user's real RBAC role, never a
+    profile/preferences object; construction does not grant access) applies
+    unchanged to the nested `caller` field. This type only adds scope that sits
+    ABOVE a single case.
+
+    [PRESERVE, extends §4.4] Threaded unchanged at every hop, exactly like
+    CallerContext was before it — not reconstructed, not merged with any
+    profile/preferences object, not partially copied.
+    """
+    caller: CallerContext
+    project_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "Project-level scope. Restores the project/global precedence rule "
+            "RAG's Phase-0 tool wrapper had to drop for lack of a carrier (§9, "
+            "Phase 0 entry). None = no project scoping applied — same behavior "
+            "as the Phase 0/1/2 code shipped with."
+        ),
+    )
+    workspace_id: Optional[str] = None
+    organization_id: Optional[str] = None
+    feature_flags: dict[str, bool] = Field(default_factory=dict)
+    # workspace_id / organization_id / feature_flags are RESERVED, UNUSED for MVP.
+    # Nothing may branch on them until a real spec exists for each — the point of
+    # adding them now is to avoid a second signature-wide change later, not to
+    # start building against them today.
+```
+
+`ToolInput.caller: CallerContext` and `SubAgentInput.caller: CallerContext` are both **renamed** to
+`execution: ExecutionContext` — not additive; every existing call site that reads `.caller.role`,
+`.caller.active_case_id`, etc. becomes `.execution.caller.role`, `.execution.caller.active_case_id`.
+
+### 10.2 `ConversationContext` — upgrades the existing field's type, not a new field
+
+```python
+class ConversationContext(BaseModel):
+    """
+    Bounded, pre-summarized conversation/session context for a sub-agent.
+
+    [PRESERVE, carried forward from the original conversation_context field]
+    Bounding is the supervisor's job — a sub-agent never receives full history,
+    full project memory, or raw attachment bytes. This object being richer than
+    a bare string does not relax that rule; every field on it must already be
+    pre-bounded/summarized by the time it reaches a sub-agent.
+    """
+    summary: Optional[str] = None
+    project_memory: Optional[str] = None
+    attachment_refs: list[str] = Field(default_factory=list)
+```
+
+`SubAgentInput.conversation_context` changes type from `Optional[str]` to
+`Optional[ConversationContext]` — same field name, same field slot, richer shape. No new field
+added; this is a type upgrade of the field that already existed.
+
+### 10.3 Retrofit scope — what already-shipped code this touches
+
+- `src/pipeline/harness/types.py` — add both new types; change `ToolInput.caller` →
+  `ToolInput.execution`, `SubAgentInput.caller` → `SubAgentInput.execution`, upgrade
+  `conversation_context`'s type.
+- `src/pipeline/harness/tools/*.py` (all 7, Phase 0) — every wrapper's internal reads of
+  `tool_input.caller.*` become `tool_input.execution.caller.*`. RAG's wrapper additionally starts
+  reading `tool_input.execution.project_id` for the scoping it previously couldn't do.
+- `src/pipeline/harness/supervisor.py` (Phase 1) — `Supervisor.handle()` threads `execution`
+  unchanged, same as it threaded `caller` before; the "threaded unchanged" tests need updating to
+  construct/assert against `ExecutionContext`, not `CallerContext`, directly.
+- `src/pipeline/harness/agents/semantic_search.py` (Phase 2) — same rename at its call sites.
+- All three phases' existing test files construct `CallerContext` directly today — every one of
+  those construction sites needs updating to build an `ExecutionContext` wrapping it instead.
+
+### 10.4 Why this doesn't wait until it's needed
+
+Retrofitting 3 already-merged modules now is cheaper than retrofitting 8. Every sub-agent from
+Large-Scale Aggregate onward is built directly against whichever shape is settled at the time — do
+this now, once, or repeat the Phase-0/Phase-2 pattern of one more ad hoc workaround per phase until
+someone eventually forces the same rename across a much larger surface.
