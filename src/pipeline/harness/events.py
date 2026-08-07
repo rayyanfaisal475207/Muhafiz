@@ -23,7 +23,73 @@ import time
 from contextlib import asynccontextmanager
 from typing import Any, Optional
 
-from src.pipeline.harness.contracts import PipelineEvent, to_step_status
+from src.pipeline.harness.contracts import PipelineEvent, SubAgentResult, to_step_status
+
+
+# Schema version for the structured trace payload. Bump when the SHAPE changes
+# in a way a reader must adapt to — `pipeline_steps` rows are historical
+# records, so a renderer will encounter payloads written by older code
+# indefinitely and needs to know which contract it is looking at.
+TRACE_PAYLOAD_VERSION = 1
+
+
+def build_degradation_trace(result: SubAgentResult) -> dict:
+    """
+    Build the structured per-query trace payload from a finished sub-agent.
+
+    ONE SHAPE FOR ALL SEVEN SUB-AGENTS. The fields read here
+    (`tools_used`/`degraded_from`/`caveats`/`status`) live on `SubAgentResult`
+    itself, not on any particular sub-agent, so this produces an identical
+    payload regardless of which one ran. Nothing per-sub-agent belongs in here —
+    a future Investigative Analysis or Timeline Building gets traced correctly
+    without its author wiring anything up.
+
+    THE OVERLAP CASE, WHICH READERS MUST HANDLE
+    ───────────────────────────────────────────
+    A tool can appear in BOTH `tools_used` and `degraded_from`. That is not a
+    bug and must not be normalized away: it means the tool CONTRIBUTED DATA but
+    degraded internally while doing so — Case Summarization already produces
+    this when RAG returns evidence with its relevance gate unavailable
+    (c4a06fe). So `degraded_from` membership does NOT imply "did not
+    contribute", and a renderer that assumes the two lists are disjoint will
+    misreport that case.
+
+    `contributed_only` and `degraded_only` are precomputed here precisely so
+    every consumer derives the three-way split identically instead of each
+    reimplementing the set arithmetic — and so the overlap is impossible to
+    miss by accident.
+
+    This shape is deliberately sized for the hardest known case ahead of it:
+    Investigative Analysis composes RAG + GRAPH + SQL where GRAPH and SQL both
+    degrade TO RAG, so a three-tool call can collapse to one effective source
+    ([RESOLVED-4]). The payload keeps "what was attempted" and "what actually
+    paid off" separable, which is the whole point of tracing it — no
+    payload-shape change should be needed when that sub-agent lands.
+    """
+    used = list(result.tools_used)
+    degraded = list(result.degraded_from)
+    used_set, degraded_set = set(used), set(degraded)
+
+    return {
+        "v": TRACE_PAYLOAD_VERSION,
+        "sub_agent_status": result.status.value,
+        # Raw contract fields, verbatim — a reader that wants the originals
+        # never has to reconstruct them from the derived views below.
+        "tools_used": used,
+        "degraded_from": degraded,
+        # Derived three-way split. Order preserved from `tools_used` /
+        # `degraded_from` so output is stable across runs.
+        "contributed_only": [t for t in used if t not in degraded_set],
+        "degraded_and_contributed": [t for t in used if t in degraded_set],
+        "degraded_only": [t for t in degraded if t not in used_set],
+        "caveats": list(result.caveats),
+        # Asserts the DOCUMENT itself discloses its partiality (RESOLVED-3).
+        # None when this sub-agent produced no file.
+        "disclosure_rendered": (
+            result.generated_file.disclosure_rendered
+            if result.generated_file is not None else None
+        ),
+    }
 
 
 class EventRecorder:
@@ -78,11 +144,22 @@ class EventRecorder:
         equivalent, so it is not persisted — persisting it would double-count
         every step against the four-value CHECK constraint. Everything else
         maps through `_STEP_STATUS_MAP`.
+
+        `output_summary` is a JSONB column, so structured content needs no
+        migration. `{"detail": ...}` remains the baseline shape every step
+        writes; an event carrying a `trace` payload adds it alongside, never
+        instead — existing readers keep finding `detail` exactly where it was.
         """
         if self._gateway is None or self.run_id is None:
             return
         if event.status == "active":
             return
+
+        summary: dict = {"detail": event.detail}
+        trace = getattr(event, "trace", None)
+        if trace:
+            summary["trace"] = trace
+
         self._step_order += 1
         await self._gateway.log_step(
             run_id=self.run_id,
@@ -90,7 +167,7 @@ class EventRecorder:
             step_order=self._step_order,
             status=to_step_status(event.status),
             duration_ms=event.ms,
-            output_summary=event.detail,
+            output_summary=summary,
         )
 
     @asynccontextmanager

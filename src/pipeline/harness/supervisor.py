@@ -42,7 +42,7 @@ from src.pipeline.harness.contracts import (
     SubAgentResult,
     SubAgentStatus,
 )
-from src.pipeline.harness.events import EventRecorder
+from src.pipeline.harness.events import EventRecorder, build_degradation_trace
 
 # ── Node registry (≈ graph.add_node) ─────────────────────────────────────
 #
@@ -110,11 +110,16 @@ async def invoke(
 
     node = _NODES.get(selected)
     if node is None:
-        await recorder.emit(
-            "supervisor:dispatch", "error", f"No sub-agent registered for '{selected}'"
-        )
         state.selected_agent = UNROUTABLE
         state.result = SubAgentResult(status=SubAgentStatus.ABSTAINED, answer_text=None)
+        # Traced too, so "nothing ran" is a recorded outcome rather than a hole
+        # in the run's history — an unroutable query is exactly the kind of
+        # thing someone reviewing a run later needs to see.
+        await recorder.emit(
+            "supervisor:dispatch", "error",
+            f"No sub-agent registered for '{selected}'",
+            trace=build_degradation_trace(state.result),
+        )
         state.events = recorder.events
         return state
 
@@ -125,9 +130,23 @@ async def invoke(
     # ── Node: the selected sub-agent ──
     state.result = await node(agent_input, recorder)
 
+    # ── THE per-query trace write. One place, all seven sub-agents. ──
+    #
+    # This is deliberately here and not inside any sub-agent. The supervisor
+    # invokes nodes generically out of `_NODES` and holds the finished
+    # `SubAgentResult` regardless of which one ran, so the trace is emitted by
+    # construction rather than by every author remembering to call it. Adding
+    # Investigative Analysis / Timeline Building / Cross-Case Linkage requires
+    # registering the node and nothing else — there is no path that reaches a
+    # sub-agent while bypassing this line.
+    #
+    # Attached to the EXISTING completion event rather than a new one: §2.2
+    # specifies one event per meaningful transition, and a separate trace event
+    # would double-count the same transition.
     await recorder.emit(
         "supervisor:complete", "done",
         f"Sub-agent {selected} finished with status={state.result.status.value}",
+        trace=build_degradation_trace(state.result),
     )
 
     state.events = recorder.events

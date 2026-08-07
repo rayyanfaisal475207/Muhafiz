@@ -395,6 +395,47 @@ file did not.
   untouched while the harness runs alongside it — but the two routes disagreeing about the same
   call is worth resolving when the legacy path is retired or revisited.
 
+- **`caveats`/`disclosure_rendered` are user-facing by design but persist only in an
+  admin-scoped table.** [RESOLVED-2a] exists precisely because metadata does not travel with the
+  text a reader sees — yet with the per-query trace work scoped as it is, these fields land in
+  `pipeline_steps.output_summary`, readable through the admin Run History page
+  (`/api/admin/runs/*`, platform-admin only) and nowhere else. An investigator cannot review why
+  their *own* past answer was flagged partial.
+
+  **Scoped deliberately, per direct product guidance:** the requirement is a reviewable
+  per-query trace for operators, not an investigator-facing "why was my answer partial" surface
+  in their own chat history. `pipeline_steps` + Run History is the correct and complete
+  destination for that requirement.
+
+  **What a future requirement would need:** a second write path, most likely on the `messages`
+  table, so the caveat is durably attached to the answer the investigator actually received
+  rather than to the operational record of how it was produced. Not built. Flagged because the
+  gap is a deliberate scope boundary rather than an oversight, and because the shape of the
+  fix differs from the trace work — the trace records *what the system did*, a message-level
+  caveat records *what the user was told*, and those are not the same fact.
+
+- **`admin-frontend`'s test suite does not run out of the box — pre-existing, unrelated to the
+  harness.** Surfaced while verifying the Run History trace rendering. Two independent
+  breakages, neither caused by harness work and neither fixed here:
+
+  1. **Missing native binding.** `@rolldown/binding-win32-x64-msvc` is not installed by
+     `npm install` (it is an optional platform dependency of `rolldown`, which Vite 8 uses).
+     Without it, `npm run build`, `npm run dev`, and `vitest` all fail at startup with
+     `MODULE_NOT_FOUND`. Worked around locally with
+     `npm install --no-save @rolldown/binding-win32-x64-msvc@<rolldown version>` — deliberately
+     unsaved, so it is NOT a durable fix and vanishes on a clean reinstall.
+  2. **jsdom / ESM conflict.** `jsdom@28`'s `html-encoding-sniffer` CommonJS-`require`s
+     `@exodus/bytes`, which now ships as pure ESM → `ERR_REQUIRE_ESM`. This breaks the
+     PRE-EXISTING suite too, confirmed by running `ReviewQueuePage.test.tsx` on an unmodified
+     checkout. Worked around with `--environment happy-dom` (a CLI flag; `vitest.config.ts` was
+     not modified). Note the other page tests were written against jsdom and some fail under
+     happy-dom, so this substitution is a local verification aid, not a suite-wide fix.
+
+  Same class of problem as the Python baseline addressed in 62a23e1/75cedd2: a test suite that
+  cannot run is a suite nobody trusts. Worth a dedicated pass — pinning the platform binding as
+  a real dependency and resolving the jsdom version conflict — rather than each contributor
+  rediscovering both workarounds.
+
 - **Per-chunk `confidence` conflates "checked, and it's low" with "never computed" — affects the
   Verifier's hedging check.** Surfaced while resolving the interface contracts in
   `docs/SUBAGENT_INTERFACES.md` (review of its RESOLVED-5). That doc settled the identical
