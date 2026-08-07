@@ -7,8 +7,12 @@ AGENT_HARNESS_DESIGN.md (the *why*). Per the plan, the Supervisor does
 exactly three things and nothing else:
 
   (a) Classify the incoming question against the 8 sub-agent names.
-  (b) Thread `CallerContext` through to whichever sub-agent it dispatches
-      to, COMPLETELY UNCHANGED.
+  (b) Thread `ExecutionContext` through to whichever sub-agent it dispatches
+      to, COMPLETELY UNCHANGED. [RENAMED — AGENT_HARNESS_IMPLEMENTATION_PLAN.md
+      §10.1] Was `CallerContext`, threaded as `SubAgentInput.caller`; now
+      `SubAgentInput.execution: ExecutionContext`, wrapping `CallerContext`
+      unchanged as `execution.caller`. Same "threaded unchanged" rule applies
+      to the whole `ExecutionContext`, not just the nested `caller`.
   (c) Return exactly the `SubAgentResult` it gets back — untouched,
       unreformatted, unwrapped.
 
@@ -294,10 +298,11 @@ class Supervisor:
             )
             return _not_yet_available_result(sub_agent_name)
 
-        # [PRESERVE — SUBAGENT_INTERFACES.md §0, design §4.4] `agent_input`
-        # (and therefore `agent_input.caller`) is passed straight through,
+        # [PRESERVE — SUBAGENT_INTERFACES.md §0, design §4.4, extended by
+        # plan §10.1] `agent_input` (and therefore `agent_input.execution`
+        # and its nested `.execution.caller`) is passed straight through,
         # unmodified — no reconstruction, no merge with any
-        # profile/preferences object, no defaulting of `.caller.role`.
+        # profile/preferences object, no defaulting of `.execution.caller.role`.
         result = await handler(agent_input)
 
         emit(
