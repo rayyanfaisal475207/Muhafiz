@@ -17,6 +17,28 @@ Nothing in this module imports from `src.retrieval`, `src.graph`,
 `src.pipeline.orchestrator`, or any other production pipeline code. That
 isolation is deliberate: the harness must be buildable and testable without
 the live pipeline.
+
+WHAT DELIBERATELY LIVES ELSEWHERE
+─────────────────────────────────
+The doc declares two function signatures that are NOT transcribed here, because
+they are boundary interfaces rather than contract types:
+
+  * `verify_grounding(...)` — the grounding gate. Lives in `verifier_gate.py`,
+    with the real signature preserved exactly (design §5). Putting a callable
+    boundary in a types module would blur the line between "the shape data must
+    have" and "the thing that acts on it".
+  * `log_step(...)` — an existing DataGateway method, called by `events.py`.
+    It is production API this module describes but does not own.
+
+Four names exist here without a matching declaration in the doc's code blocks:
+`SourceTool` and `AggregateKind` (type aliases the doc uses inline in prose),
+and `_STEP_STATUS_MAP` / `to_step_status` (which implement the five-to-four SSE
+status remapping the doc's §2.2 specifies in prose). All four are
+implementations of documented behaviour, not undocumented additions.
+
+Correspondence between this module and the doc was verified field-by-field, not
+just name-by-name — a class can exist while quietly missing a field, which is
+the failure mode that actually bites.
 """
 from __future__ import annotations
 
@@ -464,6 +486,18 @@ class WebToolResult(ToolResult):
     failed. Preserve the two-tier shape.
     """
     provider_used: Optional[Literal["primary_search", "grounded_search_fallback"]] = None
+    fallback_to_rag: bool = False
+    """
+    Redundant with `ToolResult`'s default, and kept deliberately.
+
+    This class sits directly below three results that pin `fallback_to_rag` to
+    `Literal[False]` (XGRAPH/XAGG/XNETWORK, via `CrossCaseToolResult`). Stating
+    WEB's OPPOSITE polarity explicitly makes the contrast visible at the point a
+    reader is comparing them, instead of requiring a jump to the base class to
+    discover that the absence meant "inherited, still mutable" rather than
+    "forgotten". The polarity is a [PRESERVE] guarantee, so the redundancy buys
+    real clarity.
+    """
 
 
 # ══════════════════════════════════════════════════════════════════════════
