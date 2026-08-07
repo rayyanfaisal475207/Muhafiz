@@ -151,7 +151,7 @@ def _case_ids_touched(agg_result: dict) -> list[str]:
 
 async def xagg_tool(tool_input: XAggToolInput) -> XAggToolResult:
     """The XAGG primitive: cross-case aggregate, never falls back to RAG."""
-    caller = tool_input.caller
+    caller = tool_input.execution.caller
     gateway = await get_gateway()
 
     try:

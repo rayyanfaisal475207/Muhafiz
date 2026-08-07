@@ -155,7 +155,7 @@ def _conflicts_included(chunks: list[dict]) -> bool:
 
 async def graph_tool(tool_input: GraphToolInput) -> GraphToolResult:
     """The GRAPH / GRAPH_HYBRID primitive."""
-    caller = tool_input.caller
+    caller = tool_input.execution.caller
     source_tool: SourceTool = "GRAPH_HYBRID" if tool_input.hybrid else "GRAPH"
 
     if not tool_input.hybrid:
