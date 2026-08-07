@@ -324,7 +324,7 @@ wired into live traffic, per §6.
 ### Phase 2 — Semantic Search: COMPLETE
 
 Branch `feature/harness-phase-2-semantic-search`, merged to main via merge
-commit `<TO BE FILLED IN AFTER MERGE>`.
+commit `6298d04`.
 
 **Built:**
 - `src/pipeline/harness/agents/semantic_search.py` — composes the Phase 0
