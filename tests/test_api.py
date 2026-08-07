@@ -10,6 +10,7 @@ Guards:
 """
 import os
 import uuid
+from contextlib import asynccontextmanager
 
 import pytest
 from fastapi.testclient import TestClient
@@ -395,12 +396,25 @@ def test_health_reports_degraded_when_postgres_unreachable(api, monkeypatch):
     daemon stopped), every Postgres-backed call (register, login, ...) was
     returning 500 in the same moment /health kept reporting "ok" — a
     monitoring platform watching only `status` would never have caught it.
+
+    The fake here is a real @asynccontextmanager (matching get_session()'s
+    actual shape, used via `async with`) — not a plain async generator.
+    2026-08-06: the original version of both this test and the "reachable"
+    one below used a bare async-generator fake, which happens to satisfy
+    `async for` but NOT `async with` — that mismatch is exactly why these
+    tests never caught /health's own real bug (main.py used `async for
+    session in get_session():` against the real, `@asynccontextmanager`-
+    decorated get_session(), which raised on every single call — see the
+    fix commit). A mock shaped differently from the real dependency's
+    contract can pass while the production code it's meant to guard is
+    already broken.
     """
     client, _ = api
 
+    @asynccontextmanager
     async def _broken_get_session():
         raise RuntimeError("connection refused")
-        yield  # pragma: no cover - makes this an async generator
+        yield  # pragma: no cover - makes this a valid generator body
 
     monkeypatch.setattr("src.database.postgres.get_session", _broken_get_session)
 
@@ -412,10 +426,14 @@ def test_health_reports_degraded_when_postgres_unreachable(api, monkeypatch):
 
 
 def test_health_reports_ok_when_postgres_reachable(api, monkeypatch):
+    """See test_health_reports_degraded_when_postgres_unreachable's
+    docstring for why this fake must be a real @asynccontextmanager, not a
+    bare async generator."""
     class _FakeSession:
         async def execute(self, *args, **kwargs):
             return None
 
+    @asynccontextmanager
     async def _working_get_session():
         yield _FakeSession()
 

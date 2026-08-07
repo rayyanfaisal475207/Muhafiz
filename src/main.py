@@ -291,9 +291,17 @@ async def health_check():
         from src.database.postgres import get_session
 
         async def _probe():
-            async for session in get_session():
+            # get_session() is an @asynccontextmanager (async with), not an
+            # async generator/iterator (async for) -- confirmed live
+            # (2026-08-06): `async for` here raised "'async for' requires
+            # an object with __aiter__ method, got
+            # _AsyncGeneratorContextManager" on EVERY call, so this probe
+            # always reported db_status: error regardless of whether
+            # Postgres was actually reachable, defeating the point of this
+            # whole endpoint (a real, healthy Postgres connection verified
+            # working throughout that same session while this kept failing).
+            async with get_session() as session:
                 await session.execute(text("SELECT 1"))
-                break
 
         # A health probe must never itself hang — a stalled/unreachable host
         # (as opposed to a fast connection-refused) could otherwise block
