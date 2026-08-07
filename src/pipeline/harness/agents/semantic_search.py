@@ -154,6 +154,17 @@ async def run(
         )
 
     citations = _to_citations(chunks)
+
+    # Propagate tool-level degradation into the bounded payload. `caveats` is
+    # the contract's existing channel for qualifications that MUST survive to
+    # the final response (design §3) — the same treatment unconfirmed identity
+    # links get. A relevance gate that could not run is exactly that kind of
+    # qualification: the answer is still served, but the user is told the
+    # evidence went unscreened. Dropping this here would make the tool's
+    # `evaluator_verdict="unavailable"` invisible to everyone above it.
+    caveats = list(result.degradation_caveats)
+    degraded_from = ["RAG"] if result.evaluator_verdict == "unavailable" else []
+
     if events:
         await events.emit(
             f"subagent:{NAME}", "done",
@@ -162,9 +173,12 @@ async def run(
         )
 
     return SubAgentResult(
-        status=SubAgentStatus.OK,
+        # A result whose relevance gate never ran is not a clean OK — it is
+        # usable but degraded, which is what PARTIAL exists to say.
+        status=SubAgentStatus.PARTIAL if caveats else SubAgentStatus.OK,
         answer_text=answer,
         citations=citations,
         tools_used=["RAG"],
-        degraded_from=[],
+        degraded_from=degraded_from,
+        caveats=caveats,
     )

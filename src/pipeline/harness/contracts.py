@@ -270,7 +270,35 @@ class RagToolResult(ToolResult):
     """
     fallback_to_rag: Literal[False] = False
     retries_used: int = 0
-    evaluator_verdict: Optional[Literal["relevant", "not_relevant"]] = None
+    evaluator_verdict: Optional[Literal["relevant", "not_relevant", "unavailable"]] = Field(
+        default=None,
+        description=(
+            "Outcome of the relevance gate. FOUR distinct states, and collapsing any "
+            "two of them loses information a caller needs:\n"
+            "  'relevant'     — gate ran, evidence passed.\n"
+            "  'not_relevant' — gate ran, evidence rejected. Status is EMPTY.\n"
+            "  'unavailable'  — THE GATE COULD NOT RUN (evaluator raised/timed out). "
+            "Chunks are passed through UNVETTED so a flaky evaluator does not take "
+            "retrieval down with it, but the evidence carries no relevance guarantee. "
+            "A caller that treats this as equivalent to 'relevant' has silently "
+            "dropped the gate. Always accompanied by a caveat in "
+            "`degradation_caveats` — see rag_tool.\n"
+            "  None           — the gate was never reached (retrieval failed, or "
+            "returned nothing to evaluate). Distinct from 'unavailable': nothing was "
+            "skipped, there was simply nothing to judge."
+        ),
+    )
+    degradation_caveats: list[str] = Field(
+        default_factory=list,
+        description=(
+            "User-facing qualifications about HOW this result was produced — "
+            "currently, that the relevance gate could not run. The composing "
+            "sub-agent MUST propagate these into `SubAgentResult.caveats`, which is "
+            "where the contract's existing caveat pattern lives (the same treatment "
+            "Cross-Case Linkage gives unconfirmed identity links: surfaced, never "
+            "silently dropped)."
+        ),
+    )
 
 
 # ── §1.3 GRAPH / GRAPH_HYBRID ────────────────────────────────────────────

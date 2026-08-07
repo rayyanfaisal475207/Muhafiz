@@ -355,12 +355,35 @@ class RagToolResult(ToolResult):
     retries_used: int = Field(
         default=0, description="Internal retry loop iterations consumed. Observability only."
     )
-    evaluator_verdict: Optional[Literal["relevant", "not_relevant"]] = Field(
+    evaluator_verdict: Optional[Literal["relevant", "not_relevant", "unavailable"]] = Field(
         default=None,
         description=(
-            "Relevance gate outcome on the final attempt. `not_relevant` after retry "
-            "exhaustion yields status=EMPTY, not FAILED — retrieval worked, the "
-            "evidence just did not answer the question."
+            "[RESOLVED-7] Relevance gate outcome. FOUR distinct states; collapsing "
+            "any two loses information a caller needs:\n"
+            "  'relevant'     — gate ran, evidence passed.\n"
+            "  'not_relevant' — gate ran, evidence rejected. status=EMPTY, not "
+            "FAILED: retrieval worked, the evidence just did not answer the "
+            "question. A verdict payload missing its verdict key is treated as "
+            "this (fail closed) — an unjudged result is not a pass.\n"
+            "  'unavailable'  — THE GATE COULD NOT RUN (evaluator raised or timed "
+            "out). Chunks are passed through UNVETTED so a flaky evaluator does not "
+            "take retrieval down with it, but the evidence carries no relevance "
+            "guarantee. A caller treating this as equivalent to 'relevant' has "
+            "silently dropped the gate. Always accompanied by `degradation_caveats`.\n"
+            "  None           — gate never reached (retrieval failed, or returned "
+            "nothing to judge). Distinct from 'unavailable': nothing was skipped."
+        ),
+    )
+    degradation_caveats: list[str] = Field(
+        default_factory=list,
+        description=(
+            "[RESOLVED-7] User-facing qualifications about HOW this result was "
+            "produced — currently, that the relevance gate could not run. The "
+            "composing sub-agent MUST propagate these into `SubAgentResult.caveats`, "
+            "the contract's existing channel for qualifications that must survive to "
+            "the final response (§3) — the same treatment unconfirmed identity links "
+            "receive. A sub-agent that drops them makes the degradation invisible to "
+            "everyone above it."
         ),
     )
 ```
@@ -1000,7 +1023,7 @@ async def verify_grounding(
 
 | Sub-agent | Composes | Bounded payload | Partial-failure behavior |
 |---|---|---|---|
-| **Semantic Search** | RAG | Synthesized answer + top-N citations. Never the full ranked set. | Evaluator rejection after retry exhaustion → `ABSTAINED`. |
+| **Semantic Search** | RAG | Synthesized answer + top-N citations. Never the full ranked set. | Evaluator rejection after retry exhaustion → `ABSTAINED`. **[RESOLVED-7]** Evaluator *unavailable* (could not run) → answer still served, but `PARTIAL`, `degraded_from=["RAG"]`, and the tool's `degradation_caveats` propagated into `caveats` — never a silent `OK`. |
 | **Case Summarization** | RAG (case-scoped) + GRAPH (case-scoped, capped hops) | One structured summary: status, key entities, key events, open questions. Never underlying chunks or graph rows. | **Symmetric degradation, either direction** — GRAPH empty/failed → RAG-only, `PARTIAL`, `degraded_from=["GRAPH"]`; **[RESOLVED-2]** RAG empty/failed → GRAPH-only, `PARTIAL`, `degraded_from=["RAG"]`, `tools_used=["GRAPH"]`. **Never `ABSTAINED` while real evidence exists on the surviving side** — abstaining would discard genuinely useful evidence. Both empty → `EMPTY`. **[RESOLVED-2a]** In the GRAPH-only direction the **summary text itself** carries `GRAPH_ONLY_SUMMARY_DISCLOSURE`, injected post-verification per §2.1.2 — `degraded_from` alone is not sufficient, since a reader could otherwise mistake a thinner, entity-shaped summary for a full one. |
 | **Report Drafting** | **Case Summarization's output** + document builders | `GeneratedFileRef`. | **[PRESERVE]** If Case Summarization degraded, draft from what it returned — **never re-invoke tools directly to fill gaps**; that bypasses the summarization boundary. **[RESOLVED-3]** Degradation is **inherited**: upstream `PARTIAL` → this sub-agent is `PARTIAL`, it propagates the upstream `degraded_from`, **and** the builder renders `PARTIAL_EVIDENCE_DISCLOSURE_TEMPLATE` into the **document body**, setting `disclosure_rendered=True`. The disclosure must never live only in the payload/status field or internal logs — the investigator reading the document is the person who needs it. **[RESOLVED-3a]** It is injected **after** verification passes and is **never itself verified** (§2.1.3). **[RESOLVED-2a]** If the gap was already disclosed in Case Summarization's inherited text, that disclosure propagates forward and Report Drafting does **not** add a second one for the same gap — see §2.1.3's suppression rule. File-build failure → `ABSTAINED` with an explicit file-generation error. |
 | **Investigative Analysis** | RAG + GRAPH + SQL | One synthesized answer, citations rolled up across all three. Never three separate result sets. | Each tool degrades independently per its own rule (GRAPH→RAG, SQL→RAG) **before** this sub-agent sees it — so it needs no duplicate fallback logic and always receives final tool output. **[RESOLVED-4]** ≥1 of the three returning usable data → `PARTIAL` (or `OK` if none degraded); all three failed/empty → `ABSTAINED`. `tools_used` lists only post-fallback contributors, deduplicated — a call where GRAPH and SQL both fell back to RAG reports `tools_used=["RAG"]`, `degraded_from=["GRAPH","SQL"]`, never three. **[RESOLVED-4a]** Emits one `PipelineEvent` **per source-tool outcome as it resolves** (§2.1.4) so the live trace shows per-source status in real time — the roll-up alone is not sufficient. |
@@ -1371,6 +1394,27 @@ distinguish "checked, clear" from "never checked," so a failed check would rende
 the system never verified — a correctness defect in an investigative context, not a stylistic
 choice. Renderers must carry the distinction through to user-facing output; collapsing `UNKNOWN`
 to "no conflicts" in presentation reintroduces the same defect one layer later.
+
+**[RESOLVED-7] — The relevance gate distinguishes "rejected" from "could not run."**
+*(Surfaced while wiring the real RAG tool.)* `evaluator_verdict` gains a third value,
+`'unavailable'`, and `RagToolResult` gains `degradation_caveats`.
+
+An evaluator that **cannot run** is not evidence of relevance. Chunks are still passed through —
+a flaky local model endpoint should not take retrieval down with it — but the degradation is
+explicit rather than silent: a distinct verdict value, a user-facing caveat, and `PARTIAL` status
+at the sub-agent. Reporting `'relevant'` in that case would drop the gate without trace.
+
+**The Verifier does not backstop this.** It checks *grounding* — whether claims trace to cited
+chunks — not *relevance*, so it will pass a well-grounded answer built entirely from off-topic
+evidence. Relevance screening has no second line of defence, which is why its absence has to be
+visible.
+
+Separately, a malformed verdict (a payload with no verdict key) now **fails closed**, matching
+the legacy GRAPH route. It previously defaulted to a pass, which silently admitted unjudged
+evidence — a defect, not a design choice.
+
+*See AGENT_HARNESS_DESIGN.md §7 for why this is a deliberate deviation from legacy RAG's
+crash-on-evaluator-error behaviour.*
 
 **[RESOLVED-6] — `DENIED` propagates as its own sub-agent status.**
 Cross-Case Linkage returns `DENIED` when both tools deny (always together — identical role sets).

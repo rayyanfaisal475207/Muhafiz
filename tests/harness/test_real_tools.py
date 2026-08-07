@@ -255,3 +255,142 @@ async def test_real_rag_never_declares_fallback(monkeypatch):
     assert result.status is ToolStatus.FAILED
     assert result.fallback_to_rag is False, "RAG is the fallback target; it has none of its own"
 
+
+# ── The relevance gate's four distinct states ────────────────────────────
+
+@pytest.fixture
+def _retrieval_returns_one_chunk(monkeypatch):
+    """Drive retrieval to a fixed single chunk so tests isolate the gate."""
+    chunk = {"id": "c1", "text": "case text", "metadata": {"case_id": "CASE-A"}, "rrf_score": 0.9}
+
+    async def _expand(_q, n=2):
+        return []
+
+    async def _variant(_q):
+        return None
+
+    async def _embed(_q, **k):
+        return [0.0, 0.1]
+
+    async def _query_similar(*a, **k):
+        return [chunk]
+
+    async def _all_chunks(**k):
+        return [chunk]
+
+    monkeypatch.setattr("src.pipeline.query_expander.expand_query", _expand)
+    monkeypatch.setattr("src.pipeline.cross_script_variant.generate_cross_script_variant", _variant)
+    monkeypatch.setattr("src.retrieval.embedder.embed_text", _embed)
+    monkeypatch.setattr("src.retrieval.vector_store.query_similar", _query_similar)
+    monkeypatch.setattr("src.retrieval.vector_store.get_all_chunks", _all_chunks)
+    monkeypatch.setattr("src.retrieval.bm25_retriever.retrieve_bm25", lambda *a, **k: [chunk])
+    monkeypatch.setattr("src.retrieval.reranker.rerank_results", lambda *a, **k: [chunk])
+
+    async def _cross_rerank(_q, candidates, top_k=None):
+        return candidates
+
+    monkeypatch.setattr("src.retrieval.cross_reranker.cross_rerank", _cross_rerank)
+    return chunk
+
+
+async def test_gate_relevant(_retrieval_returns_one_chunk, monkeypatch):
+    async def _verdict(*a, **k):
+        return {"relevant": True, "reason": "ok"}
+
+    monkeypatch.setattr("src.pipeline.evaluator.evaluate_relevance", _verdict)
+
+    result = await real.rag_tool(RagToolInput(query_text="q", caller=_investigator()))
+    assert result.status is ToolStatus.OK
+    assert result.evaluator_verdict == "relevant"
+    assert result.degradation_caveats == []
+
+
+async def test_gate_not_relevant_withholds_evidence(_retrieval_returns_one_chunk, monkeypatch):
+    async def _verdict(*a, **k):
+        return {"relevant": False, "reason": "off topic"}
+
+    monkeypatch.setattr("src.pipeline.evaluator.evaluate_relevance", _verdict)
+
+    result = await real.rag_tool(RagToolInput(query_text="q", caller=_investigator()))
+    assert result.status is ToolStatus.EMPTY
+    assert result.evaluator_verdict == "not_relevant"
+    assert result.chunks == []
+
+
+async def test_gate_malformed_verdict_fails_closed(_retrieval_returns_one_chunk, monkeypatch):
+    """
+    A verdict dict with no `relevant` key did not actually judge anything.
+    Matches legacy GRAPH's `.get("relevant", False)`; the earlier default of
+    True was a defect that silently passed unjudged evidence.
+    """
+    async def _verdict(*a, **k):
+        return {"reason": "model returned prose instead of a verdict"}
+
+    monkeypatch.setattr("src.pipeline.evaluator.evaluate_relevance", _verdict)
+
+    result = await real.rag_tool(RagToolInput(query_text="q", caller=_investigator()))
+    assert result.status is ToolStatus.EMPTY
+    assert result.evaluator_verdict == "not_relevant"
+
+
+async def test_gate_unavailable_passes_through_but_flags_it(
+    _retrieval_returns_one_chunk, monkeypatch
+):
+    """
+    Evaluator raised → evidence still served (availability), but the
+    degradation is explicit: a distinct verdict value AND a caveat. Silently
+    reporting 'relevant' here would drop the gate without trace.
+    """
+    async def _boom(*a, **k):
+        raise RuntimeError("evaluator endpoint timed out")
+
+    monkeypatch.setattr("src.pipeline.evaluator.evaluate_relevance", _boom)
+
+    result = await real.rag_tool(RagToolInput(query_text="q", caller=_investigator()))
+    assert result.status is ToolStatus.OK
+    assert result.chunks, "chunks must still be served — availability is the point"
+    assert result.evaluator_verdict == "unavailable"
+    assert result.evaluator_verdict != "relevant", "must not masquerade as a real pass"
+    assert result.degradation_caveats, "degradation must carry a user-facing caveat"
+
+
+async def test_gate_never_reached_leaves_verdict_none(monkeypatch):
+    """
+    `None` means the gate was never reached — distinct from 'unavailable',
+    where it was reached and could not run.
+    """
+    async def _boom(*a, **k):
+        raise RuntimeError("retrieval down")
+
+    monkeypatch.setattr("src.pipeline.query_expander.expand_query", _boom)
+
+    result = await real.rag_tool(RagToolInput(query_text="q", caller=_investigator()))
+    assert result.status is ToolStatus.FAILED
+    assert result.evaluator_verdict is None
+
+
+async def test_semantic_search_propagates_the_degradation_caveat(
+    _retrieval_returns_one_chunk, monkeypatch
+):
+    """
+    The caveat must survive to the bounded payload — dying at the tool boundary
+    would make the whole surfacing pointless.
+    """
+    from src.pipeline.harness.agents import semantic_search
+    from src.pipeline.harness.contracts import SubAgentInput, SubAgentStatus
+    from src.pipeline.harness.tools import registry
+
+    async def _boom(*a, **k):
+        raise RuntimeError("evaluator endpoint timed out")
+
+    monkeypatch.setattr("src.pipeline.evaluator.evaluate_relevance", _boom)
+    registry.use_real()
+
+    result = await semantic_search.run(
+        SubAgentInput(query_text="q", caller=_investigator())
+    )
+
+    assert result.answer_text, "the answer is still served"
+    assert result.caveats, "the degradation reached SubAgentResult.caveats"
+    assert result.status is SubAgentStatus.PARTIAL
+    assert result.degraded_from == ["RAG"]

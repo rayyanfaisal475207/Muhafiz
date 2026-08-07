@@ -263,16 +263,54 @@ async def rag_tool(
             await events.emit("tool:rag", "done", "Document search returned no passages")
         return RagToolResult(status=ToolStatus.EMPTY, evaluator_verdict="not_relevant")
 
-    # Relevance gate. A "not relevant" verdict is EMPTY, not FAILED —
-    # retrieval worked, the evidence just does not answer the question.
+    # ── Relevance gate ───────────────────────────────────────────────────
+    # Three outcomes, deliberately distinguished (see RagToolResult):
+    #
+    #   ran + relevant      → OK
+    #   ran + not relevant  → EMPTY. Retrieval worked; the evidence just does
+    #                         not answer the question. Not a failure.
+    #   COULD NOT RUN       → OK, chunks passed through UNVETTED, verdict
+    #                         'unavailable', plus a caveat.
+    #
+    # On the last case: an evaluator that cannot run is NOT evidence of
+    # relevance. Passing chunks through is a deliberate availability choice —
+    # a flaky local model endpoint should not take retrieval down with it —
+    # but it is a real degradation and must not be silent. The Verifier
+    # downstream does NOT backstop this: it checks grounding (do claims trace
+    # to cited chunks), not relevance, so it will happily pass a well-grounded
+    # answer built from off-topic evidence.
+    #
+    # DEVIATION FROM LEGACY RAG, documented in AGENT_HARNESS_DESIGN.md §7:
+    # legacy orchestrator.py's RAG route wraps this call in NO error handling
+    # at all (lines ~1069, ~1813) — an evaluator exception propagates and takes
+    # down the whole pipeline turn. Legacy GRAPH (line ~898) *does* fail open,
+    # with `{"relevant": True, "reason": "Evaluator failed, proceeding"}`. This
+    # adapter follows GRAPH's pattern rather than RAG's, which IS a behaviour
+    # change for the RAG path — a deliberate one, not an oversight.
+    evaluator_caveats: list[str] = []
     try:
         verdict = await evaluate_relevance(query, query, reranked)
-        relevant = bool(verdict.get("relevant", True))
+        # Fail CLOSED on a malformed verdict, matching legacy GRAPH's
+        # `.get("relevant", False)`. A verdict dict missing the key is not a
+        # pass — the gate did not actually judge anything.
+        relevant = bool(verdict.get("relevant", False))
+        verdict_value = "relevant" if relevant else "not_relevant"
     except Exception as exc:
-        # Evaluator failure must not discard successfully retrieved evidence;
-        # the legacy path treats an unusable verdict as non-blocking too.
-        logger.error("Relevance evaluation failed, passing chunks through: %s", exc)
+        logger.error(
+            "Relevance evaluation could not run (%s) — passing %d chunk(s) through "
+            "UNVETTED with an explicit caveat.", exc, len(reranked)
+        )
         relevant = True
+        verdict_value = "unavailable"
+        evaluator_caveats.append(
+            "The relevance check could not run for this search, so the supporting "
+            "passages were not screened for topical relevance before being used."
+        )
+        if events:
+            await events.emit(
+                "tool:rag", "retry",
+                "Relevance check unavailable — passages passed through unvetted",
+            )
 
     if not relevant:
         if events:
@@ -285,7 +323,10 @@ async def rag_tool(
     if events:
         await events.emit("tool:rag", "done", f"Retrieved {len(chunks)} passages")
     return RagToolResult(
-        status=ToolStatus.OK, chunks=chunks, evaluator_verdict="relevant"
+        status=ToolStatus.OK,
+        chunks=chunks,
+        evaluator_verdict=verdict_value,
+        degradation_caveats=evaluator_caveats,
     )
 
 

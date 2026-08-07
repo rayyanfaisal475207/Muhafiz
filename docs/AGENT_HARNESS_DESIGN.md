@@ -362,6 +362,39 @@ file did not.
   rather than a new classifier, but not decided here.
 - Whether `GRAPH_HYBRID`'s current inline duplication of RAG's retrieval steps (§2.2) gets
   cleaned up as part of this restructuring or left as a follow-up — flagged, not decided.
+- **DEVIATION FROM LEGACY, DELIBERATE: the harness RAG tool no longer crashes the turn when the
+  relevance evaluator errors.** Recorded here because it is a **behaviour change**, not a
+  like-for-like port, and it should be an explicit decision rather than something discovered later
+  by reading the adapter.
+
+  *What legacy does today, and it is inconsistent between routes:* `orchestrator.py`'s **RAG**
+  route calls `evaluate_relevance()` with **no error handling at all** (≈ lines 1069 and 1813 in
+  the retry loop) — an evaluator exception propagates and takes down the entire pipeline turn.
+  The **GRAPH** route (≈ line 898) wraps the identical call in `try/except` and fails open with
+  `{"relevant": True, "reason": "Evaluator failed, proceeding"}`. Same call, two different
+  behaviours, in one file.
+
+  *What the harness tool does:* follows GRAPH's fail-open shape rather than RAG's crash, so a
+  flaky local evaluator endpoint degrades the answer instead of destroying the request — **but
+  makes the degradation visible**, which neither legacy route does. `evaluator_verdict` becomes
+  `'unavailable'` (distinct from both real verdicts and from `None`), a user-facing caveat is
+  attached, and the composing sub-agent reports `PARTIAL`. See
+  `docs/SUBAGENT_INTERFACES.md` RESOLVED-7 for the contract.
+
+  *Why visibility is load-bearing here:* the Verifier does **not** backstop relevance. It checks
+  grounding — whether claims trace to their cited chunks — so a well-grounded answer built
+  entirely from off-topic evidence passes it cleanly. Relevance screening has no second line of
+  defence, so "the screen did not run" must reach the user rather than being absorbed.
+
+  *Also fixed in passing (a defect, not a design choice):* the adapter's malformed-verdict default
+  now **fails closed** (`.get("relevant", False)`), matching legacy GRAPH. An earlier draft
+  defaulted to `True`, silently admitting evidence the gate never actually judged.
+
+  **Open question for a later pass:** whether legacy RAG's crash-on-evaluator-error should itself
+  be brought in line with GRAPH's fail-open. Not changed here — `orchestrator.py` is deliberately
+  untouched while the harness runs alongside it — but the two routes disagreeing about the same
+  call is worth resolving when the legacy path is retired or revisited.
+
 - **Per-chunk `confidence` conflates "checked, and it's low" with "never computed" — affects the
   Verifier's hedging check.** Surfaced while resolving the interface contracts in
   `docs/SUBAGENT_INTERFACES.md` (review of its RESOLVED-5). That doc settled the identical
