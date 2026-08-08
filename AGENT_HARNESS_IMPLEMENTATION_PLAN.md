@@ -471,7 +471,7 @@ traffic, per §6; the reserved fields are still inert, per §10.1.
 ### Phase 3 — Large-Scale Aggregate: COMPLETE
 
 Branch `feature/harness-phase-3-large-scale-aggregate`, merged to main via merge commit
-`[pending — see follow-up entry]`.
+`04c6f10`.
 
 *(Naming note: "Phase 3" here is this session's own label for §4 row 2, Large-Scale Aggregate —*
 *the next unchecked §8 item — NOT the Verifier/Citation-Consistency/Validation trust layer, which*
