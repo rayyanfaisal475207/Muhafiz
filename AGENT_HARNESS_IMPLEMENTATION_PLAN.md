@@ -208,7 +208,7 @@ Two implementation requirements surfaced while drafting these, both easy to miss
 - [x] **Contract amendment — SubAgentResult.events/.links, ConflictState, TimelineEvent (see §11)** *(complete — see §9)*
 - [x] Timeline Building *(complete — see §9)*
 - [x] Cross-Case Linkage *(complete — see §9)*
-- [ ] Investigative Analysis (parallel execution)
+- [x] Investigative Analysis (parallel execution) *(complete — see §9)*
 - [ ] Report Drafting (citation-consistency check)
 - [ ] Data-Quality / Extraction-Coverage
 - [ ] Verifier module
@@ -927,6 +927,168 @@ directly either way, only `scoped_cypher()`, so the underlying security property
 Nothing in `main.py`, `orchestrator.py`, or `router.py`'s existing behavior was touched — still not
 wired into live traffic, per §6.
 
+### Contract Amendment — SubAgent on_event threading (pre-Phase-7): COMPLETE
+
+Branch `feature/harness-phase-7-investigative-analysis` (folded into the same branch as the Phase 7
+sub-agent below, not a separate branch — see §12 for the exact type/signature change).
+
+**Built/changed, mirroring §10/§11's pattern:**
+- `src/pipeline/harness/types.py` — `SubAgent` Protocol's `__call__` widened to accept a new
+  keyword-only `on_event: Optional[OnEventCallback] = None` (new alias, same
+  `Callable[[PipelineEvent], None]` shape `Supervisor.handle()` has accepted since Phase 1). See
+  §12 for the full rationale and exact code.
+- `src/pipeline/harness/supervisor.py` — `Supervisor.handle()`'s existing `handler(agent_input)`
+  call site becomes `handler(agent_input, on_event=on_event)`, forwarding its own parameter
+  (possibly `None`) unchanged.
+- The 5 already-shipped sub-agent modules (Semantic Search, Large-Scale Aggregate, Case
+  Summarization, Timeline Building, Cross-Case Linkage) — each retrofitted to accept-and-ignore
+  the new kwarg (additive, `None` default), each with its own docstring note on why it has nothing
+  granular to emit yet (single-tool sub-agents) or why emitting per-source events is tracked future
+  work per §2.1.4's "Generalization" note (Case Summarization, Cross-Case Linkage) rather than done
+  in this amendment.
+- `tests/test_harness_supervisor.py` — `_mock_sub_agent()`'s stub handler updated to accept
+  `on_event` and record what it received; two new tests assert `Supervisor.handle()` forwards a
+  given callback unchanged and forwards `None` when none is given.
+
+**Why this was needed, confirmed from the code before proposing it (not assumed from the docs
+alone):** `Supervisor.handle()` has accepted an `on_event` sink since Phase 1, but `SubAgent.__call__`
+took only `agent_input` — there was no channel for a sub-agent to emit its own mid-execution
+`PipelineEvent`s back through it. SUBAGENT_INTERFACES.md §2.1.4/RESOLVED-4a requires exactly that
+for Investigative Analysis (Phase 7, below). Surfaced to the user via `AskUserQuestion` before any
+code was written, per this session's explicit instruction not to invent a delivery mechanism to
+paper over a real contract gap — resolved as a full contract amendment now (touching all 5
+already-shipped sub-agents, not scoped to Investigative Analysis alone), the user's own choice
+between the two options offered.
+
+**Verification:** full existing test suite — 950 passed, 4 skipped (the same pre-existing,
+unrelated docling/PDF `std::bad_alloc` environment failure documented present on main since
+Phase 0's own merge — confirmed still present identically, not a regression), 0 failed. Compliance
+suite — 51/51 checks still passing, unchanged count from Phase 0. Confirmed the one ordering
+hazard directly: running an arbitrary hand-picked SUBSET of harness test files together (as
+opposed to the full `tests/` collection) reproduces two failures from real-repo cross-file registry
+pollution (`test_module_level_register_and_unregister` unregistering `SEMANTIC_SEARCH` after
+collection-time self-registration) — confirmed present IDENTICALLY on unmodified `main` with the
+same subset, i.e. pre-existing and unrelated to this amendment, not a regression it introduced.
+
+### Phase 7 — Investigative Analysis: COMPLETE
+
+Branch `feature/harness-phase-7-investigative-analysis`, merged to main via merge commit
+`<MERGE_COMMIT_SHA>`.
+
+**Built:**
+- `src/pipeline/harness/agents/investigative_analysis.py` — composes the Phase 0 RAG, GRAPH, and
+  SQL tool wrappers, run CONCURRENTLY via `asyncio.gather` on every call (this session's own build
+  note, plan §4 row 6: "Runs the three tool calls in parallel ... cutting response time"). None of
+  the three carries a role gate, so `SubAgentStatus.DENIED` is never built as an output path here,
+  same reasoning as Case Summarization's identical precedent.
+- **Fallback-substitution question, resolved from the tool code before writing any code (not
+  assumed from the docs), per this session's explicit instruction.** Read `tools/rag.py`,
+  `tools/graph.py`, `tools/sql.py` directly: nothing inside `graph_tool()`/`sql_tool()` invokes the
+  RAG tool — `ToolResult.fallback_to_rag`'s own docstring is explicit that the tool only reports a
+  fallback is warranted, the caller acts on it, matching Case Summarization's already-merged
+  precedent of the calling sub-agent performing the substitution itself. Resolution implemented:
+  because RAG is already one of the three tools this sub-agent runs on every call (not
+  conditionally, on a sibling's say-so), the single already-in-flight `rag_tool()` call IS the
+  substitution — no second RAG invocation, no explicit dedup step needed. This falls directly out
+  of `ToolResult`'s own contract ("chunks non-empty iff status is OK"): a degraded GRAPH/SQL's
+  `.chunks` is already `[]`, so flattening "whichever tool returned OK" is correct and complete by
+  construction.
+- **RESOLVED-4's uniform `tools_used`/`degraded_from` rule, applied here as its origin case.**
+  `tools_used`/`degraded_from` computed once, in one fixed RAG/GRAPH/SQL order, from the same
+  three per-tool outcomes the live events (below) are built from. A call where GRAPH and SQL both
+  fall back to RAG reports `tools_used=["RAG"]`, `degraded_from=["GRAPH","SQL"]`, never three —
+  verified explicitly (`test_graph_and_sql_both_fall_back_to_rag_dedup_to_one_rag_entry`).
+  `>=1` tool contributing -> `PARTIAL` (or `OK` if none degraded); all three failed/empty ->
+  `ABSTAINED` — applied LITERALLY per this row's own explicit RESOLVED-4 text, deliberately NOT
+  mirroring Case Summarization's "both empty -> EMPTY" convention (this sub-agent's own row says
+  ABSTAINED for the zero-contributor case, and RESOLVED-4 is written against this sub-agent as its
+  origin case — no ambiguity to resolve by analogy elsewhere).
+- **RESOLVED-4a live per-source trace events, wired in via the contract amendment above.** One
+  `PipelineEvent` per source-tool outcome (`step="analysis:rag"|"analysis:graph"|"analysis:sql"`),
+  emitted AS EACH TOOL RESOLVES — implemented by wrapping each tool call in its own small
+  coroutine that emits its event the instant its own `await` completes, before `asyncio.gather()`
+  as a whole returns, so the live trace shows whichever tool actually finishes first, not an
+  artificially serialized order. Status mapping onto the five-value SSE vocabulary (a resolved
+  decision, since §2.1.4's text illustrates only three examples, not every case): `status==OK` ->
+  `"done"`; `status!=OK` with `fallback_to_rag=True` -> `"retry"`; `status!=OK` with
+  `fallback_to_rag=False` (RAG's own case by construction, since `RagToolResult.fallback_to_rag`
+  is pinned `False` — RAG has no fallback target of its own — plus the defensive
+  uncaught-exception branch for GRAPH/SQL) -> `"error"`, matching §2.1.4's own "SQL fails
+  outright -> error" example. `"skipped"` never fires — all three tools are always attempted,
+  unconditionally, every call.
+- **Documented, deliberate divergence between the live events and the final roll-up on a Verifier
+  rejection.** Every prior sub-agent that generates `answer_text` treats a `verify_grounding()`
+  rejection as its own `ABSTAINED` path with `tools_used`/`degraded_from` reset to `[]` — an
+  answer that fails verification is never served, and nothing about it (including which tools
+  backed the discarded draft) is asserted as fact. This sub-agent follows that same established
+  convention. Consequence, flagged explicitly in the module docstring and tested directly
+  (`test_verifier_rejection_abstains_and_resets_tools_used_despite_done_events`): a tool whose
+  live event said `"done"` can still be absent from the final `tools_used` if the synthesized
+  answer built from its data was rejected and discarded — this does not violate RESOLVED-4a's
+  "events and roll-up must agree" rule, which governs the roll-up actually returned for a result
+  that stands, not a discarded, never-served draft.
+- **Defensive exception handling**, same asymmetry Case Summarization's Phase 4 entry already
+  flagged: `rag_tool()`/`sql_tool()` both catch their own retrieval exceptions internally;
+  `graph_tool()` does not (confirmed again by re-reading `tools/graph.py` this session). This
+  sub-agent catches around all three calls regardless, treating a caught exception as a
+  non-contributing outcome with no fallback signal available (`"error"` event).
+- **Flattening (design §5)**, same discipline as Case Summarization: canonical RAG-then-GRAPH-
+  then-SQL order, only the tools that actually contributed, concatenated before the generation
+  prompt is built — the exact same list/order is what `verify_grounding()` sees.
+- **Bounded payload:** one synthesized answer with citations rolled up across all three sources —
+  never three separate result sets, never raw chunks. `caveats` names any degraded source (via
+  `SOURCE_TOOL_DISPLAY_LABELS`) when `status=PARTIAL`.
+- `src/pipeline/harness/supervisor.py::register()` — a real `InvestigativeAnalysis`-equivalent
+  callable (`investigative_analysis`) registers itself under `INVESTIGATIVE_ANALYSIS` at import
+  time, the same pattern every prior sub-agent module used.
+- `tests/test_harness_agent_investigative_analysis.py` — 13 tests: full success (all three
+  contribute), two degradation/dedup shapes (both siblings falling back to RAG; one sibling
+  degrading while the other two contribute), a defensive-exception-treated-as-degraded case,
+  all-three-failure -> `ABSTAINED` (both via empty/fallback results and via raised exceptions),
+  the live per-source event sequence (asserting the full five-value-vocabulary mapping including
+  the RAG-specific "error, not retry" case), `on_event` being optional, the Verifier-rejection
+  roll-up-reset divergence (asserting the per-tool events still said `"done"` while the final
+  roll-up resets), a generation-failure case, module self-registration, and a
+  `Supervisor.handle()` -> real Investigative Analysis -> real `rag_tool()`/`graph_tool()`/
+  `sql_tool()` integration test via the SQL route, asserting the Supervisor's own two events plus
+  this sub-agent's three per-source events (5 total) all arrive through one forwarded sink.
+
+**Classification reachability — stated plainly, per this session's explicit instruction.** Read
+`src/pipeline/harness/supervisor.py`'s `_ROUTE_TO_SUBAGENT` table before writing any code:
+`"SQL": INVESTIGATIVE_ANALYSIS` is present (set in Phase 1, unrelated to this session's own work),
+so this sub-agent IS reachable via real classification today — but ONLY through the SQL route.
+`router.py`'s RAG and GRAPH/GRAPH_HYBRID routes map to Semantic Search and Case Summarization
+respectively (Phase 1's own table), not to this sub-agent; there is no route whose classification
+intent is "deep synthesis across RAG+GRAPH+SQL at once." **PARTIALLY reachable** — not gapped like
+Timeline Building (zero routes), not fully reachable like Cross-Case Linkage (both its routes map
+to it). No new classification keyword/pattern was invented to close this partially, per Phase 1/5's
+own precedent — that would be new classification logic layered on top of, not reuse of, router.py's
+tuned classifier, and needs the same live-failure evidence XAGG/XGRAPH/XNETWORK's own overrides had.
+
+**One contract gap found and resolved before writing any code, not guessed — see the "Contract
+Amendment — SubAgent on_event threading" entry immediately above.** Confirmed, per this session's
+own instruction, against `supervisor.py`/`types.py` directly: `Supervisor.handle()` had an
+`on_event` sink with nothing to hand it to. Resolved via `AskUserQuestion` as the full-contract-
+amendment option (the user's own choice over a scoped, Investigative-Analysis-only alternative),
+mirroring §10/§11's pattern.
+
+**No other deviations.** Bounded payload holds throughout — no `EvidenceChunk`/raw chunks/raw rows
+ever cross this module's boundary; only `answer_text`, `citations`, `tools_used`, `degraded_from`,
+and `caveats` are populated. Validation gate explicitly not wired this session, same as every
+prior sub-agent — a `# TODO(validation-gate)` marker is left at its intended insertion point,
+flagged in the module's own docstring as MANDATORY full-semantic-check tier once `validation.py`
+exists (plan §5's table — same tier as Cross-Case Linkage / Report Drafting, not the lighter
+structural-only check some other sub-agents get).
+
+**Verification:** full existing test suite (`pytest`, `testpaths = tests`) — 950 passed, 4 skipped
+(the same pre-existing, unrelated docling/PDF `std::bad_alloc` environment failure documented
+present on main since Phase 0's own merge — confirmed still present identically, not a regression),
+0 failed (937 baseline + this session's 13 new tests, accounting for the 2 new supervisor tests
+counted in the contract-amendment entry above). Compliance suite
+(`src/pipeline/harness/compliance/`, run separately per `pytest.ini`'s `testpaths = tests` scoping)
+— 51/51 checks still passing, unchanged count from Phase 0. Nothing in `main.py`, `orchestrator.py`,
+or `router.py`'s existing behavior was touched — still not wired into live traffic, per §6.
+
 ---
 
 ## 10. Contract amendment — ExecutionContext & ConversationContext (post-Phase-2)
@@ -1058,3 +1220,68 @@ Phase 1's own note: new classification logic needs the same evidence-driven basi
 XAGG/XGRAPH/XNETWORK's overrides had, not invented patterns). Build and test Timeline Building via
 direct dispatch/registration and integration tests that bypass `route_query()`'s classification —
 real end-user reachability stays a tracked, separate gap.
+
+---
+
+## 12. Contract amendment — SubAgent `on_event` threading (pre-Phase-7)
+
+`Supervisor.handle()` (Phase 1) has accepted an `on_event: Optional[Callable[[PipelineEvent], None]]`
+keyword parameter since it was first built, but only ever used it to emit its own two events
+(classification, then outcome). `SubAgent.__call__` (§2.0, `types.py`) took only `agent_input` — no
+sub-agent had a channel back to that sink. SUBAGENT_INTERFACES.md §2.1.4/RESOLVED-4a requires
+Investigative Analysis to emit one `PipelineEvent` per source-tool outcome as it resolves — this
+surfaced the gap concretely for the first time, the same way Case Summarization's project-scoping
+need surfaced §10's gap and Timeline Building's per-item payload need surfaced §11's.
+
+**Resolved, via `AskUserQuestion`, as the full-contract-amendment option** (over a
+scoped/investigative-analysis-only alternative also offered) — the same amend-once-for-everyone
+approach §10/§11 already used, rather than a growing pile of per-sub-agent workarounds.
+
+### 12.1 `SubAgent.__call__` — widened, not replaced
+
+```python
+OnEventCallback = Callable[["PipelineEvent"], None]
+
+
+class SubAgent(Protocol):
+    name: str
+
+    async def __call__(
+        self,
+        agent_input: SubAgentInput,
+        *,
+        on_event: Optional[OnEventCallback] = None,
+    ) -> SubAgentResult: ...
+```
+
+`on_event` is additive and keyword-only, defaulting to `None` — every sub-agent's own signature
+must accept it (even if it ignores it), but nothing about `SubAgentInput`, `SubAgentResult`, or any
+existing call with no `on_event` argument changes behavior. **[PRESERVE, extends design §6/
+SUBAGENT_INTERFACES.md §2.2]** This reuses the exact `PipelineEvent` type and callback shape that
+already exists — no webhook, callback registry, subscription mechanism, or message bus is
+introduced. A sub-agent with nothing granular to report (every single-tool sub-agent) simply never
+calls it.
+
+### 12.2 `Supervisor.handle()` — forwards its own parameter unchanged
+
+The existing `handler(agent_input)` call site becomes `handler(agent_input, on_event=on_event)` —
+`on_event` is `Supervisor.handle()`'s own parameter (already existed, possibly `None`), passed
+straight through, not reconstructed or wrapped.
+
+### 12.3 Retrofit scope — what already-shipped code this touches
+
+- `src/pipeline/harness/types.py` — add `OnEventCallback`, widen `SubAgent.__call__`.
+- `src/pipeline/harness/supervisor.py` — one call-site change in `Supervisor.handle()`.
+- `src/pipeline/harness/agents/{semantic_search,large_scale_aggregate,case_summarization,
+  timeline_building,cross_case_linkage}.py` — each accepts-and-ignores the new kwarg.
+- `tests/test_harness_supervisor.py` — `_mock_sub_agent()`'s stub handler accepts and records
+  `on_event`; two new tests assert forwarding (both with a real callback and with `None`).
+
+### 12.4 What this does not do
+
+Sub-agents composing more than one tool that do NOT yet emit per-source events (Case
+Summarization, Cross-Case Linkage) are **not** retrofitted to emit them in this amendment —
+SUBAGENT_INTERFACES.md §2.1.4's "Generalization" note observes they are candidates, but doing so
+is out of this amendment's own scope (it widens the *contract*, Investigative Analysis is the
+first and only *user* of it this session). Tracked as future work, same as §10/§11's own reserved,
+unused fields being deliberately inert until a later session needs them.
