@@ -15,7 +15,7 @@ import {
 } from '../lib/api';
 import type {
   ChatMessage, PipelineEvent, Source, PipelineStep,
-  Attachment, PendingAttachment,
+  Attachment, PendingAttachment, DegradationTrace,
 } from '../types';
 import { useProjectStore } from './projectStore';
 import { useCaseStore } from './caseStore';
@@ -75,6 +75,25 @@ function extractSources(events: PipelineEvent[]): Source[] {
     }
   }
   return sources;
+}
+
+/**
+ * The harness supervisor attaches the per-query degradation trace to its
+ * completion event. Taking the LAST one is deliberate: the payload is built
+ * once per sub-agent completion, so a single query yields one — but if the
+ * supervisor ever dispatches more than once, the final result is the one that
+ * describes the answer actually delivered.
+ *
+ * Returns undefined when no event carried a trace: legacy-orchestrator
+ * queries produce none, and that must stay distinguishable from a clean run.
+ */
+function extractDegradationTrace(events: PipelineEvent[]): DegradationTrace | undefined {
+  let found: DegradationTrace | undefined;
+  for (const e of events) {
+    const trace = (e as any).trace;
+    if (trace) found = trace as DegradationTrace;
+  }
+  return found;
 }
 
 // ── Store Interface ───────────────────────────────────────────────────────────
@@ -178,17 +197,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
         attachments: [],
         pendingAttachments: [],
       });
-      const { data } = await apiClient.get<{ history: {role: string, content: string}[] }>(`/sessions/${id}`);
+      const { data } = await apiClient.get<{
+        history: { role: string; content: string; degradation_trace?: DegradationTrace | null }[]
+      }>(`/sessions/${id}`);
       // Ignore the response if the user already switched somewhere else
       if (get().sessionId !== id) return;
-      const messages: ChatMessage[] = data.history.map((h: {role: string, content: string}) => ({
+      const messages: ChatMessage[] = data.history.map((h) => ({
         id: crypto.randomUUID(),
 
         role: h.role as 'user' | 'assistant',
         content: h.content,
         sources: [],
         thinkingLogs: [],
-        isStreaming: false
+        isStreaming: false,
+        // Migration 018: restored from the DB rather than reset to nothing.
+        // `sources`/`thinkingLogs` above are still dropped on reload because
+        // they are not persisted anywhere — the degradation trace is the one
+        // piece of per-query transparency that now survives a refresh.
+        // `undefined` (no trace recorded: a legacy-path or pre-harness
+        // message) is deliberately distinct from an empty trace.
+        degradationTrace: h.degradation_trace ?? undefined,
       }));
       set({ messages });
 
@@ -386,12 +414,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       // Extract any sources from events
       const sources = extractSources(accumulatedEvents);
+      // Shown immediately from the live stream; the same payload is persisted
+      // server-side on the assistant message, so it survives a reload too.
+      const degradationTrace = extractDegradationTrace(accumulatedEvents);
 
       // Finalize the assistant message
       set((state) => ({
         messages: state.messages.map((m) =>
           m.id === assistantMsgId
-            ? { ...m, isStreaming: false, sources, pipelineEvents: accumulatedEvents }
+            ? { ...m, isStreaming: false, sources, pipelineEvents: accumulatedEvents, degradationTrace }
             : m,
         ),
         currentSources: sources,

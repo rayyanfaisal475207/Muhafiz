@@ -414,6 +414,50 @@ file did not.
   fix differs from the trace work — the trace records *what the system did*, a message-level
   caveat records *what the user was told*, and those are not the same fact.
 
+- **The contract/doc parity guard compares structure, not string values — a demonstrated gap,
+  not a hypothetical one.** `tests/harness/test_contract_doc_parity.py` diffs
+  `docs/SUBAGENT_INTERFACES.md` against `contracts.py` at name level (a declared type or
+  constant that was never transcribed) and field level (a class missing a field the doc
+  declares). It does **not** compare the literal *values* of shared constants.
+
+  **How this actually bit:** 7bda725 finalized both disclosure strings in `contracts.py` and
+  left the doc showing the old placeholder text. The two disagreed about a string delivered
+  verbatim to investigators, and the guard passed the whole time — the constants existed under
+  the right names, so structurally nothing was wrong. Caught by hand and fixed in 1ac6b30, not
+  by the mechanism built to catch exactly this class of drift.
+
+  **What extending it would take:** parse the doc's Python blocks (the guard already does this)
+  and, for module-level constants that exist in both, compare `ast.literal_eval`'d values. Scope
+  it to constants specifically — comparing whole class bodies would fail constantly on
+  docstrings and field descriptions that are legitimately prose-edited in one place first.
+
+  **Not urgent, and no current drift** — the two disclosure strings are verified byte-identical
+  as of 1ac6b30. Worth doing before the next constant is added that both files carry, since the
+  failure mode is silent by construction: the guard reports green while the spec and the shipped
+  string say different things.
+
+- **`SOURCE_TOOL_DISPLAY_LABELS` is duplicated in the admin frontend — a confirmed drift risk,
+  not a hypothetical one.** The canonical map lives in `contracts.py` and is what the disclosure
+  templates substitute through. But `admin-frontend`'s `StepTrace` component hardcodes its own
+  copy of the same labels in TSX, so the investigator-facing vocabulary now exists in two places
+  that nothing keeps in sync.
+
+  This is the same class of problem the contract/doc parity guard exists to catch, one layer
+  over: a rename in `contracts.py` silently leaves the admin chips showing the old wording, and
+  no test fails. It is exactly the risk that made "do not add a third copy" the rule for the
+  investigator-facing chat surface, which takes pre-labelled strings from the backend instead.
+
+  **Fix:** migrate `StepTrace` to consume backend-provided labels the same way, leaving one
+  source of truth. The mechanism already exists and needs no new work —
+  `build_degradation_trace()` emits a `labels` block of pre-rendered strings, which the
+  investigator-facing `QueryChecks` component renders verbatim. `StepTrace` reads the same
+  `output_summary.trace` payload, so this is a component change only: read `trace.labels.*`
+  instead of mapping `trace.contributed_only` through its local map, then delete the map.
+
+  Deliberately NOT done as part of the chat-surface work — that task added no duplication, and
+  fixing this one is a separate change to a separate app with its own test suite. No current
+  drift: the two copies agree today.
+
 - **`admin-frontend`'s test suite does not run out of the box — pre-existing, unrelated to the
   harness.** Surfaced while verifying the Run History trace rendering. Two independent
   breakages, neither caused by harness work and neither fixed here:

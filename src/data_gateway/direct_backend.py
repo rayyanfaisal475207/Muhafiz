@@ -149,15 +149,30 @@ class DirectGateway:
                 s.deleted_at = datetime.utcnow()
                 await db.commit()
 
-    async def save_message(self, session_id: str, role: str, content: str) -> None:
+    async def save_message(self, session_id: str, role: str, content: str,
+                           degradation_trace: dict = None) -> None:
+        """
+        `degradation_trace` (migration 018) is written in the SAME INSERT that
+        creates the message, deliberately. The alternative — write the message,
+        then find it again to attach the trace — is what
+        `update_message_citations` below has to do, and it matches on
+        session_id + role + exact content text, which mis-keys the moment two
+        answers in one session are byte-identical. Passing the payload in
+        avoids ever needing that lookup.
+        """
         async with get_session() as db:
-            db.add(Message(session_id=uuid.UUID(str(session_id)), role=role, content=content))
+            db.add(Message(
+                session_id=uuid.UUID(str(session_id)), role=role, content=content,
+                degradation_trace=degradation_trace,
+            ))
             await db.commit()
 
     async def get_session_history(self, session_id: str) -> list[dict]:
         async with get_session() as db:
             res = await db.execute(select(Message).where(Message.session_id == uuid.UUID(str(session_id))).order_by(Message.created_at))
-            return [{"role": m.role, "content": m.content, "created_at": m.created_at.isoformat() if m.created_at else None} for m in res.scalars().all()]
+            return [{"role": m.role, "content": m.content,
+                     "degradation_trace": m.degradation_trace,
+                     "created_at": m.created_at.isoformat() if m.created_at else None} for m in res.scalars().all()]
 
     async def update_message_citations(self, session_id: str, response_text: str, unverified: list[str]) -> None:
         async with get_session() as db:

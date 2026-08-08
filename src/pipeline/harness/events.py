@@ -23,7 +23,12 @@ import time
 from contextlib import asynccontextmanager
 from typing import Any, Optional
 
-from src.pipeline.harness.contracts import PipelineEvent, SubAgentResult, to_step_status
+from src.pipeline.harness.contracts import (
+    SOURCE_TOOL_DISPLAY_LABELS,
+    PipelineEvent,
+    SubAgentResult,
+    to_step_status,
+)
 
 
 # Schema version for the structured trace payload. Bump when the SHAPE changes
@@ -82,6 +87,24 @@ def build_degradation_trace(result: SubAgentResult) -> dict:
         "contributed_only": [t for t in used if t not in degraded_set],
         "degraded_and_contributed": [t for t in used if t in degraded_set],
         "degraded_only": [t for t in degraded if t not in used_set],
+        # PRE-LABELLED for user-facing surfaces. The canonical label map lives
+        # in contracts.py; sending rendered strings means a client never needs
+        # its own copy of it. That matters concretely: the admin StepTrace
+        # component already hardcodes a second copy in TSX, which is a
+        # confirmed drift risk (logged in AGENT_HARNESS_DESIGN.md §7), and a
+        # third copy for the investigator-facing chat surface would make it
+        # worse. Clients render these strings verbatim.
+        "labels": {
+            "contributed_only": [
+                SOURCE_TOOL_DISPLAY_LABELS.get(t, t) for t in used if t not in degraded_set
+            ],
+            "degraded_and_contributed": [
+                SOURCE_TOOL_DISPLAY_LABELS.get(t, t) for t in used if t in degraded_set
+            ],
+            "degraded_only": [
+                SOURCE_TOOL_DISPLAY_LABELS.get(t, t) for t in degraded if t not in used_set
+            ],
+        },
         "caveats": list(result.caveats),
         # Asserts the DOCUMENT itself discloses its partiality (RESOLVED-3).
         # None when this sub-agent produced no file.

@@ -279,6 +279,18 @@ class Message(Base):
     unverified_citations: Mapped[Optional[List[str]]] = mapped_column(
         ARRAY(Text), nullable=True,
     )
+    # Migration 018. Per-query degradation trace from the agent harness —
+    # build_degradation_trace()'s output, persisted so an investigator can see
+    # what worked and what failed for their own query after a page reload, not
+    # only while the answer streams.
+    #
+    # NULL means NO TRACE RECORDED (a pre-harness message, or one produced by
+    # the legacy orchestrator path, which does not build one). Readers must not
+    # render NULL as "clean run" — same distinction ConflictState.UNKNOWN draws
+    # against NONE.
+    degradation_trace: Mapped[Optional[dict]] = mapped_column(
+        JSONB, nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(),
     )

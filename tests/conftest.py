@@ -193,10 +193,11 @@ class FakeGateway:
     async def delete_session(self, session_id) -> None:
         self.sessions.pop(str(session_id), None)
 
-    async def save_message(self, session_id, role, content) -> None:
+    async def save_message(self, session_id, role, content, degradation_trace=None) -> None:
         self.messages.append({
             "message_id": str(uuid.uuid4()),
             "session_id": str(session_id), "role": role, "content": content,
+            "degradation_trace": degradation_trace,
         })
 
     async def get_session_history(self, session_id) -> list[dict]:
