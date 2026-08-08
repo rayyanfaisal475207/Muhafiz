@@ -704,10 +704,18 @@ PARTIAL_EVIDENCE_DISCLOSURE_TEMPLATE = (
 # WITH THE TEXT rather than alongside it, so it survives being read,
 # quoted, or pasted somewhere the payload metadata does not follow.
 #
-# WORDING PENDING THE SAME PRODUCT SIGN-OFF. Do not ship as-is.
+# [Phase 4 — Case Summarization] WORDING UPDATED from the bare
+# "[PLACEHOLDER]" stand-in to the PROVISIONAL wording
+# AGENT_HARNESS_IMPLEMENTATION_PLAN.md §7.4 proposes, per this session's
+# explicit instruction to use §7.4's text (clearly marked provisional)
+# rather than SUBAGENT_INTERFACES.md's own placeholder. STILL NOT FINAL —
+# §7.4 itself lists "the actual wording sign-off" as still genuinely open.
+# Do not ship this string to investigators as final, product-approved copy.
 GRAPH_ONLY_SUMMARY_DISCLOSURE = (
-    "[PLACEHOLDER — PENDING PRODUCT SIGN-OFF] No document-based summary "
-    "available — generated from case graph data only."
+    "[PROVISIONAL — PENDING PRODUCT SIGN-OFF; wording per "
+    "AGENT_HARNESS_IMPLEMENTATION_PLAN.md §7.4] This summary was generated "
+    "from case record links only — no document text was available for "
+    "this case. It may omit details contained in case documents."
 )
 
 
