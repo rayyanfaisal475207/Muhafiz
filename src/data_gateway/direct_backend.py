@@ -522,6 +522,11 @@ class DirectGateway:
             "description": c.description,
             "victim_info": c.victim_info,
             "suspect_info": c.suspect_info,
+            # Migration 019. NULL/None means no completed conflict detection is
+            # on record — NOT "no conflicts found".
+            "conflicts_checked_at": (
+                c.conflicts_checked_at.isoformat() if c.conflicts_checked_at else None
+            ),
             "created_at": c.created_at.isoformat() if c.created_at else None,
             "updated_at": c.updated_at.isoformat() if c.updated_at else None,
         }
@@ -625,6 +630,28 @@ class DirectGateway:
             await db.commit()
             await db.refresh(c)
             return self._case_to_dict(c)
+
+    async def mark_conflicts_checked(self, case_id: str) -> None:
+        """
+        Record that conflict detection COMPLETED for this case (migration 019).
+
+        Deliberately its own method rather than a new key in `update_case`'s
+        allowlist: that allowlist is user-editable case data, and this is a
+        system-written fact about a background job. Widening it would let an
+        API caller assert that a check happened.
+
+        Called by the background task ON RETURN, never at schedule time — a
+        query racing an in-flight detection must still find no marker and read
+        UNKNOWN.
+        """
+        from datetime import datetime as _dt
+
+        async with get_session() as db:
+            res = await db.execute(select(Case).where(Case.case_id == case_id))
+            c = res.scalars().first()
+            if c:
+                c.conflicts_checked_at = _dt.utcnow()
+                await db.commit()
 
     async def update_case(self, case_id: str, data: dict) -> Optional[dict]:
         allowed = {

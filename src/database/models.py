@@ -181,6 +181,14 @@ class Case(Base):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     victim_info: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     suspect_info: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    # Migration 019. When case-level conflict detection last COMPLETED, written
+    # by the background task on return. NULL means no completed detection is on
+    # record — NOT "no conflicts found". Read by Timeline Building to decide
+    # between ConflictState.NONE and ConflictState.UNKNOWN; without it, an
+    # unflagged event can only honestly be reported as UNKNOWN.
+    conflicts_checked_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 

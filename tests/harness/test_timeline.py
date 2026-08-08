@@ -118,6 +118,70 @@ async def test_unverified_timeline_says_so(graph_returns):
     assert any("conflict detection" in c.lower() for c in result.caveats)
 
 
+async def test_marker_present_makes_none_reachable(graph_returns, gateway):
+    """
+    [Migration 019] With `cases.conflicts_checked_at` set, an unflagged event
+    is NONE — the check demonstrably completed and was clean.
+    """
+    graph_returns([_event("e1", "2026-03-14"), _event("e2", "2026-03-15")])
+    gateway.cases["CASE-A"] = {"case_id": "CASE-A"}
+    await gateway.mark_conflicts_checked("CASE-A")
+
+    result = await timeline_agent.run(_input(), gateway=gateway)
+
+    assert all(e.conflict_state is ConflictState.NONE for e in result.timeline)
+    assert result.status is SubAgentStatus.OK
+    assert result.caveats == []
+
+
+async def test_marker_absent_keeps_unknown(graph_returns, gateway):
+    """The race case: detection scheduled but not yet completed."""
+    graph_returns([_event("e1", "2026-03-14")])
+    gateway.cases["CASE-A"] = {"case_id": "CASE-A"}  # no marker written
+
+    result = await timeline_agent.run(_input(), gateway=gateway)
+
+    assert all(e.conflict_state is ConflictState.UNKNOWN for e in result.timeline)
+    assert result.status is SubAgentStatus.PARTIAL
+
+
+async def test_conflict_beats_the_marker(graph_returns, gateway):
+    """A real conflict is CONFLICT whether or not the marker exists."""
+    graph_returns([_event("e1", "2026-03-14", conflict="contradictory dates")])
+    gateway.cases["CASE-A"] = {"case_id": "CASE-A"}
+    await gateway.mark_conflicts_checked("CASE-A")
+
+    result = await timeline_agent.run(_input(), gateway=gateway)
+
+    assert result.timeline[0].conflict_state is ConflictState.CONFLICT
+
+
+async def test_unreadable_marker_fails_closed_to_unknown(graph_returns, gateway, monkeypatch):
+    """
+    A gateway error must not be read as a clean check. Failing closed costs
+    precision; failing open would assert something false.
+    """
+    graph_returns([_event("e1", "2026-03-14")])
+
+    async def _boom(_case_id):
+        raise RuntimeError("db unavailable")
+
+    monkeypatch.setattr(gateway, "get_case", _boom)
+
+    result = await timeline_agent.run(_input(), gateway=gateway)
+
+    assert all(e.conflict_state is ConflictState.UNKNOWN for e in result.timeline)
+
+
+async def test_missing_case_row_fails_closed_to_unknown(graph_returns, gateway):
+    graph_returns([_event("e1", "2026-03-14")])
+    # no case row at all
+
+    result = await timeline_agent.run(_input(), gateway=gateway)
+
+    assert all(e.conflict_state is ConflictState.UNKNOWN for e in result.timeline)
+
+
 async def test_none_is_reachable_only_with_a_confirmed_check(graph_returns):
     """
     The mechanism is in place for when a per-case completion marker exists —

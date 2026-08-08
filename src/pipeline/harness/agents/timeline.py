@@ -40,16 +40,24 @@ case can have no conflict edges without having been checked:
 Nothing records that detection completed for a case, so there is no marker to
 read either.
 
-CONSEQUENCE, DELIBERATELY ACCEPTED: this sub-agent NEVER reports NONE. An event
-is CONFLICT when a conflict basis is actually present, and UNKNOWN otherwise.
-That costs precision — a genuinely-checked, genuinely-clean case reads as "not
-checked" — but it never asserts an all-clear the system did not perform, which
-is the entire reason ConflictState is three-state rather than a bool. A
-fabricated clean result on a brand-new case is the common path, not an edge
-case, and is exactly the failure RESOLVED-5 exists to prevent.
+RESOLVED BY THE MARKER (migration 019): `cases.conflicts_checked_at` records
+when detection COMPLETED for a case, written by the background task ON RETURN.
+That is what makes NONE honest:
 
-NONE becomes reachable once a per-case "detection completed" marker exists;
-`_conflict_state_for` is written so that is a one-line change.
+    * conflict basis present                       -> CONFLICT
+    * no basis, marker present (check completed)    -> NONE
+    * no basis, marker absent                      -> UNKNOWN
+
+The marker is written on return rather than at schedule time precisely so the
+race in (1) stays correctly represented — a query arriving while detection is
+in flight finds no marker and reads UNKNOWN. It covers detect_conflicts()'s
+early return on fewer than two incidents (a completed check with nothing to
+find) but NOT its raise path, since a failed check is not a check.
+
+Anything that prevents establishing the marker — absent, unreadable, gateway
+error, failed graph call — leaves conflict state at UNKNOWN. Failing closed is
+the point: a wrong UNKNOWN costs precision, a wrong NONE asserts an all-clear
+the system never performed.
 
 INVESTIGATOR LOCKS: ENFORCED UPSTREAM, NOT DUPLICATED HERE
 ───────────────────────────────────────────────────────────
@@ -170,6 +178,34 @@ def _conflict_state_for(
     return ConflictState.UNKNOWN, None
 
 
+async def _conflict_detection_confirmed(case_id: str, gateway: Any) -> bool:
+    """
+    Has conflict detection COMPLETED for this case (migration 019)?
+
+    Reads `cases.conflicts_checked_at`, written by the background task on
+    return. Any failure to establish this — no marker, no case row, gateway
+    error — returns False, which keeps conflict state at UNKNOWN. Failing
+    closed here is the whole point: the cost of a wrong False is a slightly
+    less precise timeline, while the cost of a wrong True is asserting a clean
+    check that never happened.
+    """
+    try:
+        gw = gateway
+        if gw is None:
+            from src.data_gateway import get_gateway
+
+            gw = await get_gateway()
+        case = await gw.get_case(case_id)
+    except Exception as exc:
+        logger.warning(
+            "Could not read conflict-detection marker for case %s: %s — "
+            "reporting conflict state as unknown.", case_id, exc,
+        )
+        return False
+
+    return bool(case and case.get("conflicts_checked_at"))
+
+
 def _sort_key(event: TimelineEvent) -> tuple[int, str]:
     """
     Chronological, with undated events last rather than first.
@@ -234,10 +270,17 @@ async def run(
         events=events,
     )
 
-    # [RESOLVED-5] No read-time signal currently proves conflict detection ran
-    # for this case, so this stays False and NONE is unreachable. See the
-    # module docstring; a per-case completion marker is what flips it.
+    # [RESOLVED-5] `cases.conflicts_checked_at` (migration 019) is the evidence
+    # that detection actually COMPLETED for this case — written by the
+    # background task on return, so a query racing an in-flight detection still
+    # finds nothing here and correctly reads UNKNOWN. Absent marker, unreadable
+    # marker, or a failed graph call all leave this False, and NONE stays
+    # unreachable.
     detection_confirmed = False
+    if graph_result.status is not ToolStatus.FAILED and caller.active_case_id:
+        detection_confirmed = await _conflict_detection_confirmed(
+            caller.active_case_id, gateway
+        )
 
     raw_chunks = list(graph_result.chunks or [])
 

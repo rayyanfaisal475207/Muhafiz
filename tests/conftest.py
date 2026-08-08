@@ -110,6 +110,11 @@ class FakeGateway:
         self.cases[case_id].update(data)
         return {**self._CASE_DEFAULTS, **self.cases[case_id]}
 
+    async def mark_conflicts_checked(self, case_id: str) -> None:
+        """Migration 019 — records that conflict detection completed."""
+        if case_id in self.cases:
+            self.cases[case_id]["conflicts_checked_at"] = "2026-01-01T00:00:00"
+
     async def delete_case(self, case_id: str) -> None:
         self.cases.pop(case_id, None)
 
@@ -348,6 +353,14 @@ class FakeGateway:
         for job in self.jobs:
             if job["job_id"] == str(job_id):
                 job.update(data)
+
+    async def update_ingestion_job_by_doc(self, doc_id: str, data: dict) -> None:
+        """Mirrors DirectGateway's doc_id-keyed variant (allowlist included)."""
+        allowed = {"status", "error_message"}
+        updates = {k: v for k, v in data.items() if k in allowed}
+        for job in self.jobs:
+            if str(job.get("doc_id")) == str(doc_id):
+                job.update(updates)
 
     async def get_ingestion_jobs(self, limit: int = 50, offset: int = 0) -> list[dict]:
         return self.jobs[offset:offset + limit]
