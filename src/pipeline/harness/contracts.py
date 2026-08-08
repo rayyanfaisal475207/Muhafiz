@@ -684,25 +684,42 @@ class SubAgentResult(BaseModel):
 #   5. ONE disclosure per underlying gap — a gap disclosed upstream is not
 #      re-disclosed downstream (§2.1.3's suppression rule).
 #
-# BOTH WORDINGS ARE PLACEHOLDERS PENDING PRODUCT SIGN-OFF. The MECHANISM is
-# settled; the sentences are not. Do not ship either string to investigators
-# as-is.
+# WORDING IS FINAL (approved 2026-08-08). These are the reviewed strings the
+# verification exemption depends on — see rule 2 above. Changing either one is a
+# product decision, not a refactor: they are delivered verbatim to
+# investigators, and the exemption is only safe while a human has signed off on
+# exactly these words.
+#
+# Both are written to the same spec: state which source was unavailable, then
+# state what the content IS drawn from. No hedging ("may be incomplete"), no
+# apology, and deliberately no claim that the output is untrustworthy — a
+# graph-only summary is thinner, not wrong, and overstating that would be its
+# own inaccuracy. An investigator can see both in one document (Report Drafting
+# inherits Case Summarization's line), so they share vocabulary and tone on
+# purpose.
 
 PARTIAL_EVIDENCE_DISCLOSURE_TEMPLATE = (
-    "[PLACEHOLDER — PENDING PRODUCT SIGN-OFF] This report was generated from "
-    "partial evidence. The following source(s) were unavailable: {unavailable_sources}. "
-    "Findings below reflect only the evidence that could be retrieved and should not "
-    "be read as a complete account."
+    "The following evidence sources were unavailable when this report was "
+    "generated: {unavailable_sources}. The findings below are drawn only from "
+    "the sources that could be retrieved."
 )
 """
-[RESOLVED-3] Report Drafting's document-body disclosure. Only
-`{unavailable_sources}` is substituted, from `degraded_from` — structured
-harness-held data, never model output.
+[RESOLVED-3] Report Drafting's document-body disclosure.
+
+Only `{unavailable_sources}` is substituted — from `degraded_from`, structured
+harness-held data, never model output. Reused across different degradation
+causes, which is why it is a template rather than a fixed sentence.
+
+Substitute through `SOURCE_TOOL_DISPLAY_LABELS`, not raw `degraded_from`
+values: the investigator-facing vocabulary is "document search", not "RAG"
+([RESOLVED-1a] establishes those labels as the user-facing names). Report
+Drafting does this mapping before formatting.
 """
 
 GRAPH_ONLY_SUMMARY_DISCLOSURE = (
-    "[PLACEHOLDER — PENDING PRODUCT SIGN-OFF] No document-based summary "
-    "available; generated from case graph data only."
+    "Case documents were unavailable for this summary. The findings below are "
+    "drawn from case graph data only — entities, relationships, and recorded "
+    "events — and do not reflect the content of case documents."
 )
 """
 [RESOLVED-2a] Case Summarization's in-text disclosure for the GRAPH-only case.
@@ -710,6 +727,9 @@ GRAPH_ONLY_SUMMARY_DISCLOSURE = (
 Takes no substitution — it names one specific gap. A GRAPH-only summary is a
 materially thinner, entity-shaped artifact that a reader could mistake for a
 complete one, which is why `degraded_from` alone is not sufficient here.
+
+The gloss on "case graph data" is deliberate: that phrase is internal
+vocabulary, and an investigator should not have to know it to read the sentence.
 
 The symmetric case (GRAPH fails, RAG succeeds) needs NO in-text disclosure: it
 yields the document-based summary a user expects by default.

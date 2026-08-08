@@ -40,6 +40,7 @@ from typing import Any, Optional
 
 from src.pipeline.harness.contracts import (
     PARTIAL_EVIDENCE_DISCLOSURE_TEMPLATE,
+    SOURCE_TOOL_DISPLAY_LABELS,
     GeneratedFileRef,
     SubAgentInput,
     SubAgentResult,
@@ -88,6 +89,26 @@ def _undisclosed_gaps(summary: SubAgentResult) -> list[str]:
     """
     already = _sources_already_disclosed(summary)
     return [t for t in (summary.degraded_from or []) if t not in already]
+
+
+def _render_disclosure(gaps: list[str]) -> str:
+    """
+    Fill the disclosure template with INVESTIGATOR-FACING source names.
+
+    `degraded_from` carries internal identifiers (`RAG`, `GRAPH`, `SQL`).
+    Dropping those into a delivered document would read as noise — "the
+    following evidence sources were unavailable: RAG". [RESOLVED-1a] already
+    establishes `SOURCE_TOOL_DISPLAY_LABELS` as the user-facing vocabulary, so
+    the same mapping applies here.
+
+    Unknown values fall back to the raw name rather than being dropped: a
+    disclosure that silently omits a source would be worse than one naming it
+    awkwardly.
+    """
+    labels = [SOURCE_TOOL_DISPLAY_LABELS.get(g, g) for g in gaps]
+    return PARTIAL_EVIDENCE_DISCLOSURE_TEMPLATE.format(
+        unavailable_sources=", ".join(labels)
+    )
 
 
 async def run(
@@ -215,11 +236,9 @@ async def run(
     # ── Result: degradation is INHERITED (§2.1.3) ──
     caveats = list(summary.caveats)
     if new_gaps:
-        caveats.append(
-            PARTIAL_EVIDENCE_DISCLOSURE_TEMPLATE.format(
-                unavailable_sources=", ".join(new_gaps)
-            )
-        )
+        # Same rendering the document received, so the caveat and the document
+        # body cannot drift apart.
+        caveats.append(_render_disclosure(new_gaps))
 
     if events:
         await events.emit(
@@ -280,9 +299,7 @@ async def _build_document(
     # basis on which it is exempt from the grounding gate.
     disclosure_rendered = False
     if new_gaps:
-        disclosure = PARTIAL_EVIDENCE_DISCLOSURE_TEMPLATE.format(
-            unavailable_sources=", ".join(new_gaps)
-        )
+        disclosure = _render_disclosure(new_gaps)
         sections = payload.get("sections")
         if isinstance(sections, list):
             sections.insert(0, {"type": "paragraph", "content": disclosure})

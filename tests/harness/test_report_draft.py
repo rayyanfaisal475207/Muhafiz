@@ -18,6 +18,7 @@ from src.pipeline.harness.agents import report_draft
 from src.pipeline.harness.contracts import (
     GRAPH_ONLY_SUMMARY_DISCLOSURE,
     PARTIAL_EVIDENCE_DISCLOSURE_TEMPLATE,
+    SOURCE_TOOL_DISPLAY_LABELS,
     CallerContext,
     Citation,
     EvidenceChunk,
@@ -89,11 +90,22 @@ def builders(monkeypatch):
 
 
 def _disclosure_texts(payload: dict) -> list[str]:
-    """Every section body in the built document that looks like a disclosure."""
-    marker = "PENDING PRODUCT SIGN-OFF"
+    """
+    Every section body in the built document that is a disclosure.
+
+    Keyed on the CONSTANTS' own distinctive opening rather than on a marker
+    string. The wording is final but still owned by product, so matching on a
+    stable structural feature of each template keeps these tests from breaking
+    on a future rewording — the same reasoning that makes report_draft.py key
+    suppression on the caveats constant instead of the prose.
+    """
+    stems = (
+        PARTIAL_EVIDENCE_DISCLOSURE_TEMPLATE.split("{")[0].strip(),
+        GRAPH_ONLY_SUMMARY_DISCLOSURE.split(".")[0].strip(),
+    )
     return [
         s.get("content", "") for s in payload.get("sections", [])
-        if marker in str(s.get("content", ""))
+        if any(stem and stem in str(s.get("content", "")) for stem in stems)
     ]
 
 
@@ -174,7 +186,8 @@ async def test_does_not_double_disclose_a_gap_summarization_already_covered(
     result = await report_draft.run(_input(), gateway=gateway)
 
     injected = _disclosure_texts(builders["payload"])
-    new_disclosures = [d for d in injected if "were unavailable" in d]
+    template_stem = PARTIAL_EVIDENCE_DISCLOSURE_TEMPLATE.split("{")[0].strip()
+    new_disclosures = [d for d in injected if template_stem in d]
     assert new_disclosures == [], (
         "Report Drafting re-disclosed a gap Case Summarization had already "
         "disclosed — the document now states the same fact twice."
@@ -225,7 +238,11 @@ async def test_discloses_a_gap_summarization_did_not_cover(
 
     injected = _disclosure_texts(builders["payload"])
     assert len(injected) == 1
-    assert "GRAPH" in injected[0]
+    # Named by its investigator-facing label, not the internal tool name.
+    assert SOURCE_TOOL_DISPLAY_LABELS["GRAPH"] in injected[0]
+    assert "GRAPH" not in injected[0], (
+        "the raw tool identifier leaked into a delivered document"
+    )
     assert result.generated_file.disclosure_rendered is True
 
 
@@ -245,9 +262,41 @@ async def test_disclosure_is_injected_after_structuring_not_before(
     await report_draft.run(_input(), gateway=gateway)
 
     first = builders["payload"]["sections"][0]
-    assert "PENDING PRODUCT SIGN-OFF" in first["content"]
-    expected = PARTIAL_EVIDENCE_DISCLOSURE_TEMPLATE.format(unavailable_sources="GRAPH")
+    # Substituted with the INVESTIGATOR-FACING label, not the raw tool name.
+    expected = PARTIAL_EVIDENCE_DISCLOSURE_TEMPLATE.format(
+        unavailable_sources=SOURCE_TOOL_DISPLAY_LABELS["GRAPH"]
+    )
     assert first["content"] == expected, "the disclosure was altered, not injected verbatim"
+
+
+async def test_multiple_gaps_are_all_named_with_display_labels(
+    summary_returns, builders, gateway
+):
+    """
+    A report degraded on several sources names each one, in investigator-facing
+    vocabulary. Omitting any would understate what is missing.
+    """
+    summary_returns(SubAgentResult(
+        status=SubAgentStatus.PARTIAL, answer_text="Thin summary [Document 1]",
+        citations=[_citation()], tools_used=["RAG"], degraded_from=["GRAPH", "SQL"],
+    ))
+
+    await report_draft.run(_input(), gateway=gateway)
+
+    injected = _disclosure_texts(builders["payload"])
+    assert len(injected) == 1
+    assert SOURCE_TOOL_DISPLAY_LABELS["GRAPH"] in injected[0]
+    assert SOURCE_TOOL_DISPLAY_LABELS["SQL"] in injected[0]
+
+
+def test_final_disclosures_carry_no_placeholder_marker():
+    """
+    Wording is approved. If a placeholder marker ever reappears in either
+    string, it is on a path to being delivered verbatim to an investigator.
+    """
+    for text in (PARTIAL_EVIDENCE_DISCLOSURE_TEMPLATE, GRAPH_ONLY_SUMMARY_DISCLOSURE):
+        assert "PLACEHOLDER" not in text
+        assert "SIGN-OFF" not in text
 
 
 # ── File generation failure ──────────────────────────────────────────────
