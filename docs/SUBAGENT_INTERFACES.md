@@ -915,6 +915,27 @@ class SubAgentResult(BaseModel):
     generated_file: Optional["GeneratedFileRef"] = Field(
         default=None, description="Set only by Report Drafting."
     )
+    timeline: list["TimelineEvent"] = Field(
+        default_factory=list,
+        description=(
+            "Set only by Timeline Building. The ordered event list, each entry "
+            "carrying its own three-state `conflict_state` ([RESOLVED-5]).\n\n"
+            "This is a BOUNDED structure, not an evidence leak: `TimelineEvent` "
+            "carries a description, a date, and a conflict flag — never the raw "
+            "graph edge rows behind it, and never an `EvidenceChunk`. Empty list "
+            "means 'no events', which for this sub-agent is a legitimate OK "
+            "outcome rather than a failure."
+        ),
+    )
+    cross_case_links: list["CrossCaseLink"] = Field(
+        default_factory=list,
+        description=(
+            "Set only by Cross-Case Linkage. Ranked cross-case connections, each "
+            "with its own confidence and `is_unconfirmed` caveat flag. Same "
+            "bounded-structure rule as `timeline`: per-item findings, never the "
+            "chunks they were derived from."
+        ),
+    )
     error: Optional[ToolError] = None
 
 
