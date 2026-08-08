@@ -39,10 +39,18 @@ VALIDATION GATE -- EXPLICITLY NOT WIRED THIS PHASE. `validation.py`
 `SubAgentResult` has no `validation_status` field -- the §7.1 amendment
 was proposed but was never actually added to types.py in Phase 0
 (confirmed against src/pipeline/harness/types.py before writing this
-module). See the `# TODO(phase-3)` marker at its intended insertion
+module). See the `# TODO(validation-gate)` marker at its intended insertion
 point below (after the Verifier passes, per plan §7.1's ordering and
 §5's Verifier -> Citation-Consistency -> Validation chain). No ad hoc
 validation logic is invented here to fill that gap.
+
+[RENAMED -- Large-Scale Aggregate session] This marker used to read
+`# TODO(phase-3)`. That name collided with a later session's own internal
+use of "Phase 3" for a *different* checklist item (Large-Scale Aggregate,
+AGENT_HARNESS_IMPLEMENTATION_PLAN.md §4 row 2) -- this marker was never
+about that sub-agent, only about the Validation module (§5/§7.1), a later,
+separate checklist item. Renamed to `# TODO(validation-gate)` so the two
+are not confused again; no behavior change.
 
 PARTIAL-FAILURE MAPPING (this sub-agent composes exactly one tool, so
 there is nothing for it to degrade TO -- `degraded_from` is always empty
@@ -283,7 +291,7 @@ async def semantic_search(agent_input: SubAgentInput) -> SubAgentResult:
             ],
         )
 
-    # TODO(phase-3): Validation plugs in here -- after the Verifier passes,
+    # TODO(validation-gate): Validation plugs in here -- after the Verifier passes,
     # before the result is returned -- per AGENT_HARNESS_IMPLEMENTATION_PLAN.md
     # §7.1 ("Validation ... runs after the Verifier passes") and §5's ordering
     # (Verifier -> Citation-Consistency [Report Drafting only] -> Validation).
