@@ -206,7 +206,7 @@ Two implementation requirements surfaced while drafting these, both easy to miss
 - [x] Large-Scale Aggregate *(complete — see §9)*
 - [x] Case Summarization *(complete — see §9)*
 - [x] **Contract amendment — SubAgentResult.events/.links, ConflictState, TimelineEvent (see §11)** *(complete — see §9)*
-- [ ] Timeline Building *(depends on the §11 amendment above)*
+- [x] Timeline Building *(complete — see §9)*
 - [ ] Cross-Case Linkage *(depends on the §11 amendment above — .links field)*
 - [ ] Investigative Analysis (parallel execution)
 - [ ] Report Drafting (citation-consistency check)
@@ -682,6 +682,124 @@ Compliance suite (`src/pipeline/harness/compliance/`, run separately per `pytest
 `testpaths = tests` scoping) — 51/51 checks still passing, unchanged count from Phase 0. Nothing in
 `main.py`, `orchestrator.py`, or `router.py`'s existing behavior was touched — still not wired into
 live traffic, per §6.
+
+### Phase 5 — Timeline Building: COMPLETE
+
+Branch `feature/harness-phase-5-timeline-building`, merge commit TBD (recorded once merged to
+main per this session's git workflow).
+
+**Built:**
+- `src/pipeline/harness/agents/timeline_building.py` — composes two NEW, dedicated, case-scoped
+  Cypher templates, both routed through `src.graph.case_scope.scoped_cypher()` per design §4.5's
+  own anticipation of exactly this need ("If the harness introduces new within-case Cypher
+  templates anywhere (e.g. inside Timeline Building), route them through `scoped_cypher()`, not
+  raw `age_client.execute_cypher()`"): `_fetch_dated_incidents()` (Incident nodes with a live,
+  non-superseded `OCCURRED_ON` edge — the literal date-bearing-edge filter) and
+  `_fetch_conflict_bases()` (live `CONFLICTS_WITH` edges, projected to `entity_id -> [basis, ...]`).
+  Neither the Phase 0 `graph_tool()` wrapper nor `retrieve_graph()` is touched or even called by
+  this sub-agent — see the deviation below for why. `ExecutionContext` is used throughout (only
+  `execution.caller.active_case_id` is actually read; no role gate applies, matching Case
+  Summarization's precedent — `SubAgentStatus.DENIED` is never built as an output path here).
+- **RESOLVED-5, honored exactly.** No date-bearing edges → `status=EMPTY`, not an error (checked
+  before conflict detection even runs — nothing to attach a conflict state to). Conflict-detection
+  fetch failing while the date-edge fetch resolved fine → every `TimelineEvent.conflict_state`
+  set to `UNKNOWN` (never `NONE` — enforced by construction: `_build_events(..., conflict_bases=
+  None)` has no code path that ever writes `NONE`), `status=PARTIAL`, with a caveat naming
+  conflict detection as the degraded component. `NONE` is only ever set on an incident absent
+  from a *successfully returned* conflict-bases mapping (checked, nothing found) — never as a
+  fallback for an unchecked event.
+- **Deterministic, graph-derived `TimelineEvent.description` and `answer_text` — this session's
+  brief asked for this decision to be made and documented, not silently picked.** Adopted the
+  recommended option: `description` is copied verbatim from `Incident.description` (the graph
+  node property `src/extraction/domain_entities.py` writes at ingestion), never regenerated or
+  paraphrased through an LLM — avoiding per-event hallucination risk entirely, the same reasoning
+  that already exempts XAGG's `raw_summary_text` from the Verifier (§9's Phase 3 entry). `
+  answer_text` (event count, date span, conflict counts) is likewise built via plain deterministic
+  string formatting over already-computed `events`, never model-generated. Consequence:
+  `verify_grounding()` is never called anywhere in this sub-agent — there is nothing generated
+  that could hallucinate, matching the same "nothing to cite, nothing to verify" property the
+  interfaces doc's own disclosure-string exemptions (§2.1.1) already establish for a different
+  kind of fixed/deterministic text.
+- `src/pipeline/harness/supervisor.py::register()` — a real `TimelineBuilding`-equivalent callable
+  (`timeline_building`) registers itself under `TIMELINE_BUILDING` at import time, the same
+  pattern every prior sub-agent module used.
+- `tests/test_harness_agent_timeline_building.py` — 7 tests: successful timeline with mixed
+  conflict states (`CONFLICT`/`NONE`) and chronological reordering (input rows deliberately
+  out of date order), no-date-edges → `EMPTY`, conflict-detection-failure → all-`UNKNOWN` +
+  `PARTIAL` (RESOLVED-5's exact named scenario), date-edge-fetch exception → `ABSTAINED` with
+  the error propagated, no-active-case → `EMPTY` (not an exception — see deviation note below),
+  module self-registration, and a `Supervisor.handle()` → real Timeline Building → real
+  `scoped_cypher()` call-site integration test that bypasses `route_query()`'s real classification
+  by monkeypatching `classify_to_subagent()` directly (see the classification-reachability note
+  below for why this is a deliberate bypass, not an oversight).
+
+**Two deviations from a literal reading of this session's brief, both resolved with the user via
+`AskUserQuestion` before any code was written — not guessed:**
+
+1. **Data source is two new dedicated Cypher templates, not "the Phase 0 GRAPH tool wrapper."**
+   The brief's literal wording ("composes the Phase 0 GRAPH tool wrapper, filtered to date-bearing
+   (OCCURRED_ON) edges") is not achievable as written: `graph_tool()`/`retrieve_graph()` performs
+   `ASSOCIATED_WITH` entity traversal and returns document-text `EvidenceChunk`s that carry no
+   `occurred_on` date field anywhere, and its existing conflict-chunk path
+   (`_fetch_case_conflicts()`) does not preserve which `Incident.entity_id` each returned chunk
+   belongs to — there is no way to assemble `TimelineEvent.occurred_on` from what `graph_tool()`
+   returns today, and no other exported function already returned "Incident + its OCCURRED_ON
+   date" (the only place that query shape existed before this session was inlined, unexported,
+   inside `conflict_detection.py::detect_conflicts()`). Design §4.5 itself anticipates a new
+   within-case Cypher template being needed "e.g. inside Timeline Building" — this session's
+   two new templates are exactly that, mirroring `conflict_detection.py`'s and
+   `_fetch_case_conflicts()`'s own already-proven MATCH shapes rather than inventing new Cypher
+   patterns. Neither `tools/graph.py` nor `retrieval/graph_retriever.py` (Phase 0, already-merged,
+   depended on by other sub-agents) was touched. `tools_used`/`degraded_from` still tag this data
+   as `"GRAPH"` (`SourceTool`) throughout — the classification is about the retrieval mechanism
+   class (Cypher/AGE-sourced), not about which specific wrapper function ran.
+2. **`degraded_from` stays `[]` when conflict detection alone fails, per RESOLVED-5.** RESOLVED-5's
+   text says a conflict-detection-only failure should have `degraded_from` "recording the conflict
+   check" — but `degraded_from: list[SourceTool]` is a closed Literal with no conflict-detection
+   member (conflict detection is Phase 8 machinery, not one of the eight tool primitives), and
+   writing `"GRAPH"` there would collide with `tools_used=["GRAPH"]` (the date-edge fetch
+   genuinely succeeded) in violation of §2.0's own stated invariant that a tool never appears in
+   both lists for one call. Resolved with the user: `degraded_from=[]` in this branch; the
+   degradation is instead carried by `status=PARTIAL`, every event's `conflict_state=UNKNOWN`, and
+   an explicit `caveats` entry naming conflict detection by name. No `SourceTool`/`types.py` change
+   was made or proposed.
+
+**One additional, smaller defensive branch, flagged not silent:** a query with no
+`execution.caller.active_case_id` returns `status=EMPTY` (not an exception) — `scoped_cypher()`
+itself would raise `ValueError` on an empty/None `case_id`, and since this sub-agent is entirely
+within-case, "no active case" is treated as a legitimate "nothing to build a timeline for" rather
+than an infrastructure failure being reported as one.
+
+**Classification reachability — stated plainly, not closed this session.** `router.py` has no
+classification signal for Timeline Building (documented in Phase 1's own progress-log entry and
+reiterated in §11's contract-amendment entry above) — this session does not invent new trigger
+keywords/patterns to close that gap, per this session's explicit instruction that new
+classification logic needs the same evidence-driven basis XAGG/XGRAPH/XNETWORK's own deterministic
+overrides had (live-confirmed misclassification failures), not guessed patterns. This sub-agent is
+built, registered, and tested via direct dispatch and a Supervisor integration test that bypasses
+`route_query()`'s real classification (monkeypatching `classify_to_subagent()` to force the route).
+`Supervisor.handle()`'s real classification path (`route_query()` -> `_ROUTE_TO_SUBAGENT`) still
+cannot reach `TIMELINE_BUILDING` today; this is a real, tracked gap, not a silent one.
+
+**No other deviations.** Bounded payload holds throughout — `SubAgentResult.events` (already
+present in `types.py` per the §11 amendment, not redefined here) is the only non-generic field
+this sub-agent populates; no raw graph rows, no `EvidenceChunk`, ever cross this module's
+boundary. Validation gate explicitly not wired this session, same as every prior sub-agent — moot
+here in one respect (there is no generated evidentiary text to validate, per the deterministic-
+description decision above), but a `# TODO(validation-gate)`-equivalent note is not needed since
+there is no Verifier-boundary insertion point in this sub-agent at all, unlike every prior one.
+
+**Verification:** full existing test suite (`pytest`, `testpaths = tests`) — exit code 0, 848
+passed, 4 skipped (the same pre-existing, unrelated docling/PDF `std::bad_alloc` environment
+failure already documented present on main since Phase 0's own merge — confirmed still present
+identically, not a regression), 0 failed, comprising the prior baseline plus this session's 7 new
+tests. Compliance suite (`src/pipeline/harness/compliance/`, run separately per `pytest.ini`'s
+`testpaths = tests` scoping) — 51/51 checks still passing, unchanged count from Phase 0 (this
+sub-agent is not a "tool wrapper" per `_source_scan.py::TOOL_WRAPPER_MODULE_NAMES`, so it is
+correctly out of enforcement-point-5's static scan scope; it never calls `age_client.execute_cypher()`
+directly either way, only `scoped_cypher()`, so the underlying security property holds regardless).
+Nothing in `main.py`, `orchestrator.py`, or `router.py`'s existing behavior was touched — still not
+wired into live traffic, per §6.
 
 ---
 
