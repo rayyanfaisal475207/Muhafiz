@@ -646,7 +646,7 @@ live traffic, per §6.
 ### Contract Amendment — SubAgentResult.events / SubAgentResult.links (pre-Timeline-Building): COMPLETE
 
 Branch `feature/harness-contract-amendment-events-links`, merged to main via merge commit
-`<pending merge, filled in below after §11's merge>`.
+`c70ce6a`.
 
 **Built/changed, per §11's exact type text:**
 - `src/pipeline/harness/types.py` — added two fields to `SubAgentResult`: `events: list[TimelineEvent]
