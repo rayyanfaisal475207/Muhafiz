@@ -973,7 +973,7 @@ same subset, i.e. pre-existing and unrelated to this amendment, not a regression
 ### Phase 7 — Investigative Analysis: COMPLETE
 
 Branch `feature/harness-phase-7-investigative-analysis`, merged to main via merge commit
-`<MERGE_COMMIT_SHA>`.
+`a7fb27c`.
 
 **Built:**
 - `src/pipeline/harness/agents/investigative_analysis.py` — composes the Phase 0 RAG, GRAPH, and
