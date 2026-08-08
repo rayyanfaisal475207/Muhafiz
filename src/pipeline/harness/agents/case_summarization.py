@@ -126,6 +126,7 @@ from src.pipeline.harness.types import (
     Citation,
     EvidenceChunk,
     GRAPH_ONLY_SUMMARY_DISCLOSURE,
+    OnEventCallback,
     SourceTool,
     SubAgentInput,
     SubAgentResult,
@@ -328,8 +329,19 @@ def _verifier_passed(verification: dict) -> bool:
     return bool(verification.get("grounded", False)) and not verification.get("off_topic", False)
 
 
-async def case_summarization(agent_input: SubAgentInput) -> SubAgentResult:
-    """The Case Summarization sub-agent. See module docstring for the contract."""
+async def case_summarization(
+    agent_input: SubAgentInput, *, on_event: Optional[OnEventCallback] = None
+) -> SubAgentResult:
+    """
+    The Case Summarization sub-agent. See module docstring for the contract.
+
+    [AMENDMENT — pre-Phase-7 contract amendment, mirrors §10/§11's pattern]
+    `on_event` is accepted for `SubAgent` protocol conformance and otherwise
+    ignored this session. SUBAGENT_INTERFACES.md §2.1.4's "Generalization"
+    note observes this sub-agent (RAG+GRAPH) is a candidate for the same
+    live per-source trace Investigative Analysis (Phase 7) implements —
+    tracked as future work, not done here; out of this amendment's scope.
+    """
     rag_outcome, graph_outcome = await asyncio.gather(
         _run_rag(agent_input), _run_graph(agent_input)
     )
