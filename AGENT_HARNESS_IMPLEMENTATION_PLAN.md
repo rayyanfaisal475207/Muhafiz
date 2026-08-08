@@ -205,8 +205,9 @@ Two implementation requirements surfaced while drafting these, both easy to miss
 - [x] **Contract retrofit — ExecutionContext & ConversationContext (see §10)** *(complete — see §9)*
 - [x] Large-Scale Aggregate *(complete — see §9)*
 - [x] Case Summarization *(complete — see §9)*
-- [ ] Timeline Building
-- [ ] Cross-Case Linkage
+- [ ] **Contract amendment — SubAgentResult.events/.links, ConflictState, TimelineEvent (see §11)**
+- [ ] Timeline Building *(depends on the §11 amendment above)*
+- [ ] Cross-Case Linkage *(depends on the §11 amendment above — .links field)*
 - [ ] Investigative Analysis (parallel execution)
 - [ ] Report Drafting (citation-consistency check)
 - [ ] Data-Quality / Extraction-Coverage
@@ -737,3 +738,39 @@ Retrofitting 3 already-merged modules now is cheaper than retrofitting 8. Every 
 Large-Scale Aggregate onward is built directly against whichever shape is settled at the time — do
 this now, once, or repeat the Phase-0/Phase-2 pattern of one more ad hoc workaround per phase until
 someone eventually forces the same rename across a much larger surface.
+
+---
+
+## 11. Contract amendment — SubAgentResult.events / SubAgentResult.links (pre-Timeline-Building)
+
+`SUBAGENT_INTERFACES.md` §2.1 defines `TimelineEvent` and `CrossCaseLink` as dedicated Pydantic
+types — described in their own docstrings as "Timeline Building's per-event payload element" and
+"Cross-Case Linkage's per-item payload element" — but `SubAgentResult` (§2.0) was never given a
+field to carry either. The doc already has exactly this pattern for a different sub-agent
+(`generated_file: Optional[GeneratedFileRef] = Field(default=None, description="Set only by Report
+Drafting.")`); this amendment applies the same precedent to the two that were missed:
+
+```python
+class SubAgentResult(BaseModel):
+    ...
+    events: list["TimelineEvent"] = Field(
+        default_factory=list,
+        description="Set only by Timeline Building. Ordered event list, each carrying its own conflict_state.",
+    )
+    links: list["CrossCaseLink"] = Field(
+        default_factory=list,
+        description="Set only by Cross-Case Linkage. Ranked cross-case connections.",
+    )
+```
+
+Additive, default-empty — zero effect on any already-shipped sub-agent (Semantic Search, Large-Scale
+Aggregate, Case Summarization use neither field). No retrofit of existing code required, unlike §10.
+
+**Also relevant to Timeline Building specifically:** Phase 1's progress log (§9) flagged that
+`router.py` has no classification signal for Timeline Building — it is registerable but
+unreachable via `Supervisor.classify_to_subagent()` today. That gap is **not** resolved by this
+amendment and is explicitly not to be closed by guessing new trigger keywords this session (per
+Phase 1's own note: new classification logic needs the same evidence-driven basis
+XAGG/XGRAPH/XNETWORK's overrides had, not invented patterns). Build and test Timeline Building via
+direct dispatch/registration and integration tests that bypass `route_query()`'s classification —
+real end-user reachability stays a tracked, separate gap.

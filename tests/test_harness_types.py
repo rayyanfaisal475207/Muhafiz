@@ -16,12 +16,17 @@ from src.pipeline.harness.types import (
     CROSS_CASE_ROLES,
     CallerContext,
     ChunkMetadata,
+    ConflictState,
+    CrossCaseLink,
     CrossCaseToolInput,
     CrossCaseToolResult,
     EvidenceChunk,
     ExecutionContext,
     Role,
     SOURCE_TOOL_DISPLAY_LABELS,
+    SubAgentResult,
+    SubAgentStatus,
+    TimelineEvent,
     ToolError,
     ToolInput,
     ToolResult,
@@ -166,3 +171,66 @@ def test_source_tool_display_labels_cover_every_source_tool():
     expected = {"RAG", "GRAPH", "GRAPH_HYBRID", "XGRAPH", "XAGG", "XNETWORK", "SQL", "WEB"}
     assert set(SOURCE_TOOL_DISPLAY_LABELS.keys()) == expected
     assert SOURCE_TOOL_DISPLAY_LABELS["GRAPH_HYBRID"] != SOURCE_TOOL_DISPLAY_LABELS["GRAPH"]
+
+
+# ── SubAgentResult.events / .links — contract amendment (plan §11) ──────
+
+def test_sub_agent_result_events_and_links_default_empty():
+    # Additive, default-empty: zero effect on any sub-agent that doesn't
+    # set either field (Semantic Search, Large-Scale Aggregate, Case
+    # Summarization use neither).
+    result = SubAgentResult(status=SubAgentStatus.OK)
+    assert result.events == []
+    assert result.links == []
+
+
+def test_timeline_event_conflict_state_defaults_to_unknown_not_none():
+    # [RESOLVED-5] UNKNOWN is the default -- "not yet checked," never
+    # silently "no conflict." NONE may only be set on an explicit,
+    # successful check that found nothing.
+    event = TimelineEvent(event_id="e1", description="suspect seen leaving")
+    assert event.conflict_state == ConflictState.UNKNOWN
+    assert event.occurred_on is None
+    assert event.locked is False
+    assert event.conflict_basis is None
+
+
+def test_timeline_event_conflict_state_all_three_values_constructible():
+    checked_clear = TimelineEvent(
+        event_id="e1", description="d", conflict_state=ConflictState.NONE
+    )
+    assert checked_clear.conflict_state == ConflictState.NONE
+
+    conflicting = TimelineEvent(
+        event_id="e2",
+        description="d",
+        conflict_state=ConflictState.CONFLICT,
+        conflict_basis="contradicts witness statement in Document 3",
+    )
+    assert conflicting.conflict_state == ConflictState.CONFLICT
+    assert conflicting.conflict_basis is not None
+
+
+def test_cross_case_link_source_tool_restricted_to_xgraph_or_xnetwork():
+    link = CrossCaseLink(
+        description="Vehicle ABC-123 recurs across 3 cases",
+        case_ids=["CASE-001", "CASE-002", "CASE-003"],
+        source_tool="XGRAPH",
+    )
+    assert link.is_unconfirmed is False
+    assert link.confidence is None
+    with pytest.raises(ValidationError):
+        CrossCaseLink(description="d", case_ids=["CASE-001"], source_tool="RAG")
+
+
+def test_sub_agent_result_carries_events_and_links_together():
+    event = TimelineEvent(event_id="e1", description="d")
+    link = CrossCaseLink(description="d", case_ids=["CASE-001"], source_tool="XNETWORK")
+    result = SubAgentResult(status=SubAgentStatus.OK, events=[event], links=[link])
+    assert result.events[0] is event
+    assert result.links[0] is link
+    # Round-trips through serialization (forward-ref resolution actually
+    # worked -- model_rebuild() ran after both referenced classes existed).
+    dumped = result.model_dump()
+    assert dumped["events"][0]["conflict_state"] == ConflictState.UNKNOWN
+    assert dumped["links"][0]["source_tool"] == "XNETWORK"
