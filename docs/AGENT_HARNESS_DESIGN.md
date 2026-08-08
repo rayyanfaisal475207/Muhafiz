@@ -436,6 +436,20 @@ file did not.
   failure mode is silent by construction: the guard reports green while the spec and the shipped
   string say different things.
 
+- **Cross-Case Linkage's per-source trace mechanism is an open call, to be confirmed when it is
+  built.** Two mechanisms currently satisfy the live per-source requirement, and they say
+  different things: tool-emitted events (`tool:rag`, `tool:graph`) describe what a TOOL did, and
+  are sufficient when a sub-agent's legs cannot degrade into one another (Case Summarization);
+  sub-agent-interpreted events (`analysis:rag`, …) describe what the SUB-AGENT concluded, and are
+  required when legs can collapse into the same effective source (Investigative Analysis, where
+  GRAPH and SQL both fall back to RAG).
+
+  XGRAPH and XNETWORK are structurally independent and both pinned never-fall-back, so collapse
+  looks impossible by construction and tool-level events alone should suffice — but that is a
+  prediction, not a finding. **Confirm against the built sub-agent rather than inheriting this
+  reasoning.** Full decision criteria in `docs/SUBAGENT_INTERFACES.md` §2.1.4.1. No code change
+  outstanding; this is a decision to make deliberately at implementation time.
+
 - **`SOURCE_TOOL_DISPLAY_LABELS` is duplicated in the admin frontend — a confirmed drift risk,
   not a hypothetical one.** The canonical map lives in `contracts.py` and is what the disclosure
   templates substitute through. But `admin-frontend`'s `StepTrace` component hardcodes its own

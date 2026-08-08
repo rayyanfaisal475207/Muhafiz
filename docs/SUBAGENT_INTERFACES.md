@@ -1252,6 +1252,43 @@ implementation adds a delivery mechanism to satisfy this requirement, it has mis
 (Case Summarization and Cross-Case Linkage both qualify). It is stated here because Investigative
 Analysis composes the most tools and has the most collapse-to-one-source risk, per RESOLVED-4.
 
+#### 2.1.4.1 Two mechanisms satisfy this — choose deliberately
+
+There are **two** ways a per-source outcome reaches the live trace, and they say different
+things. A multi-tool sub-agent must pick one on purpose rather than inheriting whichever happens
+to be there.
+
+**(a) Tool-emitted events** — `tool:rag`, `tool:graph`, … Every tool already receives the
+`EventRecorder` and emits `active` → `done`/`retry`/`error` as it resolves. These describe **what
+the tool did**.
+
+*Sufficient when a sub-agent's legs are independent and cannot degrade into one another.*
+**Case Summarization** is this case: RAG and GRAPH are separate sources, neither falls back into
+the other, so `tool:rag` and `tool:graph` map one-to-one onto its two legs and the trace is
+unambiguous without anything further. It emits no per-source events of its own, deliberately —
+adding them would produce two events per source for one transition, which §2.2 forbids just as
+much as collapsing them into none.
+
+**(b) Sub-agent-interpreted events** — `analysis:rag`, `analysis:graph`, … Emitted by the
+sub-agent after reading each tool result. These describe **what the sub-agent concluded**.
+
+*Necessary when legs CAN collapse into one another*, because the tool-level event is then
+ambiguous. **Investigative Analysis** is this case: GRAPH and SQL both degrade *to RAG*, so a
+`tool:graph retry` says graph fell back but not whether the sub-agent ended up with one effective
+source or three. Only the sub-agent knows that, and RESOLVED-4 requires the distinction be
+visible — so it states its own interpretation (`contributed` vs `fell back`) alongside the tool's.
+
+**Deciding for a new sub-agent:** ask whether any two of its legs can end up as the same
+effective source. If no, (a) alone is correct and (b) is duplication. If yes, (b) is required and
+(a) alone would understate the collapse.
+
+**Open for Cross-Case Linkage.** XGRAPH and XNETWORK are structurally independent (§3.1 — no
+graph traversal in XNETWORK at all, and neither falls back to anything: both are pinned
+never-fall-back by `CrossCaseToolResult`), which points at (a). **Confirm rather than assume**
+before implementing its trace behaviour — the never-fall-back property makes collapse impossible
+by construction, but that reasoning should be checked against the built sub-agent, not inherited
+from this note.
+
 ### 2.2 Logging contract
 
 **[PRESERVE — design §6] Both of the following fire at every meaningful state transition,
