@@ -650,6 +650,23 @@ class SubAgentResult(BaseModel):
     generated_file: Optional[GeneratedFileRef] = Field(
         default=None, description="Set only by Report Drafting."
     )
+    # [AMENDMENT — AGENT_HARNESS_IMPLEMENTATION_PLAN.md §11] `TimelineEvent`
+    # and `CrossCaseLink` (below) were forward-declared in Phase 0 as the
+    # per-item payload elements for Timeline Building / Cross-Case Linkage,
+    # per SUBAGENT_INTERFACES.md §2.1, but `SubAgentResult` was never given
+    # a field to actually carry either — the same gap `generated_file`
+    # above already closed for Report Drafting. This applies that same
+    # precedent to the two that were missed. Additive, default-empty: zero
+    # effect on any already-shipped sub-agent (Semantic Search, Large-Scale
+    # Aggregate, Case Summarization use neither field).
+    events: list["TimelineEvent"] = Field(
+        default_factory=list,
+        description="Set only by Timeline Building. Ordered event list, each carrying its own conflict_state.",
+    )
+    links: list["CrossCaseLink"] = Field(
+        default_factory=list,
+        description="Set only by Cross-Case Linkage. Ranked cross-case connections.",
+    )
     error: Optional[ToolError] = None
 
 
@@ -784,6 +801,15 @@ class CrossCaseLink(BaseModel):
             "to SubAgentResult.caveats — never asserted as confirmed fact."
         ),
     )
+
+
+# `SubAgentResult.events`/`.links` (§11 amendment above) reference
+# `TimelineEvent`/`CrossCaseLink` as forward refs (both are defined below
+# `SubAgentResult` in this file) — same pattern `EvidenceChunk.model_rebuild()`
+# already uses for its own forward ref to `ChunkMetadata`. Must run after
+# both referenced classes exist, hence placed here rather than immediately
+# after `SubAgentResult`'s own definition.
+SubAgentResult.model_rebuild()
 
 
 # ═══════════════════════════════════════════════════════════════════════
