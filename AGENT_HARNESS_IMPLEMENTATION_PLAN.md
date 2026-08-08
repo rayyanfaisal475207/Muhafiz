@@ -205,7 +205,7 @@ Two implementation requirements surfaced while drafting these, both easy to miss
 - [x] **Contract retrofit — ExecutionContext & ConversationContext (see §10)** *(complete — see §9)*
 - [x] Large-Scale Aggregate *(complete — see §9)*
 - [x] Case Summarization *(complete — see §9)*
-- [ ] **Contract amendment — SubAgentResult.events/.links, ConflictState, TimelineEvent (see §11)**
+- [x] **Contract amendment — SubAgentResult.events/.links, ConflictState, TimelineEvent (see §11)** *(complete — see §9)*
 - [ ] Timeline Building *(depends on the §11 amendment above)*
 - [ ] Cross-Case Linkage *(depends on the §11 amendment above — .links field)*
 - [ ] Investigative Analysis (parallel execution)
@@ -638,6 +638,46 @@ returned).
 markers anywhere in the run, the same 4 pre-existing skips already documented present on main since
 Phase 0's own merge (the unrelated docling/PDF `std::bad_alloc` environment failure — confirmed
 still present identically, not a regression) plus this session's 14 new tests, all passing.
+Compliance suite (`src/pipeline/harness/compliance/`, run separately per `pytest.ini`'s
+`testpaths = tests` scoping) — 51/51 checks still passing, unchanged count from Phase 0. Nothing in
+`main.py`, `orchestrator.py`, or `router.py`'s existing behavior was touched — still not wired into
+live traffic, per §6.
+
+### Contract Amendment — SubAgentResult.events / SubAgentResult.links (pre-Timeline-Building): COMPLETE
+
+Branch `feature/harness-contract-amendment-events-links`, merged to main via merge commit
+`<pending merge, filled in below after §11's merge>`.
+
+**Built/changed, per §11's exact type text:**
+- `src/pipeline/harness/types.py` — added two fields to `SubAgentResult`: `events: list[TimelineEvent]
+  = []` ("Set only by Timeline Building. Ordered event list, each carrying its own conflict_state.")
+  and `links: list[CrossCaseLink] = []` ("Set only by Cross-Case Linkage. Ranked cross-case
+  connections."), transcribed verbatim from §11. `ConflictState`/`TimelineEvent`/`CrossCaseLink`
+  themselves needed no changes — confirmed by reading `types.py` before editing, not assumed: all
+  three were already transcribed verbatim from SUBAGENT_INTERFACES.md §2.1 in Phase 0's
+  forward-declaration (the file's own "PHASE 0 BUILD NOTE" explains why the §2 sub-agent shapes were
+  included early). Both new fields reference `TimelineEvent`/`CrossCaseLink` as forward refs (both
+  are defined below `SubAgentResult` in the file) — `SubAgentResult.model_rebuild()` added
+  immediately after `CrossCaseLink`'s own definition, mirroring the existing
+  `EvidenceChunk.model_rebuild()` precedent for the same forward-ref pattern (`EvidenceChunk` ->
+  `ChunkMetadata`).
+- `tests/test_harness_types.py` — 5 new tests: `events`/`links` default to `[]` (additive,
+  zero-effect on every already-shipped sub-agent), `TimelineEvent.conflict_state` defaults to
+  `UNKNOWN` (not `NONE`) per RESOLVED-5, all three `ConflictState` values are constructible,
+  `CrossCaseLink.source_tool` rejects anything outside `{XGRAPH, XNETWORK}`, and a round-trip
+  `model_dump()` test proving the forward-ref `model_rebuild()` actually resolved (not just that
+  construction succeeded in-process).
+
+**No deviations.** Additive, default-empty on both new fields — no retrofit of any already-shipped
+sub-agent's code was needed or done, unlike §10's `ExecutionContext`/`ConversationContext` retrofit
+(which touched 3 already-merged modules). Semantic Search, Large-Scale Aggregate, and Case
+Summarization continue to construct `SubAgentResult` exactly as before; neither new field is set by
+any of them.
+
+**Verification:** full existing test suite (`pytest`, `testpaths = tests`) — exit code 0, no `F`/`E`
+markers anywhere in the run, the same 4 pre-existing skips already documented present on main since
+Phase 0's own merge (the unrelated docling/PDF `std::bad_alloc` environment failure — confirmed
+still present identically, not a regression) plus this session's 5 new tests, all passing.
 Compliance suite (`src/pipeline/harness/compliance/`, run separately per `pytest.ini`'s
 `testpaths = tests` scoping) — 51/51 checks still passing, unchanged count from Phase 0. Nothing in
 `main.py`, `orchestrator.py`, or `router.py`'s existing behavior was touched — still not wired into
