@@ -204,7 +204,7 @@ Two implementation requirements surfaced while drafting these, both easy to miss
 - [x] Semantic Search *(complete — see §9)*
 - [x] **Contract retrofit — ExecutionContext & ConversationContext (see §10)** *(complete — see §9)*
 - [x] Large-Scale Aggregate *(complete — see §9)*
-- [ ] Case Summarization
+- [x] Case Summarization *(complete — see §9)*
 - [ ] Timeline Building
 - [ ] Cross-Case Linkage
 - [ ] Investigative Analysis (parallel execution)
@@ -549,6 +549,98 @@ present on main since Phase 0's own merge — confirmed still present identicall
 (`src/pipeline/harness/compliance/`, run separately per `pytest.ini`'s `testpaths = tests` scoping)
 — 51/51 checks still passing, unchanged count. Nothing in `main.py`, `orchestrator.py`, or
 `router.py`'s existing behavior was touched — still not wired into live traffic, per §6.
+
+### Phase 4 — Case Summarization: COMPLETE
+
+Branch `feature/harness-phase-4-case-summarization`, merged to main via merge commit `582e5f2`.
+
+**Built:**
+- `src/pipeline/harness/agents/case_summarization.py` — composes the Phase 0 RAG tool wrapper
+  (case-scoped) and the Phase 0 GRAPH tool wrapper (case-scoped, `hybrid=False`, `max_hops`
+  explicitly capped at `DEFAULT_HOPS=2` — NOT `MAX_HOPS=3` — per this session's brief: "this is a
+  summary, not deep traversal"), both called as-is via `ExecutionContext` throughout. Neither tool
+  carries a role gate (case-assignment-based scoping only), so `SubAgentStatus.DENIED` is not built
+  as an output path here, per this session's explicit instruction. RAG and GRAPH are invoked
+  concurrently (`asyncio.gather`) — an efficiency choice, not a preservation requirement.
+- **Flattening (design §5), concrete for the first time.** Whenever both tools contribute usable
+  chunks, they are concatenated into ONE ordered list — RAG chunks first, then GRAPH chunks —
+  before the generation prompt is built, and the exact same list/order is handed to
+  `verify_grounding()` afterward, so `[Document N]` citations and the Verifier's positional
+  `chunks[n-1]` indexing agree by construction. Each tool wrapper's own `metadata.source_tool`
+  tagging is preserved untouched — this module never re-tags a chunk.
+- **Symmetric degradation (RESOLVED-2/RESOLVED-2a), both directions:**
+  - GRAPH empty/failed, RAG usable → ordinary RAG-based summary, `status=PARTIAL`,
+    `degraded_from=["GRAPH"]`, `tools_used=["RAG"]`, **no in-text disclosure** (§2.1.2: this is the
+    default-shape summary a user expects).
+  - RAG empty/failed, GRAPH usable → follows SUBAGENT_INTERFACES.md §2.1.2's ordering exactly:
+    compose evidentiary content from GRAPH chunks only → `verify_grounding()` over that content
+    ONLY → on pass, PREPEND `GRAPH_ONLY_SUMMARY_DISCLOSURE` (types.py) to `answer_text`, never
+    re-verified/regenerated/paraphrased → return `status=PARTIAL`, `degraded_from=["RAG"]`,
+    `tools_used=["GRAPH"]`. On Verifier rejection at that step: `ABSTAINED`, no summary served, no
+    disclosure produced.
+  - Both empty/failed → `status=EMPTY`, not an error.
+  - Both usable → combined RAG+GRAPH summary, `status=OK`, `tools_used=["RAG", "GRAPH"]`,
+    `degraded_from=[]`; Verifier rejection on the combined evidentiary content → `ABSTAINED`, same
+    generic rule every other sub-agent's Verifier boundary already follows.
+  - No branch ever produces `ABSTAINED` while real evidence exists on the surviving side — only a
+    genuine Verifier rejection of the actual evidentiary content aborts to `ABSTAINED`.
+- **`GRAPH_ONLY_SUMMARY_DISCLOSURE` wording updated in `types.py`**, per this session's explicit
+  instruction: replaced the bare `[PLACEHOLDER]` stand-in (identical to SUBAGENT_INTERFACES.md's
+  own placeholder) with the provisional sentence AGENT_HARNESS_IMPLEMENTATION_PLAN.md §7.4
+  proposes, still clearly marked `[PROVISIONAL — PENDING PRODUCT SIGN-OFF]` — §7.4 itself lists the
+  actual wording sign-off as still genuinely open. Value-only change to a constant
+  SUBAGENT_INTERFACES.md §2.1.2 already designates as Case Summarization's own; no field/shape
+  change, committed separately before the sub-agent itself for a clean diff.
+- **Bounded payload:** one structured summary — status / key entities / key events / open
+  questions — rendered as organized prose/sections inside `answer_text` via a generation-prompt
+  instruction, not a schema change. No new typed field was added to `SubAgentResult` — the brief
+  was explicit that there is no precedent for one and none should be invented unilaterally; no
+  reason to add one surfaced during this build.
+- `src/pipeline/harness/supervisor.py::register()` — a real `CaseSummarization` instance registers
+  itself into the module-level registry at import time, the same pattern the two prior sub-agents
+  used.
+- `tests/test_harness_agent_case_summarization.py` — 14 tests: full success with both tools
+  contributing (flattened RAG-then-GRAPH citation order, positionally matching what the Verifier
+  was shown), RAG-only degradation via both GRAPH `EMPTY` and GRAPH `FAILED` and a raised exception
+  (no disclosure text in any case), GRAPH-only degradation via both RAG `EMPTY` and RAG `FAILED`
+  (disclosure present, verified to be prepended strictly after verification and never included in
+  what the Verifier was actually shown), both-empty and both-exception → `EMPTY`, Verifier
+  rejection on all three evidentiary paths (GRAPH-only, RAG-only, combined) → `ABSTAINED` with no
+  disclosure produced, a generation-exception case, module self-registration, and a
+  `Supervisor.handle()` → real Case Summarization → real `rag_tool()`/`graph_tool()` integration
+  test (router's `route_query()` and both tools stubbed to deterministic test data, not live
+  infra).
+
+**One defensive addition, flagged not silent — `graph_tool()` has no `try/except` around its own
+`retrieve_graph()` calls.** Confirmed by reading `src/pipeline/harness/tools/graph.py` before
+writing this module: `rag_tool()` has an explicit `status=FAILED` path for retrieval-infrastructure
+exceptions (`rag.py`'s own `_retrieve_candidates` try/except), but `graph_tool()` has no equivalent
+— an infrastructure exception from `retrieve_graph()` propagates uncaught out of `graph_tool()` as
+of this session's read. Composing two tools whose failure shapes are asymmetric (one always returns
+a typed `FAILED` result, the other can raise) means this sub-agent must catch a stray exception from
+either tool call itself to implement graceful, exhaustive degradation without crashing — implemented
+via a small internal (non-harness-type, does not cross this module's boundary) `_ToolOutcome`
+normalization in `case_summarization.py`, tested explicitly
+(`test_graph_tool_raising_is_treated_as_degraded`). This is a defensive addition on this module's
+own side, not a fix to the already-merged Phase 0 `tools/graph.py` — modifying it was out of this
+session's scope, and is called out here as a candidate for a future Phase 0 hardening pass.
+
+**No other deviations.** Bounded payload holds throughout (never `EvidenceChunk`/raw chunks/raw
+rows handed to the caller — the flattened chunk list stays inside this function's stack frame,
+exactly as in Semantic Search and Large-Scale Aggregate). Validation gate explicitly not wired this
+session — a `# TODO(validation-gate)` marker (the renamed convention from the Large-Scale Aggregate
+session, not the earlier `phase-3` naming) is left at each of its three intended insertion points
+(combined, RAG-only, and GRAPH-only branches — after the Verifier resolves, before the result is
+returned).
+
+**Verification:** full existing test suite (`pytest`, `testpaths = tests`) — exit code 0, no `F`/`E`
+markers anywhere in the run, the same 4 pre-existing skips already documented present on main since
+Phase 0's own merge (the unrelated docling/PDF `std::bad_alloc` environment failure — confirmed
+still present identically, not a regression) plus this session's 14 new tests, all passing.
+Compliance suite (`src/pipeline/harness/compliance/`, run separately per `pytest.ini`'s
+`testpaths = tests` scoping) — 51/51 checks still passing, unchanged count from Phase 0. Nothing in
+`main.py`, `orchestrator.py`, or `router.py`'s existing behavior was touched — still not wired into
+live traffic, per §6.
 
 ---
 
