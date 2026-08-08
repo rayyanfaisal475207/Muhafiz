@@ -783,8 +783,7 @@ cannot reach `TIMELINE_BUILDING` today; this is a real, tracked gap, not a silen
 
 ### Phase 6 — Cross-Case Linkage: COMPLETE
 
-Branch `feature/harness-phase-6-cross-case-linkage`, merge commit recorded once merged to main
-below.
+Branch `feature/harness-phase-6-cross-case-linkage`, merged to main via merge commit `1decf57`.
 
 **Built:**
 - `src/pipeline/harness/agents/cross_case_linkage.py` — composes the Phase 0 XGRAPH tool wrapper
