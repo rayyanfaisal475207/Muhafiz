@@ -203,7 +203,7 @@ Two implementation requirements surfaced while drafting these, both easy to miss
 - [x] Supervisor *(complete — see §9)*
 - [x] Semantic Search *(complete — see §9)*
 - [x] **Contract retrofit — ExecutionContext & ConversationContext (see §10)** *(complete — see §9)*
-- [ ] Large-Scale Aggregate
+- [x] Large-Scale Aggregate *(complete — see §9)*
 - [ ] Case Summarization
 - [ ] Timeline Building
 - [ ] Cross-Case Linkage
@@ -467,6 +467,88 @@ regression), 0 failed. Compliance suite (`src/pipeline/harness/compliance/`, run
 from Phase 0. Nothing in `main.py`, `orchestrator.py`, `router.py`'s existing behavior, or any
 `workspace_id`/`organization_id`/`feature_flags` branch was touched — still not wired into live
 traffic, per §6; the reserved fields are still inert, per §10.1.
+
+### Phase 3 — Large-Scale Aggregate: COMPLETE
+
+Branch `feature/harness-phase-3-large-scale-aggregate`, merged to main via merge commit
+`[pending — see follow-up entry]`.
+
+*(Naming note: "Phase 3" here is this session's own label for §4 row 2, Large-Scale Aggregate —*
+*the next unchecked §8 item — NOT the Verifier/Citation-Consistency/Validation trust layer, which*
+*is a separate, later checklist item and was explicitly out of scope this session.)*
+
+**Built:**
+- `src/pipeline/harness/agents/large_scale_aggregate.py` — composes the Phase 0 XAGG tool wrapper
+  (`src/pipeline/harness/tools/xagg.py::xagg_tool`) only, called as-is, using `ExecutionContext`
+  throughout (post-retrofit). XAGG's own role gate (supervisor/station-admin/platform-admin only,
+  design §4.3) is checked *inside* `run_aggregate()`; this sub-agent does not duplicate it, only
+  translates the tool's `ToolStatus` — the same relationship `xagg_tool()` itself has to
+  `run_aggregate()`'s `PermissionError`.
+- Status mapping: `DENIED` propagates as its own `SubAgentStatus.DENIED`
+  (**[RESOLVED-6, SUBAGENT_INTERFACES.md]** "applies to any future cross-case sub-agent, not only
+  [Cross-Case Linkage]" — confirmed applied here, the first sub-agent after Cross-Case Linkage's
+  own row to actually need it); `FAILED` → `ABSTAINED`, tool's error propagated; `EMPTY` → `EMPTY`
+  (kept as a defensive branch — see deviation note below); `OK` → paraphrase via `call_llm()` +
+  `verify_grounding(case_id="cross_case", cross_case_ids=tool_result.case_ids_touched)` (matching
+  `orchestrator.py`'s own XAGG verifier-call convention), citing the tool's one synthetic chunk as
+  `[Document 1]`.
+- **Verifier-rejection status decision — made explicitly, not silently picked (this session's
+  brief asked for this by name).** On a Verifier rejection of the paraphrase, this sub-agent serves
+  `tool_result.raw_summary_text` as `answer_text` with **`SubAgentStatus.OK`** (not `ABSTAINED`,
+  not `PARTIAL`) plus a `caveats` entry naming the raw/unparaphrased format. Full reasoning is in
+  the module's own docstring; summary: `SubAgentResult.answer_text`'s "never serve a failed-
+  verification answer" rule is written for the risk of presenting an *unconfirmed, possibly
+  fabricated* LLM claim as fact — `raw_summary_text` isn't that; it's a different, deterministic
+  string that was never itself submitted to the Verifier and has nothing to hallucinate, the same
+  reasoning that already exempts `PARTIAL_EVIDENCE_DISCLOSURE_TEMPLATE` from verification
+  (SUBAGENT_INTERFACES.md §2.1.1). `PARTIAL` was rejected because that status/`degraded_from` pair
+  is defined around tool-level degradation (RESOLVED-4) — no tool degraded here, XAGG itself fully
+  succeeded, so there is nothing to list in `degraded_from`; overloading `PARTIAL` to also mean
+  "generation quality was lower" would invent a second, undocumented meaning for a field the
+  interfaces doc gives exactly one meaning. `OK` also matches `orchestrator.py`'s own pre-harness
+  XAGG route, which already serves `aggregate_text` on verifier rejection without treating the
+  response as degraded in its logged `response_type`.
+- `degraded_from` stays `[]` unconditionally — `XAggToolResult.fallback_to_rag` is pinned
+  `Literal[False]` (`CrossCaseToolResult`); XAGG never falls back to another tool, so there is
+  nothing for this sub-agent to record as attempted-and-fell-back, regardless of which branch above
+  is taken.
+- `src/pipeline/harness/supervisor.py::register()` — a real `LargeScaleAggregate` instance
+  registers itself into the module-level registry at import time, the same pattern Semantic Search
+  used.
+- `tests/test_harness_agent_large_scale_aggregate.py` — 8 tests: successful aggregate + verified
+  paraphrase, verifier-rejection → raw-summary fallback served as `OK` (asserting the documented
+  status choice, not just "some status"), `DENIED` propagation (asserted distinct from both
+  `ABSTAINED` and `EMPTY`), `FAILED` → `ABSTAINED`, `EMPTY` handling, a generation-exception case
+  (distinct from a verifier rejection — no candidate text exists to fall back to, so this stays
+  `ABSTAINED`), module self-registration, and a `Supervisor.handle()` → real Large-Scale Aggregate
+  → real `xagg_tool()` integration test (router's `route_query()` and `xagg.py`'s own
+  `get_gateway()`/`run_aggregate()` stubbed to deterministic test data, not live infra).
+
+**One deviation, flagged not guessed — the `EMPTY` branch is defensive-only, same shape as Phase
+2's defensive `DENIED`-from-RAG branch.** As of this session, `xagg_tool()`/`run_aggregate()` never
+actually produce `ToolStatus.EMPTY`: every canned aggregate family resolves to `status=OK` with a
+`"(no matching cases found)"` rendering inside `raw_summary_text` even when zero rows match (see
+`xagg.py::_render_aggregate_text()`). The branch is implemented anyway, per this session's explicit
+instruction and because `ToolStatus.EMPTY` is part of the tool's declared contract (`types.py`)
+regardless of what the current implementation happens to reach — so an unexpected future change to
+`xagg_tool()` (e.g. a canned family with legitimately nothing to compute over) can't silently fall
+through unhandled.
+
+**No other deviations.** Bounded payload holds (never `tool_result.chunks`/`EvidenceChunk`, never
+the underlying case rows `run_aggregate()` computed over — only `answer_text` + one `Citation` per
+SUBAGENT_INTERFACES.md §2.1's table). Validation gate explicitly not wired this session (see the
+naming-disambiguation note above) — a `# TODO(validation-gate)` marker is left at its intended
+insertion point, matching Semantic Search's precedent; that module's own marker was renamed from
+`# TODO(phase-3)` to `# TODO(validation-gate)` in this same session specifically to remove the
+naming collision this session's brief warned about.
+
+**Verification:** full existing test suite (`pytest`, `testpaths = tests`) — 894 passed, 4 skipped
+(the same pre-existing, unrelated docling/PDF `std::bad_alloc` environment failure documented
+present on main since Phase 0's own merge — confirmed still present identically, not a regression),
+0 failed (886 baseline + this session's 8 new tests). Compliance suite
+(`src/pipeline/harness/compliance/`, run separately per `pytest.ini`'s `testpaths = tests` scoping)
+— 51/51 checks still passing, unchanged count. Nothing in `main.py`, `orchestrator.py`, or
+`router.py`'s existing behavior was touched — still not wired into live traffic, per §6.
 
 ---
 
