@@ -207,7 +207,7 @@ Two implementation requirements surfaced while drafting these, both easy to miss
 - [x] Case Summarization *(complete — see §9)*
 - [x] **Contract amendment — SubAgentResult.events/.links, ConflictState, TimelineEvent (see §11)** *(complete — see §9)*
 - [x] Timeline Building *(complete — see §9)*
-- [ ] Cross-Case Linkage *(depends on the §11 amendment above — .links field)*
+- [x] Cross-Case Linkage *(complete — see §9)*
 - [ ] Investigative Analysis (parallel execution)
 - [ ] Report Drafting (citation-consistency check)
 - [ ] Data-Quality / Extraction-Coverage
@@ -780,6 +780,133 @@ built, registered, and tested via direct dispatch and a Supervisor integration t
 `route_query()`'s real classification (monkeypatching `classify_to_subagent()` to force the route).
 `Supervisor.handle()`'s real classification path (`route_query()` -> `_ROUTE_TO_SUBAGENT`) still
 cannot reach `TIMELINE_BUILDING` today; this is a real, tracked gap, not a silent one.
+
+### Phase 6 — Cross-Case Linkage: COMPLETE
+
+Branch `feature/harness-phase-6-cross-case-linkage`, merge commit recorded once merged to main
+below.
+
+**Built:**
+- `src/pipeline/harness/agents/cross_case_linkage.py` — composes the Phase 0 XGRAPH tool wrapper
+  (`src/pipeline/harness/tools/xgraph.py::xgraph_tool`) and XNETWORK tool wrapper
+  (`src/pipeline/harness/tools/xnetwork.py::xnetwork_tool`) CONCURRENTLY on every invocation
+  (`asyncio.gather`), matching Case Summarization's Phase 4 precedent, per this session's explicit
+  instruction — this sub-agent never tries to pick one tool over the other per query.
+  `ExecutionContext` used throughout; `XGraphToolInput.target_entity` is left `None` (no
+  structured, pre-extracted entity name is available on `SubAgentInput`, the same gap Large-Scale
+  Aggregate's Phase 3 session hit for `XAggToolInput.target_entity` — same resolution, not a new
+  one). Neither tool's role gate is duplicated at this sub-agent's level (design §4.3,
+  SUBAGENT_INTERFACES.md §2.1's Cross-Case Linkage row's explicit "do not add a third gate" — this
+  sub-agent only translates the two tools' resulting `ToolStatus`).
+- **Status mapping**, five named outcomes from this session's brief, all implemented and tested:
+  both `DENIED` -> `SubAgentStatus.DENIED` [RESOLVED-6], never collapsed into `ABSTAINED`/`EMPTY`;
+  both a definite "no connections" result (`XGraphToolResult` `EMPTY` with no `unconfirmed_links`
+  AND `XNetworkToolResult` `EMPTY`) -> `SubAgentStatus.EMPTY`, presented as a real finding
+  [PRESERVE — XGRAPH's own module docstring / design §2.3]; both `FAILED` -> `ABSTAINED`; one
+  contributes real data, the other doesn't -> `PARTIAL` with `tools_used`/`degraded_from` split
+  accordingly (RESOLVED-4's uniform rule); both contribute -> `OK`,
+  `tools_used=["XGRAPH", "XNETWORK"]`.
+- **A sixth, brief-uncovered combination, resolved and flagged, not silently picked:** neither
+  tool is guaranteed to fail/succeed together (unlike `DENIED`, which shares one role gate, XGRAPH
+  hits Postgres/AGE and XNETWORK hits a separate Chroma collection — genuinely independent failure
+  modes). One `FAILED` + the other a definite `EMPTY` is reachable and matches none of the five
+  named buckets (not "both FAILED," not "both definite-empty"). Resolved by falling back to
+  RESOLVED-4's general, project-wide rule: any attempted-and-non-contributing tool belongs in
+  `degraded_from`, and non-empty `degraded_from` implies `PARTIAL` — so this combination returns
+  `PARTIAL`, `tools_used=[]`, `degraded_from=["XGRAPH", "XNETWORK"]`, a deterministic "no confirmed
+  cross-case connections were found" `answer_text`, and a caveat naming which side errored. Tested
+  explicitly (`test_xgraph_failed_xnetwork_definite_empty_returns_partial_no_tools_used`).
+- **`unconfirmed_links` fully wired — this session's brief's single highest-consequence
+  correctness requirement.** Every `XGraphToolResult.unconfirmed_links` entry becomes ONE
+  `CrossCaseLink(is_unconfirmed=True)` AND contributes a matching `SubAgentResult.caveats` entry —
+  tested both in isolation and alongside a confirmed XGRAPH connection in the same result
+  (`test_unconfirmed_links_become_caveated_crosscaselinks`,
+  `test_unconfirmed_links_alongside_confirmed_connection`). Per
+  `_unconfirmed_same_as_links()`'s actual dict shape (`src/retrieval/graph_retriever.py`, confirmed
+  by reading it — `{"entity", "candidate", "tier", "confidence", "status"}`, no per-link case IDs),
+  `CrossCaseLink.case_ids=[]` for these entries: the tool's aggregate `case_ids_touched` was not
+  used as a substitute, since that would misattribute an unconfirmed pairing to specific cases it
+  was never shown to actually span.
+- **Description-generation decision, made and documented, same as Timeline Building's Phase 5
+  precedent for `TimelineEvent.description`:** XGRAPH-derived `CrossCaseLink.description` strings
+  are deterministic/structured — composed from `case_ids_touched`/`hop_count`/`chain_confidence`
+  (and `target_entity`, when supplied), never LLM-generated or paraphrased, and never run through
+  `verify_grounding()` (nothing generated, nothing to verify — the same property Timeline
+  Building's Phase 5 entry already established for its own deterministic content). Rationale: a
+  cross-case identity/vehicle/pattern-recurrence claim is the highest-stakes claim type in this
+  system, so avoiding LLM generation for it avoids hallucination risk entirely rather than
+  mitigating it after the fact, the same reasoning already applied to Phase 3's
+  `XAggToolResult.raw_summary_text` and Phase 5's `TimelineEvent.description`. XNETWORK-derived
+  content uses whatever the tool wrapper enables per this session's explicit instruction: the
+  synthesized `answer_text` narrative IS generated-and-verified (see next item), but each
+  per-community `CrossCaseLink.description` is the tool's own already-grounded community-summary
+  text verbatim, never re-paraphrased per item.
+- **XGRAPH tool-contract discrepancy, confirmed against the code before writing any code, resolved
+  with the user via `AskUserQuestion` — not guessed.** This session's brief characterized
+  XNETWORK's "verify -> one-shot cloud-regeneration -> raw-text fallback" behavior as "already
+  built into the Phase 0 tool wrapper." Reading `src/pipeline/harness/tools/xnetwork.py` before
+  writing this module showed the opposite, stated explicitly in that file's own module docstring:
+  `xnetwork_tool()` only calls `run_network_query()` and translates its result/`PermissionError` —
+  no `call_llm()`, no `verify_grounding()` anywhere in it, and the docstring says outright that
+  "the XNETWORK-specific cloud-retry behavior belongs to whichever sub-agent (Cross-Case Linkage)
+  eventually composes this tool with the Verifier — do not implement it here." Cross-checked
+  against `orchestrator.py`'s own pre-harness XNETWORK route (~line 1387-1528): the same
+  verify -> `force_cloud=True` one-shot regeneration -> re-verify -> raw-text-fallback sequence
+  lives at the route level there too, not inside `run_network_query()`. The tool-level code is
+  internally consistent; the brief's framing of it was not. Per the design docs' own instruction
+  ("if anything is ambiguous, or the docs/code disagree, stop and ask rather than guessing"), this
+  was surfaced to the user before any code was written rather than resolved either way silently.
+  **Resolution:** this sub-agent implements the full XNETWORK-specific retry sequence itself
+  (`_generate_xnetwork_text()`), mirroring `orchestrator.py`'s existing route and `xnetwork.py`'s
+  own docstring instruction — a materially larger, higher-stakes piece of this session's build than
+  the brief's original framing implied.
+- **Bounded payload:** `SubAgentResult.links` (never raw chunks) carries every XGRAPH/XNETWORK
+  connection; `answer_text` is a short synthesized narrative combining the deterministic XGRAPH
+  section (when it contributes) and the generated/verified (or raw-fallback) XNETWORK section
+  (when it contributes); `Citation` entries are populated for XNETWORK's generated content only
+  (`Citation.document_index` is defined against `[Document N]` markers in generated text, which the
+  deterministic XGRAPH section never uses — matching Timeline Building's Phase 5 precedent of no
+  citations for deterministic content).
+- `src/pipeline/harness/supervisor.py::register()` — a real `CrossCaseLinkage`-equivalent callable
+  (`cross_case_linkage`) registers itself under `CROSS_CASE_LINKAGE` at import time, the same
+  pattern every prior sub-agent module used.
+- `tests/test_harness_agent_cross_case_linkage.py` — 15 tests: both tools contribute (`OK`), one
+  `EMPTY`/other contributes (`PARTIAL`, both directions), both definite-empty (`EMPTY`), both
+  `DENIED` (`DENIED`, asserted distinct from `ABSTAINED`/`EMPTY`), both `FAILED` (`ABSTAINED`), the
+  sixth brief-uncovered `FAILED`+definite-`EMPTY` combination, `unconfirmed_links` -> caveats wiring
+  (in isolation and alongside a confirmed connection), XNETWORK's full retry sequence (cloud retry
+  passing, cloud retry also rejected -> raw fallback, cloud retry raising under a simulated
+  `AIR_GAP_MODE`-style refusal -> raw fallback, and a first-call generation exception treated as
+  degraded rather than a whole-sub-agent abstention), module self-registration, and a
+  `Supervisor.handle()` -> real Cross-Case Linkage -> real `xgraph_tool()`/`xnetwork_tool()`
+  integration test.
+
+**Classification reachability — CONFIRMED, unlike Timeline Building.** Read
+`src/pipeline/harness/supervisor.py`'s `_ROUTE_TO_SUBAGENT` table before writing any code, per this
+session's explicit instruction not to assume: both `"XGRAPH"` and `"XNETWORK"` already map to
+`CROSS_CASE_LINKAGE` (set in Phase 1, unrelated to this session's own work). This sub-agent is
+therefore reachable through real classification today —
+`Supervisor.handle()` -> `route_query()` -> `_ROUTE_TO_SUBAGENT["XGRAPH"|"XNETWORK"]` ->
+`cross_case_linkage()` — confirmed by the Supervisor integration test above, which drives the real
+`_ROUTE_TO_SUBAGENT` mapping (only `route_query()` and the two tools' underlying
+`retrieve_graph()`/`run_network_query()` calls are stubbed, not the classification path itself).
+
+**No other deviations.** Bounded payload holds throughout — no `EvidenceChunk`/raw chunks/raw graph
+rows ever cross this module's boundary; only `answer_text`, `citations`, `links`, and `caveats` are
+populated. Validation gate explicitly not wired this session, same as every prior sub-agent — a
+`# TODO(validation-gate)` marker is left at its intended insertion point. Per
+AGENT_HARNESS_IMPLEMENTATION_PLAN.md §4 row 5 and §5's table, Validation's FULL semantic re-check
+will be MANDATORY here once `validation.py` exists (not the lighter structural-only check some
+other sub-agents get) — noted in the module's own docstring and repeated here, not left implicit.
+
+**Verification:** full existing test suite (`pytest`, `testpaths = tests`) — exit code 0, no `F`/`E`
+markers anywhere in the run (935 dot-markers + 4 skip-markers across the progress bar, the same 4
+pre-existing skips already documented present on main since Phase 0's own merge — the unrelated
+docling/PDF `std::bad_alloc` environment failure — confirmed still present identically, not a
+regression), comprising the prior baseline plus this session's 15 new tests. Compliance suite
+(`src/pipeline/harness/compliance/`, run separately per `pytest.ini`'s `testpaths = tests` scoping)
+— 51/51 checks still passing, unchanged count from Phase 0. Nothing in `main.py`, `orchestrator.py`,
+or `router.py`'s existing behavior was touched — still not wired into live traffic, per §6.
 
 **No other deviations.** Bounded payload holds throughout — `SubAgentResult.events` (already
 present in `types.py` per the §11 amendment, not redefined here) is the only non-generic field
