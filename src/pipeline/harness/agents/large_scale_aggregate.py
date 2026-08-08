@@ -183,6 +183,7 @@ from src.pipeline.harness.tools.xagg import XAggToolInput, xagg_tool
 from src.pipeline.harness.types import (
     Citation,
     EvidenceChunk,
+    OnEventCallback,
     SubAgentInput,
     SubAgentResult,
     SubAgentStatus,
@@ -237,8 +238,18 @@ def _chunk_to_verifier_dict(chunk: EvidenceChunk) -> dict:
     }
 
 
-async def large_scale_aggregate(agent_input: SubAgentInput) -> SubAgentResult:
-    """The Large-Scale Aggregate sub-agent. See module docstring for the contract."""
+async def large_scale_aggregate(
+    agent_input: SubAgentInput, *, on_event: Optional[OnEventCallback] = None
+) -> SubAgentResult:
+    """
+    The Large-Scale Aggregate sub-agent. See module docstring for the contract.
+
+    [AMENDMENT — pre-Phase-7 contract amendment, mirrors §10/§11's pattern]
+    `on_event` is accepted for `SubAgent` protocol conformance and otherwise
+    ignored — this sub-agent composes exactly one tool, nothing granular to
+    report per-source (SUBAGENT_INTERFACES.md §2.1.4 is Investigative
+    Analysis's own requirement, Phase 7).
+    """
     execution = agent_input.execution
     caller = execution.caller
 

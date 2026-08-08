@@ -303,7 +303,19 @@ class Supervisor:
         # and its nested `.execution.caller`) is passed straight through,
         # unmodified — no reconstruction, no merge with any
         # profile/preferences object, no defaulting of `.execution.caller.role`.
-        result = await handler(agent_input)
+        #
+        # [AMENDMENT — pre-Phase-7 contract amendment, mirrors §10/§11's
+        # pattern] `on_event` (this method's own parameter, possibly None)
+        # is now forwarded to the sub-agent unchanged — closing the gap
+        # SUBAGENT_INTERFACES.md §2.1.4/RESOLVED-4a needs: a sub-agent that
+        # composes several tools (Investigative Analysis, Phase 7 onward)
+        # can emit its own per-source-tool `PipelineEvent`s through this
+        # exact sink, reusing the callback this method has accepted since
+        # Phase 1 rather than adding any new delivery mechanism. Every
+        # sub-agent's `__call__` now accepts `on_event` (see
+        # `types.SubAgent`'s own amendment note) — sub-agents with nothing
+        # granular to report simply ignore it.
+        result = await handler(agent_input, on_event=on_event)
 
         emit(
             PipelineEvent(

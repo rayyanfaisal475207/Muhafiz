@@ -61,15 +61,24 @@ def _agent_input(caller=None, query_text="what happened in this case?", **kw):
 
 def _mock_sub_agent(name: str, result: SubAgentResult):
     """A minimal stand-in satisfying the SubAgent Protocol — captures the
-    exact `agent_input` it received for later inspection."""
-    calls = []
+    exact `agent_input` it received for later inspection.
 
-    async def _handler(agent_input: SubAgentInput) -> SubAgentResult:
+    [AMENDMENT — pre-Phase-7 contract amendment] Accepts the same
+    keyword-only `on_event` every real sub-agent now does (see
+    `types.SubAgent`'s amendment note) and records whatever it was given
+    (including `None`) so tests can assert Supervisor.handle() actually
+    forwards it, rather than only that the call didn't raise."""
+    calls = []
+    on_events_received = []
+
+    async def _handler(agent_input: SubAgentInput, *, on_event=None) -> SubAgentResult:
         calls.append(agent_input)
+        on_events_received.append(on_event)
         return result
 
     _handler.name = name
     _handler.calls = calls
+    _handler.on_events_received = on_events_received
     return _handler
 
 
@@ -298,3 +307,33 @@ async def test_on_event_is_optional(monkeypatch, isolated_registry):
     sup = Supervisor(registry=isolated_registry)
     result = await sup.handle(_agent_input())
     assert result.status == SubAgentStatus.OK
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# (e) on_event threaded down to the sub-agent itself
+# [AMENDMENT — pre-Phase-7 contract amendment, mirrors §10/§11's pattern]
+# ═══════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_on_event_forwarded_to_subagent_when_given(monkeypatch, isolated_registry):
+    _stub_route_query(monkeypatch, {"route": "RAG", "output_format": "chat"})
+    mock = _mock_sub_agent(SEMANTIC_SEARCH, SubAgentResult(status=SubAgentStatus.OK))
+    isolated_registry[SEMANTIC_SEARCH] = mock
+
+    sup = Supervisor(registry=isolated_registry)
+    sink = lambda evt: None
+    await sup.handle(_agent_input(), on_event=sink)
+
+    assert mock.on_events_received == [sink]
+
+
+@pytest.mark.asyncio
+async def test_on_event_forwarded_as_none_when_not_given(monkeypatch, isolated_registry):
+    _stub_route_query(monkeypatch, {"route": "RAG", "output_format": "chat"})
+    mock = _mock_sub_agent(SEMANTIC_SEARCH, SubAgentResult(status=SubAgentStatus.OK))
+    isolated_registry[SEMANTIC_SEARCH] = mock
+
+    sup = Supervisor(registry=isolated_registry)
+    await sup.handle(_agent_input())
+
+    assert mock.on_events_received == [None]

@@ -173,6 +173,7 @@ from src.graph.case_scope import scoped_cypher
 from src.pipeline.harness.supervisor import TIMELINE_BUILDING, register
 from src.pipeline.harness.types import (
     ConflictState,
+    OnEventCallback,
     SubAgentInput,
     SubAgentResult,
     SubAgentStatus,
@@ -354,8 +355,19 @@ def _answer_text(events: list[TimelineEvent], conflict_checked: bool) -> str:
     )
 
 
-async def timeline_building(agent_input: SubAgentInput) -> SubAgentResult:
-    """The Timeline Building sub-agent. See module docstring for the full contract."""
+async def timeline_building(
+    agent_input: SubAgentInput, *, on_event: Optional[OnEventCallback] = None
+) -> SubAgentResult:
+    """
+    The Timeline Building sub-agent. See module docstring for the full contract.
+
+    [AMENDMENT — pre-Phase-7 contract amendment, mirrors §10/§11's pattern]
+    `on_event` is accepted for `SubAgent` protocol conformance and otherwise
+    ignored — this sub-agent's own data source is not composed from
+    multiple harness tools (see module docstring's deviation note on the
+    two dedicated Cypher templates), so there is nothing per-source-tool to
+    report.
+    """
     case_id = agent_input.execution.caller.active_case_id
 
     if not case_id:

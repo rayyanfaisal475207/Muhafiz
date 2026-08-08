@@ -69,7 +69,7 @@ never full history.
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Literal, Optional, Protocol
+from typing import Any, Callable, Literal, Optional, Protocol
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -670,12 +670,46 @@ class SubAgentResult(BaseModel):
     error: Optional[ToolError] = None
 
 
+# [AMENDMENT — pre-Phase-7] The exact callback shape `Supervisor.handle()`
+# has accepted since Phase 1 (supervisor.py), named here so `SubAgent` and
+# every sub-agent module can reference one canonical alias instead of each
+# spelling out `Optional[Callable[[PipelineEvent], None]]` itself.
+# `PipelineEvent` is defined further below in this file (§2.2) — a plain
+# forward-reference string, the same pattern `TimelineEvent`/`CrossCaseLink`
+# already use for their own forward refs onto `SubAgentResult`.
+OnEventCallback = Callable[["PipelineEvent"], None]
+
+
 class SubAgent(Protocol):
-    """Structural contract every sub-agent satisfies."""
+    """
+    Structural contract every sub-agent satisfies.
+
+    [AMENDMENT — pre-Phase-7 contract amendment, mirroring
+    AGENT_HARNESS_IMPLEMENTATION_PLAN.md §10/§11's pattern] `on_event` is a
+    new, additive, keyword-only parameter. It reuses the exact
+    `Optional[Callable[[PipelineEvent], None]]` shape `Supervisor.handle()`
+    has always accepted (supervisor.py, Phase 1) — no new type, no new
+    transport, no delivery mechanism invented. It closes the gap
+    SUBAGENT_INTERFACES.md §2.1.4/RESOLVED-4a assumed already closed:
+    `Supervisor.handle()` had an `on_event` sink but nothing to hand it to,
+    since `SubAgent.__call__` took only `agent_input`. A sub-agent that
+    composes a single tool (every sub-agent through Phase 6) has nothing
+    granular to report and may ignore the parameter entirely — it is
+    additive with a `None` default, so every already-shipped sub-agent
+    keeps working once retrofitted to accept-and-ignore it. Investigative
+    Analysis (Phase 7) is the first to actually use it, per
+    SUBAGENT_INTERFACES.md §2.1.4's requirement that it emit one
+    `PipelineEvent` per source-tool outcome as it resolves.
+    """
 
     name: str
 
-    async def __call__(self, agent_input: SubAgentInput) -> SubAgentResult: ...
+    async def __call__(
+        self,
+        agent_input: SubAgentInput,
+        *,
+        on_event: Optional[OnEventCallback] = None,
+    ) -> SubAgentResult: ...
 
 
 # [RESOLVED-3] PLACEHOLDER — EXACT WORDING PENDING PRODUCT SIGN-OFF.

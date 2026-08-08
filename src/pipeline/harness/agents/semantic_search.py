@@ -96,6 +96,7 @@ from src.pipeline.harness.tools.rag import RagToolInput, rag_tool
 from src.pipeline.harness.types import (
     Citation,
     EvidenceChunk,
+    OnEventCallback,
     SubAgentInput,
     SubAgentResult,
     SubAgentStatus,
@@ -183,8 +184,20 @@ def _chunk_to_verifier_dict(chunk: EvidenceChunk) -> dict:
     }
 
 
-async def semantic_search(agent_input: SubAgentInput) -> SubAgentResult:
-    """The Semantic Search sub-agent. See module docstring for the contract."""
+async def semantic_search(
+    agent_input: SubAgentInput, *, on_event: Optional[OnEventCallback] = None
+) -> SubAgentResult:
+    """
+    The Semantic Search sub-agent. See module docstring for the contract.
+
+    [AMENDMENT — pre-Phase-7 contract amendment, mirrors §10/§11's pattern]
+    `on_event` is accepted for `SubAgent` protocol conformance (see
+    `types.SubAgent`'s own amendment note) and otherwise ignored: this
+    sub-agent composes exactly one tool, so it has nothing granular to
+    report — SUBAGENT_INTERFACES.md §2.1.4's per-source-tool live-trace
+    requirement is Investigative Analysis's own (Phase 7), not this
+    sub-agent's.
+    """
     execution = agent_input.execution
     caller = execution.caller
 

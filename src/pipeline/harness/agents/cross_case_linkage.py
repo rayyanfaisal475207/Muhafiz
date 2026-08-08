@@ -206,6 +206,7 @@ from src.pipeline.harness.types import (
     Citation,
     CrossCaseLink,
     EvidenceChunk,
+    OnEventCallback,
     SourceTool,
     SubAgentInput,
     SubAgentResult,
@@ -484,8 +485,19 @@ def _xgraph_summary_line(case_ids: list[str], hop_count: int, unconfirmed_count:
     return " ".join(lines)
 
 
-async def cross_case_linkage(agent_input: SubAgentInput) -> SubAgentResult:
-    """The Cross-Case Linkage sub-agent. See module docstring for the contract."""
+async def cross_case_linkage(
+    agent_input: SubAgentInput, *, on_event: Optional[OnEventCallback] = None
+) -> SubAgentResult:
+    """
+    The Cross-Case Linkage sub-agent. See module docstring for the contract.
+
+    [AMENDMENT — pre-Phase-7 contract amendment, mirrors §10/§11's pattern]
+    `on_event` is accepted for `SubAgent` protocol conformance and otherwise
+    ignored this session. SUBAGENT_INTERFACES.md §2.1.4's "Generalization"
+    note observes this sub-agent (XGRAPH+XNETWORK) is a candidate for the
+    same live per-source trace Investigative Analysis (Phase 7) implements —
+    tracked as future work, not done here; out of this amendment's scope.
+    """
     execution = agent_input.execution
 
     xgraph_input = XGraphToolInput(
