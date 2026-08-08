@@ -685,8 +685,8 @@ live traffic, per §6.
 
 ### Phase 5 — Timeline Building: COMPLETE
 
-Branch `feature/harness-phase-5-timeline-building`, merge commit TBD (recorded once merged to
-main per this session's git workflow).
+Branch `feature/harness-phase-5-timeline-building`, merged to main via merge commit
+`97f223d`.
 
 **Built:**
 - `src/pipeline/harness/agents/timeline_building.py` — composes two NEW, dedicated, case-scoped
