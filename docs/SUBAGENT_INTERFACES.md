@@ -484,7 +484,8 @@ what follows is the **display obligation** on consumers of that field.
 # enum name in user-facing surfaces.
 #
 # [RESOLVED-1a] GRAPH_HYBRID is a DISTINCT label — never displayed as "GRAPH",
-# never omitted. Wording below is indicative; see the sign-off note in §3.
+# never omitted. These labels are also what the disclosure templates substitute
+# in, so they reach investigators verbatim in generated documents.
 SOURCE_TOOL_DISPLAY_LABELS: dict[SourceTool, str] = {
     "RAG":          "document search",
     "GRAPH":        "case-graph search",
@@ -936,18 +937,29 @@ class GeneratedFileRef(BaseModel):
     )
 
 
-# [RESOLVED-3] PLACEHOLDER — EXACT WORDING PENDING PRODUCT SIGN-OFF.
-# The MECHANISM is settled: when Report Drafting builds from a degraded
+# WORDING IS FINAL (approved 2026-08-08). Both strings below are the reviewed
+# text the verification exemption depends on — changing either is a product
+# decision, not a refactor, because they are delivered verbatim to
+# investigators and the exemption is only safe while a human has signed off on
+# exactly these words.
+#
+# Both follow one spec: name the unavailable source, then state what the
+# content IS drawn from. No hedging ("may be incomplete"), no apology, and
+# deliberately no claim that the output is untrustworthy — a graph-only summary
+# is thinner, not wrong, and overstating that would be its own inaccuracy. An
+# investigator can see both in one document (Report Drafting inherits Case
+# Summarization's line), so they share vocabulary and tone on purpose.
+#
+# [RESOLVED-3] The MECHANISM: when Report Drafting builds from a degraded
 # summary, this line is rendered into the document body itself, naming the
-# unavailable source(s). The sentence below is a stand-in; replace it wholesale
-# once product signs off. Do not ship this string to investigators as-is.
+# unavailable source(s).
 #
 # [RESOLVED-3a] INJECTED POST-VERIFICATION, AND NEVER VERIFIED. See the
-# ordering contract in §2.1 (Report Drafting) — the disclosure is a
-# meta-statement ABOUT the generation process, not an evidentiary claim drawn
-# from the case. It has nothing to cite, so passing it through grounding or
-# citation verification could trip the no-citation check and cause abstention
-# — withholding the whole report BECAUSE it was honest about being partial.
+# ordering contract in §2.1.3 — the disclosure is a meta-statement ABOUT the
+# generation process, not an evidentiary claim drawn from the case. It has
+# nothing to cite, so passing it through grounding or citation verification
+# could trip the no-citation check and cause abstention — withholding the whole
+# report BECAUSE it was honest about being partial.
 #
 # Consequences for anyone editing this constant:
 #   - It is a FIXED, REVIEWED TEMPLATE. Only `{unavailable_sources}` is
@@ -956,11 +968,14 @@ class GeneratedFileRef(BaseModel):
 #   - Because it bypasses verification, its trustworthiness rests entirely on
 #     this string being human-reviewed. That is the tradeoff that makes the
 #     bypass safe — do not make it dynamic.
+#   - Substitute through SOURCE_TOOL_DISPLAY_LABELS, not raw `degraded_from`
+#     values: an investigator reads "case-graph search", never "GRAPH"
+#     ([RESOLVED-1a] establishes those labels as the user-facing vocabulary).
+#     Report Drafting applies the mapping before formatting.
 PARTIAL_EVIDENCE_DISCLOSURE_TEMPLATE = (
-    "[PLACEHOLDER — PENDING PRODUCT SIGN-OFF] This report was generated from "
-    "partial evidence. The following source(s) were unavailable: {unavailable_sources}. "
-    "Findings below reflect only the evidence that could be retrieved and should not "
-    "be read as a complete account."
+    "The following evidence sources were unavailable when this report was "
+    "generated: {unavailable_sources}. The findings below are drawn only from "
+    "the sources that could be retrieved."
 )
 
 
@@ -976,10 +991,13 @@ PARTIAL_EVIDENCE_DISCLOSURE_TEMPLATE = (
 # alongside it, so it survives being read, quoted, or pasted somewhere the
 # payload metadata does not follow.
 #
-# WORDING PENDING THE SAME PRODUCT SIGN-OFF. Do not ship as-is.
+# The gloss on "case graph data" is deliberate: that phrase is internal
+# vocabulary, and an investigator should not have to know it to read the
+# sentence.
 GRAPH_ONLY_SUMMARY_DISCLOSURE = (
-    "[PLACEHOLDER — PENDING PRODUCT SIGN-OFF] No document-based summary "
-    "available; generated from case graph data only."
+    "Case documents were unavailable for this summary. The findings below are "
+    "drawn from case graph data only — entities, relationships, and recorded "
+    "events — and do not reflect the content of case documents."
 )
 
 
@@ -1340,8 +1358,10 @@ unavailable source(s), then sets `disclosure_rendered=True`.
 The disclosure must not live only in the payload, status field, or run logs: a generated report
 outlives the response that carried it and is read by people who never see the pipeline metadata.
 An investigator holding a PDF that silently omits graph-derived findings has no way to know it is
-partial. **Wording is a placeholder pending product sign-off — the mechanism is settled, the
-sentence is not.** Do not ship the placeholder string to investigators.
+partial. **Wording is final (approved 2026-08-08)** — changing it is a product decision, not a
+refactor, since the string is delivered verbatim and its exemption from the grounding gate rests
+on a human having reviewed exactly those words. `{unavailable_sources}` substitutes through
+`SOURCE_TOOL_DISPLAY_LABELS`, so a report names "case-graph search", never "GRAPH".
 
 **[RESOLVED-3a] — The disclosure is injected post-verification and is never itself verified.**
 Full ordering in §2.1.3: sub-agent output → Verifier over **evidentiary content only** → on pass,
