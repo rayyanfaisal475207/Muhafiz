@@ -73,11 +73,51 @@ _HEDGE_PHRASES = (
 _HEDGE_WINDOW = 250
 
 
+def _effective_confidence(chunk: dict) -> tuple[Optional[float], str]:
+    """
+    [AMENDMENT — AGENT_HARNESS_DESIGN.md §7 / types.py's ChunkMetadata.
+    confidence_status docstring] Resolves a chunk's confidence + status
+    from EITHER of the two shapes this function is actually called with:
+
+      1. The LEGACY, pre-harness shape — a top-level `graph_confidence`
+         key set directly on the chunk dict by `graph_retriever.py`
+         (still the live shape `orchestrator.py`'s own GRAPH/XGRAPH routes
+         pass in today; confirmed by reading graph_retriever.py before
+         changing this function — `retrieve_graph()` writes
+         `"graph_confidence": confidence` directly on each chunk, not
+         nested under `metadata`). Checked FIRST and preserved exactly —
+         this is still a live call path, not something this fix may break.
+      2. The HARNESS shape — an `EvidenceChunk` flattened to a dict per
+         SUBAGENT_INTERFACES.md §2's "Verifier boundary" note
+         (`{"id", "text", "metadata": chunk.metadata.model_dump()}`,
+         confirmed by reading every sub-agent's own `_chunk_to_verifier_dict()`
+         before writing this). Confidence lives at
+         `metadata["confidence"]`/`metadata["confidence_status"]`, never at
+         a top-level `graph_confidence` key — this function is what
+         actually reads that field for the first time; every sub-agent
+         built through Phase 9 flattens it correctly but nothing before
+         this fix ever consumed it. Design §7's own text names this
+         exact gap: "affects the Verifier's hedging check... Worth
+         deciding before the Verifier's hedging behavior is relied on in
+         the harness."
+
+    Returns `(confidence, status)` where `status` is one of
+    `"computed"`/`"not_computed"`/`"check_failed"` — legacy chunks that
+    set `graph_confidence` are treated as `"computed"` (a real,
+    already-scored value), matching their historical behavior exactly.
+    """
+    gc = chunk.get("graph_confidence")
+    if gc is not None:
+        return float(gc), "computed"
+    meta = chunk.get("metadata") or {}
+    return meta.get("confidence"), meta.get("confidence_status", "not_computed")
+
+
 def _format_chunks_for_verifier(chunks: list[dict]) -> str:
     """
     Format cited chunks for the verifier prompt.
-    Includes graph_confidence and case_id from metadata when present,
-    so the LLM judge can apply the hedging rule (check 4) itself.
+    Includes confidence and case_id from metadata when present, so the
+    LLM judge can apply the hedging rule (check 4) itself.
     """
     lines: list[str] = []
     for i, chunk in enumerate(chunks, start=1):
@@ -88,14 +128,19 @@ def _format_chunks_for_verifier(chunks: list[dict]) -> str:
             or "unknown"
         )
         text = chunk.get("chunk_text") or chunk.get("text") or ""
-        graph_conf = chunk.get("graph_confidence")
+        conf, conf_status = _effective_confidence(chunk)
         case_id_val = meta.get("case_id")
 
         header_parts = [f"[{i}] Source: {source}"]
         if case_id_val:
             header_parts.append(f"case_id: {case_id_val}")
-        if graph_conf is not None:
-            header_parts.append(f"graph_confidence: {graph_conf:.2f}")
+        if conf_status == "check_failed":
+            # [AMENDMENT] Never displayed as "no confidence signal" —
+            # the LLM judge must see this as an unresolved risk, the same
+            # posture the deterministic hedging check below takes.
+            header_parts.append("confidence: unknown (check failed)")
+        elif conf is not None:
+            header_parts.append(f"graph_confidence: {conf:.2f}")
         lines.append(" — ".join(header_parts))
         lines.append(f"Text: {text}")
         lines.append("")
@@ -174,15 +219,33 @@ def _check_leakage(
 
 def _check_hedging(answer: str, chunks: list[dict]) -> list[str]:
     """
-    Deterministic pre-check: for any chunk with graph_confidence < 0.85,
-    verify that the answer contains a hedging phrase within _HEDGE_WINDOW
-    characters of the [Document N] citation that references that chunk.
-    Returns a list of issue strings (empty = hedging is adequate).
+    Deterministic pre-check: for any chunk with confidence < 0.85 (via
+    `_effective_confidence()` — legacy top-level `graph_confidence` OR
+    the harness's `metadata.confidence`/`confidence_status`), verify that
+    the answer contains a hedging phrase within _HEDGE_WINDOW characters
+    of the [Document N] citation that references that chunk. Returns a
+    list of issue strings (empty = hedging is adequate).
+
+    [AMENDMENT — AGENT_HARNESS_DESIGN.md §7] `confidence_status ==
+    "check_failed"` requires hedging UNCONDITIONALLY, regardless of what
+    `confidence` itself holds (normally `None` for this status). This is
+    the fix design §7 names explicitly: a chunk whose confidence
+    computation raised must be treated at LEAST as cautiously as a
+    known-low score — never as "no signal, proceed unhedged," which is
+    the exact false-all-clear this check exists to prevent (the same
+    shape of fix RESOLVED-5's `ConflictState` already applied one layer
+    up, for a different field).
     """
     issues: list[str] = []
     for i, chunk in enumerate(chunks, start=1):
-        gc = chunk.get("graph_confidence")
-        if gc is None or gc >= 0.85:
+        conf, conf_status = _effective_confidence(chunk)
+        if conf_status == "check_failed":
+            needs_hedge, conf_label = True, "confidence check failed"
+        elif conf is not None and conf < 0.85:
+            needs_hedge, conf_label = True, f"graph_confidence={conf:.2f}"
+        else:
+            continue
+        if not needs_hedge:
             continue
 
         # Find all occurrences of [Document N] in the answer
@@ -195,7 +258,7 @@ def _check_hedging(answer: str, chunks: list[dict]) -> list[str]:
             if not any(phrase in window for phrase in _HEDGE_PHRASES):
                 source = (chunk.get("metadata") or {}).get("source", f"chunk {i}")
                 issues.append(
-                    f"[Document {i}] (source: {source}, graph_confidence={gc:.2f}) "
+                    f"[Document {i}] (source: {source}, {conf_label}) "
                     f"is cited without a required hedging phrase nearby."
                 )
                 break  # one issue per chunk is enough
