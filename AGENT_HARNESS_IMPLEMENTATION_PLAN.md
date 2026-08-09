@@ -211,7 +211,12 @@ Two implementation requirements surfaced while drafting these, both easy to miss
 - [x] Investigative Analysis (parallel execution) *(complete — see §9)*
 - [x] **Report Drafting, including Citation-Consistency module** *(complete — see §9; §5/§8's implied split between "Report Drafting" and a later separate "Citation-Consistency module" line was resolved via AskUserQuestion to build both together this phase — see the Phase 8 entry)*
 - [x] Data-Quality / Extraction-Coverage *(complete — see §9)*
-- [ ] Verifier module
+- [x] **Verifier module** — pre-existing (`src/pipeline/verifier.py`, predates the harness), reused
+  UNCHANGED by every sub-agent through Phase 9 per design §5's decision (a) — not new
+  harness-authored code, so there was never a "build" step here. Checked off because a real,
+  confirmed gap in it *was* found and fixed this session (its own hedging check never actually read
+  the harness's `ChunkMetadata.confidence`/`confidence_status` shape — see §9's fix entry) — flagged
+  rather than left as a silently-stale unchecked box implying unbuilt work that was never in scope.
 - [ ] Validation module
 - [ ] Wire compliance suite into CI as a merge gate
 
@@ -1369,6 +1374,61 @@ present identically, not a regression) plus this session's 13 new tests. Complia
 (`src/pipeline/harness/compliance/`, run separately per `pytest.ini`'s `testpaths = tests` scoping)
 — 51/51 checks still passing, unchanged count from Phase 0. Nothing in `main.py`, `orchestrator.py`,
 or `router.py`'s existing behavior was touched — still not wired into live traffic, per §6.
+
+---
+
+### Fix — Verifier confidence_status/hedging gap (post-Phase-9, pre-Validation): COMPLETE
+
+Branch `fix/verifier-confidence-status-hedging`, merged to main via merge commit `17b2785`.
+
+**A real, live gap, confirmed by reading the code, not guessed — the exact one
+`AGENT_HARNESS_DESIGN.md` §7 named and left deliberately open:** `src/pipeline/verifier.py`
+predates the harness and is reused UNCHANGED by every sub-agent per design §5's decision — but its
+`_check_hedging()`/`_format_chunks_for_verifier()` only ever read a top-level `chunk["graph_confidence"]`
+key, the LEGACY shape `orchestrator.py`'s own pre-harness GRAPH/XGRAPH routes still pass (confirmed
+against `graph_retriever.py` before changing anything — `retrieve_graph()` really does set
+`graph_confidence` directly on the chunk dict, not nested under `metadata`, so this path had to be
+preserved exactly). Every harness sub-agent, however, flattens an `EvidenceChunk` to
+`{"id", "text", "metadata": chunk.metadata.model_dump()}` per SUBAGENT_INTERFACES.md §2's "Verifier
+boundary" note — confidence lives at `metadata["confidence"]`/`metadata["confidence_status"]`, a key
+`_check_hedging()` never read at all. Consequence: the hedging check has been a silent no-op for
+every harness-sourced, GRAPH-derived chunk through Phase 9 (Case Summarization, Cross-Case
+Linkage's XNETWORK path, Investigative Analysis) — `semantic_search.py`'s own module docstring had
+already flagged the gap in passing ("does not need solving here: RAG never computes a per-chunk
+confidence... regardless of how that bridge eventually gets wired") but no session had actually
+wired it, and design §7's own closing line calls this out directly: "Worth deciding before the
+Verifier's hedging behavior is relied on in the harness." Closed now, before Validation (which
+reuses the Verifier's own citation-parsing machinery) is built on top of it.
+
+**Built:**
+- `_effective_confidence(chunk)` — new helper resolving `(confidence, status)` from EITHER shape:
+  legacy top-level `graph_confidence` (checked first, preserved exactly, treated as
+  `confidence_status="computed"`) OR the harness's `metadata.confidence`/`metadata.confidence_status`.
+  Backward-compatible by construction — no existing (pre-harness) caller's behavior changes.
+- `_check_hedging()` — now requires hedging when `confidence_status == "check_failed"`
+  UNCONDITIONALLY (regardless of `confidence` itself, normally `None` for that status), in addition
+  to the existing `confidence < 0.85` rule. **[AMENDMENT]** This is the fix design §7 asked for by
+  name: a chunk whose confidence computation raised must be treated at LEAST as cautiously as a
+  known-low score, never as "no signal, proceed unhedged" — the same shape of false-all-clear fix
+  RESOLVED-5's `ConflictState` already applied one layer up, for a different field.
+- `_format_chunks_for_verifier()` — displays `"confidence: unknown (check failed)"` for
+  `check_failed` chunks (so the LLM judge sees the same unresolved-risk signal the deterministic
+  check acts on), and reads confidence through the same shared helper for the `computed` case;
+  `not_computed` chunks show nothing, unchanged from before.
+- `tests/test_verifier.py` — 9 new tests: the harness chunk shape's `computed`/`not_computed`/
+  `check_failed` states through both `_check_hedging()` and `_format_chunks_for_verifier()`,
+  including `check_failed` requiring a hedge unconditionally and passing once one is present. All 34
+  pre-existing tests (the legacy `graph_confidence` shape) pass unchanged — confirming the fix is
+  additive, not a behavior change to the still-live pre-harness path.
+
+**No other deviations.** `verify_grounding()`'s signature and every other check
+(`_check_temporal`/`_check_leakage`/`_check_refusal`/`_check_no_citation`) untouched.
+
+**Verification:** full existing test suite (`pytest`, `testpaths = tests`) — 0 failures, same 4
+pre-existing skips (the unrelated docling/PDF `std::bad_alloc` environment failure, confirmed still
+present identically, not a regression) plus this session's 9 new tests. Compliance suite — 51/51,
+unchanged. Nothing in `main.py`, `orchestrator.py`, or `router.py`'s existing behavior was touched —
+the legacy `graph_confidence` path's behavior is bit-for-bit identical to before this fix.
 
 ---
 
