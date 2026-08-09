@@ -210,7 +210,7 @@ Two implementation requirements surfaced while drafting these, both easy to miss
 - [x] Cross-Case Linkage *(complete — see §9)*
 - [x] Investigative Analysis (parallel execution) *(complete — see §9)*
 - [x] **Report Drafting, including Citation-Consistency module** *(complete — see §9; §5/§8's implied split between "Report Drafting" and a later separate "Citation-Consistency module" line was resolved via AskUserQuestion to build both together this phase — see the Phase 8 entry)*
-- [ ] Data-Quality / Extraction-Coverage
+- [x] Data-Quality / Extraction-Coverage *(complete — see §9)*
 - [ ] Verifier module
 - [ ] Validation module
 - [ ] Wire compliance suite into CI as a merge gate
@@ -1239,6 +1239,139 @@ live traffic, per §6.
 
 ---
 
+### Contract Amendment — `SubAgentResult.metrics` / `DataQualityMetric` (pre-Phase-9): COMPLETE
+
+Branch `feature/harness-contract-amendment-data-quality-metrics`, merged to main via merge commit
+`357fb48`. Full spec in §14.
+
+`docs/SUBAGENT_INTERFACES.md` §2.1 confirmed, before any Phase 9 code was written, to genuinely have
+no `SubAgentResult`-shaped contract for Data-Quality/Extraction-Coverage at all — its own module
+docstring in `supervisor.py` already flagged the discrepancy, but flagging is not the same as
+resolving it, and this session's brief was explicit that closing it was this session's own first
+real design task. Resolved via `AskUserQuestion` (new typed field vs. prose in `answer_text` — see
+§14) as a full contract amendment, merged before Phase 9's own branch was cut, the same
+amend-once-for-everyone approach §10/§11/§12/§13 already used.
+
+**Built:** `DataQualityReadiness` (ready/thin/unavailable/unknown — `thin` reserved, unused for MVP;
+`unknown` a fourth state mirroring RESOLVED-5's `ConflictState`, distinct from `unavailable`),
+`DataQualityMetric` (one metric group's bounded payload), `SubAgentResult.metrics` (additive,
+default-empty). 5 new tests in `tests/test_harness_types.py`.
+
+**No other deviations.** Additive on `SubAgentResult`; zero effect on any already-shipped sub-agent,
+same as §11's own `events`/`links` amendment.
+
+**Verification:** full existing test suite (`pytest`, `testpaths = tests`) — 0 failures, same 4
+pre-existing skips (the unrelated docling/PDF `std::bad_alloc` environment failure, confirmed still
+present identically, not a regression) plus this session's 5 new tests. Compliance suite — 51/51,
+unchanged. Nothing in `main.py`, `orchestrator.py`, or `router.py`'s existing behavior was touched.
+
+### Phase 9 — Data-Quality/Extraction-Coverage: COMPLETE
+
+Branch `feature/harness-phase-9-data-quality`, merged to main via merge commit `8ab44aa`.
+
+**Built:**
+- `src/pipeline/harness/agents/data_quality.py` — composes THREE backends directly (Postgres, AGE,
+  Chroma), none of them `DataGateway`-mediated and none of them the Phase 0 tool wrappers, mirroring
+  Timeline Building's own precedent of bypassing `graph_tool()` where the tool wrapper's shape
+  genuinely cannot serve the need. Confirmed before writing any code, per this session's explicit
+  instruction: `get_kb_stats()` (`src/data_gateway/direct_backend.py`) is GLOBAL, not case-scoped
+  (no `case_id` filter anywhere in its own query), so it is NOT reused — `documents`
+  (Postgres, case-scoped via its own `case_id` column) is queried directly instead.
+- **A confirmed, real schema gap, not guessed around:** `ingestion_jobs` carries NO `case_id`
+  column at all, and the only live document-upload path (`POST /api/admin/kb/upload`) always
+  ingests `is_global=True` — case-scoped `Document` rows are written by offline scripts calling
+  `ingest_file(case_id=...)` directly, which never create an `IngestionJob` row. Consequence:
+  "failed/quarantined count" (part of plan §7.3's "document coverage" row) cannot be attributed to
+  a specific case anywhere in the current schema. Reported honestly: `document_coverage`'s `counts`
+  carries only what is actually case-attributable, plus a fixed, always-present caveat naming the
+  gap.
+- **Six metric groups, per §7.3's table**, each independently fetched and independently
+  failure-isolated (one group's query raising does not prevent the other five from computing —
+  this sub-agent's entire purpose is diagnostic, so an infrastructure hiccup in one backend must not
+  silence a still-healthy reading from another). Entity-extraction node labels
+  (Person/Vehicle/PhoneNumber/Address/Organization/Weapon) confirmed against the REAL graph
+  vocabulary (`entity_resolution.py::TYPE_TO_LABEL`, `graph_retriever.py::_SEED_LABELS`,
+  `ingestion/service.py`'s weapon-node write path) before hardcoding §7.3's prose list, not copied
+  verbatim — §7.3 says "phone"/"address"/"org"/"weapon", the actual node labels are
+  `PhoneNumber`/`Address`/`Organization`/`Weapon`. Identity-health's three literal `SAME_AS.status`
+  values (`pending`/`confirmed`/`rejected`) confirmed the same way, against
+  `entity_resolution.py`/`community_detection.py`/`graph_retriever.py`'s own module docstring
+  ("SAME_AS IDENTITY IS CONFIRMED-ONLY... status in {pending, confirmed, rejected}"), not assumed
+  to exist as literal values.
+- **New within-case Cypher templates, ALL routed through `scoped_cypher()`** per design §4.5,
+  the same instruction Timeline Building's own session followed. Aggregation
+  (`GROUP BY`-shaped queries) deliberately avoided in favor of one small query per discrete value
+  (one per entity label, one per `SAME_AS` status) — AGE's aggregate/group-by support has no proven
+  precedent anywhere in this codebase, and given the documented history of live AGE Cypher-support
+  surprises in this exact area (`conflict_detection.py`'s own OPTIONAL-MATCH-ordering bug and
+  missing-`columns` bug), this session does not introduce an unproven construct into new production
+  code.
+- **Readiness rule, decided and documented per this session's explicit instruction (§14.1):** each
+  group has one defining raw count; `UNAVAILABLE` iff that count is exactly 0, `READY` iff > 0,
+  `THIN` never constructed this session (no calibration data exists to set a threshold), `UNKNOWN`
+  iff the group's own query raised.
+- **Whole-result status, decided and documented:** no active case → `EMPTY` (mirrors Timeline
+  Building's identical precedent). All six groups `UNKNOWN` → `ABSTAINED`, reusing RESOLVED-4's
+  "all attempted sources failed" vocabulary (its origin case, Investigative Analysis) for
+  consistency across the harness even though nothing generated here needs "safe" withholding in the
+  hallucination sense that status exists for elsewhere. Any other mix → `PARTIAL` (with a caveat
+  naming which groups); all six computed → `OK`.
+- **`tools_used`/`degraded_from` decided to stay `[]` unconditionally, not guessed either way:**
+  `SourceTool` has no member for Postgres or Chroma, and this sub-agent spans three heterogeneous
+  backends where only one group is AGE-sourced — tagging only the graph-sourced groups `"GRAPH"`
+  while leaving the Postgres/Chroma groups untagged would misattribute. The actual granular
+  degradation signal for this sub-agent is each `DataQualityMetric.readiness`/`.error`, not
+  `tools_used`/`degraded_from`.
+- **No role gate**, confirmed not assumed: none of the six metric groups touches a cross-case tool
+  or cross-case Cypher template. `SubAgentStatus.DENIED` is never built as an output path here —
+  same precedent as Case Summarization/Timeline Building.
+- **No Verifier call anywhere** — nothing generated, nothing to verify; `answer_text` is
+  deterministic string formatting over already-computed counts, the same "structurally cannot
+  hallucinate" property plan §7.3 calls out explicitly as worth preserving deliberately, extended
+  here to the whole sub-agent (Timeline Building's own session established the identical property
+  for one field; this extends it to all of it).
+- **Validation gate: confirmed structurally exempt, not merely unwired this session.** Plan §5's
+  table does not list Data-Quality among the "full semantic tier" sub-agents — confirmed here as
+  "non-generative, no `verify_grounding()` boundary to insert a check after," the same reasoning
+  Timeline Building's own session already established, not left to a future session to rediscover.
+  No `# TODO(validation-gate)` marker is left, since (like Timeline Building) there is no insertion
+  point to mark.
+- `src/pipeline/harness/supervisor.py::register()` — a real `data_quality` callable registers
+  itself under `DATA_QUALITY` at import time, the same pattern every prior sub-agent module used.
+- `tests/test_harness_agent_data_quality.py` — 13 tests: `_run_metric()`'s readiness classification
+  at its boundary conditions (count==0 → `UNAVAILABLE`, count>0 → `READY`, fetch exception →
+  `UNKNOWN`, a defensive missing-primary-key case), whole-result status (all `READY`/`UNAVAILABLE`
+  mix → `OK`, some `UNKNOWN` → `PARTIAL` with a caveat naming which, all six `UNKNOWN` →
+  `ABSTAINED`), no active case → `EMPTY`, a full success case wired through the REAL fetch functions
+  with Postgres/AGE/Chroma stubbed at their own boundary (not `_FETCHERS` itself) proving the actual
+  query construction for each backend, one group's failure isolated from a sibling sharing the same
+  underlying graph data, structural caveats always present, no role gate across all four `Role`
+  values, module self-registration, and a `Supervisor.handle()` → real Data-Quality → real fetch
+  functions integration test.
+
+**Classification reachability — stated plainly, not closed this session, same as Timeline
+Building's own precedent.** Confirmed by reading `supervisor.py`'s `_ROUTE_TO_SUBAGENT` table
+before writing any code: no route maps to `DATA_QUALITY` — the same gap Phase 1's own progress-log
+entry already named for this exact sub-agent ("no route was ever built for 'how much evidence
+exists for this case'... a NEW capability per plan §7.3, with no predecessor in `orchestrator.py`
+at all"). No new trigger keywords/patterns were invented to close this, per the same instruction
+every prior phase that hit this gap followed — new classification logic needs the same
+live-failure evidence basis XAGG/XGRAPH/XNETWORK's own deterministic overrides had, not guessed
+patterns. Built, registered, and tested via direct dispatch and a Supervisor integration test that
+bypasses `route_query()`'s real classification (monkeypatching `classify_to_subagent()`).
+
+**No other deviations.** Bounded payload holds throughout — no raw Postgres rows or graph rows ever
+cross this module's boundary; only `answer_text`, `metrics`, and `caveats` are populated.
+
+**Verification:** full existing test suite (`pytest`, `testpaths = tests`) — 0 failures, same 4
+pre-existing skips (the unrelated docling/PDF `std::bad_alloc` environment failure, confirmed still
+present identically, not a regression) plus this session's 13 new tests. Compliance suite
+(`src/pipeline/harness/compliance/`, run separately per `pytest.ini`'s `testpaths = tests` scoping)
+— 51/51 checks still passing, unchanged count from Phase 0. Nothing in `main.py`, `orchestrator.py`,
+or `router.py`'s existing behavior was touched — still not wired into live traffic, per §6.
+
+---
+
 ## 10. Contract amendment — ExecutionContext & ConversationContext (post-Phase-2)
 
 Two deviations surfaced independently in Phase 0 and Phase 2 turned out to be the same underlying
@@ -1517,3 +1650,82 @@ does not add `session_id` anywhere except `ExecutionContext` — `SubAgentInput`
 every tool-level `ToolInput` are untouched, since no tool needs it. Report Drafting (Phase 8) is the
 first and, this session, only consumer of both `session_id` and `gateway`; every other sub-agent's
 behavior is unchanged.
+
+---
+
+## 14. Contract amendment — `SubAgentResult.metrics` / `DataQualityMetric` (pre-Phase-9)
+
+`docs/SUBAGENT_INTERFACES.md` §2.1 titles its table "the seven sub-agents" and never defines a
+`SubAgentResult`-shaped contract for Data-Quality/Extraction-Coverage at all — this plan's own §4
+row 8 and §7.3 add it as an eighth, with a "final shape" (six metric groups, raw counts, a
+per-capability readiness state) but no field on `SubAgentResult` to actually carry them. Confirmed
+against both docs directly before writing any Phase 9 code, per this session's explicit instruction
+not to assume a discrepancy already flagged elsewhere (`supervisor.py`'s own module docstring) was
+also already resolved.
+
+Resolved via `AskUserQuestion` — offered as prose-in-`answer_text` (Case Summarization's precedent)
+vs. a new typed field (the `events`/`links`/`generated_file` precedent). **User chose the new typed
+field.** Six groups' worth of `{name, readiness, counts, explains, error}` is machine-legible
+tabular data, not a narrative — the same shape argument that justified `events`/`links` for Timeline
+Building/Cross-Case Linkage rather than folding them into prose.
+
+### 14.1 `DataQualityReadiness` — four states, not three
+
+```python
+class DataQualityReadiness(str, Enum):
+    READY = "ready"              # Checked; the group's defining raw count is > 0.
+    THIN = "thin"                # RESERVED. Unused for MVP — no calibration data exists
+                                  # yet to set a threshold correctly (plan §7.3).
+    UNAVAILABLE = "unavailable"  # Checked; the group's defining raw count is exactly 0.
+    UNKNOWN = "unknown"          # The group's own underlying query raised. Assert nothing.
+```
+
+`UNKNOWN` mirrors RESOLVED-5's `ConflictState`/the `confidence`/`confidence_status` split
+(`docs/AGENT_HARNESS_DESIGN.md` §7): a query that raised must never silently read as "checked,
+nothing there" — that is the identical false-all-clear defect those two precedents already exist to
+prevent, applied here to a whole metric group instead of one chunk/event.
+
+### 14.2 `DataQualityMetric` — one metric group
+
+```python
+class DataQualityMetric(BaseModel):
+    name: Literal[
+        "document_coverage", "entity_extraction", "timeline_readiness",
+        "identity_health", "conflict_coverage", "embedding_coverage",
+    ]
+    label: str
+    readiness: DataQualityReadiness
+    counts: dict[str, int] = Field(default_factory=dict)  # empty iff readiness is UNKNOWN
+    explains: str  # plan §7.3's own "Explains" column, static per `name`
+    error: Optional[str] = None  # present iff readiness is UNKNOWN
+```
+
+No raw Postgres rows or graph rows cross the boundary — `counts` is a small, already-aggregated
+dict, consistent with the "no raw rows" discipline `docs/SUBAGENT_INTERFACES.md` establishes
+everywhere else, even though this sub-agent has no contract written for it there at all.
+
+### 14.3 `SubAgentResult.metrics` — additive
+
+```python
+class SubAgentResult(BaseModel):
+    ...
+    metrics: list["DataQualityMetric"] = Field(
+        default_factory=list,
+        description="Set only by Data-Quality/Extraction-Coverage. The six metric groups, per plan §7.3.",
+    )
+```
+
+Additive, default-empty — zero effect on any already-shipped sub-agent, same shape as §11's
+`events`/`links` amendment. Resolved via the same forward-ref + `SubAgentResult.model_rebuild()`
+pattern `events`/`links` already use (`DataQualityMetric` is defined near `CrossCaseLink`, below
+`SubAgentResult`, in `types.py`).
+
+### 14.4 Retrofit scope
+
+- `src/pipeline/harness/types.py` — add `DataQualityReadiness`, `DataQualityMetric`,
+  `SubAgentResult.metrics`.
+- `tests/test_harness_types.py` — 5 new tests (default-empty, `name` restricted to the canonical
+  six, all four readiness states constructible, `UNKNOWN` carries `error` + empty `counts`,
+  round-trip through `SubAgentResult`).
+
+No retrofit of any already-shipped sub-agent's code — additive, default-empty, same as §11.
