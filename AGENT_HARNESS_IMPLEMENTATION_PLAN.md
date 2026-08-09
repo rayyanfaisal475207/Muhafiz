@@ -209,10 +209,9 @@ Two implementation requirements surfaced while drafting these, both easy to miss
 - [x] Timeline Building *(complete — see §9)*
 - [x] Cross-Case Linkage *(complete — see §9)*
 - [x] Investigative Analysis (parallel execution) *(complete — see §9)*
-- [ ] Report Drafting (citation-consistency check)
+- [x] **Report Drafting, including Citation-Consistency module** *(complete — see §9; §5/§8's implied split between "Report Drafting" and a later separate "Citation-Consistency module" line was resolved via AskUserQuestion to build both together this phase — see the Phase 8 entry)*
 - [ ] Data-Quality / Extraction-Coverage
 - [ ] Verifier module
-- [ ] Citation-Consistency module
 - [ ] Validation module
 - [ ] Wire compliance suite into CI as a merge gate
 
@@ -1088,6 +1087,156 @@ counted in the contract-amendment entry above). Compliance suite
 (`src/pipeline/harness/compliance/`, run separately per `pytest.ini`'s `testpaths = tests` scoping)
 — 51/51 checks still passing, unchanged count from Phase 0. Nothing in `main.py`, `orchestrator.py`,
 or `router.py`'s existing behavior was touched — still not wired into live traffic, per §6.
+
+---
+
+### Contract Amendment — `ExecutionContext.session_id` & `SubAgent` `gateway` threading (pre-Phase-8): COMPLETE
+
+Branch `feature/harness-contract-amendment-session-gateway`, merged to main via merge commit
+`a0b8896`. Full spec in §13.
+
+**Two gaps confirmed against the repo before writing any Phase 8 code, not guessed** — no harness
+type carried a `session_id` anywhere (needed to match `_generate_file()`'s existing
+`gateway.log_generated_file(session_id, user_id, case_id, ...)` call, since `user_id`/
+`active_case_id` already lived on `CallerContext` but `session_id` did not), and no sub-agent built
+through Phase 7 touched `DataGateway` at all. Resolved via `AskUserQuestion` as a full contract
+amendment (over a scoped, no-DB-persistence alternative also offered), the same amend-once-for-
+everyone approach §10/§11/§12 already used.
+
+**Built:** `ExecutionContext.session_id: Optional[str] = None` (additive, same shape as §10's
+`project_id`/`workspace_id`). `SubAgent.__call__`/`Supervisor.handle()` both widened with a new
+keyword-only `gateway: Optional[DataGateway] = None`, forwarded unchanged at `Supervisor.handle()`'s
+one dispatch call site — mirrors `on_event`'s own §12 amendment exactly. `DataGateway`
+(`src/data_gateway/base.py`) is already an abstract `Protocol`, not a concrete implementation type,
+so this does not violate the interfaces doc's "no implementation types cross a boundary" rule.
+All 6 already-shipped sub-agents retrofitted to accept-and-ignore the new kwarg.
+`tests/test_harness_supervisor.py` — `_mock_sub_agent()`'s stub now records `gateway`; 2 new tests
+assert forwarding (a real object, and `None`), mirroring the existing `on_event` forwarding tests.
+
+**No other deviations.** Additive on `ExecutionContext`; zero effect on any already-shipped
+sub-agent's behavior — every one of them still ignores `gateway` exactly as they already ignore
+`on_event` where they don't use it.
+
+**Verification:** full existing test suite (`pytest`, `testpaths = tests`) — exit code 0, same 4
+pre-existing skips, no regressions. Compliance suite — 51/51, unchanged. Nothing in `main.py`,
+`orchestrator.py`, or `router.py`'s existing behavior was touched.
+
+---
+
+### Phase 8 — Report Drafting: COMPLETE
+
+Branch `feature/harness-phase-8-report-drafting`, commit `eab3c32` (not yet merged to main as of
+this entry — merge follows immediately after this log update, per this session's workflow).
+
+**Built:**
+- `src/pipeline/harness/agents/report_drafting.py` — composes Case Summarization's own
+  `SubAgentResult` (`case_summarization()` invoked directly as a function, never through the
+  Supervisor, never re-invoking RAG/GRAPH tools — design §3's explicit PRESERVE, confirmed by
+  reading `case_summarization.py` before writing this module) and the existing, unmodified
+  `structure_for_file()`/`build_pdf()`/`build_xlsx()`/`build_docx()` pipeline `_generate_file()`
+  already uses (confirmed by reading all four before assuming any signature/return shape).
+- `src/pipeline/citation_consistency.py` — new this session (see the discrepancy note below for
+  why). A deterministic, non-LLM check reusing `verifier.py`'s own `[Document N]` citation-marker
+  regex as the one canonical pattern, run **before** the Verifier per plan §5's exact placement.
+
+**Two discrepancies confirmed against the repo before writing any code, both resolved via
+`AskUserQuestion` rather than guessed:**
+
+1. **`citation_consistency.py` didn't exist.** SUBAGENT_INTERFACES.md §2.1.3's own fixed 5-step
+   ordering contract doesn't name a citation-consistency step at all (Verifier → build →
+   disclosure); only plan §5's trust-layer table and §4 row 7's build note require it, and plan §8
+   listed it as its own separate, later, unchecked item. Offered defer-with-TODO (matching how
+   `validation.py` has been deferred every prior phase) vs. build-now. **User chose build-now.**
+   §8's checklist updated above to reflect both being delivered together this phase.
+2. **`GeneratedFileRef.file_id` had no path to a real, persisted id.** No sub-agent touched
+   `DataGateway`, and no harness type carried `session_id`, both needed for
+   `gateway.log_generated_file()`. Offered local-uuid4-no-persistence vs. thread-gateway-through.
+   **User chose thread-gateway-through** — resolved as its own prerequisite contract amendment,
+   merged to main before this branch was cut (see the entry immediately above).
+
+**The core design question this session had to resolve, not left implicit:** SUBAGENT_INTERFACES.md
+§2.1.3 step 3 requires a real Verifier run with a real fail branch, which only makes sense if step 2
+("compose the report's evidentiary content") produces something NEW that could fail grounding — a
+straight passthrough of Case Summarization's already-verified text would leave that fail branch dead
+code. But `Citation` (unlike `EvidenceChunk`) carries no chunk text, and Report Drafting — per design
+§3 — only ever receives Case Summarization's bounded `SubAgentResult`, never its internal chunks.
+**Resolved:** Report Drafting generates ONE new drafted report body via a single LLM call, in a
+single-synthetic-citation regime (`[Document 1]` only, standing for the whole of Case Summarization's
+evidentiary text as one trusted source) — the same "synthetic chunk wrapper" pattern design §5
+already documents for SQL/XAGG/XNETWORK, not a new mechanism. `check_citation_consistency()` then has
+real, well-scoped teeth: with exactly one valid index, any `[Document N]` with `N != 1` the redraft
+invents is caught deterministically before the Verifier ever runs.
+
+**§2.1.3's exact 5 steps, with citation-consistency inserted before step 3 per plan §5:** Case
+Summarization's payload → strip any inherited GRAPH-only disclosure (detected **structurally** via
+`degraded_from == ["RAG"]`, Case Summarization's own exact signal — never by string-matching the
+still-`[PROVISIONAL — PENDING PRODUCT SIGN-OFF]` wording) → draft via one LLM call → citation-
+consistency check (fails → `ABSTAINED`, no document built) → `verify_grounding()` over the drafted
+text against the one synthetic chunk (fails → `ABSTAINED`, no document, no disclosure) → document
+assembled via `structure_for_file()` + the appropriate builder (any exception → `ABSTAINED` with an
+explicit file-generation error, matching `_generate_file()`'s own `except Exception` shape verbatim —
+a distinct failure mode from a Verifier rejection) → if `status == PARTIAL`, disclosure injected per
+the suppression rule (RESOLVED-2a) and `disclosure_rendered = True` set.
+
+**Suppression rule, implemented structurally rather than by string-matching:** `degraded_from ==
+["RAG"]` (Case Summarization's own GRAPH-only branch) → the gap is already disclosed in the inherited
+text; propagate the **same** `GRAPH_ONLY_SUMMARY_DISCLOSURE` string forward, never a second,
+differently-worded statement of the same gap. `degraded_from == ["GRAPH"]` (RAG-only branch, no
+upstream disclosure per §2.1.2) → Report Drafting is the first to disclose; inject
+`PARTIAL_EVIDENCE_DISCLOSURE_TEMPLATE` with `{unavailable_sources}` routed through
+`SOURCE_TOOL_DISPLAY_LABELS` (plan §7.4's own explicit requirement — never the raw enum value).
+
+**A real gap found and fixed while wiring disclosure injection, not assumed away:** `build_xlsx()`
+only ever renders a payload's first `"table"` section or, absent one, its `description` — confirmed
+by reading `xlsx_builder.py` before writing the injection code — it never reads `"paragraph"`
+sections at all, unlike `pdf_builder.py`/`docx_builder.py`. A leading paragraph section alone would
+silently drop the disclosure from any xlsx report whose drafted content happens to structure into a
+table, making `disclosure_rendered=True` an empty promise for that one format.
+`_inject_disclosure_into_payload()` now also writes into `payload["description"]` and, when a table
+section exists, inserts a leading disclosure row into that same table — so the field's own contract
+("must never be set optimistically") holds for all three formats, not just the two that support
+arbitrary paragraphs.
+
+**File-id persistence:** `_persist_generated_file()` calls `gateway.log_generated_file()` (matching
+`_generate_file()`'s existing shape) only when `gateway`, `session_id`, and `user_id` are all
+present; otherwise falls back to a locally generated, unpersisted `uuid4()` with a logged warning —
+never crashes on an absent optional collaborator, matching every prior sub-agent's own posture
+toward missing pieces it doesn't strictly require to produce a result.
+
+**Validation gate explicitly not wired this session**, same as every prior sub-agent —
+`validation.py` does not exist yet. A `# TODO(validation-gate)` marker is left at its intended
+insertion point (after the Verifier passes, before the document is assembled), flagged explicitly
+in-line that plan §5 requires the **full semantic tier** here (same as Cross-Case Linkage /
+Investigative Analysis), not the lighter structural-only check some other sub-agents get — so a
+future session doesn't default to the cheaper tier by omission.
+
+**No other deviations.** Bounded payload holds throughout — no `EvidenceChunk`/raw chunks ever cross
+this module's boundary. `Supervisor.classify_to_subagent()` confirmed unchanged: `output_format in
+{file_pdf, file_xlsx, file_docx}` still overrides to Report Drafting regardless of route, so this
+sub-agent is reachable via real, unmodified classification today — verified with an integration test
+through `Supervisor.handle()`, not assumed, and not bypassed the way Timeline Building's own
+integration test had to be.
+
+**Built:**
+- `tests/test_citation_consistency.py` — 7 tests over the new deterministic check (in-range,
+  out-of-range, zero-index, no-citations-is-consistent, deduplicated/sorted invalid indices,
+  zero-valid-citations, case-insensitive marker matching).
+- `tests/test_harness_agent_report_drafting.py` — 16 tests: the disclosure-ordering contract
+  (`OK`/no-disclosure, inherited-disclosure suppression, fresh-disclosure injection, xlsx
+  table-row survival), citation-consistency-failure-aborts-before-the-Verifier,
+  Verifier-rejection-aborts-before-any-document-is-built, file-build failure, all three of Case
+  Summarization's terminal statuses (`EMPTY`/`ABSTAINED`/`DENIED`) propagating untouched, invalid
+  `output_format` handled without crashing, `_persist_generated_file()`'s gateway/no-gateway/
+  missing-session_id fallback behavior, module self-registration, and the
+  `Supervisor.handle()` → real classification → Report Drafting integration test above.
+
+**Verification:** full existing test suite (`pytest`, `testpaths = tests`) — exit code 0, same 4
+pre-existing skips (the unrelated docling/PDF `std::bad_alloc` environment failure, confirmed still
+present identically, not a regression) plus this session's 23 new tests (7 + 16), all passing.
+Compliance suite (`src/pipeline/harness/compliance/`, run separately per `pytest.ini`'s
+`testpaths = tests` scoping) — 51/51 checks still passing, unchanged count from Phase 0. Nothing in
+`main.py`, `orchestrator.py`, or `router.py`'s existing behavior was touched — still not wired into
+live traffic, per §6.
 
 ---
 
