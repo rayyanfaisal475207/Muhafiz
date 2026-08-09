@@ -75,6 +75,18 @@ Resolved via AskUserQuestion as a new typed field (mirroring the `events`/
 `links` precedent for Timeline Building/Cross-Case Linkage) rather than
 structured prose in `answer_text`. See the block comment directly above
 `DataQualityReadiness`, below, for the full readiness-state rule.
+
+CONTRACT AMENDMENT — SubAgentResult.validation_status / .validation_claims,
+ValidationStatus / ClaimSupport / ValidationClaimResult (pre-Validation-module):
+every `# TODO(validation-gate)` marker left across Phases 2-8 says the same
+thing: `validation.py` (AGENT_HARNESS_IMPLEMENTATION_PLAN.md §5/§7.1/§7.2)
+does not exist yet, and `SubAgentResult` has no field to carry its result.
+Resolved via AskUserQuestion, before any `validation.py` code was written,
+as a status enum PLUS a per-claim result list (mirroring the
+`DataQualityMetric` precedent of a small typed list over folding detail into
+`caveats` as plain strings) — see the block comment directly above
+`ValidationStatus`, below, for the full status-value rule and the
+caveat-only (never-blocking) outcome decision.
 """
 
 from __future__ import annotations
@@ -555,6 +567,134 @@ class SubAgentStatus(str, Enum):
     """
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# [CONTRACT AMENDMENT — pre-Validation-module]
+#
+# Every `# TODO(validation-gate)` marker left across Phases 2-8 points here:
+# `validation.py` (AGENT_HARNESS_IMPLEMENTATION_PLAN.md §5/§7.1/§7.2) reuses
+# the Verifier's own `[Document N]` citation parse and runs, per cited
+# (claim, chunk) pair, a three-way entailment check — SUPPORTED /
+# PARTIALLY_SUPPORTED / NOT_SUPPORTED + a one-line reason — in one batched
+# call per answer, AFTER the Verifier has already passed. Two tiers exist
+# (plan §5's table): the FULL semantic tier (one local-LLM entailment call,
+# all three labels) is mandatory on Cross-Case Linkage / Investigative
+# Analysis / Report Drafting; the STRUCTURAL-ONLY tier (Semantic Search /
+# Large-Scale Aggregate / Case Summarization) is resolved — via
+# AskUserQuestion, before any validation.py code was written — as
+# DETERMINISTIC-ONLY: no LLM call at all, a regex/string-level check that
+# numbers/dates/named entities appearing in a claim also appear in (or are
+# not contradicted by) its cited chunk's text. This doubles as a concrete
+# reading of plan §7.2's own fallback plan ("narrow the check's scope to
+# numeric/name/date contradiction only") for the tier that already asks for
+# something narrower by design, not merely what every sub-agent would fall
+# back to if the local model fails the pre-work eval.
+#
+# OUTCOME ON A FLAGGED CLAIM — resolved via AskUserQuestion, CAVEAT-ONLY,
+# NEVER BLOCKING: a PARTIALLY_SUPPORTED or NOT_SUPPORTED claim adds an entry
+# to `SubAgentResult.caveats` (human-readable) and to `validation_claims`
+# (machine-readable) but never changes `status`/`answer_text`. Validation is
+# a second-opinion signal layered on the Verifier's already-fail-closed
+# gate, not a second independent hard gate — an answer that already passed
+# full grounding verification is still served. This is consistent with
+# plan §7.1's fail-OPEN posture on a Validation-call ERROR; this extends the
+# same non-blocking posture to a Validation call that SUCCEEDS and finds an
+# issue, so a flaky or overly strict second-opinion check can never be the
+# reason a grounded, cited answer never reaches the investigator. The one
+# documented exception is unchanged and unaffected by this rule: Report
+# Drafting renders a caveat's substance into the document body via the
+# EXISTING §2.1.1-§2.1.3 disclosure mechanism (a generated document outlives
+# the session, per plan §7.1) — not a second, competing disclosure path.
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class ClaimSupport(str, Enum):
+    """
+    Three-way entailment verdict for one (claim, cited-chunk) pair. Three
+    labels, not a bool, for the same reason `ConflictState`/
+    `ConfidenceStatus` are: a binary cannot distinguish "checked and fine"
+    from "checked, and it's shaky but not wrong" from "checked, and it's
+    wrong" — collapsing the last two together would treat an overstated
+    claim the same as a fabricated one, and collapsing the first two would
+    treat a fully-supported claim the same as a shaky one.
+    """
+
+    SUPPORTED = "supported"  # The chunk fully supports the claim as stated.
+    PARTIALLY_SUPPORTED = "partially_supported"  # The chunk supports part of the claim, or supports it with a qualification the claim omits.
+    NOT_SUPPORTED = "not_supported"  # The chunk does not support the claim, or contradicts it.
+
+
+class ValidationStatus(str, Enum):
+    """
+    Rollup of the Validation check for one `SubAgentResult`. See the block
+    comment above `ClaimSupport` for the full status-value rule and the
+    caveat-only outcome decision this drives.
+    """
+
+    NOT_RUN = "not_run"
+    """
+    [PRESERVE — plan §7.1, fail OPEN] The Validation call was ATTEMPTED
+    (this sub-agent has a real Verifier-boundary insertion point and an
+    answer worth checking) but the call itself errored — a parse failure,
+    an LLM-client exception, a timeout. Per plan §7.1, the opposite posture
+    from the Verifier: the answer has ALREADY passed full grounding
+    verification, so a flaky second-opinion service must not block it.
+    Serve the answer unchanged; attach a caveat naming the check as
+    not-run, never a fabricated/guessed result.
+    """
+    PASSED = "passed"
+    """The check ran successfully and every cited claim was SUPPORTED."""
+    ISSUES_FOUND = "issues_found"
+    """
+    The check ran successfully and found >=1 PARTIALLY_SUPPORTED or
+    NOT_SUPPORTED claim. [PRESERVE — caveat-only outcome decision] Does NOT
+    by itself change `status`/`answer_text` — see the block comment above
+    `ClaimSupport`.
+    """
+    SKIPPED = "skipped"
+    """
+    DEFAULT. Validation was never attempted for this result — either this
+    sub-agent has no generated evidentiary text / no Verifier-boundary
+    insertion point at all (Timeline Building, Data-Quality — the permanent
+    value for both), or this particular result has no `answer_text` to
+    check (EMPTY/ABSTAINED/DENIED — nothing was generated, so there is
+    nothing for Validation to entail-check). Distinct from `NOT_RUN`:
+    `SKIPPED` means "not applicable here," `NOT_RUN` means "applicable, and
+    attempted, but the check itself failed."
+    """
+
+
+class ValidationClaimResult(BaseModel):
+    """
+    One (claim, cited-chunk) entailment verdict. Bounded like every other
+    §2 payload element — no chunk text, no raw evidence, only what a
+    consumer needs to render or audit the finding.
+    """
+
+    document_index: int = Field(
+        description=(
+            "1-based index matching the `[Document N]` marker the claim "
+            "was cited against — the same positional index as "
+            "Citation.document_index, since Validation reuses the "
+            "Verifier's own citation parse (plan §7.1)."
+        )
+    )
+    claim_excerpt: str = Field(
+        description=(
+            "A short, bounded excerpt of the claim text this verdict is "
+            "about — enough to identify which sentence/claim in "
+            "answer_text is being described, not the full answer."
+        )
+    )
+    support: ClaimSupport
+    reason: str = Field(
+        description=(
+            "One-line reason. From the LLM judge on the full semantic tier; "
+            "a fixed, deterministic message (naming the specific "
+            "number/date/name mismatch found) on the structural-only tier."
+        )
+    )
+
+
 class SubAgentInput(BaseModel):
     """
     [PRESERVE — design §4.4] `execution` (and its nested `caller`) is
@@ -703,6 +843,42 @@ class SubAgentResult(BaseModel):
     metrics: list["DataQualityMetric"] = Field(
         default_factory=list,
         description="Set only by Data-Quality/Extraction-Coverage. The six metric groups, per plan §7.3.",
+    )
+    # [CONTRACT AMENDMENT — pre-Validation-module] Unlike `events`/`links`/
+    # `metrics` above, `ValidationStatus`/`ValidationClaimResult` are defined
+    # ABOVE `SubAgentResult` (immediately after `SubAgentStatus`), not below
+    # it — no forward ref needed, and it lets `validation_status` default to
+    # the real enum member (`ValidationStatus.SKIPPED`) directly, the same
+    # way `TimelineEvent.conflict_state` defaults to `ConflictState.UNKNOWN`
+    # (ConflictState is likewise defined before its user). See the block
+    # comment above `ValidationStatus` for the full rationale and the
+    # status-value rule.
+    validation_status: ValidationStatus = Field(
+        default=ValidationStatus.SKIPPED,
+        description=(
+            "[AMENDMENT — plan §5/§7.1] Rollup of the Validation trust-layer "
+            "check (src/pipeline/validation.py), run AFTER the Verifier "
+            "passes. Default 'skipped' — additive, zero effect on any "
+            "sub-agent that has not been retrofitted to set it yet, and the "
+            "permanent value for Timeline Building/Data-Quality (no "
+            "generated evidentiary text, no Verifier-boundary insertion "
+            "point to check). See ValidationStatus for the full four-value "
+            "rule."
+        ),
+    )
+    validation_claims: list[ValidationClaimResult] = Field(
+        default_factory=list,
+        description=(
+            "Per-(claim, cited-chunk) entailment verdicts from the "
+            "Validation check. Empty whenever validation_status is "
+            "'not_run' or 'skipped' — there is nothing to list. "
+            "[PRESERVE — caveat-only outcome decision, see ValidationStatus] "
+            "A NOT_SUPPORTED or PARTIALLY_SUPPORTED entry here does NOT by "
+            "itself change `status`/`answer_text` — Validation is a "
+            "second-opinion signal layered on the Verifier's hard gate, not "
+            "a second hard gate. Consumers that want the human-readable "
+            "form should read `caveats`, which the check also populates."
+        ),
     )
     error: Optional[ToolError] = None
 
