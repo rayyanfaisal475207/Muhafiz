@@ -171,6 +171,25 @@ class EvidenceChunk(BaseModel):
             "Never threshold on an absolute value; never compare across tools."
         ),
     )
+    graph_confidence: Optional[float] = Field(
+        default=None,
+        description=(
+            "COMPATIBILITY SHIM for `verifier.py::_check_hedging()`, which reads "
+            "`chunk['graph_confidence']` off the TOP LEVEL of the chunk dict rather "
+            "than out of `metadata`.\n\n"
+            "Duplicates `metadata.confidence`, deliberately. Normalizing confidence "
+            "into metadata — the contract's correct shape — silently broke the hedging "
+            "check for every harness chunk: the verifier's lookup returned None, hit "
+            "its `if gc is None: continue` guard, and low-confidence graph evidence "
+            "passed UNHEDGED. The hedging gate has no backstop, so a silently-skipped "
+            "check is a safety hole rather than a cosmetic mismatch.\n\n"
+            "HARNESS CODE MUST READ `metadata.confidence`, NOT THIS FIELD. This exists "
+            "only to satisfy the verifier's positional expectation, and is removable by "
+            "§7's Part B (`confidence_state` sentinel), which reworks how the verifier "
+            "reads confidence. Removing it earlier silently disables the hedging check "
+            "again."
+        ),
+    )
 
 
 class ToolStatus(str, Enum):

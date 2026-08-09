@@ -97,7 +97,7 @@ def _to_evidence(raw: dict, source_tool: str, index: int) -> EvidenceChunk:
         if raw.get("cross_score") is not None
         else raw.get("rrf_score", raw.get("bm25_score", raw.get("score")))
     )
-    return EvidenceChunk(
+    chunk = EvidenceChunk(
         id=str(raw.get("id") or f"{source_tool.lower()}-{index}"),
         text=raw.get("text") or "",
         score=score,
@@ -109,6 +109,38 @@ def _to_evidence(raw: dict, source_tool: str, index: int) -> EvidenceChunk:
             **meta,
         ),
     )
+
+    # ── COMPATIBILITY SHIM: verifier.py reads `graph_confidence` TOP-LEVEL ──
+    #
+    # `_check_hedging()` (verifier.py) reads `chunk.get("graph_confidence")`
+    # off the chunk dict's TOP LEVEL, not out of `metadata`. Normalizing that
+    # value into `metadata.confidence` above — which is the right shape for the
+    # contract — silently broke the check for every harness-produced chunk:
+    # `.get("graph_confidence")` returned None, hit the check's
+    # `if gc is None: continue` guard, and low-confidence graph evidence sailed
+    # through UNHEDGED. Verified: the identical chunk flagged correctly in the
+    # legacy shape and produced zero issues in the harness shape.
+    #
+    # The hedging gate has no backstop — the LLM judge does not reliably catch
+    # missing hedges — so a silently-skipped check is a real safety hole, not a
+    # cosmetic mismatch. It has not bitten only because nothing routes to the
+    # harness yet.
+    #
+    # So the field is emitted in BOTH places: `metadata.confidence` is the
+    # contract's shape and what harness code reads; `graph_confidence` exists
+    # solely to satisfy verifier.py's positional/top-level expectation. This is
+    # a DELIBERATE CONCESSION to that coupling, not a regression of the
+    # metadata normalization.
+    #
+    # Removable by AGENT_HARNESS_DESIGN.md §7's Part B (the `confidence_state`
+    # sentinel), which reworks how the verifier reads confidence and can drop
+    # this field as part of that change. Do not remove it before then —
+    # deleting it silently disables the hedging check again, and no test
+    # outside test_hedging_shim.py would notice.
+    if confidence is not None:
+        chunk.graph_confidence = confidence
+
+    return chunk
 
 
 async def _deny_cross_case(

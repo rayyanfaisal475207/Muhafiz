@@ -570,8 +570,32 @@ file did not.
   (unknown). `_check_hedging()` reads this field to decide whether an answer must hedge, so the
   two cases are not interchangeable — a genuinely low-confidence graph chain that failed to
   score would read as "no confidence signal present" and could pass unhedged, which is the
-  hedging check's exact failure mode. **Not resolved, and `ChunkMetadata` deliberately left
-  unchanged** — unlike the timeline case this touches the Verifier's own input contract (§5) and
-  every tool that emits chunks, so it needs its own pass rather than being folded into the
-  interface extraction. Worth deciding before the Verifier's hedging behavior is relied on in
-  the harness.
+  hedging check's exact failure mode.
+
+  **PART A — DONE.** Scoping this uncovered a worse, unrelated defect underneath it: the hedging
+  check was not merely ambiguous for harness chunks, it was **silently disabled** for all of
+  them. `_check_hedging()` reads `chunk["graph_confidence"]` off the chunk dict's TOP LEVEL,
+  while the harness had normalized that value into `metadata.confidence`. The verifier's lookup
+  returned `None`, hit its own `if gc is None: continue` guard, and every low-confidence graph
+  chunk passed unhedged. Confirmed by running the identical chunk through both shapes: flagged
+  in the legacy shape, zero issues in the harness shape. It had not bitten only because nothing
+  routes to the harness yet. Fixed with an explicitly commented compatibility shim
+  (`EvidenceChunk.graph_confidence`, duplicating `metadata.confidence`), plus
+  `tests/harness/test_hedging_shim.py`, which fails in four places if the shim is removed.
+
+  **PART B — STILL DEFERRED, and deliberately not a ride-along.** The original ambiguity remains:
+  a `confidence_state` sentinel (`computed` / `not_applicable` / `unknown`) distinguishing "this
+  tool computes no confidence" from "computation failed", with `_check_hedging()` skipping the
+  former and REQUIRING a hedge on the latter — the RESOLVED-5 treatment, one layer down.
+
+  It is deferred for a specific reason, not just size: **it changes `verifier.py`'s failure
+  semantics, and `verifier.py` is shared with the legacy orchestrator path that is still serving
+  every real query.** Making the hedging check fail closed on `unknown` could start rejecting
+  legacy answers that pass today. That blast radius has not been measured, and measuring it is
+  the actual work — the harness-side change (one field, seven adapters declaring which state
+  they emit) is the easy half.
+
+  **Needs its own scoped change:** measure how many legacy-path chunks would newly require
+  hedging, decide whether the legacy path adopts the stricter semantics or is explicitly
+  grandfathered, then change both together. Do not fold it into harness work. Part A's shim is
+  removable as part of it.
