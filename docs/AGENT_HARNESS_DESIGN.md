@@ -436,6 +436,45 @@ file did not.
   failure mode is silent by construction: the guard reports green while the spec and the shipped
   string say different things.
 
+- **SQL- and WEB-routed queries have no sub-agent of their own — a documented coverage gap, not
+  a clean fit.** The classifier maps both to Semantic Search, which composes only the RAG tool.
+  So a pure penal-code lookup or a guarded web search degrades to document search rather than
+  reaching its intended tool.
+
+  **Why it is mapped that way anyway:** no sub-agent composes SQL or WEB alone. Investigative
+  Analysis uses SQL only alongside RAG and GRAPH, and nothing composes WEB at all. Semantic
+  Search is the closest available home because RAG is already the DECLARED fallback target for
+  both (§2.6, §2.7) — so a SQL- or WEB-routed query degrades here exactly as it would on the
+  legacy path, which reassigns `route_str = "RAG"` on an empty SQL result or a failed web
+  search. The behaviour matches legacy; the coverage does not.
+
+  **What it costs today:** a query the router confidently classified as SQL never reaches
+  `sql_tool` through the harness. Its answer comes from document retrieval instead, which for
+  penal-code questions often works — the ingested FIRs restate section numbers — but works by
+  accident of corpus overlap rather than by design, and would simply fail on a corpus without it.
+
+  **Options if this needs closing:** either a thin sub-agent per tool (Reference Lookup, Web
+  Lookup), or extend Semantic Search to compose SQL/WEB alongside RAG with its own fallback
+  rules. The first is more honest to the contract's one-sub-agent-per-use-case shape; the second
+  avoids two near-trivial sub-agents. Not decided. **Tracked so it is not mistaken for solved** —
+  every route maps to something, which makes the gap invisible from the mapping table alone.
+
+- **Watch item: "report on the case" may be misclassified as a document request.** The router
+  prompt maps *"a report"* to `file_pdf` (prompts/router.txt:45), and the classifier routes any
+  file `output_format` to Report Drafting. In police usage, "report on the case" often means
+  prose — *tell me about it* — not *generate a PDF*. An investigator asking that would receive a
+  document instead of an answer.
+
+  **Deliberately NOT pre-empted with a deterministic pattern.** The router's few-shots do not
+  cover the ambiguous phrasing either way, and adding a `\breport on\b` exclusion without
+  evidence risks the opposite error — suppressing genuine document requests. Every other
+  deterministic pattern in `router.py` was added in response to a confirmed live misroute, and
+  that discipline is what keeps the pattern sets narrow enough to stay correct.
+
+  **Add a tier-1 pattern only if real misclassification shows up in testing.** The fix would be
+  small: a pattern that forces `output_format` back to `chat` for report-shaped prose requests,
+  ahead of the classifier's format check.
+
 - **Supervisor gateway dispatch uses runtime introspection, not a declared contract.**
   `supervisor._call_node()` calls `inspect.signature(node)` and forwards `gateway` only to nodes
   that declare the parameter — five of the seven sub-agents take one, Semantic Search and Case
