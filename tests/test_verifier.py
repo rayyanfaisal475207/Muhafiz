@@ -33,6 +33,29 @@ def _chunk(
     return chunk
 
 
+def _harness_chunk(
+    chunk_id="c1",
+    text="Section 379 PPC: theft is punishable by up to three years.",
+    source="PPC.pdf",
+    case_id=None,
+    confidence=None,
+    confidence_status="not_computed",
+):
+    """
+    The OTHER real call shape `_effective_confidence()` must handle —
+    an `EvidenceChunk` flattened per SUBAGENT_INTERFACES.md §2's
+    "Verifier boundary" note (`{"id", "text", "metadata": chunk.metadata.
+    model_dump()}`), confidence living at `metadata.confidence`/
+    `metadata.confidence_status`, never at a top-level `graph_confidence`
+    key. Every sub-agent's own `_chunk_to_verifier_dict()` builds exactly
+    this shape.
+    """
+    meta = {"source": source, "confidence": confidence, "confidence_status": confidence_status}
+    if case_id:
+        meta["case_id"] = case_id
+    return {"id": chunk_id, "text": text, "metadata": meta}
+
+
 # ── _format_chunks_for_verifier ───────────────────────────────────────────────
 
 def test_format_chunks_numbers_from_one():
@@ -180,6 +203,82 @@ def test_hedging_no_graph_confidence_key_skipped():
     chunk = _chunk()  # no graph_confidence
     answer = "[Document 1] Definitive statement without hedge."
     assert _check_hedging(answer, [chunk]) == []
+
+
+# ── _check_hedging via the HARNESS chunk shape [AMENDMENT — design §7] ──────────
+#
+# The exact gap AGENT_HARNESS_DESIGN.md §7 tracked as open and deliberately
+# unresolved: `ChunkMetadata.confidence`/`confidence_status`, not a
+# top-level `graph_confidence` key, is what every sub-agent (Case
+# Summarization, Cross-Case Linkage, Investigative Analysis) actually
+# passes for GRAPH-derived evidence. Before this fix, `_check_hedging()`
+# only ever read `graph_confidence`, so the hedging check silently never
+# fired for any harness-sourced chunk regardless of its real confidence.
+
+
+def test_hedging_harness_shape_computed_low_confidence_missing_hedge():
+    chunks = [_harness_chunk(confidence=0.60, confidence_status="computed")]
+    answer = "[Document 1] Ali Hassan is the same person as Ali H. in CASE-003."
+    issues = _check_hedging(answer, chunks)
+    assert issues, "Should flag missing hedge for a harness-shaped low-confidence chunk"
+    assert "0.60" in issues[0]
+
+
+def test_hedging_harness_shape_computed_low_confidence_hedge_present():
+    chunks = [_harness_chunk(confidence=0.60, confidence_status="computed")]
+    answer = "[Document 1] Ali Hassan is possibly the same person (unconfirmed)."
+    assert _check_hedging(answer, chunks) == []
+
+
+def test_hedging_harness_shape_computed_high_confidence_no_check():
+    chunks = [_harness_chunk(confidence=0.95, confidence_status="computed")]
+    answer = "[Document 1] This is certain."
+    assert _check_hedging(answer, chunks) == []
+
+
+def test_hedging_harness_shape_not_computed_skipped():
+    # RAG's own case (types.py's own docstring example): flat retrieval
+    # never computes a confidence at all. Legitimately absent, not a
+    # failure -- must not be flagged.
+    chunks = [_harness_chunk(confidence=None, confidence_status="not_computed")]
+    answer = "[Document 1] Definitive statement without hedge."
+    assert _check_hedging(answer, chunks) == []
+
+
+def test_hedging_harness_shape_check_failed_requires_hedge_unconditionally():
+    # [AMENDMENT — design §7's exact fix] check_failed must be treated at
+    # LEAST as cautiously as a known-low confidence score, even though
+    # `confidence` itself is None here -- never "no signal, proceed
+    # unhedged," which is the false-all-clear this check exists to catch.
+    chunks = [_harness_chunk(confidence=None, confidence_status="check_failed")]
+    answer = "[Document 1] Definitive statement without hedge."
+    issues = _check_hedging(answer, chunks)
+    assert issues
+    assert "confidence check failed" in issues[0]
+
+
+def test_hedging_harness_shape_check_failed_hedge_present_passes():
+    chunks = [_harness_chunk(confidence=None, confidence_status="check_failed")]
+    answer = "[Document 1] This link is unconfirmed pending further review."
+    assert _check_hedging(answer, chunks) == []
+
+
+def test_format_chunks_check_failed_shown_as_unknown_not_a_number():
+    chunks = [_harness_chunk(confidence=None, confidence_status="check_failed")]
+    out = _format_chunks_for_verifier(chunks)
+    assert "confidence: unknown (check failed)" in out
+
+
+def test_format_chunks_harness_shape_computed_confidence_displayed():
+    chunks = [_harness_chunk(confidence=0.72, confidence_status="computed")]
+    out = _format_chunks_for_verifier(chunks)
+    assert "graph_confidence: 0.72" in out
+
+
+def test_format_chunks_harness_shape_not_computed_shows_nothing():
+    chunks = [_harness_chunk(confidence=None, confidence_status="not_computed")]
+    out = _format_chunks_for_verifier(chunks)
+    assert "confidence" not in out
 
 
 # ── _check_no_citation ───────────────────────────────────────────────────────
