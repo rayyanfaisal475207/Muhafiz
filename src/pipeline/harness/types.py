@@ -64,6 +64,17 @@ reserved and inert for MVP. `SubAgentInput.conversation_context` is
 upgraded from `Optional[str]` to `Optional[ConversationContext]` — same
 field name and slot, richer shape; still pre-bounded by the supervisor,
 never full history.
+
+CONTRACT AMENDMENT — SubAgentResult.metrics / DataQualityMetric /
+DataQualityReadiness (pre-Phase-9, Data-Quality/Extraction-Coverage):
+SUBAGENT_INTERFACES.md never defines a `SubAgentResult`-shaped contract for
+this sub-agent at all (its §2.1 table is titled "the seven sub-agents");
+AGENT_HARNESS_IMPLEMENTATION_PLAN.md §7.3 specifies six metric groups, raw
+counts, and a per-capability readiness state, but no field to carry them.
+Resolved via AskUserQuestion as a new typed field (mirroring the `events`/
+`links` precedent for Timeline Building/Cross-Case Linkage) rather than
+structured prose in `answer_text`. See the block comment directly above
+`DataQualityReadiness`, below, for the full readiness-state rule.
 """
 
 from __future__ import annotations
@@ -682,6 +693,17 @@ class SubAgentResult(BaseModel):
         default_factory=list,
         description="Set only by Cross-Case Linkage. Ranked cross-case connections.",
     )
+    # [CONTRACT AMENDMENT — pre-Phase-9, Data-Quality/Extraction-Coverage]
+    # Same forward-ref pattern as `events`/`links` above — `DataQualityMetric`
+    # is defined below `SubAgentResult` in this file (near `CrossCaseLink`),
+    # resolved by the same `SubAgentResult.model_rebuild()` call further
+    # down. See the block comment above `DataQualityReadiness` for the full
+    # rationale (AskUserQuestion-resolved: a new typed field, not prose in
+    # `answer_text`).
+    metrics: list["DataQualityMetric"] = Field(
+        default_factory=list,
+        description="Set only by Data-Quality/Extraction-Coverage. The six metric groups, per plan §7.3.",
+    )
     error: Optional[ToolError] = None
 
 
@@ -860,6 +882,110 @@ class CrossCaseLink(BaseModel):
             "be presented as a caveat and must contribute a matching entry "
             "to SubAgentResult.caveats — never asserted as confirmed fact."
         ),
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [CONTRACT AMENDMENT — pre-Phase-9, Data-Quality/Extraction-Coverage]
+#
+# SUBAGENT_INTERFACES.md §2.1's table is titled "The seven sub-agents" and
+# never lists Data-Quality/Extraction-Coverage at all — AGENT_HARNESS_
+# IMPLEMENTATION_PLAN.md §4/§7.3 adds it as an eighth, with a "final shape"
+# (§7.3) but no SubAgentResult-shaped contract. supervisor.py's own module
+# docstring already flags this discrepancy; this amendment is what actually
+# closes the "no bounded-payload shape" half of it, per this session's
+# explicit brief. (The "unreachable via classify_to_subagent()" half is a
+# separate, still-open, tracked gap — see supervisor.py, unchanged here.)
+#
+# §7.3 requires SIX metric groups (document coverage, entity extraction,
+# timeline readiness, identity health, conflict coverage, embedding
+# coverage), each reporting raw counts plus a per-capability readiness
+# state, with NO absolute "enough" thresholds for MVP ("no calibration data
+# exists yet to set them correctly, and a wrong threshold is worse than
+# none"). Resolved via AskUserQuestion, before any sub-agent code was
+# written, as a NEW TYPED FIELD (`SubAgentResult.metrics`) rather than
+# structured prose in `answer_text` — mirrors the `events`/`links`/
+# `generated_file` precedent (§11's own amendment did the identical thing
+# for Timeline Building/Cross-Case Linkage): six groups' worth of
+# {name, readiness, counts, explains, error} is machine-legible tabular
+# data, not a narrative, and a future consumer (even the explicitly-parked
+# "auto-attach to another sub-agent's degraded output" idea, §7.3's own
+# "Routable-only for MVP" note) would need structured access, not regex
+# over prose. Additive, default-empty — zero effect on any already-shipped
+# sub-agent, same as §11's own amendment.
+#
+# READINESS RULE (this session's own provisional resolution, per §7.3's
+# explicit "no absolute thresholds" instruction — not silently picked):
+#   UNAVAILABLE — the group's own defining raw count is exactly 0. Checked,
+#     and there is genuinely nothing there.
+#   READY       — the group's own defining raw count is > 0. No further
+#     grading (e.g. "5 is thin, 50 is ready") is attempted this session —
+#     that grading needs calibration data that does not exist yet, per
+#     §7.3, and a wrong threshold is worse than none.
+#   THIN        — RESERVED, deliberately UNUSED this session. The enum
+#     value exists so a future calibration pass can start using it without
+#     another contract change; nothing in Phase 9's own code ever
+#     constructs it.
+#   UNKNOWN     — the group's own underlying query raised, rather than
+#     returning (possibly zero) rows. This is the SAME "checked-and-empty
+#     vs. check-failed" ambiguity RESOLVED-5 (ConflictState) and the
+#     `confidence`/`confidence_status` split (design §7) already exist to
+#     fix elsewhere in this contract — reported as UNAVAILABLE, a query
+#     failure would silently read as "checked, nothing there," which is
+#     the exact false-all-clear defect those two precedents were written
+#     to prevent. `error` is set iff `readiness == UNKNOWN` and carries the
+#     operator-facing exception detail (never shown verbatim to the end
+#     user, same posture as `ToolError.message`).
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class DataQualityReadiness(str, Enum):
+    """[CONTRACT AMENDMENT — pre-Phase-9] See the block comment above this
+    class for the full readiness rule and why UNKNOWN is a distinct fourth
+    state rather than folded into UNAVAILABLE."""
+
+    READY = "ready"
+    THIN = "thin"  # Reserved for a future calibration pass. Unused for MVP.
+    UNAVAILABLE = "unavailable"  # Checked; the defining raw count is 0.
+    UNKNOWN = "unknown"  # The underlying query itself raised. Assert nothing.
+
+
+class DataQualityMetric(BaseModel):
+    """
+    [CONTRACT AMENDMENT — pre-Phase-9] One of Data-Quality's six metric
+    groups (AGENT_HARNESS_IMPLEMENTATION_PLAN.md §7.3's table). Never
+    carries raw Postgres rows or graph rows — `counts` is a small, named,
+    already-aggregated dict (e.g. {"person": 12, "vehicle": 3}), consistent
+    with the "no raw rows cross a sub-agent boundary" discipline
+    SUBAGENT_INTERFACES.md establishes everywhere else, even though this
+    sub-agent has no contract written for it there at all.
+    """
+
+    name: Literal[
+        "document_coverage",
+        "entity_extraction",
+        "timeline_readiness",
+        "identity_health",
+        "conflict_coverage",
+        "embedding_coverage",
+    ] = Field(description="Stable machine key. See §7.3's table for the canonical six.")
+    label: str = Field(description="Human-facing name, e.g. 'Document coverage'.")
+    readiness: DataQualityReadiness
+    counts: dict[str, int] = Field(
+        default_factory=dict,
+        description="Raw, already-aggregated counts. Empty iff readiness is UNKNOWN.",
+    )
+    explains: str = Field(
+        description=(
+            "What this metric group explains about another sub-agent's thin "
+            "results, per §7.3's own 'Explains' column (e.g. 'Sparse graph "
+            "traversal' for entity_extraction). Static, per `name` — not "
+            "computed from this call's own data."
+        )
+    )
+    error: Optional[str] = Field(
+        default=None,
+        description="Operator-facing exception detail. Present iff readiness is UNKNOWN.",
     )
 
 

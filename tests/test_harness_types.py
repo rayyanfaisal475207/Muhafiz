@@ -20,6 +20,8 @@ from src.pipeline.harness.types import (
     CrossCaseLink,
     CrossCaseToolInput,
     CrossCaseToolResult,
+    DataQualityMetric,
+    DataQualityReadiness,
     EvidenceChunk,
     ExecutionContext,
     Role,
@@ -234,3 +236,67 @@ def test_sub_agent_result_carries_events_and_links_together():
     dumped = result.model_dump()
     assert dumped["events"][0]["conflict_state"] == ConflictState.UNKNOWN
     assert dumped["links"][0]["source_tool"] == "XNETWORK"
+
+
+# ── DataQualityMetric / SubAgentResult.metrics [CONTRACT AMENDMENT — pre-Phase-9] ──
+
+
+def test_sub_agent_result_metrics_defaults_empty():
+    # Additive, default-empty -- zero effect on any already-shipped
+    # sub-agent, same as events/links before it.
+    result = SubAgentResult(status=SubAgentStatus.OK)
+    assert result.metrics == []
+
+
+def test_data_quality_metric_name_restricted_to_the_canonical_six():
+    metric = DataQualityMetric(
+        name="document_coverage",
+        label="Document coverage",
+        readiness=DataQualityReadiness.READY,
+        counts={"total": 3},
+        explains="Thin Semantic Search results",
+    )
+    assert metric.error is None
+    with pytest.raises(ValidationError):
+        DataQualityMetric(
+            name="not_a_real_group",
+            label="x",
+            readiness=DataQualityReadiness.READY,
+            explains="x",
+        )
+
+
+def test_data_quality_readiness_has_four_states_including_reserved_thin():
+    # THIN is reserved/unused for MVP (see the block comment above
+    # DataQualityReadiness in types.py) but must still be constructible so
+    # a future calibration pass needs no further contract change.
+    assert {s.value for s in DataQualityReadiness} == {"ready", "thin", "unavailable", "unknown"}
+
+
+def test_data_quality_metric_unknown_readiness_carries_error_empty_counts():
+    # [Mirrors RESOLVED-5's reasoning] UNKNOWN means the underlying query
+    # raised -- distinct from UNAVAILABLE, which means "checked, count==0".
+    metric = DataQualityMetric(
+        name="conflict_coverage",
+        label="Conflict coverage",
+        readiness=DataQualityReadiness.UNKNOWN,
+        explains="UNKNOWN conflict states",
+        error="AGE connection timed out",
+    )
+    assert metric.counts == {}
+    assert metric.error == "AGE connection timed out"
+
+
+def test_sub_agent_result_carries_metrics():
+    metric = DataQualityMetric(
+        name="embedding_coverage",
+        label="Embedding coverage",
+        readiness=DataQualityReadiness.UNAVAILABLE,
+        counts={"chunks_embedded": 0, "documents_ingested": 2},
+        explains="Retrieval gaps",
+    )
+    result = SubAgentResult(status=SubAgentStatus.PARTIAL, metrics=[metric])
+    assert result.metrics[0] is metric
+    # Round-trips through serialization -- forward-ref resolution worked.
+    dumped = result.model_dump()
+    assert dumped["metrics"][0]["readiness"] == DataQualityReadiness.UNAVAILABLE
