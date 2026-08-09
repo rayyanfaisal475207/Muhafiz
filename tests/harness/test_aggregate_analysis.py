@@ -305,22 +305,21 @@ async def test_relies_on_tool_emitted_events(cases, gateway):
 
 async def test_traced_automatically_without_extra_wiring(cases, gateway):
     """
-    The supervisor invokes nodes generically as `node(agent_input, recorder)`
-    and does not thread a gateway, so the node registered here binds the test
-    gateway — mirroring how a real deployment would resolve it internally.
-    What is being asserted is that registration alone produces a trace.
+    Registration alone produces a trace — the node is passed to the supervisor
+    directly, with `invoke()` forwarding the gateway. This previously needed a
+    binding closure because `invoke()` accepted a gateway but never forwarded
+    it to the node; that workaround is gone.
     """
     cases()
 
-    async def _bound(agent_input, events=None):
-        return await aggregate_analysis.run(agent_input, events=events, gateway=gateway)
-
-    supervisor._NODES[aggregate_analysis.NAME] = _bound
+    supervisor._NODES[aggregate_analysis.NAME] = aggregate_analysis.run
     original = supervisor._route
     try:
         supervisor._route = lambda _i: aggregate_analysis.NAME
         recorder = EventRecorder()
-        state = await supervisor.invoke(_input(STATION_QUERY), events=recorder)
+        state = await supervisor.invoke(
+            _input(STATION_QUERY), events=recorder, gateway=gateway
+        )
     finally:
         supervisor._route = original
         supervisor._NODES.pop(aggregate_analysis.NAME, None)

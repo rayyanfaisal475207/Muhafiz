@@ -227,6 +227,94 @@ async def test_failure_path_still_emits_terminal_events():
     assert "supervisor:complete" in steps
 
 
+# ── Gateway threading, and the seam it protects ──────────────────────────
+
+async def test_gateway_is_forwarded_to_nodes_that_declare_it(gateway):
+    """
+    `invoke()` accepted a gateway for its EventRecorder but never passed it to
+    the node, so a sub-agent needing one silently fell back to get_gateway().
+    Correct in production, but it made `invoke()` undrivable against a fake.
+    """
+    seen: dict = {}
+
+    async def _node(agent_input, events=None, gateway=None):
+        seen["gateway"] = gateway
+        return SubAgentResult(status=SubAgentStatus.OK, answer_text="x")
+
+    original = supervisor._route
+    supervisor._NODES["gw_probe"] = _node
+    try:
+        supervisor._route = lambda _i: "gw_probe"
+        await supervisor.invoke(_input(), gateway=gateway)
+    finally:
+        supervisor._route = original
+        supervisor._NODES.pop("gw_probe", None)
+
+    assert seen["gateway"] is gateway
+
+
+async def test_nodes_without_a_gateway_parameter_still_work(gateway):
+    """
+    Semantic Search and Case Summarization take only (agent_input, events).
+    Passing a gateway unconditionally would TypeError — the same
+    signature-divergence class as the stub/real sql_tool crash.
+    """
+    async def _node(agent_input, events=None):
+        return SubAgentResult(status=SubAgentStatus.OK, answer_text="x")
+
+    original = supervisor._route
+    supervisor._NODES["no_gw"] = _node
+    try:
+        supervisor._route = lambda _i: "no_gw"
+        state = await supervisor.invoke(_input(), gateway=gateway)
+    finally:
+        supervisor._route = original
+        supervisor._NODES.pop("no_gw", None)
+
+    assert state.result.status is SubAgentStatus.OK
+
+
+async def test_every_registered_sub_agent_survives_invocation(gateway):
+    """
+    THE SEAM TEST. Each sub-agent is individually correct and individually
+    tested; this checks they all survive the ONE path that will reach them
+    once routing is real. An audit found a TypeError here (SQL's stub/real
+    signature divergence) that no sub-agent's own tests caught, because those
+    run against the real tools.
+
+    Asserts only that dispatch does not raise — outcomes vary with stub data
+    and are covered by each sub-agent's own suite.
+    """
+    from src.pipeline.harness.agents import (
+        aggregate_analysis, case_summary, cross_case_linkage,
+        investigative_analysis, report_draft, semantic_search, timeline,
+    )
+    from src.pipeline.harness.tools import registry
+
+    gateway.cases["CASE-A"] = {"case_id": "CASE-A"}
+    agents = {
+        m.NAME: m.run for m in (
+            semantic_search, case_summary, report_draft, investigative_analysis,
+            timeline, cross_case_linkage, aggregate_analysis,
+        )
+    }
+
+    registry.use_stubs()
+    original = supervisor._route
+    try:
+        for name, run in agents.items():
+            supervisor._NODES[name] = run
+            supervisor._route = lambda _i, n=name: n
+            try:
+                state = await supervisor.invoke(_input(), gateway=gateway)
+                assert state.result is not None, f"{name} returned no result"
+            finally:
+                supervisor._NODES.pop(name, None)
+    finally:
+        supervisor._route = original
+        registry.use_real()
+
+
 async def test_events_mirror_to_durable_step_log(gateway):
     """
     §2.2: every event except `active` mirrors to log_step, which is the admin

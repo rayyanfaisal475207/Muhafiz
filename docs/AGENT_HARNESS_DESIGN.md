@@ -436,6 +436,30 @@ file did not.
   failure mode is silent by construction: the guard reports green while the spec and the shipped
   string say different things.
 
+- **Supervisor gateway dispatch uses runtime introspection, not a declared contract.**
+  `supervisor._call_node()` calls `inspect.signature(node)` and forwards `gateway` only to nodes
+  that declare the parameter — five of the seven sub-agents take one, Semantic Search and Case
+  Summarization do not, and passing it unconditionally would raise `TypeError`.
+
+  **Why it is done this way:** the alternative is forcing all seven to accept a parameter two of
+  them would ignore, purely to satisfy a uniform signature. That trades a real per-call
+  introspection for a fake uniformity, and `SubAgentCallable` is deliberately a loose protocol
+  (`Callable[..., Awaitable[SubAgentResult]]`) rather than a rigid one.
+
+  **The tradeoff worth remembering:** dispatch behaviour now depends on a signature rather than
+  on a declaration. A future rename of the `gateway` parameter, or wrapping a node in a
+  `*args`-only closure, would SILENTLY change what gets forwarded — no error, just a sub-agent
+  quietly falling back to `get_gateway()`. That fallback is correct in production, which is
+  exactly what would make the change hard to notice.
+  `test_gateway_is_forwarded_to_nodes_that_declare_it` and
+  `test_nodes_without_a_gateway_parameter_still_work` pin both directions, but they test the
+  mechanism, not every node's conformance to it.
+
+  **If this becomes load-bearing** — e.g. a sub-agent that MUST have a specific gateway rather
+  than the singleton — replace the introspection with an explicit declaration (a class attribute
+  or a registration-time flag) so a mismatch fails loudly at registration instead of silently at
+  dispatch. Not needed today: every consumer falls back correctly.
+
 - **Consolidation candidate (not urgent): two sub-agents implement "the grounding gate is
   prose-only — do not route a non-prose finding through it."** Cross-Case Linkage's
   unconfirmed-links handling (789867b) and Large-Scale Aggregate's Verifier-rejection fallback

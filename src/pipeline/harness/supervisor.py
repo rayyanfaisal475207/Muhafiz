@@ -50,7 +50,15 @@ from src.pipeline.harness.events import EventRecorder, build_degradation_trace
 # from SUBAGENT_INTERFACES.md §2.1 register here as they are implemented; the
 # routing function and state shape do not change when they do.
 
-SubAgentCallable = Callable[[SubAgentInput, Optional[EventRecorder]], Awaitable[SubAgentResult]]
+# `gateway` is threaded through because five of the seven sub-agents accept one
+# (Report Drafting, Investigative Analysis, Timeline Building, Cross-Case
+# Linkage, Large-Scale Aggregate) and every consumer of it falls back to
+# `get_gateway()` when it is None. Production behaviour is therefore unchanged
+# either way — but without forwarding it, `invoke()` could not be driven
+# against a fake gateway, forcing tests to wrap a node in a binding closure
+# just to inject one. Keyword-only at the call site so a node that does not
+# take it is unaffected.
+SubAgentCallable = Callable[..., Awaitable[SubAgentResult]]
 
 _NODES: dict[str, SubAgentCallable] = {
     semantic_search.NAME: semantic_search.run,
@@ -70,6 +78,40 @@ class HarnessState(BaseModel):
     selected_agent: Optional[str] = None
     result: Optional[SubAgentResult] = None
     events: list = Field(default_factory=list)
+
+
+async def _call_node(
+    node: SubAgentCallable,
+    agent_input: SubAgentInput,
+    recorder: EventRecorder,
+    gateway,
+) -> SubAgentResult:
+    """
+    Invoke a sub-agent, passing `gateway` only if it declares the parameter.
+
+    Five of the seven take one; Semantic Search and Case Summarization do not,
+    and passing it to them unconditionally would raise TypeError. Rather than
+    forcing all seven to accept a parameter most of them would ignore, this
+    inspects the node once per call.
+
+    A node wrapped in a closure (as tests do) that accepts `**kwargs` also
+    receives it, which is the intended behaviour — the check is for whether the
+    callee can take it, not whether it was written to.
+    """
+    import inspect
+
+    if gateway is not None:
+        try:
+            params = inspect.signature(node).parameters
+            takes_gateway = "gateway" in params or any(
+                p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()
+            )
+        except (TypeError, ValueError):  # pragma: no cover - exotic callables
+            takes_gateway = False
+        if takes_gateway:
+            return await node(agent_input, recorder, gateway=gateway)
+
+    return await node(agent_input, recorder)
 
 
 def _route(agent_input: SubAgentInput) -> str:
@@ -96,6 +138,14 @@ async def invoke(
 
     Returns the terminal `HarnessState`. The caller reads `state.result` for the
     bounded payload and `state.events` for the live trace.
+
+    `gateway` serves two purposes and is optional for both. It backs the
+    `EventRecorder`'s durable `log_step` writes, and it is FORWARDED to the
+    selected sub-agent when that sub-agent declares the parameter (see
+    `_call_node`). Previously it did only the first, so a sub-agent needing a
+    gateway silently fell back to `get_gateway()` — correct in production, but
+    it left `invoke()` undrivable against a fake, forcing tests to wrap nodes
+    in binding closures purely to inject one.
 
     [PRESERVE — design §6] Emits one `PipelineEvent` per meaningful transition —
     supervisor dispatch, sub-agent start/end, and each tool call — never
@@ -128,7 +178,13 @@ async def invoke(
     )
 
     # ── Node: the selected sub-agent ──
-    state.result = await node(agent_input, recorder)
+    # `gateway` is forwarded only to nodes that declare it. Semantic Search and
+    # Case Summarization take just (agent_input, events), so passing it
+    # unconditionally would TypeError — the same stub/real signature-divergence
+    # class of bug this threading was added alongside. Introspecting the node
+    # keeps `SubAgentCallable` a loose protocol rather than forcing all seven
+    # to grow a parameter five of them use and two do not.
+    state.result = await _call_node(node, agent_input, recorder, gateway)
 
     # ── THE per-query trace write. One place, all seven sub-agents. ──
     #
