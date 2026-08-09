@@ -176,16 +176,18 @@ section never uses). XNETWORK's contribution DOES run through
 chunk, matching Semantic Search's/Large-Scale Aggregate's existing citation
 convention.
 
-VALIDATION GATE — NOT BUILT YET. A `# TODO(validation-gate)` marker is left
-at this module's Verifier-boundary insertion point (below), matching every
-prior sub-agent's convention. Per AGENT_HARNESS_IMPLEMENTATION_PLAN.md §4
-row 5 and §5's table, once `validation.py` exists, Validation's FULL
-semantic re-check is MANDATORY here (not the lighter structural-only check
+VALIDATION GATE — WIRED (Validation-module session). Per
+AGENT_HARNESS_IMPLEMENTATION_PLAN.md §4 row 5 and §5's table, Validation's
+FULL semantic tier is MANDATORY here (not the lighter structural-only check
 some other sub-agents get) — this is explicitly called out as the
 highest-stakes sub-agent for that check, for the same reason the
 description-generation decision above avoids LLM text for XGRAPH's confirmed
 connections: identity/pattern recurrence across cases is the highest-stakes
-claim type in the system.
+claim type in the system. Runs only against XNETWORK's own chunks/citations
+— XGRAPH's deterministic summary line carries no `[Document N]` markers, so
+it needs no check; when XNETWORK doesn't contribute (or falls back to its
+own raw, unmarked community-summary text), `validate_answer()` naturally
+finds nothing to check and returns SKIPPED with no special-casing.
 
 NOT IN SCOPE THIS PHASE: any other sub-agent, `validation.py` itself, live
 wiring into main.py/orchestrator.py/router.py.
@@ -213,7 +215,9 @@ from src.pipeline.harness.types import (
     SubAgentResult,
     SubAgentStatus,
     ToolStatus,
+    ValidationStatus,
 )
+from src.pipeline.validation import caveats_for_validation, validate_answer
 from src.pipeline.verifier import verify_grounding
 
 logger = logging.getLogger(__name__)
@@ -633,28 +637,43 @@ async def cross_case_linkage(
         if xnetwork_result.status == ToolStatus.FAILED:
             caveats.append("Cross-case pattern synthesis encountered an error.")
 
-    # TODO(validation-gate): Validation plugs in here -- after this
-    # point, before the result is returned -- per
-    # AGENT_HARNESS_IMPLEMENTATION_PLAN.md §4 row 5 / §5's ordering
-    # (Verifier -> Citation-Consistency [Report Drafting only] ->
-    # Validation). Per that same plan row, Validation's FULL semantic
-    # re-check is MANDATORY here once it exists (not the lighter
-    # structural-only check some other sub-agents get) -- Cross-Case
-    # Linkage is explicitly called out as the highest-stakes sub-agent for
-    # that check, the same reasoning behind this module's
-    # deterministic-XGRAPH-description decision above. `validation.py`
-    # does not exist yet and `SubAgentResult` has no `validation_status`
-    # field. No ad hoc validation logic is invented here to fill that gap.
+    # Validation gate — plan §4 row 5 / §5's table: FULL semantic tier is
+    # MANDATORY here (not the lighter structural-only check some other
+    # sub-agents get) — Cross-Case Linkage is explicitly called out as the
+    # highest-stakes sub-agent for it, the same reasoning behind this
+    # module's deterministic-XGRAPH-description decision above.
+    #
+    # Only XNETWORK's contribution ever carries [Document N] markers —
+    # XGRAPH's summary line is deterministic, uncited text (see the
+    # description-generation decision in this module's docstring), so
+    # validating against xnetwork_result.chunks is complete: when XNETWORK
+    # doesn't contribute (or falls back to raw_summary_text, which also
+    # carries no markers — see xnetwork.py's own _render_raw_summary()),
+    # validate_answer() naturally finds nothing to check and returns
+    # SKIPPED, with no special-casing needed here.
+    combined_answer_text = " ".join(answer_sections) if answer_sections else None
+    validation_status, validation_claims = (
+        await validate_answer(
+            answer_text=combined_answer_text,
+            cited_chunks=[_chunk_to_verifier_dict(c) for c in xnetwork_result.chunks],
+            tier="full",
+        )
+        if combined_answer_text
+        else (ValidationStatus.SKIPPED, [])
+    )
+    caveats.extend(caveats_for_validation(validation_status, validation_claims))
 
     status = SubAgentStatus.OK if not degraded_from else SubAgentStatus.PARTIAL
     return SubAgentResult(
         status=status,
-        answer_text=" ".join(answer_sections) if answer_sections else None,
+        answer_text=combined_answer_text,
         citations=citations,
         tools_used=tools_used,
         degraded_from=degraded_from,
         links=links,
         caveats=caveats,
+        validation_status=validation_status,
+        validation_claims=validation_claims,
     )
 
 

@@ -34,23 +34,15 @@ bound the payload", not just a tool pass-through):
      tool's own chunk list stays inside this function's stack frame and is
      never handed to the caller.
 
-VALIDATION GATE -- EXPLICITLY NOT WIRED THIS PHASE. `validation.py`
-(AGENT_HARNESS_IMPLEMENTATION_PLAN.md §5/§7.1) does not exist yet, and
-`SubAgentResult` has no `validation_status` field -- the §7.1 amendment
-was proposed but was never actually added to types.py in Phase 0
-(confirmed against src/pipeline/harness/types.py before writing this
-module). See the `# TODO(validation-gate)` marker at its intended insertion
-point below (after the Verifier passes, per plan §7.1's ordering and
-§5's Verifier -> Citation-Consistency -> Validation chain). No ad hoc
-validation logic is invented here to fill that gap.
-
-[RENAMED -- Large-Scale Aggregate session] This marker used to read
-`# TODO(phase-3)`. That name collided with a later session's own internal
-use of "Phase 3" for a *different* checklist item (Large-Scale Aggregate,
-AGENT_HARNESS_IMPLEMENTATION_PLAN.md §4 row 2) -- this marker was never
-about that sub-agent, only about the Validation module (§5/§7.1), a later,
-separate checklist item. Renamed to `# TODO(validation-gate)` so the two
-are not confused again; no behavior change.
+VALIDATION GATE -- WIRED (Validation-module session). Plan §5's table puts
+Semantic Search on the STRUCTURAL-ONLY tier (deterministic, no LLM call —
+see src/pipeline/validation.py's own module docstring for the two-tier
+split). Runs after the Verifier passes, per §7.1's ordering, over the exact
+same flattened chunk list the Verifier was shown. `validation_status`/
+`validation_claims` are always set on the OK path below; a flagged claim
+adds a caveat but never changes `status`/`answer_text` (caveat-only,
+never-blocking — the ValidationStatus contract-amendment's own resolved
+decision).
 
 PARTIAL-FAILURE MAPPING (this sub-agent composes exactly one tool, so
 there is nothing for it to degrade TO -- `degraded_from` is always empty
@@ -104,6 +96,7 @@ from src.pipeline.harness.types import (
     ToolError,
     ToolStatus,
 )
+from src.pipeline.validation import caveats_for_validation, validate_answer
 from src.pipeline.verifier import verify_grounding
 
 logger = logging.getLogger(__name__)
@@ -308,14 +301,13 @@ async def semantic_search(
             ],
         )
 
-    # TODO(validation-gate): Validation plugs in here -- after the Verifier passes,
-    # before the result is returned -- per AGENT_HARNESS_IMPLEMENTATION_PLAN.md
-    # §7.1 ("Validation ... runs after the Verifier passes") and §5's ordering
-    # (Verifier -> Citation-Consistency [Report Drafting only] -> Validation).
-    # `validation.py` does not exist yet and `SubAgentResult` has no
-    # `validation_status` field (the §7.1 amendment was proposed, never
-    # added to types.py in Phase 0) -- do not invent ad hoc validation logic
-    # here to fill that gap.
+    # Validation gate — plan §5's STRUCTURAL-ONLY tier for this sub-agent.
+    # Reuses the same flattened chunk list the Verifier was just shown.
+    validation_status, validation_claims = await validate_answer(
+        answer_text=answer,
+        cited_chunks=[_chunk_to_verifier_dict(c) for c in chunks],
+        tier="structural",
+    )
 
     citations = [
         Citation(
@@ -333,6 +325,9 @@ async def semantic_search(
         answer_text=answer,
         citations=citations,
         tools_used=["RAG"],
+        caveats=caveats_for_validation(validation_status, validation_claims),
+        validation_status=validation_status,
+        validation_claims=validation_claims,
     )
 
 

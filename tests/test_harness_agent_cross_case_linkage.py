@@ -120,6 +120,25 @@ def _stub_call_llm(monkeypatch, answer=None, exc=None, sequence=None):
     return calls
 
 
+def _stub_validate_answer(monkeypatch, status=None, claims=None):
+    """
+    Stubs the Validation gate at the boundary this module actually calls
+    (`ccl_mod.validate_answer`) -- same discipline as
+    `test_harness_agent_investigative_analysis.py`'s own helper of the same
+    name. Defaults to PASSED/[] so tests not specifically about Validation's
+    caveat-appending behavior see no change from before this gate was wired.
+    """
+    from src.pipeline.harness.types import ValidationStatus
+
+    resolved_status = status if status is not None else ValidationStatus.PASSED
+    resolved_claims = claims if claims is not None else []
+
+    async def _fake(*args, **kwargs):
+        return resolved_status, resolved_claims
+
+    monkeypatch.setattr(ccl_mod, "validate_answer", _fake)
+
+
 def _stub_verify_grounding(monkeypatch, sequence):
     """`sequence`: list of dicts (grounded/off_topic/reason), consumed in call order."""
     calls = {"n": 0}
@@ -169,6 +188,7 @@ async def test_both_contribute_returns_ok(monkeypatch):
         ),
     )
     _stub_call_llm(monkeypatch, "These cases share a pattern [Document 1].")
+    _stub_validate_answer(monkeypatch)
     _stub_verify_grounding(monkeypatch, [{"grounded": True}])
 
     result = await cross_case_linkage(_agent_input())
@@ -190,6 +210,55 @@ async def test_both_contribute_returns_ok(monkeypatch):
     # Bounded payload -- no raw chunks ever cross the boundary.
     for link in result.links:
         assert not hasattr(link, "chunks")
+
+
+@pytest.mark.asyncio
+async def test_validation_gate_runs_full_tier_against_xnetwork_chunks_only(monkeypatch):
+    from src.pipeline.harness.types import ClaimSupport, ValidationClaimResult, ValidationStatus
+
+    xg_chunk = _xgraph_chunk()
+    _stub_xgraph_tool(
+        monkeypatch,
+        XGraphToolResult(
+            status=ToolStatus.OK, chunks=[xg_chunk], case_ids_touched=["CASE-002"],
+            hop_count=1, chain_confidence=0.9,
+        ),
+    )
+    xn_chunk = _xnetwork_chunk()
+    _stub_xnetwork_tool(
+        monkeypatch,
+        XNetworkToolResult(
+            status=ToolStatus.OK, chunks=[xn_chunk], case_ids_touched=["CASE-002", "CASE-005"],
+            community_ids=["community-1"], raw_summary_text="raw text",
+        ),
+    )
+    _stub_call_llm(monkeypatch, "These cases share a pattern [Document 1].")
+    _stub_verify_grounding(monkeypatch, [{"grounded": True}])
+
+    flagged = ValidationClaimResult(
+        document_index=1, claim_excerpt="pattern claim",
+        support=ClaimSupport.PARTIALLY_SUPPORTED, reason="Overstates the connection.",
+    )
+    captured = {}
+
+    async def _fake_validate(answer_text, cited_chunks, *, tier):
+        captured["tier"] = tier
+        captured["chunk_ids"] = [c["id"] for c in cited_chunks]
+        return ValidationStatus.ISSUES_FOUND, [flagged]
+
+    monkeypatch.setattr(ccl_mod, "validate_answer", _fake_validate)
+
+    result = await cross_case_linkage(_agent_input())
+
+    # [PRESERVE -- plan §4 row 5] MANDATORY full tier, highest-stakes sub-agent.
+    assert captured["tier"] == "full"
+    # Only XNETWORK's own chunks are validated -- XGRAPH's deterministic
+    # summary line carries no [Document N] markers of its own.
+    assert captured["chunk_ids"] == [xn_chunk.id]
+    assert result.status == SubAgentStatus.OK  # caveat-only, never blocking
+    assert result.validation_status == ValidationStatus.ISSUES_FOUND
+    assert result.validation_claims == [flagged]
+    assert any("Overstates the connection" in c for c in result.caveats)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -235,6 +304,7 @@ async def test_xgraph_empty_xnetwork_contributes_returns_partial(monkeypatch):
         ),
     )
     _stub_call_llm(monkeypatch, "Pattern summary [Document 1].")
+    _stub_validate_answer(monkeypatch)
     _stub_verify_grounding(monkeypatch, [{"grounded": True}])
 
     result = await cross_case_linkage(_agent_input())
@@ -413,6 +483,7 @@ async def test_xnetwork_verifier_rejection_triggers_one_shot_cloud_retry_then_pa
             ("cloud paraphrase [Document 1].", None),
         ],
     )
+    _stub_validate_answer(monkeypatch)
     _stub_verify_grounding(monkeypatch, [{"grounded": False, "reason": "local rejected"}, {"grounded": True}])
 
     result = await cross_case_linkage(_agent_input())
@@ -448,6 +519,7 @@ async def test_xnetwork_cloud_retry_also_rejected_falls_back_to_raw_summary(monk
             ("cloud paraphrase [Document 1].", None),
         ],
     )
+    _stub_validate_answer(monkeypatch)
     _stub_verify_grounding(monkeypatch, [{"grounded": False}, {"grounded": False}])
 
     result = await cross_case_linkage(_agent_input())
@@ -481,6 +553,7 @@ async def test_xnetwork_cloud_retry_raising_falls_back_to_raw_summary(monkeypatc
             (None, RuntimeError("AIR_GAP_MODE is active — refusing cloud call")),
         ],
     )
+    _stub_validate_answer(monkeypatch)
     _stub_verify_grounding(monkeypatch, [{"grounded": False}])
 
     result = await cross_case_linkage(_agent_input())
@@ -514,6 +587,7 @@ async def test_xnetwork_generation_exception_on_first_call_is_treated_as_degrade
         ),
     )
     _stub_call_llm(monkeypatch, exc=RuntimeError("llm service unreachable"))
+    _stub_validate_answer(monkeypatch)
 
     result = await cross_case_linkage(_agent_input())
 

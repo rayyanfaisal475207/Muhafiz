@@ -155,18 +155,15 @@ fallback TARGET, not a tool with a fallback of its own) — the mirror-image
 case here: XAGG is a NEVER-FALLBACK cross-case tool, not a fallback target,
 but the effect on this field is the same "always empty."
 
-VALIDATION GATE — EXPLICITLY NOT WIRED THIS PHASE (same as Semantic
-Search, per this session's naming disambiguation: the `# TODO(phase-3)`
-comment already in semantic_search.py refers to this exact gap — the
-Validation module, a LATER, separate checklist item, not this session's
-"Large-Scale Aggregate" scope). `validation.py` does not exist yet and
-`SubAgentResult` has no `validation_status` field. A `# TODO(validation-gate)`
-marker (the clearer name this session's brief suggests, used here instead
-of a second `# TODO(phase-3)` to avoid the exact ambiguity this session's
-naming-disambiguation note called out) is left at its intended insertion
-point below — after the Verifier resolves (pass OR the documented
-raw-fallback path), before the result is returned. No ad hoc validation
-logic is invented to fill that gap.
+VALIDATION GATE — WIRED (Validation-module session). Plan §5's table puts
+Large-Scale Aggregate on the STRUCTURAL-ONLY tier ("Validation only needs
+its cheap structural check here" — plan §4 row 2's own build note, "does
+the reported count match the raw rows"). Run at BOTH branches below (the
+verifier-passed paraphrase, and the verifier-rejected raw-fallback), not
+just one: `validate_answer()` finds zero `[Document N]` markers in
+`raw_summary_text` (xagg.py's own renderer never emits any) and returns
+`SKIPPED` there by construction, so wiring it uniformly at both branches
+costs nothing on the raw-fallback path and needs no special-casing.
 
 NOT IN SCOPE THIS PHASE: any other sub-agent, `validation.py` itself, live
 wiring into main.py/orchestrator.py/router.py.
@@ -190,6 +187,7 @@ from src.pipeline.harness.types import (
     SubAgentStatus,
     ToolStatus,
 )
+from src.pipeline.validation import caveats_for_validation, validate_answer
 from src.pipeline.verifier import verify_grounding
 
 logger = logging.getLogger(__name__)
@@ -350,8 +348,11 @@ async def large_scale_aggregate(
         # STATUS DECISION" for the full reasoning. The aggregate is
         # machine-computed and correct by construction; a rejection here
         # means the paraphrase failed, not that the evidence is unsound.
-        # TODO(validation-gate): Validation plugs in here too, once it
-        # exists -- see this module's own "VALIDATION GATE" docstring note.
+        raw_validation_status, raw_validation_claims = await validate_answer(
+            answer_text=tool_result.raw_summary_text,
+            cited_chunks=[_chunk_to_verifier_dict(chunk)],
+            tier="structural",
+        )
         return SubAgentResult(
             status=SubAgentStatus.OK,
             answer_text=tool_result.raw_summary_text,
@@ -360,26 +361,26 @@ async def large_scale_aggregate(
             caveats=[
                 "The natural-language summary could not be verified as an "
                 "accurate paraphrase; showing the raw computed aggregate instead."
-            ],
+            ] + caveats_for_validation(raw_validation_status, raw_validation_claims),
+            validation_status=raw_validation_status,
+            validation_claims=raw_validation_claims,
         )
 
-    # TODO(validation-gate): Validation plugs in here -- after the Verifier
-    # passes, before the result is returned -- per
-    # AGENT_HARNESS_IMPLEMENTATION_PLAN.md §7.1 ("Validation ... runs after
-    # the Verifier passes") and §5's ordering (Verifier -> Citation-
-    # Consistency [Report Drafting only] -> Validation). `validation.py`
-    # does not exist yet and `SubAgentResult` has no `validation_status`
-    # field (see semantic_search.py's identical, earlier note -- renamed
-    # here from that module's `# TODO(phase-3)` to `# TODO(validation-gate)`
-    # per this session's naming-disambiguation guidance, since "Phase 3" in
-    # THIS session means Large-Scale Aggregate, not the Validation module).
-    # No ad hoc validation logic is invented here to fill that gap.
+    # Validation gate — plan §5's STRUCTURAL-ONLY tier for this sub-agent.
+    validation_status, validation_claims = await validate_answer(
+        answer_text=paraphrase,
+        cited_chunks=[_chunk_to_verifier_dict(chunk)],
+        tier="structural",
+    )
 
     return SubAgentResult(
         status=SubAgentStatus.OK,
         answer_text=paraphrase,
         citations=citations,
         tools_used=["XAGG"],
+        caveats=caveats_for_validation(validation_status, validation_claims),
+        validation_status=validation_status,
+        validation_claims=validation_claims,
     )
 
 

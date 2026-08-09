@@ -99,6 +99,25 @@ def _stub_call_llm(monkeypatch, answer="Synthesized finding [Document 1].", exc=
     monkeypatch.setattr(ia_mod, "call_llm", _fake)
 
 
+def _stub_validate_answer(monkeypatch, status=None, claims=None):
+    """
+    Stubs the Validation gate at the boundary this module actually calls
+    (`ia_mod.validate_answer`) -- same mocking discipline as
+    `_stub_verify_grounding` below. Defaults to PASSED/[] so tests that are
+    not specifically about Validation's own caveat-appending behavior see no
+    change from before this gate was wired in.
+    """
+    from src.pipeline.harness.types import ValidationStatus
+
+    resolved_status = status if status is not None else ValidationStatus.PASSED
+    resolved_claims = claims if claims is not None else []
+
+    async def _fake(*args, **kwargs):
+        return resolved_status, resolved_claims
+
+    monkeypatch.setattr(ia_mod, "validate_answer", _fake)
+
+
 def _stub_verify_grounding(monkeypatch, grounded: bool, off_topic: bool = False, reason: str = "ok"):
     captured = {}
 
@@ -136,6 +155,7 @@ async def test_full_success_flattens_rag_then_graph_then_sql_and_returns_ok(monk
     _stub_tool(monkeypatch, "graph_tool", _GRAPH_OK([graph_chunk]))
     _stub_tool(monkeypatch, "sql_tool", _SQL_OK([sql_chunk]))
     _stub_call_llm(monkeypatch, "Finding A [Document 1]. Finding B [Document 2]. Section 302 [Document 3].")
+    _stub_validate_answer(monkeypatch)
     captured = _stub_verify_grounding(monkeypatch, grounded=True)
 
     result = await investigative_analysis(_agent_input())
@@ -151,6 +171,40 @@ async def test_full_success_flattens_rag_then_graph_then_sql_and_returns_ok(monk
         assert not hasattr(citation, "text")
 
 
+@pytest.mark.asyncio
+async def test_validation_gate_runs_full_tier_and_surfaces_issues_as_caveats(monkeypatch):
+    from src.pipeline.harness.types import ClaimSupport, ValidationClaimResult, ValidationStatus
+
+    _stub_tool(monkeypatch, "rag_tool", _RAG_OK([_rag_chunk()]))
+    _stub_tool(monkeypatch, "graph_tool", _GRAPH_OK([_graph_chunk()]))
+    _stub_tool(monkeypatch, "sql_tool", _SQL_OK([_sql_chunk()]))
+    _stub_call_llm(monkeypatch, "Finding A [Document 1].")
+    _stub_verify_grounding(monkeypatch, grounded=True)
+
+    flagged = ValidationClaimResult(
+        document_index=1,
+        claim_excerpt="Finding A",
+        support=ClaimSupport.NOT_SUPPORTED,
+        reason="Not stated by the source.",
+    )
+    captured_tier = {}
+
+    async def _fake_validate(answer_text, cited_chunks, *, tier):
+        captured_tier["tier"] = tier
+        return ValidationStatus.ISSUES_FOUND, [flagged]
+
+    monkeypatch.setattr(ia_mod, "validate_answer", _fake_validate)
+
+    result = await investigative_analysis(_agent_input())
+
+    # [PRESERVE -- plan §5's table] MANDATORY full tier here, not structural.
+    assert captured_tier["tier"] == "full"
+    assert result.status == SubAgentStatus.OK  # caveat-only, never blocking
+    assert result.validation_status == ValidationStatus.ISSUES_FOUND
+    assert result.validation_claims == [flagged]
+    assert any("Not stated by the source" in c for c in result.caveats)
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # (b) degradation + dedup
 # ═══════════════════════════════════════════════════════════════════════
@@ -162,6 +216,7 @@ async def test_graph_and_sql_both_fall_back_to_rag_dedup_to_one_rag_entry(monkey
     _stub_tool(monkeypatch, "graph_tool", _GRAPH_FALLBACK)
     _stub_tool(monkeypatch, "sql_tool", _SQL_FALLBACK)
     _stub_call_llm(monkeypatch, "The suspect fled [Document 1].")
+    _stub_validate_answer(monkeypatch)
     _stub_verify_grounding(monkeypatch, grounded=True)
 
     result = await investigative_analysis(_agent_input())
@@ -183,6 +238,7 @@ async def test_only_graph_degrades_sql_and_rag_contribute(monkeypatch):
     _stub_tool(monkeypatch, "graph_tool", GraphToolResult(status=ToolStatus.FAILED, fallback_to_rag=True))
     _stub_tool(monkeypatch, "sql_tool", _SQL_OK([sql_chunk]))
     _stub_call_llm(monkeypatch, "Finding [Document 1]. Section 302 [Document 2].")
+    _stub_validate_answer(monkeypatch)
     _stub_verify_grounding(monkeypatch, grounded=True)
 
     result = await investigative_analysis(_agent_input())
@@ -203,6 +259,7 @@ async def test_graph_tool_raising_is_treated_as_degraded(monkeypatch):
     _stub_tool(monkeypatch, "graph_tool", exc=RuntimeError("age connection reset"))
     _stub_tool(monkeypatch, "sql_tool", _SQL_FALLBACK)
     _stub_call_llm(monkeypatch, "Finding [Document 1].")
+    _stub_validate_answer(monkeypatch)
     _stub_verify_grounding(monkeypatch, grounded=True)
 
     result = await investigative_analysis(_agent_input())
@@ -255,6 +312,7 @@ async def test_live_events_one_per_source_tool_outcome(monkeypatch):
     _stub_tool(monkeypatch, "graph_tool", _GRAPH_FALLBACK)
     _stub_tool(monkeypatch, "sql_tool", SqlToolResult(status=ToolStatus.FAILED, fallback_to_rag=True, row_count=0))
     _stub_call_llm(monkeypatch, "Finding [Document 1].")
+    _stub_validate_answer(monkeypatch)
     _stub_verify_grounding(monkeypatch, grounded=True)
 
     events: list[PipelineEvent] = []
@@ -298,6 +356,7 @@ async def test_on_event_is_optional_and_events_still_resolve_without_a_sink(monk
     _stub_tool(monkeypatch, "graph_tool", _GRAPH_FALLBACK)
     _stub_tool(monkeypatch, "sql_tool", _SQL_FALLBACK)
     _stub_call_llm(monkeypatch, "Finding [Document 1].")
+    _stub_validate_answer(monkeypatch)
     _stub_verify_grounding(monkeypatch, grounded=True)
 
     result = await investigative_analysis(_agent_input())  # no on_event given
@@ -316,6 +375,7 @@ async def test_verifier_rejection_abstains_and_resets_tools_used_despite_done_ev
     _stub_tool(monkeypatch, "graph_tool", _GRAPH_OK([graph_chunk]))
     _stub_tool(monkeypatch, "sql_tool", _SQL_FALLBACK)
     _stub_call_llm(monkeypatch, "I cannot answer that.")
+    _stub_validate_answer(monkeypatch)
     _stub_verify_grounding(monkeypatch, grounded=False, reason="unsupported claim")
 
     events: list[PipelineEvent] = []
@@ -344,6 +404,7 @@ async def test_generation_failure_abstains(monkeypatch):
     _stub_tool(monkeypatch, "graph_tool", _GRAPH_FALLBACK)
     _stub_tool(monkeypatch, "sql_tool", _SQL_FALLBACK)
     _stub_call_llm(monkeypatch, exc=RuntimeError("llm unreachable"))
+    _stub_validate_answer(monkeypatch)
 
     result = await investigative_analysis(_agent_input())
 
@@ -382,6 +443,7 @@ async def test_supervisor_dispatches_to_real_investigative_analysis_and_real_too
     _stub_tool(monkeypatch, "graph_tool", _GRAPH_OK([graph_chunk]))
     _stub_tool(monkeypatch, "sql_tool", _SQL_OK([sql_chunk]))
     _stub_call_llm(monkeypatch, "Finding A [Document 1]. Finding B [Document 2]. Section 302 [Document 3].")
+    _stub_validate_answer(monkeypatch)
     _stub_verify_grounding(monkeypatch, grounded=True)
 
     sup = Supervisor()  # no override -> real module-level registry
