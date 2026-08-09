@@ -1125,8 +1125,7 @@ pre-existing skips, no regressions. Compliance suite — 51/51, unchanged. Nothi
 
 ### Phase 8 — Report Drafting: COMPLETE
 
-Branch `feature/harness-phase-8-report-drafting`, commit `eab3c32` (not yet merged to main as of
-this entry — merge follows immediately after this log update, per this session's workflow).
+Branch `feature/harness-phase-8-report-drafting`, merged to main via merge commit `8c5fbb7`.
 
 **Built:**
 - `src/pipeline/harness/agents/report_drafting.py` — composes Case Summarization's own
