@@ -193,6 +193,7 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
+from src.data_gateway.base import DataGateway
 from src.llm.client import call_llm
 from src.pipeline.harness.supervisor import INVESTIGATIVE_ANALYSIS, register
 from src.pipeline.harness.tools.graph import GraphToolInput, graph_tool
@@ -464,7 +465,10 @@ async def _generate_and_verify(
 
 
 async def investigative_analysis(
-    agent_input: SubAgentInput, *, on_event: Optional[OnEventCallback] = None
+    agent_input: SubAgentInput,
+    *,
+    on_event: Optional[OnEventCallback] = None,
+    gateway: Optional[DataGateway] = None,
 ) -> SubAgentResult:
     """The Investigative Analysis sub-agent. See module docstring for the full contract."""
     outcomes = {

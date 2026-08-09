@@ -118,6 +118,7 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
+from src.data_gateway.base import DataGateway
 from src.llm.client import call_llm
 from src.pipeline.harness.supervisor import CASE_SUMMARIZATION, register
 from src.pipeline.harness.tools.graph import GraphToolInput, graph_tool
@@ -330,7 +331,10 @@ def _verifier_passed(verification: dict) -> bool:
 
 
 async def case_summarization(
-    agent_input: SubAgentInput, *, on_event: Optional[OnEventCallback] = None
+    agent_input: SubAgentInput,
+    *,
+    on_event: Optional[OnEventCallback] = None,
+    gateway: Optional[DataGateway] = None,
 ) -> SubAgentResult:
     """
     The Case Summarization sub-agent. See module docstring for the contract.

@@ -1285,3 +1285,87 @@ SUBAGENT_INTERFACES.md §2.1.4's "Generalization" note observes they are candida
 is out of this amendment's own scope (it widens the *contract*, Investigative Analysis is the
 first and only *user* of it this session). Tracked as future work, same as §10/§11's own reserved,
 unused fields being deliberately inert until a later session needs them.
+
+---
+
+## 13. Contract amendment — `ExecutionContext.session_id` & `SubAgent` `gateway` threading (pre-Phase-8)
+
+Report Drafting needs to persist a generated file record the same way `orchestrator.py`'s existing
+`_generate_file()` does — via `gateway.log_generated_file({session_id, user_id, case_id, file_type,
+file_name, file_size_bytes, storage_path})`, which returns the real, durable `file_id`. Two gaps
+surfaced when checking this against the settled contract before writing any Report Drafting code:
+
+- `user_id` and `active_case_id` already live on `CallerContext`, but **no harness type carries a
+  `session_id` anywhere.**
+- **No sub-agent built through Phase 7 touches `DataGateway` at all** — there was no channel to
+  reach it from inside a sub-agent's own `__call__`.
+
+Resolved, via `AskUserQuestion`, as a full contract amendment (over a scoped, no-DB-persistence
+alternative also offered) — the same amend-once-for-everyone approach §10/§11/§12 already used.
+
+### 13.1 `ExecutionContext.session_id` — additive field
+
+```python
+class ExecutionContext(BaseModel):
+    ...
+    session_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "The chat session this query belongs to. Needed by Report Drafting to "
+            "persist a generated file via DataGateway.log_generated_file(), which "
+            "requires session_id alongside user_id (already carried on `caller`) — "
+            "mirrors _generate_file()'s existing session_id/user_id/case_id shape. "
+            "None where no session exists (e.g. a standalone harness invocation or "
+            "most existing tests) — every sub-agent besides Report Drafting is "
+            "unaffected."
+        ),
+    )
+```
+
+Additive, default-`None` — zero effect on any already-shipped sub-agent or its tests, same shape as
+§10's `project_id`/`workspace_id` additions to the same model.
+
+### 13.2 `SubAgent.__call__` / `Supervisor.handle()` — widened with `gateway`, mirrors §12's `on_event`
+
+```python
+class SubAgent(Protocol):
+    name: str
+
+    async def __call__(
+        self,
+        agent_input: SubAgentInput,
+        *,
+        on_event: Optional[OnEventCallback] = None,
+        gateway: Optional[DataGateway] = None,
+    ) -> SubAgentResult: ...
+```
+
+`gateway` is additive and keyword-only, defaulting to `None` — every sub-agent's signature must
+accept it (even if it ignores it), same "widen, not replace" treatment `on_event` got in §12.
+`DataGateway` (`src/data_gateway/base.py`) is already an abstract `Protocol`, not a concrete
+implementation type, so this does not violate SUBAGENT_INTERFACES.md's "no implementation types
+cross a boundary" stability rule — it is the same kind of interface `main.py`/`orchestrator.py`
+already pass around today. `Supervisor.handle()` gains the identical `gateway` parameter and
+forwards it unchanged at its one dispatch call site, exactly like `on_event`.
+
+### 13.3 Retrofit scope — what already-shipped code this touches
+
+- `src/pipeline/harness/types.py` — add `ExecutionContext.session_id`; widen `SubAgent.__call__`
+  with `gateway`; import `DataGateway`.
+- `src/pipeline/harness/supervisor.py` — `Supervisor.handle()` gains `gateway`, forwarded unchanged
+  at its one `handler(...)` call site.
+- `src/pipeline/harness/agents/{semantic_search,large_scale_aggregate,case_summarization,
+  timeline_building,cross_case_linkage,investigative_analysis}.py` — each accepts-and-ignores the
+  new kwarg, same as every one of them already does for `on_event`.
+- `tests/test_harness_supervisor.py` — `_mock_sub_agent()`'s stub handler accepts and records
+  `gateway`; two new tests assert forwarding (both with a real object and with `None`), mirroring
+  the existing `on_event` forwarding tests exactly.
+
+### 13.4 What this does not do
+
+This amendment only widens the contract; it does not wire a real `DataGateway` instance into any
+live call path — no sub-agent module is invoked from `main.py`/`orchestrator.py` yet (§6). It also
+does not add `session_id` anywhere except `ExecutionContext` — `SubAgentInput`, `CallerContext`, and
+every tool-level `ToolInput` are untouched, since no tool needs it. Report Drafting (Phase 8) is the
+first and, this session, only consumer of both `session_id` and `gateway`; every other sub-agent's
+behavior is unchanged.

@@ -169,6 +169,7 @@ import logging
 from datetime import datetime
 from typing import Optional
 
+from src.data_gateway.base import DataGateway
 from src.graph.case_scope import scoped_cypher
 from src.pipeline.harness.supervisor import TIMELINE_BUILDING, register
 from src.pipeline.harness.types import (
@@ -356,7 +357,10 @@ def _answer_text(events: list[TimelineEvent], conflict_checked: bool) -> str:
 
 
 async def timeline_building(
-    agent_input: SubAgentInput, *, on_event: Optional[OnEventCallback] = None
+    agent_input: SubAgentInput,
+    *,
+    on_event: Optional[OnEventCallback] = None,
+    gateway: Optional[DataGateway] = None,
 ) -> SubAgentResult:
     """
     The Timeline Building sub-agent. See module docstring for the full contract.
