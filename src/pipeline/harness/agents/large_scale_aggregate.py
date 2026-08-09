@@ -177,6 +177,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+from src.data_gateway.base import DataGateway
 from src.llm.client import call_llm
 from src.pipeline.harness.supervisor import LARGE_SCALE_AGGREGATE, register
 from src.pipeline.harness.tools.xagg import XAggToolInput, xagg_tool
@@ -239,7 +240,10 @@ def _chunk_to_verifier_dict(chunk: EvidenceChunk) -> dict:
 
 
 async def large_scale_aggregate(
-    agent_input: SubAgentInput, *, on_event: Optional[OnEventCallback] = None
+    agent_input: SubAgentInput,
+    *,
+    on_event: Optional[OnEventCallback] = None,
+    gateway: Optional[DataGateway] = None,
 ) -> SubAgentResult:
     """
     The Large-Scale Aggregate sub-agent. See module docstring for the contract.

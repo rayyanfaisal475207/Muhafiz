@@ -67,18 +67,24 @@ def _mock_sub_agent(name: str, result: SubAgentResult):
     keyword-only `on_event` every real sub-agent now does (see
     `types.SubAgent`'s amendment note) and records whatever it was given
     (including `None`) so tests can assert Supervisor.handle() actually
-    forwards it, rather than only that the call didn't raise."""
+    forwards it, rather than only that the call didn't raise.
+
+    [AMENDMENT — pre-Phase-8 contract amendment] Same treatment for the new
+    keyword-only `gateway` parameter."""
     calls = []
     on_events_received = []
+    gateways_received = []
 
-    async def _handler(agent_input: SubAgentInput, *, on_event=None) -> SubAgentResult:
+    async def _handler(agent_input: SubAgentInput, *, on_event=None, gateway=None) -> SubAgentResult:
         calls.append(agent_input)
         on_events_received.append(on_event)
+        gateways_received.append(gateway)
         return result
 
     _handler.name = name
     _handler.calls = calls
     _handler.on_events_received = on_events_received
+    _handler.gateways_received = gateways_received
     return _handler
 
 
@@ -337,3 +343,33 @@ async def test_on_event_forwarded_as_none_when_not_given(monkeypatch, isolated_r
     await sup.handle(_agent_input())
 
     assert mock.on_events_received == [None]
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# (f) gateway threaded down to the sub-agent itself
+# [AMENDMENT — pre-Phase-8 contract amendment, mirrors §12/(e) above]
+# ═══════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_gateway_forwarded_to_subagent_when_given(monkeypatch, isolated_registry):
+    _stub_route_query(monkeypatch, {"route": "RAG", "output_format": "chat"})
+    mock = _mock_sub_agent(SEMANTIC_SEARCH, SubAgentResult(status=SubAgentStatus.OK))
+    isolated_registry[SEMANTIC_SEARCH] = mock
+
+    sup = Supervisor(registry=isolated_registry)
+    fake_gateway = object()
+    await sup.handle(_agent_input(), gateway=fake_gateway)
+
+    assert mock.gateways_received == [fake_gateway]
+
+
+@pytest.mark.asyncio
+async def test_gateway_forwarded_as_none_when_not_given(monkeypatch, isolated_registry):
+    _stub_route_query(monkeypatch, {"route": "RAG", "output_format": "chat"})
+    mock = _mock_sub_agent(SEMANTIC_SEARCH, SubAgentResult(status=SubAgentStatus.OK))
+    isolated_registry[SEMANTIC_SEARCH] = mock
+
+    sup = Supervisor(registry=isolated_registry)
+    await sup.handle(_agent_input())
+
+    assert mock.gateways_received == [None]

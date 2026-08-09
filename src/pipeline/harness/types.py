@@ -73,6 +73,8 @@ from typing import Any, Callable, Literal, Optional, Protocol
 
 from pydantic import BaseModel, Field, model_validator
 
+from src.data_gateway.base import DataGateway
+
 # ═══════════════════════════════════════════════════════════════════════
 # §0 — Roles
 # ═══════════════════════════════════════════════════════════════════════
@@ -166,6 +168,19 @@ class ExecutionContext(BaseModel):
             "carrier (AGENT_HARNESS_IMPLEMENTATION_PLAN.md §9, Phase 0 "
             "entry). None = no project scoping applied — same behavior as "
             "the Phase 0/1/2 code shipped with."
+        ),
+    )
+    session_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "[AMENDMENT — pre-Phase-8 contract amendment] The chat session "
+            "this query belongs to. Needed by Report Drafting to persist a "
+            "generated file via DataGateway.log_generated_file(), which "
+            "requires session_id alongside user_id (already carried on "
+            "`caller`) — mirrors _generate_file()'s existing "
+            "session_id/user_id/case_id shape. None where no session exists "
+            "(e.g. a standalone harness invocation or most existing tests) "
+            "— every sub-agent besides Report Drafting is unaffected."
         ),
     )
     workspace_id: Optional[str] = None
@@ -700,6 +715,16 @@ class SubAgent(Protocol):
     Analysis (Phase 7) is the first to actually use it, per
     SUBAGENT_INTERFACES.md §2.1.4's requirement that it emit one
     `PipelineEvent` per source-tool outcome as it resolves.
+
+    [AMENDMENT — pre-Phase-8 contract amendment, same widen-not-replace
+    pattern as `on_event` above] `gateway` is a new, additive, keyword-only
+    parameter carrying an optional `DataGateway` (an already-abstract
+    `Protocol`, `src/data_gateway/base.py` — no concrete implementation type
+    crosses this boundary). It exists so Report Drafting can persist a
+    generated file via `gateway.log_generated_file()`, matching
+    `_generate_file()`'s existing behavior, without inventing a new
+    ad hoc side-channel. Defaults to `None`; every sub-agent besides Report
+    Drafting accepts-and-ignores it, exactly like `on_event` before Phase 7.
     """
 
     name: str
@@ -709,6 +734,7 @@ class SubAgent(Protocol):
         agent_input: SubAgentInput,
         *,
         on_event: Optional[OnEventCallback] = None,
+        gateway: Optional[DataGateway] = None,
     ) -> SubAgentResult: ...
 
 

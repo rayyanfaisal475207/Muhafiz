@@ -102,6 +102,7 @@ from __future__ import annotations
 import logging
 from typing import Callable, Optional
 
+from src.data_gateway.base import DataGateway
 from src.pipeline.harness.types import (
     PipelineEvent,
     SubAgent,
@@ -255,6 +256,7 @@ class Supervisor:
         agent_input: SubAgentInput,
         *,
         on_event: Optional[Callable[[PipelineEvent], None]] = None,
+        gateway: Optional[DataGateway] = None,
     ) -> SubAgentResult:
         """
         Classify `agent_input.query_text`, dispatch to the matching
@@ -270,6 +272,12 @@ class Supervisor:
         later phase's job (see AGENT_HARNESS_IMPLEMENTATION_PLAN.md §6).
         The hook exists now so that wiring is additive, not a signature
         change.
+
+        [AMENDMENT — pre-Phase-8 contract amendment, mirrors `on_event`'s
+        own §12 amendment] `gateway`, if given, is forwarded unchanged to
+        the dispatched sub-agent. Only Report Drafting currently uses it
+        (to persist a generated file record); every other sub-agent
+        accepts-and-ignores it, same as `on_event` before Phase 7.
         """
         emit = on_event if on_event is not None else (lambda _evt: None)
 
@@ -315,7 +323,7 @@ class Supervisor:
         # sub-agent's `__call__` now accepts `on_event` (see
         # `types.SubAgent`'s own amendment note) — sub-agents with nothing
         # granular to report simply ignore it.
-        result = await handler(agent_input, on_event=on_event)
+        result = await handler(agent_input, on_event=on_event, gateway=gateway)
 
         emit(
             PipelineEvent(

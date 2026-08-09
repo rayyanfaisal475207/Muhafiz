@@ -198,6 +198,7 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
+from src.data_gateway.base import DataGateway
 from src.llm.client import call_llm
 from src.pipeline.harness.supervisor import CROSS_CASE_LINKAGE, register
 from src.pipeline.harness.tools.xgraph import XGraphToolInput, XGraphToolResult, xgraph_tool
@@ -486,7 +487,10 @@ def _xgraph_summary_line(case_ids: list[str], hop_count: int, unconfirmed_count:
 
 
 async def cross_case_linkage(
-    agent_input: SubAgentInput, *, on_event: Optional[OnEventCallback] = None
+    agent_input: SubAgentInput,
+    *,
+    on_event: Optional[OnEventCallback] = None,
+    gateway: Optional[DataGateway] = None,
 ) -> SubAgentResult:
     """
     The Cross-Case Linkage sub-agent. See module docstring for the contract.

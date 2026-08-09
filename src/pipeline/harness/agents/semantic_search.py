@@ -90,6 +90,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+from src.data_gateway.base import DataGateway
 from src.llm.client import call_llm
 from src.pipeline.harness.supervisor import SEMANTIC_SEARCH, register
 from src.pipeline.harness.tools.rag import RagToolInput, rag_tool
@@ -185,7 +186,10 @@ def _chunk_to_verifier_dict(chunk: EvidenceChunk) -> dict:
 
 
 async def semantic_search(
-    agent_input: SubAgentInput, *, on_event: Optional[OnEventCallback] = None
+    agent_input: SubAgentInput,
+    *,
+    on_event: Optional[OnEventCallback] = None,
+    gateway: Optional[DataGateway] = None,
 ) -> SubAgentResult:
     """
     The Semantic Search sub-agent. See module docstring for the contract.
