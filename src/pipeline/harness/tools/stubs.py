@@ -99,7 +99,9 @@ async def _check_cross_case_role(
 # ── RAG ──────────────────────────────────────────────────────────────────
 
 async def rag_tool(
-    tool_input: RagToolInput, events: Optional[EventRecorder] = None,
+    tool_input: RagToolInput,
+    events: Optional[EventRecorder] = None,
+    project_id: Optional[str] = None,
 ) -> RagToolResult:
     """
     Stub RAG retrieval. Returns deliberately verbose, redundant, near-duplicate
@@ -141,7 +143,9 @@ async def rag_tool(
 # ── GRAPH / GRAPH_HYBRID ─────────────────────────────────────────────────
 
 async def graph_tool(
-    tool_input: GraphToolInput, events: Optional[EventRecorder] = None,
+    tool_input: GraphToolInput,
+    events: Optional[EventRecorder] = None,
+    project_id: Optional[str] = None,
 ) -> GraphToolResult:
     """
     Stub within-case graph traversal.
@@ -292,7 +296,9 @@ async def xnetwork_tool(
 # ── SQL ──────────────────────────────────────────────────────────────────
 
 async def sql_tool(
-    tool_input: SqlToolInput, events: Optional[EventRecorder] = None,
+    tool_input: SqlToolInput,
+    gateway: Any = None,
+    events: Optional[EventRecorder] = None,
 ) -> SqlToolResult:
     """
     Stub structured reference lookup.
@@ -300,6 +306,13 @@ async def sql_tool(
     [PRESERVE — design §2.6] Reference data, not case evidence: emitted chunks
     carry `case_id=None`, which correctly makes them inert to the Verifier's
     leakage check. `fallback_to_rag=True` on empty rows or any exception.
+
+    `gateway` is accepted and UNUSED, deliberately. The stub has no database to
+    reach, but `real.sql_tool` takes it and the registry swaps the two as if
+    interchangeable — so a caller that passes it (Investigative Analysis does)
+    crashed with a TypeError the moment stubs were active. Signature parity
+    between each stub/real pair is a contract, enforced by
+    `test_stub_real_parity.py`.
     """
     if events:
         await events.emit("tool:sql", "active", "Looking up penal-code reference data")
