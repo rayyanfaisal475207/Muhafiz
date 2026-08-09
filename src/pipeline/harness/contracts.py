@@ -96,6 +96,24 @@ class CallerContext(BaseModel):
         default=None,
         description="The case this query is scoped to. None for queries with no active case.",
     )
+    project_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "The active project, if any. CALLER SCOPE, exactly like "
+            "`active_case_id` — which is why it lives here rather than on "
+            "`SubAgentInput`: it threads to tools automatically at every hop "
+            "instead of each sub-agent having to remember to forward it.\n\n"
+            "Consumed by the RAG and GRAPH_HYBRID retrieval legs, which AND it "
+            "into their scope filter. Dropping it does NOT fail closed — it "
+            "WIDENS retrieval, because `_build_where` simply omits the "
+            "`project_id` clause and returns a broader filter. That silent "
+            "widening is why this is threaded rather than left optional at the "
+            "call site.\n\n"
+            "Cross-case tools (XGRAPH/XAGG/XNETWORK) and the reference/web "
+            "tools deliberately ignore it: cross-case queries span projects by "
+            "definition, and reference data belongs to no project."
+        ),
+    )
     preferred_language: Optional[str] = Field(
         default=None,
         description="Drives generation language on every route. Opaque here.",

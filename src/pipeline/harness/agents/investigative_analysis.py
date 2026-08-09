@@ -159,9 +159,16 @@ async def run(
     agent_input: SubAgentInput,
     events: Optional[EventRecorder] = None,
     gateway: Any = None,
-    project_id: Optional[str] = None,
 ) -> SubAgentResult:
-    """Execute Investigative Analysis. Returns a bounded `SubAgentResult`."""
+    """
+    Execute Investigative Analysis. Returns a bounded `SubAgentResult`.
+
+    Project scope is NOT a parameter here: it rides on `caller.project_id` and
+    reaches the retrieval tools automatically. This function previously
+    declared a `project_id` argument that nothing passed and nothing read — so
+    project-scoped retrieval silently widened to every project. Caller scope
+    belongs on `CallerContext`, where forgetting to forward it is impossible.
+    """
     if events:
         await events.emit(
             f"subagent:{NAME}", "active", "Investigative Analysis: gathering evidence"

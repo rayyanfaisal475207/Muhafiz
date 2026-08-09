@@ -240,8 +240,15 @@ async def rag_tool(
 
     query = tool_input.query_text
     top_k = tool_input.top_k or config.TOP_K_RERANK
+    # `project_id` is caller scope, so it comes off CallerContext. The explicit
+    # parameter is retained as an override for callers that need to scope a
+    # single call differently, but the caller's own project is the default —
+    # otherwise a sub-agent that forgot to forward it would silently WIDEN
+    # retrieval rather than fail.
     where = _build_where(
-        tool_input.caller.active_case_id, project_id, tool_input.include_global
+        tool_input.caller.active_case_id,
+        project_id if project_id is not None else tool_input.caller.project_id,
+        tool_input.include_global,
     )
 
     try:
@@ -467,7 +474,12 @@ async def graph_tool(
         from src.retrieval.reranker import rerank_results
         from src.retrieval.vector_store import get_all_chunks, query_similar
 
-        where = _build_where(case_id, project_id, include_global=True)
+        # Same precedence as rag_tool: explicit override, else caller scope.
+        where = _build_where(
+            case_id,
+            project_id if project_id is not None else tool_input.caller.project_id,
+            include_global=True,
+        )
         query = tool_input.query_text
 
         expanded = await expand_query(query, n=2)
