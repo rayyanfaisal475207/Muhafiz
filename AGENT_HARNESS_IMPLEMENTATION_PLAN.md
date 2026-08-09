@@ -86,7 +86,9 @@ went wrong, you know it's in a specific sub-agent, not in a tangle of shared dis
 |---|---|---|---|
 | **Verifier** | `verifier.py` | Every sub-agent that produces `answer_text` | Is this answer actually grounded in the evidence shown — real citations, no case-boundary leakage, low-confidence evidence properly hedged. Fails closed: an answer that doesn't pass is never shown; a safe "can't answer" is shown instead. |
 | **Citation-Consistency** | `citation_consistency.py` | Report Drafting, before the Verifier runs | Did citation numbers stay correctly pointed at the right evidence when Report Drafting recomposed Case Summarization's output |
-| **Validation** | `validation.py` | After the Verifier passes, on all 8 sub-agents (full semantic re-check mandatory on Cross-Case Linkage / Investigative Analysis / Report Drafting; lighter structural-only check elsewhere) | Does each claim actually say what its cited evidence says (not just technically cited to it), and are numeric/date/confidence results internally consistent |
+| **Validation** | `validation.py` | After the Verifier passes, on all 8 sub-agents (full semantic re-check mandatory on Cross-Case Linkage / Investigative Analysis / Report Drafting; lighter structural-only check elsewhere) [^validation-8-agents] | Does each claim actually say what its cited evidence says (not just technically cited to it), and are numeric/date/confidence results internally consistent |
+
+[^validation-8-agents]: **Confirmed imprecise, not corrected in place** — flagged during the Validation-module build (§9's own entry) rather than silently resolved either way. Timeline Building and Data-Quality/Extraction-Coverage generate no LLM text and have no Verifier-boundary insertion point at all (each module's own docstring says so, independently, and neither has ever had a `# TODO(validation-gate)` marker) — the same shape of doc-vs-reality gap this project has hit before (the "seven vs. eight sub-agents" discrepancy in `SUBAGENT_INTERFACES.md` §2.1). Validation is wired on the 6 sub-agents that actually produce `answer_text`: Semantic Search / Large-Scale Aggregate / Case Summarization (structural-only tier) and Cross-Case Linkage / Investigative Analysis / Report Drafting (full semantic tier), exactly as this row's own parenthetical already implies by naming only those six.
 
 ---
 
@@ -217,7 +219,11 @@ Two implementation requirements surfaced while drafting these, both easy to miss
   confirmed gap in it *was* found and fixed this session (its own hedging check never actually read
   the harness's `ChunkMetadata.confidence`/`confidence_status` shape — see §9's fix entry) — flagged
   rather than left as a silently-stale unchecked box implying unbuilt work that was never in scope.
-- [ ] Validation module
+- [x] **Validation module** *(complete — see §9; wired into 6 of 8 sub-agents, the ones with a real
+  Verifier-boundary insertion point — see the §9 entry for the discrepancy this confirms in this
+  section's own "on all 8 sub-agents" text. One required pre-work item — running the local model
+  against `data/eval/validation_eval_set.json` — is NOT YET DONE; flagged, not silently skipped;
+  see the §9 entry's own "OUTSTANDING" note)*
 - [ ] Wire compliance suite into CI as a merge gate
 
 ---
@@ -1429,6 +1435,159 @@ pre-existing skips (the unrelated docling/PDF `std::bad_alloc` environment failu
 present identically, not a regression) plus this session's 9 new tests. Compliance suite — 51/51,
 unchanged. Nothing in `main.py`, `orchestrator.py`, or `router.py`'s existing behavior was touched —
 the legacy `graph_confidence` path's behavior is bit-for-bit identical to before this fix.
+
+### Contract Amendment — `SubAgentResult.validation_status` / `.validation_claims` (pre-Validation-module): COMPLETE
+
+Branch `feature/harness-contract-amendment-validation-status`, merged to main via merge commit
+`ec64dbc`.
+
+Every `# TODO(validation-gate)` marker left across Phases 2-8 said the same thing: `validation.py`
+did not exist yet and `SubAgentResult` had no field to carry its result. Resolved via
+`AskUserQuestion`, before any `validation.py` code was written, as a full contract amendment merged
+before Validation's own branch was cut — the same amend-once-for-everyone approach §10/§11/§12/§13/§14
+already used. Two decisions resolved in the same pass, per this session's explicit instruction not
+to guess:
+- **A flagged claim (`PARTIALLY_SUPPORTED`/`NOT_SUPPORTED`) is caveat-only, never blocking.**
+  Validation is a second-opinion signal layered on the Verifier's already-fail-closed gate, not a
+  second independent hard gate — extends plan §7.1's fail-OPEN posture on a Validation-call *error*
+  to a Validation call that *succeeds* and finds an issue, so a flaky or overly strict second-opinion
+  check can never be the reason a grounded, cited answer never reaches the investigator.
+- **Status enum + a per-claim result list**, mirroring the `DataQualityMetric` precedent (§14) of a
+  small typed list, not a bare status string with detail folded into `caveats`.
+
+**Built:** `ClaimSupport` (`supported`/`partially_supported`/`not_supported` — three-state for the
+same reason `ConflictState`/`ConfidenceStatus` are), `ValidationStatus` (`not_run`/`passed`/
+`issues_found`/`skipped`, default `skipped` — `not_run` kept distinct from `skipped` the same way
+`ConflictState.UNKNOWN` stays distinct from `NONE`: "attempted, the check itself failed" is not the
+same fact as "not applicable here"), `ValidationClaimResult` (`document_index`, `claim_excerpt`,
+`support`, `reason`), and two new `SubAgentResult` fields (`validation_status`, `validation_claims`)
+— both defined ABOVE `SubAgentResult` (not as a forward ref below it, unlike `events`/`links`/
+`metrics`) so `validation_status` can default to the real enum member `ValidationStatus.SKIPPED`
+directly, the same pattern `TimelineEvent.conflict_state` already uses for `ConflictState.UNKNOWN`.
+5 new tests in `tests/test_harness_types.py`.
+
+**No other deviations.** Additive on `SubAgentResult`; zero effect on any already-shipped sub-agent,
+same as every prior contract amendment in this series.
+
+**Verification:** full existing test suite — 0 failures, same 4 pre-existing skips, plus this
+session's tests. Compliance suite — 51/51, unchanged. Nothing in `main.py`, `orchestrator.py`, or
+`router.py`'s existing behavior was touched.
+
+### Validation module: COMPLETE
+
+Branch `feature/harness-validation-module`, merged to main via merge commit `d3b2a73`.
+
+**Built:**
+- `src/pipeline/validation.py` — `validate_answer(answer_text, cited_chunks, tier)`, reusing the
+  Verifier's own `[Document N]` citation parse (confirmed still the right precedent per §7.1 — an
+  independently-derived `_CITATION_PATTERN` constant, same shape `citation_consistency.py` already
+  established as this codebase's precedent for "one canonical citation-marker definition, not two
+  that could drift apart," not an import from `verifier.py`). Splits `answer_text` into
+  sentence-shaped claims (Latin- and Urdu-terminator-aware — this platform's generated/cited text is
+  routinely either language, the same reality `verifier.py`'s own `_HEDGE_PHRASES` comment already
+  documents), pairs each `[Document N]` marker with `cited_chunks[N-1]`.
+  - **FULL semantic tier** — one batched local-LLM call (`prompts/validation.txt`), same
+    `call_llm_json()` batching pattern `json_extract.py` already establishes (confirmed still the
+    right precedent before writing this module, not assumed): three-way
+    SUPPORTED/PARTIALLY_SUPPORTED/NOT_SUPPORTED + one-line reason per pair, mapped back onto pairs by
+    an explicit `pair_id` (not response order — tested directly). A malformed or partial LLM response
+    (missing even one pair's verdict) is NOT partially trusted — fails open as a whole, same posture
+    as a parse failure.
+  - **STRUCTURAL-ONLY tier** — deterministic, NO LLM call at all, resolved via `AskUserQuestion`
+    before any code was written (this session's brief flagged "structural-only" as undefined anywhere
+    in the docs). Extracts numbers and CASE-/FIR- style identifiers from a claim (citation-marker
+    digits and digits embedded inside an already-matched identifier token excluded from the check, by
+    construction — both confirmed and fixed live during this session's own smoke-testing, not merely
+    assumed correct) and requires each to appear in its cited chunk's own text. Can only ever return
+    SUPPORTED or NOT_SUPPORTED — never PARTIALLY_SUPPORTED, since a purely lexical check has no
+    principled basis for "overstated but not wrong." This is also the concrete reading given to plan
+    §7.2's own fallback plan ("narrow the check's scope to numeric/name/date contradiction only") for
+    the tier that already asks for something narrower by design.
+- **Local-only, permanently (plan §7.2) — enforced by NOT adding an opt-in escalation path, not by
+  bypassing `call_llm()`.** The full tier's `call_llm_json()` call passes neither `force_cloud` nor
+  `escalate_to_cloud_on_failure` — the identical call shape `verifier.py`'s own LLM judge call
+  already has. Read explicitly in this module's own docstring: "no cloud-escalation path, not even
+  opt-in" means this feature adds nothing resembling XNETWORK's `force_cloud=True` one-shot retry
+  (design §2.5); it does not mean re-implementing a stricter local-only HTTP client that bypasses
+  `call_llm()`'s own shared, centrally `AIR_GAP_MODE`-gated fallback — every existing LLM call site in
+  this codebase (router, evaluator, verifier) relies on that same central gate rather than each
+  re-deriving its own air-gap check, and Validation does the same. Tested directly
+  (`test_full_tier_never_passes_force_cloud_or_escalate`).
+- **Fails OPEN (plan §7.1), the opposite posture from the Verifier.** A full-tier call that errors,
+  times out, or returns an unparseable/incomplete response returns `ValidationStatus.NOT_RUN` with an
+  empty claim list — `validate_answer()` never raises out to its caller.
+- `caveats_for_validation(status, claims)` — one shared helper every wired sub-agent calls the same
+  way, so caveat wording is uniform across sub-agents rather than six independently-derived strings.
+- Wired into the **6 of 8 sub-agents that actually have a Verifier-boundary insertion point**,
+  confirmed from the code (each module's own `# TODO(validation-gate)` marker or, for Timeline
+  Building/Data-Quality, the explicit absence of one) before assuming plan §5's "on all 8 sub-agents"
+  text — flagged as imprecise in §5's own table (footnote), not silently corrected in place, the same
+  treatment this project already gives the "seven vs. eight sub-agents" gap in `SUBAGENT_INTERFACES.md`:
+  - **Structural-only tier:** Semantic Search, Large-Scale Aggregate (both branches — the
+    verifier-passed paraphrase AND the verifier-rejected raw-fallback, since `raw_summary_text` never
+    carries `[Document N]` markers and resolves to `SKIPPED` automatically, no special-casing needed),
+    Case Summarization (all three OK/PARTIAL branches — at the GRAPH-only branch specifically,
+    validation runs against the pre-disclosure text, never the disclosed text, per §2.1.1's rule that
+    a disclosure is never re-verified/re-validated).
+  - **Full semantic tier (MANDATORY per plan §5):** Investigative Analysis, Cross-Case Linkage (against
+    XNETWORK's own chunks only — XGRAPH's deterministic summary line carries no citation markers, so
+    it needs no check and none is added), Report Drafting.
+  - **Report Drafting's own named exception (plan §7.1), applied narrowly:** a `NOT_RUN` result
+    (the Validation call itself failed) renders as a document-body disclosure via the EXISTING
+    §2.1.1-§2.1.3 mechanism (`VALIDATION_NOT_RUN_DISCLOSURE`, a fixed template mirroring
+    `PARTIAL_EVIDENCE_DISCLOSURE_TEMPLATE`'s own placeholder-pending-sign-off status) — not a second
+    mechanism, and can fire alongside an existing partial-evidence disclosure for a *different* gap
+    (both are real, distinct facts about the same document). `ISSUES_FOUND` stays caveat-only there
+    too, same as every other sub-agent — plan §7.1 names only "a failed... run," not a successful run
+    that found an issue, so the exception was read narrowly rather than extended by assumption.
+    Tested both branches directly.
+  - **Timeline Building, Data-Quality/Extraction-Coverage: untouched, confirmed not merely assumed
+    exempt.** Both modules' own docstrings already establish "no generated evidentiary text, no
+    `verify_grounding()` call anywhere in this sub-agent" — re-confirmed by reading both files before
+    touching anything else this session, not re-derived from memory.
+- `data/eval/validation_eval_set.json` (untracked, matching `data/eval/eic_eval_set.json`'s own
+  existing precedent — all of `data/` is gitignored) — 32 hand-built (claim, cited-chunk) pairs
+  sourced from real `data/memory/_ground_truth/*.json` case records, confirmed `"source": "synthetic"`
+  on every one before use (safe to build from, no real PII). Roughly balanced across the three labels
+  (13 supported / 8 partially_supported / 11 not_supported), deliberately including overstated claims
+  (invented specific figures, fabricated identifications, severity claims the source never makes) and
+  outright contradictions (wrong names, "identified" vs. the source's own "نامعلوم"/unknown, opposite
+  case-status claims), mixed English/Urdu claim language against the always-Urdu source chunks — the
+  platform's real usage shape, per `verifier.py`'s own documented finding that Urdu is the
+  majority-corpus language. `scripts/run_validation_eval.py` — a standalone runner scoring the full
+  tier against this set (accuracy + confusion matrix), ready to run against a real local endpoint.
+
+**OUTSTANDING, NOT SILENTLY SKIPPED — the local-model accuracy run itself.** Plan §7.2's own required
+pre-work is "hand-build ~30 pairs... and run the local model against them. Passes reliably → ship
+local-only as designed. Doesn't → narrow the check's scope." The pairs are built; the run could NOT be
+executed this session — confirmed, not assumed: the local LLM endpoint configured in this
+environment's `.env` (an ngrok tunnel) returned `404 Not Found`, and forcing `AIR_GAP_MODE=true`
+(to get a hard failure instead of a silent cloud-answered run, since the whole point of the run is
+measuring the LOCAL model) reproduced the same failure as a clean `RuntimeError` rather than a
+transient blip. Surfaced to the user via `AskUserQuestion` before proceeding, per this session's
+explicit instruction not to fabricate a pass/fail result — **user's resolution: ship the full
+semantic tier as designed anyway, record this as outstanding pre-work rather than block the session
+on it.** Consequence: the local model's actual accuracy on entailment classification for this
+platform's evidence shape is UNVERIFIED as of this merge. `scripts/run_validation_eval.py` is ready to
+run the moment a reachable `LOCAL_LLM_URL` is available — running it (and, per §7.2's own decision
+rule, narrowing the full tier's scope if it doesn't pass reliably, never adding cloud escalation) is
+the required next step before this module's full tier should be relied on in the platform's actual
+primary (air-gapped) deployment mode.
+
+**No other deviations.** Bounded payload holds throughout — `validate_answer()` never receives or
+returns raw `EvidenceChunk`s, only the same flattened dict shape `verify_grounding()` already
+consumes. `verifier.py` itself was not touched — its one known, real gap (the `confidence`/
+`confidence_status` hedging fix) was already found, fixed, and merged in the immediately-prior
+session; re-reading it this session (per this session's own brief) confirmed the fix is real and
+merged, and no new gap was found.
+
+**Verification:** full existing test suite (`pytest`, `testpaths = tests`) — 1033 passed, 4 skipped
+(the same pre-existing, unrelated docling/PDF `std::bad_alloc` environment failure documented present
+on main since Phase 0's own merge — confirmed still present identically, not a regression), 0 failed.
+Compliance suite (`src/pipeline/harness/compliance/`, run separately per `pytest.ini`'s
+`testpaths = tests` scoping) — 51/51 checks still passing, unchanged count from Phase 0. Nothing in
+`main.py`, `orchestrator.py`, or `router.py`'s existing behavior was touched — still not wired into
+live traffic, per §6.
 
 ---
 
