@@ -16,6 +16,7 @@ from src.pipeline.harness.types import (
     CROSS_CASE_ROLES,
     CallerContext,
     ChunkMetadata,
+    ClaimSupport,
     ConflictState,
     CrossCaseLink,
     CrossCaseToolInput,
@@ -33,6 +34,8 @@ from src.pipeline.harness.types import (
     ToolInput,
     ToolResult,
     ToolStatus,
+    ValidationClaimResult,
+    ValidationStatus,
 )
 
 
@@ -300,3 +303,72 @@ def test_sub_agent_result_carries_metrics():
     # Round-trips through serialization -- forward-ref resolution worked.
     dumped = result.model_dump()
     assert dumped["metrics"][0]["readiness"] == DataQualityReadiness.UNAVAILABLE
+
+
+# ── ValidationStatus / ValidationClaimResult / SubAgentResult.validation_*
+# [CONTRACT AMENDMENT — pre-Validation-module] ──────────────────────────
+
+
+def test_sub_agent_result_validation_status_defaults_skipped():
+    # Additive, default 'skipped' -- zero effect on any already-shipped
+    # sub-agent, same shape as events/links/metrics before it.
+    result = SubAgentResult(status=SubAgentStatus.OK)
+    assert result.validation_status == ValidationStatus.SKIPPED
+    assert result.validation_claims == []
+
+
+def test_validation_status_has_four_values_not_run_distinct_from_skipped():
+    # NOT_RUN ("attempted, the check itself errored") must stay
+    # distinguishable from SKIPPED ("not applicable here") -- collapsing
+    # them would lose exactly the "checked vs. never-checked" distinction
+    # ConflictState/ConfidenceStatus/DataQualityReadiness already exist to
+    # preserve elsewhere in this contract.
+    assert {s.value for s in ValidationStatus} == {
+        "not_run", "passed", "issues_found", "skipped",
+    }
+
+
+def test_claim_support_is_three_state():
+    # Not a bool -- SUPPORTED / PARTIALLY_SUPPORTED / NOT_SUPPORTED must
+    # stay distinguishable (an overstated claim is not the same failure as
+    # a fabricated one).
+    assert {s.value for s in ClaimSupport} == {
+        "supported", "partially_supported", "not_supported",
+    }
+
+
+def test_validation_claim_result_round_trip():
+    claim = ValidationClaimResult(
+        document_index=1,
+        claim_excerpt="the vehicle was reported stolen on 2026-03-25",
+        support=ClaimSupport.NOT_SUPPORTED,
+        reason="Cited chunk gives the recovery date, not a theft-report date.",
+    )
+    assert claim.document_index == 1
+    assert claim.support == ClaimSupport.NOT_SUPPORTED
+
+
+def test_sub_agent_result_carries_validation_claims_without_changing_status_or_answer():
+    # [PRESERVE -- caveat-only outcome decision] ISSUES_FOUND / a
+    # NOT_SUPPORTED claim must not, by itself, force ABSTAINED or clear
+    # answer_text -- that decision belongs to the sub-agent's own status
+    # logic, not to this contract's construction.
+    claim = ValidationClaimResult(
+        document_index=2,
+        claim_excerpt="he was armed with an unlicensed pistol",
+        support=ClaimSupport.PARTIALLY_SUPPORTED,
+        reason="Chunk confirms a weapon was recovered but not that it was unlicensed.",
+    )
+    result = SubAgentResult(
+        status=SubAgentStatus.OK,
+        answer_text="He was armed with an unlicensed pistol [Document 2].",
+        validation_status=ValidationStatus.ISSUES_FOUND,
+        validation_claims=[claim],
+        caveats=["A cited claim could only be partially confirmed against its source."],
+    )
+    assert result.status == SubAgentStatus.OK
+    assert result.answer_text is not None
+    assert result.validation_claims[0] is claim
+    dumped = result.model_dump()
+    assert dumped["validation_status"] == ValidationStatus.ISSUES_FOUND
+    assert dumped["validation_claims"][0]["support"] == ClaimSupport.PARTIALLY_SUPPORTED
