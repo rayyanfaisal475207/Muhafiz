@@ -436,19 +436,84 @@ file did not.
   failure mode is silent by construction: the guard reports green while the spec and the shipped
   string say different things.
 
-- **Cross-Case Linkage's per-source trace mechanism is an open call, to be confirmed when it is
-  built.** Two mechanisms currently satisfy the live per-source requirement, and they say
-  different things: tool-emitted events (`tool:rag`, `tool:graph`) describe what a TOOL did, and
-  are sufficient when a sub-agent's legs cannot degrade into one another (Case Summarization);
-  sub-agent-interpreted events (`analysis:rag`, …) describe what the SUB-AGENT concluded, and are
-  required when legs can collapse into the same effective source (Investigative Analysis, where
-  GRAPH and SQL both fall back to RAG).
+- **Consolidation candidate (not urgent): two sub-agents implement "the grounding gate is
+  prose-only — do not route a non-prose finding through it."** Cross-Case Linkage's
+  unconfirmed-links handling (789867b) and Large-Scale Aggregate's Verifier-rejection fallback
+  both exist because a correct finding was nearly discarded by a check that only makes sense for
+  generated prose. In both cases the gate behaved correctly; the mistake was what was routed
+  through it.
 
-  XGRAPH and XNETWORK are structurally independent and both pinned never-fall-back, so collapse
-  looks impossible by construction and tool-level events alone should suffice — but that is a
-  prediction, not a finding. **Confirm against the built sub-agent rather than inheriting this
-  reasoning.** Full decision criteria in `docs/SUBAGENT_INTERFACES.md` §2.1.4.1. No code change
-  outstanding; this is a decision to make deliberately at implementation time.
+  **Examined for a shared helper, and deliberately left duplicated.** They differ on every axis
+  that would make one useful:
+
+  | | Cross-Case Linkage | Large-Scale Aggregate |
+  |---|---|---|
+  | Trigger | `not chunks` — *before* generating | Verifier rejection — *after* the gate |
+  | Verifier | never called | called, and rejected |
+  | Substitute text | a written constant | `raw_summary_text` from the tool |
+  | Status | `EMPTY` (nothing contributed) | `PARTIAL` (the tool did contribute) |
+  | Payload field | `cross_case_links` | `answer_text` |
+  | `tools_used` | `[]` | `["XAGG"]` |
+
+  What overlaps is 3–4 lines of `SubAgentResult(...)` construction with different values in every
+  field. A helper would need parameters for status, text, payload field, tools and caveats — a
+  constructor wrapper that obscures more than it saves, and one that would couple two paths that
+  happen to rhyme rather than share a mechanism.
+
+  **What IS shared is a principle, not code**, and it is documented as such in both module
+  docstrings, with Large-Scale Aggregate's naming the Cross-Case Linkage precedent explicitly.
+  Prose is the right carrier for a design lesson that two implementations apply differently.
+
+  **Revisit if a third occurrence appears** — at that point the common shape is likely real
+  rather than coincidental, and there would be enough evidence to see which parameters actually
+  vary.
+
+- **XAGG has no time-wise grouping, and the original design assumed it did.** `xagg.py` groups
+  only by `police_station` (area/station-wise) or `crime_category` — `_station_or_category_counts`
+  picks between exactly those two and nothing else. There is no date, month, or year grouping
+  anywhere in the tool. The three grouping shapes the design brief described (area/station, time,
+  crime-category) therefore only ever had two implementations behind them.
+
+  **What this meant in practice, before it was noticed:** a "how many cases per month" query
+  matched none of the station keywords, fell through to the `crime_category` default, and
+  returned CATEGORY counts — an answer to a question nobody asked, presented as though it were
+  the requested one.
+
+  **How Large-Scale Aggregate handles it:** the sub-agent detects a time-series request and
+  reports it as explicitly unsupported, while still serving the real station/category figures
+  under a caveat. Those figures are correct; they are simply not the grouping asked for, and
+  saying so is better than either silently misinterpreting the request or discarding usable data.
+
+  **Deliberately NOT fixed here.** Building time-wise grouping would mean adding a third
+  aggregate family to `xagg.py`, and design §2.4 is explicit that the two canned families are a
+  bounded surface on purpose — "do not let a harness 'make it smarter' pass turn this into
+  free-form query generation." A sub-agent is the wrong place to grow a tool's capability.
+
+  **This is a tool gap, not a harness-contract issue.** Adding real time-wise grouping is a
+  future `xagg.py` enhancement: a third dispatch family plus its own keyword set, with the same
+  bounded-by-design discipline as the existing two. The harness contract needs no change to
+  accommodate it — `aggregate_kind` already discriminates families, so a new one slots in without
+  touching `SubAgentResult`.
+
+- **~~Cross-Case Linkage's per-source trace mechanism is an open call~~ — RESOLVED (789867b),
+  prediction confirmed.** The question was whether tool-emitted events suffice for XGRAPH +
+  XNETWORK, or whether sub-agent-interpreted events are needed as they are for Investigative
+  Analysis. Confirmed empirically against the built tools rather than inherited, and the
+  prediction held for FOUR independent reasons rather than the one predicted:
+
+  1. Neither tool can declare a fallback — `Literal[False]`, type-enforced.
+  2. Neither names a degradation TARGET at all. GRAPH and SQL collapse specifically because both
+     name RAG; these name nothing.
+  3. No shared backing store — XGRAPH traverses the AGE graph, XNETWORK searches a precomputed
+     community-summary Chroma collection.
+  4. Disjoint result shapes (`unconfirmed_links`/`hop_count` vs
+     `community_ids`/`raw_summary_text`), so neither can stand in for the other even in principle.
+
+  Reasons 1 and 4 are pinned by regression test, so a future change introducing a shared fallback
+  target fails loudly rather than silently making the trace ambiguous. Kept here rather than
+  deleted because the *method* generalises: the §2.1.4.1 decision test is cheap to run against a
+  built sub-agent, and the Case Summarization surprise earlier in this work is why it gets run
+  rather than assumed.
 
 - **`SOURCE_TOOL_DISPLAY_LABELS` is duplicated in the admin frontend — a confirmed drift risk,
   not a hypothetical one.** The canonical map lives in `contracts.py` and is what the disclosure
