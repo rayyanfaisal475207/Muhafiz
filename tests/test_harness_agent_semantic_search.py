@@ -117,6 +117,25 @@ async def test_successful_search_returns_ok_with_bounded_citations(monkeypatch):
         assert not hasattr(citation, "text")
 
 
+@pytest.mark.asyncio
+async def test_successful_search_runs_structural_validation_gate(monkeypatch):
+    from src.pipeline.harness.types import ClaimSupport, ValidationStatus
+
+    chunks = [_chunk("c1", text="A car was reported stolen in case CASE-011.", source="fir.pdf")]
+    _stub_rag_tool(monkeypatch, RagToolResult(status=ToolStatus.OK, chunks=chunks, evaluator_verdict="relevant"))
+    # Claim invents a figure (500000) the cited chunk never states.
+    _stub_call_llm(monkeypatch, "The stolen car was worth 500000 rupees [Document 1].")
+    _stub_verify_grounding(monkeypatch, grounded=True)
+
+    result = await semantic_search(_agent_input())
+
+    assert result.status == SubAgentStatus.OK  # caveat-only, never blocking
+    assert result.validation_status == ValidationStatus.ISSUES_FOUND
+    assert len(result.validation_claims) == 1
+    assert result.validation_claims[0].support == ClaimSupport.NOT_SUPPORTED
+    assert any("500000" in c or "confirmed" in c for c in result.caveats)
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # (b) evaluator rejection after retry exhaustion -> ABSTAINED
 # ═══════════════════════════════════════════════════════════════════════

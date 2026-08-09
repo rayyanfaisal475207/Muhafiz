@@ -153,13 +153,25 @@ STRING-MATCHING THE PROVISIONAL WORDING:
     branches are exactly the two above) -- handled defensively below by
     falling through to the generic template rather than asserting.
 
-VALIDATION GATE -- EXPLICITLY NOT WIRED THIS PHASE, same as every prior
-sub-agent. `validation.py` does not exist yet. A `# TODO(validation-gate)`
-marker is left at its intended insertion point -- per plan §7.1's ordering
-(Verifier -> Citation-Consistency [this sub-agent only] -> Validation) AND
-per plan §5's own note that Report Drafting needs Validation's FULL
-semantic-tier check, not the lighter structural one -- flagged explicitly
-below, not silently left at the lighter tier by omission.
+VALIDATION GATE -- WIRED (Validation-module session). Per plan §7.1's
+ordering (Verifier -> Citation-Consistency -> Validation) and §5's table,
+runs the FULL semantic tier (not the lighter structural one) right after the
+Verifier passes, before the document is assembled.
+
+REPORT DRAFTING'S OWN EXCEPTION TO THE GENERAL CAVEAT-ONLY RULE (plan §7.1,
+stated explicitly there by name): "a generated document outlives the
+session... a failed Validation run there renders as a disclosure line in
+the document body." Read literally and applied narrowly here: this applies
+to `ValidationStatus.NOT_RUN` specifically (the Validation CALL itself
+failed) -- not to `ISSUES_FOUND` (the check ran and flagged a claim), which
+stays caveat-only here exactly like every other sub-agent, since plan §7.1
+names only "a failed... run," not a successful run that found an issue.
+`NOT_RUN` reuses the EXISTING §2.1.1-§2.1.3 disclosure mechanism
+(`_inject_disclosure_into_payload()`, below) -- a second, differently-worded
+disclosure line, not a second mechanism: fixed template, injected after
+verification, never itself re-verified, `disclosure_rendered=True`
+regardless of whether it fired for the partial-evidence reason, the
+validation-not-run reason, or (can happen together) both.
 
 NOT IN SCOPE THIS PHASE: any other sub-agent, `validation.py` itself, live
 wiring into main.py/orchestrator.py/router.py (still not switched on, per
@@ -194,7 +206,9 @@ from src.pipeline.harness.types import (
     SubAgentResult,
     SubAgentStatus,
     ToolError,
+    ValidationStatus,
 )
+from src.pipeline.validation import caveats_for_validation, validate_answer
 from src.pipeline.verifier import verify_grounding
 
 logger = logging.getLogger(__name__)
@@ -256,6 +270,22 @@ def _strip_inherited_disclosure(answer_text: str, degraded_from: list[SourceTool
     if degraded_from == ["RAG"] and answer_text.startswith(GRAPH_ONLY_SUMMARY_DISCLOSURE):
         return answer_text[len(GRAPH_ONLY_SUMMARY_DISCLOSURE):].lstrip("\n")
     return answer_text
+
+
+# [Validation-module session] Reuses the EXISTING §2.1.1-§2.1.3 disclosure
+# mechanism (fixed template, injected post-verification, never re-verified,
+# `{...}` substitution only from harness-held data) for a THIRD gap: the
+# Validation trust-layer check itself could not be completed. Not a second
+# mechanism -- see this module's own docstring "REPORT DRAFTING'S OWN
+# EXCEPTION" note for why this fires only on ValidationStatus.NOT_RUN, never
+# on ISSUES_FOUND (which stays caveat-only, matching every other sub-agent).
+# WORDING PENDING PRODUCT SIGN-OFF, same as the other two disclosure
+# templates (types.py) -- do not ship this string to investigators as final.
+VALIDATION_NOT_RUN_DISCLOSURE = (
+    "[PLACEHOLDER — PENDING PRODUCT SIGN-OFF] A secondary claim-verification "
+    "check could not be completed for this report. The findings below "
+    "already passed full grounding verification against their sources."
+)
 
 
 def _disclosure_line_for(status: SubAgentStatus, degraded_from: list[SourceTool]) -> Optional[str]:
@@ -496,14 +526,17 @@ async def report_drafting(
             ],
         )
 
-    # TODO(validation-gate): Validation plugs in here, per
-    # AGENT_HARNESS_IMPLEMENTATION_PLAN.md §7.1's ordering (Verifier ->
-    # Citation-Consistency -> Validation) -- AFTER the Verifier passes,
-    # BEFORE the document is assembled. `validation.py` does not exist yet.
-    # NOTE: plan §5 requires the FULL semantic-tier check here (same tier as
-    # Cross-Case Linkage / Investigative Analysis), NOT the lighter
-    # structural-only check used elsewhere -- flagged explicitly so a
-    # future session doesn't default to the cheaper tier by omission.
+    # Validation gate — plan §5's table: FULL semantic tier is MANDATORY
+    # here (same tier as Cross-Case Linkage / Investigative Analysis), after
+    # the Verifier passes, before the document is assembled (§7.1's
+    # ordering). See this module's own docstring "REPORT DRAFTING'S OWN
+    # EXCEPTION" note for why NOT_RUN gets a document-body disclosure below
+    # while ISSUES_FOUND stays caveat-only like every other sub-agent.
+    validation_status, validation_claims = await validate_answer(
+        answer_text=drafted_text,
+        cited_chunks=[synthetic_chunk],
+        tier="full",
+    )
 
     # ── Step 4: document builder assembles the file ────────────────────────
     try:
@@ -516,6 +549,13 @@ async def report_drafting(
         disclosure_rendered = False
         if disclosure_line is not None:
             _inject_disclosure_into_payload(payload, disclosure_line, file_type)
+            disclosure_rendered = True
+        if validation_status == ValidationStatus.NOT_RUN:
+            # Injected as its own, separately-worded line for a DIFFERENT
+            # underlying gap (evidence completeness vs. a failed secondary
+            # check) — not a duplicate of the disclosure above, so both may
+            # fire together.
+            _inject_disclosure_into_payload(payload, VALIDATION_NOT_RUN_DISCLOSURE, file_type)
             disclosure_rendered = True
 
         filepath, file_size = builder(payload)
@@ -541,6 +581,13 @@ async def report_drafting(
         storage_path=filepath,
     )
 
+    caveats = list(summary_result.caveats)
+    if validation_status == ValidationStatus.ISSUES_FOUND:
+        # [PRESERVE — caveat-only outcome decision] Stays caveat-only here,
+        # same as every other sub-agent — only NOT_RUN gets the document-body
+        # treatment above, per this module's own docstring note.
+        caveats.extend(caveats_for_validation(validation_status, validation_claims))
+
     return SubAgentResult(
         status=summary_result.status,
         answer_text=drafted_text,
@@ -553,13 +600,15 @@ async def report_drafting(
         ],
         tools_used=summary_result.tools_used,
         degraded_from=summary_result.degraded_from,
-        caveats=list(summary_result.caveats),
+        caveats=caveats,
         generated_file=GeneratedFileRef(
             file_id=str(file_id),
             file_name=file_name,
             storage_path=filepath,
             disclosure_rendered=disclosure_rendered,
         ),
+        validation_status=validation_status,
+        validation_claims=validation_claims,
     )
 
 

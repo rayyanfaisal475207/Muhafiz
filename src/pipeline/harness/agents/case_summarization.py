@@ -99,13 +99,12 @@ PROMPT instruction, not a schema change. Never `EvidenceChunk`/raw rows —
 the flattened chunk list stays inside this function's stack frame exactly
 as it does in `semantic_search.py`/`large_scale_aggregate.py`.
 
-VALIDATION GATE — EXPLICITLY NOT WIRED THIS PHASE, same as every prior
-sub-agent. `validation.py` does not exist yet and `SubAgentResult` has no
-`validation_status` field. A `# TODO(validation-gate)` marker (the
-Large-Scale Aggregate session's renamed convention, not the earlier
-`phase-3` naming) is left at its intended insertion point below — after
-the Verifier resolves (pass, or the GRAPH-only disclosure has been
-prepended), before the result is returned.
+VALIDATION GATE — WIRED (Validation-module session). Plan §5's table puts
+Case Summarization on the STRUCTURAL-ONLY tier. Wired at all three OK/PARTIAL
+branches (combined RAG+GRAPH, RAG-only, GRAPH-only) — at the GRAPH-only
+branch specifically, validation runs against the pre-disclosure `answer`
+text, never the disclosed text, matching §2.1.1's rule that the disclosure
+itself is never re-verified/re-validated.
 
 NOT IN SCOPE THIS PHASE: any other sub-agent, `validation.py` itself, live
 wiring into main.py/orchestrator.py/router.py.
@@ -136,6 +135,7 @@ from src.pipeline.harness.types import (
     ToolStatus,
 )
 from src.retrieval.graph_retriever import DEFAULT_HOPS
+from src.pipeline.validation import caveats_for_validation, validate_answer
 from src.pipeline.verifier import verify_grounding
 
 logger = logging.getLogger(__name__)
@@ -379,13 +379,12 @@ async def case_summarization(
                 ],
             )
 
-        # TODO(validation-gate): Validation plugs in here -- after the
-        # Verifier passes, before the result is returned -- per
-        # AGENT_HARNESS_IMPLEMENTATION_PLAN.md §7.1's ordering (Verifier ->
-        # Citation-Consistency [Report Drafting only] -> Validation).
-        # `validation.py` does not exist yet and `SubAgentResult` has no
-        # `validation_status` field. No ad hoc validation logic is invented
-        # here to fill that gap.
+        # Validation gate — plan §5's STRUCTURAL-ONLY tier for this sub-agent.
+        validation_status, validation_claims = await validate_answer(
+            answer_text=answer,
+            cited_chunks=[_chunk_to_verifier_dict(c) for c in combined],
+            tier="structural",
+        )
 
         tools_used: list[SourceTool] = ["RAG", "GRAPH"]
         return SubAgentResult(
@@ -393,6 +392,9 @@ async def case_summarization(
             answer_text=answer,
             citations=_citations_for(combined),
             tools_used=tools_used,
+            caveats=caveats_for_validation(validation_status, validation_claims),
+            validation_status=validation_status,
+            validation_claims=validation_claims,
         )
 
     # ── GRAPH degraded, RAG usable: ordinary RAG-based summary ───────────
@@ -420,7 +422,11 @@ async def case_summarization(
                 ],
             )
 
-        # TODO(validation-gate): see the both-usable branch's identical note above.
+        validation_status, validation_claims = await validate_answer(
+            answer_text=answer,
+            cited_chunks=[_chunk_to_verifier_dict(c) for c in rag_outcome.chunks],
+            tier="structural",
+        )
 
         return SubAgentResult(
             status=SubAgentStatus.PARTIAL,
@@ -431,7 +437,9 @@ async def case_summarization(
             caveats=[
                 "Case graph data was unavailable for this case; this summary is "
                 "based on case documents only."
-            ],
+            ] + caveats_for_validation(validation_status, validation_claims),
+            validation_status=validation_status,
+            validation_claims=validation_claims,
         )
 
     # ── RAG degraded, GRAPH usable: §2.1.2's exact GRAPH-only ordering ────
@@ -458,10 +466,17 @@ async def case_summarization(
             ],
         )
 
-    # TODO(validation-gate): see the both-usable branch's identical note above.
-    # Validation, once it exists, plugs in AFTER this point too -- but still
-    # strictly after the disclosure prepend below, since the disclosure
-    # itself is never re-verified/re-validated per §2.1.1's shared rules.
+    # Validation gate — runs against the EVIDENTIARY content only (`answer`,
+    # pre-disclosure), matching §2.1.1's shared rule that the disclosure
+    # itself is never re-verified/re-validated. It carries no [Document N]
+    # markers, so including it would have been inert either way, but
+    # checking the undisclosed text keeps the intent explicit rather than
+    # relying on that incidentally.
+    validation_status, validation_claims = await validate_answer(
+        answer_text=answer,
+        cited_chunks=[_chunk_to_verifier_dict(c) for c in graph_outcome.chunks],
+        tier="structural",
+    )
 
     # [PRESERVE — §2.1.2 step 4] Prepend, never re-verify/regenerate/
     # paraphrase. Fixed string concatenation only.
@@ -473,6 +488,9 @@ async def case_summarization(
         citations=_citations_for(graph_outcome.chunks),
         tools_used=["GRAPH"],
         degraded_from=["RAG"],
+        caveats=caveats_for_validation(validation_status, validation_claims),
+        validation_status=validation_status,
+        validation_claims=validation_claims,
     )
 
 

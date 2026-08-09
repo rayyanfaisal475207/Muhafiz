@@ -155,13 +155,12 @@ never three separate result sets, never raw chunks. `SubAgentResult.answer_text`
 stack frame.
 
 ── VALIDATION GATE ──────────────────────────────────────────────────────────
-# TODO(validation-gate): still not built (`validation.py` does not exist;
-# `SubAgentResult` has no `validation_status` field). Per
-# AGENT_HARNESS_IMPLEMENTATION_PLAN.md §5's table, Validation's FULL
-# semantic re-check is MANDATORY here once it exists — same tier as
-# Cross-Case Linkage and Report Drafting, NOT the lighter structural-only
-# check some other sub-agents get. This insertion point sits after the
-# Verifier passes, before the result is returned, per §7.1's ordering.
+WIRED (Validation-module session). Per AGENT_HARNESS_IMPLEMENTATION_PLAN.md
+§5's table, Validation's FULL semantic tier is MANDATORY here — same tier as
+Cross-Case Linkage and Report Drafting, NOT the lighter structural-only
+check some other sub-agents get — one batched local-LLM entailment call
+over the same flattened chunk list the Verifier was shown, after the
+Verifier passes, before the result is returned (§7.1's ordering).
 
 ── CLASSIFICATION REACHABILITY ──────────────────────────────────────────────
 Read `src/pipeline/harness/supervisor.py`'s `_ROUTE_TO_SUBAGENT` table
@@ -212,6 +211,7 @@ from src.pipeline.harness.types import (
     ToolError,
     ToolStatus,
 )
+from src.pipeline.validation import caveats_for_validation, validate_answer
 from src.pipeline.verifier import verify_grounding
 
 logger = logging.getLogger(__name__)
@@ -529,12 +529,14 @@ async def investigative_analysis(
             ],
         )
 
-    # TODO(validation-gate): Validation's FULL semantic re-check is
-    # MANDATORY here once validation.py exists (AGENT_HARNESS_IMPLEMENTATION_PLAN.md
-    # §5's table — same tier as Cross-Case Linkage / Report Drafting, not
-    # the lighter structural-only check). Plugs in here: after the Verifier
-    # passes, before the result is returned (§7.1's ordering). No ad hoc
-    # validation logic is invented here to fill that gap.
+    # Validation gate — plan §5's FULL semantic tier is MANDATORY here (same
+    # tier as Cross-Case Linkage / Report Drafting, not the lighter
+    # structural-only check) — one batched local-LLM entailment call.
+    validation_status, validation_claims = await validate_answer(
+        answer_text=answer,
+        cited_chunks=[_chunk_to_verifier_dict(c) for c in flattened],
+        tier="full",
+    )
 
     caveats: list[str] = []
     if degraded_from:
@@ -545,6 +547,7 @@ async def investigative_analysis(
             f"This analysis could not draw on: {degraded_labels}. It reflects "
             "only the sources that returned usable data."
         )
+    caveats.extend(caveats_for_validation(validation_status, validation_claims))
 
     return SubAgentResult(
         status=SubAgentStatus.PARTIAL if degraded_from else SubAgentStatus.OK,
@@ -553,6 +556,8 @@ async def investigative_analysis(
         tools_used=tools_used,
         degraded_from=degraded_from,
         caveats=caveats,
+        validation_status=validation_status,
+        validation_claims=validation_claims,
     )
 
 

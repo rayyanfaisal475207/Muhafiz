@@ -85,6 +85,23 @@ def _stub_verify_grounding(monkeypatch, grounded=True, off_topic=False, reason="
     monkeypatch.setattr(rd_mod, "verify_grounding", _fake)
 
 
+def _stub_validate_answer(monkeypatch, status=None, claims=None):
+    """
+    Stubs the Validation gate at the boundary this module actually calls
+    (`rd_mod.validate_answer`) -- same discipline as the other sub-agent
+    test files' helper of the same name. Defaults to PASSED/[].
+    """
+    from src.pipeline.harness.types import ValidationStatus
+
+    resolved_status = status if status is not None else ValidationStatus.PASSED
+    resolved_claims = claims if claims is not None else []
+
+    async def _fake(*args, **kwargs):
+        return resolved_status, resolved_claims
+
+    monkeypatch.setattr(rd_mod, "validate_answer", _fake)
+
+
 def _stub_structure_for_file(monkeypatch, payload=None):
     payload = payload if payload is not None else {"title": "Case Report", "description": "", "sections": []}
 
@@ -134,6 +151,7 @@ async def test_ok_status_no_disclosure(monkeypatch):
     )
     _stub_call_llm(monkeypatch)
     _stub_verify_grounding(monkeypatch, grounded=True)
+    _stub_validate_answer(monkeypatch)
     _stub_structure_for_file(monkeypatch)
     builder = _stub_builder(monkeypatch)
 
@@ -159,6 +177,7 @@ async def test_inherited_graph_only_disclosure_is_suppressed_not_duplicated(monk
     )
     _stub_call_llm(monkeypatch)
     _stub_verify_grounding(monkeypatch, grounded=True)
+    _stub_validate_answer(monkeypatch)
     _stub_structure_for_file(monkeypatch)
     builder = _stub_builder(monkeypatch)
 
@@ -181,6 +200,61 @@ async def test_inherited_graph_only_disclosure_is_suppressed_not_duplicated(monk
 
 
 @pytest.mark.asyncio
+async def test_validation_issues_found_stays_caveat_only_no_document_disclosure(monkeypatch):
+    from src.pipeline.harness.types import ClaimSupport, ValidationClaimResult, ValidationStatus
+
+    _stub_case_summarization(
+        monkeypatch,
+        SubAgentResult(status=SubAgentStatus.OK, answer_text="Summary text.", tools_used=["RAG"]),
+    )
+    _stub_call_llm(monkeypatch)
+    _stub_verify_grounding(monkeypatch, grounded=True)
+    flagged = ValidationClaimResult(
+        document_index=1, claim_excerpt="claim", support=ClaimSupport.NOT_SUPPORTED, reason="mismatch",
+    )
+    _stub_validate_answer(monkeypatch, status=ValidationStatus.ISSUES_FOUND, claims=[flagged])
+    _stub_structure_for_file(monkeypatch)
+    builder = _stub_builder(monkeypatch)
+
+    result = await report_drafting(_agent_input(), gateway=None)
+
+    assert result.status == SubAgentStatus.OK  # caveat-only, never blocking
+    assert result.validation_status == ValidationStatus.ISSUES_FOUND
+    assert any("mismatch" in c for c in result.caveats)
+    # [PRESERVE -- module docstring's own exception is NOT_RUN only]
+    # ISSUES_FOUND must NOT get the document-body disclosure treatment.
+    assert result.generated_file.disclosure_rendered is False
+    assert not any(s.get("content") for s in builder.received_payload.get("sections", []))
+
+
+@pytest.mark.asyncio
+async def test_validation_not_run_renders_document_body_disclosure(monkeypatch):
+    from src.pipeline.harness.types import ValidationStatus
+
+    _stub_case_summarization(
+        monkeypatch,
+        SubAgentResult(status=SubAgentStatus.OK, answer_text="Summary text.", tools_used=["RAG"]),
+    )
+    _stub_call_llm(monkeypatch)
+    _stub_verify_grounding(monkeypatch, grounded=True)
+    _stub_validate_answer(monkeypatch, status=ValidationStatus.NOT_RUN, claims=[])
+    _stub_structure_for_file(monkeypatch)
+    builder = _stub_builder(monkeypatch)
+
+    result = await report_drafting(_agent_input(), gateway=None)
+
+    # [PRESERVE -- plan §7.1's own named exception for Report Drafting]
+    assert result.status == SubAgentStatus.OK
+    assert result.validation_status == ValidationStatus.NOT_RUN
+    assert result.generated_file.disclosure_rendered is True
+    injected = [
+        s.get("content") for s in builder.received_payload.get("sections", [])
+        if s.get("type") == "paragraph"
+    ]
+    assert injected == [rd_mod.VALIDATION_NOT_RUN_DISCLOSURE]
+
+
+@pytest.mark.asyncio
 async def test_fresh_disclosure_injected_for_rag_only_degradation(monkeypatch):
     _stub_case_summarization(
         monkeypatch,
@@ -193,6 +267,7 @@ async def test_fresh_disclosure_injected_for_rag_only_degradation(monkeypatch):
     )
     _stub_call_llm(monkeypatch)
     _stub_verify_grounding(monkeypatch, grounded=True)
+    _stub_validate_answer(monkeypatch)
     _stub_structure_for_file(monkeypatch)
     builder = _stub_builder(monkeypatch)
 
@@ -225,6 +300,7 @@ async def test_xlsx_disclosure_survives_when_a_table_section_exists(monkeypatch)
     )
     _stub_call_llm(monkeypatch)
     _stub_verify_grounding(monkeypatch, grounded=True)
+    _stub_validate_answer(monkeypatch)
     _stub_structure_for_file(
         monkeypatch,
         payload={
@@ -308,6 +384,7 @@ async def test_file_build_failure_yields_abstained_with_explicit_error(monkeypat
     )
     _stub_call_llm(monkeypatch)
     _stub_verify_grounding(monkeypatch, grounded=True)
+    _stub_validate_answer(monkeypatch)
     _stub_structure_for_file(monkeypatch)
     _stub_builder(monkeypatch, raises=RuntimeError("disk full"))
 
@@ -435,6 +512,7 @@ async def test_supervisor_dispatch_reaches_report_drafting_via_output_format_ove
     )
     _stub_call_llm(monkeypatch)
     _stub_verify_grounding(monkeypatch, grounded=True)
+    _stub_validate_answer(monkeypatch)
     _stub_structure_for_file(monkeypatch)
     _stub_builder(monkeypatch)
 
