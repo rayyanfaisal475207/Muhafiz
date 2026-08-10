@@ -9,6 +9,8 @@ Guards the behaviour that broke in production:
   * file-generation failures are surfaced as error events, never swallowed
   * per-token events are not written to the step log (that blocked the loop)
 """
+import asyncio
+
 import pytest
 
 import src.pipeline.orchestrator as orch
@@ -197,6 +199,27 @@ def run_pipeline(monkeypatch, patched_gateway):
             user_profile=user_profile, user_id=user_id, user_role=user_role,
         ):
             events.append(event)
+
+        # [Regression, confirmed live] orchestrator.py's `_spawn(...)` fires
+        # pipeline_logger.log_retrieved_docs()/etc. as a genuine
+        # fire-and-forget asyncio task (create_task, never awaited) --
+        # consuming the async generator above does NOT guarantee those
+        # tasks have actually RUN, only that they've been scheduled. A bare
+        # `yield` inside an async generator resumed by `async for` doesn't
+        # suspend to the event loop by itself; the spawned task only gets a
+        # chance to run at a REAL await/I/O suspension point somewhere in
+        # process_query() (e.g. cross_rerank()'s network call when
+        # RERANKER_URL is configured). Without a reachable RERANKER_URL
+        # (e.g. no .env, matching CI) cross_rerank() returns synchronously
+        # with no await at all, so the spawned log_retrieved_docs() task
+        # never got a chance to run before this fixture returned --
+        # `log_retrieved_docs_calls` would still be empty, not because
+        # nothing was logged, but because the check ran before the
+        # scheduled task did. Explicitly yielding back to the loop a few
+        # times drains any pending spawned tasks before any test inspects
+        # their side effects.
+        for _ in range(5):
+            await asyncio.sleep(0)
 
         # Expose both LLM trackers so individual tests can inspect which
         # system prompt was used on each code path:
