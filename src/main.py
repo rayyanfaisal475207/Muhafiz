@@ -33,6 +33,8 @@ from src import config
 from src.config import ensure_directories, validate_config
 from src.database import pipeline_logger
 from src.pipeline.orchestrator import process_query
+from src.pipeline.router import route_query
+from src.pipeline.harness.cutover import run_cutover_query
 from src.data_gateway import get_gateway
 
 from src.auth.routes import router as auth_router, limiter, get_current_user
@@ -364,14 +366,65 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, current_use
         provisional_title = " ".join(chat_request.message.split()[:6])[:80] or "New Conversation"
         await gateway.create_session(chat_request.session_id, user_id, provisional_title, project_id, case_id)
 
+    # Agent-harness live-traffic cutover (AGENT_HARNESS_IMPLEMENTATION_PLAN.md
+    # §6). Classify ONCE here to decide cutover-or-not, matching the same
+    # route_query() call classify_to_subagent() branches on inside
+    # Supervisor.handle() itself.
+    #
+    # KNOWN, ACCEPTED INEFFICIENCY: a cutover request gets classified TWICE
+    # — once here, once again inside Supervisor.handle() (it calls
+    # route_query() itself, per its own contract of "classify, dispatch,
+    # return exactly what the sub-agent returns" — see supervisor.py).
+    # Changing Supervisor.handle()'s signature to accept a pre-classified
+    # route was deliberately not done this session — that would touch an
+    # already-tested, load-bearing contract for a first cutover slice's
+    # sake. router.py's deterministic overrides make the common case cheap;
+    # revisit only if this is confirmed to matter under real load.
+    #
+    # File-output requests are explicitly excluded regardless of route:
+    # classify_to_subagent() overrides ANY route to Report Drafting when
+    # output_format is a file format, and Report Drafting is not part of
+    # this session's cutover slice (Semantic Search only, resolved via
+    # AskUserQuestion) — checking output_format here keeps a file request
+    # whose text happens to classify as "RAG" from being silently cut over
+    # to a sub-agent nobody decided to cut over yet.
+    cutover_route: Optional[str] = None
+    if config.HARNESS_CUTOVER_ROUTES:
+        try:
+            route_result = await route_query(chat_request.message)
+            candidate = str(route_result.get("route") or "").upper()
+            # route_query() itself decides output_format (e.g. "generate a
+            # PDF report on..." classifies with output_format="file_pdf") —
+            # there is no separate request field for it. A file-output
+            # classification always excludes cutover this slice, regardless
+            # of `candidate`, per the same reasoning as the comment above.
+            classified_output_format = str(route_result.get("output_format") or "chat").lower()
+            if candidate in config.HARNESS_CUTOVER_ROUTES and classified_output_format == "chat":
+                cutover_route = candidate
+        except Exception as exc:
+            logger.warning("Cutover classification failed, falling back to orchestrator.py: %s", exc)
+
     async def event_generator():
         try:
-            async for event in process_query(
-                chat_request.session_id, chat_request.message,
-                project_id=project_id, case_id=case_id, user_profile=user_profile, user_id=user_id,
-                user_role=current_user.role,
-                enable_web_search=chat_request.enable_web_search,
-            ):
+            if cutover_route is not None:
+                stream = run_cutover_query(
+                    session_id=chat_request.session_id,
+                    user_message=chat_request.message,
+                    project_id=project_id,
+                    case_id=case_id,
+                    user_id=user_id,
+                    user_role=current_user.role,
+                    preferred_language=(user_profile or {}).get("preferred_language"),
+                    gateway=gateway,
+                )
+            else:
+                stream = process_query(
+                    chat_request.session_id, chat_request.message,
+                    project_id=project_id, case_id=case_id, user_profile=user_profile, user_id=user_id,
+                    user_role=current_user.role,
+                    enable_web_search=chat_request.enable_web_search,
+                )
+            async for event in stream:
                 yield f"data: {json.dumps(event)}\n\n"
 
         except Exception as e:

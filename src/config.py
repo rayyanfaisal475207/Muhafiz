@@ -136,6 +136,26 @@ CROSS_CASE_PER_CASE_CAP: int = int(os.getenv("CROSS_CASE_PER_CASE_CAP", "5"))
 # by repo-wide search before adding this) — greenfield naming.
 AIR_GAP_MODE: bool = os.getenv("AIR_GAP_MODE", "false").strip().lower() == "true"
 
+# ── Agent harness live-traffic cutover (AGENT_HARNESS_IMPLEMENTATION_PLAN.md
+# §6, "Rollout strategy") ─────────────────────────────────────────────────
+# Empty by default: orchestrator.py serves every route unless its
+# router.py::route_query() classification (upper-cased "route" value, e.g.
+# "RAG") appears in this set, in which case main.py's chat_endpoint sends
+# that request through src.pipeline.harness.supervisor.Supervisor instead.
+# Per-route, not per-sub-agent, deliberately: it's checked against the same
+# route string classify_to_subagent() itself branches on, so the set here
+# reads the same way supervisor.py's own _ROUTE_TO_SUBAGENT table does.
+# Cutting a route in here is a live-traffic decision, not a code-deploy
+# decision — flip it by restarting with a different env var, never by
+# editing this file. Session-scoped first slice: HARNESS_CUTOVER_ROUTES=RAG
+# routes plain semantic-search chat queries (not file-output requests, which
+# main.py additionally excludes regardless of this set) through Semantic
+# Search; every other route stays on orchestrator.py until deliberately
+# added here.
+HARNESS_CUTOVER_ROUTES: frozenset[str] = frozenset(
+    r.strip().upper() for r in os.getenv("HARNESS_CUTOVER_ROUTES", "").split(",") if r.strip()
+)
+
 # Relevance/reliability control, not just safety (architecture doc) — WEB
 # results are restricted to government/legal/established-news domains, never
 # the open web. Comma-separated env override; sensible starting default.
