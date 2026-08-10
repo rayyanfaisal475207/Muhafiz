@@ -394,3 +394,86 @@ async def test_semantic_search_propagates_the_degradation_caveat(
     assert result.caveats, "the degradation reached SubAgentResult.caveats"
     assert result.status is SubAgentStatus.PARTIAL
     assert result.degraded_from == ["RAG"]
+
+
+# ── Source filename mapping ──────────────────────────────────────────────
+
+def test_source_filename_is_read_from_the_ingested_metadata_key():
+    """
+    Ingested chunks carry the filename under `metadata.source`, NOT
+    `source_file` — confirmed against the live corpus, where every retrieved
+    chunk has keys {case_id, source, doc_id, doc_type, page, chunk_index,
+    is_global, is_roman_urdu}.
+
+    Reading only `source_file` left Citation.source_file None on every real
+    retrieved chunk, so an investigator saw a citation with no filename. Found
+    by running the harness against the real Chroma corpus; no mocked test
+    caught it, because the fixtures all set `source_file` directly.
+    """
+    from src.pipeline.harness.tools.real import _to_evidence
+
+    ingested = {
+        "id": "c1", "text": "FIR narrative.",
+        "metadata": {"case_id": "CASE-B0-THEFT-001",
+                     "source": "CASEDIARY-FIR-2026-CYBER-001-01.pdf"},
+    }
+
+    chunk = _to_evidence(ingested, "RAG", 1)
+
+    assert chunk.metadata.source_file == "CASEDIARY-FIR-2026-CYBER-001-01.pdf"
+
+
+def test_explicit_source_file_still_wins():
+    """Graph/synthetic chunks set `source_file` directly — that must not regress."""
+    from src.pipeline.harness.tools.real import _to_evidence
+
+    chunk = _to_evidence(
+        {"id": "g1", "text": "x", "metadata": {"source_file": "evidence_graph"}},
+        "GRAPH", 1,
+    )
+
+    assert chunk.metadata.source_file == "evidence_graph"
+
+
+def test_source_file_takes_precedence_over_source():
+    """
+    Mirrors verifier.py's own fallback ORDER (source_file, then source), so
+    two consumers of the same chunk cannot disagree about which key names it.
+    """
+    from src.pipeline.harness.tools.real import _to_evidence
+
+    chunk = _to_evidence(
+        {"id": "c1", "text": "x",
+         "metadata": {"source_file": "explicit.pdf", "source": "fallback.pdf"}},
+        "RAG", 1,
+    )
+
+    assert chunk.metadata.source_file == "explicit.pdf"
+
+
+def test_missing_both_keys_leaves_source_file_none():
+    """No filename recorded is still None — not an invented placeholder."""
+    from src.pipeline.harness.tools.real import _to_evidence
+
+    chunk = _to_evidence({"id": "c1", "text": "x", "metadata": {}}, "RAG", 1)
+
+    assert chunk.metadata.source_file is None
+
+
+def test_source_key_is_not_duplicated_into_metadata_extras():
+    """
+    `source` is POPPED, not copied — leaving it would put the same filename in
+    two places on one chunk, and a consumer reading the extras would see a key
+    the contract never declared.
+    """
+    from src.pipeline.harness.tools.real import _to_evidence
+
+    chunk = _to_evidence(
+        {"id": "c1", "text": "x", "metadata": {"source": "f.pdf", "page": 3}},
+        "RAG", 1,
+    )
+    dumped = chunk.metadata.model_dump()
+
+    assert dumped["source_file"] == "f.pdf"
+    assert "source" not in dumped
+    assert dumped["page"] == 3, "unrelated metadata must still ride along"

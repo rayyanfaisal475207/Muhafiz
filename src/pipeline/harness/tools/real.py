@@ -97,6 +97,22 @@ def _to_evidence(raw: dict, source_tool: str, index: int) -> EvidenceChunk:
         if raw.get("cross_score") is not None
         else raw.get("rrf_score", raw.get("bm25_score", raw.get("score")))
     )
+    # The source filename lives under DIFFERENT KEYS depending on the producer.
+    # Ingested chunks carry `metadata.source` — confirmed against the live
+    # corpus, values like "CASEDIARY-FIR-2026-CYBER-001-01.pdf" — while graph
+    # and synthetic chunks set `source_file` directly. Reading only
+    # `source_file` left `Citation.source_file` None for every real retrieved
+    # chunk, so an investigator saw a citation with no filename attached.
+    #
+    # Same fallback order verifier.py:85-89 already uses for its own source
+    # display, deliberately: two consumers of the same chunks must not disagree
+    # about which key names the file.
+    source_file = (
+        raw.get("source_file")
+        or meta.pop("source_file", None)
+        or meta.pop("source", None)
+    )
+
     chunk = EvidenceChunk(
         id=str(raw.get("id") or f"{source_tool.lower()}-{index}"),
         text=raw.get("text") or "",
@@ -104,7 +120,7 @@ def _to_evidence(raw: dict, source_tool: str, index: int) -> EvidenceChunk:
         metadata=ChunkMetadata(
             source_tool=source_tool,
             case_id=meta.pop("case_id", None),
-            source_file=meta.pop("source_file", None),
+            source_file=source_file,
             confidence=confidence,
             **meta,
         ),

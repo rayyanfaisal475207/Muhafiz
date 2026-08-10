@@ -28,6 +28,14 @@ MANIFEST
 env/
 venv/
 ENV/
+
+# Database dumps. Same reasoning as .env above: a pg_dump of this system
+# carries real case records, user accounts and message history, and must
+# never enter git history — including on a private branch, since history is
+# not retroactively scrubbable once pushed.
+*.dump
+*.dump.gz
+*.backup
 env.bak/
 venv.bak/
 
