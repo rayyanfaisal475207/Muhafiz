@@ -730,3 +730,69 @@ file did not.
   immediate, explainable refusal. `direct_backend` additionally raises a named error instead of
   bare "one of the hex, bytes, bytes_le..." when it is missing. Verified end-to-end: `status=OK`,
   6 citations, a real 4,818-byte PDF recorded against CASE-009.
+
+## 8. Shadow mode (steps D–F)
+
+Shadow mode runs the harness on a sampled fraction of real queries AFTER the
+legacy pipeline has already answered the user, and records what the harness
+would have said. It is the mechanism for deciding whether the harness is ready
+to serve traffic, without any user ever seeing its output.
+
+**The single invariant: a shadow run cannot change, delay, or break the answer a
+user receives.** Everything in `src/pipeline/harness/shadow.py` follows from it —
+it is spawned after the response generator's final yield, it catches
+`BaseException` rather than `Exception`, every logging write is separately
+wrapped, and the concurrency slot releases in a `finally` so a crash cannot
+wedge shadowing off until the process restarts.
+
+**Off by default.** A shadow run costs roughly what the real query cost — the
+same retrieval, the same generation — against the same model server the live
+path depends on. Enabling it is a deliberate operator decision with a real
+capacity cost, never something a deployment turns on by existing. Verified
+empirically: with the flag off, 200 spawn attempts cost 0.0 microseconds each
+and wrote zero rows.
+
+**Two independent limits, because they bound different things.**
+`HARNESS_SHADOW_SAMPLE_RATE` bounds how many queries are eligible over time;
+`HARNESS_SHADOW_MAX_CONCURRENCY` bounds how many run at once. A burst can put
+many samples in flight simultaneously even at a low rate. At the default cap of
+1, shadowing is single-flight and an eligible query arriving while a run is in
+progress is SKIPPED, never queued — queuing would let shadow work outlive the
+traffic that produced it and turn a burst into a backlog competing with live
+requests.
+
+**Cross-case routes are excluded.** XGRAPH/XAGG/XNETWORK arm cross-case RLS
+scope. Doing that outside the request that authorized it, for output nobody
+reads, is not a trade worth making. DIRECT is excluded because it performs no
+retrieval, so there is nothing to compare.
+
+**The harness routes the query itself** rather than inheriting legacy's route.
+Reusing the legacy decision would make routing agree by construction — the log
+would show perfect agreement while proving nothing. `legacy_route` is recorded
+alongside for exactly that comparison.
+
+**`harness_shadow_runs` is a separate table (migration 020), not columns on
+`pipeline_runs`.** Admin analytics read `pipeline_runs`/`pipeline_steps` to
+report route mix, verifier pass rates and latency; writing shadow rows there
+would corrupt every one of those numbers with traffic no user ever saw. Shadow
+events are additionally kept out of `pipeline_steps` by constructing the
+`EventRecorder` with no run_id and no gateway — asserted in
+`test_shadow_events_never_reach_pipeline_steps`.
+
+The table carries query text and generated answers, so it mirrors
+`pipeline_runs`' RLS policy exactly. A log table without the isolation its
+source data has is a side channel. Verified empirically against a live database
+as `muhafiz_app`: a session scoped to CASE-009 sees only its own row, CASE-016
+only its own, and the unscoped and cross-case paths see both.
+
+**Reading the results:** `python scripts/compare_shadow_runs.py`. Errors are
+blockers — a shadow run that raised means that query shape would have failed for
+a real user. Outcome disagreements need a human read. The tool deliberately does
+not score answer quality; `--verbose` exists so a person can read both answers
+and decide.
+
+First run against nine real queries: zero errors, one disagreement (the harness
+abstained on a question legacy answered, because retrieval returned nothing it
+could ground on), median latency 15.6s, p95 24.6s. Two queries the router sent
+to RAG were handled by a different sub-agent — the routing disagreement signal
+this exists to surface.
