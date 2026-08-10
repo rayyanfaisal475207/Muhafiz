@@ -204,10 +204,14 @@ async def run(
     )
     await _emit_source_outcome(events, "RAG", rag_result)
 
+    # Legacy's GRAPH route forwards the router's `target_entity`
+    # (orchestrator.py:858). An entity-focused analytical question ("how is X
+    # connected to Y") traverses from that entity; without it the traversal has
+    # no anchor and falls back to whatever the query text alone matches.
     graph_result = await registry.graph_tool(
         GraphToolInput(
             query_text=agent_input.query_text, caller=caller,
-            target_entity=None, max_hops=2, hybrid=False,
+            target_entity=agent_input.target_entity, max_hops=2, hybrid=False,
         ),
         events=events,
     )

@@ -173,6 +173,24 @@ async def invoke(
     collapsed into a single "the harness ran" event.
     """
     recorder = events or EventRecorder(run_id=run_id, gateway=gateway)
+
+    # ── Thread the router's target_entity onto the input ──
+    # `route_result` is the one place it exists, and the supervisor is the one
+    # component that holds both it and the `SubAgentInput`. Doing it here rather
+    # than at each call site means a sub-agent cannot silently lose it — the
+    # failure mode is a false "no connections found", not an error (see
+    # SubAgentInput.target_entity).
+    #
+    # An explicit value already on the input WINS: a caller that constructed a
+    # SubAgentInput with a specific entity meant it, and the router's guess must
+    # not override a deliberate choice.
+    if agent_input.target_entity is None:
+        routed_entity = (route_result or {}).get("target_entity")
+        if routed_entity:
+            agent_input = agent_input.model_copy(
+                update={"target_entity": str(routed_entity)}
+            )
+
     state = HarnessState(agent_input=agent_input)
 
     # ── Node: supervisor dispatch ──

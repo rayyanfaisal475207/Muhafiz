@@ -367,6 +367,13 @@ async def _unconfirmed_same_as_links(entity_ids: set[str]) -> list[dict]:
             "tier": props.get("tier"),
             "confidence": props.get("confidence"),
             "status": "pending",
+            # WHY the resolver flagged these two as possibly the same person
+            # (e.g. "matched on near-identical name + shared case"). Without it
+            # a reviewer sees two names and a number with no stated reason, and
+            # the caveat text downstream has nothing to explain itself with —
+            # which is the difference between a reviewable lead and an
+            # unexplained assertion.
+            "basis": props.get("basis"),
         })
     return out
 

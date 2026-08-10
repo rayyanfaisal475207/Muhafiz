@@ -564,6 +564,41 @@ class SubAgentInput(BaseModel):
     caller: CallerContext
     output_format: Literal["chat", "file_pdf", "file_xlsx", "file_docx"] = "chat"
     conversation_context: Optional[str] = None
+    session_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "The chat session this query belongs to. Required ONLY by Report "
+            "Drafting, which must record every generated file against a session "
+            "in `generated_files` — a table whose `session_id` column is NOT "
+            "NULL, matching what the legacy path passes at "
+            "orchestrator.py:2099.\n\n"
+            "Optional on this model because six of the seven sub-agents never "
+            "touch it, and a chat answer has nothing to file. Report Drafting "
+            "checks for it explicitly and abstains with a clear reason when it "
+            "is missing, rather than running the full retrieve-generate-verify "
+            "pipeline and only then failing at the storage step."
+        ),
+    )
+    target_entity: Optional[str] = Field(
+        default=None,
+        description=(
+            "The entity the query is about, as identified by the router — the "
+            "same `route_result['target_entity']` the legacy orchestrator reads "
+            "at orchestrator.py:525 and forwards into every `retrieve_graph()` "
+            "call.\n\n"
+            "PER-QUERY ROUTING METADATA, which is why it lives here and NOT on "
+            "`CallerContext` alongside `project_id`: caller scope is a property "
+            "of who is asking and stays constant for the session, while this "
+            "changes with each question and is derived from the query text.\n\n"
+            "Dropping it does NOT fail closed — it fails SILENT, and differently "
+            "per tool. XGRAPH with `target_entity=None` returns EMPTY, which the "
+            "cross-case sub-agent then reports to an investigator as 'No "
+            "connections were found across the accessible cases' even when the "
+            "graph contains real links. That reads as a cleared lead rather than "
+            "an unasked question, which is why this is threaded explicitly "
+            "rather than left to each sub-agent to remember."
+        ),
+    )
 
 
 class Citation(BaseModel):

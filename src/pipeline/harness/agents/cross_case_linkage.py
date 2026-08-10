@@ -134,6 +134,49 @@ def _dispatch(query_text: str) -> tuple[bool, bool]:
     return True, True
 
 
+def _recover_target_entity(query_text: str) -> Optional[str]:
+    """
+    Recover a person named in the query when the router did not supply one.
+
+    WHY THIS IS NEEDED: `router.py`'s deterministic XGRAPH overrides return
+    `"target_entity": None` unconditionally (router.py:216-222), and one of
+    those patterns is `\\b(other|another)\\s+cases?\\b` — which matches the
+    archetypal cross-case question, "What other cases is X involved in?". So on
+    exactly the queries where an entity matters most, routing short-circuits
+    before the LLM extraction step that would have found it, and XGRAPH is left
+    with nothing to traverse from.
+
+    Fixed here rather than in `router.py` deliberately: that module is on the
+    legacy serving path for every live query, and changing which entity it
+    reports would alter legacy routing behaviour that is not covered by this
+    work. This recovery is additive and harness-local.
+
+    Uses the STATISTICAL pass only — regex/gazetteer, synchronous, no model
+    call. `extract_entities()` would additionally run Qwen3 adjudication over
+    low-confidence candidates, which is the right trade for ingesting a
+    document and the wrong one for a routing hint on a one-line query.
+
+    Returns None when the query names nobody ("which cases share suspects?"),
+    which is correct: that is a genuinely open-ended question, and inventing a
+    seed for it would narrow a search the user asked to be broad.
+    """
+    try:
+        from src.extraction.ner import extract_statistical
+
+        mentions = [m for m in extract_statistical(query_text or "")
+                    if m.type == "person"]
+    except Exception as exc:  # extraction must never break linkage
+        logger.warning("Target-entity recovery failed for %r: %s", query_text[:60], exc)
+        return None
+
+    if not mentions:
+        return None
+    # Highest-confidence mention; ties resolve to the earliest, keeping this
+    # deterministic for the same query text.
+    best = max(mentions, key=lambda m: m.confidence)
+    return best.text or None
+
+
 def _links_from_xgraph(result, limit: int) -> list[CrossCaseLink]:
     """
     Entity-typed connections, plus one link per unconfirmed identity match.
@@ -159,11 +202,22 @@ def _links_from_xgraph(result, limit: int) -> list[CrossCaseLink]:
 
     for raw in (result.unconfirmed_links or [])[:limit]:
         basis = raw.get("basis") or "identity match not verified"
+        # The keys are `entity`/`candidate`, NOT `from`/`to` — see
+        # graph_retriever._unconfirmed_same_as_links(), which builds these dicts.
+        # Reading the wrong keys made every link render as the placeholder text
+        # "Possible identity link between an entity and another entity", which
+        # is worse than useless in an investigative context: it tells a reviewer
+        # a possible identity match exists while withholding the two names they
+        # would need in order to confirm or dismiss it.
+        entity = raw.get("entity") or "an entity"
+        candidate = raw.get("candidate") or "another entity"
+        tier = raw.get("tier")
+        tier_note = f" [{tier}]" if tier else ""
         links.append(
             CrossCaseLink(
                 description=(
-                    f"Possible identity link between {raw.get('from', 'an entity')} and "
-                    f"{raw.get('to', 'another entity')} — {basis}."
+                    f"Possible identity link between {entity} and {candidate} — "
+                    f"{basis}{tier_note}."
                 ),
                 case_ids=case_ids,
                 confidence=raw.get("confidence"),
@@ -286,10 +340,19 @@ async def run(
     xnetwork_result = None
 
     if use_xgraph:
+        # The traversal needs a starting point. Prefer the router's extraction;
+        # fall back to recovering a name from the query text, because the
+        # deterministic XGRAPH override always reports None (see
+        # `_recover_target_entity`). Genuinely open-ended queries yield None
+        # from both, which is correct — `retrieve_graph` then uses its own
+        # recurring-entity seed set instead of a single anchor.
+        target_entity = agent_input.target_entity or _recover_target_entity(
+            agent_input.query_text
+        )
         xgraph_result = await registry.xgraph_tool(
             XGraphToolInput(
                 query_text=agent_input.query_text, caller=caller,
-                target_entity=None, max_hops=2,
+                target_entity=target_entity, max_hops=2,
             ),
             gateway=gateway,
             events=events,

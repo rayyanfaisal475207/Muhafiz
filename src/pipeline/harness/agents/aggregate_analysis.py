@@ -221,8 +221,16 @@ async def run(
 
     caller = agent_input.caller
 
+    # `target_entity` selects the aggregate KIND inside `run_aggregate`: with an
+    # entity it computes graph recurrence ("which cases does X appear in"),
+    # without one it computes case counts. Legacy forwards the router's value
+    # (orchestrator.py:1288); hardcoding None here silently made every
+    # recurrence question answerable only as a case count.
     result = await registry.xagg_tool(
-        XAggToolInput(query_text=agent_input.query_text, caller=caller, target_entity=None),
+        XAggToolInput(
+            query_text=agent_input.query_text, caller=caller,
+            target_entity=agent_input.target_entity,
+        ),
         gateway=gateway,
         events=events,
     )
