@@ -143,16 +143,33 @@ def classify(route_result: dict, query_text: str) -> str:
     Returns a sub-agent NAME, or `NO_SUB_AGENT` for DIRECT.
 
     Precedence, highest first:
-      0. a file `output_format` -> Report Drafting, whatever the route
-      1. timeline phrasing on a within-case route -> Timeline Building
-      2. the route mapping
-      3. the `case_scope` guard, which can demote a cross-case mapping
+      0. DIRECT -> NO_SUB_AGENT, ahead of everything (including a file format)
+      1. a file `output_format` -> Report Drafting, whatever the route
+      2. timeline phrasing on a within-case route -> Timeline Building
+      3. the route mapping
+      4. the `case_scope` guard, which can demote a cross-case mapping
     """
     route = str(route_result.get("route") or "RAG").upper()
     output_format = str(route_result.get("output_format") or "chat").lower()
     case_scope = str(route_result.get("case_scope") or "within_case").lower()
 
-    # ── 0. Output format decides, ahead of content ──
+    # ── 0. DIRECT wins outright, even over a file request ──
+    # DIRECT can legitimately carry a file output_format — the router's own
+    # few-shots include {"route": "DIRECT", "output_format": "file_docx"} for
+    # "write me a document about something unrelated to police facts". Letting
+    # the format check below claim that would send it to Report Drafting, which
+    # consumes Case Summarization and therefore performs case-scoped retrieval
+    # — retrieval this query was explicitly routed AWAY from, and which would
+    # most likely abstain.
+    #
+    # The legacy path already handles this correctly: its DIRECT branch
+    # generates the answer and then falls through to _generate_file(). So
+    # returning NO_SUB_AGENT here preserves existing behaviour exactly rather
+    # than reimplementing it.
+    if route == "DIRECT":
+        return NO_SUB_AGENT
+
+    # ── 1. Output format decides, ahead of content ──
     # Report Drafting is orthogonal to route: it consumes Case Summarization's
     # output and produces a document. Reusing the router's existing
     # `output_format` (already specified in prompts/router.txt with worked
@@ -167,14 +184,14 @@ def classify(route_result: dict, query_text: str) -> str:
     if output_format in _FILE_FORMATS:
         return report_draft.NAME
 
-    # ── 1. Timeline phrasing, within-case routes only ──
+    # ── 2. Timeline phrasing, within-case routes only ──
     if route in _TIMELINE_ELIGIBLE_ROUTES and wants_timeline(query_text):
         return timeline.NAME
 
-    # ── 2. The route mapping ──
+    # ── 3. The route mapping ──
     sub_agent = _ROUTE_TO_SUB_AGENT.get(route, semantic_search.NAME)
 
-    # ── 3. case_scope guard ──
+    # ── 4. case_scope guard ──
     # Redundant today: the router forces every route except XGRAPH/XAGG/XNETWORK
     # back to `within_case` unconditionally, so a cross-case sub-agent paired
     # with a within-case scope should be unreachable. Kept anyway, matching the

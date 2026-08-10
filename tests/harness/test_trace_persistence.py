@@ -27,6 +27,10 @@ from src.pipeline.harness.contracts import (
 )
 from src.pipeline.harness.events import EventRecorder, build_degradation_trace
 
+# `invoke()` requires a route_result. These tests override `_route` directly,
+# so the router decision only needs to be well-formed, not meaningful.
+_ROUTE_RESULT = {"route": "RAG", "output_format": "chat", "case_scope": "within_case"}
+
 
 def _caller() -> CallerContext:
     return CallerContext(user_id="u1", role=Role.INVESTIGATOR, active_case_id="CASE-A")
@@ -74,6 +78,7 @@ def test_labels_never_leak_raw_tool_identifiers():
     rendered = " ".join(
         trace["labels"]["contributed_only"] + trace["labels"]["degraded_only"]
     )
+
     assert "RAG" not in rendered
     assert "GRAPH" not in rendered
 
@@ -190,10 +195,10 @@ async def test_persisted_trace_is_generic_across_sub_agents(agent_name, monkeypa
     Requirement 6 re-confirmed WITH persistence added: the payload still comes
     from one generic build at one call site, whichever sub-agent ran.
     """
-    monkeypatch.setattr(supervisor, "_route", lambda _i: agent_name)
+    monkeypatch.setattr(supervisor, "_route", lambda _i, _r: agent_name)
 
     recorder = EventRecorder()
-    state = await supervisor.invoke(_input(), events=recorder)
+    state = await supervisor.invoke(_input(), _ROUTE_RESULT, events=recorder)
 
     trace = build_degradation_trace(state.result)
     await gateway.save_message("s1", "assistant", "answer", degradation_trace=trace)
@@ -216,8 +221,8 @@ async def test_a_new_sub_agent_persists_a_trace_without_extra_wiring(gateway):
     supervisor._NODES["brand_new"] = brand_new_sub_agent
     original = supervisor._route
     try:
-        supervisor._route = lambda _i: "brand_new"
-        state = await supervisor.invoke(_input())
+        supervisor._route = lambda _i, _r: "brand_new"
+        state = await supervisor.invoke(_input(), _ROUTE_RESULT)
     finally:
         supervisor._route = original
         supervisor._NODES.pop("brand_new", None)

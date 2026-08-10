@@ -26,3 +26,27 @@ def _stub_tools():
     registry.use_stubs()
     yield
     registry.use_real()
+
+
+@pytest.fixture(autouse=True)
+def _restore_supervisor_registry():
+    """
+    Restore `_NODES` and `_route` after every test.
+
+    Several tests register a node and then `pop()` it in a finally block. That
+    was harmless while only Semantic Search was registered — the popped names
+    were all temporary. Once the real wiring registered all seven, those same
+    pops began DELETING legitimate entries, so a test asserting the registry's
+    contents passed alone and failed in a full run, depending on ordering.
+
+    Snapshotting here makes registry mutation safe by default, rather than
+    depending on every test cleaning up perfectly.
+    """
+    from src.pipeline.harness import supervisor
+
+    saved_nodes = dict(supervisor._NODES)
+    saved_route = supervisor._route
+    yield
+    supervisor._NODES.clear()
+    supervisor._NODES.update(saved_nodes)
+    supervisor._route = saved_route

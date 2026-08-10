@@ -42,6 +42,11 @@ def _trace_events(recorder: EventRecorder) -> list:
     return [e for e in recorder.events if getattr(e, "trace", None)]
 
 
+# `invoke()` requires a route_result. These tests override `_route` directly,
+# so the router decision only needs to be well-formed, not meaningful.
+_ROUTE_RESULT = {"route": "RAG", "output_format": "chat", "case_scope": "within_case"}
+
+
 # ── Payload shape ────────────────────────────────────────────────────────
 
 def test_trace_splits_tools_three_ways():
@@ -71,6 +76,7 @@ def test_trace_preserves_raw_contract_fields():
         status=SubAgentStatus.PARTIAL, answer_text="x",
         tools_used=["RAG"], degraded_from=["GRAPH", "SQL"],
     )
+
 
     trace = build_degradation_trace(result)
 
@@ -134,7 +140,7 @@ def test_disclosure_rendered_is_none_without_a_generated_file():
 
 async def test_supervisor_emits_exactly_one_trace_per_run():
     recorder = EventRecorder()
-    await supervisor.invoke(_input(), events=recorder)
+    await supervisor.invoke(_input(), _ROUTE_RESULT, events=recorder)
 
     traced = _trace_events(recorder)
     assert len(traced) == 1, "the trace must be written once per sub-agent completion"
@@ -148,7 +154,7 @@ async def test_trace_rides_the_existing_completion_event():
     double-count the same transition.
     """
     recorder = EventRecorder()
-    await supervisor.invoke(_input(), events=recorder)
+    await supervisor.invoke(_input(), _ROUTE_RESULT, events=recorder)
 
     completions = [e for e in recorder.events if e.step == "supervisor:complete"]
     assert len(completions) == 1
@@ -163,10 +169,10 @@ async def test_every_registered_sub_agent_is_traced(agent_name, monkeypatch):
     supervisor already holds. This is what makes a future sub-agent traced by
     construction rather than by its author remembering.
     """
-    monkeypatch.setattr(supervisor, "_route", lambda _i: agent_name)
+    monkeypatch.setattr(supervisor, "_route", lambda _i, _r: agent_name)
 
     recorder = EventRecorder()
-    await supervisor.invoke(_input(), events=recorder)
+    await supervisor.invoke(_input(), _ROUTE_RESULT, events=recorder)
 
     traced = _trace_events(recorder)
     assert len(traced) == 1
@@ -193,9 +199,9 @@ async def test_a_newly_registered_sub_agent_is_traced_without_touching_it():
     supervisor._NODES["brand_new"] = brand_new_sub_agent
     try:
         original = supervisor._route
-        supervisor._route = lambda _i: "brand_new"
+        supervisor._route = lambda _i, _r: "brand_new"
         recorder = EventRecorder()
-        await supervisor.invoke(_input(), events=recorder)
+        await supervisor.invoke(_input(), _ROUTE_RESULT, events=recorder)
     finally:
         supervisor._route = original
         supervisor._NODES.pop("brand_new", None)
@@ -210,10 +216,10 @@ async def test_a_newly_registered_sub_agent_is_traced_without_touching_it():
 async def test_unroutable_query_is_still_traced():
     """"Nothing ran" is an outcome worth recording, not a hole in the history."""
     original = supervisor._route
-    supervisor._route = lambda _i: "no_such_agent"
+    supervisor._route = lambda _i, _r: "no_such_agent"
     try:
         recorder = EventRecorder()
-        state = await supervisor.invoke(_input(), events=recorder)
+        state = await supervisor.invoke(_input(), _ROUTE_RESULT, events=recorder)
     finally:
         supervisor._route = original
 
@@ -227,7 +233,7 @@ async def test_unroutable_query_is_still_traced():
 
 async def test_trace_reaches_pipeline_steps_output_summary(gateway):
     recorder = EventRecorder(run_id="run-1", gateway=gateway)
-    await supervisor.invoke(_input(), events=recorder)
+    await supervisor.invoke(_input(), _ROUTE_RESULT, events=recorder)
 
     assert gateway.steps, "nothing persisted"
 
@@ -246,7 +252,7 @@ async def test_persisted_summary_keeps_detail_alongside_trace(monkeypatch, gatew
     monkeypatch.setattr(gateway, "log_step", _log_step)
 
     recorder = EventRecorder(run_id="run-1", gateway=gateway)
-    await supervisor.invoke(_input(), events=recorder)
+    await supervisor.invoke(_input(), _ROUTE_RESULT, events=recorder)
 
     completion = [c for c in captured if c["step_name"] == "supervisor:complete"]
     assert completion, "completion step was not persisted"
@@ -267,7 +273,7 @@ async def test_steps_without_a_trace_persist_unchanged(monkeypatch, gateway):
     monkeypatch.setattr(gateway, "log_step", _log_step)
 
     recorder = EventRecorder(run_id="run-1", gateway=gateway)
-    await supervisor.invoke(_input(), events=recorder)
+    await supervisor.invoke(_input(), _ROUTE_RESULT, events=recorder)
 
     tool_steps = [c for c in captured if c["step_name"].startswith("tool:")]
     assert tool_steps, "no tool steps persisted"

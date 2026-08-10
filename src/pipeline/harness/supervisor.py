@@ -36,7 +36,16 @@ from typing import Awaitable, Callable, Optional
 
 from pydantic import BaseModel, Field
 
-from src.pipeline.harness.agents import semantic_search
+from src.pipeline.harness import classifier
+from src.pipeline.harness.agents import (
+    aggregate_analysis,
+    case_summary,
+    cross_case_linkage,
+    investigative_analysis,
+    report_draft,
+    semantic_search,
+    timeline,
+)
 from src.pipeline.harness.contracts import (
     SubAgentInput,
     SubAgentResult,
@@ -62,6 +71,12 @@ SubAgentCallable = Callable[..., Awaitable[SubAgentResult]]
 
 _NODES: dict[str, SubAgentCallable] = {
     semantic_search.NAME: semantic_search.run,
+    case_summary.NAME: case_summary.run,
+    report_draft.NAME: report_draft.run,
+    investigative_analysis.NAME: investigative_analysis.run,
+    timeline.NAME: timeline.run,
+    cross_case_linkage.NAME: cross_case_linkage.run,
+    aggregate_analysis.NAME: aggregate_analysis.run,
 }
 
 UNROUTABLE = "__unroutable__"
@@ -114,21 +129,27 @@ async def _call_node(
     return await node(agent_input, recorder)
 
 
-def _route(agent_input: SubAgentInput) -> str:
+def _route(agent_input: SubAgentInput, route_result: dict) -> str:
     """
-    Conditional edge: query → sub-agent name.
+    Conditional edge: router decision → sub-agent name.
 
-    STUB ROUTING. Everything currently lands on Semantic Search, because it is
-    the only wired node. When the remaining sub-agents are implemented this
-    becomes the real classifier — likely reusing `router.py`'s existing
-    deterministic override patterns rather than a new one (design §7), which is
-    why the decision is isolated in this function.
+    `route_result` is exactly what `route_query()` returns, and is REQUIRED —
+    deliberately not optional. An optional parameter would need a fallback, and
+    both available fallbacks are worse than forcing the caller to supply it:
+    calling `route_query()` here would mean a second LLM classification call
+    per query, and defaulting to a route would silently misroute. Requiring it
+    also guarantees the harness's routing can never disagree with the caller's
+    own routing for the same query.
+
+    The classification itself lives in `classifier.classify()`; this stays a
+    one-line seam so the decision remains isolated in a single place.
     """
-    return semantic_search.NAME
+    return classifier.classify(route_result, agent_input.query_text)
 
 
 async def invoke(
     agent_input: SubAgentInput,
+    route_result: dict,
     events: Optional[EventRecorder] = None,
     run_id: Optional[str] = None,
     gateway=None,
@@ -155,8 +176,32 @@ async def invoke(
     state = HarnessState(agent_input=agent_input)
 
     # ── Node: supervisor dispatch ──
-    selected = _route(agent_input)
+    selected = _route(agent_input, route_result)
     state.selected_agent = selected
+
+    # ── DIRECT: no sub-agent, and NOT an abstention ──
+    # DIRECT answers from general knowledge with no retrieval, and the Verifier
+    # deliberately never gates it (design §1). It is definitionally outside the
+    # harness's retrieval-and-verification scope, so this returns early and the
+    # CALLER answers it on its existing path.
+    #
+    # `result` is None rather than a SubAgentResult of any status: ABSTAINED
+    # means "could not answer safely", which is the opposite of what happened
+    # here. Forcing DIRECT into the SubAgentResult shape would also break
+    # streaming — DIRECT streams tokens as they generate, while a
+    # SubAgentResult carries a completed answer_text, so wrapping it would mean
+    # buffering the whole response and regressing latency on the fastest route.
+    #
+    # `skipped` matches the legacy path's own step-log vocabulary for this
+    # route, where retrieval/reranker/evaluator are all emitted as skipped.
+    if selected == classifier.NO_SUB_AGENT:
+        await recorder.emit(
+            "supervisor:dispatch", "skipped",
+            "DIRECT — answered without retrieval, no sub-agent",
+        )
+        state.result = None
+        state.events = recorder.events
+        return state
 
     node = _NODES.get(selected)
     if node is None:
@@ -173,8 +218,14 @@ async def invoke(
         state.events = recorder.events
         return state
 
+    # `describe()` explains WHY this sub-agent was chosen (route, a file-format
+    # request, the timeline tier, or a case_scope demotion). Without it the
+    # trace shows only the destination, which is the least useful half when
+    # someone is asking why a query went where it did.
+    decision = classifier.describe(route_result, agent_input.query_text)
     await recorder.emit(
-        "supervisor:dispatch", "done", f"Routed to sub-agent: {selected}"
+        "supervisor:dispatch", "done",
+        f"Routed to sub-agent: {selected} ({decision['basis']})",
     )
 
     # ── Node: the selected sub-agent ──

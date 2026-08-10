@@ -29,6 +29,10 @@ from src.pipeline.harness.events import EventRecorder
 from src.pipeline.harness.tools import registry
 from src.pipeline.harness.verifier_gate import UNGROUNDED_TRIGGER
 
+# `invoke()` requires a route_result. These tests override `_route` directly,
+# so the router decision only needs to be well-formed, not meaningful.
+_ROUTE_RESULT = {"route": "RAG", "output_format": "chat", "case_scope": "within_case"}
+
 
 @pytest.fixture(autouse=True)
 def _real_tools():
@@ -428,9 +432,9 @@ async def test_traced_automatically_without_extra_wiring(graph_returns):
     supervisor._NODES[timeline_agent.NAME] = timeline_agent.run
     original = supervisor._route
     try:
-        supervisor._route = lambda _i: timeline_agent.NAME
+        supervisor._route = lambda _i, _r: timeline_agent.NAME
         recorder = EventRecorder()
-        state = await supervisor.invoke(_input(), events=recorder)
+        state = await supervisor.invoke(_input(), _ROUTE_RESULT, events=recorder)
     finally:
         supervisor._route = original
         supervisor._NODES.pop(timeline_agent.NAME, None)

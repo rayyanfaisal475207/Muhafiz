@@ -29,6 +29,10 @@ from src.pipeline.harness.events import EventRecorder
 from src.pipeline.harness.tools import registry
 from src.pipeline.harness.verifier_gate import UNGROUNDED_TRIGGER
 
+# `invoke()` requires a route_result. These tests override `_route` directly,
+# so the router decision only needs to be well-formed, not meaningful.
+_ROUTE_RESULT = {"route": "RAG", "output_format": "chat", "case_scope": "within_case"}
+
 STATION_QUERY = "which stations have the most open theft cases"
 CATEGORY_QUERY = "how many cases are there by category"
 RECURRENCE_QUERY = "top recurring vehicles across all cases"
@@ -315,10 +319,10 @@ async def test_traced_automatically_without_extra_wiring(cases, gateway):
     supervisor._NODES[aggregate_analysis.NAME] = aggregate_analysis.run
     original = supervisor._route
     try:
-        supervisor._route = lambda _i: aggregate_analysis.NAME
+        supervisor._route = lambda _i, _r: aggregate_analysis.NAME
         recorder = EventRecorder()
         state = await supervisor.invoke(
-            _input(STATION_QUERY), events=recorder, gateway=gateway
+            _input(STATION_QUERY), _ROUTE_RESULT, events=recorder, gateway=gateway
         )
     finally:
         supervisor._route = original

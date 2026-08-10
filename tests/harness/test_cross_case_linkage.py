@@ -31,6 +31,10 @@ from src.pipeline.harness.events import EventRecorder
 from src.pipeline.harness.tools import registry
 from src.pipeline.harness.verifier_gate import UNGROUNDED_TRIGGER
 
+# `invoke()` requires a route_result. These tests override `_route` directly,
+# so the router decision only needs to be well-formed, not meaningful.
+_ROUTE_RESULT = {"route": "RAG", "output_format": "chat", "case_scope": "within_case"}
+
 # Queries chosen to hit router.py's real pattern sets.
 XGRAPH_QUERY = "has this vehicle appeared in other cases"
 XNETWORK_QUERY = "what is the overall picture across these cases"
@@ -413,9 +417,9 @@ async def test_traced_automatically_without_extra_wiring(tools, gateway):
     supervisor._NODES[cross_case_linkage.NAME] = cross_case_linkage.run
     original = supervisor._route
     try:
-        supervisor._route = lambda _i: cross_case_linkage.NAME
+        supervisor._route = lambda _i, _r: cross_case_linkage.NAME
         recorder = EventRecorder()
-        state = await supervisor.invoke(_input(XGRAPH_QUERY), events=recorder)
+        state = await supervisor.invoke(_input(XGRAPH_QUERY), _ROUTE_RESULT, events=recorder)
     finally:
         supervisor._route = original
         supervisor._NODES.pop(cross_case_linkage.NAME, None)
