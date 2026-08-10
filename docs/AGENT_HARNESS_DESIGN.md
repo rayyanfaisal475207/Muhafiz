@@ -662,3 +662,53 @@ file did not.
   hedging, decide whether the legacy path adopts the stricter semantics or is explicitly
   grandfathered, then change both together. Do not fold it into harness work. Part A's shim is
   removable as part of it.
+
+- **Timeline Building retrieves from GRAPH only, and the graph is thin on timeline evidence.**
+  Surfaced by the first real-data run after generation was wired (CASE-009, an 8-document case):
+  the GRAPH tool returns exactly **one** chunk at `max_hops` 1, 2 and 3 alike, and that chunk is a
+  Recovery Memo table header carrying no extractable date — so the timeline rendered as a single
+  `undated` "event". The same case's RAG leg returns 9 chunks, 3 of them with dates the existing
+  `_extract_date()` parses correctly.
+
+  The data is present and the extractor is fine: the graph carries 24 `Date` vertices, 56
+  `OCCURRED_ON` edges and 85 `Incident` vertices, none of which this traversal surfaces. This is a
+  **retrieval-strategy gap, not a generation defect** — generation itself works and narrated the
+  one event it was given. Stub tools concealed it by returning rich, well-dated synthetic events.
+
+  **Needs its own scoped change**, because the fix is a real design decision, not a tweak: either
+  add a RAG leg to Timeline (changing `tools_used`/`degraded_from` bookkeeping and the citation
+  contract) or write a date-aware Cypher traversal over `OCCURRED_ON`/`Date` (keeping it
+  GRAPH-only but requiring new graph query work). Do not fold either into generation wiring.
+
+- **Cross-Case Linkage never extracts a target entity, so XGRAPH returns EMPTY on open-ended
+  queries.** Same first-real-data run. `run()` passes `target_entity=None` unconditionally, and
+  with that the XGRAPH tool finds nothing — while the identical tool call with a real graph entity
+  (`"Hina Malik"`) returns **3 unconfirmed links**. So the tool works; the sub-agent gives it
+  nothing to traverse from.
+
+  This is a **false negative on the highest-stakes query type in the system**: raw Cypher confirms
+  at least 8 entities genuinely spanning multiple cases (e.g. `Hina Malik` across
+  `CASE-B0-HAR-001` and `CASE-B0-THEFT-001`), yet the sub-agent answers "No connections were found
+  across the accessible cases." An investigator would read that as a cleared lead.
+
+  Two things worth recording for whoever picks this up. Graph `Person` vertices key on
+  `canonical_name`, **not** `name`, and many are Urdu-script — so entity extraction cannot assume
+  the surface form in the query matches the graph. And XNETWORK could not be exercised at all:
+  `community_reports` is empty (`community_runs` has one row that produced nothing) and no
+  community-summary Chroma collection exists, so that leg needs the offline community pipeline run
+  before it can be tested at all.
+
+- **`report_draft` file generation fails 100% of the time: `session_id: None` into a non-null
+  UUID parse.** `_generate_file()` passes `{"session_id": None, ...}` to
+  `gateway.log_generated_file()`, whose direct backend does
+  `session_id=uuid.UUID(file_data["session_id"])` with **no None-guard** — while the adjacent
+  `user_id` on the very next line *is* guarded (`... if file_data.get("user_id") else None`). So
+  every invocation raises `one of the hex, bytes, bytes_le, fields, or int arguments must be
+  given`, which the sub-agent catches and converts into an abstention with a caveat.
+
+  Confirmed against live infrastructure with a real user UUID, so it is not a probe artifact: the
+  whole pipeline (RAG + GRAPH retrieval, real generation, verification, PDF build) runs for ~45s
+  and then discards the report at the logging step. `SubAgentInput` carries no session identifier,
+  so this cannot be fixed by passing one through — it needs a decision about whether generated
+  files are session-scoped at all, and either a nullable column or a session threaded into the
+  contract. Not folded into generation wiring for that reason.
