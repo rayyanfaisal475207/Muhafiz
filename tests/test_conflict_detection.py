@@ -76,13 +76,30 @@ async def test_fetch_query_requests_matching_columns(fake_client):
 
 
 @pytest.mark.asyncio
-async def test_deterministic_timeline_conflict(fake_client):
+async def test_deterministic_timeline_conflict(fake_client, monkeypatch):
     # Setup graph response: same incident, two different dates
     fake_client.queue([
         {"entity_id": "I-1", "description": "Robbery at bank", "date": "2023-10-01", "source_text": "robbery happened on 1st", "doc_id": "DOC-1"},
         {"entity_id": "I-1", "description": "Robbery at bank", "date": "2023-10-02", "source_text": "robbery happened on 2nd", "doc_id": "DOC-2"},
     ])
-    
+
+    # [Regression, confirmed live] detect_conflicts() ALWAYS proceeds to its
+    # step-3 LLM-grounded comparison after the deterministic check, even
+    # though this test only cares about the deterministic path -- without
+    # mocking call_llm() here, this test made a REAL, uncaught Gemini call
+    # every run (silently "passing" locally only because a real API key
+    # happens to be configured; CI has none and failed loudly with
+    # ValueError: No API key was provided). Violates this suite's own
+    # stated rule in conftest.py ("No network... no real LLM"). An empty
+    # parsed-list response means "no LLM-grounded conflicts found," which
+    # adds no further fake_client calls -- consistent with this test's own
+    # assertion that exactly one write_edge call (the deterministic one)
+    # happens.
+    async def mock_call_llm(*args, **kwargs):
+        return "[]"
+
+    monkeypatch.setattr(conflict_detection, "call_llm", mock_call_llm)
+
     # write_edge call response
     fake_client.queue([{"r": {"id": 10}}])
 
