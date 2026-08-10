@@ -326,6 +326,10 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, current_use
         await gateway.create_session(chat_request.session_id, user_id, provisional_title, project_id, case_id)
 
     async def event_generator():
+        # Observed from the stream purely to describe the legacy run in the
+        # shadow log. Never read by anything the user sees.
+        legacy_route: str = ""
+        legacy_outcome: str = ""
         try:
             async for event in process_query(
                 chat_request.session_id, chat_request.message,
@@ -333,12 +337,53 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, current_use
                 user_role=current_user.role,
                 enable_web_search=chat_request.enable_web_search,
             ):
+                if event.get("step") == "router" and event.get("status") == "done":
+                    legacy_route = str(event.get("detail") or "")
+                elif event.get("step") == "response":
+                    legacy_outcome = str(event.get("status") or "")
                 yield f"data: {json.dumps(event)}\n\n"
 
         except Exception as e:
             logger.error("Chat pipeline error: %s", e, exc_info=True)
             error_event = {"step": "system", "status": "error", "detail": str(e)}
             yield f"data: {json.dumps(error_event)}\n\n"
+            legacy_outcome = "error"
+
+        # ── Agent-harness shadow mode ────────────────────────────────────
+        # Spawned AFTER the final yield, so it cannot delay or alter a single
+        # byte the user receives. Off by default (config.HARNESS_SHADOW_MODE);
+        # when off this is a config read and a return.
+        #
+        # Deliberately inside the generator rather than after
+        # `StreamingResponse(...)`: this point is reached only once the client
+        # has actually consumed the whole stream. Spawning at the endpoint
+        # level would start shadow work even for a request the client
+        # abandoned mid-stream.
+        #
+        # Wrapped because the harness must never be able to break a response
+        # that has, by this point, already been delivered successfully.
+        try:
+            from src.pipeline.harness import shadow
+
+            shadow.maybe_spawn_shadow(
+                gateway=gateway,
+                session_id=chat_request.session_id,
+                user_id=user_id,
+                user_role=current_user.role,
+                query_text=chat_request.message,
+                # The harness routes the query itself rather than inheriting the
+                # legacy route: routing is part of what shadow mode is meant to
+                # compare, and reusing legacy's decision would hide every
+                # disagreement about it. `legacy_route` above is recorded
+                # alongside for exactly that comparison.
+                route_result=None,
+                case_id=case_id,
+                project_id=project_id,
+                legacy_route=legacy_route,
+                legacy_outcome=legacy_outcome,
+            )
+        except Exception as exc:
+            logger.warning("Could not start harness shadow run: %s", exc)
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
