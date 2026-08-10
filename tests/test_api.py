@@ -384,6 +384,101 @@ def test_chat_rejects_a_session_remembered_case_the_user_is_not_assigned_to(api,
     assert response.status_code == 403
 
 
+# ── Live-traffic cutover gating (AGENT_HARNESS_IMPLEMENTATION_PLAN.md §6) ──
+# config.HARNESS_CUTOVER_ROUTES decides, per classified route, whether a
+# chat request goes through orchestrator.py::process_query() (default,
+# every route until deliberately added) or
+# src.pipeline.harness.cutover.run_cutover_query(). Both are mocked at the
+# src.main module level -- no real classification/LLM call in either test.
+
+def test_chat_uses_orchestrator_by_default_not_the_harness(api, session_id, monkeypatch):
+    import src.main as main_mod
+
+    calls = {"orchestrator": 0, "cutover": 0}
+
+    async def _fake_process_query(*args, **kwargs):
+        calls["orchestrator"] += 1
+        yield {"step": "response", "status": "done", "detail": "ok"}
+
+    async def _fake_cutover(*args, **kwargs):
+        calls["cutover"] += 1
+        yield {"step": "response", "status": "done", "detail": "ok"}
+
+    monkeypatch.setattr(main_mod, "process_query", _fake_process_query)
+    monkeypatch.setattr(main_mod, "run_cutover_query", _fake_cutover)
+    monkeypatch.setattr(main_mod.config, "HARNESS_CUTOVER_ROUTES", frozenset())  # explicit default
+
+    client, _ = api
+    response = client.post("/api/chat", json={"session_id": session_id, "message": "hello"})
+
+    assert response.status_code == 200
+    assert calls["orchestrator"] == 1
+    assert calls["cutover"] == 0
+
+
+def test_chat_routes_through_the_harness_when_its_route_is_cut_over(api, session_id, monkeypatch):
+    import src.main as main_mod
+
+    calls = {"orchestrator": 0, "cutover": 0}
+
+    async def _fake_route_query(message):
+        return {"route": "RAG", "output_format": "chat"}
+
+    async def _fake_process_query(*args, **kwargs):
+        calls["orchestrator"] += 1
+        yield {"step": "response", "status": "done", "detail": "ok"}
+
+    async def _fake_cutover(*args, **kwargs):
+        calls["cutover"] += 1
+        yield {"step": "response", "status": "done", "detail": "ok"}
+
+    monkeypatch.setattr(main_mod, "route_query", _fake_route_query)
+    monkeypatch.setattr(main_mod, "process_query", _fake_process_query)
+    monkeypatch.setattr(main_mod, "run_cutover_query", _fake_cutover)
+    monkeypatch.setattr(main_mod.config, "HARNESS_CUTOVER_ROUTES", frozenset({"RAG"}))
+
+    client, _ = api
+    response = client.post("/api/chat", json={"session_id": session_id, "message": "search for X"})
+
+    assert response.status_code == 200
+    assert calls["cutover"] == 1
+    assert calls["orchestrator"] == 0
+
+
+def test_chat_file_output_classification_excluded_from_cutover_even_if_route_matches(api, session_id, monkeypatch):
+    """[PRESERVE] classify_to_subagent() overrides ANY route to Report
+    Drafting when output_format is a file format -- Report Drafting is not
+    part of this session's cutover slice, so a file-output classification
+    must never reach run_cutover_query even when its underlying route
+    string is in HARNESS_CUTOVER_ROUTES."""
+    import src.main as main_mod
+
+    calls = {"orchestrator": 0, "cutover": 0}
+
+    async def _fake_route_query(message):
+        return {"route": "RAG", "output_format": "file_pdf"}
+
+    async def _fake_process_query(*args, **kwargs):
+        calls["orchestrator"] += 1
+        yield {"step": "response", "status": "done", "detail": "ok"}
+
+    async def _fake_cutover(*args, **kwargs):
+        calls["cutover"] += 1
+        yield {"step": "response", "status": "done", "detail": "ok"}
+
+    monkeypatch.setattr(main_mod, "route_query", _fake_route_query)
+    monkeypatch.setattr(main_mod, "process_query", _fake_process_query)
+    monkeypatch.setattr(main_mod, "run_cutover_query", _fake_cutover)
+    monkeypatch.setattr(main_mod.config, "HARNESS_CUTOVER_ROUTES", frozenset({"RAG"}))
+
+    client, _ = api
+    response = client.post("/api/chat", json={"session_id": session_id, "message": "generate a PDF report"})
+
+    assert response.status_code == 200
+    assert calls["cutover"] == 0
+    assert calls["orchestrator"] == 1
+
+
 def test_health_is_public(api):
     client, _ = api
     assert client.get("/health").status_code == 200
