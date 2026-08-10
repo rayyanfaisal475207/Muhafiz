@@ -224,7 +224,8 @@ Two implementation requirements surfaced while drafting these, both easy to miss
   section's own "on all 8 sub-agents" text. One required pre-work item — running the local model
   against `data/eval/validation_eval_set.json` — is NOT YET DONE; flagged, not silently skipped;
   see the §9 entry's own "OUTSTANDING" note)*
-- [ ] Wire compliance suite into CI as a merge gate
+- [x] **Wire compliance suite into CI as a merge gate** *(complete — see §9; a blocking CI step, not
+  a GitHub branch-protection rule — that scope distinction was confirmed with the user, not inferred)*
 
 ---
 
@@ -1588,6 +1589,40 @@ Compliance suite (`src/pipeline/harness/compliance/`, run separately per `pytest
 `testpaths = tests` scoping) — 51/51 checks still passing, unchanged count from Phase 0. Nothing in
 `main.py`, `orchestrator.py`, or `router.py`'s existing behavior was touched — still not wired into
 live traffic, per §6.
+
+### CI — Compliance suite wired into CI as a merge gate: COMPLETE
+
+Branch `feature/harness-ci-compliance-gate`, merged to main via merge commit `<PENDING>`. §8's last
+remaining build-checklist item.
+
+**Built:** `.github/workflows/ci.yml`'s `backend` job gained one new blocking step —
+`pytest src/pipeline/harness/compliance/` — run right after the existing `tests/`-scoped coverage
+step, deliberately with no `continue-on-error`, unlike the two existing advisory scans (`pip-audit`,
+`npm audit`) already in that file. Confirmed by reading `ci.yml` directly before editing (per this
+session's brief) that it previously never invoked the compliance folder at all — `pytest.ini`'s
+`testpaths = tests` means a plain `pytest` run silently skips it, exactly as every prior phase's own
+progress-log entry already documented having to run it manually and separately.
+
+**Scope confirmed with the user before building, not inferred from checklist wording:**
+- **CI step only — no branch-protection rule applied to `main`.** "Wire in as a merge gate" could
+  mean either an actual required-status-check rule via `gh api repos/.../branches/main/protection`
+  (real, persistent, repo-wide governance affecting every future PR) or just a blocking CI job. Asked
+  via `AskUserQuestion`; user chose CI-step-only. No branch protection exists on `main` as of this
+  merge — flagged as a deliberate scope boundary, not an oversight: today, a failing compliance job
+  turns CI red but does not yet technically block a merge on GitHub.
+- **This branch was merged to local `main` only, not pushed to origin** — matching every prior
+  phase's git workflow (branch → test → merge locally). Independently, mid-session, the user pushed
+  the 77 previously-pending, unrelated local commits to `origin/main` directly (confirmed via
+  `git fetch`: `origin/main` went from 77 commits behind to even with local `main`). That push was the
+  user's own action, not part of this task, and does not change the answer to the push question above
+  — re-confirmed via `AskUserQuestion` after the push happened, user still chose local-merge-only for
+  this branch.
+
+**Verification:** compliance suite run standalone both before and after the `ci.yml` edit — 51/51
+passing each time (51 dots, no `F`/`E` markers), unchanged count. Full existing test suite (`pytest`,
+`testpaths = tests`) — 1033 passed, 4 skipped (the same pre-existing, unrelated docling/PDF
+`std::bad_alloc` environment failure documented present on main since Phase 0's own merge — confirmed
+still present identically, not a regression), 0 failed.
 
 ---
 

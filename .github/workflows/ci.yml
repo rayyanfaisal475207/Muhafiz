@@ -34,6 +34,13 @@ jobs:
           path: coverage.xml
           if-no-files-found: ignore
 
+      # Compliance suite: the 51 checks covering design's 5 case/role
+      # enforcement points (src/pipeline/harness/compliance/). Lives outside
+      # pytest.ini's testpaths=tests scoping, so it's invoked separately here
+      # and deliberately has no continue-on-error — a compliance regression
+      # must fail the build, unlike the two advisory scans below.
+      - run: pytest src/pipeline/harness/compliance/
+
       # Non-blocking dependency-vulnerability scan: reports findings for
       # triage, doesn't fail the build. Fail-the-build is a deliberate
       # follow-up once the team has looked at whatever this finds.
