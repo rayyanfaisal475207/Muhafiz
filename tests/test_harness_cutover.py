@@ -15,8 +15,14 @@ import src.pipeline.harness.cutover as cutover_mod
 from src.pipeline.harness.cutover import run_cutover_query
 from src.pipeline.harness.types import (
     Citation,
+    ConflictState,
+    CrossCaseLink,
+    DataQualityMetric,
+    DataQualityReadiness,
+    GeneratedFileRef,
     SubAgentResult,
     SubAgentStatus,
+    TimelineEvent,
     ValidationStatus,
 )
 
@@ -193,3 +199,195 @@ async def test_create_run_failure_does_not_block_the_query(monkeypatch):
         )
     )
     assert any(e["step"] == "response" and e["status"] == "done" for e in events)
+
+
+# ── Full-result-field translation — the gap this session closes: the SSE
+# generator previously read only result.status/answer_text, silently
+# dropping .generated_file/.links/.events/.metrics. ─────────────────────────
+
+@pytest.mark.asyncio
+async def test_generated_file_yields_file_generation_event_matching_orchestrator_shape(monkeypatch):
+    """Mirrors orchestrator.py::_generate_file()'s own
+    event("file_generation", "done", ..., sources=[{"filename","type","file_id"}])
+    — the exact shape MessageBubble.tsx filters on to render the download link."""
+    _stub_history(monkeypatch, saved=(saved := []))
+    result = SubAgentResult(
+        status=SubAgentStatus.OK,
+        answer_text="Report drafted.",
+        generated_file=GeneratedFileRef(
+            file_id="file-1", file_name="Case Summary.pdf", storage_path="/tmp/x.pdf",
+            disclosure_rendered=False,
+        ),
+    )
+    _stub_supervisor(monkeypatch, result)
+    gateway = _FakeGateway()
+
+    events = await _collect(
+        run_cutover_query(
+            session_id="s1", user_message="draft a report", project_id=None, case_id="CASE-001",
+            user_id="u1", user_role="investigator", preferred_language=None, gateway=gateway,
+        )
+    )
+
+    file_events = [e for e in events if e["step"] == "file_generation"]
+    assert len(file_events) == 1
+    assert file_events[0]["status"] == "done"
+    assert file_events[0]["sources"] == [
+        {"filename": "Case Summary.pdf", "type": "pdf", "file_id": "file-1"}
+    ]
+    # Ordering parity with orchestrator.py: file_generation comes after memory.
+    steps = [e["step"] for e in events]
+    assert steps.index("memory") < steps.index("file_generation")
+    assert saved == [("s1", "draft a report", "Report drafted.")]
+
+
+@pytest.mark.asyncio
+async def test_no_generated_file_means_no_file_generation_event(monkeypatch):
+    _stub_history(monkeypatch)
+    result = SubAgentResult(status=SubAgentStatus.OK, answer_text="ok")
+    _stub_supervisor(monkeypatch, result)
+
+    events = await _collect(
+        run_cutover_query(
+            session_id="s1", user_message="q", project_id=None, case_id=None,
+            user_id="u1", user_role="investigator", preferred_language=None, gateway=_FakeGateway(),
+        )
+    )
+    assert not any(e["step"] == "file_generation" for e in events)
+
+
+@pytest.mark.asyncio
+async def test_cross_case_links_yield_cross_case_finding_event(monkeypatch):
+    """Mirrors orchestrator.py's XGRAPH-route event("cross_case_finding",
+    "done", ..., case_scope=..., unconfirmed_links=...) as closely as the
+    bounded CrossCaseLink payload allows (no raw-chunk `sources` available
+    at this boundary — see the inline comment at the yield site)."""
+    _stub_history(monkeypatch)
+    result = SubAgentResult(
+        status=SubAgentStatus.OK,
+        answer_text="Two cases connect via a shared vehicle plate.",
+        links=[
+            CrossCaseLink(
+                description="Shared plate ABC-123", case_ids=["CASE-001", "CASE-002"],
+                confidence=0.82, source_tool="XGRAPH", is_unconfirmed=False,
+            ),
+            CrossCaseLink(
+                description="Possible shared alias", case_ids=["CASE-001", "CASE-003"],
+                confidence=0.31, source_tool="XGRAPH", is_unconfirmed=True,
+            ),
+        ],
+    )
+    _stub_supervisor(monkeypatch, result)
+
+    events = await _collect(
+        run_cutover_query(
+            session_id="s1", user_message="q", project_id=None, case_id=None,
+            user_id="u1", user_role="investigator", preferred_language=None, gateway=_FakeGateway(),
+        )
+    )
+
+    xc = [e for e in events if e["step"] == "cross_case_finding"]
+    assert len(xc) == 1
+    assert xc[0]["status"] == "done"
+    assert xc[0]["case_scope"] == "cross_case"
+    assert len(xc[0]["unconfirmed_links"]) == 1
+    assert xc[0]["unconfirmed_links"][0]["description"] == "Possible shared alias"
+    # Ordering parity with orchestrator.py: cross_case_finding precedes response.
+    steps = [e["step"] for e in events]
+    assert steps.index("cross_case_finding") < steps.index("response")
+
+
+@pytest.mark.asyncio
+async def test_no_links_means_no_cross_case_finding_event(monkeypatch):
+    _stub_history(monkeypatch)
+    result = SubAgentResult(status=SubAgentStatus.OK, answer_text="ok")
+    _stub_supervisor(monkeypatch, result)
+
+    events = await _collect(
+        run_cutover_query(
+            session_id="s1", user_message="q", project_id=None, case_id=None,
+            user_id="u1", user_role="investigator", preferred_language=None, gateway=_FakeGateway(),
+        )
+    )
+    assert not any(e["step"] == "cross_case_finding" for e in events)
+
+
+@pytest.mark.asyncio
+async def test_timeline_events_yield_new_timeline_building_step(monkeypatch):
+    """No pre-harness precedent — AskUserQuestion-resolved this session to a
+    new, additive SSE step carrying the full TimelineEvent payload."""
+    _stub_history(monkeypatch)
+    result = SubAgentResult(
+        status=SubAgentStatus.OK,
+        answer_text="Three events reconstructed.",
+        events=[
+            TimelineEvent(
+                event_id="evt-1", description="Suspect seen at scene",
+                occurred_on="2026-01-05T10:00:00Z", conflict_state=ConflictState.CONFLICT,
+                conflict_basis="Two witness statements disagree on time.",
+            ),
+        ],
+    )
+    _stub_supervisor(monkeypatch, result)
+
+    events = await _collect(
+        run_cutover_query(
+            session_id="s1", user_message="q", project_id=None, case_id=None,
+            user_id="u1", user_role="investigator", preferred_language=None, gateway=_FakeGateway(),
+        )
+    )
+
+    tl = [e for e in events if e["step"] == "timeline_building"]
+    assert len(tl) == 1
+    assert tl[0]["status"] == "done"
+    assert tl[0]["events"][0]["event_id"] == "evt-1"
+    assert tl[0]["events"][0]["conflict_state"] == "conflict"
+
+
+@pytest.mark.asyncio
+async def test_data_quality_metrics_yield_new_data_quality_step(monkeypatch):
+    """No pre-harness precedent — same AskUserQuestion resolution as
+    timeline_building above."""
+    _stub_history(monkeypatch)
+    result = SubAgentResult(
+        status=SubAgentStatus.OK,
+        answer_text="Coverage assessed.",
+        metrics=[
+            DataQualityMetric(
+                name="document_coverage", label="Document coverage",
+                readiness=DataQualityReadiness.READY, counts={"documents": 42},
+                explains="How much of the case file has been ingested.",
+            ),
+        ],
+    )
+    _stub_supervisor(monkeypatch, result)
+
+    events = await _collect(
+        run_cutover_query(
+            session_id="s1", user_message="q", project_id=None, case_id=None,
+            user_id="u1", user_role="investigator", preferred_language=None, gateway=_FakeGateway(),
+        )
+    )
+
+    dq = [e for e in events if e["step"] == "data_quality"]
+    assert len(dq) == 1
+    assert dq[0]["status"] == "done"
+    assert dq[0]["metrics"][0]["name"] == "document_coverage"
+    assert dq[0]["metrics"][0]["readiness"] == "ready"
+
+
+@pytest.mark.asyncio
+async def test_no_events_or_metrics_means_no_new_steps(monkeypatch):
+    _stub_history(monkeypatch)
+    result = SubAgentResult(status=SubAgentStatus.OK, answer_text="ok")
+    _stub_supervisor(monkeypatch, result)
+
+    events = await _collect(
+        run_cutover_query(
+            session_id="s1", user_message="q", project_id=None, case_id=None,
+            user_id="u1", user_role="investigator", preferred_language=None, gateway=_FakeGateway(),
+        )
+    )
+    steps = {e["step"] for e in events}
+    assert "timeline_building" not in steps
+    assert "data_quality" not in steps

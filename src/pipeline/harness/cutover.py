@@ -49,6 +49,27 @@ SCOPE THIS SESSION, EXPLICITLY (resolved via AskUserQuestion, not guessed):
     provide; no sub-agent fetches its own history.
   - Project memory IS preserved: `gateway.get_project_memory()`, same as
     `orchestrator.py`, threaded into `ConversationContext.project_memory`.
+  - Full-result translation IS included (not just status/answer_text):
+    [AMENDMENT — pre-Timeline/Cross-Case/Data-Quality/Report-Drafting
+    cutover] `run_cutover_query()` originally only read `result.status` /
+    `result.answer_text` — correct for Semantic Search (this module's only
+    cut-over route to date, which sets neither `.links`, `.events`,
+    `.metrics`, nor `.generated_file`), but a silent data-loss trap for any
+    route cut over after it: a sub-agent could return fully correct
+    `.events`/`.links`/`.metrics`/`.generated_file` and this boundary would
+    drop all of it on the floor before it ever reached the SSE stream. Now
+    translated: `.generated_file` and `.links` mirror an already-shipped
+    orchestrator.py event shape exactly (`file_generation`/
+    `cross_case_finding` — see the inline comments at each yield site for
+    the precedent each one mirrors); `.events`/`.metrics` have no
+    pre-harness precedent at all (Timeline Building / Data-Quality never
+    existed before the harness) and were resolved via AskUserQuestion this
+    session to new, additive `timeline_building`/`data_quality` SSE steps,
+    frontend rendering left as explicit future work. This closes the gap
+    for all four but does NOT itself cut any of them over — none of
+    Timeline Building, Cross-Case Linkage, Data-Quality, or Report Drafting
+    is in `HARNESS_CUTOVER_ROUTES` as of this change; it only makes doing so
+    safe whenever classification reachability lands.
 
 WHAT THIS MODULE DOES NOT DO: classify (that's `Supervisor.handle()`'s own
 job, which calls `route_query()` a SECOND time internally — see the "KNOWN,
@@ -185,6 +206,51 @@ async def run_cutover_query(
             out["sources"] = evt.sources
         yield out
 
+    # ── Cross-Case Linkage — mirrors orchestrator.py's own XGRAPH-route
+    # event("cross_case_finding", "done", ..., sources=..., case_scope=...,
+    # unconfirmed_links=...) (orchestrator.py ~1182-1191). That `sources`
+    # list is built there from raw evidence chunks orchestrator.py still has
+    # in scope at that point; `SubAgentResult.links` deliberately carries no
+    # such chunk detail (design §3's no-raw-evidence-crosses-the-boundary
+    # rule), so this translation covers what the bounded `CrossCaseLink`
+    # payload actually holds. Confirmed sufficient: MessageBubble.tsx/
+    # chatStore.ts's own consumption of this step is shallow (a numeric
+    # hop_count/graph_confidence badge; `unconfirmed_links`/`case_scope`
+    # aren't read at all today), so there's no deep shape to match here that
+    # this translation is missing.
+    if result.links:
+        yield {
+            "step": "cross_case_finding",
+            "status": "done",
+            "detail": f"Found {len(result.links)} cross-case connection(s)",
+            "case_scope": "cross_case",
+            "unconfirmed_links": [link.model_dump() for link in result.links if link.is_unconfirmed],
+        }
+
+    # ── Timeline Building / Data-Quality — AskUserQuestion-resolved this
+    # session: unlike `cross_case_finding`/`file_generation` above, these two
+    # have NO pre-harness precedent (neither sub-agent existed before the
+    # harness, and the frontend has no step-name handling for either shape
+    # yet). Decision: emit new, additive SSE steps now — carrying the full
+    # bounded `TimelineEvent`/`DataQualityMetric` payloads — so the wire
+    # contract is ready and this boundary stops silently dropping the data,
+    # even though rendering them is left as explicit future frontend work
+    # rather than invented unilaterally here.
+    if result.events:
+        yield {
+            "step": "timeline_building",
+            "status": "done",
+            "detail": f"{len(result.events)} event(s)",
+            "events": [e.model_dump() for e in result.events],
+        }
+    if result.metrics:
+        yield {
+            "step": "data_quality",
+            "status": "done",
+            "detail": f"{len(result.metrics)} metric group(s)",
+            "metrics": [m.model_dump() for m in result.metrics],
+        }
+
     total_ms = int((time.monotonic() - query_start) * 1000)
 
     if result.status in (SubAgentStatus.ABSTAINED, SubAgentStatus.DENIED) or result.answer_text is None:
@@ -206,6 +272,31 @@ async def run_cutover_query(
         yield {"step": "memory", "status": "done", "detail": "Saved to session"}
     except Exception as exc:
         yield {"step": "memory", "status": "error", "detail": f"Failed to save conversation memory: {exc}"}
+
+    # ── Report Drafting — mirrors orchestrator.py's own `_generate_file()`
+    # event: event("file_generation", "done", f"File ready: {file_name}",
+    # sources=[{"filename", "type", "file_id"}]) (orchestrator.py:2117), and
+    # its ordering relative to the memory-save event above (orchestrator.py
+    # calls `_generate_file()` only after its own "memory" event,
+    # orchestrator.py:2065-2076). Confirmed MessageBubble.tsx deeply depends
+    # on this exact `sources` shape to render the download link (it filters
+    # `pipelineEvents` for step=="file_generation" && status=="done" &&
+    # sources, then flatMaps `sources` into `FileResultCard`) — so the field
+    # names below (`filename`, `type`, `file_id`) are not incidental, they
+    # are the contract. `file_type` isn't a field on `GeneratedFileRef`
+    # (unlike orchestrator.py, which derives it locally from
+    # `output_format.split('_')[1]`); it's recovered here from
+    # `file_name`'s extension, which `_generate_file()`/`gateway.
+    # log_generated_file()` guarantees is always present.
+    if result.generated_file:
+        gf = result.generated_file
+        file_type = gf.file_name.rsplit(".", 1)[-1].lower() if "." in gf.file_name else "file"
+        yield {
+            "step": "file_generation",
+            "status": "done",
+            "detail": f"File ready: {gf.file_name}",
+            "sources": [{"filename": gf.file_name, "type": file_type, "file_id": gf.file_id}],
+        }
 
     if pg_run_id:
         await _bg_update_run(
