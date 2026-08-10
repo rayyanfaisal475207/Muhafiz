@@ -136,6 +136,55 @@ CROSS_CASE_PER_CASE_CAP: int = int(os.getenv("CROSS_CASE_PER_CASE_CAP", "5"))
 # by repo-wide search before adding this) — greenfield naming.
 AIR_GAP_MODE: bool = os.getenv("AIR_GAP_MODE", "false").strip().lower() == "true"
 
+# ── Agent-harness shadow mode (see docs/AGENT_HARNESS_DESIGN.md) ──────────────
+# Runs the agent harness on a SAMPLE of real queries AFTER the legacy pipeline
+# has already answered the user, and logs what the harness would have said to
+# `harness_shadow_runs` (migration 020). Nothing it produces is ever shown to an
+# investigator, and it cannot change the answer the user received.
+#
+# DEFAULTS OFF, and that is the point: enabling it doubles retrieval and
+# generation work for every sampled query, against the same model server the
+# live path depends on. It is a deliberate operator decision with a real cost,
+# not something that should switch on because a new build was deployed.
+HARNESS_SHADOW_MODE: bool = (
+    os.getenv("HARNESS_SHADOW_MODE", "false").strip().lower() == "true"
+)
+
+# Fraction of eligible queries to shadow, 0.0–1.0. 0.05 = 5%.
+#
+# Sampling is what keeps the added load bounded. A shadow run costs roughly what
+# the real query cost — the same retrieval, the same generation — so shadowing
+# everything would double the load on the model server and could slow the live
+# path it shares. Start low; raise it only once the disagreement rate is known
+# and the model server has headroom.
+HARNESS_SHADOW_SAMPLE_RATE: float = float(
+    os.getenv("HARNESS_SHADOW_SAMPLE_RATE", "0.05") or 0.05
+)
+
+# How many shadow runs may be in flight at once, process-wide.
+#
+# Sampling bounds the RATE; this bounds the CONCURRENCY, and they fail
+# differently. A burst of traffic can put many samples in flight simultaneously
+# even at a low rate, and each one holds a model-server slot the live path also
+# needs. At 1 (the default) a shadow run is single-flight: if one is already
+# running, the next eligible query is skipped rather than queued — the harness
+# must never become a queue that outlives the request that spawned it.
+HARNESS_SHADOW_MAX_CONCURRENCY: int = int(
+    os.getenv("HARNESS_SHADOW_MAX_CONCURRENCY", "1") or 1
+)
+
+# Which legacy routes are eligible. Deliberately NOT every route:
+#   * DIRECT has no retrieval to compare, so there is nothing to learn.
+#   * The cross-case routes (XGRAPH/XAGG/XNETWORK) run under a role gate and
+#     arm cross-case RLS scope. Shadowing them would arm that scope a second
+#     time, outside the request that authorized it, for a result no one reads.
+#     Excluded until within-case shadowing has been proven in production.
+HARNESS_SHADOW_ROUTES: frozenset = frozenset(
+    r.strip().upper()
+    for r in os.getenv("HARNESS_SHADOW_ROUTES", "RAG,GRAPH,GRAPH_HYBRID").split(",")
+    if r.strip()
+)
+
 # Relevance/reliability control, not just safety (architecture doc) — WEB
 # results are restricted to government/legal/established-news domains, never
 # the open web. Comma-separated env override; sensible starting default.
@@ -271,6 +320,28 @@ def validate_config() -> tuple[list[str], list[str]]:
             "AIR_GAP_MODE is enabled but LOCAL_LLM_URL is not set — every LLM "
             "call will refuse the cloud fallback and fail."
         )
+
+    # Shadow mode is fire-and-forget by design, so a bad setting here would
+    # otherwise present as "shadow mode logs nothing" with no error anywhere —
+    # indistinguishable from it being switched off. Caught at startup instead.
+    if HARNESS_SHADOW_MODE:
+        if not 0.0 < HARNESS_SHADOW_SAMPLE_RATE <= 1.0:
+            errors.append(
+                f"HARNESS_SHADOW_MODE is enabled but HARNESS_SHADOW_SAMPLE_RATE "
+                f"is {HARNESS_SHADOW_SAMPLE_RATE} — must be greater than 0 and "
+                f"at most 1.0, or no query is ever sampled."
+            )
+        if HARNESS_SHADOW_MAX_CONCURRENCY < 1:
+            errors.append(
+                f"HARNESS_SHADOW_MAX_CONCURRENCY is "
+                f"{HARNESS_SHADOW_MAX_CONCURRENCY} — must be at least 1, or "
+                f"every shadow run is rejected by its own concurrency guard."
+            )
+        if not HARNESS_SHADOW_ROUTES:
+            errors.append(
+                "HARNESS_SHADOW_MODE is enabled but HARNESS_SHADOW_ROUTES is "
+                "empty — no route would ever be eligible."
+            )
 
     # ENVIRONMENT must be a real, recognized value. The cookie Secure flag
     # (src/auth/routes.py) and this function's own JWT-secret check below
