@@ -663,52 +663,70 @@ file did not.
   grandfathered, then change both together. Do not fold it into harness work. Part A's shim is
   removable as part of it.
 
-- **Timeline Building retrieves from GRAPH only, and the graph is thin on timeline evidence.**
-  Surfaced by the first real-data run after generation was wired (CASE-009, an 8-document case):
-  the GRAPH tool returns exactly **one** chunk at `max_hops` 1, 2 and 3 alike, and that chunk is a
-  Recovery Memo table header carrying no extractable date — so the timeline rendered as a single
-  `undated` "event". The same case's RAG leg returns 9 chunks, 3 of them with dates the existing
-  `_extract_date()` parses correctly.
+- **RESOLVED — Timeline Building retrieved from GRAPH only, and the graph is thin on timeline
+  evidence.** Surfaced by the first real-data run after generation was wired (CASE-009, an
+  8-document case): the GRAPH tool returned exactly **one** chunk at `max_hops` 1, 2 and 3 alike,
+  a Recovery Memo table header with no extractable date — so the timeline rendered as a single
+  `undated` "event", while the same case's RAG leg returned 9 chunks, 3 of them dated.
 
-  The data is present and the extractor is fine: the graph carries 24 `Date` vertices, 56
-  `OCCURRED_ON` edges and 85 `Incident` vertices, none of which this traversal surfaces. This is a
-  **retrieval-strategy gap, not a generation defect** — generation itself works and narrated the
-  one event it was given. Stub tools concealed it by returning rich, well-dated synthetic events.
+  **Fixed** by adding a RAG leg as a SUPPLEMENT, not a replacement. GRAPH stays primary and is
+  merged first, so its structurally-derived events keep the lower `[Document N]` indices and its
+  conflict-detection metadata continues to drive `ConflictState`; RAG can only contribute chunk
+  ids GRAPH did not already supply. `_contributing_tools()` reports both legs per [RESOLVED-4],
+  and a GRAPH failure now abstains only when RAG did not cover for it. Measured after the change
+  on the same case: **1 event -> 9, 0 dated -> 3, 1 citation -> 9**, `tools_used=['GRAPH','RAG']`.
 
-  **Needs its own scoped change**, because the fix is a real design decision, not a tweak: either
-  add a RAG leg to Timeline (changing `tools_used`/`degraded_from` bookkeeping and the citation
-  contract) or write a date-aware Cypher traversal over `OCCURRED_ON`/`Date` (keeping it
-  GRAPH-only but requiring new graph query work). Do not fold either into generation wiring.
+  Still open, deliberately: the graph carries 24 `Date` vertices and 56 `OCCURRED_ON` edges that
+  no traversal surfaces. A date-aware Cypher traversal would make GRAPH's own contribution far
+  richer and is worth doing, but it is graph-query work, not sub-agent work.
 
-- **Cross-Case Linkage never extracts a target entity, so XGRAPH returns EMPTY on open-ended
-  queries.** Same first-real-data run. `run()` passes `target_entity=None` unconditionally, and
-  with that the XGRAPH tool finds nothing — while the identical tool call with a real graph entity
-  (`"Hina Malik"`) returns **3 unconfirmed links**. So the tool works; the sub-agent gives it
-  nothing to traverse from.
+- **RESOLVED (and my original diagnosis was wrong) — Cross-Case Linkage reported "no connections
+  found".** Recorded here because the correction matters more than the fix: this was logged as a
+  **false negative**, on the reasoning that raw Cypher showed 8+ entities spanning multiple cases
+  while the sub-agent reported none. That reasoning was wrong.
 
-  This is a **false negative on the highest-stakes query type in the system**: raw Cypher confirms
-  at least 8 entities genuinely spanning multiple cases (e.g. `Hina Malik` across
-  `CASE-B0-HAR-001` and `CASE-B0-THEFT-001`), yet the sub-agent answers "No connections were found
-  across the accessible cases." An investigator would read that as a cleared lead.
+  What the data actually shows: **168 Person vertices, 168 distinct `entity_id`s, and zero
+  spanning more than one case.** The same real person mentioned in two cases becomes two separate
+  vertices joined by a `SAME_AS` edge. Of 763 such edges, 113 are `status='confirmed'` and **none
+  of those cross a case boundary**; the 523 pending ones do, but they are low-confidence
+  name-similarity guesses (0.37-0.61) between Urdu and Latin renderings of a name. `EMPTY` plus
+  populated `unconfirmed_links` was therefore the CORRECT answer, and `_expand_confirmed_identity`
+  reading `r.status = 'confirmed'` is correct too — my "confirmed = true" check was simply the
+  wrong query against a status-string property.
 
-  Two things worth recording for whoever picks this up. Graph `Person` vertices key on
-  `canonical_name`, **not** `name`, and many are Urdu-script — so entity extraction cannot assume
-  the surface form in the query matches the graph. And XNETWORK could not be exercised at all:
-  `community_reports` is empty (`community_runs` has one row that produced nothing) and no
-  community-summary Chroma collection exists, so that leg needs the offline community pipeline run
-  before it can be tested at all.
+  Two REAL defects surfaced underneath the bad diagnosis, both fixed:
 
-- **`report_draft` file generation fails 100% of the time: `session_id: None` into a non-null
-  UUID parse.** `_generate_file()` passes `{"session_id": None, ...}` to
-  `gateway.log_generated_file()`, whose direct backend does
-  `session_id=uuid.UUID(file_data["session_id"])` with **no None-guard** — while the adjacent
-  `user_id` on the very next line *is* guarded (`... if file_data.get("user_id") else None`). So
-  every invocation raises `one of the hex, bytes, bytes_le, fields, or int arguments must be
-  given`, which the sub-agent catches and converts into an abstention with a caveat.
+  1. **Every unconfirmed link rendered as "Possible identity link between an entity and another
+     entity."** `_links_from_xgraph` read `raw['from']`/`raw['to']`, but
+     `graph_retriever._unconfirmed_same_as_links()` emits `entity`/`candidate`, so both always hit
+     the placeholder fallback. In an investigative context that is worse than useless: it tells a
+     reviewer a possible identity match exists while withholding the two names needed to confirm
+     or dismiss it. Now renders real names plus the resolver's `basis` (newly propagated) and
+     `tier`.
+  2. **`router.py`'s deterministic XGRAPH override hardcodes `target_entity: None`**, and one of
+     its patterns is `(other|another)\s+cases?` — which matches the archetypal cross-case
+     question, "What other cases is X involved in?". So routing short-circuits before the LLM
+     extraction step on exactly the queries where an entity matters most. `target_entity` is now
+     threaded on `SubAgentInput` (populated by the supervisor from `route_result`, explicit values
+     winning), with `_recover_target_entity()` falling back to `ner.extract_statistical` —
+     regex/gazetteer only, no model call — when routing supplies none. Verified: "What other cases
+     is Hina Malik involved in?" went from 0 links to the same 3 the explicitly-anchored query
+     returns. `router.py` itself is untouched, since it serves every live legacy query.
 
-  Confirmed against live infrastructure with a real user UUID, so it is not a probe artifact: the
-  whole pipeline (RAG + GRAPH retrieval, real generation, verification, PDF build) runs for ~45s
-  and then discards the report at the logging step. `SubAgentInput` carries no session identifier,
-  so this cannot be fixed by passing one through — it needs a decision about whether generated
-  files are session-scoped at all, and either a nullable column or a session threaded into the
-  contract. Not folded into generation wiring for that reason.
+  XNETWORK still cannot be exercised at all: `community_reports` is empty (`community_runs` has
+  one row that produced nothing) and no community-summary Chroma collection exists, so that leg
+  needs the offline community pipeline run first. Also worth knowing: graph `Person` vertices key
+  on `canonical_name`, **not** `name`, and many are Urdu-script.
+
+- **RESOLVED — `report_draft` file generation failed on every invocation.** `_generate_file()`
+  passed `{"session_id": None, ...}` to `gateway.log_generated_file()`, whose backend called
+  `uuid.UUID()` on it unguarded. The whole pipeline (RAG + GRAPH, generation, verification, PDF
+  build) ran for ~45s and then discarded the report at the logging step.
+
+  Not a missing None-guard, as first assumed: `generated_files.session_id` is **NOT NULL** in the
+  schema, matching what legacy passes at orchestrator.py:2099. The harness simply had no session
+  to record, so `SubAgentInput.session_id` was added and Report Drafting now validates it UPFRONT,
+  beside the existing `output_format` check — turning a 45-second walk into a failure into an
+  immediate, explainable refusal. `direct_backend` additionally raises a named error instead of
+  bare "one of the hex, bytes, bytes_le..." when it is missing. Verified end-to-end: `status=OK`,
+  6 citations, a real 4,818-byte PDF recorded against CASE-009.
