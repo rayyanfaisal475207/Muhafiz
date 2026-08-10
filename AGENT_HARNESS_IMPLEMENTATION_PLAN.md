@@ -1592,8 +1592,10 @@ live traffic, per §6.
 
 ### CI — Compliance suite wired into CI as a merge gate: COMPLETE
 
-Branch `feature/harness-ci-compliance-gate`, merged to main via merge commit `<PENDING>`. §8's last
-remaining build-checklist item.
+Branch `feature/harness-ci-compliance-gate`, merged to main via merge commit `4abc648`. §8's last
+remaining build-checklist item. (Rebuilt once mid-session after discovering the branch had
+originally forked from local `main`'s pre-`filter-branch` history — see this entry's own note below
+for what that was and how it was fixed before any push.)
 
 **Built:** `.github/workflows/ci.yml`'s `backend` job gained one new blocking step —
 `pytest src/pipeline/harness/compliance/` — run right after the existing `tests/`-scoped coverage
@@ -1617,6 +1619,23 @@ progress-log entry already documented having to run it manually and separately.
   user's own action, not part of this task, and does not change the answer to the push question above
   — re-confirmed via `AskUserQuestion` after the push happened, user still chose local-merge-only for
   this branch.
+
+**Mid-session discovery and fix — stale branch base from a `filter-branch` rewrite.** After the
+initial merge (first merge commit, later discarded — see below), a routine ahead-count check showed
+local `main` 80 commits ahead of `origin/main` instead of the expected 2. Root-caused via
+`git reflog show main` before assuming anything: outside this session's own tool calls, `main`'s
+entire history had been rewritten via `git filter-branch` at some earlier point (confirmed with the
+user: purging a secret/credential from old history) — new commit hashes throughout, but an
+identical tree at the tip (`eba9b00`'s tree hash matches the pre-rewrite tip's tree hash exactly).
+This session's feature branch, however, had been created from `main` *before* that rewrite happened,
+so it forked from the stale pre-rewrite commit. The first merge (into post-rewrite `main`) spliced
+both histories together, silently reintroducing all 77 pre-rewrite commits — including whatever the
+filter-branch had purged — as a second ancestry line. Caught before any push. Fixed by rebasing the
+branch's one real commit onto the actual rewritten tip (`git rebase --onto eba9b00 <stale-base>
+feature/harness-ci-compliance-gate` — clean, no conflicts, since the trees matched), resetting local
+`main` to the rewritten tip, and redoing the merge (this entry's actual merge commit, `4abc648`)
+cleanly on top. Local `main` is now exactly 2 commits ahead of `origin/main` (the one real commit +
+this merge) — confirmed via `git rev-list --count origin/main..main`, not assumed.
 
 **Verification:** compliance suite run standalone both before and after the `ci.yml` edit — 51/51
 passing each time (51 dots, no `F`/`E` markers), unchanged count. Full existing test suite (`pytest`,
