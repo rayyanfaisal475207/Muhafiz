@@ -97,6 +97,7 @@ from src.pipeline.harness.contracts import (
     ConflictState,
     EvidenceChunk,
     GraphToolInput,
+    RagToolInput,
     SubAgentInput,
     SubAgentResult,
     SubAgentStatus,
@@ -219,6 +220,30 @@ def _sort_key(event: TimelineEvent) -> tuple[int, str]:
     return (1, "") if event.occurred_on is None else (0, event.occurred_on)
 
 
+def _contributing_tools(graph_ok: bool, rag_ok: bool) -> list[str]:
+    """
+    [RESOLVED-4] Which legs CONTRIBUTED to the answer — not which returned rows.
+
+    `graph_ok` is the tool's STATUS, deliberately not its chunk count. A
+    successful GRAPH call that returns zero events is a real contribution: it is
+    what establishes "no events are recorded for this case", and that assertion
+    is the answer to a timeline question. Demoting it to a non-contributor
+    because the list came back empty would report an authoritative negative
+    finding as though no source had produced it.
+
+    GRAPH is reported whenever it succeeded, even if RAG supplied more events:
+    the graph's structural events and conflict-detection signal are what make
+    `ConflictState` meaningful, so its contribution is never demoted just
+    because the document leg was more productive.
+    """
+    tools: list[str] = []
+    if graph_ok:
+        tools.append("GRAPH")
+    if rag_ok:
+        tools.append("RAG")
+    return tools
+
+
 async def _synthesize(
     query_text: str,
     timeline_events: list[TimelineEvent],
@@ -314,6 +339,33 @@ async def run(
         events=events,
     )
 
+    # ── Supplement with RAG, because GRAPH alone under-reports events ──
+    # Measured on real data (CASE-009, 8 documents): the GRAPH leg returns
+    # exactly ONE chunk at max_hops 1, 2 and 3 alike, carrying no extractable
+    # date — while RAG returns 9 chunks for the same case, 3 of them dated. A
+    # timeline built from the graph alone rendered as a single "undated" entry
+    # for a case whose documents state the incident date plainly.
+    #
+    # GRAPH stays PRIMARY and is listed first, so its structurally-derived
+    # events keep the lower `[Document N]` indices and the graph's own
+    # conflict-detection signal continues to drive `ConflictState`. RAG is
+    # additive: it can only contribute events GRAPH did not already supply.
+    #
+    # A RAG failure is NOT fatal here — the timeline degrades to graph-only
+    # rather than abstaining, which is what it did before this leg existed.
+    rag_result = None
+    try:
+        rag_result = await registry.rag_tool(
+            RagToolInput(
+                query_text=agent_input.query_text,
+                caller=caller,
+                top_k=_MAX_EVENTS,
+            ),
+            events=events,
+        )
+    except Exception as exc:
+        logger.warning("Timeline RAG supplement failed: %s", exc)
+
     # [RESOLVED-5] `cases.conflicts_checked_at` (migration 019) is the evidence
     # that detection actually COMPLETED for this case — written by the
     # background task on return, so a query racing an in-flight detection still
@@ -326,13 +378,35 @@ async def run(
             caller.active_case_id, gateway
         )
 
+    # GRAPH first: it keeps the lower `[Document N]` indices, and its chunks
+    # carry the conflict-detection metadata `_conflict_state_for` reads.
     raw_chunks = list(graph_result.chunks or [])
+    # STATUS, not chunk count — a successful GRAPH call returning zero events is
+    # what establishes "no events are recorded", which is itself the answer.
+    graph_ok = graph_result.status is not ToolStatus.FAILED
+
+    rag_ok = bool(
+        rag_result
+        and rag_result.status is ToolStatus.OK
+        and rag_result.chunks
+    )
+    if rag_ok:
+        # De-duplicate by chunk id: the two legs can legitimately return the
+        # same underlying passage, and a timeline that lists one event twice is
+        # worse than one that lists it once.
+        seen_ids = {c.id for c in raw_chunks}
+        for chunk in rag_result.chunks:
+            if chunk.id not in seen_ids:
+                seen_ids.add(chunk.id)
+                raw_chunks.append(chunk)
 
     # ── No events for this case → an EXPLICIT EMPTY TIMELINE ──
     # A legitimate "nothing to show", NOT an error and NOT an abstention: the
     # question was answerable and the answer is that no events are recorded.
     # Distinguished from a tool FAILURE, which abstains below.
-    if graph_result.status is ToolStatus.FAILED:
+    # A GRAPH failure abstains only when RAG did not cover for it. With usable
+    # RAG evidence there IS a timeline to build, so degrading beats abstaining.
+    if graph_result.status is ToolStatus.FAILED and not rag_ok:
         if events:
             await events.emit(
                 f"subagent:{NAME}", "error", "Timeline Building: could not read case events"
@@ -356,7 +430,9 @@ async def run(
             status=SubAgentStatus.OK,
             answer_text="No dated events are recorded for this case.",
             citations=[],
-            tools_used=["GRAPH"],
+            # [RESOLVED-4] Both legs ran and neither found events; report what
+            # actually contributed to that (empty) conclusion.
+            tools_used=_contributing_tools(graph_ok, rag_ok),
             degraded_from=[],
             timeline=[],
         )
@@ -405,7 +481,7 @@ async def run(
             citations=[],
             timeline=[],
             tools_used=[],
-            degraded_from=["GRAPH"],
+            degraded_from=_contributing_tools(graph_ok, rag_ok) or ["GRAPH"],
             error=ToolError(
                 kind="upstream_failure",
                 message=f"Timeline narrative generation failed: {exc}",
@@ -430,7 +506,7 @@ async def run(
             answer_text=None,
             citations=[],
             tools_used=[],
-            degraded_from=["GRAPH"],
+            degraded_from=_contributing_tools(graph_ok, rag_ok) or ["GRAPH"],
             caveats=[_ABSTENTION_CAVEAT],
         )
 
@@ -466,7 +542,7 @@ async def run(
         status=SubAgentStatus.PARTIAL if degraded_from else SubAgentStatus.OK,
         answer_text=answer,
         citations=citations,
-        tools_used=["GRAPH"],
+        tools_used=_contributing_tools(graph_ok, rag_ok),
         degraded_from=degraded_from,
         caveats=caveats,
         timeline=timeline,
