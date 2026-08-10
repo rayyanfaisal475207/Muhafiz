@@ -65,15 +65,22 @@ import logging
 from typing import Any, Optional
 
 from src.pipeline.harness.contracts import (
+    CallerContext,
     Citation,
     CrossCaseLink,
     EvidenceChunk,
     SubAgentInput,
     SubAgentResult,
     SubAgentStatus,
+    ToolError,
     ToolStatus,
     XGraphToolInput,
     XNetworkToolInput,
+)
+from src.pipeline.harness.generation import (
+    CROSS_CASE_NETWORK_PROMPT_TEMPLATE,
+    CROSS_CASE_PROMPT_TEMPLATE,
+    generate_cross_case_answer,
 )
 from src.pipeline.harness.events import EventRecorder
 from src.pipeline.harness.tools import registry
@@ -199,15 +206,51 @@ def _rank(links: list[CrossCaseLink]) -> list[CrossCaseLink]:
     )
 
 
-def _synthesize(query_text: str, chunks: list[EvidenceChunk]) -> str:
+async def _synthesize(
+    query_text: str,
+    chunks: list[EvidenceChunk],
+    caller: CallerContext,
+    used_xnetwork: bool,
+    unconfirmed_links: Optional[str] = None,
+    conversation_context: Optional[str] = None,
+) -> str:
     """
-    Stand-in for the linkage generator. `[Document N]` markers match `chunks`
-    positionally ([PRESERVE — design §5]).
+    Generate the linkage answer, using the legacy CROSS-CASE templates —
+    NOT the case-scoped one.
+
+    Template selection mirrors legacy exactly, and the split is deliberate
+    (orchestrator.py:82-86): XNETWORK's evidence is already-LLM-summarized
+    community reports, while XGRAPH's is per-case graph traversal with a
+    per-case `[Document N, CASE-ID]` citation rule. Reusing one template for
+    both produced citations the Verifier then correctly rejected.
+
+    `unconfirmed_links` is threaded into `cross_case_response.txt`'s hedging
+    section: the Verifier's deterministic hedging check rejects an unhedged
+    claim built on a low-confidence entity link, so the generator must be TOLD
+    which links are unconfirmed or it cannot comply.
+
+    `[Document N]` markers match `chunks` positionally ([PRESERVE — design §5]);
+    this function must never reorder them.
     """
-    markers = " ".join(f"[Document {i}]" for i in range(1, len(chunks) + 1))
-    marker_prefix = f"{UNGROUNDED_TRIGGER} " if UNGROUNDED_TRIGGER in query_text else ""
-    return (
-        f"{marker_prefix}Connections identified across the accessible cases. {markers}"
+    if UNGROUNDED_TRIGGER in query_text:
+        markers = " ".join(f"[Document {i}]" for i in range(1, len(chunks) + 1))
+        return (
+            f"{UNGROUNDED_TRIGGER} Connections identified across the accessible "
+            f"cases. {markers}"
+        )
+
+    template = (
+        CROSS_CASE_NETWORK_PROMPT_TEMPLATE
+        if used_xnetwork
+        else CROSS_CASE_PROMPT_TEMPLATE
+    )
+    return await generate_cross_case_answer(
+        query_text=query_text,
+        chunks=chunks,
+        template=template,
+        preferred_language=caller.preferred_language,
+        conversation_context=conversation_context,
+        unconfirmed_links=unconfirmed_links,
     )
 
 
@@ -369,7 +412,46 @@ async def run(
         )
 
     # ── Generate, then gate ──
-    answer = _synthesize(agent_input.query_text, chunks)
+    # Surface the unconfirmed links to the generator so it can hedge them. The
+    # Verifier's deterministic hedging check rejects an unhedged claim resting
+    # on a low-confidence identity match, so withholding this would make the
+    # model fail a check it had no way to satisfy.
+    unconfirmed_text = "\n".join(
+        f"- {link.description}" for link in links if link.is_unconfirmed
+    ) or None
+
+    try:
+        answer = await _synthesize(
+            agent_input.query_text,
+            chunks,
+            agent_input.caller,
+            used_xnetwork="XNETWORK" in tools_used,
+            unconfirmed_links=unconfirmed_text,
+            conversation_context=agent_input.conversation_context,
+        )
+    except Exception as exc:
+        # Generation infrastructure failed. The structured links survived, but
+        # there is no narrative to verify — abstain rather than serve
+        # unverified cross-case prose, which is the highest-risk output this
+        # system produces.
+        logger.error("Cross-Case Linkage generation failed: %s", exc)
+        if events:
+            await events.emit(
+                f"subagent:{NAME}", "error",
+                "Cross-Case Linkage: answer generation failed",
+            )
+        return SubAgentResult(
+            status=SubAgentStatus.ABSTAINED,
+            answer_text=None,
+            citations=[],
+            cross_case_links=[],
+            tools_used=[],
+            degraded_from=sorted(set(degraded_from) | set(tools_used)),
+            error=ToolError(
+                kind="upstream_failure",
+                message=f"Cross-case answer generation failed: {exc}",
+            ),
+        )
 
     verdict = await verify_grounding(
         answer=answer,

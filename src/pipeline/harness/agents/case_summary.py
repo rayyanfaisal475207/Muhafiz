@@ -32,10 +32,12 @@ NOT wired into the supervisor's routing yet, deliberately.
 """
 from __future__ import annotations
 
+import logging
 from typing import Optional
 
 from src.pipeline.harness.contracts import (
     GRAPH_ONLY_SUMMARY_DISCLOSURE,
+    CallerContext,
     Citation,
     EvidenceChunk,
     GraphToolInput,
@@ -43,12 +45,16 @@ from src.pipeline.harness.contracts import (
     SubAgentInput,
     SubAgentResult,
     SubAgentStatus,
+    ToolError,
     ToolResult,
     ToolStatus,
 )
 from src.pipeline.harness.events import EventRecorder
+from src.pipeline.harness.generation import generate_case_scoped_answer
 from src.pipeline.harness.tools import registry
 from src.pipeline.harness.verifier_gate import UNGROUNDED_TRIGGER, verify_grounding
+
+logger = logging.getLogger(__name__)
 
 NAME = "case_summary"
 
@@ -71,32 +77,46 @@ def _usable(result: Optional[ToolResult]) -> bool:
     return bool(result and result.status is ToolStatus.OK and result.chunks)
 
 
-def _synthesize(
+async def _synthesize(
     query_text: str,
     chunks: list[EvidenceChunk],
     graph_only: bool,
+    caller: CallerContext,
+    conversation_context: Optional[str] = None,
 ) -> str:
     """
-    Stand-in for the summary generator.
+    Generate the case summary, using the same generator and prompt the legacy
+    GRAPH_HYBRID route uses.
 
-    Emits `[Document N]` markers whose N is the 1-based position in `chunks` —
-    the positional contract the Verifier's deterministic checks depend on
-    ([PRESERVE — design §5]). A real generator replaces the prose; it must not
-    change the citation scheme.
-
-    Deliberately does NOT concatenate chunk bodies: the summary stays bounded
-    regardless of how verbose retrieval was.
+    `[Document N]` markers are produced by the model against the numbered
+    evidence block, where N is the 1-based position in `chunks` — the positional
+    contract the Verifier's deterministic checks depend on ([PRESERVE —
+    design §5]). This function must never reorder `chunks`.
 
     NOTE: this produces the EVIDENTIARY content only. The GRAPH-only disclosure
-    is NOT added here — it is injected after verification (§2.1.2 step 4), so
-    it is never submitted to the grounding gate.
+    is NOT added here — it is injected after verification (§2.1.2 step 4), so it
+    is never submitted to the grounding gate. `graph_only` therefore does NOT
+    change the prompt: it stays a caller-side concern, and letting it steer
+    generation would risk the model pre-empting the disclosure in unverified
+    prose.
+
+    The `UNGROUNDED_TRIGGER` shortcut is preserved so the verifier-rejection
+    path stays exercisable without a live model — see semantic_search for the
+    full reasoning.
     """
-    markers = " ".join(f"[Document {i}]" for i in range(1, len(chunks) + 1))
-    shape = "case graph entities and relationships" if graph_only else "case documents and graph"
-    marker_prefix = f"{UNGROUNDED_TRIGGER} " if UNGROUNDED_TRIGGER in query_text else ""
-    return (
-        f"{marker_prefix}Case summary drawn from {shape}: status, key entities, key "
-        f"events, and open questions are set out below. {markers}"
+    if UNGROUNDED_TRIGGER in query_text:
+        markers = " ".join(f"[Document {i}]" for i in range(1, len(chunks) + 1))
+        return (
+            f"{UNGROUNDED_TRIGGER} Case summary drawn from the case record: "
+            f"status, key entities, key events, and open questions are set out "
+            f"below. {markers}"
+        )
+
+    return await generate_case_scoped_answer(
+        query_text=query_text,
+        chunks=chunks,
+        preferred_language=caller.preferred_language,
+        conversation_context=conversation_context,
     )
 
 
@@ -205,7 +225,40 @@ async def run(
         )
 
     # ── Generate the EVIDENTIARY content, then gate it ──
-    answer = _synthesize(agent_input.query_text, chunks, graph_only=graph_only)
+    try:
+        answer = await _synthesize(
+            agent_input.query_text,
+            chunks,
+            graph_only=graph_only,
+            caller=caller,
+            conversation_context=agent_input.conversation_context,
+        )
+    except Exception as exc:
+        # Generation infrastructure failed. Nothing safe to serve — abstain
+        # rather than emit unverified prose. Both tools land in `degraded_from`
+        # because retrieval succeeded but never reached the user.
+        logger.error("Case Summarization generation failed: %s", exc)
+        if events:
+            await events.emit(
+                f"subagent:{NAME}", "error",
+                "Case Summarization: summary generation failed",
+            )
+        return SubAgentResult(
+            status=SubAgentStatus.ABSTAINED,
+            answer_text=None,
+            citations=[],
+            tools_used=[],
+            # [RESOLVED-4] Nothing contributed to a served answer, so
+            # `tools_used` is empty and everything attempted collapses into
+            # `degraded_from` — the same treatment the verifier-rejection path
+            # below applies, and it keeps the invariant that a tool never
+            # appears in both lists.
+            degraded_from=sorted(set(degraded_from) | set(tools_used)),
+            error=ToolError(
+                kind="upstream_failure",
+                message=f"Summary generation failed: {exc}",
+            ),
+        )
 
     # [PRESERVE — design §5] The Verifier receives EXACTLY the list the
     # generator was shown, in the same order.

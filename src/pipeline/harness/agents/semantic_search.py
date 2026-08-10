@@ -19,20 +19,26 @@ this boundary is exercised under realistic pressure from day one.
 """
 from __future__ import annotations
 
+import logging
 from typing import Optional
 
 from src.pipeline.harness.contracts import (
+    CallerContext,
     Citation,
     EvidenceChunk,
     RagToolInput,
     SubAgentInput,
     SubAgentResult,
     SubAgentStatus,
+    ToolError,
     ToolStatus,
 )
 from src.pipeline.harness.events import EventRecorder
+from src.pipeline.harness.generation import generate_case_scoped_answer
 from src.pipeline.harness.tools import registry
 from src.pipeline.harness.verifier_gate import UNGROUNDED_TRIGGER, verify_grounding
+
+logger = logging.getLogger(__name__)
 
 NAME = "semantic_search"
 
@@ -46,28 +52,39 @@ _ABSTENTION_REASON = (
 )
 
 
-def _synthesize(query_text: str, chunks: list[EvidenceChunk]) -> str:
+async def _synthesize(
+    query_text: str,
+    chunks: list[EvidenceChunk],
+    caller: CallerContext,
+    conversation_context: Optional[str] = None,
+) -> str:
     """
-    Stand-in for the response generator.
+    Generate the answer, using the same generator and prompt the legacy RAG
+    route uses (`generation.generate_case_scoped_answer`).
 
-    Emits `[Document N]` markers whose N is the 1-based position in `chunks` —
-    the positional contract the Verifier's deterministic checks depend on
-    ([PRESERVE — design §5]). The real generator replaces the prose; it must not
-    change the citation scheme.
+    `[Document N]` markers are produced by the model against the numbered
+    evidence block, where N is the 1-based position in `chunks` — the positional
+    contract the Verifier's deterministic checks depend on ([PRESERVE —
+    design §5]). This function must never reorder `chunks`.
 
-    Note this deliberately does NOT concatenate chunk bodies: the answer is
-    bounded regardless of how verbose retrieval was.
-
-    The stub carries any test trigger from the query into the answer, because a
-    real generator's output is derived from its input — the verifier inspects
-    the ANSWER, so a trigger that never reached it could not exercise the
-    rejection path.
+    The test-trigger shortcut is preserved: `UNGROUNDED_TRIGGER` in the query is
+    carried into the answer WITHOUT calling the model at all. That keeps the
+    verifier-rejection path exercisable in tests without a live model — and
+    without a billable call — since the verifier inspects the ANSWER, so a
+    trigger that never reached it could not exercise the rejection path.
     """
-    markers = " ".join(f"[Document {i}]" for i in range(1, len(chunks) + 1))
-    marker_prefix = f"{UNGROUNDED_TRIGGER} " if UNGROUNDED_TRIGGER in query_text else ""
-    return (
-        f"{marker_prefix}Based on the case documents, the retrieved passages "
-        f"address the query. {markers}"
+    if UNGROUNDED_TRIGGER in query_text:
+        markers = " ".join(f"[Document {i}]" for i in range(1, len(chunks) + 1))
+        return (
+            f"{UNGROUNDED_TRIGGER} Based on the case documents, the retrieved "
+            f"passages address the query. {markers}"
+        )
+
+    return await generate_case_scoped_answer(
+        query_text=query_text,
+        chunks=chunks,
+        preferred_language=caller.preferred_language,
+        conversation_context=conversation_context,
     )
 
 
@@ -126,7 +143,35 @@ async def run(
 
     # ── Generate, then gate ──
     chunks = result.chunks[:_MAX_CITATIONS]
-    answer = _synthesize(agent_input.query_text, chunks)
+    try:
+        answer = await _synthesize(
+            agent_input.query_text,
+            chunks,
+            agent_input.caller,
+            agent_input.conversation_context,
+        )
+    except Exception as exc:
+        # Generation infrastructure failed (model unreachable, timeout). There
+        # is no answer to verify and nothing safe to serve — abstain rather
+        # than emit ungrounded prose. RAG is recorded in `degraded_from`
+        # because retrieval DID succeed; it just never reached the user.
+        logger.error("Semantic Search generation failed: %s", exc)
+        if events:
+            await events.emit(
+                f"subagent:{NAME}", "error",
+                "Semantic Search: answer generation failed",
+            )
+        return SubAgentResult(
+            status=SubAgentStatus.ABSTAINED,
+            answer_text=None,
+            citations=[],
+            tools_used=[],
+            degraded_from=["RAG"],
+            error=ToolError(
+                kind="upstream_failure",
+                message=f"Answer generation failed: {exc}",
+            ),
+        )
 
     # [PRESERVE — design §5] The verifier receives EXACTLY the list the
     # generator was shown, in the same order.

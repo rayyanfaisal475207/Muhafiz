@@ -73,13 +73,19 @@ import logging
 from typing import Any, Optional
 
 from src.pipeline.harness.contracts import (
+    CallerContext,
     Citation,
     EvidenceChunk,
     SubAgentInput,
     SubAgentResult,
     SubAgentStatus,
+    ToolError,
     ToolStatus,
     XAggToolInput,
+)
+from src.pipeline.harness.generation import (
+    CROSS_CASE_AGG_PROMPT_TEMPLATE,
+    generate_cross_case_answer,
 )
 from src.pipeline.harness.events import EventRecorder
 from src.pipeline.harness.tools import registry
@@ -167,15 +173,38 @@ def _to_citations(chunks: list[EvidenceChunk]) -> list[Citation]:
     ]
 
 
-def _synthesize(query_text: str, chunks: list[EvidenceChunk]) -> str:
+async def _synthesize(
+    query_text: str,
+    chunks: list[EvidenceChunk],
+    caller: CallerContext,
+    conversation_context: Optional[str] = None,
+) -> str:
     """
-    Stand-in for the aggregate generator. `[Document N]` markers match `chunks`
-    positionally ([PRESERVE — design §5]).
+    Generate the aggregate summary, using legacy's dedicated XAGG template.
+
+    `cross_case_aggregate.txt` exists rather than reusing the XGRAPH template
+    for a concrete reason (orchestrator.py:70-77): XAGG's result is a single
+    synthetic summary chunk, not a multi-document traversal, and the XGRAPH
+    prompt's per-case `[Document N, CASE-ID]` citation rule made the model
+    invent per-case citations the Verifier then correctly flagged as
+    ungrounded.
+
+    `[Document N]` markers match `chunks` positionally ([PRESERVE — design §5]);
+    this function must never reorder them.
     """
-    markers = " ".join(f"[Document {i}]" for i in range(1, len(chunks) + 1))
-    marker_prefix = f"{UNGROUNDED_TRIGGER} " if UNGROUNDED_TRIGGER in query_text else ""
-    return (
-        f"{marker_prefix}Aggregate computed across the accessible cases. {markers}"
+    if UNGROUNDED_TRIGGER in query_text:
+        markers = " ".join(f"[Document {i}]" for i in range(1, len(chunks) + 1))
+        return (
+            f"{UNGROUNDED_TRIGGER} Aggregate computed across the accessible "
+            f"cases. {markers}"
+        )
+
+    return await generate_cross_case_answer(
+        query_text=query_text,
+        chunks=chunks,
+        template=CROSS_CASE_AGG_PROMPT_TEMPLATE,
+        preferred_language=caller.preferred_language,
+        conversation_context=conversation_context,
     )
 
 
@@ -262,7 +291,42 @@ async def run(
     grouping = _describe_grouping(result)
 
     # ── Generate, then gate ──
-    answer = _synthesize(agent_input.query_text, chunks)
+    try:
+        answer = await _synthesize(
+            agent_input.query_text,
+            chunks,
+            agent_input.caller,
+            agent_input.conversation_context,
+        )
+    except Exception as exc:
+        # [PRESERVE — design §2.4] NOT an abstention, for the same reason a
+        # failed verdict below is not: the aggregate is machine-computed and
+        # correct by construction, so an unreachable generator costs the
+        # PARAPHRASE, not the evidence. Serve the deterministic rendering the
+        # tool already produced. Every other sub-agent abstains here because
+        # its answer only exists as generated prose; XAGG's does not.
+        logger.error("Large-Scale Aggregate generation failed: %s", exc)
+        if events:
+            await events.emit(
+                f"subagent:{NAME}", "retry",
+                "Large-Scale Aggregate: summary generation failed — "
+                "serving the computed figures directly",
+            )
+        return SubAgentResult(
+            status=SubAgentStatus.PARTIAL,
+            answer_text=summary_text,
+            citations=_to_citations(chunks),
+            tools_used=["XAGG"],
+            degraded_from=sorted(set(degraded_from) | {"XAGG"}),
+            caveats=caveats + [
+                "The generated summary was unavailable, so the computed "
+                "figures are shown directly."
+            ],
+            error=ToolError(
+                kind="upstream_failure",
+                message=f"Aggregate summary generation failed: {exc}",
+            ),
+        )
 
     verdict = await verify_grounding(
         answer=answer,

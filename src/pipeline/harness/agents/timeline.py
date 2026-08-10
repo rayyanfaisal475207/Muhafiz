@@ -92,6 +92,7 @@ import re
 from typing import Any, Optional
 
 from src.pipeline.harness.contracts import (
+    CallerContext,
     Citation,
     ConflictState,
     EvidenceChunk,
@@ -100,9 +101,11 @@ from src.pipeline.harness.contracts import (
     SubAgentResult,
     SubAgentStatus,
     TimelineEvent,
+    ToolError,
     ToolStatus,
 )
 from src.pipeline.harness.events import EventRecorder
+from src.pipeline.harness.generation import generate_case_scoped_answer
 from src.pipeline.harness.tools import registry
 from src.pipeline.harness.verifier_gate import UNGROUNDED_TRIGGER, verify_grounding
 
@@ -216,19 +219,60 @@ def _sort_key(event: TimelineEvent) -> tuple[int, str]:
     return (1, "") if event.occurred_on is None else (0, event.occurred_on)
 
 
-def _synthesize(query_text: str, events: list[TimelineEvent], chunks: list[EvidenceChunk]) -> str:
+async def _synthesize(
+    query_text: str,
+    timeline_events: list[TimelineEvent],
+    chunks: list[EvidenceChunk],
+    caller: CallerContext,
+    conversation_context: Optional[str] = None,
+) -> str:
     """
-    Stand-in for the timeline generator.
+    Generate the timeline narrative, using the same generator and prompt the
+    legacy case-scoped routes use.
 
-    Emits `[Document N]` markers positionally matching `chunks`
-    ([PRESERVE — design §5]). Deliberately does not concatenate event
-    descriptions: the answer stays bounded however long the timeline is.
+    `[Document N]` markers are produced by the model against the numbered
+    evidence block and match `chunks` positionally ([PRESERVE — design §5]).
+    This function must never reorder `chunks`.
+
+    The ALREADY-ORDERED event list is handed to the model as part of the query
+    rather than left implicit in the chunks. That ordering is this sub-agent's
+    own deterministic work — it comes from `_build_timeline`, not from the
+    model — and re-deriving it from raw passages is exactly the error the
+    deterministic pass exists to prevent. The model narrates the sequence; it
+    does not decide it.
     """
-    markers = " ".join(f"[Document {i}]" for i in range(1, len(chunks) + 1))
-    marker_prefix = f"{UNGROUNDED_TRIGGER} " if UNGROUNDED_TRIGGER in query_text else ""
-    return (
-        f"{marker_prefix}Timeline of {len(events)} recorded event(s) for this case, "
-        f"ordered by date. {markers}"
+    if UNGROUNDED_TRIGGER in query_text:
+        markers = " ".join(f"[Document {i}]" for i in range(1, len(chunks) + 1))
+        return (
+            f"{UNGROUNDED_TRIGGER} Timeline of {len(timeline_events)} recorded "
+            f"event(s) for this case, ordered by date. {markers}"
+        )
+
+    # A CONFLICT event is annotated inline rather than dropped: a contradiction
+    # between sources is a finding an investigator needs surfaced, and
+    # final_response.txt rule 6 already instructs the model to lead with a
+    # "[Known contradiction]" note when one is present.
+    ordered_lines: list[str] = []
+    for ev in timeline_events:
+        note = ""
+        if ev.conflict_state is ConflictState.CONFLICT:
+            note = f"  [Known contradiction] {ev.conflict_basis or 'sources disagree'}"
+        ordered_lines.append(f"- {ev.occurred_on or 'undated'}: {ev.description}{note}")
+    ordered = "\n".join(ordered_lines)
+    augmented_query = (
+        f"{query_text}\n\n"
+        "--- CHRONOLOGY EXTRACTED FROM THIS CASE (already ordered; do not "
+        "reorder) ---\n"
+        f"{ordered or '(no dated events extracted)'}\n"
+        "--- END CHRONOLOGY ---\n"
+        "Narrate this chronology, citing [Document N] for each claim."
+    )
+
+    return await generate_case_scoped_answer(
+        query_text=augmented_query,
+        chunks=chunks,
+        preferred_language=caller.preferred_language,
+        conversation_context=conversation_context,
     )
 
 
@@ -337,7 +381,36 @@ async def run(
     timeline.sort(key=_sort_key)
 
     # ── Generate, then gate ──
-    answer = _synthesize(agent_input.query_text, timeline, chunks)
+    try:
+        answer = await _synthesize(
+            agent_input.query_text,
+            timeline,
+            chunks,
+            agent_input.caller,
+            agent_input.conversation_context,
+        )
+    except Exception as exc:
+        # Generation infrastructure failed. The deterministic timeline itself
+        # succeeded, but there is no narrative to verify and nothing safe to
+        # serve — abstain rather than emit unverified prose.
+        logger.error("Timeline Building generation failed: %s", exc)
+        if events:
+            await events.emit(
+                f"subagent:{NAME}", "error",
+                "Timeline Building: narrative generation failed",
+            )
+        return SubAgentResult(
+            status=SubAgentStatus.ABSTAINED,
+            answer_text=None,
+            citations=[],
+            timeline=[],
+            tools_used=[],
+            degraded_from=["GRAPH"],
+            error=ToolError(
+                kind="upstream_failure",
+                message=f"Timeline narrative generation failed: {exc}",
+            ),
+        )
 
     verdict = await verify_grounding(
         answer=answer,

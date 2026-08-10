@@ -50,6 +50,7 @@ import logging
 from typing import Any, Optional
 
 from src.pipeline.harness.contracts import (
+    CallerContext,
     Citation,
     EvidenceChunk,
     GraphToolInput,
@@ -59,9 +60,11 @@ from src.pipeline.harness.contracts import (
     SubAgentInput,
     SubAgentResult,
     SubAgentStatus,
+    ToolError,
     ToolResult,
     ToolStatus,
 )
+from src.pipeline.harness.generation import generate_case_scoped_answer
 from src.pipeline.harness.events import EventRecorder
 from src.pipeline.harness.tools import registry
 from src.pipeline.harness.verifier_gate import UNGROUNDED_TRIGGER, verify_grounding
@@ -85,26 +88,41 @@ def _usable(result: Optional[ToolResult]) -> bool:
     return bool(result and result.status is ToolStatus.OK and result.chunks)
 
 
-def _synthesize(query_text: str, chunks: list[EvidenceChunk]) -> str:
+async def _synthesize(
+    query_text: str,
+    chunks: list[EvidenceChunk],
+    caller: CallerContext,
+    conversation_context: Optional[str] = None,
+) -> str:
     """
-    Stand-in for the analytical generator.
+    Generate the analysis, using the same generator and prompt the legacy
+    case-scoped routes use.
 
-    Emits `[Document N]` markers whose N is the 1-based position in the FLAT,
-    ROLLED-UP chunk list — the positional contract the Verifier's deterministic
-    checks depend on ([PRESERVE — design §5]). Critically, the citation
-    numbering spans all sources in one sequence: a reader cannot tell from the
-    marker whether document 3 came from RAG or GRAPH, and does not need to. The
-    per-chunk `source_tool` metadata carries that, and it surfaces through
-    `Citation.source_tool`.
+    `[Document N]` markers are produced by the model against the FLAT,
+    ROLLED-UP evidence block, where N is the 1-based position in `chunks` — the
+    positional contract the Verifier's deterministic checks depend on
+    ([PRESERVE — design §5]). Critically, the numbering spans all sources in one
+    sequence: a reader cannot tell from the marker whether document 3 came from
+    RAG or GRAPH, and does not need to. The per-chunk `source_tool` metadata
+    carries that, and it surfaces through `Citation.source_tool`. This function
+    must never reorder `chunks`.
 
-    Deliberately does NOT concatenate chunk bodies: one bounded answer,
-    regardless of how much three tools returned between them.
+    The `UNGROUNDED_TRIGGER` shortcut is preserved so the verifier-rejection
+    path stays exercisable without a live model — see semantic_search for the
+    full reasoning.
     """
-    markers = " ".join(f"[Document {i}]" for i in range(1, len(chunks) + 1))
-    marker_prefix = f"{UNGROUNDED_TRIGGER} " if UNGROUNDED_TRIGGER in query_text else ""
-    return (
-        f"{marker_prefix}Analysis drawn from the available case evidence, entity "
-        f"relationships, and reference data. {markers}"
+    if UNGROUNDED_TRIGGER in query_text:
+        markers = " ".join(f"[Document {i}]" for i in range(1, len(chunks) + 1))
+        return (
+            f"{UNGROUNDED_TRIGGER} Analysis drawn from the available case "
+            f"evidence, entity relationships, and reference data. {markers}"
+        )
+
+    return await generate_case_scoped_answer(
+        query_text=query_text,
+        chunks=chunks,
+        preferred_language=caller.preferred_language,
+        conversation_context=conversation_context,
     )
 
 
@@ -254,7 +272,35 @@ async def run(
     chunks = chunks[:_MAX_CITATIONS]
 
     # ── Synthesize ONE answer, then gate it ──
-    answer = _synthesize(agent_input.query_text, chunks)
+    try:
+        answer = await _synthesize(
+            agent_input.query_text,
+            chunks,
+            caller,
+            agent_input.conversation_context,
+        )
+    except Exception as exc:
+        # Generation infrastructure failed. Nothing safe to serve — abstain
+        # rather than emit unverified prose. Everything attempted collapses
+        # into `degraded_from`, keeping [RESOLVED-4]'s invariant that a tool
+        # never appears in both lists.
+        logger.error("Investigative Analysis generation failed: %s", exc)
+        if events:
+            await events.emit(
+                f"subagent:{NAME}", "error",
+                "Investigative Analysis: answer generation failed",
+            )
+        return SubAgentResult(
+            status=SubAgentStatus.ABSTAINED,
+            answer_text=None,
+            citations=[],
+            tools_used=[],
+            degraded_from=sorted(set(degraded_from) | set(tools_used)),
+            error=ToolError(
+                kind="upstream_failure",
+                message=f"Answer generation failed: {exc}",
+            ),
+        )
 
     # [PRESERVE — design §5] The Verifier receives EXACTLY the list the
     # generator was shown, in the same order — one flat list spanning all
