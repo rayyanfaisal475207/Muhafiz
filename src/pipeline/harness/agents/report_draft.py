@@ -146,6 +146,32 @@ async def run(
             ),
         )
 
+    # Validated HERE, alongside output_format, rather than at the storage step.
+    # `generated_files.session_id` is NOT NULL, so a report produced without a
+    # session cannot be recorded — and an unrecorded report is undownloadable,
+    # making it worthless however good its content. Checking upfront turns a
+    # ~45s retrieve → generate → verify → build-PDF → fail into an immediate,
+    # explainable refusal.
+    if not agent_input.session_id:
+        if events:
+            await events.emit(
+                f"subagent:{NAME}", "error",
+                "Report Drafting requires a session to record the generated file",
+            )
+        return SubAgentResult(
+            status=SubAgentStatus.ABSTAINED,
+            answer_text=None,
+            error=ToolError(
+                kind="invalid_input",
+                message=(
+                    "Report Drafting requires session_id on SubAgentInput: the "
+                    "generated file must be recorded against a session "
+                    "(generated_files.session_id is NOT NULL) or it cannot be "
+                    "downloaded."
+                ),
+            ),
+        )
+
     # ── Step 1: consume Case Summarization (this sub-agent's only tool) ──
     summary = await case_summary.run(agent_input, events=events)
 
@@ -321,7 +347,10 @@ async def _build_document(
 
     gw = gateway if gateway is not None else await get_gateway()
     file_id = await gw.log_generated_file({
-        "session_id": None,
+        # Guaranteed non-None: `run()` refuses the request upfront without it,
+        # because this column is NOT NULL and an unrecorded report cannot be
+        # downloaded.
+        "session_id": agent_input.session_id,
         "user_id": agent_input.caller.user_id,
         "case_id": agent_input.caller.active_case_id,
         "file_type": file_type,

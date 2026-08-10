@@ -266,9 +266,21 @@ class DirectGateway:
         # File data will have session_id, user_id, file_type, file_name, file_size_bytes, storage_path
         async with get_session() as db:
             user_id_val = uuid.UUID(file_data["user_id"]) if file_data.get("user_id") else None
+            # `generated_files.session_id` is NOT NULL, so a missing session is
+            # a caller error — but bare `uuid.UUID(None)` reports it as "one of
+            # the hex, bytes, bytes_le, fields, or int arguments must be given",
+            # which says nothing about which field was missing or why it
+            # mattered. Name it instead. (`user_id` above is guarded for a
+            # different reason: it accepts None and stores NULL.)
+            raw_session_id = file_data.get("session_id")
+            if not raw_session_id:
+                raise ValueError(
+                    "log_generated_file requires a session_id: generated_files "
+                    "records every file against a chat session (NOT NULL)."
+                )
             gf = GeneratedFile(
                 file_id=uuid.uuid4(),
-                session_id=uuid.UUID(file_data["session_id"]),
+                session_id=uuid.UUID(raw_session_id),
                 user_id=user_id_val,
                 case_id=file_data.get("case_id"),
                 file_type=file_data["file_type"],

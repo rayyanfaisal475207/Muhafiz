@@ -35,8 +35,19 @@ def _caller() -> CallerContext:
     return CallerContext(user_id="u1", role=Role.INVESTIGATOR, active_case_id="CASE-A")
 
 
-def _input(fmt: str = "file_pdf", query: str = "Draft a report") -> SubAgentInput:
-    return SubAgentInput(query_text=query, caller=_caller(), output_format=fmt)
+def _input(
+    fmt: str = "file_pdf",
+    query: str = "Draft a report",
+    session_id: str = "11111111-2222-3333-4444-555555555555",
+) -> SubAgentInput:
+    # A session is REQUIRED for report drafting: `generated_files.session_id` is
+    # NOT NULL, so a report produced without one cannot be recorded and is
+    # therefore undownloadable. Defaulted here so every existing case keeps
+    # exercising the happy path; `test_retrieval_gaps.py` covers its absence.
+    return SubAgentInput(
+        query_text=query, caller=_caller(), output_format=fmt,
+        session_id=session_id,
+    )
 
 
 def _citation(i: int = 1, tool: str = "RAG") -> Citation:
