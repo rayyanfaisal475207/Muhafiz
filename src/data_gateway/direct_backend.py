@@ -10,7 +10,7 @@ from src.database.postgres import get_session, engine
 from src.database.models import (
     User, UserContextProfile, Session, Message, PipelineRun, PipelineStep,
     GeneratedFile, Document, McpToolCall, Project, ProjectMemory,
-    PoliceReferenceData, Case,
+    PoliceReferenceData, Case, HarnessShadowRun,
 )
 
 logger = logging.getLogger(__name__)
@@ -1100,6 +1100,98 @@ class DirectGateway:
             await db.commit()
             await db.refresh(a)
             return self._attachment_to_dict(a)
+
+    # ── Agent-harness shadow mode ────────────────────────────────────────
+    # These rows are diagnostics for a path no user sees. Read the table's own
+    # documentation in migrations/020 before adding a caller: it carries case
+    # content and is RLS-isolated to match `pipeline_runs`.
+
+    async def log_harness_shadow_run(self, data: dict) -> Optional[str]:
+        """
+        Record one shadow-mode result.
+
+        Raises on failure rather than swallowing, so a permission or schema
+        problem is visible to the caller. `shadow.run_shadow()` is the only
+        caller and wraps this — losing a diagnostic row there is preferable to
+        surfacing an error the user cannot see, but that decision belongs at
+        the call site, not buried here where it would also hide a genuine
+        misconfiguration during setup.
+        """
+        session_id = data.get("session_id")
+        if not session_id:
+            raise ValueError("log_harness_shadow_run requires session_id")
+
+        async with get_session() as db:
+            row = HarnessShadowRun(
+                run_id=uuid.UUID(str(data["run_id"])) if data.get("run_id") else None,
+                session_id=uuid.UUID(str(session_id)),
+                user_id=uuid.UUID(str(data["user_id"])) if data.get("user_id") else None,
+                case_id=data.get("case_id"),
+                original_query=data.get("original_query"),
+                legacy_route=data.get("legacy_route"),
+                harness_sub_agent=data.get("harness_sub_agent"),
+                routing_basis=data.get("routing_basis"),
+                harness_status=data.get("harness_status"),
+                harness_answer=data.get("harness_answer"),
+                citation_count=data.get("citation_count") or 0,
+                tools_used=data.get("tools_used") or [],
+                degraded_from=data.get("degraded_from") or [],
+                caveats=data.get("caveats") or [],
+                legacy_outcome=data.get("legacy_outcome"),
+                routes_agree=data.get("routes_agree"),
+                duration_ms=data.get("duration_ms"),
+                error=data.get("error"),
+                sampled_reason=data.get("sampled_reason"),
+            )
+            db.add(row)
+            await db.commit()
+            await db.refresh(row)
+            return str(row.shadow_id)
+
+    async def get_harness_shadow_runs(
+        self, limit: int = 100, only_disagreements: bool = False,
+    ) -> list[dict]:
+        """
+        Most recent shadow runs, newest first.
+
+        `only_disagreements` narrows to the rows worth a human's attention —
+        where the two paths reached different conclusions, or the harness
+        errored. That is the reason the table exists; the full listing is for
+        confirming shadow mode is running at all.
+        """
+        async with get_session() as db:
+            stmt = select(HarnessShadowRun).order_by(desc(HarnessShadowRun.created_at))
+            if only_disagreements:
+                stmt = stmt.where(
+                    (HarnessShadowRun.routes_agree.is_(False))
+                    | (HarnessShadowRun.error.isnot(None))
+                )
+            res = await db.execute(stmt.limit(limit))
+            return [
+                {
+                    "shadow_id": str(r.shadow_id),
+                    "run_id": str(r.run_id) if r.run_id else None,
+                    "session_id": str(r.session_id),
+                    "case_id": r.case_id,
+                    "original_query": r.original_query,
+                    "legacy_route": r.legacy_route,
+                    "legacy_outcome": r.legacy_outcome,
+                    "harness_sub_agent": r.harness_sub_agent,
+                    "routing_basis": r.routing_basis,
+                    "harness_status": r.harness_status,
+                    "harness_answer": r.harness_answer,
+                    "citation_count": r.citation_count,
+                    "tools_used": list(r.tools_used or []),
+                    "degraded_from": list(r.degraded_from or []),
+                    "caveats": list(r.caveats or []),
+                    "routes_agree": r.routes_agree,
+                    "duration_ms": r.duration_ms,
+                    "error": r.error,
+                    "sampled_reason": r.sampled_reason,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                }
+                for r in res.scalars().all()
+            ]
 
     async def get_attachments_for_session(self, session_id: str, include_text: bool = False) -> list[dict]:
         from src.database.models import SessionAttachment

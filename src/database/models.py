@@ -360,6 +360,62 @@ class PipelineRun(Base):
     )
 
 
+# ── Agent-harness shadow runs ────────────────────────────────────────────────
+
+class HarnessShadowRun(Base):
+    """
+    One shadow-mode run: what the agent harness WOULD have answered for a
+    sampled query, recorded after the legacy pipeline already answered the user.
+
+    Deliberately NOT part of `pipeline_runs` — see migrations/020 for the full
+    reasoning. In short: admin analytics read `pipeline_runs`/`pipeline_steps`,
+    and mixing in traffic no user ever saw would corrupt every route-mix,
+    verifier-pass-rate and latency number those screens report.
+
+    `run_id` intentionally has NO ForeignKey to pipeline_runs: the legacy path
+    writes that row on a best-effort background task, so it may not exist yet
+    when a shadow run finishes. A hard FK would make shadow logging fail on a
+    race in the primary path.
+    """
+    __tablename__ = "harness_shadow_runs"
+
+    shadow_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,
+    )
+    run_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), nullable=True,
+    )
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("sessions.session_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True,
+    )
+    case_id: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    original_query: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    legacy_route: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    harness_sub_agent: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    routing_basis: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    harness_status: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    harness_answer: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    citation_count: Mapped[int] = mapped_column(Integer, default=0)
+    tools_used: Mapped[Optional[List[str]]] = mapped_column(ARRAY(Text), nullable=True)
+    degraded_from: Mapped[Optional[List[str]]] = mapped_column(ARRAY(Text), nullable=True)
+    caveats: Mapped[Optional[List[str]]] = mapped_column(ARRAY(Text), nullable=True)
+
+    legacy_outcome: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    routes_agree: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
+
+    duration_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    sampled_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
 
 # ── Pipeline Steps ────────────────────────────────────────────────────────────
 
