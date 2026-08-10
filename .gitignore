@@ -67,9 +67,13 @@ ingestion_state.json
 # Scratch, throwaway, test markdown files
 demotest.md
 demo_*.md
+demotestfinal.md
 test.md
 draft*.md
 TODO_scratch.md
+
+# Untracked-on-request: kept locally, not synced to origin
+AGENT_HARNESS_IMPLEMENTATION_PLAN.md
 eval_results_phase9.json
 scripts/_dry_run*.py
 scripts/_smoketest.py
