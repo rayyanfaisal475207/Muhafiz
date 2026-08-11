@@ -100,6 +100,7 @@ silently pick one.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Callable, Optional
 
 from src.data_gateway.base import DataGateway
@@ -158,18 +159,118 @@ _ROUTE_TO_SUBAGENT: dict[str, str] = {
     "WEB": SEMANTIC_SEARCH,
 }
 
+# ═══════════════════════════════════════════════════════════════════════
+# [Contract amendment — classification reachability, pre-cutover-Part-3]
+#
+# PROVISIONAL classification triggers for Timeline Building and a broader
+# Investigative Analysis reach, resolved via AskUserQuestion before any of
+# this was written (see AGENT_HARNESS_IMPLEMENTATION_PLAN.md's progress-log
+# entry for this branch for the full "Problem A" reasoning): neither
+# sub-agent has any "live-confirmed misclassification failure" evidence to
+# point to, the standard every prior XAGG/XGRAPH/XNETWORK-style override in
+# `router.py` was held to — because this harness has carried real traffic
+# on exactly one sub-agent so far (Semantic Search), and that's off by
+# default. Explicitly shipped as provisional, derived from each sub-agent's
+# own documented SHAPE (SUBAGENT_INTERFACES.md §2.1's rows — neither has a
+# dedicated "trigger vocabulary" subsection the way XGRAPH/XAGG/XNETWORK do
+# in §1.4/§1.5/§1.6, so there was no existing vocabulary to transcribe),
+# not from any observed failure. Revisit once Semantic Search's own cutover
+# has carried enough real traffic to define what "evidence" means for this
+# harness at all.
+#
+# Data-Quality/Extraction-Coverage is DELIBERATELY NOT given a trigger here
+# — resolved via the same AskUserQuestion to leave it exactly as plan
+# §7.3 already, separately, decided ("Routable-only for MVP... parked, not
+# rejected") rather than override that existing decision as a side effect
+# of this change.
+#
+# [PRESERVE — the actual safety property this whole block exists for]
+# These patterns run ENTIRELY inside this function, AFTER `route_query()`
+# has already returned its own unchanged nine-route classification, and
+# they only ever REMAP the sub-agent name this function returns — they
+# never touch `router.py`, never change what `route_query()` itself
+# returns, and are invisible to `orchestrator.py` (which calls
+# `route_query()` directly and never calls `classify_to_subagent()` at
+# all). `orchestrator.py`'s own `if/elif` chain over `route_str` has no
+# case for a route it doesn't already know about — confirmed by reading it
+# before writing this — so inventing a NEW route STRING (e.g. a tenth
+# `"TIMELINE"` value) was considered and rejected: it would silently
+# break real, still-live `orchestrator.py` traffic for every query that
+# newly classified that way, for every route not yet added to
+# `HARNESS_CUTOVER_ROUTES`. See `tests/test_harness_supervisor.py`'s own
+# regression test proving `route_query()`'s nine-route contract is
+# unaffected by anything below.
+# ═══════════════════════════════════════════════════════════════════════
 
-def classify_to_subagent(route_result: dict) -> str:
+# Timeline Building — a case wants its dated events laid out in order, not
+# a general document/graph lookup. Narrow by design, matching the same
+# discipline router.py's own override lists use ("unambiguous trigger
+# language", not every phrasing that could plausibly want a timeline).
+_TIMELINE_TRIGGER_PATTERNS = [
+    re.compile(r"\btime\s*line\b", re.IGNORECASE),
+    re.compile(r"\bchronological\s+order\b", re.IGNORECASE),
+    re.compile(r"\b(sequence|order)\s+of\s+events\b", re.IGNORECASE),
+    re.compile(r"\bwhat\s+happened\s+when\b", re.IGNORECASE),
+    re.compile(r"ٹائم\s*لائن"),
+    re.compile(r"واقعات\s*کی\s*ترتیب"),
+    re.compile(r"کب\s*کیا\s*ہوا"),
+    re.compile(r"\bwaqeat\s*ki\s*tarteeb\b", re.IGNORECASE),
+    re.compile(r"\bkab\s*kya\s*hua\b", re.IGNORECASE),
+]
+
+# Investigative Analysis's broader "deep synthesis across everything"
+# shape (plan §4 row 6), not just the SQL-triggered slice it's reachable
+# through today. Deliberately does NOT include generic words like
+# "analysis" or "investigate" alone — those are common enough in ordinary
+# case questions that they'd swallow queries meant for Semantic Search or
+# Case Summarization; every pattern here requires an explicit
+# comprehensiveness/depth qualifier alongside the analysis word.
+_INVESTIGATIVE_ANALYSIS_TRIGGER_PATTERNS = [
+    re.compile(r"\bdeep\s*dive\b", re.IGNORECASE),
+    re.compile(r"\b(full|complete|comprehensive|in-?depth)\s+analysis\b", re.IGNORECASE),
+    re.compile(r"\b(detailed|comprehensive|full)\s+investigation\b", re.IGNORECASE),
+    re.compile(r"\bfull\s+picture\s+of\s+(the|this)\s+case\b", re.IGNORECASE),
+    re.compile(r"مکمل\s*تحقیقات"),
+    re.compile(r"تفصیلی\s*تجزیہ"),
+    re.compile(r"گہرائی\s*سے\s*تجزیہ"),
+    re.compile(r"\bmukammal\s*tehqiqat\b", re.IGNORECASE),
+    re.compile(r"\btafseeli\s*tajzia\b", re.IGNORECASE),
+    re.compile(r"\bgehrai\s*se\s*tajzia\b", re.IGNORECASE),
+]
+
+# Cross-case routes already have their own well-established, evidence-based
+# precedence in router.py — a query matching both a cross-case trigger and
+# one of the two provisional patterns above is a genuine ambiguity this
+# function does not try to resolve heuristically. Both provisional
+# overrides are skipped whenever route_query() already committed to a
+# cross-case route, leaving that classification untouched.
+_CROSS_CASE_ROUTES = frozenset({"XGRAPH", "XAGG", "XNETWORK"})
+
+
+def classify_to_subagent(route_result: dict, query_text: str = "") -> str:
     """
     Translate `router.py::route_query()`'s output dict into one of the 8
     sub-agent names. Does not call `route_query()` itself and does not
     re-derive its classification — see module docstring.
+
+    `query_text` is optional (defaults to `""`, under which neither
+    provisional override below can ever match) so every existing direct
+    caller — this module's own tests included — keeps working unchanged;
+    `Supervisor.handle()` is the one real caller that has a query to pass,
+    and does so below.
     """
     output_format = str(route_result.get("output_format") or "chat").lower()
     if output_format in _FILE_OUTPUT_FORMATS:
         return REPORT_DRAFTING
 
     route = str(route_result.get("route") or "RAG").upper()
+
+    if route not in _CROSS_CASE_ROUTES:
+        if any(pat.search(query_text) for pat in _TIMELINE_TRIGGER_PATTERNS):
+            return TIMELINE_BUILDING
+        if any(pat.search(query_text) for pat in _INVESTIGATIVE_ANALYSIS_TRIGGER_PATTERNS):
+            return INVESTIGATIVE_ANALYSIS
+
     return _ROUTE_TO_SUBAGENT.get(route, SEMANTIC_SEARCH)
 
 
@@ -282,7 +383,7 @@ class Supervisor:
         emit = on_event if on_event is not None else (lambda _evt: None)
 
         route_result = await route_query(agent_input.query_text)
-        sub_agent_name = classify_to_subagent(route_result)
+        sub_agent_name = classify_to_subagent(route_result, agent_input.query_text)
 
         emit(
             PipelineEvent(

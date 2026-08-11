@@ -31,6 +31,7 @@ from src.pipeline.harness.supervisor import (
     LARGE_SCALE_AGGREGATE,
     REPORT_DRAFTING,
     SEMANTIC_SEARCH,
+    TIMELINE_BUILDING,
     Supervisor,
     classify_to_subagent,
     register,
@@ -129,6 +130,103 @@ def test_classify_to_subagent(route_result, expected_name):
     assert classify_to_subagent(route_result) == expected_name
 
 
+# ── Provisional classification triggers: Timeline Building / broader
+# Investigative Analysis reach (resolved via AskUserQuestion -- see the
+# progress-log entry for this branch for the full "Problem A" reasoning) ──
+
+@pytest.mark.parametrize(
+    "query_text",
+    [
+        "give me a timeline of events for this case",
+        "what is the chronological order of events",
+        "show me the sequence of events",
+        "what happened when in this investigation",
+        "اس کیس کے واقعات کی ترتیب دکھائیں",
+        "کب کیا ہوا اس کیس میں",
+        "is case ki waqeat ki tarteeb batayen",
+        "kab kya hua tha",
+    ],
+)
+def test_timeline_trigger_overrides_graph_classification(query_text):
+    route_result = {"route": "GRAPH", "output_format": "chat"}
+    assert classify_to_subagent(route_result, query_text) == TIMELINE_BUILDING
+
+
+@pytest.mark.parametrize(
+    "query_text",
+    [
+        "give me a deep dive on this case",
+        "I need a full analysis of this case",
+        "give me a comprehensive analysis",
+        "run a detailed investigation into this",
+        "give me the full picture of this case",
+        "اس کیس کی مکمل تحقیقات کریں",
+        "تفصیلی تجزیہ درکار ہے",
+        "گہرائی سے تجزیہ کریں",
+        "mukammal tehqiqat chahiye",
+        "tafseeli tajzia karen",
+    ],
+)
+def test_investigative_analysis_trigger_overrides_base_classification(query_text):
+    route_result = {"route": "RAG", "output_format": "chat"}
+    assert classify_to_subagent(route_result, query_text) == INVESTIGATIVE_ANALYSIS
+
+
+@pytest.mark.parametrize("route", ["XGRAPH", "XAGG", "XNETWORK"])
+@pytest.mark.parametrize(
+    "query_text",
+    ["give me a timeline of events", "give me a deep dive on this"],
+)
+def test_provisional_triggers_never_override_a_cross_case_classification(route, query_text):
+    """[PRESERVE] A query matching both a cross-case trigger and one of the
+    two provisional patterns is a genuine ambiguity these overrides must
+    not try to resolve heuristically -- router.py's own already-evidenced
+    cross-case precedence wins outright."""
+    route_result = {"route": route, "output_format": "chat"}
+    result = classify_to_subagent(route_result, query_text)
+    assert result == CROSS_CASE_LINKAGE if route in ("XGRAPH", "XNETWORK") else result == LARGE_SCALE_AGGREGATE
+
+
+def test_file_output_still_overrides_provisional_triggers():
+    route_result = {"route": "GRAPH", "output_format": "file_pdf"}
+    assert classify_to_subagent(route_result, "give me a timeline of events") == REPORT_DRAFTING
+
+
+def test_classify_to_subagent_default_query_text_matches_pre_amendment_behavior():
+    """The one-argument call form (every pre-existing direct caller,
+    including this file's own parametrized test above) must behave
+    identically to before this amendment -- query_text="" can never match
+    either provisional trigger."""
+    assert classify_to_subagent({"route": "GRAPH", "output_format": "chat"}) == CASE_SUMMARIZATION
+
+
+def test_provisional_triggers_do_not_fire_on_ordinary_queries():
+    """Narrow-by-design check: everyday case questions must not accidentally
+    contain trigger language and get silently rerouted."""
+    ordinary_queries = [
+        "who is the accused in this case",
+        "what documents are attached to this case",
+        "summarize this case for me",
+        "کیس کی تفصیلات بتائیں",
+    ]
+    for q in ordinary_queries:
+        assert classify_to_subagent({"route": "GRAPH", "output_format": "chat"}, q) == CASE_SUMMARIZATION
+
+
+def test_route_query_contract_is_unaffected_by_the_classification_amendment():
+    """[PRESERVE -- non-negotiable] The provisional overrides above live
+    entirely inside classify_to_subagent() and must never touch
+    router.py's own classification contract, which orchestrator.py still
+    depends on for all of its own (still-live) routing. Structural proof:
+    router.py's own set of valid routes is exactly the same nine values it
+    has always been -- nothing in this amendment added a tenth."""
+    from src.pipeline.router import _VALID_ROUTES
+
+    assert set(_VALID_ROUTES) == {
+        "DIRECT", "RAG", "WEB", "SQL", "GRAPH", "GRAPH_HYBRID", "XGRAPH", "XAGG", "XNETWORK",
+    }
+
+
 @pytest.mark.asyncio
 async def test_dispatch_routes_to_correct_registered_mock(monkeypatch, isolated_registry):
     _stub_route_query(monkeypatch, {"route": "XAGG", "output_format": "chat"})
@@ -142,6 +240,34 @@ async def test_dispatch_routes_to_correct_registered_mock(monkeypatch, isolated_
 
     assert result is expected
     assert len(mock.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_handle_threads_query_text_into_classify_to_subagent_for_provisional_triggers(
+    monkeypatch, isolated_registry
+):
+    """End-to-end proof (not just the pure-function test above) that
+    Supervisor.handle() actually passes agent_input.query_text through to
+    classify_to_subagent() -- a query whose base route_query() result is
+    an ordinary GRAPH classification still reaches Timeline Building when
+    its text matches a provisional trigger."""
+    _stub_route_query(monkeypatch, {"route": "GRAPH", "output_format": "chat"})
+
+    expected = SubAgentResult(status=SubAgentStatus.OK, answer_text="3 events")
+    mock = _mock_sub_agent(TIMELINE_BUILDING, expected)
+    isolated_registry[TIMELINE_BUILDING] = mock
+    # A registered Case Summarization mock proves dispatch went to Timeline
+    # Building BECAUSE of the query text, not by some other accident (e.g.
+    # an unregistered-route fallback landing on the wrong name).
+    other_mock = _mock_sub_agent(CASE_SUMMARIZATION, SubAgentResult(status=SubAgentStatus.OK))
+    isolated_registry[CASE_SUMMARIZATION] = other_mock
+
+    sup = Supervisor(registry=isolated_registry)
+    result = await sup.handle(_agent_input(query_text="give me a timeline of events for this case"))
+
+    assert result is expected
+    assert len(mock.calls) == 1
+    assert len(other_mock.calls) == 0
 
 
 @pytest.mark.asyncio
