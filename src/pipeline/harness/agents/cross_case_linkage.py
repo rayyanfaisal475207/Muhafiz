@@ -102,9 +102,13 @@ _ABSTENTION_CAVEAT = (
 )
 
 _UNCONFIRMED_CAVEAT = (
-    "Some connections below rest on unconfirmed identity links — entities that "
-    "appear to match but have not been verified as the same real-world person or "
-    "object. Treat them as leads, not established fact."
+    # Deliberately says "listed here" rather than "below": a caveat is a
+    # `SubAgentResult` field, and where a consumer renders it relative to the
+    # links is the consumer's decision. The serving adapter puts caveats last,
+    # so "below" pointed past the end of the answer.
+    "Some connections listed here rest on unconfirmed identity links — entities "
+    "that appear to match but have not been verified as the same real-world "
+    "person or object. Treat them as leads, not established fact."
 )
 
 
