@@ -509,6 +509,11 @@ class DirectGateway:
             "suspect_info": c.suspect_info,
             "created_at": c.created_at.isoformat() if c.created_at else None,
             "updated_at": c.updated_at.isoformat() if c.updated_at else None,
+            # [Reconciliation fix — Unit 6] Read by
+            # timeline_building.py's conflict-detection-completion check.
+            "conflicts_checked_at": (
+                c.conflicts_checked_at.isoformat() if c.conflicts_checked_at else None
+            ),
         }
 
     async def get_case(self, case_id: str) -> Optional[dict]:
@@ -637,6 +642,22 @@ class DirectGateway:
             if c:
                 await db.delete(c)
                 await db.commit()
+
+    async def mark_conflicts_checked(self, case_id: str) -> None:
+        """[Reconciliation fix — harness-reconciliation Unit 6, migration
+        018] Called only by src/ingestion/conflict_bg.py after
+        detect_conflicts() returns without raising — see that column's own
+        comment in models.py for the full rationale. Silently no-ops on an
+        unknown case_id (the case may have been deleted between scheduling
+        and completion) rather than raising — this is best-effort
+        observability, not a step whose failure should surface anywhere."""
+        async with get_session() as db:
+            res = await db.execute(select(Case).where(Case.case_id == case_id))
+            c = res.scalars().first()
+            if not c:
+                return
+            c.conflicts_checked_at = datetime.utcnow()
+            await db.commit()
 
     # ── Vector Store Operations ──
     async def insert_documents(self, documents: list[dict]) -> None:

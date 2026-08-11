@@ -65,8 +65,16 @@ async def detect_conflicts(case_id: str) -> None:
             columns=["entity_id", "description", "date", "source_text", "doc_id"],
         )
     except Exception as exc:
+        # [Reconciliation fix — harness-reconciliation Unit 6] Was a silent
+        # `return` — indistinguishable, to a caller, from the very next
+        # branch below (fewer than two incidents: a genuinely COMPLETED
+        # check that found nothing to compare). src/ingestion/conflict_bg.py
+        # now writes cases.conflicts_checked_at only when this function
+        # returns WITHOUT raising, so a fetch failure must raise here or it
+        # would be wrongly recorded as a completed, clean check — the exact
+        # false all-clear this reconciliation's marker exists to prevent.
         logger.warning(f"Failed to fetch Incidents for conflict detection in case {case_id}: {exc}")
-        return
+        raise
 
     if len(rows) < 2:
         return  # Need at least 2 incident mentions to find a contradiction

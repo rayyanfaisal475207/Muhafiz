@@ -76,6 +76,27 @@ async def test_fetch_query_requests_matching_columns(fake_client):
 
 
 @pytest.mark.asyncio
+async def test_fetch_failure_raises_instead_of_silently_returning(monkeypatch):
+    """[Reconciliation fix — harness-reconciliation Unit 6] Previously this
+    branch caught the fetch exception, logged a warning, and returned
+    cleanly -- identical, to any caller, to the very next branch (fewer
+    than two incidents: a genuinely completed check that found nothing to
+    compare). src/ingestion/conflict_bg.py now writes
+    cases.conflicts_checked_at only when detect_conflicts() returns without
+    raising, so a fetch failure must raise or it would be wrongly recorded
+    as a completed, clean check."""
+
+    class _RaisingClient:
+        async def execute_cypher(self, *args, **kwargs):
+            raise RuntimeError("AGE connection lost")
+
+    monkeypatch.setattr(conflict_detection, "age_client", _RaisingClient())
+
+    with pytest.raises(RuntimeError, match="AGE connection lost"):
+        await conflict_detection.detect_conflicts("CASE-1")
+
+
+@pytest.mark.asyncio
 async def test_deterministic_timeline_conflict(fake_client, monkeypatch):
     # Setup graph response: same incident, two different dates
     fake_client.queue([

@@ -88,10 +88,28 @@ correctly belongs in `tools_used` only, since its date-edge fetch
 actually succeeded. The conflict-check failure is instead signaled by
 (a) `status=PARTIAL`, (b) every `TimelineEvent.conflict_state=UNKNOWN`
 (never `NONE` — see RESOLVED-5, enforced by construction below since
-`_build_events(..., conflict_bases=None)` never sets `NONE`), and (c) an
-explicit `caveats` entry naming conflict detection by name as the
-degraded component. No `SourceTool`/`types.py` change was made or
-proposed for this.
+`_build_events(..., conflict_bases=None, detection_confirmed=False)`
+never sets `NONE`), and (c) an explicit `caveats` entry naming conflict
+detection by name as the degraded component. No `SourceTool`/`types.py`
+change was made or proposed for this.
+
+[Reconciliation fix — harness-reconciliation Unit 6, post-hoc addition to
+this deviation] A SUCCESSFUL `_fetch_conflict_bases()` call is not, by
+itself, proof detection ever ran for this case — a live `CONFLICTS_WITH`
+query can return zero rows because detection genuinely found nothing
+*or* because it never ran/hasn't finished yet (see `cases.
+conflicts_checked_at`'s own migration comment, `018_case_conflicts_checked_at.sql`,
+for the three concrete race/gap conditions). `_build_events()` now takes a
+`detection_confirmed` flag (read from that marker via
+`_conflict_detection_confirmed()`, gateway-backed, fails closed to
+`False`) and only asserts `ConflictState.NONE` for an absent basis when
+it is `True` — otherwise an absent basis renders `UNKNOWN`, same as a
+failed fetch. A present basis still always asserts `CONFLICT`
+unconditionally (positive evidence needs no marker). This closes a real
+gap the original resolution above did not address: it only handled
+`_fetch_conflict_bases()` *raising*, not the marker-absent-but-the-query-
+still-succeeds case, which was silently asserting NONE for cases that had
+never actually been checked.
 
 ═══════════════════════════════════════════════════════════════════════
 DECISION (not silently picked — this session's brief asked for it by
@@ -265,6 +283,39 @@ async def _fetch_conflict_bases(case_id: str) -> dict[str, list[str]]:
     return bases
 
 
+async def _conflict_detection_confirmed(case_id: str, gateway: Optional[DataGateway]) -> bool:
+    """
+    [Reconciliation fix — harness-reconciliation Unit 6, migration 018] Has
+    conflict detection COMPLETED for this case? Reads `cases.
+    conflicts_checked_at`, written by `src/ingestion/conflict_bg.py`'s
+    background task only after a genuinely completed run (see that
+    column's own migration comment for the full rationale, including the
+    three concrete ways detection can be silently absent).
+
+    Any failure to establish this — no marker, no case row, a gateway
+    error — returns False, which keeps conflict state at UNKNOWN rather
+    than NONE. Failing closed here is the whole point: the cost of a wrong
+    False is a slightly less precise timeline (an event correctly checked
+    still renders as "unconfirmed"); the cost of a wrong True is asserting
+    a clean check that never actually happened.
+    """
+    try:
+        gw = gateway
+        if gw is None:
+            from src.data_gateway import get_gateway
+
+            gw = await get_gateway()
+        case = await gw.get_case(case_id)
+    except Exception as exc:
+        logger.warning(
+            "Timeline Building: could not read conflict-detection marker for "
+            "case %s: %s — reporting conflict state as unknown.", case_id, exc,
+        )
+        return False
+
+    return bool(case and case.get("conflicts_checked_at"))
+
+
 def _sort_key(occurred_on: Optional[str]) -> tuple:
     """
     Best-effort chronological ordering. `Date.date` (see
@@ -283,17 +334,33 @@ def _sort_key(occurred_on: Optional[str]) -> tuple:
 
 
 def _build_events(
-    rows: list[dict], conflict_bases: Optional[dict[str, list[str]]]
+    rows: list[dict],
+    conflict_bases: Optional[dict[str, list[str]]],
+    detection_confirmed: bool,
 ) -> list[TimelineEvent]:
     """
     `conflict_bases is None` means the conflict-detection fetch itself
     failed (RESOLVED-5's exact scenario) — every event MUST get
     `conflict_state=UNKNOWN` (the type's own default; never set `NONE`
     here, since `NONE` may only be set on a check that actually
-    succeeded and found nothing — RESOLVED-5). When `conflict_bases` is a
-    real (possibly empty) dict, the check DID succeed, so an incident
-    absent from it is correctly `NONE` ("checked, no conflict found"),
-    not `UNKNOWN`.
+    succeeded and found nothing — RESOLVED-5).
+
+    [Reconciliation fix — harness-reconciliation Unit 6] A present conflict
+    `basis` is positive evidence — detection demonstrably ran and found
+    something, so `CONFLICT` is always safe to assert regardless of
+    `detection_confirmed`. But an ABSENT basis is ambiguous on its own: a
+    live, successful `CONFLICTS_WITH` query with zero matching edges reads
+    identically whether detection completed and found nothing, or never
+    ran/hasn't finished yet (see `cases.conflicts_checked_at`'s own
+    migration comment for the three concrete ways that happens). `NONE` —
+    "checked, no conflict found" — may therefore only be asserted when
+    `detection_confirmed` is True (the `cases.conflicts_checked_at` marker
+    is present for this case); otherwise an absent basis renders `UNKNOWN`,
+    the same "not known to have been checked" reading a failed fetch gets.
+    Previously this function trusted ANY successfully-returned
+    `conflict_bases` dict as proof the check ran — silently asserting NONE
+    even when detection had never actually completed for the case, exactly
+    the false all-clear RESOLVED-5's three-state design exists to prevent.
     """
     events: list[TimelineEvent] = []
     for row in rows:
@@ -301,17 +368,16 @@ def _build_events(
         description = row.get("description") or f"Incident {entity_id} (no description recorded)"
         locked = bool(row.get("locked"))
 
-        if conflict_bases is None:
-            conflict_state = ConflictState.UNKNOWN
+        bases = conflict_bases.get(entity_id) if conflict_bases is not None else None
+        if bases:
+            conflict_state = ConflictState.CONFLICT
+            conflict_basis = "; ".join(dict.fromkeys(bases))
+        elif conflict_bases is not None and detection_confirmed:
+            conflict_state = ConflictState.NONE
             conflict_basis = None
         else:
-            bases = conflict_bases.get(entity_id)
-            if bases:
-                conflict_state = ConflictState.CONFLICT
-                conflict_basis = "; ".join(dict.fromkeys(bases))
-            else:
-                conflict_state = ConflictState.NONE
-                conflict_basis = None
+            conflict_state = ConflictState.UNKNOWN
+            conflict_basis = None
 
         events.append(
             TimelineEvent(
@@ -417,7 +483,7 @@ async def timeline_building(
         logger.error(
             "Timeline Building: conflict-detection fetch failed for case %s: %s", case_id, exc
         )
-        events = _build_events(rows, conflict_bases=None)
+        events = _build_events(rows, conflict_bases=None, detection_confirmed=False)
         return SubAgentResult(
             status=SubAgentStatus.PARTIAL,
             answer_text=_answer_text(events, conflict_checked=False),
@@ -430,13 +496,29 @@ async def timeline_building(
             ],
         )
 
-    events = _build_events(rows, conflict_bases=conflict_bases)
+    # [Reconciliation fix — harness-reconciliation Unit 6, migration 018]
+    # A live, successful CONFLICTS_WITH query returning zero matches is NOT
+    # by itself proof detection ran for this case — see cases.
+    # conflicts_checked_at's own migration comment for the three concrete
+    # ways it can be silently absent. Any failure to read the marker
+    # (gateway unavailable, unreadable case row) fails closed to
+    # unconfirmed, the same posture a fetch exception gets above.
+    detection_confirmed = await _conflict_detection_confirmed(case_id, gateway)
+
+    events = _build_events(rows, conflict_bases=conflict_bases, detection_confirmed=detection_confirmed)
+    caveats: list[str] = []
+    if not detection_confirmed and any(e.conflict_state == ConflictState.UNKNOWN for e in events):
+        caveats.append(
+            "Conflict detection has not been confirmed complete for this case; "
+            "events with no recorded conflict are shown as unchecked, not clear."
+        )
     return SubAgentResult(
-        status=SubAgentStatus.OK,
-        answer_text=_answer_text(events, conflict_checked=True),
+        status=SubAgentStatus.PARTIAL if caveats else SubAgentStatus.OK,
+        answer_text=_answer_text(events, conflict_checked=detection_confirmed),
         events=events,
         tools_used=["GRAPH"],
         degraded_from=[],
+        caveats=caveats,
     )
 
 

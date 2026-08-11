@@ -183,6 +183,22 @@ class Case(Base):
     suspect_info: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    # [Reconciliation fix — harness-reconciliation Unit 6, migration 018]
+    # When conflict detection last COMPLETED for this case (never merely
+    # scheduled) — written by src.ingestion.conflict_bg's background task on
+    # return from a genuinely completed check, never at schedule time. NULL
+    # means "not known to have been checked", which is the correct default:
+    # the absence of CONFLICTS_WITH edges is otherwise ambiguous between
+    # "checked, none found" and "never checked" (detection is fired via a
+    # bare asyncio.create_task() after graph extraction, so a query can race
+    # an in-flight check; it also only ever triggers on an ingestion path
+    # that supplies a case_id). Timeline Building's ConflictState reads this
+    # to decide whether an absent conflict edge may honestly render as NONE
+    # ("checked, clean") rather than UNKNOWN ("not known to have been
+    # checked") — see harness/agents/timeline_building.py.
+    conflicts_checked_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
 
     # ── Relationships ──
     documents: Mapped[List["Document"]] = relationship(back_populates="case")

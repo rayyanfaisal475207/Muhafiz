@@ -86,6 +86,21 @@ def _stub_scoped_cypher(monkeypatch, dated_rows=None, conflict_rows=None, confli
     monkeypatch.setattr(tb_mod, "scoped_cypher", _fake)
 
 
+class _FakeGateway:
+    """[Reconciliation fix — harness-reconciliation Unit 6] Minimal stand-in
+    for DataGateway.get_case(), backing _conflict_detection_confirmed()'s
+    read of cases.conflicts_checked_at. `checked=True` simulates a case
+    where the background conflict-detection task has already completed;
+    `checked=False` simulates one where it hasn't (or the marker column
+    genuinely reads NULL)."""
+
+    def __init__(self, checked: bool):
+        self._checked = checked
+
+    async def get_case(self, case_id: str):
+        return {"case_id": case_id, "conflicts_checked_at": "2026-08-11T00:00:00Z" if self._checked else None}
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # (a) successful timeline, mixed conflict states, chronological order
 # ═══════════════════════════════════════════════════════════════════════
@@ -104,7 +119,7 @@ async def test_successful_timeline_mixed_conflict_states(monkeypatch):
         ],
     )
 
-    result = await timeline_building(_agent_input())
+    result = await timeline_building(_agent_input(), gateway=_FakeGateway(checked=True))
 
     assert result.status == SubAgentStatus.OK
     assert result.tools_used == ["GRAPH"]
@@ -128,6 +143,32 @@ async def test_successful_timeline_mixed_conflict_states(monkeypatch):
 
     # Bounded payload -- never raw graph rows.
     assert not hasattr(result, "chunks")
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# (a.1) [Reconciliation fix — Unit 6] detection NOT confirmed -> UNKNOWN,
+# never NONE, even though the live CONFLICTS_WITH query succeeded cleanly
+# ═══════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_unconfirmed_detection_yields_unknown_not_none(monkeypatch):
+    """The exact bug this reconciliation step fixes: a live, successful
+    CONFLICTS_WITH query with zero matching edges used to be trusted as
+    proof detection ran ("checked, no conflict found"). It is not -- the
+    same empty result occurs when detection never ran or is still in
+    flight (see cases.conflicts_checked_at's own migration comment). With
+    no completion marker, an absent basis must render UNKNOWN, not NONE."""
+    _stub_scoped_cypher(
+        monkeypatch,
+        dated_rows=[_dated_row("INCIDENT-001", "Only incident", "2026-01-01")],
+        conflict_rows=[],  # query succeeds, finds nothing
+    )
+
+    result = await timeline_building(_agent_input(), gateway=_FakeGateway(checked=False))
+
+    assert result.status == SubAgentStatus.PARTIAL
+    assert result.events[0].conflict_state == ConflictState.UNKNOWN
+    assert any("not been confirmed" in c.lower() or "unchecked" in c.lower() for c in result.caveats)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -253,7 +294,7 @@ async def test_supervisor_dispatches_to_real_timeline_building_via_direct_dispat
     )
 
     sup = Supervisor()  # no override -> real module-level registry
-    result = await sup.handle(_agent_input())
+    result = await sup.handle(_agent_input(), gateway=_FakeGateway(checked=True))
 
     assert result.status == SubAgentStatus.OK
     assert len(result.events) == 1
