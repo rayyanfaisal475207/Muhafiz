@@ -397,7 +397,7 @@ async def test_supervisor_dispatches_to_real_data_quality_via_forced_classificat
         return {"route": "RAG", "output_format": "chat"}
 
     monkeypatch.setattr(supervisor_mod, "route_query", _fake_route_query)
-    monkeypatch.setattr(supervisor_mod, "classify_to_subagent", lambda route_result: DATA_QUALITY)
+    monkeypatch.setattr(supervisor_mod, "classify_to_subagent", lambda route_result, query_text="": DATA_QUALITY)
 
     _stub_all_fetchers(monkeypatch, counts_by_group={"timeline_readiness": {"dated_incidents": 1}})
 
