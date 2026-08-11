@@ -489,6 +489,15 @@ class Supervisor:
             return SubAgentResult(
                 status=SubAgentStatus.ABSTAINED,
                 answer_text=None,
+                # [Merge reconciliation — Unit 12 follow-up] `error.kind ==
+                # "invalid_input"` is the caller-checkable signal for "this
+                # was DIRECT, not a real abstention" — cutover.py reads it
+                # to decide whether to emit `delegate_to_legacy` rather than
+                # a generic error, without re-classifying the query itself.
+                error=ToolError(
+                    kind="invalid_input",
+                    message="Route classified as DIRECT; no sub-agent handles it.",
+                ),
                 caveats=[
                     "This query classified as DIRECT (general knowledge, no "
                     "retrieval), which the harness does not serve itself."

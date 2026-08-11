@@ -425,6 +425,29 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, current_use
                     enable_web_search=chat_request.enable_web_search,
                 )
             async for event in stream:
+                # [Merge reconciliation — harness-reconciliation Unit 12
+                # follow-up] The harness hands DIRECT back rather than
+                # answering it: that route performs no retrieval and the
+                # Verifier never gates it, so it is outside the harness's
+                # scope by design (see supervisor.py's NO_SUB_AGENT
+                # handling and cutover.py's own delegate_to_legacy yield).
+                # Only `run_cutover_query()` can ever emit this — not
+                # currently reachable via `cutover_route` (DIRECT is never
+                # in `config.HARNESS_CUTOVER_ROUTES`), but kept so this
+                # boundary can't silently misbehave the moment that config
+                # is ever widened to include it.
+                if event.get("delegate_to_legacy"):
+                    yield f"data: {json.dumps(event)}\n\n"
+                    async for legacy_event in process_query(
+                        chat_request.session_id, chat_request.message,
+                        project_id=project_id, case_id=case_id,
+                        user_profile=user_profile, user_id=user_id,
+                        user_role=current_user.role,
+                        enable_web_search=chat_request.enable_web_search,
+                    ):
+                        yield f"data: {json.dumps(legacy_event)}\n\n"
+                    break
+
                 yield f"data: {json.dumps(event)}\n\n"
 
         except Exception as e:

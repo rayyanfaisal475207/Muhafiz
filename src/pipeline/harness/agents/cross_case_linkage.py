@@ -475,9 +475,16 @@ def _xgraph_unconfirmed_links(tool_result: XGraphToolResult) -> tuple[list[Cross
         candidate = raw.get("candidate", "unknown entity")
         tier = raw.get("tier")
         confidence = raw.get("confidence")
+        # [Reconciliation merge] `basis` — why the resolver flagged these two
+        # as possibly the same person (e.g. "matched on near-identical name +
+        # shared case"). Without it a reviewer sees two names and a number
+        # with no stated reason; graph_retriever.py's
+        # `_unconfirmed_same_as_links()` now surfaces it.
+        basis = raw.get("basis")
         description = (
             f"Unconfirmed possible identity match (tier {tier}): '{entity}' may be the "
             f"same real-world entity as '{candidate}' — pending investigator review."
+            + (f" Basis: {basis}." if basis else "")
         )
         links.append(
             CrossCaseLink(

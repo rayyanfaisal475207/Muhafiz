@@ -365,3 +365,89 @@ a:not([class]) {
 .prose-chat strong { color: var(--text-primary); font-weight: 600; }
 .prose-chat ul, .prose-chat ol { padding-left: 1.4em; margin-bottom: 0.7em; }
 .prose-chat li { margin-bottom: 0.25em; }
+
+/* ── Query checks ("what I checked") ────────────────────────────────────────
+   Per-query transparency under each assistant answer. Deliberately quiet by
+   default: one muted line that expands. It must be legible without competing
+   with the answer itself, since it appears on EVERY assistant message, not
+   only degraded ones. Uses semantic tokens throughout, so it follows the
+   light/dark theme with no per-component overrides. */
+
+.query-checks {
+  margin-top: 10px;
+  border-top: 1px solid var(--border-subtle, var(--border));
+  padding-top: 8px;
+}
+
+.query-checks-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 2px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: inherit;
+}
+
+.query-checks-summary:hover { color: var(--text-secondary); }
+
+.query-checks-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  flex-shrink: 0;
+}
+
+/* One source unavailable is not a failure — the answer still stands on what
+   did work — so the marker warns rather than errors. */
+.query-checks[data-has-issue] .query-checks-dot { background: var(--warning); }
+
+.query-checks-text { flex: 1; min-width: 0; }
+
+.query-checks-flag {
+  color: var(--warning);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.query-checks-chevron { flex-shrink: 0; opacity: 0.7; }
+
+.query-checks-detail {
+  margin-top: 6px;
+  padding-left: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.query-checks-row { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+
+.query-checks-badge {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 3px;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+
+.query-checks-badge.is-ok      { background: var(--success-soft); color: var(--success); }
+.query-checks-badge.is-partial { background: var(--warning-soft); color: var(--warning); }
+.query-checks-badge.is-failed  { background: var(--error-soft);   color: var(--error); }
+
+.query-checks-note { color: var(--text-muted); }
+
+.query-checks-caveat {
+  margin-top: 2px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}

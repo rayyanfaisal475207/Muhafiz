@@ -49,7 +49,7 @@ def _stub_history(monkeypatch, history=None, saved=None):
     async def _fake_load(session_id, user_id=None):
         return history or []
 
-    async def _fake_save(session_id, user_message, response, user_id, project_id=None):
+    async def _fake_save(session_id, user_message, response, user_id, project_id=None, degradation_trace=None):
         if saved is not None:
             saved.append((session_id, user_message, response))
 
@@ -115,6 +115,51 @@ async def test_successful_query_yields_response_and_saves_history(monkeypatch):
     assert gateway.create_run_calls == [("s1", "who fled?")]
     assert gateway.update_run_calls[0][0] == "run-1"
     assert gateway.update_run_calls[0][1]["final_outcome"] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_degradation_trace_saved_with_history(monkeypatch):
+    """[Reconciliation merge — durable per-message trace, migration 019]
+    An investigator's own "what I checked" panel is sourced from
+    messages.degradation_trace, written in the SAME save_history() call
+    that persists the answer -- not a separate write."""
+    traces: list = []
+
+    async def _fake_load(session_id, user_id=None):
+        return []
+
+    async def _fake_save(session_id, user_message, response, user_id, project_id=None, degradation_trace=None):
+        traces.append(degradation_trace)
+
+    monkeypatch.setattr(cutover_mod, "async_load_history", _fake_load)
+    monkeypatch.setattr(cutover_mod, "async_save_history", _fake_save)
+
+    result = SubAgentResult(
+        status=SubAgentStatus.PARTIAL,
+        answer_text="Partial finding [Document 1].",
+        citations=[Citation(document_index=1, source_tool="RAG")],
+        tools_used=["RAG"],
+        degraded_from=["GRAPH"],
+        caveats=["Case graph data was unavailable."],
+    )
+    _stub_supervisor(monkeypatch, result)
+
+    await _collect(
+        run_cutover_query(
+            session_id="s1", user_message="q", project_id=None, case_id="CASE-001",
+            user_id="u1", user_role="investigator", preferred_language=None, gateway=_FakeGateway(),
+        )
+    )
+
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace["sub_agent_status"] == "partial"
+    assert trace["tools_used"] == ["RAG"]
+    assert trace["degraded_from"] == ["GRAPH"]
+    assert trace["contributed_only"] == ["RAG"]
+    assert trace["degraded_only"] == ["GRAPH"]
+    assert trace["labels"]["degraded_only"] == ["case-graph search"]
+    assert trace["caveats"] == ["Case graph data was unavailable."]
 
 
 @pytest.mark.asyncio

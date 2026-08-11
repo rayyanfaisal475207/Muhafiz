@@ -149,15 +149,30 @@ class DirectGateway:
                 s.deleted_at = datetime.utcnow()
                 await db.commit()
 
-    async def save_message(self, session_id: str, role: str, content: str) -> None:
+    async def save_message(self, session_id: str, role: str, content: str,
+                           degradation_trace: dict = None) -> None:
+        """
+        `degradation_trace` (migration 019) is written in the SAME INSERT that
+        creates the message, deliberately. The alternative — write the message,
+        then find it again to attach the trace — is what
+        `update_message_citations` below has to do, and it matches on
+        session_id + role + exact content text, which mis-keys the moment two
+        answers in one session are byte-identical. Passing the payload in
+        avoids ever needing that lookup.
+        """
         async with get_session() as db:
-            db.add(Message(session_id=uuid.UUID(str(session_id)), role=role, content=content))
+            db.add(Message(
+                session_id=uuid.UUID(str(session_id)), role=role, content=content,
+                degradation_trace=degradation_trace,
+            ))
             await db.commit()
 
     async def get_session_history(self, session_id: str) -> list[dict]:
         async with get_session() as db:
             res = await db.execute(select(Message).where(Message.session_id == uuid.UUID(str(session_id))).order_by(Message.created_at))
-            return [{"role": m.role, "content": m.content, "created_at": m.created_at.isoformat() if m.created_at else None} for m in res.scalars().all()]
+            return [{"role": m.role, "content": m.content,
+                     "degradation_trace": m.degradation_trace,
+                     "created_at": m.created_at.isoformat() if m.created_at else None} for m in res.scalars().all()]
 
     async def update_message_citations(self, session_id: str, response_text: str, unverified: list[str]) -> None:
         async with get_session() as db:
@@ -251,9 +266,21 @@ class DirectGateway:
         # File data will have session_id, user_id, file_type, file_name, file_size_bytes, storage_path
         async with get_session() as db:
             user_id_val = uuid.UUID(file_data["user_id"]) if file_data.get("user_id") else None
+            # `generated_files.session_id` is NOT NULL, so a missing session is
+            # a caller error — but bare `uuid.UUID(None)` reports it as "one of
+            # the hex, bytes, bytes_le, fields, or int arguments must be given",
+            # which says nothing about which field was missing or why it
+            # mattered. Name it instead. (`user_id` above is guarded for a
+            # different reason: it accepts None and stores NULL.)
+            raw_session_id = file_data.get("session_id")
+            if not raw_session_id:
+                raise ValueError(
+                    "log_generated_file requires a session_id: generated_files "
+                    "records every file against a chat session (NOT NULL)."
+                )
             gf = GeneratedFile(
                 file_id=uuid.uuid4(),
-                session_id=uuid.UUID(file_data["session_id"]),
+                session_id=uuid.UUID(raw_session_id),
                 user_id=user_id_val,
                 case_id=file_data.get("case_id"),
                 file_type=file_data["file_type"],
@@ -507,6 +534,11 @@ class DirectGateway:
             "description": c.description,
             "victim_info": c.victim_info,
             "suspect_info": c.suspect_info,
+            # Migration 019. NULL/None means no completed conflict detection is
+            # on record — NOT "no conflicts found".
+            "conflicts_checked_at": (
+                c.conflicts_checked_at.isoformat() if c.conflicts_checked_at else None
+            ),
             "created_at": c.created_at.isoformat() if c.created_at else None,
             "updated_at": c.updated_at.isoformat() if c.updated_at else None,
             # [Reconciliation fix — Unit 6] Read by
@@ -615,6 +647,28 @@ class DirectGateway:
             await db.commit()
             await db.refresh(c)
             return self._case_to_dict(c)
+
+    async def mark_conflicts_checked(self, case_id: str) -> None:
+        """
+        Record that conflict detection COMPLETED for this case (migration 019).
+
+        Deliberately its own method rather than a new key in `update_case`'s
+        allowlist: that allowlist is user-editable case data, and this is a
+        system-written fact about a background job. Widening it would let an
+        API caller assert that a check happened.
+
+        Called by the background task ON RETURN, never at schedule time — a
+        query racing an in-flight detection must still find no marker and read
+        UNKNOWN.
+        """
+        from datetime import datetime as _dt
+
+        async with get_session() as db:
+            res = await db.execute(select(Case).where(Case.case_id == case_id))
+            c = res.scalars().first()
+            if c:
+                c.conflicts_checked_at = _dt.utcnow()
+                await db.commit()
 
     async def update_case(self, case_id: str, data: dict) -> Optional[dict]:
         allowed = {

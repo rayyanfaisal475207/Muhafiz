@@ -68,8 +68,34 @@ def _dsn() -> str:
 
 
 async def _load_age(conn: asyncpg.Connection) -> None:
-    """Re-asserted at the top of every execute_cypher() call — see module docstring."""
-    await conn.execute("LOAD 'age'")
+    """
+    Re-asserted at the top of every execute_cypher() call — see module docstring.
+
+    `LOAD 'age'` is SUPERUSER-ONLY in Postgres. That was invisible while
+    DATABASE_URL connected as `postgres`, but migration 015 exists precisely to
+    stop it doing that: a superuser has rolbypassrls=true, which makes every RLS
+    policy in migrations 008/010 decorative. Connecting as the least-privilege
+    `muhafiz_app` role — which is what makes RLS real — turns this line into a
+    hard `access to library "age" is not allowed` on every graph call.
+
+    The library does not actually need loading per-connection when the server
+    has it in `shared_preload_libraries` (the standard AGE deployment), so a
+    failed LOAD is only fatal because it raises, not because AGE is unusable.
+    Verified against a live AGE 1.5.0/PG16 instance: as `muhafiz_app`, LOAD
+    raises while `cypher()` on the same connection works immediately after.
+
+    So the LOAD is best-effort: it still runs (for deployments that do NOT
+    preload, where a superuser connection genuinely needs it), but a permission
+    error is swallowed rather than failing the query. The `SET search_path`
+    below is the part that actually matters, and it is NOT guarded — if that
+    fails, `cypher()` genuinely will not resolve.
+    """
+    try:
+        await conn.execute("LOAD 'age'")
+    except asyncpg.InsufficientPrivilegeError:
+        # Non-superuser + preloaded AGE. Expected on any deployment following
+        # migration 015; the extension is already available.
+        pass
     await conn.execute('SET search_path = ag_catalog, "$user", public')
 
 

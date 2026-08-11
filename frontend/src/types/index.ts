@@ -41,6 +41,39 @@ export interface Source {
 }
 
 /** A single chat message (user or assistant) */
+/**
+ * Per-query degradation trace from the agent harness — what worked and what
+ * failed while producing one answer.
+ *
+ * Built once per query by the supervisor's completion hook
+ * (build_degradation_trace()), persisted on the assistant's message
+ * (migration 019), and therefore restored on reload rather than lost with the
+ * live SSE stream.
+ *
+ * `labels` carries PRE-RENDERED investigator-facing source names. Render those
+ * verbatim — do NOT map the raw tool identifiers in `contributed_only` etc.
+ * client-side. The canonical label map lives in the backend's contracts.py,
+ * and a second copy over here is exactly the drift risk being avoided.
+ */
+export interface DegradationTrace {
+  v: number;
+  sub_agent_status: string;
+  tools_used: string[];
+  degraded_from: string[];
+  /** Raw tool identifiers. For logic/keys only — never displayed. */
+  contributed_only: string[];
+  degraded_and_contributed: string[];
+  degraded_only: string[];
+  /** Display strings, already mapped by the backend. Render these. */
+  labels: {
+    contributed_only: string[];
+    degraded_and_contributed: string[];
+    degraded_only: string[];
+  };
+  caveats: string[];
+  disclosure_rendered: boolean | null;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -49,6 +82,11 @@ export interface ChatMessage {
   pipelineEvents?: PipelineEvent[];
   thinkingLogs?: string[];
   isStreaming?: boolean;
+  /**
+   * Undefined means NO TRACE RECORDED (legacy-path or pre-harness message) —
+   * deliberately distinct from a trace showing a clean run. Renders nothing.
+   */
+  degradationTrace?: DegradationTrace;
 }
 
 /**

@@ -137,6 +137,7 @@ class PgConversationStore:
         user_id: str = None,
         title: str = None,
         project_id: str = None,
+        degradation_trace: dict = None,
     ) -> None:
         gateway = await get_gateway()
         session_obj = await gateway.get_session(session_id)
@@ -160,7 +161,12 @@ class PgConversationStore:
             )
 
         await gateway.save_message(session_id, "user", user_message)
-        await gateway.save_message(session_id, "assistant", assistant_response)
+        # The trace belongs to the ASSISTANT's turn — it describes how that
+        # answer was produced. The user's message carries none.
+        await gateway.save_message(
+            session_id, "assistant", assistant_response,
+            degradation_trace=degradation_trace,
+        )
 
     # ── Delete History ────────────────────────────────────────
 
@@ -195,10 +201,23 @@ async def async_save_history(
     user_message: str,
     assistant_response: str,
     user_id: str = None,
-    project_id: str = None
+    project_id: str = None,
+    degradation_trace: dict = None,
 ) -> None:
-    """Save history to backend."""
-    await _pg_store.save_history(session_id, user_message, assistant_response, user_id, project_id=project_id)
+    """
+    Save history to backend.
+
+    `degradation_trace` (migration 019) is the harness's per-query trace,
+    CARRIED here rather than written separately. The supervisor builds it once
+    at its completion hook, but the assistant message does not exist yet at
+    that moment — so the payload rides along to the insert that creates the
+    message instead of being retrofitted onto it afterwards. Callers on the
+    legacy orchestrator path simply omit it, and those messages persist NULL.
+    """
+    await _pg_store.save_history(
+        session_id, user_message, assistant_response, user_id,
+        project_id=project_id, degradation_trace=degradation_trace,
+    )
 
 async def async_delete_history(session_id: str, user_id: str = None) -> bool:
     """Delete history from backend."""

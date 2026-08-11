@@ -181,6 +181,14 @@ class Case(Base):
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     victim_info: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     suspect_info: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    # Migration 019. When case-level conflict detection last COMPLETED, written
+    # by the background task on return. NULL means no completed detection is on
+    # record — NOT "no conflicts found". Read by Timeline Building to decide
+    # between ConflictState.NONE and ConflictState.UNKNOWN; without it, an
+    # unflagged event can only honestly be reported as UNKNOWN.
+    conflicts_checked_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
     # [Reconciliation fix — harness-reconciliation Unit 6, migration 018]
@@ -295,6 +303,18 @@ class Message(Base):
     unverified_citations: Mapped[Optional[List[str]]] = mapped_column(
         ARRAY(Text), nullable=True,
     )
+    # Migration 019. Per-query degradation trace from the agent harness —
+    # build_degradation_trace()'s output, persisted so an investigator can see
+    # what worked and what failed for their own query after a page reload, not
+    # only while the answer streams.
+    #
+    # NULL means NO TRACE RECORDED (a pre-harness message, or one produced by
+    # the legacy orchestrator path, which does not build one). Readers must not
+    # render NULL as "clean run" — same distinction ConflictState.UNKNOWN draws
+    # against NONE.
+    degradation_trace: Mapped[Optional[dict]] = mapped_column(
+        JSONB, nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(),
     )
@@ -354,7 +374,6 @@ class PipelineRun(Base):
     mcp_tool_calls: Mapped[List["McpToolCall"]] = relationship(
         back_populates="run", cascade="all, delete-orphan",
     )
-
 
 
 # ── Pipeline Steps ────────────────────────────────────────────────────────────

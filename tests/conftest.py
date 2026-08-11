@@ -110,6 +110,11 @@ class FakeGateway:
         self.cases[case_id].update(data)
         return {**self._CASE_DEFAULTS, **self.cases[case_id]}
 
+    async def mark_conflicts_checked(self, case_id: str) -> None:
+        """Migration 019 — records that conflict detection completed."""
+        if case_id in self.cases:
+            self.cases[case_id]["conflicts_checked_at"] = "2026-01-01T00:00:00"
+
     async def delete_case(self, case_id: str) -> None:
         self.cases.pop(case_id, None)
 
@@ -193,10 +198,11 @@ class FakeGateway:
     async def delete_session(self, session_id) -> None:
         self.sessions.pop(str(session_id), None)
 
-    async def save_message(self, session_id, role, content) -> None:
+    async def save_message(self, session_id, role, content, degradation_trace=None) -> None:
         self.messages.append({
             "message_id": str(uuid.uuid4()),
             "session_id": str(session_id), "role": role, "content": content,
+            "degradation_trace": degradation_trace,
         })
 
     async def get_session_history(self, session_id) -> list[dict]:
@@ -348,6 +354,14 @@ class FakeGateway:
             if job["job_id"] == str(job_id):
                 job.update(data)
 
+    async def update_ingestion_job_by_doc(self, doc_id: str, data: dict) -> None:
+        """Mirrors DirectGateway's doc_id-keyed variant (allowlist included)."""
+        allowed = {"status", "error_message"}
+        updates = {k: v for k, v in data.items() if k in allowed}
+        for job in self.jobs:
+            if str(job.get("doc_id")) == str(doc_id):
+                job.update(updates)
+
     async def get_ingestion_jobs(self, limit: int = 50, offset: int = 0) -> list[dict]:
         return self.jobs[offset:offset + limit]
 
@@ -365,24 +379,57 @@ class FakeGateway:
         pass
 
 
+_LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost", "0.0.0.0", ""}
+
+
 @pytest.fixture(autouse=True)
 def no_network(monkeypatch):
     """
     Hard guard: this suite must never touch the network. Without it, a missed
     patch quietly falls through to the real Postgres / LLM APIs — slow, flaky,
     and it mutates production data.
+
+    THREE LAYERS, deliberately. They catch different things, and the first one
+    alone was demonstrably not enough:
+
+      1. `socket.socket.connect/connect_ex` — the original guard. Covers raw
+         sockets and every SYNCHRONOUS HTTP stack (httpx, requests, urllib).
+
+      2. `socket.getaddrinfo` — the broad net. Layer 1 does NOT cover asyncio:
+         the event loop connects via `loop.create_connection`/`sock_connect`,
+         which never goes through the patched `socket.socket` class (on Windows
+         the proactor loop bypasses it entirely). Since this codebase is async
+         end-to-end — `src/llm/client.py` uses `client.aio` and
+         `httpx.AsyncClient` throughout — layer 1 left essentially every real
+         outbound call path unguarded. Every stack must resolve a hostname
+         before connecting, so patching resolution catches sync, async, and any
+         SDK that ships its own transport.
+
+         This gap was not theoretical: `test_deterministic_timeline_conflict`
+         reached `generativelanguage.googleapis.com` for real (confirmed by a
+         live 400 API_KEY_INVALID response) while layer 1 was active.
+
+      3. `httpx` transport handlers, sync and async — narrower than layer 2, but
+         earns its place twice over: it fails at the call site with a message
+         naming the offending URL (far easier to debug than a DNS error deep in
+         a stack), and it catches KEEP-ALIVE POOL REUSE, where an already-open
+         connection is reused with no fresh DNS lookup and so slips past layer 2.
+
+    A test that needs a specific outbound call should mock at the boundary it
+    owns (`call_llm`, `embed_text`, `perform_web_search`, the gateway) — never
+    by disabling this fixture.
     """
     import socket
 
     real_socket = socket.socket
-    _LOOPBACK = {"127.0.0.1", "::1", "localhost"}
 
     def _is_loopback(address) -> bool:
         # asyncio's event loop uses a loopback socketpair on Windows — allow it.
         if isinstance(address, tuple) and address:
-            return str(address[0]) in _LOOPBACK
+            return str(address[0]) in _LOOPBACK_HOSTS
         return False
 
+    # ── Layer 1: raw sockets + every synchronous HTTP stack ──
     class _GuardedSocket(real_socket):
         def connect(self, address, *args, **kwargs):
             if not _is_loopback(address):
@@ -401,6 +448,72 @@ def no_network(monkeypatch):
             return super().connect_ex(address, *args, **kwargs)
 
     monkeypatch.setattr(socket, "socket", _GuardedSocket)
+
+    # ── Layer 2: hostname resolution (covers asyncio, which layer 1 misses) ──
+    real_getaddrinfo = socket.getaddrinfo
+
+    def _guarded_getaddrinfo(host, *args, **kwargs):
+        if host is not None and str(host) not in _LOOPBACK_HOSTS:
+            raise RuntimeError(
+                "Network access is disabled in tests — a boundary is unpatched. "
+                f"Attempted DNS resolution of {host!r}. Mock the call at its own "
+                "boundary (call_llm / embed_text / perform_web_search / the gateway)."
+            )
+        return real_getaddrinfo(host, *args, **kwargs)
+
+    monkeypatch.setattr(socket, "getaddrinfo", _guarded_getaddrinfo)
+
+    # asyncio resolves through the loop's own getaddrinfo, which holds its own
+    # reference — patching `socket.getaddrinfo` alone would not reach it.
+    try:
+        import asyncio.base_events as _base_events
+
+        real_loop_getaddrinfo = _base_events.BaseEventLoop.getaddrinfo
+
+        async def _guarded_loop_getaddrinfo(self, host, port, **kwargs):
+            if host is not None and str(host) not in _LOOPBACK_HOSTS:
+                raise RuntimeError(
+                    "Network access is disabled in tests — a boundary is unpatched. "
+                    f"Attempted async DNS resolution of {host!r}."
+                )
+            return await real_loop_getaddrinfo(self, host, port, **kwargs)
+
+        monkeypatch.setattr(
+            _base_events.BaseEventLoop, "getaddrinfo", _guarded_loop_getaddrinfo
+        )
+    except (ImportError, AttributeError):  # pragma: no cover - stdlib layout change
+        pass
+
+    # ── Layer 3: httpx transports — call-site errors + keep-alive reuse ──
+    try:
+        import httpx
+
+        def _reject(request):
+            host = request.url.host
+            if host not in _LOOPBACK_HOSTS:
+                raise RuntimeError(
+                    "Network access is disabled in tests — a boundary is unpatched. "
+                    f"Attempted HTTP request to {request.url}. Mock the call at its "
+                    "own boundary rather than letting it reach a transport."
+                )
+
+        real_sync_handler = httpx.HTTPTransport.handle_request
+        real_async_handler = httpx.AsyncHTTPTransport.handle_async_request
+
+        def _guarded_handle_request(self, request):
+            _reject(request)
+            return real_sync_handler(self, request)
+
+        async def _guarded_handle_async_request(self, request):
+            _reject(request)
+            return await real_async_handler(self, request)
+
+        monkeypatch.setattr(httpx.HTTPTransport, "handle_request", _guarded_handle_request)
+        monkeypatch.setattr(
+            httpx.AsyncHTTPTransport, "handle_async_request", _guarded_handle_async_request
+        )
+    except (ImportError, AttributeError):  # pragma: no cover - httpx absent/renamed
+        pass
 
 
 @pytest.fixture(autouse=True)

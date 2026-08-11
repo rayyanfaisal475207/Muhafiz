@@ -92,6 +92,7 @@ from src.data_gateway.base import DataGateway
 from src.memory.conversation import async_load_history, async_save_history, format_history_for_prompt
 from src.pipeline.harness.supervisor import Supervisor
 from src.pipeline.harness.types import (
+    SOURCE_TOOL_DISPLAY_LABELS,
     CallerContext,
     ConversationContext,
     ExecutionContext,
@@ -101,6 +102,67 @@ from src.pipeline.harness.types import (
     SubAgentResult,
     SubAgentStatus,
 )
+
+# [Reconciliation merge — durable per-message trace, migration 019] Schema
+# version for the structured trace payload persisted on `messages.
+# degradation_trace`. Bump when the SHAPE changes in a way a reader must
+# adapt to — persisted rows are historical records, so a renderer will
+# encounter payloads written by older code indefinitely.
+_TRACE_PAYLOAD_VERSION = 1
+
+
+def _build_degradation_trace(result: SubAgentResult) -> dict:
+    """
+    The durable, investigator-facing "what I checked" payload for one
+    query, written into `messages.degradation_trace` (migration 019) so it
+    survives a page reload — previously this kind of detail lived only in
+    the live SSE stream and was admin-only on the Run History page.
+
+    ONE SHAPE FOR ALL SUB-AGENTS: reads only `tools_used`/`degraded_from`/
+    `caveats`/`status`, fields every `SubAgentResult` carries regardless of
+    which sub-agent produced it.
+
+    THE OVERLAP CASE, WHICH READERS MUST HANDLE: a tool can appear in BOTH
+    `tools_used` and `degraded_from` — it CONTRIBUTED DATA but degraded
+    internally while doing so (e.g. RAG's relevance gate was unavailable,
+    Unit 3). `degraded_from` membership does NOT imply "did not
+    contribute". `contributed_only`/`degraded_and_contributed`/
+    `degraded_only` are precomputed here so every consumer derives the
+    three-way split identically rather than each reimplementing the set
+    arithmetic.
+    """
+    used = list(result.tools_used)
+    degraded = list(result.degraded_from)
+    used_set, degraded_set = set(used), set(degraded)
+
+    return {
+        "v": _TRACE_PAYLOAD_VERSION,
+        "sub_agent_status": result.status.value,
+        "tools_used": used,
+        "degraded_from": degraded,
+        "contributed_only": [t for t in used if t not in degraded_set],
+        "degraded_and_contributed": [t for t in used if t in degraded_set],
+        "degraded_only": [t for t in degraded if t not in used_set],
+        # Pre-labelled for the frontend — the canonical label map lives in
+        # types.py's SOURCE_TOOL_DISPLAY_LABELS, so a client never needs its
+        # own copy of it (a confirmed drift risk if it did).
+        "labels": {
+            "contributed_only": [
+                SOURCE_TOOL_DISPLAY_LABELS.get(t, t) for t in used if t not in degraded_set
+            ],
+            "degraded_and_contributed": [
+                SOURCE_TOOL_DISPLAY_LABELS.get(t, t) for t in used if t in degraded_set
+            ],
+            "degraded_only": [
+                SOURCE_TOOL_DISPLAY_LABELS.get(t, t) for t in degraded if t not in used_set
+            ],
+        },
+        "caveats": list(result.caveats),
+        "disclosure_rendered": (
+            result.generated_file.disclosure_rendered
+            if result.generated_file is not None else None
+        ),
+    }
 
 
 # [Reconciliation fix — harness-reconciliation Unit 12] The caveats contract
@@ -255,6 +317,23 @@ async def run_cutover_query(
     supervisor = Supervisor()
     result = await supervisor.handle(agent_input, on_event=_on_event, gateway=gateway)
 
+    # [Merge reconciliation — harness-reconciliation Unit 12 follow-up]
+    # DIRECT classifies to NO_SUB_AGENT (supervisor.py) — the honest thing
+    # for this adapter to do is hand the query back to the caller's own
+    # legacy DIRECT path, not render a generic abstention. Not currently
+    # reachable (DIRECT is never in `config.HARNESS_CUTOVER_ROUTES`, so
+    # `main.py` never routes a DIRECT-classified query here at all), but
+    # the signal is real and checked so this boundary can't silently
+    # misbehave the moment that config is ever widened.
+    if result.status == SubAgentStatus.ABSTAINED and result.error is not None and result.error.kind == "invalid_input":
+        yield {
+            "step": "supervisor",
+            "status": "skipped",
+            "detail": "DIRECT route — handing back to the legacy path",
+            "delegate_to_legacy": True,
+        }
+        return
+
     for evt in events:
         out: dict = {"step": evt.step, "status": evt.status, "detail": evt.detail}
         if evt.ms is not None:
@@ -333,7 +412,14 @@ async def run_cutover_query(
     yield {"step": "response", "status": "done", "detail": f"Response generated ({len(delivered_text)} chars)", "ms": total_ms}
 
     try:
-        await async_save_history(session_id, user_message, delivered_text, user_id, project_id=project_id)
+        # [Reconciliation merge — durable per-message trace, migration 019]
+        # Persisted alongside the message so an investigator sees "what I
+        # checked" for their OWN query after a page reload, not just live
+        # while it streams.
+        await async_save_history(
+            session_id, user_message, delivered_text, user_id,
+            project_id=project_id, degradation_trace=_build_degradation_trace(result),
+        )
         yield {"step": "memory", "status": "done", "detail": "Saved to session"}
     except Exception as exc:
         yield {"step": "memory", "status": "error", "detail": f"Failed to save conversation memory: {exc}"}

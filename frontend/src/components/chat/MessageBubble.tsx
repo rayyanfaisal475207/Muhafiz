@@ -9,6 +9,7 @@ import type { ChatMessage, Source } from '../../types';
 import { GenerationStatus } from './GenerationStatus';
 import { AlertIcon, GlobeIcon, ReadIcon } from './StatusIcons';
 import { FileResultCard } from './FileResultCard';
+import { QueryChecks } from '../pipeline/QueryChecks';
 
 interface Props {
   message: ChatMessage;
@@ -126,6 +127,11 @@ export const MessageBubble = memo(function MessageBubble({ message, onSourceClic
               {parsedContent}
             </div>
           ) : null}
+          {/* What was checked for this query. Deliberately BELOW the answer and
+              outside the prose block: it describes how the answer was produced,
+              not what the evidence says, so it must never read as part of the
+              content. Renders nothing while streaming or when no trace exists. */}
+          {!message.isStreaming && <QueryChecks trace={message.degradationTrace} />}
           {/* File Download Block */}
           {!message.isStreaming &&
             message.pipelineEvents?.some((e) => e.step === 'file_generation' && e.status === 'done') && (
