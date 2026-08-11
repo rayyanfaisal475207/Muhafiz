@@ -265,7 +265,7 @@ async def test_supervisor_dispatches_to_real_large_scale_aggregate_and_real_xagg
     import src.pipeline.harness.tools.xagg as xagg_tool_mod
 
     async def _fake_route_query(query_text: str) -> dict:
-        return {"route": "XAGG", "output_format": "chat"}
+        return {"route": "XAGG", "case_scope": "cross_case", "output_format": "chat"}
 
     monkeypatch.setattr(supervisor_mod, "route_query", _fake_route_query)
 

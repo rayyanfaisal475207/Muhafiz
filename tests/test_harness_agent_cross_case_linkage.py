@@ -623,7 +623,7 @@ async def test_supervisor_dispatches_to_real_cross_case_linkage_and_real_tools(m
     import src.pipeline.harness.tools.xnetwork as xnetwork_tool_mod
 
     async def _fake_route_query(query_text: str) -> dict:
-        return {"route": "XGRAPH", "output_format": "chat"}
+        return {"route": "XGRAPH", "case_scope": "cross_case", "output_format": "chat"}
 
     monkeypatch.setattr(supervisor_mod, "route_query", _fake_route_query)
 

@@ -29,6 +29,7 @@ from src.pipeline.harness.supervisor import (
     CROSS_CASE_LINKAGE,
     INVESTIGATIVE_ANALYSIS,
     LARGE_SCALE_AGGREGATE,
+    NO_SUB_AGENT,
     REPORT_DRAFTING,
     SEMANTIC_SEARCH,
     TIMELINE_BUILDING,
@@ -116,14 +117,31 @@ def _stub_route_query(monkeypatch, route_result: dict):
         ({"route": "GRAPH", "output_format": "chat"}, CASE_SUMMARIZATION),
         ({"route": "GRAPH_HYBRID", "output_format": "chat"}, CASE_SUMMARIZATION),
         ({"route": "SQL", "output_format": "chat"}, INVESTIGATIVE_ANALYSIS),
-        ({"route": "XGRAPH", "output_format": "chat"}, CROSS_CASE_LINKAGE),
-        ({"route": "XNETWORK", "output_format": "chat"}, CROSS_CASE_LINKAGE),
-        ({"route": "XAGG", "output_format": "chat"}, LARGE_SCALE_AGGREGATE),
-        ({"route": "DIRECT", "output_format": "chat"}, SEMANTIC_SEARCH),
+        # XGRAPH/XNETWORK/XAGG carry case_scope="cross_case", matching real
+        # route_query() output (router.py never forces these three back to
+        # within_case) — required for the case_scope demotion guard
+        # (reconciliation Unit 2) to dispatch them to their real sub-agent
+        # rather than demoting to Semantic Search.
+        ({"route": "XGRAPH", "case_scope": "cross_case", "output_format": "chat"}, CROSS_CASE_LINKAGE),
+        ({"route": "XNETWORK", "case_scope": "cross_case", "output_format": "chat"}, CROSS_CASE_LINKAGE),
+        ({"route": "XAGG", "case_scope": "cross_case", "output_format": "chat"}, LARGE_SCALE_AGGREGATE),
+        # [Reconciliation fix — Unit 2] DIRECT -> NO_SUB_AGENT, not Semantic
+        # Search. See NO_SUB_AGENT's own comment in supervisor.py.
+        ({"route": "DIRECT", "output_format": "chat"}, NO_SUB_AGENT),
         ({"route": "WEB", "output_format": "chat"}, SEMANTIC_SEARCH),
         # File output_format overrides the route entirely.
         ({"route": "RAG", "output_format": "file_pdf"}, REPORT_DRAFTING),
-        ({"route": "XAGG", "output_format": "file_xlsx"}, REPORT_DRAFTING),
+        ({"route": "XAGG", "case_scope": "cross_case", "output_format": "file_xlsx"}, REPORT_DRAFTING),
+        # [Reconciliation fix — Unit 2] DIRECT wins even over a file
+        # output_format — see classify_to_subagent()'s own comment.
+        ({"route": "DIRECT", "output_format": "file_pdf"}, NO_SUB_AGENT),
+        # [Reconciliation fix — Unit 2] case_scope demotion guard: a
+        # cross-case route whose case_scope did NOT come back "cross_case"
+        # (a genuinely possible LLM-classification outcome, not just a
+        # hypothetical) demotes to Semantic Search rather than reaching a
+        # cross-case sub-agent under a within-case scope.
+        ({"route": "XAGG", "case_scope": "within_case", "output_format": "chat"}, SEMANTIC_SEARCH),
+        ({"route": "XGRAPH", "output_format": "chat"}, SEMANTIC_SEARCH),
     ],
 )
 def test_classify_to_subagent(route_result, expected_name):
@@ -182,7 +200,7 @@ def test_provisional_triggers_never_override_a_cross_case_classification(route, 
     two provisional patterns is a genuine ambiguity these overrides must
     not try to resolve heuristically -- router.py's own already-evidenced
     cross-case precedence wins outright."""
-    route_result = {"route": route, "output_format": "chat"}
+    route_result = {"route": route, "case_scope": "cross_case", "output_format": "chat"}
     result = classify_to_subagent(route_result, query_text)
     assert result == CROSS_CASE_LINKAGE if route in ("XGRAPH", "XNETWORK") else result == LARGE_SCALE_AGGREGATE
 
@@ -229,7 +247,7 @@ def test_route_query_contract_is_unaffected_by_the_classification_amendment():
 
 @pytest.mark.asyncio
 async def test_dispatch_routes_to_correct_registered_mock(monkeypatch, isolated_registry):
-    _stub_route_query(monkeypatch, {"route": "XAGG", "output_format": "chat"})
+    _stub_route_query(monkeypatch, {"route": "XAGG", "case_scope": "cross_case", "output_format": "chat"})
 
     expected = SubAgentResult(status=SubAgentStatus.OK, answer_text="42 cases")
     mock = _mock_sub_agent(LARGE_SCALE_AGGREGATE, expected)
@@ -319,7 +337,7 @@ async def test_caller_role_never_defaulted_for_investigator(monkeypatch, isolate
     # Regression guard for the historical bug documented throughout the
     # design/interfaces docs: role must never be silently defaulted to
     # "investigator" (or anything else) on the way through the Supervisor.
-    _stub_route_query(monkeypatch, {"route": "XGRAPH", "output_format": "chat"})
+    _stub_route_query(monkeypatch, {"route": "XGRAPH", "case_scope": "cross_case", "output_format": "chat"})
 
     caller = _caller(role=Role.STATION_ADMIN)
     mock = _mock_sub_agent(CROSS_CASE_LINKAGE, SubAgentResult(status=SubAgentStatus.OK))
@@ -337,7 +355,7 @@ async def test_caller_role_never_defaulted_for_investigator(monkeypatch, isolate
 
 @pytest.mark.asyncio
 async def test_unregistered_route_returns_typed_not_available_result(monkeypatch, isolated_registry):
-    _stub_route_query(monkeypatch, {"route": "XAGG", "output_format": "chat"})
+    _stub_route_query(monkeypatch, {"route": "XAGG", "case_scope": "cross_case", "output_format": "chat"})
 
     sup = Supervisor(registry=isolated_registry)  # empty registry
     result = await sup.handle(_agent_input())
@@ -417,7 +435,7 @@ async def test_pipeline_events_emitted_on_successful_dispatch(monkeypatch, isola
 
 @pytest.mark.asyncio
 async def test_pipeline_events_emitted_on_unregistered_route(monkeypatch, isolated_registry):
-    _stub_route_query(monkeypatch, {"route": "XNETWORK", "output_format": "chat"})
+    _stub_route_query(monkeypatch, {"route": "XNETWORK", "case_scope": "cross_case", "output_format": "chat"})
 
     events: list[PipelineEvent] = []
     sup = Supervisor(registry=isolated_registry)  # empty

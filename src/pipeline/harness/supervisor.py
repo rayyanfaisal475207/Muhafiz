@@ -61,8 +61,13 @@ commit), as the minimal-deterministic-map option:
     8 sub-agent names, using the least-ambiguous available reading (RAG ->
     Semantic Search; GRAPH/GRAPH_HYBRID -> Case Summarization; SQL ->
     Investigative Analysis; XGRAPH/XNETWORK -> Cross-Case Linkage; XAGG ->
-    Large-Scale Aggregate; DIRECT/WEB -> Semantic Search as the closest
-    available fallback).
+    Large-Scale Aggregate; WEB -> Semantic Search as the closest available
+    fallback. [Reconciliation fix — harness-reconciliation Unit 2] DIRECT ->
+    `NO_SUB_AGENT`, not Semantic Search: DIRECT answers from general
+    knowledge with no retrieval and the Verifier never gates it, so forcing
+    it through Semantic Search's retrieve-generate-verify pipeline would be
+    a behavioral regression, not a fallback — see `NO_SUB_AGENT`'s own
+    comment below).
   - `output_format in {file_pdf, file_xlsx, file_docx}` always overrides
     to Report Drafting, regardless of route — this mirrors
     `orchestrator.py`'s own existing behavior, where file generation is a
@@ -142,6 +147,25 @@ SUB_AGENT_NAMES: tuple[str, ...] = (
     DATA_QUALITY,
 )
 
+# [Reconciliation fix — harness-reconciliation Unit 2] Returned by
+# classify_to_subagent() for the DIRECT route. DIRECT answers from general
+# knowledge with no retrieval, and the Verifier deliberately never gates it
+# (design §1) — it is definitionally outside the harness's
+# retrieval-and-verification scope, not a Semantic Search query in disguise.
+# `_ROUTE_TO_SUBAGENT` previously mapped "DIRECT" to SEMANTIC_SEARCH, which
+# would have forced a DIRECT query through the full RAG retrieve-generate-
+# verify pipeline (wrong answer shape, and would break token streaming, the
+# moment DIRECT is ever included in a live cutover route set) rather than
+# being recognized as "no sub-agent, caller's own concern" the way the
+# legacy orchestrator already treats it. Not currently live-traffic-
+# reachable (`config.HARNESS_CUTOVER_ROUTES` gates by route BEFORE
+# `Supervisor.handle()` is ever called, and DIRECT is not in that set today
+# — see main.py's chat_endpoint), but the classification table itself must
+# not assert something false regardless of whether today's config happens
+# to mask it. See `Supervisor.handle()` for how a NO_SUB_AGENT
+# classification is handled if it is ever dispatched.
+NO_SUB_AGENT = "__direct__"
+
 _FILE_OUTPUT_FORMATS = frozenset({"file_pdf", "file_xlsx", "file_docx"})
 
 # See the module docstring's "CLASSIFICATION" section for the full
@@ -155,9 +179,20 @@ _ROUTE_TO_SUBAGENT: dict[str, str] = {
     "XGRAPH": CROSS_CASE_LINKAGE,
     "XNETWORK": CROSS_CASE_LINKAGE,
     "XAGG": LARGE_SCALE_AGGREGATE,
-    "DIRECT": SEMANTIC_SEARCH,
+    "DIRECT": NO_SUB_AGENT,
     "WEB": SEMANTIC_SEARCH,
 }
+
+# [Reconciliation fix — harness-reconciliation Unit 2] Cheap, defense-in-
+# depth guard: a cross-case sub-agent must never be dispatched for a
+# within-case scope. Redundant today (router.py forces every route except
+# XGRAPH/XAGG/XNETWORK back to within_case unconditionally, so this
+# combination should already be unreachable), kept anyway so a future
+# router.py change cannot silently route a within-case query into a
+# cross-case sub-agent — where the tool's own role gate would then produce a
+# confusing DENIED on a query that never asked to cross cases, rather than a
+# clean same-case answer.
+_CROSS_CASE_SUBAGENTS = frozenset({CROSS_CASE_LINKAGE, LARGE_SCALE_AGGREGATE})
 
 # ═══════════════════════════════════════════════════════════════════════
 # [Contract amendment — classification reachability, pre-cutover-Part-3]
@@ -250,8 +285,9 @@ _CROSS_CASE_ROUTES = frozenset({"XGRAPH", "XAGG", "XNETWORK"})
 def classify_to_subagent(route_result: dict, query_text: str = "") -> str:
     """
     Translate `router.py::route_query()`'s output dict into one of the 8
-    sub-agent names. Does not call `route_query()` itself and does not
-    re-derive its classification — see module docstring.
+    sub-agent names, or `NO_SUB_AGENT` for DIRECT. Does not call
+    `route_query()` itself and does not re-derive its classification — see
+    module docstring.
 
     `query_text` is optional (defaults to `""`, under which neither
     provisional override below can ever match) so every existing direct
@@ -260,10 +296,23 @@ def classify_to_subagent(route_result: dict, query_text: str = "") -> str:
     and does so below.
     """
     output_format = str(route_result.get("output_format") or "chat").lower()
+    route = str(route_result.get("route") or "RAG").upper()
+
+    # [Reconciliation fix — Unit 2] DIRECT wins outright, even over a file
+    # request — the router's own few-shots include a DIRECT route paired
+    # with a file output_format (e.g. "write me a document about something
+    # unrelated to case facts"), and routing that to Report Drafting would
+    # send it through Case Summarization's case-scoped retrieval, which is
+    # exactly the retrieval this query was routed away from. The legacy
+    # orchestrator already handles this correctly (its DIRECT branch
+    # generates the answer, then falls through to file generation) —
+    # returning NO_SUB_AGENT here preserves that instead of reimplementing
+    # it.
+    if route == "DIRECT":
+        return NO_SUB_AGENT
+
     if output_format in _FILE_OUTPUT_FORMATS:
         return REPORT_DRAFTING
-
-    route = str(route_result.get("route") or "RAG").upper()
 
     if route not in _CROSS_CASE_ROUTES:
         if any(pat.search(query_text) for pat in _TIMELINE_TRIGGER_PATTERNS):
@@ -271,7 +320,15 @@ def classify_to_subagent(route_result: dict, query_text: str = "") -> str:
         if any(pat.search(query_text) for pat in _INVESTIGATIVE_ANALYSIS_TRIGGER_PATTERNS):
             return INVESTIGATIVE_ANALYSIS
 
-    return _ROUTE_TO_SUBAGENT.get(route, SEMANTIC_SEARCH)
+    sub_agent = _ROUTE_TO_SUBAGENT.get(route, SEMANTIC_SEARCH)
+
+    # [Reconciliation fix — Unit 2] case_scope demotion guard — see
+    # _CROSS_CASE_SUBAGENTS's own comment for the full rationale.
+    case_scope = str(route_result.get("case_scope") or "within_case").lower()
+    if sub_agent in _CROSS_CASE_SUBAGENTS and case_scope != "cross_case":
+        return SEMANTIC_SEARCH
+
+    return sub_agent
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -395,6 +452,32 @@ class Supervisor:
                 ),
             )
         )
+
+        # [Reconciliation fix — Unit 2] DIRECT classifies to NO_SUB_AGENT,
+        # never to a real sub-agent name. This dispatch path is not
+        # currently live-traffic-reachable (see NO_SUB_AGENT's own comment),
+        # but must not silently misbehave if it ever is: the honest answer
+        # this layer can give is "no sub-agent handles this route", not a
+        # generated response pretending to be one. Full delegation back to
+        # the legacy DIRECT path (preserving its streaming behavior) belongs
+        # at the caller (main.py/cutover.py), which already has the
+        # machinery to answer DIRECT queries — see cutover.py.
+        if sub_agent_name == NO_SUB_AGENT:
+            emit(
+                PipelineEvent(
+                    step="supervisor:dispatch",
+                    status="skipped",
+                    detail="DIRECT route — no sub-agent; caller should use the legacy DIRECT path",
+                )
+            )
+            return SubAgentResult(
+                status=SubAgentStatus.ABSTAINED,
+                answer_text=None,
+                caveats=[
+                    "This query classified as DIRECT (general knowledge, no "
+                    "retrieval), which the harness does not serve itself."
+                ],
+            )
 
         handler = self._registry.get(sub_agent_name)
         if handler is None:
