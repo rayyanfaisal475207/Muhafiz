@@ -283,6 +283,38 @@ async def process_query_harness(
         elif not answer_text:
             answer_text = _ABSTAIN_FALLBACK
 
+        # ── Cross-case links ──
+        # Cross-Case Linkage returns its finding as STRUCTURED links, not prose:
+        # when nothing is confirmed it answers "no confirmed connections;
+        # possible identity matches are listed below" and puts the leads in
+        # `cross_case_links`. Without rendering them the user is pointed at a
+        # list that is not there — and the actual finding, which is the leads,
+        # never reaches them.
+        #
+        # Confirmed and unconfirmed are kept visually distinct because
+        # [PRESERVE — design §3] requires that a consumer cannot render an
+        # unverified identity match indistinguishably from an established one.
+        links = getattr(result, "cross_case_links", None) or []
+        if links:
+            confirmed = [ln for ln in links if not ln.is_unconfirmed]
+            unconfirmed = [ln for ln in links if ln.is_unconfirmed]
+            parts: list[str] = []
+            if confirmed:
+                parts.append("\n**Confirmed connections**\n")
+                for ln in confirmed:
+                    cases = f" — {', '.join(ln.case_ids)}" if ln.case_ids else ""
+                    parts.append(f"- {ln.description}{cases}")
+            if unconfirmed:
+                parts.append("\n**Possible matches — unverified leads**\n")
+                for ln in unconfirmed:
+                    cases = f" — {', '.join(ln.case_ids)}" if ln.case_ids else ""
+                    conf = (
+                        f" _(similarity {ln.confidence:.0%})_"
+                        if ln.confidence is not None else ""
+                    )
+                    parts.append(f"- {ln.description}{cases}{conf}")
+            answer_text += "\n" + "\n".join(parts)
+
         # Caveats are appended to the ANSWER, not left as metadata: a stated
         # gap the user never sees is the same as no gap at all.
         #

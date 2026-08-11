@@ -454,3 +454,59 @@ async def test_a_generated_file_is_emitted_with_a_download_id(monkeypatch):
     assert src["file_id"] == "abc-123"
     assert src["filename"] == "Case Report.docx"
     assert src["type"] == "docx"
+
+
+@pytest.mark.asyncio
+async def test_cross_case_leads_are_rendered_and_kept_distinct(monkeypatch):
+    """
+    Cross-Case Linkage returns its finding as STRUCTURED links, not prose: when
+    nothing is confirmed it answers "possible identity matches are listed below"
+    and puts the leads in `cross_case_links`. Not rendering them pointed the
+    user at a list that was not there.
+
+    [PRESERVE — design §3] Confirmed and unconfirmed must stay visually
+    distinct: a consumer must not be able to render an unverified identity
+    match indistinguishably from an established one.
+    """
+    from src.pipeline.harness.contracts import CrossCaseLink
+
+    result = SubAgentResult(
+        status=SubAgentStatus.EMPTY,
+        answer_text="No confirmed connections were found.",
+        tools_used=[], degraded_from=["XGRAPH"],
+        cross_case_links=[
+            CrossCaseLink(
+                description="Ali Raza appears in both cases",
+                case_ids=["CASE-1", "CASE-2"], confidence=0.95,
+                source_tool="XGRAPH", is_unconfirmed=False,
+            ),
+            CrossCaseLink(
+                description="Possible identity link between A and B",
+                case_ids=["CASE-3"], confidence=0.42,
+                source_tool="XGRAPH", is_unconfirmed=True,
+            ),
+        ],
+    )
+    frames = await _collect(monkeypatch, result)
+    answer = _answer_of(frames)
+
+    assert "Ali Raza appears in both cases" in answer
+    assert "Possible identity link between A and B" in answer
+    # The two groups carry different headings, so an unverified lead can never
+    # read as an established connection.
+    assert "Confirmed connections" in answer
+    assert "unverified leads" in answer.lower()
+    assert answer.index("Confirmed connections") < answer.index("unverified leads")
+    # The similarity score is surfaced, so a reviewer can weigh the lead.
+    assert "42%" in answer
+
+
+@pytest.mark.asyncio
+async def test_no_link_section_is_added_when_there_are_no_links(monkeypatch):
+    """An ordinary answer must not grow an empty 'possible matches' heading."""
+    result = SubAgentResult(
+        status=SubAgentStatus.OK, answer_text="A normal answer.", tools_used=["RAG"],
+    )
+    answer = _answer_of(await _collect(monkeypatch, result))
+    assert "unverified leads" not in answer.lower()
+    assert "Confirmed connections" not in answer
