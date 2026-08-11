@@ -160,6 +160,56 @@ def _stub_verify_grounding(monkeypatch, sequence):
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# [Reconciliation fix — harness-reconciliation Unit 7] target_entity
+# threading + statistical-NER recovery fallback
+# ═══════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_explicit_target_entity_threaded_to_xgraph(monkeypatch):
+    """An explicit value on the input always wins over recovery."""
+    calls = []
+
+    async def _fake_xgraph(tool_input):
+        calls.append(tool_input)
+        return XGraphToolResult(status=ToolStatus.EMPTY)
+
+    monkeypatch.setattr(ccl_mod, "xgraph_tool", _fake_xgraph)
+    _stub_xnetwork_tool(monkeypatch, XNetworkToolResult(status=ToolStatus.EMPTY))
+
+    await cross_case_linkage(_agent_input(target_entity="ABC-123"))
+
+    assert len(calls) == 1
+    assert calls[0].target_entity == "ABC-123"
+
+
+@pytest.mark.asyncio
+async def test_target_entity_recovered_from_query_when_router_supplied_none(monkeypatch):
+    """[Reconciliation fix — Unit 7] router.py's deterministic XGRAPH
+    override always reports target_entity=None -- on exactly the queries
+    where an entity matters most ("what other cases is X involved in?"),
+    routing short-circuits before the LLM extraction that would have found
+    it. Regression guard for the statistical-NER recovery fallback."""
+    calls = []
+
+    async def _fake_xgraph(tool_input):
+        calls.append(tool_input)
+        return XGraphToolResult(status=ToolStatus.EMPTY)
+
+    monkeypatch.setattr(ccl_mod, "xgraph_tool", _fake_xgraph)
+    _stub_xnetwork_tool(monkeypatch, XNetworkToolResult(status=ToolStatus.EMPTY))
+
+    await cross_case_linkage(
+        _agent_input(query_text="what other cases is Ahmed Khan involved in?")
+    )
+
+    assert len(calls) == 1
+    # A real person name should be recovered by the statistical NER pass --
+    # exact casing/format depends on that pass, so assert non-None rather
+    # than a specific string.
+    assert calls[0].target_entity is not None
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # (a) both tools contribute -> OK
 # ═══════════════════════════════════════════════════════════════════════
 

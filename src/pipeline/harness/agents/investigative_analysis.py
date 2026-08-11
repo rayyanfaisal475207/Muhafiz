@@ -349,7 +349,14 @@ async def _run_graph(agent_input: SubAgentInput, on_event: Optional[OnEventCallb
             GraphToolInput(
                 query_text=agent_input.query_text,
                 execution=agent_input.execution,
-                target_entity=None,  # case-wide, not a single-entity lookup
+                # [Reconciliation fix — harness-reconciliation Unit 8]
+                # Previously hardcoded None. Legacy's GRAPH route forwards
+                # the router's target_entity (orchestrator.py:858) — an
+                # entity-focused analytical question ("how is X connected
+                # to Y") traverses from that entity; without it the
+                # traversal has no anchor and falls back to whatever the
+                # query text alone matches.
+                target_entity=agent_input.target_entity,
                 hybrid=False,  # composed by THIS sub-agent, not GRAPH_HYBRID's internal fusion
             )
         )

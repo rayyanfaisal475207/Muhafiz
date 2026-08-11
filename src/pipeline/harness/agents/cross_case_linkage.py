@@ -222,6 +222,48 @@ from src.pipeline.verifier import verify_grounding
 
 logger = logging.getLogger(__name__)
 
+
+def _recover_target_entity(query_text: str) -> Optional[str]:
+    """
+    [Reconciliation fix — harness-reconciliation Unit 7] Recover a person
+    named in the query when the router did not supply one.
+
+    WHY THIS IS NEEDED: `router.py`'s deterministic XGRAPH overrides return
+    `"target_entity": None` unconditionally, and one of those patterns
+    matches the archetypal cross-case question, "What other cases is X
+    involved in?" — so on exactly the queries where an entity matters most,
+    routing short-circuits before the LLM extraction step that would have
+    found it, and XGRAPH is left with nothing to traverse from. Threading
+    `SubAgentInput.target_entity` (populated from the router's own
+    `target_entity` field, see `Supervisor.handle()`) is therefore not
+    sufficient on its own for this specific tool — this recovers it as a
+    fallback when the router genuinely supplied nothing.
+
+    Uses the STATISTICAL pass only — regex/gazetteer, synchronous, no model
+    call. `extract_entities()` would additionally run LLM adjudication over
+    low-confidence candidates, which is the right trade for ingesting a
+    document and the wrong one for a routing hint on a one-line query.
+
+    Returns None when the query names nobody ("which cases share
+    suspects?"), which is correct: that is a genuinely open-ended question,
+    and inventing a seed for it would narrow a search the user asked to be
+    broad.
+    """
+    try:
+        from src.extraction.ner import extract_statistical
+
+        mentions = [m for m in extract_statistical(query_text or "") if m.type == "person"]
+    except Exception as exc:  # extraction must never break linkage
+        logger.warning("Target-entity recovery failed for %r: %s", (query_text or "")[:60], exc)
+        return None
+
+    if not mentions:
+        return None
+    # Highest-confidence mention; ties resolve to the earliest, keeping this
+    # deterministic for the same query text.
+    best = max(mentions, key=lambda m: m.confidence)
+    return best.text or None
+
 # Self-contained, sub-agent-scoped prompt — same convention every prior
 # sub-agent module established (no coupling to orchestrator.py's own
 # `_CROSS_CASE_NETWORK_PROMPT_TEMPLATE`, which takes parameters
@@ -508,8 +550,17 @@ async def cross_case_linkage(
     """
     execution = agent_input.execution
 
+    # [Reconciliation fix — harness-reconciliation Unit 7] Prefer the
+    # router's own extraction; fall back to recovering a name from the
+    # query text, because the deterministic XGRAPH override always reports
+    # None (see _recover_target_entity's own docstring). A genuinely
+    # open-ended query yields None from both, which is correct —
+    # retrieve_graph() then uses its own recurring-entity seed set instead
+    # of a single anchor.
+    target_entity = agent_input.target_entity or _recover_target_entity(agent_input.query_text)
+
     xgraph_input = XGraphToolInput(
-        query_text=agent_input.query_text, execution=execution, target_entity=None
+        query_text=agent_input.query_text, execution=execution, target_entity=target_entity
     )
     xnetwork_input = XNetworkToolInput(query_text=agent_input.query_text, execution=execution)
 

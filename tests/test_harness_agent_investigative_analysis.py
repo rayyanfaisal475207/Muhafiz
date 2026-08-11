@@ -172,6 +172,30 @@ async def test_full_success_flattens_rag_then_graph_then_sql_and_returns_ok(monk
 
 
 @pytest.mark.asyncio
+async def test_target_entity_threaded_to_graph_tool(monkeypatch):
+    """[Reconciliation fix — harness-reconciliation Unit 8] target_entity
+    was previously hardcoded None on the GRAPH call -- an entity-focused
+    analytical question had no traversal anchor. Regression guard."""
+    calls = []
+
+    async def _fake_graph(tool_input):
+        calls.append(tool_input)
+        return _GRAPH_OK([_graph_chunk()])
+
+    monkeypatch.setattr(ia_mod, "graph_tool", _fake_graph)
+    _stub_tool(monkeypatch, "rag_tool", _RAG_OK([_rag_chunk()]))
+    _stub_tool(monkeypatch, "sql_tool", _SQL_OK([_sql_chunk()]))
+    _stub_call_llm(monkeypatch, "Finding [Document 1].")
+    _stub_validate_answer(monkeypatch)
+    _stub_verify_grounding(monkeypatch, grounded=True)
+
+    await investigative_analysis(_agent_input(target_entity="ABC-123"))
+
+    assert len(calls) == 1
+    assert calls[0].target_entity == "ABC-123"
+
+
+@pytest.mark.asyncio
 async def test_validation_gate_runs_full_tier_and_surfaces_issues_as_caveats(monkeypatch):
     from src.pipeline.harness.types import ClaimSupport, ValidationClaimResult, ValidationStatus
 
