@@ -332,3 +332,37 @@ async def test_traced_automatically_without_extra_wiring(cases, gateway):
     assert len(traced) == 1
     assert "XAGG" in traced[0].trace["tools_used"]
     assert state.result.status in (SubAgentStatus.OK, SubAgentStatus.PARTIAL)
+
+
+def test_restated_figures_are_not_printed_twice():
+    """
+    XAGG always serves the COMPUTED figures — that is what stops a paraphrase
+    quietly altering a count. But when the model simply restates the same list
+    (the common case for a pure count query), printing both showed the user the
+    identical table twice.
+
+    Matched on (label, number) pairs rather than whole lines: the model
+    reproduces the numbers faithfully while tidying the wording around them
+    ("Missing Person: 1 case" for the computed "1 cases"), so a line comparison
+    never matches even when every figure is duplicated.
+    """
+    import re
+
+    def _figures(text):
+        out = set()
+        for ln in (text or "").splitlines():
+            m = re.match(r"(.+?):\s*(\d+)\b", ln.strip().lstrip("-*• "))
+            if m:
+                out.add((re.sub(r"[^a-z0-9]+", "", m.group(1).lower()), m.group(2)))
+        return out
+
+    computed = "- Burglary: 5 cases\n- Missing Person: 1 cases"
+    restating = "Here are the counts:\n- Burglary: 5 cases\n- Missing Person: 1 case"
+    adding = "Burglary is the most common category, with a notable rise this year."
+
+    assert _figures(computed) <= _figures(restating), (
+        "a faithful restatement must be detected despite singular/plural drift"
+    )
+    assert not _figures(computed) <= _figures(adding), (
+        "genuine analysis that does not restate the figures must be kept"
+    )

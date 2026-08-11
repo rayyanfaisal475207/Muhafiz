@@ -769,7 +769,14 @@ async def xagg_tool(
         text=raw_text,
         score=1.0,
         metadata=ChunkMetadata(
-            source_tool="XAGG", case_id=None, source_file="cross_case_aggregate"
+            # Investigator-facing, because this string is what the UI shows as
+            # the source chip and what `[Document 1]` resolves to. XAGG's
+            # "document" is a table computed from the case records rather than a
+            # retrieved file, and naming the internal artifact
+            # ("cross_case_aggregate") told a reader nothing about where the
+            # figures came from.
+            source_tool="XAGG", case_id=None,
+            source_file="Computed from case records"
         ),
     )
     if events:

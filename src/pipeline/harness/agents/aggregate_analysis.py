@@ -70,6 +70,7 @@ NOT wired into supervisor routing yet.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any, Optional
 
 from src.pipeline.harness.contracts import (
@@ -386,12 +387,41 @@ async def run(
             ],
         )
 
+    # The deterministic figures are ALWAYS served; what varies is whether the
+    # model's prose is kept alongside them.
+    #
+    # `summary_text` is computed, not generated, so it is the authoritative
+    # rendering — attaching it is what stops a paraphrase quietly altering a
+    # count. But when the model has simply restated the same list (the common
+    # case for a pure count query), printing both shows the user the identical
+    # table twice. Comparing the DATA LINES rather than the whole string:
+    # generated prose adds framing sentences around the figures, so an exact
+    # string comparison would never match even when the numbers are duplicated.
+    # Compared as (label, number) pairs rather than as whole lines: the model
+    # reproduces the figures faithfully but tidies the wording around them
+    # ("Missing Person: 1 case" for the computed "1 cases"), so a line-for-line
+    # comparison never matches even when every number is duplicated.
+    def _figures(text: str) -> set[tuple[str, str]]:
+        out: set[tuple[str, str]] = set()
+        for ln in (text or "").splitlines():
+            stripped = ln.strip().lstrip("-*• ")
+            match = re.match(r"(.+?):\s*(\d+)\b", stripped)
+            if match:
+                label = re.sub(r"[^a-z0-9]+", "", match.group(1).lower())
+                out.add((label, match.group(2)))
+        return out
+
+    summary_figures = _figures(summary_text)
+    restated = bool(summary_figures) and summary_figures <= _figures(answer)
+
+    body = summary_text if restated else f"{answer}\n\n{summary_text}"
+
     return SubAgentResult(
         status=SubAgentStatus.PARTIAL if degraded_from else SubAgentStatus.OK,
         # The bounded rendering, not the raw table: top-N with the total stated
         # alongside so truncation is never mistaken for the whole set.
         answer_text=(
-            f"{answer}\n\n{summary_text}"
+            body
             + (f"\n\n({total_groups} group(s) in total, grouped by {grouping}.)"
                if total_groups else "")
         ),
