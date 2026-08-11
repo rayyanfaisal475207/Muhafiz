@@ -325,22 +325,61 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, current_use
         provisional_title = " ".join(chat_request.message.split()[:6])[:80] or "New Conversation"
         await gateway.create_session(chat_request.session_id, user_id, provisional_title, project_id, case_id)
 
+    # ── Which pipeline answers this query? ────────────────────────────────
+    # Defaults to the legacy orchestrator. `HARNESS_SERVE_MODE` (optionally
+    # narrowed to specific accounts via HARNESS_SERVE_USERS) routes a user to
+    # the agent harness instead — same SSE event contract, so the frontend
+    # needs no change. See src/pipeline/harness/serve.py.
+    use_harness = config.harness_serves(
+        user_id=user_id, email=getattr(current_user, "email", "") or "",
+    )
+    # The legacy generator's signature does NOT accept `gateway`; the harness's
+    # does, and passing an already-resolved one saves it a second lookup. Kept
+    # as an explicit per-pipeline kwargs dict rather than one shared call, so
+    # adding an argument for one path can never break the other.
+    extra_kwargs: dict = {}
+    if use_harness:
+        from src.pipeline.harness.serve import process_query_harness as _pipeline
+        extra_kwargs["gateway"] = gateway
+        logger.info("Serving session %s via the AGENT HARNESS", chat_request.session_id)
+    else:
+        _pipeline = process_query
+
     async def event_generator():
         # Observed from the stream purely to describe the legacy run in the
         # shadow log. Never read by anything the user sees.
         legacy_route: str = ""
         legacy_outcome: str = ""
         try:
-            async for event in process_query(
+            async for event in _pipeline(
                 chat_request.session_id, chat_request.message,
                 project_id=project_id, case_id=case_id, user_profile=user_profile, user_id=user_id,
                 user_role=current_user.role,
                 enable_web_search=chat_request.enable_web_search,
+                **extra_kwargs,
             ):
                 if event.get("step") == "router" and event.get("status") == "done":
                     legacy_route = str(event.get("detail") or "")
                 elif event.get("step") == "response":
                     legacy_outcome = str(event.get("status") or "")
+
+                # The harness hands DIRECT back rather than answering it: that
+                # route performs no retrieval and the Verifier never gates it,
+                # so it is outside the harness's scope by design. Finishing it
+                # on the legacy path here keeps the harness from importing the
+                # orchestrator it runs alongside.
+                if event.get("delegate_to_legacy"):
+                    yield f"data: {json.dumps(event)}\n\n"
+                    async for legacy_event in process_query(
+                        chat_request.session_id, chat_request.message,
+                        project_id=project_id, case_id=case_id,
+                        user_profile=user_profile, user_id=user_id,
+                        user_role=current_user.role,
+                        enable_web_search=chat_request.enable_web_search,
+                    ):
+                        yield f"data: {json.dumps(legacy_event)}\n\n"
+                    break
+
                 yield f"data: {json.dumps(event)}\n\n"
 
         except Exception as e:
