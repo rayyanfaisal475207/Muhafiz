@@ -298,6 +298,79 @@ async def test_cross_case_links_yield_cross_case_finding_event(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_cross_case_links_rendered_into_delivered_answer_text(monkeypatch):
+    """[Reconciliation fix — harness-reconciliation Unit 12] The
+    cross_case_finding SSE event alone is not enough — the frontend's
+    consumption of that step is shallow (a numeric badge only), so the
+    actual substance of a finding (which cases connect, and which possible
+    identity matches are unconfirmed) must also reach the answer text
+    itself, the one surface guaranteed to reach the user."""
+    _stub_history(monkeypatch)
+    result = SubAgentResult(
+        status=SubAgentStatus.OK,
+        answer_text="Two cases connect via a shared vehicle plate.",
+        links=[
+            CrossCaseLink(
+                description="Shared plate ABC-123", case_ids=["CASE-001", "CASE-002"],
+                confidence=0.82, source_tool="XGRAPH", is_unconfirmed=False,
+            ),
+            CrossCaseLink(
+                description="Possible shared alias", case_ids=["CASE-001", "CASE-003"],
+                confidence=0.31, source_tool="XGRAPH", is_unconfirmed=True,
+            ),
+        ],
+    )
+    _stub_supervisor(monkeypatch, result)
+
+    events = await _collect(
+        run_cutover_query(
+            session_id="s1", user_message="q", project_id=None, case_id=None,
+            user_id="u1", user_role="investigator", preferred_language=None, gateway=_FakeGateway(),
+        )
+    )
+
+    streamed = [e for e in events if e["step"] == "response" and e["status"] == "streaming"]
+    assert len(streamed) == 1
+    delivered = streamed[0]["detail"]
+    assert "Shared plate ABC-123" in delivered
+    assert "Possible shared alias" in delivered
+    assert "Confirmed connections" in delivered
+    assert "unverified leads" in delivered.lower()
+
+
+@pytest.mark.asyncio
+async def test_caveats_rendered_into_delivered_answer_text_without_duplication(monkeypatch):
+    """[Reconciliation fix — Unit 12] SubAgentResult.caveats' own
+    [PRESERVE — design §3] rule: qualifications MUST survive to the final
+    response. Previously never read on the success path at all -- every
+    degradation qualification a sub-agent attached was silently dropped."""
+    _stub_history(monkeypatch)
+    result = SubAgentResult(
+        status=SubAgentStatus.PARTIAL,
+        answer_text="Case graph data was unavailable; this summary is based on documents only.",
+        caveats=[
+            # Already present in answer_text verbatim -- must NOT be printed twice.
+            "Case graph data was unavailable; this summary is based on documents only.",
+            # Not present in answer_text -- must be appended.
+            "A secondary claim-verification check could not be completed for this report.",
+        ],
+    )
+    _stub_supervisor(monkeypatch, result)
+
+    events = await _collect(
+        run_cutover_query(
+            session_id="s1", user_message="q", project_id=None, case_id=None,
+            user_id="u1", user_role="investigator", preferred_language=None, gateway=_FakeGateway(),
+        )
+    )
+
+    streamed = [e for e in events if e["step"] == "response" and e["status"] == "streaming"]
+    delivered = streamed[0]["detail"]
+    assert delivered.count("Case graph data was unavailable; this summary is based on documents only.") == 1
+    assert "A secondary claim-verification check could not be completed for this report." in delivered
+
+
+@pytest.mark.asyncio
 async def test_no_links_means_no_cross_case_finding_event(monkeypatch):
     _stub_history(monkeypatch)
     result = SubAgentResult(status=SubAgentStatus.OK, answer_text="ok")

@@ -98,8 +98,65 @@ from src.pipeline.harness.types import (
     PipelineEvent,
     Role,
     SubAgentInput,
+    SubAgentResult,
     SubAgentStatus,
 )
+
+
+# [Reconciliation fix — harness-reconciliation Unit 12] The caveats contract
+# (SubAgentResult.caveats' own [PRESERVE — design §3] rule) states
+# qualifications "MUST survive to the final response". This adapter
+# previously never read `result.caveats` at all on the success path —
+# every degradation qualification a sub-agent carefully attached (partial
+# evidence, unconfirmed identity links, a validation issue) was silently
+# dropped before it reached the user. This renders it into the answer text
+# itself (the one surface guaranteed to reach the user regardless of what
+# the frontend does or doesn't render from side-channel SSE fields),
+# skipping any caveat whose text the answer already contains — some
+# sub-agents deliberately carry a qualification in both places (Case
+# Summarization injects the GRAPH-only disclosure into the answer AND
+# mirrors it into `caveats`), and printing both would show the same
+# qualification twice.
+def _append_caveats(answer_text: str, result: SubAgentResult) -> str:
+    new_caveats = [
+        c for c in (result.caveats or [])
+        if c and c.strip() and c.strip() not in answer_text
+    ]
+    if not new_caveats:
+        return answer_text
+    return answer_text + "\n\n" + "\n".join(f"_{c}_" for c in new_caveats)
+
+
+# [Reconciliation fix — Unit 12] Cross-Case Linkage returns its finding as
+# STRUCTURED links (`SubAgentResult.links`), not prose — the `cross_case_
+# finding` SSE event below carries the raw data, but the frontend's
+# consumption of that step is shallow (a numeric hop_count/confidence
+# badge; the link descriptions themselves are never rendered anywhere).
+# Without this, the actual substance of a cross-case finding — which cases
+# connect, and which possible identity matches are unconfirmed — never
+# reaches anywhere the user can read it. Confirmed and unconfirmed links
+# are kept visually distinct because [PRESERVE — design §3] requires that a
+# consumer cannot render an unverified identity match indistinguishably
+# from an established one.
+def _append_cross_case_links(answer_text: str, result: SubAgentResult) -> str:
+    links = result.links or []
+    if not links:
+        return answer_text
+    confirmed = [ln for ln in links if not ln.is_unconfirmed]
+    unconfirmed = [ln for ln in links if ln.is_unconfirmed]
+    parts: list[str] = []
+    if confirmed:
+        parts.append("\n**Confirmed connections**\n")
+        for ln in confirmed:
+            cases = f" — {', '.join(ln.case_ids)}" if ln.case_ids else ""
+            parts.append(f"- {ln.description}{cases}")
+    if unconfirmed:
+        parts.append("\n**Possible matches — unverified leads**\n")
+        for ln in unconfirmed:
+            cases = f" — {', '.join(ln.case_ids)}" if ln.case_ids else ""
+            conf = f" _(similarity {ln.confidence:.0%})_" if ln.confidence is not None else ""
+            parts.append(f"- {ln.description}{cases}{conf}")
+    return answer_text + "\n" + "\n".join(parts)
 
 
 async def run_cutover_query(
@@ -264,11 +321,19 @@ async def run_cutover_query(
             await _bg_update_run(gateway, pg_run_id, final_outcome=result.status.value, total_duration_ms=total_ms)
         return
 
-    yield {"step": "response", "status": "streaming", "detail": result.answer_text}
-    yield {"step": "response", "status": "done", "detail": f"Response generated ({len(result.answer_text)} chars)", "ms": total_ms}
+    # [Reconciliation fix — Unit 12] Augment the delivered answer with the
+    # cross-case findings and caveats a sub-agent attached — see
+    # _append_cross_case_links()/_append_caveats()'s own comments for why
+    # this must happen here rather than relying on side-channel SSE events.
+    delivered_text = _append_caveats(
+        _append_cross_case_links(result.answer_text, result), result
+    )
+
+    yield {"step": "response", "status": "streaming", "detail": delivered_text}
+    yield {"step": "response", "status": "done", "detail": f"Response generated ({len(delivered_text)} chars)", "ms": total_ms}
 
     try:
-        await async_save_history(session_id, user_message, result.answer_text, user_id, project_id=project_id)
+        await async_save_history(session_id, user_message, delivered_text, user_id, project_id=project_id)
         yield {"step": "memory", "status": "done", "detail": "Saved to session"}
     except Exception as exc:
         yield {"step": "memory", "status": "error", "detail": f"Failed to save conversation memory: {exc}"}
