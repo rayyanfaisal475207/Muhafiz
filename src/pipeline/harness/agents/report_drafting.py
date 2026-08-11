@@ -442,6 +442,33 @@ async def report_drafting(
             caveats=["Report Drafting was invoked without a valid file output format."],
         )
 
+    # [Reconciliation fix — harness-reconciliation Unit 9] Validated HERE,
+    # alongside output_format, rather than discovered at the storage step.
+    # `_persist_generated_file()`'s underlying `gateway.log_generated_file()`
+    # call requires session_id (the `generated_files.session_id` column is
+    # NOT NULL) — previously, a missing session_id silently fell back to a
+    # locally generated, NEVER-PERSISTED file_id: the full retrieve ->
+    # summarize -> draft -> verify -> build-file pipeline would run to
+    # completion and report a normal-looking SubAgentResult with
+    # `generated_file` set, but the file was never recorded in Postgres and
+    # is therefore undownloadable — an expensive, silent failure reported as
+    # success. Checking upfront turns that into an immediate, explainable
+    # refusal instead.
+    if not agent_input.execution.session_id:
+        return SubAgentResult(
+            status=SubAgentStatus.ABSTAINED,
+            error=ToolError(
+                kind="invalid_input",
+                message=(
+                    "Report Drafting requires ExecutionContext.session_id: the "
+                    "generated file must be recorded against a session "
+                    "(generated_files.session_id is NOT NULL) or it cannot be "
+                    "downloaded."
+                ),
+            ),
+            caveats=["Report Drafting requires an active session to record the generated file."],
+        )
+
     # ── Step 1: Case Summarization's bounded payload ──────────────────────
     # [PRESERVE — design §3] Direct function call, not a tool re-invocation.
     summary_input = agent_input.model_copy(update={"output_format": "chat"})

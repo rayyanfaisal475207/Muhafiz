@@ -436,6 +436,32 @@ async def test_invalid_output_format_returns_abstained_not_a_crash():
     assert result.error.kind == "invalid_input"
 
 
+@pytest.mark.asyncio
+async def test_missing_session_id_aborts_upfront_before_any_work(monkeypatch):
+    """[Reconciliation fix — harness-reconciliation Unit 9] Previously a
+    missing session_id was only discovered at the storage step, after the
+    full retrieve -> summarize -> draft -> verify -> build-file pipeline had
+    already run to completion -- silently producing an undownloadable file
+    reported as success. Now rejected immediately, before Case
+    Summarization (or anything else expensive) is ever called."""
+    called = {"case_summarization": False}
+
+    async def _fail_if_called(*args, **kwargs):
+        called["case_summarization"] = True
+        raise AssertionError("case_summarization() should not be called without session_id")
+
+    monkeypatch.setattr(rd_mod, "case_summarization", _fail_if_called)
+
+    result = await report_drafting(_agent_input(session_id=None))
+
+    assert result.status == SubAgentStatus.ABSTAINED
+    assert result.answer_text is None
+    assert result.error is not None
+    assert result.error.kind == "invalid_input"
+    assert "session" in result.error.message.lower()
+    assert not called["case_summarization"]
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # (e) gateway persistence fallback
 # ═══════════════════════════════════════════════════════════════════════
