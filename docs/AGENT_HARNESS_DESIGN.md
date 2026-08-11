@@ -796,3 +796,37 @@ abstained on a question legacy answered, because retrieval returned nothing it
 could ground on), median latency 15.6s, p95 24.6s. Two queries the router sent
 to RAG were handled by a different sub-agent — the routing disagreement signal
 this exists to surface.
+
+- **Timeline Building fabricated a date that appears in no document, inside a correctly-cited
+  answer.** Found on the first real UI run (CASE-009, "Build a timeline of events in this case").
+  The generated timeline asserted the burglary occurred on **February 10, 2026**, cited to
+  `[Document 2]` and `[Document 3]`, and its own summary then committed to that date as the
+  headline event. Every document in the case says **2026-04-02**, and so does `cases.incident_date`
+  — verified by pulling the raw chunks: three carry a date, all three say `2026-04-02`, and no
+  February date appears anywhere in the corpus. The same answer also renamed the complainant
+  ("Muhammad Khalid Malik" for Muhammad Ali).
+
+  **Why the verifier passed it.** The grounding gate checks that citations RESOLVE and that claims
+  are ATTRIBUTABLE to the cited evidence — not that every extracted value matches its source. A
+  fabricated date inside a sentence that carries a valid `[Document N]` marker satisfies both
+  checks. This is a real limit of citation-level verification, not a bug in it.
+
+  **Why this sub-agent is more exposed than the others.** Timeline hands the model a pre-ordered
+  chronology and asks it to narrate. Dates are the payload, so a date error is not a detail — it
+  is the answer being wrong. Semantic Search and Investigative Analysis on the same case produced
+  no comparable fabrication, because their claims are prose the retrieved text directly supports.
+
+  **The caveat did its job, and is the reason this is not worse.** The answer carried
+  "Conflict detection could not be completed for this timeline, so the events below have not been
+  checked for contradictions" — which is precisely the class of problem present. But a caveat is a
+  warning, not a control: it did not stop the wrong date being asserted as the headline finding.
+
+  **Two independent follow-ups, deliberately not folded together:**
+  1. *Run conflict detection on this corpus.* `conflicts_checked_at` is set on 0 of 46 cases and
+     there are 0 `CONFLICTS_WITH` edges, so `ConflictState` can only ever read UNKNOWN. Same class
+     of missing offline work as XNETWORK's community reports.
+  2. *Consider a deterministic date check in Timeline.* The sub-agent already extracts
+     `occurred_on` per event via `_extract_date()`. A post-generation pass asserting that every
+     date in the narrative appears in the evidence set would have caught this — cheap, and
+     narrowly scoped to the one sub-agent where dates ARE the answer. Not a general verifier
+     change; `verifier.py` is shared with the legacy path.
