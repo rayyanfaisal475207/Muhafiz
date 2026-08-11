@@ -361,3 +361,96 @@ async def test_a_caveat_not_already_present_is_still_appended(monkeypatch):
     )
     frames = await _collect(monkeypatch, result)
     assert "Conflict detection could not be completed." in _answer_of(frames)
+
+
+@pytest.mark.asyncio
+async def test_the_routers_output_format_reaches_the_sub_agent(monkeypatch):
+    """
+    "Draft a report on this case" routes to file_docx. Dropping that and
+    defaulting to "chat" made Report Drafting refuse with invalid_input, which
+    then rendered as the generic "could not find evidence" abstention — a
+    working sub-agent reported to the user as having found nothing.
+    """
+    seen = {}
+
+    async def fake_route(_q):
+        return {"route": "RAG", "case_scope": "within_case",
+                "output_format": "file_docx"}
+
+    async def capture_invoke(agent_input, route_result, events=None, **kwargs):
+        seen["output_format"] = agent_input.output_format
+        return _FakeState(SubAgentResult(
+            status=SubAgentStatus.OK, answer_text="a report", tools_used=["RAG"],
+        ))
+
+    async def fake_save(*args, **kwargs):
+        return None
+
+    import src.pipeline.router as router_mod
+    monkeypatch.setattr(router_mod, "route_query", fake_route)
+    monkeypatch.setattr(serve.supervisor, "invoke", capture_invoke)
+    monkeypatch.setattr(serve, "async_save_history", fake_save)
+
+    async for _ in serve.process_query_harness(
+        "sess-1", "draft a report", case_id="CASE-1", user_id="u1",
+        gateway=object(),
+    ):
+        pass
+
+    assert seen["output_format"] == "file_docx"
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_output_format_falls_back_to_chat(monkeypatch):
+    """A malformed router value must not reach SubAgentInput's Literal."""
+    seen = {}
+
+    async def fake_route(_q):
+        return {"route": "RAG", "output_format": "file_exe"}
+
+    async def capture_invoke(agent_input, route_result, events=None, **kwargs):
+        seen["output_format"] = agent_input.output_format
+        return _FakeState(SubAgentResult(
+            status=SubAgentStatus.OK, answer_text="x", tools_used=["RAG"],
+        ))
+
+    async def fake_save(*args, **kwargs):
+        return None
+
+    import src.pipeline.router as router_mod
+    monkeypatch.setattr(router_mod, "route_query", fake_route)
+    monkeypatch.setattr(serve.supervisor, "invoke", capture_invoke)
+    monkeypatch.setattr(serve, "async_save_history", fake_save)
+
+    async for _ in serve.process_query_harness(
+        "sess-1", "q", case_id="CASE-1", user_id="u1", gateway=object(),
+    ):
+        pass
+
+    assert seen["output_format"] == "chat"
+
+
+@pytest.mark.asyncio
+async def test_a_generated_file_is_emitted_with_a_download_id(monkeypatch):
+    """
+    FileResultCard builds its download link from `file_id` on a source and reads
+    it from nowhere else. Without this event the report exists on disk and in
+    generated_files, but the user has no way to reach it.
+    """
+    from src.pipeline.harness.contracts import GeneratedFileRef
+
+    result = SubAgentResult(
+        status=SubAgentStatus.OK, answer_text="a report", tools_used=["RAG"],
+        generated_file=GeneratedFileRef(
+            file_id="abc-123", file_name="Case Report.docx",
+            storage_path="/tmp/case-report.docx",
+        ),
+    )
+    frames = await _collect(monkeypatch, result)
+
+    file_frames = [f for f in frames if f["step"] == "file_generation"]
+    assert file_frames, "no file_generation event was emitted"
+    src = (file_frames[-1].get("sources") or [])[0]
+    assert src["file_id"] == "abc-123"
+    assert src["filename"] == "Case Report.docx"
+    assert src["type"] == "docx"

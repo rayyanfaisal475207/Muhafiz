@@ -197,10 +197,21 @@ async def process_query_harness(
             user_id=user_id, role=role,
             active_case_id=case_id, project_id=project_id,
         )
+        # The ROUTER decides the output format ("draft a report" -> file_docx,
+        # "export as PDF" -> file_pdf), exactly as it does for the legacy path.
+        # Dropping it and defaulting to "chat" made Report Drafting refuse every
+        # request with invalid_input, which then rendered as the generic
+        # "could not find evidence" abstention — a working sub-agent reported as
+        # having found nothing.
+        output_format = str(route_result.get("output_format") or "chat")
+        if output_format not in ("chat", "file_pdf", "file_xlsx", "file_docx"):
+            output_format = "chat"
+
         agent_input = SubAgentInput(
             query_text=user_message,
             caller=caller,
             session_id=session_id,
+            output_format=output_format,
             target_entity=route_result.get("target_entity"),
         )
 
@@ -231,6 +242,24 @@ async def process_query_harness(
         if result is None:
             yield _event("system", "error", "The query could not be handled.")
             return
+
+        # ── A generated file, if this was a report request ──
+        # Emitted with the same `file_generation`/`done` + `sources` shape the
+        # legacy path uses (orchestrator.py:2110-2115), because the frontend's
+        # FileResultCard renders a download link from `file_id` on a source and
+        # reads it from nowhere else. Without this the report is written to disk
+        # and recorded in `generated_files`, but the user has no way to reach it.
+        generated = getattr(result, "generated_file", None)
+        if generated is not None:
+            yield _event(
+                "file_generation", "done",
+                f"File ready: {generated.file_name}",
+                sources=[{
+                    "filename": generated.file_name,
+                    "type": (generated.file_name.rsplit(".", 1) + ["file"])[1],
+                    "file_id": str(generated.file_id),
+                }],
+            )
 
         # ── Sources ──
         # Emitted as `retrieval`/`done` because that is the only step
