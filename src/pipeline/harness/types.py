@@ -718,6 +718,28 @@ class SubAgentInput(BaseModel):
             "Optional[str]; same field/slot, richer shape."
         ),
     )
+    target_entity: Optional[str] = Field(
+        default=None,
+        description=(
+            "[Reconciliation fix — harness-reconciliation Unit 4/7/8] The "
+            "entity the query is about, as identified by the router — the "
+            "same `route_result['target_entity']` the legacy orchestrator "
+            "reads and forwards into every `retrieve_graph()`/aggregate "
+            "call it makes. PER-QUERY ROUTING METADATA, which is why it "
+            "lives here and NOT on `CallerContext` alongside `project_id`: "
+            "caller scope is a property of who is asking and stays "
+            "constant for the session, while this changes with each "
+            "question and is derived from the query text.\n\n"
+            "Dropping it does NOT fail closed — it fails SILENT, and "
+            "differently per tool. XGRAPH/XAGG with `target_entity=None` "
+            "return a case-count/generic-recurrence result even when the "
+            "user asked about one specific entity, which reads as a "
+            "correct-but-wrong answer rather than an obvious failure. "
+            "`Supervisor.handle()` populates this from `route_result` "
+            "before dispatch when the caller did not already set it "
+            "explicitly (an explicit value on the input always wins)."
+        ),
+    )
 
 
 class Citation(BaseModel):

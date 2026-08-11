@@ -71,10 +71,14 @@ def _agent_input(caller=None, query_text="top recurring vehicles across cases", 
 
 
 def _stub_xagg_tool(monkeypatch, result: XAggToolResult):
+    calls = []
+
     async def _fake(tool_input):
+        calls.append(tool_input)
         return result
 
     monkeypatch.setattr(lsa_mod, "xagg_tool", _fake)
+    return calls
 
 
 def _stub_call_llm(monkeypatch, answer: str = "3 vehicles recurred across cases [Document 1].", exc=None):
@@ -137,6 +141,32 @@ async def test_successful_aggregate_returns_ok_with_bounded_citations(monkeypatc
     # [PRESERVE — design §4.6] cross_case_ids threaded from case_ids_touched.
     assert captured["case_id"] == "cross_case"
     assert captured["cross_case_ids"] == ["CASE-001", "CASE-002", "CASE-003"]
+
+
+@pytest.mark.asyncio
+async def test_target_entity_threaded_to_xagg_tool(monkeypatch):
+    """[Reconciliation fix — harness-reconciliation Unit 4] target_entity
+    selects the aggregate KIND inside run_aggregate() (graph recurrence vs.
+    case count). Previously never forwarded -- regression guard."""
+    chunk = _agg_chunk()
+    tool_result = XAggToolResult(
+        status=ToolStatus.OK,
+        chunks=[chunk],
+        case_ids_touched=["CASE-001"],
+        aggregate_kind="graph_recurrence",
+        raw_summary_text=chunk.text,
+    )
+    calls = _stub_xagg_tool(monkeypatch, tool_result)
+    _stub_call_llm(monkeypatch, "ABC-123 recurred across cases [Document 1].")
+    _stub_verify_grounding(monkeypatch, grounded=True)
+
+    agent_input = _agent_input(query_text="which cases does ABC-123 appear in")
+    agent_input = agent_input.model_copy(update={"target_entity": "ABC-123"})
+
+    await large_scale_aggregate(agent_input)
+
+    assert len(calls) == 1
+    assert calls[0].target_entity == "ABC-123"
 
 
 # ═══════════════════════════════════════════════════════════════════════

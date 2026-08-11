@@ -442,6 +442,22 @@ class Supervisor:
         route_result = await route_query(agent_input.query_text)
         sub_agent_name = classify_to_subagent(route_result, agent_input.query_text)
 
+        # [Reconciliation fix — harness-reconciliation Unit 4/7/8] Thread the
+        # router's target_entity onto the input — see
+        # SubAgentInput.target_entity's own docstring (types.py) for the
+        # full rationale. This is the one place that holds both
+        # `route_result` and the `SubAgentInput`, so doing it here means a
+        # sub-agent cannot silently lose it. An explicit value already on
+        # the input WINS: a caller that constructed a SubAgentInput with a
+        # specific entity meant it, and the router's guess must not
+        # override a deliberate choice.
+        if agent_input.target_entity is None:
+            routed_entity = (route_result or {}).get("target_entity")
+            if routed_entity:
+                agent_input = agent_input.model_copy(
+                    update={"target_entity": str(routed_entity)}
+                )
+
         emit(
             PipelineEvent(
                 step="supervisor:dispatch",

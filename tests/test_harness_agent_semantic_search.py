@@ -118,6 +118,34 @@ async def test_successful_search_returns_ok_with_bounded_citations(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_evaluator_unavailable_propagates_caveat_and_partial(monkeypatch):
+    """[Reconciliation fix — harness-reconciliation Unit 3] RagToolResult's
+    own contract requires the composing sub-agent to propagate
+    degradation_caveats into SubAgentResult.caveats when the relevance gate
+    could not run (chunks passed through unvetted). Previously silently
+    dropped on the OK path -- regression guard."""
+    chunks = [_chunk("c1", source="fir.pdf")]
+    _stub_rag_tool(
+        monkeypatch,
+        RagToolResult(
+            status=ToolStatus.OK,
+            chunks=chunks,
+            evaluator_verdict="unavailable",
+            degradation_caveats=["The relevance gate could not run; results are unscreened."],
+        ),
+    )
+    _stub_call_llm(monkeypatch, "The suspect fled [Document 1].")
+    _stub_verify_grounding(monkeypatch, grounded=True)
+
+    result = await semantic_search(_agent_input())
+
+    assert result.status == SubAgentStatus.PARTIAL
+    assert result.degraded_from == ["RAG"]
+    assert result.tools_used == ["RAG"]  # still contributed -- just unscreened
+    assert "The relevance gate could not run; results are unscreened." in result.caveats
+
+
+@pytest.mark.asyncio
 async def test_successful_search_runs_structural_validation_gate(monkeypatch):
     from src.pipeline.harness.types import ClaimSupport, ValidationStatus
 

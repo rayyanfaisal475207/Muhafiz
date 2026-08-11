@@ -124,13 +124,33 @@ class RagToolResult(ToolResult):
     retries_used: int = Field(
         default=0, description="Internal retry loop iterations consumed. Observability only."
     )
-    evaluator_verdict: Optional[Literal["relevant", "not_relevant"]] = Field(
+    evaluator_verdict: Optional[Literal["relevant", "not_relevant", "unavailable"]] = Field(
         default=None,
         description=(
             "Relevance gate outcome on the final attempt. `not_relevant` "
             "after retry exhaustion yields status=EMPTY, not FAILED — "
             "retrieval worked, the evidence just did not answer the "
-            "question."
+            "question.\n\n"
+            "[Reconciliation fix — harness-reconciliation Unit 3] "
+            "`unavailable` — THE GATE COULD NOT RUN (the evaluator raised or "
+            "returned malformed output). Chunks are passed through UNVETTED "
+            "so a flaky evaluator does not take retrieval down with it, but "
+            "the evidence carries no relevance guarantee. Previously this "
+            "case was silently reported as `relevant` (fail-open with no "
+            "distinguishing signal) — a caller could not tell 'the "
+            "evaluator confirmed this' from 'the evaluator never actually "
+            "ran'. Always accompanied by a caveat in `degradation_caveats`, "
+            "which the composing sub-agent MUST propagate into "
+            "`SubAgentResult.caveats`."
+        ),
+    )
+    degradation_caveats: list[str] = Field(
+        default_factory=list,
+        description=(
+            "[Reconciliation fix — Unit 3] User-facing qualifications about "
+            "HOW this result was produced — currently, that the relevance "
+            "gate could not run. Non-empty iff evaluator_verdict == "
+            "'unavailable'."
         ),
     )
 
@@ -286,18 +306,34 @@ async def rag_tool(tool_input: RagToolInput) -> RagToolResult:
             logger.error("RAG tool: cross-encoder rerank failed: %s. Falling back to RRF order.", exc)
             reranked = fused[: config.TOP_K_RERANK]
 
+        # [Reconciliation fix — harness-reconciliation Unit 3] Track whether
+        # the evaluator itself raised, distinct from it returning a genuine
+        # "relevant" verdict. Previously both cases returned identically
+        # (evaluator_verdict="relevant"), so a caller could not tell "the
+        # evaluator confirmed this evidence" from "the evaluator never ran
+        # and we proceeded anyway" — the exact fail-open-without-a-signal
+        # gap AGENT_HARNESS_DESIGN.md's own hedging/confidence discussion
+        # warns against for a different field. Chunks still pass through
+        # unvetted either way (a flaky evaluator must not take retrieval
+        # down with it) — what changes is that the caller can now see it.
+        evaluator_unavailable = False
         try:
             evaluation = await evaluate_relevance(tool_input.query_text, current_query, reranked)
         except Exception as exc:
             logger.error("RAG tool: evaluator failed: %s", exc)
             evaluation = {"relevant": True, "reason": "Evaluator failed, proceeding"}
+            evaluator_unavailable = True
 
         if evaluation.get("relevant", False):
             return RagToolResult(
                 status=ToolStatus.OK,
                 chunks=[_to_evidence_chunk(c) for c in reranked],
                 retries_used=retry_count,
-                evaluator_verdict="relevant",
+                evaluator_verdict="unavailable" if evaluator_unavailable else "relevant",
+                degradation_caveats=(
+                    ["The relevance of these results could not be automatically verified."]
+                    if evaluator_unavailable else []
+                ),
             )
 
         evaluator_feedback = evaluation.get("reason")

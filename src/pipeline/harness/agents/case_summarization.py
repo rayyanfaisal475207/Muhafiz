@@ -114,7 +114,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 from src.data_gateway.base import DataGateway
@@ -239,6 +239,13 @@ class _ToolOutcome:
     usable: bool  # status == OK (chunks non-empty per ToolResult's own contract)
     chunks: list[EvidenceChunk]
     error: Optional[ToolError]
+    # [Reconciliation fix — harness-reconciliation Unit 5] Carries RAG's own
+    # "contributed but degraded internally" signal (evaluator_verdict ==
+    # "unavailable" -> chunks passed through unvetted) forward, so it can be
+    # propagated into SubAgentResult.caveats/degraded_from below rather than
+    # dying at this normalization boundary. Always empty for GRAPH, which
+    # has no equivalent concept.
+    degradation_caveats: list[str] = field(default_factory=list)
 
 
 async def _run_rag(agent_input: SubAgentInput) -> _ToolOutcome:
@@ -252,7 +259,13 @@ async def _run_rag(agent_input: SubAgentInput) -> _ToolOutcome:
             usable=False, chunks=[], error=ToolError(kind="upstream_failure", message=str(exc))
         )
     if result.status == ToolStatus.OK:
-        return _ToolOutcome(usable=True, chunks=result.chunks, error=None)
+        # [Reconciliation fix — Unit 5] Propagate degradation_caveats
+        # whenever RAG's relevance gate could not run, per
+        # RagToolResult.degradation_caveats' own docstring ("the composing
+        # sub-agent MUST propagate these into SubAgentResult.caveats") —
+        # regardless of whether RAG contributed alongside GRAPH or alone.
+        caveats = list(result.degradation_caveats) if result.evaluator_verdict == "unavailable" else []
+        return _ToolOutcome(usable=True, chunks=result.chunks, error=None, degradation_caveats=caveats)
     return _ToolOutcome(usable=False, chunks=[], error=result.error)
 
 
@@ -387,12 +400,25 @@ async def case_summarization(
         )
 
         tools_used: list[SourceTool] = ["RAG", "GRAPH"]
+        # [Reconciliation fix — Unit 5] A contributing tool can still have
+        # degraded internally (RAG's relevance gate unavailable). A summary
+        # built on unscreened evidence is not a clean OK even though both
+        # legs returned data — degraded_from=["RAG"] here means "contributed,
+        # but see the caveat", the same overlap RESOLVED-4 documents
+        # elsewhere (a tool can legitimately appear in both tools_used and
+        # degraded_from).
+        degraded_from: list[SourceTool] = ["RAG"] if rag_outcome.degradation_caveats else []
+        caveats = list(caveats_for_validation(validation_status, validation_claims))
+        for caveat in rag_outcome.degradation_caveats:
+            if caveat not in caveats:
+                caveats.append(caveat)
         return SubAgentResult(
-            status=SubAgentStatus.OK,
+            status=SubAgentStatus.PARTIAL if degraded_from else SubAgentStatus.OK,
             answer_text=answer,
             citations=_citations_for(combined),
             tools_used=tools_used,
-            caveats=caveats_for_validation(validation_status, validation_claims),
+            degraded_from=degraded_from,
+            caveats=caveats,
             validation_status=validation_status,
             validation_claims=validation_claims,
         )
@@ -428,16 +454,25 @@ async def case_summarization(
             tier="structural",
         )
 
+        # [Reconciliation fix — Unit 5] RAG can be the sole contributor while
+        # having degraded internally too — fold its own degradation_caveats
+        # in alongside GRAPH's absence, same propagation rule as the
+        # both-usable branch above.
+        caveats = [
+            "Case graph data was unavailable for this case; this summary is "
+            "based on case documents only."
+        ]
+        for caveat in rag_outcome.degradation_caveats:
+            if caveat not in caveats:
+                caveats.append(caveat)
+        caveats.extend(caveats_for_validation(validation_status, validation_claims))
         return SubAgentResult(
             status=SubAgentStatus.PARTIAL,
             answer_text=answer,
             citations=_citations_for(rag_outcome.chunks),
             tools_used=["RAG"],
-            degraded_from=["GRAPH"],
-            caveats=[
-                "Case graph data was unavailable for this case; this summary is "
-                "based on case documents only."
-            ] + caveats_for_validation(validation_status, validation_claims),
+            degraded_from=["GRAPH", "RAG"] if rag_outcome.degradation_caveats else ["GRAPH"],
+            caveats=caveats,
             validation_status=validation_status,
             validation_claims=validation_claims,
         )

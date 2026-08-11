@@ -163,6 +163,35 @@ async def test_full_success_flattens_rag_then_graph_and_returns_ok(monkeypatch):
         assert not hasattr(citation, "text")
 
 
+@pytest.mark.asyncio
+async def test_rag_degradation_caveat_propagates_even_when_both_contribute(monkeypatch):
+    """[Reconciliation fix — harness-reconciliation Unit 5] A tool can
+    succeed while having degraded internally (RAG's relevance gate could
+    not run). That caveat has to climb, or it dies at this sub-agent's own
+    _run_rag() normalization boundary -- regression guard."""
+    rag_chunk = _rag_chunk()
+    graph_chunk = _graph_chunk()
+    _stub_rag_tool(
+        monkeypatch,
+        RagToolResult(
+            status=ToolStatus.OK,
+            chunks=[rag_chunk],
+            evaluator_verdict="unavailable",
+            degradation_caveats=["Document relevance could not be verified."],
+        ),
+    )
+    _stub_graph_tool(monkeypatch, _GRAPH_OK([graph_chunk]))
+    _stub_call_llm(monkeypatch, "Status: open [Document 1]. P-1 linked to V-1 [Document 2].")
+    _stub_verify_grounding(monkeypatch, grounded=True)
+
+    result = await case_summarization(_agent_input())
+
+    assert result.status == SubAgentStatus.PARTIAL
+    assert result.degraded_from == ["RAG"]
+    assert result.tools_used == ["RAG", "GRAPH"]  # RAG still contributed
+    assert "Document relevance could not be verified." in result.caveats
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # (b) RAG-only degradation (GRAPH empty) -- no disclosure text
 # ═══════════════════════════════════════════════════════════════════════

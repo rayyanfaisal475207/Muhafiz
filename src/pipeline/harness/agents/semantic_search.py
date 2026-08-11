@@ -66,6 +66,18 @@ tool with a fallback of its own -- design §2.1):
                                                         answer_text served
                                                         (SubAgentResult's
                                                         own [PRESERVE] rule)
+  - RAG tool OK and grounded, evaluator_verdict==
+    "unavailable" (relevance gate could not run,
+    chunks passed through unvetted)                   -> [Reconciliation
+                                                          fix — Unit 3]
+                                                          PARTIAL,
+                                                          degraded_from=
+                                                          ["RAG"], the
+                                                          tool's own
+                                                          degradation_caveats
+                                                          propagated —
+                                                          previously
+                                                          silently dropped.
   - RAG tool OK and grounded                         -> OK, tools_used=["RAG"]
   - RAG tool DENIED -- handled defensively only. RAG carries no role gate
     (design §2.1: "scoping is case-assignment-based, not role-based") and
@@ -320,12 +332,31 @@ async def semantic_search(
         for i, chunk in enumerate(chunks, start=1)
     ]
 
+    # [Reconciliation fix — harness-reconciliation Unit 3] Propagate the RAG
+    # tool's own degradation signal. `RagToolResult.degradation_caveats`'s
+    # own docstring (types.py) states: "The composing sub-agent MUST
+    # propagate these into SubAgentResult.caveats" — this branch previously
+    # never read `evaluator_verdict`/`degradation_caveats` at all on the OK
+    # path, so a relevance gate that could not run (chunks passed through
+    # UNVETTED) was silently reported as an ordinary, fully-screened OK
+    # result. `degraded_from=["RAG"]` + `status=PARTIAL` mirrors RESOLVED-4's
+    # existing "a tool can contribute while having degraded internally"
+    # shape (nested degradation is not swallowed).
+    degraded_from: list[str] = []
+    caveats = list(caveats_for_validation(validation_status, validation_claims))
+    if tool_result.evaluator_verdict == "unavailable":
+        degraded_from.append("RAG")
+        for caveat in tool_result.degradation_caveats:
+            if caveat not in caveats:
+                caveats.append(caveat)
+
     return SubAgentResult(
-        status=SubAgentStatus.OK,
+        status=SubAgentStatus.PARTIAL if degraded_from else SubAgentStatus.OK,
         answer_text=answer,
         citations=citations,
         tools_used=["RAG"],
-        caveats=caveats_for_validation(validation_status, validation_claims),
+        degraded_from=degraded_from,
+        caveats=caveats,
         validation_status=validation_status,
         validation_claims=validation_claims,
     )

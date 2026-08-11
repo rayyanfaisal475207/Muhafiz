@@ -255,8 +255,19 @@ async def large_scale_aggregate(
     execution = agent_input.execution
     caller = execution.caller
 
+    # [Reconciliation fix — harness-reconciliation Unit 4] `target_entity`
+    # selects the aggregate KIND inside `run_aggregate()`: with an entity it
+    # computes graph recurrence ("which cases does X appear in"), without one
+    # it computes case counts (matching legacy's own forwarding of the
+    # router's value, orchestrator.py:1288). This call previously never
+    # forwarded it, so every recurrence question was silently answerable
+    # only as a case count.
     tool_result = await xagg_tool(
-        XAggToolInput(query_text=agent_input.query_text, execution=execution)
+        XAggToolInput(
+            query_text=agent_input.query_text,
+            execution=execution,
+            target_entity=agent_input.target_entity,
+        )
     )
 
     if tool_result.status == ToolStatus.DENIED:
