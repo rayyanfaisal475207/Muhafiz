@@ -136,6 +136,49 @@ CROSS_CASE_PER_CASE_CAP: int = int(os.getenv("CROSS_CASE_PER_CASE_CAP", "5"))
 # by repo-wide search before adding this) — greenfield naming.
 AIR_GAP_MODE: bool = os.getenv("AIR_GAP_MODE", "false").strip().lower() == "true"
 
+# ── Agent-harness SERVING mode ───────────────────────────────────────────────
+# Answers real chat queries through the agent harness instead of the legacy
+# orchestrator. This is the cutover switch, and it is the one setting here that
+# changes what a real investigator sees.
+#
+# DEFAULTS OFF. When off, `/api/chat` behaves exactly as it did before the
+# harness existed — same code path, byte for byte.
+HARNESS_SERVE_MODE: bool = (
+    os.getenv("HARNESS_SERVE_MODE", "false").strip().lower() == "true"
+)
+
+# Restricts serving mode to specific users, by user id or email. Empty means
+# "everyone" once HARNESS_SERVE_MODE is on.
+#
+# This exists so the harness can be demonstrated through the real UI without
+# putting every user on new code at the same time: put your own id here, and
+# every other account keeps the legacy path. Prefer this over a blanket enable
+# for any first exposure to real traffic.
+HARNESS_SERVE_USERS: frozenset = frozenset(
+    u.strip().lower()
+    for u in os.getenv("HARNESS_SERVE_USERS", "").split(",")
+    if u.strip()
+)
+
+
+def harness_serves(user_id: str = "", email: str = "") -> bool:
+    """
+    Should this user's query be answered by the harness?
+
+    Checked per-request rather than at import, so the allow-list can be widened
+    without a code change, and so a single account can be moved back to the
+    legacy path immediately if something looks wrong mid-demo.
+    """
+    if not HARNESS_SERVE_MODE:
+        return False
+    if not HARNESS_SERVE_USERS:
+        return True
+    return (
+        (user_id or "").strip().lower() in HARNESS_SERVE_USERS
+        or (email or "").strip().lower() in HARNESS_SERVE_USERS
+    )
+
+
 # ── Agent-harness shadow mode (see docs/AGENT_HARNESS_DESIGN.md) ──────────────
 # Runs the agent harness on a SAMPLE of real queries AFTER the legacy pipeline
 # has already answered the user, and logs what the harness would have said to
