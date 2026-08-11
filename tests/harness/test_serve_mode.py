@@ -16,6 +16,8 @@ than assumed, and neither would fail loudly if broken.
 """
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from src import config
@@ -80,8 +82,21 @@ def _sources_of(frames):
 # Off by default — this is the switch that changes what users see
 # ══════════════════════════════════════════════════════════════════════════
 
-def test_serve_mode_is_off_by_default():
-    assert config.HARNESS_SERVE_MODE is False
+def test_serve_mode_is_off_unless_explicitly_enabled(monkeypatch):
+    """
+    Serving mode is the cutover switch — the one setting that changes what a
+    real investigator sees — so it must never default on.
+
+    Asserted against the DEFAULT rather than the loaded value: a developer with
+    HARNESS_SERVE_MODE=true in their own .env (which is exactly how this gets
+    demoed) would otherwise see this fail for the wrong reason, and the
+    temptation would be to weaken the test rather than the setting.
+    """
+    monkeypatch.delenv("HARNESS_SERVE_MODE", raising=False)
+    assert os.getenv("HARNESS_SERVE_MODE", "false").strip().lower() != "true"
+
+    # And with the flag off, no user is ever served by the harness.
+    monkeypatch.setattr(config, "HARNESS_SERVE_MODE", False)
     assert config.harness_serves(user_id="anyone") is False
 
 
@@ -312,3 +327,37 @@ async def test_unknown_keyword_arguments_are_tolerated(monkeypatch):
         frames.append(ev)
 
     assert _answer_of(frames) == "ok"
+
+
+@pytest.mark.asyncio
+async def test_a_caveat_already_in_the_answer_is_not_repeated(monkeypatch):
+    """
+    Case Summarization deliberately carries the GRAPH-only disclosure in BOTH
+    the answer text (for the reader) and `caveats` (as structured data for the
+    supervisor). Rendering both printed the same paragraph twice — once at the
+    top of the answer and once in italics at the bottom.
+    """
+    disclosure = "Case documents were unavailable for this summary."
+    result = SubAgentResult(
+        status=SubAgentStatus.PARTIAL,
+        answer_text=f"{disclosure}\n\nTwo witnesses were present.",
+        tools_used=["GRAPH"], degraded_from=["RAG"],
+        caveats=[disclosure],
+    )
+    frames = await _collect(monkeypatch, result)
+    answer = _answer_of(frames)
+
+    assert answer.count(disclosure) == 1, "the disclosure must appear exactly once"
+
+
+@pytest.mark.asyncio
+async def test_a_caveat_not_already_present_is_still_appended(monkeypatch):
+    """The de-duplication must not swallow genuinely new qualifications."""
+    result = SubAgentResult(
+        status=SubAgentStatus.PARTIAL,
+        answer_text="An answer with no caveat inline.",
+        tools_used=["GRAPH"],
+        caveats=["Conflict detection could not be completed."],
+    )
+    frames = await _collect(monkeypatch, result)
+    assert "Conflict detection could not be completed." in _answer_of(frames)

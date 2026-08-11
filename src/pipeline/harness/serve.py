@@ -256,8 +256,20 @@ async def process_query_harness(
 
         # Caveats are appended to the ANSWER, not left as metadata: a stated
         # gap the user never sees is the same as no gap at all.
-        if result.caveats:
-            answer_text += "\n\n" + "\n".join(f"_{c}_" for c in result.caveats)
+        #
+        # Skipping any caveat whose text the answer ALREADY contains. Some
+        # sub-agents deliberately carry a qualification in both places —
+        # Case Summarization injects the GRAPH-only disclosure into the answer
+        # for the reader (§2.1.2 step 4) AND mirrors it into `caveats` as
+        # structured data for the supervisor. Both are correct; rendering both
+        # printed the same paragraph twice, once at the top and once in italics
+        # at the bottom.
+        new_caveats = [
+            c for c in (result.caveats or [])
+            if c.strip() and c.strip() not in answer_text
+        ]
+        if new_caveats:
+            answer_text += "\n\n" + "\n".join(f"_{c}_" for c in new_caveats)
 
         yield _event("response", "active", "Generating response...")
         async for frame in _stream_answer(answer_text):
