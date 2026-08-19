@@ -1,0 +1,125 @@
+# 0001 — Migrate the evidence source from the synthetic corpus to the Muhafiz Data API
+
+**Status:** in progress (Milestone A landing; see checklist at the bottom)
+**Date:** 2026-08-20
+
+## Context
+
+Muhafiz's evidence graph and vector store were built from a locally generated
+synthetic document corpus: 96 rendered PDFs in `data/documents/`, produced by
+`scripts/batch1_*.py` from hand-written Python literals in
+`build_entity_roster.py` / `build_case_index.py`, then OCR'd, chunked, embedded,
+and run through LLM extraction (`ner.py`, `domain_entities.py`,
+`doc_classifier.py`) to guess back the entities that were invented in the
+first place.
+
+A PSRMS-shaped REST API was stood up (`https://muhafiz.onrender.com`, see
+`API_CONSUMER_GUIDE.md`), backed by a schema reverse-engineered from two
+genuine filled Islamabad Police case files (`muhafiz_schema.dbml.txt`,
+revision 11). It serves FIR bundles with all 12 child tables, plus CMS
+complaints, PKM service applications, criminal records and roznamcha entries —
+already structured, with `updated_since` incremental sync support.
+
+**Decision:** make that API the source of evidence. Discard derived artefacts
+built from the synthetic corpus, and rebuild the graph from ground-truth
+structured fields instead of LLM re-extraction, so that cross-case linkage,
+entity resolution, and timeline building work on real identity keys rather
+than guesses.
+
+## Confirmed scope boundary
+
+`muhafiz.onrender.com` is a **same-schema stand-in**, not the real police
+system. The real integration (actual police system, same schema, larger
+volume) arrives **post-MVP** as a separate text-format handoff. This decision
+record and the modules built under it deliberately do **not**:
+- redesign for air-gap operation (this endpoint is a plain internet call,
+  gated by `MUHAFIZ_API_BASE_URL` being configured — see `src/config.py`);
+- add a second, file-drop ingestion path in anticipation of the real
+  integration's eventual shape — that is explicitly deferred, to avoid
+  building against a shape that isn't known yet.
+
+## What was measured on the live API (not assumed)
+
+All five endpoints were fetched and analysed directly, on 2026-08-20:
+
+| Fact | Value | Consequence |
+|---|---|---|
+| Volume | 73 FIR, 74 roznamcha, 4 CMS, 14 PKM, 33 criminal = 198 records | Full re-ingest is minutes, not hours. Batch, not streaming. |
+| Free text | narrative 59K + zimni 66K + roznamcha 4K ≈ 130K chars → ~350 chunks | At e5's 1-request + 0.3s per chunk, a full re-embed is ~5–10 min. |
+| CNIC coverage | accused 94/94, witness 33/37, complainant on FIR | CNIC-auto-merge has near-total coverage on this dataset. |
+| Cross-silo CNIC overlap | PKM 10/10, CMS 4/4, criminal 31/32 overlap FIR CNICs | This is the cross-case backbone, and it is designed-in. |
+| Cross-case CNIC | only 4 CNICs appear in >1 FIR | Genuine cross-case merges are few but real. |
+| Name collisions | 44 names span >1 FIR (e.g. one name in 10 FIRs, another in 8) | Drives the entity-resolution corroboration-gate decision below. |
+| `cross_version` | 0 rows — table is entirely empty | Cross-FIR linkage must come from elsewhere (prose citations). |
+| FIR→FIR refs in prose | 9 FIRs cite another real FIR (one FIR cited by 3 others — a crime series) | Recoverable cross-case signal `cross_version` doesn't carry; not written as fact — see entity-resolution section below. |
+| `e_tag_number` | 5/73 populated, but CMS `case_tag_number` matches 4/4 | Complaint→FIR escalation link works where present. |
+| `criminal_record_ref` | 0 of 6 match `external_record_ref` | The documented soft-ref is broken in the data — join criminal records by CNIC instead. |
+| PKM `forwarded_fir_number` | 4 of 8 women_violence reports resolve to a real FIR | Second cross-silo link. |
+| Structure | 19 stations, 8 districts, 36 sections, 6 acts | Real multi-jurisdiction aggregates become meaningful. |
+| Null-heavy fields | `fir_position.position` 65/94 null, `zimni.entry_type` 188/259 null, `witness_type` 0/37 populated | Downstream loaders must not treat these as reliable. |
+| Schema drift | API returns legacy `crime_scene_description/_distance_km/_direction/_beat_number` (all null) alongside the merged `crime_scene_location` the DBML documents | Loaders tolerate both shapes (`FirRecord.crime_scene_location` in `src/data_gateway/muhafiz_api/models.py`). |
+| ID shape | `fir_id` = `"fir-1001-26"`, `police_station_id` = `"PS-ISB-CYBER"` — slugs, not the UUIDs the DBML declares | Never parsed as UUID anywhere in the client. |
+| Provenance | `source` field = `"synthetic"` on 21 FIRs and all PKM applicants | Real-schema, synthetic-content data — a large upgrade over the generated corpus, but not real case records. Threaded through as metadata (M3/M6a), not hidden. |
+
+## Accepted risk — entity resolution name-fallback
+
+Name-fallback resolution (`entity_resolution.py`) stays enabled, including for
+structured records. Because accused/witness names in this dataset are common
+single-name mononyms and `father_name` is only 22/94 populated, every accused
+whose CNIC is new also risks generating a name-based `SAME_AS(status='pending')`
+candidate against every same-named person already in the graph. Measured
+baseline: ~44 name groups span multiple FIRs, of which only 4 are genuine.
+
+Mitigation, not a behaviour change: a **corroboration gate** specific to
+structured-record mentions (M6a) — a name-fallback candidate only reaches
+FLAGGED/REVIEW tier if corroborated by shared case, matching address, or an
+existing structured-id hit (phone/plate/father_name); otherwise it mints a new
+node with no `SAME_AS` candidate at all. Governed by
+`ENTITY_RESOLUTION_NAME_FALLBACK_FOR_STRUCTURED` (default `True`). Verified by
+reporting pending-`SAME_AS` counts by tier, before vs. after the gate, against
+this baseline — if the gate doesn't materially close the gap, that is the
+trigger to revisit the default, not a decision made in advance of the
+measurement.
+
+FIR→FIR prose citations (the 9 measured above) follow the same discipline for
+the same reason — a regex hit against free text carries the same false-positive
+risk profile as a name match, so it gets the same bar: written as a `CITES`
+edge (`Case`/`Incident` → `Case`/`Incident`, not `SAME_AS` — that edge type is
+reserved for entity-identity claims) with `status: pending`, reviewed through
+the same human-confirmation discipline before being treated as fact.
+
+## Consequences
+
+- Cross-case entity resolution becomes testable against real CNIC collisions
+  instead of hand-designed synthetic ones.
+- `StructuredRecord`, and the `INVOLVED_IN`/`PART_OF`/`LOCATED_AT`/`OWNS`/
+  `REGISTERED_TO` edge types declared in the schema since the graph's original
+  design but never written by any code path, get real writers for the first
+  time (M6a).
+- `data/memory/entity_roster.csv` (the hand-built entity-resolution eval
+  ground truth) is superseded — real CNIC gives must-merge/must-not-merge
+  pairs directly (M11).
+- The synthetic corpus and its derived Chroma/AGE state are wiped, not kept
+  alongside the new data (M5) — `data/memory/` is retired as a source, not
+  deleted.
+- `police_reference_data` (6 seeded rows) is extended additively with the 36
+  sections / 6 acts observed in the real data (M7) — not replaced.
+
+## Milestone checklist
+
+- [x] **M1** — `src/data_gateway/muhafiz_api/` (client, models, errors,
+      snapshot), config, `.env.example`. This document.
+- [ ] **M2** — `ingest_documents()` entry-point extraction.
+- [ ] **M3** — record → `Document` rendering.
+- [ ] **M4** — case provisioning from FIRs.
+- [ ] **M5** — evidence-state reset (graph, Chroma, derived Postgres rows).
+- [ ] **M6a** — deterministic structured graph projection + corroboration gate.
+- [ ] **M6b** — cross-silo linking + `CITES` prose-citation candidates.
+- [ ] **M7** — extraction adaptation + additive `police_reference_data` load.
+- [ ] **M8** — graph read-path/label fixes.
+- [ ] **M9** — idempotent `--full` re-ingest (incremental-sync automation
+      deferred to the post-MVP real integration).
+- [ ] **M10** — harness adaptation to real data shape.
+- [ ] **M11** — eval set regenerated from real data.
+- [ ] **M12** — final documentation consistency pass; `API_CONSUMER_GUIDE.md`
+      committed.
