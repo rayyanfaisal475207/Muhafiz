@@ -145,7 +145,7 @@ async def _extract_and_write_relationships(
 
 
 async def _run_graph_extraction(
-    file_path: Path, documents: list, chunks: list, case_id: str, doc_id: str,
+    source_name: str, documents: list, chunks: list, case_id: str, doc_id: str,
 ) -> dict:
     """
     Phase 4.3-4.9: structured-field extraction, doc-type classification,
@@ -176,7 +176,7 @@ async def _run_graph_extraction(
         # already exist — write_edge() never implicitly creates a node.
         await versioning.write_node("Case", {"case_id": case_id}, {}, source_doc_id=doc_id)
         await versioning.write_node(
-            "Document", {"doc_id": doc_id}, {"filename": file_path.name},
+            "Document", {"doc_id": doc_id}, {"filename": source_name},
             source_doc_id=doc_id,
         )
         await versioning.write_edge(
@@ -188,7 +188,7 @@ async def _run_graph_extraction(
         try:
             fields = sf.extract_all(full_text)
         except Exception as exc:
-            logger.warning("structured_fields extraction failed for %s: %s", file_path.name, exc)
+            logger.warning("structured_fields extraction failed for %s: %s", source_name, exc)
             fields = {}
             stats["errors"].append(f"structured_fields: {exc}")
 
@@ -212,7 +212,7 @@ async def _run_graph_extraction(
                 )
                 stats["entities_resolved"] += 1
             except Exception as exc:
-                logger.warning("PhoneNumber graph write failed for %r in %s: %s", phone, file_path.name, exc)
+                logger.warning("PhoneNumber graph write failed for %r in %s: %s", phone, source_name, exc)
                 stats["errors"].append(f"phone_write: {exc}")
 
         # 2026-08-04: same dead-code pattern as phones above, for vehicle
@@ -244,7 +244,7 @@ async def _run_graph_extraction(
                 )
                 stats["entities_resolved"] += 1
             except Exception as exc:
-                logger.warning("Vehicle graph write failed for plate %r in %s: %s", plate, file_path.name, exc)
+                logger.warning("Vehicle graph write failed for plate %r in %s: %s", plate, source_name, exc)
                 stats["errors"].append(f"vehicle_plate_write: {exc}")
 
         # 4.4 — doc-type classification. Its own LLM-failure handling
@@ -252,7 +252,7 @@ async def _run_graph_extraction(
         try:
             classification = await doc_classifier.classify_document(full_text)
         except Exception as exc:
-            logger.warning("doc_classifier failed for %s: %s", file_path.name, exc)
+            logger.warning("doc_classifier failed for %s: %s", source_name, exc)
             classification = None
             stats["errors"].append(f"doc_classifier: {exc}")
 
@@ -375,7 +375,7 @@ async def _run_graph_extraction(
             prev_chunk = {"text": chunk.text, "persons": resolved_persons}
 
     except Exception as exc:
-        logger.error("Graph extraction failed for %s (case %s): %s", file_path.name, case_id, exc)
+        logger.error("Graph extraction failed for %s (case %s): %s", source_name, case_id, exc)
         stats["errors"].append(str(exc))
 
     return stats
@@ -430,53 +430,51 @@ async def ingest_directory(dir_path: Path = None, project_id: str = None, is_glo
     }
 
 
-async def ingest_file(
-    file_path: Path,
+async def ingest_documents(
+    documents: list,
+    source_name: str,
     project_id: str = None,
     is_global: bool = False,
     source_type: str = None,
     category: str = None,
     case_id: str = None,
+    doc_type: str = None,
 ) -> dict:
     """
-    Ingest a single file into the SHARED knowledge base.
+    Ingest an already-loaded list of `Document` objects (src/ingestion/document.py)
+    into the SHARED knowledge base: normalize, chunk, embed, store, then
+    (case_id permitting) run graph extraction. This is everything `ingest_file()`
+    used to do past the load step — split out (Milestone A, M2 of the Muhafiz
+    Data API migration, see docs/decisions/0001-muhafiz-api-migration.md) so a
+    non-file source can call it directly.
 
-    1. Load text (via loader_router)
-    2. Chunk text
-    3. Embed chunks
-    4. Save chunks to ChromaDB (the same collection retrieval reads)
-    5. Return stats, including the doc_id, so the caller can track the job
+    `Document` (src/ingestion/document.py) has no filesystem coupling, so
+    nothing below this point ever touches `file_path` — only `documents` and
+    the plain `source_name` string used for logging, the Document graph
+    node's `filename` property, and the Postgres `documents.filename` column.
 
-    `is_global=True` marks the document as part of the shared knowledge base —
-    that is what admin uploads produce. Chat attachments never reach this
-    function: their text is injected into a single conversation and is never
-    embedded or indexed.
+    IMPORTANT — bypassing route_and_load() also bypasses every check in
+    src/ingestion/validation.py (size limits, magic-byte sniffing, zip-bomb
+    guard — see that module's own "single chokepoint" docstring). A caller
+    that builds `documents` itself (not via `ingest_file()`) is responsible
+    for its own equivalent guard against pathological input; none is added
+    here, since what "pathological" means is source-specific (e.g. a REST
+    source cares about record count, not file size).
 
-    `source_type` ('scraped' | 'synthetic') and `category` are optional —
-    Phase 4 dataset-manifest tags, carried into every chunk's Chroma
-    metadata for provenance filtering. Uploads without a manifest entry
-    (e.g. ad-hoc admin uploads) simply omit them.
+    `is_global`, `source_type`/`category`, and `case_id` — see `ingest_file()`'s
+    docstring; identical semantics, just no longer described as being about a
+    "file".
 
-    `case_id` is optional, not required, at this layer: the pre-existing
-    96-document corpus was ingested before Case existed and has no case to
-    attach to, and ad-hoc admin uploads to the shared knowledge base aren't
-    case evidence either. A caller that IS uploading evidence for a specific
-    investigation (the case-scoped upload path Phase 1.8's UI drives)
-    should always pass it — enforcing that as a hard requirement belongs at
-    that call site (or a future dedicated evidence-upload endpoint), not
-    here, where it would also break the existing global-corpus re-ingest.
+    `doc_type`, unlike the rest, has no source-agnostic default: `ingest_file()`
+    passes the file's extension here (a historical quirk — this ends up on
+    Chroma's `doc_type` metadata key, distinct from the LLM-classified
+    `doc_type` `_run_graph_extraction()` separately writes onto the graph's
+    Document node; the two share a name but not a meaning, a pre-existing
+    wart out of scope for this refactor to fix). A non-file caller should
+    pass whatever `doc_type` is meaningful for its own records, or omit it.
     """
-    logger.info("Ingesting file: %s", file_path.name)
     try:
-        # 1. Load — offloaded to a thread: a scanned PDF can hit the
-        # vision-fallback retry loop's blocking time.sleep(120) x10, which
-        # would otherwise freeze the event loop for up to 20 minutes.
-        documents = await asyncio.to_thread(route_and_load, file_path)
-        if not documents:
-            logger.warning("No content extracted from %s", file_path.name)
-            return {"chunks_added": 0, "error": "No text could be extracted from this file."}
-
-        # 1b. Normalize before it reaches the chunker.
+        # Normalize before it reaches the chunker.
         #
         # Urdu normalization runs FIRST: it removes diacritics and
         # tatweel, so it changes offsets, and everything downstream
@@ -486,7 +484,7 @@ async def ingest_file(
         for doc in documents:
             doc.text = normalize_whitespace(normalize_urdu(doc.text))
 
-        # 2. Chunk
+        # Chunk
         chunks = chunk_documents(
             documents,
             chunk_size=config.CHUNK_SIZE,
@@ -495,7 +493,7 @@ async def ingest_file(
             project_id=project_id,
         )
         if not chunks:
-            logger.warning("No chunks generated for %s", file_path.name)
+            logger.warning("No chunks generated for %s", source_name)
             return {"chunks_added": 0, "error": "The file produced no text chunks."}
 
         # Tag every chunk so the vector store writes the right document row
@@ -505,7 +503,8 @@ async def ingest_file(
             if case_id:
                 chunk.metadata["case_id"] = case_id
             chunk.metadata["is_global"] = is_global
-            chunk.metadata["doc_type"] = file_path.suffix.lower().lstrip(".")
+            if doc_type is not None:
+                chunk.metadata["doc_type"] = doc_type
             if source_type:
                 chunk.metadata["source_type"] = source_type
             if category:
@@ -516,8 +515,7 @@ async def ingest_file(
             # and the Phase 9 eval slices by chunk anyway.
             chunk.metadata["is_roman_urdu"] = is_roman_urdu(chunk.text)
 
-        # 3. Embed
-        # Extract text for embedding
+        # Embed
         texts_to_embed = [c.text for c in chunks]
         embeddings = await embed_texts(texts_to_embed, task_type="RETRIEVAL_DOCUMENT")
 
@@ -525,12 +523,7 @@ async def ingest_file(
             logger.error("Mismatch: %d chunks vs %d embeddings", len(chunks), len(embeddings))
             return {"chunks_added": 0}
 
-        # Attach embeddings to metadata for vector_store to pick up
-        # Note: In our current vector_store.py we might just pass text, let's see.
-        # Actually ChromaDB can generate embeddings itself if we pass an embedding function,
-        # but we do it manually to use Gemini. We'll pass embeddings to upsert_documents.
-
-        # 4. Save to PostgreSQL
+        # Save to Chroma + Postgres
         ids = [c.doc_id for c in chunks]
         metadatas = [c.metadata for c in chunks]
         await upsert_documents(
@@ -549,16 +542,16 @@ async def ingest_file(
                 gateway = await get_gateway()
                 await gateway.log_document(
                     doc_id=str(doc_id),
-                    filename=file_path.name,
-                    doc_type=file_path.suffix.lower().lstrip("."),
+                    filename=source_name,
+                    doc_type=doc_type,
                     chunk_count=len(chunks),
                     is_global=is_global,
                     case_id=case_id,
                 )
             except Exception as exc:
-                logger.warning("Could not update document record for %s: %s", file_path.name, exc)
+                logger.warning("Could not update document record for %s: %s", source_name, exc)
 
-        logger.info("Successfully ingested %d chunks from %s", len(chunks), file_path.name)
+        logger.info("Successfully ingested %d chunks from %s", len(chunks), source_name)
 
         # Phase 4.10: graph extraction/resolution, case_id-scoped. Runs
         # AFTER the chunks are already embedded and stored above — a
@@ -570,11 +563,11 @@ async def ingest_file(
         graph_stats = None
         if case_id and doc_id:
             try:
-                graph_stats = await _run_graph_extraction(file_path, documents, chunks, case_id, str(doc_id))
+                graph_stats = await _run_graph_extraction(source_name, documents, chunks, case_id, str(doc_id))
             except Exception as exc:
-                logger.error("Graph extraction step raised unexpectedly for %s: %s", file_path.name, exc)
+                logger.error("Graph extraction step raised unexpectedly for %s: %s", source_name, exc)
                 graph_stats = {"errors": [str(exc)]}
-            
+
             # Phase 8.2: Run case-level conflict detection in the background
             asyncio.create_task(_run_conflict_detection_bg(case_id, str(doc_id)))
 
@@ -601,5 +594,66 @@ async def ingest_file(
         }
 
     except Exception as exc:
+        logger.error("Failed to ingest %s: %s", source_name, exc)
+        return {"chunks_added": 0, "error": str(exc)}
+
+
+async def ingest_file(
+    file_path: Path,
+    project_id: str = None,
+    is_global: bool = False,
+    source_type: str = None,
+    category: str = None,
+    case_id: str = None,
+) -> dict:
+    """
+    Ingest a single file into the SHARED knowledge base.
+
+    1. Load + validate text (via loader_router — see its own docstring for
+       the size/magic-byte/zip-bomb checks this enforces before anything
+       below runs)
+    2. Delegate everything else — chunk, embed, store, graph extraction —
+       to ingest_documents() (see its docstring for the full pipeline)
+
+    `is_global=True` marks the document as part of the shared knowledge base —
+    that is what admin uploads produce. Chat attachments never reach this
+    function: their text is injected into a single conversation and is never
+    embedded or indexed.
+
+    `source_type` ('scraped' | 'synthetic') and `category` are optional —
+    Phase 4 dataset-manifest tags, carried into every chunk's Chroma
+    metadata for provenance filtering. Uploads without a manifest entry
+    (e.g. ad-hoc admin uploads) simply omit them.
+
+    `case_id` is optional, not required, at this layer: the pre-existing
+    96-document corpus was ingested before Case existed and has no case to
+    attach to, and ad-hoc admin uploads to the shared knowledge base aren't
+    case evidence either. A caller that IS uploading evidence for a specific
+    investigation (the case-scoped upload path Phase 1.8's UI drives)
+    should always pass it — enforcing that as a hard requirement belongs at
+    that call site (or a future dedicated evidence-upload endpoint), not
+    here, where it would also break the existing global-corpus re-ingest.
+    """
+    logger.info("Ingesting file: %s", file_path.name)
+    try:
+        # Load — offloaded to a thread: a scanned PDF can hit the
+        # vision-fallback retry loop's blocking time.sleep(120) x10, which
+        # would otherwise freeze the event loop for up to 20 minutes.
+        documents = await asyncio.to_thread(route_and_load, file_path)
+        if not documents:
+            logger.warning("No content extracted from %s", file_path.name)
+            return {"chunks_added": 0, "error": "No text could be extracted from this file."}
+    except Exception as exc:
         logger.error("Failed to ingest %s: %s", file_path.name, exc)
         return {"chunks_added": 0, "error": str(exc)}
+
+    return await ingest_documents(
+        documents,
+        source_name=file_path.name,
+        project_id=project_id,
+        is_global=is_global,
+        source_type=source_type,
+        category=category,
+        case_id=case_id,
+        doc_type=file_path.suffix.lower().lstrip("."),
+    )

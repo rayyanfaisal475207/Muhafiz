@@ -80,7 +80,7 @@ async def test_run_graph_extraction_writes_case_and_document_nodes(stub_graph_de
     chunks = [FakeChunk("DOC-1_c0", "احمد رضا قریشی نے بیان دیا۔ بور 30 پستول برآمد ہوا۔")]
 
     stats = await service._run_graph_extraction(
-        SimpleNamespace(name="test.pdf"), documents, chunks, "CASE-001", "DOC-1"
+        "test.pdf", documents, chunks, "CASE-001", "DOC-1"
     )
 
     node_labels = [n["label"] for n in stub_graph_deps["nodes"]]
@@ -95,7 +95,7 @@ async def test_resolvable_mention_goes_through_entity_resolution(stub_graph_deps
     documents = [SimpleNamespace(text="text")]
     chunks = [FakeChunk("DOC-1_c0", "احمد رضا قریشی نے بیان دیا۔")]
 
-    await service._run_graph_extraction(SimpleNamespace(name="t.pdf"), documents, chunks, "CASE-001", "DOC-1")
+    await service._run_graph_extraction("t.pdf", documents, chunks, "CASE-001", "DOC-1")
 
     resolved_types = [r["type"] for r in stub_graph_deps["resolved"]]
     assert "person" in resolved_types
@@ -107,7 +107,7 @@ async def test_weapon_mention_bypasses_resolution(stub_graph_deps):
     chunks = [FakeChunk("DOC-1_c0", "بور 30 پستول برآمد ہوا۔")]
 
     stats = await service._run_graph_extraction(
-        SimpleNamespace(name="t.pdf"), documents, chunks, "CASE-001", "DOC-1"
+        "t.pdf", documents, chunks, "CASE-001", "DOC-1"
     )
 
     # Weapon is not in _RESOLVABLE_MENTION_TYPES — it must never reach
@@ -131,7 +131,7 @@ async def test_graph_extraction_failure_is_caught_and_reported(monkeypatch, stub
 
     # Must not raise — degrades to a stats dict with the error recorded.
     stats = await service._run_graph_extraction(
-        SimpleNamespace(name="t.pdf"), documents, chunks, "CASE-001", "DOC-1"
+        "t.pdf", documents, chunks, "CASE-001", "DOC-1"
     )
     assert any("doc_classifier" in e for e in stats["errors"])
     assert stats["doc_type"] is None
@@ -204,7 +204,7 @@ async def test_relationship_found_within_a_single_chunk(monkeypatch, stub_graph_
     chunks = [FakeChunk("DOC-1_c0", "Irfan Mirza's son Bilal Malik was present.")]
 
     stats = await service._run_graph_extraction(
-        SimpleNamespace(name="t.pdf"), documents, chunks, "CASE-001", "DOC-1"
+        "t.pdf", documents, chunks, "CASE-001", "DOC-1"
     )
 
     assert stats["relationships_written"] == 1
@@ -242,7 +242,7 @@ async def test_relationship_found_across_adjacent_chunks(monkeypatch, stub_graph
     ]
 
     stats = await service._run_graph_extraction(
-        SimpleNamespace(name="t.pdf"), documents, chunks, "CASE-001", "DOC-1"
+        "t.pdf", documents, chunks, "CASE-001", "DOC-1"
     )
 
     # Both single-chunk calls were skipped entirely (each chunk has only 1
@@ -281,7 +281,7 @@ async def test_relationship_not_found_when_people_are_two_chunks_apart(monkeypat
     ]
 
     stats = await service._run_graph_extraction(
-        SimpleNamespace(name="t.pdf"), documents, chunks, "CASE-001", "DOC-1"
+        "t.pdf", documents, chunks, "CASE-001", "DOC-1"
     )
 
     assert stats["relationships_written"] == 0
@@ -316,7 +316,7 @@ async def test_same_pair_from_within_chunk_and_cross_chunk_written_once(monkeypa
     ]
 
     stats = await service._run_graph_extraction(
-        SimpleNamespace(name="t.pdf"), documents, chunks, "CASE-001", "DOC-1"
+        "t.pdf", documents, chunks, "CASE-001", "DOC-1"
     )
 
     assert stats["relationships_written"] == 1
