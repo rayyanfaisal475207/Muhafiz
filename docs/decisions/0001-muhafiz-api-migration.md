@@ -110,7 +110,8 @@ the same human-confirmation discipline before being treated as fact.
 - [x] **M1** — `src/data_gateway/muhafiz_api/` (client, models, errors,
       snapshot), config, `.env.example`. This document.
 - [ ] **M2** — `ingest_documents()` entry-point extraction.
-- [ ] **M3** — record → `Document` rendering.
+- [x] **M3** — record → `Document` rendering (`src/ingestion/muhafiz_records.py`),
+      Chroma metadata extended in both allowlist places, `docs/INGESTION.md` updated.
 - [ ] **M4** — case provisioning from FIRs.
 - [ ] **M5** — evidence-state reset (graph, Chroma, derived Postgres rows).
 - [ ] **M6a** — deterministic structured graph projection + corroboration gate.

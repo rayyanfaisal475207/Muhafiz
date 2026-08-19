@@ -1,7 +1,9 @@
 # Documents in this app: two systems, deliberately separate
 
-There are two ways a document can enter the app. They look similar and are not.
-Confusing them is the failure mode this design exists to prevent.
+There are two ways a *file* can enter the app. They look similar and are not.
+Confusing them is the failure mode this design exists to prevent. A third,
+non-file route — the Muhafiz Data API — is documented separately below; it
+shares the knowledge base's storage and retrieval, but has no file at all.
 
 |                      | **Knowledge base** | **Chat attachment** |
 |----------------------|--------------------|---------------------|
@@ -54,6 +56,46 @@ background. Progress is tracked per file in `ingestion_jobs` and shown on the
 page as **processing → success / failed**, with the reason on failure. Chunks
 land in the *existing* ChromaDB collection with `is_global = true` in their
 metadata; there is no second store.
+
+## Ingesting from the Muhafiz Data API (no file involved)
+
+See `docs/decisions/0001-muhafiz-api-migration.md` for the full background —
+this section only documents the mechanics.
+
+`src/ingestion/muhafiz_records.py` (record → `Document`) and
+`src/ingestion/service.py`'s `ingest_documents()` (M2's file-agnostic entry
+point) together let a REST record from the live Muhafiz Data API
+(`API_CONSUMER_GUIDE.md`) reach the exact same knowledge base as an uploaded
+file — same Chroma collection, same chunk/embed pipeline, same graph
+extraction step — without ever touching `data/documents/` or
+`route_and_load()`.
+
+Only genuine free text is chunked and embedded (FIR narrative, zimni entries,
+CMS complaint summaries, PKM loss/incident descriptions, roznamcha entries) —
+never the structured fields (accused, sections, weapon rows, timestamps).
+Those go straight to the graph as ground truth instead
+(`src/graph/structured_projection.py`), which is the entire point of this
+source: real identifiers don't need an LLM to re-guess them from prose.
+
+Each rendered `Document`'s `source` metadata is a stable string —
+`psrms/fir/{fir_id}#narrative`, `cms/complaint/{complaint_id}#summary`, etc.
+— built only from fields the API guarantees are stable identifiers, never
+from content. Re-fetching and re-rendering the same record must always
+produce the same `source` (and therefore the same chunk `doc_id`s), or a
+later sync run silently orphans the previous run's graph edges instead of
+updating them in place.
+
+Chunk metadata carries three extra fields no file-sourced chunk has:
+`record_type`, `source_system` (`"muhafiz_api"`), `external_id`, plus
+`station_code`/`district` where known and `content_provenance` (the
+record's own `source: "synthetic"`/`"real"` tag from the API — named
+differently from the existing `source` metadata key to avoid colliding with
+"which record this chunk came from").
+
+Bypassing `route_and_load()` also bypasses every check in
+`src/ingestion/validation.py` — this route has no file-size/magic-byte
+guard because those don't apply to a REST record; a record-count guard is
+the caller's own responsibility (see `ingest_documents()`'s docstring).
 
 ## Attaching a file to a conversation (user)
 
