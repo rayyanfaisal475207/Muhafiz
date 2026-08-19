@@ -40,6 +40,14 @@ _METADATA_KEYS = (
     # dropped on upsert with no error, so anything added to chunk
     # metadata must be added here too or it simply never lands.
     "is_roman_urdu",
+    # Muhafiz Data API migration (docs/decisions/0001-muhafiz-api-migration.md,
+    # M3) — set by src/ingestion/muhafiz_records.py for API-sourced chunks,
+    # absent/None (dropped by _sanitize_metadata below) for file-sourced
+    # ones. `content_provenance` is deliberately NOT named `source` — that
+    # key already means "which file/record this chunk came from"; this one
+    # carries the record's own real/synthetic origin tag instead.
+    "record_type", "source_system", "external_id", "station_code",
+    "district", "content_provenance",
 )
 
 
@@ -392,6 +400,15 @@ async def upsert_documents(
                 # allowlist but not listed here is still dropped, just as
                 # silently. Both have to be updated together.
                 "is_roman_urdu": meta.get("is_roman_urdu"),
+                # M3 (Muhafiz Data API migration) — same "both places"
+                # requirement as the comment above; None on any
+                # file-sourced chunk, sanitized away by _sanitize_metadata.
+                "record_type": meta.get("record_type"),
+                "source_system": meta.get("source_system"),
+                "external_id": meta.get("external_id"),
+                "station_code": meta.get("station_code"),
+                "district": meta.get("district"),
+                "content_provenance": meta.get("content_provenance"),
             },
         })
 
