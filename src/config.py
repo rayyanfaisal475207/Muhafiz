@@ -102,6 +102,25 @@ CHROMA_PERSIST_DIR: Path = Path(
 CHROMA_COLLECTION_NAME: str = os.getenv("CHROMA_COLLECTION_NAME", "muhafiz_kb")
 
 
+# ── Muhafiz Data API (see docs/decisions/0001-muhafiz-api-migration.md) ──────
+# A live REST API fronting real-schema PSRMS/CMS/PKM/criminal-record data
+# (API_CONSUMER_GUIDE.md), replacing the locally generated synthetic corpus as
+# the source of evidence for ingestion. As of this migration, confirmed a
+# same-schema STAND-IN, not the real police system — the actual integration
+# arrives post-MVP as a separate text-format handoff against this same
+# schema, at larger volume. Nothing here is air-gap-aware by design: this
+# endpoint is a plain internet REST call, gated entirely by
+# MUHAFIZ_API_BASE_URL being set — leave it empty to disable the source.
+MUHAFIZ_API_BASE_URL: str = os.getenv("MUHAFIZ_API_BASE_URL", "")
+MUHAFIZ_API_KEY: str = os.getenv("MUHAFIZ_API_KEY", "")
+# Seconds per HTTP call; the live API is occasionally slow on cold start
+# (Render free-tier), so this is generous relative to the model-server calls
+# elsewhere in this file.
+MUHAFIZ_API_TIMEOUT: float = float(os.getenv("MUHAFIZ_API_TIMEOUT", "60"))
+# Max page_size the API accepts (API_CONSUMER_GUIDE.md: "1 to 100").
+MUHAFIZ_API_PAGE_SIZE: int = int(os.getenv("MUHAFIZ_API_PAGE_SIZE", "100"))
+
+
 # ── Pipeline Settings ─────────────────────────────────────────────────────────
 MAX_RETRIES: int = int(os.getenv("MAX_RETRIES", "1"))
 TOP_K_RETRIEVAL: int = int(os.getenv("TOP_K_RETRIEVAL", "10"))
@@ -290,6 +309,16 @@ def validate_config() -> tuple[list[str], list[str]]:
         errors.append(
             "AIR_GAP_MODE is enabled but LOCAL_LLM_URL is not set — every LLM "
             "call will refuse the cloud fallback and fail."
+        )
+
+    # MUHAFIZ_API_BASE_URL and MUHAFIZ_API_KEY are meant to be set together —
+    # a base URL with no key will 401 on every call except /health; a key
+    # with no base URL is simply unused. Neither half is required (the
+    # source is opt-in), but a half-configured pair is always a mistake.
+    if bool(MUHAFIZ_API_BASE_URL) != bool(MUHAFIZ_API_KEY):
+        errors.append(
+            "Only one of MUHAFIZ_API_BASE_URL / MUHAFIZ_API_KEY is set — the "
+            "Muhafiz data API client needs both, or neither."
         )
 
     # ENVIRONMENT must be a real, recognized value. The cookie Secure flag
