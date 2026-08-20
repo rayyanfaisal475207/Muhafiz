@@ -202,7 +202,33 @@ the same human-confirmation discipline before being treated as fact.
       infrastructure** (no Postgres/AGE running locally this session); a
       dry-run smoke test against the full real 73-FIR snapshot did run and
       passed.
-- [ ] **M10** — harness adaptation to real data shape.
+- [x] **M10** — harness adaptation to real data shape:
+      `data_quality.py`'s `_ENTITY_LABELS` was missing `StructuredRecord`
+      entirely — the label M6a/M6b implement for the first time this
+      session, now one of the largest node populations a real case has;
+      every case's entity-coverage metric would have silently undercounted.
+      `timeline_building.py`'s `_fetch_dated_incidents` assumed one
+      Incident carries at most one live `OCCURRED_ON` edge (true for the
+      legacy LLM-derived path) and de-duplicated on `entity_id` — wrong
+      under M6a, where one Incident deliberately carries several
+      (incident date, each zimni entry, dispatch date), each a genuinely
+      different event; the old logic silently collapsed a real case's
+      whole timeline down to one arbitrary entry. Fixed to dedup on the
+      edge's own `id(occ)` instead, with distinct per-event ids and
+      event_type-aware descriptions. `cross_case_linkage.py` and
+      `large_scale_aggregate.py` reviewed and found to need no change —
+      both are already insulated by the tool-layer abstraction
+      (`SUBAGENT_INTERFACES.md`'s own "no graph types cross a sub-agent
+      boundary" invariant) and already benefit transitively from M8's
+      `graph_retriever.py` fixes and M4's real station/district data.
+      `cross_case_linkage.py`'s hedging language deliberately left as-is —
+      the measured corroboration-gate false-candidate risk (§4 above)
+      means caution is still warranted regardless of CNIC reliability
+      improving. The pre-existing `ingestion_jobs`-has-no-`case_id` gap
+      `data_quality.py` already documents is **not** resolved by this
+      migration — `scripts/sync_muhafiz_data.py` (M9) doesn't write
+      `ingestion_jobs` rows either, so the gap is unchanged, not newly
+      introduced. 4 new tests.
 - [ ] **M11** — eval set regenerated from real data.
 - [ ] **M12** — final documentation consistency pass; `API_CONSUMER_GUIDE.md`
       committed.

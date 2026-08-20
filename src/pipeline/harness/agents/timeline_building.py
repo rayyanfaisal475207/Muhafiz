@@ -221,6 +221,26 @@ async def _fetch_dated_incidents(case_id: str) -> list[dict]:
     applies (e.g. `_one_hop_neighbors`, `_fetch_appears_in`) — excludes a
     since-revised prior date, keeping only the current OCCURRED_ON edge
     per incident.
+
+    ONE ROW PER LIVE OCCURRED_ON EDGE, not one row per Incident — M10 of
+    the Muhafiz Data API migration (docs/decisions/0001-muhafiz-api-migration.md).
+    Before this migration, one Incident carrying more than one live
+    OCCURRED_ON edge was assumed to be a bug (a resolution/extraction
+    re-run should have superseded the old one, per versioning.py's own
+    discipline) — and this function de-duplicated defensively on
+    `entity_id`, keeping only whichever row the query happened to return
+    first. src/graph/structured_projection.py (M6a) makes that assumption
+    wrong on purpose: ONE Incident deliberately carries SEVERAL live,
+    non-superseded OCCURRED_ON edges to DIFFERENT Date nodes — the
+    incident date itself, one per zimni entry, one per chalaan dispatch —
+    each a genuinely different real-world event in that investigation's
+    timeline, tagged with a distinct `event_type` property, not competing
+    revisions of one fact. The old per-entity_id dedup would have
+    silently collapsed a real case's whole multi-event timeline down to
+    one arbitrary row. `id(occ)` (the edge's own graph id, the same
+    identifier src/api/graph_review.py already uses to address a specific
+    edge) is now the dedup key — still a genuine defensive guard against
+    a literal duplicate row, without discarding real, distinct events.
     """
     rows = await scoped_cypher(
         """
@@ -228,23 +248,19 @@ async def _fetch_dated_incidents(case_id: str) -> list[dict]:
         MATCH (i)-[occ:OCCURRED_ON]->(d:Date)
         WHERE occ.superseded_by IS NULL
         RETURN i.entity_id AS entity_id, i.description AS description,
-               d.date AS occurred_on, occ.locked AS locked
+               d.date AS occurred_on, occ.locked AS locked,
+               id(occ) AS occ_id, occ.event_type AS event_type, occ.detail AS detail
         """,
         case_id,
-        columns=["entity_id", "description", "occurred_on", "locked"],
+        columns=["entity_id", "description", "occurred_on", "locked", "occ_id", "event_type", "detail"],
     )
-    # Defensive de-dup on entity_id: two live, non-superseded OCCURRED_ON
-    # edges off the same Incident should not happen (versioning.py's own
-    # supersede discipline is meant to prevent it), but this sub-agent
-    # does not re-verify that invariant — a duplicate row must not
-    # silently become two timeline entries for one real-world incident.
-    seen: set[str] = set()
+    seen: set = set()
     out: list[dict] = []
     for row in rows:
-        entity_id = row.get("entity_id")
-        if not entity_id or entity_id in seen:
+        occ_id = row.get("occ_id")
+        if occ_id is None or occ_id in seen:
             continue
-        seen.add(entity_id)
+        seen.add(occ_id)
         out.append(row)
     return out
 
@@ -365,9 +381,24 @@ def _build_events(
     events: list[TimelineEvent] = []
     for row in rows:
         entity_id = row["entity_id"]
-        description = row.get("description") or f"Incident {entity_id} (no description recorded)"
+        event_type = row.get("event_type")
+        detail = row.get("detail")
+        base_description = row.get("description") or f"Incident {entity_id} (no description recorded)"
+        # M10 (Muhafiz Data API migration): distinguishes the several
+        # events one Incident can now genuinely carry (see
+        # _fetch_dated_incidents' own docstring) — event_type/detail are
+        # only ever present on M6a's typed-timestamp OCCURRED_ON edges;
+        # a legacy, LLM-derived incident with no such properties keeps
+        # exactly its old bare description.
+        if event_type:
+            description = f"{base_description} — {event_type}" + (f": {detail}" if detail else "")
+        else:
+            description = base_description
         locked = bool(row.get("locked"))
 
+        # Conflict status is per-INCIDENT (CONFLICTS_WITH connects two
+        # Incident nodes), shared by every event this incident now
+        # contributes — looked up by entity_id, not the per-edge id below.
         bases = conflict_bases.get(entity_id) if conflict_bases is not None else None
         if bases:
             conflict_state = ConflictState.CONFLICT
@@ -379,9 +410,15 @@ def _build_events(
             conflict_state = ConflictState.UNKNOWN
             conflict_basis = None
 
+        # event_id must be unique PER EVENT, not per incident, now that
+        # one incident can contribute several — id(occ) (the edge's own
+        # graph id) is the true per-event identity; entity_id alone would
+        # collide across an incident's multiple events.
+        event_id = f"{entity_id}::{row.get('occ_id')}" if row.get("occ_id") is not None else entity_id
+
         events.append(
             TimelineEvent(
-                event_id=entity_id,
+                event_id=event_id,
                 description=description,
                 occurred_on=row.get("occurred_on"),
                 conflict_state=conflict_state,

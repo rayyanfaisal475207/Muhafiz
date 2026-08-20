@@ -325,6 +325,33 @@ async def test_full_success_through_real_fetch_functions(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_structured_record_counted_in_entity_extraction(monkeypatch):
+    """
+    M10 of the Muhafiz Data API migration (docs/decisions/0001-muhafiz-api-migration.md):
+    StructuredRecord (M6a's fir_section/malkhana_register/chalaan_*/
+    fir_zimni_index nodes, M6b's CMS/PKM/criminal-record nodes) must be
+    counted — omitting it would silently undercount case data coverage on
+    every Muhafiz Data API case.
+    """
+    _stub_postgres(monkeypatch, doc_type_rows=[], doc_id_rows=[])
+    _stub_scoped_cypher_real(
+        monkeypatch,
+        entity_counts={
+            "Person": 4, "Vehicle": 0, "PhoneNumber": 0, "Address": 0,
+            "Organization": 0, "Weapon": 1, "StructuredRecord": 10,
+        },
+        dated_incidents=0, conflicts_found=0, identity_counts={},
+    )
+    _stub_chroma(monkeypatch, metadata=[])
+
+    result = await data_quality(_agent_input())
+    by_name = {m.name: m for m in result.metrics}
+
+    assert by_name["entity_extraction"].counts["by_label:StructuredRecord"] == 10
+    assert by_name["entity_extraction"].counts["total_entities"] == 15  # 4 Person + 1 Weapon + 10 StructuredRecord
+
+
+@pytest.mark.asyncio
 async def test_conflict_coverage_unknown_independent_of_timeline_readiness(monkeypatch):
     # The CONFLICTS_WITH sub-query fails; the shared OCCURRED_ON query
     # (used by both timeline_readiness AND conflict_coverage's own
