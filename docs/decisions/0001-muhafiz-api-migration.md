@@ -115,7 +115,15 @@ the same human-confirmation discipline before being treated as fact.
 - [x] **M4** — case provisioning from FIRs (`src/ingestion/muhafiz_cases.py`,
       `scripts/sync_muhafiz_cases.py`); CMS/PKM escalation matching measured
       and locked in by test (4/4 CMS, 4/8 PKM resolve to a real FIR).
-- [ ] **M5** — evidence-state reset (graph, Chroma, derived Postgres rows).
+- [x] **M5** — evidence-state reset built (`scripts/reset_evidence_state.py`):
+      graph → both Chroma collections → derived Postgres rows → filesystem,
+      dry-run default, `--execute --yes-i-am-sure` double-gate. **Built and
+      tested only — NOT yet run against live infrastructure.** Postgres was
+      not running locally during this session; the AGE graph drop/recreate
+      path needs a live instance and is covered by
+      `TestRequiresLivePostgres` (skipped by default) plus this record's own
+      Milestone C verification checklist, to run manually before any real
+      `--execute`.
 - [ ] **M6a** — deterministic structured graph projection + corroboration gate.
 - [ ] **M6b** — cross-silo linking + `CITES` prose-citation candidates.
 - [ ] **M7** — extraction adaptation + additive `police_reference_data` load.
