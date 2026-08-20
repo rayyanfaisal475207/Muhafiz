@@ -54,12 +54,24 @@ def _agent_input(caller=None, query_text="build a timeline for this case", **kw)
     return SubAgentInput(query_text=query_text, execution=_execution(caller=caller), **kw)
 
 
-def _dated_row(entity_id, description, occurred_on, locked=False):
+def _dated_row(entity_id, description, occurred_on, locked=False, occ_id=None, event_type=None, detail=None):
+    """
+    `occ_id` (M10, docs/decisions/0001-muhafiz-api-migration.md) stands
+    in for the real `id(occ)` AGE returns per OCCURRED_ON edge — defaults
+    to `entity_id` itself, which is unique across every existing
+    single-event-per-incident test row and keeps their event_id
+    assertions predictable (f"{entity_id}::{entity_id}"). A test that
+    wants to model one Incident with SEVERAL live events (M6a's real
+    shape) passes distinct `occ_id`s explicitly.
+    """
     return {
         "entity_id": entity_id,
         "description": description,
         "occurred_on": occurred_on,
         "locked": locked,
+        "occ_id": occ_id if occ_id is not None else entity_id,
+        "event_type": event_type,
+        "detail": detail,
     }
 
 
@@ -125,8 +137,11 @@ async def test_successful_timeline_mixed_conflict_states(monkeypatch):
     assert result.tools_used == ["GRAPH"]
     assert result.degraded_from == []
     assert len(result.events) == 3
-    # Chronological order, not insertion order.
-    assert [e.event_id for e in result.events] == ["INCIDENT-001", "INCIDENT-002", "INCIDENT-003"]
+    # Chronological order, not insertion order. event_id is now
+    # f"{entity_id}::{occ_id}" (M10) — see _dated_row's own docstring.
+    assert [e.event_id for e in result.events] == [
+        "INCIDENT-001::INCIDENT-001", "INCIDENT-002::INCIDENT-002", "INCIDENT-003::INCIDENT-003",
+    ]
 
     e1, e2, e3 = result.events
     assert e1.conflict_state == ConflictState.CONFLICT
@@ -169,6 +184,61 @@ async def test_unconfirmed_detection_yields_unknown_not_none(monkeypatch):
     assert result.status == SubAgentStatus.PARTIAL
     assert result.events[0].conflict_state == ConflictState.UNKNOWN
     assert any("not been confirmed" in c.lower() or "unchecked" in c.lower() for c in result.caveats)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# (a2) M10, Muhafiz Data API migration — one Incident, SEVERAL live
+# OCCURRED_ON edges (M6a's real shape), must become SEVERAL events, not
+# one arbitrarily-picked row.
+# ═══════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_one_incident_multiple_occurred_on_edges_become_multiple_events(monkeypatch):
+    """
+    Regression: before M10, this function de-duplicated on entity_id
+    alone, so an Incident with a real incident date PLUS several zimni
+    entries PLUS a dispatch date (exactly what structured_projection.py
+    now writes) would collapse to a single, arbitrarily-chosen timeline
+    entry — silently discarding most of a real case's timeline.
+    """
+    _stub_scoped_cypher(
+        monkeypatch,
+        dated_rows=[
+            _dated_row("INCIDENT-001", "Incident for FIR 100/26", "2026-08-18",
+                       occ_id=1, event_type="incident"),
+            _dated_row("INCIDENT-001", "Incident for FIR 100/26", "2026-08-19",
+                       occ_id=2, event_type="zimni_entry", detail="entry 1"),
+            _dated_row("INCIDENT-001", "Incident for FIR 100/26", "2026-08-20",
+                       occ_id=3, event_type="chalaan_dispatch"),
+        ],
+    )
+
+    result = await timeline_building(_agent_input(), gateway=_FakeGateway(checked=True))
+
+    assert result.status == SubAgentStatus.OK
+    assert len(result.events) == 3, "one incident with 3 live events must become 3 timeline entries"
+
+    event_ids = {e.event_id for e in result.events}
+    assert len(event_ids) == 3, "event_ids must be distinct per event, not collide on the shared entity_id"
+
+    descriptions = {e.description for e in result.events}
+    assert any("zimni_entry: entry 1" in d for d in descriptions)
+    assert any("chalaan_dispatch" in d for d in descriptions)
+    assert any(d == "Incident for FIR 100/26 — incident" for d in descriptions)
+
+    # Chronological order still holds across events from the SAME incident.
+    assert [e.occurred_on for e in result.events] == ["2026-08-18", "2026-08-19", "2026-08-20"]
+
+
+@pytest.mark.asyncio
+async def test_legacy_row_with_no_event_type_keeps_bare_description(monkeypatch):
+    """A pre-M6a, LLM-derived incident (no event_type/detail properties)
+    must render exactly as it always did — no dangling '— None' suffix."""
+    _stub_scoped_cypher(monkeypatch, dated_rows=[_dated_row("INCIDENT-005", "Legacy incident", "2026-01-01")])
+
+    result = await timeline_building(_agent_input(), gateway=_FakeGateway(checked=True))
+
+    assert result.events[0].description == "Legacy incident"
 
 
 # ═══════════════════════════════════════════════════════════════════════

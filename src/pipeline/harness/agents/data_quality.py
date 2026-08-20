@@ -217,6 +217,17 @@ logger = logging.getLogger(__name__)
 # list, not copied from §7.3's prose verbatim. §7.3 says "phone"/"address"/
 # "org"/"weapon"; the actual node labels are PhoneNumber/Address/
 # Organization/Weapon.
+#
+# `StructuredRecord` added — M10 of the Muhafiz Data API migration
+# (docs/decisions/0001-muhafiz-api-migration.md). The label was declared
+# in migrations/005_age_graph.sql since this graph's original design but
+# never actually written by any code path until M6a
+# (src/graph/structured_projection.py) implemented it this session —
+# fir_section/malkhana_register/chalaan_dispatch/chalaan_outcome/
+# fir_zimni_index rows, plus whole CMS/PKM/criminal-record rows via M6b
+# (src/graph/cross_silo_projection.py). Omitting it here would silently
+# undercount case data coverage on every Muhafiz Data API case: this is
+# now one of the largest node populations a real case has.
 _ENTITY_LABELS: tuple[str, ...] = (
     "Person",
     "Vehicle",
@@ -224,6 +235,7 @@ _ENTITY_LABELS: tuple[str, ...] = (
     "Address",
     "Organization",
     "Weapon",
+    "StructuredRecord",
 )
 
 # The three literal SAME_AS.status values — CONFIRMED by reading
