@@ -10,10 +10,15 @@ corrupt CNIC-based cross-case matching, not just add noise.
 
 WHAT THIS WIPES, IN THIS ORDER:
 
-  1. AGE `evidence_graph` — drop_graph(), then re-apply
-     migrations/005_age_graph.sql to recreate the graph and pre-create
-     every label (the concurrent-first-write race migration 005 exists to
-     prevent — see that file's own comment).
+  1. AGE `evidence_graph` — drop_graph(), then re-apply EVERY AGE-label
+     migration (AGE_LABEL_MIGRATIONS below — 005_age_graph.sql plus any
+     later migration that also pre-creates a label, e.g.
+     020_age_date_and_cites_labels.sql) to recreate the graph and
+     pre-create every label (the concurrent-first-write race these
+     migrations exist to prevent — see 005's own comment). Found live,
+     running this script for real: re-applying 005 alone left a freshly
+     recreated graph exposed to that exact race for any label a later
+     migration added — silently, on every single reset.
   2. Chroma `muhafiz_kb` (ChromaVectorStore.drop_and_recreate()) AND
      `muhafiz_community_reports` (community_vector_store.clear_all_reports())
      — TWO independent collections living in the same persist directory;
@@ -86,9 +91,26 @@ EDGE_LABELS = [
     "BELONGS_TO_CASE", "APPEARS_IN", "ASSOCIATED_WITH", "SAME_AS", "OWNS",
     "REGISTERED_TO", "LOCATED_AT", "INVOLVED_IN", "PART_OF", "OCCURRED_ON",
     "CONFLICTS_WITH",
+    # CITES (M6b, src/graph/cross_silo_projection.py) — was missing from
+    # this list entirely; found running this script for real. Its absence
+    # meant the dry-run counter silently under-reported CITES edges before
+    # a wipe, same class of gap as the AGE_LABEL_MIGRATIONS omission below.
+    "CITES",
 ]
 
-MIGRATION_005 = ROOT / "migrations" / "005_age_graph.sql"
+# Every migration that pre-creates AGE labels, in apply order. Found
+# running this script for real (M9's first live run): _reset_graph()
+# only re-applied migrations/005_age_graph.sql after drop_graph() +
+# create_graph() — any LATER migration that also pre-creates a label
+# (020_age_date_and_cites_labels.sql, adding Date/CITES) was silently
+# left unapplied on the freshly recreated graph, exposing it to the
+# exact concurrent-first-write race these migrations exist to prevent,
+# on every single reset. All such migrations are re-applied here now,
+# in order — add any future AGE-label migration to this list too.
+AGE_LABEL_MIGRATIONS = [
+    ROOT / "migrations" / "005_age_graph.sql",
+    ROOT / "migrations" / "020_age_date_and_cites_labels.sql",
+]
 INGESTION_STATE_FILE = ROOT / "ingestion_state.json"
 STALE_CHROMA_DIRS = [ROOT / "data" / "chroma", ROOT / "chroma_db"]
 
@@ -222,13 +244,16 @@ async def _reset_graph() -> None:
         await conn.execute("SELECT drop_graph($1, true)", GRAPH)
     print(f"  '{GRAPH}' dropped.")
 
-    print(f"Re-applying {MIGRATION_005.name} to recreate the graph + pre-create every label...")
-    # Raw asyncpg .execute(), not SQLAlchemy — a multi-statement DDL script
-    # can't run through asyncpg's prepared-statement path (same reasoning
-    # as scripts/apply_migration.py's own docstring).
-    sql = MIGRATION_005.read_text(encoding="utf-8")
-    async with pool.acquire() as conn:
-        await conn.execute(sql)
+    # Re-applies EVERY AGE-label migration, not just 005 — see
+    # AGE_LABEL_MIGRATIONS' own comment for the gap this closes.
+    for migration in AGE_LABEL_MIGRATIONS:
+        print(f"Re-applying {migration.name}...")
+        # Raw asyncpg .execute(), not SQLAlchemy — a multi-statement DDL
+        # script can't run through asyncpg's prepared-statement path (same
+        # reasoning as scripts/apply_migration.py's own docstring).
+        sql = migration.read_text(encoding="utf-8")
+        async with pool.acquire() as conn:
+            await conn.execute(sql)
     print(f"  '{GRAPH}' recreated with every label pre-created.")
 
 
