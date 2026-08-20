@@ -91,6 +91,48 @@ async def test_run_graph_extraction_writes_case_and_document_nodes(stub_graph_de
 
 
 @pytest.mark.asyncio
+async def test_unrecognized_doc_type_does_not_clobber_document_node_with_null(monkeypatch, stub_graph_deps):
+    """
+    M7 (Muhafiz Data API migration, docs/decisions/0001-muhafiz-api-migration.md):
+    when doc_classifier returns doc_type=None (out-of-vocabulary type, see
+    that module's own test coverage), _run_graph_extraction's Document
+    write must OMIT doc_type entirely, not set it to null — write_node()
+    MERGEs, so writing null here would clobber a real doc_type from an
+    earlier successful classification on a document re-run.
+    """
+    import src.extraction.doc_classifier as doc_classifier_mod
+
+    async def fake_classify_document(text):
+        return {
+            "doc_type": None, "confidence": 0.5, "reasoning": "",
+            "date_registered": "2026-01-20", "date_registered_confidence": "labeled",
+        }
+    monkeypatch.setattr(doc_classifier_mod, "classify_document", fake_classify_document)
+
+    written_properties = []
+    import src.graph.versioning as versioning_mod
+
+    async def spying_write_node(label, match, properties=None, *, source_doc_id=None, confidence=1.0):
+        if label == "Document" and match == {"doc_id": "DOC-1"}:
+            written_properties.append(properties or {})
+        return {"id": 1, "label": label, "properties": {**match, **(properties or {})}}
+    monkeypatch.setattr(versioning_mod, "write_node", spying_write_node)
+
+    documents = [SimpleNamespace(text="text")]
+    chunks = [FakeChunk("DOC-1_c0", "کچھ متن")]
+
+    stats = await service._run_graph_extraction("t.pdf", documents, chunks, "CASE-001", "DOC-1")
+
+    # The FIRST Document write (filename, from the top of the function) has
+    # no doc_type key at all; the SECOND (classification-driven) write
+    # must also omit doc_type — never set it to None.
+    classification_write = written_properties[-1]
+    assert "doc_type" not in classification_write
+    assert classification_write["date_registered"] == "2026-01-20"
+    assert stats["doc_type"] is None
+
+
+@pytest.mark.asyncio
 async def test_resolvable_mention_goes_through_entity_resolution(stub_graph_deps):
     documents = [SimpleNamespace(text="text")]
     chunks = [FakeChunk("DOC-1_c0", "احمد رضا قریشی نے بیان دیا۔")]

@@ -145,6 +145,42 @@ def test_extract_fir_number():
     assert matches[0].normalized == "FIR-2026-ARMS-001"
 
 
+# ── FIR display code (M7 of the Muhafiz Data API migration,
+# docs/decisions/0001-muhafiz-api-migration.md) — the REAL shape ─────────
+
+def test_extract_fir_display_code_with_fir_label():
+    matches = sf.extract_fir_display_codes("FIR 891/24 ملزم کے خلاف درج")
+    assert len(matches) == 1
+    assert matches[0].normalized == "891/24"
+
+
+def test_extract_fir_display_code_with_urdu_label():
+    matches = sf.extract_fir_display_codes("مقدمہ نمبر 1001/26 کے تحت")
+    assert len(matches) == 1
+    assert matches[0].normalized == "1001/26"
+
+
+def test_bare_slash_number_with_no_label_is_not_matched():
+    """The whole point of label-anchoring: a bare NNN/YY-shaped fragment
+    with no FIR/مقدمہ نمبر label nearby must not false-positive (dates,
+    fractions, page counts all share this shape)."""
+    matches = sf.extract_fir_display_codes("رپورٹ صفحہ 3/26 پر درج ہے")
+    assert matches == []
+
+
+def test_extract_fir_display_code_strips_internal_whitespace():
+    matches = sf.extract_fir_display_codes("FIR 891 / 24 کے تحت")
+    assert matches[0].normalized == "891/24"
+
+
+def test_synthetic_fir_number_regex_still_works_unchanged():
+    """M7 adds real-format support alongside the existing synthetic-corpus
+    pattern — does not replace or narrow it."""
+    matches = sf.extract_fir_numbers("FIR-2026-ARMS-001")
+    assert len(matches) == 1
+    assert matches[0].normalized == "FIR-2026-ARMS-001"
+
+
 # ── Dates ──────────────────────────────────────────────────────────────
 
 def test_extract_iso_date_with_time():
@@ -260,7 +296,9 @@ def test_find_section_field_returns_none_without_anchor():
 
 def test_extract_all_shape():
     result = sf.extract_all("FIR-2026-ARMS-001, CNIC 00000-9119877-0, phone 0300-1234567")
-    assert set(result.keys()) == {"cnics", "phones", "plates", "fir_numbers", "dates", "sections"}
+    assert set(result.keys()) == {
+        "cnics", "phones", "plates", "fir_numbers", "fir_display_codes", "dates", "sections",
+    }
     assert len(result["fir_numbers"]) == 1
     assert len(result["cnics"]) == 1
     assert len(result["phones"]) == 1

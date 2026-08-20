@@ -66,14 +66,38 @@ async def test_classifies_case_diary_and_attaches_regex_date(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_unknown_doc_type_is_discarded(monkeypatch):
+async def test_unknown_doc_type_drops_doc_type_only_not_the_whole_result(monkeypatch):
+    """
+    M7 (Muhafiz Data API migration, docs/decisions/0001-muhafiz-api-migration.md):
+    an out-of-vocabulary doc_type used to discard the ENTIRE result,
+    including a regex-validated date_registered that has nothing to do
+    with whether the LLM's doc_type string was recognized. Only doc_type
+    itself is dropped now.
+    """
     async def fake_call_llm(system_prompt, user_message, **kwargs):
         return '{"doc_type": "Something Else", "confidence": 0.5}'
 
     monkeypatch.setattr(doc_classifier, "call_llm", fake_call_llm)
 
-    result = await doc_classifier.classify_document("some text")
-    assert result is None
+    result = await doc_classifier.classify_document("Date Registered: 2026-01-20. Some text.")
+    assert result is not None
+    assert result["doc_type"] is None
+    assert result["date_registered"] == "2026-01-20"
+    assert result["date_registered_confidence"] == "labeled"
+
+
+@pytest.mark.asyncio
+async def test_recognized_new_migration_doc_types_are_accepted(monkeypatch):
+    """PKM Service Application / Roznamcha Entry — added in M7 for record
+    types this classifier now sees via src/ingestion/muhafiz_records.py's
+    rendered free text."""
+    for doc_type in ("PKM Service Application", "Roznamcha Entry"):
+        async def fake_call_llm(system_prompt, user_message, **kwargs):
+            return f'{{"doc_type": "{doc_type}", "confidence": 0.7}}'
+
+        monkeypatch.setattr(doc_classifier, "call_llm", fake_call_llm)
+        result = await doc_classifier.classify_document("some text")
+        assert result["doc_type"] == doc_type
 
 
 @pytest.mark.asyncio
