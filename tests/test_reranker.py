@@ -41,3 +41,33 @@ def test_year_boost_does_not_fire_on_non_year_looking_filename():
     docs = [_doc("x", "REAL-004-copy-of-fir-procedure.pdf")]
     result = reciprocal_rank_fusion([docs], top_k=5)
     assert result[0]["rrf_score"] == round(1.0 / 61, 6)
+
+
+# ── record_date preference (M8, docs/decisions/0001-muhafiz-api-migration.md) ──
+
+def _api_doc(doc_id, record_date=None):
+    """API-sourced chunk shape: source string carries no year at all."""
+    return {"id": doc_id, "source": f"psrms/fir/{doc_id}#narrative",
+            "metadata": {"source": f"psrms/fir/{doc_id}#narrative", "record_date": record_date}}
+
+
+def test_api_sourced_chunk_with_no_year_in_source_gets_zero_boost_with_no_record_date():
+    docs = [_api_doc("fir-1-26")]  # no record_date
+    result = reciprocal_rank_fusion([docs], top_k=5)
+    assert result[0]["rrf_score"] == round(1.0 / 61, 6)
+
+
+def test_record_date_provides_the_boost_the_source_string_cannot():
+    docs = [_api_doc("fir-1-26", record_date="2026-08-18T15:10:00Z")]
+    result = reciprocal_rank_fusion([docs], top_k=5)
+    assert result[0]["rrf_score"] > round(1.0 / 61, 6)
+
+
+def test_record_date_is_preferred_over_filename_when_both_present():
+    """A file-sourced doc with BOTH a filename year and a record_date
+    (hypothetical future overlap) must use record_date, not the filename."""
+    doc = {"id": "x", "source": "FIR-2020-ARMS-001.pdf",
+           "metadata": {"source": "FIR-2020-ARMS-001.pdf", "record_date": "2026-01-01"}}
+    result = reciprocal_rank_fusion([[doc]], top_k=5)
+    # 2026, not 2020 -> boost = (2026-2020)*0.0005 = 0.003
+    assert result[0]["rrf_score"] == round(1.0 / 61 + 0.003, 6)

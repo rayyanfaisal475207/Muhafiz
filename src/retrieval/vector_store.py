@@ -48,6 +48,11 @@ _METADATA_KEYS = (
     # carries the record's own real/synthetic origin tag instead.
     "record_type", "source_system", "external_id", "station_code",
     "district", "content_provenance",
+    # M8 — a real ISO date/timestamp (FIR incident date, CMS/PKM submission
+    # date, roznamcha entry date) so src/retrieval/reranker.py's recency
+    # boost can read an actual field instead of regexing a filename that,
+    # for API-sourced chunks, carries no year at all.
+    "record_date",
 )
 
 
@@ -409,6 +414,8 @@ async def upsert_documents(
                 "station_code": meta.get("station_code"),
                 "district": meta.get("district"),
                 "content_provenance": meta.get("content_provenance"),
+                # M8 — see _METADATA_KEYS' comment above.
+                "record_date": meta.get("record_date"),
             },
         })
 

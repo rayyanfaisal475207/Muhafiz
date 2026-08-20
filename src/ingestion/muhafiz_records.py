@@ -59,7 +59,7 @@ SOURCE_SYSTEM = "muhafiz_api"
 def _meta(
     record_type: str, external_id: str, source: str, *,
     station_code: Optional[str] = None, district: Optional[str] = None,
-    content_provenance: Optional[str] = None,
+    content_provenance: Optional[str] = None, record_date: Optional[str] = None,
 ) -> dict:
     """
     Common metadata every rendered Document carries. `source` here is the
@@ -68,6 +68,14 @@ def _meta(
     instead carried as `content_provenance` to avoid colliding with the
     existing chunk-metadata key `source`, which means "which file/record
     did this chunk come from" everywhere else in the pipeline).
+
+    `record_date` — added M8 (docs/decisions/0001-muhafiz-api-migration.md)
+    — an ISO date/timestamp string genuinely relevant to this record
+    (FIR incident date, CMS/PKM submission date, roznamcha entry date).
+    Lets src/retrieval/reranker.py's recency boost read a real field
+    instead of regexing a filename — API-sourced `source` strings (e.g.
+    "psrms/fir/fir-1001-26#narrative") carry no year at all, unlike the
+    synthetic corpus's filenames.
     """
     return {
         "source": source,
@@ -77,6 +85,7 @@ def _meta(
         "station_code": station_code,
         "district": district,
         "content_provenance": content_provenance,
+        "record_date": record_date,
     }
 
 
@@ -136,6 +145,7 @@ def render_fir(fir: FirRecord) -> list[Document]:
                 source=f"psrms/fir/{fir.fir_id}#{suffix}",
                 station_code=station_code, district=district,
                 content_provenance=fir.source,
+                record_date=fir.raw.get("incident_datetime"),
             ),
         ))
 
@@ -180,6 +190,7 @@ def render_cms(cms: CmsComplaint) -> list[Document]:
             source=f"cms/complaint/{cms.complaint_id}#summary",
             station_code=cms.raw.get("police_station_code"),
             content_provenance=cms.complainant.get("source"),
+            record_date=cms.raw.get("submitted_at"),
         ),
     )]
 
@@ -211,6 +222,7 @@ def render_pkm(pkm: PkmApplication) -> list[Document]:
             "pkm_application", pkm.application_id,
             source=f"pkm/application/{pkm.application_id}#{field}",
             content_provenance=pkm.applicant.get("source"),
+            record_date=pkm.raw.get("submitted_at"),
         ),
     )]
 
@@ -235,5 +247,6 @@ def render_roznamcha(entry: RoznamchaEntry) -> list[Document]:
             "roznamcha_entry", entry.entry_id,
             source=f"psrms/roznamcha/{entry.entry_id}",
             station_code=entry.police_station_id,
+            record_date=entry.entry_date,
         ),
     )]

@@ -163,7 +163,26 @@ the same human-confirmation discipline before being treated as fact.
       additive load of the measured 36 real (section_code, act) pairs across
       6 acts into `police_reference_data`, alongside (not replacing) the 6
       hand-curated seed rows. ~20 new/updated tests.
-- [ ] **M8** — graph read-path/label fixes.
+- [x] **M8** — graph read-path/label fixes:
+      `migrations/020_age_date_and_cites_labels.sql` pre-creates `Date`
+      (previously exposed to the concurrent-first-write race migration 005
+      exists to prevent) and `CITES` (introduced by M6b, never declared in a
+      migration) for both `evidence_graph` and `evidence_graph_eval` — written
+      and unit-tested this session, **not yet applied against a live
+      instance** (no Postgres running locally); `_SEED_LABELS`'
+      `PhoneNumber`/`Organization` entries fixed to match what is actually
+      written (`canonical_name`/`phone`, never the `number`/`name` the
+      lookup previously checked — confirmed live during this migration's
+      investigation that the seed lookup for these two labels could never
+      have matched a real node, a pre-existing bug, not one M6a introduced);
+      `reranker.py`'s recency boost now prefers a real `record_date` field
+      (`src/ingestion/muhafiz_records.py`, threaded through both
+      `vector_store.py` metadata places) over regexing a filename, since
+      API-sourced `source` strings carry no year at all; `graph_retriever.py`'s
+      module docstring extended with an explicit, documented traversal
+      decision for `INVOLVED_IN`/`PART_OF`/`CITES` (none traversed, each with
+      its own stated reasoning) alongside the pre-existing
+      `LOCATED_AT`/`OWNS`/`REGISTERED_TO` decision.
 - [ ] **M9** — idempotent `--full` re-ingest (incremental-sync automation
       deferred to the post-MVP real integration).
 - [ ] **M10** — harness adaptation to real data shape.
