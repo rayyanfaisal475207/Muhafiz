@@ -112,7 +112,9 @@ the same human-confirmation discipline before being treated as fact.
 - [ ] **M2** — `ingest_documents()` entry-point extraction.
 - [x] **M3** — record → `Document` rendering (`src/ingestion/muhafiz_records.py`),
       Chroma metadata extended in both allowlist places, `docs/INGESTION.md` updated.
-- [ ] **M4** — case provisioning from FIRs.
+- [x] **M4** — case provisioning from FIRs (`src/ingestion/muhafiz_cases.py`,
+      `scripts/sync_muhafiz_cases.py`); CMS/PKM escalation matching measured
+      and locked in by test (4/4 CMS, 4/8 PKM resolve to a real FIR).
 - [ ] **M5** — evidence-state reset (graph, Chroma, derived Postgres rows).
 - [ ] **M6a** — deterministic structured graph projection + corroboration gate.
 - [ ] **M6b** — cross-silo linking + `CITES` prose-citation candidates.
