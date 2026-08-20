@@ -14,9 +14,12 @@
 #      forwarded_fir_number == fir_display_code (src/ingestion/muhafiz_cases.py,
 #      M4, reused here rather than re-implemented), and criminal records
 #      linked to an EXISTING Person by subject_cnic (never the documented
-#      but measured-broken criminal_record_ref soft-reference). These are
-#      exact string-equality joins on API-supplied keys — no heuristic,
-#      no confidence score, written as real edges immediately.
+#      but measured-broken criminal_record_ref soft-reference), and
+#      REGISTERED_TO for a PKM vehicle_verification application's Vehicle
+#      linked to an EXISTING Person by applicant_cnic, same soft-reference
+#      discipline. These are exact string-equality joins on API-supplied
+#      keys — no heuristic, no confidence score, written as real edges
+#      immediately.
 #
 #   2. FIR->FIR PROSE CITATIONS (written as `CITES`, always `pending`) —
 #      a regex hit against free text carries the same false-positive risk
@@ -59,6 +62,13 @@ def _doc_id_for_cms(cms: CmsComplaint) -> str:
 
 def _doc_id_for_pkm(pkm: PkmApplication) -> str:
     return f"pkm/application/{pkm.application_id}#structured"
+
+
+def _vehicle_entity_id(plate: str) -> str:
+    """Deterministic, MERGE-safe id — a vehicle's plate is itself the
+    natural key (same convention as Person's cnic/Weapon's per-FIR id),
+    so re-syncing the same application never mints a duplicate node."""
+    return f"VEHICLE-{plate}"
 
 
 def _doc_id_for_criminal_record(record: CriminalRecord) -> str:
@@ -164,7 +174,7 @@ async def project_pkm_application(
     src.ingestion.muhafiz_cases.resolve_pkm_case_id() (women_violence_report
     applications only — every other service type always resolves to None,
     per that function's own docstring)."""
-    stats = {"structured_records": 0, "edges_written": 0, "persons_resolved": 0, "errors": []}
+    stats = {"structured_records": 0, "edges_written": 0, "persons_resolved": 0, "vehicles_written": 0, "errors": []}
     doc_id = _doc_id_for_pkm(pkm)
     record_id = f"pkm_application:{pkm.application_id}"
 
@@ -217,11 +227,76 @@ async def project_pkm_application(
                 )
                 if involved:
                     stats["edges_written"] += 1
+
+        if pkm.service_type == "vehicle_verification":
+            await _write_pkm_vehicle(pkm, doc_id, graph, stats)
     except Exception as exc:
         logger.warning("PKM projection failed for %s: %s", pkm.application_id, exc)
         stats["errors"].append(str(exc))
 
     return stats
+
+
+async def _write_pkm_vehicle(pkm: PkmApplication, doc_id: str, graph: str, stats: dict) -> None:
+    """
+    REGISTERED_TO — the fifth of the five edge types declared in migration
+    005 with zero writers before this migration (structured_projection.py's
+    module docstring names OWNS/INVOLVED_IN/PART_OF/LOCATED_AT as the other
+    four; this one was explicitly deferred here since it needs PKM's
+    vehicle_verification, a cross-silo record with no FIR of its own).
+
+    Never case-scoped — vehicle_verification applications never resolve to
+    a case (src.ingestion.muhafiz_cases.resolve_pkm_case_id() only ever
+    matches women_violence_report; this service type always gets case_id
+    None), so the Vehicle node is written unconditionally here rather than
+    gated behind `if case_id:` the way applicant Person resolution is
+    above. The vehicle's plate is its own natural key (MERGE-safe via
+    _vehicle_entity_id, mirroring Person's cnic/Weapon's per-FIR id), so a
+    re-sync never mints a duplicate.
+
+    REGISTERED_TO only gets written when the applicant's CNIC already
+    resolves to an EXISTING Person node — same soft-reference discipline
+    as project_criminal_record()'s subject_cnic lookup just below: no
+    Person is minted here just to hang an edge off it (that would bypass
+    the corroboration gate entirely for a mention with no case context to
+    corroborate against).
+    """
+    service = pkm.service_record() or {}
+    plate = service.get("vehicle_registration_no")
+    if not plate:
+        return
+
+    entity_id = _vehicle_entity_id(plate)
+    properties = {
+        "plate": plate,
+        "canonical_name": plate,
+        "make": service.get("vehicle_make"),
+        "model": service.get("vehicle_model"),
+        "chassis_no": service.get("vehicle_chassis_no"),
+        "engine_no": service.get("vehicle_engine_no"),
+        "verification_result": service.get("verification_result"),
+    }
+    properties = {k: v for k, v in properties.items() if v is not None}
+    await versioning.write_node("Vehicle", {"entity_id": entity_id}, properties, source_doc_id=doc_id, graph=graph)
+    stats["vehicles_written"] += 1
+    edge = await versioning.write_edge(
+        "APPEARS_IN", "Vehicle", {"entity_id": entity_id}, "Document", {"doc_id": doc_id},
+        {"surface_text": plate}, source_doc_id=doc_id, confidence=1.0, graph=graph,
+    )
+    if edge:
+        stats["edges_written"] += 1
+
+    applicant_cnic = pkm.applicant_cnic
+    if applicant_cnic:
+        existing = await entity_resolution._find_by_primary_id("Person", "cnic", applicant_cnic, graph=graph)
+        if existing:
+            person_entity_id = existing["properties"].get("entity_id")
+            registered = await versioning.write_edge(
+                "REGISTERED_TO", "Vehicle", {"entity_id": entity_id}, "Person", {"entity_id": person_entity_id},
+                {}, source_doc_id=doc_id, confidence=1.0, graph=graph,
+            )
+            if registered:
+                stats["edges_written"] += 1
 
 
 # ── criminal records ──────────────────────────────────────────────────────

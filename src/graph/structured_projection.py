@@ -42,8 +42,9 @@
 #     PART_OF (Incident -> Case), LOCATED_AT (Person -> Address, from
 #     address_text) — three of the five edge types declared in migration
 #     005 with zero writers anywhere in the codebase before this module.
-#     OWNS is the fourth (see Weapon above); REGISTERED_TO is deferred to
-#     M6b (needs PKM's vehicle_verification, a cross-silo join).
+#     OWNS is the fourth (see Weapon above); REGISTERED_TO is the fifth,
+#     written by M6b's cross_silo_projection.py instead (needs PKM's
+#     vehicle_verification, a cross-silo join this module never sees).
 #   - OCCURRED_ON (Incident -> Date), from TYPED timestamps
 #     (incident_datetime, fir_zimni.entry_date, fir_accused.arrested_date,
 #     chalaan_dispatch.dispatch_datetime) — deterministic, no LLM date

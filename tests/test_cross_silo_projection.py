@@ -149,6 +149,91 @@ class TestProjectPkmApplication:
         assert any(e["properties"]["role"] == "applicant_pkm" for e in involved)
 
 
+class TestProjectPkmVehicleVerification:
+    """
+    REGISTERED_TO — the fifth of the five migration-005 edge types with no
+    writer before this fix. Never case-scoped: resolve_pkm_case_id() only
+    ever matches women_violence_report, so vehicle_verification always
+    gets case_id None here, same as it does live.
+    """
+
+    def _vehicle_pkm(self, **service_overrides):
+        service = {
+            "vehicle_registration_no": "FSD-19-8842", "vehicle_make": "Honda",
+            "vehicle_model": "CD-125", **service_overrides,
+        }
+        return PkmApplication({
+            "application_id": "P1", "service_type": "vehicle_verification",
+            "applicant": {"full_name": "خرم شہزاد", "cnic": "00000-1000018-1"},
+            "vehicle_verification": service,
+        })
+
+    async def test_no_case_still_writes_a_vehicle_node(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write, fake_find_by_primary_id,
+    ):
+        stats = await csp.project_pkm_application(self._vehicle_pkm(), case_id=None)
+
+        assert stats["vehicles_written"] == 1
+        vehicle_nodes = [n for n in graph_calls["nodes"] if n["label"] == "Vehicle"]
+        assert len(vehicle_nodes) == 1
+        assert vehicle_nodes[0]["properties"]["plate"] == "FSD-19-8842"
+        assert vehicle_nodes[0]["match"] == {"entity_id": "VEHICLE-FSD-19-8842"}
+        # no case at all -> no person resolution attempted either, matching
+        # the existing case-less-application discipline above.
+        assert not fake_resolve_and_write
+
+    async def test_no_registration_number_skips_the_vehicle_write_entirely(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write, fake_find_by_primary_id,
+    ):
+        pkm = self._vehicle_pkm(vehicle_registration_no=None)
+        stats = await csp.project_pkm_application(pkm, case_id=None)
+
+        assert stats["vehicles_written"] == 0
+        assert not any(n["label"] == "Vehicle" for n in graph_calls["nodes"])
+
+    async def test_applicant_cnic_matching_an_existing_person_gets_registered_to(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write, fake_find_by_primary_id,
+    ):
+        fake_find_by_primary_id["result"] = {"properties": {"entity_id": "PERSON-EXISTING"}}
+        await csp.project_pkm_application(self._vehicle_pkm(), case_id=None)
+
+        registered = [e for e in graph_calls["edges"] if e["edge_label"] == "REGISTERED_TO"]
+        assert len(registered) == 1
+        assert registered[0]["from_label"] == "Vehicle"
+        assert registered[0]["from_match"] == {"entity_id": "VEHICLE-FSD-19-8842"}
+        assert registered[0]["to_match"] == {"entity_id": "PERSON-EXISTING"}
+
+    async def test_no_matching_existing_person_writes_vehicle_but_no_edge(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write, fake_find_by_primary_id,
+    ):
+        await csp.project_pkm_application(self._vehicle_pkm(), case_id=None)
+
+        assert not any(e["edge_label"] == "REGISTERED_TO" for e in graph_calls["edges"])
+        assert any(n["label"] == "Vehicle" for n in graph_calls["nodes"])
+
+    async def test_non_vehicle_service_type_never_writes_a_vehicle_node(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write, fake_find_by_primary_id,
+    ):
+        pkm = PkmApplication({
+            "application_id": "P1", "service_type": "driving_license",
+            "driving_license": {"license_number": "DL-1"},
+        })
+        await csp.project_pkm_application(pkm, case_id=None)
+        assert not any(n["label"] == "Vehicle" for n in graph_calls["nodes"])
+
+    async def test_measured_count_against_real_snapshot(self, snapshot):
+        """Locks in how many of the real PKM applications are
+        vehicle_verification with a registration number — a regression
+        here means the join key or fixture drifted."""
+        pkms = [PkmApplication(r) for r in snapshot["endpoints"]["pkm"]]
+        with_plate = [
+            p for p in pkms
+            if p.service_type == "vehicle_verification"
+            and (p.service_record() or {}).get("vehicle_registration_no")
+        ]
+        assert len(with_plate) >= 1
+
+
 # ── criminal records ──────────────────────────────────────────────────────
 
 class TestProjectCriminalRecord:
