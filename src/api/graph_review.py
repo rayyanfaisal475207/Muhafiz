@@ -222,3 +222,102 @@ async def reject_match(edge_id: int, action: ReviewAction, admin: User = Depends
         str(admin.id),
     )
     return {"status": "rejected", "new_edge_id": new_edge["id"]}
+
+
+# ── CITES review queue — M6b of the Muhafiz Data API migration
+# (docs/decisions/0001-muhafiz-api-migration.md) ─────────────────────────
+#
+# A PARALLEL queue, not a merge into the SAME_AS one above: CITES links two
+# Case nodes (a FIR-to-FIR prose citation), not two Person/Vehicle mention
+# nodes — forcing it through _entity_summary()/confirm_match()'s
+# entity_id-keyed lookups above would be wrong (Case nodes have no
+# entity_id, only case_id) and would corrupt the queue's Person/Vehicle-
+# shaped rendering for investigators reviewing genuine identity matches.
+# Same human-confirmation discipline (pending -> confirmed/rejected via
+# versioning's supersede pattern), same audit logging — just keyed and
+# summarized for what a CITES edge actually connects.
+
+def _case_summary(node: dict) -> dict:
+    props = node.get("properties", {})
+    return {"case_id": props.get("case_id"), "type": node.get("label")}
+
+
+@router.get("/citations/pending")
+async def list_pending_citations(admin: User = Depends(require_role("supervisor"))):
+    """Every pending CITES edge, newest first."""
+    rows = await age_client.execute_cypher(
+        "MATCH (a:Case)-[r:CITES]->(b:Case) "
+        "WHERE r.status = 'pending' AND r.superseded_by IS NULL "
+        "RETURN a, r, b",
+        columns=["a", "r", "b"],
+    )
+    results = []
+    for row in rows:
+        edge = row["r"]
+        props = edge.get("properties", {})
+        results.append({
+            "edge_id": edge["id"],
+            "confidence": props.get("confidence"),
+            "basis": props.get("basis"),
+            "as_of": props.get("as_of"),
+            "source_doc_id": props.get("source_doc_id"),
+            "citing_case": _case_summary(row["a"]),
+            "cited_case": _case_summary(row["b"]),
+        })
+    results.sort(key=lambda r: r["as_of"] or "", reverse=True)
+    return {"pending": results, "count": len(results)}
+
+
+async def _get_cites_edge(edge_id: int) -> tuple[dict, dict, dict]:
+    rows = await age_client.execute_cypher(
+        "MATCH (a:Case)-[r:CITES]->(b:Case) WHERE id(r) = $edge_id RETURN a, r, b",
+        params={"edge_id": edge_id},
+        columns=["a", "r", "b"],
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Citation edge not found")
+    return rows[0]["a"], rows[0]["r"], rows[0]["b"]
+
+
+async def _decide_citation(edge_id: int, decision: str, admin: User) -> dict:
+    a, r, b = await _get_cites_edge(edge_id)
+    if r["properties"].get("superseded_by") is not None:
+        raise HTTPException(status_code=409, detail="This citation has already been reviewed")
+
+    new_edge = await versioning.write_edge(
+        "CITES", "Case", {"case_id": a["properties"]["case_id"]},
+        "Case", {"case_id": b["properties"]["case_id"]},
+        {
+            "basis": r["properties"].get("basis"),
+            "status": decision,
+            "reviewed_by": str(admin.id),
+        },
+        source_doc_id=r["properties"].get("source_doc_id"),
+        confidence=r["properties"].get("confidence", 0.0),
+        supersedes_edge_id=edge_id,
+    )
+    if new_edge is None:
+        raise HTTPException(status_code=500, detail=f"Failed to write {decision}")
+
+    gateway = await get_gateway()
+    await gateway.log_audit_event(
+        f"graph_review_citation_{decision}",
+        {
+            "edge_id": edge_id,
+            "new_edge_id": new_edge["id"],
+            "citing_case_id": a["properties"].get("case_id"),
+            "cited_case_id": b["properties"].get("case_id"),
+        },
+        str(admin.id),
+    )
+    return {"status": decision, "new_edge_id": new_edge["id"]}
+
+
+@router.post("/citations/{edge_id}/confirm")
+async def confirm_citation(edge_id: int, action: ReviewAction, admin: User = Depends(require_role("supervisor"))):
+    return await _decide_citation(edge_id, "confirmed", admin)
+
+
+@router.post("/citations/{edge_id}/reject")
+async def reject_citation(edge_id: int, action: ReviewAction, admin: User = Depends(require_role("supervisor"))):
+    return await _decide_citation(edge_id, "rejected", admin)
