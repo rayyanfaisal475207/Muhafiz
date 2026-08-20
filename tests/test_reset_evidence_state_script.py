@@ -19,6 +19,55 @@ import scripts.reset_evidence_state as reset_script
 
 # ── the double-gate ──────────────────────────────────────────────────────
 
+class TestResetGraphReappliesEveryAgeLabelMigration:
+    async def test_reapplies_every_migration_in_order_not_just_005(self, monkeypatch):
+        """
+        Regression, found running this script for real against a live
+        instance: _reset_graph() used to re-apply ONLY 005_age_graph.sql
+        after drop_graph() — any later migration that also pre-creates a
+        label (020_age_date_and_cites_labels.sql, Date/CITES) was left
+        unapplied on the freshly recreated graph, silently re-exposing it
+        to the exact concurrent-first-write race these migrations exist
+        to prevent, on every single reset.
+        """
+        applied = []
+
+        class _FakeConn:
+            async def execute(self, sql, *args):
+                applied.append(sql)
+
+        class _FakeAcquireCtx:
+            async def __aenter__(self):
+                return _FakeConn()
+            async def __aexit__(self, *exc):
+                return False
+
+        class _FakePool:
+            def acquire(self):
+                return _FakeAcquireCtx()
+
+        async def fake_get_pool():
+            return _FakePool()
+        async def fake_load_age(conn):
+            pass
+
+        monkeypatch.setattr(reset_script.age_client, "get_pool", fake_get_pool)
+        monkeypatch.setattr(reset_script.age_client, "_load_age", fake_load_age)
+
+        await reset_script._reset_graph()
+
+        # First call is drop_graph(); the rest are one per AGE_LABEL_MIGRATIONS entry.
+        migration_calls = applied[1:]
+        assert len(migration_calls) == len(reset_script.AGE_LABEL_MIGRATIONS)
+        for call_sql, migration_path in zip(migration_calls, reset_script.AGE_LABEL_MIGRATIONS):
+            assert call_sql == migration_path.read_text(encoding="utf-8")
+
+    def test_cites_is_counted_alongside_the_other_edge_labels(self):
+        """Regression: CITES (M6b) was missing from EDGE_LABELS entirely —
+        the dry-run counter silently under-reported it before every wipe."""
+        assert "CITES" in reset_script.EDGE_LABELS
+
+
 class TestExecuteGate:
     async def test_execute_without_yes_i_am_sure_refuses_and_exits_nonzero(self, monkeypatch, capsys):
         async def fake_dry_run():

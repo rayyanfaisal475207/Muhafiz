@@ -21,6 +21,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Optional
 
 from src.data_gateway.muhafiz_api.models import CmsComplaint, FirRecord, PkmApplication
@@ -51,12 +52,27 @@ def case_fields_from_fir(fir: FirRecord) -> dict:
     }
 
 
-def _date_only(iso_datetime: Optional[str]) -> Optional[str]:
-    """'2026-08-18T15:10:00Z' -> '2026-08-18'. Case.incident_date is a Date
-    column; the API's incident_datetime is a full timestamp."""
-    if not iso_datetime:
+def _date_only(iso_datetime: Optional[str]) -> Optional[date]:
+    """
+    '2026-08-18T15:10:00Z' -> date(2026, 8, 18). Case.incident_date is a
+    Date column; the API's incident_datetime is a full timestamp string.
+
+    Bug found running the real M9 sync against a live database (never
+    caught by unit tests, which only ever checked the returned value
+    against a fake session that doesn't validate types): this used to
+    return the sliced STRING, not an actual date object. asyncpg's DATE
+    binding requires a real date/datetime.date — a plain string reached
+    the driver as-is and failed with
+    "AttributeError: 'str' object has no attribute 'toordinal'" on the
+    very first INSERT. Mirrors scripts/load_cases.py's own
+    _parse_date()'s use of date.fromisoformat() for exactly this reason.
+    """
+    if not iso_datetime or len(iso_datetime) < 10:
         return None
-    return iso_datetime[:10] if len(iso_datetime) >= 10 else None
+    try:
+        return date.fromisoformat(iso_datetime[:10])
+    except ValueError:
+        return None
 
 
 def _crime_category(fir: FirRecord) -> Optional[str]:

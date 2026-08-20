@@ -4,6 +4,7 @@ src/ingestion/muhafiz_cases.py: pure Case-field derivation and cross-silo
 escalation matching, no database involved.
 """
 import json
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -43,10 +44,19 @@ class TestCaseFieldsFromFir:
         assert fields["case_id"] == "fir-891-24"
         assert fields["fir_number"] == "891/24"
 
-    def test_incident_date_is_date_only_not_full_timestamp(self):
+    def test_incident_date_is_a_real_date_object_not_a_string(self):
+        """Regression: a plain sliced string reached asyncpg's DATE binding
+        directly and crashed on the first live INSERT
+        ('str' object has no attribute 'toordinal') — never caught by
+        tests until this migration was run against a real database."""
         fir = FirRecord({"fir_id": "fir-1-26", "incident_datetime": "2026-08-18T15:10:00Z"})
         fields = mc.case_fields_from_fir(fir)
-        assert fields["incident_date"] == "2026-08-18"
+        assert fields["incident_date"] == date(2026, 8, 18)
+        assert isinstance(fields["incident_date"], date)
+
+    def test_malformed_incident_datetime_gives_none_not_a_raised_error(self):
+        fir = FirRecord({"fir_id": "fir-1-26", "incident_datetime": "not-a-date"})
+        assert mc.case_fields_from_fir(fir)["incident_date"] is None
 
     def test_missing_incident_datetime_gives_none(self):
         fir = FirRecord({"fir_id": "fir-2-26"})
