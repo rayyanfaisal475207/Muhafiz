@@ -538,6 +538,39 @@ async def test_fir_number_in_query_auto_scopes_retrieval_even_with_no_case_activ
         )
 
 
+async def test_real_fir_display_code_in_query_auto_scopes_via_dedicated_metadata_field(run_pipeline):
+    """
+    M11 (Muhafiz Data API migration, docs/decisions/0001-muhafiz-api-migration.md):
+    a real FIR display code ("891/24") never matches extract_fir_numbers()'s
+    synthetic-only shape, AND the substring-against-`source` trick above
+    can't find one even if extracted (API-sourced `source` is the slug id,
+    "psrms/fir/fir-891-24#narrative", not the human-readable code a user
+    types) — auto-scope now also checks the dedicated fir_display_code
+    chunk metadata field (src/ingestion/muhafiz_records.py) for exactly
+    this case.
+    """
+    bm25_pool = [
+        {"id": "other-fir", "text": "unrelated FIR",
+         "metadata": {"source": "psrms/fir/fir-201-26#narrative", "case_id": "fir-201-26",
+                      "fir_display_code": "201/26"}},
+        {"id": "target-fir", "text": "Narrative naming the actual case.",
+         "metadata": {"source": "psrms/fir/fir-891-24#narrative", "case_id": "fir-891-24",
+                      "fir_display_code": "891/24"}},
+    ]
+    events, _ = await run_pipeline(
+        message="Trace the full case history for FIR 891/24 from the initial complaint through to the charge sheet.",
+        route='{"route": "RAG", "output_format": "chat"}',
+        case_id=None,
+        bm25_pool=bm25_pool,
+    )
+    assert run_pipeline.where_calls, "query_similar was never called"
+    for where in run_pipeline.where_calls:
+        assert where == {"case_id": "fir-891-24"}, (
+            f"expected the real FIR display code in the query to auto-scope "
+            f"retrieval to its case, got {where}"
+        )
+
+
 async def test_no_fir_number_in_query_leaves_case_scoping_untouched(run_pipeline):
     """
     Regression guard: a query with no FIR-number-shaped identifier must not

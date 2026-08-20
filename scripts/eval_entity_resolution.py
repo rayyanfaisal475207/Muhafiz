@@ -106,9 +106,17 @@ def _split_variants(raw: str) -> list[str]:
     return [p.strip() for p in (raw or "").split("|") if p.strip()]
 
 
-def load_roster() -> list[dict]:
+def load_roster(roster_path: Path = _ROSTER_PATH) -> list[dict]:
+    """
+    `roster_path` — added M11 of the Muhafiz Data API migration
+    (docs/decisions/0001-muhafiz-api-migration.md), default unchanged
+    (the synthetic-corpus roster). Pass
+    data/eval/real_entity_roster.csv (scripts/build_real_entity_roster.py)
+    to evaluate against ground truth derived from real CNIC data instead —
+    same exact column schema, so nothing else in this file changes.
+    """
     rows = []
-    with open(_ROSTER_PATH, encoding="utf-8") as f:
+    with open(roster_path, encoding="utf-8") as f:
         for row in csv.DictReader(f):
             row["attrs"] = _parse_attributes(row["canonical_attributes"])
             row["case_id_list"] = _split(row["case_ids"])
@@ -218,12 +226,12 @@ def _same_graph_entity(outcomes: dict, roster_id: str) -> set:
     return {o["entity_id"] for o in outcomes.get(roster_id, [])}
 
 
-async def evaluate() -> None:
+async def evaluate(roster_path: Path = _ROSTER_PATH) -> None:
     _assert_eval_graph()
     print(f"WARNING: wiping {EVAL_GRAPH} for a clean, reproducible run...")
     await age_client.execute_cypher("MATCH (n) DETACH DELETE n", columns=["result"], graph=EVAL_GRAPH)
 
-    rows = load_roster()
+    rows = load_roster(roster_path)
     by_id = {r["entity_id"]: r for r in rows}
     outcomes = await resolve_roster(rows)
 
@@ -414,4 +422,13 @@ async def evaluate() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(evaluate())
+    import argparse
+    _parser = argparse.ArgumentParser(description=__doc__)
+    _parser.add_argument(
+        "--roster", metavar="PATH", default=str(_ROSTER_PATH),
+        help="Ground-truth roster CSV (default: the synthetic-corpus roster). "
+             "Pass data/eval/real_entity_roster.csv (scripts/build_real_entity_roster.py) "
+             "to evaluate against real CNIC-derived ground truth instead.",
+    )
+    _args = _parser.parse_args()
+    asyncio.run(evaluate(Path(_args.roster)))

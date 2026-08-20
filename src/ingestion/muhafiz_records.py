@@ -60,6 +60,7 @@ def _meta(
     record_type: str, external_id: str, source: str, *,
     station_code: Optional[str] = None, district: Optional[str] = None,
     content_provenance: Optional[str] = None, record_date: Optional[str] = None,
+    fir_display_code: Optional[str] = None,
 ) -> dict:
     """
     Common metadata every rendered Document carries. `source` here is the
@@ -76,6 +77,16 @@ def _meta(
     instead of regexing a filename — API-sourced `source` strings (e.g.
     "psrms/fir/fir-1001-26#narrative") carry no year at all, unlike the
     synthetic corpus's filenames.
+
+    `fir_display_code` — added M11 (same decision record). FIR-only
+    (e.g. "891/24"). src/pipeline/orchestrator.py's FIR-based query
+    auto-scope matches by substring against chunk `source` — that works
+    for the synthetic corpus (whose filenames embed the FIR number
+    itself, e.g. "FIR-2026-ARMS-001.pdf") but never for API-sourced
+    chunks, whose `source` is the slug id ("psrms/fir/fir-891-24#...")
+    not the human-readable display code a user actually types in a
+    query ("891/24"). This field is what auto-scope now matches against
+    for those chunks instead.
     """
     return {
         "source": source,
@@ -86,6 +97,7 @@ def _meta(
         "district": district,
         "content_provenance": content_provenance,
         "record_date": record_date,
+        "fir_display_code": fir_display_code,
     }
 
 
@@ -146,6 +158,7 @@ def render_fir(fir: FirRecord) -> list[Document]:
                 station_code=station_code, district=district,
                 content_provenance=fir.source,
                 record_date=fir.raw.get("incident_datetime"),
+                fir_display_code=fir.fir_display_code,
             ),
         ))
 

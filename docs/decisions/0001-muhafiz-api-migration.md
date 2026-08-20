@@ -229,6 +229,43 @@ the same human-confirmation discipline before being treated as fact.
       migration — `scripts/sync_muhafiz_data.py` (M9) doesn't write
       `ingestion_jobs` rows either, so the gap is unchanged, not newly
       introduced. 4 new tests.
-- [ ] **M11** — eval set regenerated from real data.
+- [x] **M11** — eval set regenerated from real data:
+      `scripts/build_real_entity_roster.py` derives must-NOT-merge
+      ("confusable-pair") and must-MERGE ("name-variant") entity-resolution
+      ground truth directly from real CNIC data — 41 real name-collision
+      groups, 4 real cross-FIR CNIC matches — replacing
+      `data/memory/entity_roster.csv`'s hand-invented cast; consumed
+      unchanged by `scripts/eval_entity_resolution.py` via its new
+      `--roster` flag, same column schema. `scripts/build_real_eval_set.py`
+      regenerated `data/eval/eic_eval_set.json` (old synthetic set backed
+      up alongside it, both gitignored) — deliberately smaller than the
+      synthetic corpus's 204 hand-authored queries (11), every question
+      and answer verified programmatically against the live record it was
+      built from rather than hand-guessed; genuinely hand-authored
+      investigative questions are real, separate future work once a human
+      reviewer can author and verify them against this dataset.
+      `scripts/eval_end_to_end.py` and `scripts/eval_keyword_search.py`
+      were more broken than the plan assumed — not just the wrong eval-set
+      schema (`{"queries": [...]}` vs. the actual bare list) but an import
+      of `src.retrieval.hybrid_search`, a module that has never existed in
+      this codebase — rewritten against the real retrieval stack
+      (`embed_text`/`query_similar`/`retrieve_bm25`/`rerank_results`,
+      reproduced from `orchestrator.py`'s own sequence). Along the way,
+      found and fixed a real functional gap while auditing
+      `test_orchestrator.py`'s FIR-auto-scope test against real data:
+      `orchestrator.py`'s query auto-scope only recognized the synthetic
+      FIR-number format, and even extracting a real display code
+      wouldn't have matched anything (the substring check runs against
+      chunk `source`, which for API-sourced chunks is a slug id, not the
+      human-readable code a user types) — fixed with a new
+      `fir_display_code` chunk-metadata field
+      (`src/ingestion/muhafiz_records.py`) and a second match path.
+      `test_structured_fields.py`/`test_ner.py`/`test_urdu_text_processing.py`'s
+      synthetic-format literals were reviewed and found to need no
+      change — they test regex/NER/tokenizer behavior against real Urdu
+      edge cases (borrowed from the synthetic ground truth's genuinely
+      real narrative sentences) or the synthetic regex path that M7
+      deliberately kept alongside the real one, not "the synthetic corpus"
+      as a concept. ~35 new tests.
 - [ ] **M12** — final documentation consistency pass; `API_CONSUMER_GUIDE.md`
       committed.

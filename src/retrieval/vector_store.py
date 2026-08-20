@@ -53,6 +53,10 @@ _METADATA_KEYS = (
     # boost can read an actual field instead of regexing a filename that,
     # for API-sourced chunks, carries no year at all.
     "record_date",
+    # M11 — the human-readable FIR display code ("891/24"), FIR-only. Lets
+    # orchestrator.py's FIR-based query auto-scope match a real display
+    # code the way it already matches synthetic-corpus filenames.
+    "fir_display_code",
 )
 
 
@@ -416,6 +420,7 @@ async def upsert_documents(
                 "content_provenance": meta.get("content_provenance"),
                 # M8 — see _METADATA_KEYS' comment above.
                 "record_date": meta.get("record_date"),
+                "fir_display_code": meta.get("fir_display_code"),
             },
         })
 
