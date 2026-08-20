@@ -1,28 +1,61 @@
 # Database Design
 
-This document details the PostgreSQL (local/self-hosted) database schema powering the RAG Chatbot. It covers relational data only — vector embeddings live in ChromaDB (`data/chroma_db`), not Postgres. See `docs/schema-snapshot.json` for the machine-generated column/FK dump this document is checked against.
+This document details the PostgreSQL (local/self-hosted) database schema
+powering the platform. It covers relational data only — vector embeddings
+live in ChromaDB (`data/chroma_db`), and the entity/relationship graph lives
+in Apache AGE on this same Postgres instance (see `docs/graph_schema.md` for
+that half; not duplicated here).
+
+**M12 of the Muhafiz Data API migration** (`docs/decisions/0001-muhafiz-api-migration.md`)
+rewrote this document from scratch — it previously listed 5 tables and
+predated `cases`, `case_assignments`, `audit_logs`, the community-detection
+tables, and RLS entirely. `docs/schema-snapshot.json` (the "machine-generated
+dump this document is checked against") is **also stale** in the same way —
+missing the same tables — and nothing in this migration regenerates it (no
+live Postgres instance was available this session); treat it as informational
+only until it's regenerated against a live database, not as the source of
+truth `src/database/models.py` is.
 
 ## Schema Overview
 
-The database contains core tables responsible for managing user accounts, chat session histories, and the structured police reference data accessed by the SQL retrieval pipeline.
-
-### Mermaid ERD
+### Mermaid ERD (core relational tables only — see prose below for the rest)
 
 ```mermaid
 erDiagram
     users ||--o{ sessions : "creates"
+    users ||--o{ case_assignments : "is assigned"
     sessions ||--o{ messages : "contains"
     sessions ||--o{ generated_files : "owns"
+    cases ||--o{ case_assignments : "has"
+    cases ||--o{ documents : "owns evidence"
+    cases ||--o{ sessions : "scopes"
 
     users {
         uuid id PK
         string email
-        string created_at
+        string role
+    }
+
+    cases {
+        string case_id PK
+        string fir_number
+        string police_station
+        date incident_date
+        string investigation_status
+        timestamptz conflicts_checked_at
+    }
+
+    case_assignments {
+        uuid assignment_id PK
+        string case_id FK
+        uuid user_id FK
+        string role
     }
 
     sessions {
         uuid session_id PK
         uuid user_id FK
+        string case_id FK
         string title
         timestamp created_at
         timestamp updated_at
@@ -35,6 +68,15 @@ erDiagram
         string role
         text content
         timestamp created_at
+    }
+
+    documents {
+        string doc_id PK
+        string case_id FK
+        string filename
+        string doc_type
+        int chunk_count
+        bool is_global
     }
 
     generated_files {
@@ -58,42 +100,123 @@ erDiagram
     }
 ```
 
-## Table Definitions
+## Table definitions
 
-### `users`
-Stores essential user identities; authenticated via JWT in an HttpOnly cookie (see `src/auth/`).
-- `id`: UUID (Primary Key)
-- `email`: User email address
+### Identity & access
 
-### `sessions`
-Groups a series of messages into a distinct chat thread.
-- `session_id`: UUID (Primary Key)
-- `user_id`: UUID linking to `users.id`
-- `title`: The display name of the chat session
-- `created_at`: Timestamp
-- `updated_at`: Timestamp for ordering the sidebar
-- `deleted_at`: Soft-delete timestamp used to hide deleted sessions.
+**`users`** — `id` (UUID PK), `email`, `password_hash`, `role`, `company_name`,
+`plan`, `police_station`. Authenticated via JWT in an HttpOnly cookie (see
+`src/auth/`).
 
-### `messages`
-The individual dialog turns (user inputs and assistant responses) within a session.
-- `message_id`: UUID (Primary Key)
-- `session_id`: UUID linking to `sessions.session_id`
-- `role`: The speaker role (`user` or `assistant`)
-- `content`: The raw text content of the message
-- `created_at`: Chronological ordering timestamp
+**`user_context_profiles`** — one row per user, free-text conversational
+context/preferences carried across sessions.
 
-### `generated_files`
-Tracks artifacts generated during a chat session (e.g. exported PDF/DOCX/XLSX files).
-- `file_id`: UUID (Primary Key)
-- `session_id`: The parent session where the file was generated.
-- `user_id`: The owning user, for access control on download.
-- `storage_path`: Where the file is stored on local disk.
+**`case_assignments`** — `assignment_id` (UUID PK), `case_id` FK → `cases`
+(CASCADE), `user_id` FK → `users` (CASCADE), `role` (default
+`investigator`). Not a data-ownership table — it's what
+`DirectGateway.get_cases()` INNER JOINs against for any non-platform-admin
+caller. **A case with no assignment row is invisible in the UI even though
+the case, its documents, and its evidence all exist** — every case-provisioning
+script in this migration (`scripts/sync_muhafiz_cases.py`) supports an
+opt-in `--assign-to` for exactly this reason.
 
-### `police_reference_data`
-A standalone data table for structured querying by the SQL pipeline router (Phase 3). Replaces the TaxIQ-era `tax_rates` table.
-- `category`: Broad classification — `penal_code` is currently the only category with real dataset backing (`data/memory/offense_sections.csv`); `traffic_fine`, `procedure`, `contact` are reserved future values, not seeded yet.
-- `subject`: The specific offense or topic (e.g. "Mobile/Vehicle Theft")
-- `description`: Plain-text explanation of the offense or rule
-- `fine_amount`: Numeric fine, where applicable
-- `section_ref`: The PPC/PECA section reference
-- `source_type`: `scraped` or `synthetic`, tracking provenance
+**`audit_logs`** — `log_id` (UUID PK), `timestamp`, `event_type`, `user_id`
+FK → `users` (SET NULL), `case_id` FK → `cases` (SET NULL), `details`
+(JSONB). Every graph write (`src/graph/versioning.py`) and every cross-case
+graph traversal logs here.
+
+### Cases & evidence
+
+**`cases`** — `case_id` (Text PK, human-meaningful, e.g. `"fir-891-24"` under
+this migration's "Case = FIR" decision — not a generated UUID), `fir_number`,
+`crime_category`, `investigation_officer`, `police_station`, `incident_date`,
+`investigation_status`, `location`, `description`, `victim_info`/`suspect_info`
+(JSONB), `conflicts_checked_at` (when conflict detection last *completed* for
+this case — NULL means "not known to have been checked," never "checked,
+clean"; see `docs/graph_schema.md`'s `OCCURRED_ON` row and
+`migrations/018_case_conflicts_checked_at.sql`). Provisioned from real FIRs by
+`scripts/sync_muhafiz_cases.py`/`src/ingestion/muhafiz_cases.py` (M4 of this
+migration).
+
+**`documents`** — `doc_id` (Text PK, deterministic — see
+`src/ingestion/document.py`), `user_id`, `project_id`, `case_id` FK → `cases`
+(SET NULL, nullable — evidence ingested before the Case model existed, and
+some shared knowledge-base uploads, have no case), `filename`, `doc_type`,
+`chunk_count`, `ingested_at`, `is_global`. The relational record of a chunk
+family stored in Chroma — chunk text/embeddings/retrieval metadata live there,
+not here.
+
+**`ingestion_jobs`** — per-file admin-upload progress tracking
+(`POST /api/admin/kb/upload`). **Confirmed gap, not fixed by this
+migration:** this table has no `case_id` column at all, and the one live
+path that writes it always ingests `is_global=True` — case-scoped ingestion
+(offline scripts, and `scripts/sync_muhafiz_data.py`, M9) never creates a
+row here. `src/pipeline/harness/agents/data_quality.py` reports this
+honestly via a caveat rather than fabricating a case-scoped count.
+
+**`session_attachments`** — one-off chat-composer file uploads. Text
+extracted once, injected into that single conversation's prompt, **never
+embedded, never reaches Chroma or the graph** — structurally separate from
+the knowledge-base ingestion path (`docs/INGESTION.md`).
+
+### Reference data
+
+**`police_reference_data`** — `ref_id` (UUID PK), `category` (`penal_code` is
+the only category with real backing), `subject`, `description`, `fine_amount`,
+`section_ref`, `source_document`, `source_type` (`scraped` | `synthetic`).
+Two independent sources, both additive, neither replacing the other:
+`scripts/seed_police_reference_data.py` (6 hand-curated rows with
+descriptive text) and `scripts/load_real_offense_sections.py` (M7 of this
+migration — the 36 distinct real section/act pairs measured across the live
+FIR dataset, `description` left NULL since the API supplies no offense-text
+per section).
+
+### Conversation & pipeline
+
+**`sessions`** — `session_id` (UUID PK), `user_id`, `case_id`, `title`,
+`created_at`/`updated_at`/`deleted_at` (soft-delete).
+
+**`messages`** — `message_id` (UUID PK), `session_id`, `role`
+(`user`/`assistant`), `content`, `created_at`.
+
+**`generated_files`** — exported PDF/DOCX/XLSX artifacts from a chat
+session. `file_id` (UUID PK), `session_id`, `user_id` (access control on
+download), `storage_path`.
+
+**`project_memory`** / **`projects`** — project-scoped conversational memory
+and project metadata, independent of the case model.
+
+**`pipeline_runs`** / **`pipeline_steps`** — per-query orchestrator
+observability (route taken, retry count, latency per stage).
+
+**`mcp_tool_calls`** — audit trail of MCP tool invocations (the SQL route's
+read-only Postgres role, `migrations/009_mcp_readonly_role.sql`).
+
+**`error_logs`** — unhandled exception capture for the admin dashboard.
+
+### Community detection (`migrations/016_community_detection.sql`, `017`)
+
+**`community_runs`** — one row per Louvain community-detection run
+(`run_id` PK, `computed_at`, `node_count`/`edge_count`/`community_count`,
+`raw_node_count`/`raw_edge_count`). Every run **replaces** the prior one
+(`DELETE FROM community_runs` before insert) — this is a "latest snapshot,"
+never a versioned history, unlike the graph's own append-only discipline.
+
+**`community_membership`** — `entity_id` (PK, canonicalized Person entity_id
+post-`SAME_AS` collapse) → `community_id`, FK → `community_runs` (CASCADE).
+
+**`community_reports`** — `community_id` (PK) → `run_id` FK (CASCADE),
+`member_entity_ids`/`case_ids` (arrays), `summary_text`. No FK to
+`community_membership` — both tables are replaced together in the same
+detection run, so a same-transaction FK would only add an ordering
+constraint without adding real safety.
+
+## Row-Level Security
+
+`migrations/008_rls_policies.sql`/`010` arm RLS on `documents`/`sessions`/
+`cases`/`messages`, gated through `src/database/postgres.py`'s
+`current_rls_active`/`current_cross_case` session variables. Apache AGE has
+**no native RLS equivalent** — the graph's own case-isolation story
+(`src/graph/case_scope.py`) is a structural chokepoint, not a database-level
+guarantee; see `docs/graph_schema.md`'s "Case isolation for the graph" section
+for the full, honestly-stated distinction.
