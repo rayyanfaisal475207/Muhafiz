@@ -659,3 +659,27 @@ async def test_cross_case_recurrence_stays_empty_with_no_type_hint(fake_graph, f
 
     assert result["chunks"] == []
     assert result["seed_entities"] == []
+
+
+# ── _SEED_LABELS property keys (M8 of the Muhafiz Data API migration,
+# docs/decisions/0001-muhafiz-api-migration.md) ─────────────────────────
+
+def test_seed_labels_phone_number_matches_what_is_actually_written():
+    """
+    Regression: _SEED_LABELS["PhoneNumber"] used to check only `number`,
+    a property no writer in this codebase has ever set —
+    _run_graph_extraction's phone-writing loop (src/ingestion/service.py)
+    writes {"canonical_name": phone, "phone": phone}. The seed lookup
+    could therefore never match a real PhoneNumber node.
+    """
+    id_props, _display = gr._SEED_LABELS["PhoneNumber"]
+    assert "number" not in id_props
+    assert "canonical_name" in id_props or "phone" in id_props
+
+
+def test_seed_labels_organization_matches_what_is_actually_written():
+    """Same bug, Organization: every write uses canonical_name only,
+    never `name`."""
+    id_props, _display = gr._SEED_LABELS["Organization"]
+    assert "name" not in id_props
+    assert "canonical_name" in id_props

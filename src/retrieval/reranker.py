@@ -118,29 +118,24 @@ def reciprocal_rank_fusion(
         
         # Apply a time-decay boost to prioritize newer documents.
         #
-        # C-1 (audit 2026-08-04): this reads the filename, not an actual
-        # document-date field, so it could in principle mis-boost a
-        # filename whose only 4-digit run happens to be a case/report
-        # number rather than a real year. Checked against this corpus
-        # (every case filename embeds its FIR's real registration year by
-        # the FIR-YYYY-CATEGORY-NNN naming convention, confirmed via a
-        # full-corpus scan): every case document's filename year is 2026,
-        # so this boost currently applies UNIFORMLY across all case docs
-        # (no differentiation between them) and only distinguishes
-        # case-specific documents from the ~9 generic procedural reference
-        # docs (REAL-*.pdf — "lost report procedure", "FIR copy
-        # procedure", etc.) that have no year in their filename at all and
-        # get zero boost. That's a reasonable outcome (nudge case-specific
-        # results above generic reference material on a tie), not a bug —
-        # kept as filename-based deliberately rather than switched to a
-        # doc-metadata date field, since introducing a new source of truth
-        # here for an issue not actually observed live carries more risk
-        # than the current behavior.
+        # C-1 (audit 2026-08-04): originally read the filename, not an
+        # actual document-date field — reasonable for the synthetic
+        # corpus (every case filename embeds its FIR's real registration
+        # year by the FIR-YYYY-CATEGORY-NNN convention), but API-sourced
+        # chunks (M8, docs/decisions/0001-muhafiz-api-migration.md) carry
+        # `source` strings like "psrms/fir/fir-1001-26#narrative" — no
+        # year anywhere in them, so every such chunk got zero boost
+        # regardless of how recent the underlying FIR actually was.
+        # `record_date` (src/ingestion/muhafiz_records.py, M8) is checked
+        # FIRST now — a real ISO date/timestamp on API-sourced chunks —
+        # falling back to the filename regex, unchanged, for file-sourced
+        # chunks that have no record_date at all.
         year_boost = 0.0
-        # Check source filename in metadata or root
-        source_str = doc.get("source") or doc.get("metadata", {}).get("source", "")
-        if source_str:
-            year_match = re.search(r'\b(20\d{2})\b', str(source_str))
+        metadata = doc.get("metadata", {}) or {}
+        record_date = metadata.get("record_date")
+        year_source = record_date if record_date else (doc.get("source") or metadata.get("source", ""))
+        if year_source:
+            year_match = re.search(r'\b(20\d{2})\b', str(year_source))
             if year_match:
                 year = int(year_match.group(1))
                 # Base year 2020. Give 0.0005 boost per year.

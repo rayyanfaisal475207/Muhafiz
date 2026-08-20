@@ -48,6 +48,30 @@
 # LOCATED_AT outward from Person A to the shared Address node and back
 # would present Person B as "connected" to Person A, which is exactly
 # the ADDR-002 negative test this module must not fail.
+#
+# ── M8 of the Muhafiz Data API migration (docs/decisions/0001-muhafiz-api-migration.md):
+# the same decision, made explicitly, for the edge types M6a/M6b added ──
+#   - INVOLVED_IN (Person -> Incident, role=complainant|accused|witness) —
+#     NOT traversed. Same reasoning as LOCATED_AT: it is an attribute edge
+#     of one entity's role in an incident, not a stated relationship
+#     between two entities. Two different accused both INVOLVED_IN the
+#     same Incident would otherwise appear "connected" by hopping through
+#     the Incident node — the exact ADDR-002 failure shape, just with
+#     Incident standing in for Address. A genuine co-accused relationship
+#     is what ASSOCIATED_WITH already exists to capture (extracted with
+#     an LLM-judged basis, not implied by shared incident membership).
+#   - PART_OF (Incident -> Case) — NOT traversed. Purely structural
+#     (mirrors BELONGS_TO_CASE), never a hop between two different
+#     real-world entities in the first place.
+#   - CITES (Case -> Case, src/graph/cross_silo_projection.py) — NOT
+#     traversed by this module at all, confirmed or not. This module's
+#     traversal is entity-centric (Person/Vehicle/PhoneNumber/Organization
+#     seeds hopping via ASSOCIATED_WITH); CITES is a case-level edge with
+#     no entity-level analogue here. A future case-level traversal
+#     feature built on CITES would need its own confirmed-only discipline
+#     (status='confirmed' only — never 'pending' — exactly the SAME_AS
+#     rule above, generalized) rather than reusing this module's
+#     entity-hop machinery as-is.
 # ============================================================
 
 from __future__ import annotations
@@ -69,11 +93,26 @@ MAX_HOPS = 3
 DEFAULT_HOPS = 2
 
 # label -> (identifier properties checked with exact/CONTAINS match, display-name property)
+#
+# PhoneNumber/Organization fixed in M8 of the Muhafiz Data API migration
+# (docs/decisions/0001-muhafiz-api-migration.md): this table looked up
+# `number`/`name`, but no writer anywhere in the codebase has ever set
+# either property — `_run_graph_extraction()`'s phone-writing loop
+# (src/ingestion/service.py) writes {"canonical_name": phone, "phone": phone},
+# and every organization write (NER/domain_entities via
+# entity_resolution.resolve_and_write) uses `canonical_name` only. The seed
+# lookup for these two labels could therefore never match a real node —
+# confirmed live during this migration's investigation, not previously
+# known. `id_props` now matches what is actually written; the unused
+# second element (display-name) is left as `canonical_name` for
+# consistency, though nothing currently reads it (see the `_display`
+# variable below, intentionally unused — `_display_name()` already has
+# its own independent canonical_name-first priority list).
 _SEED_LABELS: dict[str, tuple[tuple[str, ...], str]] = {
     "Person": (("canonical_name", "cnic"), "canonical_name"),
     "Vehicle": (("plate",), "plate"),
-    "PhoneNumber": (("number",), "number"),
-    "Organization": (("name",), "name"),
+    "PhoneNumber": (("canonical_name", "phone"), "canonical_name"),
+    "Organization": (("canonical_name",), "canonical_name"),
 }
 
 # The only edge type used to hop between two DIFFERENT entities — see

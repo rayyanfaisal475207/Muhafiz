@@ -86,6 +86,19 @@ class TestFirRendering:
         zimni_sources = sorted(d.metadata["source"] for d in docs if "zimni" in d.metadata["source"])
         assert zimni_sources == ["psrms/fir/fir-4-26#zimni_z1", "psrms/fir/fir-4-26#zimni_z3"]
 
+    def test_record_date_carries_the_incident_datetime(self):
+        """M8: lets reranker.py's recency boost read a real date instead
+        of regexing a source string that has no year in it."""
+        fir = FirRecord({"fir_id": "fir-8-26", "narrative_text": "متن",
+                          "incident_datetime": "2026-08-18T15:10:00Z"})
+        docs = mr.render_fir(fir)
+        assert docs[0].metadata["record_date"] == "2026-08-18T15:10:00Z"
+
+    def test_record_date_absent_when_no_incident_datetime(self):
+        fir = FirRecord({"fir_id": "fir-9-26", "narrative_text": "متن"})
+        docs = mr.render_fir(fir)
+        assert docs[0].metadata["record_date"] is None
+
     def test_content_provenance_carries_the_synthetic_tag(self):
         fir = FirRecord({"fir_id": "fir-5-26", "narrative_text": "متن", "source": "synthetic"})
         docs = mr.render_fir(fir)
