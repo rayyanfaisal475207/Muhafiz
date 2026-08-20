@@ -450,6 +450,7 @@ async def ingest_documents(
     category: str = None,
     case_id: str = None,
     doc_type: str = None,
+    run_graph_extraction: bool = True,
 ) -> dict:
     """
     Ingest an already-loaded list of `Document` objects (src/ingestion/document.py)
@@ -483,6 +484,23 @@ async def ingest_documents(
     Document node; the two share a name but not a meaning, a pre-existing
     wart out of scope for this refactor to fix). A non-file caller should
     pass whatever `doc_type` is meaningful for its own records, or omit it.
+
+    `run_graph_extraction` (default True, unchanged behavior for every
+    existing caller) — added M9 of the Muhafiz Data API migration
+    (docs/decisions/0001-muhafiz-api-migration.md) so a caller whose
+    records already have a BETTER, deterministic graph writer can skip
+    `_run_graph_extraction()`'s LLM/NER pass over the same text entirely,
+    still with `case_id` scoping chunks for retrieval as normal.
+    `scripts/sync_muhafiz_data.py` passes False for every Muhafiz Data
+    API record: `src/graph/structured_projection.py`/`cross_silo_projection.py`
+    already extract these people/weapons/timelines from ground-truth
+    structured fields, so running NER/LLM guesswork over the SAME
+    narrative text a second time would be pure waste (cost, latency) and
+    would tag the graph with a second, hashed/sanitized family of
+    `source_doc_id`s that a re-sync's idempotency purge (which targets
+    only the clean, unhashed ids the structured-projection modules write)
+    would never clean up — duplicating on every `--full` re-run exactly
+    the class of bug this migration's idempotency work exists to close.
     """
     try:
         # Normalize before it reaches the chunker.
@@ -571,8 +589,11 @@ async def ingest_documents(
         # when there's no case_id, matching every other case_id-optional
         # branch in this function: graph writes need BELONGS_TO_CASE's
         # target, and the pre-Phase-1 global corpus has no case to attach to.
+        # Also skipped when run_graph_extraction=False (M9) — see this
+        # function's own docstring for why a caller with a better,
+        # deterministic graph writer opts out here.
         graph_stats = None
-        if case_id and doc_id:
+        if case_id and doc_id and run_graph_extraction:
             try:
                 graph_stats = await _run_graph_extraction(source_name, documents, chunks, case_id, str(doc_id))
             except Exception as exc:

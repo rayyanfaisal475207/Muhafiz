@@ -137,6 +137,49 @@ class TestIngestDocumentsIsSourceAgnostic:
         assert not called
         assert result["graph"] is None
 
+    async def test_run_graph_extraction_false_skips_extraction_despite_case_id(
+        self, monkeypatch, stub_pipeline,
+    ):
+        """
+        M9 (docs/decisions/0001-muhafiz-api-migration.md): a caller with its
+        own deterministic graph writer (structured_projection.py) opts out
+        of the legacy LLM/NER pass entirely — case_id still scopes chunks
+        for retrieval, but no _run_graph_extraction() call happens.
+        """
+        called = []
+        monkeypatch.setattr(service, "_run_graph_extraction",
+                             lambda *a, **k: called.append(1))
+
+        documents = [Document(text="Narrative text of sufficient length for one chunk.",
+                               metadata={"source": "psrms/fir/fir-1-26#narrative"})]
+        result = await service.ingest_documents(
+            documents, source_name="psrms/fir/fir-1-26#narrative",
+            case_id="fir-1-26", run_graph_extraction=False,
+        )
+
+        assert not called
+        assert result["graph"] is None
+        # case_id still reached chunk metadata for retrieval scoping.
+        assert stub_pipeline["upserts"][0]["metadatas"][0]["case_id"] == "fir-1-26"
+
+    async def test_run_graph_extraction_default_true_preserves_existing_behavior(
+        self, monkeypatch, stub_pipeline,
+    ):
+        called = []
+
+        async def fake_run_graph_extraction(*a, **k):
+            called.append(1)
+            return {"errors": []}
+        monkeypatch.setattr(service, "_run_graph_extraction", fake_run_graph_extraction)
+        monkeypatch.setattr(service, "_run_conflict_detection_bg",
+                             lambda *a, **k: None)
+
+        documents = [Document(text="Narrative text of sufficient length for one chunk.",
+                               metadata={"source": "file.pdf"})]
+        await service.ingest_documents(documents, source_name="file.pdf", case_id="CASE-1")
+
+        assert called, "omitting run_graph_extraction must default to True, unchanged"
+
     async def test_empty_chunk_result_returns_zero_with_error(self, stub_pipeline):
         """Mirrors ingest_file's pre-existing 'no chunks generated' path —
         must survive unchanged in the extracted function."""
