@@ -147,6 +147,17 @@ the same human-confirmation discipline before being treated as fact.
       projection + graph_review's new endpoints), including a full
       real-snapshot sweep and a regression lock on the measured 9-citation
       count.
+      **Gap found and closed during live verification**: M6a's own
+      module docstring named `REGISTERED_TO` as "deferred to M6b (needs
+      PKM's vehicle_verification)", but M6b's original cut never
+      implemented it — confirmed live after the first full sync (Vehicle
+      and REGISTERED_TO both at 0 against 73 real FIRs). Added
+      `project_pkm_application()`'s vehicle_verification handling: a
+      `Vehicle` node (plate as its MERGE key) written unconditionally
+      (this service type never resolves to a case), plus a
+      `REGISTERED_TO` edge to an *existing* Person by applicant CNIC —
+      same soft-reference discipline as the criminal-record join just
+      above it. 7 new tests.
 - [x] **M7** — extraction adaptation + additive `police_reference_data` load:
       `structured_fields.extract_fir_display_codes()` for real `NNN/YY` codes
       (label-anchored, additive alongside the synthetic-corpus regex);
