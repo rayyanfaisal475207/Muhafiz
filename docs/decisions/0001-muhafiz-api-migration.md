@@ -267,5 +267,33 @@ the same human-confirmation discipline before being treated as fact.
       real narrative sentences) or the synthetic regex path that M7
       deliberately kept alongside the real one, not "the synthetic corpus"
       as a concept. ~35 new tests.
-- [ ] **M12** — final documentation consistency pass; `API_CONSUMER_GUIDE.md`
-      committed.
+- [x] **M12** — final documentation pass. `docs/DATABASE_DESIGN.md` rewritten
+      from scratch — it predated `cases`/`case_assignments`/`audit_logs`/
+      community-detection tables/RLS entirely (~5 tables documented vs. 18
+      real ones), and its own "checked against `docs/schema-snapshot.json`"
+      claim was stale too (that generated dump is *also* missing the same
+      tables, and nothing in this migration regenerates it — no live
+      Postgres was available this session; noted explicitly in the doc
+      rather than silently trusted). `docs/graph_schema.md` and
+      `docs/INGESTION.md` were already kept current incrementally, module
+      by module (M3/M4/M6a/M6b/M8), per the confirmed round-2 decision to
+      land docs with the change rather than batching them at the end.
+      `API_CONSUMER_GUIDE.md` committed to version control — the one new
+      tracked file.
+
+## Status: all 12 modules complete
+
+Every module landed as its own branch, merged `--no-ff` into local `main`,
+full test suite + harness compliance suite green at every step. Nothing
+pushed to `origin` — that remains the operator's call.
+
+**What was NOT run this session, stated plainly:** no live Postgres/AGE
+instance was available locally, so `scripts/reset_evidence_state.py` (M5)
+and `scripts/sync_muhafiz_data.py` (M9) — the two scripts that actually
+wipe and repopulate a real graph — were built and thoroughly unit-tested
+(including a proven idempotency guarantee against a fake graph store) but
+**never executed against live infrastructure**. `migrations/020_age_date_and_cites_labels.sql`
+was likewise written and never applied. Before running any of this for
+real: `docker-compose up -d`, confirm the model-server tunnel
+(`GET $MODEL_SERVER_BASE_URL/health`), then dry-run each script before
+`--execute`/`--full`, in the order M5 → apply migration 020 → M9.
