@@ -124,7 +124,15 @@ the same human-confirmation discipline before being treated as fact.
       `TestRequiresLivePostgres` (skipped by default) plus this record's own
       Milestone C verification checklist, to run manually before any real
       `--execute`.
-- [ ] **M6a** — deterministic structured graph projection + corroboration gate.
+- [x] **M6a** — deterministic structured graph projection + corroboration gate
+      (`src/graph/structured_projection.py`): Person nodes with real CNIC for
+      complainant/accused/witness; `Weapon` nodes with in-FIR-only `OWNS`
+      matching; `StructuredRecord` written for the first time in this
+      codebase's history (`fir_section`/`malkhana_register`/
+      `chalaan_dispatch`/`chalaan_outcome`/`fir_zimni_index`); `INVOLVED_IN`/
+      `PART_OF`/`LOCATED_AT` written for the first time; `OCCURRED_ON` from
+      typed timestamps; `docs/graph_schema.md` updated. 20 new tests
+      (control-flow + a full zero-error sweep over all 73 real FIRs).
 - [ ] **M6b** — cross-silo linking + `CITES` prose-citation candidates.
 - [ ] **M7** — extraction adaptation + additive `police_reference_data` load.
 - [ ] **M8** — graph read-path/label fixes.

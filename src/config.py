@@ -148,6 +148,24 @@ CROSS_CASE_RETRIEVAL_MULTIPLIER: int = int(os.getenv("CROSS_CASE_RETRIEVAL_MULTI
 CROSS_CASE_PER_CASE_CAP: int = int(os.getenv("CROSS_CASE_PER_CASE_CAP", "5"))
 
 
+# ── Entity resolution — structured-record corroboration gate (M6a of the
+# Muhafiz Data API migration, docs/decisions/0001-muhafiz-api-migration.md)
+# ────────────────────────────────────────────────────────────────────────
+# Governs src/graph/structured_projection.py's gate on name-fallback for
+# structured-record person mentions with no CNIC (measured: 4/37 witnesses
+# on the live dataset). True (default) = today's behavior, gated by a
+# corroboration check (shared case / shared structured id / matching
+# address) before a no-CNIC mention is even allowed to reach
+# entity_resolution.py's FLAGGED/REVIEW tiers. False = skip name-fallback
+# entirely for these mentions — mint a new node, never risk a SAME_AS
+# candidate. Does NOT affect CNIC-present mentions (the hard-block/
+# auto-merge path in entity_resolution.py already fully protects those,
+# regardless of this flag) or narrative-text NER mentions (unrelated code
+# path, untouched by this flag).
+ENTITY_RESOLUTION_NAME_FALLBACK_FOR_STRUCTURED: bool = (
+    os.getenv("ENTITY_RESOLUTION_NAME_FALLBACK_FOR_STRUCTURED", "true").strip().lower() == "true"
+)
+
 # ── Guarded web search (Phase 5.7) ────────────────────────────────────────────
 # Air-gap deployments disable ALL outbound web access — this is the one route
 # in the whole architecture that needs it (architecture doc, "Guarded web
