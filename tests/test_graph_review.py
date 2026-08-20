@@ -278,3 +278,109 @@ async def test_review_stats_counts_by_tier_and_status(fake_age):
     stats = await graph_review.review_stats(admin=None)
     assert stats["flagged_unverified"]["pending"] == 2
     assert stats["human_review"]["pending"] == 1
+
+
+# ── CITES review queue — M6b of the Muhafiz Data API migration
+# (docs/decisions/0001-muhafiz-api-migration.md), a PARALLEL queue to
+# SAME_AS above, keyed on case_id (Case nodes have no entity_id) ────────
+
+def _case(case_id):
+    return {"id": 1, "label": "Case", "properties": {"case_id": case_id}}
+
+
+def _cites_edge(edge_id, status="pending", superseded_by=None, basis="FIR 423/26 referenced in narrative"):
+    return {
+        "id": edge_id, "label": "CITES",
+        "properties": {
+            "status": status, "basis": basis, "confidence": 0.6,
+            "as_of": "2026-01-01T00:00:00+00:00", "source_doc_id": "psrms/fir/fir-424-26#structured",
+            "superseded_by": superseded_by,
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_list_pending_citations_shape(fake_age):
+    fake_age.queue([{"a": _case("fir-424-26"), "r": _cites_edge(1), "b": _case("fir-423-26")}])
+
+    result = await graph_review.list_pending_citations(admin=None)
+
+    assert result["count"] == 1
+    entry = result["pending"][0]
+    assert entry["edge_id"] == 1
+    assert entry["citing_case"]["case_id"] == "fir-424-26"
+    assert entry["cited_case"]["case_id"] == "fir-423-26"
+    assert "basis" in entry
+
+
+@pytest.mark.asyncio
+async def test_confirm_citation_writes_superseding_confirmed_edge(fake_age, fake_versioning, fake_gateway):
+    fake_age.queue([{"a": _case("fir-424-26"), "r": _cites_edge(1), "b": _case("fir-423-26")}])
+
+    result = await graph_review.confirm_citation(1, graph_review.ReviewAction(), admin=_Admin("inv1"))
+
+    assert result["status"] == "confirmed"
+    write = fake_versioning.edges_written[0]
+    assert write["edge_label"] == "CITES"
+    assert write["from_match"] == {"case_id": "fir-424-26"}
+    assert write["to_match"] == {"case_id": "fir-423-26"}
+    assert write["properties"]["status"] == "confirmed"
+    assert write["properties"]["reviewed_by"] == "inv1"
+    assert write["supersedes_edge_id"] == 1
+
+
+@pytest.mark.asyncio
+async def test_reject_citation_writes_superseding_rejected_edge(fake_age, fake_versioning, fake_gateway):
+    fake_age.queue([{"a": _case("fir-424-26"), "r": _cites_edge(1), "b": _case("fir-423-26")}])
+
+    result = await graph_review.reject_citation(1, graph_review.ReviewAction(), admin=_Admin("inv1"))
+
+    assert result["status"] == "rejected"
+    assert fake_versioning.edges_written[0]["properties"]["status"] == "rejected"
+
+
+@pytest.mark.asyncio
+async def test_confirm_citation_writes_audit_log_entry(fake_age, fake_versioning, fake_gateway):
+    fake_age.queue([{"a": _case("fir-424-26"), "r": _cites_edge(1), "b": _case("fir-423-26")}])
+
+    await graph_review.confirm_citation(1, graph_review.ReviewAction(), admin=_Admin("inv1"))
+
+    assert len(fake_gateway.audit_log) == 1
+    entry = fake_gateway.audit_log[0]
+    assert entry["event_type"] == "graph_review_citation_confirmed"
+    assert entry["details"]["citing_case_id"] == "fir-424-26"
+    assert entry["details"]["cited_case_id"] == "fir-423-26"
+
+
+@pytest.mark.asyncio
+async def test_double_confirm_citation_returns_409(fake_age, fake_versioning):
+    fake_age.queue([{"a": _case("fir-424-26"), "r": _cites_edge(1, superseded_by=42), "b": _case("fir-423-26")}])
+
+    with pytest.raises(HTTPException) as exc_info:
+        await graph_review.confirm_citation(1, graph_review.ReviewAction(), admin=_Admin("inv2"))
+    assert exc_info.value.status_code == 409
+    assert fake_versioning.edges_written == []
+
+
+@pytest.mark.asyncio
+async def test_confirm_nonexistent_citation_returns_404(fake_age, fake_versioning):
+    fake_age.queue([])
+
+    with pytest.raises(HTTPException) as exc_info:
+        await graph_review.confirm_citation(999, graph_review.ReviewAction(), admin=_Admin("inv1"))
+    assert exc_info.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_same_as_queue_and_cites_queue_are_fully_independent(fake_age):
+    """A SAME_AS-shaped row must never be picked up by the CITES cypher
+    query and vice versa — cheap regression guard that the two queues
+    query on different edge labels, not a shared/overlapping pattern."""
+    same_as_calls = [c for c in fake_age.calls if "SAME_AS" in c["cypher"]]
+    cites_calls = [c for c in fake_age.calls if "CITES" in c["cypher"]]
+    assert same_as_calls == [] and cites_calls == []  # nothing called yet
+
+    fake_age.queue([])
+    await graph_review.list_pending_citations(admin=None)
+    assert "CITES" in fake_age.calls[-1]["cypher"]
+    assert "SAME_AS" not in fake_age.calls[-1]["cypher"]

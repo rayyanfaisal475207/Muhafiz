@@ -133,7 +133,20 @@ the same human-confirmation discipline before being treated as fact.
       `PART_OF`/`LOCATED_AT` written for the first time; `OCCURRED_ON` from
       typed timestamps; `docs/graph_schema.md` updated. 20 new tests
       (control-flow + a full zero-error sweep over all 73 real FIRs).
-- [ ] **M6b** — cross-silo linking + `CITES` prose-citation candidates.
+- [x] **M6b** — cross-silo linking + `CITES` prose-citation candidates
+      (`src/graph/cross_silo_projection.py`): CMS/PKM StructuredRecord nodes
+      with `BELONGS_TO_CASE`/complainant-or-applicant `Person` resolution
+      when linked (measured 4/4 CMS, 4/8 PKM), criminal records linked to
+      an *existing* Person by `subject_cnic` (never the broken
+      `criminal_record_ref`), and `CITES{status: pending}` edges for the
+      measured 9 FIR→FIR prose citations — reviewed through a **separate**
+      queue in `src/api/graph_review.py` (`/citations/pending`,
+      `/citations/{id}/confirm`, `/citations/{id}/reject`), never merged
+      into the `SAME_AS` queue since `Case` nodes have no `entity_id`.
+      `docs/graph_schema.md` updated. 19 + 19 new tests (cross-silo
+      projection + graph_review's new endpoints), including a full
+      real-snapshot sweep and a regression lock on the measured 9-citation
+      count.
 - [ ] **M7** — extraction adaptation + additive `police_reference_data` load.
 - [ ] **M8** — graph read-path/label fixes.
 - [ ] **M9** — idempotent `--full` re-ingest (incremental-sync automation
