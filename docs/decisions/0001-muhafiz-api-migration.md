@@ -183,8 +183,25 @@ the same human-confirmation discipline before being treated as fact.
       decision for `INVOLVED_IN`/`PART_OF`/`CITES` (none traversed, each with
       its own stated reasoning) alongside the pre-existing
       `LOCATED_AT`/`OWNS`/`REGISTERED_TO` decision.
-- [ ] **M9** — idempotent `--full` re-ingest (incremental-sync automation
-      deferred to the post-MVP real integration).
+- [x] **M9** — idempotent `--full` re-ingest (`scripts/sync_muhafiz_data.py`).
+      `updated_since` watermark automation cut per round-2 review (stand-in
+      API, real integration is post-MVP). What's kept: a per-record
+      edge-purge-by-source-prefix before every (re-)projection, since
+      `write_edge` is `CREATE`-only — proven, not just claimed, by a test
+      that runs the same FIR through the sync twice (and three times) and
+      asserts the graph edge count never grows.
+      `ingest_documents()` gained a `run_graph_extraction` flag (default
+      `True`, unchanged for every existing caller) so Muhafiz Data API
+      records skip the legacy LLM/NER pass entirely — M6a/M6b already
+      extract these from ground truth, and running NER a second time over
+      the same text would both waste cost/latency and tag the graph with a
+      second, hashed family of `source_doc_id`s the purge could never
+      target. Order: cases (M4) → FIRs (M6a) → CMS/PKM/criminal records
+      (M6b) → citations (M6b, last, once every FIR's `Case` node exists).
+      10 new tests. **Built and tested only — not yet run against live
+      infrastructure** (no Postgres/AGE running locally this session); a
+      dry-run smoke test against the full real 73-FIR snapshot did run and
+      passed.
 - [ ] **M10** — harness adaptation to real data shape.
 - [ ] **M11** — eval set regenerated from real data.
 - [ ] **M12** — final documentation consistency pass; `API_CONSUMER_GUIDE.md`
