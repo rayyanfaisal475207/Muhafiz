@@ -1549,10 +1549,22 @@ async def process_query(
         # its `case_id` to scope the rest of retrieval. Only fires when no
         # case is already active — never overrides an explicit UI selection.
         if not case_id:
-            from src.extraction.structured_fields import extract_fir_numbers
+            # M11 (Muhafiz Data API migration, docs/decisions/0001-muhafiz-api-migration.md):
+            # extract_fir_numbers() only matches the synthetic corpus's
+            # FIR-YYYY-CAT-NNN shape. A real FIR display code ("891/24",
+            # extract_fir_display_codes()) never matches it, AND the
+            # substring-against-`source` trick below can't find one even
+            # if extracted — API-sourced chunks' `source` is the slug id
+            # ("psrms/fir/fir-891-24#narrative"), not the human-readable
+            # display code a user actually types. Real-format matches
+            # instead check the dedicated `fir_display_code` chunk
+            # metadata field (src/ingestion/muhafiz_records.py, M11).
+            from src.extraction.structured_fields import extract_fir_display_codes, extract_fir_numbers
             fir_matches = extract_fir_numbers(rewritten_query)
-            if fir_matches:
-                target_fir = fir_matches[0].normalized
+            display_code_matches = extract_fir_display_codes(rewritten_query)
+            if fir_matches or display_code_matches:
+                target_fir = fir_matches[0].normalized if fir_matches else None
+                target_display_code = display_code_matches[0].normalized if display_code_matches else None
                 scope_only_where = {"project_id": project_id} if project_id else {"is_global": True}
                 try:
                     candidate_pool_for_scoping = await get_all_chunks(where=scope_only_where)
@@ -1560,13 +1572,19 @@ async def process_query(
                     logger.warning("FIR-based auto-scope lookup failed: %s", scope_exc)
                     candidate_pool_for_scoping = []
                 for chunk in candidate_pool_for_scoping:
-                    source = (chunk.get("metadata") or {}).get("source", "")
-                    if target_fir in source.upper():
-                        resolved_case_id = chunk["metadata"].get("case_id")
+                    metadata = chunk.get("metadata") or {}
+                    source = metadata.get("source", "")
+                    matched_on = None
+                    if target_fir and target_fir in source.upper():
+                        matched_on = target_fir
+                    elif target_display_code and metadata.get("fir_display_code") == target_display_code:
+                        matched_on = target_display_code
+                    if matched_on:
+                        resolved_case_id = metadata.get("case_id")
                         if resolved_case_id:
                             logger.info(
                                 "Auto-scoped query to case_id=%s via FIR number %s found in query text",
-                                resolved_case_id, target_fir,
+                                resolved_case_id, matched_on,
                             )
                             case_id = resolved_case_id
                             break

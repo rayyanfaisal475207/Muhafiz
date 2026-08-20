@@ -94,6 +94,13 @@ class TestFirRendering:
         docs = mr.render_fir(fir)
         assert docs[0].metadata["record_date"] == "2026-08-18T15:10:00Z"
 
+    def test_fir_display_code_carried_for_orchestrator_auto_scope(self):
+        """M11: lets orchestrator.py's FIR-based query auto-scope match a
+        real display code — the slug `source` string never contains it."""
+        fir = FirRecord({"fir_id": "fir-10-26", "fir_display_code": "891/24", "narrative_text": "متن"})
+        docs = mr.render_fir(fir)
+        assert docs[0].metadata["fir_display_code"] == "891/24"
+
     def test_record_date_absent_when_no_incident_datetime(self):
         fir = FirRecord({"fir_id": "fir-9-26", "narrative_text": "متن"})
         docs = mr.render_fir(fir)

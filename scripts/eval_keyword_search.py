@@ -1,23 +1,58 @@
+"""
+Phase 9 keyword-search-only eval — recall@10 and MRR of the BM25 leg in
+isolation, against data/eval/eic_eval_set.json.
+
+FIXED — M11 of the Muhafiz Data API migration
+(docs/decisions/0001-muhafiz-api-migration.md). Three independent bugs:
+
+  1. `eval_data.get("queries", [])` assumed a `{"queries": [...]}`
+     wrapper; eic_eval_set.json is a bare list. Always evaluated 0
+     queries.
+  2. `from src.retrieval.hybrid_search import get_keyword_results` —
+     that module does not exist anywhere in this codebase.
+  3. `async for conn in get_db()._pool.acquire()` — a Postgres
+     full-text-search (`ts_rank`) path this codebase does NOT have.
+     src/retrieval/vector_store.py's own module docstring says so
+     explicitly: "Keyword search (Postgres ts_rank) does not have a
+     Chroma equivalent, so it is dropped from this layer... the
+     orchestrator already runs an independent BM25 + RRF pass in
+     Python" — BM25 (src/retrieval/bm25_retriever.py) IS this
+     codebase's keyword-search component. Evaluated directly, alone
+     (no RRF fusion with semantic results — that combined case is what
+     eval_end_to_end.py measures), against the same unscoped candidate
+     pool orchestrator.py builds via get_all_chunks(where=None).
+"""
 import asyncio
 import json
 import logging
+import sys
 from pathlib import Path
-from src.database.db import get_db
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from src.retrieval.bm25_retriever import retrieve_bm25
+from src.retrieval.vector_store import get_all_chunks
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 EVAL_SET_PATH = Path("data/eval/eic_eval_set.json")
+RESULTS_PATH = Path("data/eval/keyword_eval_results.json")
+
+
+def _question_text(q: dict) -> str:
+    return q.get("question_en") or q.get("question_ur") or q.get("question_roman_ur") or ""
+
 
 async def evaluate_keyword_search():
     if not EVAL_SET_PATH.exists():
         logger.error(f"Eval set not found: {EVAL_SET_PATH}")
         return
 
-    with open(EVAL_SET_PATH, 'r', encoding='utf-8') as f:
+    with open(EVAL_SET_PATH, "r", encoding="utf-8") as f:
         eval_data = json.load(f)
-    
-    queries = eval_data.get("queries", [])
+
+    queries = eval_data if isinstance(eval_data, list) else eval_data.get("queries", [])
     if not queries:
         logger.warning("No queries found in eval set.")
         return
@@ -26,42 +61,38 @@ async def evaluate_keyword_search():
     successful_recalls = 0
     mrr_sum = 0.0
 
-    logger.info(f"Starting Keyword Search (tsvector) Eval on {total_queries} queries.")
-    
-    async for conn in get_db()._pool.acquire():
-        for q in queries:
-            query_text = q.get("query_text", "")
-            expected_doc_ids = q.get("expected_doc_ids", [])
-            
-            if not query_text or not expected_doc_ids:
-                total_queries -= 1
-                continue
+    logger.info(f"Starting Keyword Search (BM25) Eval on {total_queries} queries.")
 
-            # This assumes we have a simple FTS search available in Postgres
-            # To actually simulate the keyword module, we would call the actual keyword search function
-            # E.g., src.retrieval.keyword_search.search(query_text)
-            
-            # Since this is a placeholder for the eval logic, we will call the actual retrieval function
-            try:
-                from src.retrieval.hybrid_search import get_keyword_results
-                # get_keyword_results might be sync or async
-                results = await get_keyword_results(query_text, top_k=10)
-                retrieved_ids = [res["doc_id"] for res in results]
-                
-                # Calculate Recall@10
-                hit = any(expected_id in retrieved_ids for expected_id in expected_doc_ids)
-                if hit:
-                    successful_recalls += 1
-                
-                # Calculate MRR
-                for rank, doc_id in enumerate(retrieved_ids, 1):
-                    if doc_id in expected_doc_ids:
-                        mrr_sum += 1.0 / rank
-                        break
+    # One unscoped candidate pool, built once — same pattern
+    # orchestrator.py itself uses per query (see its own get_all_chunks()
+    # call sites); reused across queries here purely because eval runs
+    # are read-only and the corpus doesn't change mid-run.
+    pool = await get_all_chunks(where=None)
 
-            except Exception as e:
-                logger.error(f"Error executing search for query '{query_text}': {e}")
-                
+    for q in queries:
+        query_text = _question_text(q)
+        expected_source_docs = q.get("expected_source_docs", [])
+
+        if not query_text or not expected_source_docs:
+            total_queries -= 1
+            continue
+
+        try:
+            results = retrieve_bm25(query_text, pool, top_k=10)
+            retrieved_sources = [r.get("metadata", {}).get("source") for r in results]
+
+            hit = any(expected in retrieved_sources for expected in expected_source_docs)
+            if hit:
+                successful_recalls += 1
+
+            for rank, source in enumerate(retrieved_sources, 1):
+                if source in expected_source_docs:
+                    mrr_sum += 1.0 / rank
+                    break
+
+        except Exception as e:
+            logger.error(f"Error executing search for query '{query_text}': {e}")
+
     recall = successful_recalls / total_queries if total_queries > 0 else 0
     mrr = mrr_sum / total_queries if total_queries > 0 else 0
 
@@ -71,14 +102,13 @@ async def evaluate_keyword_search():
     logger.info(f"MRR: {mrr:.4f}")
     logger.info("============================")
 
-    # Dump the results to a file for Go/No-Go decision
-    result_path = "data/eval/keyword_eval_results.json"
-    with open(result_path, 'w', encoding='utf-8') as f:
+    with open(RESULTS_PATH, "w", encoding="utf-8") as f:
         json.dump({
             "total_queries": total_queries,
             "recall_at_10": recall,
-            "mrr": mrr
+            "mrr": mrr,
         }, f, indent=2)
+
 
 if __name__ == "__main__":
     asyncio.run(evaluate_keyword_search())
