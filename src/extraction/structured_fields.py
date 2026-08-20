@@ -93,8 +93,32 @@ _PLATE_RE = re.compile(
     re.IGNORECASE,
 )
 
-# FIR number: FIR-YYYY-<CATEGORY>-NNN, e.g. FIR-2026-ARMS-001.
+# FIR number: FIR-YYYY-<CATEGORY>-NNN, e.g. FIR-2026-ARMS-001. This is the
+# SYNTHETIC corpus's shape (scripts/batch1_generate.py) — it matches
+# nothing against the real Muhafiz Data API's fir_display_code format
+# (see _FIR_DISPLAY_CODE_RE below), confirmed by grepping the live API's
+# 73 real FIRs during the Muhafiz Data API migration
+# (docs/decisions/0001-muhafiz-api-migration.md). Kept, not removed: any
+# residual synthetic-corpus document re-ingested still needs it, and
+# nothing downstream (graph_retriever.py's seed-candidate regex scans only
+# CNIC/phone/plate, never a FIR number) depends on this pattern covering
+# the real shape too.
 _FIR_RE = re.compile(r"\bFIR" + _SEP + r"(\d{4})" + _SEP + r"([A-Z]+)" + _SEP + r"(\d{3})\b")
+
+# Real FIR display code: NNN/YY (e.g. "891/24", "1001/26" — confirmed
+# against all 73 real FIRs in the live dataset). Deliberately label-
+# anchored (FIR | ایف آئی آر | مقدمہ نمبر within a short preceding window),
+# NOT a bare \d{1,4}\s*/\s*\d{2} pattern matched anywhere in text — an
+# unanchored version would false-positive heavily on free narrative
+# (date fragments, fractions, page/section counts all share this shape).
+# M6b's cross-silo CITES detection (src/graph/cross_silo_projection.py)
+# deliberately does NOT reuse this — it instead matches a bare number
+# against a known set of real fir_display_code values, a stronger,
+# dataset-aware filter this general-purpose module has no access to.
+_FIR_DISPLAY_CODE_RE = re.compile(
+    r"(?:FIR|ایف\s*آئی\s*آر|مقدمہ\s*نمبر)\D{0,10}(\d{1,4}\s*/\s*\d{2})\b",
+    re.IGNORECASE,
+)
 
 # Dates: ISO (YYYY-MM-DD, optionally with a time) and DD-MM-YYYY. The
 # latter shows up in rendered Urdu narrative text (IMPLEMENTATION_PLAN.md
@@ -201,12 +225,23 @@ def extract_plates(text: str) -> list[FieldMatch]:
 # ── FIR number ───────────────────────────────────────────────────────────
 
 def extract_fir_numbers(text: str) -> list[FieldMatch]:
-    """Find every FIR-number-shaped identifier (FIR-YYYY-CAT-NNN) in text."""
+    """Find every FIR-number-shaped identifier (FIR-YYYY-CAT-NNN, the
+    synthetic corpus's shape) in text."""
     norm = _normalize(text)
     out = []
     for m in _FIR_RE.finditer(norm):
         canonical = f"FIR-{m.group(1)}-{m.group(2)}-{m.group(3)}".upper()
         out.append(FieldMatch("fir_number", m.group(0), canonical, m.start(), m.end()))
+    return out
+
+
+def extract_fir_display_codes(text: str) -> list[FieldMatch]:
+    """Find every real FIR display code (NNN/YY, label-anchored) in text."""
+    norm = _normalize(text)
+    out = []
+    for m in _FIR_DISPLAY_CODE_RE.finditer(norm):
+        canonical = m.group(1).replace(" ", "")
+        out.append(FieldMatch("fir_display_code", m.group(0), canonical, m.start(), m.end()))
     return out
 
 
@@ -325,6 +360,7 @@ def extract_all(text: str) -> dict:
         "phones": extract_phones(text),
         "plates": extract_plates(text),
         "fir_numbers": extract_fir_numbers(text),
+        "fir_display_codes": extract_fir_display_codes(text),
         "dates": extract_dates(text),
         "sections": extract_section_refs(text),
     }

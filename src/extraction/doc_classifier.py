@@ -94,6 +94,15 @@ DOC_TYPES = (
     "Witness Statement",
     "Recovery Memo",
     "Missing Person Report",
+    # Added for the Muhafiz Data API migration (M7,
+    # docs/decisions/0001-muhafiz-api-migration.md) — real record types
+    # this classifier now sees for the first time via
+    # src/ingestion/muhafiz_records.py's rendered free-text Documents.
+    # "Complaint Application" and "Case Diary" already reasonably cover
+    # cms_complaint summaries and fir_zimni entries respectively; these
+    # two have no existing type close enough to reuse.
+    "PKM Service Application",
+    "Roznamcha Entry",
 )
 
 # Truncated to keep the classification call cheap — doc-type is decided by
@@ -139,12 +148,22 @@ async def classify_document(text: str) -> Optional[dict]:
         return None
 
     doc_type = parsed.get("doc_type")
-    if doc_type not in DOC_TYPES:
-        logger.warning("doc_classifier returned an unknown doc_type %r — discarding", doc_type)
-        return None
-
     dates = sf.extract_dates(text)
     date_registered, date_registered_confidence = _find_registration_date(text, dates)
+
+    if doc_type not in DOC_TYPES:
+        # M7 (Muhafiz Data API migration, docs/decisions/0001-muhafiz-api-migration.md):
+        # previously the ENTIRE result was discarded here, including
+        # date_registered — a regex-validated fact (extract_dates/
+        # _find_registration_date above), independent of whatever
+        # doc_type string the LLM produced. An unrecognized doc_type is
+        # still a real signal worth logging and still means "don't trust
+        # this doc_type" — it never meant "don't trust the date this
+        # module itself validated." doc_type comes back None (never an
+        # unvalidated LLM string) so no caller ever writes an
+        # out-of-vocabulary value onto the graph's Document.doc_type.
+        logger.warning("doc_classifier returned an unknown doc_type %r — dropping doc_type only", doc_type)
+        doc_type = None
 
     return {
         "doc_type": doc_type,

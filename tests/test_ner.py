@@ -103,6 +103,17 @@ def test_location_gazetteer_hit():
     assert any(m.text == "اسلام آباد" and m.type == "location" for m in mentions)
 
 
+def test_location_gazetteer_covers_real_multi_city_stations():
+    """
+    M7 (Muhafiz Data API migration, docs/decisions/0001-muhafiz-api-migration.md):
+    the gazetteer used to be Islamabad-only. The real dataset spans
+    Lahore/Karachi/Rawalpindi/Faisalabad/Hyderabad/Multan/Chiniot.
+    """
+    for term in ("لاہور", "کراچی", "راولپنڈی", "فیصل آباد", "ماڈل ٹاؤن", "شاہ فیصل کالونی"):
+        mentions = ner.extract_statistical(f"واقعہ {term} میں پیش آیا۔")
+        assert any(m.text == term and m.type == "location" for m in mentions), f"{term!r} not found in gazetteer"
+
+
 # ── Organization pattern ───────────────────────────────────────────────
 
 def test_gang_suffix_pattern():
@@ -232,14 +243,48 @@ async def test_llm_rejection_drops_the_candidate(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_llm_failure_keeps_candidates_unresolved_not_dropped(monkeypatch):
+async def test_llm_failure_keeps_stronger_uncertain_candidates_unresolved_not_dropped(monkeypatch):
     async def fake_call_llm(system_prompt, user_message, **kwargs):
         raise RuntimeError("model server unreachable")
 
     monkeypatch.setattr(ner, "call_llm", fake_call_llm)
 
-    text = "Inspector Fariha Saeed filed the report."
+    # Self-intro pattern, confidence 0.55 — clears
+    # _ADJUDICATION_FAILURE_SURVIVAL_FLOOR (0.50), so it degrades to
+    # "unresolved" (still present, low confidence) rather than vanishing.
+    text = "میں شہری فریحہ سعید، رہائشی ماڈل ٹاؤن ہوں۔"
     result = await ner.extract_entities(text)
-    # Degrades to "unresolved" (still present, low confidence, method
-    # statistical) rather than silently vanishing.
-    assert any("Fariha" in e["text"] for e in result)
+    assert any("فریحہ" in e["text"] or "سعید" in e["text"] for e in result)
+
+
+@pytest.mark.asyncio
+async def test_llm_failure_drops_weak_english_candidates_instead_of_flooding(monkeypatch):
+    """
+    M7 (Muhafiz Data API migration, docs/decisions/0001-muhafiz-api-migration.md):
+    closes the fail-open hole. _ENGLISH_NAME_RE's bare capitalized-run
+    candidates (confidence 0.45) are below _ADJUDICATION_FAILURE_SURVIVAL_FLOOR
+    and must now be DROPPED on an LLM failure, not passed through
+    unreviewed — the diagnosed "form-label flood" this fix exists to close.
+    """
+    async def fake_call_llm(system_prompt, user_message, **kwargs):
+        raise RuntimeError("model server unreachable")
+
+    monkeypatch.setattr(ner, "call_llm", fake_call_llm)
+
+    text = "Entry Dates: 2026-01-20"  # a form-label shape, not a real name
+    result = await ner.extract_entities(text)
+    assert not any("Entry Dates" in e["text"] for e in result)
+
+
+@pytest.mark.asyncio
+async def test_malformed_adjudication_response_also_drops_weak_candidates(monkeypatch):
+    """Same floor applies to the OTHER fail-open path — a non-list/malformed
+    LLM response, not just a raised exception."""
+    async def fake_call_llm(system_prompt, user_message, **kwargs):
+        return "not valid json at all"
+
+    monkeypatch.setattr(ner, "call_llm", fake_call_llm)
+
+    text = "Entry Dates: 2026-01-20"
+    result = await ner.extract_entities(text)
+    assert not any("Entry Dates" in e["text"] for e in result)

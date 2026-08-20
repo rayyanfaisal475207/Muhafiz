@@ -257,13 +257,24 @@ async def _run_graph_extraction(
             stats["errors"].append(f"doc_classifier: {exc}")
 
         if classification:
+            # M7 (Muhafiz Data API migration, docs/decisions/0001-muhafiz-api-migration.md):
+            # doc_classifier.classify_document() now returns doc_type=None
+            # (rather than the whole result being discarded) when the LLM
+            # names an out-of-vocabulary type, specifically so
+            # date_registered still gets written. write_node() sets every
+            # listed property unconditionally, though — including it here
+            # as a literal None would MERGE null onto doc_type and could
+            # clobber a real value from an earlier successful
+            # classification on a re-run. Omitted entirely, not written as
+            # null, when doc_type is None.
+            doc_properties = {
+                "date_registered": classification.get("date_registered"),
+                "date_registered_confidence": classification.get("date_registered_confidence"),
+            }
+            if classification["doc_type"] is not None:
+                doc_properties["doc_type"] = classification["doc_type"]
             await versioning.write_node(
-                "Document", {"doc_id": doc_id},
-                {
-                    "doc_type": classification["doc_type"],
-                    "date_registered": classification.get("date_registered"),
-                    "date_registered_confidence": classification.get("date_registered_confidence"),
-                },
+                "Document", {"doc_id": doc_id}, doc_properties,
                 source_doc_id=doc_id, confidence=classification["confidence"],
             )
             stats["doc_type"] = classification["doc_type"]

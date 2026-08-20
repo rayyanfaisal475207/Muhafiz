@@ -246,6 +246,20 @@ _LOCATION_GAZETTEER = {
     "اسلام آباد", "مارگلہ", "ترنول", "رمنہ", "گولڑہ", "شالیمار", "کوہسار",
     "سبزی منڈی", "بارہ کہو", "نیلور", "آبپارہ", "سیکرٹریٹ", "شہزاد ٹاؤن",
     "صنعتی علاقہ",
+} | {
+    # Extended for the Muhafiz Data API migration (M7, docs/decisions/
+    # 0001-muhafiz-api-migration.md) — every real district and station
+    # area-name token confirmed against the live dataset's 9 districts /
+    # 19 stations, which span Lahore/Karachi/Rawalpindi/Faisalabad/
+    # Hyderabad/Multan/Chiniot, not just Islamabad (the original list's
+    # only city). Additive, same "confidence booster, not a hard
+    # requirement" role as the set above — a real place name absent from
+    # both sets still resolves via the تھانہ-prefixed pattern's own signal.
+    "حیدر آباد", "راولپنڈی", "فیصل آباد", "لاہور", "ملتان", "چنیوٹ",
+    "کراچی", "کراچی ایسٹ", "کراچی وسطی",
+    "اقبال ٹاؤن", "برکی", "جھنگ روڈ", "راجہ بازار", "سول لائنز",
+    "شاہ فیصل کالونی", "صدر", "لطیف آباد", "ماڈل ٹاؤن", "مدینہ ٹاؤن",
+    "نیو کراچی", "وارث خان", "کوتوالی", "کینٹ",
 }
 
 
@@ -391,15 +405,46 @@ def extract_statistical(text: str, source_chunk_id: Optional[str] = None) -> lis
     return _dedupe_overlaps([m for m in out if m.text])
 
 
+# Confidence floor a statistical-only candidate must clear to survive an
+# ADJUDICATION FAILURE (LLM error or malformed response) unadjudicated.
+# Closes the fail-open hole confirmed live during the Muhafiz Data API
+# migration (M7, docs/decisions/0001-muhafiz-api-migration.md):
+# previously EVERY low-confidence candidate — including
+# _ENGLISH_NAME_RE's bare capitalized-word-run matches at confidence
+# 0.45, the diagnosed root cause of English-language form labels
+# ("Police Station:", "Entry Dates:") reaching the graph as fabricated
+# Person nodes — passed through unchanged whenever the adjudication call
+# itself failed, with no way for a caller to tell "the LLM confirmed
+# this" from "the LLM never got a chance to look at this." Below this
+# floor, a candidate is now dropped on failure rather than passed
+# through: a candidate whose ONLY signal was a bare capitalization
+# heuristic was never going to be trustworthy without the LLM's
+# judgment, so losing it on failure is not a regression from "unresolved"
+# to "deleted" the way it would be for a stronger candidate.
+# _SELF_INTRO_RE's 0.55 candidates survive a failure (they clear this
+# floor) — that pattern fires on genuine "میں <name>..."
+# self-introduction structure, not a bare capitalization heuristic, so a
+# failure there is closer to "the LLM was unavailable to confirm a
+# plausible candidate" than "this was never going to be a name."
+_ADJUDICATION_FAILURE_SURVIVAL_FLOOR = 0.50
+
+
+def _degrade_on_adjudication_failure(candidates: list[NERMention]) -> list[NERMention]:
+    return [c for c in candidates if c.confidence >= _ADJUDICATION_FAILURE_SURVIVAL_FLOOR]
+
+
 async def _adjudicate_low_confidence(
     text: str, candidates: list[NERMention]
 ) -> list[NERMention]:
     """
     Batch every low-confidence candidate from one document into a single
-    Qwen3-14B call. On any failure, returns the candidates unchanged
-    (still tagged "statistical", low confidence) rather than dropping them
-    — a failed adjudication call should degrade to "unresolved," not
-    silently delete evidence.
+    Qwen3-14B call. On failure, degrades via
+    _degrade_on_adjudication_failure() — candidates that clear
+    _ADJUDICATION_FAILURE_SURVIVAL_FLOOR pass through unchanged (a failed
+    adjudication call should degrade to "unresolved," not silently delete
+    real evidence); weaker candidates are dropped rather than flooding
+    the graph with unreviewed low-confidence noise (see that function's
+    own docstring for the diagnosed bug this closes).
     """
     if not candidates:
         return []
@@ -418,11 +463,11 @@ async def _adjudicate_low_confidence(
         )
     except Exception as exc:
         logger.warning("NER fallback LLM call failed: %s", exc)
-        return candidates
+        return _degrade_on_adjudication_failure(candidates)
 
     parsed = parse_json_response(response, context="ner_fallback")
     if not isinstance(parsed, list):
-        return candidates
+        return _degrade_on_adjudication_failure(candidates)
 
     out: list[NERMention] = []
     for item in parsed:

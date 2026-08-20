@@ -147,7 +147,22 @@ the same human-confirmation discipline before being treated as fact.
       projection + graph_review's new endpoints), including a full
       real-snapshot sweep and a regression lock on the measured 9-citation
       count.
-- [ ] **M7** — extraction adaptation + additive `police_reference_data` load.
+- [x] **M7** — extraction adaptation + additive `police_reference_data` load:
+      `structured_fields.extract_fir_display_codes()` for real `NNN/YY` codes
+      (label-anchored, additive alongside the synthetic-corpus regex);
+      `doc_classifier.DOC_TYPES` extended with 2 real record types and fixed
+      to stop discarding a validated `date_registered` when the LLM's
+      `doc_type` is unrecognized (`src/ingestion/service.py`'s write site
+      also fixed to omit rather than null out `doc_type` on a re-run);
+      `ner.py`'s location gazetteer extended from Islamabad-only to the
+      real dataset's 9 districts/19 stations; the `_adjudicate_low_confidence`
+      fail-open hole closed (a confidence floor now drops weak
+      English-capitalized-run candidates on LLM failure instead of flooding
+      the graph with unreviewed noise, while still preserving stronger
+      uncertain candidates). `scripts/load_real_offense_sections.py` —
+      additive load of the measured 36 real (section_code, act) pairs across
+      6 acts into `police_reference_data`, alongside (not replacing) the 6
+      hand-curated seed rows. ~20 new/updated tests.
 - [ ] **M8** — graph read-path/label fixes.
 - [ ] **M9** — idempotent `--full` re-ingest (incremental-sync automation
       deferred to the post-MVP real integration).
