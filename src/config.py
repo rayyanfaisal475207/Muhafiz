@@ -94,6 +94,16 @@ EXPECTED_EMBEDDING_DIM: int = int(
 EMBEDDINGS_URL: str = os.getenv("EMBEDDINGS_URL", "")
 RERANKER_URL: str = os.getenv("RERANKER_URL", "")
 
+# Graph Scale & Schema Expansion, Milestone A3: the model server's /embed
+# route takes one text per request (no batch parameter — a {"texts": [...]}
+# payload 422s, per src/retrieval/embedder.py's own comment), so "batched"
+# here means bounded WORKER CONCURRENCY rather than one larger request —
+# this many requests may be in flight to EMBEDDINGS_URL at once, replacing
+# the old sequential-with-0.3s-pacing loop. Conservative default: still
+# polite to a free-tier ngrok tunnel, but throughput now scales with this
+# number instead of staying wall-clock-linear in corpus size.
+EMBEDDING_MAX_CONCURRENCY: int = int(os.getenv("EMBEDDING_MAX_CONCURRENCY", "8"))
+
 
 # ── ChromaDB ─────────────────────────────────────────────────────────────────
 CHROMA_PERSIST_DIR: Path = Path(
