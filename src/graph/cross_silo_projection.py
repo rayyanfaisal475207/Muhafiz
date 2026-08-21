@@ -25,6 +25,14 @@
 #      (employer/employee) applications, same soft-reference-by-CNIC
 #      discipline as REGISTERED_TO above — see _write_pkm_relationship().
 #
+#      Milestone C4 (GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md — cross-version
+#      edge) adds `CROSS_VERSION_OF{filed_by}` between two Case nodes from
+#      `psrms.cross_version` (`related_fir_display_code` soft-referencing
+#      the OTHER FIR, exactly like PKM's `forwarded_fir_number` does) —
+#      same exact-key-join, no-heuristic tier as the joins above, distinct
+#      from CITES below (a confirmed structured field, not a prose regex
+#      hit) — see project_fir_cross_versions().
+#
 #   2. FIR->FIR PROSE CITATIONS (written as `CITES`, always `pending`) —
 #      a regex hit against free text carries the same false-positive risk
 #      profile as entity_resolution.py's name-based SAME_AS candidates, so
@@ -407,6 +415,67 @@ async def project_criminal_record(
     except Exception as exc:
         logger.warning("Criminal record projection failed for %s: %s", record.record_id, exc)
         stats["errors"].append(str(exc))
+
+    return stats
+
+
+# ── FIR -> FIR cross-version (CROSS_VERSION_OF, written directly) ───────
+
+async def project_fir_cross_versions(
+    fir: FirRecord, display_code_index: dict[str, str],
+    *, graph: str = age_client.GRAPH_NAME,
+) -> dict:
+    """
+    Milestone C4 (GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md — cross-version
+    edge): writes `CROSS_VERSION_OF{filed_by}` Case->Case edges from
+    `psrms.cross_version` — `related_fir_display_code` is a SOFT REFERENCE
+    to the other, independently registered FIR (muhafiz_schema.dbml.txt),
+    resolved through the exact same `display_code_index`
+    (`src/ingestion/muhafiz_cases.build_display_code_index()`) PKM's
+    `forwarded_fir_number`/CITES' cited-code resolution already use — not
+    a second lookup mechanism.
+
+    Written DIRECTLY, confidence=1.0, no `status: "pending"` — this is a
+    CONFIRMED structured field (a real column on a real table), the same
+    "structured field, no heuristic" tier as the CNIC-based criminal-record
+    join and REGISTERED_TO above, distinct from CITES just below (a regex
+    hit against free prose, always `pending`, reviewed through
+    `graph_review.py`'s queue). No confidence scoring here — there is
+    nothing to score.
+
+    Called as its OWN pass after every FIR's Case node has been provisioned
+    (same ordering dependency CITES already has — see this module's own
+    docstring — `related_fir_display_code` may name a FIR that hasn't been
+    projected yet on the FIRST pass of a fresh sync; a stale/partial graph
+    self-heals on the next `--full` re-projection once both sides exist).
+
+    Currently 0 populated `cross_version` rows in the live dataset
+    (`muhafiz_schema.dbml.txt`: "NOT OBSERVED as a populated tab in the
+    source material") — this path is exercised against a constructed
+    fixture in tests, not a real-snapshot count lock (unlike CITES's own
+    M6b test, which had 9 real examples to lock in).
+    """
+    stats = {"cross_version_written": 0, "errors": []}
+    doc_id = f"psrms/fir/{fir.fir_id}#structured"
+
+    for row in fir.child_rows("cross_version"):
+        related_code = (row.get("related_fir_display_code") or "").replace(" ", "")
+        if not related_code:
+            continue
+        related_fir_id = display_code_index.get(related_code)
+        if not related_fir_id or related_fir_id == fir.fir_id:
+            continue
+        try:
+            edge = await versioning.write_edge(
+                "CROSS_VERSION_OF", "Case", {"case_id": fir.fir_id}, "Case", {"case_id": related_fir_id},
+                {"filed_by": row.get("filed_by")},
+                source_doc_id=doc_id, confidence=1.0, graph=graph,
+            )
+            if edge:
+                stats["cross_version_written"] += 1
+        except Exception as exc:
+            logger.warning("CROSS_VERSION_OF write failed for %s -> %s: %s", fir.fir_id, related_fir_id, exc)
+            stats["errors"].append(f"cross_version[{related_code}]: {exc}")
 
     return stats
 
