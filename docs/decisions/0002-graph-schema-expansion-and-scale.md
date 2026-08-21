@@ -1,7 +1,7 @@
-# 0002 — Graph scale prerequisites and schema expansion (Milestones A–B)
+# 0002 — Graph scale prerequisites and schema expansion (Milestones A–C)
 
-**Status:** in progress (Milestones A and B; see checklist at the bottom)
-**Date:** 2026-08-21
+**Status:** in progress (Milestones A, B, and C complete; see checklists
+at the bottom of each section) **Date:** 2026-08-21
 
 ## Context
 
@@ -19,10 +19,13 @@ station/province deployment volume (thousands to millions of FIRs):
 3. `embedder.py`'s embedding pipeline — one HTTP request per chunk, paced
    0.3s apart, wall-clock linear in corpus size.
 
-This ADR covers Milestones A (the three scale-prerequisite modules, A1–A3)
-and B (schema depth: jurisdiction/officer nodes) — Milestones C–F (person-
-relationship edges, queue-scale resolution, query-time scoping,
-documentation) are out of scope here and were not started.
+This ADR covers Milestones A (the three scale-prerequisite modules, A1–A3),
+B (schema depth: jurisdiction/officer nodes), and C (the remaining
+structured-field gaps: person-relationship edges, chalaan name
+resolution, zimni officer/position timeline, cross-version edge, typed
+recovered property, witness home jurisdiction, and the ethnicity/religion
+governance record) — Milestones D–F (queue-scale resolution, query-time
+scoping, documentation) are out of scope here and were not started.
 
 Apache AGE stays the graph store (confirmed decision, not revisited by this
 work) — every module below is additive Postgres-side state alongside it,
@@ -940,7 +943,48 @@ No-duplication check — ran the exact same `--full` re-sync a SECOND time:
 **8/0 edges, identical after both runs** (73/73 `Case` nodes also
 unchanged).
 
-## Status: Milestone C in progress
+## C7 — Sensitive-field governance: ethnicity/religion (docs only, no code)
+
+**Decision:** `fir_witness.ethnicity`/`fir_witness.religion` are **never
+ingested** — this is the default, and it stays the default until/unless
+there is a specific, deliberate policy sign-off to do otherwise.
+
+This is not a gap C1–C6 left open by accident: `muhafiz_schema.dbml.txt`
+flags both fields itself, in its own words, as "SENSITIVE — real field on
+the Witness tab, confirm with the team whether to actually populate it."
+No module in this milestone (or any earlier one) reads either field.
+Concretely: `structured_projection.py`'s `_person_mention()` — the one
+function every `fir_witness` row's mention dict is built through — copies
+an explicit, fixed whitelist of keys (`cnic`, `father_name`,
+`address_text`, `phone`); `ethnicity`/`religion` are not on that list, so
+they are silently dropped at the mention-building step, never reaching
+`resolve_structured_person()`, `versioning.write_node()`, or any
+`StructuredRecord` property dict. A grep of the entire `src/` tree for
+either field name, run while writing this record, returns zero matches —
+the exclusion is total, not partial.
+
+**Why recorded now, not deferred to Milestone F's ADR:** the plan's own
+text names "the new ADR (Milestone F)" as this decision's eventual
+home, but Milestone F may not land for a while yet, and this repository's
+own discipline — established by Milestones A and B, both landing their
+docs with the code rather than batching — is to record a decision when
+it's made, not when a future milestone happens to get around to writing
+it up. The M1–M12 migration's name-fallback accepted-risk decision got
+this same treatment (recorded in `docs/decisions/0001-...` as its own
+change landed); this is the identical discipline applied to a governance
+decision that has no code change to accompany it, only the schema's own
+explicit flag and this milestone's confirmation that the default was
+actually honored end-to-end.
+
+**Scope of this decision:** it covers exactly these two fields on
+`fir_witness`, per the schema's own flag. It does not extend a blanket
+policy to other fields not similarly flagged, and it does not preclude a
+future, deliberate decision to populate them — that would require its
+own explicit sign-off and its own ADR entry recording the reasoning,
+exactly as this entry records the reasoning for the current default. Not
+a branch, not a code change — this section IS the governance record.
+
+## Status: Milestone C complete
 
 - [x] **C1** — person-relationship edges. `migrations/025_related_to_label.sql`,
       `structured_projection.py`'s `_write_victim()`/`_write_related_to()`,
@@ -998,3 +1042,19 @@ unchanged).
       `Person->District` edges (matching 0/37), no-clobber check
       confirmed a real station's name survived the round-trip, no
       duplication across two `--full` re-syncs.
+- [x] **C7** — sensitive-field governance (ethnicity/religion), docs
+      only, no code. See its own section above — default is never
+      ingest, confirmed still total across every C1–C6 write path (a
+      full-tree grep for either field name in `src/` returns zero
+      matches).
+
+All six code modules (C1–C6) landed as their own branch, merged
+`--no-ff` into local `main`, full test suite green at every step,
+live-verified against the real Postgres/AGE instance (`muhafiz-postgres`,
+confirmed reachable before this milestone started) — real-data counts
+where real data exists (C1: 24, C2: 57, C3: 62/94, C6: 8/0), a
+constructed-fixture injection run live where it doesn't (C4, C5), with
+every fixture-only edge confirmed to self-heal back out once the real
+snapshot was re-synced. C7 landed as a docs-only record, no branch.
+Nothing pushed to `origin`. Milestones D–F were not started — out of
+scope for this pass.
