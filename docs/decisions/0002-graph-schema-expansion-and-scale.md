@@ -874,6 +874,72 @@ fixture-only edges (confirmed back to 0 `recovered`-role `APPEARS_IN`
 edges), with every other Milestone B/C edge count (`RELATED_TO` at 24)
 unchanged by the round-trip.
 
+## C6 — Witness home jurisdiction
+
+**Decision:** `fir_witness.police_station_of_residence_id`/
+`other_district` -> a `LOCATED_AT`-style edge (`Person -> PoliceStation`
+or `Person -> District`) to the witness's HOME jurisdiction — distinct
+from the case's own filing jurisdiction (`Case-[FILED_AT]->PoliceStation`,
+B1). `src/graph/structured_projection.py`'s new
+`_write_witness_home_jurisdiction()`, called from `_write_witnesses()`
+per witness after resolution.
+
+**Real API shape verified before assuming it, per the plan's explicit
+instruction** — `police_station_of_residence_id` is a BARE id string
+(e.g. `"PS-FSD-CIVILLINES"`), confirmed against
+`tests/fixtures/muhafiz_api_snapshot.json` directly, never a nested
+object the way `FirRecord.police_station` is. It matches B1's own
+`PoliceStation.station_id` values exactly (confirmed against the live
+graph before writing any code: `PS-FSD-CIVILLINES`/`PS-LHR-MODELTOWN`/
+`PS-LHR-BARKI` already exist as B1-written nodes).
+
+This MUST MERGE onto the SAME `PoliceStation`/`District` nodes B1 already
+writes, not a second, parallel node set — so this reuses B1's exact
+identity keys (`{"station_id": ...}`/`{"district_id": ...}`), never a
+locally-invented one. The `PoliceStation` write uses EMPTY properties
+(`write_node()`'s SET clause is then a no-op on the property side) so a
+witness-only reference to a station never overwrites a real name/code B1
+already populated for that station from its own filing-side data — a
+dedicated test (`test_home_station_written_with_empty_properties_never_
+clobbers_filing_station`) asserts this directly, and the live run below
+confirms the real station's name survived the round-trip.
+
+`other_district` (never observed populated live — 0/37 in the recorded
+snapshot) is the fallback when no `police_station_of_residence_id` is on
+file: a direct `Person -> District` edge, keyed the same id-or-name way
+B1's own `_district_identity()` already tolerates for a bare-string
+district. Station takes priority when both are present — mutually
+exclusive in this design.
+
+No new elabel/migration — `LOCATED_AT`/`PoliceStation`/`District` already
+exist; this is a second, semantically-consistent reuse of `LOCATED_AT`
+(first written for Person->Address), same edge-label-reuse precedent as
+B1's own `PART_OF` reuse.
+
+### §7-B verification — measured, not assumed
+
+Cypher assertions run against the real Postgres/AGE instance after a
+`--full` re-sync of the complete 73-FIR corpus:
+
+```
+MATCH (p:Person)-[r:LOCATED_AT]->(s:PoliceStation) RETURN p.canonical_name, s.station_id
+MATCH (p:Person)-[r:LOCATED_AT]->(d:District) RETURN p.canonical_name, d.district_id
+```
+
+**Result: 8 `Person->PoliceStation` edges, 0 `Person->District` edges** —
+matching the measured real data exactly (8/37 real witnesses carry
+`police_station_of_residence_id`, 0/37 carry `other_district`).
+
+**No-clobber check** (the specific risk this module's empty-properties
+design guards against): `PS-FSD-CIVILLINES` (one of the 8 witness-linked
+stations, also a real filing station on other FIRs) still carries its
+real name (`"تھانہ سول لائنز، فیصل آباد"`) after the sync — the witness
+write did not blank it. `FILED_AT` edges also unchanged at 73/73.
+
+No-duplication check — ran the exact same `--full` re-sync a SECOND time:
+**8/0 edges, identical after both runs** (73/73 `Case` nodes also
+unchanged).
+
 ## Status: Milestone C in progress
 
 - [x] **C1** — person-relationship edges. `migrations/025_related_to_label.sql`,
@@ -923,3 +989,12 @@ unchanged by the round-trip.
       row) — both resolved and edge-matched exactly, no duplication
       across two `--full` re-syncs, graph correctly restored once the
       real (unmodified) snapshot was re-synced.
+- [x] **C6** — witness home jurisdiction.
+      `structured_projection.py`'s `_write_witness_home_jurisdiction()`.
+      New tests in `tests/test_structured_projection.py`
+      (`TestWitnessHomeJurisdiction`). Full suite green. Live-verified
+      against real Postgres/AGE per §7-B above — 8 `Person->PoliceStation`
+      edges (matching the measured 8/37 real witnesses), 0
+      `Person->District` edges (matching 0/37), no-clobber check
+      confirmed a real station's name survived the round-trip, no
+      duplication across two `--full` re-syncs.
