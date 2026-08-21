@@ -186,6 +186,35 @@ class PkmApplication:
             return rec.get("forwarded_fir_number")
         return None
 
+    # Milestone C1 (GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md — person-relationship
+    # edges): nested person objects for tenant_registration/employee_registration
+    # applications. Not observed populated in the live dataset (0 of 14 real
+    # PKM applications are either service type — measured against
+    # tests/fixtures/muhafiz_api_snapshot.json), so this shape is inferred by
+    # direct analogy to `applicant` above (the one nested-person enrichment
+    # confirmed live, on every application regardless of service type) and
+    # API_CONSUMER_GUIDE.md's own text ("It also includes available
+    # applicant, police-station, employee, tenant... references" — listed as
+    # its own top-level references, the same tier as `applicant`/
+    # `police_station`, not nested inside the service-specific sub-object).
+    # Flagged here the same way the schema itself flags victim_name/
+    # cross_version as inferred-not-confirmed, rather than silently assumed.
+    @property
+    def owner(self) -> dict:
+        return self.raw.get("owner") or {}
+
+    @property
+    def tenant(self) -> dict:
+        return self.raw.get("tenant") or {}
+
+    @property
+    def employer(self) -> dict:
+        return self.raw.get("employer") or {}
+
+    @property
+    def employee(self) -> dict:
+        return self.raw.get("employee") or {}
+
 
 @dataclass(frozen=True)
 class CriminalRecord:

@@ -98,6 +98,11 @@ EDGE_LABELS = (
     # reasoning: without this, a second `--full` run would duplicate (not
     # correctly re-chain) every officer's ASSIGNED_TO edge.
     "ASSIGNED_TO",
+    # Milestone C1 (structured_projection.py's `_write_accused()`/
+    # `_write_related_to()`, cross_silo_projection.py's
+    # `_write_pkm_relationship()`) — same reasoning, RELATED_TO duplication
+    # on a second `--full` run.
+    "RELATED_TO",
 )
 
 

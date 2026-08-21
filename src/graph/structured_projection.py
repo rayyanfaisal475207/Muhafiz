@@ -70,6 +70,21 @@
 #     append-only assignment history (a supersession chain across
 #     investigating-officer reassignments — see _write_investigating_
 #     officers() below).
+#   - RELATED_TO {role} edges between Person nodes (Milestone C1,
+#     GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md — person-relationship edges),
+#     from fir_accused.relationship_to_victim/relationship_to_complainant.
+#     `role` carries the raw relationship text as recorded (e.g. "اجنبی",
+#     "بھائی") — same "structured field, no heuristic" tier as OWNS/OCCURRED_ON
+#     above, written directly with confidence=1.0, no SAME_AS/pending step.
+#     Direction is accused -> victim/complainant (the edge describes the
+#     accused's relationship to the other party). victim_name has no
+#     structured identity of its own on the schema (no CNIC, no separate
+#     victim table) — a single bare-name Person is resolved for it via
+#     the same resolve_structured_person() corroboration-gate discipline
+#     every other no-CNIC structured mention in this module already goes
+#     through (see _write_victim() below), rather than inventing a second,
+#     looser path just because this is the one caller with nothing but a
+#     name.
 #
 # Every write here is source_doc_id-tagged to the synthetic "#structured"
 # Document, so provenance ("what does the system believe, from where") is
@@ -321,6 +336,20 @@ def _person_mention(raw: dict, *, name_key: str = "full_name") -> Optional[dict]
     return mention
 
 
+def _victim_mention(fir: FirRecord) -> Optional[dict]:
+    """
+    `FirRecord.raw["victim_name"]` — a bare name, nothing else (no CNIC, no
+    father_name/address on the schema for a victim; muhafiz_schema.dbml.txt
+    flags the field itself as "NOT OBSERVED... added on direct instruction
+    despite this. No injury or relationship field added alongside it").
+    Measured live: 9/73 FIRs carry one.
+    """
+    name = fir.raw.get("victim_name")
+    if not name:
+        return None
+    return {"canonical_name": name, "extraction_confidence": 1.0}
+
+
 def _complainant_mention(fir: FirRecord) -> Optional[dict]:
     name = fir.raw.get("complainant_full_name")
     if not name:
@@ -490,8 +519,15 @@ async def project_fir(fir: FirRecord, *, graph: str = age_client.GRAPH_NAME) -> 
 
         accused_by_name: dict[str, str] = {}  # in-FIR only, for weapon matching below
 
-        await _write_complainant(fir, case_id, doc_id, incident_id, graph, stats)
-        await _write_accused(fir, case_id, doc_id, incident_id, graph, stats, accused_by_name)
+        # Victim/complainant resolved before accused so their entity_ids
+        # are available for _write_accused's RELATED_TO writes (Milestone
+        # C1) — order matters here, unlike the rest of this function.
+        victim_entity_id = await _write_victim(fir, case_id, doc_id, incident_id, graph, stats)
+        complainant_entity_id = await _write_complainant(fir, case_id, doc_id, incident_id, graph, stats)
+        await _write_accused(
+            fir, case_id, doc_id, incident_id, graph, stats, accused_by_name,
+            complainant_entity_id, victim_entity_id,
+        )
         await _write_witnesses(fir, case_id, doc_id, incident_id, graph, stats)
         await _write_weapons(fir, case_id, doc_id, graph, stats, accused_by_name)
         await _write_structured_records(fir, case_id, doc_id, graph, stats)
@@ -506,10 +542,40 @@ async def project_fir(fir: FirRecord, *, graph: str = age_client.GRAPH_NAME) -> 
 
 # ── people ────────────────────────────────────────────────────────────────
 
-async def _write_complainant(fir, case_id, doc_id, incident_id, graph, stats) -> None:
+async def _write_victim(fir, case_id, doc_id, incident_id, graph, stats) -> Optional[str]:
+    """
+    Milestone C1: a Person node for `FirRecord.victim_name`, resolved
+    through the same corroboration-gated resolve_structured_person() path
+    as complainant/accused/witness — a bare name with no CNIC otherwise
+    gets the identical no-CNIC treatment every other structured mention in
+    this module gets. Returns the resolved entity_id, or None when this
+    FIR carries no victim_name at all (the majority case, measured live:
+    9/73). This entity_id is what fir_accused.relationship_to_victim's
+    RELATED_TO edges (_write_accused below) attach to.
+    """
+    mention = _victim_mention(fir)
+    if not mention:
+        return None
+    try:
+        resolution = await resolve_structured_person(mention, case_id, doc_id, graph=graph)
+        stats["persons_resolved"] += 1
+        await versioning.write_edge(
+            "INVOLVED_IN", "Person", {"entity_id": resolution["entity_id"]},
+            "Incident", {"entity_id": incident_id}, {"role": "victim"},
+            source_doc_id=doc_id, confidence=1.0, graph=graph,
+        )
+        stats["edges_written"] += 1
+        return resolution["entity_id"]
+    except Exception as exc:
+        logger.warning("Victim write failed for %s: %s", fir.fir_id, exc)
+        stats["errors"].append(f"victim: {exc}")
+        return None
+
+
+async def _write_complainant(fir, case_id, doc_id, incident_id, graph, stats) -> Optional[str]:
     mention = _complainant_mention(fir)
     if not mention:
-        return
+        return None
     try:
         resolution = await resolve_structured_person(mention, case_id, doc_id, graph=graph)
         stats["persons_resolved"] += 1
@@ -521,12 +587,36 @@ async def _write_complainant(fir, case_id, doc_id, incident_id, graph, stats) ->
         stats["edges_written"] += 1
         if mention.get("address_text"):
             await _write_located_at(resolution["entity_id"], mention["address_text"], doc_id, graph, stats)
+        return resolution["entity_id"]
     except Exception as exc:
         logger.warning("Complainant write failed for %s: %s", fir.fir_id, exc)
         stats["errors"].append(f"complainant: {exc}")
+        return None
 
 
-async def _write_accused(fir, case_id, doc_id, incident_id, graph, stats, accused_by_name: dict) -> None:
+async def _write_related_to(
+    from_entity_id: str, to_entity_id: str, role: str, doc_id: str, graph: str, stats: dict,
+) -> None:
+    """
+    Milestone C1: RELATED_TO {role} — `role` is the raw
+    relationship_to_victim/relationship_to_complainant text as recorded on
+    the accused row (e.g. "اجنبی", "بھائی"). Direction is always
+    accused -> victim/complainant, describing the accused's relationship
+    to the other party. Written directly, confidence=1.0, no SAME_AS/
+    pending step — same "structured field, no heuristic" tier as OWNS/
+    OCCURRED_ON elsewhere in this module.
+    """
+    await versioning.write_edge(
+        "RELATED_TO", "Person", {"entity_id": from_entity_id}, "Person", {"entity_id": to_entity_id},
+        {"role": role}, source_doc_id=doc_id, confidence=1.0, graph=graph,
+    )
+    stats["edges_written"] += 1
+
+
+async def _write_accused(
+    fir, case_id, doc_id, incident_id, graph, stats, accused_by_name: dict,
+    complainant_entity_id: Optional[str] = None, victim_entity_id: Optional[str] = None,
+) -> None:
     for a in fir.child_rows("fir_accused"):
         mention = _person_mention(a)
         if not mention:
@@ -548,6 +638,16 @@ async def _write_accused(fir, case_id, doc_id, incident_id, graph, stats, accuse
                 await _write_occurred_on_edge(
                     "Person", resolution["entity_id"], a["arrested_date"],
                     {"event_type": "arrest"}, doc_id, graph, stats,
+                )
+            if victim_entity_id and a.get("relationship_to_victim"):
+                await _write_related_to(
+                    resolution["entity_id"], victim_entity_id, a["relationship_to_victim"],
+                    doc_id, graph, stats,
+                )
+            if complainant_entity_id and a.get("relationship_to_complainant"):
+                await _write_related_to(
+                    resolution["entity_id"], complainant_entity_id, a["relationship_to_complainant"],
+                    doc_id, graph, stats,
                 )
         except Exception as exc:
             logger.warning("Accused write failed for %s in %s: %s", a.get("full_name"), fir.fir_id, exc)
