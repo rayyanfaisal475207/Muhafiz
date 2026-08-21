@@ -85,6 +85,15 @@
 #     through (see _write_victim() below), rather than inventing a second,
 #     looser path just because this is the one caller with nothing but a
 #     name.
+#   - chalaan_dispatch.accused_names/witness_names resolved back to this
+#     FIR's own already-written Person nodes (Milestone C2,
+#     GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md — chalaan name resolution), via
+#     APPEARS_IN{role: "chalaan_accused"|"chalaan_witness"} edges. Reuses
+#     the EXACT SAME in-FIR-only name-matching pattern
+#     weapon_register.recovered_from already uses (accused_by_name, built
+#     during _write_accused()) — plus a parallel witness_by_name built
+#     during _write_witnesses() — never a global name lookup across the
+#     whole graph (see _write_chalaan_name_links() below).
 #
 # Every write here is source_doc_id-tagged to the synthetic "#structured"
 # Document, so provenance ("what does the system believe, from where") is
@@ -94,6 +103,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Optional
 
 from src import config
@@ -518,6 +528,7 @@ async def project_fir(fir: FirRecord, *, graph: str = age_client.GRAPH_NAME) -> 
         await _write_occurred_on(fir, incident_id, doc_id, graph, stats)
 
         accused_by_name: dict[str, str] = {}  # in-FIR only, for weapon matching below
+        witness_by_name: dict[str, str] = {}  # in-FIR only, for chalaan name resolution (C2) below
 
         # Victim/complainant resolved before accused so their entity_ids
         # are available for _write_accused's RELATED_TO writes (Milestone
@@ -528,9 +539,9 @@ async def project_fir(fir: FirRecord, *, graph: str = age_client.GRAPH_NAME) -> 
             fir, case_id, doc_id, incident_id, graph, stats, accused_by_name,
             complainant_entity_id, victim_entity_id,
         )
-        await _write_witnesses(fir, case_id, doc_id, incident_id, graph, stats)
+        await _write_witnesses(fir, case_id, doc_id, incident_id, graph, stats, witness_by_name)
         await _write_weapons(fir, case_id, doc_id, graph, stats, accused_by_name)
-        await _write_structured_records(fir, case_id, doc_id, graph, stats)
+        await _write_structured_records(fir, case_id, doc_id, graph, stats, accused_by_name, witness_by_name)
         await _write_officers(fir, case_id, doc_id, graph, stats)
 
     except Exception as exc:
@@ -654,7 +665,7 @@ async def _write_accused(
             stats["errors"].append(f"accused[{a.get('id')}]: {exc}")
 
 
-async def _write_witnesses(fir, case_id, doc_id, incident_id, graph, stats) -> None:
+async def _write_witnesses(fir, case_id, doc_id, incident_id, graph, stats, witness_by_name: dict) -> None:
     for w in fir.child_rows("fir_witness"):
         mention = _person_mention(w)
         if not mention:
@@ -662,6 +673,7 @@ async def _write_witnesses(fir, case_id, doc_id, incident_id, graph, stats) -> N
         try:
             resolution = await resolve_structured_person(mention, case_id, doc_id, graph=graph)
             stats["persons_resolved"] += 1
+            witness_by_name[w["full_name"]] = resolution["entity_id"]
             await versioning.write_edge(
                 "INVOLVED_IN", "Person", {"entity_id": resolution["entity_id"]},
                 "Incident", {"entity_id": incident_id}, {"role": "witness"},
@@ -737,7 +749,73 @@ async def _write_weapons(fir, case_id, doc_id, graph, stats, accused_by_name: di
 
 # ── structured records (typed rows with no identity of their own) ───────
 
-async def _write_structured_records(fir, case_id, doc_id, graph, stats) -> None:
+# Milestone C2 (GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md — chalaan name
+# resolution): splits chalaan_dispatch.accused_names/witness_names on the
+# same Urdu-or-ASCII comma boundary structured_fields.py already splits
+# section-reference lists on ("، U+060C" is the corpus convention, ASCII
+# comma also observed) — measured live: "محمد عدنان, عمران قریشی" mixes
+# both. Not imported from structured_fields.py (that module's own split
+# regex is scoped to a different field, section references), but the same
+# two-character class.
+_NAME_LIST_SPLIT_RE = re.compile(r"[,،]")
+
+
+def _split_name_list(text: Optional[str]) -> list[str]:
+    if not text:
+        return []
+    return [p.strip() for p in _NAME_LIST_SPLIT_RE.split(text) if p.strip()]
+
+
+async def _write_chalaan_name_links(
+    row: dict, record_id: str, doc_id: str, graph: str, stats: dict,
+    accused_by_name: dict, witness_by_name: dict,
+) -> None:
+    """
+    Milestone C2: resolves chalaan_dispatch.accused_names/witness_names
+    back to the FIR's OWN already-written Person nodes — reusing the exact
+    same in-FIR-only name-matching pattern weapon_register.recovered_from
+    already uses (_write_weapons's accused_by_name dict above), not a new
+    global-matching mechanism. Global matching here would reintroduce the
+    same name-collision risk the corroboration gate exists to guard
+    against elsewhere in this module: a name with no match in THIS FIR's
+    own accused/witness dicts is simply left unresolved, never looked up
+    across the whole graph.
+
+    APPEARS_IN (Person -> StructuredRecord) is the edge — the same label
+    already used for "this entity appears in this record/document"
+    elsewhere in this module (Weapon/StructuredRecord -> Document), reused
+    here for a chalaan_dispatch record naming a person, rather than a new
+    edge label for what is the same relationship shape.
+    """
+    for name in _split_name_list(row.get("accused_names")):
+        entity_id = accused_by_name.get(name)
+        if not entity_id:
+            continue
+        edge = await versioning.write_edge(
+            "APPEARS_IN", "Person", {"entity_id": entity_id}, "StructuredRecord", {"record_id": record_id},
+            {"role": "chalaan_accused", "surface_text": name},
+            source_doc_id=doc_id, confidence=1.0, graph=graph,
+        )
+        if edge:
+            stats["edges_written"] += 1
+
+    for name in _split_name_list(row.get("witness_names")):
+        entity_id = witness_by_name.get(name)
+        if not entity_id:
+            continue
+        edge = await versioning.write_edge(
+            "APPEARS_IN", "Person", {"entity_id": entity_id}, "StructuredRecord", {"record_id": record_id},
+            {"role": "chalaan_witness", "surface_text": name},
+            source_doc_id=doc_id, confidence=1.0, graph=graph,
+        )
+        if edge:
+            stats["edges_written"] += 1
+
+
+async def _write_structured_records(
+    fir, case_id, doc_id, graph, stats,
+    accused_by_name: Optional[dict] = None, witness_by_name: Optional[dict] = None,
+) -> None:
     for table in _STRUCTURED_RECORD_TABLES:
         for row in fir.child_rows(table):
             row_id = row.get("id")
@@ -764,6 +842,12 @@ async def _write_structured_records(fir, case_id, doc_id, graph, stats) -> None:
                 )
                 stats["structured_records"] += 1
                 stats["edges_written"] += 2
+
+                if table == "chalaan_dispatch":
+                    await _write_chalaan_name_links(
+                        row, record_id, doc_id, graph, stats,
+                        accused_by_name or {}, witness_by_name or {},
+                    )
             except Exception as exc:
                 logger.warning("StructuredRecord write failed for %s in %s: %s", table, fir.fir_id, exc)
                 stats["errors"].append(f"structured_record[{table}:{row_id}]: {exc}")

@@ -630,6 +630,77 @@ class TestPersonRelationshipEdges:
         assert {e["properties"]["role"] for e in related} == {"اجنبی", "پڑوسی"}
 
 
+class TestChalaanNameResolution:
+    """Milestone C2 — chalaan_dispatch.accused_names/witness_names resolved
+    back to this FIR's own Person nodes, reusing the same in-FIR-only
+    name-matching pattern weapon_register.recovered_from already uses."""
+
+    async def test_matched_accused_and_witness_names_get_appears_in(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(
+            fir_accused=[{"id": "a1", "full_name": "طارق", "cnic": "00000-2000000-1"}],
+            fir_witness=[{"id": "w1", "full_name": "وقاص", "cnic": "00000-3000000-1"}],
+            chalaan_dispatch=[{"id": "cd1", "accused_names": "طارق", "witness_names": "وقاص"}],
+        )
+        await sp.project_fir(fir)
+        appears = [
+            e for e in graph_calls["edges"]
+            if e["edge_label"] == "APPEARS_IN" and e["from_label"] == "Person"
+            and e["to_label"] == "StructuredRecord"
+        ]
+        assert len(appears) == 2
+        roles = {e["properties"]["role"] for e in appears}
+        assert roles == {"chalaan_accused", "chalaan_witness"}
+        assert all(e["to_match"] == {"record_id": "chalaan_dispatch:cd1"} for e in appears)
+
+    async def test_comma_separated_names_both_urdu_and_ascii_comma(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(
+            fir_accused=[
+                {"id": "a1", "full_name": "طارق", "cnic": "00000-2000000-1"},
+                {"id": "a2", "full_name": "عدنان", "cnic": "00000-2000000-2"},
+            ],
+            chalaan_dispatch=[{"id": "cd1", "accused_names": "طارق، عدنان"}],
+        )
+        await sp.project_fir(fir)
+        appears = [
+            e for e in graph_calls["edges"]
+            if e["edge_label"] == "APPEARS_IN" and e["properties"].get("role") == "chalaan_accused"
+        ]
+        assert len(appears) == 2
+        assert {e["properties"]["surface_text"] for e in appears} == {"طارق", "عدنان"}
+
+    async def test_name_not_matching_any_in_fir_accused_is_left_unresolved(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(
+            fir_accused=[{"id": "a1", "full_name": "طارق", "cnic": "00000-2000000-1"}],
+            chalaan_dispatch=[{"id": "cd1", "accused_names": "کوئی اور نام"}],
+        )
+        await sp.project_fir(fir)
+        appears = [
+            e for e in graph_calls["edges"]
+            if e["edge_label"] == "APPEARS_IN" and e["properties"].get("role") == "chalaan_accused"
+        ]
+        assert appears == []
+
+    async def test_no_chalaan_dispatch_rows_writes_no_name_links(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(
+            fir_accused=[{"id": "a1", "full_name": "طارق", "cnic": "00000-2000000-1"}],
+        )
+        await sp.project_fir(fir)
+        appears = [
+            e for e in graph_calls["edges"]
+            if e["edge_label"] == "APPEARS_IN"
+            and e["properties"].get("role") in ("chalaan_accused", "chalaan_witness")
+        ]
+        assert appears == []
+
+
 # ── against the real snapshot ────────────────────────────────────────────
 
 class TestAgainstRealSnapshot:
