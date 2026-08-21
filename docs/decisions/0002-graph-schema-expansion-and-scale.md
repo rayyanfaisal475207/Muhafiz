@@ -512,5 +512,104 @@ started — out of scope for this pass.
 Both B1 and B2 landed as their own branch (`feature/jurisdiction-graph-
 nodes`, `feature/officer-identity-resolution`), merged `--no-ff` into
 local `main`, full test suite green at every step, live-verified against
-the real Postgres/AGE instance. Nothing pushed to `origin`. Milestones
-C–F were not started — out of scope for this pass.
+the real Postgres/AGE instance. Nothing pushed to `origin`.
+
+## Milestone C — closing the remaining structured-field gaps
+
+Before starting: `muhafiz-postgres` was confirmed actually reachable, not
+assumed still up from Milestone B — a real query against `evidence_graph`
+(`MATCH (c:Case) RETURN count(c)`) returned 73, matching B1's own recorded
+count, before any C-module work began.
+
+## C1 — Person-relationship edges
+
+**Decision:** `RELATED_TO{role}` elabel (`migrations/025_related_to_label.sql`),
+written directly (confidence=1.0, no SAME_AS/pending step) from two sources:
+
+- **`fir_accused.relationship_to_victim`/`relationship_to_complainant`**
+  (`src/graph/structured_projection.py`'s `_write_accused()`/
+  `_write_related_to()`) — direction is always accused -> victim/
+  complainant, `role` carrying the raw relationship text as recorded (e.g.
+  "اجنبی", "بھائی"). The victim side needed a new write path that didn't
+  exist before this module: `fir.victim_name` is a bare name with no CNIC
+  and no separate victim table on the schema (flagged the same way as
+  `cross_version` — "NOT OBSERVED... added on direct instruction"), so
+  `_write_victim()` resolves it through the exact same
+  `resolve_structured_person()` corroboration-gate path every other
+  no-CNIC structured mention in this module already uses, rather than a
+  new, looser path just because this is the one caller with nothing but a
+  name. `_write_victim()`/`_write_complainant()` now return their
+  resolved `entity_id` (previously `None`) so `_write_accused()` has
+  something to point `RELATED_TO` at.
+- **PKM `tenant_registration`(owner/tenant)/`employee_registration`
+  (employer/employee)** (`src/graph/cross_silo_projection.py`'s new
+  `_write_pkm_relationship()`) — `role="landlord_of"`/`"employer_of"`.
+  Never case-scoped (same as `_write_pkm_vehicle()`'s `REGISTERED_TO`):
+  neither person is minted here, an edge is written only when BOTH sides
+  already resolve to an EXISTING Person by CNIC via
+  `entity_resolution._find_by_primary_id()` — the identical soft-reference
+  discipline `REGISTERED_TO`/criminal-record linking already use. Minting
+  a fresh caseless Person here would bypass the corroboration gate
+  entirely (there is no case to corroborate against), so an unresolved
+  owner/tenant/employer/employee is simply not linked, not fabricated.
+
+  **Shape not observed live** — 0 of 14 real PKM applications in the
+  snapshot are either service type. `PkmApplication.owner`/`.tenant`/
+  `.employer`/`.employee` (new properties, `src/data_gateway/muhafiz_api/models.py`)
+  read top-level `owner`/`tenant`/`employer`/`employee` keys, inferred by
+  direct analogy to `applicant` (the one nested-person enrichment
+  confirmed live on every application) and API_CONSUMER_GUIDE.md's own
+  text ("It also includes available applicant, police-station, employee,
+  tenant... references" — listed as its own top-level references, the
+  same tier as `applicant`/`police_station`). Flagged here the same way
+  the schema itself flags `victim_name`/`cross_version` as inferred, not
+  confirmed — tested against a constructed fixture
+  (`tests/test_cross_silo_projection.py`'s `TestProjectPkmRelationships`),
+  same disclosure as C4's `cross_version` test below.
+
+Idempotency: `RELATED_TO` added to `scripts/sync_muhafiz_data.py`'s
+`EDGE_LABELS` purge list, same mechanism as B1's `FILED_AT`/B2's
+`ASSIGNED_TO`.
+
+### §7-B verification — measured, not assumed
+
+Cypher assertion run against the real Postgres/AGE instance
+(`muhafiz-postgres`) after a `--full` re-sync of the complete 73-FIR
+corpus:
+
+```
+MATCH (a:Person)-[r:RELATED_TO]->(b:Person)
+RETURN a.canonical_name, r.role, b.canonical_name, r.source_doc_id
+```
+
+**Result: 24 `RELATED_TO` edges**, every one from `fir_accused`'s
+relationship fields (no live tenant/employee_registration data to
+exercise the PKM path, per the "shape not observed live" note above).
+
+**Hand-checked sample** (`fir-214-26`, cross-checked directly against
+`tests/fixtures/muhafiz_api_snapshot.json`): complainant `ارشد حسین`,
+victim `صابر حسین`; both accused (`شہزیب عرف شابی`, `بلال عرف بلو`) carry
+`relationship_to_victim="اجنبی"`, `relationship_to_complainant="اجنبی"`
+on the source record — and the graph shows exactly the 4 edges this
+predicts: each accused -[RELATED_TO{role:"اجنبی"}]-> both the victim and
+the complainant, source_doc_id `psrms/fir/fir-214-26#structured`. Not a
+count-only check — the edge endpoints, direction, and role text were
+read back against the real source record they came from.
+
+No-duplication check — ran the exact same `--full` re-sync a SECOND time
+against the same live instance, then re-ran the count query: **24
+`RELATED_TO` edges, identical after both runs** (73/73 `Case` nodes also
+unchanged), confirming the purge-list addition is doing its job.
+
+## Status: Milestone C in progress
+
+- [x] **C1** — person-relationship edges. `migrations/025_related_to_label.sql`,
+      `structured_projection.py`'s `_write_victim()`/`_write_related_to()`,
+      `cross_silo_projection.py`'s `_write_pkm_relationship()`,
+      `PkmApplication.owner`/`.tenant`/`.employer`/`.employee`. New/updated
+      tests in `tests/test_structured_projection.py`
+      (`TestPersonRelationshipEdges`) and `tests/test_cross_silo_projection.py`
+      (`TestProjectPkmRelationships`). Full suite green. Live-verified
+      against real Postgres/AGE per §7-B above — 24 edges, hand-checked
+      sample matches source data exactly, no duplication across two
+      `--full` re-syncs.
