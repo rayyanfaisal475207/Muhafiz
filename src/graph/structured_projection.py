@@ -103,6 +103,14 @@
 #     generic exhibits) stays a StructuredRecord, unchanged. Reuses
 #     structured_fields.py's existing plate/phone shape detectors, not new
 #     pattern matchers (see _classify_and_write_malkhana_item() below).
+#   - fir_witness.police_station_of_residence_id/other_district resolved
+#     to a LOCATED_AT-style edge to the witness's HOME PoliceStation/
+#     District (Milestone C6, GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md —
+#     witness home jurisdiction), distinct from the case's own filing
+#     jurisdiction (FILED_AT, B1). Reuses B1's exact PoliceStation/
+#     District identity keys (station_id/district_id) so this MERGEs onto
+#     the same jurisdiction nodes B1 already writes (see
+#     _write_witness_home_jurisdiction() below).
 #   - fir_zimni.officer_name resolved to an Officer identity (Milestone C3,
 #     GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md — zimni officer and position
 #     timeline), reusing B2's entity_resolution.resolve_and_write("officer", ...)
@@ -750,9 +758,75 @@ async def _write_witnesses(fir, case_id, doc_id, incident_id, graph, stats, witn
             stats["edges_written"] += 1
             if mention.get("address_text"):
                 await _write_located_at(resolution["entity_id"], mention["address_text"], doc_id, graph, stats)
+            await _write_witness_home_jurisdiction(resolution["entity_id"], w, doc_id, graph, stats)
         except Exception as exc:
             logger.warning("Witness write failed for %s in %s: %s", w.get("full_name"), fir.fir_id, exc)
             stats["errors"].append(f"witness[{w.get('id')}]: {exc}")
+
+
+async def _write_witness_home_jurisdiction(
+    witness_entity_id: str, w: dict, doc_id: str, graph: str, stats: dict,
+) -> None:
+    """
+    Milestone C6 (GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md — witness home
+    jurisdiction): `fir_witness.police_station_of_residence_id`/
+    `other_district` -> a LOCATED_AT-style edge to the witness's HOME
+    PoliceStation/District — distinct from the case's own filing
+    jurisdiction (Case-[FILED_AT]->PoliceStation, B1) — a witness's home
+    station/district is not the case's station/district.
+
+    `police_station_of_residence_id` is a BARE id string (verified live
+    against `tests/fixtures/muhafiz_api_snapshot.json` before assuming its
+    shape from the field name alone — e.g. "PS-FSD-CIVILLINES" — never a
+    nested object the way `FirRecord.police_station` is), and it matches
+    B1's own `PoliceStation.station_id` values exactly. This MUST MERGE
+    onto the SAME node B1 already writes, not a second, parallel
+    station/district node set — so this reuses B1's exact identity key
+    (`{"station_id": ...}`), never a locally-invented one. Written with
+    empty properties (`write_node()`'s SET clause is then a no-op on the
+    property side — see its own docstring) so a witness-only reference to
+    a station never overwrites a real name/code B1 already populated from
+    that station's own filing-side data.
+
+    `other_district` (a bare district name, per the schema — never
+    observed populated live, 0/37 in the recorded snapshot) is the
+    fallback when no `police_station_of_residence_id` is on file: a
+    direct Person->District edge, keyed the same id-or-name way B1's own
+    `_district_identity()` already tolerates for a bare-string district.
+    The two fields are mutually exclusive in this design (station takes
+    priority when present) — a witness's home station's own district
+    (via PoliceStation-[PART_OF]->District) is NOT independently derived
+    here, since this module only has a bare station id for the witness's
+    home station, not the nested {id, name, district} object
+    `_write_jurisdiction()` has for the case's OWN station; a PART_OF edge
+    for that station still lands correctly if the same station also
+    happens to be some FIR's filing station (B1's own MERGE-safe write
+    covers that case) — this function's honest scope is the witness link
+    itself, not fabricating a district it wasn't given.
+    """
+    station_id = w.get("police_station_of_residence_id")
+    if station_id:
+        await versioning.write_node("PoliceStation", {"station_id": station_id}, {}, source_doc_id=doc_id, graph=graph)
+        edge = await versioning.write_edge(
+            "LOCATED_AT", "Person", {"entity_id": witness_entity_id}, "PoliceStation", {"station_id": station_id},
+            {}, source_doc_id=doc_id, confidence=1.0, graph=graph,
+        )
+        if edge:
+            stats["edges_written"] += 1
+        return
+
+    other_district = w.get("other_district")
+    if other_district:
+        await versioning.write_node(
+            "District", {"district_id": other_district}, {"name": other_district},
+            source_doc_id=doc_id, graph=graph,
+        )
+        edge = await versioning.write_edge(
+            "LOCATED_AT", "Person", {"entity_id": witness_entity_id}, "District", {"district_id": other_district},
+            {}, source_doc_id=doc_id, confidence=1.0, graph=graph,
+        )
+        if edge:
+            stats["edges_written"] += 1
 
 
 async def _write_located_at(person_entity_id: str, address_text: str, doc_id: str, graph: str, stats: dict) -> None:

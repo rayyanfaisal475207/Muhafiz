@@ -715,6 +715,95 @@ class TestZimniOfficerAndPositionTimeline:
         )
 
 
+class TestWitnessHomeJurisdiction:
+    """Milestone C6 — fir_witness.police_station_of_residence_id/
+    other_district -> a LOCATED_AT-style edge to the witness's home
+    PoliceStation/District, reusing B1's exact identity keys."""
+
+    async def test_police_station_of_residence_id_writes_located_at_to_police_station(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(fir_witness=[{
+            "id": "w1", "full_name": "گواہ ایک", "cnic": "00000-3000000-1",
+            "police_station_of_residence_id": "PS-FSD-CIVILLINES",
+        }])
+        await sp.project_fir(fir)
+
+        located = [
+            e for e in graph_calls["edges"]
+            if e["edge_label"] == "LOCATED_AT" and e["to_label"] == "PoliceStation"
+        ]
+        assert len(located) == 1
+        assert located[0]["to_match"] == {"station_id": "PS-FSD-CIVILLINES"}
+        assert located[0]["from_label"] == "Person"
+
+        station_nodes = [n for n in graph_calls["nodes"] if n["label"] == "PoliceStation"]
+        assert any(n["match"] == {"station_id": "PS-FSD-CIVILLINES"} for n in station_nodes)
+
+    async def test_other_district_writes_located_at_to_district_when_no_station_id(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(fir_witness=[{
+            "id": "w1", "full_name": "گواہ ایک", "cnic": "00000-3000000-1",
+            "other_district": "Multan",
+        }])
+        await sp.project_fir(fir)
+
+        located = [
+            e for e in graph_calls["edges"]
+            if e["edge_label"] == "LOCATED_AT" and e["to_label"] == "District"
+        ]
+        assert len(located) == 1
+        assert located[0]["to_match"] == {"district_id": "Multan"}
+
+    async def test_station_id_takes_priority_over_other_district(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(fir_witness=[{
+            "id": "w1", "full_name": "گواہ ایک", "cnic": "00000-3000000-1",
+            "police_station_of_residence_id": "PS-FSD-CIVILLINES", "other_district": "Multan",
+        }])
+        await sp.project_fir(fir)
+
+        assert any(
+            e["edge_label"] == "LOCATED_AT" and e["to_label"] == "PoliceStation" for e in graph_calls["edges"]
+        )
+        assert not any(
+            e["edge_label"] == "LOCATED_AT" and e["to_label"] == "District" for e in graph_calls["edges"]
+        )
+
+    async def test_neither_field_writes_no_home_jurisdiction_edge(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(fir_witness=[{"id": "w1", "full_name": "گواہ ایک", "cnic": "00000-3000000-1"}])
+        await sp.project_fir(fir)
+        assert not any(
+            e["edge_label"] == "LOCATED_AT" and e["to_label"] in ("PoliceStation", "District")
+            for e in graph_calls["edges"]
+        )
+
+    async def test_home_station_written_with_empty_properties_never_clobbers_filing_station(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        """A witness's home station write must never overwrite the real
+        name/code B1's own _write_jurisdiction() already populated for
+        this same station (write_node()'s SET-per-key semantics make an
+        empty properties dict a pure no-op on the property side)."""
+        fir = _minimal_fir(
+            police_station={"id": "PS-1", "name": "PS Test", "code": "T1"},
+            fir_witness=[{
+                "id": "w1", "full_name": "گواہ ایک", "cnic": "00000-3000000-1",
+                "police_station_of_residence_id": "PS-1",
+            }],
+        )
+        await sp.project_fir(fir)
+        station_writes = [n for n in graph_calls["nodes"] if n["label"] == "PoliceStation"]
+        # One write with real properties (the case's own filing station),
+        # one write with an empty properties dict (the witness home link).
+        assert any(n["properties"].get("name") == "PS Test" for n in station_writes)
+        assert any(n["properties"] == {} for n in station_writes)
+
+
 class TestTypedRecoveredProperty:
     """Milestone C5 — malkhana_register.item_detail classified at write
     time; a plate/phone-shaped value resolves into Vehicle/PhoneNumber
