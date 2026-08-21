@@ -1,5 +1,6 @@
 """
-Tests for src/graph/entity_resolution.py (Phase 4.8).
+Tests for src/graph/entity_resolution.py (Phase 4.8, plus Milestone A1's
+identity-index wiring).
 
 age_client and versioning are both monkeypatched with fakes — no real
 Postgres/AGE/LLM (matches the `no_network` guard, conftest, autouse). The
@@ -13,6 +14,37 @@ import pytest
 
 import src.graph.entity_resolution as er
 import src.graph.case_scope as case_scope
+
+
+class FakeIdentityIndex:
+    """
+    Stand-in for src.graph.identity_index — no real Postgres. Defaults to
+    "always a miss / nothing excluded", which reproduces the exact
+    pre-A1 behavior (every resolve_mention()/_generate_candidates() call
+    falls straight through to the AGE fake) for every test that doesn't
+    explicitly opt into exercising the index-hit path.
+    """
+
+    def __init__(self):
+        self.lookup_calls: list[tuple] = []
+        self.exclude_calls: list[tuple] = []
+        self.lookup_result: str | None = None
+        self.exclude_result: list[str] = []
+
+    async def lookup(self, label, id_key, id_value):
+        self.lookup_calls.append((label, id_key, id_value))
+        return self.lookup_result
+
+    async def entity_ids_excluding(self, label, id_key, exclude_id_value):
+        self.exclude_calls.append((label, id_key, exclude_id_value))
+        return self.exclude_result
+
+
+@pytest.fixture(autouse=True)
+def fake_identity_index(monkeypatch):
+    fake = FakeIdentityIndex()
+    monkeypatch.setattr(er, "identity_index", fake)
+    return fake
 
 
 class FakeAgeClient:
@@ -364,3 +396,100 @@ async def test_resolve_and_write_new_entity_no_same_as_edge(fake_age, fake_versi
     assert result["is_new_node"] is True
     edge_labels = [e["edge_label"] for e in fake_versioning.edges_written]
     assert "SAME_AS" not in edge_labels
+
+
+# ── Milestone A1: identity-index wiring ─────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_primary_id_index_hit_skips_the_age_scan_entirely(fake_age, fake_identity_index):
+    """
+    An identity_index hit must resolve cnic_auto WITHOUT ever calling
+    age_client — the whole point of Milestone A1 is removing this exact
+    scan from the hot path.
+    """
+    fake_identity_index.lookup_result = "P-EXISTING"
+
+    decision = await er.resolve_mention(
+        "person", {"canonical_name": "احمد رضا قرشی", "cnic": "00000-9119877-0"}, "CASE-001"
+    )
+
+    assert decision.tier == er.TIER_CNIC_AUTO
+    assert decision.target_entity_id == "P-EXISTING"
+    assert fake_identity_index.lookup_calls == [("Person", "cnic", "00000-9119877-0")]
+    assert fake_age.calls == []  # no AGE query at all on an index hit
+
+
+@pytest.mark.asyncio
+async def test_primary_id_index_miss_falls_back_to_the_age_scan(fake_age, fake_identity_index):
+    """
+    fake_identity_index.lookup_result defaults to None (a miss) — the
+    exact same AGE MATCH this function always ran must still fire, per
+    the plan's "defends against drift" requirement.
+    """
+    fake_age.queue([{"n": _node("P-EXISTING", "احمد رضا قریشی", cnic="00000-9119877-0")}])
+
+    decision = await er.resolve_mention(
+        "person", {"canonical_name": "احمد رضا قرشی", "cnic": "00000-9119877-0"}, "CASE-001"
+    )
+
+    assert decision.tier == er.TIER_CNIC_AUTO
+    assert decision.target_entity_id == "P-EXISTING"
+    assert len(fake_age.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_eval_graph_never_consults_the_production_identity_index(fake_age, fake_identity_index):
+    """
+    resolve_mention(graph="evidence_graph_eval") must not read the shared
+    production identity_index at all — an isolated eval run's resolution
+    decisions must never be influenced by real production data.
+    """
+    fake_identity_index.lookup_result = "P-SHOULD-NEVER-BE-USED"
+    fake_age.queue([])  # eval graph: no cnic match
+    fake_age.queue([])  # eval graph: no candidates
+
+    decision = await er.resolve_mention(
+        "person", {"canonical_name": "کوئی نیا شخص", "cnic": "00000-1111111-1"}, "CASE-001",
+        graph="evidence_graph_eval",
+    )
+
+    assert decision.tier == er.TIER_NEW
+    assert fake_identity_index.lookup_calls == []
+
+
+@pytest.mark.asyncio
+async def test_generate_candidates_uses_index_to_exclude_known_conflicting_ids(fake_age, fake_identity_index):
+    """
+    When the identity index already knows P-OTHER carries a different
+    CNIC, _generate_candidates() must fetch via the excluding query (not
+    the plain full scan) and must never surface P-OTHER as a candidate.
+    """
+    fake_identity_index.lookup_result = None  # no exact match for this mention's cnic
+    fake_identity_index.exclude_result = ["P-OTHER"]
+    fake_age.queue([])  # cnic lookup miss (AGE fallback, since index also missed)
+    fake_age.queue([{"n": _node("P-NEW-CANDIDATE", "احمد رضا قریشی")}])  # excluding-scan result
+
+    decision = await er.resolve_mention(
+        "person", {"canonical_name": "احمد رضا قرشی", "cnic": "00000-2222222-2"}, "CASE-001"
+    )
+
+    assert fake_identity_index.exclude_calls == [("Person", "cnic", "00000-2222222-2")]
+    exclude_call = fake_age.calls[1]  # [0] cnic lookup miss, [1] the excluding-scan fetch
+    assert "NOT n.entity_id IN $excluded" in exclude_call["cypher"]
+    assert exclude_call["params"]["excluded"] == ["P-OTHER"]
+    assert decision.target_entity_id == "P-NEW-CANDIDATE"
+
+
+@pytest.mark.asyncio
+async def test_generate_candidates_falls_back_to_full_scan_with_no_excludes(fake_age, fake_identity_index):
+    """No entity_ids_excluding() results -> the original unfiltered full scan, unchanged."""
+    fake_identity_index.exclude_result = []
+    fake_age.queue([])  # cnic lookup miss
+    fake_age.queue([{"n": _node("P-SOMEONE", "احمد رضا قریشی")}])
+
+    await er.resolve_mention(
+        "person", {"canonical_name": "احمد رضا قرشی", "cnic": "00000-3333333-3"}, "CASE-001"
+    )
+
+    scan_call = fake_age.calls[1]  # [0] cnic lookup miss, [1] the plain full scan
+    assert scan_call["cypher"].strip().startswith("MATCH (n:Person) RETURN n")
