@@ -49,6 +49,16 @@
 #     (incident_datetime, fir_zimni.entry_date, fir_accused.arrested_date,
 #     chalaan_dispatch.dispatch_datetime) — deterministic, no LLM date
 #     parsing, unlike entity_resolution.py's own domain_entities-fed path.
+#   - PoliceStation/District nodes + Case-[FILED_AT]->PoliceStation-
+#     [PART_OF]->District (Milestone B1, GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md
+#     — jurisdiction graph nodes), from `FirRecord.police_station`'s nested
+#     {id, name, code, district} object. Written unconditionally alongside
+#     every other structural write below, so re-syncing every existing FIR
+#     (M9's --full sync) backfills this relationship for every pre-existing
+#     Case, not just newly-ingested ones — write_node()'s MERGE and the
+#     purge-by-source-doc-id-prefix idempotency scripts/sync_muhafiz_data.py
+#     already relies on (see its own module docstring) make this additive,
+#     never destructive, on a second run.
 #
 # Every write here is source_doc_id-tagged to the synthetic "#structured"
 # Document, so provenance ("what does the system believe, from where") is
@@ -81,6 +91,94 @@ def _doc_id_for(fir: FirRecord) -> str:
     came from the API response as a whole.
     """
     return f"psrms/fir/{fir.fir_id}#structured"
+
+
+def _station_identity(fir: FirRecord, station: dict) -> Optional[tuple[str, dict]]:
+    """
+    (match_key, properties) for `fir.police_station`, or None when this FIR
+    carries no station data at all (measured: every FIR in the recorded
+    snapshot has one, but the API's own docs don't guarantee it, and a
+    Case with genuinely no station on file must not fabricate one).
+
+    Keyed on `fir.police_station_id` (the FIR's own FK — the canonical
+    identifier per `FirRecord`'s docstring) first, falling back to the
+    nested object's own `id`, then to `name` as a last resort — mirrors
+    `_incident_entity_id()`'s own "deterministic match key, not a random
+    uuid" requirement: re-projecting the same FIR must MERGE onto the same
+    PoliceStation node, not mint a new one, and two different FIRs at the
+    same real station must land on ONE shared node, not one each.
+    """
+    station_id = fir.police_station_id or station.get("id")
+    name = station.get("name")
+    key = station_id or name
+    if not key:
+        return None
+    return key, {"name": name, "code": station.get("code")}
+
+
+def _district_identity(station: dict) -> Optional[tuple[str, dict]]:
+    """
+    (match_key, properties) for a station's nested `district` — a dict
+    ({id, name, province}, per the live API shape) or a bare string
+    (`muhafiz_records.py`'s `_station_district()` already tolerates both).
+    None when the station carries no district at all.
+    """
+    district = station.get("district")
+    if isinstance(district, dict):
+        key = district.get("id") or district.get("name")
+        if not key:
+            return None
+        return key, {"name": district.get("name"), "province": district.get("province")}
+    if district:
+        return district, {"name": district}
+    return None
+
+
+async def _write_jurisdiction(fir: FirRecord, case_id: str, doc_id: str, graph: str, stats: dict) -> None:
+    """
+    Case-[FILED_AT]->PoliceStation-[PART_OF]->District — see this module's
+    docstring's B1 entry.
+
+    Access control is deliberately NOT this function's concern: it only
+    writes jurisdiction METADATA (which station/district a case belongs
+    to). Station/district-SCOPED TRAVERSAL — "every case filed at this
+    station" — is a broader enumeration capability that goes through
+    `src/retrieval/graph_retriever.py`'s `retrieve_jurisdiction_cases()`,
+    which reuses the exact same cross-case role gate `retrieve_graph()`
+    already enforces (see that module's own comment) rather than this
+    module inventing a second one.
+    """
+    station = fir.police_station or {}
+    station_identity = _station_identity(fir, station)
+    if not station_identity:
+        return
+    try:
+        station_key, station_props = station_identity
+        await versioning.write_node(
+            "PoliceStation", {"station_id": station_key}, station_props,
+            source_doc_id=doc_id, graph=graph,
+        )
+        await versioning.write_edge(
+            "FILED_AT", "Case", {"case_id": case_id}, "PoliceStation", {"station_id": station_key},
+            {}, source_doc_id=doc_id, confidence=1.0, graph=graph,
+        )
+        stats["edges_written"] += 1
+
+        district_identity = _district_identity(station)
+        if district_identity:
+            district_key, district_props = district_identity
+            await versioning.write_node(
+                "District", {"district_id": district_key}, district_props,
+                source_doc_id=doc_id, graph=graph,
+            )
+            await versioning.write_edge(
+                "PART_OF", "PoliceStation", {"station_id": station_key}, "District", {"district_id": district_key},
+                {}, source_doc_id=doc_id, confidence=1.0, graph=graph,
+            )
+            stats["edges_written"] += 1
+    except Exception as exc:
+        logger.warning("Jurisdiction write failed for %s: %s", fir.fir_id, exc)
+        stats["errors"].append(f"jurisdiction: {exc}")
 
 
 def _incident_entity_id(fir: FirRecord) -> str:
@@ -268,6 +366,7 @@ async def project_fir(fir: FirRecord, *, graph: str = age_client.GRAPH_NAME) -> 
         )
         stats["edges_written"] += 3
 
+        await _write_jurisdiction(fir, case_id, doc_id, graph, stats)
         await _write_occurred_on(fir, incident_id, doc_id, graph, stats)
 
         accused_by_name: dict[str, str] = {}  # in-FIR only, for weapon matching below

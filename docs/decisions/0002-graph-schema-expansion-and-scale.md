@@ -1,6 +1,6 @@
-# 0002 — Graph scale prerequisites (Milestone A)
+# 0002 — Graph scale prerequisites and schema expansion (Milestones A–B)
 
-**Status:** in progress (Milestone A only; see checklist at the bottom)
+**Status:** in progress (Milestones A and B; see checklist at the bottom)
 **Date:** 2026-08-21
 
 ## Context
@@ -19,10 +19,10 @@ station/province deployment volume (thousands to millions of FIRs):
 3. `embedder.py`'s embedding pipeline — one HTTP request per chunk, paced
    0.3s apart, wall-clock linear in corpus size.
 
-This ADR covers only Milestone A (the three scale-prerequisite modules,
-A1–A3) — Milestones B–F (schema depth: jurisdiction/officer nodes, person-
-relationship edges, queue-scale resolution, query-time scoping) are out of
-scope here and were not started.
+This ADR covers Milestones A (the three scale-prerequisite modules, A1–A3)
+and B (schema depth: jurisdiction/officer nodes) — Milestones C–F (person-
+relationship edges, queue-scale resolution, query-time scoping,
+documentation) are out of scope here and were not started.
 
 Apache AGE stays the graph store (confirmed decision, not revisited by this
 work) — every module below is additive Postgres-side state alongside it,
@@ -250,6 +250,120 @@ The projected speedup (11.2x) is consistent with the arithmetic
 ≈0.75s — a sanity check that the live-sample measurement and the scale
 projection agree, not two independent, potentially-inconsistent numbers.
 
+## B1 — Jurisdiction graph nodes
+
+**Decision:** `PoliceStation`/`District` as real vertex labels
+(`migrations/023_jurisdiction_graph_labels.sql`), populated from
+`FirRecord.police_station`'s nested `{id, name, code, district}` object
+(the Muhafiz Data API's stand-in for `psrms.police_station`/
+`psrms.district`) — `Case-[FILED_AT]->PoliceStation-[PART_OF]->District`,
+written by a new `_write_jurisdiction()` step in
+`src/graph/structured_projection.py`'s `project_fir()`, alongside every
+other structural write that function already makes for every FIR. `PART_OF`
+is a second, semantically-consistent reuse of the existing edge label
+(first written for `Incident->Case`) — no new edge label needed for it.
+
+Because `project_fir()` runs for every FIR on every `--full` re-sync (M9),
+this backfills the relationship for every pre-existing Case, not only newly
+ingested ones, exactly as the plan requires — no separate backfill script.
+Idempotency is two mechanisms working together, not one: `write_node()`'s
+MERGE means re-running the same FIR's station/district writes refreshes the
+same node rather than duplicating it; `write_edge()` is a bare append-only
+CREATE, so `FILED_AT` was added to `scripts/sync_muhafiz_data.py`'s
+`EDGE_LABELS` purge list (the same purge-by-source-doc-id-prefix step that
+already keeps every other structured edge type from duplicating on
+re-sync) — without that addition, a second `--full` run would have
+duplicated every `FILED_AT` edge.
+
+Station identity key: `FirRecord.police_station_id` (the FIR's own FK, the
+canonical identifier) first, falling back to the nested object's own `id`,
+falling back to `name` as a last resort — deterministic across
+re-projection, and two FIRs at the same real station MERGE onto one shared
+node rather than minting one each. District tolerates both shapes measured
+live: a nested `{id, name, province}` object, or (per
+`muhafiz_records.py`'s own `_station_district()`) a bare string — keyed the
+same way (id-or-name fallback). A FIR with no station data on file writes
+no jurisdiction nodes at all, rather than fabricating one.
+
+### Access control — addressed explicitly, not left implicit
+
+Station/district-scoped traversal ("every case filed at this station",
+`retrieve_jurisdiction_cases()` in `src/retrieval/graph_retriever.py`) is a
+**broader** enumeration capability than a single cross-case entity-link
+hop, even though it only reads jurisdiction metadata — so it reuses the
+exact same cross-case role gate `retrieve_graph(cross_case=True, ...)`
+already enforces (`supervisor`/`station-admin`/`platform-admin` only),
+rather than getting a looser tier of its own or a second, parallel check
+that could drift out of sync with it (`SUBAGENT_INTERFACES.md`'s existing
+warning against a third gate, already heeded once for
+`xgraph_tool`/`xnetwork_tool`).
+
+Concretely: the role-check-and-audit-log logic that used to live inline in
+`retrieve_graph()` was extracted, unchanged, into
+`_enforce_cross_case_role_gate()` — a single function both
+`retrieve_graph()`'s cross-case branch and `retrieve_jurisdiction_cases()`
+call. This is not "the same behavior reimplemented twice, kept in sync by
+convention" (the drift risk the warning is about) — it is the literal same
+function, traceable at both call sites, so there is exactly one place this
+check could ever be wrong. A denied jurisdiction-scoped query writes the
+identical `authorization_violation` audit record the existing gate already
+writes (same `event_type` string, same `gateway.log_audit_event()` call);
+`tests/test_graph_retriever.py`'s
+`TestJurisdictionScopedTraversalReusesTheGate` asserts this with one fake
+gateway capturing both call sites' denials, not by asserting on either
+site in isolation.
+
+`retrieve_jurisdiction_cases()` itself is deliberately narrow: given
+`station_id` and/or `district_id`, it returns the matching `case_ids` —
+metadata enumeration, not an entity/evidence traversal, so it carries no
+chunk/hop/confidence provenance the way `retrieve_graph()`'s return does.
+Wiring it into a harness tool/sub-agent so a real query can reach it
+(query-scope preclassification) is Milestone E1's job, explicitly out of
+scope here — this module only makes the capability exist, correctly
+gated, for E1 to compose later.
+
+### §7-B verification — measured, not assumed
+
+Cypher assertion run against the real Postgres/AGE instance
+(`muhafiz-postgres`) after a `--full` re-sync of the complete 73-FIR
+corpus (`scripts/sync_muhafiz_data.py --full`, against the recorded
+snapshot — the same fixture the unit tests use, this time exercised live):
+
+```
+MATCH (c:Case) WHERE NOT exists((c)-[:FILED_AT]->()) RETURN c.case_id AS case_id
+```
+
+(AGE's Cypher parser rejects an anonymous-labeled node directly inside a
+`NOT (...)` pattern — `WHERE NOT (c)-[:FILED_AT]->(:PoliceStation)` raises
+a Postgres syntax error at the label colon; `exists()` wrapping the
+pattern is the form AGE actually accepts. Confirmed empirically, not
+assumed, while writing this verification query — the same
+"reconciled-against-the-code, not the docs" discipline the rest of this
+milestone follows.)
+
+**Result: 0 cases without a `FILED_AT` edge, out of 73 total `Case`
+nodes — full coverage**, including every pre-existing Case from before B1
+landed (the corpus predates this module entirely; the backfill claim is
+what this number confirms, not a coincidence of only testing newly-added
+cases).
+
+No-duplication check — ran the exact same `--full` re-sync a SECOND time
+against the same live instance (the plan's explicit "verify it doesn't
+duplicate or orphan anything on a second run" requirement), then re-ran:
+
+```
+MATCH (c:Case)-[r:FILED_AT]->(:PoliceStation) RETURN c.case_id AS case_id, count(r) AS n
+```
+
+**Result: identical after both runs — 73 total `FILED_AT` edges, 0 cases
+with more than one.** `PoliceStation`/`District` node counts (19/9) were
+also unchanged between the two runs, confirming `write_node()`'s MERGE
+is doing its job — re-projecting the same station/district data twice
+never mints a second node. (`scripts/sync_muhafiz_data.py`'s purge-by-
+source-doc-id-prefix step, with `FILED_AT` added to its `EDGE_LABELS`
+list, is what makes the edge side of this idempotent — see the purge
+step's own module docstring.)
+
 ## Status: Milestone A in progress
 
 - [x] **A1** — identity index tables. `migrations/021_identity_index.sql`,
@@ -287,3 +401,17 @@ green at every step, live-verified against real Postgres/AGE and the real
 model server. Nothing pushed to `origin`. Milestones B–F (schema depth,
 queue-scale resolution, query-time scoping, documentation) were not
 started — out of scope for this pass.
+
+## Status: Milestone B in progress
+
+- [x] **B1** — jurisdiction graph nodes. `migrations/023_jurisdiction_graph_labels.sql`,
+      `src/graph/structured_projection.py`'s `_write_jurisdiction()`
+      (Case-[FILED_AT]->PoliceStation-[PART_OF]->District), and
+      `src/retrieval/graph_retriever.py`'s `retrieve_jurisdiction_cases()`
+      + the extracted `_enforce_cross_case_role_gate()` shared with
+      `retrieve_graph()`'s cross-case branch. New/updated tests in
+      `tests/test_structured_projection.py` and `tests/test_graph_retriever.py`.
+      Full suite green. Live-verified against real Postgres/AGE per §7-B
+      above (73/73 Case coverage, no duplication across two `--full`
+      re-syncs).
+- [ ] **B2** — officer identity resolution. Not yet merged — in progress.

@@ -90,6 +90,10 @@ EDGE_LABELS = (
     "BELONGS_TO_CASE", "APPEARS_IN", "ASSOCIATED_WITH", "SAME_AS", "OWNS",
     "REGISTERED_TO", "LOCATED_AT", "INVOLVED_IN", "PART_OF", "OCCURRED_ON",
     "CONFLICTS_WITH", "CITES",
+    # Milestone B1 (structured_projection.py's `_write_jurisdiction()`) —
+    # without this, re-running `--full` would duplicate every FILED_AT
+    # edge on each sync, the exact bug this purge step exists to prevent.
+    "FILED_AT",
 )
 
 

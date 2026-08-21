@@ -535,6 +535,140 @@ def _compounded_confidence(edge_confidences: list[float]) -> float:
     return result
 
 
+# Every caller that needs the cross-case gate — retrieve_graph(cross_case=
+# True) and retrieve_jurisdiction_cases() below — checks against this SAME
+# tuple, imported nowhere else. cross_case_linkage.py's own module docstring
+# names the identical three roles for xgraph_tool/xnetwork_tool (design
+# §4.3) — this constant is this module's single source of truth for them,
+# not a second copy that could drift.
+CROSS_CASE_ROLES = ("supervisor", "station-admin", "platform-admin")
+
+
+async def _enforce_cross_case_role_gate(
+    *, user_id: Optional[str], user_role: str, case_id: Optional[str],
+    target_entity: Optional[str], query_text: str,
+) -> None:
+    """
+    THE cross-case role gate — the one this module's own docstring, this
+    file's `retrieve_graph()`, and SUBAGENT_INTERFACES.md's "do not add a
+    third gate" warning all refer to. Raises `PermissionError` (after
+    writing an `authorization_violation` audit record) for any role not in
+    `CROSS_CASE_ROLES`; returns normally (after writing a
+    `graph_traversal_cross_case` audit record) for an authorized caller.
+
+    Milestone B1 (GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md — jurisdiction graph
+    nodes): station/district-scoped traversal ("every case filed at this
+    station") is a BROADER enumeration capability than a single cross-case
+    link hop, even though it only reads jurisdiction metadata — so it must
+    reuse this exact function, not get a looser tier of its own or a
+    second, parallel check that could drift out of sync with it. Extracted
+    out of `retrieve_graph()`'s own inline body (which used to be the only
+    caller) specifically so `retrieve_jurisdiction_cases()` below calls the
+    IDENTICAL code path — trace both call sites in review, not just this
+    docstring's claim, to confirm there is only one gate.
+    """
+    if user_role in CROSS_CASE_ROLES:
+        # Audit log this high-risk data-exposure capability
+        try:
+            gateway = await get_gateway()
+            await gateway.log_audit_event(
+                event_type="graph_traversal_cross_case",
+                user_id=user_id,
+                case_id=case_id,
+                details={"target_entity": target_entity, "query": query_text},
+            )
+        except Exception as e:
+            logger.error("Failed to audit log cross-case traversal: %s", e)
+        return
+
+    logger.warning("Unauthorized cross-case graph traversal attempted by %s (user_id: %s)", user_role, user_id)
+    try:
+        gateway = await get_gateway()
+        await gateway.log_audit_event(
+            event_type="authorization_violation",
+            user_id=user_id,
+            case_id=case_id,
+            details={"target_entity": target_entity, "query": query_text, "role": user_role},
+        )
+    except Exception as e:
+        logger.error("Failed to audit log unauthorized cross-case traversal: %s", e)
+    raise PermissionError("Cross-case graph traversal requires supervisor role or higher.")
+
+
+async def retrieve_jurisdiction_cases(
+    *,
+    station_id: Optional[str] = None,
+    district_id: Optional[str] = None,
+    query_text: str = "",
+    user_id: Optional[str] = None,
+    user_role: str = "investigator",
+    limit: int = 200,
+) -> dict:
+    """
+    Milestone B1 — station/district-scoped case enumeration: "every case
+    filed at this station/district", via the Case-[FILED_AT]->PoliceStation
+    -[PART_OF]->District structure `src/graph/structured_projection.py`
+    writes. Exactly one of `station_id`/`district_id` is expected (both
+    given narrows to their intersection; neither given is a caller bug —
+    raises ValueError rather than silently enumerating every case in the
+    graph, which this function's name promises is jurisdiction-SCOPED).
+
+    ACCESS CONTROL — see this module's own comment on `retrieve_graph()`'s
+    cross-case branch and `_enforce_cross_case_role_gate()`'s docstring:
+    this calls that SAME function, not a reimplementation. A denial raises
+    PermissionError and writes the identical `authorization_violation`
+    audit record the cross-case link-hop gate already writes — there is
+    exactly one gate in this codebase for "enumerate/traverse across case
+    boundaries," and this is a second caller of it, not a second gate.
+
+    Returns {"case_ids": [...], "station_id", "district_id"} — deliberately
+    NOT chunk-shaped like `retrieve_graph()`'s return: this is a metadata
+    enumeration (which cases exist in this jurisdiction), not an
+    entity/evidence traversal, so there is no chunk/hop/confidence
+    provenance to report. Wiring this into a harness tool/sub-agent (query-
+    scope preclassification) is Milestone E1's job, out of scope here.
+    """
+    # Role gate first, always — even a malformed call (see the ValueError
+    # below) must not tell an unauthorized caller anything before the
+    # authorization check runs.
+    await _enforce_cross_case_role_gate(
+        user_id=user_id, user_role=user_role, case_id=None,
+        target_entity=station_id or district_id, query_text=query_text,
+    )
+
+    if not station_id and not district_id:
+        raise ValueError("retrieve_jurisdiction_cases requires station_id and/or district_id.")
+
+    if station_id and district_id:
+        cypher = (
+            "MATCH (c:Case)-[:FILED_AT]->(s:PoliceStation)-[:PART_OF]->(d:District) "
+            "WHERE s.station_id = $station_id AND d.district_id = $district_id "
+            "RETURN DISTINCT c.case_id AS case_id LIMIT $limit"
+        )
+        params = {"station_id": station_id, "district_id": district_id, "limit": limit}
+    elif station_id:
+        cypher = (
+            "MATCH (c:Case)-[:FILED_AT]->(s:PoliceStation) "
+            "WHERE s.station_id = $station_id "
+            "RETURN DISTINCT c.case_id AS case_id LIMIT $limit"
+        )
+        params = {"station_id": station_id, "limit": limit}
+    else:
+        cypher = (
+            "MATCH (c:Case)-[:FILED_AT]->(:PoliceStation)-[:PART_OF]->(d:District) "
+            "WHERE d.district_id = $district_id "
+            "RETURN DISTINCT c.case_id AS case_id LIMIT $limit"
+        )
+        params = {"district_id": district_id, "limit": limit}
+
+    rows = await age_client.execute_cypher(cypher, params=params, columns=["case_id"])
+    return {
+        "case_ids": [r["case_id"] for r in rows if r.get("case_id")],
+        "station_id": station_id,
+        "district_id": district_id,
+    }
+
+
 async def retrieve_graph(
     query_text: str,
     target_entity: Optional[str],
@@ -566,50 +700,36 @@ async def retrieve_graph(
     }
 
     if cross_case:
-        gateway = await get_gateway()
-        if user_role not in ("supervisor", "station-admin", "platform-admin"):
-            logger.warning("Unauthorized cross-case graph traversal attempted by %s (user_id: %s)", user_role, user_id)
-            try:
-                await gateway.log_audit_event(
-                    event_type="authorization_violation",
-                    user_id=user_id,
-                    case_id=case_id,
-                    details={"target_entity": target_entity, "query": query_text, "role": user_role}
-                )
-            except Exception as e:
-                logger.error("Failed to audit log unauthorized cross-case traversal: %s", e)
-            raise PermissionError("Cross-case graph traversal requires supervisor role or higher.")
-        else:
-            # Audit log this high-risk data-exposure capability
-            try:
-                await gateway.log_audit_event(
-                    event_type="graph_traversal_cross_case",
-                    user_id=user_id,
-                    case_id=case_id,
-                    details={"target_entity": target_entity, "query": query_text}
-                )
-            except Exception as e:
-                logger.error("Failed to audit log cross-case traversal: %s", e)
+        # _enforce_cross_case_role_gate() raises PermissionError (after
+        # writing its own authorization_violation audit record) on denial —
+        # execution never reaches the RLS-arming below for an unauthorized
+        # caller. See that function's own docstring for why this is the ONE
+        # place the role check lives, reused (not reimplemented) by every
+        # cross-case-shaped caller, jurisdiction-scoped traversal included.
+        await _enforce_cross_case_role_gate(
+            user_id=user_id, user_role=user_role, case_id=case_id,
+            target_entity=target_entity, query_text=query_text,
+        )
 
-            # Phase 2: arm the Postgres RLS cross-case bypass ONLY now that
-            # the role check above has actually passed — this is the fix
-            # for issues.md's High "cross-case RLS bypass flag is armed
-            # before its own role check" finding. It used to be armed by
-            # the orchestrator the instant the router classified the query
-            # as cross-case, before this function's role check ever ran,
-            # and was never reset on a PermissionError above. Arming it
-            # here instead of there means an unauthorized caller never
-            # arms it at all — there's no window to close, because it's
-            # never opened for them in the first place.
-            # Also self-arm rls_active here (security-review addendum):
-            # this used to rely entirely on the caller (chat_endpoint's
-            # set_case_scope()) having already armed it, a convention
-            # enforced only by docstring — a future second caller of
-            # retrieve_graph() that forgets to arm RLS upstream would
-            # otherwise run with app.rls_active never set, which migration
-            # 010's policies treat as "RLS fully inactive" (fail-open).
-            current_rls_active.set(True)
-            current_cross_case.set(True)
+        # Phase 2: arm the Postgres RLS cross-case bypass ONLY now that
+        # the role check above has actually passed — this is the fix
+        # for issues.md's High "cross-case RLS bypass flag is armed
+        # before its own role check" finding. It used to be armed by
+        # the orchestrator the instant the router classified the query
+        # as cross-case, before this function's role check ever ran,
+        # and was never reset on a PermissionError above. Arming it
+        # here instead of there means an unauthorized caller never
+        # arms it at all — there's no window to close, because it's
+        # never opened for them in the first place.
+        # Also self-arm rls_active here (security-review addendum):
+        # this used to rely entirely on the caller (chat_endpoint's
+        # set_case_scope()) having already armed it, a convention
+        # enforced only by docstring — a future second caller of
+        # retrieve_graph() that forgets to arm RLS upstream would
+        # otherwise run with app.rls_active never set, which migration
+        # 010's policies treat as "RLS fully inactive" (fail-open).
+        current_rls_active.set(True)
+        current_cross_case.set(True)
 
     if not cross_case and not case_id:
         # A within-case graph query with no active case has nothing to

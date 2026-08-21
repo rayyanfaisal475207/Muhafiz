@@ -683,3 +683,96 @@ def test_seed_labels_organization_matches_what_is_actually_written():
     id_props, _display = gr._SEED_LABELS["Organization"]
     assert "name" not in id_props
     assert "canonical_name" in id_props
+
+
+# ── Milestone B1: jurisdiction-scoped traversal reuses the SAME cross-case
+# role gate as retrieve_graph(cross_case=True) — GRAPH_SCALE_SCHEMA_
+# EXPANSION_PLAN.md's explicit access-control requirement, and
+# SUBAGENT_INTERFACES.md's "do not add a third gate" warning. ──────────────
+
+class _FakeGatewayForGate:
+    """Minimal stand-in — only what _enforce_cross_case_role_gate() calls."""
+
+    def __init__(self):
+        self.audit_log: list[dict] = []
+
+    async def log_audit_event(self, event_type, user_id=None, case_id=None, details=None):
+        self.audit_log.append({
+            "event_type": event_type, "user_id": user_id, "case_id": case_id, "details": details,
+        })
+
+
+@pytest.fixture
+def fake_gate_gateway(monkeypatch):
+    gateway = _FakeGatewayForGate()
+
+    async def _get_gateway():
+        return gateway
+
+    monkeypatch.setattr(gr, "get_gateway", _get_gateway)
+    return gateway
+
+
+class TestJurisdictionScopedTraversalReusesTheGate:
+    async def test_investigator_denied_same_as_cross_case_link_hop(self, fake_gate_gateway):
+        """
+        Not a second, looser gate: an investigator denied a single
+        cross-case link hop (retrieve_graph) must be denied
+        station/district-scoped enumeration exactly the same way.
+        """
+        with pytest.raises(PermissionError):
+            await gr.retrieve_jurisdiction_cases(
+                station_id="PS-1", user_id="u1", user_role="investigator",
+            )
+        assert len(fake_gate_gateway.audit_log) == 1
+        assert fake_gate_gateway.audit_log[0]["event_type"] == "authorization_violation"
+        assert fake_gate_gateway.audit_log[0]["details"]["role"] == "investigator"
+
+    async def test_denial_writes_the_identical_audit_event_type_as_retrieve_graph(
+        self, fake_graph, fake_chunks, fake_gate_gateway,
+    ):
+        """
+        Traces both call sites to ONE function, not by assertion alone:
+        the same fake gateway captures both denials, and both produce the
+        literal same event_type string — if a future change forked the two
+        gates, this would drift and fail.
+        """
+        with pytest.raises(PermissionError):
+            await gr.retrieve_graph(
+                "cross-case query", "X", case_id=None, cross_case=True, user_role="investigator",
+            )
+        with pytest.raises(PermissionError):
+            await gr.retrieve_jurisdiction_cases(district_id="D-1", user_role="investigator")
+
+        event_types = [entry["event_type"] for entry in fake_gate_gateway.audit_log]
+        assert event_types == ["authorization_violation", "authorization_violation"]
+
+    @pytest.mark.parametrize("role", ["supervisor", "station-admin", "platform-admin"])
+    async def test_authorized_roles_get_case_ids_for_a_station(self, monkeypatch, fake_gate_gateway, role):
+        async def fake_execute_cypher(cypher, params=None, columns=None, graph=None):
+            assert "FILED_AT" in cypher
+            assert params["station_id"] == "PS-1"
+            return [{"case_id": "fir-1-26"}, {"case_id": "fir-2-26"}]
+
+        monkeypatch.setattr(gr.age_client, "execute_cypher", fake_execute_cypher)
+
+        result = await gr.retrieve_jurisdiction_cases(station_id="PS-1", user_role=role)
+
+        assert result["case_ids"] == ["fir-1-26", "fir-2-26"]
+        assert result["station_id"] == "PS-1"
+        assert fake_gate_gateway.audit_log[0]["event_type"] == "graph_traversal_cross_case"
+
+    async def test_district_only_query_shape(self, monkeypatch, fake_gate_gateway):
+        async def fake_execute_cypher(cypher, params=None, columns=None, graph=None):
+            assert "PART_OF" in cypher
+            assert params["district_id"] == "DIST-06"
+            return [{"case_id": "fir-9-26"}]
+
+        monkeypatch.setattr(gr.age_client, "execute_cypher", fake_execute_cypher)
+
+        result = await gr.retrieve_jurisdiction_cases(district_id="DIST-06", user_role="supervisor")
+        assert result["case_ids"] == ["fir-9-26"]
+
+    async def test_neither_station_nor_district_is_a_caller_bug(self, fake_gate_gateway):
+        with pytest.raises(ValueError):
+            await gr.retrieve_jurisdiction_cases(user_role="supervisor")
