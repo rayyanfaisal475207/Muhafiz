@@ -44,8 +44,9 @@
 # still runs normally — only the graph-extraction half is skipped.
 #
 # ORDER: cases (M4) -> FIRs (M6a) -> CMS/PKM/criminal records (M6b,
-# cross-silo) -> citations (M6b, needs every FIR's Case node to exist —
-# run last, not interleaved with FIR projection).
+# cross-silo) -> cross-versions (Milestone C4) -> citations (M6b) — both
+# of the last two need every FIR's Case node to exist, so both run last,
+# not interleaved with FIR projection.
 # ============================================================
 import argparse
 import asyncio
@@ -63,6 +64,7 @@ from src.graph.cross_silo_projection import (
     project_cms_complaint,
     project_criminal_record,
     project_fir_citations,
+    project_fir_cross_versions,
     project_pkm_application,
 )
 from src.graph.structured_projection import project_fir
@@ -103,6 +105,9 @@ EDGE_LABELS = (
     # `_write_pkm_relationship()`) — same reasoning, RELATED_TO duplication
     # on a second `--full` run.
     "RELATED_TO",
+    # Milestone C4 (cross_silo_projection.py's `project_fir_cross_versions()`)
+    # — same reasoning, CROSS_VERSION_OF duplication on a second `--full` run.
+    "CROSS_VERSION_OF",
 )
 
 
@@ -239,6 +244,19 @@ async def sync_citations(firs: list[FirRecord], *, dry_run: bool) -> dict:
     return {"cites_written": total_written}
 
 
+async def sync_cross_versions(firs: list[FirRecord], *, dry_run: bool) -> dict:
+    """Milestone C4 — same ordering dependency as sync_citations() above
+    (every FIR's Case node must already exist), same display_code_index."""
+    display_code_index = build_display_code_index(firs)
+    total_written = 0
+    for fir in firs:
+        if dry_run:
+            continue
+        result = await project_fir_cross_versions(fir, display_code_index)
+        total_written += result["cross_version_written"]
+    return {"cross_version_written": total_written}
+
+
 # ── orchestration ─────────────────────────────────────────────────────────
 
 async def run(endpoints: tuple[str, ...], *, dry_run: bool, snapshot_path: str | None) -> None:
@@ -297,6 +315,10 @@ async def run(endpoints: tuple[str, ...], *, dry_run: bool, snapshot_path: str |
             print(f"  {stats['entry_id']}")
 
     if "fir" in endpoints and firs:
+        print("\n-- FIR->FIR cross-versions --")
+        cross_version_stats = await sync_cross_versions(firs, dry_run=dry_run)
+        print(f"  {cross_version_stats}")
+
         print("\n-- FIR->FIR citations --")
         citation_stats = await sync_citations(firs, dry_run=dry_run)
         print(f"  {citation_stats}")

@@ -481,6 +481,79 @@ class TestAgainstRealSnapshotEndToEnd:
             assert stats["errors"] == []
 
 
+class TestProjectFirCrossVersions:
+    """
+    Milestone C4 (GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md — cross-version
+    edge). 0 populated `cross_version` rows in the live dataset
+    (muhafiz_schema.dbml.txt: "NOT OBSERVED as a populated tab") — tested
+    against a constructed fixture, per project_fir_cross_versions()'s own
+    docstring, mirroring TestProjectFirCitations's shape but asserting the
+    written-directly, no-`pending` contract instead.
+    """
+
+    async def test_writes_direct_cross_version_of_edge(self, graph_calls):
+        display_code_index = {"423/26": "fir-423-26", "424/26": "fir-424-26"}
+        fir = FirRecord({
+            "fir_id": "fir-424-26", "fir_display_code": "424/26",
+            "cross_version": [{"id": "cv1", "related_fir_display_code": "423/26", "filed_by": "accused side"}],
+        })
+        stats = await csp.project_fir_cross_versions(fir, display_code_index)
+
+        assert stats["cross_version_written"] == 1
+        edges = [e for e in graph_calls["edges"] if e["edge_label"] == "CROSS_VERSION_OF"]
+        assert len(edges) == 1
+        assert edges[0]["from_match"] == {"case_id": "fir-424-26"}
+        assert edges[0]["to_match"] == {"case_id": "fir-423-26"}
+        assert edges[0]["properties"]["filed_by"] == "accused side"
+        # Written directly — never a `pending`/status field, unlike CITES.
+        assert "status" not in edges[0]["properties"]
+
+    async def test_self_reference_is_never_written(self, graph_calls):
+        display_code_index = {"424/26": "fir-424-26"}
+        fir = FirRecord({
+            "fir_id": "fir-424-26", "fir_display_code": "424/26",
+            "cross_version": [{"id": "cv1", "related_fir_display_code": "424/26", "filed_by": "x"}],
+        })
+        stats = await csp.project_fir_cross_versions(fir, display_code_index)
+        assert stats["cross_version_written"] == 0
+        assert not any(e["edge_label"] == "CROSS_VERSION_OF" for e in graph_calls["edges"])
+
+    async def test_unresolvable_related_code_skipped_without_raising(self, graph_calls):
+        display_code_index = {"424/26": "fir-424-26"}
+        fir = FirRecord({
+            "fir_id": "fir-424-26", "fir_display_code": "424/26",
+            "cross_version": [{"id": "cv1", "related_fir_display_code": "999/26", "filed_by": "x"}],
+        })
+        stats = await csp.project_fir_cross_versions(fir, display_code_index)
+        assert stats["cross_version_written"] == 0
+        assert stats["errors"] == []
+
+    async def test_missing_target_case_degrades_without_raising(self, graph_calls):
+        graph_calls["missing_endpoints"] = {"fir-423-26"}
+        display_code_index = {"423/26": "fir-423-26", "424/26": "fir-424-26"}
+        fir = FirRecord({
+            "fir_id": "fir-424-26", "fir_display_code": "424/26",
+            "cross_version": [{"id": "cv1", "related_fir_display_code": "423/26", "filed_by": "x"}],
+        })
+        stats = await csp.project_fir_cross_versions(fir, display_code_index)
+        assert stats["cross_version_written"] == 0
+        assert stats["errors"] == []
+
+    async def test_no_cross_version_rows_writes_nothing(self, graph_calls):
+        fir = FirRecord({"fir_id": "fir-424-26", "fir_display_code": "424/26"})
+        stats = await csp.project_fir_cross_versions(fir, {})
+        assert stats["cross_version_written"] == 0
+        assert not any(e["edge_label"] == "CROSS_VERSION_OF" for e in graph_calls["edges"])
+
+    async def test_measured_count_against_real_snapshot(self, snapshot):
+        """0 of 73 real FIRs carry a populated cross_version row — locks in
+        that this remains a constructed-fixture-only path in the live
+        dataset, same disclosure as C1's tenant/employee_registration test."""
+        firs = [FirRecord(r) for r in snapshot["endpoints"]["fir"]]
+        with_cross_version = [f for f in firs if f.child_rows("cross_version")]
+        assert with_cross_version == []
+
+
 class TestProjectFirCitations:
     async def test_writes_pending_cites_edge(self, graph_calls):
         firs_by_code = {"423/26": "fir-423-26", "424/26": "fir-424-26"}

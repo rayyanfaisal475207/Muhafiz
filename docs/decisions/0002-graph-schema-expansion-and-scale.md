@@ -748,6 +748,63 @@ No-duplication check — ran the exact same `--full` re-sync a SECOND time:
 StructuredRecord nodes — all identical after both runs** (73/73 `Case`
 nodes also unchanged).
 
+## C4 — Cross-version edge
+
+**Decision:** `CROSS_VERSION_OF{filed_by}` elabel
+(`migrations/026_cross_version_of_label.sql`), written DIRECTLY
+(confidence=1.0, no `status: "pending"`) from `psrms.cross_version`'s
+`related_fir_display_code` (a soft reference to the other, independently
+registered FIR) — same "structured field, no heuristic" tier as the
+CNIC-based criminal-record join, distinct from `CITES` (a regex hit
+against free prose, always `pending`, no confidence scoring here because
+there is nothing to score).
+
+`src/graph/cross_silo_projection.py`'s new `project_fir_cross_versions()`
+resolves `related_fir_display_code` through the exact same
+`display_code_index` (`muhafiz_cases.build_display_code_index()`) PKM's
+`forwarded_fir_number` and CITES' cited-code resolution already use — not
+a third lookup mechanism. Same ordering dependency as `CITES`: run as its
+own pass in `scripts/sync_muhafiz_data.py` (`sync_cross_versions()`,
+mirroring `sync_citations()`) after every FIR's `Case` node already
+exists; `CROSS_VERSION_OF` added to the `EDGE_LABELS` purge list, same
+idempotency mechanism as every other Milestone B/C edge type.
+
+**0 populated `cross_version` rows in the live dataset**
+(`muhafiz_schema.dbml.txt`: "NOT OBSERVED as a populated tab in the
+source material") — tested against a constructed fixture
+(`tests/test_cross_silo_projection.py`'s `TestProjectFirCrossVersions`),
+per the plan's own instruction, rather than a real-snapshot count lock
+like CITES's 9-example M6b test.
+
+### §7-B verification — measured, not assumed
+
+No real rows exist to run a live Cypher count against (confirmed:
+`TestProjectFirCrossVersions.test_measured_count_against_real_snapshot`
+— 0 of 73 real FIRs carry a `cross_version` row). Instead, the fixture
+test was additionally run LIVE, not just against fakes, matching this
+milestone's "run these against the real live Postgres/AGE instance" bar:
+a temporary snapshot was built by injecting ONE constructed
+`cross_version` row onto a real FIR (`fir-1001-26`, `related_fir_display_code`
+pointing at the real `fir-117-26`, `filed_by="accused side"`), then
+`scripts/sync_muhafiz_data.py --full` was run against that temporary
+snapshot on the real `muhafiz-postgres` instance:
+
+```
+MATCH (a:Case)-[r:CROSS_VERSION_OF]->(b:Case)
+RETURN a.case_id, b.case_id, r.filed_by
+```
+
+**Result: exactly the 1 constructed edge**, `fir-1001-26 -> fir-117-26`,
+`filed_by="accused side"` — matching the injected fixture row exactly.
+Re-ran the same `--full` sync against the same temporary snapshot a
+SECOND time: **still 1 edge, no duplication** (73/73 `Case` nodes
+unchanged both times). The live instance was then restored to the real,
+unmodified 73-FIR snapshot with a final `--full` re-sync — the purge-by-
+source-doc-id-prefix step correctly removed the fixture-only edge (the
+real data has no `cross_version` row for `fir-1001-26`), confirmed back
+to 0 `CROSS_VERSION_OF` edges, with every other Milestone B/C edge count
+(e.g. `RELATED_TO` at 24) unchanged by the round-trip.
+
 ## Status: Milestone C in progress
 
 - [x] **C1** — person-relationship edges. `migrations/025_related_to_label.sql`,
@@ -778,3 +835,12 @@ nodes also unchanged).
       Officer-zimni edges, 94 Incident-position edges, hand-checked sample
       matches source data exactly, no duplication across two `--full`
       re-syncs.
+- [x] **C4** — cross-version edge. `migrations/026_cross_version_of_label.sql`,
+      `cross_silo_projection.py`'s `project_fir_cross_versions()`,
+      `sync_muhafiz_data.py`'s `sync_cross_versions()`. New tests in
+      `tests/test_cross_silo_projection.py` (`TestProjectFirCrossVersions`).
+      Full suite green. 0 real rows (locked in by test); live-verified
+      against real Postgres/AGE per §7-B above via a constructed-fixture
+      injection — 1 edge written and matched exactly, no duplication
+      across two `--full` re-syncs, graph correctly restored to 0 edges
+      once the real (unmodified) snapshot was re-synced.
