@@ -94,6 +94,15 @@
 #     during _write_accused()) — plus a parallel witness_by_name built
 #     during _write_witnesses() — never a global name lookup across the
 #     whole graph (see _write_chalaan_name_links() below).
+#   - malkhana_register.item_detail classified at write time (Milestone
+#     C5, GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md — typed recovered
+#     property): a value shaped like a vehicle plate or phone number
+#     resolves into the existing Vehicle/PhoneNumber node type
+#     (APPEARS_IN{role: "recovered"}) via entity_resolution.resolve_and_write(),
+#     instead of a generic StructuredRecord; everything else (cash,
+#     generic exhibits) stays a StructuredRecord, unchanged. Reuses
+#     structured_fields.py's existing plate/phone shape detectors, not new
+#     pattern matchers (see _classify_and_write_malkhana_item() below).
 #   - fir_zimni.officer_name resolved to an Officer identity (Milestone C3,
 #     GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md — zimni officer and position
 #     timeline), reusing B2's entity_resolution.resolve_and_write("officer", ...)
@@ -115,6 +124,7 @@ from typing import Optional
 
 from src import config
 from src.data_gateway.muhafiz_api.models import FirRecord
+from src.extraction import structured_fields
 from src.graph import age_client, entity_resolution, versioning
 
 logger = logging.getLogger(__name__)
@@ -870,6 +880,65 @@ async def _write_chalaan_name_links(
             stats["edges_written"] += 1
 
 
+# Milestone C5 (GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md — typed recovered
+# property): reuses structured_fields.py's existing plate/phone shape
+# detectors (extract_plates()/extract_phones(), built on that module's own
+# _PLATE_RE/_PHONE_RE) rather than writing new pattern matchers — the
+# same "normalize_urdu() first, tolerate OCR-noise separators" detection
+# ingestion/service.py already relies on for free-text plate/phone
+# extraction.
+async def _classify_and_write_malkhana_item(
+    row: dict, case_id: str, doc_id: str, graph: str, stats: dict,
+) -> bool:
+    """
+    malkhana_register.item_detail classified at write time. A value
+    shaped like a vehicle plate or phone number resolves into the
+    existing Vehicle/PhoneNumber node type via
+    entity_resolution.resolve_and_write() — the EXACT SAME call
+    src/ingestion/service.py already makes for free-text-extracted
+    plates/phones (TYPE_PRIMARY_ID_KEY's cnic_auto-equivalent exact-match
+    tier on "plate"/"phone"), so this correctly MERGEs onto whichever
+    Vehicle/PhoneNumber node already carries that value — including one
+    written by a completely different path (PKM's REGISTERED_TO vehicle,
+    or a plate/phone regex-extracted from free narrative text elsewhere)
+    — rather than a second, parallel node-minting scheme. One additional
+    explicit APPEARS_IN{role: "recovered", surface_text} edge is written
+    on top of resolve_and_write()'s own generic (role-less) APPEARS_IN,
+    to carry the specific "recovered in this malkhana entry" fact the
+    generic edge doesn't.
+
+    Returns True when item_detail classified (caller skips the generic
+    StructuredRecord write for this row — "instead of," not "in addition
+    to," per the plan) — everything else (cash, generic exhibits) falls
+    through to the unchanged StructuredRecord path.
+    """
+    detail = row.get("item_detail")
+    if not detail:
+        return False
+
+    plates = structured_fields.extract_plates(detail)
+    if plates:
+        entity_type, label, id_key, value = "vehicle", "Vehicle", "plate", plates[0].normalized
+    else:
+        phones = structured_fields.extract_phones(detail)
+        if not phones:
+            return False
+        entity_type, label, id_key, value = "phone", "PhoneNumber", "phone", phones[0].normalized
+
+    resolution = await entity_resolution.resolve_and_write(
+        entity_type, {"canonical_name": value, id_key: value, "extraction_confidence": 1.0},
+        case_id, doc_id, graph=graph,
+    )
+    edge = await versioning.write_edge(
+        "APPEARS_IN", label, {"entity_id": resolution["entity_id"]}, "Document", {"doc_id": doc_id},
+        {"role": "recovered", "surface_text": detail},
+        source_doc_id=doc_id, confidence=1.0, graph=graph,
+    )
+    if edge:
+        stats["edges_written"] += 1
+    return True
+
+
 async def _write_structured_records(
     fir, case_id, doc_id, graph, stats,
     accused_by_name: Optional[dict] = None, witness_by_name: Optional[dict] = None,
@@ -880,6 +949,11 @@ async def _write_structured_records(
             if not row_id:
                 continue
             try:
+                if table == "malkhana_register" and await _classify_and_write_malkhana_item(
+                    row, case_id, doc_id, graph, stats,
+                ):
+                    continue
+
                 record_id = f"{table}:{row_id}"
                 properties = {"record_type": table}
                 for k, v in row.items():
