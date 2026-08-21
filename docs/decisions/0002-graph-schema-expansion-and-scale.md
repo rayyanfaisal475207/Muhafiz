@@ -675,6 +675,79 @@ No-duplication check — ran the exact same `--full` re-sync a SECOND time
 against the same live instance: **57 edges, identical after both runs**
 (73/73 `Case` nodes also unchanged).
 
+## C3 — Zimni officer and position timeline
+
+**Decision:** two independent changes in `src/graph/structured_projection.py`,
+same module because both touch `_write_occurred_on()`/`_write_officers()`:
+
+- **`fir_zimni.officer_name` -> Officer identity**
+  (`_write_zimni_officers()`, called from `_write_officers()`) — reuses
+  B2's `entity_resolution.resolve_and_write("officer", ...)` path
+  DIRECTLY, the same call `_write_investigating_officers()`/
+  `_write_recording_officer()` already make, not a parallel matching
+  mechanism. `fir_zimni` rows carry no `belt_no` (only
+  `fir_investigating_officer`/`recording_officer_*` do), so every one of
+  these resolves through entity_resolution's ordinary name-fallback
+  tiering — ordinary behavior for a belt_no-less officer mention, not a
+  gap. An `Officer-[OCCURRED_ON{event_type:"zimni_entry", detail}]->Date`
+  edge is written alongside the existing `Incident`'s own zimni
+  `OCCURRED_ON` edge (same date, same event_type, different `from_label`)
+  — the same idiom `OCCURRED_ON` already uses for Person's `arrest_date`,
+  not a new edge label.
+- **`fir_position` -> full dated timeline** — `_write_occurred_on()` now
+  writes `Incident-[OCCURRED_ON{event_type:"position", detail:position}]->Date`
+  for every row with a `status_date`, consistent with how `OCCURRED_ON`
+  already handles multiple dated events per Incident (zimni entries,
+  chalaan dispatch) rather than collapsing to one. `fir_position` was also
+  added to `_STRUCTURED_RECORD_TABLES` so its non-dated fields
+  (`prosecutor_name`, `cross_certificate_ref`,
+  `pending_challan_objections`, `remarks`) get the same full-field
+  `StructuredRecord` capture every other typed row with no identity of
+  its own already gets — a complementary addition beyond the plan's literal
+  ask, needed so a dateless `fir_position` row's other fields aren't
+  silently dropped just because it can't join the dated timeline.
+  `muhafiz_cases.py`'s `_current_status()` (feeding the separate Postgres
+  `Case.investigation_status` column) is untouched — same "graph-side
+  addition, source column stays as-is" precedent B2 set for
+  `investigation_officer`.
+
+No new elabel/migration — `Officer`/`OCCURRED_ON` already exist.
+
+### §7-B verification — measured, not assumed
+
+Cypher assertions run against the real Postgres/AGE instance after a
+`--full` re-sync of the complete 73-FIR corpus:
+
+```
+MATCH (o:Officer)-[r:OCCURRED_ON {event_type:'zimni_entry'}]->(d:Date)
+RETURN o.canonical_name, d.date, r.detail
+```
+
+**Result: 62 Officer-dated zimni edges.** Several officers carry more
+than one (e.g. "طارق جمالی": entries 1/2/3 on 2026-02-11/12/13), the
+required ">1 row wherever the source data shows it" shape.
+
+```
+MATCH (i:Incident)-[r:OCCURRED_ON {event_type:'position'}]->(d:Date)
+RETURN d.date, r.detail
+```
+
+**Result: 94 dated position edges** (matching all 94 `fir_position` rows
+in the corpus — every row in this dataset happens to carry a
+`status_date`, even the 65/94 with a null `position` text, which land
+with `detail=""` rather than being silently skipped).
+
+**Hand-checked sample** (`fir-205-26`, cross-checked against
+`tests/fixtures/muhafiz_api_snapshot.json`): zimni entries 1/2 dated
+2026-02-15/2026-03-05 with `officer_name="(نامزد ASI)"`, `fir_position`
+rows dated 2026-03-05/2026-06-27 — the graph shows exactly these edges,
+same dates, same officer, same detail text.
+
+No-duplication check — ran the exact same `--full` re-sync a SECOND time:
+**62 Officer-zimni edges, 94 Incident-position edges, 94 `fir_position`
+StructuredRecord nodes — all identical after both runs** (73/73 `Case`
+nodes also unchanged).
+
 ## Status: Milestone C in progress
 
 - [x] **C1** — person-relationship edges. `migrations/025_related_to_label.sql`,
@@ -695,3 +768,13 @@ against the same live instance: **57 edges, identical after both runs**
       against real Postgres/AGE per §7-B above — 57 edges, hand-checked
       sample matches source data exactly, no duplication across two
       `--full` re-syncs.
+- [x] **C3** — zimni officer and position timeline.
+      `structured_projection.py`'s `_write_zimni_officers()`,
+      `_write_occurred_on()` extended for `fir_position`, `fir_position`
+      added to `_STRUCTURED_RECORD_TABLES`. New tests in
+      `tests/test_structured_projection.py`
+      (`TestZimniOfficerAndPositionTimeline`). Full suite green.
+      Live-verified against real Postgres/AGE per §7-B above — 62
+      Officer-zimni edges, 94 Incident-position edges, hand-checked sample
+      matches source data exactly, no duplication across two `--full`
+      re-syncs.

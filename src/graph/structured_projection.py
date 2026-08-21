@@ -94,6 +94,13 @@
 #     during _write_accused()) — plus a parallel witness_by_name built
 #     during _write_witnesses() — never a global name lookup across the
 #     whole graph (see _write_chalaan_name_links() below).
+#   - fir_zimni.officer_name resolved to an Officer identity (Milestone C3,
+#     GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md — zimni officer and position
+#     timeline), reusing B2's entity_resolution.resolve_and_write("officer", ...)
+#     path directly (see _write_zimni_officers() below) — plus fir_position
+#     rewritten from "latest row only" to a full dated OCCURRED_ON timeline
+#     (one edge per row with a status_date, same idiom as every other
+#     multi-dated-event source in this module).
 #
 # Every write here is source_doc_id-tagged to the synthetic "#structured"
 # Document, so provenance ("what does the system believe, from where") is
@@ -115,6 +122,14 @@ logger = logging.getLogger(__name__)
 _STRUCTURED_RECORD_TABLES = (
     "fir_section", "malkhana_register", "chalaan_dispatch",
     "chalaan_outcome", "fir_zimni_index",
+    # Milestone C3 (GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md — zimni officer and
+    # position timeline): fir_position's non-dated fields (prosecutor_name,
+    # cross_certificate_ref, pending_challan_objections, remarks) get the
+    # same full-field StructuredRecord capture every other typed row with
+    # no identity of its own already gets here — the dated TIMELINE itself
+    # (the actual C3 requirement) is the separate OCCURRED_ON writes in
+    # _write_occurred_on() below, for rows that carry a status_date.
+    "fir_position",
 )
 
 
@@ -479,9 +494,52 @@ async def _write_recording_officer(fir, case_id, doc_id, graph, stats) -> None:
         stats["errors"].append(f"recording_officer: {exc}")
 
 
+async def _write_zimni_officers(fir, case_id, doc_id, graph, stats) -> None:
+    """
+    Milestone C3 (GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md — zimni officer and
+    position timeline): each fir_zimni entry's officer_name resolved to an
+    Officer identity, reusing B2's entity_resolution.resolve_and_write("officer", ...)
+    path DIRECTLY — the same call `_write_investigating_officers()`/
+    `_write_recording_officer()` above already make, not a parallel
+    officer-matching mechanism. fir_zimni rows carry no belt_no (only
+    fir_investigating_officer/recording_officer_* do), so this always
+    resolves through entity_resolution's ordinary name-fallback tiering —
+    the same path any belt_no-less officer mention already takes.
+
+    An Officer-[OCCURRED_ON{event_type: "zimni_entry", detail}]->Date edge
+    is written alongside the Incident's own zimni OCCURRED_ON edge
+    (_write_occurred_on() above, same date, same event_type) — the same
+    idiom OCCURRED_ON already uses for "multiple dated events, this time
+    from a different from_label" (Person's arrest date is the existing
+    precedent), giving "which officer recorded which dated entry" without
+    a new edge label.
+    """
+    for z in fir.child_rows("fir_zimni"):
+        mention = _officer_mention(z.get("officer_name"), None)
+        if not mention:
+            continue
+        try:
+            resolution = await entity_resolution.resolve_and_write(
+                "officer", mention, case_id, doc_id, graph=graph,
+            )
+            stats["officers_resolved"] += 1
+            if z.get("entry_date"):
+                await _write_occurred_on_edge(
+                    "Officer", resolution["entity_id"], z["entry_date"],
+                    {"event_type": "zimni_entry", "detail": f"entry {z.get('entry_number')}"},
+                    doc_id, graph, stats,
+                )
+        except Exception as exc:
+            logger.warning(
+                "Zimni officer write failed for %s in %s: %s", z.get("officer_name"), fir.fir_id, exc,
+            )
+            stats["errors"].append(f"zimni_officer[{z.get('id')}]: {exc}")
+
+
 async def _write_officers(fir, case_id, doc_id, graph, stats) -> None:
     await _write_investigating_officers(fir, case_id, doc_id, graph, stats)
     await _write_recording_officer(fir, case_id, doc_id, graph, stats)
+    await _write_zimni_officers(fir, case_id, doc_id, graph, stats)
 
 
 # ── main entry point ─────────────────────────────────────────────────────
@@ -890,5 +948,20 @@ async def _write_occurred_on(fir, incident_id, doc_id, graph, stats) -> None:
         if cd.get("dispatch_datetime"):
             await _write_occurred_on_edge(
                 "Incident", incident_id, cd["dispatch_datetime"], {"event_type": "chalaan_dispatch"},
+                doc_id, graph, stats,
+            )
+    # Milestone C3: fir_position rewritten from "latest row only"
+    # (muhafiz_cases.py's _current_status(), which stays as-is — that's a
+    # separate Postgres Case.investigation_status column, out of scope
+    # here, same "graph-side addition, source column untouched" precedent
+    # B2 set for investigation_officer) to a full dated timeline — every
+    # row with a status_date gets its own OCCURRED_ON edge, consistent
+    # with how zimni/chalaan_dispatch entries above already handle
+    # multiple dated events per Incident, rather than collapsing to one.
+    for p in fir.child_rows("fir_position"):
+        if p.get("status_date"):
+            await _write_occurred_on_edge(
+                "Incident", incident_id, p["status_date"],
+                {"event_type": "position", "detail": p.get("position") or ""},
                 doc_id, graph, stats,
             )

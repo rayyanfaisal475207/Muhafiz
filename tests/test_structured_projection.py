@@ -630,6 +630,91 @@ class TestPersonRelationshipEdges:
         assert {e["properties"]["role"] for e in related} == {"اجنبی", "پڑوسی"}
 
 
+class TestZimniOfficerAndPositionTimeline:
+    """Milestone C3 — fir_zimni.officer_name resolved to an Officer
+    identity (reusing B2's entity_resolution.resolve_and_write("officer",
+    ...) path), and fir_position rewritten to a full dated timeline."""
+
+    async def test_zimni_officer_resolved_and_dated(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(
+            fir_zimni=[
+                {"id": "z1", "entry_number": 1, "entry_date": "2026-02-01", "officer_name": "SI احمد"},
+            ],
+        )
+        await sp.project_fir(fir)
+
+        officer_calls = [c for c in fake_resolve_and_write if c["entity_type"] == "officer"]
+        assert any(c["mention"]["canonical_name"] == "SI احمد" for c in officer_calls)
+
+        occurred = [
+            e for e in graph_calls["edges"]
+            if e["edge_label"] == "OCCURRED_ON" and e["from_label"] == "Officer"
+        ]
+        assert len(occurred) == 1
+        assert occurred[0]["properties"]["event_type"] == "zimni_entry"
+        assert occurred[0]["to_match"] == {"date": "2026-02-01"}
+
+    async def test_zimni_entry_with_no_officer_name_resolves_nothing(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(fir_zimni=[{"id": "z1", "entry_number": 1, "entry_date": "2026-02-01"}])
+        await sp.project_fir(fir)
+        assert not any(c["entity_type"] == "officer" for c in fake_resolve_and_write)
+
+    async def test_zimni_officer_with_no_entry_date_still_resolves_officer_but_no_occurred_on(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(fir_zimni=[{"id": "z1", "entry_number": 1, "officer_name": "SI احمد"}])
+        await sp.project_fir(fir)
+        assert any(c["entity_type"] == "officer" for c in fake_resolve_and_write)
+        assert not any(
+            e["edge_label"] == "OCCURRED_ON" and e["from_label"] == "Officer" for e in graph_calls["edges"]
+        )
+
+    async def test_fir_position_rows_get_structured_record_and_dated_occurred_on(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(
+            fir_position=[
+                {"id": "fp1", "position": "زیر تفتیش", "status_date": "2026-03-01"},
+                {"id": "fp2", "position": "چالان مکمل", "status_date": "2026-06-15"},
+            ],
+        )
+        stats = await sp.project_fir(fir)
+
+        sr_nodes = [n for n in graph_calls["nodes"] if n["label"] == "StructuredRecord"]
+        position_records = [n for n in sr_nodes if n["properties"].get("record_type") == "fir_position"]
+        assert len(position_records) == 2
+
+        occurred = [
+            e for e in graph_calls["edges"]
+            if e["edge_label"] == "OCCURRED_ON" and e["from_label"] == "Incident"
+            and e["properties"].get("event_type") == "position"
+        ]
+        assert len(occurred) == 2
+        dates = {e["to_match"]["date"] for e in occurred}
+        assert dates == {"2026-03-01", "2026-06-15"}
+        details = {e["properties"]["detail"] for e in occurred}
+        assert details == {"زیر تفتیش", "چالان مکمل"}
+
+    async def test_fir_position_row_with_no_status_date_gets_no_occurred_on(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(fir_position=[{"id": "fp1", "position": "زیر تفتیش"}])
+        await sp.project_fir(fir)
+        assert not any(
+            e["edge_label"] == "OCCURRED_ON" and e["properties"].get("event_type") == "position"
+            for e in graph_calls["edges"]
+        )
+        # still captured as a StructuredRecord even without a date.
+        assert any(
+            n["label"] == "StructuredRecord" and n["properties"].get("record_type") == "fir_position"
+            for n in graph_calls["nodes"]
+        )
+
+
 class TestChalaanNameResolution:
     """Milestone C2 — chalaan_dispatch.accused_names/witness_names resolved
     back to this FIR's own Person nodes, reusing the same in-FIR-only
