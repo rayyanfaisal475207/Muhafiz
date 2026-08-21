@@ -601,6 +601,80 @@ against the same live instance, then re-ran the count query: **24
 `RELATED_TO` edges, identical after both runs** (73/73 `Case` nodes also
 unchanged), confirming the purge-list addition is doing its job.
 
+## C2 — Chalaan name resolution
+
+**Decision:** `chalaan_dispatch.accused_names`/`witness_names` resolved
+back to this FIR's own already-written `Person` nodes via
+`APPEARS_IN{role: "chalaan_accused"|"chalaan_witness", surface_text}`
+edges (`src/graph/structured_projection.py`'s new
+`_write_chalaan_name_links()`, called from `_write_structured_records()`
+only for the `chalaan_dispatch` table).
+
+Reuses the EXACT SAME in-FIR-only name-matching pattern
+`weapon_register.recovered_from` already uses — `_write_weapons()`'s
+`accused_by_name` dict, built during `_write_accused()` — plus a new
+parallel `witness_by_name` dict built the same way during
+`_write_witnesses()` (that function now takes the dict as a parameter and
+populates it, mirroring `_write_accused()`'s existing
+`accused_by_name` parameter exactly). Both dicts are local to one
+`project_fir()` call — never a global/cross-FIR name lookup. A name that
+doesn't match any entry in THIS FIR's own dict is simply left unresolved,
+never looked up elsewhere in the graph — the same discipline that guards
+`weapon_register.recovered_from` against the corpus's name collisions.
+`APPEARS_IN` (not a new edge label) is reused for "this record names this
+person," the same label already used for "this entity appears in this
+document" elsewhere in the module — edge-label reuse, same precedent as
+B1's `PART_OF`.
+
+Name-list splitting (`_split_name_list()`) uses the same Urdu-or-ASCII
+comma class `structured_fields.py` already splits section-reference lists
+on (not imported from there — that module's split regex is scoped to a
+different field — but the same two-character class), needed because the
+real data mixes both: `"محمد عدنان, عمران قریشی"` (ASCII) alongside
+`"طارق، عدنان"` (Urdu) in the same corpus.
+
+No new elabel/migration needed — `APPEARS_IN` already exists and is
+already in `scripts/sync_muhafiz_data.py`'s `EDGE_LABELS` purge list.
+
+### §7-B verification — measured, not assumed
+
+Cypher assertion run against the real Postgres/AGE instance after a
+`--full` re-sync of the complete 73-FIR corpus:
+
+```
+MATCH (p:Person)-[r:APPEARS_IN]->(sr:StructuredRecord)
+WHERE r.role IN ['chalaan_accused','chalaan_witness']
+RETURN p.canonical_name, r.role, r.surface_text, sr.record_id
+```
+
+**Result: 57 name-resolution edges.**
+
+**Hand-checked sample** (`fir-214-26`'s `CD-C2-1`, cross-checked against
+`tests/fixtures/muhafiz_api_snapshot.json`): `accused_names="شہزیب عرف
+شابی، بلال عرف بلو"`, `witness_names="بلال احمد، عبدالستار"` — the graph
+shows exactly these 4 names resolved, each `surface_text` matching the
+source record's own name string, each `role` matching which field it
+came from.
+
+**A genuine corpus artifact surfaced by this verification, not a defect
+in this module:** one edge's `surface_text` ("بلال", `fir-202-26`'s
+witness) points at a `Person` node whose `canonical_name` now reads
+"فیصل" — traced directly: `fir-202-26`'s witness "بلال" and
+`fir-401-26`'s accused "فیصل" share the identical CNIC
+(`00000-9000007-1`) in the synthetic corpus, so `entity_resolution.py`'s
+pre-existing `cnic_auto` tier (unrelated to this module, unchanged by it)
+correctly merges them into one canonical node — the same hard-block/
+auto-merge behavior every other CNIC-keyed write in this codebase already
+relies on. `surface_text` on the edge preserves the real chalaan-record
+name regardless of which write to the shared node happened to land last
+on `canonical_name` — this is exactly why `surface_text` is tracked
+separately from the node's own property, same reasoning
+`_write_weapons()`'s `APPEARS_IN{surface_text}` already applies.
+
+No-duplication check — ran the exact same `--full` re-sync a SECOND time
+against the same live instance: **57 edges, identical after both runs**
+(73/73 `Case` nodes also unchanged).
+
 ## Status: Milestone C in progress
 
 - [x] **C1** — person-relationship edges. `migrations/025_related_to_label.sql`,
@@ -611,5 +685,13 @@ unchanged), confirming the purge-list addition is doing its job.
       (`TestPersonRelationshipEdges`) and `tests/test_cross_silo_projection.py`
       (`TestProjectPkmRelationships`). Full suite green. Live-verified
       against real Postgres/AGE per §7-B above — 24 edges, hand-checked
+      sample matches source data exactly, no duplication across two
+      `--full` re-syncs.
+- [x] **C2** — chalaan name resolution. `structured_projection.py`'s
+      `_write_chalaan_name_links()`/`_split_name_list()`, `_write_witnesses()`
+      extended to build `witness_by_name` alongside the existing
+      `accused_by_name`. New tests in `tests/test_structured_projection.py`
+      (`TestChalaanNameResolution`). Full suite green. Live-verified
+      against real Postgres/AGE per §7-B above — 57 edges, hand-checked
       sample matches source data exactly, no duplication across two
       `--full` re-syncs.
