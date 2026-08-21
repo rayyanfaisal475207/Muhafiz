@@ -152,13 +152,28 @@ async def _embed_gemini(texts: list[str], task_type: str) -> list[list[float]]:
 
 # ── Local e5 Embeddings (multilingual-e5-large-instruct, served locally) ──────
 
+# Graph Scale & Schema Expansion, Milestone A3.
+#
 # The model server's /embed route only accepts one text per request (no
-# batch parameter), so pacing happens between individual requests rather
-# than between batches — keeps a bulk-ingestion run from hammering the
-# free-tier ngrok tunnel in front of the model server.
-_E5_INTER_REQUEST_DELAY = 0.3  # seconds between requests
-
-
+# batch parameter — a {"texts": [...]} payload 422s, confirmed against the
+# real server), so "batching" here means bounded WORKER CONCURRENCY —
+# up to config.EMBEDDING_MAX_CONCURRENCY requests in flight to
+# EMBEDDINGS_URL at once — rather than one larger request per call.
+#
+# This replaces the previous design: strictly sequential, one request at a
+# time, with a fixed 0.3s sleep between requests. That made ingestion
+# throughput wall-clock-linear in corpus size no matter how much hardware
+# or network headroom was available — a full re-embed of N chunks always
+# took ~N * (request_latency + 0.3s), a hard floor nothing could push
+# below. Bounded concurrency instead lets throughput scale with the
+# concurrency limit (and the server's actual capacity) — N chunks now cost
+# roughly (N / concurrency) * request_latency, not N * fixed_delay.
+#
+# Still bounded, not unbounded (asyncio.gather over every text at once) —
+# a free-tier ngrok tunnel and a single model-server process both have a
+# real capacity ceiling; a semaphore caps how many requests are ever
+# in-flight simultaneously, so this is "faster, still polite" rather than
+# "as fast as possible, tunnel be damned."
 async def _embed_local_e5(texts: list[str], is_query: bool) -> list[list[float]]:
     """
     Embed texts using multilingual-e5-large-instruct via the local model server.
@@ -171,7 +186,10 @@ async def _embed_local_e5(texts: list[str], is_query: bool) -> list[list[float]]
                   ingestion time.
 
     Returns:
-        List of float vectors in the same order as input.
+        List of float vectors, in the SAME ORDER as `texts` — guaranteed by
+        asyncio.gather() preserving input order regardless of which
+        request actually completes first, not by requests running in any
+        particular sequence.
     """
     import httpx
 
@@ -181,36 +199,39 @@ async def _embed_local_e5(texts: list[str], is_query: bool) -> list[list[float]]
     if not texts:
         return []
 
-    # Sequential, one request per text, with retry/backoff on transient
-    # failures — the model server's /embed route takes a single {"text": ...}
-    # per call (no batch parameter; a {"texts": [...]} payload 422s), so
-    # "batching" here means pacing many small sequential requests rather than
-    # bundling them into one, which also keeps each request fast and lets the
-    # free-tier ngrok tunnel keep up during bulk ingestion.
     @retry(
         stop=stop_after_attempt(4),
         wait=wait_exponential(multiplier=2, min=2, max=30),
         retry=retry_if_exception_type((httpx.HTTPError, httpx.TimeoutException)),
         reraise=True,
     )
-    async def _post_one(text: str) -> list[float]:
-        async with httpx.AsyncClient(timeout=90.0) as client:
-            response = await client.post(
-                config.EMBEDDINGS_URL,
-                json={"text": text, "is_query": is_query},
-            )
-            response.raise_for_status()
-            return response.json()["embedding"]
+    async def _post_one(client: "httpx.AsyncClient", text: str) -> list[float]:
+        response = await client.post(
+            config.EMBEDDINGS_URL,
+            json={"text": text, "is_query": is_query},
+        )
+        response.raise_for_status()
+        return response.json()["embedding"]
 
-    all_embeddings: list[list[float]] = []
-    for i, text in enumerate(texts):
-        all_embeddings.append(await _post_one(text))
-        if i + 1 < len(texts):
-            await asyncio.sleep(_E5_INTER_REQUEST_DELAY)
+    semaphore = asyncio.Semaphore(max(1, config.EMBEDDING_MAX_CONCURRENCY))
+
+    async def _bounded(client: "httpx.AsyncClient", text: str) -> list[float]:
+        async with semaphore:
+            return await _post_one(client, text)
+
+    # One shared client (connection pooling) for the whole batch, rather
+    # than a fresh AsyncClient per request — with up to
+    # EMBEDDING_MAX_CONCURRENCY requests genuinely concurrent now (not
+    # sequential), reusing connections matters in a way it didn't when
+    # only one request was ever in flight at a time.
+    async with httpx.AsyncClient(timeout=90.0) as client:
+        all_embeddings = await asyncio.gather(*[_bounded(client, text) for text in texts])
+    all_embeddings = list(all_embeddings)
 
     logger.debug(
-        "Local e5 embedded %d text(s) (is_query=%s, dims=%d)",
-        len(texts), is_query, len(all_embeddings[0]) if all_embeddings else 0,
+        "Local e5 embedded %d text(s) (is_query=%s, concurrency<=%d, dims=%d)",
+        len(texts), is_query, config.EMBEDDING_MAX_CONCURRENCY,
+        len(all_embeddings[0]) if all_embeddings else 0,
     )
     return all_embeddings
 

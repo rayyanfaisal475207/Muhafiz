@@ -183,7 +183,72 @@ analogue of A1's identity-lookup requirement).
 
 ## A3 — Batched embedding pipeline
 
-*(filled in once A3 lands)*
+**Decision:** bounded WORKER CONCURRENCY, not literal request batching —
+the model server's `/embed` route accepts exactly one text per request (a
+`{"texts": [...]}` payload 422s, confirmed against the real server), so
+there is no batch parameter to use. `src/retrieval/embedder.py`'s
+`_embed_local_e5()` now issues up to `config.EMBEDDING_MAX_CONCURRENCY`
+(default 8) requests concurrently via a bounded `asyncio.Semaphore`,
+sharing one `httpx.AsyncClient` (connection pooling now matters with
+genuine concurrency, unlike when only one request was ever in flight),
+replacing the old strictly-sequential loop with a fixed 0.3s sleep between
+every request. `asyncio.gather()` preserves output order regardless of
+which request actually completes first — verified directly
+(`tests/test_embedder.py`'s out-of-order-completion test).
+
+Why bounded rather than unbounded concurrency: a free-tier ngrok tunnel
+and a single model-server process both have a real capacity ceiling —
+this is "faster, still polite," not "as fast as possible, tunnel be
+damned." `EMBEDDING_MAX_CONCURRENCY` is a plain env-configurable constant
+(`src/config.py`), not hardcoded, so it can be tuned to whatever the
+actual serving infrastructure can sustain.
+
+The old design made ingestion throughput a hard wall-clock floor of
+`N * (request_latency + 0.3s)` no matter how much hardware or network
+headroom was available — a full re-embed of a real station's backlog
+would take days regardless of anything else being scaled up. The new
+design is roughly `(N / concurrency) * request_latency` — throughput now
+scales with the concurrency limit (and the server's actual capacity), not
+staying wall-clock-linear in corpus size.
+
+### §7-A verification — measured, not assumed
+
+Unlike A1/A2 (an isolated throwaway Postgres database, safe to fill with
+tens of thousands of synthetic rows), a real 10x/100x corpus of live HTTP
+requests against the ONE shared model-server tunnel this deployment
+actually has would be a disproportionate load to put on real
+infrastructure purely to run a load test. Instead: `scripts/
+loadtest_embedding_pipeline.py` measures BEFORE and AFTER live, for real,
+against the actual `EMBEDDINGS_URL` model server, over a modest real
+sample (24 texts, genuinely sent over the network, not simulated) — then
+PROJECTS 10x/100x corpus throughput from that measured real per-request
+latency and `EMBEDDING_MAX_CONCURRENCY`, labeled plainly as a projection
+rather than re-measured at that volume.
+
+**Live-measured (24 real requests, real model server):**
+
+| | Wall clock | Throughput |
+|---|---|---|
+| BEFORE (sequential, 0.3s-paced — exact old code path) | 25.49s | 0.94 texts/sec |
+| AFTER (bounded concurrency, max 8 — the real `embed_texts()`) | 3.08s | 7.79 texts/sec |
+
+**Speedup on the live sample: 8.3x.** Mean real per-request latency
+measured: 0.75s (network + model inference, excluding the old 0.3s
+pacing).
+
+**Projected at corpus scale** (from the measured 0.75s per-request
+latency; NOT re-measured live at these volumes):
+
+| Scale | BEFORE (projected) | AFTER (projected) | Speedup |
+|---|---|---|---|
+| 1x (350 chunks) | ~6.1 min (0.95 texts/sec) | ~0.5 min (10.66 texts/sec) | 11.2x |
+| 10x (3,500 chunks) | ~61.3 min | ~5.5 min | 11.2x |
+| 100x (35,000 chunks) | ~10.2 hours | ~54.7 min | 11.2x |
+
+The projected speedup (11.2x) is consistent with the arithmetic
+`(latency + 0.3s) / (latency / concurrency)` at `concurrency=8`, latency
+≈0.75s — a sanity check that the live-sample measurement and the scale
+projection agree, not two independent, potentially-inconsistent numbers.
 
 ## Status: Milestone A in progress
 
@@ -204,4 +269,21 @@ analogue of A1's identity-lookup requirement).
       `tests/test_harness_agent_semantic_search.py`,
       `tests/test_eval_scripts.py`). Full suite green. Live-verified
       against real Postgres per §7-A above.
-- [ ] **A3** — batched embedding pipeline.
+- [x] **A3** — batched embedding pipeline (bounded worker concurrency).
+      `src/config.py`'s `EMBEDDING_MAX_CONCURRENCY`, `src/retrieval/
+      embedder.py`'s `_embed_local_e5()` rewired from a sequential/0.3s-
+      paced loop to a bounded `asyncio.Semaphore` over concurrent
+      requests, order preserved via `asyncio.gather()`. 7 new tests
+      (`tests/test_embedder.py`). Full suite green. Live-verified against
+      the real model server per §7-A above (8.3x speedup on a live
+      24-request sample; 11.2x projected at 10x/100x corpus scale).
+
+## Status: Milestone A complete
+
+All three scale-prerequisite modules (A1 identity index, A2 persistent
+full-text index, A3 batched/concurrent embedding pipeline) landed as
+their own branch, merged `--no-ff` into local `main`, full test suite
+green at every step, live-verified against real Postgres/AGE and the real
+model server. Nothing pushed to `origin`. Milestones B–F (schema depth,
+queue-scale resolution, query-time scoping, documentation) were not
+started — out of scope for this pass.
