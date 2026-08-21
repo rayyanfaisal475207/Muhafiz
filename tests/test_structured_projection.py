@@ -314,6 +314,109 @@ class TestProjectFirWiring:
 
         assert first_incident_matches == second_incident_matches
 
+    # ── Milestone B1: jurisdiction graph nodes ───────────────────────────
+
+    async def test_filed_at_and_part_of_written_for_station_with_district(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(police_station={
+            "id": "PS-ISB-CYBER", "name": "Cyber Crime Circle", "code": "CYB",
+            "district": {"id": "DIST-06", "name": "Islamabad"},
+        })
+        await sp.project_fir(fir)
+
+        station_nodes = [n for n in graph_calls["nodes"] if n["label"] == "PoliceStation"]
+        district_nodes = [n for n in graph_calls["nodes"] if n["label"] == "District"]
+        assert station_nodes == [{
+            "label": "PoliceStation", "match": {"station_id": "PS-ISB-CYBER"},
+            "properties": {"name": "Cyber Crime Circle", "code": "CYB"},
+        }]
+        assert district_nodes == [{
+            "label": "District", "match": {"district_id": "DIST-06"},
+            "properties": {"name": "Islamabad", "province": None},
+        }]
+
+        filed_at = [e for e in graph_calls["edges"] if e["edge_label"] == "FILED_AT"]
+        assert len(filed_at) == 1
+        assert filed_at[0]["from_match"] == {"case_id": "fir-100-26"}
+        assert filed_at[0]["to_match"] == {"station_id": "PS-ISB-CYBER"}
+
+        station_part_of = [
+            e for e in graph_calls["edges"]
+            if e["edge_label"] == "PART_OF" and e["from_match"] == {"station_id": "PS-ISB-CYBER"}
+        ]
+        assert len(station_part_of) == 1
+        assert station_part_of[0]["to_match"] == {"district_id": "DIST-06"}
+
+    async def test_station_key_falls_back_to_name_when_no_id(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(police_station={"name": "PS Test"})  # no id, no district
+        await sp.project_fir(fir)
+
+        station_nodes = [n for n in graph_calls["nodes"] if n["label"] == "PoliceStation"]
+        assert station_nodes == [{
+            "label": "PoliceStation", "match": {"station_id": "PS Test"},
+            "properties": {"name": "PS Test", "code": None},
+        }]
+        assert not any(n["label"] == "District" for n in graph_calls["nodes"])
+        assert not any(
+            e["edge_label"] == "PART_OF" and e["from_label"] == "PoliceStation"
+            for e in graph_calls["edges"]
+        )
+
+    async def test_no_station_data_writes_no_jurisdiction_nodes(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(police_station={})
+        stats = await sp.project_fir(fir)
+
+        assert not any(n["label"] in ("PoliceStation", "District") for n in graph_calls["nodes"])
+        assert not any(e["edge_label"] == "FILED_AT" for e in graph_calls["edges"])
+        assert stats["errors"] == []
+
+    async def test_district_as_bare_string_is_tolerated(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        """`_station_district()` in muhafiz_records.py already documents
+        district as either a nested dict or a bare string — this module
+        must tolerate both shapes identically."""
+        fir = _minimal_fir(police_station={"id": "PS-1", "name": "PS One", "district": "Lahore"})
+        await sp.project_fir(fir)
+
+        district_nodes = [n for n in graph_calls["nodes"] if n["label"] == "District"]
+        assert district_nodes == [{
+            "label": "District", "match": {"district_id": "Lahore"},
+            "properties": {"name": "Lahore"},
+        }]
+
+    async def test_reprojecting_the_same_fir_uses_the_same_jurisdiction_keys(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        """write_node()/write_edge() MERGE-and-append-on-the-same-key —
+        idempotent re-projection (the M9 --full re-sync backfill) depends
+        on the SAME station_id/district_id being derived every run, same
+        requirement as `test_incident_entity_id_is_deterministic_...`
+        above. The actual no-duplicate guarantee on a real re-sync also
+        needs `scripts/sync_muhafiz_data.py`'s purge-by-source-doc-id-
+        prefix step (FILED_AT is in its EDGE_LABELS list) — that part is
+        exercised live, not by this unit test."""
+        fir = _minimal_fir(police_station={
+            "id": "PS-ISB-CYBER", "name": "Cyber Crime Circle",
+            "district": {"id": "DIST-06", "name": "Islamabad"},
+        })
+        await sp.project_fir(fir)
+        first_station_matches = [n["match"] for n in graph_calls["nodes"] if n["label"] == "PoliceStation"]
+        first_district_matches = [n["match"] for n in graph_calls["nodes"] if n["label"] == "District"]
+
+        graph_calls["nodes"].clear()
+        await sp.project_fir(fir)
+        second_station_matches = [n["match"] for n in graph_calls["nodes"] if n["label"] == "PoliceStation"]
+        second_district_matches = [n["match"] for n in graph_calls["nodes"] if n["label"] == "District"]
+
+        assert first_station_matches == second_station_matches
+        assert first_district_matches == second_district_matches
+
     async def test_a_single_person_write_failure_does_not_abort_the_whole_fir(
         self, monkeypatch, graph_calls, no_candidates_by_default, fake_resolve_and_write,
     ):
