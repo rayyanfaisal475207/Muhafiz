@@ -11,16 +11,22 @@ FIXED — M11 of the Muhafiz Data API migration
   2. `from src.retrieval.hybrid_search import get_keyword_results` —
      that module does not exist anywhere in this codebase.
   3. `async for conn in get_db()._pool.acquire()` — a Postgres
-     full-text-search (`ts_rank`) path this codebase does NOT have.
-     src/retrieval/vector_store.py's own module docstring says so
-     explicitly: "Keyword search (Postgres ts_rank) does not have a
-     Chroma equivalent, so it is dropped from this layer... the
-     orchestrator already runs an independent BM25 + RRF pass in
-     Python" — BM25 (src/retrieval/bm25_retriever.py) IS this
-     codebase's keyword-search component. Evaluated directly, alone
-     (no RRF fusion with semantic results — that combined case is what
-     eval_end_to_end.py measures), against the same unscoped candidate
-     pool orchestrator.py builds via get_all_chunks(where=None).
+     full-text-search (`ts_rank`) path this codebase did NOT have at the
+     time. BM25 (src/retrieval/bm25_retriever.py) was and remains this
+     codebase's actual keyword-RANKING component. Evaluated directly,
+     alone (no RRF fusion with semantic results — that combined case is
+     what eval_end_to_end.py measures).
+
+     UPDATED — Graph Scale & Schema Expansion, Milestone A2: a Postgres
+     tsvector/GIN index (`chunk_fulltext`, src/retrieval/fulltext_index.py)
+     now DOES exist, but only as a persistent CANDIDATE-GENERATION index
+     (which chunks share a token with the query) — it does not compute
+     `ts_rank` or replace BM25's own scoring, which is still the same
+     Python BM25Okapi pass this eval has always measured. The candidate
+     pool below is now per-query (`fulltext_index.candidate_pool`), not
+     one unscoped full-corpus fetch built once via
+     `vector_store.get_all_chunks(where=None)` and reused across every
+     query — narrower and index-backed, but not a ranking change.
 """
 import asyncio
 import json
@@ -31,7 +37,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.retrieval.bm25_retriever import retrieve_bm25
-from src.retrieval.vector_store import get_all_chunks
+from src.retrieval.fulltext_index import candidate_pool as bm25_candidate_pool
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -63,12 +69,6 @@ async def evaluate_keyword_search():
 
     logger.info(f"Starting Keyword Search (BM25) Eval on {total_queries} queries.")
 
-    # One unscoped candidate pool, built once — same pattern
-    # orchestrator.py itself uses per query (see its own get_all_chunks()
-    # call sites); reused across queries here purely because eval runs
-    # are read-only and the corpus doesn't change mid-run.
-    pool = await get_all_chunks(where=None)
-
     for q in queries:
         query_text = _question_text(q)
         expected_source_docs = q.get("expected_source_docs", [])
@@ -78,6 +78,12 @@ async def evaluate_keyword_search():
             continue
 
         try:
+            # Milestone A2: the candidate pool is now per-query (a
+            # persistent Postgres tsvector/GIN index lookup, not a full
+            # unscoped corpus fetch reused across queries) — matches
+            # orchestrator.py's own call sites, and mirrors this eval more
+            # closely to actual production behavior per query.
+            pool = await bm25_candidate_pool(query_text, where=None)
             results = retrieve_bm25(query_text, pool, top_k=10)
             retrieved_sources = [r.get("metadata", {}).get("source") for r in results]
 

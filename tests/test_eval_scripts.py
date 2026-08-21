@@ -54,7 +54,7 @@ class TestEndToEndRetrieve:
             calls.append(("semantic", where))
             return [{"id": "c1", "metadata": {"source": "psrms/fir/fir-1-26#narrative"}}]
 
-        async def fake_get_all_chunks(where):
+        async def fake_bm25_candidate_pool(query_text, where):
             calls.append(("pool", where))
             return [{"id": "c1", "text": "x", "metadata": {"source": "psrms/fir/fir-1-26#narrative"}}]
 
@@ -68,7 +68,7 @@ class TestEndToEndRetrieve:
 
         monkeypatch.setattr(e2e, "embed_text", fake_embed_text)
         monkeypatch.setattr(e2e, "query_similar", fake_query_similar)
-        monkeypatch.setattr(e2e, "get_all_chunks", fake_get_all_chunks)
+        monkeypatch.setattr(e2e, "bm25_candidate_pool", fake_bm25_candidate_pool)
         monkeypatch.setattr(e2e, "retrieve_bm25", fake_retrieve_bm25)
         monkeypatch.setattr(e2e, "rerank_results", fake_rerank_results)
 
@@ -116,14 +116,14 @@ class TestKeywordSearchEval:
         monkeypatch.setattr(kw, "EVAL_SET_PATH", eval_set)
         monkeypatch.setattr(kw, "RESULTS_PATH", results_path)
 
-        async def fake_get_all_chunks(where):
+        async def fake_bm25_candidate_pool(query_text, where):
             assert where is None
             return [{"id": "c1", "text": "x", "metadata": {"source": "psrms/fir/fir-1-26#narrative"}}]
 
         def fake_retrieve_bm25(query_text, pool, top_k):
             return [{"id": "c1", "metadata": {"source": "psrms/fir/fir-1-26#narrative"}}]
 
-        monkeypatch.setattr(kw, "get_all_chunks", fake_get_all_chunks)
+        monkeypatch.setattr(kw, "bm25_candidate_pool", fake_bm25_candidate_pool)
         monkeypatch.setattr(kw, "retrieve_bm25", fake_retrieve_bm25)
 
         await kw.evaluate_keyword_search()
@@ -141,7 +141,7 @@ class TestKeywordSearchEval:
         monkeypatch.setattr(kw, "EVAL_SET_PATH", eval_set)
         monkeypatch.setattr(kw, "RESULTS_PATH", tmp_path / "kw_results.json")
 
-        async def fake_get_all_chunks(where):
+        async def fake_bm25_candidate_pool(query_text, where):
             return []
         def fake_retrieve_bm25(query_text, pool, top_k):
             return [
@@ -149,7 +149,7 @@ class TestKeywordSearchEval:
                 {"metadata": {"source": "not-it-2"}},
                 {"metadata": {"source": "target"}},
             ]
-        monkeypatch.setattr(kw, "get_all_chunks", fake_get_all_chunks)
+        monkeypatch.setattr(kw, "bm25_candidate_pool", fake_bm25_candidate_pool)
         monkeypatch.setattr(kw, "retrieve_bm25", fake_retrieve_bm25)
 
         await kw.evaluate_keyword_search()

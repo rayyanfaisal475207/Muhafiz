@@ -30,7 +30,7 @@ def stub_pipeline(monkeypatch):
     async def _query_similar(q, emb, top_k=10, where=None, **kwargs):
         return [_chunk("c1"), _chunk("c2")]
 
-    async def _get_all_chunks(where=None):
+    async def _bm25_candidate_pool(query_text, where=None):
         return [_chunk("c1"), _chunk("c2"), _chunk("c3")]
 
     def _retrieve_bm25(query, docs, top_k=10):
@@ -51,7 +51,7 @@ def stub_pipeline(monkeypatch):
 
     monkeypatch.setattr(rag_mod, "embed_text", _embed_text)
     monkeypatch.setattr(rag_mod, "query_similar", _query_similar)
-    monkeypatch.setattr(rag_mod, "get_all_chunks", _get_all_chunks)
+    monkeypatch.setattr(rag_mod, "bm25_candidate_pool", _bm25_candidate_pool)
     monkeypatch.setattr(rag_mod, "retrieve_bm25", _retrieve_bm25)
     monkeypatch.setattr(rag_mod, "rerank_results", _rerank_results)
     monkeypatch.setattr(rag_mod, "cross_rerank", _cross_rerank)

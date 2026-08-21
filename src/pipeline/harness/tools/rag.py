@@ -2,7 +2,9 @@
 RAG tool — src/pipeline/harness/tools/rag.py (Phase 0, foundation layer).
 
 Thin adapter over the EXISTING retrieval pipeline (AGENT_HARNESS_DESIGN.md
-§2.1): `embed_text()` -> `query_similar()` + `get_all_chunks()` ->
+§2.1): `embed_text()` -> `query_similar()` + `fulltext_index.candidate_pool()`
+(Milestone A2 — persistent Postgres tsvector/GIN index, replacing the
+`get_all_chunks()` full-corpus fetch this used to call) ->
 `retrieve_bm25()` -> `rerank_results()` (RRF) -> `cross_rerank()`
 (bge-reranker-v2-m3) -> `evaluate_relevance()`, plus the evaluator-feedback
 retry loop (`rewrite_for_retry()`) that already surrounds those calls in
@@ -44,7 +46,7 @@ alongside the nested `CallerContext`, restoring a carrier for the
 project/global precedence rule this wrapper previously had to drop. This
 wrapper's `where` filter now also folds in `execution.project_id` when
 present. It never passes an unscoped (`None`/`{}`) filter to
-`query_similar`/`get_all_chunks` — doing so is the exact multi-tenant leak
+`query_similar`/`fulltext_index.candidate_pool` — doing so is the exact multi-tenant leak
 `orchestrator.py`'s own comments document (Phase 8, Bug 1) — so the one
 combination that still can't legitimately scope (no case, no project,
 `include_global=False`) returns `EMPTY` without calling retrieval at all,
@@ -75,8 +77,9 @@ from src.pipeline.query_rewriter import rewrite_for_retry
 from src.retrieval.bm25_retriever import retrieve_bm25
 from src.retrieval.cross_reranker import cross_rerank
 from src.retrieval.embedder import embed_text
+from src.retrieval.fulltext_index import candidate_pool as bm25_candidate_pool
 from src.retrieval.reranker import rerank_results
-from src.retrieval.vector_store import cap_case_diversity, get_all_chunks, query_similar
+from src.retrieval.vector_store import cap_case_diversity, query_similar
 
 logger = logging.getLogger(__name__)
 
@@ -224,7 +227,10 @@ async def _retrieve_candidates(
 
     combined_query = " ".join(all_queries)
     try:
-        full_candidate_pool = await get_all_chunks(where=where)
+        # Milestone A2: persistent-index-backed candidate pool — see
+        # src/retrieval/fulltext_index.py and orchestrator.py's own
+        # equivalent call sites.
+        full_candidate_pool = await bm25_candidate_pool(combined_query, where=where)
     except Exception as pool_exc:
         logger.error(
             "RAG tool: fetching full BM25 candidate pool failed: %s. "
@@ -262,7 +268,7 @@ async def rag_tool(tool_input: RagToolInput) -> RagToolResult:
     if not where:
         # No case to scope to, and global material explicitly excluded —
         # nothing legitimate to search. Never fall through to an unscoped
-        # query_similar/get_all_chunks call (see module docstring).
+        # query_similar/fulltext_index.candidate_pool call (see module docstring).
         return RagToolResult(status=ToolStatus.EMPTY)
 
     is_cross_case = not caller.active_case_id

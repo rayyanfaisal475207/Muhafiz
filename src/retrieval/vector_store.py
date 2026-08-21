@@ -25,6 +25,7 @@ import chromadb
 
 from src import config
 from src.data_gateway import get_gateway
+from src.retrieval import fulltext_index
 
 logger = logging.getLogger(__name__)
 
@@ -437,6 +438,16 @@ async def upsert_documents(
     store = _get_store()
     await asyncio.to_thread(store.upsert, chroma_chunks)
 
+    # Milestone A2: maintain the persistent full-text index alongside
+    # Chroma — incrementally, per chunk, at ingest time, never rebuilt
+    # from scratch per query (see src/retrieval/fulltext_index.py). Best-
+    # effort like identity_index.maintain(): a failure here is logged and
+    # swallowed inside maintain() itself, never raised into this ingest
+    # path — the chunk is still fully retrievable via vector search even
+    # if its keyword-index row is stale.
+    for chunk in chroma_chunks:
+        await fulltext_index.maintain(chunk["id"], chunk["text"], chunk["metadata"])
+
     gateway = await get_gateway()
     try:
         await gateway.insert_documents(unique_docs)
@@ -448,6 +459,7 @@ async def upsert_documents(
             len(chroma_ids),
         )
         await asyncio.to_thread(store.delete_by_ids, chroma_ids)
+        await fulltext_index.delete_by_ids(chroma_ids)
         raise
 
     logger.info("Upserted %d chunks into Chroma", len(ids))

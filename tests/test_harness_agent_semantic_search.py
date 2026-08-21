@@ -275,7 +275,7 @@ async def test_supervisor_dispatches_to_real_semantic_search_and_real_rag_tool(m
     async def _query_similar(q, emb, top_k=10, where=None, **kwargs):
         return [_raw_chunk("c1")]
 
-    async def _get_all_chunks(where=None):
+    async def _bm25_candidate_pool(query_text, where=None):
         return [_raw_chunk("c1")]
 
     def _retrieve_bm25(query, docs, top_k=10):
@@ -299,7 +299,7 @@ async def test_supervisor_dispatches_to_real_semantic_search_and_real_rag_tool(m
 
     monkeypatch.setattr(rag_tool_mod, "embed_text", _embed_text)
     monkeypatch.setattr(rag_tool_mod, "query_similar", _query_similar)
-    monkeypatch.setattr(rag_tool_mod, "get_all_chunks", _get_all_chunks)
+    monkeypatch.setattr(rag_tool_mod, "bm25_candidate_pool", _bm25_candidate_pool)
     monkeypatch.setattr(rag_tool_mod, "retrieve_bm25", _retrieve_bm25)
     monkeypatch.setattr(rag_tool_mod, "rerank_results", _rerank_results)
     monkeypatch.setattr(rag_tool_mod, "cross_rerank", _cross_rerank)
