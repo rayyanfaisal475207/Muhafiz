@@ -805,6 +805,75 @@ real data has no `cross_version` row for `fir-1001-26`), confirmed back
 to 0 `CROSS_VERSION_OF` edges, with every other Milestone B/C edge count
 (e.g. `RELATED_TO` at 24) unchanged by the round-trip.
 
+## C5 — Typed recovered property
+
+**Decision:** `malkhana_register.item_detail` classified at write time
+(`src/graph/structured_projection.py`'s new
+`_classify_and_write_malkhana_item()`, called from
+`_write_structured_records()` for the `malkhana_register` table only) —
+a value shaped like a vehicle plate or phone number resolves into the
+existing `Vehicle`/`PhoneNumber` node type via
+`entity_resolution.resolve_and_write()`, INSTEAD OF a generic
+`StructuredRecord` (matching the plan's literal wording — the row's
+generic write is skipped, not duplicated alongside the typed one).
+Everything else (cash, generic exhibits — everything actually observed
+live) stays a `StructuredRecord`, unchanged.
+
+Reuses `structured_fields.py`'s existing `extract_plates()`/
+`extract_phones()` (built on that module's own `_PLATE_RE`/`_PHONE_RE`)
+— no new pattern matchers, per the plan's explicit instruction. Plate is
+checked before phone, deterministically (not a coin-flip) for a detail
+string that happens to contain both shapes.
+
+`entity_resolution.resolve_and_write("vehicle"/"phone", ...)` is the
+EXACT SAME call `src/ingestion/service.py` already makes for free-text
+plate/phone extraction — not a second node-minting scheme. This matters
+concretely: `TYPE_PRIMARY_ID_KEY`'s `cnic_auto`-equivalent exact-match
+tier (keyed on `"plate"`/`"phone"`) means a malkhana-recovered plate
+correctly MERGEs onto an EXISTING `Vehicle` node carrying that plate
+regardless of which path created it first — a PKM `vehicle_verification`
+application's deterministic `VEHICLE-{plate}` node
+(`cross_silo_projection.py`'s `_vehicle_entity_id()`) included, since the
+lookup matches on the `plate` PROPERTY, not the `entity_id` naming
+convention. One additional explicit
+`APPEARS_IN{role: "recovered", surface_text}` edge is written on top of
+`resolve_and_write()`'s own generic (role-less) `APPEARS_IN`, to carry
+the "recovered in this malkhana entry" fact the generic edge doesn't.
+
+No new elabel/migration — `Vehicle`/`PhoneNumber`/`APPEARS_IN` already
+exist.
+
+### §7-B verification — measured, not assumed
+
+**0 real `malkhana_register.item_detail` values are plate/phone-shaped**
+in the live dataset — every one of the 73 FIRs' entries is descriptive
+text ("ایک عدد موبائل فون", "نقدی رقم", "چرس", ...), confirmed by running
+the real classifier against every real `item_detail` string in
+`tests/fixtures/muhafiz_api_snapshot.json`. Live-verified the same way as
+C4: a temporary snapshot was built by injecting two constructed
+`malkhana_register` rows onto a real FIR (`fir-1001-26`) — one
+plate-shaped (`"ICT-LE-309 برآمد"`), one phone-shaped
+(`"0300-1234567 نمبر برآمد"`) — then `scripts/sync_muhafiz_data.py --full`
+was run against it on the real `muhafiz-postgres` instance:
+
+```
+MATCH (v:Vehicle {plate:'ICT-LE-309'})-[r:APPEARS_IN {role:'recovered'}]->(:Document)
+RETURN v.entity_id, r.surface_text
+MATCH (p:PhoneNumber {phone:'0300-1234567'})-[r:APPEARS_IN {role:'recovered'}]->(:Document)
+RETURN p.entity_id, r.surface_text
+```
+
+**Result: exactly 1 edge each**, `surface_text` matching the injected
+detail string exactly (`"ICT-LE-309 برآمد"`/`"0300-1234567 نمبر برآمد"`).
+Re-ran the same `--full` sync against the same temporary snapshot a
+SECOND time: **still 2 `recovered`-role edges total, 1 `Vehicle` node for
+that plate — no duplication** (73/73 `Case` nodes unchanged both times).
+The live instance was then restored to the real, unmodified 73-FIR
+snapshot — the purge-by-source-doc-id-prefix step correctly removed both
+fixture-only edges (confirmed back to 0 `recovered`-role `APPEARS_IN`
+edges), with every other Milestone B/C edge count (`RELATED_TO` at 24)
+unchanged by the round-trip.
+
 ## Status: Milestone C in progress
 
 - [x] **C1** — person-relationship edges. `migrations/025_related_to_label.sql`,
@@ -844,3 +913,13 @@ to 0 `CROSS_VERSION_OF` edges, with every other Milestone B/C edge count
       injection — 1 edge written and matched exactly, no duplication
       across two `--full` re-syncs, graph correctly restored to 0 edges
       once the real (unmodified) snapshot was re-synced.
+- [x] **C5** — typed recovered property.
+      `structured_projection.py`'s `_classify_and_write_malkhana_item()`.
+      New tests in `tests/test_structured_projection.py`
+      (`TestTypedRecoveredProperty`). Full suite green. 0 real
+      plate/phone-shaped `item_detail` values in the live dataset;
+      live-verified against real Postgres/AGE per §7-B above via a
+      constructed-fixture injection (one plate-shaped, one phone-shaped
+      row) — both resolved and edge-matched exactly, no duplication
+      across two `--full` re-syncs, graph correctly restored once the
+      real (unmodified) snapshot was re-synced.
