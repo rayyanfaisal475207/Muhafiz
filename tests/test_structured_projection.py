@@ -715,6 +715,79 @@ class TestZimniOfficerAndPositionTimeline:
         )
 
 
+class TestTypedRecoveredProperty:
+    """Milestone C5 — malkhana_register.item_detail classified at write
+    time; a plate/phone-shaped value resolves into Vehicle/PhoneNumber
+    instead of a generic StructuredRecord."""
+
+    async def test_plate_shaped_detail_resolves_to_vehicle(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(malkhana_register=[{"id": "m1", "item_detail": "ICT-LE-309 برآمد"}])
+        stats = await sp.project_fir(fir)
+
+        vehicle_calls = [c for c in fake_resolve_and_write if c["entity_type"] == "vehicle"]
+        assert len(vehicle_calls) == 1
+        assert vehicle_calls[0]["mention"]["plate"] == "ICT-LE-309"
+
+        appears = [
+            e for e in graph_calls["edges"]
+            if e["edge_label"] == "APPEARS_IN" and e["properties"].get("role") == "recovered"
+        ]
+        assert len(appears) == 1
+        assert appears[0]["properties"]["surface_text"] == "ICT-LE-309 برآمد"
+        assert appears[0]["from_label"] == "Vehicle"
+
+        # No generic StructuredRecord for this row — "instead of," not
+        # "in addition to."
+        assert not any(
+            n["label"] == "StructuredRecord" and n["match"].get("record_id") == "malkhana_register:m1"
+            for n in graph_calls["nodes"]
+        )
+        assert stats["structured_records"] == 0
+
+    async def test_phone_shaped_detail_resolves_to_phone_number(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(malkhana_register=[{"id": "m1", "item_detail": "0300-1234567 نمبر برآمد"}])
+        await sp.project_fir(fir)
+
+        phone_calls = [c for c in fake_resolve_and_write if c["entity_type"] == "phone"]
+        assert len(phone_calls) == 1
+        assert phone_calls[0]["mention"]["phone"] == "0300-1234567"
+
+        appears = [
+            e for e in graph_calls["edges"]
+            if e["edge_label"] == "APPEARS_IN" and e["properties"].get("role") == "recovered"
+        ]
+        assert len(appears) == 1
+        assert appears[0]["from_label"] == "PhoneNumber"
+
+    async def test_unshaped_detail_stays_a_generic_structured_record(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(malkhana_register=[{"id": "m1", "item_detail": "نقدی رقم"}])
+        stats = await sp.project_fir(fir)
+
+        assert not any(c["entity_type"] in ("vehicle", "phone") for c in fake_resolve_and_write)
+        sr_nodes = [n for n in graph_calls["nodes"] if n["label"] == "StructuredRecord"]
+        assert any(n["match"] == {"record_id": "malkhana_register:m1"} for n in sr_nodes)
+        assert stats["structured_records"] == 1
+
+    async def test_plate_takes_priority_when_both_would_match(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        """A detail string containing both a plate and a phone shape
+        classifies as Vehicle — plate checked first, deterministic, not a
+        coin-flip between the two detectors."""
+        fir = _minimal_fir(malkhana_register=[
+            {"id": "m1", "item_detail": "ICT-LE-309 اور رابطہ نمبر 0300-1234567"},
+        ])
+        await sp.project_fir(fir)
+        assert any(c["entity_type"] == "vehicle" for c in fake_resolve_and_write)
+        assert not any(c["entity_type"] == "phone" for c in fake_resolve_and_write)
+
+
 class TestChalaanNameResolution:
     """Milestone C2 — chalaan_dispatch.accused_names/witness_names resolved
     back to this FIR's own Person nodes, reusing the same in-FIR-only
