@@ -19,7 +19,11 @@
 #      linked to an EXISTING Person by applicant_cnic, same soft-reference
 #      discipline. These are exact string-equality joins on API-supplied
 #      keys — no heuristic, no confidence score, written as real edges
-#      immediately.
+#      immediately. Milestone C1 (GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md —
+#      person-relationship edges) adds RELATED_TO{role} for PKM
+#      tenant_registration (owner/tenant) and employee_registration
+#      (employer/employee) applications, same soft-reference-by-CNIC
+#      discipline as REGISTERED_TO above — see _write_pkm_relationship().
 #
 #   2. FIR->FIR PROSE CITATIONS (written as `CITES`, always `pending`) —
 #      a regex hit against free text carries the same false-positive risk
@@ -230,11 +234,53 @@ async def project_pkm_application(
 
         if pkm.service_type == "vehicle_verification":
             await _write_pkm_vehicle(pkm, doc_id, graph, stats)
+        elif pkm.service_type == "tenant_registration":
+            await _write_pkm_relationship(pkm, pkm.owner, pkm.tenant, "landlord_of", doc_id, graph, stats)
+        elif pkm.service_type == "employee_registration":
+            await _write_pkm_relationship(pkm, pkm.employer, pkm.employee, "employer_of", doc_id, graph, stats)
     except Exception as exc:
         logger.warning("PKM projection failed for %s: %s", pkm.application_id, exc)
         stats["errors"].append(str(exc))
 
     return stats
+
+
+async def _write_pkm_relationship(
+    pkm: PkmApplication, from_person: dict, to_person: dict, role: str,
+    doc_id: str, graph: str, stats: dict,
+) -> None:
+    """
+    Milestone C1 (GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md — person-relationship
+    edges): RELATED_TO{role} between the two nested people on a
+    tenant_registration (owner/tenant) or employee_registration
+    (employer/employee) application.
+
+    Never case-scoped (same reasoning as _write_pkm_vehicle above — these
+    service types don't resolve to a Case via resolve_pkm_case_id()), so
+    neither person is minted here — only linked when BOTH sides already
+    resolve to an EXISTING Person node by CNIC, the identical soft-reference
+    discipline project_criminal_record()'s subject_cnic lookup and
+    _write_pkm_vehicle()'s applicant_cnic lookup already use. Minting a
+    fresh caseless Person here would bypass entity_resolution's
+    corroboration gate entirely (there is no case to corroborate against),
+    so a PKM-only owner/tenant/employer/employee with no CNIC match to an
+    existing Person is simply not linked — consistent with, not a
+    weakening of, this module's existing case-less-record precedent.
+    """
+    from_cnic, to_cnic = from_person.get("cnic"), to_person.get("cnic")
+    if not from_cnic or not to_cnic:
+        return
+    from_existing = await entity_resolution._find_by_primary_id("Person", "cnic", from_cnic, graph=graph)
+    to_existing = await entity_resolution._find_by_primary_id("Person", "cnic", to_cnic, graph=graph)
+    if not from_existing or not to_existing:
+        return
+    edge = await versioning.write_edge(
+        "RELATED_TO", "Person", {"entity_id": from_existing["properties"].get("entity_id")},
+        "Person", {"entity_id": to_existing["properties"].get("entity_id")},
+        {"role": role}, source_doc_id=doc_id, confidence=1.0, graph=graph,
+    )
+    if edge:
+        stats["edges_written"] += 1
 
 
 async def _write_pkm_vehicle(pkm: PkmApplication, doc_id: str, graph: str, stats: dict) -> None:

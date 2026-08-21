@@ -554,6 +554,82 @@ class TestProjectFirWiring:
         assert stats["persons_resolved"] >= 1, "the OTHER accused must still be written"
 
 
+class TestPersonRelationshipEdges:
+    """Milestone C1 — RELATED_TO{role} from fir_accused.relationship_to_victim/
+    relationship_to_complainant."""
+
+    async def test_relationship_to_complainant_writes_related_to(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(
+            fir_accused=[{
+                "id": "a1", "full_name": "ملزم ایک", "cnic": "00000-2000000-1",
+                "relationship_to_complainant": "بھائی",
+            }],
+        )
+        await sp.project_fir(fir)
+        related = [e for e in graph_calls["edges"] if e["edge_label"] == "RELATED_TO"]
+        assert len(related) == 1
+        assert related[0]["properties"]["role"] == "بھائی"
+        assert related[0]["from_label"] == "Person" and related[0]["to_label"] == "Person"
+
+    async def test_relationship_to_victim_writes_related_to_only_when_victim_present(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(
+            victim_name="مقتول",
+            fir_accused=[{
+                "id": "a1", "full_name": "ملزم ایک", "cnic": "00000-2000000-1",
+                "relationship_to_victim": "اجنبی",
+            }],
+        )
+        await sp.project_fir(fir)
+        related = [e for e in graph_calls["edges"] if e["edge_label"] == "RELATED_TO"]
+        assert len(related) == 1
+        assert related[0]["properties"]["role"] == "اجنبی"
+
+        involved = [e for e in graph_calls["edges"] if e["edge_label"] == "INVOLVED_IN"]
+        assert any(e["properties"].get("role") == "victim" for e in involved)
+
+    async def test_no_victim_name_writes_no_related_to_for_relationship_to_victim(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(
+            fir_accused=[{
+                "id": "a1", "full_name": "ملزم ایک", "cnic": "00000-2000000-1",
+                "relationship_to_victim": "اجنبی",
+            }],
+        )
+        await sp.project_fir(fir)
+        related = [e for e in graph_calls["edges"] if e["edge_label"] == "RELATED_TO"]
+        assert related == []
+
+    async def test_no_relationship_fields_writes_no_related_to(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(
+            fir_accused=[{"id": "a1", "full_name": "ملزم ایک", "cnic": "00000-2000000-1"}],
+        )
+        await sp.project_fir(fir)
+        related = [e for e in graph_calls["edges"] if e["edge_label"] == "RELATED_TO"]
+        assert related == []
+
+    async def test_both_relationships_write_two_related_to_edges(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(
+            victim_name="مقتول",
+            fir_accused=[{
+                "id": "a1", "full_name": "ملزم ایک", "cnic": "00000-2000000-1",
+                "relationship_to_victim": "اجنبی", "relationship_to_complainant": "پڑوسی",
+            }],
+        )
+        await sp.project_fir(fir)
+        related = [e for e in graph_calls["edges"] if e["edge_label"] == "RELATED_TO"]
+        assert len(related) == 2
+        assert {e["properties"]["role"] for e in related} == {"اجنبی", "پڑوسی"}
+
+
 # ── against the real snapshot ────────────────────────────────────────────
 
 class TestAgainstRealSnapshot:

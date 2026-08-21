@@ -234,6 +234,106 @@ class TestProjectPkmVehicleVerification:
         assert len(with_plate) >= 1
 
 
+class TestProjectPkmRelationships:
+    """
+    Milestone C1 (GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md — person-relationship
+    edges): RELATED_TO{role} between the two nested people on a
+    tenant_registration/employee_registration application. Not observed
+    populated in the live dataset (0 of 14 real PKM applications are either
+    service type) — tested against a constructed fixture, per
+    PkmApplication.owner/tenant/employer/employee's own docstring on the
+    inferred shape.
+    """
+
+    def _keyed_find(self, by_cnic: dict):
+        async def fake(label, id_key, id_value, *, graph=None):
+            return by_cnic.get(id_value)
+        return fake
+
+    async def test_tenant_registration_both_cnics_resolve_writes_related_to(
+        self, monkeypatch, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        monkeypatch.setattr(entity_resolution, "_find_by_primary_id", self._keyed_find({
+            "00000-1-1": {"properties": {"entity_id": "PERSON-OWNER"}},
+            "00000-2-2": {"properties": {"entity_id": "PERSON-TENANT"}},
+        }))
+        pkm = PkmApplication({
+            "application_id": "P1", "service_type": "tenant_registration",
+            "tenant_registration": {"property_address": "x"},
+            "owner": {"cnic": "00000-1-1", "full_name": "Owner"},
+            "tenant": {"cnic": "00000-2-2", "full_name": "Tenant"},
+        })
+        stats = await csp.project_pkm_application(pkm, case_id=None)
+
+        related = [e for e in graph_calls["edges"] if e["edge_label"] == "RELATED_TO"]
+        assert len(related) == 1
+        assert related[0]["from_match"] == {"entity_id": "PERSON-OWNER"}
+        assert related[0]["to_match"] == {"entity_id": "PERSON-TENANT"}
+        assert related[0]["properties"]["role"] == "landlord_of"
+        assert stats["edges_written"] >= 1
+
+    async def test_employee_registration_both_cnics_resolve_writes_related_to(
+        self, monkeypatch, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        monkeypatch.setattr(entity_resolution, "_find_by_primary_id", self._keyed_find({
+            "00000-3-3": {"properties": {"entity_id": "PERSON-EMPLOYER"}},
+            "00000-4-4": {"properties": {"entity_id": "PERSON-EMPLOYEE"}},
+        }))
+        pkm = PkmApplication({
+            "application_id": "P2", "service_type": "employee_registration",
+            "employee_registration": {},
+            "employer": {"cnic": "00000-3-3", "full_name": "Employer"},
+            "employee": {"cnic": "00000-4-4", "full_name": "Employee"},
+        })
+        await csp.project_pkm_application(pkm, case_id=None)
+
+        related = [e for e in graph_calls["edges"] if e["edge_label"] == "RELATED_TO"]
+        assert len(related) == 1
+        assert related[0]["from_match"] == {"entity_id": "PERSON-EMPLOYER"}
+        assert related[0]["to_match"] == {"entity_id": "PERSON-EMPLOYEE"}
+        assert related[0]["properties"]["role"] == "employer_of"
+
+    async def test_one_side_unresolved_writes_no_related_to(
+        self, monkeypatch, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        monkeypatch.setattr(entity_resolution, "_find_by_primary_id", self._keyed_find({
+            "00000-1-1": {"properties": {"entity_id": "PERSON-OWNER"}},
+            # tenant's cnic never matches an existing Person.
+        }))
+        pkm = PkmApplication({
+            "application_id": "P1", "service_type": "tenant_registration",
+            "tenant_registration": {},
+            "owner": {"cnic": "00000-1-1", "full_name": "Owner"},
+            "tenant": {"cnic": "00000-2-2", "full_name": "Tenant"},
+        })
+        await csp.project_pkm_application(pkm, case_id=None)
+        assert not any(e["edge_label"] == "RELATED_TO" for e in graph_calls["edges"])
+
+    async def test_missing_cnic_on_either_side_writes_no_related_to(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write, fake_find_by_primary_id,
+    ):
+        fake_find_by_primary_id["result"] = {"properties": {"entity_id": "PERSON-X"}}
+        pkm = PkmApplication({
+            "application_id": "P1", "service_type": "tenant_registration",
+            "tenant_registration": {},
+            "owner": {"full_name": "Owner"},  # no cnic
+            "tenant": {"cnic": "00000-2-2", "full_name": "Tenant"},
+        })
+        await csp.project_pkm_application(pkm, case_id=None)
+        assert not any(e["edge_label"] == "RELATED_TO" for e in graph_calls["edges"])
+
+    async def test_measured_count_against_real_snapshot(self, snapshot):
+        """0 of 14 real PKM applications are tenant_registration or
+        employee_registration — locks in that this remains a
+        constructed-fixture-only path, same disclosure as C4's
+        cross_version test."""
+        pkms = [
+            r for r in snapshot["endpoints"]["pkm"]
+            if r.get("service_type") in ("tenant_registration", "employee_registration")
+        ]
+        assert pkms == []
+
+
 # ── criminal records ──────────────────────────────────────────────────────
 
 class TestProjectCriminalRecord:
