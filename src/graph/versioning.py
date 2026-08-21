@@ -37,7 +37,7 @@ import re
 from datetime import datetime, timezone
 from typing import Optional
 
-from src.graph import age_client
+from src.graph import age_client, identity_index
 from src.data_gateway import get_gateway
 
 logger = logging.getLogger(__name__)
@@ -149,7 +149,7 @@ async def write_node(
     }
     rows = await age_client.execute_cypher(cypher, params=params, columns=["n"], graph=graph)
     node = rows[0]["n"] if rows else None
-    
+
     if node:
         gateway = await get_gateway()
         await gateway.log_audit_event("graph_write", {
@@ -158,6 +158,17 @@ async def write_node(
             "match": match,
             "node_id": node["id"]
         })
+
+        # Graph Scale & Schema Expansion, Milestone A1: maintain the
+        # Postgres identity index alongside every write_node() call for an
+        # identity-bearing label (see src/graph/identity_index.py). A
+        # single choke point here, rather than every call site
+        # remembering to do it — same reasoning this module already
+        # applies to the append-only edge discipline.
+        entity_id = node.get("properties", {}).get("entity_id")
+        if entity_id:
+            merged_properties = {**match, **(properties or {})}
+            await identity_index.maintain(label, entity_id, merged_properties)
     return node
 
 

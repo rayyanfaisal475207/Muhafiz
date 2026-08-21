@@ -36,7 +36,7 @@ from typing import Optional
 from rapidfuzz import fuzz
 
 from src.extraction.llm_json import parse_json_response
-from src.graph import age_client, versioning
+from src.graph import age_client, identity_index, versioning
 from src.graph.case_scope import scoped_cypher
 from src.ingestion.script_detector import _ARABIC_SCRIPT
 from src.ingestion.text_normalizer import normalize_urdu
@@ -46,6 +46,15 @@ logger = logging.getLogger(__name__)
 
 _PROMPT_PATH = Path(__file__).resolve().parent.parent.parent / "prompts" / "resolution_adjudicator.txt"
 _SYSTEM_PROMPT = _PROMPT_PATH.read_text(encoding="utf-8")
+
+# Captured once at import time — NOT re-read as `age_client.GRAPH_NAME` at
+# call time below, because tests (and any other caller) monkeypatch the
+# whole `age_client` module-level reference with a fake that has no
+# GRAPH_NAME attribute. This is the one production graph name the
+# Postgres-side identity_index table is ever consulted for (Milestone A1)
+# — the isolated eval graph's resolution decisions must never read or be
+# influenced by the shared production index.
+_PRODUCTION_GRAPH = age_client.GRAPH_NAME
 
 TYPE_TO_LABEL = {
     "person": "Person",
@@ -205,6 +214,33 @@ def _has_shared_structured_id(mention: dict, candidate_props: dict) -> bool:
 async def _find_by_primary_id(
     label: str, id_key: str, id_value: str, *, graph: str = age_client.GRAPH_NAME
 ) -> Optional[dict]:
+    """
+    Graph Scale & Schema Expansion, Milestone A1: reads the Postgres
+    identity index first (O(1) primary-key lookup — see
+    src/graph/identity_index.py) rather than going straight to the AGE
+    scan below. The Cypher MATCH on an exact property equality below looks
+    targeted but AGE has no property index behind it, so it was actually a
+    full label scan — see migrations/021_identity_index.sql's header for
+    the confirmed diagnosis.
+
+    An index HIT returns immediately without touching AGE at all — the
+    only thing the one caller (resolve_mention) reads off the result is
+    `entity_id`, so a synthetic node dict carrying just that is a complete
+    substitute.
+
+    An index MISS (never indexed, or the index write failed/hasn't
+    happened yet) falls through to the exact same AGE scan this function
+    always ran — the plan's explicit "defends against drift between the
+    index and the graph" requirement. `graph="evidence_graph_eval"` (the
+    isolated eval graph) is deliberately never looked up in the shared
+    production identity_index table — see the `graph` parameter guard
+    below.
+    """
+    if graph == _PRODUCTION_GRAPH:
+        indexed_entity_id = await identity_index.lookup(label, id_key, id_value)
+        if indexed_entity_id:
+            return {"properties": {"entity_id": indexed_entity_id}}
+
     rows = await age_client.execute_cypher(
         f"MATCH (n:{label} {{{id_key}: $id_value}}) RETURN n",
         params={"id_value": id_value},
@@ -219,11 +255,42 @@ async def _fetch_all_nodes(label: str, *, graph: str = age_client.GRAPH_NAME) ->
     Full scan of every existing node of this type. Cross-case by design —
     not case_id-filtered — because cross-case resolution (the P-006
     repeat-offender flagship case) requires comparing against canonical
-    entities regardless of which case they were first seen in. Acceptable
-    at POC entity-count scale; revisit with a blocking index if the
-    canonical-entity count grows large enough for a full scan to matter.
+    entities regardless of which case they were first seen in.
+
+    Still the exact fallback used on an identity-index miss (Milestone
+    A1) — kept as its own function rather than folded into
+    _fetch_nodes_excluding() below, since a mention with no id_key at all
+    (organization/address) or no id_value on this particular mention has
+    no exclude set to build and must scan everything, same as before A1.
     """
     rows = await age_client.execute_cypher(f"MATCH (n:{label}) RETURN n", columns=["n"], graph=graph)
+    return [r["n"] for r in rows]
+
+
+async def _fetch_nodes_excluding(
+    label: str, excluded_entity_ids: list[str], *, graph: str = age_client.GRAPH_NAME
+) -> list[dict]:
+    """
+    Same full scan as _fetch_all_nodes(), minus every entity_id already
+    known (via the Postgres identity index) to carry a DIFFERENT non-empty
+    primary-id value than the mention being resolved — see
+    identity_index.entity_ids_excluding()'s docstring for why excluding
+    them here is safe (they would be discarded by _generate_candidates()'s
+    hard block regardless).
+
+    Still an AGE label scan under the hood (AGE has no property index to
+    push `NOT IN` down to) — this shrinks what gets pulled out of it and
+    iterated in Python, it does not make the underlying scan itself O(1).
+    The genuinely O(1) win is _find_by_primary_id()'s index hit, which
+    means this function is reached far less often in the first place: only
+    when a mention's id_value doesn't match anything yet indexed.
+    """
+    rows = await age_client.execute_cypher(
+        f"MATCH (n:{label}) WHERE NOT n.entity_id IN $excluded RETURN n",
+        params={"excluded": excluded_entity_ids},
+        columns=["n"],
+        graph=graph,
+    )
     return [r["n"] for r in rows]
 
 
@@ -260,7 +327,22 @@ async def _generate_candidates(
 ) -> list[Candidate]:
     mention_id = mention.get(id_key) if id_key else None
     mention_name = mention.get("canonical_name", "")
-    all_nodes = await _fetch_all_nodes(label, graph=graph)
+
+    # Milestone A1: when this mention carries an id_value, the Postgres
+    # identity index already tells us every entity_id that has a DIFFERENT
+    # value recorded for this id_key — those are excluded below by the
+    # hard-block rule regardless, so there's no need to pull their full
+    # node properties out of AGE just to discard them. Only consulted for
+    # the production graph, same "never look at production's index for an
+    # eval-graph run" guard as _find_by_primary_id().
+    excluded_entity_ids: list[str] = []
+    if mention_id and graph == _PRODUCTION_GRAPH:
+        excluded_entity_ids = await identity_index.entity_ids_excluding(label, id_key, mention_id)
+
+    if excluded_entity_ids:
+        all_nodes = await _fetch_nodes_excluding(label, excluded_entity_ids, graph=graph)
+    else:
+        all_nodes = await _fetch_all_nodes(label, graph=graph)
 
     # Pass 1: apply the hard block + name-similarity floor, same as
     # before — just deferring the shared_case lookup so every surviving
