@@ -41,6 +41,7 @@ def graph_calls(monkeypatch):
         calls["edges"].append({
             "edge_label": edge_label, "from_label": from_label, "from_match": from_match,
             "to_label": to_label, "to_match": to_match, "properties": properties or {},
+            "supersedes_edge_id": supersedes_edge_id,
         })
         return {"id": len(calls["edges"]), "label": edge_label, "properties": properties or {}}
 
@@ -416,6 +417,116 @@ class TestProjectFirWiring:
 
         assert first_station_matches == second_station_matches
         assert first_district_matches == second_district_matches
+
+    # ── Milestone B2: officer identity resolution ────────────────────────
+
+    async def test_recording_officer_gets_assigned_to_edge(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(
+            recording_officer_name="فیصل", recording_officer_belt_no="GEN-0901",
+            recording_officer_designation="ASI", report_datetime="2026-08-18T15:10:00Z",
+        )
+        await sp.project_fir(fir)
+
+        officer_calls = [c for c in fake_resolve_and_write if c["entity_type"] == "officer"]
+        assert len(officer_calls) == 1
+        assert officer_calls[0]["mention"]["belt_no"] == "GEN-0901"
+
+        assigned = [e for e in graph_calls["edges"] if e["edge_label"] == "ASSIGNED_TO"]
+        assert len(assigned) == 1
+        assert assigned[0]["from_label"] == "Officer"
+        assert assigned[0]["properties"]["role"] == "recording"
+        assert assigned[0]["properties"]["assigned_from"] == "2026-08-18T15:10:00Z"
+        assert assigned[0]["supersedes_edge_id"] is None
+
+    async def test_no_recording_officer_name_writes_nothing(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir()  # no recording_officer_* fields at all
+        await sp.project_fir(fir)
+        assert not any(e["edge_label"] == "ASSIGNED_TO" for e in graph_calls["edges"])
+
+    async def test_single_investigating_officer_gets_assigned_to_no_supersede(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(fir_investigating_officer=[
+            {"id": "FIO-1", "officer_name": "فیصل", "belt_no": "GEN-0901",
+             "assigned_from": "2024-09-25", "assigned_to": None},
+        ])
+        await sp.project_fir(fir)
+
+        investigating = [
+            e for e in graph_calls["edges"]
+            if e["edge_label"] == "ASSIGNED_TO" and e["properties"]["role"] == "investigating"
+        ]
+        assert len(investigating) == 1
+        assert investigating[0]["supersedes_edge_id"] is None
+        assert investigating[0]["properties"]["assigned_from"] == "2024-09-25"
+
+    async def test_reassignment_writes_a_supersession_chain(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        """Mirrors the real fir-205-26 shape: two investigating-officer
+        rows, out of chronological order in the source array — must still
+        be written oldest-first, with the SECOND edge superseding the
+        first's id, never the reverse."""
+        fir = _minimal_fir(fir_investigating_officer=[
+            {"id": "FIO-2", "officer_name": "افسر دو", "belt_no": "GEN-0105",
+             "assigned_from": "2026-06-22", "assigned_to": None},
+            {"id": "FIO-1", "officer_name": "افسر ایک", "belt_no": "1854L",
+             "assigned_from": "2026-02-15", "assigned_to": None},
+        ])
+        await sp.project_fir(fir)
+
+        investigating = [
+            e for e in graph_calls["edges"]
+            if e["edge_label"] == "ASSIGNED_TO" and e["properties"]["role"] == "investigating"
+        ]
+        assert len(investigating) == 2
+        # Written oldest-first, regardless of source array order.
+        assert investigating[0]["properties"]["assigned_from"] == "2026-02-15"
+        assert investigating[1]["properties"]["assigned_from"] == "2026-06-22"
+        assert investigating[0]["supersedes_edge_id"] is None
+        # The second (later) edge supersedes the first's own id — the
+        # first edge is never deleted, only ever pointed at.
+        first_edge_id = graph_calls["edges"].index(investigating[0]) + 1  # fake ids are 1-based positions
+        assert investigating[1]["supersedes_edge_id"] == first_edge_id
+
+    async def test_investigating_officer_row_with_no_name_is_skipped(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(fir_investigating_officer=[
+            {"id": "FIO-1", "officer_name": None, "belt_no": "GEN-0901", "assigned_from": "2024-09-25"},
+        ])
+        await sp.project_fir(fir)
+        assert not any(e["edge_label"] == "ASSIGNED_TO" for e in graph_calls["edges"])
+
+    async def test_a_single_officer_write_failure_does_not_abort_the_whole_fir(
+        self, monkeypatch, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(
+            fir_investigating_officer=[
+                {"id": "FIO-1", "officer_name": "First", "belt_no": "B-1", "assigned_from": "2026-01-01"},
+                {"id": "FIO-2", "officer_name": "Second", "belt_no": "B-2", "assigned_from": "2026-02-01"},
+            ],
+        )
+        officer_call_count = {"n": 0}
+        original = sp.entity_resolution.resolve_and_write  # the fake_resolve_and_write stub
+
+        async def flaky(entity_type, mention, case_id, source_doc_id, source_chunk_id=None, *, graph=None):
+            if entity_type == "officer":
+                officer_call_count["n"] += 1
+                if officer_call_count["n"] == 1:
+                    raise RuntimeError("simulated officer resolution failure")
+            return await original(entity_type, mention, case_id, source_doc_id, source_chunk_id, graph=graph)
+
+        monkeypatch.setattr(sp.entity_resolution, "resolve_and_write", flaky)
+
+        stats = await sp.project_fir(fir)
+
+        assert stats["errors"], "the failure must be recorded"
+        assert stats["officers_resolved"] >= 1, "the OTHER officer must still be written"
 
     async def test_a_single_person_write_failure_does_not_abort_the_whole_fir(
         self, monkeypatch, graph_calls, no_candidates_by_default, fake_resolve_and_write,

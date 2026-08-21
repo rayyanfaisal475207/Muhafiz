@@ -64,6 +64,11 @@ TYPE_TO_LABEL = {
     "location": "Address",
     "organization": "Organization",
     "incident": "Incident",
+    # Milestone B2 (GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md — officer identity
+    # resolution): Officer gets the exact same tier discipline CNIC-based
+    # Person resolution already gets, keyed on belt_no instead of cnic —
+    # see TYPE_PRIMARY_ID_KEY below.
+    "officer": "Officer",
 }
 
 # The exact-match identifier that gates the auto-merge tier, per entity
@@ -87,6 +92,15 @@ TYPE_PRIMARY_ID_KEY = {
     "person": "cnic",
     "vehicle": "plate",
     "phone": "phone",
+    # "officer"/"belt_no" added Milestone B2 — an officer's belt number is
+    # exactly the same kind of exact-match structured identifier CNIC/
+    # plate/phone already are: two mentions with the SAME belt_no are the
+    # same officer (cnic_auto-equivalent auto-merge, no name comparison
+    # needed), and a mention with a belt_no is never even compared by name
+    # against a candidate with a DIFFERENT non-empty belt_no (the same
+    # hard-block invariant _generate_candidates() already enforces for
+    # every other key in this dict).
+    "officer": "belt_no",
 }
 
 # Named after its original (and still primary) case — CNIC — but the

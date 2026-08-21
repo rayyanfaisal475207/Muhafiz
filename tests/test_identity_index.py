@@ -99,6 +99,21 @@ async def test_maintain_upserts_vehicle_plate(monkeypatch):
     assert params["id_value"] == "ICT-273"
 
 
+async def test_maintain_upserts_officer_belt_no(monkeypatch):
+    """Milestone B2 — Officer/belt_no gets the identical maintenance path
+    Person/cnic and Vehicle/plate already get."""
+    session = _FakeSession()
+    monkeypatch.setattr(identity_index, "get_session", _fake_get_session(session))
+
+    await identity_index.maintain("Officer", "OFFICER-1", {"belt_no": "HYD-3345", "canonical_name": "طارق جمالی"})
+
+    _, params = session.executed[0]
+    assert params["label"] == "Officer"
+    assert params["id_key"] == "belt_no"
+    assert params["id_value"] == "HYD-3345"
+    assert params["entity_id"] == "OFFICER-1"
+
+
 async def test_maintain_swallows_db_failure_without_raising(monkeypatch):
     session = _FakeSession(raise_on_execute=True)
     monkeypatch.setattr(identity_index, "get_session", _fake_get_session(session))

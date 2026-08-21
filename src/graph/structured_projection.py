@@ -59,6 +59,17 @@
 #     purge-by-source-doc-id-prefix idempotency scripts/sync_muhafiz_data.py
 #     already relies on (see its own module docstring) make this additive,
 #     never destructive, on a second run.
+#   - Officer nodes (Milestone B2, GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md —
+#     officer identity resolution), resolved by belt_no through
+#     entity_resolution.py's normal tiering (same exact-match discipline
+#     CNIC/plate/phone already get), from BOTH investigating officers
+#     (fir_investigating_officer child rows) and the single recording
+#     officer (FirRecord.recording_officer_* fields) —
+#     Officer-[ASSIGNED_TO {role, assigned_from, assigned_to}]->Case,
+#     replacing the collapsed "current officer" string with full,
+#     append-only assignment history (a supersession chain across
+#     investigating-officer reassignments — see _write_investigating_
+#     officers() below).
 #
 # Every write here is source_doc_id-tagged to the synthetic "#structured"
 # Document, so provenance ("what does the system believe, from where") is
@@ -326,12 +337,120 @@ def _complainant_mention(fir: FirRecord) -> Optional[dict]:
     return mention
 
 
+# ── officers (Milestone B2) ──────────────────────────────────────────────
+
+def _officer_mention(
+    name: Optional[str], belt_no: Optional[str],
+    designation: Optional[str] = None, phone: Optional[str] = None,
+) -> Optional[dict]:
+    if not name:
+        return None
+    mention = {"canonical_name": name, "extraction_confidence": 1.0}
+    if belt_no:
+        mention["belt_no"] = belt_no
+    if designation:
+        mention["designation"] = designation
+    if phone:
+        mention["phone"] = phone
+    return mention
+
+
+async def _write_investigating_officers(fir, case_id, doc_id, graph, stats) -> None:
+    """
+    fir_investigating_officer can have more than one row over a case's
+    life (muhafiz_cases.py's own `_current_investigating_officer()`
+    comment) — measured live: `fir-205-26` has two (belt 1854L from
+    2026-02-15, superseded by belt GEN-0105 from 2026-06-22). Sorted by
+    `assigned_from` (rows with none sort last — same "assigned_from is
+    often null too" tolerance `muhafiz_cases.py` already documents) and
+    written as a SUPERSESSION CHAIN: each later officer's edge supersedes
+    the previous one via `versioning.write_edge()`'s existing mechanism.
+    The prior edge is never deleted — only marked `superseded_by` — so the
+    full history stays queryable (§7-B's ">1 row wherever the source data
+    shows a reassignment" requirement) while the one edge with no
+    `superseded_by` is unambiguously "who is investigating this case now."
+    """
+    rows = fir.child_rows("fir_investigating_officer")
+    rows_sorted = sorted(rows, key=lambda r: (r.get("assigned_from") is None, r.get("assigned_from") or ""))
+
+    previous_edge_id: Optional[int] = None
+    for row in rows_sorted:
+        mention = _officer_mention(row.get("officer_name"), row.get("belt_no"), row.get("designation"))
+        if not mention:
+            continue
+        try:
+            resolution = await entity_resolution.resolve_and_write(
+                "officer", mention, case_id, doc_id, graph=graph,
+            )
+            stats["officers_resolved"] += 1
+            edge = await versioning.write_edge(
+                "ASSIGNED_TO", "Officer", {"entity_id": resolution["entity_id"]}, "Case", {"case_id": case_id},
+                {
+                    "role": "investigating",
+                    "assigned_from": row.get("assigned_from"),
+                    "assigned_to": row.get("assigned_to"),
+                },
+                source_doc_id=doc_id, confidence=1.0,
+                supersedes_edge_id=previous_edge_id, graph=graph,
+            )
+            stats["edges_written"] += 1
+            if edge:
+                previous_edge_id = edge["id"]
+        except Exception as exc:
+            logger.warning(
+                "Investigating officer write failed for %s in %s: %s", row.get("officer_name"), fir.fir_id, exc,
+            )
+            stats["errors"].append(f"investigating_officer[{row.get('id')}]: {exc}")
+
+
+async def _write_recording_officer(fir, case_id, doc_id, graph, stats) -> None:
+    """
+    A single officer per FIR, no history rows in the source data (unlike
+    investigating officers above) — one ASSIGNED_TO edge, nothing to
+    supersede against. `assigned_from` is the FIR's own `report_datetime`
+    (when the FIR was recorded), the closest available meaning to "when
+    this assignment began" for a role the source data models as a single
+    point-in-time fact rather than a dated series.
+    """
+    mention = _officer_mention(
+        fir.raw.get("recording_officer_name"),
+        fir.raw.get("recording_officer_belt_no"),
+        fir.raw.get("recording_officer_designation"),
+        fir.raw.get("recording_officer_phone"),
+    )
+    if not mention:
+        return
+    try:
+        resolution = await entity_resolution.resolve_and_write(
+            "officer", mention, case_id, doc_id, graph=graph,
+        )
+        stats["officers_resolved"] += 1
+        await versioning.write_edge(
+            "ASSIGNED_TO", "Officer", {"entity_id": resolution["entity_id"]}, "Case", {"case_id": case_id},
+            {
+                "role": "recording",
+                "assigned_from": fir.raw.get("report_datetime"),
+                "assigned_to": None,
+            },
+            source_doc_id=doc_id, confidence=1.0, graph=graph,
+        )
+        stats["edges_written"] += 1
+    except Exception as exc:
+        logger.warning("Recording officer write failed for %s: %s", fir.fir_id, exc)
+        stats["errors"].append(f"recording_officer: {exc}")
+
+
+async def _write_officers(fir, case_id, doc_id, graph, stats) -> None:
+    await _write_investigating_officers(fir, case_id, doc_id, graph, stats)
+    await _write_recording_officer(fir, case_id, doc_id, graph, stats)
+
+
 # ── main entry point ─────────────────────────────────────────────────────
 
 async def project_fir(fir: FirRecord, *, graph: str = age_client.GRAPH_NAME) -> dict:
     stats = {
         "persons_resolved": 0, "weapons_written": 0, "structured_records": 0,
-        "edges_written": 0, "errors": [],
+        "officers_resolved": 0, "edges_written": 0, "errors": [],
     }
     case_id = fir.fir_id
     doc_id = _doc_id_for(fir)
@@ -376,6 +495,7 @@ async def project_fir(fir: FirRecord, *, graph: str = age_client.GRAPH_NAME) -> 
         await _write_witnesses(fir, case_id, doc_id, incident_id, graph, stats)
         await _write_weapons(fir, case_id, doc_id, graph, stats, accused_by_name)
         await _write_structured_records(fir, case_id, doc_id, graph, stats)
+        await _write_officers(fir, case_id, doc_id, graph, stats)
 
     except Exception as exc:
         logger.error("Structured projection failed for %s: %s", fir.fir_id, exc)

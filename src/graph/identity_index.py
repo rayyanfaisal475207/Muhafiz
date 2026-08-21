@@ -10,8 +10,11 @@
 # already uses for the CNIC-auto-merge tier, kept here as its own constant
 # (not imported from entity_resolution.py) to avoid a circular import:
 # entity_resolution.py imports THIS module, not the other way around.
-# "belt_no" (Officer) isn't listed — Officer isn't a graph label yet
-# (Milestone B2), so there is nothing to index for it until B2 adds it.
+# "Officer"/"belt_no" added Milestone B2 (officer identity resolution) —
+# added here, in the same module that makes Officer a real graph label,
+# rather than deferred to a follow-up, so Officer resolution gets A1's
+# O(1) identity-index lookup from day one, not a temporary full-label-scan
+# gap the way it would if this addition were left for later.
 #
 # Maintenance is a single choke point: src.graph.versioning.write_node()
 # calls maintain() for every write whose label appears here, mirroring the
@@ -35,6 +38,7 @@ IDENTITY_KEYS: dict[str, str] = {
     "Person": "cnic",
     "Vehicle": "plate",
     "PhoneNumber": "phone",
+    "Officer": "belt_no",
 }
 
 
