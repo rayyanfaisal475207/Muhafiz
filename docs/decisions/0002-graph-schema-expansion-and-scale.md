@@ -392,6 +392,89 @@ step's own module docstring.)
       the real model server per §7-A above (8.3x speedup on a live
       24-request sample; 11.2x projected at 10x/100x corpus scale).
 
+## B2 — Officer identity resolution
+
+**Decision:** `Officer` as a real vertex label
+(`migrations/024_officer_graph_labels.sql`), resolved by `belt_no` — added
+to `entity_resolution.py`'s `TYPE_TO_LABEL`/`TYPE_PRIMARY_ID_KEY` as a
+fourth entity type alongside `person`/`vehicle`/`phone`, so an officer with
+a known `belt_no` gets the identical `cnic_auto`-equivalent exact-match
+tier CNIC-based Person resolution already gets (never scored by name
+similarity against a candidate with a DIFFERENT non-empty `belt_no` —
+the same hard-block invariant, same mechanism, not a parallel one).
+`belt_no` was also added to `src/graph/identity_index.py`'s
+`IDENTITY_KEYS` in this same module (not deferred to a follow-up, per the
+plan's explicit instruction and that file's own comment anticipating this
+exact addition) — so Officer resolution gets A1's O(1) identity-index
+lookup from day one, not a temporary full-label-scan gap.
+
+`ASSIGNED_TO(role, assigned_from, assigned_to)` edges (Officer->Case)
+replace the Postgres `Case.investigation_officer` column's collapsed
+"current officer" string as the graph's own record of who has held a
+case — that Postgres column itself is untouched (out of scope; this is a
+graph-side addition, not a schema migration on `cases`). Two sources, one
+write path (`src/graph/structured_projection.py`'s new `_write_officers()`
+step, wired into `project_fir()`):
+
+- **Investigating officers** (`fir_investigating_officer` child rows) — a
+  real reassignment case exists in the live data
+  (`fir-205-26`: belt `1854L` from 2026-02-15, superseded by belt
+  `GEN-0105` from 2026-06-22). Rows are sorted by `assigned_from` and
+  written as a SUPERSESSION CHAIN: each later officer's `ASSIGNED_TO` edge
+  passes the previous officer's edge id as `versioning.write_edge()`'s
+  `supersedes_edge_id` — the prior edge is never deleted, only marked
+  `superseded_by`, so "who is investigating this case NOW" (the edge with
+  no `superseded_by`) and "who ever has" (the full chain) are both still
+  answerable, matching `OCCURRED_ON`'s own append-only precedent rather
+  than inventing a second versioning idiom.
+- **Recording officer** (`FirRecord.recording_officer_*` fields — a single
+  officer per FIR, no history rows in the source data) — one `ASSIGNED_TO`
+  edge, `role="recording"`, `assigned_from` from the FIR's own
+  `report_datetime`. Nothing to supersede against, so no chain.
+
+Idempotency: `ASSIGNED_TO` was added to `scripts/sync_muhafiz_data.py`'s
+`EDGE_LABELS` purge list, same mechanism as B1's `FILED_AT` — a `--full`
+re-sync purges and rebuilds the whole chain for a FIR from its own
+source-doc-id prefix, rather than needing the supersede mechanism to
+additionally guard against a second sync run duplicating the chain.
+
+### §7-B verification — measured, not assumed
+
+Run against the real Postgres/AGE instance (`muhafiz-postgres`), after the
+same two `--full` re-syncs of the complete 73-FIR corpus B1 verified
+against above (both runs write B1 and B2 output together — one sync pass
+projects the whole FIR):
+
+```
+MATCH (o:Officer)-[r:ASSIGNED_TO]->(c:Case {case_id: 'fir-205-26'})
+RETURN o.belt_no AS belt_no, r.role AS role, r.assigned_from AS assigned_from, r.superseded_by AS superseded_by
+```
+
+**Result — identical after both runs, confirming the real reassignment
+case (`fir-205-26`) round-trips correctly through a full purge-and-rebuild
+without gaining or losing a row:**
+
+| belt_no | role | assigned_from | superseded_by |
+|---|---|---|---|
+| 1854L | recording | 2026-02-15T14:20:00Z | (none) |
+| 1854L | investigating | 2026-02-15 | *(set — points at the GEN-0105 edge below)* |
+| GEN-0105 | investigating | 2026-06-22 | (none) |
+
+Three rows, not two: the recording-officer edge (belt `1854L`, from the
+FIR's own `recording_officer_belt_no`) is a separate fact from the
+investigating-officer chain — this FIR's recording officer and its FIRST
+investigating officer happen to be the same real person, which is exactly
+why `Officer` resolution (not a fresh node per role) is what keeps both
+edges pointing at one shared `Officer` node rather than two. The
+investigating-officer chain itself is exactly the required ">1 row"
+shape: the `1854L` edge has a non-null `superseded_by` (it is superseded,
+never deleted), and exactly one edge (`GEN-0105`'s) has none — the
+unambiguous "current investigating officer."
+
+Corpus-wide counts, unchanged between the two `--full` runs (same
+no-duplication property B1 verified for `FILED_AT`, confirmed here for
+`ASSIGNED_TO`): 76 `Officer` nodes, 144 `ASSIGNED_TO` edges total.
+
 ## Status: Milestone A complete
 
 All three scale-prerequisite modules (A1 identity index, A2 persistent
@@ -402,7 +485,7 @@ model server. Nothing pushed to `origin`. Milestones B–F (schema depth,
 queue-scale resolution, query-time scoping, documentation) were not
 started — out of scope for this pass.
 
-## Status: Milestone B in progress
+## Status: Milestone B complete
 
 - [x] **B1** — jurisdiction graph nodes. `migrations/023_jurisdiction_graph_labels.sql`,
       `src/graph/structured_projection.py`'s `_write_jurisdiction()`
@@ -414,4 +497,20 @@ started — out of scope for this pass.
       Full suite green. Live-verified against real Postgres/AGE per §7-B
       above (73/73 Case coverage, no duplication across two `--full`
       re-syncs).
-- [ ] **B2** — officer identity resolution. Not yet merged — in progress.
+- [x] **B2** — officer identity resolution. `migrations/024_officer_graph_labels.sql`,
+      `Officer`/`belt_no` added to `entity_resolution.py`'s
+      `TYPE_TO_LABEL`/`TYPE_PRIMARY_ID_KEY` and `identity_index.py`'s
+      `IDENTITY_KEYS`, `src/graph/structured_projection.py`'s new
+      `_write_officers()` (investigating-officer supersession chain +
+      single recording-officer edge). New/updated tests in
+      `tests/test_entity_resolution.py`, `tests/test_identity_index.py`,
+      `tests/test_structured_projection.py`. Full suite green. Live-verified
+      against real Postgres/AGE per §7-B above — the real `fir-205-26`
+      reassignment case round-trips correctly through two full re-syncs,
+      144 `ASSIGNED_TO` edges total, unchanged between runs.
+
+Both B1 and B2 landed as their own branch (`feature/jurisdiction-graph-
+nodes`, `feature/officer-identity-resolution`), merged `--no-ff` into
+local `main`, full test suite green at every step, live-verified against
+the real Postgres/AGE instance. Nothing pushed to `origin`. Milestones
+C–F were not started — out of scope for this pass.

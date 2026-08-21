@@ -94,6 +94,10 @@ EDGE_LABELS = (
     # without this, re-running `--full` would duplicate every FILED_AT
     # edge on each sync, the exact bug this purge step exists to prevent.
     "FILED_AT",
+    # Milestone B2 (structured_projection.py's `_write_officers()`) — same
+    # reasoning: without this, a second `--full` run would duplicate (not
+    # correctly re-chain) every officer's ASSIGNED_TO edge.
+    "ASSIGNED_TO",
 )
 
 

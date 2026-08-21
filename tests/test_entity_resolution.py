@@ -135,6 +135,51 @@ async def test_no_cnic_match_falls_through_to_name_fallback(fake_age):
     assert decision.tier == er.TIER_NEW
 
 
+# ── Officer/belt_no tier (Milestone B2) — same discipline as CNIC ───────
+
+def _officer_node(entity_id, canonical_name, belt_no=None, **extra):
+    props = {"entity_id": entity_id, "canonical_name": canonical_name}
+    if belt_no:
+        props["belt_no"] = belt_no
+    props.update(extra)
+    return {"id": 1, "label": "Officer", "properties": props}
+
+
+@pytest.mark.asyncio
+async def test_belt_no_exact_match_is_auto_merge(fake_age):
+    fake_age.queue([{"n": _officer_node("OFFICER-EXISTING", "طارق جمالی", belt_no="HYD-3345")}])
+
+    decision = await er.resolve_mention(
+        "officer", {"canonical_name": "طارق جمالی", "belt_no": "HYD-3345"}, "fir-1-26",
+    )
+    assert decision.tier == er.TIER_CNIC_AUTO
+    assert decision.target_entity_id == "OFFICER-EXISTING"
+    assert decision.confidence == 1.0
+    # Same exact-match tier as CNIC — never reaches the LLM, one cypher call.
+    assert len(fake_age.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_different_belt_no_never_merges_regardless_of_name_similarity(fake_age):
+    fake_age.queue([])  # belt_no lookup for the mention's own belt_no: no exact match
+    fake_age.queue([{"n": _officer_node("OFFICER-OTHER", "طارق جمالی", belt_no="HYD-9999")}])
+
+    decision = await er.resolve_mention(
+        "officer", {"canonical_name": "طارق جمالی", "belt_no": "HYD-3345"}, "fir-1-26",
+    )
+    assert decision.tier == er.TIER_NEW
+    assert decision.candidates_considered == 0
+
+
+@pytest.mark.asyncio
+async def test_officer_with_no_belt_no_falls_through_to_name_fallback(fake_age):
+    fake_age.queue([])  # candidate scan: no nodes at all
+    decision = await er.resolve_mention(
+        "officer", {"canonical_name": "نامعلوم افسر"}, "fir-1-26",
+    )
+    assert decision.tier == er.TIER_NEW
+
+
 # ── Roman-Urdu <-> Urdu-script name bridging (A-2) ─────────────────────
 
 @pytest.mark.parametrize("roman,urdu", [
