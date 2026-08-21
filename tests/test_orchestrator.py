@@ -135,12 +135,30 @@ def run_pipeline(monkeypatch, patched_gateway):
 
         bm25_pool_calls = []
 
-        async def fake_get_all_chunks(where=None):
+        # Milestone A2: orchestrator.py now sources BM25's candidate pool
+        # from fulltext_index.candidate_pool() (imported there as
+        # bm25_candidate_pool), not vector_store.get_all_chunks() — same
+        # fake behavior (records the `where` scope it was called with,
+        # returns the scripted pool), just patched at its new call site so
+        # every existing bm25_pool/bm25_pool_calls-based test below keeps
+        # working unchanged.
+        async def fake_bm25_candidate_pool(_query_text, where=None):
             bm25_pool_calls.append(where)
+            return bm25_pool if bm25_pool is not None else chunks
+
+        # get_all_chunks() itself is UNCHANGED by Milestone A2 — it's still
+        # called directly (not via fulltext_index) for the unrelated
+        # FIR-number auto-scope metadata scan (orchestrator.py ~line 1570),
+        # which has nothing to do with BM25/keyword ranking. Faked here the
+        # same way it always was (including reusing the same bm25_pool
+        # override some auto-scope tests pass), so those tests are
+        # unaffected by the bm25_candidate_pool split above.
+        async def fake_get_all_chunks(where=None):
             return bm25_pool if bm25_pool is not None else chunks
 
         monkeypatch.setattr(orch, "embed_text", fake_embed)
         monkeypatch.setattr(orch, "query_similar", fake_query_similar)
+        monkeypatch.setattr(orch, "bm25_candidate_pool", fake_bm25_candidate_pool)
         monkeypatch.setattr(orch, "get_all_chunks", fake_get_all_chunks)
         monkeypatch.setattr("src.pipeline.query_expander.expand_query", fake_expand)
         monkeypatch.setattr(

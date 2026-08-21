@@ -380,10 +380,15 @@ async def _ingest_uploaded_file(path: Path, job_id: str) -> None:
 async def delete_kb_document(source_file: str, admin: User = Depends(require_role("platform-admin"))):
     """Remove a document and all of its chunks from the knowledge base."""
     import asyncio
+    from src.retrieval import fulltext_index
     from src.retrieval.vector_store import ChromaVectorStore
 
     gateway = await get_gateway()
     deleted = await asyncio.to_thread(ChromaVectorStore.get_instance().delete_by_source, source_file)
+    # Milestone A2: keep the persistent full-text index (chunk_fulltext)
+    # from drifting out of sync with Chroma on deletion, same as it's
+    # kept in sync on ingest (vector_store.py's upsert_documents()).
+    await fulltext_index.delete_by_source(source_file)
     await gateway.delete_document_records(source_file)
     await gateway.log_audit_event("admin_action", {"action": "delete_kb_document", "source_file": source_file, "deleted_chunks": deleted}, str(admin.id))
     return {"deleted_chunks": deleted, "source_file": source_file}

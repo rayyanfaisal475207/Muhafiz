@@ -39,8 +39,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src import config
 from src.retrieval.bm25_retriever import retrieve_bm25
 from src.retrieval.embedder import embed_text
+from src.retrieval.fulltext_index import candidate_pool as bm25_candidate_pool
 from src.retrieval.reranker import rerank_results
-from src.retrieval.vector_store import get_all_chunks, query_similar
+from src.retrieval.vector_store import query_similar
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -55,7 +56,9 @@ async def retrieve(query_text: str, top_k: int = 5) -> list[dict]:
     docstring)."""
     embedding = await embed_text(query_text)
     semantic = await query_similar(query_text, embedding, top_k=top_k, where=None)
-    pool = await get_all_chunks(where=None)
+    # Milestone A2: persistent-index-backed candidate pool, not a full
+    # unfiltered corpus fetch — see src/retrieval/fulltext_index.py.
+    pool = await bm25_candidate_pool(query_text, where=None)
     bm25 = retrieve_bm25(query_text, pool, top_k=top_k)
     return rerank_results(semantic, bm25, top_k=top_k)
 

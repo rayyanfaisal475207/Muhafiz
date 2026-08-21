@@ -99,7 +99,87 @@ plainly rather than implied by the headline numbers above.
 
 ## A2 — Persistent full-text index
 
-*(filled in once A2 lands)*
+**Decision:** a Postgres `tsvector`/GIN index (`chunk_fulltext`,
+`migrations/022_chunk_fulltext_index.sql`), one row per chunk, maintained
+incrementally at ingest from `src/retrieval/vector_store.py`'s
+`upsert_documents()` (and torn down on delete, `delete_by_ids`/
+`delete_by_source`, mirroring Chroma's own).
+
+The actual per-query cost this replaces is NOT the Chroma fetch itself —
+`get_all_chunks()` was always a plain metadata read. It's
+`retrieve_bm25()` building a fresh `BM25Okapi` index (full tokenization +
+term-frequency stats) over the ENTIRE scoped candidate pool on every
+single query, confirmed in this codebase's own pre-existing comments
+(`orchestrator.py`: *"this rebuilds an in-memory BM25 index over the full
+scoped corpus on every retrieval... at real production scale this
+tokenize+index pass becomes the dominant cost per query. No caching/
+persistent-index layer is added here"*). Swapping where chunk TEXT comes
+from without narrowing the pool would not have touched that cost at all —
+so this had to change what pool `retrieve_bm25()` receives, not just
+where it's fetched from.
+
+`src/retrieval/fulltext_index.py`'s `candidate_pool(query_text, where)` is
+the new step: a GIN-backed lookup for chunks sharing at least one token
+with the query (an OR `tsquery` across query tokens — recall-oriented;
+precision is still `retrieve_bm25()`'s own BM25 scoring over whatever this
+returns, unchanged). `where` uses the exact same two-dimensional scoping
+(project/global OR, case AND) `vector_store._build_where()` already
+enforces for Chroma, applied here as a plain SQL filter over
+`chunk_fulltext`'s own denormalized scope columns.
+
+Tokenizer consistency: `tsv` is built from ALREADY-TOKENIZED text
+(`src/ingestion/tokenizer.py`'s Urdu-aware `tokenize()`, space-joined),
+not Postgres's own `to_tsvector` tokenizing raw text — `bm25_retriever.py`
+is explicit that corpus and query must use the same tokenizer (Urdu
+codepoint variants, script-specific punctuation); letting Postgres's
+built-in tokenizer diverge from the one BM25 already depends on would
+silently under/over-match Urdu content differently than the real scoring
+tokenizer does.
+
+Metadata fidelity: `chunk_fulltext.metadata` stores the chunk's COMPLETE
+Chroma metadata dict as JSONB, not just the denormalized scope columns —
+so a downstream consumer reading e.g. `record_date` (reranker.py's
+recency boost) sees the identical shape it would have gotten from
+Chroma's `get_all()`, not a thinned projection.
+
+Call sites rewired to use `candidate_pool()` in place of `get_all_chunks()`
+specifically for the BM25 leg: `orchestrator.py` (both the GRAPH_HYBRID
+and RAG routes' BM25 calls — its FIR-number auto-scope metadata scan,
+an unrelated use of `get_all_chunks()`, was deliberately left untouched),
+`src/pipeline/harness/tools/rag.py`, `scripts/eval_end_to_end.py`,
+`scripts/eval_keyword_search.py` (restructured to build the pool per-query
+instead of once for the whole eval run, matching real per-query
+production behavior).
+
+### §7-A verification — measured, not assumed
+
+Run via `scripts/loadtest_fulltext_index.py` against the same isolated
+throwaway-database convention as A1 (`muhafiz_loadtest`, dropped after the
+run). 1x is the real corpus's measured chunk count from the M1–M12
+decision record (~350 chunks from 73 FIRs); 10x/100x are synthetic chunks
+with a realistic vocabulary shape — a small "real" term vocabulary (what
+queries are drawn from) mixed into a much larger noise vocabulary (~3,000
+distinct filler tokens), so a query's term-selectivity is representative
+of real narrative text rather than an unrealistically dense toy corpus
+(an earlier run with only ~24 total distinct words showed Postgres
+correctly choosing a sequential scan over the GIN index — a genuine
+planner decision, but driven by that fixture's unrealistic density, not
+by anything about the index; the vocabulary was widened and the
+measurement re-run before being recorded here).
+
+| Scale | BEFORE (full pool, BM25Okapi rebuilt) | AFTER (GIN candidate pool -> BM25) | Mean pool size (before → after) | Speedup |
+|---|---|---|---|---|
+| 10x (3,500 chunks) | mean 260.3ms, p95 338.1ms | mean 26.5ms, p95 33.6ms | 3,500 → 280 | 9.8x |
+| 100x (35,000 chunks) | mean 2,965.5ms, p95 3,534.4ms | mean 191.7ms, p95 247.7ms | 35,000 → ~2,000 (LIMIT-capped) | 15.5x |
+
+BEFORE grows ~11x from 10x to 100x scale (260ms → 2,965ms), consistent
+with `BM25Okapi`'s O(corpus-size) tokenization cost; AFTER grows far more
+slowly (26ms → 192ms) because the candidate pool itself barely grows
+(bounded by real term-selectivity, and by `candidate_pool()`'s own 2,000-
+row cap). `EXPLAIN` on the AFTER query at 100x confirms `Bitmap Index Scan
+using ix_chunk_fulltext_tsv` — no `Seq Scan`, satisfying §7-A's "confirm
+no full-label-scan query plan remains" requirement (the full-text
+analogue of A1's identity-lookup requirement).
 
 ## A3 — Batched embedding pipeline
 
@@ -114,5 +194,14 @@ plainly rather than implied by the headline numbers above.
       fallback). 20 new tests (`tests/test_identity_index.py` plus
       additions to `tests/test_entity_resolution.py`). Full suite green.
       Live-verified against real Postgres/AGE per §7-A above.
-- [ ] **A2** — persistent full-text index.
+- [x] **A2** — persistent full-text index. `migrations/022_chunk_fulltext_index.sql`,
+      `src/retrieval/fulltext_index.py`, wired into
+      `vector_store.upsert_documents()` (incremental maintenance) and
+      `orchestrator.py`/`rag.py`/eval scripts (candidate-pool read,
+      replacing `get_all_chunks()` for the BM25 leg only). 20 new tests
+      (`tests/test_fulltext_index.py` plus updates to
+      `tests/test_orchestrator.py`, `tests/test_harness_tool_rag.py`,
+      `tests/test_harness_agent_semantic_search.py`,
+      `tests/test_eval_scripts.py`). Full suite green. Live-verified
+      against real Postgres per §7-A above.
 - [ ] **A3** — batched embedding pipeline.

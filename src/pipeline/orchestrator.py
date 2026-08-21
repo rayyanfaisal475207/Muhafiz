@@ -26,6 +26,7 @@ from src.pipeline.verifier import verify_grounding
 from src.retrieval.embedder import embed_text
 from src.retrieval.vector_store import query_similar, get_all_chunks, cap_case_diversity
 from src.retrieval.bm25_retriever import retrieve_bm25
+from src.retrieval.fulltext_index import candidate_pool as bm25_candidate_pool
 from src.retrieval.reranker import rerank_results
 from src.retrieval.cross_reranker import cross_rerank
 from src.retrieval.graph_retriever import retrieve_graph
@@ -1020,7 +1021,12 @@ async def process_query(
 
             combined_query = " ".join(all_queries)
             try:
-                full_candidate_pool = await get_all_chunks(where=where_clause)
+                # Milestone A2: a persistent GIN-index-backed candidate
+                # pool (chunks that share >=1 token with combined_query),
+                # not every chunk in scope — see src/retrieval/
+                # fulltext_index.py. retrieve_bm25()'s own scoring is
+                # unchanged, only the pool it scores has shrunk.
+                full_candidate_pool = await bm25_candidate_pool(combined_query, where=where_clause)
             except Exception as pool_exc:
                 logger.error(
                     "Fetching full BM25 candidate pool failed (GRAPH_HYBRID): %s. "
@@ -1764,17 +1770,19 @@ async def process_query(
             # to; it never leaks cross-project or cross-case content that
             # `_build_where` would otherwise exclude.
             #
-            # Cost: this rebuilds an in-memory BM25 index over the full
-            # scoped corpus on every retrieval (and every retry), not just
-            # over TOP_K_RETRIEVAL chunks. For a project/case-scoped query
-            # that's small and cheap; for a fully global, unscoped corpus at
-            # real production scale this tokenize+index pass becomes the
-            # dominant cost per query. No caching/persistent-index layer is
-            # added here — flagged as a follow-up if profiling shows it's
-            # needed, not solved in this change.
+            # Cost, UPDATED (Graph Scale & Schema Expansion, Milestone A2):
+            # this used to rebuild an in-memory BM25 index over the full
+            # scoped corpus on every retrieval (and every retry) — the
+            # dominant cost per query at real production scale, per the
+            # comment this replaces. bm25_candidate_pool() now narrows the
+            # pool to chunks that actually share a token with the query,
+            # via a persistent Postgres tsvector/GIN index maintained
+            # incrementally on ingest (src/retrieval/fulltext_index.py) —
+            # retrieve_bm25()'s own tokenize+score pass below runs over
+            # that narrower pool, not the whole scoped corpus.
             combined_query = " ".join(all_queries)
             try:
-                full_candidate_pool = await get_all_chunks(where=where_clause)
+                full_candidate_pool = await bm25_candidate_pool(combined_query, where=where_clause)
             except Exception as pool_exc:
                 logger.error(
                     "Fetching full BM25 candidate pool failed: %s. "
