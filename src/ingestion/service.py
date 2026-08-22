@@ -596,8 +596,17 @@ async def ingest_documents(
         # deterministic graph writer opts out here.
         graph_stats = None
         if case_id and doc_id and run_graph_extraction:
+            # [Ingestion Quality Control at Scale, Module G1] One
+            # tracked run per document — entity_resolution.py's own
+            # resolve_and_write() chokepoint (and
+            # structured_projection.py's corroboration-gate path, for
+            # callers that go through that module instead) record into
+            # whichever run is active on this contextvar; nothing here
+            # decides anything new, only counts what already happened.
+            from src.graph import ingestion_quality
             try:
-                graph_stats = await _run_graph_extraction(source_name, documents, chunks, case_id, str(doc_id))
+                async with ingestion_quality.track_run(f"ingest-{doc_id}", "ingest_file", case_id=case_id):
+                    graph_stats = await _run_graph_extraction(source_name, documents, chunks, case_id, str(doc_id))
             except Exception as exc:
                 logger.error("Graph extraction step raised unexpectedly for %s: %s", source_name, exc)
                 graph_stats = {"errors": [str(exc)]}

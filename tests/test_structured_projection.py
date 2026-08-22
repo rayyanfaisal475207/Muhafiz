@@ -164,6 +164,61 @@ class TestResolveStructuredPerson:
 
         assert len(fake_resolve_and_write) == 1
 
+    # ── Ingestion Quality Control at Scale, Module G1 ──────────────────
+
+    async def test_gate_disabled_records_new_tier_not_gated(
+        self, monkeypatch, graph_calls, fake_resolve_and_write,
+    ):
+        """Fallback administratively off is NOT a gate rejection — gated=False."""
+        monkeypatch.setattr(config, "ENTITY_RESOLUTION_NAME_FALLBACK_FOR_STRUCTURED", False)
+        recorded = []
+        monkeypatch.setattr(sp.ingestion_quality, "record_new_tier_from_gate", lambda gated: recorded.append(gated))
+
+        await sp.resolve_structured_person({"canonical_name": "کاشف"}, "fir-1-26", "doc-1")
+
+        assert recorded == [False]
+
+    async def test_gate_actually_refuses_records_gated_true(
+        self, monkeypatch, graph_calls, fake_resolve_and_write,
+    ):
+        """A real candidate existed and the gate declined it — gated=True."""
+        monkeypatch.setattr(config, "ENTITY_RESOLUTION_NAME_FALLBACK_FOR_STRUCTURED", True)
+
+        async def fake_generate_candidates(label, mention, case_id, id_key=None, *, graph=None):
+            return []  # no candidates -> _has_corroboration returns False
+
+        monkeypatch.setattr(entity_resolution, "_generate_candidates", fake_generate_candidates)
+        recorded = []
+        monkeypatch.setattr(sp.ingestion_quality, "record_new_tier_from_gate", lambda gated: recorded.append(gated))
+
+        await sp.resolve_structured_person({"canonical_name": "کاشف"}, "fir-1-26", "doc-1")
+
+        assert recorded == [True]
+
+    async def test_corroborated_path_never_calls_record_new_tier(
+        self, monkeypatch, fake_resolve_and_write,
+    ):
+        """The corroborated branch goes through resolve_and_write() — its own
+        chokepoint records the tier, not _write_new_person()'s."""
+        monkeypatch.setattr(config, "ENTITY_RESOLUTION_NAME_FALLBACK_FOR_STRUCTURED", True)
+
+        class _FakeCandidate:
+            name_similarity = 0.95
+            shared_case = True
+            shared_structured_id = False
+            node = {"properties": {}}
+
+        async def fake_generate_candidates(label, mention, case_id, id_key=None, *, graph=None):
+            return [_FakeCandidate()]
+
+        monkeypatch.setattr(entity_resolution, "_generate_candidates", fake_generate_candidates)
+        recorded = []
+        monkeypatch.setattr(sp.ingestion_quality, "record_new_tier_from_gate", lambda gated: recorded.append(gated))
+
+        await sp.resolve_structured_person({"canonical_name": "کاشف"}, "fir-1-26", "doc-1")
+
+        assert recorded == []
+
     async def test_no_cnic_weak_name_similarity_never_corroborates(self, monkeypatch, graph_calls, fake_resolve_and_write):
         monkeypatch.setattr(config, "ENTITY_RESOLUTION_NAME_FALLBACK_FOR_STRUCTURED", True)
 
