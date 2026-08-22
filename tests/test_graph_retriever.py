@@ -288,6 +288,38 @@ async def test_confirmed_same_as_is_followed_as_identity_cross_case(fake_graph, 
     assert result["unconfirmed_links"] == []
 
 
+async def test_confirmed_same_as_never_leaks_another_case_within_case_traversal(fake_graph, fake_chunks):
+    """
+    Milestone E2 — the real gap found in the eval-only/production-chokepoint
+    audit: a WITHIN-case query (cross_case=False, the default) must never
+    surface another case's chunks just because the seed entity has a
+    CONFIRMED SAME_AS link to a node that also belongs to a different case.
+    Before this fix, _expand_confirmed_identity()'s fold ran unconditionally
+    (no cross_case gate, no _filter_to_case) and added the other case's
+    node straight into `visited` — this is the identical fixture shape as
+    test_confirmed_same_as_is_followed_as_identity_cross_case above, run
+    with cross_case=False (no supervisor role, no explicit cross-case ask)
+    to prove the leak is closed, not just that the cross-case path works.
+    """
+    fake_graph.add_node("P-002", "Person", canonical_name="Waqas Ali Niazi")
+    fake_graph.add_node("P-002-dup", "Person", canonical_name="Waqas A. Niazi")
+    fake_graph.add_case("P-002", "CASE-007")
+    fake_graph.add_case("P-002-dup", "CASE-009")
+    fake_graph.add_same_as("P-002", "P-002-dup", status="confirmed", tier="cnic_auto", confidence=0.99)
+    fake_chunks["c5"] = {"id": "c5", "text": "Waqas mentioned in CASE-009.", "metadata": {"case_id": "CASE-009"}}
+    fake_graph.add_appears_in("P-002-dup", "c5", confidence=1.0)
+    fake_chunks["c5b"] = {"id": "c5b", "text": "Waqas mentioned in CASE-007.", "metadata": {"case_id": "CASE-007"}}
+    fake_graph.add_appears_in("P-002", "c5b", confidence=1.0)
+
+    result = await gr.retrieve_graph(
+        "tell me about Waqas Ali Niazi", "Waqas Ali Niazi", case_id="CASE-007", cross_case=False,
+    )
+
+    chunk_ids = {c["id"] for c in result["chunks"]}
+    assert "c5" not in chunk_ids, "a confirmed SAME_AS must not leak another case's chunks into a within-case query"
+    assert "c5b" in chunk_ids, "the seed entity's own case chunk must still be returned"
+
+
 async def test_pending_same_as_is_surfaced_but_never_followed_as_identity(fake_graph, fake_chunks):
     """
     The P-006 flagship rule: a pending/flagged_unverified SAME_AS must
