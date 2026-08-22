@@ -198,6 +198,41 @@ def test_hedging_multiple_hedge_phrases():
         assert _check_hedging(answer, chunks) == [], f"phrase '{phrase}' should satisfy hedging"
 
 
+# ── Milestone D2 — pending-identity disclosure extension ────────────────────
+# (GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md: extends _check_hedging(), never a
+# parallel check — the tag is keyed independently of the numeric confidence
+# so it still fires even if a future edit changes how confidence compounds.)
+
+def _same_as_pending_chunk(chunk_id="c1", graph_confidence=0.95):
+    """A chunk reached via graph_retriever.py's opened pending-SAME_AS traversal — tagged in metadata regardless of its (already-capped, but tested here at a deliberately HIGH value) numeric confidence."""
+    chunk = _chunk(chunk_id=chunk_id, graph_confidence=graph_confidence)
+    chunk["metadata"]["same_as_status"] = "pending"
+    chunk["metadata"]["same_as_basis"] = "matched on near-identical name + shared case"
+    return chunk
+
+
+def test_hedging_required_for_pending_identity_tag_even_at_high_confidence():
+    """The tag alone must trigger the hedge requirement — not just a low graph_confidence number."""
+    chunks = [_same_as_pending_chunk(graph_confidence=0.95)]
+    answer = "[Document 1] This is the same person."
+    issues = _check_hedging(answer, chunks)
+    assert issues, "a pending-identity-tagged chunk must require a hedge even at high numeric confidence"
+    assert "unconfirmed identity link" in issues[0]
+
+
+def test_hedging_satisfied_for_pending_identity_tag_with_hedge_phrase():
+    chunks = [_same_as_pending_chunk(graph_confidence=0.95)]
+    answer = "[Document 1] This is possibly the same person, unconfirmed."
+    assert _check_hedging(answer, chunks) == []
+
+
+def test_hedging_no_false_positive_for_untagged_high_confidence_chunk():
+    """No pending tag, no low confidence — must not require a hedge (no false positives on the disclosure itself)."""
+    chunks = [_chunk(graph_confidence=0.95)]
+    answer = "[Document 1] This is confirmed."
+    assert _check_hedging(answer, chunks) == []
+
+
 def test_hedging_no_graph_confidence_key_skipped():
     """Chunks without a graph_confidence key are not checked."""
     chunk = _chunk()  # no graph_confidence

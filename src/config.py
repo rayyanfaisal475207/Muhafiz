@@ -176,6 +176,23 @@ ENTITY_RESOLUTION_NAME_FALLBACK_FOR_STRUCTURED: bool = (
     os.getenv("ENTITY_RESOLUTION_NAME_FALLBACK_FOR_STRUCTURED", "true").strip().lower() == "true"
 )
 
+# ── Confidence-hedged retrieval rollout flag (Milestone D2,
+# GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md) ───────────────────────────────────
+# Default OFF: opens graph_retriever.py's pending-SAME_AS traversal
+# exclusion (see that module's docstring) for the cross-case retrieval
+# path only — XGRAPH is live production traffic today, so this ships
+# behind its own flag rather than changing default behavior on merge.
+# When on, cross-case graph traversal follows pending (not just
+# confirmed) SAME_AS identity links, always at a confidence capped below
+# the verifier's 0.85 hedge threshold, so verifier.py's existing
+# _check_hedging() always requires (and the generation prompts already
+# instruct — cross_case_response.txt rules 4/5b) a disclosed hedge on
+# anything reached this way. Recall goes up (real leads that used to be
+# silently excluded now surface); nothing here confirms/rejects a match.
+FEATURE_HEDGED_PENDING_TRAVERSAL: bool = (
+    os.getenv("FEATURE_HEDGED_PENDING_TRAVERSAL", "false").strip().lower() == "true"
+)
+
 # ── Guarded web search (Phase 5.7) ────────────────────────────────────────────
 # Air-gap deployments disable ALL outbound web access — this is the one route
 # in the whole architecture that needs it (architecture doc, "Guarded web

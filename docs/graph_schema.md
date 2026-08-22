@@ -126,6 +126,22 @@ inherits it — in exchange for never silently and irreversibly conflating two
 people, which is the specific failure mode §7.3 calls "the single biggest
 way a knowledge graph fails quietly."
 
+**Milestone D (queue-scale resolution,
+`docs/decisions/0002-graph-schema-expansion-and-scale.md`)** extends this
+without weakening it. D1 (`src/graph/candidate_reprioritization.py`)
+re-scores/reorders/groups the `pending` review queue against fresh
+evidence — a deterministic template `why`, never an LLM narration, and
+never a status change; confirming a match is still exclusively a human
+action through `graph_review.py`. D2
+(`src/retrieval/graph_retriever.py`, behind
+`config.FEATURE_HEDGED_PENDING_TRAVERSAL`, cross-case retrieval only)
+optionally traverses a `pending` `SAME_AS` link too, not just `confirmed`
+— but always at a confidence capped below the verifier's hedge
+threshold and tagged `same_as_status: "pending"`, so
+`src/pipeline/verifier.py` refuses to deliver the answer without a
+disclosed hedge. Recall goes up; nothing pending is ever presented as
+settled identity.
+
 ## Example: 3-hop within-case traversal
 
 ```cypher

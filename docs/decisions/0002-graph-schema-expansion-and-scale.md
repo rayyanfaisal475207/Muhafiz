@@ -1,6 +1,6 @@
-# 0002 — Graph scale prerequisites and schema expansion (Milestones A–C)
+# 0002 — Graph scale prerequisites and schema expansion (Milestones A–D)
 
-**Status:** in progress (Milestones A, B, and C complete; see checklists
+**Status:** in progress (Milestones A, B, C, and D complete; see checklists
 at the bottom of each section) **Date:** 2026-08-21
 
 ## Context
@@ -20,12 +20,14 @@ station/province deployment volume (thousands to millions of FIRs):
    0.3s apart, wall-clock linear in corpus size.
 
 This ADR covers Milestones A (the three scale-prerequisite modules, A1–A3),
-B (schema depth: jurisdiction/officer nodes), and C (the remaining
+B (schema depth: jurisdiction/officer nodes), C (the remaining
 structured-field gaps: person-relationship edges, chalaan name
 resolution, zimni officer/position timeline, cross-version edge, typed
 recovered property, witness home jurisdiction, and the ethnicity/religion
-governance record) — Milestones D–F (queue-scale resolution, query-time
-scoping, documentation) are out of scope here and were not started.
+governance record), and D (queue-scale resolution: pending-candidate
+reprioritization and confidence-hedged retrieval, both keeping the hard
+human-confirmation rule absolute) — Milestones E–F (query-time scoping,
+documentation) are out of scope here and were not started.
 
 Apache AGE stays the graph store (confirmed decision, not revisited by this
 work) — every module below is additive Postgres-side state alongside it,
@@ -1056,5 +1058,206 @@ where real data exists (C1: 24, C2: 57, C3: 62/94, C6: 8/0), a
 constructed-fixture injection run live where it doesn't (C4, C5), with
 every fixture-only edge confirmed to self-heal back out once the real
 snapshot was re-synced. C7 landed as a docs-only record, no branch.
-Nothing pushed to `origin`. Milestones D–F were not started — out of
-scope for this pass.
+Nothing pushed to `origin`. Milestone D followed immediately (see below);
+Milestones E–F were not started — out of scope for this pass.
+
+---
+
+## Milestone D — queue-scale resolution, hard human-confirmation rule kept
+
+**Four open points resolved before implementation started** (each found
+by checking the plan against the actual code, not assumed from the plan
+text alone — see `GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md`'s own "Open
+points to resolve first" for the original framing):
+
+1. **D1's "why" is a deterministic template, never an LLM call.** Built
+   from the exact `entity_resolution.Candidate` scoring fields
+   (`name_similarity`, `shared_case`, `shared_structured_id`) —
+   `src/graph/candidate_reprioritization.py`'s `_why()`. To make this
+   possible without re-parsing free text, `entity_resolution.
+   ResolutionDecision` gained three new fields carrying those exact
+   values, persisted onto the SAME_AS edge itself by `resolve_and_write`
+   alongside `tier`/`basis`/`status` (additive edge properties, no
+   existing reader affected).
+2. **D1's grouping algorithm: connected components**, concretely —
+   `candidate_reprioritization._UnionFind` unions two pending SAME_AS
+   candidates when they share the same target/candidate entity, the same
+   mention entity, a shared structured-id value between their mention
+   nodes, or a shared case between their mention nodes (the plan's own
+   "shared CNIC-adjacent value / shared address / shared case" example,
+   made literal).
+3. **D1's execution model: no new worker infrastructure.** This codebase
+   has no standalone scheduled worker/cron — every existing "background"
+   task is a per-request `asyncio.create_task()` (confirmed by reading
+   `src/ingestion/conflict_bg.py`, `src/pipeline/orchestrator.py` before
+   deciding). D1 uses two paths that both fit that existing shape rather
+   than inventing a new one: (1) an incremental fire-and-forget task
+   scheduled at the same point conflict detection already is, right
+   after a document's graph extraction, scoped to that case's own
+   pending candidates (`src/ingestion/reprioritization_bg.py`); (2) a
+   supervisor-triggered manual full-sweep endpoint
+   (`POST /api/admin/graph-review/queue/reprioritize`) for staleness
+   deprioritization, since there is no cron to run that on a schedule —
+   named honestly as a gap rather than papered over.
+4. **D1's own hot query gets the same treatment A1 gave identity
+   lookups.** `migrations/027_pending_candidate_priority.sql` — a plain
+   Postgres side table, `pending_candidate_priority`, mirroring the
+   design discipline of migration 021 (`identity_index`)/016
+   (`community_membership`): one row per currently-pending SAME_AS/CITES
+   edge, maintained by `src/graph/versioning.py`'s `write_edge()` (the
+   same single choke point A1 already uses for `identity_index`) —
+   inserted the moment a pending edge is written, deleted the moment a
+   human confirms/rejects it. Backs `WHERE r.status = 'pending'` reads
+   (previously an unindexed AGE label scan, same confirmed diagnosis as
+   migration 021's header) with a real Postgres index scan.
+
+### D1 — Pending-candidate reprioritization
+
+**Decision:** `src/graph/candidate_reprioritization.py` re-scores
+(never auto-decides) pending SAME_AS candidates against the graph's
+CURRENT state, diffed against the original scoring snapshot on the edge.
+Two non-destructive outputs, both owned exclusively by this module's one
+Postgres write (`pending_candidate_priority.update_priority()` — the
+module has zero calls to `versioning.write_edge()`, so it is
+structurally incapable of confirming/rejecting a match):
+
+- **Reorders**: `priority_score` recomputed with entity_resolution's own
+  scoring weights (`name_sim*0.7 + 0.15 shared_structured + 0.15
+  shared_case`) plus a `+0.10` reinforcement bonus when the fresh signal
+  improved on the original — so a candidate that gained real new
+  evidence visibly outranks an equally-scored-but-stale one.
+- **Groups**: connected components (point 2 above) into a `group_id`,
+  surfaced via the new `GET /api/admin/graph-review/queue/groups`
+  endpoint, actioned via `POST /api/admin/graph-review/queue/batches/
+  {group_id}/{confirm,reject}` — internally still one
+  `confirm_match()`/`reject_match()` call per member edge (the existing,
+  already-tested, already-audited single-edge path), never a new
+  graph-write primitive. One member already independently reviewed (409)
+  is reported per-edge without aborting the rest of the batch.
+- **Deprioritizes** (sinks, never deletes/rejects) a candidate with no
+  new corroboration after `STALE_AFTER` (14 days) since its last score —
+  asserts nothing false, only reduces attention, unlike confirm/reject.
+
+New endpoints, all `require_role("supervisor")` (reusing the existing
+dependency, not a new gate): `GET /queue` (reordered list), `GET
+/queue/groups`, `POST /queue/reprioritize` (manual full sweep — point
+3's path #2), `POST /queue/batches/{group_id}/confirm|reject`. The
+existing `/pending`/`/citations/*` endpoints are unchanged — `/queue/*`
+is additive.
+
+### D2 — Confidence-hedged retrieval
+
+**Decision:** extends the existing mechanism on both ends named in the
+plan, rather than building parallel machinery.
+
+- `src/retrieval/graph_retriever.py`'s `retrieve_graph()` opens the
+  pending-SAME_AS traversal exclusion — behind
+  `config.FEATURE_HEDGED_PENDING_TRAVERSAL` (default **off** — XGRAPH is
+  live production traffic), and **only for `cross_case=True`** (the
+  XGRAPH path the plan names explicitly; the within-case path is
+  untouched regardless of the flag). With the flag on, a pending SAME_AS
+  link is followed like a confirmed one, except its confidence is
+  compounded (not carried through unchanged) and hard-capped at
+  `_PENDING_HEDGE_CAP = 0.80` — strictly below verifier.py's 0.85 hedge
+  threshold, by construction, not by hoping the numbers land there —
+  and every chunk reached only through it is tagged
+  `metadata.same_as_status = "pending"` / `same_as_basis`. The tag
+  propagates forward through any further hop, since a downstream entity
+  is still evidentially downstream of that same unconfirmed identity.
+  With the flag off, behavior is byte-for-byte the prior exclusion
+  (regression-tested).
+- `src/pipeline/verifier.py`'s `_check_hedging()` — the SAME function,
+  extended with one more condition, not a parallel check — now also
+  requires a disclosed hedge when `metadata.same_as_status == "pending"`,
+  independent of the numeric confidence value (defense-in-depth: a
+  future change to how confidence compounds can never silently stop
+  requiring this disclosure). `cross_case_response.txt`'s existing rules
+  4 ("carry forward any UNCONFIRMED IDENTITY LINK... never present it as
+  fact") and 5b ("hedge every LOW-confidence citation") already covered
+  the generation-side instruction — confirmed by reading the prompt
+  before writing any code — so no prompt change was needed.
+
+**Why silent downweighting was rejected, restated from the plan:** it
+would let unconfirmed evidence shape an answer's ranking without ever
+disclosing that it did — an integrity problem in an evidentiary tool.
+Disclosed hedging preserves recall (real leads surface) without ever
+asserting an unconfirmed identity as settled fact.
+
+### §7-D verification — measured against the real live instance
+
+`muhafiz-postgres` confirmed reachable (Docker Desktop was not running at
+the start of this milestone — started, health-checked, confirmed before
+any other work) before this milestone started, same discipline as A/B/C.
+
+`scripts/verify_milestone_d.py` — a synthetic corroborating-evidence
+sequence run against the REAL running Postgres/AGE instance (D1 has no
+eval-graph override, unlike entity_resolution's own tiering, so this
+script is destructive-but-cleaned-up: every synthetic node/edge/row is
+tagged `D1VERIFY-<run-id>` and deleted again in a `finally` block
+regardless of outcome, plus an orphan-row sweep at the start of every
+run so a prior crashed run can never leave stale clutter behind).
+Confirmed live, in order: (1) a near-identical second mention lands in a
+pending SAME_AS tier, never CNIC-auto; (2) new corroborating evidence
+(a shared phone, a shared case) increases `priority_score` and produces
+a deterministic reinforcement `why`, and assigns a `group_id`; (3) the
+edge's own `status` stays `'pending'` throughout reprioritization —
+changes only after a simulated human action through
+`graph_review.confirm_match()`, at which point the queue row is cleared;
+(4) with `FEATURE_HEDGED_PENDING_TRAVERSAL` off, a second synthetic
+pending pair is excluded from cross-case traversal exactly as before;
+with it on, the pair is surfaced via `unconfirmed_links` (a full
+chunk-level hedge-tag assertion, requiring a Chroma-backed document, is
+covered at the unit level in `tests/test_verifier.py` instead — see below
+for why standing up Chroma content wasn't in scope for this graph-focused
+script). Three real bugs were found and fixed by this live run, not
+caught by the mocked-fixture unit suite: an `asyncpg` parameter-type
+collision in the `INSERT` (a literal `0` inside `COALESCE` alongside a
+`double precision` column), the identical class of bug in `UPDATE`'s
+`last_scored_at` (a plain ISO string handed to a `timestamptz` column —
+asyncpg's prepared-statement binding requires a native `datetime`, not a
+`CAST` around a string), and two connection-pool-across-event-loops
+mistakes in the verification script's own two-`asyncio.run()` structure.
+
+Unit-level (no network, matches the `no_network` guard): `tests/
+test_candidate_reprioritization.py` (why-template/scoring/grouping, pure
+functions, including a structural assertion that `_why()` is not even
+a coroutine — it cannot call an LLM), new cases in `tests/
+test_graph_review.py` (`/queue`, `/queue/groups`, `/queue/reprioritize`
+never writing a graph edge, batch confirm/reject applying the same
+single-edge path per member, one already-reviewed member not aborting
+the batch), and new cases in `tests/test_graph_retriever.py` /
+`tests/test_verifier.py` (flag-off byte-for-byte regression, flag-on
+traversal+hedge-tag+confidence-cap, flag inert within-case, hedge
+required by the tag alone even at high numeric confidence, no
+false-positive hedge on an untagged high-confidence chunk). Full suite
+green (all pre-existing tests unchanged in behavior) before both merges.
+
+- [x] **D1** — pending-candidate reprioritization.
+      `migrations/027_pending_candidate_priority.sql`,
+      `src/graph/pending_candidate_priority.py`,
+      `src/graph/candidate_reprioritization.py`,
+      `src/ingestion/reprioritization_bg.py`, new `/queue/*` endpoints in
+      `src/api/graph_review.py`. `entity_resolution.ResolutionDecision`
+      gained `name_similarity`/`shared_case`/`shared_structured_id`.
+      `tests/test_candidate_reprioritization.py` (new), new cases in
+      `tests/test_graph_review.py`. Full suite green. Live-verified
+      against real Postgres/AGE per §7-D above.
+- [x] **D2** — confidence-hedged retrieval.
+      `src/retrieval/graph_retriever.py` (pending-identity traversal
+      behind `config.FEATURE_HEDGED_PENDING_TRAVERSAL`, default off),
+      `src/pipeline/verifier.py`'s `_check_hedging()` extended (not
+      duplicated). New cases in `tests/test_graph_retriever.py` and
+      `tests/test_verifier.py`. Full suite green. Live-verified against
+      real Postgres/AGE per §7-D above (flag on/off traversal behavior;
+      full chunk-level hedge-tag assertion at the unit level).
+
+## Status: Milestone D complete
+
+Both modules (D1, D2) landed as their own branch, merged `--no-ff` into
+local `main`, full test suite green at every step, live-verified against
+the real Postgres/AGE instance. The hard human-confirmation rule stayed
+absolute throughout: no code path in either module can set a
+SAME_AS/CITES/CROSS_VERSION_OF edge's status to confirmed/rejected
+without a human call to `graph_review.py`'s existing confirm/reject
+endpoints. Nothing pushed to `origin`. Milestones E–F were not started —
+out of scope for this pass.

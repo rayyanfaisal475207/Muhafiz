@@ -21,14 +21,29 @@
 # SAME_AS edge." This module follows that rule exactly once, in
 # `_expand_confirmed_identity()` below:
 #   - status='confirmed'  -> same identity. Traverse through it freely.
-#   - status='pending'    -> NOT the same identity yet. Never traversed
-#     as identity, but surfaced separately (see `unconfirmed_links` in
-#     `retrieve_graph`'s return) so a cross-case answer can carry the
-#     caveat ("possibly the same person, unconfirmed") instead of either
-#     silently ignoring it (under-connecting — misses a repeat offender
-#     the resolver correctly flagged) or silently treating it as fact
-#     (over-connecting — the "single biggest way a knowledge graph fails
-#     quietly," per docs/graph_schema.md).
+#   - status='pending'    -> NOT the same identity yet. Surfaced
+#     separately (see `unconfirmed_links` in `retrieve_graph`'s return)
+#     so a cross-case answer can carry the caveat ("possibly the same
+#     person, unconfirmed") instead of either silently ignoring it
+#     (under-connecting — misses a repeat offender the resolver correctly
+#     flagged) or silently treating it as fact (over-connecting — the
+#     "single biggest way a knowledge graph fails quietly," per
+#     docs/graph_schema.md).
+#
+#     [Milestone D2 — GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md, behind
+#     src.config.FEATURE_HEDGED_PENDING_TRAVERSAL, cross-case only]
+#     Pending identity is ALSO traversed, not merely surfaced as a
+#     caveat — see `_expand_pending_identity()` — but every entity/chunk
+#     reached only through a pending link is forced to a confidence
+#     capped below verifier.py's hedge threshold (`_PENDING_HEDGE_CAP`)
+#     and tagged `same_as_status="pending"` in its chunk metadata, so
+#     verifier._check_hedging()'s existing mechanism (extended, not
+#     duplicated, for this exact tag) refuses to deliver the answer
+#     unhedged. This is D2's "disclosed hedge, not silent downweighting"
+#     choice (see the plan's own §D2 reasoning) — recall goes up without
+#     ever asserting an unconfirmed identity as fact. Flag OFF (default)
+#     reproduces the exact prior behavior below: pending is excluded from
+#     traversal, surfaced only via `unconfirmed_links`.
 #   - status='rejected'   -> confirmed NOT the same identity. Never
 #     traversed, never surfaced.
 # Get this wrong in either direction and this is exactly the failure mode
@@ -79,6 +94,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+from src import config
 from src.extraction.structured_fields import _CNIC_RE, _PHONE_RE, _PLATE_RE
 from src.graph import age_client
 from src.graph.case_scope import scoped_cypher
@@ -370,6 +386,48 @@ async def _expand_confirmed_identity(entity_ids: set[str]) -> list[tuple[str, st
         to_id = _entity_id_of(to_node)
         if from_id and to_id:
             out.append((from_id, to_id, to_node))
+    return out
+
+
+# Milestone D2: strictly below verifier.py's own hedge threshold (0.85,
+# _check_hedging's `conf < 0.85` test) — anything reached only through a
+# pending identity link is GUARANTEED to require a disclosed hedge, by
+# construction, not by hoping the compounded confidence happens to land
+# low enough. Kept as its own named constant here (not imported from
+# verifier.py, which doesn't export its 0.85 as a symbol) with a comment
+# on both sides pointing at the other — see verifier._check_hedging's own
+# amended docstring.
+_PENDING_HEDGE_CAP = 0.80
+
+
+async def _expand_pending_identity(entity_ids: set[str]) -> list[tuple[str, str, dict, float, str]]:
+    """
+    Every (from_id, to_id, to_node, edge_confidence, basis) reachable via
+    a PENDING SAME_AS edge from `entity_ids` — the Milestone D2 traversal
+    path, mirroring `_expand_confirmed_identity()`'s shape exactly except
+    for the status filter and the extra (confidence, basis) the caller
+    needs to build a disclosed hedge. Only ever called when
+    `config.FEATURE_HEDGED_PENDING_TRAVERSAL` is on (checked by the
+    caller, not here, so this function stays a pure graph read).
+    """
+    if not entity_ids:
+        return []
+    rows = await age_client.execute_cypher(
+        "MATCH (a)-[r:SAME_AS]-(b) "
+        "WHERE a.entity_id IN $ids AND r.status = 'pending' AND r.superseded_by IS NULL "
+        "RETURN a, r, b",
+        params={"ids": list(entity_ids)},
+        columns=["a", "r", "b"],
+    )
+    out: list[tuple[str, str, dict, float, str]] = []
+    for row in rows:
+        from_id, to_node = _entity_id_of(row.get("a")), row.get("b")
+        to_id = _entity_id_of(to_node)
+        if not from_id or not to_id:
+            continue
+        props = row.get("r", {}).get("properties", {}) or {}
+        edge_confidence = min(float(props.get("confidence", 1.0)), _PENDING_HEDGE_CAP)
+        out.append((from_id, to_id, to_node, edge_confidence, props.get("basis") or ""))
     return out
 
 
@@ -796,6 +854,16 @@ async def retrieve_graph(
     frontier: set[str] = set(display_name.keys())
     visited: set[str] = set(frontier)
 
+    # Milestone D2: entities reached ONLY through a pending (not
+    # confirmed) identity link — tagged in the final chunk metadata so
+    # verifier._check_hedging() disclosure applies even to a chunk whose
+    # compounded confidence would otherwise land at/above the hedge
+    # threshold (e.g. a single high-confidence hop from a pending link
+    # whose OWN confidence was already capped). Empty and never consulted
+    # when the flag is off.
+    pending_identity_basis: dict[str, str] = {}
+    pending_hedge_enabled = cross_case and config.FEATURE_HEDGED_PENDING_TRAVERSAL
+
     for hop in range(1, max_hops + 1):
         if not frontier:
             break
@@ -819,6 +887,27 @@ async def retrieve_graph(
         visited |= new_identity
         frontier |= new_identity
 
+        if pending_hedge_enabled:
+            # D2's opened traversal path — see module docstring's
+            # "[Milestone D2]" note on the SAME_AS identity rule above.
+            # Unlike confirmed identity, a pending link's own confidence
+            # is folded INTO path_confidence (compounded, capped below
+            # the hedge threshold), not carried through unchanged — it is
+            # explicitly NOT a settled fact.
+            pending_pairs = await _expand_pending_identity(frontier)
+            new_pending: set[str] = set()
+            for from_id, to_id, to_node, edge_conf, basis in pending_pairs:
+                if to_id in visited or to_id in new_pending:
+                    continue
+                new_pending.add(to_id)
+                display_name[to_id] = _display_name(to_node)
+                via_entity[to_id] = via_entity.get(from_id, from_id)
+                path_confidence[to_id] = min(path_confidence.get(from_id, 1.0) * edge_conf, _PENDING_HEDGE_CAP)
+                hop_of[to_id] = hop_of.get(from_id, hop)
+                pending_identity_basis[to_id] = basis
+            visited |= new_pending
+            frontier |= new_pending
+
         neighbor_rows = await _one_hop_neighbors(frontier)
         next_frontier: set[str] = set()
         for row in neighbor_rows:
@@ -832,6 +921,15 @@ async def retrieve_graph(
                 via_entity[to_id] = via_entity.get(from_id, from_id)
                 path_confidence[to_id] = path_confidence.get(from_id, 1.0) * edge_conf
                 hop_of[to_id] = hop
+                # D2: a hop OUT of an entity only reachable via a pending
+                # identity link is itself downstream of that same
+                # unconfirmed identity — the disclosure obligation
+                # propagates forward, not just to the one entity that
+                # crossed the pending edge directly. path_confidence
+                # above already stays capped (compounding only shrinks
+                # it further), this only carries the basis text along.
+                if from_id in pending_identity_basis and to_id not in pending_identity_basis:
+                    pending_identity_basis[to_id] = pending_identity_basis[from_id]
 
         if not cross_case and case_id:
             next_frontier = await _filter_to_case(next_frontier, case_id)
@@ -873,13 +971,27 @@ async def retrieve_graph(
         entity_id = info["entity_id"]
         hop_n = hop_of.get(entity_id, 0)
         chain_confidence = path_confidence.get(entity_id, 1.0) * info["mention_confidence"]
-        chunks.append({
+        chunk = {
             **base,
             "rrf_score": chain_confidence,
             "hop": hop_n,
             "graph_confidence": chain_confidence,
             "via_entity": display_name.get(via_entity.get(entity_id, entity_id), entity_id),
-        })
+        }
+        pending_basis = pending_identity_basis.get(entity_id)
+        if pending_basis is not None:
+            # Milestone D2: tag disclosure obligation onto the chunk
+            # itself, independent of the numeric graph_confidence value —
+            # verifier._check_hedging()'s extension checks this tag
+            # directly rather than relying solely on the (already capped)
+            # confidence number, defense-in-depth against a future edit
+            # that changes how confidence compounds.
+            chunk["metadata"] = {
+                **(chunk.get("metadata") or {}),
+                "same_as_status": "pending",
+                "same_as_basis": pending_basis,
+            }
+        chunks.append(chunk)
         max_hop_returned = max(max_hop_returned, hop_n)
         weakest_confidence = min(weakest_confidence, chain_confidence)
 
