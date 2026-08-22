@@ -239,7 +239,20 @@ def _check_hedging(answer: str, chunks: list[dict]) -> list[str]:
     issues: list[str] = []
     for i, chunk in enumerate(chunks, start=1):
         conf, conf_status = _effective_confidence(chunk)
-        if conf_status == "check_failed":
+        meta = chunk.get("metadata") or {}
+        # [AMENDMENT — Milestone D2, GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md]
+        # graph_retriever.py's opened pending-SAME_AS traversal
+        # (config.FEATURE_HEDGED_PENDING_TRAVERSAL) tags any chunk reached
+        # only through an unconfirmed identity link with
+        # `metadata.same_as_status == "pending"`. That chunk's numeric
+        # confidence is already capped below 0.85 at the source (belt),
+        # but this check now also keys on the tag directly (suspenders) —
+        # an extension of this SAME function, not a second parallel
+        # check, so a future change to how confidence compounds can never
+        # silently stop requiring the disclosure this tag exists for.
+        if meta.get("same_as_status") == "pending":
+            needs_hedge, conf_label = True, "unconfirmed identity link (pending SAME_AS)"
+        elif conf_status == "check_failed":
             needs_hedge, conf_label = True, "confidence check failed"
         elif conf is not None and conf < 0.85:
             needs_hedge, conf_label = True, f"graph_confidence={conf:.2f}"

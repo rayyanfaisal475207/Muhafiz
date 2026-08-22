@@ -43,9 +43,9 @@ class FakeGraph:
     def add_associated(self, a, b, confidence=1.0, superseded_by=None):
         self.associated_with.append((a, b, {"confidence": confidence, "superseded_by": superseded_by}))
 
-    def add_same_as(self, a, b, status="pending", tier="flagged_unverified", confidence=0.5, superseded_by=None):
+    def add_same_as(self, a, b, status="pending", tier="flagged_unverified", confidence=0.5, superseded_by=None, basis="matched on near-identical name"):
         self.same_as.append((a, b, {
-            "status": status, "tier": tier, "confidence": confidence, "superseded_by": superseded_by,
+            "status": status, "tier": tier, "confidence": confidence, "superseded_by": superseded_by, "basis": basis,
         }))
 
     def add_appears_in(self, entity_id, source_chunk_id, confidence=1.0, superseded_by=None):
@@ -312,6 +312,70 @@ async def test_pending_same_as_is_surfaced_but_never_followed_as_identity(fake_g
     assert len(result["unconfirmed_links"]) == 1
     assert result["unconfirmed_links"][0]["status"] == "pending"
     assert result["unconfirmed_links"][0]["tier"] == "flagged_unverified"
+
+
+async def test_pending_same_as_stays_excluded_when_flag_off(fake_graph, fake_chunks, monkeypatch):
+    """Milestone D2: config.FEATURE_HEDGED_PENDING_TRAVERSAL defaults False — behavior must be byte-for-byte the prior (D1-era) exclusion, same fixture as the flagship P-006 test above."""
+    monkeypatch.setattr(gr.config, "FEATURE_HEDGED_PENDING_TRAVERSAL", False)
+    fake_graph.add_node("P-D2A", "Person", canonical_name="Adnan Qureshi Waheed")
+    fake_graph.add_node("P-D2A-case016", "Person", canonical_name="Adnan Qureshi")
+    fake_graph.add_case("P-D2A", "CASE-015")
+    fake_graph.add_case("P-D2A-case016", "CASE-016")
+    fake_graph.add_same_as("P-D2A", "P-D2A-case016", status="pending", tier="flagged_unverified", confidence=0.55)
+    fake_chunks["c6"] = {"id": "c6", "text": "Adnan mentioned in CASE-016.", "metadata": {"case_id": "CASE-016"}}
+    fake_graph.add_appears_in("P-D2A-case016", "c6", confidence=1.0)
+
+    result = await gr.retrieve_graph(
+        "is this repeat fraud offender linked elsewhere", "Adnan Qureshi Waheed", case_id=None, cross_case=True,
+        user_role="supervisor",
+    )
+    assert "c6" not in {c["id"] for c in result["chunks"]}
+
+
+async def test_pending_same_as_traversed_and_hedged_when_flag_on(fake_graph, fake_chunks, monkeypatch):
+    """Milestone D2, flag ON: pending identity IS traversed (recall preserved) but every chunk reached only through it carries a disclosed-hedge tag and a confidence capped below the verifier's 0.85 threshold — never silently downweighted, never presented as confirmed."""
+    monkeypatch.setattr(gr.config, "FEATURE_HEDGED_PENDING_TRAVERSAL", True)
+    fake_graph.add_node("P-D2B", "Person", canonical_name="Adnan Qureshi Waheed")
+    fake_graph.add_node("P-D2B-case016", "Person", canonical_name="Adnan Qureshi")
+    fake_graph.add_case("P-D2B", "CASE-015")
+    fake_graph.add_case("P-D2B-case016", "CASE-016")
+    fake_graph.add_same_as(
+        "P-D2B", "P-D2B-case016", status="pending", tier="flagged_unverified", confidence=0.98,
+    )
+    fake_chunks["c6"] = {"id": "c6", "text": "Adnan mentioned in CASE-016.", "metadata": {"case_id": "CASE-016"}}
+    fake_graph.add_appears_in("P-D2B-case016", "c6", confidence=1.0)
+
+    result = await gr.retrieve_graph(
+        "is this repeat fraud offender linked elsewhere", "Adnan Qureshi Waheed", case_id=None, cross_case=True,
+        user_role="supervisor",
+    )
+
+    chunks_by_id = {c["id"]: c for c in result["chunks"]}
+    assert "c6" in chunks_by_id, "flag ON must open the pending-identity traversal path (recall preserved)"
+    chunk = chunks_by_id["c6"]
+    assert chunk["graph_confidence"] < 0.85, "must be capped below the verifier's hedge threshold even though the pending edge's own confidence (0.98) was high"
+    assert chunk["metadata"]["same_as_status"] == "pending"
+    assert chunk["metadata"]["same_as_basis"]
+    # Status itself never changes — this is retrieval-time surfacing, not
+    # a decision. The underlying pending edge is untouched.
+    assert fake_graph.same_as[0][2]["status"] == "pending"
+
+
+async def test_pending_traversal_flag_has_no_effect_within_case(fake_graph, fake_chunks, monkeypatch):
+    """D2 explicitly scopes the opened traversal to cross-case (XGRAPH) only — the flag must be inert for a within-case query."""
+    monkeypatch.setattr(gr.config, "FEATURE_HEDGED_PENDING_TRAVERSAL", True)
+    fake_graph.add_node("P-D2C", "Person", canonical_name="Zubair Anjum")
+    fake_graph.add_node("P-D2C-other", "Person", canonical_name="Kamran Farooq")
+    fake_graph.add_case("P-D2C", "CASE-020")
+    fake_graph.add_case("P-D2C-other", "CASE-020")
+    fake_graph.add_same_as("P-D2C", "P-D2C-other", status="pending", tier="human_review", confidence=0.6)
+    fake_chunks["c7"] = {"id": "c7", "text": "text", "metadata": {"case_id": "CASE-020"}}
+    fake_graph.add_appears_in("P-D2C-other", "c7", confidence=1.0)
+
+    result = await gr.retrieve_graph(
+        "who is Zubair Anjum", "Zubair Anjum", case_id="CASE-020", cross_case=False,
+    )
+    assert "c7" not in {c["id"] for c in result["chunks"]}
 
 
 async def test_rejected_same_as_is_never_surfaced(fake_graph, fake_chunks):

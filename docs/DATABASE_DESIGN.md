@@ -211,6 +211,32 @@ post-`SAME_AS` collapse) → `community_id`, FK → `community_runs` (CASCADE).
 detection run, so a same-transaction FK would only add an ordering
 constraint without adding real safety.
 
+### Pending-candidate priority (`migrations/027_pending_candidate_priority.sql`)
+
+Graph Scale & Schema Expansion, Milestone D1 (see
+`docs/decisions/0002-graph-schema-expansion-and-scale.md`) — a Postgres
+side table shadowing every currently-PENDING `SAME_AS`/`CITES` edge in
+AGE, same design discipline as `community_membership` above and A1's
+`identity_index`: never the source of truth, always traceable back to a
+real edge in AGE by `edge_id`.
+
+**`pending_candidate_priority`** — `edge_id` (PK, the AGE edge's own
+internal id), `edge_label` (`SAME_AS`/`CITES`), `tier`, `a_key`/`b_key`
+(entity_id or case_id, whichever the edge connects), the write-time
+scoring snapshot (`original_confidence`/`original_basis`/
+`original_name_similarity`/`original_shared_case`/
+`original_shared_structured_id`), and the re-scoring-owned columns
+`priority_score`/`why`/`group_id`/`deprioritized`/`last_scored_at`.
+
+Maintained from one choke point — `src/graph/versioning.py`'s
+`write_edge()` — mirroring exactly how `identity_index` is maintained
+from `write_node()`: a row is inserted the moment a pending edge is
+written, and deleted the moment a human confirms/rejects it (never
+mutated to reflect a status change — status changes are what deletes the
+row). The re-scoring columns are written exclusively by
+`src/graph/candidate_reprioritization.py`, which never calls
+`write_edge()` — structurally incapable of confirming/rejecting a match.
+
 ## Row-Level Security
 
 `migrations/008_rls_policies.sql`/`010` arm RLS on `documents`/`sessions`/
