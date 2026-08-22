@@ -20,6 +20,7 @@ from src.retrieval.embedder import embed_texts
 from src.retrieval.vector_store import upsert_documents
 from src.ingestion.conflict_bg import _run_conflict_detection_bg
 from src.ingestion.reprioritization_bg import _run_reprioritization_bg
+from src.ingestion.community_refresh_bg import _run_community_refresh_bg
 
 logger = logging.getLogger(__name__)
 
@@ -610,6 +611,17 @@ async def ingest_documents(
             # the incremental half of D1's execution model, same
             # fire-and-forget shape as conflict detection above.
             asyncio.create_task(_run_reprioritization_bg(case_id))
+
+            # Milestone E3 (GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md —
+            # incremental community refresh): reuses D1's execution model
+            # (point 4 of E3's resolved open points) — check whether the
+            # whole-graph community partition has drifted enough to be
+            # worth a full recompute, and only actually re-run
+            # detect_communities()/summarize_communities() when it has.
+            # Not case-scoped (unlike D1/conflict detection above) —
+            # community detection clusters the whole Person graph, so
+            # there's no case-specific slice to pass in.
+            asyncio.create_task(_run_community_refresh_bg())
 
         # Module 4.3: total_pages must always mean the PDF's true page count
         # (doc.num_pages(), carried in pdf_loader's per-Document metadata),

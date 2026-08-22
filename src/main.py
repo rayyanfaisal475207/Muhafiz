@@ -49,6 +49,7 @@ from src.api.cases import router as cases_router
 from src.api.case_assignments import router as case_assignments_router
 from src.api.attachments import router as attachments_router
 from src.api.graph_review import router as graph_review_router
+from src.api.community_admin import router as community_admin_router
 from src.auth.rls_context import set_case_scope
 from src.observability import errors as error_capture
 
@@ -247,6 +248,7 @@ app.include_router(cases_router, prefix="/api/cases", tags=["cases"])
 app.include_router(case_assignments_router)
 app.include_router(attachments_router, prefix="/api/attachments", tags=["attachments"])
 app.include_router(graph_review_router)   # prefix already set inside graph_review.py
+app.include_router(community_admin_router)   # prefix already set inside community_admin.py
 
 # ── Models ─────────────────────────────────────────────────────────────────────
 class ChatRequest(BaseModel):

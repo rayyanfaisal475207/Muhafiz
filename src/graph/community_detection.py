@@ -564,3 +564,112 @@ async def get_latest_run() -> Optional[dict]:
         ))
         row = res.mappings().first()
         return dict(row) if row else None
+
+
+# ============================================================
+# [Milestone E3 — GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md] Staleness check,
+# moved here from scripts/check_community_staleness.py (which now just
+# calls this and prints it — same logic, one home, not a duplicate).
+#
+# Genuinely incremental community DETECTION (only re-clustering the
+# subgraph that actually changed, rather than the full Louvain pass
+# above) is a real algorithmic undertaking of its own — out of scope
+# here, named honestly rather than half-built. What E3 actually delivers
+# is moving the TRIGGER from "a human remembers to run
+# scripts/check_community_staleness.py, then remembers to run
+# detect_communities()/summarize_communities() by hand" to "checked
+# automatically after ingestion, using this exact same drift heuristic,
+# and re-run automatically when it fires" — see
+# src/ingestion/community_refresh_bg.py. detect_communities() itself is
+# still a full recompute every time it actually runs; E3 changes WHEN it
+# runs, not what it computes.
+# ============================================================
+
+# Not tuned against real drift-history data yet (this is still the first
+# version of this heuristic) — starting point thresholds, documented as
+# such, same disclosure the standalone script always carried.
+NODE_DRIFT_WARN_PCT = 0.10
+EDGE_DRIFT_WARN_PCT = 0.10
+
+
+async def _current_raw_node_count() -> int:
+    rows = await age_client.execute_cypher(
+        "MATCH (p:Person) RETURN count(p) AS c", columns=["c"],
+    )
+    return int(rows[0]["c"]) if rows else 0
+
+
+async def _current_raw_edge_count() -> int:
+    # ASSOCIATED_WITH + BELONGS_TO_CASE (Person only) — the same two edge
+    # sources detect_communities() itself measures into
+    # raw_node_count/raw_edge_count above, for a genuinely comparable
+    # baseline.
+    rows = await age_client.execute_cypher(
+        "MATCH (:Person)-[r:ASSOCIATED_WITH]->(:Person) WHERE r.superseded_by IS NULL "
+        "RETURN count(r) AS c",
+        columns=["c"],
+    )
+    associated_with = int(rows[0]["c"]) if rows else 0
+    rows2 = await age_client.execute_cypher(
+        "MATCH (:Person)-[r:BELONGS_TO_CASE]->(:Case) WHERE r.superseded_by IS NULL "
+        "RETURN count(r) AS c",
+        columns=["c"],
+    )
+    belongs_to_case = int(rows2[0]["c"]) if rows2 else 0
+    return associated_with + belongs_to_case
+
+
+async def get_staleness() -> dict:
+    """
+    Compare the live graph's current raw Person node/edge counts against
+    the raw counts recorded at the last community_runs row, and report
+    whether drift has crossed NODE_DRIFT_WARN_PCT/EDGE_DRIFT_WARN_PCT.
+
+    Returns {"stale": bool, "reason": str, "last_run_id": Optional[str],
+    "node_drift": Optional[float], "edge_drift": Optional[float],
+    "current_raw_nodes": int, "current_raw_edges": int,
+    "prior_raw_nodes": Optional[int], "prior_raw_edges": Optional[int]}.
+
+    `stale=True` with `last_run_id=None` means detection has never run at
+    all — there is no partition to be stale, but there is also nothing
+    for a query to draw on, so this is reported as "needs a run" the same
+    way an out-of-date partition is, not as a separate third state a
+    caller would have to special-case.
+    """
+    last_run = await get_latest_run()
+    current_raw_nodes = await _current_raw_node_count()
+    current_raw_edges = await _current_raw_edge_count()
+
+    if last_run is None:
+        return {
+            "stale": True, "reason": "no community detection run found yet",
+            "last_run_id": None, "node_drift": None, "edge_drift": None,
+            "current_raw_nodes": current_raw_nodes, "current_raw_edges": current_raw_edges,
+            "prior_raw_nodes": None, "prior_raw_edges": None,
+        }
+
+    prior_raw_nodes = last_run.get("raw_node_count")
+    prior_raw_edges = last_run.get("raw_edge_count")
+    if prior_raw_nodes is None or prior_raw_edges is None:
+        # A run from before migration 017 has no raw counts to compare
+        # against — fail toward "recommend a re-run" rather than
+        # crashing on a None/int comparison or silently skipping.
+        return {
+            "stale": True, "reason": "prior run predates raw-count tracking (migration 017)",
+            "last_run_id": last_run["run_id"], "node_drift": None, "edge_drift": None,
+            "current_raw_nodes": current_raw_nodes, "current_raw_edges": current_raw_edges,
+            "prior_raw_nodes": None, "prior_raw_edges": None,
+        }
+
+    node_drift = abs(current_raw_nodes - prior_raw_nodes) / max(prior_raw_nodes, 1)
+    edge_drift = abs(current_raw_edges - prior_raw_edges) / max(prior_raw_edges, 1)
+    stale = node_drift >= NODE_DRIFT_WARN_PCT or edge_drift >= EDGE_DRIFT_WARN_PCT
+
+    return {
+        "stale": stale,
+        "reason": f"node drift {node_drift:.1%}, edge drift {edge_drift:.1%}" if stale else "within threshold",
+        "last_run_id": last_run["run_id"],
+        "node_drift": node_drift, "edge_drift": edge_drift,
+        "current_raw_nodes": current_raw_nodes, "current_raw_edges": current_raw_edges,
+        "prior_raw_nodes": prior_raw_nodes, "prior_raw_edges": prior_raw_edges,
+    }
