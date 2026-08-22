@@ -540,3 +540,97 @@ async def test_confirm_batch_unknown_group_returns_404(monkeypatch):
     with pytest.raises(HTTPException) as exc_info:
         await graph_review.confirm_batch("GROUP-DOES-NOT-EXIST", graph_review.ReviewAction(), _Admin())
     assert exc_info.value.status_code == 404
+
+
+# ── Consistency findings (Ingestion Quality Control at Scale, Module G3) ──
+
+class _FindingRow:
+    def __init__(self, d):
+        self._mapping = d
+
+
+class _FindingResult:
+    def __init__(self, rows=None, rowcount=0):
+        self._rows = rows or []
+        self.rowcount = rowcount
+
+    def fetchall(self):
+        return [_FindingRow(r) for r in self._rows]
+
+
+class _FindingSession:
+    def __init__(self, results: list):
+        self._results = list(results)
+        self.executed: list[tuple] = []
+
+    async def execute(self, stmt, params=None):
+        self.executed.append((str(stmt), params))
+        return self._results.pop(0) if self._results else _FindingResult()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+def _fake_get_session_for(session):
+    def _factory():
+        return session
+    return _factory
+
+
+async def test_list_consistency_findings_returns_open_findings_only(monkeypatch):
+    rows = [{"finding_id": 1, "edge_id": 500, "finding_reason": "Corroborating evidence has become inconsistent."}]
+    session = _FindingSession([_FindingResult(rows)])
+    import src.database.postgres as postgres_module
+    monkeypatch.setattr(postgres_module, "get_session", _fake_get_session_for(session))
+
+    result = await graph_review.list_consistency_findings(admin=_Admin())
+
+    assert result["count"] == 1
+    assert result["findings"][0]["edge_id"] == 500
+    assert "WHERE acknowledged = false" in session.executed[0][0]
+
+
+async def test_acknowledge_consistency_finding_updates_and_logs_audit(monkeypatch, fake_gateway):
+    session = _FindingSession([_FindingResult(rowcount=1)])
+    import src.database.postgres as postgres_module
+    monkeypatch.setattr(postgres_module, "get_session", _fake_get_session_for(session))
+
+    result = await graph_review.acknowledge_consistency_finding(1, admin=_Admin())
+
+    assert result == {"finding_id": 1, "acknowledged": True}
+    assert fake_gateway.audit_log[0]["event_type"] == "graph_review_consistency_finding_acknowledge"
+
+
+async def test_acknowledge_consistency_finding_404s_when_not_found_or_already_acknowledged(monkeypatch):
+    session = _FindingSession([_FindingResult(rowcount=0)])
+    import src.database.postgres as postgres_module
+    monkeypatch.setattr(postgres_module, "get_session", _fake_get_session_for(session))
+
+    with pytest.raises(HTTPException) as exc_info:
+        await graph_review.acknowledge_consistency_finding(999, admin=_Admin())
+    assert exc_info.value.status_code == 404
+
+
+async def test_acknowledge_consistency_finding_never_touches_the_graph(monkeypatch, fake_age, fake_versioning):
+    """The whole point of this endpoint — confirm it makes zero AGE calls
+    and zero versioning writes."""
+    session = _FindingSession([_FindingResult(rowcount=1)])
+    import src.database.postgres as postgres_module
+    monkeypatch.setattr(postgres_module, "get_session", _fake_get_session_for(session))
+
+    class _NoGateway:
+        async def log_audit_event(self, *a, **k):
+            pass
+
+    async def _get_gateway():
+        return _NoGateway()
+
+    monkeypatch.setattr(graph_review, "get_gateway", _get_gateway)
+
+    await graph_review.acknowledge_consistency_finding(1, admin=_Admin())
+
+    assert fake_age.calls == []
+    assert fake_versioning.edges_written == []

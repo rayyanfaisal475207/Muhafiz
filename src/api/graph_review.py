@@ -465,3 +465,65 @@ async def confirm_batch(group_id: str, action: ReviewAction, admin: User = Depen
 @router.post("/queue/batches/{group_id}/reject")
 async def reject_batch(group_id: str, action: ReviewAction, admin: User = Depends(require_role("supervisor"))):
     return await _decide_batch(group_id, "reject", admin)
+
+
+# ── Consistency findings — Ingestion Quality Control at Scale, Module G3
+# (INGESTION_QUALITY_AT_SCALE_PLAN.md) ────────────────────────────────────
+#
+# Surfaced through THIS router (reusing the existing review surface, not a
+# second queue), because that's what the plan asked for — but this is a
+# genuinely different kind of item from everything above: it never
+# confirms/rejects anything, it just flags that a PREVIOUSLY-resolved
+# match's corroborating evidence looks weaker now than it did at write
+# time, for an investigator to look at through the existing confirm/
+# reject machinery if they judge it warrants a second look.
+
+@router.get("/consistency-findings")
+async def list_consistency_findings(admin: User = Depends(require_role("supervisor"))):
+    """Every open (unacknowledged) consistency finding, newest first."""
+    from sqlalchemy import text
+    from src.database.postgres import get_session
+
+    async with get_session() as db:
+        result = await db.execute(
+            text(
+                "SELECT finding_id, edge_id, tier, status_at_detection, mention_entity_id, "
+                "candidate_entity_id, original_basis, original_name_similarity, original_shared_case, "
+                "original_shared_structured_id, fresh_name_similarity, fresh_shared_case, "
+                "fresh_shared_structured_id, finding_reason, detected_at "
+                "FROM entity_resolution_consistency_findings "
+                "WHERE acknowledged = false "
+                "ORDER BY detected_at DESC"
+            ),
+        )
+        rows = [dict(row._mapping) for row in result.fetchall()]
+    return {"findings": rows, "count": len(rows)}
+
+
+@router.post("/consistency-findings/{finding_id}/acknowledge")
+async def acknowledge_consistency_finding(finding_id: int, admin: User = Depends(require_role("supervisor"))):
+    """
+    Records that an investigator looked at this finding — never touches
+    the SAME_AS edge itself. Use confirm/reject above for that, same as
+    any other pending or already-decided match.
+    """
+    from sqlalchemy import text
+    from src.database.postgres import get_session
+
+    async with get_session() as db:
+        result = await db.execute(
+            text(
+                "UPDATE entity_resolution_consistency_findings "
+                "SET acknowledged = true, acknowledged_by = :admin_id, acknowledged_at = now() "
+                "WHERE finding_id = :finding_id AND acknowledged = false"
+            ),
+            {"finding_id": finding_id, "admin_id": str(admin.id)},
+        )
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Finding not found or already acknowledged")
+
+    gateway = await get_gateway()
+    await gateway.log_audit_event(
+        "graph_review_consistency_finding_acknowledge", {"finding_id": finding_id}, str(admin.id),
+    )
+    return {"finding_id": finding_id, "acknowledged": True}
