@@ -549,6 +549,18 @@ All routes are under `/api`. Authentication is a JWT in an HttpOnly cookie; muta
 | `GET /api/admin/community/staleness`  | The same drift heuristic checked automatically after every ingest — read-only |
 | `POST /api/admin/community/refresh`   | Manual full sweep: re-run community detection + summarization regardless of the staleness check (there is no cron to run this on a schedule) |
 
+### Ingestion quality (`supervisor` role or higher)
+
+Ingestion Quality Control at Scale (`INGESTION_QUALITY_AT_SCALE_PLAN.md`), Modules G1/G2 — visibility into ingestion-run outcomes plus a deterministic circuit breaker, not an agentic quality loop (see the plan's own §1 for why an LLM-judged ingestion loop was explicitly rejected).
+
+| Endpoint                                              | Purpose                                                                  |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `GET /api/admin/ingestion-quality/runs`                | Per-run entity-resolution tier rollup (G1) plus circuit-breaker flags (G2), newest first; optional `source` filter |
+| `GET /api/admin/ingestion-quality/flagged`             | Only the runs currently awaiting acknowledgment                              |
+| `POST /api/admin/ingestion-quality/{run_id}/acknowledge` | Clears a flagged run so the next same-source run stops inheriting the flag — never re-scores anything, never touches the graph |
+
+The breaker (`src/graph/ingestion_circuit_breaker.py`) flags a run — never auto-remediates — when its ambiguous-match rate (`human_review`+`flagged_unverified` share of resolved mentions) or corroboration-gate rejection rate comes in more than 10 percentage points above the rolling average of the last 10 finished runs *for that same source* (`ingest_file` and `sync_muhafiz_data` are grouped separately — confirmed live that `sync_muhafiz_data` runs always carry `case_id IS NULL`, so per-case grouping isn't meaningful for it, and `ingest_file` is one row per single-document upload with almost never a repeat `case_id` to baseline against). Both the 10-point threshold and the 10-run window are stated as a starting point, same disclosure `community_detection.get_staleness()`'s own drift thresholds already carry — not tuned against real drift-history data yet. A flagged run's status propagates to the next same-source run until a human acknowledges it (`POST .../{run_id}/acknowledge`); live-verified against real Postgres, including that acknowledging a stale (already-superseded) flagged run in a fast-moving chain correctly does *not* unblock a newer flagged run further down the chain.
+
 ### Admin (`platform-admin` role required unless noted)
 
 | Endpoint                                                                        | Purpose                                                     |
@@ -584,7 +596,7 @@ A separate React app (`admin-frontend/`) on the `/api/admin/*` namespace. Every 
 | **MCP Calls**            | Tool-call log for the SQL route                                                                                                                                                                                                                                                                                                                                                              |
 | **Generated Files**      | Audit and delete AI-generated documents                                                                                                                                                                                                                                                                                                                                                      |
 
-**Backend-only, no admin-frontend page yet:** the `/api/admin/graph-review/queue/*` re-prioritization/grouping endpoints (D1) and the `/api/admin/community/*` staleness-check/manual-refresh endpoints exist and are tested, but `ReviewQueuePage.tsx` still only calls the original `/pending`/`{edge_id}/confirm`/`reject` endpoints — the newer surfaces are API-only for now.
+**Backend-only, no admin-frontend page yet:** the `/api/admin/graph-review/queue/*` re-prioritization/grouping endpoints (D1), the `/api/admin/community/*` staleness-check/manual-refresh endpoints, and the `/api/admin/ingestion-quality/*` run-rollup/flag/acknowledge endpoints (G1/G2) exist and are tested, but `ReviewQueuePage.tsx` still only calls the original `/pending`/`{edge_id}/confirm`/`reject` endpoints — the newer surfaces are API-only for now.
 | **Users**                | Registered accounts                                                                                                                                                                                                                                                                                                                                                                          |
 
 All views share a date-range filter (24h / 7d / 30d / 90d), which also switches bucketing between hourly and daily. Percentiles are nearest-rank, so a reported p95 is a latency a real request actually experienced.

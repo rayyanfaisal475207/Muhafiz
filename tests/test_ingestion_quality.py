@@ -209,9 +209,28 @@ async def test_finish_run_failure_is_swallowed_and_accumulator_still_cleared(mon
 
 # ── track_run() context manager ───────────────────────────────────────────
 
+async def _fake_check_and_flag(monkeypatch, calls=None):
+    """
+    [Ingestion Quality Control at Scale, Module G2] track_run() now calls
+    finish_run(..., source=...), which calls
+    ingestion_circuit_breaker.check_and_flag() — stub it out so these
+    (pre-existing, G1) tests stay pure-unit, no real Postgres reachable
+    via ingestion_circuit_breaker's own get_session import.
+    """
+    from src.graph import ingestion_circuit_breaker
+
+    async def _fake(run_id, source, counts):
+        if calls is not None:
+            calls.append((run_id, source, dict(counts)))
+        return {"flagged": False, "reason": "within baseline"}
+
+    monkeypatch.setattr(ingestion_circuit_breaker, "check_and_flag", _fake)
+
+
 async def test_track_run_starts_and_finishes_around_the_body(monkeypatch):
     session = _FakeSession()
     monkeypatch.setattr(ingestion_quality, "get_session", _fake_get_session(session))
+    await _fake_check_and_flag(monkeypatch)
 
     async with ingestion_quality.track_run("run-1", "ingest_file", case_id="CASE-A"):
         ingestion_quality.record_tier("cnic_auto")
@@ -225,6 +244,7 @@ async def test_track_run_starts_and_finishes_around_the_body(monkeypatch):
 async def test_track_run_still_finishes_when_the_body_raises(monkeypatch):
     session = _FakeSession()
     monkeypatch.setattr(ingestion_quality, "get_session", _fake_get_session(session))
+    await _fake_check_and_flag(monkeypatch)
 
     with pytest.raises(ValueError):
         async with ingestion_quality.track_run("run-1", "ingest_file"):
@@ -236,3 +256,53 @@ async def test_track_run_still_finishes_when_the_body_raises(monkeypatch):
     assert ingestion_quality._current_run.get() is None
     update_calls = [c for c in session.executed if "UPDATE ingestion_run_quality" in c[0]]
     assert update_calls[0][1]["tier_human_review"] == 1
+
+
+# ── finish_run(source=...) -> circuit breaker integration (Module G2) ────
+
+async def test_finish_run_without_source_never_calls_the_circuit_breaker(monkeypatch):
+    """G1's original call shape (no `source`) must keep behaving exactly
+    as before — the circuit breaker is additive, not a default every
+    finish_run() call now carries."""
+    session = _FakeSession()
+    monkeypatch.setattr(ingestion_quality, "get_session", _fake_get_session(session))
+    from src.graph import ingestion_circuit_breaker
+    called = []
+    monkeypatch.setattr(ingestion_circuit_breaker, "check_and_flag", lambda *a, **k: called.append(1))
+    await ingestion_quality.start_run("run-1", "ingest_file")
+
+    result = await ingestion_quality.finish_run("run-1")
+
+    assert called == []
+    assert "flagged_for_review" not in result
+
+
+async def test_finish_run_with_source_calls_the_circuit_breaker_and_merges_its_result(monkeypatch):
+    session = _FakeSession()
+    monkeypatch.setattr(ingestion_quality, "get_session", _fake_get_session(session))
+    calls = []
+    await _fake_check_and_flag(monkeypatch, calls)
+    await ingestion_quality.start_run("run-1", "ingest_file")
+    ingestion_quality.record_tier("human_review")
+
+    result = await ingestion_quality.finish_run("run-1", source="ingest_file")
+
+    assert calls == [("run-1", "ingest_file", {
+        "tier_cnic_auto": 0, "tier_flagged_unverified": 0, "tier_human_review": 1,
+        "tier_new": 0, "corroboration_gate_rejections": 0, "extraction_errors": 0,
+    })]
+    assert result["flagged_for_review"] is False
+    assert result["flagged_reason"] == "within baseline"
+
+
+async def test_finish_run_with_no_active_run_never_calls_the_circuit_breaker(monkeypatch):
+    session = _FakeSession()
+    monkeypatch.setattr(ingestion_quality, "get_session", _fake_get_session(session))
+    from src.graph import ingestion_circuit_breaker
+    called = []
+    monkeypatch.setattr(ingestion_circuit_breaker, "check_and_flag", lambda *a, **k: called.append(1))
+
+    result = await ingestion_quality.finish_run("never-started", source="ingest_file")
+
+    assert result is None
+    assert called == []
