@@ -211,6 +211,79 @@ post-`SAME_AS` collapse) → `community_id`, FK → `community_runs` (CASCADE).
 detection run, so a same-transaction FK would only add an ordering
 constraint without adding real safety.
 
+### Identity index (`migrations/021_identity_index.sql`)
+
+Graph Scale & Schema Expansion, Milestone A1 (see
+`docs/decisions/0002-graph-schema-expansion-and-scale.md`) — a plain
+Postgres side table backing `entity_resolution._find_by_primary_id()`/
+`_generate_candidates()`'s CNIC/plate/belt_no lookup with a real
+primary-key lookup, replacing what was previously an AGE
+`MATCH (n:Label {id_key: $value})` — targeted-looking Cypher, but AGE has
+no property index behind it, so it was a full label scan under the hood.
+Not an index on AGE's own internal storage (its per-label vertex tables
+are an undocumented implementation detail) — a Postgres-side table
+shadowing derived/lookup state, same precedent as `community_membership`
+above.
+
+**`identity_index`** — `(label, id_key, id_value)` (composite PK) →
+`entity_id`, `updated_at`. One row per identity-bearing property
+`src/graph/identity_index.py`'s `IDENTITY_KEYS` tracks — `Person`/`cnic`,
+`Vehicle`/`plate`, `PhoneNumber`/`phone`, and (Milestone B2)
+`Officer`/`belt_no`, added to `IDENTITY_KEYS` in B2's own module rather
+than deferred. A second index,
+`ix_identity_index_label_key_entity (label, id_key, entity_id)`, supports
+`entity_ids_excluding()` — "every entity_id this label/id_key already has
+an indexed value for" — without touching `id_value`.
+
+Maintained from one choke point, `src/graph/versioning.py`'s
+`write_node()`, for every write to a tracked label — inserted/updated the
+moment a node with that identity property is written. Read path: index
+consulted FIRST by `entity_resolution.py`, falling back to the original
+AGE scan only on a miss (defends against index/graph drift — the index
+is never the sole source of truth). Both graphs share the read guard:
+consulted only for `graph="evidence_graph"` (production) — an eval run
+against `evidence_graph_eval` never reads or is influenced by the shared
+production index.
+
+### Persistent full-text index (`migrations/022_chunk_fulltext_index.sql`)
+
+Graph Scale & Schema Expansion, Milestone A2 — replaces
+`bm25_retriever.py`'s actual scaling cost: `retrieve_bm25()` rebuilding a
+fresh `BM25Okapi` index (full tokenization + term-frequency stats) over
+the entire scoped candidate pool on **every single query**. Swapping
+where chunk text is read from (Chroma vs. Postgres) alone would not have
+fixed this — the candidate *pool* itself had to shrink from "every chunk
+in scope" to "chunks that share at least one token with the query",
+which is what a real inverted index is for.
+
+**`chunk_fulltext`** — `chunk_id` (PK, the same id Chroma stores the
+chunk under), `doc_id`, a denormalized/indexed subset of scope columns
+(`source`, `project_id`, `case_id`, `is_global` — the same
+two-dimensional scoping `vector_store.py`'s `_build_where()` already
+enforces for Chroma, applied here as a plain SQL filter), `text`,
+`metadata` (JSONB, the chunk's COMPLETE Chroma metadata dict verbatim —
+not just the denormalized columns, so a downstream reader like
+`reranker.py`'s recency boost sees the identical shape it would have
+gotten from Chroma's `get_all()`), `tsv` (GIN-indexed
+`ix_chunk_fulltext_tsv`), `updated_at`. Additional btree indexes on
+`project_id`/`case_id`/`source` back the scope filter.
+
+`tsv` is built from ALREADY-TOKENIZED text
+(`src/ingestion/tokenizer.py`'s Urdu-aware `tokenize()`, space-joined),
+not Postgres's own `to_tsvector` tokenizing raw text — `bm25_retriever.py`
+is explicit that corpus and query must share one tokenizer (Urdu
+codepoint variants, script-specific punctuation); letting Postgres's
+built-in tokenizer diverge from the one BM25 already depends on would
+silently under/over-match Urdu content differently than the real scoring
+tokenizer does. Maintained incrementally at ingest
+(`src/retrieval/fulltext_index.py`'s `maintain()`/`delete_by_ids()`/
+`delete_by_source()`), torn down on delete, never rebuilt from scratch
+per query. `src/retrieval/fulltext_index.py::candidate_pool()` is the new
+read path (`orchestrator.py`'s BM25 leg, `rag.py`, the eval scripts),
+replacing `get_all_chunks()` for that one leg only — `get_all_chunks()`'s
+other, unrelated uses (e.g. the FIR-number auto-scope metadata scan) are
+untouched.
+
 ### Pending-candidate priority (`migrations/027_pending_candidate_priority.sql`)
 
 Graph Scale & Schema Expansion, Milestone D1 (see

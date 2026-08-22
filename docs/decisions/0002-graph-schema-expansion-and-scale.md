@@ -1,7 +1,31 @@
-# 0002 — Graph scale prerequisites and schema expansion (Milestones A–E)
+# 0002 — Graph scale prerequisites and schema expansion (Milestones A–F)
 
-**Status:** in progress (Milestones A, B, C, D, and E complete; see
-checklists at the bottom of each section) **Date:** 2026-08-22
+**Status:** complete (Milestones A, B, C, D, E, and F all landed; see the
+checklist at the bottom of each section) **Date:** 2026-08-22
+
+## Contents
+
+**Milestone F's own decision on this ADR's final shape** (one of F1's
+resolved open points): this document stayed an append-only running log
+as each milestone landed (a new `## Milestone X` block plus its own
+`## Status: Milestone X complete` block, in landing order) for the whole
+A→E build — that shape matches how the work actually happened and is
+cheap to keep extending mid-flight. Now that Milestone F is the last
+entry and the document has stopped growing, a plain table of contents is
+added here rather than restructuring the 1,500+ lines above it into a
+different shape — restructuring would risk silently dropping or
+misplacing a decision that took real investigation to reach, for a
+navigability improvement a TOC gets just as well. Decided, not
+defaulted, same as every module below.
+
+- [Context](#context) — the three hot paths this plan diagnosed
+- [Milestone A](#a1--identity-index-tables) — scale prerequisites: A1 identity index, A2 full-text index, A3 batched embeddings
+- [Milestone B](#b1--jurisdiction-graph-nodes) — schema depth: B1 jurisdiction nodes, B2 officer identity
+- [Milestone C](#milestone-c--closing-the-remaining-structured-field-gaps) — C1–C6 structured-field gaps, C7 governance record
+- [Milestone D](#milestone-d--queue-scale-resolution-hard-human-confirmation-rule-kept) — D1 pending-candidate reprioritization, D2 confidence-hedged retrieval
+- [Milestone E](#milestone-e--query-time-scale) — E1 query-scope preclassification, E2 default case-scoped traversal, E3 incremental community refresh
+- [Milestone F](#milestone-f--documentation) — this milestone: `docs/graph_schema.md`/`docs/DATABASE_DESIGN.md` brought current, the two §5 "watch, don't build" items recorded, this ADR's own final shape decided
+- [Out of scope, watched not built](#out-of-scope-watched-not-built-milestone-f) — AGE-as-graph-store (confirmed), Chroma-as-vector-store (a real watch item)
 
 ## Context
 
@@ -30,8 +54,11 @@ human-confirmation rule absolute), and E (query-time scale: station/
 district preclassification wired into the router's own single
 classification step, closing the one within-case traversal path that
 could leak across cases, and moving community-summary rebuilding from
-admin/script-invoked-only to an automatic staleness-gated trigger) —
-Milestone F (documentation) is out of scope here and was not started.
+admin/script-invoked-only to an automatic staleness-gated trigger), and
+F (documentation: `docs/graph_schema.md` and `docs/DATABASE_DESIGN.md`
+brought current with everything A–E added, the two §5 "watch, don't
+build" items recorded here, and this document's own final shape
+decided).
 
 Apache AGE stays the graph store (confirmed decision, not revisited by this
 work) — every module below is additive Postgres-side state alongside it,
@@ -1569,5 +1596,150 @@ milestone.
 All three modules (E1, E2, E3) landed as their own branch, merged
 `--no-ff` into local `main`, full test suite green at every step,
 live-verified against the real Postgres/AGE instance. Nothing pushed to
-`origin`. Milestone F (documentation) was not started — out of scope for
-this pass.
+`origin`.
+
+---
+
+## Milestone F — Documentation
+
+No code changes, no new branch/merge cycle — F1 is the one module, and
+its own output (the docs below) is the thing being checked, so it was
+verified by re-reading the actual current code/schema against what got
+written, not by assuming `GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md`'s own
+text already described reality (the same discipline every A–E open point
+already applied to code, applied here to docs).
+
+**Four open points resolved before writing anything** (each found by
+diffing `docs/graph_schema.md`/`docs/DATABASE_DESIGN.md` against the
+actual current code, not assumed from the plan text):
+
+1. **`docs/graph_schema.md` was stale as far back as pre-B1.** Its
+   `INVOLVED_IN` edge entry read "an investigating officer is written as
+   an unresolved Person-labelled node with no cross-document identity —
+   no reliable identifier like `belt_no` is treated as one yet" — false
+   since B2. A grep of the file turned up zero mentions of
+   `PoliceStation`, `District`, `Officer`, `FILED_AT`, `ASSIGNED_TO`,
+   `RELATED_TO`, `CROSS_VERSION_OF`, or `LOCATED_AT`'s C6 reuse — the
+   Node types/Edge types tables, the "Entity resolution &
+   canonicalization" section, and the "Case isolation for the graph"
+   section (which still described `graph_retriever.py`'s identity-fold
+   helper as safe "by construction," the exact claim E2 found false)
+   were all rewritten.
+2. **`docs/DATABASE_DESIGN.md` documented D1's `pending_candidate_priority`
+   already, but was missing A1's `identity_index` and A2's
+   `chunk_fulltext`** — both confirmed absent by grep, despite
+   `pending_candidate_priority`'s own prose explicitly cross-referencing
+   `identity_index` by name (a section that only ever pointed at
+   something that didn't exist yet in the doc). Both added at the same
+   tier of detail (`migrations/023`–`026` cross-checked too — confirmed
+   AGE-label-only, correctly out of this relational-schema doc's scope,
+   already covered by `docs/graph_schema.md` instead).
+3. **C7 was already a complete, standalone record** (confirmed by
+   re-reading it against this point's own bar — it quotes the schema's
+   own sensitive-field flag, names the exact code check that enforces
+   the exclusion, and states its scope, not just a pointer back to the
+   plan file). **The plan's two §5 "watch, don't build" items (AGE as
+   graph store, Chroma as vector store) were NOT yet in this ADR** —
+   confirmed by grepping for "AGE"/"Chroma" outside the A1/A2 decision
+   sections and finding only a one-line passing mention of AGE in the
+   Context section above, no dedicated reasoning, and no Chroma entry at
+   all. Both get their own section below, carrying over the plan's own
+   §5 reasoning rather than re-deriving it.
+4. **This ADR's own final shape** — decided explicitly in the new
+   [Contents](#contents) section at the top: stays the append-only
+   running log it already was through E, with a table of contents added
+   now that it's finished growing, rather than restructured.
+
+### F1 — `docs/graph_schema.md` / `docs/DATABASE_DESIGN.md` brought current
+
+**`docs/graph_schema.md`:**
+- Node types table: added `PoliceStation`/`District` (B1) and `Officer`
+  (B2), each naming the exact write path and identity key.
+- Edge types table: added `FILED_AT` (B1), `ASSIGNED_TO` (B2),
+  `RELATED_TO` (C1), `CROSS_VERSION_OF` (C4); documented `PART_OF`'s B1
+  reuse (`PoliceStation`→`District`), `LOCATED_AT`'s C6 reuse (witness
+  home jurisdiction, distinct from the case's own `FILED_AT` and from a
+  street `Address`), `OCCURRED_ON`'s two new C3 `event_type` values
+  (`zimni_entry`, `position`), and `APPEARS_IN`'s C2/C5 reuses (chalaan
+  name resolution, typed recovered property) in a new paragraph below
+  the table rather than overloading the table's own row further.
+  Corrected `INVOLVED_IN`'s stale officer-identity note per open point 1.
+- "Entity resolution & canonicalization": added B2's `Officer`/`belt_no`
+  tier, and a paragraph recording E2's finding/fix directly (this
+  section's own "follow confirmed SAME_AS, not one node = one person"
+  rule was the exact rule the identity-fold gap violated).
+- "Case isolation for the graph": corrected the paragraph that used to
+  call `graph_retriever.py`'s identity/hop helpers safe "by construction"
+  (true only for ordinary hops, not the identity fold — see E2), pointed
+  at `case_scope.py`'s own module docstring as the authoritative call-site
+  list rather than restating it a second place, and added E1's
+  jurisdiction-scoped-enumeration paragraph (same role gate, a second
+  caller of it, not a second gate).
+
+**`docs/DATABASE_DESIGN.md`:** added the "Identity index" (A1) and
+"Persistent full-text index" (A2) sections (table shape, maintenance
+choke point, read path, why a side table and not an AGE-internal index)
+that were missing despite being cross-referenced by name from D1's own
+already-written section.
+
+### Out of scope, watched not built (Milestone F)
+
+Carried over from `GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md` §5, recorded
+here in this ADR now that the plan file itself (untracked) stops being
+the durable home for this reasoning once Milestone F closes it out:
+
+**Apache AGE/Cypher-over-Postgres as the graph store — a confirmed
+decision, not a watch-item.** Real-world case volume (thousands, even
+low millions, of FIRs across a station/province) stays within what AGE
+over a properly-indexed Postgres instance can carry, especially with A1
+(identity indexes) and E2 (default case/jurisdiction-scoped traversal)
+in place — traversal cost stays bounded to a scoped subgraph rather than
+the whole graph. No migration off AGE anywhere in this plan. Revisit only
+if a measured trigger is actually hit post-deployment (e.g. p95
+traversal latency past a set threshold on real production volume) — not
+spec'd or built blind now. A future switch (a dedicated graph store, or
+partitioning by district/station) stays possible later without this plan
+having precluded it.
+
+**Chroma as the vector store — a real watch item, not a confirmed
+decision the way AGE is.** Scales reasonably for now with ANN indexing;
+a dedicated vector DB or `pgvector` is a later call if/when a measured
+ceiling is actually hit, not a preemptive rewrite. Unlike AGE (where A1/
+E2 give a specific, named reason the current choice keeps scaling),
+nothing in A–E specifically hardened Chroma's own scaling story — this
+entry is a plain "watch, don't build" flag, not a decision backed by a
+completed mitigation the way AGE's entry is.
+
+### §7-F verification — docs reviewed against actual code/schema
+
+Every node/edge label added to `docs/graph_schema.md`'s tables
+(`PoliceStation`, `District`, `Officer`, `FILED_AT`, `ASSIGNED_TO`,
+`RELATED_TO`, `CROSS_VERSION_OF`, `PART_OF`'s B1 reuse, `LOCATED_AT`'s C6
+reuse, `OCCURRED_ON`'s C3 event types, `APPEARS_IN`'s C2/C5 reuses)
+confirmed present, by name, in `src/graph/structured_projection.py` or
+`src/graph/cross_silo_projection.py` before being written into the doc —
+not copied from this ADR's own B/C sections without re-checking the
+current source. Both new `docs/DATABASE_DESIGN.md` table sections
+(`identity_index`, `chunk_fulltext`) cross-checked against their real
+migration files (`021`, `022`) column-by-column. `git log --oneline`
+confirms one merge commit per A–E module (`--no-ff`, as required).
+`git status` confirms `origin` still untouched.
+`GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md` itself remains untracked (`git
+ls-files` does not list it) — its reasoning now lives here, in this ADR,
+per its own stated convention (the same one `MUHAFIZ_API_MIGRATION_PLAN.md`
+followed into `docs/decisions/0001-...md`).
+
+- [x] **F1** — documentation. `docs/graph_schema.md` (Node types/Edge
+      types tables, entity-resolution section, case-isolation section),
+      `docs/DATABASE_DESIGN.md` (identity_index, chunk_fulltext
+      sections), this ADR (Contents section, Milestone F section, the
+      two §5 watch items). No code changes. Verified per §7-F above.
+
+## Status: Milestone F complete — plan finished
+
+All six milestones (A–F) landed. Every code module (A1–A3, B1–B2,
+C1–C6, D1–D2, E1–E3) as its own branch, merged `--no-ff` into local
+`main`, full test suite green at every step, live-verified against the
+real Postgres/AGE instance where the module's own scope called for it.
+C7 and F1 are docs-only records, no branch. Nothing pushed to `origin`
+at any point across the whole plan.
