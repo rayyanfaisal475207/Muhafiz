@@ -19,6 +19,7 @@ from src.ingestion.chunker import chunk_documents
 from src.retrieval.embedder import embed_texts
 from src.retrieval.vector_store import upsert_documents
 from src.ingestion.conflict_bg import _run_conflict_detection_bg
+from src.ingestion.reprioritization_bg import _run_reprioritization_bg
 
 logger = logging.getLogger(__name__)
 
@@ -602,6 +603,13 @@ async def ingest_documents(
 
             # Phase 8.2: Run case-level conflict detection in the background
             asyncio.create_task(_run_conflict_detection_bg(case_id, str(doc_id)))
+
+            # Milestone D1 (GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md — pending-
+            # candidate reprioritization): re-score this case's own pending
+            # SAME_AS/CITES candidates now that new evidence just landed —
+            # the incremental half of D1's execution model, same
+            # fire-and-forget shape as conflict detection above.
+            asyncio.create_task(_run_reprioritization_bg(case_id))
 
         # Module 4.3: total_pages must always mean the PDF's true page count
         # (doc.num_pages(), carried in pdf_loader's per-Document metadata),

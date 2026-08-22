@@ -37,7 +37,7 @@ import re
 from datetime import datetime, timezone
 from typing import Optional
 
-from src.graph import age_client, identity_index
+from src.graph import age_client, identity_index, pending_candidate_priority
 from src.data_gateway import get_gateway
 
 logger = logging.getLogger(__name__)
@@ -288,6 +288,38 @@ async def write_edge(
             params={"old_id": supersedes_edge_id, "new_id": new_edge["id"]},
             columns=["old"],
             graph=graph,
+        )
+        # Graph Scale & Schema Expansion, Milestone D1: the edge being
+        # superseded just got a real status (confirmed/rejected, always
+        # by a human — graph_review.py's confirm/reject are the only
+        # callers that ever pass supersedes_edge_id for SAME_AS/CITES).
+        # It is no longer pending, so its priority-queue row is cleared.
+        # A no-op for edge types the queue never tracked in the first
+        # place (e.g. OCCURRED_ON re-locking).
+        await pending_candidate_priority.resolve_pending(supersedes_edge_id)
+
+    properties = properties or {}
+    if edge_label in pending_candidate_priority.TRACKED_EDGE_LABELS and properties.get("status") == "pending":
+        # Milestone D1: index the freshly-written pending candidate for
+        # the reordered/grouped review queue. `a_key`/`b_key` are the raw
+        # match-dict values (entity_id for SAME_AS, case_id for CITES —
+        # both single-key dicts at every call site today). The
+        # scoring-signal fields (name_similarity/shared_case/
+        # shared_structured_id) are only present when the caller is
+        # entity_resolution.resolve_and_write's SAME_AS write (see its
+        # ResolutionDecision) — absent (None) for CITES, which has no
+        # equivalent per-pair scoring breakdown to snapshot.
+        await pending_candidate_priority.maintain_pending(
+            new_edge["id"], edge_label,
+            a_key=str(next(iter(from_match.values()))),
+            b_key=str(next(iter(to_match.values()))),
+            tier=properties.get("tier"),
+            confidence=confidence,
+            basis=properties.get("basis"),
+            name_similarity=properties.get("name_similarity"),
+            shared_case=properties.get("shared_case"),
+            shared_structured_id=properties.get("shared_structured_id"),
+            source_doc_id=source_doc_id,
         )
 
     gateway = await get_gateway()

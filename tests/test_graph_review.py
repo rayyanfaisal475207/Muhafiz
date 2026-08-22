@@ -384,3 +384,159 @@ async def test_same_as_queue_and_cites_queue_are_fully_independent(fake_age):
     await graph_review.list_pending_citations(admin=None)
     assert "CITES" in fake_age.calls[-1]["cypher"]
     assert "SAME_AS" not in fake_age.calls[-1]["cypher"]
+
+
+# ── /queue — Milestone D1 reordered/grouped review queue ───────────────
+
+def _priority_row(edge_id, group_id="GROUP-SAME_AS-1", priority_score=0.8, why="reinforced", deprioritized=False):
+    return {
+        "edge_id": edge_id, "tier": "flagged_unverified", "a_key": f"P-A{edge_id}",
+        "b_key": f"P-B{edge_id}", "original_confidence": 0.7, "original_basis": "matched on near-identical name",
+        "priority_score": priority_score, "why": why, "group_id": group_id,
+        "deprioritized": deprioritized, "last_scored_at": None, "created_at": None, "source_doc_id": None,
+    }
+
+
+@pytest.fixture
+def fake_priority_rows(monkeypatch):
+    rows: list[dict] = []
+
+    async def fake_list_rows(edge_label, include_deprioritized=True):
+        if not include_deprioritized:
+            return [r for r in rows if not r["deprioritized"]]
+        return list(rows)
+
+    monkeypatch.setattr(graph_review.pending_candidate_priority, "list_rows", fake_list_rows)
+    monkeypatch.setattr(graph_review, "_fetch_node_by_key", lambda entity_id: _fake_node(entity_id))
+    return rows
+
+
+async def _fake_node(entity_id):
+    return {"id": 1, "label": "Person", "properties": {"entity_id": entity_id, "canonical_name": entity_id}}
+
+
+@pytest.mark.asyncio
+async def test_list_queue_shape(fake_priority_rows):
+    fake_priority_rows.append(_priority_row(301, priority_score=0.9))
+    fake_priority_rows.append(_priority_row(302, group_id="GROUP-SAME_AS-2", priority_score=0.4))
+
+    result = await graph_review.list_queue(admin=None)
+
+    assert result["count"] == 2
+    edge_ids = {r["edge_id"] for r in result["queue"]}
+    assert edge_ids == {301, 302}
+    row = next(r for r in result["queue"] if r["edge_id"] == 301)
+    assert row["why"] == "reinforced"
+    assert row["priority_score"] == 0.9
+    assert row["mention"]["entity_id"] == "P-A301"
+    assert row["candidate"]["entity_id"] == "P-B301"
+
+
+@pytest.mark.asyncio
+async def test_list_queue_groups_clusters_by_group_id(fake_priority_rows):
+    fake_priority_rows.append(_priority_row(401, group_id="GROUP-SAME_AS-1", priority_score=0.9))
+    fake_priority_rows.append(_priority_row(402, group_id="GROUP-SAME_AS-1", priority_score=0.5))
+    fake_priority_rows.append(_priority_row(403, group_id="GROUP-SAME_AS-9", priority_score=0.2))
+
+    result = await graph_review.list_queue_groups(admin=None)
+
+    assert result["count"] == 2
+    g1 = next(g for g in result["groups"] if g["group_id"] == "GROUP-SAME_AS-1")
+    assert g1["member_count"] == 2
+    assert set(g1["edge_ids"]) == {401, 402}
+    assert g1["top_priority_score"] == 0.9  # highest-scored member leads
+
+
+@pytest.mark.asyncio
+async def test_list_queue_never_returns_a_deprioritized_row_ahead_of_a_live_one(fake_priority_rows):
+    """Reordering only sinks stale candidates — it must never delete/hide them."""
+    fake_priority_rows.append(_priority_row(501, priority_score=0.95, deprioritized=True))
+    fake_priority_rows.append(_priority_row(502, priority_score=0.1, deprioritized=False))
+
+    result = await graph_review.list_queue(admin=None)
+    assert {r["edge_id"] for r in result["queue"]} == {501, 502}, "deprioritize must sink, never drop, a candidate"
+
+
+@pytest.mark.asyncio
+async def test_reprioritize_endpoint_never_confirms_or_rejects_anything(monkeypatch, fake_versioning):
+    """Milestone D1's hard rule, checked at the API boundary: the manual full-sweep endpoint must never write a SAME_AS/CITES edge."""
+    async def fake_reprioritize_all():
+        return 7
+
+    monkeypatch.setattr(graph_review.candidate_reprioritization, "reprioritize_all", fake_reprioritize_all)
+
+    result = await graph_review.reprioritize_queue(admin=None)
+
+    assert result == {"rescored": 7}
+    assert fake_versioning.edges_written == [], "reprioritization must never write a graph edge"
+
+
+# ── /queue/batches — human batch confirm/reject ─────────────────────────
+
+@pytest.mark.asyncio
+async def test_confirm_batch_confirms_every_member_via_the_same_single_edge_path(fake_age, fake_versioning, fake_gateway, monkeypatch):
+    """A batch action is several calls to the EXACT same confirm_match() path, not a new graph-write primitive."""
+    rows = [_priority_row(601, group_id="GROUP-SAME_AS-1"), _priority_row(602, group_id="GROUP-SAME_AS-1")]
+
+    async def fake_list_rows(edge_label, include_deprioritized=True):
+        return rows
+
+    monkeypatch.setattr(graph_review.pending_candidate_priority, "list_rows", fake_list_rows)
+    fake_age.queue([{"a": _person("P-A601", "A"), "r": _same_as_edge(601), "b": _person("P-B601", "B")}])
+    fake_age.queue([{"a": _person("P-A602", "C"), "r": _same_as_edge(602), "b": _person("P-B602", "D")}])
+
+    result = await graph_review.confirm_batch("GROUP-SAME_AS-1", graph_review.ReviewAction(), _Admin())
+
+    assert result["group_id"] == "GROUP-SAME_AS-1"
+    assert len(result["results"]) == 2
+    assert all(r["status"] == "confirmed" for r in result["results"])
+    assert len(fake_versioning.edges_written) == 2
+    assert all(e["properties"]["status"] == "confirmed" for e in fake_versioning.edges_written)
+
+
+@pytest.mark.asyncio
+async def test_confirm_batch_reports_an_already_reviewed_member_without_aborting_the_rest(fake_age, fake_versioning, fake_gateway, monkeypatch):
+    rows = [_priority_row(701, group_id="GROUP-SAME_AS-2"), _priority_row(702, group_id="GROUP-SAME_AS-2")]
+
+    async def fake_list_rows(edge_label, include_deprioritized=True):
+        return rows
+
+    monkeypatch.setattr(graph_review.pending_candidate_priority, "list_rows", fake_list_rows)
+    # edge 701 already superseded (reviewed independently) -> 409
+    fake_age.queue([{"a": _person("P-A701", "A"), "r": _same_as_edge(701, superseded_by=999), "b": _person("P-B701", "B")}])
+    fake_age.queue([{"a": _person("P-A702", "C"), "r": _same_as_edge(702), "b": _person("P-B702", "D")}])
+
+    result = await graph_review.confirm_batch("GROUP-SAME_AS-2", graph_review.ReviewAction(), _Admin())
+
+    by_id = {r["edge_id"]: r for r in result["results"]}
+    assert by_id[701]["status_code"] == 409
+    assert by_id[702]["status"] == "confirmed"
+    assert len(fake_versioning.edges_written) == 1, "only the not-yet-reviewed member should have written a new edge"
+
+
+@pytest.mark.asyncio
+async def test_reject_batch_writes_rejecting_edges(fake_age, fake_versioning, fake_gateway, monkeypatch):
+    rows = [_priority_row(801, group_id="GROUP-SAME_AS-3")]
+
+    async def fake_list_rows(edge_label, include_deprioritized=True):
+        return rows
+
+    monkeypatch.setattr(graph_review.pending_candidate_priority, "list_rows", fake_list_rows)
+    fake_age.queue([{"a": _person("P-A801", "A"), "r": _same_as_edge(801), "b": _person("P-B801", "B")}])
+
+    result = await graph_review.reject_batch("GROUP-SAME_AS-3", graph_review.ReviewAction(), _Admin())
+
+    assert result["results"][0]["status"] == "rejected"
+    assert fake_versioning.edges_written[0]["properties"]["status"] == "rejected"
+
+
+@pytest.mark.asyncio
+async def test_confirm_batch_unknown_group_returns_404(monkeypatch):
+    async def fake_list_rows(edge_label, include_deprioritized=True):
+        return []
+
+    monkeypatch.setattr(graph_review.pending_candidate_priority, "list_rows", fake_list_rows)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await graph_review.confirm_batch("GROUP-DOES-NOT-EXIST", graph_review.ReviewAction(), _Admin())
+    assert exc_info.value.status_code == 404
