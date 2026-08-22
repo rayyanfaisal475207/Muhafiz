@@ -1,7 +1,7 @@
-# 0002 — Graph scale prerequisites and schema expansion (Milestones A–D)
+# 0002 — Graph scale prerequisites and schema expansion (Milestones A–E)
 
-**Status:** in progress (Milestones A, B, C, and D complete; see checklists
-at the bottom of each section) **Date:** 2026-08-21
+**Status:** in progress (Milestones A, B, C, D, and E complete; see
+checklists at the bottom of each section) **Date:** 2026-08-22
 
 ## Context
 
@@ -24,10 +24,14 @@ B (schema depth: jurisdiction/officer nodes), C (the remaining
 structured-field gaps: person-relationship edges, chalaan name
 resolution, zimni officer/position timeline, cross-version edge, typed
 recovered property, witness home jurisdiction, and the ethnicity/religion
-governance record), and D (queue-scale resolution: pending-candidate
+governance record), D (queue-scale resolution: pending-candidate
 reprioritization and confidence-hedged retrieval, both keeping the hard
-human-confirmation rule absolute) — Milestones E–F (query-time scoping,
-documentation) are out of scope here and were not started.
+human-confirmation rule absolute), and E (query-time scale: station/
+district preclassification wired into the router's own single
+classification step, closing the one within-case traversal path that
+could leak across cases, and moving community-summary rebuilding from
+admin/script-invoked-only to an automatic staleness-gated trigger) —
+Milestone F (documentation) is out of scope here and was not started.
 
 Apache AGE stays the graph store (confirmed decision, not revisited by this
 work) — every module below is additive Postgres-side state alongside it,
@@ -1259,5 +1263,311 @@ the real Postgres/AGE instance. The hard human-confirmation rule stayed
 absolute throughout: no code path in either module can set a
 SAME_AS/CITES/CROSS_VERSION_OF edge's status to confirmed/rejected
 without a human call to `graph_review.py`'s existing confirm/reject
-endpoints. Nothing pushed to `origin`. Milestones E–F were not started —
-out of scope for this pass.
+endpoints. Nothing pushed to `origin`.
+
+---
+
+## Milestone E — query-time scale
+
+Before starting: `muhafiz-postgres` was confirmed actually reachable
+(`MATCH (c:Case) RETURN count(c)` returned 73, matching every prior
+milestone's recorded count) before any E-module work began.
+
+**Five open points resolved before implementation started** (each found
+by checking this plan against the actual code, not assumed from the plan
+text alone — full reasoning in `GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md`'s
+own "Open points to resolve first" for the original framing):
+
+1. **E2's premise ("case_scope.py is currently eval-only") was factually
+   wrong and rewritten before implementation, not implemented as
+   worded.** Reading `case_scope.py`'s own module docstring and every
+   call site confirmed it was already the production enforcement
+   chokepoint for `graph_retriever.py`'s within-case seed lookup/per-hop
+   filter/conflict lookup, `entity_resolution.py`'s case-membership
+   check, and the harness's `timeline_building.py`/`data_quality.py`
+   agents. The real remaining gap was found by tracing every path that
+   grows `retrieve_graph()`'s `visited` set, not by assuming the plan's
+   framing: `_expand_confirmed_identity()`'s confirmed-SAME_AS identity
+   fold ran unconditionally — no `cross_case` gate, and never routed
+   through the per-hop `_filter_to_case` guard the way ordinary
+   `ASSOCIATED_WITH` hops already were. A CONFIRMED SAME_AS edge is
+   frequently itself a cross-case link (the same real person recognized
+   in two FIRs), so a within-case query (`cross_case=False`, no role
+   check) could silently fold another case's node straight into
+   `visited` and, from there, surface that case's evidence chunks —
+   without ever passing through `_enforce_cross_case_role_gate()`.
+2. **E1 extends router.py's SAME single classification call**, not a
+   second gate. `route_query()` already classifies every query
+   (`route`/`case_scope`/`target_entity`/`target_year`/`confidence`) in
+   one place; E1 adds `station`/`district` fields to that identical JSON
+   schema/parsing pass rather than introducing a separate LLM call or
+   parsing step — avoiding the "a third gate drifting out of sync"
+   problem `SUBAGENT_INTERFACES.md` already warns about, and B1's own
+   access-control section already resolved once (reusing
+   `_enforce_cross_case_role_gate` rather than adding a second check).
+3. **E1 wires into B1's existing `retrieve_jurisdiction_cases()`**, not
+   a second jurisdiction-lookup path — confirmed by reading that
+   function's own docstring, which named this exact wiring as "Milestone
+   E1's job, out of scope here." `graph_retriever.resolve_jurisdiction_case_ids()`
+   is the new entry point: it resolves the router's free-text
+   station/district to a real `PoliceStation`/`District` id via a plain
+   (ungated) metadata lookup, then calls `retrieve_jurisdiction_cases()`
+   completely unchanged — same `_enforce_cross_case_role_gate()`, not a
+   second gate, per B1's own "second caller of it, not a second gate"
+   precedent. `crime_category` needed no new schema work — confirmed
+   already a flat `Case` property (read at `orchestrator.py`'s
+   case-summary formatting) and already filtered by `xagg.py`'s own
+   keyword matching — so it was deliberately NOT added as a second
+   router field, which would itself have been a second place deciding
+   the same filter.
+4. **E3's execution model reuses D1's resolution, not a deviation** —
+   this codebase still has no standalone scheduled worker/cron
+   (re-confirmed while implementing this, same check D1 already made).
+   `community_detection.detect_communities()`/
+   `community_vector_store.clear_all_reports()` (that module actually
+   lives at `src/retrieval/community_vector_store.py`, not `src/graph/`
+   as an earlier draft of the plan had it — corrected there and here)
+   were ADMIN/SCRIPT-INVOKED ONLY (`scripts/check_community_staleness.py`
+   was a manual pre-flight check with no automatic caller anywhere,
+   confirmed by reading it). E3 reuses D1's exact shape: an incremental
+   fire-and-forget task at the same point ingestion already schedules
+   conflict detection/D1 reprioritization (case-scoped triggers), gated
+   by the SAME 10%-drift staleness heuristic
+   `scripts/check_community_staleness.py` already used manually (moved
+   into `community_detection.get_staleness()`, not duplicated — the
+   script is now a thin CLI wrapper around it), plus a
+   supervisor-triggered manual full-sweep endpoint for the case there's
+   no cron to run a schedule on. Genuinely incremental community
+   *detection* (re-clustering only the subgraph that actually changed,
+   rather than the full Louvain pass every run) is a real algorithmic
+   undertaking left explicitly out of scope, named honestly rather than
+   half-built — E3 changes WHEN the existing full-recompute runs, not
+   what it computes.
+5. **E3 ships unflagged, reasoning stated explicitly rather than
+   silently picked.** Unlike D2's XGRAPH dual-path (which changed what a
+   query is allowed to see — the actual reason it needed a flag),
+   `query_similar_communities()`'s semantics are byte-for-byte unchanged
+   for both `src/pipeline/xnetwork.py` and the harness tool wrapper —
+   confirm/reject-equivalent visibility rules never change, only
+   recompute cadence does. The transient clear-then-upsert rebuild
+   window (`community_vector_store.clear_all_reports()` followed by a
+   fresh `upsert_community_reports()`) already existed on every prior
+   MANUAL admin invocation of this same pipeline — automating the
+   trigger doesn't introduce a new risk class, only changes how often an
+   already-existing window occurs.
+
+### E2 — Default case-scoped traversal
+
+**Decision:** filter the confirmed-SAME_AS identity fold's `new_identity`
+set through the same `_filter_to_case()` call `retrieve_graph()`'s
+ordinary hop-expansion step (`next_frontier`) already used, when
+`cross_case=False` and `case_id` is set — closing the one path that grew
+`visited` without going through a per-hop case filter. Cross-case
+behavior (`cross_case=True`, role-gated) is completely unaffected: the
+fold still runs unconditionally there, exactly as before.
+
+`case_scope.py`'s own module docstring was updated to record this
+finding directly, so a future reader tracing "which templates does this
+chokepoint cover" sees the corrected picture, not the plan's original
+"eval-only" framing repeated a second place.
+
+#### §7-E verification — measured against the real live instance
+
+Unit-level (`tests/test_graph_retriever.py`): a new fixture,
+identical in shape to the existing cross-case confirmed-identity test,
+run with `cross_case=False` — a CONFIRMED SAME_AS pair spanning two
+different cases must not leak the other case's chunk into a within-case
+`retrieve_graph()` call, while the seed entity's own case chunk is still
+returned. Full suite green (5,350+ tests) before merge.
+
+Live-verified against `muhafiz-postgres`: a synthetic confirmed SAME_AS
+pair was injected spanning two REAL existing cases (tagged
+`E2VERIFY-<run-id>`, cleaned up in a `finally` block), proving
+`_filter_to_case()`'s real Cypher correctly excludes the other case's
+identity node from a within-case traversal's `seed_entities`/`visited`
+set against the genuine AGE instance, not just the fake-graph unit test.
+
+- [x] **E2** — default case-scoped traversal.
+      `src/retrieval/graph_retriever.py`'s `retrieve_graph()` hop loop
+      (identity-fold case filter), `src/graph/case_scope.py` docstring
+      updated. New test in `tests/test_graph_retriever.py`
+      (`test_confirmed_same_as_never_leaks_another_case_within_case_traversal`).
+      Full suite green. Live-verified against real Postgres/AGE per
+      §7-E above.
+
+### E1 — Query-scope preclassification
+
+**Decision:** `src/pipeline/router.py`'s `route_query()` gains two new
+free-text fields, `station`/`district` (schema/prompt in
+`prompts/router.txt`), forced to `None` for every route except
+XGRAPH/XAGG/XNETWORK (same "only these three routes can ever be
+cross-case" discipline the existing `case_scope` field already
+enforces). `src/retrieval/graph_retriever.py`'s new
+`resolve_jurisdiction_case_ids()` is the orchestrator-facing entry point:
+resolves the free text to a real `PoliceStation`/`District` id (a plain,
+ungated metadata lookup — case-insensitive `CONTAINS` match on
+id/name/code), then calls B1's `retrieve_jurisdiction_cases()`
+unchanged. Returns `None` (never `[]`) when nothing resolved — narrowing
+to an empty set would silently zero out a query whose station/district
+text just didn't match a real node, which is a materially different,
+worse failure than "don't narrow."
+
+`src/pipeline/orchestrator.py` resolves this ONCE, right after routing,
+before dispatching to any of the three cross-case routes; a resolution
+failure (including an unauthorized-role `PermissionError`) is logged and
+degrades to unscoped (`jurisdiction_case_ids=None`) rather than raising —
+the SAME role check inside `retrieve_graph()`/`run_aggregate()`/
+`run_network_query()` a few lines later independently denies an
+unauthorized caller anyway, so nothing is silently bypassed by
+swallowing the exception here.
+
+Threading, per route:
+- **XGRAPH** (`graph_retriever.retrieve_graph(cross_case=True, jurisdiction_case_ids=...)`) —
+  a real pre-filter: `_find_seed_nodes()`'s cross-case branch and
+  `_find_recurring_entities_for_query()` both add
+  `AND c.case_id IN $case_ids` to their own Cypher, cutting the
+  candidate set before any hop expansion runs.
+- **XAGG** (`xagg.run_aggregate(jurisdiction_case_ids=...)`) — both
+  aggregate families: `_top_recurring_nodes()`'s Cypher match (graph
+  family) and `_filtered_cases()`'s case-list filter, applied BEFORE the
+  status/category filtering that already existed (relational family).
+- **XNETWORK** (`xnetwork.run_network_query(jurisdiction_case_ids=...)`) —
+  a POST-filter on `query_similar_communities()`'s already-computed
+  top-k, stated honestly as a narrower guarantee than XGRAPH/XAGG's true
+  pre-filter: `community_vector_store`'s Chroma collection stores
+  `case_ids` as a comma-joined metadata string, not a natively
+  filterable list field, so pushing this down into the Chroma `where`
+  clause itself would need a metadata-schema change out of scope here.
+
+#### §7-E verification — measured against the real live instance
+
+Unit-level: new tests in `tests/test_router.py` (station/district
+pass-through, forced-`None` for non-cross-case routes),
+`tests/test_graph_retriever.py` (`TestResolveJurisdictionCaseIds`,
+`TestJurisdictionNarrowsCrossCaseSeedLookup`), `tests/test_xagg.py`
+(jurisdiction narrowing for both aggregate families), the new
+`tests/test_xnetwork.py` (no prior test file existed for
+`src/pipeline/xnetwork.py`), and new cases in `tests/test_orchestrator.py`
+(station classified -> reaches `run_aggregate()` as the resolved
+case_ids; no station/district -> resolver never called; resolver
+failure degrades to unscoped without failing the query). Full suite
+green before merge.
+
+Live-verified against `muhafiz-postgres`: `resolve_jurisdiction_case_ids()`,
+given the REAL name of the station with the most filed cases in the live
+corpus (`تھانہ ماڈل ٹاؤن، لاہور` / `PS-LHR-MODELTOWN`, 7 cases), resolved
+it to the identical 7-case_id set B1's own `retrieve_jurisdiction_cases()`
+returns for that station's real id — confirming the free-text-to-id
+resolution step works against genuine `PoliceStation` data, not just a
+fake. Candidate-set narrowing measured directly on
+`xagg._top_recurring_nodes()` (jurisdiction-narrowed count never exceeds
+the unscoped count — 0 in both cases on this real corpus, since no
+vehicle currently recurs across cases in the live data). An unauthorized
+(`investigator`) caller was confirmed denied by the identical role gate.
+
+- [x] **E1** — query-scope preclassification. `src/pipeline/router.py`/
+      `prompts/router.txt` (station/district fields),
+      `src/retrieval/graph_retriever.py`'s `resolve_jurisdiction_case_ids()`
+      plus `jurisdiction_case_ids` threaded through `retrieve_graph()`/
+      `_find_seed_nodes()`/`_find_recurring_entities_for_query()`,
+      `src/pipeline/xagg.py`'s `run_aggregate()` (both families),
+      `src/pipeline/xnetwork.py`'s `run_network_query()` (post-filter),
+      `src/pipeline/orchestrator.py` (resolves once, before dispatch).
+      New/updated tests across `tests/test_router.py`,
+      `tests/test_graph_retriever.py`, `tests/test_xagg.py`,
+      `tests/test_xnetwork.py` (new file), `tests/test_orchestrator.py`.
+      Full suite green. Live-verified against real Postgres/AGE per
+      §7-E above.
+
+### E3 — Incremental community refresh
+
+**Decision:** `src/graph/community_detection.py` gains `get_staleness()`
+— the exact 10%-node/10%-edge-drift heuristic
+`scripts/check_community_staleness.py` already computed manually,
+moved into the module itself (`NODE_DRIFT_WARN_PCT`/`EDGE_DRIFT_WARN_PCT`,
+`_current_raw_node_count()`/`_current_raw_edge_count()`) so it has one
+home instead of two copies; the script is now a thin CLI wrapper that
+calls it and prints the result.
+
+`src/ingestion/community_refresh_bg.py`'s `_run_community_refresh_bg()`
+is the incremental half of D1's reused execution model: a
+`asyncio.create_task()` fire-and-forget call at the same point
+`src/ingestion/service.py` already schedules conflict detection and D1
+reprioritization, right after a document's graph extraction. Unlike
+those two (case-scoped), this is NOT case-scoped — community detection
+clusters the whole Person graph, so there is no case-specific slice to
+pass in; every ingestion event just asks `get_staleness()` whether the
+whole-graph partition is stale enough to be worth a full recompute, and
+only actually calls `detect_communities()` + `community_summarization.summarize_communities()`
+when it is. This bounds how often the real cost here (an LLM call per
+community, inside `summarize_communities()`) can fire from ingestion —
+every ingest checks staleness cheaply; only a drift-crossing ingest
+re-summarizes. Best-effort, same as `reprioritization_bg.py`: a failure
+here is logged and swallowed, never propagated to fail the ingestion job
+it rides alongside.
+
+`src/api/community_admin.py` — `GET /api/admin/community/staleness`
+(read-only) and `POST /api/admin/community/refresh` (supervisor role;
+always runs both steps unconditionally, unlike the automatic trigger's
+staleness gate — a supervisor explicitly asking for a refresh isn't
+gated behind the drift heuristic) — the manual full-sweep path
+(D1's execution-model point 3, path #2) for the case there's no cron to
+run a schedule on, same shape as `graph_review.py`'s own
+`POST /queue/reprioritize`. Registered in `src/main.py` alongside the
+other admin routers.
+
+#### §7-E verification — measured against the real live instance
+
+Unit-level: `tests/test_community_staleness.py` (new —
+`get_staleness()`'s four branches: no prior run, prior run missing raw
+counts, within threshold, past threshold on either dimension;
+`_run_community_refresh_bg()`'s three branches: skips when not stale,
+runs detect+summarize when stale, best-effort swallows a failure) and
+`tests/test_community_admin.py` (new — both endpoints, confirming the
+manual endpoint runs unconditionally regardless of staleness). Full
+suite green before merge.
+
+Live-verified against `muhafiz-postgres`: `get_staleness()` correctly
+reported "no run found yet" (stale) against the real graph's actual
+counts at the time (444 raw Person nodes, 221 raw edges); a REAL
+`detect_communities()` run (`RUN-20260822103913`, 60 nodes after the
+implausible-name filter, 18 communities) wrote a fresh `community_runs`
+row, confirmed by `get_latest_run()`; `get_staleness()` immediately after
+that run correctly reported "within threshold" (not stale, 0% drift
+against itself); `_run_community_refresh_bg()` run immediately
+afterward correctly SKIPPED calling `detect_communities()` again (a spy
+confirmed zero calls); a second run with staleness forced artificially
+confirmed the positive path — a fresh `detect_communities()` run
+actually fires and writes a new `run_id`.
+`community_summarization.summarize_communities()`'s LLM step could not
+complete in this session due to a pre-existing, unrelated environment
+issue (the local model tunnel returned 404, and the configured Groq
+fallback model `llama-3.3-70b-versatile` does not exist/is not
+accessible under this deployment's Groq account) — flagged here plainly
+as an infrastructure gap to fix separately, not an E3 defect: the
+graph-side half of what E3 actually changes (the staleness check, the
+trigger, `detect_communities()` itself) is fully live-verified above;
+`summarize_communities()`'s own prompt/logic is unmodified by this
+milestone.
+
+- [x] **E3** — incremental community refresh.
+      `src/graph/community_detection.py`'s `get_staleness()` (+
+      `_current_raw_node_count()`/`_current_raw_edge_count()` moved in
+      from the script), `scripts/check_community_staleness.py`
+      (refactored to a thin wrapper), `src/ingestion/community_refresh_bg.py`
+      (new), `src/ingestion/service.py` (wired in alongside
+      conflict/reprioritization triggers), `src/api/community_admin.py`
+      (new), `src/main.py` (router registered). New tests
+      `tests/test_community_staleness.py`, `tests/test_community_admin.py`.
+      Full suite green. Live-verified against real Postgres/AGE per
+      §7-E above (graph-side); `summarize_communities()`'s LLM step
+      blocked by an unrelated, pre-existing environment issue, flagged
+      separately.
+
+## Status: Milestone E complete
+
+All three modules (E1, E2, E3) landed as their own branch, merged
+`--no-ff` into local `main`, full test suite green at every step,
+live-verified against the real Postgres/AGE instance. Nothing pushed to
+`origin`. Milestone F (documentation) was not started — out of scope for
+this pass.
