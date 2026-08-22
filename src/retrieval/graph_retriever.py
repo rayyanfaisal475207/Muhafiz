@@ -207,7 +207,8 @@ def _seed_candidates(target_entity: Optional[str], query_text: str) -> list[str]
 
 
 async def _find_seed_nodes(
-    candidates: list[str], case_id: Optional[str], cross_case: bool
+    candidates: list[str], case_id: Optional[str], cross_case: bool,
+    jurisdiction_case_ids: Optional[list[str]] = None,
 ) -> list[dict]:
     """
     Resolve candidate strings to graph nodes. Within-case: seed search is
@@ -216,6 +217,15 @@ async def _find_seed_nodes(
     case filter is ABSENT BY DESIGN here (not bypassed by a bug), gated
     only by the caller passing `cross_case=True`, so Phase 7 can attach a
     permission to this exact branch without restructuring it.
+
+    [Milestone E1] `jurisdiction_case_ids`, when given (only meaningful
+    for the cross_case branch — orchestrator.py only ever passes it there,
+    already narrowed by `resolve_jurisdiction_case_ids()`'s own role gate),
+    additionally restricts the cross-case MATCH to that case set — cutting
+    the candidate set the traversal considers before any hop expansion
+    runs, per E1's own "cut the candidate set up front" goal. `None` (the
+    default, and always the case for the within-case branch) leaves the
+    query exactly as before this milestone.
     """
     if not candidates:
         return []
@@ -228,12 +238,22 @@ async def _find_seed_nodes(
             where_clause = " OR ".join(where_parts)
             try:
                 if cross_case:
-                    cypher = f"""
-                        MATCH (n:{label})
-                        WHERE {where_clause}
-                        RETURN n
-                    """
-                    rows = await age_client.execute_cypher(cypher, params={"cand": cand}, columns=["n"])
+                    if jurisdiction_case_ids is not None:
+                        cypher = f"""
+                            MATCH (n:{label})-[:BELONGS_TO_CASE]->(c:Case)
+                            WHERE ({where_clause}) AND c.case_id IN $case_ids
+                            RETURN n
+                        """
+                        rows = await age_client.execute_cypher(
+                            cypher, params={"cand": cand, "case_ids": jurisdiction_case_ids}, columns=["n"],
+                        )
+                    else:
+                        cypher = f"""
+                            MATCH (n:{label})
+                            WHERE {where_clause}
+                            RETURN n
+                        """
+                        rows = await age_client.execute_cypher(cypher, params={"cand": cand}, columns=["n"])
                 else:
                     # Case-scoped: routed through case_scope.scoped_cypher()
                     # so a future edit can't silently drop the case filter.
@@ -288,7 +308,8 @@ async def _find_all_case_entities(case_id: str) -> list[dict]:
 
 
 async def _find_recurring_entities_for_query(
-    query_text: str, min_cases: int = 2, limit: Optional[int] = None
+    query_text: str, min_cases: int = 2, limit: Optional[int] = None,
+    jurisdiction_case_ids: Optional[list[str]] = None,
 ) -> list[dict]:
     """
     Cross-case fallback seed set for either of two related but different
@@ -317,6 +338,11 @@ async def _find_recurring_entities_for_query(
     Cypher row order) — real-corpus enumeration ("list everyone") could
     otherwise return an unbounded wall of names and, downstream, trigger a
     hop-traversal/chunk-fetch pass over every one of them.
+
+    [Milestone E1] `jurisdiction_case_ids`, when given, restricts the
+    `BELONGS_TO_CASE` match to that case set before the recurrence count
+    is even computed — the same "cut the candidate set up front" goal as
+    `_find_seed_nodes`'s own `jurisdiction_case_ids` handling above.
     """
     lowered = (query_text or "").lower()
     labels = [label for label, kws in _LABEL_KEYWORDS.items() if any(kw in lowered for kw in kws)]
@@ -328,10 +354,16 @@ async def _find_recurring_entities_for_query(
     seed_case_counts: dict[str, int] = {}
     for label in labels:
         try:
-            rows = await age_client.execute_cypher(
-                f"MATCH (n:{label})-[:BELONGS_TO_CASE]->(c:Case) RETURN n, c",
-                columns=["n", "c"],
-            )
+            if jurisdiction_case_ids is not None:
+                rows = await age_client.execute_cypher(
+                    f"MATCH (n:{label})-[:BELONGS_TO_CASE]->(c:Case) WHERE c.case_id IN $case_ids RETURN n, c",
+                    params={"case_ids": jurisdiction_case_ids}, columns=["n", "c"],
+                )
+            else:
+                rows = await age_client.execute_cypher(
+                    f"MATCH (n:{label})-[:BELONGS_TO_CASE]->(c:Case) RETURN n, c",
+                    columns=["n", "c"],
+                )
         except Exception as exc:
             logger.error("Cross-case recurrence lookup failed for label %s: %s", label, exc)
             continue
@@ -727,6 +759,85 @@ async def retrieve_jurisdiction_cases(
     }
 
 
+async def _resolve_station_id(station: str) -> Optional[str]:
+    """Free-text station name/code (router.py's own extraction, not a caller-typed id) -> B1's PoliceStation.station_id, or None if nothing matches."""
+    rows = await age_client.execute_cypher(
+        "MATCH (s:PoliceStation) "
+        "WHERE toLower(s.station_id) CONTAINS toLower($q) OR toLower(s.name) CONTAINS toLower($q) OR toLower(s.code) CONTAINS toLower($q) "
+        "RETURN s.station_id AS id LIMIT 1",
+        params={"q": station}, columns=["id"],
+    )
+    return rows[0]["id"] if rows and rows[0].get("id") else None
+
+
+async def _resolve_district_id(district: str) -> Optional[str]:
+    """Free-text district name -> B1's District.district_id, or None if nothing matches."""
+    rows = await age_client.execute_cypher(
+        "MATCH (d:District) "
+        "WHERE toLower(d.district_id) CONTAINS toLower($q) OR toLower(d.name) CONTAINS toLower($q) "
+        "RETURN d.district_id AS id LIMIT 1",
+        params={"q": district}, columns=["id"],
+    )
+    return rows[0]["id"] if rows and rows[0].get("id") else None
+
+
+async def resolve_jurisdiction_case_ids(
+    *,
+    station: Optional[str],
+    district: Optional[str],
+    query_text: str = "",
+    user_id: Optional[str] = None,
+    user_role: str = "investigator",
+) -> Optional[list[str]]:
+    """
+    Milestone E1 — the orchestrator.py entry point B1's own
+    `retrieve_jurisdiction_cases()` docstring named as "Milestone E1's
+    job, out of scope here". Turns router.py's free-text `station`/
+    `district` classification fields (see prompts/router.txt) into the
+    case_id allow-list `retrieve_graph()`/`run_aggregate()`/
+    `run_network_query()` narrow their own candidate sets to, BEFORE any
+    vector/graph work runs for those routes — E1's own stated goal.
+
+    Deliberately NOT a second gate: resolving a station/district NAME to
+    B1's `PoliceStation.station_id`/`District.district_id` is a plain
+    metadata lookup (no case data touched, nothing to gate). The actual
+    case-enumeration call below goes through `retrieve_jurisdiction_cases()`
+    unchanged — same function, same `_enforce_cross_case_role_gate()`
+    call, per B1's own "second caller of it, not a second gate" precedent.
+    A caller without the cross-case role gets the identical
+    `PermissionError`(+audit record) `retrieve_jurisdiction_cases()`
+    already raises; the orchestrator's existing per-route `except
+    Exception` handlers already degrade this the same way an
+    unauthorized `retrieve_graph(cross_case=True)`/`run_aggregate()` call
+    already does today — no new error-handling path needed.
+
+    Returns `None` (not `[]`) when neither `station` nor `district` was
+    classified, OR when one was but resolved to no real jurisdiction node
+    — `None` means "don't narrow," an empty list would incorrectly mean
+    "narrow to nothing," silently zeroing out a query whose station/
+    district text just didn't match (e.g. a name only present in the
+    query's prose, not literally in `PoliceStation.name`).
+    """
+    if not station and not district:
+        return None
+
+    station_id = await _resolve_station_id(station) if station else None
+    district_id = await _resolve_district_id(district) if district else None
+    if not station_id and not district_id:
+        logger.info(
+            "Milestone E1: router classified station=%r district=%r but neither "
+            "resolved to a real PoliceStation/District node — not narrowing.",
+            station, district,
+        )
+        return None
+
+    result = await retrieve_jurisdiction_cases(
+        station_id=station_id, district_id=district_id, query_text=query_text,
+        user_id=user_id, user_role=user_role,
+    )
+    return result["case_ids"]
+
+
 async def retrieve_graph(
     query_text: str,
     target_entity: Optional[str],
@@ -735,6 +846,7 @@ async def retrieve_graph(
     max_hops: int = DEFAULT_HOPS,
     user_id: Optional[str] = None,
     user_role: str = "investigator",
+    jurisdiction_case_ids: Optional[list[str]] = None,
 ) -> dict:
     """
     Traverse evidence_graph for `target_entity` (seeded within `case_id`,
@@ -751,6 +863,13 @@ async def retrieve_graph(
             "seed_entities": [{"entity_id", "type", "name"}, ...],
             "unconfirmed_links": [...],   # pending SAME_AS caveats
         }
+
+    `jurisdiction_case_ids` [Milestone E1]: only meaningful when
+    `cross_case=True` — narrows the cross-case seed lookup to this case
+    set (see `resolve_jurisdiction_case_ids()`). `None` (the default)
+    leaves cross-case seed lookup exactly as unscoped as before this
+    milestone; ignored entirely on the within-case path, which is always
+    scoped to `case_id` regardless.
     """
     empty_result = {
         "chunks": [], "hop_count": 0, "compounded_confidence": 1.0,
@@ -804,7 +923,7 @@ async def retrieve_graph(
 
     candidates = _seed_candidates(target_entity, query_text)
     if candidates:
-        seed_nodes = await _find_seed_nodes(candidates, case_id, cross_case)
+        seed_nodes = await _find_seed_nodes(candidates, case_id, cross_case, jurisdiction_case_ids)
     elif not cross_case and case_id:
         # No literal name/CNIC/phone/plate anywhere in the query — this is a
         # case-wide enumeration question ("how many accused are involved in
@@ -822,9 +941,13 @@ async def retrieve_graph(
         # case, the untouched default (min_cases=2, no cap) is recurrence.
         lowered_query = (query_text or "").lower()
         if any(kw in lowered_query for kw in _ENUMERATION_KEYWORDS):
-            seed_nodes = await _find_recurring_entities_for_query(query_text, min_cases=1, limit=50)
+            seed_nodes = await _find_recurring_entities_for_query(
+                query_text, min_cases=1, limit=50, jurisdiction_case_ids=jurisdiction_case_ids,
+            )
         else:
-            seed_nodes = await _find_recurring_entities_for_query(query_text)
+            seed_nodes = await _find_recurring_entities_for_query(
+                query_text, jurisdiction_case_ids=jurisdiction_case_ids,
+            )
     else:
         seed_nodes = []
     if not seed_nodes:

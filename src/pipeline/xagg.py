@@ -89,13 +89,29 @@ def _matches_any(text: str, keywords: tuple[str, ...]) -> bool:
     return any(kw in lowered for kw in keywords)
 
 
-async def _top_recurring_nodes(label: str, limit: int = 10) -> list[dict]:
-    """Count distinct cases each node of `label` touches via BELONGS_TO_CASE, descending."""
-    rows = await age_client.execute_cypher(
-        f"MATCH (n:{label})-[:BELONGS_TO_CASE]->(c:Case) "
-        "RETURN n, c",
-        columns=["n", "c"],
-    )
+async def _top_recurring_nodes(
+    label: str, limit: int = 10, jurisdiction_case_ids: Optional[list[str]] = None,
+) -> list[dict]:
+    """
+    Count distinct cases each node of `label` touches via BELONGS_TO_CASE,
+    descending. [Milestone E1] `jurisdiction_case_ids`, when given,
+    restricts the match to that case set before the recurrence count is
+    computed — the same candidate-set-narrowing role
+    `graph_retriever._find_recurring_entities_for_query()`'s own
+    `jurisdiction_case_ids` param plays for XGRAPH.
+    """
+    if jurisdiction_case_ids is not None:
+        rows = await age_client.execute_cypher(
+            f"MATCH (n:{label})-[:BELONGS_TO_CASE]->(c:Case) WHERE c.case_id IN $case_ids "
+            "RETURN n, c",
+            params={"case_ids": jurisdiction_case_ids}, columns=["n", "c"],
+        )
+    else:
+        rows = await age_client.execute_cypher(
+            f"MATCH (n:{label})-[:BELONGS_TO_CASE]->(c:Case) "
+            "RETURN n, c",
+            columns=["n", "c"],
+        )
     per_entity_cases: dict[str, set[str]] = {}
     display: dict[str, str] = {}
     for row in rows:
@@ -116,13 +132,21 @@ async def _top_recurring_nodes(label: str, limit: int = 10) -> list[dict]:
     ]
 
 
-async def _filtered_cases(gateway, query_text: str) -> list[dict]:
+async def _filtered_cases(
+    gateway, query_text: str, jurisdiction_case_ids: Optional[list[str]] = None,
+) -> list[dict]:
     """
     The open/closed + category filtering shared by both the grouped-count
     path (_station_or_category_counts) and the grand-total path
     (_total_count) below — pulled out so a query like "how many closed
     cases in total" still respects the status filter instead of the
     grand-total path bypassing it entirely.
+
+    [Milestone E1] `jurisdiction_case_ids`, when given, narrows the case
+    set to that allow-list FIRST — before the status/category filtering
+    below even runs — same "cut the candidate set up front" goal as the
+    graph family's own `jurisdiction_case_ids` handling in
+    `_top_recurring_nodes`.
     """
     # The caller (run_aggregate) has already verified the requesting user is
     # supervisor-or-above before reaching here — a cross-case aggregate is
@@ -131,6 +155,9 @@ async def _filtered_cases(gateway, query_text: str) -> list[dict]:
     # for "platform-admin"; passing anything else here (including None)
     # tries to join CaseAssignment on a non-existent user and raises.
     cases = await gateway.get_cases(user_id=None, user_role="platform-admin")
+    if jurisdiction_case_ids is not None:
+        allowed = set(jurisdiction_case_ids)
+        cases = [c for c in cases if c.get("case_id") in allowed]
 
     # "open" and "closed" are opposite filters — a query naming one must
     # never silently apply the other or (worse) apply neither. Previously
@@ -162,8 +189,10 @@ async def _filtered_cases(gateway, query_text: str) -> list[dict]:
     return cases
 
 
-async def _station_or_category_counts(gateway, query_text: str) -> dict:
-    cases = await _filtered_cases(gateway, query_text)
+async def _station_or_category_counts(
+    gateway, query_text: str, jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    cases = await _filtered_cases(gateway, query_text, jurisdiction_case_ids)
     group_field = "police_station" if _matches_any(query_text, _STATION_KEYWORDS) else "crime_category"
     counts = Counter(c.get(group_field) or "unknown" for c in cases)
     return {
@@ -173,11 +202,13 @@ async def _station_or_category_counts(gateway, query_text: str) -> dict:
     }
 
 
-async def _total_count(gateway, query_text: str) -> dict:
+async def _total_count(
+    gateway, query_text: str, jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
     """A bare "how many total" answer — no grouping, one number. Still
     honors any status/category filter present (e.g. "how many closed
     cases in total"), it just skips the group-by breakdown entirely."""
-    cases = await _filtered_cases(gateway, query_text)
+    cases = await _filtered_cases(gateway, query_text, jurisdiction_case_ids)
     return {"kind": "total_count", "total_cases": len(cases)}
 
 
@@ -187,6 +218,7 @@ async def run_aggregate(
     gateway,
     user_id: Optional[str] = None,
     user_role: str = "investigator",
+    jurisdiction_case_ids: Optional[list[str]] = None,
 ) -> dict:
     """
     Dispatch to the relational or graph aggregate family based on simple
@@ -196,6 +228,12 @@ async def run_aggregate(
     Cross-case, same as XGRAPH — requires the same supervisor-or-higher
     role gate and audit logging (Phase 7 RBAC applies to every cross-case
     route uniformly, not just graph traversal).
+
+    `jurisdiction_case_ids` [Milestone E1]: the case_id allow-list from
+    `graph_retriever.resolve_jurisdiction_case_ids()`, already resolved
+    (and role-gated) by the orchestrator before this call — `None` when
+    the query named no station/district, in which case every family below
+    runs exactly as it did before this milestone.
     """
     if user_role not in ("supervisor", "station-admin", "platform-admin"):
         logger.warning("Unauthorized cross-case aggregate query attempted by %s (user_id: %s)", user_role, user_id)
@@ -235,11 +273,11 @@ async def run_aggregate(
     query_lower = query_text.lower()
 
     if _matches_any(query_lower, _VEHICLE_KEYWORDS):
-        top = await _top_recurring_nodes("Vehicle")
+        top = await _top_recurring_nodes("Vehicle", jurisdiction_case_ids=jurisdiction_case_ids)
         return {"kind": "graph_recurrence", "entity_type": "Vehicle", "results": top}
 
     if _matches_any(query_lower, _PERSON_KEYWORDS):
-        top = await _top_recurring_nodes("Person")
+        top = await _top_recurring_nodes("Person", jurisdiction_case_ids=jurisdiction_case_ids)
         return {"kind": "graph_recurrence", "entity_type": "Person", "results": top}
 
     # A plain enumeration ("list of all cases") with no station/category/status
@@ -251,6 +289,9 @@ async def run_aggregate(
         query_lower, _STATION_KEYWORDS + _STATUS_KEYWORDS + _CATEGORY_KEYWORDS
     ):
         cases = await gateway.get_cases(user_id=None, user_role="platform-admin")
+        if jurisdiction_case_ids is not None:
+            allowed = set(jurisdiction_case_ids)
+            cases = [c for c in cases if c.get("case_id") in allowed]
         return {
             "kind": "case_listing",
             "cases": [
@@ -274,7 +315,7 @@ async def run_aggregate(
     if _matches_any(query_lower, _TOTAL_KEYWORDS) and not _matches_any(
         query_lower, _STATION_KEYWORDS + _CATEGORY_KEYWORDS
     ):
-        return await _total_count(gateway, query_text)
+        return await _total_count(gateway, query_text, jurisdiction_case_ids)
 
-    result = await _station_or_category_counts(gateway, query_text)
+    result = await _station_or_category_counts(gateway, query_text, jurisdiction_case_ids)
     return {"kind": "relational_aggregate", **result}

@@ -29,7 +29,7 @@ from src.retrieval.bm25_retriever import retrieve_bm25
 from src.retrieval.fulltext_index import candidate_pool as bm25_candidate_pool
 from src.retrieval.reranker import rerank_results
 from src.retrieval.cross_reranker import cross_rerank
-from src.retrieval.graph_retriever import retrieve_graph
+from src.retrieval.graph_retriever import retrieve_graph, resolve_jurisdiction_case_ids
 from src.pipeline.xagg import run_aggregate
 from src.pipeline.xnetwork import run_network_query
 from src.llm.client import call_llm, stream_llm
@@ -525,6 +525,11 @@ async def process_query(
 
         target_entity = route_result.get("target_entity")
         router_confidence = route_result.get("confidence")
+        # [Milestone E1] station/district — see router.py's route_query()
+        # docstring/schema. Only ever non-null for XGRAPH/XAGG/XNETWORK
+        # (router.py itself forces both to None for every other route).
+        router_station = route_result.get("station")
+        router_district = route_result.get("district")
         elapsed_ms = int((time.monotonic() - t0) * 1000)
         _spawn(asyncio.to_thread(pipeline_logger.log_llm_call,
             query_id, "router", config.LLM_PROVIDER, config.GROQ_MODEL if config.LLM_PROVIDER=="groq" else config.GEMINI_MODEL,
@@ -538,7 +543,45 @@ async def process_query(
         case_scope = "within_case"
         target_entity = None
         router_confidence = "low"
+        router_station = None
+        router_district = None
         elapsed_ms = int((time.monotonic() - t0) * 1000)
+
+    # [Milestone E1 — GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md] Query-scope
+    # preclassification: resolve station/district ONCE, before any of the
+    # three cross-case routes' vector/graph work runs, into the case_id
+    # allow-list each of them narrows its own candidate set to. Wires
+    # B1's retrieve_jurisdiction_cases() (via
+    # graph_retriever.resolve_jurisdiction_case_ids(), which is the ONLY
+    # thing that calls it here) into the router's own classification per
+    # E1's resolved open points — not a second gate: the role check this
+    # performs is the identical _enforce_cross_case_role_gate() every
+    # cross-case route already calls on its own. `None` when no station/
+    # district was classified (the overwhelming common case) — every
+    # downstream call keeps behaving exactly as before this milestone.
+    #
+    # A PermissionError here is deliberately swallowed, not re-raised: an
+    # unauthorized caller reaching this point will independently fail the
+    # SAME role check again inside retrieve_graph()/run_aggregate()/
+    # run_network_query() a few lines below (same CROSS_CASE_ROLES set,
+    # same gate function) — that call site's own try/except already
+    # degrades a PermissionError to the safe response and its own audit
+    # record. Re-raising here instead would just make this the second,
+    # earlier place that decision gets made, without changing the outcome
+    # — the point this milestone is careful NOT to introduce is a second
+    # gate whose OWN denial/allow decision could ever disagree with the
+    # real one, and letting the real gate be the one that actually denies
+    # keeps that true.
+    jurisdiction_case_ids: Optional[list] = None
+    if route_str in ("XGRAPH", "XAGG", "XNETWORK") and (router_station or router_district):
+        try:
+            jurisdiction_case_ids = await resolve_jurisdiction_case_ids(
+                station=router_station, district=router_district,
+                query_text=rewritten_query, user_id=user_id, user_role=user_role,
+            )
+        except Exception as exc:
+            logger.error("Milestone E1 jurisdiction preclassification failed, proceeding unscoped: %s", exc)
+            jurisdiction_case_ids = None
 
     # ── Attachment guard ──────────────────────────────────────────────────
     # The router has no idea a file was attached to this conversation, so a
@@ -1146,7 +1189,7 @@ async def process_query(
         try:
             graph_result = await retrieve_graph(
                 rewritten_query, target_entity, case_id=None, cross_case=True, max_hops=2,
-                user_id=user_id, user_role=user_role
+                user_id=user_id, user_role=user_role, jurisdiction_case_ids=jurisdiction_case_ids,
             )
             elapsed_ms = int((time.monotonic() - t0) * 1000)
             chunks = graph_result["chunks"]
@@ -1291,7 +1334,8 @@ async def process_query(
         t0 = time.monotonic()
         try:
             agg_result = await run_aggregate(
-                rewritten_query, target_entity, gateway, user_id=user_id, user_role=user_role
+                rewritten_query, target_entity, gateway, user_id=user_id, user_role=user_role,
+                jurisdiction_case_ids=jurisdiction_case_ids,
             )
             elapsed_ms = int((time.monotonic() - t0) * 1000)
 
@@ -1398,7 +1442,8 @@ async def process_query(
         t0 = time.monotonic()
         try:
             net_result = await run_network_query(
-                rewritten_query, gateway, user_id=user_id, user_role=user_role
+                rewritten_query, gateway, user_id=user_id, user_role=user_role,
+                jurisdiction_case_ids=jurisdiction_case_ids,
             )
             elapsed_ms = int((time.monotonic() - t0) * 1000)
 
