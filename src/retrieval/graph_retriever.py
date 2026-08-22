@@ -884,6 +884,30 @@ async def retrieve_graph(
             via_entity[to_id] = via_entity.get(from_id, from_id)
             path_confidence[to_id] = path_confidence.get(from_id, 1.0)
             hop_of[to_id] = hop_of.get(from_id, hop)
+
+        # [Milestone E2 — GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md] The real gap
+        # E2 found: _expand_confirmed_identity() is unconditional (it runs
+        # regardless of cross_case, unlike _find_seed_nodes/
+        # _find_recurring_entities_for_query, which are gated behind an
+        # explicit cross_case=True + the role check in
+        # _enforce_cross_case_role_gate). A CONFIRMED SAME_AS edge is,
+        # BY DEFINITION, frequently a cross-case link (the same real person
+        # recognized in two different FIRs) — so folding it into `visited`
+        # unfiltered let a within-case query (cross_case=False) silently
+        # pull another case's entity straight into `visited`, and from
+        # there into `_fetch_appears_in(visited)` below, surfacing that
+        # OTHER case's chunks without ever going through the cross-case
+        # role gate. The existing per-hop guard (`_filter_to_case` on
+        # `next_frontier`, below) only ever covered ordinary
+        # ASSOCIATED_WITH hops — it never touched `new_identity`, since
+        # `new_identity` is added to `visited`/`frontier` here, before that
+        # filter runs. Case-filtering `new_identity` here, the same way
+        # `next_frontier` already is, closes that: this makes "default
+        # case-scoped" apply to every path that grows `visited`, not just
+        # the ASSOCIATED_WITH hop path. Cross-case queries are unaffected —
+        # they already went through the role gate to set cross_case=True.
+        if not cross_case and case_id:
+            new_identity = await _filter_to_case(new_identity, case_id)
         visited |= new_identity
         frontier |= new_identity
 

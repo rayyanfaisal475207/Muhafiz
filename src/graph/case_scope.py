@@ -50,6 +50,23 @@
 # filter, and conflict lookup, plus entity_resolution.py's case-membership
 # check. See each call site's own comment for why it's routed through
 # this chokepoint.
+#
+# [Milestone E2 — GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md] This module was
+# already the production enforcement chokepoint before E2 (see the harness
+# call sites, timeline_building.py/data_quality.py, and every graph_retriever.py/
+# entity_resolution.py site named above) — E2's premise that it was
+# "eval-only" was wrong and was corrected before any code changed. E2's
+# REAL gap, found by tracing every path that grows graph_retriever.py's
+# `visited` set: the per-hop case filter (`_filter_to_case`, this module's
+# `scoped_cypher()` underneath) was only ever applied to ordinary
+# ASSOCIATED_WITH hop results, never to `_expand_confirmed_identity()`'s
+# identity fold — a CONFIRMED SAME_AS edge is often itself a cross-case
+# link (the same person recognized in two FIRs), so a within-case query
+# could silently pull another case's node straight into `visited` without
+# ever passing through `_enforce_cross_case_role_gate()`. Fixed by routing
+# the identity fold's `new_identity` set through the same `_filter_to_case`
+# call the ordinary hop path already used, when `cross_case=False` — see
+# `retrieve_graph()`'s hop loop in graph_retriever.py.
 # ============================================================
 
 from __future__ import annotations
