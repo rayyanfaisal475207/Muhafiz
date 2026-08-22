@@ -150,6 +150,18 @@ class ResolutionDecision:
     confidence: float
     basis: str                         # human-readable — what the review queue shows investigators
     candidates_considered: int = 0
+    # Milestone D1 (GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md — pending-candidate
+    # reprioritization): the raw Candidate-scoring fields behind `basis`,
+    # carried structurally rather than left to be re-parsed out of the
+    # free-text basis string. None for cnic_auto/new (no Candidate — see
+    # resolve_mention: these tiers return before a Candidate is ever
+    # scored). Persisted onto the SAME_AS edge itself by resolve_and_write
+    # below, so candidate_reprioritization.py's re-scoring job can diff
+    # "the signal at original-match time" against a freshly recomputed
+    # Candidate without an LLM call — a deterministic structural diff.
+    name_similarity: Optional[float] = None
+    shared_case: Optional[bool] = None
+    shared_structured_id: Optional[bool] = None
 
 
 def _new_entity_id(entity_type: str) -> str:
@@ -483,13 +495,21 @@ async def resolve_mention(
             basis += " + shared structured identifier"
         if best.shared_case:
             basis += " + shared case"
-        return ResolutionDecision(TIER_FLAGGED, best.entity_id, best.score, basis, len(candidates))
+        return ResolutionDecision(
+            TIER_FLAGGED, best.entity_id, best.score, basis, len(candidates),
+            name_similarity=best.name_similarity, shared_case=best.shared_case,
+            shared_structured_id=best.shared_structured_id,
+        )
 
     if best.name_similarity >= HIGH_NAME_WITH_CONTEXT and (best.shared_case or best.shared_structured_id):
         basis = "matched on name + " + (
             "shared structured identifier" if best.shared_structured_id else "shared case"
         ) + ", unverified"
-        return ResolutionDecision(TIER_FLAGGED, best.entity_id, best.score, basis, len(candidates))
+        return ResolutionDecision(
+            TIER_FLAGGED, best.entity_id, best.score, basis, len(candidates),
+            name_similarity=best.name_similarity, shared_case=best.shared_case,
+            shared_structured_id=best.shared_structured_id,
+        )
 
     if best.name_similarity >= MEDIUM_BAND_FLOOR:
         verdict = await _adjudicate(mention, best, case_id)
@@ -503,7 +523,11 @@ async def resolve_mention(
                 tier = TIER_REVIEW
             confidence = min(float(verdict.get("confidence", best.score) or best.score), NAME_FALLBACK_CAP)
             basis = f"matched on name + LLM adjudication: {verdict.get('reasoning', '')}".strip()
-            return ResolutionDecision(tier, best.entity_id, confidence, basis, len(candidates))
+            return ResolutionDecision(
+                tier, best.entity_id, confidence, basis, len(candidates),
+                name_similarity=best.name_similarity, shared_case=best.shared_case,
+                shared_structured_id=best.shared_structured_id,
+            )
         # LLM said not the same entity, or adjudication failed — fall
         # through to the weak-match/no-candidate bands below rather than
         # silently promoting a medium-confidence name-only match.
@@ -513,6 +537,8 @@ async def resolve_mention(
             TIER_REVIEW, best.entity_id, best.score,
             "weak name-only match, no CNIC, no corroborating shared attributes",
             len(candidates),
+            name_similarity=best.name_similarity, shared_case=best.shared_case,
+            shared_structured_id=best.shared_structured_id,
         )
 
     return ResolutionDecision(TIER_NEW, None, 0.0, "no matching candidate found", len(candidates))
@@ -596,6 +622,13 @@ async def resolve_and_write(
                 "tier": decision.tier,
                 "basis": decision.basis,
                 "status": "pending",
+                # Milestone D1: the Candidate-scoring fields behind
+                # `basis`, persisted structurally (see ResolutionDecision's
+                # own docstring) so candidate_reprioritization.py never
+                # has to re-parse them out of free text or call an LLM.
+                "name_similarity": decision.name_similarity,
+                "shared_case": decision.shared_case,
+                "shared_structured_id": decision.shared_structured_id,
             },
             source_doc_id=source_doc_id, source_chunk_id=source_chunk_id,
             confidence=decision.confidence,
