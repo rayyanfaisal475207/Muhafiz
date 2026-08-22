@@ -19,7 +19,9 @@ Schema:
   "output_format": "chat" | "file_xlsx" | "file_docx" | "file_pdf",
   "target_year": <integer year or null if not explicitly asking about a historical year>,
   "confidence": "high" | "medium" | "low",
-  "reason": "short explanation of why this route/format was chosen"
+  "reason": "short explanation of why this route/format was chosen",
+  "station": <verbatim police station name/area mentioned in the query, or null if none — ONLY meaningful for XGRAPH/XAGG/XNETWORK, ignored for every other route>,
+  "district": <verbatim district name mentioned in the query, or null if none — ONLY meaningful for XGRAPH/XAGG/XNETWORK, ignored for every other route>
 }
 
 Routes:
@@ -38,6 +40,9 @@ COMMON MISTAKE TO AVOID — do not default to RAG for a cross-case aggregate/cou
 Case scope:
 - Case-scoped is the default for every route — `case_scope` should be `"within_case"` unless the query explicitly asks about other cases, a pattern across cases, or uses language like "elsewhere," "repeat offender," "has this appeared before." Only `XGRAPH` and `XAGG` are ever `"cross_case"` — if cross-case language is detected but the query is a simple entity+relationship lookup, route it to `XGRAPH`, not `GRAPH` with `case_scope: "cross_case"`.
 
+Station/district (only for XGRAPH/XAGG/XNETWORK):
+- When a cross-case query (XGRAPH/XAGG/XNETWORK) also names a specific police station or district — "کوتوالی فیصل آباد میں مقدمات," "repeat offenders in Islamabad district" — extract the verbatim station/district text into `station`/`district` so the candidate case set can be narrowed to that jurisdiction before any search runs. Leave both `null` when no station/district is named, or for any non-cross-case route (they're ignored there regardless).
+
 Formats:
 - chat: Standard text response. (Default)
 - file_xlsx: User asked for an Excel file, spreadsheet, or a large table of data.
@@ -46,103 +51,103 @@ Formats:
 
 Examples:
 Query: "Hello"
-Output: {"route": "DIRECT", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Greeting"}
+Output: {"route": "DIRECT", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Greeting", "station": null, "district": null}
 
 Query: "Hi there"
-Output: {"route": "DIRECT", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Greeting"}
+Output: {"route": "DIRECT", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Greeting", "station": null, "district": null}
 
 Query: "Hello, what can you help me with?"
-Output: {"route": "DIRECT", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "A greeting combined with a meta-question about capabilities is still DIRECT — do not let the compound phrasing (greeting + question in one sentence) push this toward RAG; neither half needs document retrieval"}
+Output: {"route": "DIRECT", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "A greeting combined with a meta-question about capabilities is still DIRECT — do not let the compound phrasing (greeting + question in one sentence) push this toward RAG; neither half needs document retrieval", "station": null, "district": null}
 
 Query: "Thanks!"
-Output: {"route": "DIRECT", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Acknowledgement"}
+Output: {"route": "DIRECT", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Acknowledgement", "station": null, "district": null}
 
 Query: "What can you do?"
-Output: {"route": "DIRECT", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Meta-question about the assistant's capabilities"}
+Output: {"route": "DIRECT", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Meta-question about the assistant's capabilities", "station": null, "district": null}
 
 Query: "How do I check my car's tire pressure?"
-Output: {"route": "DIRECT", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Query is entirely unrelated to police facts"}
+Output: {"route": "DIRECT", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Query is entirely unrelated to police facts", "station": null, "district": null}
 
 Query: "What PPC section applies to mobile phone theft?"
-Output: {"route": "SQL", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Deterministic penal-code section lookup from the structured police reference table"}
+Output: {"route": "SQL", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Deterministic penal-code section lookup from the structured police reference table", "station": null, "district": null}
 
 Query: "What section covers cyber harassment?"
-Output: {"route": "SQL", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Structured section lookup by offense type"}
+Output: {"route": "SQL", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Structured section lookup by offense type", "station": null, "district": null}
 
 Query: "Is theft of a motorcycle a cognizable offense?"
-Output: {"route": "SQL", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Structured lookup of an offense's cognizability from the police reference table"}
+Output: {"route": "SQL", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Structured lookup of an offense's cognizability from the police reference table", "station": null, "district": null}
 
 Query: "What documents are required for a certified copy of an FIR?"
-Output: {"route": "RAG", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Citizen service procedure requiring document search"}
+Output: {"route": "RAG", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Citizen service procedure requiring document search", "station": null, "district": null}
 
 Query: "Summarize the FIR registered at Kohsar police station for cyber harassment."
-Output: {"route": "RAG", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Requires searching and summarizing specific FIR document content"}
+Output: {"route": "RAG", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Requires searching and summarizing specific FIR document content", "station": null, "district": null}
 
 Query: "Is there a road closure in Islamabad today?"
-Output: {"route": "WEB", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Time-sensitive current information not in the static document corpus"}
+Output: {"route": "WEB", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Time-sensitive current information not in the static document corpus", "station": null, "district": null}
 
 Query: "What is the latest press release from Islamabad Police?"
-Output: {"route": "WEB", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Recent/current information requiring live web search"}
+Output: {"route": "WEB", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Recent/current information requiring live web search", "station": null, "district": null}
 
 Query: "Are there any traffic diversions in Islamabad right now?"
-Output: {"route": "WEB", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Current Islamabad traffic/public-safety information requiring a live web search"}
+Output: {"route": "WEB", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Current Islamabad traffic/public-safety information requiring a live web search", "station": null, "district": null}
 
 Query: "What's the weather like today?"
-Output: {"route": "DIRECT", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "General current information not related to Islamabad Police or public safety — do not web-search"}
+Output: {"route": "DIRECT", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "General current information not related to Islamabad Police or public safety — do not web-search", "station": null, "district": null}
 
 Query: "Who won the cricket match yesterday?"
-Output: {"route": "DIRECT", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Time-sensitive but a general sports/current-events question unrelated to Islamabad Police — do not web-search"}
+Output: {"route": "DIRECT", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Time-sensitive but a general sports/current-events question unrelated to Islamabad Police — do not web-search", "station": null, "district": null}
 
 Query: "How do I fix a flat tire?"
-Output: {"route": "DIRECT", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "General-knowledge how-to unrelated to police facts"}
+Output: {"route": "DIRECT", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "General-knowledge how-to unrelated to police facts", "station": null, "district": null}
 
 Query: "What's the capital of France?"
-Output: {"route": "DIRECT", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "General knowledge unrelated to Islamabad Police"}
+Output: {"route": "DIRECT", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "General knowledge unrelated to Islamabad Police", "station": null, "district": null}
 
 Query: "Generate a document about the FIR filing procedure."
-Output: {"route": "RAG", "output_format": "file_docx", "target_year": null, "confidence": "high", "reason": "User requested a document about a police procedure topic requiring document search"}
+Output: {"route": "RAG", "output_format": "file_docx", "target_year": null, "confidence": "high", "reason": "User requested a document about a police procedure topic requiring document search", "station": null, "district": null}
 
 Query: "Generate a document on how to fix a flat tire."
-Output: {"route": "DIRECT", "output_format": "file_docx", "target_year": null, "confidence": "high", "reason": "User requested a document but the topic is entirely unrelated to police facts"}
+Output: {"route": "DIRECT", "output_format": "file_docx", "target_year": null, "confidence": "high", "reason": "User requested a document but the topic is entirely unrelated to police facts", "station": null, "district": null}
 
 Query: "Export the penal code section reference table as an excel file."
-Output: {"route": "SQL", "output_format": "file_xlsx", "target_year": null, "confidence": "high", "reason": "Requires structured reference lookup and user explicitly asked for excel"}
+Output: {"route": "SQL", "output_format": "file_xlsx", "target_year": null, "confidence": "high", "reason": "Requires structured reference lookup and user explicitly asked for excel", "station": null, "district": null}
 
 Query: "What is the fee for tenant registration in Islamabad?"
-Output: {"route": "RAG", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Citizen service fee/procedure question requiring document search"}
+Output: {"route": "RAG", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Citizen service fee/procedure question requiring document search", "station": null, "district": null}
 
 Query: "Who is connected to the accused in CASE-009?"
 Output: {"route": "GRAPH_HYBRID", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "\"The accused\" is a descriptive reference, not a literal name/identifier — target_entity must stay null and document search is needed to establish who that is, so GRAPH_HYBRID is used instead of GRAPH"}
 
 Query: "Is وقاص علی نیازی known to associate with anyone else in this case?"
-Output: {"route": "GRAPH", "case_scope": "within_case", "target_entity": "وقاص علی نیازی", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Named-entity associates lookup, scoped to the current case"}
+Output: {"route": "GRAPH", "case_scope": "within_case", "target_entity": "وقاص علی نیازی", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Named-entity associates lookup, scoped to the current case", "station": null, "district": null}
 
 Query: "What is the timeline of incidents involving vehicle ICT-LE-309?"
-Output: {"route": "GRAPH", "case_scope": "within_case", "target_entity": "ICT-LE-309", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Entity-anchored timeline/network query, within-case by default"}
+Output: {"route": "GRAPH", "case_scope": "within_case", "target_entity": "ICT-LE-309", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Entity-anchored timeline/network query, within-case by default", "station": null, "district": null}
 
 Query: "How many accused are involved in CASE-009 and how are they connected?"
-Output: {"route": "GRAPH", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Case-wide enumeration of accused and their connections — no specific entity is named, so target_entity stays null and the whole case's entity network is used as the seed"}
+Output: {"route": "GRAPH", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Case-wide enumeration of accused and their connections — no specific entity is named, so target_entity stays null and the whole case's entity network is used as the seed", "station": null, "district": null}
 
 Query: "Who are the witnesses in FIR-2026-ARMS-001?"
-Output: {"route": "GRAPH", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Case-wide enumeration query (list all witnesses), not a lookup on one named entity"}
+Output: {"route": "GRAPH", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Case-wide enumeration query (list all witnesses), not a lookup on one named entity", "station": null, "district": null}
 
 Query: "Do the witness statements in FIR-2026-BUR-009 agree on when the burglary happened?"
-Output: {"route": "GRAPH", "case_scope": "within_case", "target_entity": "FIR-2026-BUR-009", "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Asks whether multiple sources describing the same case/incident are consistent — a case-anchored query that should pull any known contradictions plus the underlying source chunks to compare"}
+Output: {"route": "GRAPH", "case_scope": "within_case", "target_entity": "FIR-2026-BUR-009", "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Asks whether multiple sources describing the same case/incident are consistent — a case-anchored query that should pull any known contradictions plus the underlying source chunks to compare", "station": null, "district": null}
 
 Query: "Tell me everything about the accused in this case, including who they're connected to."
-Output: {"route": "GRAPH_HYBRID", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Broad investigative question needing both document search and relationship context"}
+Output: {"route": "GRAPH_HYBRID", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Broad investigative question needing both document search and relationship context", "station": null, "district": null}
 
 Query: "Give me a full picture of what we know so far in this case."
-Output: {"route": "GRAPH_HYBRID", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Ambiguous, broad request — combine graph network context with hybrid document retrieval"}
+Output: {"route": "GRAPH_HYBRID", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Ambiguous, broad request — combine graph network context with hybrid document retrieval", "station": null, "district": null}
 
 Query: "Has phone number 0372-1590538 appeared in other cases?"
-Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": "0372-1590538", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Explicit cross-case entity lookup — checking whether an identifier appears elsewhere"}
+Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": "0372-1590538", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Explicit cross-case entity lookup — checking whether an identifier appears elsewhere", "station": null, "district": null}
 
 Query: "Has any phone number been used across multiple cyber fraud cases?"
-Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Cross-case recurrence question, but no specific phone number is named — target_entity stays null and every recurring phone number across cases is surfaced"}
+Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Cross-case recurrence question, but no specific phone number is named — target_entity stays null and every recurring phone number across cases is surfaced", "station": null, "district": null}
 
 Query: "Map ORG-002's network across all the cases it appears in."
-Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": "ORG-002", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Explicit cross-case network-mapping request for a named group"}
+Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": "ORG-002", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Explicit cross-case network-mapping request for a named group", "station": null, "district": null}
 
 Query: "Is this suspect a repeat offender — has he shown up elsewhere before?"
 Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": "this suspect", "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "\"Repeat offender\"/\"elsewhere\" is explicit cross-case trigger language"}
@@ -157,52 +162,61 @@ Query: "list of people mentioned in cases"
 Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Same pattern as \"List all the people mentioned in the cases\" despite the terser, less formal phrasing — do not treat this as too vague to classify or ask which cases are meant; plural unanchored \"cases\" with no person named is XGRAPH's cross-case people enumeration"}
 
 Query: "tell me about the cases"
-Output: {"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "low", "reason": "Genuinely vague with no entity type or single case named — closest to XAGG's bare case-listing pattern; low confidence reflects the ambiguity, but a best-guess route is still required, never a clarifying question"}
+Output: {"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "low", "reason": "Genuinely vague with no entity type or single case named — closest to XAGG's bare case-listing pattern; low confidence reflects the ambiguity, but a best-guess route is still required, never a clarifying question", "station": null, "district": null}
 
 Query: "مقدمات میں مذکور تمام لوگوں کی فہرست"
 Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "\"مقدمات\" (cases, plural) with no single case named or active — cross-case people enumeration, same pattern as the English equivalent above"}
 
 Query: "Which police stations have the most open theft cases?"
-Output: {"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Cross-case aggregate/trend question over case metadata, not a single entity"}
+Output: {"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Cross-case aggregate/trend question over case metadata, not a single entity", "station": null, "district": null}
 
 Query: "What are the top recurring vehicles across all cases this year?"
-Output: {"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": 2026, "confidence": "high", "reason": "Cross-case aggregate over vehicle recurrence, with an explicit year filter"}
+Output: {"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": 2026, "confidence": "high", "reason": "Cross-case aggregate over vehicle recurrence, with an explicit year filter", "station": null, "district": null}
 
 Query: "List of all cases"
-Output: {"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "A bare enumeration of case records themselves, with no entity type (people/vehicles/orgs) named — this is XAGG's case-metadata listing, not XGRAPH's entity enumeration, since 'a case' isn't a graph node XGRAPH could traverse"}
+Output: {"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "A bare enumeration of case records themselves, with no entity type (people/vehicles/orgs) named — this is XAGG's case-metadata listing, not XGRAPH's entity enumeration, since 'a case' isn't a graph node XGRAPH could traverse", "station": null, "district": null}
 
 Query: "How many cases are there in total?"
-Output: {"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Cross-case count over case records themselves, not an entity/graph query"}
+Output: {"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Cross-case count over case records themselves, not an entity/graph query", "station": null, "district": null}
 
 Query: "بند کیسز کی تعداد بتائیں"
-Output: {"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "'بند' (closed) + case count — cross-case aggregate over case status, same pattern as 'how many cases are there in total', not a document-search question"}
+Output: {"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "'بند' (closed) + case count — cross-case aggregate over case status, same pattern as 'how many cases are there in total', not a document-search question", "station": null, "district": null}
 
 Query: "band cases kitne hain"
-Output: {"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Roman-Urdu for 'how many closed cases are there' — this is NOT English or Hindi; 'band'='بند'(closed), 'kitne hain'='کتنے ہیں'(how many are there). Same cross-case status-aggregate pattern as the Urdu-script/English equivalents above — do not default to RAG just because the script is Latin"}
+Output: {"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Roman-Urdu for 'how many closed cases are there' — this is NOT English or Hindi; 'band'='بند'(closed), 'kitne hain'='کتنے ہیں'(how many are there). Same cross-case status-aggregate pattern as the Urdu-script/English equivalents above — do not default to RAG just because the script is Latin", "station": null, "district": null}
 
 Query: "kitni gariyan bar bar cases mein aayi hain"
-Output: {"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Roman-Urdu for 'how many vehicles have recurred across cases' — recurring-entity aggregate, same pattern as 'top recurring vehicles across all cases this year'"}
+Output: {"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Roman-Urdu for 'how many vehicles have recurred across cases' — recurring-entity aggregate, same pattern as 'top recurring vehicles across all cases this year'", "station": null, "district": null}
 
 Query: "kya number 0372-1590538 kisi aur case mein bhi aya hai"
-Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": "0372-1590538", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Roman-Urdu cross-case phone-number recurrence check with a literal number given — same pattern as 'Has phone number 0372-1590538 appeared in other cases?'"}
+Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": "0372-1590538", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Roman-Urdu cross-case phone-number recurrence check with a literal number given — same pattern as 'Has phone number 0372-1590538 appeared in other cases?'", "station": null, "district": null}
 
 Query: "اس ملزم کا پچھلا ریکارڈ کیا ہے، کیا وہ کسی اور کیس میں بھی ملوث رہا ہے؟"
-Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "'ملزم' (accused) referred to descriptively with explicit cross-case trigger language ('کسی اور کیس میں') — descriptive cross-case entity check; target_entity stays null since no literal name is given"}
+Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "'ملزم' (accused) referred to descriptively with explicit cross-case trigger language ('کسی اور کیس میں') — descriptive cross-case entity check; target_entity stays null since no literal name is given", "station": null, "district": null}
 
 Query: "What's the overall picture on this network of associates across cases?"
-Output: {"route": "XNETWORK", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Open-ended synthesized-picture request explicitly spanning cases — not a count (XAGG) and not anchored to one named entity (XGRAPH)"}
+Output: {"route": "XNETWORK", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Open-ended synthesized-picture request explicitly spanning cases — not a count (XAGG) and not anchored to one named entity (XGRAPH)", "station": null, "district": null}
 
 Query: "کیا اس گروہ کے بارے میں مجموعی طور پر کوئی نمونہ سامنے آتا ہے؟"
-Output: {"route": "XNETWORK", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Urdu-script equivalent of an open-ended cross-case pattern/network question — same XNETWORK shape as the English example above"}
+Output: {"route": "XNETWORK", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Urdu-script equivalent of an open-ended cross-case pattern/network question — same XNETWORK shape as the English example above", "station": null, "district": null}
 
 Query: "Give me a full picture of what we know so far in this case."
-Output: {"route": "GRAPH_HYBRID", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Nearly identical wording to the XNETWORK example above ('picture'), but no cross-case language and no plural 'cases' — stays within_case, so this is GRAPH_HYBRID's broad within-case question, not XNETWORK. case_scope, not the word 'picture', is what decides between them"}
+Output: {"route": "GRAPH_HYBRID", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Nearly identical wording to the XNETWORK example above ('picture'), but no cross-case language and no plural 'cases' — stays within_case, so this is GRAPH_HYBRID's broad within-case question, not XNETWORK. case_scope, not the word 'picture', is what decides between them", "station": null, "district": null}
 
 Query: "What organizations or networks does this person appear connected to, based on everything we know across all cases?"
-Output: {"route": "XNETWORK", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Explicit 'across all cases' makes this cross-case and open-ended (a synthesized network picture, not a single named-entity traversal) — target_entity stays null even though a person is referenced, because the ask is for the broader network context, not a lookup on one literal identifier"}
+Output: {"route": "XNETWORK", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Explicit 'across all cases' makes this cross-case and open-ended (a synthesized network picture, not a single named-entity traversal) — target_entity stays null even though a person is referenced, because the ask is for the broader network context, not a lookup on one literal identifier", "station": null, "district": null}
 
 Query: "Summarize the FIR for this case."
-Output: {"route": "RAG", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Ordinary document-search question — case_scope defaults to within_case even though not explicitly stated"}
+Output: {"route": "RAG", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Ordinary document-search question — case_scope defaults to within_case even though not explicitly stated", "station": null, "district": null}
 
 Query: "What PPC section applies to burglary?"
-Output: {"route": "SQL", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Structured lookup unrelated to any specific case's entities — case_scope stays at its within_case default"}
+Output: {"route": "SQL", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Structured lookup unrelated to any specific case's entities — case_scope stays at its within_case default", "station": null, "district": null}
+
+Query: "کوتوالی فیصل آباد میں کتنے چوری کے مقدمات ہیں؟"
+Output: {"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Cross-case aggregate over theft cases, explicitly scoped to کوتوالی فیصل آباد (Kotwali Faisalabad) station — station extracted verbatim so the candidate case set can be narrowed to that jurisdiction before the aggregate runs", "station": "کوتوالی فیصل آباد", "district": null}
+
+Query: "Which vehicles have recurred across cases filed in Rawalpindi district?"
+Output: {"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Cross-case vehicle recurrence, explicitly scoped to Rawalpindi district — district extracted verbatim", "station": null, "district": "Rawalpindi"}
+
+Query: "Has this phone number appeared in any other case at the Iqbal Town station?"
+Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Cross-case entity recurrence check with no literal phone number given in this excerpt, explicitly scoped to Iqbal Town station", "station": "Iqbal Town", "district": null}

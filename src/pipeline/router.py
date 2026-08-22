@@ -182,6 +182,7 @@ def _deterministic_route_override(query: str) -> dict | None:
                 "route": "SQL", "case_scope": "within_case", "target_entity": None,
                 "output_format": "chat", "target_year": None, "confidence": "high",
                 "reason": "Deterministic override: unambiguous structured penal-code/cognizability lookup trigger language detected before the LLM call",
+                "station": None, "district": None,
             }
 
     if _ACTIVE_CASE_RE.search(query):
@@ -199,6 +200,7 @@ def _deterministic_route_override(query: str) -> dict | None:
                 "route": "XNETWORK", "case_scope": "cross_case", "target_entity": None,
                 "output_format": "chat", "target_year": None, "confidence": "high",
                 "reason": "Deterministic override: unambiguous open-ended cross-case network/pattern trigger language detected before the LLM call",
+                "station": None, "district": None,
             }
 
     # XAGG checked next: "recurring vehicles across cases" matches both an
@@ -212,6 +214,7 @@ def _deterministic_route_override(query: str) -> dict | None:
                 "route": "XAGG", "case_scope": "cross_case", "target_entity": None,
                 "output_format": "chat", "target_year": None, "confidence": "high",
                 "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+                "station": None, "district": None,
             }
     for pat in _XGRAPH_OVERRIDE_PATTERNS:
         if pat.search(query):
@@ -219,6 +222,7 @@ def _deterministic_route_override(query: str) -> dict | None:
                 "route": "XGRAPH", "case_scope": "cross_case", "target_entity": None,
                 "output_format": "chat", "target_year": None, "confidence": "high",
                 "reason": "Deterministic override: unambiguous cross-case recurrence trigger language detected before the LLM call",
+                "station": None, "district": None,
             }
     return None
 
@@ -366,6 +370,31 @@ async def route_query(rewritten_query: str) -> dict:
         if target_entity is not None and not isinstance(target_entity, str):
             target_entity = str(target_entity)
 
+        # [Milestone E1 — GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md] station/
+        # district — extends this SAME single classification call, per E1's
+        # own resolved open point (does not add a second classification
+        # gate: this is the identical route_query() JSON, not a separate
+        # LLM call or a separate parsing pass). Free text as extracted by
+        # the router (a station/district name in the query), resolved to a
+        # real graph node id downstream by
+        # graph_retriever.resolve_jurisdiction_case_ids() — never trusted
+        # as an id here. Only meaningful for the three cross-case routes
+        # (jurisdiction-scoped narrowing only applies before cross-case
+        # work runs — a within-case query's jurisdiction is already fixed
+        # by its one active case), same "case_scope only ever cross-case
+        # for XGRAPH/XAGG/XNETWORK" discipline already applied above —
+        # forced to None for every other route so a stray value can never
+        # leak into a within-case path.
+        station = result.get("station") or None
+        if station is not None and not isinstance(station, str):
+            station = str(station)
+        district = result.get("district") or None
+        if district is not None and not isinstance(district, str):
+            district = str(district)
+        if route not in ["XGRAPH", "XAGG", "XNETWORK"]:
+            station = None
+            district = None
+
         return {
             "route": route,
             "case_scope": case_scope,
@@ -374,6 +403,8 @@ async def route_query(rewritten_query: str) -> dict:
             "target_year": target_year,
             "confidence": confidence,
             "reason": str(result.get("reason") or "No reason provided"),
+            "station": station,
+            "district": district,
         }
     except Exception as e:
         logger.error("Router failed to parse JSON: %s. Raw response: %s", e, response)
@@ -384,6 +415,8 @@ async def route_query(rewritten_query: str) -> dict:
             "output_format": "chat",
             "target_year": None,
             "confidence": "low",
-            "reason": "Failed to parse router output, defaulting to RAG"
+            "reason": "Failed to parse router output, defaulting to RAG",
+            "station": None,
+            "district": None,
         }
 

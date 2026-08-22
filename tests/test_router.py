@@ -110,6 +110,40 @@ async def test_unparseable_response_falls_back_with_full_field_parity(monkeypatc
     assert "output_format" in result
     assert "confidence" in result
     assert "reason" in result
+    assert result["station"] is None
+    assert result["district"] is None
+
+
+# ── Milestone E1: station/district (only meaningful for XGRAPH/XAGG/XNETWORK) ─
+
+async def test_station_and_district_pass_through_for_xagg(monkeypatch):
+    result = await _route(monkeypatch, json.dumps({
+        "route": "XAGG", "case_scope": "cross_case", "station": "Iqbal Town", "district": "Lahore",
+    }))
+    assert result["station"] == "Iqbal Town"
+    assert result["district"] == "Lahore"
+
+
+async def test_station_and_district_default_to_none_when_absent(monkeypatch):
+    result = await _route(monkeypatch, json.dumps({"route": "XGRAPH", "case_scope": "cross_case"}))
+    assert result["station"] is None
+    assert result["district"] is None
+
+
+@pytest.mark.parametrize("route_name", ["GRAPH", "GRAPH_HYBRID", "RAG", "DIRECT", "SQL", "WEB"])
+async def test_station_and_district_forced_to_none_for_non_cross_case_routes(monkeypatch, route_name):
+    """
+    Even if the LLM mistakenly emits station/district alongside a
+    case-scoped route, the router must correct it — same discipline as
+    case_scope's own "never cross_case for a case-scoped route" guard
+    above, since jurisdiction narrowing only ever applies before
+    cross-case work runs.
+    """
+    result = await _route(monkeypatch, json.dumps({
+        "route": route_name, "station": "Iqbal Town", "district": "Lahore",
+    }))
+    assert result["station"] is None
+    assert result["district"] is None
 
 
 # ── Deterministic pre-classification override (2026-08-04) ──────────────────

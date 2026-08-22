@@ -108,6 +108,21 @@ class FakeGraph:
                 if case_id in self.belongs_to_case.get(b, set())
             ]
 
+        if "BELONGS_TO_CASE" in cypher_query and "case_ids" in params and "RETURN n, c" not in cypher_query:
+            # Milestone E1: jurisdiction-narrowed cross-case seed lookup
+            # (_find_seed_nodes's cross_case branch, jurisdiction_case_ids
+            # given) — same candidate matching as the plain cross-case
+            # branch below, plus the case_id allow-list.
+            label = cypher_query.split("MATCH (n:")[1].split(")")[0]
+            cand = str(params.get("cand", "")).lower()
+            allowed = set(params.get("case_ids", []))
+            return [
+                {"n": node} for eid, node in self.nodes.items()
+                if node["label"] == label
+                and self._matches_candidate(node, cand)
+                and self.belongs_to_case.get(eid, set()) & allowed
+            ]
+
         if "BELONGS_TO_CASE" in cypher_query and "entity_id IN $ids" in cypher_query:
             ids = set(params.get("ids", []))
             case_id = params.get("case_id")
@@ -872,3 +887,92 @@ class TestJurisdictionScopedTraversalReusesTheGate:
     async def test_neither_station_nor_district_is_a_caller_bug(self, fake_gate_gateway):
         with pytest.raises(ValueError):
             await gr.retrieve_jurisdiction_cases(user_role="supervisor")
+
+
+# ── Milestone E1: resolve_jurisdiction_case_ids() ────────────────────────────
+
+class TestResolveJurisdictionCaseIds:
+    """
+    orchestrator.py's own entry point for E1's query-scope preclassification
+    — turns router.py's free-text station/district into the case_id
+    allow-list retrieve_graph()/run_aggregate()/run_network_query() narrow
+    to, reusing retrieve_jurisdiction_cases() (and therefore the SAME
+    _enforce_cross_case_role_gate(), not a second gate).
+    """
+
+    async def test_neither_station_nor_district_returns_none_without_any_lookup(self, monkeypatch, fake_gate_gateway):
+        async def fake_execute_cypher(*a, **k):
+            raise AssertionError("must not run any Cypher when nothing was classified")
+        monkeypatch.setattr(gr.age_client, "execute_cypher", fake_execute_cypher)
+
+        result = await gr.resolve_jurisdiction_case_ids(station=None, district=None, user_role="supervisor")
+        assert result is None
+
+    async def test_station_name_resolves_to_case_ids(self, monkeypatch, fake_gate_gateway):
+        async def fake_execute_cypher(cypher, params=None, columns=None, graph=None):
+            if "PoliceStation" in cypher and "FILED_AT" not in cypher:
+                assert params["q"] == "Iqbal Town"
+                return [{"id": "PS-LHR-IQBALTOWN"}]
+            assert "FILED_AT" in cypher
+            assert params["station_id"] == "PS-LHR-IQBALTOWN"
+            return [{"case_id": "fir-1-26"}, {"case_id": "fir-2-26"}]
+
+        monkeypatch.setattr(gr.age_client, "execute_cypher", fake_execute_cypher)
+
+        result = await gr.resolve_jurisdiction_case_ids(
+            station="Iqbal Town", district=None, user_role="supervisor",
+        )
+        assert result == ["fir-1-26", "fir-2-26"]
+
+    async def test_unresolvable_station_text_narrows_to_none_not_empty(self, monkeypatch, fake_gate_gateway):
+        """
+        A station name that matches no real PoliceStation node must not
+        silently zero out the query's whole candidate set — None means
+        "don't narrow," which is the safe degrade here, not [] ("narrow
+        to nothing").
+        """
+        async def fake_execute_cypher(cypher, params=None, columns=None, graph=None):
+            return []  # no PoliceStation match
+        monkeypatch.setattr(gr.age_client, "execute_cypher", fake_execute_cypher)
+
+        result = await gr.resolve_jurisdiction_case_ids(
+            station="Nonexistent Station", district=None, user_role="supervisor",
+        )
+        assert result is None
+
+    async def test_unauthorized_role_denied_same_as_retrieve_jurisdiction_cases(self, monkeypatch, fake_gate_gateway):
+        async def fake_execute_cypher(cypher, params=None, columns=None, graph=None):
+            # Station resolves to a real node — the denial must come from
+            # the role gate below, not from an early "nothing resolved" exit.
+            return [{"id": "PS-LHR-IQBALTOWN"}]
+        monkeypatch.setattr(gr.age_client, "execute_cypher", fake_execute_cypher)
+
+        with pytest.raises(PermissionError):
+            await gr.resolve_jurisdiction_case_ids(
+                station="Iqbal Town", district=None, user_role="investigator",
+            )
+        assert fake_gate_gateway.audit_log[0]["event_type"] == "authorization_violation"
+
+
+class TestJurisdictionNarrowsCrossCaseSeedLookup:
+    """retrieve_graph(cross_case=True, jurisdiction_case_ids=[...]) must actually cut the candidate set, not just accept the parameter."""
+
+    async def test_cross_case_seed_lookup_excludes_entities_outside_the_jurisdiction(self, fake_graph, fake_chunks):
+        fake_graph.add_node("P-100", "Person", canonical_name="In Jurisdiction")
+        fake_graph.add_node("P-101", "Person", canonical_name="In Jurisdiction Too")
+        fake_graph.add_case("P-100", "CASE-100")
+        fake_graph.add_case("P-101", "CASE-101")
+        fake_chunks["c100"] = {"id": "c100", "text": "in jurisdiction", "metadata": {"case_id": "CASE-100"}}
+        fake_graph.add_appears_in("P-100", "c100", confidence=1.0)
+        fake_chunks["c101"] = {"id": "c101", "text": "out of jurisdiction", "metadata": {"case_id": "CASE-101"}}
+        fake_graph.add_appears_in("P-101", "c101", confidence=1.0)
+
+        result = await gr.retrieve_graph(
+            "In Jurisdiction", "In Jurisdiction", case_id=None, cross_case=True,
+            user_role="supervisor", jurisdiction_case_ids=["CASE-100"],
+        )
+
+        seed_ids = {e["entity_id"] for e in result["seed_entities"]}
+        assert seed_ids == {"P-100"}
+        chunk_ids = {c["id"] for c in result["chunks"]}
+        assert "c101" not in chunk_ids

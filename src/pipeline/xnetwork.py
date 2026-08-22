@@ -37,6 +37,7 @@ async def run_network_query(
     user_id: Optional[str] = None,
     user_role: str = "investigator",
     top_k: int = DEFAULT_TOP_K,
+    jurisdiction_case_ids: Optional[list[str]] = None,
 ) -> dict:
     """
     Retrieve the top-k community summaries relevant to `query_text` and
@@ -49,7 +50,19 @@ async def run_network_query(
     role gate and audit logging (Phase 7 RBAC applies to every cross-case
     route uniformly).
 
-    Returns {"kind": "network_synthesis", "results": [...], "community_ids": [...], "case_ids": [...]}.
+    `jurisdiction_case_ids` [Milestone E1]: unlike XGRAPH/XAGG (a real
+    pre-filter on the Cypher/SQL that runs BEFORE the graph/relational
+    work), this is a POST-filter on `query_similar_communities()`'s
+    already-computed top-k — `community_vector_store`'s Chroma collection
+    stores `case_ids` as a comma-joined metadata string (see its own
+    `upsert_community_reports()`), not a natively filterable list-typed
+    field, so pushing this down into the Chroma `where` clause itself
+    would need a metadata-schema change out of scope for E1. Narrowing
+    the top-k results after the fact still keeps a jurisdiction-scoped
+    query from citing an out-of-jurisdiction community in its final
+    answer, which is what actually matters here — stated honestly as a
+    narrower guarantee than E1's "before any vector work runs" framing
+    for XGRAPH/XAGG, not silently presented as the same thing.
     """
     if user_role not in ("supervisor", "station-admin", "platform-admin"):
         logger.warning("Unauthorized cross-case network query attempted by %s (user_id: %s)", user_role, user_id)
@@ -84,6 +97,9 @@ async def run_network_query(
     current_cross_case.set(True)
 
     results = await query_similar_communities(query_text, top_k=top_k)
+    if jurisdiction_case_ids is not None:
+        allowed = set(jurisdiction_case_ids)
+        results = [r for r in results if allowed & set(r.get("case_ids") or [])]
 
     community_ids = [r["community_id"] for r in results]
     case_ids = sorted({cid for r in results for cid in r.get("case_ids", [])})

@@ -177,14 +177,19 @@ def run_pipeline(monkeypatch, patched_gateway):
 
         retrieve_graph_calls = []
         run_aggregate_calls = []
+        jurisdiction_case_ids_calls = []
 
         async def fake_retrieve_graph(_query, _target_entity, case_id=None, cross_case=False,
-                                       max_hops=2, user_id=None, user_role="investigator"):
+                                       max_hops=2, user_id=None, user_role="investigator",
+                                       jurisdiction_case_ids=None):
             retrieve_graph_calls.append(user_role)
+            jurisdiction_case_ids_calls.append(jurisdiction_case_ids)
             return graph_result if graph_result is not None else default_graph_result
 
-        async def fake_run_aggregate(_query, _target_entity, _gateway, user_id=None, user_role="investigator"):
+        async def fake_run_aggregate(_query, _target_entity, _gateway, user_id=None, user_role="investigator",
+                                      jurisdiction_case_ids=None):
             run_aggregate_calls.append(user_role)
+            jurisdiction_case_ids_calls.append(jurisdiction_case_ids)
             return agg_result if agg_result is not None else {
                 "kind": "relational_aggregate", "group_by": "police_station",
                 "counts": [], "total_cases_considered": 0,
@@ -251,6 +256,7 @@ def run_pipeline(monkeypatch, patched_gateway):
         _run.log_retrieved_docs_calls = log_retrieved_docs_calls
         _run.retrieve_graph_calls = retrieve_graph_calls
         _run.run_aggregate_calls = run_aggregate_calls
+        _run.jurisdiction_case_ids_calls = jurisdiction_case_ids_calls
         return events, patched_gateway
 
     return _run
@@ -1218,6 +1224,64 @@ async def test_supervisor_role_reaches_xgraph(run_pipeline):
         user_role="supervisor",
     )
     assert run_pipeline.retrieve_graph_calls == ["supervisor"]
+
+
+# ── Milestone E1: query-scope preclassification ─────────────────────────────
+
+async def test_station_classified_by_router_reaches_run_aggregate_as_case_ids(run_pipeline, monkeypatch):
+    async def fake_resolve(*, station, district, query_text="", user_id=None, user_role="investigator"):
+        assert station == "Iqbal Town"
+        assert district is None
+        return ["CASE-A", "CASE-B"]
+
+    monkeypatch.setattr(orch, "resolve_jurisdiction_case_ids", fake_resolve)
+
+    await run_pipeline(
+        route=(
+            '{"route": "XAGG", "case_scope": "cross_case", "target_entity": null, '
+            '"output_format": "chat", "station": "Iqbal Town", "district": null}'
+        ),
+        message="Give me a case count breakdown for Iqbal Town.",
+        user_role="supervisor",
+    )
+
+    assert run_pipeline.jurisdiction_case_ids_calls == [["CASE-A", "CASE-B"]]
+
+
+async def test_no_station_or_district_never_calls_the_resolver(run_pipeline, monkeypatch):
+    def fail_if_called(*a, **k):
+        raise AssertionError("resolve_jurisdiction_case_ids must not be called when the router named no station/district")
+
+    monkeypatch.setattr(orch, "resolve_jurisdiction_case_ids", fail_if_called)
+
+    await run_pipeline(
+        route='{"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat"}',
+        message="Which police stations have the most open theft cases?",
+        user_role="supervisor",
+    )
+
+    assert run_pipeline.jurisdiction_case_ids_calls == [None]
+
+
+async def test_resolver_failure_degrades_to_unscoped_not_a_pipeline_error(run_pipeline, monkeypatch):
+    """A jurisdiction-resolution failure (e.g. a transient graph error) must
+    not take down the whole query — it degrades to unscoped, same as before E1."""
+    async def fake_resolve(*, station, district, query_text="", user_id=None, user_role="investigator"):
+        raise RuntimeError("simulated graph error")
+
+    monkeypatch.setattr(orch, "resolve_jurisdiction_case_ids", fake_resolve)
+
+    events, _ = await run_pipeline(
+        route=(
+            '{"route": "XAGG", "case_scope": "cross_case", "target_entity": null, '
+            '"output_format": "chat", "station": "Iqbal Town", "district": null}'
+        ),
+        message="Give me a case count breakdown for Iqbal Town.",
+        user_role="supervisor",
+    )
+
+    assert run_pipeline.jurisdiction_case_ids_calls == [None]
+    assert any(e["step"] == "response" and e["status"] == "done" for e in events)
 
 
 async def test_default_role_is_still_investigator_when_unset(run_pipeline):

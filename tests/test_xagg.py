@@ -117,6 +117,68 @@ async def test_station_query_groups_by_police_station(monkeypatch):
     assert "Ramna" not in counts
 
 
+# ── Milestone E1: jurisdiction-narrowed candidate set ───────────────────────
+
+async def test_jurisdiction_case_ids_narrows_relational_family_before_group_by(monkeypatch):
+    gateway = FakeGateway([
+        {"case_id": "CASE-A", "police_station": "Kohsar", "crime_category": "theft", "investigation_status": "open"},
+        {"case_id": "CASE-B", "police_station": "Ramna", "crime_category": "theft", "investigation_status": "open"},
+    ])
+
+    result = await xagg.run_aggregate(
+        "which police stations have the most open theft cases", None, gateway, user_role="supervisor",
+        jurisdiction_case_ids=["CASE-A"],
+    )
+
+    counts = {c["key"]: c["count"] for c in result["counts"]}
+    assert counts == {"Kohsar": 1}
+    assert "Ramna" not in counts
+
+
+async def test_jurisdiction_case_ids_narrows_graph_recurrence_family(monkeypatch):
+    rows = [
+        {"n": _node("V-001", "Vehicle", plate="ICT-LE-309"), "c": _case("CASE-A")},
+        {"n": _node("V-001", "Vehicle", plate="ICT-LE-309"), "c": _case("CASE-B")},
+    ]
+    captured_params = {}
+
+    class CapturingAgeClient:
+        async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+            captured_params.update(params or {})
+            assert "case_ids" in cypher_query
+            return [r for r in rows if r["c"]["properties"]["case_id"] in (params or {}).get("case_ids", [])]
+
+    monkeypatch.setattr(xagg, "age_client", CapturingAgeClient())
+
+    result = await xagg.run_aggregate(
+        "top recurring vehicles across cases", None, gateway=None, user_role="supervisor",
+        jurisdiction_case_ids=["CASE-A"],
+    )
+
+    assert captured_params["case_ids"] == ["CASE-A"]
+    # Only CASE-A's occurrence survives the narrowed match — V-001 no longer
+    # "recurs" (appears in >1 case) once CASE-B is excluded, so it drops out.
+    assert result["results"] == []
+
+
+async def test_jurisdiction_case_ids_none_leaves_behavior_unchanged(monkeypatch):
+    """The default (None) must reproduce the exact pre-E1 unscoped query."""
+    captured_cypher = {}
+
+    class CapturingAgeClient:
+        async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+            captured_cypher["cypher"] = cypher_query
+            return []
+
+    monkeypatch.setattr(xagg, "age_client", CapturingAgeClient())
+
+    await xagg.run_aggregate(
+        "top recurring vehicles across cases", None, gateway=None, user_role="supervisor",
+    )
+
+    assert "case_ids" not in captured_cypher["cypher"]
+
+
 async def test_default_relational_aggregate_groups_by_crime_category(monkeypatch):
     gateway = FakeGateway([
         {"police_station": "Kohsar", "crime_category": "fraud", "investigation_status": "open"},
