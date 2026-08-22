@@ -15,6 +15,7 @@ import ProfilePage from './pages/ProfilePage'
 import EntityEvalPage from './pages/EntityEvalPage'
 import AuditLogPage from './pages/AuditLogPage'
 import CaseManagementPage from './pages/CaseManagementPage'
+import IngestionQualityPage from './pages/IngestionQualityPage'
 import './index.css'
 
 // Where each role lands if it hits a route above its own tier (including "/"
@@ -51,6 +52,7 @@ const ProtectedLayout: React.FC = () => {
         <Route path="/mcp" element={<RequireRole min={PLATFORM_ADMIN}><McpCallLogPage /></RequireRole>} />
         <Route path="/users" element={<RequireRole min={PLATFORM_ADMIN}><UsersPage /></RequireRole>} />
         <Route path="/review-queue" element={<RequireRole min={SUPERVISOR_PLUS}><ReviewQueuePage /></RequireRole>} />
+        <Route path="/ingestion-quality" element={<RequireRole min={SUPERVISOR_PLUS}><IngestionQualityPage /></RequireRole>} />
         <Route path="/eval/entity-resolution" element={<RequireRole min={SUPERVISOR_PLUS}><EntityEvalPage /></RequireRole>} />
         <Route path="/audit-logs" element={<RequireRole min={PLATFORM_ADMIN}><AuditLogPage /></RequireRole>} />
         <Route path="/cases" element={<RequireRole min={SUPERVISOR_PLUS}><CaseManagementPage /></RequireRole>} />

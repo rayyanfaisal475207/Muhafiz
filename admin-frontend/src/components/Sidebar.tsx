@@ -49,6 +49,12 @@ const navGroups: Array<{ label: string; items: Array<{ to: string; label: string
         minRole: SUPERVISOR_PLUS,
       },
       {
+        to: '/ingestion-quality',
+        label: 'Ingestion Quality',
+        icon: icon(<><path d="M12 3v6M12 3l-3 3M12 3l3 3" /><path d="M4.5 12a7.5 7.5 0 1 0 15 0 7.5 7.5 0 0 0-15 0Z" /><path d="M12 15.5v.01" /></>),
+        minRole: SUPERVISOR_PLUS,
+      },
+      {
         to: '/eval/entity-resolution',
         label: 'Entity Eval',
         icon: icon(<><path d="M3 3v18h18" /><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" /></>),
