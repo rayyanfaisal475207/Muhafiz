@@ -260,6 +260,29 @@ async def sync_cross_versions(firs: list[FirRecord], *, dry_run: bool) -> dict:
 # ── orchestration ─────────────────────────────────────────────────────────
 
 async def run(endpoints: tuple[str, ...], *, dry_run: bool, snapshot_path: str | None) -> None:
+    # [Ingestion Quality Control at Scale, Module G1] One tracked run per
+    # `--full` sync pass — this is the realistic "millions of cases" bulk
+    # path INGESTION_QUALITY_AT_SCALE_PLAN.md is actually about, not the
+    # single-document ingest_file() path (also tracked, separately, in
+    # src/ingestion/service.py). Skipped entirely for --dry-run: sync_fir()
+    # itself returns before any write happens in that mode, so there would
+    # be nothing to count — tracking it anyway would just leave an empty,
+    # confusing row behind.
+    from src.graph import ingestion_quality
+    import contextlib
+    from datetime import datetime, timezone
+
+    run_id = f"sync-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
+    tracker = (
+        ingestion_quality.track_run(run_id, "sync_muhafiz_data")
+        if not dry_run
+        else contextlib.nullcontext()
+    )
+    async with tracker:
+        await _run_sync(endpoints, dry_run=dry_run, snapshot_path=snapshot_path)
+
+
+async def _run_sync(endpoints: tuple[str, ...], *, dry_run: bool, snapshot_path: str | None) -> None:
     raw = await fetch_all(snapshot_path, endpoints)
     firs = [FirRecord(r) for r in raw.get("fir", [])]
     cms_complaints = [CmsComplaint(r) for r in raw.get("cms", [])]

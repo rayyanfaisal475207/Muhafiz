@@ -36,7 +36,7 @@ from typing import Optional
 from rapidfuzz import fuzz
 
 from src.extraction.llm_json import parse_json_response
-from src.graph import age_client, identity_index, versioning
+from src.graph import age_client, identity_index, ingestion_quality, versioning
 from src.graph.case_scope import scoped_cypher
 from src.ingestion.script_detector import _ARABIC_SCRIPT
 from src.ingestion.text_normalizer import normalize_urdu
@@ -634,6 +634,16 @@ async def resolve_and_write(
             confidence=decision.confidence,
             graph=graph,
         )
+
+    # [Ingestion Quality Control at Scale, Module G1] The one chokepoint
+    # every person/vehicle/phone/officer resolution in this codebase
+    # passes through with a final tier decision already made — pure
+    # visibility, no new judgment call. Production-graph only, same
+    # `_PRODUCTION_GRAPH` guard A1's identity_index read path already
+    # uses, so an eval run against evidence_graph_eval never pollutes a
+    # real ingestion run's quality counts.
+    if graph == _PRODUCTION_GRAPH:
+        ingestion_quality.record_tier(decision.tier)
 
     return {
         "entity_id": entity_id,

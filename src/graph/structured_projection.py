@@ -133,7 +133,7 @@ from typing import Optional
 from src import config
 from src.data_gateway.muhafiz_api.models import FirRecord
 from src.extraction import structured_fields
-from src.graph import age_client, entity_resolution, versioning
+from src.graph import age_client, entity_resolution, ingestion_quality, versioning
 
 logger = logging.getLogger(__name__)
 
@@ -299,7 +299,7 @@ def _matching_address(mention: dict, node: dict) -> bool:
 
 async def _write_new_person(
     mention: dict, case_id: str, source_doc_id: str, source_chunk_id: Optional[str] = None,
-    *, graph: str,
+    *, graph: str, gated: bool = False,
 ) -> dict:
     """
     Bypasses entity_resolution.resolve_and_write() entirely — used when
@@ -308,7 +308,18 @@ async def _write_new_person(
     resolve_and_write()'s own TIER_NEW write path exactly (new entity_id,
     Person node, BELONGS_TO_CASE, APPEARS_IN — no SAME_AS, since nothing
     corroborated a link to write).
+
+    `gated` [Ingestion Quality Control at Scale, Module G1]: True only
+    when THIS call is the corroboration gate's own refusal outcome (a
+    real candidate existed and was declined) — see
+    resolve_structured_person()'s own call sites for which branch passes
+    which value. False for the other route into this function (name-
+    fallback resolution administratively disabled via
+    config.ENTITY_RESOLUTION_NAME_FALLBACK_FOR_STRUCTURED) — that is not
+    the gate intervening, so it must not be counted as a rejection.
     """
+    if graph == entity_resolution._PRODUCTION_GRAPH:
+        ingestion_quality.record_new_tier_from_gate(gated)
     entity_id = entity_resolution._new_entity_id("person")
     node_properties = {k: v for k, v in mention.items() if v is not None}
     await versioning.write_node(
@@ -354,12 +365,15 @@ async def resolve_structured_person(
             "person", mention, case_id, source_doc_id, source_chunk_id, graph=graph,
         )
     if not config.ENTITY_RESOLUTION_NAME_FALLBACK_FOR_STRUCTURED:
-        return await _write_new_person(mention, case_id, source_doc_id, source_chunk_id, graph=graph)
+        # Not a gate refusal — name-fallback resolution is administratively
+        # off, so there was never a candidate for the gate to weigh in on.
+        return await _write_new_person(mention, case_id, source_doc_id, source_chunk_id, graph=graph, gated=False)
     if await _has_corroboration(mention, case_id, graph=graph):
         return await entity_resolution.resolve_and_write(
             "person", mention, case_id, source_doc_id, source_chunk_id, graph=graph,
         )
-    return await _write_new_person(mention, case_id, source_doc_id, source_chunk_id, graph=graph)
+    # The gate actually ran and declined — Module G1's corroboration_gate_rejections count.
+    return await _write_new_person(mention, case_id, source_doc_id, source_chunk_id, graph=graph, gated=True)
 
 
 # ── person mention builders ──────────────────────────────────────────────

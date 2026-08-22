@@ -443,6 +443,40 @@ async def test_resolve_and_write_new_entity_no_same_as_edge(fake_age, fake_versi
     assert "SAME_AS" not in edge_labels
 
 
+# ── Ingestion Quality Control at Scale, Module G1: resolve_and_write() is
+# the one chokepoint every tier decision flows through ────────────────────
+
+@pytest.mark.asyncio
+async def test_resolve_and_write_records_the_tier_on_the_production_graph(fake_age, fake_versioning, monkeypatch):
+    recorded = []
+    monkeypatch.setattr(er.ingestion_quality, "record_tier", lambda tier: recorded.append(tier))
+    fake_age.queue([{"n": _node("P-EXISTING", "احمد رضا قریشی", cnic="00000-9119877-0")}])
+
+    await er.resolve_and_write(
+        "person", {"canonical_name": "احمد رضا قرشی", "cnic": "00000-9119877-0"},
+        "CASE-DRY-001", "DOC-1",
+    )
+
+    assert recorded == [er.TIER_CNIC_AUTO]
+
+
+@pytest.mark.asyncio
+async def test_resolve_and_write_never_records_on_the_eval_graph(fake_age, fake_versioning, monkeypatch):
+    """Milestone A1's own _PRODUCTION_GRAPH guard — an eval run against
+    evidence_graph_eval must never pollute real ingestion-quality counts."""
+    recorded = []
+    monkeypatch.setattr(er.ingestion_quality, "record_tier", lambda tier: recorded.append(tier))
+    fake_age.queue([])  # no cnic
+    fake_age.queue([])  # no candidates at all
+
+    await er.resolve_and_write(
+        "person", {"canonical_name": "بالکل نیا شخص"}, "CASE-001", "DOC-1",
+        graph="evidence_graph_eval",
+    )
+
+    assert recorded == []
+
+
 # ── Milestone A1: identity-index wiring ─────────────────────────────────
 
 @pytest.mark.asyncio
