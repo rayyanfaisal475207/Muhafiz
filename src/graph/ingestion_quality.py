@@ -150,13 +150,11 @@ def record_extraction_error() -> None:
     acc["extraction_errors"] += 1
 
 
-async def finish_run(run_id: str) -> Optional[dict]:
+async def finish_run(run_id: str, *, source: Optional[str] = None) -> Optional[dict]:
     """
     Flush the accumulated counts to the run's row and clear the
-    contextvar. Returns the flushed counts dict (Module G2's circuit
-    breaker reads this return value directly rather than re-querying
-    Postgres for the row it just wrote), or None if no run was being
-    tracked (a caller invoking finish_run() without a matching
+    contextvar. Returns the flushed counts dict, or None if no run was
+    being tracked (a caller invoking finish_run() without a matching
     start_run() — a caller bug, reported via the return value rather
     than raised, so a defensive/optional call site doesn't need its own
     try/except just to be safe).
@@ -164,6 +162,17 @@ async def finish_run(run_id: str) -> Optional[dict]:
     Best-effort, same resilience contract as start_run(): a failure to
     persist the flush is logged and swallowed, never propagated to fail
     the ingestion run itself.
+
+    `source` — [Ingestion Quality Control at Scale, Module G2] when
+    given, this is the one chokepoint the circuit breaker
+    (src/graph/ingestion_circuit_breaker.py) reads from: it already has
+    the just-flushed counts in hand here, so the threshold check runs
+    against them directly rather than re-querying Postgres for the row
+    that was just written. Optional and additive — a caller that omits
+    it (there are none left in this codebase, but a future one could
+    exist) simply gets G1's original flush-only behavior, no circuit
+    breaker check. The returned dict gains "flagged_for_review"/
+    "flagged_reason" keys only when `source` is given.
     """
     acc = _current_run.get()
     if acc is None:
@@ -187,6 +196,12 @@ async def finish_run(run_id: str) -> Optional[dict]:
         logger.error("ingestion_quality.finish_run: failed to flush counts for %s: %s", run_id, exc)
     finally:
         _current_run.set(None)
+
+    if source is not None:
+        from src.graph import ingestion_circuit_breaker
+        decision = await ingestion_circuit_breaker.check_and_flag(run_id, source, acc)
+        acc = {**acc, "flagged_for_review": decision["flagged"], "flagged_reason": decision["reason"]}
+
     return acc
 
 
@@ -203,4 +218,4 @@ async def track_run(run_id: str, source: str, case_id: Optional[str] = None) -> 
     try:
         yield
     finally:
-        await finish_run(run_id)
+        await finish_run(run_id, source=source)
