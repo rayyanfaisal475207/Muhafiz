@@ -25,6 +25,7 @@ import logging
 import re
 from pathlib import Path
 
+from src.extraction.structured_fields import _CNIC_RE, _PHONE_RE, _PLATE_RE
 from src.llm.client import call_llm
 from src.pipeline.json_extract import call_llm_json
 
@@ -155,6 +156,26 @@ _SQL_OVERRIDE_PATTERNS = [
 ]
 
 
+def _structured_identifier_in(query: str) -> str | None:
+    """
+    First CNIC/phone/plate match in `query`, or None — the same three
+    regexes graph_retriever._seed_candidates() already trusts for exactly
+    this purpose (imported, not re-copied). Used by the XGRAPH
+    deterministic override below to populate target_entity when the
+    query itself names an unambiguous instance, instead of always
+    discarding it as None (bug fix — see this function's call site for
+    the full story: without this, XGRAPH's fast deterministic path could
+    never seed a graph traversal at all, guaranteeing a false "no
+    connections found" for exactly the kind of query it exists to
+    answer).
+    """
+    for regex in (_CNIC_RE, _PHONE_RE, _PLATE_RE):
+        m = regex.search(query)
+        if m:
+            return m.group(0)
+    return None
+
+
 def _deterministic_route_override(query: str, case_id: str | None = None) -> dict | None:
     """
     Return a route dict for an unambiguous cross-case pattern, or None.
@@ -240,8 +261,21 @@ def _deterministic_route_override(query: str, case_id: str | None = None) -> dic
             }
     for pat in _XGRAPH_OVERRIDE_PATTERNS:
         if pat.search(query):
+            # Bug fix: per router.txt's own XGRAPH definition, target_entity
+            # must be the named instance "extracted verbatim" when the query
+            # names one (a CNIC/phone/plate here — the only kind this
+            # override can safely recognize without risking a wrong guess;
+            # see _structured_identifier_in()'s own docstring) — null is
+            # only correct for the recurrence/enumeration-with-no-named-
+            # instance case ("has any phone number recurred?"). This
+            # override used to hardcode None unconditionally, silently
+            # discarding an identifier sitting right in the text and
+            # guaranteeing _seed_candidates() had nothing to seed a
+            # traversal from — confirmed live: "no connections found" for
+            # an entity that demonstrably does recur, every time.
             return {
-                "route": "XGRAPH", "case_scope": "cross_case", "target_entity": None,
+                "route": "XGRAPH", "case_scope": "cross_case",
+                "target_entity": _structured_identifier_in(query),
                 "output_format": "chat", "target_year": None, "confidence": "high",
                 "reason": "Deterministic override: unambiguous cross-case recurrence trigger language detected before the LLM call",
                 "station": None, "district": None,
