@@ -575,7 +575,7 @@ The breaker (`src/graph/ingestion_circuit_breaker.py`) flags a run — never aut
 | `GET /api/admin/latency`                                                        | avg / p50 / p95, trend, per-route and per pipeline step         |
 | `GET /api/admin/errors` · `GET /api/admin/errors/trend`                         | Filterable error history and trend                              |
 | `GET /api/admin/kb/stats` · `GET /api/admin/kb/jobs`                            | Chunks indexed, chunks per document, ingestion status            |
-| `GET /api/admin/eval/entity-resolution`                                        | Entity-resolution precision/recall from the labeled eval harness |
+| `GET /api/admin/eval/entity-resolution` (`supervisor` role or higher)          | Entity-resolution precision/recall from the labeled eval harness |
 | `GET /api/admin/audit-logs`                                                     | Filterable audit log, with `authorization_violation` events highlighted |
 | `POST /api/admin/kb/upload`                                                     | Upload a document into the shared knowledge base                 |
 | `DELETE /api/admin/kb/documents/{source_file}`                                  | Remove a document and its chunks                                 |

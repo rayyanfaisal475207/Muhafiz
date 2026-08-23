@@ -253,6 +253,16 @@ VALID_ENVIRONMENTS: set[str] = {"development", "staging", "production"}
 DOCUMENTS_DIR: Path = Path(
     os.getenv("DOCUMENTS_DIR", str(_PROJECT_ROOT / "data" / "documents"))
 )
+
+# The project's data/ root — src/api/admin.py's entity-resolution eval-metrics
+# endpoint reads data/eval/resolution_metrics.json (written by
+# scripts/eval_entity_resolution.py, itself using this same
+# <project_root>/data path, not an env-configurable location) off this.
+# Was referenced as config.DATA_DIR before this constant actually existed —
+# confirmed live: every call to GET /api/admin/eval/entity-resolution 500'd
+# with AttributeError regardless of caller role, found during a full E2E
+# pass while fixing an unrelated RBAC mismatch on the same endpoint.
+DATA_DIR: Path = Path(os.getenv("DATA_DIR", str(_PROJECT_ROOT / "data")))
 MAX_UPLOAD_SIZE_MB: int = int(os.getenv("MAX_UPLOAD_SIZE_MB", "50"))
 
 
