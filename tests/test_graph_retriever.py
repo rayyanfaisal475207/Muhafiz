@@ -70,7 +70,12 @@ class FakeGraph:
 
     def _matches_candidate(self, node, cand_lower):
         props = node["properties"]
-        for key in ("canonical_name", "plate", "number", "name", "cnic"):
+        # "phone"/"belt_no" added for the Person.phone / Officer
+        # _SEED_LABELS bug fix — this fake must recognize every property
+        # real _SEED_LABELS id_props actually reference, not a fixed
+        # subset, or a fix to the real dict would pass real code but
+        # still fail here.
+        for key in ("canonical_name", "plate", "number", "name", "cnic", "phone", "belt_no"):
             val = props.get(key)
             if val and cand_lower in str(val).lower():
                 return True
@@ -902,6 +907,61 @@ def test_seed_labels_organization_matches_what_is_actually_written():
     id_props, _display = gr._SEED_LABELS["Organization"]
     assert "name" not in id_props
     assert "canonical_name" in id_props
+
+
+def test_seed_labels_person_matches_a_real_phone_property():
+    """
+    Third occurrence of the same bug class: src/graph/
+    structured_projection.py's person/officer mention writes put a phone
+    number directly on the Person node's own `phone` property (confirmed
+    live: 98 real Person nodes carry one) — Person's id_props never
+    included it, so a phone-number-anchored query could never find a
+    seed for virtually the entire real corpus.
+    """
+    id_props, _display = gr._SEED_LABELS["Person"]
+    assert "phone" in id_props
+
+
+def test_seed_labels_officer_exists_and_matches_what_is_actually_written():
+    """
+    Officer was missing from _SEED_LABELS entirely, despite being a
+    real, actively-written graph label (TYPE_TO_LABEL["officer"],
+    Milestone B2) — confirmed live every real FIR writes real Officer
+    nodes with canonical_name/belt_no/phone/designation properties.
+    """
+    assert "Officer" in gr._SEED_LABELS
+    id_props, _display = gr._SEED_LABELS["Officer"]
+    assert "canonical_name" in id_props
+    assert "belt_no" in id_props
+    assert "phone" in id_props
+
+
+async def test_person_is_seeded_by_phone_number_alone(fake_graph, fake_chunks):
+    """End-to-end: a phone number with no matching name/CNIC text must
+    still find the real Person node that carries it as a property."""
+    fake_graph.add_node("P-500", "Person", canonical_name="Kashif", phone="0305-4000005")
+    fake_graph.add_case("P-500", "CASE-500")
+    fake_chunks["c-500"] = {"id": "c-500", "text": "Kashif mention.", "metadata": {"case_id": "CASE-500"}}
+    fake_graph.add_appears_in("P-500", "c-500", confidence=1.0)
+
+    result = await gr.retrieve_graph("has 0305-4000005 appeared elsewhere", "0305-4000005", "CASE-500")
+
+    assert len(result["seed_entities"]) == 1
+    assert result["seed_entities"][0]["entity_id"] == "P-500"
+
+
+async def test_officer_is_seeded_by_belt_number(fake_graph, fake_chunks):
+    """End-to-end: an Officer node, previously unreachable as a seed by
+    any property at all, must now be found via its belt number."""
+    fake_graph.add_node("OFF-500", "Officer", canonical_name="Muhammad Awais", belt_no="2214L")
+    fake_graph.add_case("OFF-500", "CASE-501")
+    fake_chunks["c-501"] = {"id": "c-501", "text": "Officer mention.", "metadata": {"case_id": "CASE-501"}}
+    fake_graph.add_appears_in("OFF-500", "c-501", confidence=1.0)
+
+    result = await gr.retrieve_graph("what is 2214L's role in this case", "2214L", "CASE-501")
+
+    assert len(result["seed_entities"]) == 1
+    assert result["seed_entities"][0]["entity_id"] == "OFF-500"
 
 
 # ── Milestone B1: jurisdiction-scoped traversal reuses the SAME cross-case

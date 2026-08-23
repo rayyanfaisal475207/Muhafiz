@@ -125,10 +125,25 @@ DEFAULT_HOPS = 2
 # variable below, intentionally unused — `_display_name()` already has
 # its own independent canonical_name-first priority list).
 _SEED_LABELS: dict[str, tuple[tuple[str, ...], str]] = {
-    "Person": (("canonical_name", "cnic"), "canonical_name"),
+    # "phone" added here (bug fix): src/graph/structured_projection.py's
+    # person/officer mention writes put a phone number directly on the
+    # Person node's own `phone` property — confirmed live, 98 real Person
+    # nodes carry one — while a standalone PhoneNumber node (below) is
+    # only ever written by the legacy, rarely-exercised admin-single-
+    # file-upload NER path (1 real node in the whole graph). Without this,
+    # a phone-number-anchored query could never find a seed for virtually
+    # the entire real corpus.
+    "Person": (("canonical_name", "cnic", "phone"), "canonical_name"),
     "Vehicle": (("plate",), "plate"),
     "PhoneNumber": (("canonical_name", "phone"), "canonical_name"),
     "Organization": (("canonical_name",), "canonical_name"),
+    # Bug fix: Officer was missing from this dict entirely, despite being
+    # a real, actively-written graph label (TYPE_TO_LABEL["officer"],
+    # Milestone B2, keyed on belt_no) — every real FIR writes real
+    # Officer nodes. An officer could never be found as a traversal seed
+    # by name, belt number, or phone, on any route. Properties match what
+    # a real Officer node actually carries (confirmed live this session).
+    "Officer": (("canonical_name", "belt_no", "phone"), "canonical_name"),
 }
 
 # The only edge type used to hop between two DIFFERENT entities — see
