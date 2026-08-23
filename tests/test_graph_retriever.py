@@ -273,6 +273,93 @@ async def test_seed_candidates_extracts_phone_and_plate_from_query_text():
     assert "ICT-LE-309" in candidates
 
 
+# ── Matched-identifier evidence text (Bug fix) ───────────────────────────────
+#
+# _synthetic_evidence_chunk() used to say "X appears in record Y" with no
+# mention of WHICH identifier justified retrieving X at all — a query
+# specifically about a phone number got evidence that never mentioned any
+# phone number, and the LLM correctly refused to confirm a claim nothing
+# in front of it supported. Confirmed live on the standing 0305-4000005
+# cross-case repro. These tests lock in that the matched property now
+# surfaces in the generated text, and that a plain name match (the
+# overwhelmingly common case) is left exactly as it was.
+
+def test_matched_seed_property_returns_first_matching_id_prop_in_order():
+    props = {"canonical_name": "طارق", "cnic": "00000-9000006-1", "phone": "0305-4000005"}
+    assert gr._matched_seed_property(props, ("canonical_name", "cnic", "phone"), "0305-4000005") == (
+        "phone", "0305-4000005",
+    )
+    assert gr._matched_seed_property(props, ("canonical_name", "cnic", "phone"), "طارق") == (
+        "canonical_name", "طارق",
+    )
+
+
+def test_matched_seed_property_returns_none_when_nothing_matches():
+    props = {"canonical_name": "طارق"}
+    assert gr._matched_seed_property(props, ("canonical_name", "phone"), "0301-0000000") is None
+
+
+async def test_seed_matched_via_phone_number_names_it_in_the_synthetic_chunk_text(fake_graph, fake_chunks):
+    fake_graph.add_node("P-410", "Person", canonical_name="طارق", phone="0305-4000005")
+    fake_graph.add_case("P-410", "CASE-A")
+    fake_graph.add_appears_in(
+        "P-410", None, confidence=1.0,
+        source_doc_id="psrms/fir/CASE-A#structured", surface_text="طارق",
+        doc_type="fir_structured", filename="CASE-A", doc_case_id="CASE-A",
+    )
+
+    result = await gr.retrieve_graph("Does phone 0305-4000005 appear in this case?", "0305-4000005", "CASE-A")
+
+    assert len(result["chunks"]) == 1
+    assert "0305-4000005" in result["chunks"][0]["text"], (
+        "the matched phone number must be named in the evidence text, not just implied by the seed lookup"
+    )
+    assert result["chunks"][0]["text"] == (
+        "طارق, whose phone number is 0305-4000005, appears in fir_structured record CASE-A "
+        "(psrms/fir/CASE-A#structured)."
+    )
+
+
+async def test_seed_matched_via_name_gets_no_redundant_clause(fake_graph, fake_chunks):
+    """A plain name-matched seed (the overwhelmingly common case) must render
+    exactly as before this fix — no "whose canonical_name is X" clause,
+    since the name is already the sentence's own subject."""
+    fake_graph.add_node("P-411", "Person", canonical_name="Waqas Ali Niazi")
+    fake_graph.add_case("P-411", "CASE-B")
+    fake_graph.add_appears_in(
+        "P-411", None, confidence=1.0,
+        source_doc_id="psrms/fir/CASE-B#structured", surface_text="Waqas Ali Niazi",
+        doc_type="fir_structured", filename="CASE-B",
+    )
+
+    result = await gr.retrieve_graph("Tell me about Waqas Ali Niazi", "Waqas Ali Niazi", "CASE-B")
+
+    assert result["chunks"][0]["text"] == (
+        "Waqas Ali Niazi appears in fir_structured record CASE-B (psrms/fir/CASE-B#structured)."
+    )
+
+
+async def test_matched_property_not_propagated_to_a_hop_reached_entity(fake_graph, fake_chunks):
+    """An entity reached via ASSOCIATED_WITH (not seeded by a literal
+    property match) must never get a fabricated "whose phone number is..."
+    clause — it was found via a graph edge, not a property match."""
+    fake_graph.add_node("P-412", "Person", canonical_name="طارق", phone="0305-4000005")
+    fake_graph.add_node("P-413", "Person", canonical_name="Co-Accused")
+    fake_graph.add_case("P-412", "CASE-C")
+    fake_graph.add_case("P-413", "CASE-C")
+    fake_graph.add_associated("P-412", "P-413", confidence=1.0)
+    fake_graph.add_appears_in(
+        "P-413", None, confidence=1.0,
+        source_doc_id="psrms/fir/CASE-C#structured", surface_text="Co-Accused",
+        doc_type="fir_structured", filename="CASE-C",
+    )
+
+    result = await gr.retrieve_graph("Does phone 0305-4000005 appear in this case?", "0305-4000005", "CASE-C")
+
+    hop_chunk = next(c for c in result["chunks"] if "Co-Accused" in c["text"])
+    assert hop_chunk["text"] == "Co-Accused appears in fir_structured record CASE-C (psrms/fir/CASE-C#structured)."
+
+
 # ── Within-case traversal ────────────────────────────────────────────────────
 
 async def test_associated_with_hop_reaches_a_second_entity_within_case(fake_graph, fake_chunks):
