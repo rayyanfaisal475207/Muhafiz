@@ -634,13 +634,30 @@ async def _fetch_appears_in(entity_ids: set[str]) -> list[dict]:
     Source-document/chunk provenance for a set of entities — never
     omitted, per architecture Figure 3.
 
-    `case` (the entity's own BELONGS_TO_CASE case_id, OPTIONAL MATCH so a
-    global/case-less entity still returns a row) rides along in the same
-    query rather than a second per-entity round trip — used by
-    _synthetic_evidence_chunk() below to give a structured-extraction
-    chunk a real case_id when one exists (a criminal_db record genuinely
-    has none — that silo is CNIC-cross-referenced, not case-anchored —
-    so `None` there is correct, not a gap).
+    `case_id` (OPTIONAL MATCH so a global/case-less document still returns
+    a row) rides along in the same query rather than a second per-entity
+    round trip — used by _synthetic_evidence_chunk() below to give a
+    structured-extraction chunk a real case_id when one exists (a
+    criminal_db record genuinely has none — that silo is
+    CNIC-cross-referenced, not case-anchored — so `None` there is correct,
+    not a gap).
+
+    [Bug fix] This joins BELONGS_TO_CASE off `d` (the specific Document
+    this APPEARS_IN edge points to), NOT off `n` (the entity). A Document
+    belongs to exactly one case (structured_projection.py's single
+    BELONGS_TO_CASE write per document), so this join can never fan out.
+    Joining off `n` instead — the entity — used to be wrong for any
+    entity genuinely recurring across cases (the very shape XGRAPH/
+    XNETWORK exist to surface): such an entity carries N BELONGS_TO_CASE
+    edges, so the OPTIONAL MATCH produced N duplicate (n, r, d) rows per
+    APPEARS_IN edge, one per matching case. Confirmed live: a real person
+    appearing in fir-202-26 and fir-401-26 (via a shared phone number)
+    had one of their two synthetic evidence chunks — the one built from
+    the fir-202-26 APPEARS_IN edge — silently stamped with case_id
+    "fir-401-26" in its citation metadata, because the last duplicate row
+    written into the caller's chunk-id-keyed dict happened to carry the
+    other case. Every cross-case citation for a multi-case entity was one
+    dict-overwrite away from naming the wrong case.
     """
     if not entity_ids:
         return []
@@ -652,7 +669,7 @@ async def _fetch_appears_in(entity_ids: set[str]) -> list[dict]:
         # doesn't validate real Cypher grammar. "cs" avoids the clash.
         "MATCH (n)-[r:APPEARS_IN]->(d:Document) "
         "WHERE n.entity_id IN $ids AND r.superseded_by IS NULL "
-        "OPTIONAL MATCH (n)-[b:BELONGS_TO_CASE]->(cs:Case) WHERE b.superseded_by IS NULL "
+        "OPTIONAL MATCH (d)-[b:BELONGS_TO_CASE]->(cs:Case) WHERE b.superseded_by IS NULL "
         "RETURN n, r, d, cs.case_id AS case_id",
         params={"ids": list(entity_ids)},
         columns=["n", "r", "d", "case_id"],
@@ -706,9 +723,11 @@ def _synthetic_evidence_chunk(row: dict) -> Optional[dict]:
     metadata = {"source": source_doc_id, "doc_type": doc_type, "synthetic_evidence": True}
     case_id = row.get("case_id")
     if case_id:
-        # From _fetch_appears_in()'s own OPTIONAL MATCH on this entity's
-        # BELONGS_TO_CASE — real, not guessed from the doc_id string.
-        # Omitted (not None) for a genuinely case-less entity (e.g. a
+        # From _fetch_appears_in()'s own OPTIONAL MATCH on THIS document's
+        # (not the entity's) BELONGS_TO_CASE — real, not guessed from the
+        # doc_id string, and always the one case this specific document
+        # belongs to even when the entity itself recurs across many.
+        # Omitted (not None) for a genuinely case-less document (e.g. a
         # criminal_db record, cross-referenced by CNIC, never case-
         # anchored) rather than asserting a case that doesn't exist.
         metadata["case_id"] = case_id
