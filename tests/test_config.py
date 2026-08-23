@@ -176,6 +176,19 @@ async def test_lifespan_raises_on_critical_config_errors_in_production(monkeypat
             pass
 
 
+def test_groq_model_default_is_not_the_retired_llama_model():
+    """
+    Regression guard: "llama-3.3-70b-versatile" (this default until now) was
+    retired from Groq's catalog -- confirmed live via GET /v1/models with a
+    real key -- and every call_llm()/stream_llm() site using
+    LLM_PROVIDER=groq was 404ing outright whenever the local model didn't
+    serve the request first. Nothing else in this codebase pins/guards this
+    default, so a future revert could silently reintroduce the exact same
+    outage with no test catching it.
+    """
+    assert config.GROQ_MODEL != "llama-3.3-70b-versatile"
+
+
 async def test_lifespan_warns_but_does_not_raise_on_critical_errors_outside_production(monkeypatch, tmp_path):
     """Local onboarding must not break: only 'production' is refused at startup."""
     _quiet_startup_side_effects(monkeypatch, tmp_path)

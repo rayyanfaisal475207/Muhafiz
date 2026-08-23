@@ -28,7 +28,17 @@ LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "gemini")  # "groq" | "gemini" | "
 
 # Groq — fast open-source inference
 GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
-GROQ_MODEL: str = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+# "llama-3.3-70b-versatile" (the previous default) was retired from
+# Groq's catalog -- confirmed live via GET /v1/models with this
+# project's own key: every llama-3.x chat model is gone, the lineup
+# moved to openai/gpt-oss-*, qwen/qwen3.6-*, groq/compound, allam-2-7b.
+# Every call_llm()/stream_llm() site using LLM_PROVIDER=groq was
+# 404ing outright on this model whenever the local model server didn't
+# serve the request first (found via a real error_logs row, not a
+# hypothetical). Groq model names WILL change again -- check
+# https://console.groq.com/docs/models before assuming this default is
+# still current.
+GROQ_MODEL: str = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 # Google Gemini — also used as LLM fallback and for vision
 GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
