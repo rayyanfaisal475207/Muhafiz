@@ -146,6 +146,52 @@ _SEED_LABELS: dict[str, tuple[tuple[str, ...], str]] = {
     "Officer": (("canonical_name", "belt_no", "phone"), "canonical_name"),
 }
 
+# Human-readable label for a matched _SEED_LABELS id_prop, used only to
+# phrase _synthetic_evidence_chunk()'s "matched via ..." clause (see
+# _matched_seed_property()). Deliberately excludes "canonical_name": a
+# name match needs no extra clause since the matched value already IS
+# the name already shown in the sentence (surface_text) — restating it
+# would be redundant, not informative, unlike a phone/CNIC/plate/belt
+# number, which never otherwise appears anywhere in the synthetic text.
+_MATCHED_PROPERTY_LABELS: dict[str, str] = {
+    "cnic": "CNIC",
+    "phone": "phone number",
+    "plate": "plate number",
+    "belt_no": "belt number",
+}
+
+
+def _matched_seed_property(
+    properties: dict, id_props: tuple[str, ...], candidate: str,
+) -> Optional[tuple[str, str]]:
+    """
+    [Bug fix] Which of a seeded node's own `id_props` actually contains
+    `candidate` (the same CONTAINS/lower() comparison _find_seed_nodes()'s
+    Cypher WHERE clause already applied server-side to confirm a match
+    exists) — and its value. First `id_props` entry that matches wins,
+    same order _SEED_LABELS declares them in.
+
+    Exists because a graph-traversal seed used to carry NO record of
+    which property justified matching it at all: _synthetic_evidence_chunk()
+    could say "طارق appears in fir_structured record fir-401-26" but never
+    "...whose phone number is 0305-4000005" — even when the seed was found
+    BY that exact phone number. A question specifically about a phone
+    number then got evidence that never once mentioned a phone number,
+    and the LLM (correctly, from what it could see) refused to confirm
+    the claim. Confirmed live this session on the standing 0305-4000005
+    cross-case repro.
+
+    Returns None if nothing matches (should not happen for a node
+    _find_seed_nodes() itself just returned — defensive, not expected).
+    """
+    candidate_lower = candidate.lower()
+    for prop in id_props:
+        value = properties.get(prop)
+        if value and candidate_lower in str(value).lower():
+            return prop, str(value)
+    return None
+
+
 # The only edge type used to hop between two DIFFERENT entities — see
 # module docstring for why LOCATED_AT/OWNS/REGISTERED_TO are excluded.
 _HOP_EDGE_TYPE = "ASSOCIATED_WITH"
@@ -287,6 +333,17 @@ async def _find_seed_nodes(
                 entity_id = _entity_id_of(node)
                 if entity_id and entity_id not in seen_ids:
                     seen_ids.add(entity_id)
+                    # [Bug fix] Record which id_prop/value actually matched
+                    # `cand` — carried as an extra top-level key alongside
+                    # this AGE-shaped node's own id/label/properties, never
+                    # written into `properties` itself (that dict mirrors
+                    # what's actually stored on the graph node; this is
+                    # provenance about THIS seed lookup, not a node
+                    # property). See _matched_seed_property()'s docstring.
+                    matched = _matched_seed_property((node or {}).get("properties", {}) or {}, id_props, cand)
+                    if matched is not None:
+                        prop, value = matched
+                        node = {**(node or {}), "_matched_property": {"property": prop, "value": value}}
                     seeds.append(node)
 
     return seeds
@@ -677,7 +734,7 @@ async def _fetch_appears_in(entity_ids: set[str]) -> list[dict]:
     return rows
 
 
-def _synthetic_evidence_chunk(row: dict) -> Optional[dict]:
+def _synthetic_evidence_chunk(row: dict, matched_property: Optional[dict] = None) -> Optional[dict]:
     """
     [Bug fix] Build a synthetic evidence chunk from an APPEARS_IN row
     (n, r, d — the exact shape _fetch_appears_in() returns) whose edge has
@@ -705,6 +762,20 @@ def _synthetic_evidence_chunk(row: dict) -> Optional[dict]:
     ("synthetic:...") so it can never collide with a real Chroma chunk
     id, and is merged directly into the caller's fetched_by_id lookup —
     it never goes through get_chunks_by_ids()/Chroma at all.
+
+    `matched_property` [Bug fix]: `{"property": ..., "value": ...}` from
+    _matched_seed_property() when this entity is itself a seed node
+    (`None` for an entity only reached via a hop — nothing to name there,
+    the hop's own via_entity provenance already covers it). Without this,
+    the generated sentence never once named the identifier that actually
+    justified retrieving it — "طارق appears in fir_structured record
+    fir-401-26" for a query specifically about phone number
+    0305-4000005, with that number appearing nowhere in the cited text.
+    Confirmed live: the LLM (and citation_validator) correctly declined
+    to confirm a phone-recurrence claim the graph traversal had in fact
+    found, because nothing in front of it said so. See
+    _MATCHED_PROPERTY_LABELS for which properties earn a clause —
+    canonical_name is deliberately excluded (redundant with surface_text).
     """
     edge_props = row.get("r", {}).get("properties", {}) or {}
     source_doc_id = edge_props.get("source_doc_id")
@@ -720,6 +791,12 @@ def _synthetic_evidence_chunk(row: dict) -> Optional[dict]:
         or (row.get("n") or {}).get("properties", {}).get("canonical_name")
         or entity_id
     )
+    match_clause = ""
+    if matched_property:
+        label = _MATCHED_PROPERTY_LABELS.get(matched_property.get("property") or "")
+        value = matched_property.get("value")
+        if label and value:
+            match_clause = f", whose {label} is {value},"
     metadata = {"source": source_doc_id, "doc_type": doc_type, "synthetic_evidence": True}
     case_id = row.get("case_id")
     if case_id:
@@ -733,7 +810,7 @@ def _synthetic_evidence_chunk(row: dict) -> Optional[dict]:
         metadata["case_id"] = case_id
     return {
         "id": f"synthetic:{entity_id}:{source_doc_id}",
-        "text": f"{surface_text} appears in {doc_type} record {filename} ({source_doc_id}).",
+        "text": f"{surface_text}{match_clause} appears in {doc_type} record {filename} ({source_doc_id}).",
         "metadata": metadata,
     }
 
@@ -1089,6 +1166,18 @@ async def retrieve_graph(
         {"entity_id": _entity_id_of(n), "type": (n or {}).get("label"), "name": _display_name(n)}
         for n in seed_nodes
     ]
+    # [Bug fix] Only ever set for _find_seed_nodes()'s literal-match
+    # branch — _find_all_case_entities()/_find_recurring_entities_for_query()
+    # seed by case membership/recurrence, not a property match, so they
+    # never carry "_matched_property" and are correctly absent here.
+    # Deliberately NOT propagated past hop 0 below: an entity reached via
+    # a hop wasn't matched by property at all, it was reached by a graph
+    # edge — via_entity already carries that provenance.
+    matched_property_of: dict[str, dict] = {
+        eid: n["_matched_property"]
+        for n in seed_nodes
+        if (eid := _entity_id_of(n)) and n.get("_matched_property")
+    }
 
     display_name: dict[str, str] = {e["entity_id"]: e["name"] for e in seed_entities if e["entity_id"]}
     via_entity: dict[str, str] = {eid: eid for eid in display_name}  # entity_id -> seed name that led to it
@@ -1226,7 +1315,7 @@ async def retrieve_graph(
             # cross-case connection reported "seed entity matched but no
             # connected evidence" every time, indistinguishable from a
             # genuinely empty result.
-            synthetic = _synthetic_evidence_chunk(row)
+            synthetic = _synthetic_evidence_chunk(row, matched_property=matched_property_of.get(entity_id))
             if synthetic is None:
                 continue
             synthetic_by_id[synthetic["id"]] = synthetic
