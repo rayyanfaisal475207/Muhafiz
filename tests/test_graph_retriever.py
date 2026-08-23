@@ -49,7 +49,8 @@ class FakeGraph:
         }))
 
     def add_appears_in(self, entity_id, source_chunk_id, confidence=1.0, superseded_by=None,
-                        source_doc_id=None, surface_text=None, doc_type=None, filename=None):
+                        source_doc_id=None, surface_text=None, doc_type=None, filename=None,
+                        doc_case_id=None):
         """
         `source_chunk_id=None` (with a real `source_doc_id`) models a
         structured-extraction write (src/graph/structured_projection.py —
@@ -58,11 +59,20 @@ class FakeGraph:
         evidence-chunk bug fix tests below need, distinct from the
         existing "chunk_id given but never ingested into Chroma" case
         already covered elsewhere in this file.
+
+        `doc_case_id`: the case THIS DOCUMENT belongs to, independent of
+        which case(s) `entity_id` itself is linked to via add_case() — a
+        real Document has exactly one BELONGS_TO_CASE edge of its own
+        (structured_projection.py), which can genuinely differ from an
+        entity's case set once the entity recurs across cases. Defaults
+        to `None`, meaning "fall back to the entity's own case" — correct
+        for every existing single-case test fixture, where the two are
+        the same value anyway.
         """
         self.appears_in.append((entity_id, {
             "source_chunk_id": source_chunk_id, "confidence": confidence, "superseded_by": superseded_by,
             "source_doc_id": source_doc_id, "surface_text": surface_text,
-            "_doc_type": doc_type, "_filename": filename,
+            "_doc_type": doc_type, "_filename": filename, "_doc_case_id": doc_case_id,
         }))
 
     def add_conflict(self, a, b, basis="Contradiction detected.", confidence=1.0):
@@ -94,12 +104,17 @@ class FakeGraph:
                         "doc_type": props.get("_doc_type"),
                         "filename": props.get("_filename"),
                     }},
-                    # _fetch_appears_in()'s own OPTIONAL MATCH on the
-                    # entity's BELONGS_TO_CASE — first case if it belongs
-                    # to any, matching the real query's fan-out shape
-                    # closely enough for these tests (arbitrary among
-                    # multiple, same as the real Cypher would produce).
-                    "case_id": next(iter(self.belongs_to_case.get(eid, ())), None),
+                    # [Bug fix] _fetch_appears_in()'s OPTIONAL MATCH now
+                    # joins off the DOCUMENT's own BELONGS_TO_CASE, not
+                    # the entity's — a document belongs to exactly one
+                    # case, so no fan-out is possible, unlike an entity
+                    # that genuinely recurs across many. `doc_case_id`
+                    # models that per-document edge directly; falling
+                    # back to the entity's own (first) case only when a
+                    # test fixture never set doc_case_id, which is every
+                    # existing single-case fixture — there the two values
+                    # coincide anyway.
+                    "case_id": props.get("_doc_case_id") or next(iter(self.belongs_to_case.get(eid, ())), None),
                 }
                 for eid, props in self.appears_in
                 if eid in ids and props.get("superseded_by") is None
@@ -583,8 +598,43 @@ async def test_structured_extraction_mention_surfaces_as_a_synthetic_chunk(fake_
     assert chunk["metadata"]["synthetic_evidence"] is True
     assert chunk["metadata"]["source"] == "criminal_db/criminal_record/CR-1#structured"
     assert chunk["metadata"]["case_id"] == "CASE-400", (
-        "real case_id from the entity's own BELONGS_TO_CASE, not guessed from the doc_id string"
+        "real case_id from this document's own BELONGS_TO_CASE, not guessed from the doc_id string"
     )
+
+
+async def test_synthetic_chunk_case_id_is_per_document_not_per_entity(fake_graph, fake_chunks):
+    """
+    [Bug fix] An entity genuinely recurring across two cases (e.g. a
+    shared phone number resolved to the same Person) must have EACH of
+    its synthetic evidence chunks stamped with the case its OWN document
+    belongs to — never a case borrowed from the entity's other
+    appearance. Confirmed live: before this fix, _fetch_appears_in()
+    joined BELONGS_TO_CASE off the entity (which has one edge per case it
+    recurs in), fanning out into duplicate rows that let one document's
+    citation metadata get silently overwritten with the other case's id.
+    """
+    fake_graph.add_node("P-410", "Person", canonical_name="Recurring Person", phone="0305-4000005")
+    fake_graph.add_case("P-410", "CASE-A")
+    fake_graph.add_case("P-410", "CASE-B")
+    fake_graph.add_appears_in(
+        "P-410", None, confidence=1.0,
+        source_doc_id="psrms/fir/CASE-A#structured", surface_text="Recurring Person",
+        doc_type="fir_structured", filename="CASE-A", doc_case_id="CASE-A",
+    )
+    fake_graph.add_appears_in(
+        "P-410", None, confidence=1.0,
+        source_doc_id="psrms/fir/CASE-B#structured", surface_text="Recurring Person",
+        doc_type="fir_structured", filename="CASE-B", doc_case_id="CASE-B",
+    )
+
+    result = await gr.retrieve_graph(
+        "Has phone 0305-4000005 appeared in any other cases?", "0305-4000005",
+        case_id="CASE-A", cross_case=True, user_id="u1", user_role="platform-admin",
+    )
+
+    by_source = {c["metadata"]["source"]: c["metadata"]["case_id"] for c in result["chunks"]}
+    assert by_source["psrms/fir/CASE-A#structured"] == "CASE-A"
+    assert by_source["psrms/fir/CASE-B#structured"] == "CASE-B"
 
 
 async def test_synthetic_chunk_omits_case_id_for_a_genuinely_case_less_entity(fake_graph, fake_chunks):
