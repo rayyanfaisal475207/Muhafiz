@@ -48,9 +48,21 @@ class FakeGraph:
             "status": status, "tier": tier, "confidence": confidence, "superseded_by": superseded_by, "basis": basis,
         }))
 
-    def add_appears_in(self, entity_id, source_chunk_id, confidence=1.0, superseded_by=None):
+    def add_appears_in(self, entity_id, source_chunk_id, confidence=1.0, superseded_by=None,
+                        source_doc_id=None, surface_text=None, doc_type=None, filename=None):
+        """
+        `source_chunk_id=None` (with a real `source_doc_id`) models a
+        structured-extraction write (src/graph/structured_projection.py —
+        never populates source_chunk_id, see graph_retriever.py's own
+        _synthetic_evidence_chunk() docstring) — the shape the synthetic-
+        evidence-chunk bug fix tests below need, distinct from the
+        existing "chunk_id given but never ingested into Chroma" case
+        already covered elsewhere in this file.
+        """
         self.appears_in.append((entity_id, {
             "source_chunk_id": source_chunk_id, "confidence": confidence, "superseded_by": superseded_by,
+            "source_doc_id": source_doc_id, "surface_text": surface_text,
+            "_doc_type": doc_type, "_filename": filename,
         }))
 
     def add_conflict(self, a, b, basis="Contradiction detected.", confidence=1.0):
@@ -70,7 +82,20 @@ class FakeGraph:
         if "APPEARS_IN" in cypher_query:
             ids = set(params.get("ids", []))
             return [
-                {"n": self.nodes[eid], "r": {"properties": props}, "d": {"properties": {"doc_id": "D1"}}}
+                {
+                    "n": self.nodes[eid], "r": {"properties": props},
+                    "d": {"properties": {
+                        "doc_id": props.get("source_doc_id") or "D1",
+                        "doc_type": props.get("_doc_type"),
+                        "filename": props.get("_filename"),
+                    }},
+                    # _fetch_appears_in()'s own OPTIONAL MATCH on the
+                    # entity's BELONGS_TO_CASE — first case if it belongs
+                    # to any, matching the real query's fan-out shape
+                    # closely enough for these tests (arbitrary among
+                    # multiple, same as the real Cypher would produce).
+                    "case_id": next(iter(self.belongs_to_case.get(eid, ())), None),
+                }
                 for eid, props in self.appears_in
                 if eid in ids and props.get("superseded_by") is None
             ]
@@ -519,6 +544,89 @@ async def test_hop_with_no_ingested_document_is_dropped_not_passed_text_less(fak
     fake_graph.add_appears_in("P-300", "missing", confidence=1.0)
 
     result = await gr.retrieve_graph("Seed Only", "Seed Only", "CASE-300")
+
+    assert result["chunks"] == []
+
+
+# ── Synthetic-evidence-chunk bug fix (structured-extraction writes never
+# carry a source_chunk_id — see graph_retriever.py's own
+# _synthetic_evidence_chunk() docstring for the full story) ─────────────────
+
+async def test_structured_extraction_mention_surfaces_as_a_synthetic_chunk(fake_graph, fake_chunks):
+    """
+    No source_chunk_id (structured-extraction shape), but a real
+    source_doc_id — must surface as a synthetic evidence chunk instead of
+    being dropped like the genuinely-missing-document case above.
+    """
+    fake_graph.add_node("P-400", "Person", canonical_name="Shahzaib alias Shabi")
+    fake_graph.add_case("P-400", "CASE-400")
+    fake_graph.add_appears_in(
+        "P-400", None, confidence=1.0,
+        source_doc_id="criminal_db/criminal_record/CR-1#structured",
+        surface_text="Shahzaib alias Shabi", doc_type="criminal_record_structured", filename="CR-1",
+    )
+
+    result = await gr.retrieve_graph("Shahzaib alias Shabi", "Shahzaib alias Shabi", "CASE-400")
+
+    assert len(result["chunks"]) == 1
+    chunk = result["chunks"][0]
+    assert chunk["id"] == "synthetic:P-400:criminal_db/criminal_record/CR-1#structured"
+    assert chunk["text"] == (
+        "Shahzaib alias Shabi appears in criminal_record_structured record "
+        "CR-1 (criminal_db/criminal_record/CR-1#structured)."
+    )
+    assert chunk["metadata"]["synthetic_evidence"] is True
+    assert chunk["metadata"]["source"] == "criminal_db/criminal_record/CR-1#structured"
+    assert chunk["metadata"]["case_id"] == "CASE-400", (
+        "real case_id from the entity's own BELONGS_TO_CASE, not guessed from the doc_id string"
+    )
+
+
+async def test_synthetic_chunk_omits_case_id_for_a_genuinely_case_less_entity(fake_graph, fake_chunks):
+    """A criminal_db-only entity with no BELONGS_TO_CASE edge at all
+    (that silo is CNIC-cross-referenced, never case-anchored) must not
+    have a case_id asserted onto it that doesn't exist."""
+    fake_graph.add_node("P-403", "Person", canonical_name="Case-less Person")
+    # Deliberately no fake_graph.add_case(...) call.
+    fake_graph.add_appears_in(
+        "P-403", None, confidence=1.0,
+        source_doc_id="criminal_db/criminal_record/CR-2#structured",
+        surface_text="Case-less Person", doc_type="criminal_record_structured", filename="CR-2",
+    )
+
+    result = await gr.retrieve_graph(
+        "Case-less Person", "Case-less Person", case_id=None, cross_case=True,
+        user_id="u1", user_role="platform-admin",
+    )
+
+    assert len(result["chunks"]) == 1
+    assert "case_id" not in result["chunks"][0]["metadata"]
+
+
+async def test_real_chunk_path_is_unaffected_by_the_synthetic_fallback(fake_graph, fake_chunks):
+    """A normal, already-working narrative-chunk hop must stay bit-for-bit unchanged."""
+    fake_graph.add_node("P-401", "Person", canonical_name="Real Chunk Person")
+    fake_graph.add_case("P-401", "CASE-401")
+    fake_chunks["c-real"] = {"id": "c-real", "text": "Real narrative text.", "metadata": {"case_id": "CASE-401"}}
+    fake_graph.add_appears_in("P-401", "c-real", confidence=1.0)
+
+    result = await gr.retrieve_graph("Real Chunk Person", "Real Chunk Person", "CASE-401")
+
+    assert len(result["chunks"]) == 1
+    chunk = result["chunks"][0]
+    assert chunk["id"] == "c-real"
+    assert chunk["text"] == "Real narrative text."
+    assert "synthetic_evidence" not in chunk["metadata"]
+
+
+async def test_no_chunk_id_and_no_doc_id_still_drops_the_hop(fake_graph, fake_chunks):
+    """The true 'nothing at all to cite' case (shouldn't happen for real
+    APPEARS_IN edges, but must degrade safely, not crash or fabricate)."""
+    fake_graph.add_node("P-402", "Person", canonical_name="Truly Bare Mention")
+    fake_graph.add_case("P-402", "CASE-402")
+    fake_graph.add_appears_in("P-402", None, confidence=1.0)  # no source_doc_id either
+
+    result = await gr.retrieve_graph("Truly Bare Mention", "Truly Bare Mention", "CASE-402")
 
     assert result["chunks"] == []
 
