@@ -29,6 +29,49 @@ logger = logging.getLogger(__name__)
 # "unbounded" framing, which describes the missing LIMIT, not a listing UI.
 ANALYTICS_MAX_ROWS = 50_000
 
+
+def _kb_stats_documents(counts_by_source, doc_by_filename) -> tuple[int, list[dict]]:
+    """
+    Pure helper behind DirectGateway.get_kb_stats()'s `documents`/
+    `total_documents` fields — pulled out so it's directly unit-testable
+    without a real Chroma instance or DB session.
+
+    Bug fix (found during a full E2E pass): the original implementation
+    used `counts_by_source.most_common(500)`, which ranks by CHUNK COUNT,
+    not recency, and silently truncates there — a freshly-uploaded
+    document with only 1-2 chunks could never appear no matter how
+    recent, since any multi-chunk FIR record already in the corpus
+    outranked it. `total_documents` was then `len(docs)` AFTER that same
+    cap, which reads as "the total document count" but was actually
+    "however many survived the cap" — misleading once the real corpus
+    exceeds 500 documents (it already does).
+
+    Returns (total_documents, documents) where `total_documents` is the
+    TRUE, uncapped count and `documents` is sorted by `ingested_at`
+    descending (most recent first — so a fresh upload is immediately
+    visible) and capped at 500 for response-size sanity. A document with
+    no matching `documents` row (`ingested_at` unknown) sorts as OLDEST,
+    not first.
+    """
+    docs_all = [{
+        "doc_id": source,
+        "filename": source,
+        "doc_type": doc_by_filename[source].doc_type if source in doc_by_filename else None,
+        "chunk_count": count,
+        "is_global": True,
+        "ingested_at": (
+            doc_by_filename[source].ingested_at.isoformat()
+            if source in doc_by_filename and doc_by_filename[source].ingested_at else None
+        ),
+    } for source, count in counts_by_source.items()]
+
+    # "" would sort before every real ISO timestamp on a descending sort —
+    # backwards for a doc with no known ingested_at, which must sort last.
+    docs_all.sort(key=lambda d: d["ingested_at"] or "0000-00-00", reverse=True)
+
+    return len(docs_all), docs_all[:500]
+
+
 class DirectGateway:
     # ── User Operations ──
     async def get_user_by_id(self, user_id: str) -> Optional[dict]:
@@ -1039,21 +1082,11 @@ class DirectGateway:
             doc_res = await db.execute(select(Document))
             doc_by_filename = {d.filename: d for d in doc_res.scalars().all()}
 
-        docs = [{
-            "doc_id": source,
-            "filename": source,
-            "doc_type": doc_by_filename[source].doc_type if source in doc_by_filename else None,
-            "chunk_count": count,
-            "is_global": True,
-            "ingested_at": (
-                doc_by_filename[source].ingested_at.isoformat()
-                if source in doc_by_filename and doc_by_filename[source].ingested_at else None
-            ),
-        } for source, count in counts_by_source.most_common(500)]
+        total_documents, docs = _kb_stats_documents(counts_by_source, doc_by_filename)
 
         return {
             "total_chunks": total_chunks,
-            "total_documents": len(docs),
+            "total_documents": total_documents,
             "documents": docs,
             "grouped_by": "source_file",
         }
