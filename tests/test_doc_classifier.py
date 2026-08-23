@@ -147,3 +147,24 @@ async def test_no_date_in_text_gives_none_not_error(monkeypatch):
     result = await doc_classifier.classify_document("چوری شدہ سامان برآمد کیا گیا۔")
     assert result["doc_type"] == "Recovery Memo"
     assert result["date_registered"] is None
+
+
+# ── prompts/doc_classifier.txt enum drift guard ──────────────────────────
+#
+# Regression: DOC_TYPES was extended to 9 values for the Muhafiz Data API
+# migration ("PKM Service Application", "Roznamcha Entry"), but
+# prompts/doc_classifier.txt's own JSON schema enum was never updated to
+# match — the LLM was never told these two types exist, so it could never
+# correctly output them. Found via a full prompt-vs-code cross-check, not
+# live failures (the call site this prompt drives is gated behind
+# run_graph_extraction=True, which sync_muhafiz_data.py — the only real
+# pipeline producing PKM/Roznamcha-shaped documents — never sets, so this
+# drift was dormant, not actively firing). This test locks the prompt's
+# enum to DOC_TYPES going forward so the two can never silently diverge
+# again.
+
+def test_prompt_schema_enum_matches_doc_types_exactly():
+    for doc_type in doc_classifier.DOC_TYPES:
+        assert f'"{doc_type}"' in doc_classifier._SYSTEM_PROMPT, (
+            f"{doc_type!r} is in DOC_TYPES but missing from the prompt's own JSON schema enum"
+        )

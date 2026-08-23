@@ -320,3 +320,27 @@ async def test_deterministic_override_does_not_fire_for_unrelated_queries(monkey
     monkeypatch.setattr(router, "call_llm", fake_call_llm)
     result = await router.route_query(query)
     assert result["route"] == "RAG"  # came from the fake LLM, not an override short-circuit
+
+
+# ── prompts/router.txt few-shot consistency guard ────────────────────────
+#
+# Regression: the JSON schema declares "station"/"district" as
+# always-present fields (null when not applicable), but ~6 few-shot
+# examples omitted them entirely from their example output — a real
+# inconsistency in the prompt's own calibration data that could teach the
+# model these fields are optional to drop rather than always-present.
+# Found via a full prompt-vs-code cross-check. Code tolerated the gap
+# (`.get()` with defaults), so this never broke a real request — this
+# test guards the prompt's own internal consistency going forward.
+
+def test_every_few_shot_example_output_is_valid_json_with_station_and_district():
+    example_outputs = [
+        line[len("Output: "):]
+        for line in router._SYSTEM_PROMPT.splitlines()
+        if line.startswith('Output: {"route"')
+    ]
+    assert len(example_outputs) > 40, "sanity check: still finding router.txt's real few-shot examples"
+    for raw in example_outputs:
+        parsed = json.loads(raw)  # must not raise
+        assert "station" in parsed, f"missing 'station' key: {raw[:100]}..."
+        assert "district" in parsed, f"missing 'district' key: {raw[:100]}..."

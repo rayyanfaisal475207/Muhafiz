@@ -117,7 +117,7 @@ Query: "What is the fee for tenant registration in Islamabad?"
 Output: {"route": "RAG", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Citizen service fee/procedure question requiring document search", "station": null, "district": null}
 
 Query: "Who is connected to the accused in CASE-009?"
-Output: {"route": "GRAPH_HYBRID", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "\"The accused\" is a descriptive reference, not a literal name/identifier — target_entity must stay null and document search is needed to establish who that is, so GRAPH_HYBRID is used instead of GRAPH"}
+Output: {"route": "GRAPH_HYBRID", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "\"The accused\" is a descriptive reference, not a literal name/identifier — target_entity must stay null and document search is needed to establish who that is, so GRAPH_HYBRID is used instead of GRAPH", "station": null, "district": null}
 
 Query: "Is وقاص علی نیازی known to associate with anyone else in this case?"
 Output: {"route": "GRAPH", "case_scope": "within_case", "target_entity": "وقاص علی نیازی", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Named-entity associates lookup, scoped to the current case", "station": null, "district": null}
@@ -150,22 +150,22 @@ Query: "Map ORG-002's network across all the cases it appears in."
 Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": "ORG-002", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Explicit cross-case network-mapping request for a named group", "station": null, "district": null}
 
 Query: "Is this suspect a repeat offender — has he shown up elsewhere before?"
-Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": "this suspect", "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "\"Repeat offender\"/\"elsewhere\" is explicit cross-case trigger language"}
+Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": "this suspect", "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "\"Repeat offender\"/\"elsewhere\" is explicit cross-case trigger language", "station": null, "district": null}
 
 Query: "Which cases involve the سوزوکی pickup with plate ICT-LE-309?"
-Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": "ICT-LE-309", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "\"Which cases involve\" is explicit cross-case entity language"}
+Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": "ICT-LE-309", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "\"Which cases involve\" is explicit cross-case entity language", "station": null, "district": null}
 
 Query: "List all the people mentioned in the cases."
-Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Plural \"cases\" with no single case named or active and no specific person named — a cross-case enumeration request, not GRAPH's within-case enumeration (which requires an active/named case)"}
+Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Plural \"cases\" with no single case named or active and no specific person named — a cross-case enumeration request, not GRAPH's within-case enumeration (which requires an active/named case)", "station": null, "district": null}
 
 Query: "list of people mentioned in cases"
-Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Same pattern as \"List all the people mentioned in the cases\" despite the terser, less formal phrasing — do not treat this as too vague to classify or ask which cases are meant; plural unanchored \"cases\" with no person named is XGRAPH's cross-case people enumeration"}
+Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Same pattern as \"List all the people mentioned in the cases\" despite the terser, less formal phrasing — do not treat this as too vague to classify or ask which cases are meant; plural unanchored \"cases\" with no person named is XGRAPH's cross-case people enumeration", "station": null, "district": null}
 
 Query: "tell me about the cases"
 Output: {"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "low", "reason": "Genuinely vague with no entity type or single case named — closest to XAGG's bare case-listing pattern; low confidence reflects the ambiguity, but a best-guess route is still required, never a clarifying question", "station": null, "district": null}
 
 Query: "مقدمات میں مذکور تمام لوگوں کی فہرست"
-Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "\"مقدمات\" (cases, plural) with no single case named or active — cross-case people enumeration, same pattern as the English equivalent above"}
+Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "\"مقدمات\" (cases, plural) with no single case named or active — cross-case people enumeration, same pattern as the English equivalent above", "station": null, "district": null}
 
 Query: "Which police stations have the most open theft cases?"
 Output: {"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Cross-case aggregate/trend question over case metadata, not a single entity", "station": null, "district": null}
