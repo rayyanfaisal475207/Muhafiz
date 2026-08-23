@@ -574,15 +574,26 @@ async def _fetch_case_conflicts(case_id: str) -> list[dict]:
 
     appears_in_rows = await _fetch_appears_in(entity_ids)
     row_by_chunk: dict[str, str] = {}  # chunk_id -> entity_id
+    synthetic_by_id: dict[str, dict] = {}
     for row in appears_in_rows:
         entity_id = _entity_id_of(row.get("n"))
         edge_props = row.get("r", {}).get("properties", {}) or {}
         source_chunk_id = edge_props.get("source_chunk_id")
-        if entity_id and source_chunk_id:
+        if not entity_id:
+            continue
+        if source_chunk_id:
             row_by_chunk[source_chunk_id] = entity_id
+        else:
+            synthetic = _synthetic_evidence_chunk(row)
+            if synthetic is not None:
+                synthetic_by_id[synthetic["id"]] = synthetic
+                row_by_chunk[synthetic["id"]] = entity_id
 
-    fetched_chunks = await get_chunks_by_ids(list(dict.fromkeys(row_by_chunk.keys())))
+    fetched_chunks = await get_chunks_by_ids(
+        [cid for cid in dict.fromkeys(row_by_chunk.keys()) if cid not in synthetic_by_id]
+    )
     fetched_by_id = {c["id"]: c for c in fetched_chunks}
+    fetched_by_id.update(synthetic_by_id)
 
     out: list[dict] = []
     for chunk_id, entity_id in row_by_chunk.items():
@@ -604,17 +615,93 @@ async def _fetch_case_conflicts(case_id: str) -> list[dict]:
 
 
 async def _fetch_appears_in(entity_ids: set[str]) -> list[dict]:
-    """Source-document/chunk provenance for a set of entities — never omitted, per architecture Figure 3."""
+    """
+    Source-document/chunk provenance for a set of entities — never
+    omitted, per architecture Figure 3.
+
+    `case` (the entity's own BELONGS_TO_CASE case_id, OPTIONAL MATCH so a
+    global/case-less entity still returns a row) rides along in the same
+    query rather than a second per-entity round trip — used by
+    _synthetic_evidence_chunk() below to give a structured-extraction
+    chunk a real case_id when one exists (a criminal_db record genuinely
+    has none — that silo is CNIC-cross-referenced, not case-anchored —
+    so `None` there is correct, not a gap).
+    """
     if not entity_ids:
         return []
     rows = await age_client.execute_cypher(
+        # "case" is a reserved word in openCypher (the CASE WHEN
+        # expression) -- confirmed live: using it as a node variable
+        # name here raised a real syntax error against AGE, caught only
+        # by live verification since the unit-test fake Cypher parser
+        # doesn't validate real Cypher grammar. "cs" avoids the clash.
         "MATCH (n)-[r:APPEARS_IN]->(d:Document) "
         "WHERE n.entity_id IN $ids AND r.superseded_by IS NULL "
-        "RETURN n, r, d",
+        "OPTIONAL MATCH (n)-[b:BELONGS_TO_CASE]->(cs:Case) WHERE b.superseded_by IS NULL "
+        "RETURN n, r, d, cs.case_id AS case_id",
         params={"ids": list(entity_ids)},
-        columns=["n", "r", "d"],
+        columns=["n", "r", "d", "case_id"],
     )
     return rows
+
+
+def _synthetic_evidence_chunk(row: dict) -> Optional[dict]:
+    """
+    [Bug fix] Build a synthetic evidence chunk from an APPEARS_IN row
+    (n, r, d — the exact shape _fetch_appears_in() returns) whose edge has
+    no source_chunk_id. Every entity written via
+    src/graph/structured_projection.py (the entire real Muhafiz Data API
+    sync corpus — FIRs, criminal records, everything) has this shape:
+    resolve_and_write() is always called without a source_chunk_id
+    there, since structured JSON records were never chunked/embedded
+    into Chroma the way narrative text was — there IS no real chunk to
+    look up. Both call sites that used to silently drop these rows
+    (retrieve_graph()'s main evidence loop, _fetch_case_conflicts() above)
+    were confirmed live to throw away real, correct graph-traversal
+    results this way — "seed entity matched but no connected evidence"
+    for a connection that demonstrably exists.
+
+    Deterministic template over fields already in the SAME query result
+    — never an LLM call, never fabricated text, same discipline this
+    codebase's other synthesized strings already follow (e.g.
+    candidate_reprioritization._why()). Returns None only when even
+    source_doc_id is absent — that genuinely is "nothing to cite" and
+    real APPEARS_IN edges always carry one, so this is a defensive
+    fallback, not an expected path.
+
+    The returned dict's `id` is deterministic and namespaced
+    ("synthetic:...") so it can never collide with a real Chroma chunk
+    id, and is merged directly into the caller's fetched_by_id lookup —
+    it never goes through get_chunks_by_ids()/Chroma at all.
+    """
+    edge_props = row.get("r", {}).get("properties", {}) or {}
+    source_doc_id = edge_props.get("source_doc_id")
+    if not source_doc_id:
+        return None
+
+    entity_id = _entity_id_of(row.get("n"))
+    doc_props = (row.get("d") or {}).get("properties", {}) or {}
+    doc_type = doc_props.get("doc_type") or "record"
+    filename = doc_props.get("filename") or source_doc_id
+    surface_text = (
+        edge_props.get("surface_text")
+        or (row.get("n") or {}).get("properties", {}).get("canonical_name")
+        or entity_id
+    )
+    metadata = {"source": source_doc_id, "doc_type": doc_type, "synthetic_evidence": True}
+    case_id = row.get("case_id")
+    if case_id:
+        # From _fetch_appears_in()'s own OPTIONAL MATCH on this entity's
+        # BELONGS_TO_CASE — real, not guessed from the doc_id string.
+        # Omitted (not None) for a genuinely case-less entity (e.g. a
+        # criminal_db record, cross-referenced by CNIC, never case-
+        # anchored) rather than asserting a case that doesn't exist.
+        metadata["case_id"] = case_id
+    return {
+        "id": f"synthetic:{entity_id}:{source_doc_id}",
+        "text": f"{surface_text} appears in {doc_type} record {filename} ({source_doc_id}).",
+        "metadata": metadata,
+    }
 
 
 def _compounded_confidence(edge_confidences: list[float]) -> float:
@@ -1089,20 +1176,38 @@ async def retrieve_graph(
     appears_in_rows = await _fetch_appears_in(visited)
     chunk_ids: list[str] = []
     row_by_chunk: dict[str, dict] = {}
+    synthetic_by_id: dict[str, dict] = {}
     for row in appears_in_rows:
         entity_id = _entity_id_of(row.get("n"))
         edge_props = row.get("r", {}).get("properties", {}) or {}
         source_chunk_id = edge_props.get("source_chunk_id")
-        if not entity_id or not source_chunk_id:
+        if not entity_id:
             continue
+        if not source_chunk_id:
+            # [Bug fix] structured-extraction writes (src/graph/
+            # structured_projection.py — the entire real Muhafiz sync
+            # corpus) never carry a source_chunk_id — see
+            # _synthetic_evidence_chunk()'s own docstring for the full
+            # story. Confirmed live: without this, a real, existing
+            # cross-case connection reported "seed entity matched but no
+            # connected evidence" every time, indistinguishable from a
+            # genuinely empty result.
+            synthetic = _synthetic_evidence_chunk(row)
+            if synthetic is None:
+                continue
+            synthetic_by_id[synthetic["id"]] = synthetic
+            source_chunk_id = synthetic["id"]
         chunk_ids.append(source_chunk_id)
         row_by_chunk[source_chunk_id] = {
             "entity_id": entity_id,
             "mention_confidence": float(edge_props.get("confidence", 1.0)),
         }
 
-    fetched_chunks = await get_chunks_by_ids(list(dict.fromkeys(chunk_ids)))
+    fetched_chunks = await get_chunks_by_ids(
+        [cid for cid in dict.fromkeys(chunk_ids) if cid not in synthetic_by_id]
+    )
     fetched_by_id = {c["id"]: c for c in fetched_chunks}
+    fetched_by_id.update(synthetic_by_id)
 
     chunks: list[dict] = []
     max_hop_returned = 0
