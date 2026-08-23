@@ -182,6 +182,42 @@ async def test_deterministic_override_fires_for_confirmed_failure_patterns(monke
     assert result["confidence"] == "high"
 
 
+# ── Bug fix: XGRAPH's override must not discard a CNIC/phone/plate that
+# names the actual instance being asked about — target_entity=None
+# unconditionally meant graph_retriever._seed_candidates() had nothing to
+# seed a traversal from, guaranteeing a false "no connections found" for
+# any entity this override's own trigger vocabulary ("elsewhere," "other
+# cases") fires on. Found via a live full-route sweep against real graph
+# data: a real Person confirmed (via direct Cypher) to recur across two
+# real cases still came back "no connections found" through this path. ──
+
+async def test_xgraph_override_extracts_a_phone_number_into_target_entity(monkeypatch):
+    """The exact case this codebase's OWN test suite already parametrized
+    above ('kya number 0372-1590538 kisi aur case mein bhi aya hai') --
+    it asserted the route but never that the phone number survived. It
+    didn't, before this fix."""
+    monkeypatch.setattr(router, "call_llm", _no_llm_call)
+    result = await router.route_query("kya number 0372-1590538 kisi aur case mein bhi aya hai")
+    assert result["route"] == "XGRAPH"
+    assert result["target_entity"] == "0372-1590538"
+
+
+@pytest.mark.parametrize("query", [
+    "Has this phone number appeared in other cases?",
+    "Is this suspect a repeat offender?",
+    "کسی اور کیس میں بھی ملوث رہا ہے؟",
+])
+async def test_xgraph_override_leaves_target_entity_null_with_no_identifier_in_text(monkeypatch, query):
+    """Per router.txt's own XGRAPH definition: target_entity stays null
+    when the query asks about recurrence/enumeration with no specific
+    instance NAMED in the text -- correct today and must stay correct;
+    this fix must not start guessing an entity out of thin air."""
+    monkeypatch.setattr(router, "call_llm", _no_llm_call)
+    result = await router.route_query(query)
+    assert result["route"] == "XGRAPH"
+    assert result["target_entity"] is None
+
+
 @pytest.mark.parametrize("query", [
     "What PPC section covers mobile phone theft?",
     "Is cyber harassment a cognizable offense?",
