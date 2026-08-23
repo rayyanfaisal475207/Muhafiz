@@ -222,6 +222,49 @@ async def test_deterministic_override_does_not_fire_for_an_active_case(monkeypat
     assert result["route"] == "GRAPH"
 
 
+# ── Bug fix: an ACTIVE case_id must suppress the override too, not just a
+# literal case number typed in the query text (found via a live full-route
+# sweep — "how many accused are involved in this case" with a real case_id
+# on the request still misrouted to XAGG, since _ACTIVE_CASE_RE only ever
+# looked at the query text) ──────────────────────────────────────────────
+
+async def test_deterministic_override_does_not_fire_when_a_case_id_is_active(monkeypatch):
+    """
+    The exact reproduction: router.txt's own GRAPH few-shot example
+    ("How many accused are involved in CASE-009 and how are they
+    connected?"), reworded to say "this case" instead of the literal
+    case number -- the natural phrasing once a case is already active --
+    must still fall through to the LLM (GRAPH), not get hijacked by the
+    XAGG override just because no case number appears in the text.
+    """
+    async def fake_call_llm(system_prompt, user_message, **kwargs):
+        return json.dumps({"route": "GRAPH", "case_scope": "within_case"})
+
+    monkeypatch.setattr(router, "call_llm", fake_call_llm)
+    result = await router.route_query(
+        "How many accused are involved in this case and how are they connected?",
+        case_id="fir-97-26",
+    )
+    assert result["route"] == "GRAPH"
+
+
+async def test_deterministic_override_still_fires_without_an_active_case_id(monkeypatch):
+    """Regression guard: the real cross-case behavior this override exists
+    for must be unaffected when no case is active — the fix must not have
+    just disabled the override outright."""
+    monkeypatch.setattr(router, "call_llm", _no_llm_call)
+    result = await router.route_query("How many closed cases are there in total?", case_id=None)
+    assert result["route"] == "XAGG"
+
+
+async def test_sql_override_fires_regardless_of_an_active_case_id(monkeypatch):
+    """SQL's override is orthogonal to case context by design (see its own
+    comment in router.py) -- an active case_id must not suppress it."""
+    monkeypatch.setattr(router, "call_llm", _no_llm_call)
+    result = await router.route_query("What PPC section covers mobile phone theft?", case_id="fir-97-26")
+    assert result["route"] == "SQL"
+
+
 @pytest.mark.parametrize("query", [
     "Summarize the FIR for this case.",
     "Who is connected to the accused in CASE-009?",

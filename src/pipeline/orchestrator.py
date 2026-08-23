@@ -508,7 +508,7 @@ async def process_query(
         )):
             route_result = {"route": "DIRECT", "output_format": "chat", "case_scope": "within_case", "target_entity": None, "confidence": "high", "reason": "Short/conversational message — fast-path to DIRECT"}
         else:
-            route_result = await route_query(rewritten_query)
+            route_result = await route_query(rewritten_query, case_id=case_id)
         route_str = route_result.get("route", "RAG").upper()
         output_format = route_result.get("output_format", "chat").lower()
         case_scope = route_result.get("case_scope", "within_case")

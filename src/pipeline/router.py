@@ -155,8 +155,30 @@ _SQL_OVERRIDE_PATTERNS = [
 ]
 
 
-def _deterministic_route_override(query: str) -> dict | None:
-    """Return a route dict for an unambiguous cross-case pattern, or None."""
+def _deterministic_route_override(query: str, case_id: str | None = None) -> dict | None:
+    """
+    Return a route dict for an unambiguous cross-case pattern, or None.
+
+    `case_id` — [bug fix, found via a live full-route sweep] an ACTIVE
+    case on the request is a stronger, structural "this is within-case"
+    signal than _ACTIVE_CASE_RE's own regex over the query TEXT below,
+    which only catches a literal case number typed in the message
+    ("CASE-009"). A user already inside a case-scoped chat naturally
+    says "this case"/"the case" instead — that phrasing has no literal
+    case number for _ACTIVE_CASE_RE to match, so it used to fall through
+    to the XAGG/XGRAPH/XNETWORK override lists below and could misfire
+    (confirmed live: "how many accused are involved in this case" —
+    router.txt's own verbatim GRAPH few-shot example, just with "this
+    case" instead of "CASE-009" — matched XAGG's `"how many...cases?"`
+    pattern purely on the word "case" appearing nearby, answering with
+    unrelated cross-case counts instead of the case's own accused).
+    When `case_id` is given, skip straight past all three cross-case
+    override blocks — same effective short-circuit _ACTIVE_CASE_RE
+    already does for the text-based signal, just triggered by the
+    request's own case context instead. SQL's override stays
+    unconditional either way — see its own comment below for why it's
+    orthogonal to case context by design.
+    """
     # SQL checked absolute first, ahead of even the active-case exclusion
     # below — a penal-code/cognizability lookup is orthogonal to whether a
     # case happens to be named in the same sentence ("what section applies
@@ -185,8 +207,8 @@ def _deterministic_route_override(query: str) -> dict | None:
                 "station": None, "district": None,
             }
 
-    if _ACTIVE_CASE_RE.search(query):
-        return None  # a named case anchors this within-case (GRAPH), not XAGG/XGRAPH/XNETWORK
+    if case_id or _ACTIVE_CASE_RE.search(query):
+        return None  # an active case (by request context OR a literal case number in the text) anchors this within-case (GRAPH), not XAGG/XGRAPH/XNETWORK
 
     # XNETWORK checked first: its patterns are deliberately narrow/distinct
     # open-ended-synthesis phrasing (see comment above _XNETWORK_OVERRIDE_
@@ -227,17 +249,21 @@ def _deterministic_route_override(query: str) -> dict | None:
     return None
 
 
-async def route_query(rewritten_query: str) -> dict:
+async def route_query(rewritten_query: str, case_id: str | None = None) -> dict:
     """
     Decide the route and output format for the query.
 
     Args:
         rewritten_query: The standalone query from the query rewriter.
+        case_id: The case active on this request, if any — see
+            _deterministic_route_override()'s own docstring for why this
+            (not just a literal case number in the text) must also
+            suppress the cross-case deterministic overrides.
 
     Returns:
         Dict: {"route": str, "output_format": str, "confidence": str, "reason": str}
     """
-    override = _deterministic_route_override(rewritten_query)
+    override = _deterministic_route_override(rewritten_query, case_id=case_id)
     if override is not None:
         return override
 
