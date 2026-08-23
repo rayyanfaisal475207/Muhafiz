@@ -215,6 +215,21 @@ def test_supervisor_cannot_assign_case_users(api):
     assert response.status_code == 403
 
 
+def test_supervisor_can_view_entity_resolution_eval_metrics(api):
+    """
+    admin-frontend's Sidebar/App.tsx gate the Entity Eval page at
+    supervisor-or-higher (same tier as Review Queue/Ingestion Quality) — the
+    backend must not be stricter than the page it's serving. Confirmed live
+    against a real running backend during a full E2E pass that a supervisor
+    account previously got a 403 here; this guards the fix."""
+    client, _ = api
+    app.dependency_overrides[get_current_user] = lambda: _User(str(uuid.uuid4()), role="supervisor")
+
+    response = client.get("/api/admin/eval/entity-resolution")
+
+    assert response.status_code == 200
+
+
 # ── Case mutation scoping (Phase 5, Module 5.1) ──────────────────────────────
 #
 # Any user assigned to a case, at any role, used to be able to permanently
