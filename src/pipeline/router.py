@@ -71,22 +71,30 @@ _XAGG_OVERRIDE_PATTERNS = [
     # Recurring-entity aggregates:
     # "recurring vehicles across cases", "top recurring vehicles",
     # "kitni gariyan bar bar cases mein aayi hain"
-    re.compile(r"\brecurring\b.{0,25}\b(vehicles?|persons?|people)\b", re.IGNORECASE),
+    #
+    # [findings.md Module 4] "weapons?|firearms?|pistols?" added to all
+    # three entity groups below alongside vehicles?/persons? — live gap:
+    # "Which type of weapon appears most often across all cases?" named
+    # no entity in this group, so this whole XAGG family never matched
+    # and the query fell through to XGRAPH's own "across ... cases"
+    # override (optional multiple/other group, fires on zero named
+    # entities) instead, returning a nonsensical "no connections" answer.
+    re.compile(r"\brecurring\b.{0,25}\b(vehicles?|persons?|people|weapons?|firearms?|pistols?)\b", re.IGNORECASE),
     re.compile(r"\btop recurring\b", re.IGNORECASE),
-    re.compile(r"\b(vehicles?|persons?|people)\b.{0,30}\bacross\b.{0,20}\bcases\b", re.IGNORECASE),
+    re.compile(r"\b(vehicles?|persons?|people|weapons?|firearms?|pistols?)\b.{0,30}\bacross\b.{0,20}\bcases\b", re.IGNORECASE),
     re.compile(r"bar\s*bar\b.{0,20}\bcases\b", re.IGNORECASE),
     # "which persons/suspects/vehicles appeared in multiple/more than one/
     # several cases" — live-caught gap: no "recurring"/"across" keyword,
     # so the patterns above miss it even though it's the exact same
     # top-recurring-nodes question.
     re.compile(
-        r"\b(persons?|people|suspects?|accused|offenders?|vehicles?|mulzim|shakhs)\b"
+        r"\b(persons?|people|suspects?|accused|offenders?|vehicles?|mulzim|shakhs|weapons?|firearms?|pistols?|ہتھیار)\b"
         r".{0,40}\b(multiple|more than one|several|many)\s+cases?\b",
         re.IGNORECASE,
     ),
     re.compile(
         r"\b(multiple|more than one|several|many)\s+cases?\b"
-        r".{0,40}\b(persons?|people|suspects?|accused|offenders?|vehicles?|mulzim|shakhs)\b",
+        r".{0,40}\b(persons?|people|suspects?|accused|offenders?|vehicles?|mulzim|shakhs|weapons?|firearms?|pistols?|ہتھیار)\b",
         re.IGNORECASE,
     ),
     # Station/category "most" aggregate: "which stations have the most open theft cases"
