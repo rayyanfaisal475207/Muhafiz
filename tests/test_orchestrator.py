@@ -1020,6 +1020,99 @@ async def test_graph_route_falls_back_to_rag_when_traversal_finds_nothing(run_pi
     assert {"reranker", "evaluator"} <= steps
 
 
+# ── Module 3 regression (findings.md): enumeration / list-synthesis refusal ──
+
+_MODULE_3_REAL_NAMES = ["طارق محمود", "شعیب ارشد", "ذیشان بٹ", "محمد اسلم", "حمزہ طارق"]
+
+
+def _enumeration_graph_result(case_id="fir-233-26"):
+    """
+    Mirrors fir-233-26's real graph_result shape, live-traced in findings.md
+    Module 3: 5 distinct real-person chunks, plus 6 byte-identical
+    placeholder-officer chunks (one placeholder name written as 7 distinct
+    graph nodes — a real, separate structured_projection.py/entity-
+    resolution oddity, out of scope here). Used to guard both fixes: the
+    response-generation fix (documents must actually reach the LLM) and
+    the dedupe/rerank-budget fix (the 6 duplicates must not crowd the 5
+    real chunks out of the reranked set).
+    """
+    chunks = [
+        {"id": f"dup{i}", "text": "(نامزد ASI) appears in fir_structured record fir-233-26.",
+         "metadata": {"source": "psrms/fir/fir-233-26#structured", "case_id": case_id},
+         "rrf_score": 1.0}
+        for i in range(6)
+    ] + [
+        {"id": f"real{i}", "text": f"{name} appears in fir_structured record fir-233-26.",
+         "metadata": {"source": "psrms/fir/fir-233-26#structured", "case_id": case_id},
+         "rrf_score": 1.0}
+        for i, name in enumerate(_MODULE_3_REAL_NAMES)
+    ]
+    return {
+        "chunks": chunks, "hop_count": 0, "compounded_confidence": 1.0,
+        "seed_entities": [
+            {"entity_id": f"P-{i}", "type": "Person", "name": n}
+            for i, n in enumerate(_MODULE_3_REAL_NAMES)
+        ],
+        "unconfirmed_links": [],
+    }
+
+
+async def test_graph_route_enumeration_evidence_reaches_the_llm(run_pipeline):
+    """
+    Before this fix, GRAPH's response-generation step built system_prompt =
+    _FINAL_PROMPT_TEMPLATE.format(documents=documents_text, ...) — a
+    format() call whose kwargs final_response.txt's template no longer has
+    placeholders for (silently dropped, no error, since the RAG route was
+    already migrated to carry documents in the USER turn instead) — and
+    then sent the BARE user_message (just the question, no evidence at
+    all) as the LLM's user turn. The generation LLM received zero evidence
+    and hallucinated a fabricated answer, which the Verifier then
+    (correctly) rejected. Live-confirmed (trace_module3.py) fabricated
+    output: "Ahmad Khan", "Sara Bibi", "Mohammad Ali" — none of them real.
+
+    Assert the real user turn sent to call_llm() now actually carries the
+    retrieved evidence, and that none of the 5 real people were crowded
+    out by the 6 byte-identical placeholder chunks at the rerank cut.
+    """
+    events, _ = await run_pipeline(
+        route='{"route": "GRAPH", "case_scope": "within_case", "target_entity": null, "output_format": "chat"}',
+        message="List every person mentioned in this case file.",
+        case_id="fir-233-26",
+        graph_result=_enumeration_graph_result(),
+    )
+
+    steps = {e["step"] for e in events}
+    assert "response" in steps
+
+    user_turn = run_pipeline.call.last_user
+    assert "PROVIDED DOCUMENTS" in user_turn
+    for name in _MODULE_3_REAL_NAMES:
+        assert name in user_turn, f"{name} missing from the evidence reaching the LLM"
+
+    # The max_tokens headroom bump (a genuinely correct, complete
+    # enumeration answer was confirmed live to occasionally truncate
+    # mid-sentence under the old 1000-token default).
+    assert run_pipeline.call.last_kwargs.get("max_tokens") == orch._GRAPH_ANSWER_MAX_TOKENS
+
+
+def test_dedupe_chunks_by_text_collapses_exact_duplicates():
+    """
+    6 byte-identical placeholder chunks (the real fir-233-26 shape — one
+    placeholder officer name written as 7 distinct graph nodes) collapse
+    to 1; distinct chunks are untouched; first-occurrence order is
+    preserved.
+    """
+    chunks = [
+        {"id": f"dup{i}", "text": "(نامزد ASI) appears in fir_structured record fir-233-26."}
+        for i in range(6)
+    ] + [
+        {"id": "real1", "text": "طارق محمود appears in fir_structured record fir-233-26."},
+        {"id": "real2", "text": "شعیب ارشد appears in fir_structured record fir-233-26."},
+    ]
+    deduped = orch._dedupe_chunks_by_text(chunks)
+    assert [c["id"] for c in deduped] == ["dup0", "real1", "real2"]
+
+
 async def test_graph_hybrid_merges_graph_and_vector_chunks(run_pipeline):
     events, _ = await run_pipeline(
         route='{"route": "GRAPH_HYBRID", "case_scope": "within_case", "target_entity": null, "output_format": "chat"}',
