@@ -44,6 +44,17 @@
 #      /citations endpoints, added alongside the existing /pending
 #      SAME_AS queue rather than merged into it.
 #
+#   3. ASSOCIATED_WITH{basis, confidence} between a newly-resolved CMS
+#      complainant/PKM applicant and every Person ALREADY INVOLVED_IN that
+#      same case's Incident (findings.md Module 1 follow-up,
+#      MODULE1_GAPS_FIX_PROMPT.md Priority 1) — structured_projection.py's
+#      own ASSOCIATED_WITH writer only pairs the roster it resolves
+#      within one project_fir() call, so a cross-silo party added in this
+#      LATER pass (see ORDERING DEPENDENCY below) never got paired even
+#      though it shares the exact same Incident node. See
+#      _pair_with_existing_incident_roster() for the read-current-roster
+#      approach and its idempotency reasoning.
+#
 # ORDERING DEPENDENCY: every function here writes edges whose OTHER
 # endpoint is a Case/Person node that M6a's project_fir() creates. If this
 # module runs before M6a has projected the relevant FIR(s),
@@ -96,6 +107,83 @@ def _incident_entity_id_for_case(case_id: str) -> str:
     FirRecord, at the point it needs this.
     """
     return f"INCIDENT-FIR-{case_id}"
+
+
+async def _pair_with_existing_incident_roster(
+    new_entity_id: str, incident_id: str, case_id: str, doc_id: str, graph: str, stats: dict,
+) -> None:
+    """
+    findings.md Module 1 follow-up (MODULE1_GAPS_FIX_PROMPT.md Priority 1)
+    — structured_projection.project_fir()'s own _write_associated_with()
+    only pairs the Person roster it resolves within that ONE call. A CMS
+    complainant/PKM applicant added here, in a LATER pass (see this
+    module's own "ORDERING DEPENDENCY" comment above: FIRs project before
+    cross-silo linking), never got pulled into that pairing even though
+    it INVOLVED_IN the exact same Incident node
+    (_incident_entity_id_for_case() == structured_projection's own
+    _incident_entity_id() for the same case_id). This closes that gap
+    from the cross-silo side, since this is the module that runs after
+    the FIR and can actually see the roster that already exists.
+
+    Reads the CURRENT INVOLVED_IN roster for this Incident at call time —
+    never a roster frozen earlier — so a second cross-silo record landing
+    on the same case later is handled correctly too: it just pairs
+    against whoever is on the Incident right now. `new_entity_id` itself
+    is excluded so this never self-pairs.
+
+    Same basis/confidence convention as structured_projection's
+    _write_associated_with() ("co-mentioned in case <id>'s incident",
+    confidence 0.5) — deliberately unchanged even though one side is a
+    CMS/PKM party rather than an FIR party: it's genuinely the same
+    Incident node either way, so the same honest "structural co-mention,
+    not a stated relationship" framing still applies. Edges are tagged
+    with THIS record's own doc_id (not the FIR's), so
+    purge_edges_by_source_prefix() (scripts/sync_muhafiz_data.py) purges
+    and re-derives only this record's own added pairs on a re-sync,
+    without touching (or needing to re-run) the FIR's own pairwise edges.
+
+    Also skips any pair that's already `ASSOCIATED_WITH` — live-caught
+    case: a CMS/PKM person can CNIC-auto-merge (entity_resolution's normal
+    exact-match tiering) onto the SAME entity_id an FIR party already has,
+    in which case `new_entity_id` isn't actually new at all, and pairing
+    it against the roster would write a second, redundant edge for a pair
+    structured_projection's own _write_associated_with() already wrote
+    (different source_doc_id, same two people, same basis — pure noise,
+    confirmed live on fir-417-26 before this check was added: صبا/رضوان
+    got a duplicate edge purely because صبا's CMS complaint entry
+    CNIC-merged onto her existing FIR Person node). Without this check
+    that pair would grow a fresh redundant edge on every single re-sync.
+    """
+    rows = await age_client.execute_cypher(
+        "MATCH (p:Person)-[:INVOLVED_IN]->(:Incident {entity_id: $incident_id}) "
+        "RETURN DISTINCT p.entity_id AS entity_id",
+        params={"incident_id": incident_id}, columns=["entity_id"], graph=graph,
+    )
+    existing_ids = {r["entity_id"] for r in rows if r["entity_id"] and r["entity_id"] != new_entity_id}
+    if not existing_ids:
+        return
+
+    already_rows = await age_client.execute_cypher(
+        "MATCH (a:Person {entity_id: $new_id})-[:ASSOCIATED_WITH]-(b:Person) "
+        "WHERE b.entity_id IN $candidate_ids "
+        "RETURN DISTINCT b.entity_id AS entity_id",
+        params={"new_id": new_entity_id, "candidate_ids": sorted(existing_ids)},
+        columns=["entity_id"], graph=graph,
+    )
+    already_paired = {r["entity_id"] for r in already_rows if r["entity_id"]}
+    for other_id in sorted(existing_ids - already_paired):
+        try:
+            await versioning.write_edge(
+                "ASSOCIATED_WITH", "Person", {"entity_id": new_entity_id}, "Person", {"entity_id": other_id},
+                {"basis": f"co-mentioned in case {case_id}'s incident"},
+                source_doc_id=doc_id, confidence=0.5, graph=graph,
+            )
+            stats["edges_written"] += 1
+        except Exception as exc:
+            logger.warning(
+                "ASSOCIATED_WITH write failed for %s<->%s in %s: %s", new_entity_id, other_id, case_id, exc,
+            )
+            stats["errors"].append(f"associated_with[{new_entity_id}<->{other_id}]: {exc}")
 
 
 # ── CMS ──────────────────────────────────────────────────────────────────
@@ -163,13 +251,17 @@ async def project_cms_complaint(
                     mention["phone"] = cms.complainant["phone"]
                 resolution = await resolve_structured_person(mention, case_id, doc_id, graph=graph)
                 stats["persons_resolved"] += 1
+                incident_id = _incident_entity_id_for_case(case_id)
                 involved = await versioning.write_edge(
                     "INVOLVED_IN", "Person", {"entity_id": resolution["entity_id"]},
-                    "Incident", {"entity_id": _incident_entity_id_for_case(case_id)},
+                    "Incident", {"entity_id": incident_id},
                     {"role": "complainant_cms"}, source_doc_id=doc_id, confidence=1.0, graph=graph,
                 )
                 if involved:
                     stats["edges_written"] += 1
+                    await _pair_with_existing_incident_roster(
+                        resolution["entity_id"], incident_id, case_id, doc_id, graph, stats,
+                    )
     except Exception as exc:
         logger.warning("CMS projection failed for %s: %s", cms.complaint_id, exc)
         stats["errors"].append(str(exc))
@@ -232,13 +324,17 @@ async def project_pkm_application(
                     mention["address_text"] = pkm.applicant["address_text"]
                 resolution = await resolve_structured_person(mention, case_id, doc_id, graph=graph)
                 stats["persons_resolved"] += 1
+                incident_id = _incident_entity_id_for_case(case_id)
                 involved = await versioning.write_edge(
                     "INVOLVED_IN", "Person", {"entity_id": resolution["entity_id"]},
-                    "Incident", {"entity_id": _incident_entity_id_for_case(case_id)},
+                    "Incident", {"entity_id": incident_id},
                     {"role": "applicant_pkm"}, source_doc_id=doc_id, confidence=1.0, graph=graph,
                 )
                 if involved:
                     stats["edges_written"] += 1
+                    await _pair_with_existing_incident_roster(
+                        resolution["entity_id"], incident_id, case_id, doc_id, graph, stats,
+                    )
 
         if pkm.service_type == "vehicle_verification":
             await _write_pkm_vehicle(pkm, doc_id, graph, stats)

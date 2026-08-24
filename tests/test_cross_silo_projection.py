@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from src.data_gateway.muhafiz_api.models import CmsComplaint, CriminalRecord, FirRecord, PkmApplication
-from src.graph import cross_silo_projection as csp, entity_resolution, versioning
+from src.graph import age_client, cross_silo_projection as csp, entity_resolution, versioning
 
 FIXTURE = Path(__file__).parent / "fixtures" / "muhafiz_api_snapshot.json"
 
@@ -43,6 +43,7 @@ def graph_calls(monkeypatch):
         calls["edges"].append({
             "edge_label": edge_label, "from_label": from_label, "from_match": from_match,
             "to_label": to_label, "to_match": to_match, "properties": properties or {},
+            "source_doc_id": source_doc_id, "confidence": confidence,
         })
         return {"id": len(calls["edges"]) + 1, "label": edge_label, "properties": properties or {}}
 
@@ -84,6 +85,30 @@ def fake_find_by_primary_id(monkeypatch):
     return state
 
 
+@pytest.fixture
+def fake_incident_roster(monkeypatch):
+    """
+    Stubs age_client.execute_cypher for
+    _pair_with_existing_incident_roster()'s two reads — the only
+    age_client calls this module makes: (1) "who's already INVOLVED_IN
+    this Incident" and (2) "which of those is the new person already
+    ASSOCIATED_WITH" (the CNIC-auto-merge dedup check). Tests set
+    `.roster` (entity_ids INVOLVED_IN the Incident) and `.already_paired`
+    (entity_ids to report as already-linked, default empty) to control
+    each independently. Differentiated by matching each query's own
+    Cypher text — the two are structurally distinct, not by convention.
+    """
+    state = {"roster": [], "already_paired": []}
+
+    async def fake(cypher_query, params=None, columns=("result",), graph=None):
+        if "INVOLVED_IN" in cypher_query:
+            return [{"entity_id": eid} for eid in state["roster"]]
+        return [{"entity_id": eid} for eid in state["already_paired"]]
+
+    monkeypatch.setattr(age_client, "execute_cypher", fake)
+    return state
+
+
 # ── CMS ──────────────────────────────────────────────────────────────────
 
 class TestProjectCmsComplaint:
@@ -99,7 +124,7 @@ class TestProjectCmsComplaint:
         assert stats["errors"] == []
 
     async def test_linked_complaint_writes_belongs_to_case_and_resolves_complainant(
-        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write, fake_incident_roster,
     ):
         cms = CmsComplaint({
             "complaint_id": "C1", "case_tag_number": "TAG-X",
@@ -122,6 +147,89 @@ class TestProjectCmsComplaint:
         await csp.project_cms_complaint(cms, case_id="fir-1-26")
         assert not fake_resolve_and_write
 
+    # ── findings.md Module 1 follow-up (MODULE1_GAPS_FIX_PROMPT.md Priority 1) ──
+
+    async def test_complainant_paired_with_existing_incident_roster(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write, fake_incident_roster,
+    ):
+        fake_incident_roster["roster"] = ["PERSON-EXISTING-1", "PERSON-EXISTING-2"]
+        cms = CmsComplaint({
+            "complaint_id": "C1", "case_tag_number": "TAG-X",
+            "complainant": {"full_name": "صبا", "cnic": "00000-9000100-1"},
+        })
+        stats = await csp.project_cms_complaint(cms, case_id="fir-341-26")
+
+        assert fake_resolve_and_write[0]["entity_type"] == "person"
+        new_entity_id = "PERSON-0"  # fake_resolve_and_write's first-call id, CNIC present so it's used
+        assoc = [e for e in graph_calls["edges"] if e["edge_label"] == "ASSOCIATED_WITH"]
+        assert len(assoc) == 2  # paired with both existing roster members, never each other
+        paired_ids = {e["to_match"]["entity_id"] for e in assoc}
+        assert paired_ids == {"PERSON-EXISTING-1", "PERSON-EXISTING-2"}
+        assert all(e["from_match"]["entity_id"] == new_entity_id for e in assoc)
+        for e in assoc:
+            assert e["properties"]["basis"] == "co-mentioned in case fir-341-26's incident"
+            assert e["confidence"] == 0.5
+            # Tagged with the CMS record's OWN doc_id, not the FIR's — so a
+            # re-sync of just this record purges/re-derives just these pairs.
+            assert e["source_doc_id"] == "cms/complaint/C1#structured"
+        assert stats["edges_written"] >= 2
+
+    async def test_empty_existing_roster_writes_no_associated_with(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write, fake_incident_roster,
+    ):
+        cms = CmsComplaint({
+            "complaint_id": "C1", "case_tag_number": "TAG-X",
+            "complainant": {"full_name": "صبا", "cnic": "00000-9000100-1"},
+        })
+        await csp.project_cms_complaint(cms, case_id="fir-341-26")
+        assert not any(e["edge_label"] == "ASSOCIATED_WITH" for e in graph_calls["edges"])
+
+    async def test_never_self_pairs_when_roster_read_echoes_the_new_person(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write, fake_incident_roster,
+    ):
+        # The Cypher read happens AFTER this record's own INVOLVED_IN write,
+        # so in reality it would include the just-written person too — make
+        # sure that never produces a self-pair.
+        fake_incident_roster["roster"] = ["PERSON-0", "PERSON-EXISTING-1"]
+        cms = CmsComplaint({
+            "complaint_id": "C1", "case_tag_number": "TAG-X",
+            "complainant": {"full_name": "صبا", "cnic": "00000-9000100-1"},
+        })
+        await csp.project_cms_complaint(cms, case_id="fir-341-26")
+        assoc = [e for e in graph_calls["edges"] if e["edge_label"] == "ASSOCIATED_WITH"]
+        assert len(assoc) == 1
+        assert assoc[0]["to_match"]["entity_id"] == "PERSON-EXISTING-1"
+
+    async def test_unlinked_complaint_never_calls_incident_roster_pairing(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write, fake_incident_roster,
+    ):
+        cms = CmsComplaint({"complaint_id": "C1", "case_tag_number": "TAG-X"})
+        await csp.project_cms_complaint(cms, case_id=None)
+        assert not any(e["edge_label"] == "ASSOCIATED_WITH" for e in graph_calls["edges"])
+
+    async def test_cnic_auto_merge_onto_an_already_paired_person_skips_the_redundant_edge(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write, fake_incident_roster,
+    ):
+        """
+        Live-caught regression (fir-417-26): when the CMS complainant
+        CNIC-auto-merges onto a Person the FIR's own _write_associated_with()
+        already paired with someone else, that pair must NOT get a second,
+        redundant ASSOCIATED_WITH edge just because a cross-silo record
+        happened to resolve to the same existing entity_id. A genuinely
+        unpaired roster member must still get paired normally.
+        """
+        fake_incident_roster["roster"] = ["PERSON-ALREADY-PAIRED", "PERSON-NOT-YET-PAIRED"]
+        fake_incident_roster["already_paired"] = ["PERSON-ALREADY-PAIRED"]
+        cms = CmsComplaint({
+            "complaint_id": "C1", "case_tag_number": "TAG-X",
+            "complainant": {"full_name": "صبا", "cnic": "00000-9000100-1"},
+        })
+        await csp.project_cms_complaint(cms, case_id="fir-341-26")
+
+        assoc = [e for e in graph_calls["edges"] if e["edge_label"] == "ASSOCIATED_WITH"]
+        assert len(assoc) == 1
+        assert assoc[0]["to_match"]["entity_id"] == "PERSON-NOT-YET-PAIRED"
+
 
 # ── PKM ──────────────────────────────────────────────────────────────────
 
@@ -137,7 +245,7 @@ class TestProjectPkmApplication:
         assert not fake_resolve_and_write
 
     async def test_linked_application_resolves_applicant(
-        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write, fake_incident_roster,
     ):
         pkm = PkmApplication({
             "application_id": "P1", "service_type": "women_violence_report",
@@ -147,6 +255,57 @@ class TestProjectPkmApplication:
         assert stats["persons_resolved"] == 1
         involved = [e for e in graph_calls["edges"] if e["edge_label"] == "INVOLVED_IN"]
         assert any(e["properties"]["role"] == "applicant_pkm" for e in involved)
+
+    # ── findings.md Module 1 follow-up (MODULE1_GAPS_FIX_PROMPT.md Priority 1) ──
+
+    async def test_applicant_paired_with_existing_incident_roster(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write, fake_incident_roster,
+    ):
+        fake_incident_roster["roster"] = ["PERSON-EXISTING-1"]
+        pkm = PkmApplication({
+            "application_id": "P1", "service_type": "women_violence_report",
+            "applicant": {"full_name": "X", "cnic": "00000-1-1"},
+        })
+        stats = await csp.project_pkm_application(pkm, case_id="fir-97-26")
+
+        assoc = [e for e in graph_calls["edges"] if e["edge_label"] == "ASSOCIATED_WITH"]
+        assert len(assoc) == 1
+        assert assoc[0]["to_match"]["entity_id"] == "PERSON-EXISTING-1"
+        assert assoc[0]["from_match"]["entity_id"] == "PERSON-0"
+        assert assoc[0]["properties"]["basis"] == "co-mentioned in case fir-97-26's incident"
+        assert assoc[0]["confidence"] == 0.5
+        assert assoc[0]["source_doc_id"] == "pkm/application/P1#structured"
+        assert stats["edges_written"] >= 1
+
+
+class TestAssociatedWithAcrossMultipleCrossSiloRecords:
+    """
+    findings.md Module 1 follow-up (MODULE1_GAPS_FIX_PROMPT.md Priority 1)
+    — _pair_with_existing_incident_roster() reads the CURRENT roster at
+    call time rather than one frozen at some earlier point, so a second
+    cross-silo record landing on the same case later pairs correctly with
+    BOTH the FIR's own roster and any cross-silo record(s) already
+    projected — not just with the FIR.
+    """
+
+    async def test_second_cross_silo_record_pairs_with_first_cross_silo_record_too(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write, fake_incident_roster,
+    ):
+        # Simulate: the FIR's own roster (1 person) plus a CMS complaint
+        # already projected on this case (its complainant now INVOLVED_IN
+        # the Incident too) — a PKM application projects next and should
+        # pair with both.
+        fake_incident_roster["roster"] = ["PERSON-FIR-1", "PERSON-CMS-COMPLAINANT"]
+        pkm = PkmApplication({
+            "application_id": "P1", "service_type": "women_violence_report",
+            "applicant": {"full_name": "X", "cnic": "00000-1-1"},
+        })
+        await csp.project_pkm_application(pkm, case_id="fir-97-26")
+
+        assoc = [e for e in graph_calls["edges"] if e["edge_label"] == "ASSOCIATED_WITH"]
+        assert len(assoc) == 2
+        paired_ids = {e["to_match"]["entity_id"] for e in assoc}
+        assert paired_ids == {"PERSON-FIR-1", "PERSON-CMS-COMPLAINANT"}
 
 
 class TestProjectPkmVehicleVerification:
@@ -443,7 +602,7 @@ class TestAgainstRealSnapshotEndToEnd:
     """
 
     async def test_every_cms_and_pkm_record_projects_without_raising(
-        self, snapshot, firs, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+        self, snapshot, firs, graph_calls, no_candidates_by_default, fake_resolve_and_write, fake_incident_roster,
     ):
         from src.ingestion.muhafiz_cases import (
             build_e_tag_index, build_display_code_index, resolve_cms_case_id, resolve_pkm_case_id,
