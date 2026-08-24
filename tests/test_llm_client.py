@@ -26,7 +26,7 @@ async def test_cloud_max_tokens_overrides_max_tokens_on_the_groq_branch(monkeypa
 
     seen = {}
 
-    async def fake_call_groq(system_prompt, user_message, temperature, max_tokens):
+    async def fake_call_groq(system_prompt, user_message, temperature, max_tokens, **kwargs):
         seen["max_tokens"] = max_tokens
         return "ok"
 
@@ -65,7 +65,7 @@ async def test_omitting_cloud_max_tokens_falls_back_to_max_tokens(monkeypatch):
 
     seen = {}
 
-    async def fake_call_groq(system_prompt, user_message, temperature, max_tokens):
+    async def fake_call_groq(system_prompt, user_message, temperature, max_tokens, **kwargs):
         seen["max_tokens"] = max_tokens
         return "ok"
 
@@ -91,6 +91,73 @@ async def test_local_branch_uses_max_tokens_not_cloud_max_tokens(monkeypatch):
     )
     assert result == "ok"
     assert seen["max_tokens"] == 2000
+
+
+# ── reasoning_effort plumbing (Module 2 follow-up, findings.md) ──────────────
+#
+# config.GROQ_MODEL (openai/gpt-oss-120b) is itself a reasoning model: with
+# no way to disable its hidden reasoning trace, a small cloud_max_tokens
+# budget (needed to clear the account's TPM cap — see router.py's own
+# comment) got entirely consumed by that trace, returning empty content
+# instead of the JSON classification. reasoning_effort="low" fixed it live.
+# These tests lock in that the parameter actually reaches Groq's API call,
+# is omitted (not sent as None) when a caller doesn't set it — unchanged
+# behavior for every pre-existing call site — and is a no-op for Gemini.
+
+async def test_reasoning_effort_reaches_the_groq_api_call(monkeypatch):
+    monkeypatch.setattr(client.config, "LLM_PROVIDER", "groq")
+    monkeypatch.setattr(client.config, "LOCAL_LLM_URL", "")
+    monkeypatch.setattr(client.config, "LOCAL_GEN_LLM_URL", "")
+
+    seen = {}
+
+    class FakeCompletions:
+        async def create(self, **kwargs):
+            seen.update(kwargs)
+            class R:
+                choices = [type("C", (), {"message": type("M", (), {"content": "ok"})()})]
+            return R()
+
+    class FakeChat:
+        completions = FakeCompletions()
+
+    class FakeGroqClient:
+        chat = FakeChat()
+
+    monkeypatch.setattr(client, "_get_groq_client", lambda: FakeGroqClient())
+
+    result = await client.call_llm("system", "user", max_tokens=300, reasoning_effort="low")
+    assert result == "ok"
+    assert seen.get("reasoning_effort") == "low"
+
+
+async def test_reasoning_effort_omitted_by_default(monkeypatch):
+    """Every pre-existing call site (none of which pass reasoning_effort)
+    must see unchanged behaviour: the field is never sent to Groq at all,
+    not sent as an explicit None."""
+    monkeypatch.setattr(client.config, "LLM_PROVIDER", "groq")
+    monkeypatch.setattr(client.config, "LOCAL_LLM_URL", "")
+    monkeypatch.setattr(client.config, "LOCAL_GEN_LLM_URL", "")
+
+    seen = {}
+
+    class FakeCompletions:
+        async def create(self, **kwargs):
+            seen.update(kwargs)
+            class R:
+                choices = [type("C", (), {"message": type("M", (), {"content": "ok"})()})]
+            return R()
+
+    class FakeChat:
+        completions = FakeCompletions()
+
+    class FakeGroqClient:
+        chat = FakeChat()
+
+    monkeypatch.setattr(client, "_get_groq_client", lambda: FakeGroqClient())
+
+    await client.call_llm("system", "user", max_tokens=300)
+    assert "reasoning_effort" not in seen
 
 
 # ── _stream_local empty/whitespace-content fallback (Module 6.4) ──────────────
