@@ -52,7 +52,7 @@ verification.
 | 1 | [Relationship extraction gap](#module-1-relationship-extraction-gap-associated_with--0) ✅ RESOLVED 2026-08-24 | 🔴 High | Large | — |
 | 2 | [Non-matched-attribute evidence gap](#module-2-non-matched-attribute-evidence-gap) ✅ RESOLVED 2026-08-24 | 🟠 Medium-High | Small | — |
 | 3 | [Enumeration / list-synthesis refusal](#module-3-enumeration--list-synthesis-refusal) ✅ RESOLVED 2026-08-25 | 🟠 Medium-High | Medium | — |
-| 4 | [XAGG entity-type coverage gap](#module-4-xagg-entity-type-coverage-gap-weapon-aggregation) | 🟡 Medium | Medium-Large | — |
+| 4 | [XAGG entity-type coverage gap](#module-4-xagg-entity-type-coverage-gap-weapon-aggregation) ✅ RESOLVED 2026-08-25 | 🟡 Medium | Medium-Large | — |
 | 5 | [SQL extractor phrasing brittleness](#module-5-sql-extractor-phrasing-brittleness) | 🟡 Medium | Medium | — |
 | 6 | [Community detection never refreshes for real sync data](#module-6-community-detection-never-refreshes-for-real-sync-data) | 🟠 Medium-High | Small | — |
 | 7 | [No general adaptive multi-method retrieval](#module-7-no-general-adaptive-multi-method-retrieval) | 🟡 Medium | Large | — |
@@ -517,7 +517,61 @@ fix belongs in the response-generation prompt or in
 
 ## Module 4: XAGG entity-type coverage gap (weapon aggregation)
 
-### Problem
+### ✅ RESOLVED — 2026-08-25
+Fixed on `main` (merged from `feature/xagg-weapon-recurrence`). All three
+stacked gaps below re-confirmed against current code before fixing (line
+numbers had drifted since Modules 1-3 landed) — none of the three root
+causes needed revision, only re-verification:
+
+- **Router**: added `weapons?|firearms?|pistols?|ہتھیار` to all three
+  `_XAGG_OVERRIDE_PATTERNS` entity-keyword groups (`src/pipeline/router.py`)
+  that already covered vehicles/persons, matching their existing
+  narrowness.
+- **Dispatch**: added a `"Weapon"` branch to `run_aggregate()`'s
+  `graph_recurrence` dispatch (`src/pipeline/xagg.py`).
+- **Aggregation shape**: added a genuinely new function,
+  `_top_recurring_weapon_types()`, grouping by a normalized weapon-type
+  string and counting distinct cases per group — deliberately **not**
+  routed through `_top_recurring_nodes("Weapon", ...)`, which (confirmed
+  again by re-reading `structured_projection._write_weapons()`) can never
+  return anything for this label. Normalization strips the trailing
+  ammunition-count clause (`بمعہ N گولیاں`) via a regex verified against
+  real sampled `canonical_name` values pulled directly from the live
+  graph before implementing:
+  ```
+  "30 بور پستول"                 (10 cases, unnormalized)
+  "30 بور پستول بمعہ 3 گولیاں"   (11 cases, unnormalized)
+  "30 بور پستول بمعہ 6 گولیاں"   (11 cases, unnormalized)
+  ```
+  all three normalize to `"30 بور پستول"`, spanning **30 distinct cases**
+  once merged.
+
+**Tests**: `tests/test_router.py` adds 3 weapon-phrasing cases to the
+existing deterministic-override parametrize list; the existing XGRAPH
+"across cases"/"other cases"/"repeat offender" cases in the same list
+were run explicitly as a regression guard and still pass unchanged.
+`tests/test_xagg.py` adds weapon-recurrence tests including one that
+proves the ammunition-suffix normalization is load-bearing (asserts the
+two raw canonical_name strings are distinct pre-normalization and only
+converge after). Full backend suite green: 1589 passed, 0 failed, 5
+skipped.
+
+**Live-verified** against the real running Postgres/AGE instance over a
+real HTTP `/api/chat` call (backend restarted — found running without
+`--reload` again this session, same as the standing note above; restored
+to `--reload` afterward). *"Which type of weapon appears most often
+across all cases?"* now routes **XAGG** (was **XGRAPH**) and returns:
+> 30 بور پستول (Weapon): appears in 30 cases — fir-1001-26, fir-201-26,
+> fir-202-26, fir-203-26, fir-204-26, fir-210-26, fir-212-26, fir-213-26,
+> fir-214-26, fir-217-26, fir-218-26, fir-301-26, fir-401-26, fir-403-26,
+> fir-407-26, fir-408-26, fir-409-26, fir-410-26, fir-413-26, fir-420-26,
+> fir-421-26, fir-423-26, fir-430-26, fir-431-26, fir-445-26, fir-458-26,
+> fir-465-26, fir-466-26, fir-468-26, fir-891-24
+
+— matching a direct Cypher count against the same live data exactly (30
+distinct case_ids).
+
+### Problem (as originally found — kept for context)
 *"Which type of weapon appears most often across all cases?"* → router
 classifies it as **XGRAPH** (wrong — no entity was named, this is a pure
 aggregate/ranking question) and returns the nonsensical *"No connections
