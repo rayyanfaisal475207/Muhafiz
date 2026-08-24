@@ -118,6 +118,18 @@
 #     rewritten from "latest row only" to a full dated OCCURRED_ON timeline
 #     (one edge per row with a status_date, same idiom as every other
 #     multi-dated-event source in this module).
+#   - ASSOCIATED_WITH{basis, confidence} between every pair of Person nodes
+#     (victim/complainant/accused/witnesses — never Officer) that
+#     INVOLVED_IN the same Incident (findings.md Module 1 — this was the
+#     ONLY edge type src/retrieval/graph_retriever.py's multi-hop
+#     traversal ever follows between two different entities, and this
+#     module never wrote it: live count was 0 across the whole real graph,
+#     making every GRAPH/GRAPH_HYBRID/XGRAPH/XNETWORK query permanently
+#     hop_count=0 in production). Deliberately labeled "co-mentioned",
+#     confidence 0.5 — well under the 1.0 used for directly-stated
+#     structured fields elsewhere in this module — since sharing an
+#     Incident is a structural fact, not a stated relationship (see
+#     _write_associated_with() below).
 #
 # Every write here is source_doc_id-tagged to the synthetic "#structured"
 # Document, so provenance ("what does the system believe, from where") is
@@ -126,6 +138,7 @@
 
 from __future__ import annotations
 
+import itertools
 import logging
 import re
 from typing import Optional
@@ -630,6 +643,10 @@ async def project_fir(fir: FirRecord, *, graph: str = age_client.GRAPH_NAME) -> 
             complainant_entity_id, victim_entity_id,
         )
         await _write_witnesses(fir, case_id, doc_id, incident_id, graph, stats, witness_by_name)
+        await _write_associated_with(
+            case_id, doc_id, graph, stats,
+            victim_entity_id, complainant_entity_id, accused_by_name, witness_by_name,
+        )
         await _write_weapons(fir, case_id, doc_id, graph, stats, accused_by_name)
         await _write_structured_records(fir, case_id, doc_id, graph, stats, accused_by_name, witness_by_name)
         await _write_officers(fir, case_id, doc_id, graph, stats)
@@ -776,6 +793,57 @@ async def _write_witnesses(fir, case_id, doc_id, incident_id, graph, stats, witn
         except Exception as exc:
             logger.warning("Witness write failed for %s in %s: %s", w.get("full_name"), fir.fir_id, exc)
             stats["errors"].append(f"witness[{w.get('id')}]: {exc}")
+
+
+async def _write_associated_with(
+    case_id: str, doc_id: str, graph: str, stats: dict,
+    victim_entity_id: Optional[str], complainant_entity_id: Optional[str],
+    accused_by_name: dict, witness_by_name: dict,
+) -> None:
+    """
+    findings.md Module 1 — ASSOCIATED_WITH{basis, confidence} between every
+    pair of Person nodes that INVOLVED_IN this FIR's Incident (victim,
+    complainant, accused, witnesses — everyone _write_victim/
+    _write_complainant/_write_accused/_write_witnesses just wrote an
+    INVOLVED_IN edge for). This was the only edge type
+    graph_retriever.py's multi-hop traversal ever follows between two
+    different entities, and this module never wrote it — live count was 0
+    across the whole real graph, so every GRAPH/GRAPH_HYBRID/XGRAPH/
+    XNETWORK query was permanently hop_count=0 in production.
+
+    Deliberately NOT Officer<->Person — an investigating officer isn't a
+    co-conspirator-style associate of the accused. Officers never reach
+    this function's roster: they're linked via ASSIGNED_TO -> Case
+    (_write_officers), never INVOLVED_IN -> Incident, so no separate
+    filter is needed to keep them out.
+
+    `basis` is honestly "co-mentioned in case <id>'s incident", not "known
+    associate" — this is a structural fact (two people appear in the same
+    FIR), not a stated relationship — hence confidence 0.5, well under the
+    1.0 used for directly-stated structured fields elsewhere in this
+    module (INVOLVED_IN, RELATED_TO, OWNS). Scoped entirely to this one
+    FIR's own roster — never mixes people across two different cases.
+
+    One edge per pair (not both directions) is enough:
+    graph_retriever._one_hop_neighbors() matches `(a)-[r:ASSOCIATED_WITH]-(b)`
+    with no arrow, i.e. undirected.
+    """
+    roster = {victim_entity_id, complainant_entity_id, *accused_by_name.values(), *witness_by_name.values()}
+    roster.discard(None)
+    people = sorted(roster)
+    for entity_a, entity_b in itertools.combinations(people, 2):
+        try:
+            await versioning.write_edge(
+                "ASSOCIATED_WITH", "Person", {"entity_id": entity_a}, "Person", {"entity_id": entity_b},
+                {"basis": f"co-mentioned in case {case_id}'s incident"},
+                source_doc_id=doc_id, confidence=0.5, graph=graph,
+            )
+            stats["edges_written"] += 1
+        except Exception as exc:
+            logger.warning(
+                "ASSOCIATED_WITH write failed for %s<->%s in %s: %s", entity_a, entity_b, case_id, exc,
+            )
+            stats["errors"].append(f"associated_with[{entity_a}<->{entity_b}]: {exc}")
 
 
 async def _write_witness_home_jurisdiction(
