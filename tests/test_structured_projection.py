@@ -41,7 +41,7 @@ def graph_calls(monkeypatch):
         calls["edges"].append({
             "edge_label": edge_label, "from_label": from_label, "from_match": from_match,
             "to_label": to_label, "to_match": to_match, "properties": properties or {},
-            "supersedes_edge_id": supersedes_edge_id,
+            "supersedes_edge_id": supersedes_edge_id, "confidence": confidence,
         })
         return {"id": len(calls["edges"]), "label": edge_label, "properties": properties or {}}
 
@@ -683,6 +683,98 @@ class TestPersonRelationshipEdges:
         related = [e for e in graph_calls["edges"] if e["edge_label"] == "RELATED_TO"]
         assert len(related) == 2
         assert {e["properties"]["role"] for e in related} == {"اجنبی", "پڑوسی"}
+
+
+class TestAssociatedWithCoMention:
+    """findings.md Module 1 — ASSOCIATED_WITH{basis, confidence} between
+    every pair of Person nodes (victim/complainant/accused/witnesses) that
+    INVOLVED_IN the same FIR's Incident."""
+
+    async def test_three_accused_writes_all_pairwise_edges(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(
+            complainant_full_name=None,
+            fir_accused=[
+                {"id": "a1", "full_name": "ملزم ایک"},
+                {"id": "a2", "full_name": "ملزم دو"},
+                {"id": "a3", "full_name": "ملزم تین"},
+            ],
+        )
+        await sp.project_fir(fir)
+        assoc = [e for e in graph_calls["edges"] if e["edge_label"] == "ASSOCIATED_WITH"]
+        assert len(assoc) == 3  # C(3,2) — all pairs among the 3 accused
+        pairs = {frozenset({e["from_match"]["entity_id"], e["to_match"]["entity_id"]}) for e in assoc}
+        assert len(pairs) == 3  # all 3 pairs distinct, no duplicate/self pairing
+        for e in assoc:
+            assert e["properties"]["basis"] == "co-mentioned in case fir-100-26's incident"
+            assert e["confidence"] == 0.5
+
+    async def test_one_accused_writes_no_associated_with(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(
+            complainant_full_name=None,
+            fir_accused=[{"id": "a1", "full_name": "ملزم ایک"}],
+        )
+        await sp.project_fir(fir)
+        assoc = [e for e in graph_calls["edges"] if e["edge_label"] == "ASSOCIATED_WITH"]
+        assert assoc == []
+
+    async def test_full_roster_not_just_accused_gets_paired(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        # complainant (default from _minimal_fir) + victim + accused + witness = 4 people.
+        fir = _minimal_fir(
+            victim_name="مقتول",
+            fir_accused=[{"id": "a1", "full_name": "ملزم ایک"}],
+            fir_witness=[{"id": "w1", "full_name": "گواه ایک"}],
+        )
+        await sp.project_fir(fir)
+        assoc = [e for e in graph_calls["edges"] if e["edge_label"] == "ASSOCIATED_WITH"]
+        assert len(assoc) == 6  # C(4,2)
+
+    async def test_officers_never_get_associated_with(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(
+            complainant_full_name=None,
+            fir_accused=[{"id": "a1", "full_name": "ملزم ایک"}],
+            fir_investigating_officer=[{"id": "io1", "officer_name": "افسر ایک", "belt_no": "B-1"}],
+        )
+        await sp.project_fir(fir)
+        assoc = [e for e in graph_calls["edges"] if e["edge_label"] == "ASSOCIATED_WITH"]
+        assert all(e["from_label"] == "Person" and e["to_label"] == "Person" for e in assoc)
+        # single accused + an officer, no other Person -> still zero, and never Officer-labeled
+        assert assoc == []
+
+    async def test_two_different_firs_never_get_cross_case_edges(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir1 = _minimal_fir(
+            fir_id="fir-100-26", complainant_full_name=None,
+            fir_accused=[{"id": "a1", "full_name": "ملزم ایک"}, {"id": "a2", "full_name": "ملزم دو"}],
+        )
+        fir2 = _minimal_fir(
+            fir_id="fir-200-26", complainant_full_name=None,
+            fir_accused=[{"id": "b1", "full_name": "ملزم تین"}, {"id": "b2", "full_name": "ملزم چار"}],
+        )
+        await sp.project_fir(fir1)
+        await sp.project_fir(fir2)
+
+        # Person->Case BELONGS_TO_CASE edges give a ground-truth entity_id ->
+        # case_id map regardless of which resolution path (CNIC-corroborated
+        # vs. gated _write_new_person) each accused went through.
+        entity_ids_by_case: dict[str, set] = {}
+        for e in graph_calls["edges"]:
+            if e["edge_label"] == "BELONGS_TO_CASE" and e["from_label"] == "Person":
+                entity_ids_by_case.setdefault(e["to_match"]["case_id"], set()).add(e["from_match"]["entity_id"])
+
+        assoc = [e for e in graph_calls["edges"] if e["edge_label"] == "ASSOCIATED_WITH"]
+        assert len(assoc) == 2  # exactly one pairwise edge per FIR (2 accused each)
+        for e in assoc:
+            pair = {e["from_match"]["entity_id"], e["to_match"]["entity_id"]}
+            assert pair <= entity_ids_by_case["fir-100-26"] or pair <= entity_ids_by_case["fir-200-26"]
 
 
 class TestZimniOfficerAndPositionTimeline:
