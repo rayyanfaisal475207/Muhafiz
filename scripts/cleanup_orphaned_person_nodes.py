@@ -24,17 +24,22 @@
 #
 # SCOPE: deliberately narrow — checks only the two specific entity_ids
 # this session's own live verification is known to have orphaned, NOT a
-# full-corpus 0-edge sweep. A full "MATCH (p:Person) OPTIONAL MATCH
-# (p)-[r]-() WITH p, count(r) AS degree WHERE degree = 0" scan was tried
-# first and reset the connection every time (478 Person nodes with no
-# index-friendly starting point — genuinely too heavy to run casually,
-# not just a transient hiccup: reproduced 3 times, including once with no
-# other query competing for the connection). MODULE1_GAPS_FIX_PROMPT.md's
-# Priority 2b already flags a real, wider-corpus orphan population as a
-# SEPARATE, broader design question (structural fix vs. a proper indexed/
-# batched sweep) — this script intentionally does not attempt that here.
+# full-corpus 0-edge sweep. A full-corpus scan was tried multiple times
+# and multiple ways while building the automatic cleanup this script now
+# shares logic with (scripts/sync_muhafiz_data.py's
+# purge_orphaned_person_nodes_by_source_prefix() — see that function's own
+# docstring for the full story: one combined query reliably dropped the
+# AGE connection, a per-node unbounded OPTIONAL MATCH didn't error but
+# hung for 25+ real seconds on a SINGLE node, caught live via
+# pg_stat_activity). MODULE1_GAPS_FIX_PROMPT.md's Priority 2b already
+# flags a real, wider-corpus orphan population as a SEPARATE, broader
+# design question (structural fix vs. a proper indexed/batched sweep) —
+# this script intentionally does not attempt that here. In practice, most
+# orphans now get cleaned up automatically the next time their own record
+# is re-synced (sync_fir/sync_cms/sync_pkm call the shared cleanup
+# directly) — this script exists for whatever's left outside that flow.
 _KNOWN_ORPHANED_IDS = [
-    "PERSON-053c80c11a",  # findings.md Module 1's own live verification (fir-233-26, حمزہ طارق)
+    "PERSON-053c80c11a",  # findings.md Module 1's own live verification (fir-233-26, حمزہ طارق) — already cleaned up by a later re-sync, kept here for the historical record
     "PERSON-104ea1dafd",  # MODULE1_GAPS_FIX_PROMPT.md Priority 1's own live verification (fir-97-26, نازیہ کوثر (بیک وقت مدعیہ))
 ]
 #
@@ -54,22 +59,24 @@ try:
 except Exception:
     pass
 
+from scripts.sync_muhafiz_data import _person_has_any_edge
 from src.graph import age_client
 
 
 async def _fetch_orphaned_person_nodes() -> dict[str, dict]:
     """
-    Checks only `_KNOWN_ORPHANED_IDS` (single-node MATCH per id — cheap,
-    indexed on entity_id) and confirms each is genuinely edgeless before
-    reporting it — never assumes the id list above is still accurate.
+    Checks only `_KNOWN_ORPHANED_IDS` — reuses
+    sync_muhafiz_data._person_has_any_edge()'s per-EDGE_LABEL existence
+    check (never the unbounded any-label OPTIONAL MATCH that hung live)
+    to confirm each id is genuinely edgeless before reporting it — never
+    assumes the id list above is still accurate.
     """
     found: dict[str, dict] = {}
     for eid in _KNOWN_ORPHANED_IDS:
+        if await _person_has_any_edge(eid):
+            continue
         rows = await age_client.execute_cypher(
             "MATCH (p:Person {entity_id: $eid}) "
-            "OPTIONAL MATCH (p)-[r]-() "
-            "WITH p, count(r) AS degree "
-            "WHERE degree = 0 "
             "RETURN p.entity_id AS entity_id, p.canonical_name AS name, "
             "p.source_doc_id AS source_doc_id, p.as_of AS as_of",
             params={"eid": eid}, columns=["entity_id", "name", "source_doc_id", "as_of"],
