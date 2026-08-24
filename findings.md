@@ -232,16 +232,28 @@ suite green.
 ```
 "ذیشان appears in fir_structured record fir-401-26 (psrms/fir/fir-401-26#structured), with belt number GEN-0301, and phone number 0306-4000006 recorded there."
 ```
-— GEN-0301 now present, versus the pre-fix text quoted below. HTTP-level
-`/api/chat` verification for this exact query was blocked by a pre-existing,
-unrelated infra constraint: the router step's prompt for this case
-(8451 tokens) exceeds the Groq `on_demand` account tier's 8000 TPM cap,
-returning a 413 before `retrieve_graph()` (and this fix) is ever reached —
-confirmed deterministic (reproduces every attempt, not a transient
-rate-limit) and independent of this change (a trivial no-case-id message
-routes and responds fine on the same account). Not a regression from this
-fix; worth its own follow-up if the team wants full HTTP-level coverage
-restored for this route.
+— GEN-0301 now present, versus the pre-fix text quoted below.
+
+**HTTP-level `/api/chat` verification could not be completed** — blocked by
+a pre-existing, unrelated infra constraint, root-caused (not just
+observed) on retry: `route_query()` in `src/pipeline/router.py` (line
+231-232) skips every deterministic fast-path and always calls the LLM
+router with the fixed `prompts/router.txt` system prompt whenever the
+request carries a `case_id` (required to scope this repro to
+`fir-401-26`). That file alone is ~31KB / ~7,770 estimated tokens; with
+the user message and JSON-schema overhead the real call requests 8,451
+tokens, against this Groq account's `on_demand`-tier cap of 8,000 TPM —
+returning a 413 before `retrieve_graph()` (and this fix's code) is ever
+reached. Reproduced identically twice, same exact 8451/8000 figures both
+times, confirming this is structural (any case-scoped query not caught by
+a keyword fast-path fails this same way right now), not a transient
+rate-limit a retry can clear, and independent of this change (a trivial
+no-case-id message routes and responds fine on the same account). Not a
+regression from this fix. User confirmed (2026-08-24) accepting the direct
+`retrieve_graph()` live verification above as sufficient for Module 2;
+the router TPM/prompt-size issue is noted here as a separate, broader
+follow-up (affects real `/api/chat` usage for case-scoped queries
+generally, not just this repro) — not picked up as part of Module 2.
 
 ### Problem (as originally found — kept for context)
 *"What is Officer ذیشان's belt number in this case?"* (case `fir-401-26`,
