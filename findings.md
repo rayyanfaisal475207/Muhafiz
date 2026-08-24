@@ -51,7 +51,7 @@ verification.
 |---|--------|----------|------|------------|
 | 1 | [Relationship extraction gap](#module-1-relationship-extraction-gap-associated_with--0) ✅ RESOLVED 2026-08-24 | 🔴 High | Large | — |
 | 2 | [Non-matched-attribute evidence gap](#module-2-non-matched-attribute-evidence-gap) ✅ RESOLVED 2026-08-24 | 🟠 Medium-High | Small | — |
-| 3 | [Enumeration / list-synthesis refusal](#module-3-enumeration--list-synthesis-refusal) | 🟠 Medium-High | Medium | — |
+| 3 | [Enumeration / list-synthesis refusal](#module-3-enumeration--list-synthesis-refusal) ✅ RESOLVED 2026-08-25 | 🟠 Medium-High | Medium | — |
 | 4 | [XAGG entity-type coverage gap](#module-4-xagg-entity-type-coverage-gap-weapon-aggregation) | 🟡 Medium | Medium-Large | — |
 | 5 | [SQL extractor phrasing brittleness](#module-5-sql-extractor-phrasing-brittleness) | 🟡 Medium | Medium | — |
 | 6 | [Community detection never refreshes for real sync data](#module-6-community-detection-never-refreshes-for-real-sync-data) | 🟠 Medium-High | Small | — |
@@ -365,7 +365,80 @@ without needing query-intent parsing.
 
 ## Module 3: Enumeration / list-synthesis refusal
 
-### Problem
+### ✅ RESOLVED — 2026-08-25
+Fixed on `main` (merged from `fix/graph-answer-enumeration-refusal`).
+Traced one layer deeper than this module's own "needs more investigation"
+note asked for: called `retrieve_graph()` → `cross_rerank()` →
+response-generation prompt directly, printed the raw LLM output **before**
+`verify_grounding()` ran on it. **Neither of the two original hypotheses
+was quite right** — the real chain was three separate, compounding bugs,
+none of them in `citation_validator`/`verifier.py` (which was correctly
+rejecting bad output the whole time):
+
+- **Bug A (root cause):** GRAPH/GRAPH_HYBRID's response-generation step
+  built `system_prompt = _FINAL_PROMPT_TEMPLATE.format(documents=...,
+  project_memory=..., history=..., user_context=..., ...)` — but
+  `prompts/final_response.txt` had already been refactored (for the RAG
+  route's own privacy-refusal fix, see that route's code comment) to carry
+  documents/memory/context/history in the **user** turn instead, and no
+  longer has placeholders for any of those kwargs. Python's `.format()`
+  silently drops unmatched kwargs, so this compiled and ran with no error
+  — but `documents_text` never landed anywhere, and the bare, unmodified
+  question (no evidence at all) was sent as the user turn. Confirmed live:
+  raw LLM output was a full hallucination ("Ahmad Khan", "Sara Bibi",
+  "Mohammad Ali" — none real), which the Verifier correctly rejected.
+  **Fix:** added `_build_grounded_user_message()` (factored from RAG's
+  already-working construction) and used it in both GRAPH and
+  GRAPH_HYBRID, matching RAG's contract exactly.
+- **Bug B (compounding):** once Bug A was fixed, `config.TOP_K_RERANK`'s
+  shared default of 5 cut GRAPH's 12 raw chunks down to 5 **before**
+  they reached the prompt — and confirmed live, the 6 byte-identical
+  `"(نامزد ASI) appears in fir_structured record fir-233-26..."`
+  duplicate-officer chunks (this module's hypothesis 2, and the same
+  7-distinct-`Officer`-nodes-for-one-placeholder oddity flagged in this
+  session's ground-truth pull) crowded 4 of the 5 real people out of the
+  reranked set entirely. **Fix:** added `_dedupe_chunks_by_text()`
+  (collapses byte-identical chunk text, applied before the rerank cut)
+  and a larger, case-scoped-only rerank budget,
+  `_GRAPH_ANSWER_RERANK_TOP_K = 20` (GRAPH/GRAPH_HYBRID's `cross_rerank()`
+  calls only — not `config.TOP_K_RERANK`'s global default, not RAG, not
+  XGRAPH). `structured_projection.py`/entity resolution itself was
+  deliberately **not** touched — the 7-nodes-for-one-placeholder shape is
+  still there; this fix only stops its duplicate chunk text from wasting
+  the rerank budget.
+- **Bug C (found during live verification, expanded scope with
+  sign-off):** with A+B fixed, `evaluate_relevance()` (a separate,
+  earlier LLM gate, `src/pipeline/evaluator.py`/`prompts/evaluator.txt` —
+  never mentioned in this module's original hypotheses) rejected the now-
+  complete 5-real-name evidence set as "insufficient" most of the time,
+  reasoning that a case-status sentence's generic, unnamed role mentions
+  ("متاثرہ بچہ"/affected-child, "دونوں ملزمان"/the-two-accused) meant the
+  evidence was incomplete — even though those role-terms describe people
+  already named elsewhere in the same evidence. Same class of bug as
+  hypothesis 1, one gate earlier than expected. **Fix:** added an
+  "enumeration / list every X" rule + worked example to
+  `prompts/evaluator.txt`. Also bumped `call_llm()`'s `max_tokens` for
+  GRAPH/GRAPH_HYBRID generation from the shared default (1000) to
+  `_GRAPH_ANSWER_MAX_TOKENS = 2000` — confirmed live, a genuinely correct,
+  complete 5-6-item answer sometimes truncated mid-sentence under the
+  1000-token default (non-deterministic; same prompt completed cleanly on
+  other attempts).
+
+2 new unit tests added (`test_graph_route_enumeration_evidence_reaches_the_llm`,
+`test_dedupe_chunks_by_text_collapses_exact_duplicates`). Full backend
+suite green.
+
+**Live-verified end-to-end over real HTTP** (`admin@example.com`,
+freshly restarted backend, real Postgres/AGE, real `fir-233-26`): GRAPH
+route → evaluator `relevant: True` → `citation_validator` **grounded**
+("All claims about individuals, their details, and document citations are
+directly supported by the corresponding chunks.") → final answer names
+all 5 real people (حمزہ طارق, محمد اسلم, ذیشان بٹ, طارق محمود, شعیب
+ارشد), each with its CNIC/phone and `[Document N]` citation, plus an
+honestly-labeled placeholder entry for the redacted investigating officer
+— not folded in as a 6th real name.
+
+### Problem (as originally found — kept for context)
 *"List every person mentioned in this case file."* (case `fir-233-26`,
 real ground truth: exactly 5 people — طارق محمود, شعیب ارشد, ذیشان بٹ,
 محمد اسلم, حمزہ طارق). Live-traced `retrieve_graph()` directly: it
@@ -376,7 +449,7 @@ sufficiently support a specific claim." The retrieval is complete and
 correct; something after it — response generation or `citation_validator`
 — fails to synthesize a list from many small, independent evidence chunks.
 
-### Root cause — needs more investigation before a fix can be scoped
+### Root cause (as originally scoped — needs more investigation before a fix can be scoped)
 Unlike Modules 1/2/4/5, this one was **traced to "retrieval is fine, the
 failure is downstream" but not yet traced further** — the next step is to
 add the same kind of direct-call tracing this session used elsewhere, but
@@ -413,21 +486,31 @@ already refuses, or whether it produces a good list and
 fix belongs in the response-generation prompt or in
 `citation_validator`'s own claim-matching logic.
 
-### Files likely touched (provisional — confirm after the tracing step above)
-- Whichever `prompts/*.txt` drives GRAPH/GRAPH_HYBRID response generation.
-- Possibly `src/pipeline/verifier.py` (citation_validator's home, per this
-  session's summary) if the rejection is there rather than in generation.
-- `tests/test_orchestrator.py` or wherever that response-generation step
-  is unit-tested today.
+### Files touched
+- `src/pipeline/orchestrator.py` — `_build_grounded_user_message()`,
+  `_dedupe_chunks_by_text()`, `_GRAPH_ANSWER_RERANK_TOP_K`,
+  `_GRAPH_ANSWER_MAX_TOKENS`; GRAPH and GRAPH_HYBRID branches updated to
+  use all four.
+- `prompts/evaluator.txt` — new enumeration/"list every X" rule + example.
+- `tests/test_orchestrator.py` — 2 new tests (see above).
+- `src/pipeline/verifier.py`/`citation_validator` — **not touched**; it
+  was already correctly rejecting the hallucinated/incomplete answers
+  Bugs A/B produced.
+- `src/graph/structured_projection.py` — **not touched** (out of scope,
+  per this module's own note above); the 7-nodes-for-one-placeholder
+  shape is unchanged.
 
-### Test plan
-- Once root cause is confirmed: a unit test feeding a `retrieve_graph()`-
-  shaped multi-chunk enumeration result through the (fixed) prompt/
-  validator, asserting the final answer actually lists all N names rather
-  than refusing.
-- Live verification: re-run this session's own `fir-233-26` "list every
-  person" repro through the real HTTP endpoint — must name all 5 real
-  people.
+### Test plan (completed)
+- Unit test feeding a `retrieve_graph()`-shaped multi-chunk enumeration
+  result (5 real single-fact chunks + 6 duplicate placeholder chunks,
+  fir-233-26's real shape) through the GRAPH route, asserting the actual
+  evidence — not the bare question — reaches `call_llm()`'s user turn,
+  and that all 5 real names survive the rerank cut.
+- Unit test for `_dedupe_chunks_by_text()` directly: 6 duplicates → 1.
+- Live verification: re-ran this session's own `fir-233-26` "list every
+  person" repro through the real HTTP endpoint (backend freshly
+  restarted) — final answer named all 5 real people. See the RESOLVED
+  block above for the exact result.
 - Full backend suite green.
 
 ---

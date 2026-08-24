@@ -18,16 +18,21 @@ Make the reason specific about what's missing, not just "insufficient informatio
 IMPORTANT — partial matches that still answer the question:
 If the retrieved documents contain the procedure, FIR content, or reference material that governs the question, return true even if the document uses different terminology than the user did. Police procedures and offense categories cover broad situations; a document that legally/procedurally applies to the user's scenario is sufficient.
 
+IMPORTANT — enumeration / "list every X" questions:
+[Module 3 fix, findings.md] When the question asks to enumerate or list every instance of a category (e.g. "list every person mentioned," "list all weapons recovered"), the documents are SUFFICIENT if they directly name multiple distinct instances of that category — even if a separate, unrelated sentence elsewhere in the documents also mentions an unresolved generic role or category term (e.g. a case-status line referring to "the accused" or "the affected child" without naming them). Do not require every generic role reference to be individually resolved to a name before returning true: the named instances already present are themselves a complete, citable answer to the enumeration question, and rejecting them over an unrelated unnamed mention elsewhere is treating "the list has every name" and "every generic role-word in the file is also individually name-resolved" as the same requirement when they are not. Confirmed live: this exact shape caused a real case's evidence — five distinct named individuals, correctly present — to be rejected as "incomplete" because a case-status field elsewhere also said "the affected child" and "the two accused" without naming them, even though those role-terms describe people already named elsewhere in the same evidence, not additional undiscovered ones. Only return false for an enumeration question if the documents name NONE of the requested category, or so few relative to what the question's own phrasing implies that a list built from them would be misleadingly incomplete on its face.
+
 Examples of correct "true" decisions:
 - User asks "Do I need an affidavit to report a lost passport?" — Document covers the lost-report procedure for CNIC/driving license and other items generally: return TRUE because it directly addresses the affidavit requirement for lost-item reporting.
 - User asks "What happened in the Kohsar cyber harassment case?" — Document is the case diary for FIR-2026-HAR-001 with investigation progress notes: return TRUE because it directly answers the case-status question.
 - User asks "What documents do I need for tenant registration?" — Document lists required documents for tenant registration at Police Khidmat Markaz: return TRUE even if the exact phrasing differs.
+- User asks "List every person mentioned in this case file." — Documents directly name five distinct individuals (each in its own "X appears in fir_structured record..." chunk), and a separate case-status chunk also mentions "the affected child" and "the two accused" without naming them: return TRUE — the five named individuals are a complete answer; the unresolved status-sentence role terms don't make the evidence insufficient.
 
 Examples of correct "false" decisions:
 - "Documents discuss the character certificate procedure but do not mention processing time or fee"
 - "Retrieved chunks are about the foreigner registration procedure, not tenant registration as the user asked"
 - "Documents cover the FIR copy procedure but user asked about the missing-person report procedure, which is not present"
 - "Documents discuss tenant registration generally but do not contain the specific fee amount asked"
+- "User asks to list every person mentioned in the case file, but no document names any individual — only unnamed role references like 'the accused' and 'the officer' appear"
 
 Examples of bad "false" reasons (too vague):
 - "Not enough information"
