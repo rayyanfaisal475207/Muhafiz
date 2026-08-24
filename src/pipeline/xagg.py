@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections import Counter
 from typing import Optional
 
@@ -34,6 +35,16 @@ _PERSON_KEYWORDS = (
     "person", "people", "suspect", "offender", "recidivist", "accused",
     "mulzim", "shakhs",
     "شخص", "افراد", "لوگ", "ملزم",
+)
+# [findings.md Module 4] Weapon never had a keyword family at all — even
+# once the router pattern gap is fixed, run_aggregate()'s graph_recurrence
+# dispatch below only had Vehicle/Person branches, so a correctly-routed
+# weapon query fell through to _station_or_category_counts() and returned
+# an unrelated station/category breakdown instead of a weapon ranking.
+_WEAPON_KEYWORDS = (
+    "weapon", "firearm", "pistol", "gun", "rifle",
+    "hathiyar", "hathyar",
+    "ہتھیار", "پستول", "بندوق",
 )
 _STATION_KEYWORDS = ("station", "thana", "تھانہ", "چوکی")
 # Previously English-only, unlike the three keyword sets above — an Urdu
@@ -129,6 +140,80 @@ async def _top_recurring_nodes(
         {"entity_id": eid, "name": display.get(eid, eid), "case_count": len(cases), "case_ids": sorted(cases)}
         for eid, cases in ranked[:limit]
         if len(cases) > 1  # "recurring" — appearing in only one case isn't a cross-case pattern
+    ]
+
+
+# [findings.md Module 4] Strips a trailing ammunition-count clause shaped
+# "بمعہ N گولیاں" ("with N bullets") — e.g. "30 بور پستول بمعہ 3 گولیاں"
+# and "...بمعہ 6 گولیاں" are the SAME weapon type as bare "30 بور پستول",
+# differing only by how many rounds happened to be recovered with it.
+# Verified against real sampled canonical_name values from the live graph
+# (structured_projection._write_weapons() writes w.get("item_detail")
+# verbatim as canonical_name — see that function's own docstring for why
+# Weapon nodes can't be grouped by entity_id/node-identity at all).
+# `[0-9۰-۹]+` covers both ASCII and Urdu-Indic digit scripts defensively
+# (observed samples are ASCII-only, but this corpus mixes both scripts
+# elsewhere). Anchored at end-of-string and requires the literal
+# "بمعہ ... گولیاں" shape, so it can't strip a caliber/model token that
+# isn't actually an ammunition-count clause — deliberately narrow to
+# avoid merging genuinely distinct weapon types together.
+_WEAPON_SUFFIX_RE = re.compile(r"\s*بمعہ\s*[0-9۰-۹]+\s*گولیاں\s*$")
+
+
+def _normalize_weapon_type(name: str) -> str:
+    return _WEAPON_SUFFIX_RE.sub("", name or "").strip()
+
+
+async def _top_recurring_weapon_types(
+    limit: int = 10, jurisdiction_case_ids: Optional[list[str]] = None,
+) -> list[dict]:
+    """
+    Group Weapon nodes by a normalized weapon-type string (see
+    _normalize_weapon_type) and count DISTINCT CASES per group — NOT by
+    node identity the way _top_recurring_nodes() does.
+
+    [findings.md Module 4, root cause #3] Weapon entity_ids are FIR-scoped
+    by construction: structured_projection._write_weapons() builds each
+    one as f"WEAPON-{w.get('id') or w.get('sr_no')}-{fir.fir_id}" and
+    weapons never go through entity_resolution.resolve_and_write()'s
+    CNIC-style cross-case merge tier the way Person/Vehicle do. Every real
+    Weapon node therefore belongs to exactly one case, permanently, so
+    _top_recurring_nodes("Weapon", ...)'s per-entity_id grouping would
+    always return an empty list — confirmed against the live graph, not
+    just inferred. This function groups by weapon TYPE instead, closer in
+    shape to _station_or_category_counts() than to _top_recurring_nodes().
+    """
+    if jurisdiction_case_ids is not None:
+        rows = await age_client.execute_cypher(
+            "MATCH (w:Weapon)-[:BELONGS_TO_CASE]->(c:Case) WHERE c.case_id IN $case_ids "
+            "RETURN w.canonical_name AS weapon_name, c.case_id AS case_id",
+            params={"case_ids": jurisdiction_case_ids}, columns=["weapon_name", "case_id"],
+        )
+    else:
+        rows = await age_client.execute_cypher(
+            "MATCH (w:Weapon)-[:BELONGS_TO_CASE]->(c:Case) "
+            "RETURN w.canonical_name AS weapon_name, c.case_id AS case_id",
+            columns=["weapon_name", "case_id"],
+        )
+    per_type_cases: dict[str, set[str]] = {}
+    for row in rows:
+        raw_name = row.get("weapon_name")
+        case_id = row.get("case_id")
+        if not raw_name or not case_id:
+            continue
+        normalized = _normalize_weapon_type(raw_name)
+        if not normalized:
+            continue
+        per_type_cases.setdefault(normalized, set()).add(case_id)
+
+    ranked = sorted(per_type_cases.items(), key=lambda kv: len(kv[1]), reverse=True)
+    return [
+        # Same key names _top_recurring_nodes() uses ("name"/"case_count"/
+        # "case_ids") so the existing graph_recurrence renderers in
+        # orchestrator.py and harness/tools/xagg.py need no changes.
+        {"name": wtype, "case_count": len(cases), "case_ids": sorted(cases)}
+        for wtype, cases in ranked[:limit]
+        if len(cases) > 1  # "recurring" — same bar _top_recurring_nodes uses
     ]
 
 
@@ -279,6 +364,13 @@ async def run_aggregate(
     if _matches_any(query_lower, _PERSON_KEYWORDS):
         top = await _top_recurring_nodes("Person", jurisdiction_case_ids=jurisdiction_case_ids)
         return {"kind": "graph_recurrence", "entity_type": "Person", "results": top}
+
+    # [findings.md Module 4] Do NOT call _top_recurring_nodes("Weapon", ...)
+    # here — see _top_recurring_weapon_types()'s own docstring for why that
+    # would always return [] for real data.
+    if _matches_any(query_lower, _WEAPON_KEYWORDS):
+        top = await _top_recurring_weapon_types(jurisdiction_case_ids=jurisdiction_case_ids)
+        return {"kind": "graph_recurrence", "entity_type": "Weapon", "results": top}
 
     # A plain enumeration ("list of all cases") with no station/category/status
     # grouping language present — answer with the raw case records rather than
