@@ -234,26 +234,57 @@ suite green.
 ```
 — GEN-0301 now present, versus the pre-fix text quoted below.
 
-**HTTP-level `/api/chat` verification could not be completed** — blocked by
-a pre-existing, unrelated infra constraint, root-caused (not just
-observed) on retry: `route_query()` in `src/pipeline/router.py` (line
-231-232) skips every deterministic fast-path and always calls the LLM
-router with the fixed `prompts/router.txt` system prompt whenever the
-request carries a `case_id` (required to scope this repro to
-`fir-401-26`). That file alone is ~31KB / ~7,770 estimated tokens; with
-the user message and JSON-schema overhead the real call requests 8,451
-tokens, against this Groq account's `on_demand`-tier cap of 8,000 TPM —
-returning a 413 before `retrieve_graph()` (and this fix's code) is ever
-reached. Reproduced identically twice, same exact 8451/8000 figures both
-times, confirming this is structural (any case-scoped query not caught by
-a keyword fast-path fails this same way right now), not a transient
-rate-limit a retry can clear, and independent of this change (a trivial
-no-case-id message routes and responds fine on the same account). Not a
-regression from this fix. User confirmed (2026-08-24) accepting the direct
-`retrieve_graph()` live verification above as sufficient for Module 2;
-the router TPM/prompt-size issue is noted here as a separate, broader
-follow-up (affects real `/api/chat` usage for case-scoped queries
-generally, not just this repro) — not picked up as part of Module 2.
+**HTTP-level `/api/chat` verification — initially blocked, then fixed and
+completed (2026-08-24, same day).** First attempt hit a pre-existing,
+unrelated infra constraint: `route_query()`'s LLM call (fixed
+`prompts/router.txt` system prompt, always used once a `case_id` is on the
+request — see line 231-232) requested 8,451 tokens against this Groq
+account's `on_demand`-tier cap of 8,000 TPM, returning a 413 before
+`retrieve_graph()` was ever reached. Reproduced identically twice
+(byte-identical 8451/8000), which looked structural but turned out not to
+be — root cause was narrower and fixable without touching `router.txt`'s
+content at all: this pipeline is local-first by design (Qwen3-14B tried
+before any cloud call), and the local model itself classifies fine in
+isolation, but the LIVE orchestrated request was exhausting all 3 local
+attempts and escalating to the Groq cloud fallback, which then
+**guaranteed-failed** for an unrelated reason — `call_llm_json`'s cloud
+escalation inherited the same 800-token `max_tokens` set for the LOCAL
+branch (sized for Qwen3-14B's hidden thinking trace), and Groq counts
+`max_tokens` toward its TPM accounting, pushing every cloud attempt over
+the cap regardless of query. Fixed narrowly (`fix/router-cloud-fallback-reasoning-effort`,
+merged to `main`): router.py now passes `cloud_max_tokens=300` (the
+existing, purpose-built knob for exactly this — no other call site had
+ever needed a small cloud budget before) plus a new `reasoning_effort`
+parameter threaded through `call_llm`/`call_llm_json`/`_call_groq`, set to
+`"low"` for the router's cloud call — `config.GROQ_MODEL`
+(openai/gpt-oss-120b) is itself a reasoning model and was silently
+burning its entire 300-token budget on a hidden reasoning trace before
+`cloud_max_tokens` alone was tried (confirmed live: came back empty).
+With `reasoning_effort="low"`, a real router call's reasoning dropped to
+82 tokens, completion 151 tokens total, and the whole request landed at
+7,802 tokens — under the cap, correct classification returned
+(`GRAPH`, `target_entity: "ذیشان"`, matching this module's own original
+live trace exactly). 2 new unit tests added; full backend suite green.
+
+**Confirmed live end-to-end over real HTTP** after the fix: router
+succeeded (`Route decided: GRAPH`), graph retrieval ran, and the
+evaluator step explicitly confirmed *"Document [2] explicitly states
+Officer ذیشان's belt number"* — direct proof this module's actual fix
+(the notable-properties clause) is reaching the LLM correctly through the
+full real pipeline, not just in isolated `retrieve_graph()` calls. Module
+2 itself is now fully, completely verified end-to-end.
+
+**New, separate finding surfaced by this fix (not part of Module 2, not
+yet triaged as its own module):** despite the evaluator confirming the
+belt number is present in evidence, the response-generation step still
+produced a wrong number (`3456` — matching neither `GEN-0301` nor the
+officer's phone), which `citation_validator` correctly caught as
+ungrounded and triggered a regeneration; the regeneration also failed to
+produce a grounded answer, so the final response was still the generic
+refusal. This is downstream of Module 2 entirely — evidence now correctly
+contains the fact, but generation still hallucinated instead of reading
+it — and is a distinct gap (response-generation grounding vs.
+evidence-availability) worth its own investigation if picked up.
 
 ### Problem (as originally found — kept for context)
 *"What is Officer ذیشان's belt number in this case?"* (case `fir-401-26`,
