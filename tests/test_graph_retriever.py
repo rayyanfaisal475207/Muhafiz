@@ -360,6 +360,97 @@ async def test_matched_property_not_propagated_to_a_hop_reached_entity(fake_grap
     assert hop_chunk["text"] == "Co-Accused appears in fir_structured record CASE-C (psrms/fir/CASE-C#structured)."
 
 
+# ── Notable-property evidence text (Module 2, findings.md) ──────────────────
+#
+# _synthetic_evidence_chunk() used to mention ONLY the property that
+# justified the seed match (if any) — never any OTHER property the node
+# carries. Confirmed live: "What is Officer ذیشان's belt number in this
+# case?" found the right officer, but the cited text never named the belt
+# number anywhere, so the LLM correctly refused to confirm a fact that's
+# true in the graph but absent from what it's shown. These tests lock in
+# that notable properties (belt_no/cnic/phone/plate, per _NOTABLE_PROPERTIES)
+# now always surface, without duplicating whichever property already
+# justified the seed match.
+
+async def test_officer_seeded_by_name_surfaces_belt_number(fake_graph, fake_chunks):
+    fake_graph.add_node("OFFICER-319", "Officer", canonical_name="ذیشان", belt_no="GEN-0301")
+    fake_graph.add_case("OFFICER-319", "fir-401-26")
+    fake_graph.add_appears_in(
+        "OFFICER-319", None, confidence=1.0,
+        source_doc_id="psrms/fir/fir-401-26#structured", surface_text="ذیشان",
+        doc_type="fir_structured", filename="fir-401-26",
+    )
+
+    result = await gr.retrieve_graph("What is Officer ذیشان's belt number in this case?", "ذیشان", "fir-401-26")
+
+    assert result["chunks"][0]["text"] == (
+        "ذیشان appears in fir_structured record fir-401-26 (psrms/fir/fir-401-26#structured), "
+        "with belt number GEN-0301 recorded there."
+    )
+
+
+async def test_person_seeded_by_name_surfaces_cnic_and_phone(fake_graph, fake_chunks):
+    fake_graph.add_node(
+        "P-420", "Person", canonical_name="Waqas Ali Niazi",
+        cnic="00000-9000006-1", phone="0305-4000005",
+    )
+    fake_graph.add_case("P-420", "CASE-D")
+    fake_graph.add_appears_in(
+        "P-420", None, confidence=1.0,
+        source_doc_id="psrms/fir/CASE-D#structured", surface_text="Waqas Ali Niazi",
+        doc_type="fir_structured", filename="CASE-D",
+    )
+
+    result = await gr.retrieve_graph("Tell me about Waqas Ali Niazi", "Waqas Ali Niazi", "CASE-D")
+
+    assert result["chunks"][0]["text"] == (
+        "Waqas Ali Niazi appears in fir_structured record CASE-D (psrms/fir/CASE-D#structured), "
+        "with CNIC 00000-9000006-1, and phone number 0305-4000005 recorded there."
+    )
+
+
+async def test_node_with_no_notable_properties_beyond_match_renders_unchanged(fake_graph, fake_chunks):
+    """A node whose only notable property IS the one that matched the seed
+    (nothing else present) must render exactly as before this fix — no
+    trailing empty/dangling clause."""
+    fake_graph.add_node("P-421", "Person", canonical_name="طارق", phone="0305-4000005")
+    fake_graph.add_case("P-421", "CASE-E")
+    fake_graph.add_appears_in(
+        "P-421", None, confidence=1.0,
+        source_doc_id="psrms/fir/CASE-E#structured", surface_text="طارق",
+        doc_type="fir_structured", filename="CASE-E",
+    )
+
+    result = await gr.retrieve_graph("Does phone 0305-4000005 appear in this case?", "0305-4000005", "CASE-E")
+
+    assert result["chunks"][0]["text"] == (
+        "طارق, whose phone number is 0305-4000005, appears in fir_structured record CASE-E "
+        "(psrms/fir/CASE-E#structured)."
+    )
+
+
+async def test_officer_seeded_by_belt_number_does_not_duplicate_it(fake_graph, fake_chunks):
+    """An Officer seeded BY belt_no (not name) must name the belt number
+    once, in the existing match_clause — not a second time in the notable-
+    properties clause."""
+    fake_graph.add_node("OFFICER-320", "Officer", canonical_name="ذیشان", belt_no="GEN-0301")
+    fake_graph.add_case("OFFICER-320", "CASE-F")
+    fake_graph.add_appears_in(
+        "OFFICER-320", None, confidence=1.0,
+        source_doc_id="psrms/fir/CASE-F#structured", surface_text="ذیشان",
+        doc_type="fir_structured", filename="CASE-F",
+    )
+
+    result = await gr.retrieve_graph("Does belt number GEN-0301 appear in this case?", "GEN-0301", "CASE-F")
+
+    text = result["chunks"][0]["text"]
+    assert text.count("GEN-0301") == 1, f"belt number must appear exactly once, got: {text!r}"
+    assert text == (
+        "ذیشان, whose belt number is GEN-0301, appears in fir_structured record CASE-F "
+        "(psrms/fir/CASE-F#structured)."
+    )
+
+
 # ── Within-case traversal ────────────────────────────────────────────────────
 
 async def test_associated_with_hop_reaches_a_second_entity_within_case(fake_graph, fake_chunks):
