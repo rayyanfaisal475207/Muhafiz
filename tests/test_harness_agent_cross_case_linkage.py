@@ -39,7 +39,7 @@ from src.pipeline.harness.supervisor import (
     Supervisor,
     get_registered,
 )
-from src.pipeline.harness.tools.xgraph import XGraphToolResult
+from src.pipeline.harness.tools.xgraph import XGraphToolInput, XGraphToolResult
 from src.pipeline.harness.tools.xnetwork import XNetworkToolResult
 from src.pipeline.harness.types import (
     CallerContext,
@@ -814,3 +814,121 @@ def test_ccl_c3_absent_field_degrades_to_empty_never_to_the_union():
 def test_ccl_c3_no_chunks_yields_no_links():
     """(5) EMPTY-shaped results are unaffected."""
     assert ccl_mod._xnetwork_links(_xn_result([], [], status=ToolStatus.EMPTY)) == []
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# CCL-C2 — an aggregate traversal footprint must not be attributed to a
+# fictional singular recurring entity.
+#
+# `case_ids_touched` is the UNION of cases across every returned chunk,
+# and the Verifier's allowed-cross-case-ID list. When the router supplies
+# no `target_entity` (the correct, intended state for broad questions
+# like "which cases share suspects?"), no single entity was ever
+# identified — so the old "A recurring entity appears across N case(s)"
+# asserted a recurrence the traversal never established.
+#
+# Fixtures use real-corpus-shaped case IDs (fir-88-26 / fir-117-26 /
+# fir-97-26). `fir-97-26` is used ONLY as an identifier string here; its
+# real victim-edge issue is explicitly out of scope.
+# ═══════════════════════════════════════════════════════════════════════
+
+_CCL_C2_NAMED_ENTITY = "محمد علی"  # "Muhammad Ali"
+
+
+def _ccl_c2_xg_result(case_ids, *, hop_count=2, status=ToolStatus.OK):
+    return XGraphToolResult(
+        status=status,
+        chunks=[_xgraph_chunk()],
+        case_ids_touched=list(case_ids),
+        hop_count=hop_count,
+        chain_confidence=0.8,
+    )
+
+
+def _ccl_c2_link(target_entity, case_ids, *, hop_count=2, status=ToolStatus.OK):
+    tool_input = XGraphToolInput(
+        query_text="which cases share suspects",
+        execution=_execution(),
+        target_entity=target_entity,
+    )
+    return ccl_mod._xgraph_confirmed_link(
+        tool_input, _ccl_c2_xg_result(case_ids, hop_count=hop_count, status=status)
+    )
+
+
+def test_ccl_c2_open_ended_does_not_invent_a_recurring_entity():
+    """(A) target_entity=None must not claim one unnamed entity recurs."""
+    link = _ccl_c2_link(None, ["fir-88-26", "fir-117-26"])
+    assert link is not None
+    desc = link.description
+
+    # The defect verbatim, and the semantic claim behind it.
+    assert "A recurring entity" not in desc
+    assert "recurring entity" not in desc.lower()
+    assert "appears across" not in desc.lower()
+
+    # It must still describe the real aggregate footprint.
+    assert "2 case(s)" in desc
+    assert "fir-88-26" in desc and "fir-117-26" in desc
+    assert link.case_ids == ["fir-88-26", "fir-117-26"]
+
+
+def test_ccl_c2_named_target_behavior_preserved():
+    """(B) Regression guard: the named branch is unchanged."""
+    link = _ccl_c2_link(_CCL_C2_NAMED_ENTITY, ["fir-88-26", "fir-117-26"])
+    assert link is not None
+    desc = link.description
+
+    assert f"'{_CCL_C2_NAMED_ENTITY}'" in desc
+    assert "appears across 2 case(s)" in desc
+    assert "fir-88-26" in desc and "fir-117-26" in desc
+    assert "traversal depth 2 hop(s)" in desc
+    assert "A recurring entity" not in desc
+
+
+def test_ccl_c2_open_ended_multi_case_preserves_traversal_facts():
+    """(C) Hop count and the full case footprint survive the rewording."""
+    case_ids = ["fir-88-26", "fir-97-26", "fir-117-26"]
+    link = _ccl_c2_link(None, case_ids, hop_count=3)
+    assert link is not None
+    desc = link.description
+
+    assert "recurring entity" not in desc.lower()
+    assert "3 case(s)" in desc
+    for cid in case_ids:
+        assert cid in desc
+    assert "3 hop(s)" in desc
+    assert link.case_ids == case_ids
+    assert link.source_tool == "XGRAPH"
+    assert link.is_unconfirmed is False
+
+
+def test_ccl_c2_open_ended_empty_footprint_yields_no_link():
+    """
+    (D) The genuinely reachable empty state.
+
+    `xgraph_tool` sets status=OK from `chunks` being non-empty, while
+    `case_ids_touched` is built only from chunks that carry a `case_id`
+    (tools/xgraph.py:145-151) — so OK with an empty footprint is real,
+    not a contrived fixture. The old code emitted a link reading
+    "appears across 0 case(s): unknown". No link at all is correct: the
+    existing `_xgraph_summary_line` empty path then stands.
+    """
+    assert _ccl_c2_link(None, []) is None
+
+    # And the summary line that now stands alone says nothing was found.
+    assert (
+        ccl_mod._xgraph_summary_line([], 2, 0)
+        == "No confirmed cross-case entity connections were found."
+    )
+
+
+def test_ccl_c2_named_target_empty_footprint_unchanged():
+    """
+    (B2) The named branch keeps its prior empty-footprint behavior — the
+    fix narrows only the unnamed branch, so this stays a link.
+    """
+    link = _ccl_c2_link(_CCL_C2_NAMED_ENTITY, [])
+    assert link is not None
+    assert "unknown" in link.description
+    assert f"'{_CCL_C2_NAMED_ENTITY}'" in link.description

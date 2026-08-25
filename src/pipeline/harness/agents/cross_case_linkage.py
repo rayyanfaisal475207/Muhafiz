@@ -440,17 +440,48 @@ def _xgraph_confirmed_link(
     """
     Deterministic, structured description — see this module's docstring
     "XGRAPH-VS-XNETWORK DESCRIPTION-GENERATION DECISION". None when XGRAPH
-    has no confirmed chunks to describe (status != OK).
+    has no confirmed chunks to describe (status != OK), and None when the
+    traversal touched no case at all (see the empty-footprint note below).
+
+    [findings.md CCL-C2] `case_ids_touched` is the UNION of cases across
+    every returned chunk — an aggregate traversal footprint, and the
+    Verifier's allowed-cross-case-ID list. It is NOT evidence that any one
+    entity recurs in every case it contains.
+
+    When `target_entity` is set, the seed IS the thing traversed from, so
+    "X appears across these cases" is a claim the traversal actually
+    supports — that branch is unchanged.
+
+    When `target_entity` is None — the correct, intended state for broad
+    questions like "which cases share suspects?" (see
+    `_recover_target_entity`) — no single entity was ever identified, so
+    the footprint is described as what it is: the traversal's own reach.
+    The previous "A recurring entity appears across N case(s)" invented a
+    singular entity the evidence never established.
     """
     if tool_result.status != ToolStatus.OK:
         return None
-    entity_label = f"'{tool_input.target_entity}'" if tool_input.target_entity else "A recurring entity"
     case_ids = tool_result.case_ids_touched
-    description = (
-        f"{entity_label} appears across {len(case_ids)} case(s): "
-        f"{', '.join(case_ids) if case_ids else 'unknown'} "
-        f"(traversal depth {tool_result.hop_count} hop(s))."
-    )
+    if tool_input.target_entity:
+        description = (
+            f"'{tool_input.target_entity}' appears across {len(case_ids)} case(s): "
+            f"{', '.join(case_ids) if case_ids else 'unknown'} "
+            f"(traversal depth {tool_result.hop_count} hop(s))."
+        )
+    else:
+        # [findings.md CCL-C2] No seed entity: describe the traversal's
+        # aggregate reach, never a singular recurrence. An empty footprint
+        # supports no link at all — returning None lets the existing
+        # `_xgraph_summary_line` "No confirmed cross-case entity
+        # connections were found." path stand, rather than emitting a
+        # fabricated "0 case(s): unknown" link.
+        if not case_ids:
+            return None
+        description = (
+            f"This cross-case traversal returned linked evidence across "
+            f"{len(case_ids)} case(s): {', '.join(case_ids)} "
+            f"(traversal depth {tool_result.hop_count} hop(s))."
+        )
     return CrossCaseLink(
         description=description,
         case_ids=case_ids,
