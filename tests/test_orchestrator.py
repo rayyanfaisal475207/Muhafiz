@@ -1554,3 +1554,173 @@ async def test_rag_retry_exhausted_abstains_without_web_fallback(run_pipeline, m
         "no verification should run — there is nothing to verify when we abstain"
     )
     assert orch._SAFE_RESPONSE.split(" ")[0] in _text_of(events)
+
+
+# ── Module 7 [findings.md]: adaptive multi-method retrieval ─────────────────
+#
+# Before this, the router picked exactly one route and whichever retrieval
+# method wasn't picked contributed nothing to the answer, even for a
+# genuinely compound question (measured live in this module's own
+# mini-sweep). route_query()'s new "secondary_methods" field lets the
+# router flag additional methods a within-case primary route (SQL/GRAPH/
+# GRAPH_HYBRID) should ALSO fetch and fold into the same answer.
+#
+# The regression risk this section exists to cover: every test ABOVE this
+# point predates secondary_methods and never sets it — those must all keep
+# behaving exactly as before (byte-identical route decisions, no new LLM/
+# retrieval calls, since `route` JSON strings above never include the new
+# field and route_query() defaults it to [] whenever it's absent).
+
+async def test_graph_route_with_no_secondary_methods_is_unaffected(run_pipeline):
+    """
+    Direct regression guard: a GRAPH route JSON with no "secondary_methods"
+    key (i.e. every pre-Module-7 test) must fetch nothing extra — same
+    single retrieve_graph() call as always.
+    """
+    events, _ = await run_pipeline(
+        route='{"route": "GRAPH", "case_scope": "within_case", "target_entity": "Waqas", "output_format": "chat"}',
+        message="Who is connected to Waqas in CASE-009?",
+        case_id="CASE-009",
+        answer="Waqas is connected to the accused.",
+        graph_result={
+            "chunks": [_graph_chunk()], "hop_count": 1, "compounded_confidence": 0.9,
+            "seed_entities": [], "unconfirmed_links": [],
+        },
+    )
+    assert len(run_pipeline.retrieve_graph_calls) == 1, "no secondary_methods -> exactly one retrieve_graph() call, same as before"
+    assert "Waqas" in _text_of(events)
+
+
+async def test_sql_route_with_graph_secondary_merges_case_evidence(run_pipeline, patched_gateway):
+    """
+    Compound shape from the mini-sweep: 'what does 379 PPC cover, and what
+    item was stolen in this case?' -> primary SQL, secondary GRAPH. The
+    graph's case-specific evidence must reach the generation prompt
+    alongside the SQL reference rows, not be silently dropped.
+    """
+    patched_gateway.police_reference_data = [{
+        "ref_id": "r1", "category": "penal_code", "subject": "Mobile/Vehicle Theft",
+        "description": "Theft of movable property.", "fine_amount": None,
+        "section_ref": "379 PPC", "source_document": "offense_sections.csv",
+        "source_type": "synthetic", "effective_from": None,
+    }]
+
+    events, _ = await run_pipeline(
+        route='{"route": "SQL", "output_format": "chat", "secondary_methods": ["GRAPH"]}',
+        message="What does 379 PPC cover, and what item was stolen in this case?",
+        case_id="CASE-009",
+        sql_params='{"category": "penal_code", "subject": "Mobile/Vehicle Theft", "section_ref": null, "date": null}',
+        answer="379 PPC covers theft of movable property; a motorcycle was stolen in this case.",
+        graph_result={
+            "chunks": [_graph_chunk(chunk_id="g-secondary", case_id="CASE-009")],
+            "hop_count": 1, "compounded_confidence": 0.9,
+            "seed_entities": [], "unconfirmed_links": [],
+        },
+    )
+
+    assert len(run_pipeline.retrieve_graph_calls) == 1, "secondary GRAPH fetch must run exactly once"
+    # SQL's evidence (db rows + supplemental) rides in the SYSTEM prompt.
+    assert "known associate" in run_pipeline.call.last_system, (
+        "the secondary GRAPH chunk's own text must reach the SQL branch's generation prompt"
+    )
+    assert "379 PPC" in _text_of(events)
+
+
+async def test_graph_route_with_sql_secondary_merges_reference_data(run_pipeline, patched_gateway):
+    """
+    Compound shape from the mini-sweep: 'what is this weapon's condition,
+    and what PPC section covers unlicensed possession?' -> primary GRAPH,
+    secondary SQL. The SQL reference row must reach the generation prompt
+    alongside the graph's own case evidence.
+    """
+    patched_gateway.police_reference_data = [{
+        "ref_id": "r1", "category": "penal_code", "subject": "Mobile/Vehicle Theft",
+        "description": "Theft of movable property.", "fine_amount": None,
+        "section_ref": "379 PPC", "source_document": "offense_sections.csv",
+        "source_type": "synthetic", "effective_from": None,
+    }]
+
+    events, _ = await run_pipeline(
+        route='{"route": "GRAPH", "case_scope": "within_case", "target_entity": null, '
+              '"output_format": "chat", "secondary_methods": ["SQL"]}',
+        message="What is this weapon's condition, and what PPC section covers this?",
+        case_id="CASE-009",
+        sql_params='{"category": "penal_code", "subject": "Mobile/Vehicle Theft", "section_ref": null, "date": null}',
+        answer="The weapon is unlicensed, which falls under 379 PPC.",
+        graph_result={
+            "chunks": [_graph_chunk()], "hop_count": 1, "compounded_confidence": 0.9,
+            "seed_entities": [], "unconfirmed_links": [],
+        },
+    )
+
+    # GRAPH's own evidence (documents_text) rides in the USER turn (Module 3 fix).
+    assert "379 PPC" in run_pipeline.call.last_user, (
+        "the secondary SQL row's own text must reach the GRAPH branch's generation prompt"
+    )
+    assert "unlicensed" in _text_of(events)
+
+
+async def test_graph_hybrid_route_with_xgraph_secondary_passes_cross_case_ids_to_verifier(run_pipeline, monkeypatch):
+    """
+    Compound shape from the mini-sweep: 'summarize this case, and is this a
+    repeat-offender pattern?' -> primary GRAPH_HYBRID, secondary XGRAPH.
+    The other case's chunk must reach the generation prompt AND its case_id
+    must be passed to verify_grounding()'s cross_case_ids allowlist — the
+    exact mechanism (src/pipeline/verifier.py's _check_leakage()) that lets
+    a legitimately-cited cross-case chunk avoid being flagged as leakage.
+    """
+    captured_kwargs = {}
+
+    async def fake_verify(answer, cited_chunks, case_id, **kwargs):
+        captured_kwargs.update(kwargs)
+        captured_kwargs["cited_chunks"] = cited_chunks
+        return {"grounded": True, "off_topic": False, "leaked_case_id": None,
+                "unsupported_claims": [], "reason": "All claims supported."}
+
+    monkeypatch.setattr(orch, "verify_grounding", fake_verify)
+
+    events, _ = await run_pipeline(
+        route='{"route": "GRAPH_HYBRID", "case_scope": "within_case", "target_entity": null, '
+              '"output_format": "chat", "secondary_methods": ["XGRAPH"]}',
+        message="Summarize this case, and is this a repeat-offender pattern?",
+        case_id="CASE-009",
+        answer="This case involves the accused; the same person also appears in CASE-777.",
+        graph_result={
+            "chunks": [_graph_chunk(chunk_id="g-xgraph", case_id="CASE-777")],
+            "hop_count": 1, "compounded_confidence": 0.9,
+            "seed_entities": [], "unconfirmed_links": [],
+        },
+    )
+
+    assert captured_kwargs.get("cross_case_ids") == ["CASE-777"], (
+        "the OTHER case's id must reach verify_grounding()'s cross_case_ids allowlist"
+    )
+    cited_ids = {c["id"] for c in captured_kwargs.get("cited_chunks", [])}
+    assert "g-xgraph" in cited_ids, "the secondary XGRAPH chunk must be part of the cited evidence, not dropped"
+    assert "CASE-777" in _text_of(events)
+
+
+async def test_xgraph_primary_route_ignores_secondary_methods(run_pipeline):
+    """
+    Scoping guard: secondary_methods is only ever honored for a within-case
+    primary route (SQL/GRAPH/GRAPH_HYBRID). If the router ever returns
+    secondary_methods alongside an XGRAPH/XAGG/XNETWORK primary route
+    (should never happen per prompts/router.txt, but must not be trusted
+    blindly), it must be silently ignored — those three routes' own
+    structurally-separate, never-blended contract must stay untouched.
+    """
+    events, _ = await run_pipeline(
+        route='{"route": "XGRAPH", "case_scope": "cross_case", "target_entity": "0372-1590538", '
+              '"output_format": "chat", "secondary_methods": ["SQL"]}',
+        message="Has phone 0372-1590538 appeared in other cases?",
+        answer="This phone number also appears in CASE-005.",
+        graph_result={
+            "chunks": [_graph_chunk(chunk_id="g2", case_id="CASE-005")],
+            "hop_count": 1, "compounded_confidence": 0.95,
+            "seed_entities": [], "unconfirmed_links": [],
+        },
+    )
+    # Exactly one retrieve_graph() call (XGRAPH's own) — no secondary SQL
+    # fetch, and critically no SECOND retrieve_graph()/gateway call either.
+    assert len(run_pipeline.retrieve_graph_calls) == 1
+    assert not any(e["step"] == "retrieval" for e in events), "XGRAPH must still never run the case-scoped retrieval path"
