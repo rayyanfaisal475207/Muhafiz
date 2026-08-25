@@ -33,6 +33,7 @@ class FakeGraph:
         self.same_as: list[tuple] = []
         self.appears_in: list[tuple] = []
         self.conflicts: list[tuple] = []
+        self.assigned_to: list[tuple] = []
 
     def add_node(self, entity_id, label, **props):
         self.nodes[entity_id] = {"id": entity_id, "label": label, "properties": {"entity_id": entity_id, **props}}
@@ -78,6 +79,14 @@ class FakeGraph:
     def add_conflict(self, a, b, basis="Contradiction detected.", confidence=1.0):
         self.conflicts.append((a, b, {"basis": basis, "confidence": confidence}))
 
+    def add_assigned_to(self, entity_id, case_id, role, superseded_by=None):
+        """[findings.md Module 8 follow-up] Models an Officer's per-case
+        ASSIGNED_TO edge — see graph_retriever._fetch_appears_in()'s own
+        docstring for why this is correlated to a SPECIFIC case, not
+        looked up unscoped (the same officer can carry a different role on
+        a different case)."""
+        self.assigned_to.append((entity_id, case_id, {"role": role, "superseded_by": superseded_by}))
+
     def _matches_candidate(self, node, cand_lower):
         props = node["properties"]
         # "phone"/"belt_no" added for the Person.phone / Officer
@@ -94,10 +103,29 @@ class FakeGraph:
     async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
         params = params or {}
 
-        if "APPEARS_IN" in cypher_query:
+        # [findings.md Module 8 follow-up] Checked BEFORE the "APPEARS_IN"
+        # branch's substring check even though it also mentions "Case" --
+        # graph_retriever._fetch_officer_roles()'s own query contains
+        # "ASSIGNED_TO" but never "APPEARS_IN", so this must be its own
+        # branch, not folded into the one below (that's the exact fan-out
+        # bug this two-query split exists to avoid on the REAL Cypher side
+        # too -- see _fetch_appears_in()'s own docstring).
+        if "ASSIGNED_TO" in cypher_query and "APPEARS_IN" not in cypher_query:
             ids = set(params.get("ids", []))
             return [
-                {
+                {"entity_id": eid, "case_id": case_id, "role": props.get("role")}
+                for eid, case_id, props in self.assigned_to
+                if eid in ids and props.get("superseded_by") is None
+            ]
+
+        if "APPEARS_IN" in cypher_query:
+            ids = set(params.get("ids", []))
+            rows = []
+            for eid, props in self.appears_in:
+                if eid not in ids or props.get("superseded_by") is not None:
+                    continue
+                row_case_id = props.get("_doc_case_id") or next(iter(self.belongs_to_case.get(eid, ())), None)
+                rows.append({
                     "n": self.nodes[eid], "r": {"properties": props},
                     "d": {"properties": {
                         "doc_id": props.get("source_doc_id") or "D1",
@@ -114,11 +142,9 @@ class FakeGraph:
                     # test fixture never set doc_case_id, which is every
                     # existing single-case fixture — there the two values
                     # coincide anyway.
-                    "case_id": props.get("_doc_case_id") or next(iter(self.belongs_to_case.get(eid, ())), None),
-                }
-                for eid, props in self.appears_in
-                if eid in ids and props.get("superseded_by") is None
-            ]
+                    "case_id": row_case_id,
+                })
+            return rows
 
         if "ASSOCIATED_WITH" in cypher_query:
             ids = set(params.get("ids", []))
@@ -448,6 +474,144 @@ async def test_officer_seeded_by_belt_number_does_not_duplicate_it(fake_graph, f
     assert text == (
         "ذیشان, whose belt number is GEN-0301, appears in fir_structured record CASE-F "
         "(psrms/fir/CASE-F#structured)."
+    )
+
+
+# ── Officer ASSIGNED_TO role evidence text (findings.md Module 8 follow-up) ──
+#
+# _synthetic_evidence_chunk() used to never surface an Officer's role
+# (investigating/recording) at all — that lives on the ASSIGNED_TO edge,
+# not a node property, so Module 2's notable-properties fix above never
+# reached it. Confirmed live during Local Search's own live-verification:
+# the right officer (ذیشان, this exact fir-401-26/GEN-0301 fixture) was
+# found via semantic match, but the relevance evaluator rejected the cited
+# text verbatim because it "does not explicitly state that this individual
+# is the investigating officer."
+
+async def test_officer_investigating_role_surfaces_in_evidence_text(fake_graph, fake_chunks):
+    fake_graph.add_node("OFFICER-319", "Officer", canonical_name="ذیشان", belt_no="GEN-0301")
+    fake_graph.add_case("OFFICER-319", "fir-401-26")
+    fake_graph.add_appears_in(
+        "OFFICER-319", None, confidence=1.0,
+        source_doc_id="psrms/fir/fir-401-26#structured", surface_text="ذیشان",
+        doc_type="fir_structured", filename="fir-401-26",
+    )
+    fake_graph.add_assigned_to("OFFICER-319", "fir-401-26", "investigating")
+
+    result = await gr.retrieve_graph("Who is the investigating officer in this case?", "ذیشان", "fir-401-26")
+
+    assert result["chunks"][0]["text"] == (
+        "ذیشان appears in fir_structured record fir-401-26 (psrms/fir/fir-401-26#structured), "
+        "with belt number GEN-0301 recorded there, and is recorded as the investigating officer "
+        "for this case."
+    )
+
+
+async def test_officer_recording_role_surfaces_as_recording_not_investigating(fake_graph, fake_chunks):
+    fake_graph.add_node("OFFICER-321", "Officer", canonical_name="ندیم", belt_no="GEN-0113")
+    fake_graph.add_case("OFFICER-321", "CASE-G")
+    fake_graph.add_appears_in(
+        "OFFICER-321", None, confidence=1.0,
+        source_doc_id="psrms/fir/CASE-G#structured", surface_text="ندیم",
+        doc_type="fir_structured", filename="CASE-G",
+    )
+    fake_graph.add_assigned_to("OFFICER-321", "CASE-G", "recording")
+
+    result = await gr.retrieve_graph("Who recorded this FIR?", "ندیم", "CASE-G")
+
+    assert "recorded as the recording officer for this case" in result["chunks"][0]["text"]
+    assert "investigating" not in result["chunks"][0]["text"]
+
+
+async def test_officer_role_scoped_to_the_specific_case_not_leaked_from_another(fake_graph, fake_chunks):
+    """The same officer can be investigating on one case and have no role
+    (or a different one) on another — the role clause must only ever name
+    the role recorded for THIS row's own case, never one borrowed from a
+    different case the officer also happens to be assigned to."""
+    fake_graph.add_node("OFFICER-322", "Officer", canonical_name="عمران", belt_no="GEN-0109")
+    fake_graph.add_case("OFFICER-322", "CASE-H")
+    fake_graph.add_appears_in(
+        "OFFICER-322", None, confidence=1.0,
+        source_doc_id="psrms/fir/CASE-H#structured", surface_text="عمران",
+        doc_type="fir_structured", filename="CASE-H", doc_case_id="CASE-H",
+    )
+    # Role recorded on a DIFFERENT case only -- must not leak into CASE-H's evidence text.
+    fake_graph.add_assigned_to("OFFICER-322", "CASE-OTHER", "investigating")
+
+    result = await gr.retrieve_graph("Who is the investigating officer?", "عمران", "CASE-H")
+
+    text = result["chunks"][0]["text"]
+    assert "investigating officer" not in text
+    assert text == (
+        "عمران appears in fir_structured record CASE-H (psrms/fir/CASE-H#structured), "
+        "with belt number GEN-0109 recorded there."
+    )
+
+
+async def test_superseded_assigned_to_role_not_surfaced(fake_graph, fake_chunks):
+    """A superseded ASSIGNED_TO edge (an officer reassignment,
+    structured_projection.py's supersession-chain writes) must never
+    surface as the CURRENT role -- only the one live, non-superseded edge
+    is the actual current assignment."""
+    fake_graph.add_node("OFFICER-323", "Officer", canonical_name="فیصل", belt_no="1854L")
+    fake_graph.add_case("OFFICER-323", "CASE-I")
+    fake_graph.add_appears_in(
+        "OFFICER-323", None, confidence=1.0,
+        source_doc_id="psrms/fir/CASE-I#structured", surface_text="فیصل",
+        doc_type="fir_structured", filename="CASE-I",
+    )
+    fake_graph.add_assigned_to("OFFICER-323", "CASE-I", "investigating", superseded_by=99)
+
+    result = await gr.retrieve_graph("Who is the investigating officer?", "فیصل", "CASE-I")
+
+    assert "investigating officer" not in result["chunks"][0]["text"]
+
+
+async def test_officer_holding_both_roles_on_same_case_names_both_deterministically(fake_graph, fake_chunks):
+    """The exact live-confirmed shape (fir-401-26's real data): one
+    officer holds BOTH the investigating and recording role on the same
+    case simultaneously (two live, non-superseded ASSIGNED_TO edges). This
+    must deterministically name BOTH roles every time — the bug this test
+    guards against silently named only one, in whichever order the
+    two-edge OPTIONAL MATCH fan-out happened to return them that call."""
+    fake_graph.add_node("OFFICER-319", "Officer", canonical_name="ذیشان", belt_no="GEN-0301")
+    fake_graph.add_case("OFFICER-319", "fir-401-26")
+    fake_graph.add_appears_in(
+        "OFFICER-319", None, confidence=1.0,
+        source_doc_id="psrms/fir/fir-401-26#structured", surface_text="ذیشان",
+        doc_type="fir_structured", filename="fir-401-26",
+    )
+    fake_graph.add_assigned_to("OFFICER-319", "fir-401-26", "recording")
+    fake_graph.add_assigned_to("OFFICER-319", "fir-401-26", "investigating")
+
+    # Run it several times -- a non-deterministic (dict-overwrite-order-
+    # dependent) implementation would flip between runs; this must not.
+    for _ in range(5):
+        result = await gr.retrieve_graph("Who is the investigating officer?", "ذیشان", "fir-401-26")
+        assert len(result["chunks"]) == 1
+        assert result["chunks"][0]["text"] == (
+            "ذیشان appears in fir_structured record fir-401-26 (psrms/fir/fir-401-26#structured), "
+            "with belt number GEN-0301 recorded there, and is recorded as both the investigating and "
+            "recording officer for this case."
+        )
+
+
+async def test_person_never_gets_a_role_clause(fake_graph, fake_chunks):
+    """No ASSIGNED_TO edge is ever written for a non-Officer entity -- the
+    role clause must be structurally absent, not merely coincidentally
+    empty, for every other label."""
+    fake_graph.add_node("P-424", "Person", canonical_name="بلال")
+    fake_graph.add_case("P-424", "CASE-J")
+    fake_graph.add_appears_in(
+        "P-424", None, confidence=1.0,
+        source_doc_id="psrms/fir/CASE-J#structured", surface_text="بلال",
+        doc_type="fir_structured", filename="CASE-J",
+    )
+
+    result = await gr.retrieve_graph("Tell me about بلال", "بلال", "CASE-J")
+
+    assert result["chunks"][0]["text"] == (
+        "بلال appears in fir_structured record CASE-J (psrms/fir/CASE-J#structured)."
     )
 
 
