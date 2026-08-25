@@ -56,9 +56,10 @@ verification.
 | 5 | [SQL extractor phrasing brittleness](#module-5-sql-extractor-phrasing-brittleness) ✅ RESOLVED 2026-08-25 | 🟡 Medium | Medium | — |
 | 6 | [Community detection never refreshes for real sync data](#module-6-community-detection-never-refreshes-for-real-sync-data) ✅ RESOLVED 2026-08-25 | 🟠 Medium-High | Small | — |
 | 7 | [No general adaptive multi-method retrieval](#module-7-no-general-adaptive-multi-method-retrieval) ✅ RESOLVED 2026-08-25 | 🟡 Medium | Large | — |
-| 8 | [Local Search — entity-based reasoning](#module-8-local-search--entity-based-reasoning) | 🟠 Medium-High | Large | — |
-| 9 | [Global Search — whole-dataset map-reduce reasoning](#module-9-global-search--whole-dataset-map-reduce-reasoning) | 🟠 Medium-High | Large | Module 6 |
+| 8 | [Local Search — entity-based reasoning](#module-8-local-search--entity-based-reasoning) ✅ RESOLVED 2026-08-25 | 🟠 Medium-High | Large | — |
+| 9 | [Global Search — whole-dataset map-reduce reasoning](#module-9-global-search--whole-dataset-map-reduce-reasoning) ✅ RESOLVED 2026-08-25 (both stages) | 🟠 Medium-High | Large | Module 6 |
 | 10 | [Meta-analysis — query decomposition and aggregation](#module-10-meta-analysis--query-decomposition-and-aggregation) | 🟠 Medium-High | Large | Relates to 7, 8, 9 |
+| 11 | [Unreviewed name-fallback duplicates poison community detection](#module-11-unreviewed-name-fallback-duplicates-poison-community-detection-plus-a-common-noun-mistagged-as-a-person) | 🟠 Medium-High | Small-Medium | Discovered via Module 9 |
 
 Modules 1-8 are independent of each other (different files, no shared edit
 surface) — they can be done in any order or in parallel across sessions.
@@ -69,8 +70,12 @@ Aug-22-stale data Module 6 exists to fix. Module 10 has no hard dependency
 on 7/8/9 (it can dispatch to whichever single-method routes exist today),
 but each of those, once built, becomes a stronger tool for Module 10's
 sub-queries to call into — see Module 10's own "Relationship to Modules
-7-9" note. The table order is by severity, not a hard sequencing
-requirement beyond Module 9's one real dependency.
+7-9" note. Module 11 was found live-verifying Module 9's Stage 2 (a
+single-case entity-extraction pathology was silently distorting community
+detection's real graph shape) — independent of 1-10's own edit surfaces,
+but worth doing before ever re-attempting to make Module 9's hierarchy
+levels demonstrably useful on real data. The table order is by severity,
+not a hard sequencing requirement beyond Module 9's one real dependency.
 
 ---
 
@@ -1820,6 +1825,157 @@ meta_analysis.py`, with three stages:
 - Full backend suite green, harness compliance suite green (this
   sub-agent must not weaken the RBAC/RLS guarantees the other 8 already
   enforce, especially given the cross-case RBAC question flagged above).
+
+---
+
+## Module 11: Unreviewed name-fallback duplicates poison community detection, plus a common-noun mistagged as a Person
+
+### Origin
+Discovered as a side effect of Module 9 Stage 2's own live verification
+(2026-08-25): `detect_communities()`, run against the real live graph,
+produced exactly one Louvain level (`[19]`) instead of the ≥2 the same
+code reliably produces on a real multi-community fixture graph
+(Zachary's karate club, this session's own test). Diagnosing WHY —
+rather than tuning Louvain's resolution or the community-detection edge
+weights to paper over it — traced to a real, upstream, unrelated bug.
+
+### Note on evidence quality
+Fully live-reproduced and root-caused against the real running
+Postgres/AGE instance this session (not code inspection alone) — every
+number below is a direct query result, not an estimate.
+
+### Problem
+One community absorbs 368 of 428 canonicalized graph nodes (86%) and
+alone accounts for ~67,528 of the graph's ~67,603 edges (>99.9%) — this
+single community IS the graph's density. Tracing it back:
+
+- **All of it is one case, one document.** `fir-1001-26` (an Arms
+  Ordinance case) has 692 `Person` nodes belonging to it — every other
+  case in the entire corpus has 3-6. 691 of those 692 nodes trace to a
+  single `source_doc_id`
+  (`psrms_fir_fir-1001-26#narrative_c8bf2613`) — one narrative document.
+- **It's 8 distinct strings, wildly over-repeated**, not 692 distinct
+  people: `کاشف` (231×), `محمد رمضان` (138×), `بجے فیصل` (92×), `فیصل`
+  (47×), `تحت فیصل` (46×), `مدعی فیصل` (46×), `محمد رمضان ساکنہ محلہ`
+  (46×), `قبضے` (46×). The community's own LLM-written summary already
+  says as much in plain English: *"Muhammad Ramadan is the only named
+  individual connected to this case."*
+- **One of the 8 isn't a name at all.** `قبضے` is the Urdu word for
+  "possession/custody" (a common word in FIR narrative boilerplate,
+  e.g. "recovered from his possession") — a pure entity-type
+  misclassification, mistagged as a `Person` 46 times.
+- **This is essentially the entire graph's un-reviewed backlog.**
+  Graph-wide, only 19 of 641 `SAME_AS` edges are `confirmed` (3%); 622
+  are still `pending`. Nearly all of that pending backlog belongs to
+  this one case's duplicate cluster (per-edge tier
+  `flagged_unverified`, basis `"matched on near-identical name + shared
+  case"` — the system DID correctly flag these as likely duplicates; a
+  human has simply never reviewed them, and there is no bulk-action path
+  to clear a same-document repeat-mention cluster this large cheaply).
+
+### Root cause (two separate, stacked gaps)
+
+**A — no within-document/within-case exact-string dedup before minting a
+new node.** `src/ingestion/service.py`'s per-chunk loop already scopes
+one dedup mechanism to the whole document — `written_pairs`/
+`resolved_persons` (line ~298) exist specifically so the same real-world
+pair proposed twice within one ingestion doesn't get written twice — but
+`resolved_persons` is reset every chunk (`dict` declared *inside* the
+`for chunk in chunks:` loop, line 324), and neither it nor anything else
+is consulted before `entity_resolution.resolve_and_write()` is called for
+a `person` mention. `resolve_and_write()` itself is CNIC-first,
+name-fallback (architecture §7.3, `entity_resolution.py`'s own header
+comment): a mention with no CNIC is *never* auto-merged, no matter how
+strong the name match — by design, to prevent false-positive merges
+across genuinely different documents/cases. That design is correct for
+its stated purpose, but it means the SAME literal string, mentioned 231
+times in flowing narrative prose within *one* document, is treated
+identically to 231 independent CNIC-less mentions from unrelated cases —
+each mints its own node and, at best, a `pending` `flagged_unverified`
+`SAME_AS` edge back to the others. Nothing in the resolution pipeline
+recognizes "same exact string, same document, already resolved once this
+run" as the safe, cheap collapse it actually is.
+
+**B — no non-name filter upstream of the graph.** `قبضے` reaching the
+graph as a confirmed `Person` node is the same failure *class*
+`community_detection.py`'s own `_NON_NAME_PHRASES` blocklist exists to
+patch (that module's comments document three prior rounds of exactly
+this: form-field labels, station names, role titles extracted as
+`Person`) — but that blocklist is a downstream, community-detection-only
+guard, explicitly scoped in its own comments as "not a fix to the
+extraction pipeline itself." `قبضے` isn't in it, and even if it were,
+the guard doesn't run upstream of XGRAPH, XAGG, or any other consumer
+that reads `Person` nodes directly — only community detection's own
+clustering is protected.
+
+### Design options (two independent decisions — pick one per root cause,
+not a single combined choice)
+
+**For A (duplicate-mention explosion):**
+1. **Root fix — widen `resolved_persons` from chunk-scoped to
+   document-or-case-scoped, exact-string only.** Before calling
+   `resolve_and_write()` for a `person` mention, check whether the exact
+   same `canonical_name` string was already resolved earlier in *this
+   same ingestion run* for this document (or case); if so, reuse that
+   `entity_id` directly instead of minting a new node and a new
+   `SAME_AS` proposal. Exact-string match only (not fuzzy) keeps this as
+   safe as the existing CNIC tier's own "structural, not scored"
+   discipline — it does not weaken cross-document/cross-case resolution
+   at all, which stays exactly as conservative as it is today. Prevents
+   recurrence for any *future* ingestion; does not by itself clean up
+   `fir-1001-26`'s already-written 692 nodes.
+2. **Cleanup — a script (same shape as
+   `scripts/cleanup_orphaned_person_nodes.py`'s existing precedent) that
+   walks `pending`/`flagged_unverified` `SAME_AS` edges where both
+   endpoints share the same `source_doc_id` AND `case_id`, and
+   auto-confirms + collapses them.** Narrower and safer than a general
+   "bulk-confirm the review queue" tool — same-document, same-case,
+   already-flagged-as-near-identical is a materially safer auto-confirm
+   condition than an arbitrary pending edge. Needed regardless of
+   whether (1) ships, to actually fix `fir-1001-26`'s already-ingested
+   state; (1) alone only stops the bleeding for new ingestions.
+3. *(Rejected as this module's own fix)* Tuning `community_detection.py`'s
+   edge weights or Louvain's `resolution` parameter — treats the
+   symptom (a dense projected graph) without touching the actual
+   defect (692 nodes that should be a handful), and risks distorting
+   every other, correctly-sized community's clustering along with it.
+
+**For B (`قبضے` mistagged as Person):**
+1. Add it (and any other common nouns found by the same audit) to
+   `_NON_NAME_PHRASES` — cheap, consistent with this module's own
+   established (self-documented-as-imperfect) pattern, but leaves the
+   bad node in the graph for every OTHER consumer (XGRAPH, XAGG, the
+   review queue itself).
+2. A precision fix at the extraction layer (`src/extraction/ner.py` /
+   `domain_entities.py`) — e.g. a stoplist check or a minimum-
+   corroboration gate for a bare single-word `person` candidate with no
+   supporting context — closes the gap for every downstream consumer at
+   once, not just community detection.
+
+### Files likely touched
+- `src/ingestion/service.py` — widen `resolved_persons`'s scope (fix A1).
+- New `scripts/collapse_same_document_duplicate_persons.py` or similar —
+  the cleanup pass (fix A2), same dry-run/apply convention
+  `scripts/cleanup_orphaned_person_nodes.py` already establishes.
+- `src/graph/community_detection.py` (`_NON_NAME_PHRASES`) and/or
+  `src/extraction/ner.py` — fix B, depending which option is chosen.
+- New tests for A1 (same-document repeat mention reuses one `entity_id`,
+  cross-document/cross-case mentions are unaffected) and the cleanup
+  script (dry-run vs. apply, same-document+same-case guard only).
+
+### Test plan
+- Unit: a fixture document with the same `canonical_name` mentioned N
+  times in one ingestion run writes exactly one `Person` node, not N —
+  and a DIFFERENT document/case with the same name still goes through
+  the existing (unchanged) name-fallback path, proving A1 doesn't widen
+  cross-document merging.
+- Live verification: re-run `detect_communities()` against the real
+  graph after A1+A2 land; the `fir-1001-26` community should shrink to a
+  small handful of members, graph density should drop sharply, and — the
+  actual point of tracing this from Module 9 in the first place —
+  `louvain_partitions()` should now have room to produce ≥2 real levels
+  on a graph with real per-case rather than one degenerate mega-cluster.
+- Full backend suite green, harness compliance suite green.
 
 ---
 
