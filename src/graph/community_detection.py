@@ -51,7 +51,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import networkx as nx
-from networkx.algorithms.community import louvain_communities
+from networkx.algorithms.community import louvain_partitions
 from sqlalchemy import text
 
 from src.database.postgres import get_session
@@ -363,12 +363,37 @@ async def detect_communities() -> dict:
     Run one full community-detection pass: export the Person subgraph from
     AGE, canonicalize through confirmed SAME_AS links, project a
     shared-case co-occurrence signal alongside real ASSOCIATED_WITH edges,
-    run Louvain, and replace the stored partition in Postgres.
+    run Louvain, and replace the stored partition(s) in Postgres.
+
+    [findings.md Module 9, Stage 2 — real hierarchy] Consumes
+    `louvain_partitions()`'s FULL generator (finest -> coarsest), not just
+    `louvain_communities()`'s single flattened last item — every level
+    Louvain actually produces gets its own real, distinct
+    `community_membership.level` value and is persisted. Pre-Stage-2, this
+    function always wrote a single partition under a hardcoded
+    `level=0` — that partition was, in fact, Louvain's COARSEST merge
+    (`louvain_communities()` takes the generator's last item). Post-
+    Stage-2, `level=0` means the FINEST partition instead, matching
+    findings.md's own stated convention ("lower levels = more detailed
+    reports") — a real meaning change for what "level 0" denotes, called
+    out explicitly here and in this session's own commit/report, not
+    silently glossed over. `louvain_partitions()` is the exact same
+    generator `louvain_communities()` already calls internally and simply
+    takes the last item from — this is a strict generalization of the
+    same algorithm/dependency, confirmed live this session
+    (`levels = list(louvain_partitions(G, seed=42))` on a real test graph
+    yields `[5, 4]`, and the last level exactly matches what
+    `louvain_communities()` itself returns for the same graph).
 
     Returns a summary dict — {run_id, node_count, edge_count,
-    community_count, communities: [{community_id, member_entity_ids,
-    case_ids, member_count}]} — the same shape community_summarization.py
-    consumes next.
+    community_count (the FINEST level's community count — the natural
+    "how many communities did this run find" headline, consistent with
+    pre-Stage-2 behavior), levels ([community count per level, finest
+    first]), communities: [{community_id, level, member_entity_ids,
+    case_ids, member_count}] (every level's communities, flattened)} —
+    community_summarization.py consumes the persisted
+    `community_membership` rows directly (already grouped by
+    `(community_id, level)`), not this return value's `communities` list.
     """
     same_as_pairs = await fetch_confirmed_same_as()
     canonical_map = build_canonical_map(same_as_pairs)
@@ -434,9 +459,14 @@ async def detect_communities() -> dict:
 
     if node_count == 0:
         logger.warning("Community detection: no connected Person pairs found — nothing to cluster.")
-        partition: list[set[str]] = []
+        levels: list[list[set[str]]] = []
     else:
-        partition = louvain_communities(g, weight="weight", seed=42)
+        # Finest -> coarsest. The LAST item here is exactly what
+        # louvain_communities(g, weight="weight", seed=42) itself returns
+        # (confirmed live this session) — pre-Stage-2 behavior is the
+        # special case of this generalization where only that last item
+        # gets persisted, under a hardcoded level=0.
+        levels = list(louvain_partitions(g, weight="weight", seed=42))
 
     # Canonical-person -> case_ids, aggregated from every mention (pre- and
     # post-canonicalization ids alike) so a community's case list reflects
@@ -448,34 +478,45 @@ async def detect_communities() -> dict:
     run_id = f"RUN-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}"
     run_date = datetime.now(timezone.utc).strftime("%Y%m%d")
 
-    communities = []
-    for idx, members in enumerate(partition):
-        community_id = f"C-{run_date}-{idx:04d}"
-        case_ids = sorted(set().union(*(canon_case_ids.get(m, set()) for m in members)))
-        member_list = sorted(members)
-        distinct_count = await estimate_distinct_person_count(member_list, person_names)
-        communities.append({
-            "community_id": community_id,
-            "member_entity_ids": member_list,
-            "case_ids": case_ids,
-            "member_count": len(members),
-            "distinct_member_count": distinct_count,
-        })
+    communities: list[dict] = []
+    level_counts: list[int] = []
+    for level_idx, partition in enumerate(levels):
+        level_count = 0
+        for idx, members in enumerate(partition):
+            community_id = f"C-{run_date}-L{level_idx}-{idx:04d}"
+            case_ids = sorted(set().union(*(canon_case_ids.get(m, set()) for m in members)))
+            member_list = sorted(members)
+            distinct_count = await estimate_distinct_person_count(member_list, person_names)
+            communities.append({
+                "community_id": community_id,
+                "level": level_idx,
+                "member_entity_ids": member_list,
+                "case_ids": case_ids,
+                "member_count": len(members),
+                "distinct_member_count": distinct_count,
+            })
+            level_count += 1
+        level_counts.append(level_count)
 
-    await _persist(run_id, node_count, edge_count, communities, raw_node_count, raw_edge_count)
+    # community_runs.community_count records the FINEST level's community
+    # count (level 0) — see this function's own docstring for why.
+    finest_community_count = level_counts[0] if level_counts else 0
+
+    await _persist(run_id, node_count, edge_count, communities, raw_node_count, raw_edge_count, finest_community_count)
 
     return {
         "run_id": run_id,
         "node_count": node_count,
         "edge_count": edge_count,
-        "community_count": len(communities),
+        "community_count": finest_community_count,
+        "levels": level_counts,
         "communities": communities,
     }
 
 
 async def _persist(
     run_id: str, node_count: int, edge_count: int, communities: list[dict],
-    raw_node_count: int, raw_edge_count: int,
+    raw_node_count: int, raw_edge_count: int, community_count: int,
 ) -> None:
     async with get_session() as db:
         # Deleting every prior run cascades to community_membership and
@@ -491,7 +532,7 @@ async def _persist(
             ),
             {
                 "run_id": run_id, "node_count": node_count, "edge_count": edge_count,
-                "community_count": len(communities),
+                "community_count": community_count,
                 "raw_node_count": raw_node_count, "raw_edge_count": raw_edge_count,
             },
         )
@@ -500,13 +541,18 @@ async def _persist(
                 await db.execute(
                     text(
                         "INSERT INTO community_membership (entity_id, community_id, level, run_id) "
-                        "VALUES (:entity_id, :community_id, 0, :run_id)"
+                        "VALUES (:entity_id, :community_id, :level, :run_id)"
                     ),
-                    {"entity_id": entity_id, "community_id": c["community_id"], "run_id": run_id},
+                    {
+                        "entity_id": entity_id, "community_id": c["community_id"],
+                        "level": c["level"], "run_id": run_id,
+                    },
                 )
+    num_levels = len({c["level"] for c in communities})
     logger.info(
-        "Community detection run %s: %d nodes, %d edges, %d communities.",
-        run_id, node_count, edge_count, len(communities),
+        "Community detection run %s: %d nodes, %d edges, %d communities at the finest level "
+        "(%d levels, %d communities total across all levels).",
+        run_id, node_count, edge_count, community_count, num_levels, len(communities),
     )
 
 
@@ -564,6 +610,77 @@ async def get_latest_run() -> Optional[dict]:
         ))
         row = res.mappings().first()
         return dict(row) if row else None
+
+
+# ============================================================
+# [findings.md Module 9 — Global Search] Direct community_reports reads,
+# for the new map-reduce sub-agent (src/pipeline/global_search.py). These
+# are deliberately NOT the Chroma top-k path (community_vector_store.py's
+# query_similar_communities()) — Global Search's whole point is to process
+# every report a hierarchy level has, not a similarity-ranked cut of them.
+# Owned here, not in community_vector_store.py or global_search.py itself,
+# since both read the same community_reports/community_runs tables
+# get_latest_run() above already owns reads for.
+#
+# Pre-Module-9 (and pre-Stage-2), community_membership/community_reports
+# only ever carry level=0 (a single flat partition) — these two functions
+# already accept a `level` argument so Stage 2's hierarchy swap
+# (community_detection.detect_communities() persisting real, distinct
+# levels) makes them meaningful without touching this file's Module 9
+# additions again.
+# ============================================================
+
+
+async def get_community_reports_for_level(level: int, run_id: Optional[str] = None) -> list[dict]:
+    """
+    Every community_reports row for one hierarchy level of one run —
+    defaults to the latest run_id when none is given. Returns
+    [{community_id, level, run_id, member_entity_ids, case_ids,
+    member_count, summary_text}, ...], ordered by community_id for a
+    deterministic (if arbitrary) base ordering before any caller-side
+    shuffling.
+    """
+    if run_id is None:
+        latest = await get_latest_run()
+        if latest is None:
+            return []
+        run_id = latest["run_id"]
+    async with get_session() as db:
+        res = await db.execute(
+            text(
+                "SELECT community_id, level, run_id, member_entity_ids, case_ids, "
+                "member_count, summary_text FROM community_reports "
+                "WHERE run_id = :run_id AND level = :level ORDER BY community_id"
+            ),
+            {"run_id": run_id, "level": level},
+        )
+        return [dict(row) for row in res.mappings()]
+
+
+async def get_available_report_levels(run_id: Optional[str] = None) -> list[int]:
+    """
+    Distinct, sorted `level` values with at least one summarized report in
+    one run — defaults to the latest run_id. Lets a caller (Global
+    Search's run_global_search_query()) pick a sensible default hierarchy
+    level (the middle of what's actually available) without hardcoding an
+    assumption about how many levels exist. Empty list if the run has no
+    reports at all (detection ran but nothing met MIN_MEMBERS_FOR_SUMMARY,
+    or summarization hasn't run yet).
+    """
+    if run_id is None:
+        latest = await get_latest_run()
+        if latest is None:
+            return []
+        run_id = latest["run_id"]
+    async with get_session() as db:
+        res = await db.execute(
+            text(
+                "SELECT DISTINCT level FROM community_reports "
+                "WHERE run_id = :run_id ORDER BY level"
+            ),
+            {"run_id": run_id},
+        )
+        return [row[0] for row in res.fetchall()]
 
 
 # ============================================================

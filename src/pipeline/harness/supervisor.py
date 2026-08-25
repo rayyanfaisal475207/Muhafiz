@@ -135,6 +135,36 @@ CROSS_CASE_LINKAGE = "Cross-Case Linkage"
 INVESTIGATIVE_ANALYSIS = "Investigative Analysis"
 REPORT_DRAFTING = "Report Drafting"
 DATA_QUALITY = "Data-Quality/Extraction-Coverage"
+# [AMENDMENT — findings.md Module 8, "Local Search"] A 9th sub-agent name,
+# additive on top of the plan's original 8-name scope (this module's own
+# docstring above documents that scope and its own Data-Quality
+# discrepancy note — this follows the same "flag the amendment, don't
+# rewrite the history" convention rather than silently editing the "8"s
+# above). Local Search composes a genuinely new tool
+# (tools/local_search.py — semantic entity-access-point matching, fanned
+# out through the existing retrieve_graph() traversal plus a new
+# community-report join) that has no predecessor in router.py's 9
+# tool-level routes at all, the same "new capability, no route to reuse"
+# shape Data-Quality/Extraction-Coverage was in — see the dedicated
+# trigger-pattern block near `classify_to_subagent()` below for how it
+# actually becomes reachable (unlike Data-Quality, it IS classification-
+# reachable, via a narrow trigger-vocabulary override on the confirmed
+# officer-role-reference failure class, not a route from router.py).
+LOCAL_SEARCH = "Local Search"
+
+# [AMENDMENT — findings.md Module 9, "Global Search"] A 10th sub-agent
+# name, same additive-amendment discipline as LOCAL_SEARCH above. Global
+# Search composes a new tool (tools/global_search.py — fetches EVERY
+# community report for a hierarchy level, not a top-k similarity cut) and
+# runs a genuinely different algorithm shape on top of it (map-reduce
+# across batched, shuffled reports) than any existing sub-agent — see
+# agents/global_search.py's own module docstring. Reachable via its own
+# narrow classification override (see the dedicated trigger-pattern block
+# near `classify_to_subagent()` below), only for the XNETWORK route's
+# whole-dataset-aggregation shape — narrower than XNETWORK's existing
+# default (a specific network/cluster question), which still falls
+# through to CROSS_CASE_LINKAGE unchanged.
+GLOBAL_SEARCH = "Global Search"
 
 SUB_AGENT_NAMES: tuple[str, ...] = (
     SEMANTIC_SEARCH,
@@ -145,6 +175,8 @@ SUB_AGENT_NAMES: tuple[str, ...] = (
     INVESTIGATIVE_ANALYSIS,
     REPORT_DRAFTING,
     DATA_QUALITY,
+    LOCAL_SEARCH,
+    GLOBAL_SEARCH,
 )
 
 # [Reconciliation fix — harness-reconciliation Unit 2] Returned by
@@ -192,7 +224,7 @@ _ROUTE_TO_SUBAGENT: dict[str, str] = {
 # cross-case sub-agent — where the tool's own role gate would then produce a
 # confusing DENIED on a query that never asked to cross cases, rather than a
 # clean same-case answer.
-_CROSS_CASE_SUBAGENTS = frozenset({CROSS_CASE_LINKAGE, LARGE_SCALE_AGGREGATE})
+_CROSS_CASE_SUBAGENTS = frozenset({CROSS_CASE_LINKAGE, LARGE_SCALE_AGGREGATE, GLOBAL_SEARCH})
 
 # ═══════════════════════════════════════════════════════════════════════
 # [Contract amendment — classification reachability, pre-cutover-Part-3]
@@ -281,6 +313,78 @@ _INVESTIGATIVE_ANALYSIS_TRIGGER_PATTERNS = [
 # cross-case route, leaving that classification untouched.
 _CROSS_CASE_ROUTES = frozenset({"XGRAPH", "XAGG", "XNETWORK"})
 
+# ═══════════════════════════════════════════════════════════════════════
+# [AMENDMENT — findings.md Module 8, "Local Search"] Local Search dispatch
+# trigger, same slot and same discipline as the two provisional overrides
+# above (checked before the `_ROUTE_TO_SUBAGENT` table lookup, only for
+# GRAPH-shaped, non-cross-case routes) — narrow, evidence-anchored
+# trigger vocabulary, not a general NER/entity-shape classifier.
+#
+# WHY A REGEX LIST, NOT THE BROADER "no literal identifier match" SIGNAL:
+# `classify_to_subagent()` is a pure, synchronous, no-I/O function — it
+# never calls the database. Actually checking "would
+# graph_retriever._find_seed_nodes() find nothing for this query" would
+# require a live DB round-trip at classification time, which no existing
+# override does and which would change this function's contract. A
+# trigger-vocabulary list is the same discipline
+# `_TIMELINE_TRIGGER_PATTERNS`/`_INVESTIGATIVE_ANALYSIS_TRIGGER_PATTERNS`
+# above already established for exactly this reason.
+#
+# SCOPE: the confirmed failure class only — a descriptive/role-based
+# officer reference with no literal name, cnic, phone, or belt number in
+# the query (findings.md Module 8's own live-reproduced "who is the
+# investigating officer in this case" repro; see
+# `src/pipeline/harness/agents/local_search.py`'s module docstring for the
+# ASSIGNED_TO-role finding this pattern set exists to reach). NOT extended
+# to complainant/accused/witness role references — a plausible future
+# extension, but with no confirmed-failure evidence backing it yet, same
+# "narrow, evidence-based, not maximally general" standard the two
+# existing provisional overrides were held to.
+_LOCAL_SEARCH_TRIGGER_PATTERNS = [
+    re.compile(r"\binvestigating\s+officer\b", re.IGNORECASE),
+    re.compile(r"\brecording\s+officer\b", re.IGNORECASE),
+    re.compile(r"\bduty\s+officer\b", re.IGNORECASE),
+    re.compile(r"\bwho\s+is\s+the\s+\w+\s+officer\b", re.IGNORECASE),
+    re.compile(r"\bwhich\s+officer\b", re.IGNORECASE),
+    re.compile(r"تفتیشی\s*افسر"),
+    re.compile(r"محرر\s*افسر"),
+    re.compile(r"\btaftishi\s*afsar\b", re.IGNORECASE),
+]
+
+# ═══════════════════════════════════════════════════════════════════════
+# [AMENDMENT — findings.md Module 9, "Global Search"] Global Search
+# dispatch trigger. PROVISIONAL, same disclosure as
+# _TIMELINE_TRIGGER_PATTERNS/_INVESTIGATIVE_ANALYSIS_TRIGGER_PATTERNS
+# above — this harness has carried no real Global Search traffic yet, so
+# there is no "live-confirmed misclassification failure" to point to the
+# way _LOCAL_SEARCH_TRIGGER_PATTERNS' officer-role trigger can. Derived
+# instead from GraphRAG's own stated Global Search question shape
+# (findings.md Module 9's "Origin" quote: "what are the top 5 themes in
+# the data?") and today's XNETWORK docstring's own narrower framing
+# ("overall picture/network" — a specific cluster/network question, NOT a
+# whole-dataset aggregation one).
+#
+# Checked ONLY for the XNETWORK route (below, not in the
+# `route not in _CROSS_CASE_ROUTES` block the other two provisional
+# overrides share) — XNETWORK's existing default (no match here) stays
+# CROSS_CASE_LINKAGE, completely unaffected; this only narrows the ONE
+# route that already means "cross-case, community-summary-based
+# synthesis" into two shapes (a specific network vs. a whole-dataset
+# aggregation), the same "narrow override, reuse the default otherwise"
+# discipline _LOCAL_SEARCH_TRIGGER_PATTERNS itself already uses for
+# GRAPH/GRAPH_HYBRID.
+# ═══════════════════════════════════════════════════════════════════════
+_GLOBAL_SEARCH_TRIGGER_PATTERNS = [
+    re.compile(r"\btop\s+\d+\s+(themes?|patterns?|trends?)\b", re.IGNORECASE),
+    re.compile(r"\bmost\s+common\s+(themes?|patterns?|methods?|crimes?)\b", re.IGNORECASE),
+    re.compile(r"\brecurring\s+(themes?|patterns?)\s+across\b", re.IGNORECASE),
+    re.compile(r"\b(overall|general)\s+(themes?|patterns?|trends?)\s+(in|across)\s+(the\s+)?(data|dataset|cases)\b", re.IGNORECASE),
+    re.compile(r"\bacross\s+(all|the\s+entire)\s+(dataset|data|cases)\b.*\b(themes?|patterns?|trends?)\b", re.IGNORECASE),
+    re.compile(r"مجموعی\s*رجحانات"),
+    re.compile(r"بڑے\s*موضوعات"),
+    re.compile(r"\bmajmoi\s*rujhanat\b", re.IGNORECASE),
+]
+
 
 def classify_to_subagent(route_result: dict, query_text: str = "") -> str:
     """
@@ -319,8 +423,35 @@ def classify_to_subagent(route_result: dict, query_text: str = "") -> str:
             return TIMELINE_BUILDING
         if any(pat.search(query_text) for pat in _INVESTIGATIVE_ANALYSIS_TRIGGER_PATTERNS):
             return INVESTIGATIVE_ANALYSIS
+        # [AMENDMENT — findings.md Module 8] Local Search override — only
+        # for the GRAPH-shaped routes it actually improves on (semantic
+        # entity access-point matching is meaningless for RAG/SQL/WEB,
+        # which never seed off an entity at all).
+        if route in ("GRAPH", "GRAPH_HYBRID") and any(
+            pat.search(query_text) for pat in _LOCAL_SEARCH_TRIGGER_PATTERNS
+        ):
+            return LOCAL_SEARCH
 
-    sub_agent = _ROUTE_TO_SUBAGENT.get(route, SEMANTIC_SEARCH)
+    # [AMENDMENT — findings.md Module 9] Global Search override — narrows
+    # ONLY the XNETWORK route (deliberately outside the
+    # `route not in _CROSS_CASE_ROUTES` guard above, since XNETWORK IS a
+    # cross-case route): a whole-dataset theme/pattern aggregation
+    # question goes to Global Search's map-reduce; XNETWORK's existing
+    # default (a specific network/cluster question, no match here) stays
+    # CROSS_CASE_LINKAGE, unaffected. See _GLOBAL_SEARCH_TRIGGER_PATTERNS'
+    # own comment block for the full rationale.
+    #
+    # Deliberately does NOT `return` here (unlike LOCAL_SEARCH's own
+    # override above) — GLOBAL_SEARCH is itself cross-case-role-gated (see
+    # _CROSS_CASE_SUBAGENTS), so it must still pass through the
+    # case_scope demotion guard immediately below; an early return here
+    # would let a within-case-scoped XNETWORK misclassification reach
+    # Global Search directly, the exact bug the demotion guard exists to
+    # prevent (RESOLVED... see _CROSS_CASE_SUBAGENTS's own comment).
+    if route == "XNETWORK" and any(pat.search(query_text) for pat in _GLOBAL_SEARCH_TRIGGER_PATTERNS):
+        sub_agent = GLOBAL_SEARCH
+    else:
+        sub_agent = _ROUTE_TO_SUBAGENT.get(route, SEMANTIC_SEARCH)
 
     # [Reconciliation fix — Unit 2] case_scope demotion guard — see
     # _CROSS_CASE_SUBAGENTS's own comment for the full rationale.

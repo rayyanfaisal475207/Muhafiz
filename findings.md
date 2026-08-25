@@ -55,10 +55,11 @@ verification.
 | 4 | [XAGG entity-type coverage gap](#module-4-xagg-entity-type-coverage-gap-weapon-aggregation) ✅ RESOLVED 2026-08-25 | 🟡 Medium | Medium-Large | — |
 | 5 | [SQL extractor phrasing brittleness](#module-5-sql-extractor-phrasing-brittleness) ✅ RESOLVED 2026-08-25 | 🟡 Medium | Medium | — |
 | 6 | [Community detection never refreshes for real sync data](#module-6-community-detection-never-refreshes-for-real-sync-data) ✅ RESOLVED 2026-08-25 | 🟠 Medium-High | Small | — |
-| 7 | [No general adaptive multi-method retrieval](#module-7-no-general-adaptive-multi-method-retrieval) | 🟡 Medium | Large | — |
-| 8 | [Local Search — entity-based reasoning](#module-8-local-search--entity-based-reasoning) | 🟠 Medium-High | Large | — |
-| 9 | [Global Search — whole-dataset map-reduce reasoning](#module-9-global-search--whole-dataset-map-reduce-reasoning) | 🟠 Medium-High | Large | Module 6 |
+| 7 | [No general adaptive multi-method retrieval](#module-7-no-general-adaptive-multi-method-retrieval) ✅ RESOLVED 2026-08-25 | 🟡 Medium | Large | — |
+| 8 | [Local Search — entity-based reasoning](#module-8-local-search--entity-based-reasoning) ✅ RESOLVED 2026-08-25 | 🟠 Medium-High | Large | — |
+| 9 | [Global Search — whole-dataset map-reduce reasoning](#module-9-global-search--whole-dataset-map-reduce-reasoning) ✅ RESOLVED 2026-08-25 (both stages) | 🟠 Medium-High | Large | Module 6 |
 | 10 | [Meta-analysis — query decomposition and aggregation](#module-10-meta-analysis--query-decomposition-and-aggregation) | 🟠 Medium-High | Large | Relates to 7, 8, 9 |
+| 11 | [Unreviewed name-fallback duplicates poison community detection](#module-11-unreviewed-name-fallback-duplicates-poison-community-detection-plus-a-common-noun-mistagged-as-a-person) ✅ A1/A2 RESOLVED 2026-08-25 (B open) | 🟠 Medium-High | Small-Medium | Discovered via Module 9 |
 
 Modules 1-8 are independent of each other (different files, no shared edit
 surface) — they can be done in any order or in parallel across sessions.
@@ -69,8 +70,12 @@ Aug-22-stale data Module 6 exists to fix. Module 10 has no hard dependency
 on 7/8/9 (it can dispatch to whichever single-method routes exist today),
 but each of those, once built, becomes a stronger tool for Module 10's
 sub-queries to call into — see Module 10's own "Relationship to Modules
-7-9" note. The table order is by severity, not a hard sequencing
-requirement beyond Module 9's one real dependency.
+7-9" note. Module 11 was found live-verifying Module 9's Stage 2 (a
+single-case entity-extraction pathology was silently distorting community
+detection's real graph shape) — independent of 1-10's own edit surfaces,
+but worth doing before ever re-attempting to make Module 9's hierarchy
+levels demonstrably useful on real data. The table order is by severity,
+not a hard sequencing requirement beyond Module 9's one real dependency.
 
 ---
 
@@ -975,6 +980,165 @@ whether a recompute actually ran).
 
 ## Module 7: No general adaptive multi-method retrieval
 
+### ✅ RESOLVED — 2026-08-25
+Fixed on `main` (merged from
+`feature/module7-adaptive-multi-method-retrieval`), implementing Option A
+(general adaptive combiner) after a live mini-sweep — the "Suggested first
+step" below — was run before picking a direction.
+
+**Mini-sweep first (per the module's own instructions):** 6 real,
+ground-truth-driven compound questions were run against the live corpus
+before any code was written. Only 1/6 (a GRAPH+XGRAPH officer/repeat-case
+shape) was a clean hit of this module's exact gap; the other failures
+traced to three separate, unrelated issues (a missing Arms Ordinance
+category in `police_reference_data`, an apparent SQL-verifier bug, and an
+XGRAPH wrong-entity-resolution bug). Reported to the user with all three
+options (A/B/C) restated against this evidence, plus an explicit
+"don't build yet" option — the user's call, given the small/mixed sample,
+was to build Option A anyway: the measured low hit-rate today is a
+snapshot of the current corpus, not a ceiling, and the fusion plumbing is
+cheap relative to what it unblocks as the graph/corpus grow and compound-
+need questions become more common.
+
+**What was built:**
+- `src/pipeline/router.py` / `prompts/router.txt`: `route_query()` gained
+  an optional `secondary_methods` field (subset of `SQL`/`GRAPH`/`XGRAPH`/
+  `XAGG`, capped at 2, self-reference and unrecognized values dropped) the
+  LLM router can set alongside its primary route for a genuinely compound
+  question. Only ever honored downstream for a within-case primary route
+  (SQL/GRAPH/GRAPH_HYBRID) — XGRAPH/XAGG/XNETWORK's existing structurally-
+  separate, never-blended cross-case contract is completely untouched.
+  Also fixed a real gap found while building this: the SQL deterministic
+  regex fast-path (bypasses the LLM entirely for reliability on
+  unambiguous single-intent SQL lookups) was swallowing the SQL HALF of a
+  compound question before the LLM router — and `secondary_methods` — ever
+  got a chance to run. A narrow exception (`_sql_override_has_compound_signal`)
+  now skips the override only when the query also names a case-specific
+  "this X" via an explicit conjunction, leaving the override's fast path
+  for ordinary single-intent SQL queries completely unaffected.
+- `src/pipeline/orchestrator.py`: new `_fetch_secondary_evidence()` helper
+  fetches whichever additional methods were flagged and returns pseudo-
+  chunks in the same shape every route already builds. Wired into SQL/
+  GRAPH/GRAPH_HYBRID, reusing GRAPH_HYBRID's existing fuse-then-cite
+  machinery (`_format_documents_for_prompt` + `verify_grounding`) rather
+  than building new fusion logic — confirming this module's own root-cause
+  correction that the hard part (proven 3-way fusion) already existed.
+  Critically, the fetch runs **before** the relevance evaluator, not just
+  before generation (a live-caught bug during verification — see below),
+  and `verify_grounding()`'s pre-existing `cross_case_ids` parameter (built
+  for XGRAPH) is reused unchanged to keep a legitimately-cited cross-case
+  supplemental chunk from tripping the leakage check.
+
+**Live-verified**, Docker/backend confirmed healthy, backend restarted
+(no `--reload`) after every code change — the same 6 mini-sweep questions
+re-run against the real `/api/chat` endpoint:
+- **1/6 (the GRAPH_HYBRID+XGRAPH repeat-offender question) now gets a
+  full, correct compound answer** where it previously abstained
+  completely: the router set `secondary_methods: ["XGRAPH"]`, the fetch
+  found 25 cross-case chunks, the evaluator accepted the merged evidence,
+  generation correctly hedged the cross-case citations, the verifier
+  passed cleanly, and the final answer covered both halves — a full case
+  summary AND an honest, evidence-grounded "not a repeat offender"
+  conclusion that correctly distinguishes the accused from the *other*
+  people who do recur in other cases (matching live ground truth).
+- **3/6 (the GRAPH+SQL/XAGG questions) show the wiring working but
+  blocked by a separate limiting factor**: the secondary fetch correctly
+  ran and found evidence every time, but the evaluator still judged the
+  combined evidence insufficient — traced to the primary GRAPH retrieval
+  itself being thin (the graph schema has no dedicated "stolen item"
+  entity type for these cases), a retrieval-coverage gap, not a fusion
+  defect this module's scope covers.
+- **1/6 surfaced a genuine pre-existing, unrelated bug**: the secondary
+  XGRAPH fetch (seeded with `target_entity: null`) found 0 items, but
+  `retrieve_graph()`'s own PRIMARY within-case traversal leaked a chunk
+  from a different case anyway — correctly caught by the verifier's
+  leakage check (working as designed), but revealing `retrieve_graph()`
+  can cross case boundaries even with `cross_case=False`. Filed as its own
+  follow-up, out of this module's scope.
+- **1/6 remains confounded** by the missing Arms Ordinance reference-data
+  category found during the mini-sweep — independent of routing.
+
+**Two bugs were caught and fixed live during this verification pass**,
+both real integration gaps, not present in the design as originally
+planned:
+1. The secondary-evidence fetch originally ran after the relevance
+   evaluator — so a compound question whose primary-only evidence looked
+   incomplete to the evaluator (exactly the case that most needs the
+   second method) fell back to RAG before the fetch ever got a chance.
+   Moved the fetch before the evaluator in both GRAPH and GRAPH_HYBRID.
+2. The merged prompt had no hedging-word instruction for a low-confidence
+   supplemental cross-case citation — `verify_grounding()`'s deterministic
+   hedging check discarded an otherwise-correct answer that cited one
+   without a hedge word. Added `_CROSS_CASE_HEDGING_RULE`, appended to the
+   prompt only when a secondary XGRAPH fetch actually contributed
+   cross-case evidence.
+
+**Tests**: `tests/test_router.py` gained coverage for `secondary_methods`
+parsing (valid/invalid/self-reference/cap-at-2/absent-defaults-to-empty,
+parity on the exception-fallback dict, and the deterministic-override
+short-circuit) and the SQL-override compound-exception guard (both clause
+orders, plus a guard that an ordinary single-intent SQL query is
+unaffected). `tests/test_orchestrator.py` gained compound-merge tests
+(SQL+GRAPH, GRAPH+SQL, GRAPH_HYBRID+XGRAPH with `cross_case_ids` reaching
+the verifier) and explicit regression guards: a GRAPH route with no
+`secondary_methods` key fetches nothing extra, and an XGRAPH primary route
+ignores a (should-never-happen) `secondary_methods` value entirely,
+preserving its structurally-separate contract. Full backend suite green.
+
+#### Follow-up fixes — 2026-08-25 (same day, `fix/module7-followup-graph-leak-and-xgraph-seeding`)
+Two of the gaps this module's own live verification surfaced were picked
+up as scoped follow-ups (a third — extending the graph schema with a
+"stolen/recovered item" entity type — was deliberately left open as its
+own, larger, module-sized project; a fourth — sourcing real Arms
+Ordinance 1965 reference data — was deliberately skipped, since
+fabricating authoritative legal-lookup content isn't something to do
+without a real source):
+
+1. **`retrieve_graph()` cross-case leak, root-caused and fixed.**
+   `_fetch_appears_in()` is a general, case-agnostic helper — every
+   APPEARS_IN edge for a given entity set, each row correctly tagged with
+   its own document's real `case_id`. Correct for `cross_case=True`
+   (XGRAPH's whole job), but the within-case (`cross_case=False`) caller
+   never filtered the result back down to the active `case_id` —
+   contradicting `retrieve_graph()`'s own docstring ("ignored entirely on
+   the within-case path, which is always scoped to case_id regardless").
+   A single canonical entity genuinely shared across two cases (identity
+   resolution had already merged it — no SAME_AS fold involved, a
+   different shape from the SAME_AS leak Milestone E2 already closed)
+   could legitimately seed a within-case traversal (it DOES belong to the
+   active case) and still pull in its OTHER case's evidence chunks
+   unfiltered. Fixed with a one-line filter on `appears_in_rows` gated on
+   `not cross_case and case_id`; regression test
+   `test_single_entity_belonging_to_two_cases_never_leaks_the_other_cases_evidence`
+   added to `tests/test_graph_retriever.py`, confirmed to fail without the
+   fix and pass with it.
+2. **XGRAPH secondary-fetch seeding improved.** The secondary XGRAPH
+   fetch used to seed from the router's own `target_entity`, almost
+   always `null` for exactly the queries that need this secondary (a
+   compound question's cross-case half is phrased descriptively — "the
+   accused" — since the router's one extraction, if any, went to the
+   PRIMARY route's own need). `_fetch_secondary_evidence()` now falls
+   back to the PRIMARY route's own already-resolved `seed_entities`,
+   filtered to `type == "Person"` specifically (never the investigating
+   officer, a vehicle, or an address also present in a case-wide
+   enumeration seed set).
+
+**Live-verified** (Docker/backend confirmed healthy, backend restarted):
+re-ran the same 6 mini-sweep questions. Q4 (GRAPH+XGRAPH: officer +
+accused's other cases) went from a full abstention (caused by the leak
+above tripping the verifier's leakage check) to a complete, ground-truth-
+correct compound answer — correctly named the investigating officer,
+correctly identified the one accused who genuinely recurs in another case
+(matching live Cypher ground truth exactly), and correctly stated the
+other accused have no other-case involvement rather than overclaiming.
+Q5 fell back to RAG again on this run (the evaluator accepted 25
+supplemental items in the pre-follow-up verification pass but rejected 6
+different, more targeted ones here) — genuine LLM/evaluator non-
+determinism run to run, not a regression, reported as such rather than
+claimed fixed. Q1/Q2/Q3/Q6 unchanged, as expected — none of their
+blockers (thin primary graph evidence, missing Arms Ordinance reference
+data) were in scope for these two fixes. Full backend suite green.
+
 ### Note on evidence quality — different from Modules 1-6
 The first six modules were each reproduced against live data or a live
 query. This one is confirmed a different, but equally certain, way:
@@ -1122,6 +1286,88 @@ module actually needs before Option A/B/C can be chosen responsibly.
 
 ## Module 8: Local Search — entity-based reasoning
 
+### ✅ RESOLVED — 2026-08-25
+Fixed on `main` (merged from `feature/harness-local-search`), implementing
+the proposed design below exactly as scoped. **This RESOLVED block was
+missing from findings.md until a later audit caught it — the work itself
+landed and was live-verified on 2026-08-25; this is a documentation
+backfill, not a new fix.**
+
+- New `src/retrieval/entity_vector_store.py` — a lean, dedicated Chroma
+  collection (`muhafiz_entity_descriptions`) embedding each entity's
+  `canonical_name` plus its notable identifying properties (reusing
+  Module 2's `_NOTABLE_PROPERTIES` table), mirroring
+  `community_vector_store.py`'s shape exactly. Hard within-case scope
+  (server-side `case_id` filter, fails closed with no active case).
+- New `src/graph/entity_embedding_refresh.py` — incremental, diff-based
+  refresh (new/changed entities upserted, stale ones pruned); no
+  staleness heuristic needed (cheap and incremental, unlike community
+  detection). Includes an Officer's per-case `ASSIGNED_TO` role
+  (investigating/recording) in the embedded description text, since
+  that's the one thing distinguishing the two roles semantically and
+  `retrieve_graph()` didn't surface it.
+- New `src/pipeline/harness/tools/local_search.py` — semantic
+  entity-access-point match → `retrieve_graph()` fan-out (unchanged,
+  seeded with the matched entity's own name) →
+  `community_membership`/`community_reports` join → `cross_rerank()` →
+  `evaluate_relevance()`. Every chunk tagged `source_tool="GRAPH"`
+  (`SourceTool` is a closed Literal — Local Search's own identity lives
+  at the sub-agent/dispatch level only, same convention Module 9's own
+  Global Search tool later documents for itself).
+- New `src/pipeline/harness/agents/local_search.py` — composes
+  `local_search_tool` + `rag_tool` as its fallback target, generation +
+  `verify_grounding()`, same self-contained-prompt convention as
+  `semantic_search.py`/`cross_case_linkage.py`.
+- `src/pipeline/harness/supervisor.py` — `LOCAL_SEARCH` added as a 9th
+  sub-agent name; a narrow, evidence-anchored trigger override (officer-
+  role descriptive references, e.g. "investigating officer") for
+  GRAPH/GRAPH_HYBRID routes.
+- `scripts/sync_muhafiz_data.py` / `src/ingestion/service.py` — refresh
+  trigger wired at both call sites, mirroring Module 6's dual-wiring
+  exactly.
+
+**Tests**: `entity_vector_store` (real on-disk Chroma, fake embedder),
+`entity_embedding_refresh` (diff logic + description-text formatting),
+the `local_search` tool (including the direct regression test for this
+session's own confirmed failure — a descriptive query with no literal
+identifier finding a real seed via semantic match — and the
+community-fan-out include/omit cases), the `local_search` sub-agent
+(including a full Supervisor → Local Search → tool dispatch integration
+test). Full backend suite and the harness compliance suite both green;
+no RLS/role-gate guarantee weakened (no new enforcement point
+introduced — inherits `retrieve_graph()`'s existing case-scoping
+chokepoint unchanged).
+
+**Live-verified** (`fir-401-26`, real Postgres/AGE): *"who is the
+investigating officer in this case?"* — previously an ABSTAIN via both
+the legacy literal-match path and Local Search's own first-pass
+evaluator rejection — was traced one step further live: the semantic
+match correctly found the right officer, but the evaluator rejected the
+resulting evidence text because it never stated the officer's role
+(`retrieve_graph()`'s synthetic-evidence sentence surfaced
+`canonical_name`/`belt_no`/`phone` but never `ASSIGNED_TO.role`, since
+that lives on the edge, not a node property). Fixed as a same-day
+follow-up (`fix/graph-officer-role-evidence-text`,
+`e48f565`/`a8a321a`, "Module 8 follow-up"):
+`_fetch_appears_in()` now also fetches each Officer's current,
+non-superseded `ASSIGNED_TO` role(s) for the specific case, merged in
+Python (deliberately NOT folded into the same Cypher `OPTIONAL MATCH` —
+live-verification caught a real fan-out bug first: `fir-401-26` has one
+officer holding BOTH the investigating and recording role
+simultaneously, and an `OPTIONAL MATCH` on that edge produced two
+duplicate rows differing only in role, which a synthetic-id-keyed dict
+then silently overwrote non-deterministically depending on row order).
+`_synthetic_evidence_chunk()` now names ALL current roles, sorted for
+stable rendering. 10 new regression tests, including the exact
+dual-role shape run 5× to guard the determinism bug. Re-verified after
+the follow-up: `status=OK`, *"The investigating officer in this case is
+ذیشان, as recorded in [Document 1]."*, `tools_used=['GRAPH']`,
+`degraded_from=[]`.
+
+**Not wired into main.py/orchestrator.py/router.py live traffic** — same
+scope every harness sub-agent phase (7, 9, 11) shares; see this
+document's Module 9 report for the standing cutover caveat.
+
 ### Origin
 Requested explicitly by the team (Navaira Rehman, 2026-08-24): incorporate
 Microsoft GraphRAG's Local Search methodology, **at the agent-harness
@@ -1247,6 +1493,138 @@ rebuilding:
 ---
 
 ## Module 9: Global Search — whole-dataset map-reduce reasoning
+
+### ✅ Stage 1 RESOLVED — 2026-08-25
+
+### ✅ Stage 2 RESOLVED — 2026-08-25
+Fixed on `main` (merged from `feature/harness-global-search-stage2`):
+`detect_communities()` now consumes `louvain_partitions()`'s full
+generator (finest → coarsest) instead of `louvain_communities()`'s single
+flattened result — the exact same underlying algorithm/dependency, not a
+new one. `community_membership.level` carries real, distinct per-level
+values (was previously always a hardcoded `0`) — additive to the
+already-existing column, no schema change. **Semantic note:** post-Stage-2
+`level=0` means the FINEST partition; pre-Stage-2 the single stored
+partition (always `level=0`) was actually Louvain's COARSEST merge — a
+real meaning change for what "level 0" denotes, not silently glossed
+over. `community_runs.community_count` keeps recording the finest level's
+count. `community_summarization.py` summarizes only the finest
+`MAX_LEVELS_TO_SUMMARIZE=3` levels a run actually persists (persisting
+every level is cheap; summarizing multiplies LLM cost per level). Stage
+1's `hierarchy_level` default-to-middle-level logic
+(`run_global_search_query()`, already shipped) becomes meaningful
+automatically — no further code change was needed there.
+
+**Tests**: new `detect_communities()` end-to-end test against Zachary's
+karate club (34 nodes, real multi-community structure) asserts ≥2
+genuinely different Louvain levels get persisted with real distinct
+`level` values in `community_membership` — not one partition duplicated
+under two level numbers. `tests/test_community_summarization.py` (new, 4
+cases) covers the finest-3 summarization cap directly. Full backend suite
+green; harness compliance suite green.
+
+**Live-verified** against the real running graph (Docker/Postgres
+healthy) — `POST /api/admin/community/refresh`'s own
+`detect_communities()`+`summarize_communities()` sequence run directly:
+- **Real level counts on the actual graph: `[19]` — exactly one level.**
+  Not a Stage 2 defect — independently reconfirmed by reconstructing the
+  identical weighted graph outside `detect_communities()` and calling
+  `louvain_partitions()` directly: **`[19]` across 4 different seeds
+  (42, 1, 7, 123), and with weighting removed entirely.** The real cause:
+  the current live graph is extremely dense — 428 nodes, 67,603 edges,
+  **74% density** — dominated by one 232+/352-member giant community
+  (the same one Module 6's own live-verification already surfaced). At
+  that density Louvain's modularity optimization converges in a single
+  pass, with no further beneficial coarsening step for the generator to
+  yield. The karate-club unit test proves the CODE handles ≥2 real levels
+  correctly; the live graph today simply doesn't have multi-level
+  structure to expose.
+- `community_membership`/`community_reports` both confirmed showing
+  exactly `level=0` for all 19 communities/reports on this run, matching
+  the `[19]`-only level-count finding.
+- **Flagged, not fixed here (out of this module's scope):** a
+  74%-density projected shared-case co-occurrence graph, with one
+  community absorbing 352 of 428 nodes, is itself a plausible
+  community-detection-QUALITY finding worth its own investigation (e.g.
+  the shared-case edge-weighting scheme, or Louvain's resolution
+  parameter) — Stage 2's own scope was "consume the full
+  `louvain_partitions()` generator," not "make the live graph's structure
+  more hierarchical," and no such tuning was attempted here.
+Fixed on `main` (merged from `feature/harness-global-search-stage1`),
+implementing Stage 1 exactly as scoped below — a real map-reduce
+sub-agent over the existing flat community level. Stage 2 (real
+hierarchy) is a separate, still-open follow-up per this module's own
+staging.
+
+- New `src/pipeline/global_search.py::run_global_search_query()` — same
+  role-gate-then-RLS-arm-then-fetch shape as `xnetwork.py`'s
+  `run_network_query()`, but fetches EVERY community report for a
+  hierarchy level directly from Postgres
+  (`community_detection.get_community_reports_for_level()`, new), not a
+  Chroma top-k similarity cut.
+- New `src/pipeline/harness/tools/global_search.py` — thin `ToolResult`
+  wrapper, cross-case role-gated, registered into
+  `_source_scan.py`'s `TOOL_WRAPPER_MODULE_NAMES` /
+  `CROSS_CASE_TOOL_MODULE_NAMES` (enforcement points 2/3/4/5 now cover
+  it) plus a dedicated behavioral DENIED test added to
+  `test_enforcement_3_cross_case_role_gate.py`.
+- New `src/pipeline/harness/agents/global_search.py` — the actual
+  map-reduce: caps the fetched report set at 60 (sampled beyond that),
+  batches at 5, shuffles each batch, one `call_llm_json()` per batch for
+  importance-rated points, reduce step keeps the top 15 points by
+  importance, generates the final answer from their distinct backing
+  community reports, verified through the existing
+  `verify_grounding()` + structural-tier `validate_answer()`.
+- `src/pipeline/harness/supervisor.py` — new `GLOBAL_SEARCH` sub-agent
+  name, a narrow provisional trigger vocabulary ("top 5 themes", "most
+  common patterns", etc.) that overrides ONLY the XNETWORK route's
+  default (Cross-Case Linkage's existing "specific network" framing is
+  unaffected), and added to the cross-case `case_scope` demotion guard.
+
+**Real current community-report count this sizing was based on: 19**
+(confirmed live this session, `RUN-20260825074016`/later re-confirmed
+under `RUN-20260825142014` — both newer than the latest case data;
+Module 6 was already merged to `main` before this module started, so no
+manual dependency-workaround was needed, though the refresh was re-run
+once more immediately before live verification as belt-and-suspenders).
+
+**Live-verified** against the real running backend (Docker/Postgres
+healthy, backend `/health` → `database_status: ok`), refresh re-run
+immediately before verifying (`RUN-20260825142014`, 19 communities, 19
+reports):
+- Query A (today's existing XNETWORK trigger shape — this session's own
+  repro text, "overall picture of associate networks across the robbery
+  cases"): old top-5 retrieved 5 of 19 reports
+  (`C-...0006/0001/0000/0012/0008`); the new fetch sees all 19 —
+  **14 of 19 reports the old top-5 cut never retrieved at all.**
+- Query B (the new Global Search trigger shape — "what are the top 5
+  themes across all the cases"): old top-5 retrieved a *different* 5 of
+  19 reports; again **14 of 19 missed** by the old cut.
+- Full sub-agent run on Query B: `status=ok`, `tools_used=["XNETWORK"]`,
+  answer cited **all 19** community reports (`[Document 1]`..`[Document
+  19]`), producing five real dataset-wide themes (PPC-case prevalence,
+  co-accused relationship patterns, PECA 2016 cybercrime, Arms Ordinance
+  1965 cases, geographic/police-station diversity) — several of which
+  (the PECA and Arms Ordinance themes in particular) cite reports that
+  were NOT in Query B's own old top-5 cut, concretely demonstrating
+  map-reduce surfacing dataset-wide signal a top-k similarity cut
+  drops. Structural-tier validation flagged 4 minor claim/source
+  mismatches as non-blocking caveats (working as designed — caveat-only,
+  never blocking a verified answer).
+
+**Tests**: `tests/test_harness_tool_global_search.py` (5 cases — OK/EMPTY/
+DENIED/FAILED shape, `fallback_to_rag` pinned False),
+`tests/test_harness_agent_global_search.py` (13 cases, including the
+required Stage 1 test: a query needing signal from 2 reports that would
+NOT individually rank in a naive top-5-by-similarity cut still surfaces
+both because map-reduce processes every report, batching/shuffling/
+cap/reduce-step/partial-batch-failure/verifier-rejection/Supervisor-
+dispatch all covered), `tests/test_harness_supervisor.py` (+4 cases for
+the new classification override, including the case_scope demotion
+guard), `tests/test_community_detection.py` (+6 cases for the two new
+fetch helpers). Full backend suite green; harness compliance suite green
+(60+ cases, including the new module's own DENIED/RLS/role-provenance/
+no-raw-Cypher checks).
 
 ### Origin
 Same request as Module 8, MS GraphRAG's Global Search description:
@@ -1529,6 +1907,269 @@ meta_analysis.py`, with three stages:
 - Full backend suite green, harness compliance suite green (this
   sub-agent must not weaken the RBAC/RLS guarantees the other 8 already
   enforce, especially given the cross-case RBAC question flagged above).
+
+---
+
+## Module 11: Unreviewed name-fallback duplicates poison community detection, plus a common-noun mistagged as a Person
+
+### ✅ A1/A2 RESOLVED — 2026-08-25 (B corrected, not fixed — see below)
+Fixed on `main` (merged from `fix/module11-duplicate-person-mentions`):
+
+- **A1** (`src/ingestion/service.py`): added `document_resolved_persons`,
+  a document-scoped (not chunk-scoped) `canonical_name -> entity_id`
+  cache. A `person` mention whose exact string was already resolved
+  earlier in the same ingestion run now reuses that `entity_id` — one
+  `APPEARS_IN` edge is still written for the new occurrence's own chunk
+  (real provenance preserved), but the node-mint +
+  `BELONGS_TO_CASE`-edge + candidate-search + pending-`SAME_AS`-proposal
+  steps `resolve_and_write()` would otherwise repeat are skipped
+  entirely. `resolved_persons` (the pre-existing, still chunk-scoped
+  dict used for relationship extraction) is completely unchanged —
+  A1 does not touch which names get passed into
+  `_extract_and_write_relationships()` at all, only whether a *node* gets
+  re-minted for an exact-string repeat.
+- **A2** (new `scripts/collapse_same_document_duplicate_persons.py`):
+  a narrow bulk-confirm over the *existing* review-queue machinery
+  (`src/api/graph_review.py::confirm_match()` — the same function a
+  human clicking "Confirm" calls) for `pending` `SAME_AS` edges where
+  BOTH endpoints share the exact same `source_doc_id` AND the exact same
+  `case_id`. Confirming (not merging) is sufficient:
+  `community_detection.build_canonical_map()` already collapses
+  confirmed, non-superseded `SAME_AS` components at READ time, before
+  clustering — so this directly fixes the community-detection symptom
+  without any new merge machinery. `--dry-run` (default) / `--apply`,
+  same convention as `scripts/cleanup_orphaned_person_nodes.py`.
+
+**Correction to the original diagnosis (root cause B):** live-verified
+`_is_plausible_person_name("قبضے")` returns `False` *already*, via the
+existing single-token rule (`" " not in stripped`) — `قبضے`/`کاشف`/`فیصل`
+(324 of the 692 raw mentions) never actually reached
+`community_detection.py`'s clustering graph at all; they were filtered
+before Stage 2's own diagnosis even ran. The 368-member giant community
+is composed entirely of the 5 MULTI-token variants (138+92+46+46+46 =
+368 exactly), which correctly pass today's plausibility filter (they
+read as real 2-4-word names) and are exactly what A1/A2 target. Root
+cause B (`قبضے` reaching the *graph* as a real `Person` node, still true
+at the AGE level, just not the thing distorting Module 9) is real but
+separate and NOT fixed by this pass — see "B — corrected, not fixed"
+below. Adding it to `_NON_NAME_PHRASES` would have been dead code (the
+single-token rule already excludes it there), so that patch was
+deliberately not made.
+
+**Tests**: `tests/test_ingestion_graph_extraction.py` (+2 cases — a
+same-document repeat resolves once and gets its own `APPEARS_IN` edge; a
+second, separate document with the same name is unaffected, proving A1
+doesn't widen cross-document matching), `tests/test_collapse_same_document_duplicate_persons.py`
+(new, 4 cases — dry-run makes no confirm calls, `--apply` confirms every
+qualifying edge, per-edge errors don't abort the batch, empty-queue
+reports cleanly). Full backend suite green.
+
+**Live-verified** against the real running Postgres/AGE instance:
+`--dry-run` found **6,523 qualifying pending edges**, `--apply` confirmed
+them via the real `confirm_match()` path (571 unique edges actually
+confirmed; the remaining ~5,952 attempts correctly 409'd as
+"already reviewed" — the qualifying-edge query itself returns duplicate
+rows per edge_id where a person has more than one non-superseded
+`BELONGS_TO_CASE` edge to the same case, a pre-existing data-versioning
+detail unrelated to this fix; `confirm_match()`'s own idempotency guard
+made every duplicate attempt a safe no-op, not a partial failure — the
+post-run "remaining: 0" check confirms every qualifying edge really was
+resolved). Directly verified: `fir-1001-26`'s 700 raw `Person` nodes now
+canonicalize (via confirmed `SAME_AS`, at read time, no physical merge)
+down to **36** — not the 1-2 the LLM's own summary implied, but a ~95%
+reduction, exactly matching the narrow same-document+same-case safety
+bar (residual duplicate name-fallback candidates that were never
+proposed as a pending pair against each other in the first place are
+correctly left untouched, not force-merged).
+
+**Downstream effect on the graph — dramatic and exactly as predicted**:
+re-running `detect_communities()` afterward, the projected graph shrank
+from 428 nodes / 67,603 edges to **64 nodes / 81 edges**. The former
+368+-member mega-community is completely gone — the largest community
+in the new run has **6 members**, matching the healthy 2-6-member
+distribution every other (legitimate) case cluster already had. The
+graph-density symptom that blocked Module 9 Stage 2's hierarchy is fully
+resolved at its actual root cause, not papered over. **Still only one
+Louvain level** (`[19]`) on this now-healthy, much smaller (64-node)
+graph — this is no longer a duplication-pollution artifact (confirmed:
+the pathological cluster is gone), just a small-graph structural
+property Module 9 Stage 2's own code already handles correctly whenever
+it does arise (proven on the karate-club fixture) — left as an honest,
+unforced observation, not something this pass manufactured a second
+level for.
+
+**Operational note for any future re-run**: `_ScriptAdmin.id`'s random
+`uuid.uuid4()` (mirroring `scripts/verify_milestone_d.py`'s own
+documented `_Admin` precedent) is not a row in `users` — this
+environment's `audit_logs.user_id` carries a real foreign-key constraint
+(stricter than that precedent's own "harmlessly logged and swallowed"
+comment anticipated), so every `confirm_match()` call's own audit-log
+write failed with a caught `ForeignKeyViolationError`, loud but
+non-fatal — the underlying `SAME_AS` confirmation itself still succeeded
+every time (verified directly against the graph, not inferred). A future
+run wanting a clean audit trail for this action should pass a real
+service-account/admin UUID that actually exists in `users`, not a fresh
+random one.
+
+**B — corrected, not fixed this pass.** `قبضے` (Urdu: "possession/
+custody") still exists as a real `Person` node in AGE — `resolve_and_write()`
+writes it unconditionally at ingestion time; only `community_detection.py`'s
+own downstream read-time filter happens to exclude single-token noise
+from clustering. It can still surface through XGRAPH, XAGG, or any other
+consumer that reads `Person` nodes directly without that same filter. A
+real fix needs a precision gate at the extraction layer
+(`src/extraction/ner.py`/`domain_entities.py`) — a stoplist check or a
+minimum-corroboration requirement for a bare single-word `person`
+candidate — not a `community_detection.py` blocklist entry (provably a
+no-op for single-token strings, given the existing space-check runs
+first). Left as an open, documented, NOT-implemented finding.
+
+### Origin
+Discovered as a side effect of Module 9 Stage 2's own live verification
+(2026-08-25): `detect_communities()`, run against the real live graph,
+produced exactly one Louvain level (`[19]`) instead of the ≥2 the same
+code reliably produces on a real multi-community fixture graph
+(Zachary's karate club, this session's own test). Diagnosing WHY —
+rather than tuning Louvain's resolution or the community-detection edge
+weights to paper over it — traced to a real, upstream, unrelated bug.
+
+### Note on evidence quality
+Fully live-reproduced and root-caused against the real running
+Postgres/AGE instance this session (not code inspection alone) — every
+number below is a direct query result, not an estimate.
+
+### Problem
+One community absorbs 368 of 428 canonicalized graph nodes (86%) and
+alone accounts for ~67,528 of the graph's ~67,603 edges (>99.9%) — this
+single community IS the graph's density. Tracing it back:
+
+- **All of it is one case, one document.** `fir-1001-26` (an Arms
+  Ordinance case) has 692 `Person` nodes belonging to it — every other
+  case in the entire corpus has 3-6. 691 of those 692 nodes trace to a
+  single `source_doc_id`
+  (`psrms_fir_fir-1001-26#narrative_c8bf2613`) — one narrative document.
+- **It's 8 distinct strings, wildly over-repeated**, not 692 distinct
+  people: `کاشف` (231×), `محمد رمضان` (138×), `بجے فیصل` (92×), `فیصل`
+  (47×), `تحت فیصل` (46×), `مدعی فیصل` (46×), `محمد رمضان ساکنہ محلہ`
+  (46×), `قبضے` (46×). The community's own LLM-written summary already
+  says as much in plain English: *"Muhammad Ramadan is the only named
+  individual connected to this case."*
+- **One of the 8 isn't a name at all.** `قبضے` is the Urdu word for
+  "possession/custody" (a common word in FIR narrative boilerplate,
+  e.g. "recovered from his possession") — a pure entity-type
+  misclassification, mistagged as a `Person` 46 times.
+- **This is essentially the entire graph's un-reviewed backlog.**
+  Graph-wide, only 19 of 641 `SAME_AS` edges are `confirmed` (3%); 622
+  are still `pending`. Nearly all of that pending backlog belongs to
+  this one case's duplicate cluster (per-edge tier
+  `flagged_unverified`, basis `"matched on near-identical name + shared
+  case"` — the system DID correctly flag these as likely duplicates; a
+  human has simply never reviewed them, and there is no bulk-action path
+  to clear a same-document repeat-mention cluster this large cheaply).
+
+### Root cause (two separate, stacked gaps)
+
+**A — no within-document/within-case exact-string dedup before minting a
+new node.** `src/ingestion/service.py`'s per-chunk loop already scopes
+one dedup mechanism to the whole document — `written_pairs`/
+`resolved_persons` (line ~298) exist specifically so the same real-world
+pair proposed twice within one ingestion doesn't get written twice — but
+`resolved_persons` is reset every chunk (`dict` declared *inside* the
+`for chunk in chunks:` loop, line 324), and neither it nor anything else
+is consulted before `entity_resolution.resolve_and_write()` is called for
+a `person` mention. `resolve_and_write()` itself is CNIC-first,
+name-fallback (architecture §7.3, `entity_resolution.py`'s own header
+comment): a mention with no CNIC is *never* auto-merged, no matter how
+strong the name match — by design, to prevent false-positive merges
+across genuinely different documents/cases. That design is correct for
+its stated purpose, but it means the SAME literal string, mentioned 231
+times in flowing narrative prose within *one* document, is treated
+identically to 231 independent CNIC-less mentions from unrelated cases —
+each mints its own node and, at best, a `pending` `flagged_unverified`
+`SAME_AS` edge back to the others. Nothing in the resolution pipeline
+recognizes "same exact string, same document, already resolved once this
+run" as the safe, cheap collapse it actually is.
+
+**B — no non-name filter upstream of the graph.** `قبضے` reaching the
+graph as a confirmed `Person` node is the same failure *class*
+`community_detection.py`'s own `_NON_NAME_PHRASES` blocklist exists to
+patch (that module's comments document three prior rounds of exactly
+this: form-field labels, station names, role titles extracted as
+`Person`) — but that blocklist is a downstream, community-detection-only
+guard, explicitly scoped in its own comments as "not a fix to the
+extraction pipeline itself." `قبضے` isn't in it, and even if it were,
+the guard doesn't run upstream of XGRAPH, XAGG, or any other consumer
+that reads `Person` nodes directly — only community detection's own
+clustering is protected.
+
+### Design options (two independent decisions — pick one per root cause,
+not a single combined choice)
+
+**For A (duplicate-mention explosion):**
+1. **Root fix — widen `resolved_persons` from chunk-scoped to
+   document-or-case-scoped, exact-string only.** Before calling
+   `resolve_and_write()` for a `person` mention, check whether the exact
+   same `canonical_name` string was already resolved earlier in *this
+   same ingestion run* for this document (or case); if so, reuse that
+   `entity_id` directly instead of minting a new node and a new
+   `SAME_AS` proposal. Exact-string match only (not fuzzy) keeps this as
+   safe as the existing CNIC tier's own "structural, not scored"
+   discipline — it does not weaken cross-document/cross-case resolution
+   at all, which stays exactly as conservative as it is today. Prevents
+   recurrence for any *future* ingestion; does not by itself clean up
+   `fir-1001-26`'s already-written 692 nodes.
+2. **Cleanup — a script (same shape as
+   `scripts/cleanup_orphaned_person_nodes.py`'s existing precedent) that
+   walks `pending`/`flagged_unverified` `SAME_AS` edges where both
+   endpoints share the same `source_doc_id` AND `case_id`, and
+   auto-confirms + collapses them.** Narrower and safer than a general
+   "bulk-confirm the review queue" tool — same-document, same-case,
+   already-flagged-as-near-identical is a materially safer auto-confirm
+   condition than an arbitrary pending edge. Needed regardless of
+   whether (1) ships, to actually fix `fir-1001-26`'s already-ingested
+   state; (1) alone only stops the bleeding for new ingestions.
+3. *(Rejected as this module's own fix)* Tuning `community_detection.py`'s
+   edge weights or Louvain's `resolution` parameter — treats the
+   symptom (a dense projected graph) without touching the actual
+   defect (692 nodes that should be a handful), and risks distorting
+   every other, correctly-sized community's clustering along with it.
+
+**For B (`قبضے` mistagged as Person):**
+1. Add it (and any other common nouns found by the same audit) to
+   `_NON_NAME_PHRASES` — cheap, consistent with this module's own
+   established (self-documented-as-imperfect) pattern, but leaves the
+   bad node in the graph for every OTHER consumer (XGRAPH, XAGG, the
+   review queue itself).
+2. A precision fix at the extraction layer (`src/extraction/ner.py` /
+   `domain_entities.py`) — e.g. a stoplist check or a minimum-
+   corroboration gate for a bare single-word `person` candidate with no
+   supporting context — closes the gap for every downstream consumer at
+   once, not just community detection.
+
+### Files likely touched
+- `src/ingestion/service.py` — widen `resolved_persons`'s scope (fix A1).
+- New `scripts/collapse_same_document_duplicate_persons.py` or similar —
+  the cleanup pass (fix A2), same dry-run/apply convention
+  `scripts/cleanup_orphaned_person_nodes.py` already establishes.
+- `src/graph/community_detection.py` (`_NON_NAME_PHRASES`) and/or
+  `src/extraction/ner.py` — fix B, depending which option is chosen.
+- New tests for A1 (same-document repeat mention reuses one `entity_id`,
+  cross-document/cross-case mentions are unaffected) and the cleanup
+  script (dry-run vs. apply, same-document+same-case guard only).
+
+### Test plan
+- Unit: a fixture document with the same `canonical_name` mentioned N
+  times in one ingestion run writes exactly one `Person` node, not N —
+  and a DIFFERENT document/case with the same name still goes through
+  the existing (unchanged) name-fallback path, proving A1 doesn't widen
+  cross-document merging.
+- Live verification: re-run `detect_communities()` against the real
+  graph after A1+A2 land; the `fir-1001-26` community should shrink to a
+  small handful of members, graph density should drop sharply, and — the
+  actual point of tracing this from Module 9 in the first place —
+  `louvain_partitions()` should now have room to produce ≥2 real levels
+  on a graph with real per-case rather than one degenerate mega-cluster.
+- Full backend suite green, harness compliance suite green.
 
 ---
 

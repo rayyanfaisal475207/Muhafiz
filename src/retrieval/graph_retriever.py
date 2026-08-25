@@ -729,6 +729,40 @@ async def _fetch_appears_in(entity_ids: set[str]) -> list[dict]:
     written into the caller's chunk-id-keyed dict happened to carry the
     other case. Every cross-case citation for a multi-case entity was one
     dict-overwrite away from naming the wrong case.
+
+    [findings.md Module 8 follow-up] Also attaches `officer_roles` (a
+    list, possibly empty) — an Officer's current, non-superseded
+    ASSIGNED_TO role(s) FOR THIS ROW'S OWN CASE (investigating/recording,
+    structured_projection.py's `_write_investigating_officers()`/
+    `_write_recording_officer()`). Deliberately fetched via a SEPARATE
+    query and merged in Python (`_fetch_officer_roles()` below), NOT
+    folded into this function's own MATCH as another OPTIONAL MATCH — that
+    was tried first and reverted after live-verification caught the exact
+    fan-out bug the "[Bug fix]" note right above already warns about, one
+    hop over: `fir-401-26`'s real data has ONE officer holding BOTH the
+    investigating AND recording role simultaneously (two live,
+    non-superseded ASSIGNED_TO edges to the same case) — an OPTIONAL MATCH
+    on that edge fans a single APPEARS_IN row into two duplicate (n, r, d)
+    rows differing only in role, and the caller's synthetic-id-keyed dict
+    (both rows produce the identical id, since entity_id/source_doc_id are
+    unchanged) silently overwrites one role with the other, non-
+    deterministically, in whatever order AGE happens to return them —
+    live-confirmed by running the exact same query twice and getting
+    "recording" once and "investigating" once. Aggregating in Python
+    instead — one list per (entity_id, case_id), collect()-free — sidesteps
+    that fan-out entirely rather than trying to get a Cypher-side
+    aggregate right on the first attempt against a query shape untested
+    elsewhere in this codebase.
+
+    Returns an empty list for `officer_roles` for every non-Officer entity
+    (no ASSIGNED_TO edge exists to match) and for a case-less document —
+    both correctly absent, not a gap. Live-confirmed the actual reason
+    this field exists at all: Local Search's own live-verification found
+    the right Officer via semantic match, but the relevance evaluator then
+    rejected the resulting evidence text verbatim because it "does not
+    explicitly state that this individual is the investigating officer" —
+    the role was real, in the graph, and simply never reached the cited
+    text. See _synthetic_evidence_chunk()'s own use of this field below.
     """
     if not entity_ids:
         return []
@@ -745,7 +779,52 @@ async def _fetch_appears_in(entity_ids: set[str]) -> list[dict]:
         params={"ids": list(entity_ids)},
         columns=["n", "r", "d", "case_id"],
     )
-    return rows
+    if not rows:
+        return rows
+
+    # Copy rather than mutate in place -- consistent with this module's own
+    # caution elsewhere (_find_seed_nodes()'s `{**(node or {}), ...}`
+    # pattern) about not assuming the Cypher driver's returned dicts are
+    # safe to mutate/shared nowhere else.
+    roles_by_entity_case = await _fetch_officer_roles(entity_ids)
+    return [
+        {**row, "officer_roles": roles_by_entity_case.get((_entity_id_of(row.get("n")), row.get("case_id")), [])}
+        for row in rows
+    ]
+
+
+async def _fetch_officer_roles(entity_ids: set[str]) -> dict[tuple[Optional[str], Optional[str]], list[str]]:
+    """
+    Every current (non-superseded) ASSIGNED_TO role for the given entities,
+    keyed by (entity_id, case_id) — a clean, one-row-per-edge query with no
+    fan-out risk (unlike folding this into _fetch_appears_in()'s own MATCH,
+    see that function's own docstring for the live-confirmed bug this
+    avoids). Non-Officer entity_ids simply match nothing here (ASSIGNED_TO
+    is only ever written for Officer nodes) — cheap to include unfiltered
+    rather than pre-splitting the caller's entity_ids by label.
+    """
+    if not entity_ids:
+        return {}
+    rows = await age_client.execute_cypher(
+        "MATCH (n)-[ar:ASSIGNED_TO]->(cs:Case) "
+        "WHERE n.entity_id IN $ids AND ar.superseded_by IS NULL "
+        "RETURN n.entity_id AS entity_id, cs.case_id AS case_id, ar.role AS role",
+        params={"ids": list(entity_ids)},
+        columns=["entity_id", "case_id", "role"],
+    )
+    roles_by_entity_case: dict[tuple[Optional[str], Optional[str]], list[str]] = {}
+    for row in rows:
+        key = (row.get("entity_id"), row.get("case_id"))
+        role = row.get("role")
+        if role:
+            roles_by_entity_case.setdefault(key, []).append(role)
+    # Sorted, not left in whatever order AGE happened to return rows in —
+    # a MATCH with no ORDER BY carries no ordering guarantee, and an
+    # officer holding two roles at once (fir-401-26's real data) must
+    # render identically every call, not flip depending on row-return
+    # order. Cheap: at most two roles per officer today (investigating,
+    # recording — structured_projection.py never writes a third kind).
+    return {key: sorted(roles) for key, roles in roles_by_entity_case.items()}
 
 
 def _synthetic_evidence_chunk(row: dict, matched_property: Optional[dict] = None) -> Optional[dict]:
@@ -800,6 +879,17 @@ def _synthetic_evidence_chunk(row: dict, matched_property: Optional[dict] = None
     anywhere in the cited text. Applied unconditionally, not gated on the
     query text mentioning that property — see findings.md Module 2's own
     "always include" recommendation.
+
+    [findings.md Module 8 follow-up] A third, always-applied clause for an
+    Officer's per-case ASSIGNED_TO role (investigating/recording) — role
+    lives on the edge, not a node property, so it can't go through
+    `_NOTABLE_PROPERTIES` above. Live-confirmed necessary, not theoretical:
+    Local Search's own live-verification found the correct Officer via
+    semantic match, but the relevance evaluator then rejected the
+    resulting evidence text because it never stated the officer's role —
+    the exact same "the graph knows this but the cited text doesn't say
+    so" failure shape Module 2 fixed for belt/phone/plate, just for a
+    property that happens to live on an edge instead of a node.
     """
     edge_props = row.get("r", {}).get("properties", {}) or {}
     source_doc_id = edge_props.get("source_doc_id")
@@ -844,6 +934,25 @@ def _synthetic_evidence_chunk(row: dict, matched_property: Optional[dict] = None
         )
         notable_clause = f", with {joined} recorded there"
 
+    # [findings.md Module 8 follow-up] An Officer's per-case ASSIGNED_TO
+    # role(s) (investigating/recording) — see _fetch_appears_in()'s own
+    # docstring for why this is correlated to the specific case this row's
+    # document belongs to (not looked up unscoped) and why it's a LIST:
+    # the same officer can legitimately hold both roles on one case at
+    # once (fir-401-26's own real data), and naming only one would be
+    # either wrong or silently non-deterministic. Empty for every
+    # non-Officer entity and for a case-less document; not gated on
+    # `matched_property`/`_NOTABLE_PROPERTIES` like the clauses above,
+    # since role isn't a node property at all — it lives on the edge.
+    officer_roles = row.get("officer_roles") or []
+    if not officer_roles:
+        role_clause = ""
+    elif len(officer_roles) == 1:
+        role_clause = f", and is recorded as the {officer_roles[0]} officer for this case"
+    else:
+        joined_roles = ", ".join(officer_roles[:-1]) + " and " + officer_roles[-1]
+        role_clause = f", and is recorded as both the {joined_roles} officer for this case"
+
     metadata = {"source": source_doc_id, "doc_type": doc_type, "synthetic_evidence": True}
     case_id = row.get("case_id")
     if case_id:
@@ -857,7 +966,7 @@ def _synthetic_evidence_chunk(row: dict, matched_property: Optional[dict] = None
         metadata["case_id"] = case_id
     return {
         "id": f"synthetic:{entity_id}:{source_doc_id}",
-        "text": f"{surface_text}{match_clause} appears in {doc_type} record {filename} ({source_doc_id}){notable_clause}.",
+        "text": f"{surface_text}{match_clause} appears in {doc_type} record {filename} ({source_doc_id}){notable_clause}{role_clause}.",
         "metadata": metadata,
     }
 
@@ -1393,6 +1502,32 @@ async def retrieve_graph(
     unconfirmed_links = await _unconfirmed_same_as_links(visited) if cross_case else []
 
     appears_in_rows = await _fetch_appears_in(visited)
+    # [Module 7 follow-up, findings.md] _fetch_appears_in() is a general,
+    # case-agnostic helper — it returns EVERY APPEARS_IN edge for a given
+    # entity set, each row correctly tagged with its OWN document's real
+    # case_id (see that function's own "Bug fix" docstring for the
+    # join-off-`d` history). That's exactly right for cross_case=True
+    # (XGRAPH's whole job is citing evidence from other cases) — but for
+    # a within-case query this was NEVER filtered back down to `case_id`,
+    # contradicting this function's own docstring ("ignored entirely on
+    # the within-case path, which is always scoped to case_id
+    # regardless"). Live-confirmed: an entity that legitimately belongs
+    # to the active case (a real BELONGS_TO_CASE edge, so it passes
+    # _filter_to_case() and is a valid seed/frontier member) can ALSO
+    # belong to a different case if the same real person/entity recurs —
+    # exactly the shape XGRAPH/XAGG exist to surface — and their evidence
+    # from THAT other case was leaking into a within-case answer's
+    # citation list unfiltered, caught only downstream by verify_grounding()'s
+    # leakage check (correctly rejecting the answer, but for a document
+    # that should never have reached the prompt at all). `row["case_id"]`
+    # is None for genuinely case-less content (e.g. a criminal_db record —
+    # that silo is CNIC-cross-referenced, not case-anchored, per
+    # _fetch_appears_in()'s own docstring) — kept, not filtered out.
+    if not cross_case and case_id:
+        appears_in_rows = [
+            row for row in appears_in_rows
+            if row.get("case_id") in (None, case_id)
+        ]
     chunk_ids: list[str] = []
     row_by_chunk: dict[str, dict] = {}
     synthetic_by_id: dict[str, dict] = {}

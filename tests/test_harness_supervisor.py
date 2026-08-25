@@ -27,6 +27,7 @@ import src.pipeline.harness.supervisor as supervisor_mod
 from src.pipeline.harness.supervisor import (
     CASE_SUMMARIZATION,
     CROSS_CASE_LINKAGE,
+    GLOBAL_SEARCH,
     INVESTIGATIVE_ANALYSIS,
     LARGE_SCALE_AGGREGATE,
     NO_SUB_AGENT,
@@ -203,6 +204,41 @@ def test_provisional_triggers_never_override_a_cross_case_classification(route, 
     route_result = {"route": route, "case_scope": "cross_case", "output_format": "chat"}
     result = classify_to_subagent(route_result, query_text)
     assert result == CROSS_CASE_LINKAGE if route in ("XGRAPH", "XNETWORK") else result == LARGE_SCALE_AGGREGATE
+
+
+# [AMENDMENT — findings.md Module 9, "Global Search"] classify_to_subagent()
+# coverage for the new override, per findings.md's own Test plan.
+def test_global_search_trigger_overrides_xnetwork_default():
+    route_result = {"route": "XNETWORK", "case_scope": "cross_case", "output_format": "chat"}
+    assert classify_to_subagent(route_result, "what are the top 5 themes in the data?") == GLOBAL_SEARCH
+
+
+def test_global_search_trigger_does_not_fire_on_xnetworks_existing_default_shape():
+    """XNETWORK's existing default (a specific network/cluster question,
+    findings.md's own repro text) must stay CROSS_CASE_LINKAGE, unaffected
+    by the new override."""
+    route_result = {"route": "XNETWORK", "case_scope": "cross_case", "output_format": "chat"}
+    assert (
+        classify_to_subagent(route_result, "overall picture of associate networks across the robbery cases")
+        == CROSS_CASE_LINKAGE
+    )
+
+
+def test_global_search_trigger_only_applies_to_the_xnetwork_route():
+    """A 'top 5 themes' phrasing on a non-XNETWORK route must not
+    accidentally reroute -- the override is scoped to XNETWORK only."""
+    route_result = {"route": "RAG", "output_format": "chat"}
+    assert classify_to_subagent(route_result, "what are the top 5 themes in the data?") == SEMANTIC_SEARCH
+
+
+def test_global_search_is_covered_by_the_case_scope_demotion_guard():
+    """GLOBAL_SEARCH is cross-case-role-gated like CROSS_CASE_LINKAGE/
+    LARGE_SCALE_AGGREGATE -- it must be included in _CROSS_CASE_SUBAGENTS
+    so the same demotion guard applies to it: an XNETWORK route whose
+    case_scope did NOT come back "cross_case" must demote to Semantic
+    Search, not reach Global Search under a within-case scope."""
+    route_result = {"route": "XNETWORK", "case_scope": "within_case", "output_format": "chat"}
+    assert classify_to_subagent(route_result, "what are the top 5 themes in the data?") == SEMANTIC_SEARCH
 
 
 def test_file_output_still_overrides_provisional_triggers():

@@ -21,7 +21,8 @@ Schema:
   "confidence": "high" | "medium" | "low",
   "reason": "short explanation of why this route/format was chosen",
   "station": <verbatim police station name/area mentioned in the query, or null if none — ONLY meaningful for XGRAPH/XAGG/XNETWORK, ignored for every other route>,
-  "district": <verbatim district name mentioned in the query, or null if none — ONLY meaningful for XGRAPH/XAGG/XNETWORK, ignored for every other route>
+  "district": <verbatim district name mentioned in the query, or null if none — ONLY meaningful for XGRAPH/XAGG/XNETWORK, ignored for every other route>,
+  "secondary_methods": [<zero or more of "SQL" | "GRAPH" | "XGRAPH" | "XAGG" — see "Compound questions" below. Omit or use [] for the overwhelming majority of queries, which need only the one primary route>]
 }
 
 Routes:
@@ -42,6 +43,16 @@ Case scope:
 
 Station/district (only for XGRAPH/XAGG/XNETWORK):
 - When a cross-case query (XGRAPH/XAGG/XNETWORK) also names a specific police station or district — "کوتوالی فیصل آباد میں مقدمات," "repeat offenders in Islamabad district" — extract the verbatim station/district text into `station`/`district` so the candidate case set can be narrowed to that jurisdiction before any search runs. Leave both `null` when no station/district is named, or for any non-cross-case route (they're ignored there regardless).
+
+Compound questions (`secondary_methods`):
+- Most questions need exactly one route — leave `secondary_methods` empty ([]). Only set it when the query genuinely joins TWO DIFFERENT KINDS of fact with "and" (or an equivalent conjunction) that no single route's own retrieval would both cover, and the primary `route` you chose is SQL, GRAPH, or GRAPH_HYBRID (this field is ignored for every other route — never set it for DIRECT/RAG/WEB/XGRAPH/XAGG/XNETWORK).
+- A question that is really just one fact restated two ways, or two facts of the SAME kind (e.g. "who is the complainant and who is the accused" — both are within-case entity facts GRAPH already covers together), is NOT compound — leave `secondary_methods` empty.
+- Recognize these compound shapes specifically:
+  - A case-specific fact (covered by GRAPH/GRAPH_HYBRID) joined with a penal-code/cognizability lookup (covered by SQL) — e.g. "what is this weapon's condition, and what PPC section covers illegal possession of an unlicensed firearm?" → route GRAPH (or GRAPH_HYBRID), `secondary_methods: ["SQL"]`.
+  - A structured penal-code lookup (SQL) joined with a case-specific fact the SQL table doesn't hold — e.g. "what does 379 PPC cover, and what item was stolen in this case?" → route SQL, `secondary_methods: ["GRAPH"]`.
+  - A case-specific fact (GRAPH/GRAPH_HYBRID) joined with a question about whether the SAME entity appears in OTHER cases — e.g. "who investigated this case, and has this accused been in any other case?" → route GRAPH (or GRAPH_HYBRID), `secondary_methods: ["XGRAPH"]`.
+  - A case-specific fact (GRAPH/GRAPH_HYBRID) joined with a cross-case count/aggregate about a related entity type — e.g. "is this weapon licensed, and how many other cases involve this same type of weapon?" → route GRAPH (or GRAPH_HYBRID), `secondary_methods: ["XAGG"]`.
+- Cap `secondary_methods` at the methods actually needed (almost always exactly one — never invent a second need that isn't in the query).
 
 Formats:
 - chat: Standard text response. (Default)
@@ -220,3 +231,21 @@ Output: {"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "ou
 
 Query: "Has this phone number appeared in any other case at the Iqbal Town station?"
 Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Cross-case entity recurrence check with no literal phone number given in this excerpt, explicitly scoped to Iqbal Town station", "station": "Iqbal Town", "district": null}
+
+Query: "What is this weapon's condition, and what PPC section covers illegal possession of an unlicensed firearm?"
+Output: {"route": "GRAPH", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Compound question: the weapon's condition is a within-case graph fact, but the PPC section it's asking about is a separate structured penal-code lookup GRAPH's own retrieval never touches", "station": null, "district": null, "secondary_methods": ["SQL"]}
+
+Query: "What does 379 PPC cover, and what item was reported stolen in this case?"
+Output: {"route": "SQL", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Compound question: the penal-code lookup is SQL's job, but the actual stolen item is a case-specific fact only the case's own graph/document evidence holds — SQL's reference table has no per-case data", "station": null, "district": null, "secondary_methods": ["GRAPH"]}
+
+Query: "Who is the investigating officer for this case, and has the accused been involved in any other case?"
+Output: {"route": "GRAPH", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Compound question: the officer is a within-case graph fact, but 'any other case' is an explicit cross-case recurrence check GRAPH's own within-case traversal cannot answer — stays case_scope within_case because the PRIMARY route is still the within-case one; the cross-case half is delegated via secondary_methods, not by switching the whole query to XGRAPH", "station": null, "district": null, "secondary_methods": ["XGRAPH"]}
+
+Query: "Summarize this case, and is this a repeat-offender pattern for the accused?"
+Output: {"route": "GRAPH_HYBRID", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Compound question: the case summary is GRAPH_HYBRID's own job, but 'repeat-offender pattern' asks whether the accused recurs across OTHER cases — a cross-case check GRAPH_HYBRID's within-case retrieval doesn't cover", "station": null, "district": null, "secondary_methods": ["XGRAPH"]}
+
+Query: "Is the weapon recovered in this case licensed, and how many other cases involve this same type of weapon?"
+Output: {"route": "GRAPH", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Compound question: the license status is a within-case graph fact, but the count of other cases with the same weapon type is a cross-case aggregate XAGG computes, not GRAPH", "station": null, "district": null, "secondary_methods": ["XAGG"]}
+
+Query: "Who is the complainant and who is the accused in this case?"
+Output: {"route": "GRAPH", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "NOT a compound question for secondary_methods purposes — both facts are the SAME kind (within-case entity roles) and GRAPH's own case-wide enumeration already covers both together, so secondary_methods stays empty", "station": null, "district": null, "secondary_methods": []}

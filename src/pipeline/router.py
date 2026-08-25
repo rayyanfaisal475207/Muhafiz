@@ -163,6 +163,36 @@ _SQL_OVERRIDE_PATTERNS = [
     re.compile(r"\bis\b.{0,40}\b(a\s+)?cognizable\b", re.IGNORECASE),
 ]
 
+# [findings.md Module 7] A genuinely compound question can still match one
+# of the patterns above purely because of its SQL HALF — "...and what PPC
+# section covers illegal possession of an unlicensed firearm?" is this
+# module's own live-tested example, and it hits the first pattern above
+# just from that clause. The override's whole justification (see the
+# comment above _SQL_OVERRIDE_PATTERNS) is that it's MORE reliable than
+# the LLM for an unambiguous, SINGLE-intent SQL lookup — that argument
+# doesn't hold once a second, different need is also in the sentence,
+# because only the LLM call can populate secondary_methods; this
+# deterministic fast-path never does (confirmed live: without this guard,
+# the exact example above short-circuited straight to a SQL-only route,
+# silently dropping the compound half every time, regardless of what
+# route_query()'s new secondary_methods support could otherwise catch).
+# Narrow and conservative on purpose: only skips the override when the
+# query ALSO names a case-specific "this X" AND uses "and" somewhere (in
+# either order — "what is THIS WEAPON's condition, AND what section..."
+# names the case-specific half first; other real phrasings name it
+# second) — an ordinary single-intent SQL lookup (the overwhelming
+# majority of queries these patterns match) has no such language and is
+# completely unaffected, still taking the fast, reliable override path.
+_SQL_OVERRIDE_COMPOUND_THIS_X_RE = re.compile(
+    r"\bthis (case|weapon|vehicle|accused|suspect|person|firearm)\b", re.IGNORECASE,
+)
+
+
+def _sql_override_has_compound_signal(query: str) -> bool:
+    return bool(re.search(r"\band\b", query, re.IGNORECASE)) and bool(
+        _SQL_OVERRIDE_COMPOUND_THIS_X_RE.search(query)
+    )
+
 
 def _structured_identifier_in(query: str) -> str | None:
     """
@@ -228,7 +258,7 @@ def _deterministic_route_override(query: str, case_id: str | None = None) -> dic
     # offense") never co-occurs with XAGG/XGRAPH/XNETWORK's cross-case
     # vocabulary, so there's no tie-breaking concern checking it first.
     for pat in _SQL_OVERRIDE_PATTERNS:
-        if pat.search(query):
+        if pat.search(query) and not _sql_override_has_compound_signal(query):
             return {
                 "route": "SQL", "case_scope": "within_case", "target_entity": None,
                 "output_format": "chat", "target_year": None, "confidence": "high",
@@ -388,7 +418,7 @@ async def route_query(rewritten_query: str, case_id: str | None = None) -> dict:
             and isinstance(r.get("route"), str)
             and r["route"].strip().upper() in _VALID_ROUTES
         ),
-        schema_hint='"route", "case_scope", "target_entity", "output_format", "target_year", "confidence", "reason"',
+        schema_hint='"route", "case_scope", "target_entity", "output_format", "target_year", "confidence", "reason", "secondary_methods"',
         _call_llm=call_llm,
         # Router-specific opt-in (unlike evaluator/query_rewriter, which do
         # NOT set this — see call_llm_json's own docstring for why blanket
@@ -462,6 +492,39 @@ async def route_query(rewritten_query: str, case_id: str | None = None) -> dict:
         if target_entity is not None and not isinstance(target_entity, str):
             target_entity = str(target_entity)
 
+        # [findings.md Module 7] Adaptive multi-method retrieval: an
+        # OPTIONAL, additive signal alongside the single `route` this
+        # function has always returned — the router may also name other
+        # retrieval methods a genuinely compound question needs alongside
+        # its primary route (e.g. "what is this weapon's condition, AND
+        # what PPC section covers unlicensed possession?" → route GRAPH,
+        # secondary_methods ["SQL"]). Deliberately conservative: only ever
+        # honored downstream (orchestrator.py) for a within-case primary
+        # route (SQL/GRAPH/GRAPH_HYBRID) — XGRAPH/XAGG/XNETWORK's own
+        # structurally-separate, never-blended cross-case contract is
+        # untouched by this field regardless of what's returned here, so
+        # a router misclassification of this new field can't leak into
+        # those three routes. Missing/malformed input (not a list, not
+        # strings, self-referential, or an unrecognized route name) all
+        # collapse to the same safe default: [] — identical to this
+        # field never having existed, which is what every pre-existing
+        # query (no compound "and" clause for the LLM to detect) will
+        # still produce.
+        secondary_methods_raw = result.get("secondary_methods")
+        secondary_methods: list[str] = []
+        if isinstance(secondary_methods_raw, list):
+            for m in secondary_methods_raw:
+                if not isinstance(m, str):
+                    continue
+                m_upper = m.strip().upper()
+                if m_upper in ("SQL", "GRAPH", "XGRAPH", "XAGG") and m_upper != route:
+                    secondary_methods.append(m_upper)
+        # Cap at 2 — bounds the extra retrieval cost of any one query and
+        # matches every real compound-need shape found in this module's
+        # own live mini-sweep (findings.md), all of which needed exactly
+        # one method beyond the primary route.
+        secondary_methods = secondary_methods[:2]
+
         # [Milestone E1 — GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md] station/
         # district — extends this SAME single classification call, per E1's
         # own resolved open point (does not add a second classification
@@ -497,6 +560,7 @@ async def route_query(rewritten_query: str, case_id: str | None = None) -> dict:
             "reason": str(result.get("reason") or "No reason provided"),
             "station": station,
             "district": district,
+            "secondary_methods": secondary_methods,
         }
     except Exception as e:
         logger.error("Router failed to parse JSON: %s. Raw response: %s", e, response)
@@ -510,5 +574,6 @@ async def route_query(rewritten_query: str, case_id: str | None = None) -> dict:
             "reason": "Failed to parse router output, defaulting to RAG",
             "station": None,
             "district": None,
+            "secondary_methods": [],
         }
 
