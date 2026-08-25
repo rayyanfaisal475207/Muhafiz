@@ -297,6 +297,25 @@ async def _run_graph_extraction(
         # pass — see its own comment below.
         written_pairs: set[frozenset] = set()
         prev_chunk: Optional[dict] = None
+        # [findings.md Module 11] canonical_name -> entity_id for every
+        # PERSON resolved anywhere in THIS document so far (unlike
+        # `resolved_persons` below, deliberately NOT reset per chunk).
+        # entity_resolution.resolve_and_write()'s name-fallback tiers
+        # mint a brand-new node for every mention with no CNIC, by design
+        # (architecture §7.3 — a name match alone must never auto-merge
+        # ACROSS documents/cases). That design is correct for its stated
+        # purpose, but it was also firing for the SAME literal string
+        # repeated many times within one document's own narrative prose —
+        # live-confirmed: one document minted 692 Person nodes for 8
+        # distinct strings (231/138/92/47/46/46/46/46 repeats). An exact-
+        # string repeat within one ingestion run is a categorically safer
+        # case than a cross-document name match — it's the same sentence-
+        # level narrative referring back to a person it already named, not
+        # two independent documents that merely happen to share a name —
+        # so it's collapsed here, at the one point that already knows it's
+        # within a single document, rather than loosening
+        # resolve_and_write()'s own cross-document matching at all.
+        document_resolved_persons: dict[str, str] = {}
         for chunk in chunks:
             chunk_id = chunk.doc_id  # the CHUNK's own id (parent doc_id lives in chunk.metadata)
             try:
@@ -331,13 +350,39 @@ async def _run_graph_extraction(
                 mention_dict["extraction_confidence"] = m.get("confidence", 1.0)
 
                 try:
-                    if mention_type in _RESOLVABLE_MENTION_TYPES:
+                    if mention_type == "person" and m["text"] in document_resolved_persons:
+                        # [findings.md Module 11] Exact-string repeat of a
+                        # person already resolved earlier in this same
+                        # document — reuse that entity_id instead of
+                        # minting a fresh node, a fresh BELONGS_TO_CASE
+                        # edge, and a fresh (near-certain-to-be-a-
+                        # duplicate) pending SAME_AS proposal. Still
+                        # records THIS occurrence's own provenance
+                        # (APPEARS_IN, this chunk's surface_text/
+                        # confidence) — same edge shape
+                        # resolve_and_write() itself writes — only the
+                        # node-minting/candidate-search/SAME_AS-proposal
+                        # steps are skipped, not provenance for this
+                        # specific mention.
+                        entity_id = document_resolved_persons[m["text"]]
+                        await versioning.write_edge(
+                            "APPEARS_IN",
+                            entity_resolution.TYPE_TO_LABEL["person"], {"entity_id": entity_id},
+                            "Document", {"doc_id": doc_id},
+                            {"surface_text": mention_dict.get("canonical_name", "")},
+                            source_doc_id=doc_id, source_chunk_id=chunk_id,
+                            confidence=mention_dict.get("extraction_confidence", 1.0),
+                        )
+                        resolved_persons[m["text"]] = entity_id
+                        stats["entities_resolved"] += 1
+                    elif mention_type in _RESOLVABLE_MENTION_TYPES:
                         resolution = await entity_resolution.resolve_and_write(
                             mention_type, mention_dict, case_id, doc_id, chunk_id,
                         )
                         stats["entities_resolved"] += 1
                         if mention_type == "person":
                             resolved_persons[m["text"]] = resolution["entity_id"]
+                            document_resolved_persons[m["text"]] = resolution["entity_id"]
                     else:
                         label = entity_resolution.TYPE_TO_LABEL.get(mention_type, mention_type.capitalize())
                         await _write_unresolved_mention(

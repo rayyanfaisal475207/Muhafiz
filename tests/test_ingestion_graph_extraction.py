@@ -144,6 +144,71 @@ async def test_resolvable_mention_goes_through_entity_resolution(stub_graph_deps
 
 
 @pytest.mark.asyncio
+async def test_same_person_mentioned_twice_in_one_document_reuses_one_entity_id(stub_graph_deps):
+    """
+    [findings.md Module 11] The exact same canonical_name mentioned in TWO
+    different chunks of ONE document must resolve to the SAME entity_id —
+    resolve_and_write() (which mints a fresh node + BELONGS_TO_CASE edge +
+    a near-certain-duplicate pending SAME_AS proposal on every call) must
+    only run ONCE for this name, not once per chunk. Live-reproduced root
+    cause this guards against: one real document minted 368 near-duplicate
+    Person nodes for what the community summarizer itself recognized as
+    one real person.
+
+    stub_graph_deps's fake_extract_entities() always returns the same
+    "احمد رضا قریشی" person regardless of chunk text — passing two chunks
+    already reproduces the "same name, two chunks" shape without a custom
+    fixture.
+    """
+    documents = [SimpleNamespace(text="احمد رضا قریشی نے بیان دیا۔ دوبارہ احمد رضا قریشی نے کہا۔")]
+    chunks = [
+        FakeChunk("DOC-1_c0", "احمد رضا قریشی نے بیان دیا۔"),
+        FakeChunk("DOC-1_c1", "دوبارہ احمد رضا قریشی نے کہا۔"),
+    ]
+
+    stats = await service._run_graph_extraction(
+        "t.pdf", documents, chunks, "CASE-001", "DOC-1"
+    )
+
+    person_resolutions = [c for c in stub_graph_deps["resolved"] if c["type"] == "person"]
+    assert len(person_resolutions) == 1, "resolve_and_write() must run exactly once for a same-document exact-string repeat"
+
+    # fake_resolve_and_write itself writes no edges (fully stubbed) — the
+    # only PERSON APPEARS_IN edge that can show up here comes from the
+    # dedup short-circuit's own write, for the SECOND (reused) occurrence
+    # (the weapon domain-entity mention that fires every chunk via
+    # stub_graph_deps's own fake_extract_domain_entities() writes its own,
+    # unrelated APPEARS_IN edges through _write_unresolved_mention —
+    # filtered out here by entity_id).
+    appears_in_edges = [
+        e for e in stub_graph_deps["edges"]
+        if e["edge_label"] == "APPEARS_IN" and e["from_match"] == {"entity_id": "X-1"}
+    ]
+    assert len(appears_in_edges) == 1
+    assert appears_in_edges[0]["from_match"] == {"entity_id": "X-1"}
+    assert appears_in_edges[0]["to_match"] == {"doc_id": "DOC-1"}
+
+    assert stats["entities_resolved"] >= 2  # both occurrences still counted as resolved
+
+
+@pytest.mark.asyncio
+async def test_different_documents_same_name_are_unaffected(stub_graph_deps):
+    """[findings.md Module 11] The dedup cache is document-scoped (a fresh
+    dict per _run_graph_extraction call) — a second, SEPARATE document
+    ingested afterward with the same person name must go through the
+    normal (unchanged) name-fallback resolution path again, proving A1
+    does not widen cross-document matching at all."""
+    documents = [SimpleNamespace(text="text")]
+    chunks = [FakeChunk("DOC-1_c0", "احمد رضا قریشی نے بیان دیا۔")]
+
+    await service._run_graph_extraction("t1.pdf", documents, chunks, "CASE-001", "DOC-1")
+    await service._run_graph_extraction("t2.pdf", documents, chunks, "CASE-002", "DOC-2")
+
+    person_resolutions = [c for c in stub_graph_deps["resolved"] if c["type"] == "person"]
+    assert len(person_resolutions) == 2, "a second, separate document must resolve independently, not reuse the first document's cache"
+
+
+@pytest.mark.asyncio
 async def test_weapon_mention_bypasses_resolution(stub_graph_deps):
     documents = [SimpleNamespace(text="text")]
     chunks = [FakeChunk("DOC-1_c0", "بور 30 پستول برآمد ہوا۔")]
