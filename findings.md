@@ -54,7 +54,7 @@ verification.
 | 3 | [Enumeration / list-synthesis refusal](#module-3-enumeration--list-synthesis-refusal) ✅ RESOLVED 2026-08-25 | 🟠 Medium-High | Medium | — |
 | 4 | [XAGG entity-type coverage gap](#module-4-xagg-entity-type-coverage-gap-weapon-aggregation) ✅ RESOLVED 2026-08-25 | 🟡 Medium | Medium-Large | — |
 | 5 | [SQL extractor phrasing brittleness](#module-5-sql-extractor-phrasing-brittleness) ✅ RESOLVED 2026-08-25 | 🟡 Medium | Medium | — |
-| 6 | [Community detection never refreshes for real sync data](#module-6-community-detection-never-refreshes-for-real-sync-data) | 🟠 Medium-High | Small | — |
+| 6 | [Community detection never refreshes for real sync data](#module-6-community-detection-never-refreshes-for-real-sync-data) ✅ RESOLVED 2026-08-25 | 🟠 Medium-High | Small | — |
 | 7 | [No general adaptive multi-method retrieval](#module-7-no-general-adaptive-multi-method-retrieval) | 🟡 Medium | Large | — |
 | 8 | [Local Search — entity-based reasoning](#module-8-local-search--entity-based-reasoning) | 🟠 Medium-High | Large | — |
 | 9 | [Global Search — whole-dataset map-reduce reasoning](#module-9-global-search--whole-dataset-map-reduce-reasoning) | 🟠 Medium-High | Large | Module 6 |
@@ -804,7 +804,64 @@ around the existing exact-match query.
 
 ## Module 6: Community detection never refreshes for real sync data
 
-### Problem
+### ✅ RESOLVED — 2026-08-25
+Fixed on `main` (merged from `feature/community-refresh-real-sync`),
+implementing the proposed approach exactly as scoped below:
+
+- `src/ingestion/community_refresh_bg.py` now exposes
+  `refresh_if_stale()` — the awaitable "check `get_staleness()`, then
+  `detect_communities()`+`summarize_communities()` if stale" core,
+  extracted verbatim out of `_run_community_refresh_bg()`.
+  `_run_community_refresh_bg()` itself became a thin fire-and-forget
+  wrapper (`try: await refresh_if_stale() / except: log-and-swallow`) —
+  its signature, its one caller (`src/ingestion/service.py:634`, still
+  `asyncio.create_task(...)`), and its observable behavior are all
+  unchanged; the 3 pre-existing tests exercising it pass unmodified as a
+  regression guard on the extraction itself.
+- `scripts/sync_muhafiz_data.py`'s `_run_sync()` now `await
+  refresh_if_stale()` directly — once, after every FIR/CMS/PKM/criminal-
+  records/roznamcha loop and the cross-version/citation steps, gated
+  `if not dry_run`, before `close_pool()` — with its own
+  `"-- Community detection refresh --"` status line reporting the
+  staleness reason and whether a recompute actually ran.
+
+**Live-verified** against the real running Postgres/AGE instance, Docker
+and backend confirmed healthy first (`docker ps` → `muhafiz-postgres`
+healthy; `curl localhost:8001/health` → `database_status: ok`):
+- **Before**: `community_runs` held exactly one row,
+  `RUN-20260822104011`, `computed_at` 2026-08-22 10:40:13, `raw_node_count`
+  444 (unchanged since the original repro — nothing had refreshed it).
+- A freshly-issued live Cypher count (`MATCH (p:Person) RETURN count(p)`,
+  run independently of `get_staleness()`) returned **608** — the real
+  current count at verification time, distinct from every previously
+  cited figure (444 from the original repro, 478 from this doc's own
+  now-stale intro, and 348 from an unrelated Module 1 report referring to
+  an even earlier point in time). Absolute counts drift session to
+  session; only this module's relative claim — a new row with a newer
+  `computed_at` and a `raw_node_count` matching the graph's real count at
+  that moment — was ever the thing being verified.
+- Ran `python scripts/sync_muhafiz_data.py --full --snapshot
+  tests/fixtures/muhafiz_api_snapshot.json` (the real 73-FIR/74-roznamcha/
+  4-CMS/14-PKM/33-criminal-record corpus, non-dry-run) — never touching
+  `POST /api/admin/community/refresh`. Script's own status line: `stale
+  (node drift 36.9%, edge drift 310.9%) — recomputed: 19 attempted, 19
+  written, 0 skipped`.
+- **After**: a new row appeared, `RUN-20260825074016`, `computed_at`
+  2026-08-25 07:40:16 (newer than the prior run), `raw_node_count` 608 —
+  an exact match to the independently re-queried live Person count taken
+  immediately after the sync, `node_count` 292, `community_count` 19.
+
+**Tests**: `tests/test_community_staleness.py` gained 3 new cases against
+`refresh_if_stale()` directly (skip-when-not-stale, run-detect-and-
+summarize-when-stale, and — the inverse of the wrapper's own test —
+propagates failures rather than swallowing them, proving best-effort now
+lives only in the wrapper). `tests/test_sync_muhafiz_data_script.py`
+gained a `TestRunSyncCommunityRefresh` class asserting `_run_sync(...,
+dry_run=False)` calls the refresh exactly once, after every sync step and
+before `close_pool()`, and that `dry_run=True` never calls it (and never
+calls `close_pool()` either). Full backend suite green.
+
+### Problem (as originally found)
 Found while verifying a stakeholder question about whether GraphRAG-style
 "community detection" (Microsoft GraphRAG terminology — clustering entities
 into communities + LLM-summarizing each one, feeding XNETWORK's cross-case
