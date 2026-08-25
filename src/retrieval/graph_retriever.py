@@ -92,6 +92,7 @@
 from __future__ import annotations
 
 import logging
+from contextvars import ContextVar
 from typing import Optional
 
 from src import config
@@ -957,6 +958,33 @@ async def retrieve_jurisdiction_cases(
     }
 
 
+# Set when a query named a station/district that resolved to no real
+# jurisdiction node, so the answer covers every jurisdiction rather than the
+# one asked about. A per-request ContextVar (same mechanism and lifetime as
+# current_cross_case/current_rls_active) rather than a changed return type:
+# resolve_jurisdiction_case_ids()'s `Optional[list[str]]` contract is relied
+# on by run_aggregate()/retrieve_graph()'s `is not None` narrowing checks,
+# and a sentinel value would be filtered against as a case-id allow-list —
+# silently zeroing the very query it was meant to annotate.
+_JURISDICTION_UNRESOLVED: ContextVar[bool] = ContextVar(
+    "jurisdiction_unresolved", default=False
+)
+
+
+def jurisdiction_unresolved() -> bool:
+    """
+    True when this request asked about a station/district that could not be
+    matched, meaning the figures returned are platform-wide. Callers should
+    disclose this to the user rather than presenting the result as scoped.
+    """
+    return _JURISDICTION_UNRESOLVED.get()
+
+
+def reset_jurisdiction_unresolved() -> None:
+    """Clear the flag at the start of a request, so it never leaks across turns."""
+    _JURISDICTION_UNRESOLVED.set(False)
+
+
 async def _resolve_station_id(station: str) -> Optional[str]:
     """Free-text station name/code (router.py's own extraction, not a caller-typed id) -> B1's PoliceStation.station_id, or None if nothing matches."""
     rows = await age_client.execute_cypher(
@@ -1022,11 +1050,33 @@ async def resolve_jurisdiction_case_ids(
     station_id = await _resolve_station_id(station) if station else None
     district_id = await _resolve_district_id(district) if district else None
     if not station_id and not district_id:
-        logger.info(
+        # Returning None here is deliberate and unchanged ("don't narrow"
+        # beats "narrow to nothing" — see this function's docstring). What
+        # changed 2026-08-24 is that it is no longer SILENT.
+        #
+        # The resolution itself is unreliable against the live corpus, and
+        # not along a clean language line: PoliceStation.station_id is
+        # ASCII ("PS-LHR-MODELTOWN") while .name is Urdu, and District has
+        # an opaque id ("DIST-04") with an Urdu-only name. Measured live —
+        # station "Karachi" resolves (via station_id), "Lahore" does not;
+        # district "لاہور" resolves, "Lahore" does not. So an English
+        # jurisdiction query frequently falls through to platform-wide.
+        #
+        # The role gate is NOT bypassed by this: cross-case enumeration
+        # still runs through retrieve_jurisdiction_cases()'s own
+        # _enforce_cross_case_role_gate(), and only supervisor+ reaches
+        # here at all. The harm is precision, not confidentiality — a
+        # supervisor asking about one district gets platform-wide figures
+        # presented as that district's. That must be disclosed, not hidden,
+        # which is what UNRESOLVED_JURISDICTION exists for.
+        logger.warning(
             "Milestone E1: router classified station=%r district=%r but neither "
-            "resolved to a real PoliceStation/District node — not narrowing.",
+            "resolved to a real PoliceStation/District node — NOT narrowing, so "
+            "results will cover every jurisdiction. Caller should disclose this "
+            "via jurisdiction_unresolved().",
             station, district,
         )
+        _JURISDICTION_UNRESOLVED.set(True)
         return None
 
     result = await retrieve_jurisdiction_cases(

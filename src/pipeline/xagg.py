@@ -89,6 +89,62 @@ def _matches_any(text: str, keywords: tuple[str, ...]) -> bool:
     return any(kw in lowered for kw in keywords)
 
 
+# ── Unsupported-filter disclosures ────────────────────────────────────────
+# Investigator-facing strings, served when a filter the query asked for
+# cannot be evaluated against the corpus actually present. They exist so an
+# unanswerable filter degrades to a STATED limitation instead of a silently
+# wrong count — the same principle Large-Scale Aggregate already applies to
+# XAGG's missing time-wise grouping, applied one layer down at the source.
+_UNSUPPORTED_STATUS_FILTER = (
+    "Case status could not be filtered: the case records in this corpus do not "
+    "carry a structured open/closed status, so the figures below cover all "
+    "matching cases regardless of status."
+)
+_UNSUPPORTED_CRIME_TYPE_FILTER = (
+    "Cases could not be filtered by crime type: these records classify offences "
+    "by statute (e.g. PPC, CNSA 1997, Arms Ordinance 1965) rather than by crime "
+    "category, so the figures below are not narrowed to the requested type."
+)
+_UNSUPPORTED_JURISDICTION = (
+    "The named area could not be matched to a police station or district on "
+    "record, so these figures cover all jurisdictions rather than the one asked "
+    "about."
+)
+_STATUTE_GROUPING_NOTE = (
+    "Grouped by the statute(s) each case was registered under (e.g. PPC, "
+    "CNSA 1997), not by crime type — these records carry no crime-type "
+    "classification."
+)
+
+
+def _status_filter_supported(cases: list[dict]) -> bool:
+    """
+    True when investigation_status is actually filterable on THIS corpus.
+
+    Deliberately data-driven rather than a schema-version check: the field
+    is free text, so the only honest test is whether any row carries a
+    value the open/closed substring match could ever hit. A corpus that
+    later regains parseable statuses re-enables the filter with no code
+    change; one that never had them stops fabricating answers.
+    """
+    return any("closed" in (c.get("investigation_status") or "").lower() for c in cases)
+
+
+def _crime_type_filter_supported(cases: list[dict]) -> bool:
+    """
+    True when crime_category holds crime TYPES rather than statute names.
+
+    Same data-driven reasoning as _status_filter_supported(). Statute-only
+    values ("PPC", "CNSA 1997") mean a crime-type filter can only ever
+    return nothing, which must be disclosed rather than reported as zero.
+    """
+    crime_type_terms = ("theft", "burglary", "fraud", "چوری", "ڈکیتی", "نقب زنی", "دھوکہ دہی")
+    return any(
+        any(t in (c.get("crime_category") or "").lower() for t in crime_type_terms)
+        for c in cases
+    )
+
+
 async def _top_recurring_nodes(
     label: str, limit: int = 10, jurisdiction_case_ids: Optional[list[str]] = None,
 ) -> list[dict]:
@@ -166,39 +222,82 @@ async def _filtered_cases(
     # _STATUS_KEYWORDS (so the code below it, e.g. category filtering,
     # still ran) but the status filter itself silently no-opped, returning
     # every case regardless of status instead of just the closed ones.
-    # Real investigation_status values (see migrations/004_case_model.sql
-    # seed data) are "Closed – Convicted"/"Closed – Untraced" style, not a
-    # bare "Closed" — substring match on "closed", not an exact-value set.
+    #
+    # 2026-08-24 — THE UNDERLYING ASSUMPTION IS NO LONGER TRUE OF THE DATA.
+    # The comment above described migrations/004_case_model.sql's seeded
+    # "Closed – Convicted"/"Closed – Untraced" values. The live corpus now
+    # comes from the real Muhafiz Data API, where investigation_status is
+    # `_current_status()`'s projection of psrms.fir_position's latest row
+    # (src/ingestion/muhafiz_cases.py:112) — free-text Urdu narrative such
+    # as "ملزم ریمانڈ پر، چالان کی تیاری زیر عمل", and EMPTY STRING for the
+    # majority (measured live: 52/73 cases empty, and the sync module's own
+    # docstring records 65/94 fir_position rows carrying a null `position`).
+    #
+    # Measured against the live corpus: `"closed" in status.lower()` matches
+    # 0/73 cases and `"open"` matches 0/73. So "how many closed cases" used
+    # to answer 0, and "how many open cases" answered 73 — both stated as
+    # fact, both wrong, and indistinguishable from a real result.
+    #
+    # A filter that cannot be evaluated must SAY SO rather than return a
+    # confidently wrong number. `_status_filter_supported()` decides that
+    # from the data actually present, not from a hardcoded schema guess, so
+    # this self-heals if a future corpus does carry parseable statuses.
     _OPEN_TERMS = ("open", "khula", "khuli", "کھلا", "pending", "زیر التواء", "under investigation", "زیر تفتیش")
     _CLOSED_TERMS = ("closed", "band", "بند")
 
     def _is_closed(c: dict) -> bool:
         return "closed" in (c.get("investigation_status") or "").lower()
 
-    if _matches_any(query_text, _CLOSED_TERMS):
+    unsupported: list[str] = []
+
+    status_requested = _matches_any(query_text, _CLOSED_TERMS) or _matches_any(query_text, _OPEN_TERMS)
+    if status_requested and not _status_filter_supported(cases):
+        unsupported.append(_UNSUPPORTED_STATUS_FILTER)
+    elif _matches_any(query_text, _CLOSED_TERMS):
         cases = [c for c in cases if _is_closed(c)]
     elif _matches_any(query_text, _OPEN_TERMS):
         cases = [c for c in cases if not _is_closed(c)]
 
+    # Same treatment for crime-type filtering. `crime_category` no longer
+    # holds a crime TYPE at all: `_crime_category()`
+    # (src/ingestion/muhafiz_cases.py:78) joins the distinct `act` values
+    # off psrms.fir_section, so live values are statute lists — "PPC",
+    # "PPC, Arms Ordinance 1965", "CNSA 1997", "PECA 2016, PPC". This is
+    # deliberate and documented upstream, NOT a sync bug: the real FIR
+    # schema (psrms.fir_section) carries only `section_code` and `act`, and
+    # has no offence-category field anywhere for the sync to have missed.
+    #
+    # Measured live: every crime-type keyword in _CATEGORY_KEYWORDS
+    # ("theft"/"burglary"/"fraud"/"چوری"/"ڈکیتی"/...) matches 0/73 cases.
     if _matches_any(query_text, _CATEGORY_KEYWORDS):
         for kw in _CATEGORY_KEYWORDS:
             if kw in query_text.lower() and kw not in _STATUS_KEYWORDS + ("category", "type of case"):
-                cases = [c for c in cases if kw in (c.get("crime_category") or "").lower()]
+                matched = [c for c in cases if kw in (c.get("crime_category") or "").lower()]
+                if not matched and not _crime_type_filter_supported(cases):
+                    unsupported.append(_UNSUPPORTED_CRIME_TYPE_FILTER)
+                else:
+                    cases = matched
                 break
 
-    return cases
+    return cases, unsupported
 
 
 async def _station_or_category_counts(
     gateway, query_text: str, jurisdiction_case_ids: Optional[list[str]] = None,
 ) -> dict:
-    cases = await _filtered_cases(gateway, query_text, jurisdiction_case_ids)
+    cases, unsupported = await _filtered_cases(gateway, query_text, jurisdiction_case_ids)
     group_field = "police_station" if _matches_any(query_text, _STATION_KEYWORDS) else "crime_category"
     counts = Counter(c.get(group_field) or "unknown" for c in cases)
+    # Grouping by crime_category is itself misleading now — the key is a
+    # statute list, not a crime type — so say what the grouping actually
+    # IS rather than letting "category" imply an offence taxonomy.
+    if group_field == "crime_category" and not _crime_type_filter_supported(cases):
+        unsupported = unsupported + [_STATUTE_GROUPING_NOTE]
     return {
         "group_by": group_field,
         "counts": [{"key": k, "count": v} for k, v in counts.most_common(15)],
         "total_cases_considered": len(cases),
+        "unsupported_filters": unsupported,
     }
 
 
@@ -208,8 +307,8 @@ async def _total_count(
     """A bare "how many total" answer — no grouping, one number. Still
     honors any status/category filter present (e.g. "how many closed
     cases in total"), it just skips the group-by breakdown entirely."""
-    cases = await _filtered_cases(gateway, query_text, jurisdiction_case_ids)
-    return {"kind": "total_count", "total_cases": len(cases)}
+    cases, unsupported = await _filtered_cases(gateway, query_text, jurisdiction_case_ids)
+    return {"kind": "total_count", "total_cases": len(cases), "unsupported_filters": unsupported}
 
 
 async def run_aggregate(

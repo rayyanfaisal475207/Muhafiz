@@ -29,8 +29,14 @@ from src.retrieval.bm25_retriever import retrieve_bm25
 from src.retrieval.fulltext_index import candidate_pool as bm25_candidate_pool
 from src.retrieval.reranker import rerank_results
 from src.retrieval.cross_reranker import cross_rerank
-from src.retrieval.graph_retriever import retrieve_graph, resolve_jurisdiction_case_ids
+from src.retrieval.graph_retriever import (
+    retrieve_graph,
+    resolve_jurisdiction_case_ids,
+    jurisdiction_unresolved,
+    reset_jurisdiction_unresolved,
+)
 from src.pipeline.xagg import run_aggregate
+from src.pipeline.xagg import _UNSUPPORTED_JURISDICTION as _UNRESOLVED_JURISDICTION_NOTE
 from src.pipeline.xnetwork import run_network_query
 from src.llm.client import call_llm, stream_llm
 from src.pipeline.file_structurer import structure_for_file
@@ -573,6 +579,7 @@ async def process_query(
     # real one, and letting the real gate be the one that actually denies
     # keeps that true.
     jurisdiction_case_ids: Optional[list] = None
+    reset_jurisdiction_unresolved()
     if route_str in ("XGRAPH", "XAGG", "XNETWORK") and (router_station or router_district):
         try:
             jurisdiction_case_ids = await resolve_jurisdiction_case_ids(
@@ -1355,6 +1362,22 @@ async def process_query(
             else:
                 lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
             aggregate_text = "\n".join(lines) or "(no matching cases found)"
+
+            # A filter the corpus cannot evaluate (status, crime type) or a
+            # jurisdiction that resolved to nothing must travel WITH the
+            # figures — the numbers are correct for what was actually
+            # computed, but they answer a broader question than the one
+            # asked, and that difference is invisible from the counts alone.
+            # Prepended (not appended) so it is read before the figures it
+            # qualifies, and included in the text handed to generation so
+            # the model cannot describe the result as narrower than it is.
+            _caveats = list(agg_result.get("unsupported_filters") or [])
+            if jurisdiction_unresolved():
+                _caveats.append(_UNRESOLVED_JURISDICTION_NOTE)
+            if _caveats:
+                aggregate_text = (
+                    "\n".join(f"NOTE: {c}" for c in _caveats) + "\n\n" + aggregate_text
+                )
 
             yield event(
                 "cross_case_finding", "done", "Aggregate computed over case metadata",

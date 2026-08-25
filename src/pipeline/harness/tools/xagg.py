@@ -55,7 +55,8 @@ from src.pipeline.harness.types import (
     ToolError,
     ToolStatus,
 )
-from src.pipeline.xagg import run_aggregate
+from src.pipeline.xagg import run_aggregate, _UNSUPPORTED_JURISDICTION
+from src.retrieval.graph_retriever import jurisdiction_unresolved
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +127,20 @@ def _render_aggregate_text(agg_result: dict) -> str:
         lines = [f"Total cases: {agg_result['total_cases']}"]
     else:
         lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
-    return "\n".join(lines) or "(no matching cases found)"
+    text = "\n".join(lines) or "(no matching cases found)"
+
+    # Mirrors orchestrator.py's XAGG rendering exactly (same prepend, same
+    # "NOTE: " prefix): a filter the corpus cannot evaluate, or an
+    # unresolved jurisdiction, means these figures answer a BROADER question
+    # than the one asked — and that is invisible from the counts alone. This
+    # text is also what the Verifier sees on rejection (raw_summary_text),
+    # so the caveat must live in the text itself, not only in metadata.
+    caveats = list(agg_result.get("unsupported_filters") or [])
+    if jurisdiction_unresolved():
+        caveats.append(_UNSUPPORTED_JURISDICTION)
+    if caveats:
+        text = "\n".join(f"NOTE: {c}" for c in caveats) + "\n\n" + text
+    return text
 
 
 def _case_ids_touched(agg_result: dict) -> list[str]:
