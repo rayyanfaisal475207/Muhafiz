@@ -429,6 +429,97 @@ async def test_running_sync_fir_twice_does_not_duplicate_edges(fake_graph_store)
     )
 
 
+# ── _run_sync() calls the community refresh once, after all sync steps,
+# never mid-loop, and only in real (non-dry-run) mode (findings.md
+# Module 6) ─────────────────────────────────────────────────────────────
+
+class TestRunSyncCommunityRefresh:
+    def _patch_full_sync(self, monkeypatch, order, *, dry_run):
+        fir = FirRecord({"fir_id": "fir-1-26", "narrative_text": "متن"})
+
+        async def fake_fetch_all(snapshot_path, endpoints):
+            return {"fir": [{"fir_id": "fir-1-26", "narrative_text": "متن"}],
+                     "cms": [{"complaint_id": "C1"}],
+                     "pkm": [{"application_id": "P1", "service_type": "women_violence_report"}],
+                     "criminal-records": [{"id": "CR1", "subject_cnic": "00000-1-1"}],
+                     "roznamcha": [{"entry_id": "R1"}]}
+
+        async def fake_upsert_cases(firs):
+            order.append("upsert_cases")
+            return (1, 0)
+
+        async def fake_sync_fir(fir, *, dry_run):
+            order.append("sync_fir")
+            return {"fir_id": fir.fir_id, "graph": {"errors": []}}
+
+        async def fake_sync_cms(cms, case_id, *, dry_run):
+            order.append("sync_cms")
+            return {"complaint_id": cms.complaint_id}
+
+        async def fake_sync_pkm(pkm, case_id, *, dry_run):
+            order.append("sync_pkm")
+            return {"application_id": pkm.application_id}
+
+        async def fake_sync_criminal_record(record, *, dry_run):
+            order.append("sync_criminal_record")
+            return {"record_id": "CR1"}
+
+        async def fake_sync_roznamcha(entry, *, dry_run):
+            order.append("sync_roznamcha")
+            return {"entry_id": "R1"}
+
+        async def fake_sync_cross_versions(firs, *, dry_run):
+            order.append("sync_cross_versions")
+            return {}
+
+        async def fake_sync_citations(firs, *, dry_run):
+            order.append("sync_citations")
+            return {}
+
+        async def fake_refresh_if_stale():
+            order.append("refresh_if_stale")
+            return {"ran": False, "staleness": {"stale": False, "reason": "within threshold"}, "summarize_result": None}
+
+        async def fake_close_pool():
+            order.append("close_pool")
+
+        monkeypatch.setattr(sync_script, "fetch_all", fake_fetch_all)
+        monkeypatch.setattr(sync_script, "upsert_cases", fake_upsert_cases)
+        monkeypatch.setattr(sync_script, "sync_fir", fake_sync_fir)
+        monkeypatch.setattr(sync_script, "sync_cms", fake_sync_cms)
+        monkeypatch.setattr(sync_script, "sync_pkm", fake_sync_pkm)
+        monkeypatch.setattr(sync_script, "sync_criminal_record", fake_sync_criminal_record)
+        monkeypatch.setattr(sync_script, "sync_roznamcha", fake_sync_roznamcha)
+        monkeypatch.setattr(sync_script, "sync_cross_versions", fake_sync_cross_versions)
+        monkeypatch.setattr(sync_script, "sync_citations", fake_sync_citations)
+        monkeypatch.setattr(sync_script, "refresh_if_stale", fake_refresh_if_stale)
+        monkeypatch.setattr(sync_script.age_client, "close_pool", fake_close_pool)
+
+    async def test_full_run_calls_refresh_once_after_all_sync_steps_before_close_pool(self, monkeypatch):
+        order = []
+        self._patch_full_sync(monkeypatch, order, dry_run=False)
+
+        await sync_script._run_sync(sync_script.ENDPOINTS, dry_run=False, snapshot_path=None)
+
+        assert order.count("refresh_if_stale") == 1, "must be called exactly once per --full run"
+        refresh_index = order.index("refresh_if_stale")
+        # every per-record/loop step must have already happened
+        for step in ("sync_fir", "sync_cms", "sync_pkm", "sync_criminal_record",
+                     "sync_roznamcha", "sync_cross_versions", "sync_citations"):
+            assert order.index(step) < refresh_index, f"{step} must run before community refresh"
+        assert order[-1] == "close_pool", "refresh must happen before close_pool, not after"
+        assert order[-2] == "refresh_if_stale"
+
+    async def test_dry_run_never_calls_refresh_or_close_pool(self, monkeypatch):
+        order = []
+        self._patch_full_sync(monkeypatch, order, dry_run=True)
+
+        await sync_script._run_sync(sync_script.ENDPOINTS, dry_run=True, snapshot_path=None)
+
+        assert "refresh_if_stale" not in order
+        assert "close_pool" not in order
+
+
 async def test_running_sync_fir_three_times_is_still_stable(fake_graph_store):
     """Not just twice — the guarantee must hold indefinitely."""
     fir = FirRecord({
