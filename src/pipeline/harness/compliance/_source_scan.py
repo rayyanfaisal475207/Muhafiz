@@ -21,16 +21,23 @@ TOOL_WRAPPER_MODULE_NAMES: list[str] = [
     "src.pipeline.harness.tools.xnetwork",
     "src.pipeline.harness.tools.sql",
     "src.pipeline.harness.tools.web",
+    # [AMENDMENT — findings.md Module 9, "Global Search"] Registered here
+    # (not just written) so enforcement points 2/4/5 below actually
+    # parametrize over it — see tools/global_search.py's own module
+    # docstring.
+    "src.pipeline.harness.tools.global_search",
 ]
 
-# [PRESERVE — design §2.3/§2.4/§2.5] The three tools with an independent,
-# in-function cross-case role gate (XGRAPH/XAGG/XNETWORK) — GRAPH/GRAPH_HYBRID
+# [PRESERVE — design §2.3/§2.4/§2.5] The tools with an independent,
+# in-function cross-case role gate (XGRAPH/XAGG/XNETWORK, plus
+# [AMENDMENT — findings.md Module 9] global_search) — GRAPH/GRAPH_HYBRID
 # is within-case-only and carries no such gate; RAG/SQL/WEB carry no role
 # gate at all (design §2.1/§2.6/§2.7).
 CROSS_CASE_TOOL_MODULE_NAMES: list[str] = [
     "src.pipeline.harness.tools.xgraph",
     "src.pipeline.harness.tools.xagg",
     "src.pipeline.harness.tools.xnetwork",
+    "src.pipeline.harness.tools.global_search",
 ]
 
 

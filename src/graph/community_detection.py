@@ -567,6 +567,77 @@ async def get_latest_run() -> Optional[dict]:
 
 
 # ============================================================
+# [findings.md Module 9 — Global Search] Direct community_reports reads,
+# for the new map-reduce sub-agent (src/pipeline/global_search.py). These
+# are deliberately NOT the Chroma top-k path (community_vector_store.py's
+# query_similar_communities()) — Global Search's whole point is to process
+# every report a hierarchy level has, not a similarity-ranked cut of them.
+# Owned here, not in community_vector_store.py or global_search.py itself,
+# since both read the same community_reports/community_runs tables
+# get_latest_run() above already owns reads for.
+#
+# Pre-Module-9 (and pre-Stage-2), community_membership/community_reports
+# only ever carry level=0 (a single flat partition) — these two functions
+# already accept a `level` argument so Stage 2's hierarchy swap
+# (community_detection.detect_communities() persisting real, distinct
+# levels) makes them meaningful without touching this file's Module 9
+# additions again.
+# ============================================================
+
+
+async def get_community_reports_for_level(level: int, run_id: Optional[str] = None) -> list[dict]:
+    """
+    Every community_reports row for one hierarchy level of one run —
+    defaults to the latest run_id when none is given. Returns
+    [{community_id, level, run_id, member_entity_ids, case_ids,
+    member_count, summary_text}, ...], ordered by community_id for a
+    deterministic (if arbitrary) base ordering before any caller-side
+    shuffling.
+    """
+    if run_id is None:
+        latest = await get_latest_run()
+        if latest is None:
+            return []
+        run_id = latest["run_id"]
+    async with get_session() as db:
+        res = await db.execute(
+            text(
+                "SELECT community_id, level, run_id, member_entity_ids, case_ids, "
+                "member_count, summary_text FROM community_reports "
+                "WHERE run_id = :run_id AND level = :level ORDER BY community_id"
+            ),
+            {"run_id": run_id, "level": level},
+        )
+        return [dict(row) for row in res.mappings()]
+
+
+async def get_available_report_levels(run_id: Optional[str] = None) -> list[int]:
+    """
+    Distinct, sorted `level` values with at least one summarized report in
+    one run — defaults to the latest run_id. Lets a caller (Global
+    Search's run_global_search_query()) pick a sensible default hierarchy
+    level (the middle of what's actually available) without hardcoding an
+    assumption about how many levels exist. Empty list if the run has no
+    reports at all (detection ran but nothing met MIN_MEMBERS_FOR_SUMMARY,
+    or summarization hasn't run yet).
+    """
+    if run_id is None:
+        latest = await get_latest_run()
+        if latest is None:
+            return []
+        run_id = latest["run_id"]
+    async with get_session() as db:
+        res = await db.execute(
+            text(
+                "SELECT DISTINCT level FROM community_reports "
+                "WHERE run_id = :run_id ORDER BY level"
+            ),
+            {"run_id": run_id},
+        )
+        return [row[0] for row in res.fetchall()]
+
+
+# ============================================================
 # [Milestone E3 — GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md] Staleness check,
 # moved here from scripts/check_community_staleness.py (which now just
 # calls this and prints it — same logic, one home, not a duplicate).
