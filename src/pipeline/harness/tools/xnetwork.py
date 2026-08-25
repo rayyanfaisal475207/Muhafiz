@@ -71,6 +71,27 @@ class XNetworkToolResult(CrossCaseToolResult):
     """
 
     community_ids: list[str] = Field(default_factory=list)
+    community_case_ids: list[list[str]] = Field(
+        default_factory=list,
+        description=(
+            "[findings.md CCL-C3] Per-community case IDs, index-aligned with "
+            "`chunks`/`community_ids`: entry i is the case set of community i, "
+            "and ONLY that community. Distinct from `case_ids_touched`, which "
+            "is deliberately the UNION across every contributing community "
+            "and must stay that way — it feeds the Verifier's "
+            "allowed-cross-case-ID list (see CrossCaseToolResult's own "
+            "[PRESERVE] note).\n\n"
+            "Exists because the union alone cannot answer 'which cases does "
+            "THIS community span?'. Stamping the union onto each item made a "
+            "single-case community read as spanning every case the whole "
+            "query touched — measured live: 17 of 19 real communities are "
+            "single-case, and a 3-result query presented all three as "
+            "spanning 4 cases.\n\n"
+            "Empty when a caller does not supply it. Consumers MUST treat an "
+            "absent entry as 'not known' and fall back to [] — NEVER to "
+            "`case_ids_touched`, which would silently recreate the bug."
+        ),
+    )
     raw_summary_text: Optional[str] = Field(
         default=None,
         description="[PRESERVE] Raw community-summary text — the sub-agent-level fallback.",
@@ -124,8 +145,18 @@ async def xnetwork_tool(tool_input: XNetworkToolInput) -> XNetworkToolResult:
     return XNetworkToolResult(
         status=ToolStatus.OK if results else ToolStatus.EMPTY,
         chunks=chunks,
+        # [PRESERVE] The UNION across every contributing community — the
+        # Verifier's allowed-cross-case-ID list. Deliberately unchanged by
+        # CCL-C3: narrowing this would make the leakage backstop reject
+        # legitimate cross-case answers.
         case_ids_touched=net_result["case_ids"],
         community_ids=net_result["community_ids"],
+        # [findings.md CCL-C3] The per-community truth, which
+        # `run_network_query()` already computes per result and which was
+        # previously dropped here. Built from the SAME `results` list, in
+        # the same order, as `chunks` and `community_ids` above, so index i
+        # refers to the same community in all three.
+        community_case_ids=[list(r.get("case_ids") or []) for r in results],
         raw_summary_text=_render_raw_summary(results),
     )
 

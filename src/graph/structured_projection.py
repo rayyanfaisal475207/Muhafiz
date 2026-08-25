@@ -571,7 +571,7 @@ async def _write_zimni_officers(fir, case_id, doc_id, graph, stats) -> None:
             if z.get("entry_date"):
                 await _write_occurred_on_edge(
                     "Officer", resolution["entity_id"], z["entry_date"],
-                    {"event_type": "zimni_entry", "detail": f"entry {z.get('entry_number')}"},
+                    _zimni_edge_properties(z),
                     doc_id, graph, stats,
                 )
         except Exception as exc:
@@ -612,9 +612,28 @@ async def project_fir(fir: FirRecord, *, graph: str = age_client.GRAPH_NAME) -> 
 
         # Incident node + PART_OF (Incident -> Case) — one of the two
         # previously-dead structural edges this module writes unconditionally.
+        #
+        # [findings.md T1] `description` carries the FIR's own authoritative
+        # narrative verbatim — it is NOT generated, summarized, or inferred.
+        # Timeline Building reads Incident.description as its event text and
+        # documents it as "DETERMINISTIC, GRAPH-DERIVED, NEVER model-written"
+        # precisely so a timeline cannot fabricate what happened; leaving the
+        # property unset made every real event render the bare placeholder
+        # "Incident {id} (no description recorded)" instead.
+        #
+        # Optional by the same convention the rest of this module uses (see
+        # the `v is None: continue` filters at :337 and :1116, and the
+        # `{"event_type": "incident"}` edge at :1167 that simply omits an
+        # absent key): a FIR with no narrative writes no `description` at
+        # all rather than an empty string or a placeholder, so "unavailable"
+        # stays distinguishable from "recorded as blank".
+        incident_properties = {
+            "canonical_name": f"Incident for FIR {fir.fir_display_code or fir.fir_id}",
+        }
+        if (fir.narrative_text or "").strip():
+            incident_properties["description"] = fir.narrative_text
         await versioning.write_node(
-            "Incident", {"entity_id": incident_id},
-            {"canonical_name": f"Incident for FIR {fir.fir_display_code or fir.fir_id}"},
+            "Incident", {"entity_id": incident_id}, incident_properties,
             source_doc_id=doc_id, graph=graph,
         )
         await versioning.write_edge(
@@ -1143,6 +1162,36 @@ async def _write_structured_records(
 
 # ── timeline (OCCURRED_ON from typed timestamps) ─────────────────────────
 
+def _zimni_edge_properties(zimni_row: dict) -> dict:
+    """
+    OCCURRED_ON properties for one fir_zimni row.
+
+    [findings.md T2] `detail` used to be built as
+    `f"entry {z.get('entry_number')}"` at BOTH zimni producer sites. When
+    entry_number is absent the f-string stringified Python's None, writing
+    the literal "entry None" onto the edge — 188 such edges exist in the
+    graph the dump restored. Timeline Building renders `detail` verbatim
+    (`f": {detail}" if detail else ""`), so an investigator was shown
+    "zimni_entry: entry None" as if it were recorded case data.
+
+    Omitting the key entirely (rather than substituting another
+    placeholder) is what the rest of this module already does for absent
+    values — see the `v is None: continue` filters at :337/:1116 and the
+    `{"event_type": "incident"}` edge that simply carries no `detail`. It
+    also needs no downstream change: Timeline Building's truthiness check
+    already renders a missing detail correctly.
+
+    Shared by both producers so the two cannot drift apart again — the
+    original defect existed twice because the same expression was written
+    out twice.
+    """
+    properties = {"event_type": "zimni_entry"}
+    entry_number = zimni_row.get("entry_number")
+    if entry_number is not None:
+        properties["detail"] = f"entry {entry_number}"
+    return properties
+
+
 async def _write_occurred_on_edge(
     from_label: str, from_entity_id: str, date_value: str, edge_properties: dict,
     doc_id: str, graph: str, stats: dict,
@@ -1171,7 +1220,7 @@ async def _write_occurred_on(fir, incident_id, doc_id, graph, stats) -> None:
         if z.get("entry_date"):
             await _write_occurred_on_edge(
                 "Incident", incident_id, z["entry_date"],
-                {"event_type": "zimni_entry", "detail": f"entry {z.get('entry_number')}"},
+                _zimni_edge_properties(z),
                 doc_id, graph, stats,
             )
     for cd in fir.child_rows("chalaan_dispatch"):

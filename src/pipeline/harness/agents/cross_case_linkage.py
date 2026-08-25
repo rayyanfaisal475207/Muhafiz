@@ -508,16 +508,35 @@ def _xnetwork_links(tool_result: XNetworkToolResult) -> list[CrossCaseLink]:
     verbatim from the tool's own (already-grounded) text — see the
     description-generation decision above for why this is never
     re-paraphrased per-item.
+
+    [findings.md CCL-C3] `case_ids` is each community's OWN case set
+    (`community_case_ids[i]`), never the tool's aggregate
+    `case_ids_touched`. `CrossCaseLink.case_ids` is documented as "Cases
+    this connection spans" — a per-item property — so stamping the union
+    on every link asserted a span the individual community was never shown
+    to have. Measured live: 17 of 19 communities are single-case, and a
+    3-result query rendered all three as spanning 4 cases.
+
+    This is the same principle this module already applies to unconfirmed
+    links (see the STATUS MAPPING section above: "using the tool's
+    aggregate `case_ids_touched` instead would misattribute an unconfirmed
+    pairing to specific cases it was never shown to actually span") — CCL-C3
+    is that reasoning extended to XNETWORK links.
+
+    A missing per-community entry degrades to `[]`, NOT to
+    `case_ids_touched`: an unknown span must read as unknown rather than
+    silently reinstating the aggregate this fix exists to remove.
     """
+    per_community = tool_result.community_case_ids
     return [
         CrossCaseLink(
             description=chunk.text,
-            case_ids=tool_result.case_ids_touched,
+            case_ids=list(per_community[i]) if i < len(per_community) else [],
             confidence=chunk.score,
             source_tool="XNETWORK",
             is_unconfirmed=False,
         )
-        for chunk in tool_result.chunks
+        for i, chunk in enumerate(tool_result.chunks)
     ]
 
 

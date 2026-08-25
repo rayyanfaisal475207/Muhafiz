@@ -1112,3 +1112,137 @@ class TestAgainstRealSnapshot:
             labels = [n["label"] for n in graph_calls["nodes"]]
             assert "Case" in labels
             assert "Incident" in labels
+
+
+# ── findings.md T1/T2 — projection defects found against the real corpus ──
+
+
+def _incident_node(graph_calls) -> dict:
+    return next(n for n in graph_calls["nodes"] if n["label"] == "Incident")
+
+
+def _zimni_edges(graph_calls) -> list[dict]:
+    return [
+        e for e in graph_calls["edges"]
+        if e["edge_label"] == "OCCURRED_ON"
+        and e["properties"].get("event_type") == "zimni_entry"
+    ]
+
+
+class TestIncidentDescriptionFromNarrative:
+    """
+    Regression: T1. Incident nodes carried only canonical_name, so
+    Timeline Building — which reads Incident.description as its event
+    text — rendered "Incident {id} (no description recorded)" for all 73
+    real cases even though every FIR carries a non-empty narrative_text.
+    """
+
+    async def test_narrative_text_becomes_incident_description(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(narrative_text="مدعی نے بیان دیا کہ موٹرسائیکل چوری ہوئی۔")
+        await sp.project_fir(fir)
+        incident = _incident_node(graph_calls)
+        assert incident["properties"]["description"] == "مدعی نے بیان دیا کہ موٹرسائیکل چوری ہوئی۔"
+
+    async def test_narrative_is_copied_verbatim_never_summarized(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        """The whole point of a graph-derived description: no model touches it."""
+        narrative = "A" * 4000
+        fir = _minimal_fir(narrative_text=narrative)
+        await sp.project_fir(fir)
+        assert _incident_node(graph_calls)["properties"]["description"] == narrative
+
+    async def test_absent_narrative_writes_no_description_property(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        """"Unavailable" must stay distinguishable from "recorded as blank"."""
+        fir = _minimal_fir()  # no narrative_text key at all
+        await sp.project_fir(fir)
+        assert "description" not in _incident_node(graph_calls)["properties"]
+
+    async def test_blank_narrative_writes_no_description_property(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(narrative_text="   ")
+        await sp.project_fir(fir)
+        assert "description" not in _incident_node(graph_calls)["properties"]
+
+    async def test_canonical_name_is_unchanged_by_the_description_addition(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(narrative_text="narrative")
+        await sp.project_fir(fir)
+        assert _incident_node(graph_calls)["properties"]["canonical_name"] == "Incident for FIR 100/26"
+
+
+class TestZimniDetailNeverStringifiesNone:
+    """
+    Regression: T2. Both zimni producers built detail as
+    f"entry {z.get('entry_number')}", so a NULL entry_number wrote the
+    literal "entry None" — 188 such edges exist in the restored graph, and
+    Timeline Building renders detail verbatim to investigators.
+    """
+
+    async def test_present_entry_number_keeps_existing_representation(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(fir_zimni=[
+            {"id": "z1", "entry_number": 7, "entry_date": "2026-02-01", "officer_name": "SI احمد"},
+        ])
+        await sp.project_fir(fir)
+        edges = _zimni_edges(graph_calls)
+        assert edges, "expected at least one zimni OCCURRED_ON edge"
+        assert all(e["properties"]["detail"] == "entry 7" for e in edges)
+
+    async def test_null_entry_number_omits_detail_entirely(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(fir_zimni=[
+            {"id": "z1", "entry_number": None, "entry_date": "2026-02-01", "officer_name": "SI احمد"},
+        ])
+        await sp.project_fir(fir)
+        edges = _zimni_edges(graph_calls)
+        assert edges, "expected at least one zimni OCCURRED_ON edge"
+        for e in edges:
+            assert "detail" not in e["properties"]
+            assert "None" not in str(e["properties"].get("detail", ""))
+
+    async def test_both_producers_are_covered_incident_and_officer(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        """
+        The defect existed twice (Incident-side and Officer-side zimni
+        edges). Assert BOTH from_labels are exercised, so a future fix to
+        only one site fails here rather than silently leaving half the
+        edges defective.
+        """
+        fir = _minimal_fir(fir_zimni=[
+            {"id": "z1", "entry_number": None, "entry_date": "2026-02-01", "officer_name": "SI احمد"},
+        ])
+        await sp.project_fir(fir)
+        from_labels = {e["from_label"] for e in _zimni_edges(graph_calls)}
+        assert from_labels == {"Incident", "Officer"}, from_labels
+
+    async def test_entry_number_zero_is_kept_not_treated_as_missing(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        """A falsy-but-real entry number must survive — the guard is `is not None`."""
+        fir = _minimal_fir(fir_zimni=[
+            {"id": "z1", "entry_number": 0, "entry_date": "2026-02-01", "officer_name": "SI احمد"},
+        ])
+        await sp.project_fir(fir)
+        assert all(e["properties"]["detail"] == "entry 0" for e in _zimni_edges(graph_calls))
+
+    async def test_event_type_and_edge_shape_are_unchanged(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(fir_zimni=[
+            {"id": "z1", "entry_number": None, "entry_date": "2026-02-01", "officer_name": "SI احمد"},
+        ])
+        await sp.project_fir(fir)
+        for e in _zimni_edges(graph_calls):
+            assert e["edge_label"] == "OCCURRED_ON"
+            assert e["properties"]["event_type"] == "zimni_entry"
+            assert e["to_match"] == {"date": "2026-02-01"}

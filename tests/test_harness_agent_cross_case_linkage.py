@@ -706,3 +706,111 @@ async def test_supervisor_dispatches_to_real_cross_case_linkage_and_real_tools(m
     # Both tools resolved to a definite empty -> EMPTY, a real finding.
     assert result.status == SubAgentStatus.EMPTY
     assert result.answer_text
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# findings.md CCL-C3 — each XNETWORK link carries its OWN community's
+# case_ids, never the tool's aggregate union
+# ═══════════════════════════════════════════════════════════════════════
+#
+# Real shape that exposed this: a 3-result query over the live corpus
+# returned C-20260825-0000 (['fir-410-25']), C-20260825-0006
+# (['fir-64-26','fir-65-26']) and C-20260825-0001 (['fir-233-26']). All
+# three were rendered as spanning 4 cases, because every link was stamped
+# with the flattened union. 17 of 19 real communities are single-case.
+
+
+def _xn_result(per_community, union, status=ToolStatus.OK):
+    """An XNetworkToolResult with N chunks index-aligned to N case-id lists."""
+    return XNetworkToolResult(
+        status=status,
+        chunks=[
+            _xnetwork_chunk(community_id=f"community-{i}", text=f"summary {i}")
+            for i in range(len(per_community))
+        ],
+        case_ids_touched=union,
+        community_ids=[f"community-{i}" for i in range(len(per_community))],
+        community_case_ids=per_community,
+        raw_summary_text="raw",
+    )
+
+
+def test_ccl_c3_single_result_single_case_is_not_widened():
+    """(1) A single-case community must report exactly its own case."""
+    links = ccl_mod._xnetwork_links(_xn_result([["CASE-001"]], ["CASE-001"]))
+
+    assert len(links) == 1
+    assert links[0].case_ids == ["CASE-001"]
+
+
+def test_ccl_c3_multiple_results_same_case_do_not_become_cross_case():
+    """(2) Multiplicity of results must not imply a cross-case span."""
+    links = ccl_mod._xnetwork_links(_xn_result([["CASE-001"], ["CASE-001"]], ["CASE-001"]))
+
+    assert [l.case_ids for l in links] == [["CASE-001"], ["CASE-001"]]
+
+
+def test_ccl_c3_multiple_results_different_cases_stay_separate():
+    """
+    (3) The core regression. Two single-case communities must each report
+    ONLY their own case — while case_ids_touched stays the union for the
+    Verifier.
+    """
+    result = _xn_result([["CASE-001"], ["CASE-002"]], ["CASE-001", "CASE-002"])
+    links = ccl_mod._xnetwork_links(result)
+
+    assert links[0].case_ids == ["CASE-001"]
+    assert links[1].case_ids == ["CASE-002"]
+    assert result.case_ids_touched == ["CASE-001", "CASE-002"], (
+        "the Verifier's allowed-cross-case-ID union must be preserved"
+    )
+    for link in links:
+        assert link.case_ids != result.case_ids_touched, (
+            "a single-case community must not inherit the aggregate span"
+        )
+
+
+def test_ccl_c3_genuinely_multi_case_community_is_preserved():
+    """(4) The 2 of 19 real multi-case communities must keep both IDs."""
+    links = ccl_mod._xnetwork_links(
+        _xn_result([["CASE-001", "CASE-002"]], ["CASE-001", "CASE-002"])
+    )
+
+    assert links[0].case_ids == ["CASE-001", "CASE-002"]
+
+
+def test_ccl_c3_ordering_is_index_aligned_with_chunks():
+    """(6) Entry i must belong to community i, not merely be present."""
+    result = _xn_result(
+        [["CASE-001"], ["CASE-002", "CASE-003"], ["CASE-004"]],
+        ["CASE-001", "CASE-002", "CASE-003", "CASE-004"],
+    )
+    links = ccl_mod._xnetwork_links(result)
+
+    assert [l.case_ids for l in links] == [
+        ["CASE-001"], ["CASE-002", "CASE-003"], ["CASE-004"],
+    ]
+    assert [l.description for l in links] == ["summary 0", "summary 1", "summary 2"]
+
+
+def test_ccl_c3_absent_field_degrades_to_empty_never_to_the_union():
+    """
+    (7) Backward compatibility. A caller that omits community_case_ids must
+    yield [] — NOT case_ids_touched, which would silently recreate CCL-C3.
+    """
+    legacy = XNetworkToolResult(
+        status=ToolStatus.OK,
+        chunks=[_xnetwork_chunk(community_id="community-0", text="summary 0")],
+        case_ids_touched=["CASE-001", "CASE-002"],
+        community_ids=["community-0"],
+    )
+
+    links = ccl_mod._xnetwork_links(legacy)
+
+    assert links[0].case_ids == []
+    assert links[0].case_ids != legacy.case_ids_touched
+
+
+def test_ccl_c3_no_chunks_yields_no_links():
+    """(5) EMPTY-shaped results are unaffected."""
+    assert ccl_mod._xnetwork_links(_xn_result([], [], status=ToolStatus.EMPTY)) == []
