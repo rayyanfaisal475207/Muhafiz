@@ -58,7 +58,7 @@ verification.
 | 7 | [No general adaptive multi-method retrieval](#module-7-no-general-adaptive-multi-method-retrieval) ✅ RESOLVED 2026-08-25 | 🟡 Medium | Large | — |
 | 8 | [Local Search — entity-based reasoning](#module-8-local-search--entity-based-reasoning) ✅ RESOLVED 2026-08-25 | 🟠 Medium-High | Large | — |
 | 9 | [Global Search — whole-dataset map-reduce reasoning](#module-9-global-search--whole-dataset-map-reduce-reasoning) ✅ RESOLVED 2026-08-25 (both stages) | 🟠 Medium-High | Large | Module 6 |
-| 10 | [Meta-analysis — query decomposition and aggregation](#module-10-meta-analysis--query-decomposition-and-aggregation) | 🟠 Medium-High | Large | Relates to 7, 8, 9 |
+| 10 | [Meta-analysis — query decomposition and aggregation](#module-10-meta-analysis--query-decomposition-and-aggregation) ✅ RESOLVED 2026-08-26 | 🟠 Medium-High | Large | Relates to 7, 8, 9 |
 | 11 | [Unreviewed name-fallback duplicates poison community detection](#module-11-unreviewed-name-fallback-duplicates-poison-community-detection-plus-a-common-noun-mistagged-as-a-person) ✅ A1/A2 RESOLVED 2026-08-25 (B open) | 🟠 Medium-High | Small-Medium | Discovered via Module 9 |
 
 Modules 1-8 are independent of each other (different files, no shared edit
@@ -1750,6 +1750,105 @@ and the corpus keeps growing (478 Person nodes today, growing).
 ---
 
 ## Module 10: Meta-analysis — query decomposition and aggregation
+
+### ✅ RESOLVED — 2026-08-26
+Fixed on `main` (merged from `feature/harness-meta-analysis`) — the last of
+the ten modules in this sweep. New sub-agent
+`src/pipeline/harness/agents/meta_analysis.py`, the outermost layer: a
+narrow decomposer LLM call (`prompts/meta_analysis_decomposer.txt`, own
+strict-JSON schema) either says "no decomposition needed" (falls back to one
+non-decomposed `Supervisor.handle()` pass) or returns a bounded (≤5)
+standalone sub-query list plus a synthesis goal; each sub-query re-enters
+`Supervisor.handle()` concurrently (`asyncio.gather`, one level only — see
+the recursion guard below); a final `call_llm()` pass synthesizes across the
+contributing sub-answers, verified through the EXISTING
+`verify_grounding()` unchanged (confirmed its signature needed no
+extension — it already accepts an arbitrary flat "documents" list, and a
+sub-answer's own text fills that role the same way a raw chunk would).
+
+**Design decisions** (all resolved via `AskUserQuestion` before any code was
+written, per this module's own flagged-not-decided questions):
+- **RBAC**: `META_ANALYSIS` added to `supervisor.py`'s existing
+  `_CROSS_CASE_SUBAGENTS` frozenset — the exact same case_scope demotion
+  guard XGRAPH/XAGG/XNETWORK/GLOBAL_SEARCH already use, reused not
+  reinvented. A compound-question trigger match on a query whose own
+  `case_scope` isn't `cross_case` demotes straight to Semantic Search before
+  any N-way dispatch is attempted. `meta_analysis.py` itself adds no role
+  check of its own — each sub-query is gated on its own merits by whichever
+  tool/sub-agent it recursively resolves to.
+- **Cost/latency**: hard cap N=5 sub-queries. Each sub-query dispatch never
+  raises (a private wrapper catches timeout/exception and returns a value,
+  mirroring `ToolResult`'s "no tool raises" doctrine one level up) —
+  `asyncio.gather` over these non-raising wrappers means one bad sub-query
+  can never take the others down; every outcome reaches synthesis,
+  disclosed as a caveat if it didn't contribute.
+- **Decomposition triggers**: narrow, deterministic, `_XAGG_OVERRIDE_
+  PATTERNS`-style, anchored on "summarize...across all" /
+  "aggregate...and flag" / "recurring...and cross-reference" shapes —
+  checked BEFORE every other route-specific override (the true outermost
+  layer), still funneling into the same case_scope demotion guard.
+- **Recursion guard** (found necessary during implementation, not in the
+  original brief): this is the first sub-agent in the codebase to call
+  `Supervisor.handle()` at all — every prior sub-agent composes tools
+  directly, so nothing before this could recurse. A new additive,
+  keyword-only `allow_meta_analysis` parameter on both
+  `classify_to_subagent()` and `Supervisor.handle()` (same convention as
+  `on_event`/`gateway`) makes a sub-query classify exactly as if this module
+  didn't exist — deterministic, not dependent on a sub-query's text
+  happening to avoid the trigger vocabulary.
+
+**Tests**: `tests/test_harness_agent_meta_analysis.py` (new, 25 cases) —
+decomposer JSON schema lock, the compound example decomposing into a
+bounded sensible set, an ordinary query correctly classifying
+`decompose:false`, one sub-query's failure/timeout not crashing the
+others (with the failure disclosed), all-DENIED vs. mixed-DENIED status
+bucketing (RESOLVED-6, never collapsed), all-EMPTY short-circuiting
+without an LLM call, the N=5 cap, and the recursion guard. New
+supervisor.py-level tests for the trigger patterns, the case_scope
+demotion guard covering `META_ANALYSIS`, and `allow_meta_analysis`
+actually suppressing dispatch end-to-end. Two pre-existing tests
+(`test_harness_agent_data_quality.py`, `test_harness_agent_timeline_
+building.py`) needed a one-line fix: their `classify_to_subagent` stub
+lambdas didn't accept the new keyword-only parameter. Full backend suite
+green; harness compliance suite green (`meta_analysis.py` adds no
+duplicate role check, so it doesn't need to be in
+`CROSS_CASE_TOOL_MODULE_NAMES` and isn't).
+
+**Live-verified**, real Postgres/AGE instance, real 73-case corpus, real
+ground truth pulled independently via raw AGE cypher before running
+anything (32 Weapon nodes; 30 share a normalized ".30 bore pistol" type
+across 30 real FIRs, confirmed matching `bore pistol appears in 30 cases`
+exactly): two real compound questions, both correctly decomposed and
+dispatched.
+  - *"Aggregate weapon types across all arms cases and flag which share
+    FIR-212/26 weapon type."* — decomposed into 2 sub-queries; one hit a
+    real, reproducible (3/3 runs) Groq cloud-fallback rate-limit failure
+    (the local LLM returns empty content for this sub-query's `route_query()`
+    prompt length, cascading to a cloud fallback that then exceeded this
+    org's 8000 TPM cap) — `status=PARTIAL`, the failure disclosed as a
+    caveat naming the sub-question, and the surviving sub-query's own
+    answer (the real 30-case aggregate, which already lists FIR-212-26
+    among the 30) still produced a complete, correct final answer. The
+    "before" (forced single-route XAGG, no decomposition) answer is
+    identical in content here since the surviving sub-query WAS the
+    aggregate query — the compound question's second half degraded
+    gracefully rather than being silently dropped, which is the module's
+    actual contract being demonstrated under real infra pressure, not a
+    clean pass.
+  - *"Summarize recurring weapon types across all arms cases and flag any
+    still under investigation."* — decomposed into 2 sub-queries, both
+    contributed, `status=OK` (first attempt after one earlier run's
+    synthesis was correctly rejected by the Verifier for an unsupported
+    "no overlap" claim — fail-closed, re-run passed). The Validation gate
+    (full semantic tier) flagged 2 claims as only partially supported,
+    surfaced as caveats without blocking the answer — the "before"
+    (single-route XAGG) answer for the same question explicitly states it
+    has no investigation-status data at all ("the document does not
+    explicitly flag any of these cases as still under investigation"),
+    silently leaving half the original question unanswered with no
+    disclosure; the decomposed "after" answer at least attempts and
+    surfaces the second half, honestly caveating what it couldn't fully
+    confirm rather than omitting it unremarked.
 
 ### Origin
 Requested explicitly, twice, by the team: *"handling a larger query that

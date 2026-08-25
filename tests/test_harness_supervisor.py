@@ -30,6 +30,7 @@ from src.pipeline.harness.supervisor import (
     GLOBAL_SEARCH,
     INVESTIGATIVE_ANALYSIS,
     LARGE_SCALE_AGGREGATE,
+    META_ANALYSIS,
     NO_SUB_AGENT,
     REPORT_DRAFTING,
     SEMANTIC_SEARCH,
@@ -241,6 +242,84 @@ def test_global_search_is_covered_by_the_case_scope_demotion_guard():
     assert classify_to_subagent(route_result, "what are the top 5 themes in the data?") == SEMANTIC_SEARCH
 
 
+# [AMENDMENT — findings.md Module 10, "Meta-Analysis"] classify_to_subagent()
+# coverage for the new decomposition-trigger override, per findings.md's own
+# Test plan.
+@pytest.mark.parametrize(
+    "query_text",
+    [
+        "Summarize the recurring patterns across all robbery cases handled by "
+        "this station in the last quarter and flag any that share a suspect "
+        "with an unresolved case.",
+        "Aggregate the weapon types used across all cases this year and flag "
+        "any case where the weapon matches an unresolved case's weapon.",
+        "What are the recurring themes across all cases at this station, and "
+        "cross-reference them with cases involving juvenile suspects?",
+    ],
+)
+def test_meta_analysis_trigger_overrides_classification(query_text):
+    route_result = {"route": "XNETWORK", "case_scope": "cross_case", "output_format": "chat"}
+    assert classify_to_subagent(route_result, query_text) == META_ANALYSIS
+
+
+@pytest.mark.parametrize(
+    "query_text",
+    [
+        "Summarize case CASE-021.",
+        "What is the FIR number for case CASE-014?",
+        "Aggregate the case counts by station.",
+        "What are the recurring patterns in this case's witness statements?",
+    ],
+)
+def test_meta_analysis_trigger_does_not_fire_on_ordinary_queries(query_text):
+    route_result = {"route": "RAG", "output_format": "chat"}
+    assert classify_to_subagent(route_result, query_text) != META_ANALYSIS
+
+
+def test_meta_analysis_trigger_wins_over_other_provisional_triggers():
+    """[PRESERVE] Module 10 is the outermost layer -- checked before
+    TIMELINE/INVESTIGATIVE_ANALYSIS/LOCAL_SEARCH/GLOBAL_SEARCH so a
+    genuinely compound question is never swallowed by a single-route
+    override first."""
+    route_result = {"route": "GRAPH", "case_scope": "cross_case", "output_format": "chat"}
+    query_text = (
+        "give me a full analysis and summarize the recurring patterns across "
+        "all cases at this station and flag any repeat offenders"
+    )
+    assert classify_to_subagent(route_result, query_text) == META_ANALYSIS
+
+
+def test_meta_analysis_is_covered_by_the_case_scope_demotion_guard():
+    """META_ANALYSIS is cross-case-role-gated like CROSS_CASE_LINKAGE/
+    LARGE_SCALE_AGGREGATE/GLOBAL_SEARCH -- resolved via AskUserQuestion as
+    this module's RBAC answer: a compound-question trigger match on a query
+    whose own case_scope did NOT come back "cross_case" demotes straight to
+    Semantic Search -- no N-way decompose+dispatch is ever attempted for a
+    within-case compound question."""
+    route_result = {"route": "RAG", "case_scope": "within_case", "output_format": "chat"}
+    query_text = "Summarize the recurring patterns across all our cases and flag any repeats."
+    assert classify_to_subagent(route_result, query_text) == SEMANTIC_SEARCH
+
+
+def test_allow_meta_analysis_false_suppresses_the_trigger():
+    """[PRESERVE -- the recursion guard] meta_analysis.py passes
+    allow_meta_analysis=False for every sub-query it dispatches, so a
+    sub-query whose own text still matches the trigger must classify EXACTLY
+    as if Module 10 did not exist, never recursing back into META_ANALYSIS."""
+    route_result = {"route": "XNETWORK", "case_scope": "cross_case", "output_format": "chat"}
+    query_text = "What are the recurring themes across all cases at this station, and cross-reference them with cases involving juvenile suspects?"
+    assert classify_to_subagent(route_result, query_text) == META_ANALYSIS
+    assert (
+        classify_to_subagent(route_result, query_text, allow_meta_analysis=False) != META_ANALYSIS
+    )
+
+
+def test_file_output_still_overrides_meta_analysis_trigger():
+    route_result = {"route": "RAG", "output_format": "file_pdf"}
+    query_text = "Summarize the recurring patterns across all cases and flag any repeats."
+    assert classify_to_subagent(route_result, query_text) == REPORT_DRAFTING
+
+
 def test_file_output_still_overrides_provisional_triggers():
     route_result = {"route": "GRAPH", "output_format": "file_pdf"}
     assert classify_to_subagent(route_result, "give me a timeline of events") == REPORT_DRAFTING
@@ -322,6 +401,39 @@ async def test_handle_threads_query_text_into_classify_to_subagent_for_provision
     assert result is expected
     assert len(mock.calls) == 1
     assert len(other_mock.calls) == 0
+
+
+@pytest.mark.asyncio
+async def test_handle_allow_meta_analysis_false_reaches_classify_to_subagent(monkeypatch, isolated_registry):
+    """[AMENDMENT — findings.md Module 10] End-to-end proof that
+    Supervisor.handle()'s own allow_meta_analysis parameter actually reaches
+    classify_to_subagent() -- a query whose text matches the decomposition
+    trigger dispatches to META_ANALYSIS by default, but NOT when the caller
+    passes allow_meta_analysis=False (the exact call meta_analysis.py itself
+    makes for every sub-query it dispatches)."""
+    # route="XAGG" deliberately, not XNETWORK -- avoids also tripping
+    # _GLOBAL_SEARCH_TRIGGER_PATTERNS's own "recurring themes across" match,
+    # which would otherwise confound which override this test is isolating.
+    _stub_route_query(monkeypatch, {"route": "XAGG", "case_scope": "cross_case", "output_format": "chat"})
+    query_text = (
+        "Aggregate the weapon types used across all cases this year and flag "
+        "any case where the weapon matches an unresolved case's weapon."
+    )
+
+    meta_mock = _mock_sub_agent(META_ANALYSIS, SubAgentResult(status=SubAgentStatus.OK, answer_text="combined"))
+    xagg_mock = _mock_sub_agent(LARGE_SCALE_AGGREGATE, SubAgentResult(status=SubAgentStatus.OK))
+    isolated_registry[META_ANALYSIS] = meta_mock
+    isolated_registry[LARGE_SCALE_AGGREGATE] = xagg_mock
+
+    sup = Supervisor(registry=isolated_registry)
+
+    await sup.handle(_agent_input(query_text=query_text))
+    assert len(meta_mock.calls) == 1
+    assert len(xagg_mock.calls) == 0
+
+    await sup.handle(_agent_input(query_text=query_text), allow_meta_analysis=False)
+    assert len(meta_mock.calls) == 1  # unchanged -- not called again
+    assert len(xagg_mock.calls) == 1
 
 
 @pytest.mark.asyncio
