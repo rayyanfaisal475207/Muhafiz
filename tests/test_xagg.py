@@ -96,6 +96,95 @@ async def test_urdu_word_for_people_routes_to_person_recurrence(monkeypatch):
     assert result["results"][0]["case_count"] == 2
 
 
+# ── Graph recurrence (weapon keyword) — findings.md Module 4 ────────────────
+#
+# Weapon nodes are FIR-scoped by construction (see
+# structured_projection._write_weapons()), so recurrence has to be counted
+# by normalized weapon TYPE, not by node identity the way Vehicle/Person
+# are above — these rows use the scalar (weapon_name/case_id) shape
+# _top_recurring_weapon_types() actually queries for, not the nested
+# node/case shape _top_recurring_nodes() uses.
+
+async def test_weapon_query_merges_ammunition_suffix_variants_across_cases(monkeypatch):
+    """Two different cases, each carrying a "30 بور پستول"-shaped weapon
+    with a DIFFERENT ammunition-count suffix, must be counted as ONE
+    recurring weapon type across 2 cases — not two separate single-case
+    weapons. Real shape sampled from the live graph."""
+    rows = [
+        {"weapon_name": "30 بور پستول بمعہ 3 گولیاں", "case_id": "CASE-100"},
+        {"weapon_name": "30 بور پستول بمعہ 6 گولیاں", "case_id": "CASE-101"},
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        "which type of weapon appears most often across all cases", None, gateway=None, user_role="supervisor"
+    )
+
+    assert result["kind"] == "graph_recurrence"
+    assert result["entity_type"] == "Weapon"
+    assert len(result["results"]) == 1
+    assert result["results"][0]["name"] == "30 بور پستول"
+    assert result["results"][0]["case_count"] == 2
+    assert set(result["results"][0]["case_ids"]) == {"CASE-100", "CASE-101"}
+
+
+async def test_weapon_type_in_only_one_case_is_excluded(monkeypatch):
+    """Mirrors _top_recurring_nodes's existing len(cases) > 1 recurrence
+    bar: a weapon type that only appears in a single case is not
+    "recurring" and must not be returned."""
+    rows = [
+        {"weapon_name": "30 بور پستول بمعہ 3 گولیاں", "case_id": "CASE-100"},
+        {"weapon_name": "30 بور پستول بمعہ 6 گولیاں", "case_id": "CASE-101"},
+        {"weapon_name": "عام لکڑی کی چھڑی، ایک عدد", "case_id": "CASE-102"},  # single-case, excluded
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        "which type of weapon appears most often across all cases", None, gateway=None, user_role="supervisor"
+    )
+
+    assert len(result["results"]) == 1
+    assert result["results"][0]["name"] == "30 بور پستول"
+
+
+async def test_weapon_recurrence_fails_without_ammunition_suffix_normalization():
+    """Proves the normalization step is load-bearing, not decorative:
+    without stripping the "بمعہ N گولیاں" suffix, the two ammunition-count
+    variants below are treated as two DIFFERENT weapon types (one case
+    each) instead of one recurring type across two cases."""
+    raw_names = ["30 بور پستول بمعہ 3 گولیاں", "30 بور پستول بمعہ 6 گولیاں"]
+    assert len(set(raw_names)) == 2  # distinct strings pre-normalization
+    normalized = {xagg._normalize_weapon_type(n) for n in raw_names}
+    assert normalized == {"30 بور پستول"}  # merge only happens post-normalization
+
+
+async def test_weapon_jurisdiction_case_ids_narrows_graph_recurrence(monkeypatch):
+    rows = [
+        {"weapon_name": "30 بور پستول", "case_id": "CASE-A"},
+        {"weapon_name": "30 بور پستول بمعہ 3 گولیاں", "case_id": "CASE-B"},
+    ]
+    captured_params = {}
+
+    class CapturingAgeClient:
+        async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+            captured_params.update(params or {})
+            assert "case_ids" in cypher_query
+            allowed = (params or {}).get("case_ids", [])
+            return [r for r in rows if r["case_id"] in allowed]
+
+    monkeypatch.setattr(xagg, "age_client", CapturingAgeClient())
+
+    result = await xagg.run_aggregate(
+        "which type of weapon appears most often across all cases", None, gateway=None, user_role="supervisor",
+        jurisdiction_case_ids=["CASE-A"],
+    )
+
+    assert captured_params["case_ids"] == ["CASE-A"]
+    # Only CASE-A survives the narrowed match — "30 بور پستول" no longer
+    # recurs (appears in >1 case) once CASE-B is excluded.
+    assert result["results"] == []
+
+
 # ── Relational aggregate (station/category) ─────────────────────────────────
 
 async def test_station_query_groups_by_police_station(monkeypatch):

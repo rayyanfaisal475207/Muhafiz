@@ -134,3 +134,69 @@ async def test_refresh_bg_failure_is_best_effort_never_raises(monkeypatch):
     monkeypatch.setattr(community_detection, "get_staleness", fake_get_staleness)
 
     await community_refresh_bg._run_community_refresh_bg()  # must not raise
+
+
+# ── community_refresh_bg.refresh_if_stale() — the extracted awaitable core
+# (findings.md Module 6: sync_muhafiz_data.py awaits this directly, since
+# fire-and-forget would race its own close_pool()/process exit) ────────────
+
+async def test_refresh_if_stale_skips_when_not_stale(monkeypatch):
+    async def fake_get_staleness():
+        return {"stale": False, "reason": "within threshold"}
+
+    def fail_if_called(*a, **k):
+        raise AssertionError("must not run detect_communities() when not stale")
+
+    monkeypatch.setattr(community_detection, "get_staleness", fake_get_staleness)
+    monkeypatch.setattr(community_detection, "detect_communities", fail_if_called)
+
+    result = await community_refresh_bg.refresh_if_stale()
+
+    assert result == {
+        "ran": False,
+        "staleness": {"stale": False, "reason": "within threshold"},
+        "summarize_result": None,
+    }
+
+
+async def test_refresh_if_stale_runs_detect_and_summarize_when_stale(monkeypatch):
+    calls = []
+
+    async def fake_get_staleness():
+        return {"stale": True, "reason": "node drift 20.0%, edge drift 0.0%"}
+
+    async def fake_detect_communities():
+        calls.append("detect")
+        return {"run_id": "RUN-2"}
+
+    monkeypatch.setattr(community_detection, "get_staleness", fake_get_staleness)
+    monkeypatch.setattr(community_detection, "detect_communities", fake_detect_communities)
+
+    import src.graph.community_summarization as community_summarization
+
+    async def fake_summarize_communities():
+        calls.append("summarize")
+        return {"attempted": 3, "written": 3, "skipped": 0}
+
+    monkeypatch.setattr(community_summarization, "summarize_communities", fake_summarize_communities)
+
+    result = await community_refresh_bg.refresh_if_stale()
+
+    assert calls == ["detect", "summarize"]
+    assert result["ran"] is True
+    assert result["summarize_result"] == {"attempted": 3, "written": 3, "skipped": 0}
+    assert result["staleness"]["stale"] is True
+
+
+async def test_refresh_if_stale_propagates_failures_unlike_the_bg_wrapper(monkeypatch):
+    """The swallow-on-failure behavior lives only in
+    _run_community_refresh_bg() now — refresh_if_stale() itself must let
+    exceptions through so a direct awaiter (sync_muhafiz_data.py) can see
+    and report a failed refresh instead of it vanishing silently."""
+    async def fake_get_staleness():
+        raise RuntimeError("simulated graph error")
+
+    monkeypatch.setattr(community_detection, "get_staleness", fake_get_staleness)
+
+    with pytest.raises(RuntimeError, match="simulated graph error"):
+        await community_refresh_bg.refresh_if_stale()

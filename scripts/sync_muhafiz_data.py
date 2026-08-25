@@ -50,11 +50,14 @@
 # ============================================================
 import argparse
 import asyncio
+import logging
 import os
 import sys
 from pathlib import Path
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+logger = logging.getLogger(__name__)
 
 from src.data_gateway.muhafiz_api.client import MuhafizApiClient
 from src.data_gateway.muhafiz_api.models import CmsComplaint, CriminalRecord, FirRecord, PkmApplication, RoznamchaEntry
@@ -69,6 +72,7 @@ from src.graph.cross_silo_projection import (
 )
 from src.graph.structured_projection import project_fir
 from src.ingestion import muhafiz_records as mr
+from src.ingestion.community_refresh_bg import refresh_if_stale
 from src.ingestion.muhafiz_cases import (
     build_display_code_index,
     build_e_tag_index,
@@ -131,6 +135,128 @@ async def purge_edges_by_source_prefix(prefix: str, *, graph: str = age_client.G
     return deleted
 
 
+async def purge_orphaned_person_nodes_by_source_prefix(prefix: str, *, graph: str = age_client.GRAPH_NAME) -> int:
+    """
+    findings.md Module 1 follow-up, Priority 2b Option A
+    (MODULE1_GAPS_FIX_PROMPT.md) — structured_projection.resolve_structured_person()'s
+    no-CNIC/no-corroboration path (_write_new_person()) mints a fresh
+    random entity_id on every call, with no dedup. Re-syncing the same
+    no-CNIC person a second time therefore always resolves to a DIFFERENT
+    node than last time — purge_edges_by_source_prefix() above correctly
+    deletes the OLD node's edges (they carry this same record's own
+    source_doc_id), but never the node itself (edge-only by design, see
+    that function's own docstring). Left alone, that strands the old node
+    as a permanent, zero-edge orphan on every single re-sync, growing
+    without bound: one --full re-sync of the real 73-case corpus produced
+    ~69 of these live.
+
+    Scoped to THIS record's own source_doc_id prefix — the exact same one
+    purge_edges_by_source_prefix() was just called with — so this can only
+    ever delete a Person node that record's OWN purge, in this same call,
+    could have just orphaned. It never reaches a node any other record is
+    responsible for. Call this AFTER purge_edges_by_source_prefix() and
+    BEFORE the record is re-projected: the orphan (from the PREVIOUS
+    sync) already exists at that point, and cleaning it up before the new
+    projection begins means a freshly-written node from THIS run is never
+    at risk of being mistaken for one.
+
+    Does not touch entity_resolution's id-generation semantics at all —
+    the same real person still gets a new id on the next re-sync; this
+    only stops the debris from that from accumulating. See
+    MODULE1_GAPS_FIX_PROMPT.md Priority 2b's own Option B for the (bigger,
+    riskier — real-name-collision risk) alternative of making the id
+    itself deterministic instead.
+
+    THREE QUERY SHAPES TRIED, in order, each ruled out live before landing
+    on this one — recorded here so a future reader doesn't re-try the same
+    dead ends:
+      1. One combined query: `WHERE source_doc_id STARTS WITH $prefix`
+         fused with `OPTIONAL MATCH ... WITH ... count(r) ... WHERE
+         degree = 0`. Reliably dropped the connection against the real
+         AGE instance at this graph's scale (reproduced 3 times) — same
+         failure as a full-graph 0-edge scan tried earlier for Priority 2a.
+      2. Split into a cheap id-only STARTS WITH lookup, then per-id
+         `OPTIONAL MATCH (p)-[r]-()` (any label, any direction) with a
+         `WHERE degree = 0` aggregate. Didn't error — HUNG: caught live
+         via `pg_stat_activity`, one single-node lookup sat `active`
+         (genuinely executing, not lock-waiting) for 25+ seconds. AGE's
+         label-scoped edge storage means an unlabeled, undirected pattern
+         apparently can't use a per-label index and ends up scanning
+         across every label — the same cost class as shape 1, just paid
+         inside one node's traversal instead of the WHERE clause.
+      3. THIS ONE: loop over `EDGE_LABELS` (the same authoritative list
+         purge_edges_by_source_prefix() above already sweeps) one label
+         at a time, undirected, checking existence only — `MATCH
+         ()-[r:{label}]-() WHERE ... LIMIT 1`. Every single-label query
+         purge_edges_by_source_prefix() issues is already proven fast and
+         reliable on every real sync run; this reuses that exact shape,
+         just anchored to one candidate node instead of scanned globally,
+         and stops at the first label that finds an edge (most non-orphan
+         candidates resolve on the very first hit).
+
+    Correctness note — this is NOT equivalent to only checking
+    BELONGS_TO_CASE (a cheaper-looking shortcut that was considered and
+    rejected): a Person's BELONGS_TO_CASE from THIS record's own purge can
+    disappear while a genuinely separate edge from a DIFFERENT record
+    survives untouched — e.g. a cross-silo ASSOCIATED_WITH written by
+    cross_silo_projection.py's _pair_with_existing_incident_roster()
+    (Priority 1) with its own, different source_doc_id. Checking only one
+    label would misclassify that node as orphaned and DETACH DELETE would
+    destroy a real, still-valid edge along with it. Checking every label
+    in EDGE_LABELS is the only way to know a candidate is TRULY
+    disconnected before deleting it — never trade that away for speed.
+
+    Wrapped in its own try/except: a cleanup step failing must never take
+    down the sync it's attached to (same discipline as every other
+    resilience layer in this pipeline) — returns 0 and logs a warning
+    rather than propagating, so `--full` keeps going through the rest of
+    the corpus even if this one step has an off night.
+    """
+    try:
+        candidates = await age_client.execute_cypher(
+            "MATCH (p:Person) WHERE p.source_doc_id STARTS WITH $prefix "
+            "RETURN p.entity_id AS entity_id",
+            params={"prefix": prefix}, columns=["entity_id"], graph=graph,
+        )
+        deleted = 0
+        for row in candidates:
+            entity_id = row.get("entity_id")
+            if not entity_id:
+                continue
+            if await _person_has_any_edge(entity_id, graph=graph):
+                continue
+            result = await age_client.execute_cypher(
+                "MATCH (p:Person {entity_id: $eid}) DETACH DELETE p RETURN count(p) AS deleted",
+                params={"eid": entity_id}, columns=["deleted"], graph=graph,
+            )
+            deleted += int(result[0]["deleted"]) if result else 0
+        return deleted
+    except Exception as exc:
+        logger.warning(
+            "purge_orphaned_person_nodes_by_source_prefix failed for prefix %r: %s", prefix, exc,
+        )
+        return 0
+
+
+async def _person_has_any_edge(entity_id: str, *, graph: str = age_client.GRAPH_NAME) -> bool:
+    """
+    True the moment ANY of EDGE_LABELS is found touching this Person (in
+    either direction) — stops checking further labels as soon as one
+    hits, since that alone is enough to know the node isn't orphaned. See
+    purge_orphaned_person_nodes_by_source_prefix()'s own docstring for why
+    this checks every label individually rather than one unbounded
+    any-label pattern (correctness AND performance both depend on it).
+    """
+    for label in EDGE_LABELS:
+        rows = await age_client.execute_cypher(
+            f"MATCH (p:Person {{entity_id: $eid}})-[r:{label}]-() RETURN r LIMIT 1",
+            params={"eid": entity_id}, columns=["r"], graph=graph,
+        )
+        if rows:
+            return True
+    return False
+
+
 # ── fetch ────────────────────────────────────────────────────────────────
 
 async def fetch_all(snapshot_path: str | None, endpoints: tuple[str, ...]) -> dict[str, list[dict]]:
@@ -153,6 +279,7 @@ async def sync_fir(fir: FirRecord, *, dry_run: bool) -> dict:
         return stats
 
     stats["edges_purged"] = await purge_edges_by_source_prefix(prefix)
+    stats["orphaned_persons_purged"] = await purge_orphaned_person_nodes_by_source_prefix(prefix)
     if docs:
         ingest_stats = await ingest_documents(
             docs, source_name=fir.fir_id, case_id=fir.fir_id, is_global=False,
@@ -175,6 +302,7 @@ async def sync_cms(cms: CmsComplaint, case_id: str | None, *, dry_run: bool) -> 
         return stats
 
     stats["edges_purged"] = await purge_edges_by_source_prefix(prefix)
+    stats["orphaned_persons_purged"] = await purge_orphaned_person_nodes_by_source_prefix(prefix)
     if docs:
         ingest_stats = await ingest_documents(
             docs, source_name=cms.complaint_id, case_id=case_id, is_global=False,
@@ -195,6 +323,7 @@ async def sync_pkm(pkm: PkmApplication, case_id: str | None, *, dry_run: bool) -
         return stats
 
     stats["edges_purged"] = await purge_edges_by_source_prefix(prefix)
+    stats["orphaned_persons_purged"] = await purge_orphaned_person_nodes_by_source_prefix(prefix)
     if docs:
         ingest_stats = await ingest_documents(
             docs, source_name=pkm.application_id, case_id=case_id, is_global=False,
@@ -347,6 +476,23 @@ async def _run_sync(endpoints: tuple[str, ...], *, dry_run: bool, snapshot_path:
         print(f"  {citation_stats}")
 
     if not dry_run:
+        # findings.md Module 6 — community detection never refreshed for
+        # real sync data because nothing here ever called it. Awaited
+        # directly (not asyncio.create_task, unlike community_refresh_bg's
+        # HTTP-handler caller) since this is a one-shot CLI process about
+        # to tear down its own connection pool right below.
+        print("\n-- Community detection refresh --")
+        refresh_result = await refresh_if_stale()
+        staleness = refresh_result["staleness"]
+        if refresh_result["ran"]:
+            summary = refresh_result["summarize_result"] or {}
+            print(f"  stale ({staleness['reason']}) — recomputed: "
+                  f"{summary.get('attempted', 0)} attempted, "
+                  f"{summary.get('written', 0)} written, "
+                  f"{summary.get('skipped', 0)} skipped")
+        else:
+            print(f"  not stale ({staleness['reason']}) — skipped")
+
         await age_client.close_pool()
 
 

@@ -71,22 +71,30 @@ _XAGG_OVERRIDE_PATTERNS = [
     # Recurring-entity aggregates:
     # "recurring vehicles across cases", "top recurring vehicles",
     # "kitni gariyan bar bar cases mein aayi hain"
-    re.compile(r"\brecurring\b.{0,25}\b(vehicles?|persons?|people)\b", re.IGNORECASE),
+    #
+    # [findings.md Module 4] "weapons?|firearms?|pistols?" added to all
+    # three entity groups below alongside vehicles?/persons? — live gap:
+    # "Which type of weapon appears most often across all cases?" named
+    # no entity in this group, so this whole XAGG family never matched
+    # and the query fell through to XGRAPH's own "across ... cases"
+    # override (optional multiple/other group, fires on zero named
+    # entities) instead, returning a nonsensical "no connections" answer.
+    re.compile(r"\brecurring\b.{0,25}\b(vehicles?|persons?|people|weapons?|firearms?|pistols?)\b", re.IGNORECASE),
     re.compile(r"\btop recurring\b", re.IGNORECASE),
-    re.compile(r"\b(vehicles?|persons?|people)\b.{0,30}\bacross\b.{0,20}\bcases\b", re.IGNORECASE),
+    re.compile(r"\b(vehicles?|persons?|people|weapons?|firearms?|pistols?)\b.{0,30}\bacross\b.{0,20}\bcases\b", re.IGNORECASE),
     re.compile(r"bar\s*bar\b.{0,20}\bcases\b", re.IGNORECASE),
     # "which persons/suspects/vehicles appeared in multiple/more than one/
     # several cases" — live-caught gap: no "recurring"/"across" keyword,
     # so the patterns above miss it even though it's the exact same
     # top-recurring-nodes question.
     re.compile(
-        r"\b(persons?|people|suspects?|accused|offenders?|vehicles?|mulzim|shakhs)\b"
+        r"\b(persons?|people|suspects?|accused|offenders?|vehicles?|mulzim|shakhs|weapons?|firearms?|pistols?|ہتھیار)\b"
         r".{0,40}\b(multiple|more than one|several|many)\s+cases?\b",
         re.IGNORECASE,
     ),
     re.compile(
         r"\b(multiple|more than one|several|many)\s+cases?\b"
-        r".{0,40}\b(persons?|people|suspects?|accused|offenders?|vehicles?|mulzim|shakhs)\b",
+        r".{0,40}\b(persons?|people|suspects?|accused|offenders?|vehicles?|mulzim|shakhs|weapons?|firearms?|pistols?|ہتھیار)\b",
         re.IGNORECASE,
     ),
     # Station/category "most" aggregate: "which stations have the most open theft cases"
@@ -320,6 +328,30 @@ async def route_query(rewritten_query: str, case_id: str | None = None) -> dict:
         # mid-"route"; 800 matches the client's own local-call ceiling
         # (src/llm/client.py) and leaves room for both.
         max_tokens=800,
+        # [Module 2 follow-up, findings.md] cloud_max_tokens + reasoning_effort:
+        # without cloud_max_tokens, the cloud escalation branch (call_llm's
+        # force_cloud=True attempt) inherited the same 800-token ceiling
+        # max_tokens sets for LOCAL, needed there only to out-wait
+        # Qwen3-14B's local thinking trace (see above) — but with max_tokens
+        # counted as part of Groq's own TPM accounting, that unnecessary
+        # local-sized 800-token reservation on top of this ~7650-token
+        # system prompt pushed a real request to 8451 tokens against this
+        # account's 8000 TPM on_demand cap: a 413 on EVERY case-scoped
+        # query that ever needed the cloud fallback, before route_query()
+        # could return anything at all. Confirmed live: cloud_max_tokens=300
+        # alone cleared the TPM cap but came back EMPTY — config.GROQ_MODEL
+        # (openai/gpt-oss-120b) is itself a reasoning model and was spending
+        # the entire 300-token budget on its own hidden reasoning trace
+        # before ever emitting the JSON, the exact same failure mode as
+        # Qwen3-14B's, just never triggered on the cloud side before because
+        # nothing had ever given it a small enough budget to expose it.
+        # reasoning_effort="low" (see _call_groq()'s own docstring) fixed
+        # that: a real router call's reasoning_tokens dropped to 82,
+        # completion_tokens 151 total — comfortably inside 300 — and total
+        # request tokens landed at 7802, under the 8000 cap, still returning
+        # the correct classification.
+        cloud_max_tokens=300,
+        reasoning_effort="low",
         # isinstance(r.get("route"), str), not just "route" in r — live-
         # confirmed (found while auditing for more issues after Section 2):
         # a corrected retry can produce syntactically valid JSON with a

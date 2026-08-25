@@ -173,6 +173,13 @@ async def _no_llm_call(*args, **kwargs):
     ("kya number 0372-1590538 kisi aur case mein bhi aya hai", "XGRAPH"),
     ("Which persons have appeared as suspects in multiple cases?", "XAGG"),
     ("Are there vehicles involved in more than one case?", "XAGG"),
+    # [findings.md Module 4] "weapon" was missing from the XAGG
+    # recurring-entity keyword group entirely, so this fell through to
+    # XGRAPH's own "across ... cases" override (its multiple/other group
+    # is optional, so it fires even with no named entity at all).
+    ("Which type of weapon appears most often across all cases?", "XAGG"),
+    ("Are there firearms that have appeared in multiple cases?", "XAGG"),
+    ("What are the top recurring weapons across all cases?", "XAGG"),
 ])
 async def test_deterministic_override_fires_for_confirmed_failure_patterns(monkeypatch, query, expected_route):
     monkeypatch.setattr(router, "call_llm", _no_llm_call)

@@ -118,6 +118,7 @@ async def call_llm_json(
     _call_llm: Optional[Callable[..., Any]] = None,
     force_cloud: bool = False,
     escalate_to_cloud_on_failure: bool = False,
+    reasoning_effort: Optional[str] = None,
 ) -> tuple[Optional[Any], str]:
     """
     Call an LLM expecting a JSON response, retrying with an explicit
@@ -167,6 +168,11 @@ async def call_llm_json(
                      before giving up. Defaults to False — opt-in only, for
                      a caller that has decided the specific failure mode
                      genuinely warrants spending cloud quota on it.
+        reasoning_effort: [Module 2 follow-up, findings.md] Passed straight
+                     through to call_llm/_call_groq — see that function's own
+                     docstring. Only meaningful when the cloud branch is a
+                     reasoning model (GROQ_MODEL); ignored by local and by
+                     Gemini. `None` (default) omits it, unchanged behavior.
 
     Returns:
         (parsed_result, last_raw_response) — parsed_result is None if every
@@ -185,6 +191,7 @@ async def call_llm_json(
             cloud_max_tokens=cloud_max_tokens,
             role=role,
             force_cloud=force_cloud,
+            reasoning_effort=reasoning_effort,
         )
 
     message = user_message

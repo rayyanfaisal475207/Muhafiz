@@ -161,6 +161,19 @@ _MATCHED_PROPERTY_LABELS: dict[str, str] = {
     "belt_no": "belt number",
 }
 
+# [Module 2 — findings.md] Properties worth surfacing in the synthetic-
+# evidence sentence even when they weren't the property that matched the
+# seed search — e.g. a name-seeded Officer query about their belt number
+# otherwise never sees the belt number anywhere in the cited text, so the
+# LLM correctly refuses to confirm a fact that's true in the graph but
+# absent from what it's shown. Reuses _MATCHED_PROPERTY_LABELS for
+# phrasing (single source of truth). See _synthetic_evidence_chunk().
+_NOTABLE_PROPERTIES: dict[str, tuple[str, ...]] = {
+    "Officer": ("belt_no", "phone"),
+    "Person": ("cnic", "phone"),
+    "Vehicle": ("plate",),
+}
+
 
 def _matched_seed_property(
     properties: dict, id_props: tuple[str, ...], candidate: str,
@@ -777,6 +790,16 @@ def _synthetic_evidence_chunk(row: dict, matched_property: Optional[dict] = None
     found, because nothing in front of it said so. See
     _MATCHED_PROPERTY_LABELS for which properties earn a clause —
     canonical_name is deliberately excluded (redundant with surface_text).
+
+    [Module 2 — findings.md] Separately, and regardless of `matched_property`,
+    this also always appends a clause for any of `_NOTABLE_PROPERTIES[label]`
+    the node carries (belt_no/cnic/phone/plate) that weren't already the
+    matched property — the sibling gap to the one above: even when the seed
+    WAS matched by name (no match_clause at all), some OTHER property the
+    user is actually asking about (e.g. belt number) was never mentioned
+    anywhere in the cited text. Applied unconditionally, not gated on the
+    query text mentioning that property — see findings.md Module 2's own
+    "always include" recommendation.
     """
     edge_props = row.get("r", {}).get("properties", {}) or {}
     source_doc_id = edge_props.get("source_doc_id")
@@ -798,6 +821,29 @@ def _synthetic_evidence_chunk(row: dict, matched_property: Optional[dict] = None
         value = matched_property.get("value")
         if label and value:
             match_clause = f", whose {label} is {value},"
+
+    # [Module 2 — findings.md] Notable properties beyond whichever one
+    # justified the seed match (if any) — always included, per findings.md's
+    # own recommendation, rather than gated on query text mentioning them.
+    # Applies to seed AND hop-reached rows alike (matched_property is None
+    # for a hop-reached entity, so nothing is excluded there).
+    matched_prop_name = (matched_property or {}).get("property")
+    node_label = (row.get("n") or {}).get("label")
+    node_props = (row.get("n") or {}).get("properties", {}) or {}
+    notable_parts = []
+    for prop in _NOTABLE_PROPERTIES.get(node_label, ()):
+        if prop == matched_prop_name:
+            continue  # already named in match_clause — don't duplicate
+        value = node_props.get(prop)
+        if value:
+            notable_parts.append(f"{_MATCHED_PROPERTY_LABELS.get(prop, prop)} {value}")
+    notable_clause = ""
+    if notable_parts:
+        joined = notable_parts[0] if len(notable_parts) == 1 else (
+            ", ".join(notable_parts[:-1]) + ", and " + notable_parts[-1]
+        )
+        notable_clause = f", with {joined} recorded there"
+
     metadata = {"source": source_doc_id, "doc_type": doc_type, "synthetic_evidence": True}
     case_id = row.get("case_id")
     if case_id:
@@ -811,7 +857,7 @@ def _synthetic_evidence_chunk(row: dict, matched_property: Optional[dict] = None
         metadata["case_id"] = case_id
     return {
         "id": f"synthetic:{entity_id}:{source_doc_id}",
-        "text": f"{surface_text}{match_clause} appears in {doc_type} record {filename} ({source_doc_id}).",
+        "text": f"{surface_text}{match_clause} appears in {doc_type} record {filename} ({source_doc_id}){notable_clause}.",
         "metadata": metadata,
     }
 

@@ -53,6 +53,7 @@ async def call_llm(
     role: str = "reasoning",
     cloud_max_tokens: int = None,
     force_cloud: bool = False,
+    reasoning_effort: Optional[str] = None,
 ) -> str:
     provider = provider_override or config.LLM_PROVIDER
     # force_cloud skips the local branch entirely — for callers where a
@@ -107,7 +108,10 @@ async def call_llm(
         observed_index = key_manager.get_current_index(provider)
         try:
             if provider == "groq":
-                return await _call_groq(system_prompt, user_message, temperature, resolved_cloud_max_tokens)
+                return await _call_groq(
+                    system_prompt, user_message, temperature, resolved_cloud_max_tokens,
+                    reasoning_effort=reasoning_effort,
+                )
             else:
                 return await _call_gemini(system_prompt, user_message, temperature, resolved_cloud_max_tokens)
         except Exception as e:
@@ -336,7 +340,26 @@ async def call_gemini_with_search(user_message: str, max_tokens: int = 1500) -> 
 
 # ── Groq ──────────────────────────────────────────────────────────────────────
 
-async def _call_groq(system_prompt: str, user_message: str, temperature: float, max_tokens: int) -> str:
+async def _call_groq(
+    system_prompt: str, user_message: str, temperature: float, max_tokens: int,
+    reasoning_effort: Optional[str] = None,
+) -> str:
+    # [Module 2 follow-up, findings.md] reasoning_effort: config.GROQ_MODEL
+    # (openai/gpt-oss-120b) is itself a reasoning model — confirmed live it
+    # spends max_tokens on an internal reasoning trace before any visible
+    # content, the exact same failure mode already documented for the local
+    # Qwen3-14B model (see router.py's own comment on why its max_tokens is
+    # 800, not 250), just previously unaddressed on the cloud side because
+    # nothing had ever needed a small cloud_max_tokens budget before. A
+    # short JSON-classification reply (router.py's call site) doesn't need
+    # deep reasoning; "low" cut a real router call's reasoning_tokens from
+    # consuming its entire budget down to 82, leaving room for the actual
+    # JSON content within a 300-token completion budget. `None` (the
+    # default) omits the field entirely, unchanged behavior for every other
+    # caller and for a non-reasoning GROQ_MODEL that wouldn't recognize it.
+    kwargs = {}
+    if reasoning_effort is not None:
+        kwargs["reasoning_effort"] = reasoning_effort
     client = _get_groq_client()
     response = await client.chat.completions.create(
         messages=[
@@ -346,6 +369,7 @@ async def _call_groq(system_prompt: str, user_message: str, temperature: float, 
         model=config.GROQ_MODEL,
         temperature=temperature,
         max_tokens=max_tokens,
+        **kwargs,
     )
     return response.choices[0].message.content
 
