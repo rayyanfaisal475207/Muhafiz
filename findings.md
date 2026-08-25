@@ -1407,7 +1407,62 @@ rebuilding:
 
 ## Module 9: Global Search — whole-dataset map-reduce reasoning
 
-### ✅ Stage 1 RESOLVED — 2026-08-25 (Stage 2, real hierarchy, still pending)
+### ✅ Stage 1 RESOLVED — 2026-08-25
+
+### ✅ Stage 2 RESOLVED — 2026-08-25
+Fixed on `main` (merged from `feature/harness-global-search-stage2`):
+`detect_communities()` now consumes `louvain_partitions()`'s full
+generator (finest → coarsest) instead of `louvain_communities()`'s single
+flattened result — the exact same underlying algorithm/dependency, not a
+new one. `community_membership.level` carries real, distinct per-level
+values (was previously always a hardcoded `0`) — additive to the
+already-existing column, no schema change. **Semantic note:** post-Stage-2
+`level=0` means the FINEST partition; pre-Stage-2 the single stored
+partition (always `level=0`) was actually Louvain's COARSEST merge — a
+real meaning change for what "level 0" denotes, not silently glossed
+over. `community_runs.community_count` keeps recording the finest level's
+count. `community_summarization.py` summarizes only the finest
+`MAX_LEVELS_TO_SUMMARIZE=3` levels a run actually persists (persisting
+every level is cheap; summarizing multiplies LLM cost per level). Stage
+1's `hierarchy_level` default-to-middle-level logic
+(`run_global_search_query()`, already shipped) becomes meaningful
+automatically — no further code change was needed there.
+
+**Tests**: new `detect_communities()` end-to-end test against Zachary's
+karate club (34 nodes, real multi-community structure) asserts ≥2
+genuinely different Louvain levels get persisted with real distinct
+`level` values in `community_membership` — not one partition duplicated
+under two level numbers. `tests/test_community_summarization.py` (new, 4
+cases) covers the finest-3 summarization cap directly. Full backend suite
+green; harness compliance suite green.
+
+**Live-verified** against the real running graph (Docker/Postgres
+healthy) — `POST /api/admin/community/refresh`'s own
+`detect_communities()`+`summarize_communities()` sequence run directly:
+- **Real level counts on the actual graph: `[19]` — exactly one level.**
+  Not a Stage 2 defect — independently reconfirmed by reconstructing the
+  identical weighted graph outside `detect_communities()` and calling
+  `louvain_partitions()` directly: **`[19]` across 4 different seeds
+  (42, 1, 7, 123), and with weighting removed entirely.** The real cause:
+  the current live graph is extremely dense — 428 nodes, 67,603 edges,
+  **74% density** — dominated by one 232+/352-member giant community
+  (the same one Module 6's own live-verification already surfaced). At
+  that density Louvain's modularity optimization converges in a single
+  pass, with no further beneficial coarsening step for the generator to
+  yield. The karate-club unit test proves the CODE handles ≥2 real levels
+  correctly; the live graph today simply doesn't have multi-level
+  structure to expose.
+- `community_membership`/`community_reports` both confirmed showing
+  exactly `level=0` for all 19 communities/reports on this run, matching
+  the `[19]`-only level-count finding.
+- **Flagged, not fixed here (out of this module's scope):** a
+  74%-density projected shared-case co-occurrence graph, with one
+  community absorbing 352 of 428 nodes, is itself a plausible
+  community-detection-QUALITY finding worth its own investigation (e.g.
+  the shared-case edge-weighting scheme, or Louvain's resolution
+  parameter) — Stage 2's own scope was "consume the full
+  `louvain_partitions()` generator," not "make the live graph's structure
+  more hierarchical," and no such tuning was attempted here.
 Fixed on `main` (merged from `feature/harness-global-search-stage1`),
 implementing Stage 1 exactly as scoped below — a real map-reduce
 sub-agent over the existing flat community level. Stage 2 (real
