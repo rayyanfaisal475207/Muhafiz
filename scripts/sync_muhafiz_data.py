@@ -72,6 +72,7 @@ from src.graph.cross_silo_projection import (
 )
 from src.graph.structured_projection import project_fir
 from src.ingestion import muhafiz_records as mr
+from src.ingestion.community_refresh_bg import refresh_if_stale
 from src.ingestion.muhafiz_cases import (
     build_display_code_index,
     build_e_tag_index,
@@ -475,6 +476,23 @@ async def _run_sync(endpoints: tuple[str, ...], *, dry_run: bool, snapshot_path:
         print(f"  {citation_stats}")
 
     if not dry_run:
+        # findings.md Module 6 — community detection never refreshed for
+        # real sync data because nothing here ever called it. Awaited
+        # directly (not asyncio.create_task, unlike community_refresh_bg's
+        # HTTP-handler caller) since this is a one-shot CLI process about
+        # to tear down its own connection pool right below.
+        print("\n-- Community detection refresh --")
+        refresh_result = await refresh_if_stale()
+        staleness = refresh_result["staleness"]
+        if refresh_result["ran"]:
+            summary = refresh_result["summarize_result"] or {}
+            print(f"  stale ({staleness['reason']}) — recomputed: "
+                  f"{summary.get('attempted', 0)} attempted, "
+                  f"{summary.get('written', 0)} written, "
+                  f"{summary.get('skipped', 0)} skipped")
+        else:
+            print(f"  not stale ({staleness['reason']}) — skipped")
+
         await age_client.close_pool()
 
 
