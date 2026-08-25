@@ -37,6 +37,22 @@ _SYSTEM_PROMPT = _PROMPT_PATH.read_text(encoding="utf-8")
 
 _SCHEMA_HINT = '"summary", "excluded_non_names"'
 
+# [findings.md Module 9, Stage 2 — real hierarchy] Persisting every level
+# Louvain produces is cheap (community_detection.py's own docstring —
+# just community_membership rows); summarizing multiplies LLM-summary
+# cost by the number of levels, so only the finest MAX_LEVELS_TO_SUMMARIZE
+# levels actually get an LLM summary call each. Finest-biased (smallest
+# level numbers) rather than an even fine/middle/coarse spread: real
+# per-run tests this session found levels can degenerate quickly (5->4
+# communities on a small test graph) and a coarse level tends toward one
+# or two giant blob communities — this session's own flat level already
+# has one 232+-member community — which a dedicated LLM summary call adds
+# little value to. In practice this is a safety bound more than a live
+# constraint: every real levels_found count this session actually
+# observed (finest -> coarsest generators on real and test graphs alike)
+# has been well under 3.
+MAX_LEVELS_TO_SUMMARIZE = 3
+
 
 async def _fetch_case_metadata(case_ids: list[str]) -> list[dict]:
     if not case_ids:
@@ -196,18 +212,34 @@ async def _summarize_one(
     }
 
 
+async def _finest_levels_to_summarize(run_id: str, max_levels: int = MAX_LEVELS_TO_SUMMARIZE) -> list[int]:
+    """The finest (smallest-numbered) `max_levels` distinct levels this
+    run actually persisted — see MAX_LEVELS_TO_SUMMARIZE's own comment
+    for the full rationale. Pre-Stage-2 (or a run with fewer than
+    `max_levels` levels), this is simply every level that exists."""
+    async with get_session() as db:
+        res = await db.execute(
+            text("SELECT DISTINCT level FROM community_membership WHERE run_id = :run_id ORDER BY level"),
+            {"run_id": run_id},
+        )
+        distinct_levels = [row[0] for row in res.fetchall()]
+    return distinct_levels[:max_levels]
+
+
 async def summarize_communities(min_members: int = community_detection.MIN_MEMBERS_FOR_SUMMARY) -> dict:
     """
     Summarize every community from the latest detection run with at least
     `min_members` members (a singleton isn't a network — see
-    community_detection.MIN_MEMBERS_FOR_SUMMARY). Skips (does not write a
-    report for) any community the LLM itself judges has too few plausible
-    real names after excluding non-name entries (see
-    prompts/community_summarizer.txt's NOT_ENOUGH_DATA path) — a second,
-    prompt-level defense layered on top of community_detection.py's
-    node-level filter, not a replacement for it.
+    community_detection.MIN_MEMBERS_FOR_SUMMARY), for the finest
+    `MAX_LEVELS_TO_SUMMARIZE` hierarchy levels that run actually persisted
+    (see that constant's own comment — [findings.md Module 9, Stage 2]).
+    Skips (does not write a report for) any community the LLM itself
+    judges has too few plausible real names after excluding non-name
+    entries (see prompts/community_summarizer.txt's NOT_ENOUGH_DATA
+    path) — a second, prompt-level defense layered on top of
+    community_detection.py's node-level filter, not a replacement for it.
 
-    Returns {run_id, attempted, written, skipped}.
+    Returns {run_id, attempted, written, skipped, levels_summarized}.
     """
     run = await community_detection.get_latest_run()
     if run is None:
@@ -222,14 +254,16 @@ async def summarize_communities(min_members: int = community_detection.MIN_MEMBE
     from src.retrieval.community_vector_store import clear_all_reports
     clear_all_reports()
 
+    levels_to_summarize = await _finest_levels_to_summarize(run_id)
+
     async with get_session() as db:
         res = await db.execute(
             text(
                 "SELECT community_id, array_agg(entity_id) AS member_entity_ids, level "
-                "FROM community_membership WHERE run_id = :run_id "
+                "FROM community_membership WHERE run_id = :run_id AND level = ANY(:levels) "
                 "GROUP BY community_id, level HAVING count(*) >= :min_members"
             ),
-            {"run_id": run_id, "min_members": min_members},
+            {"run_id": run_id, "levels": levels_to_summarize, "min_members": min_members},
         )
         communities_raw = [dict(row) for row in res.mappings()]
 
@@ -317,7 +351,10 @@ async def summarize_communities(min_members: int = community_detection.MIN_MEMBE
         await upsert_community_reports(written)
 
     logger.info(
-        "Community summarization for run %s: %d attempted, %d written, %d skipped.",
-        run_id, len(communities_raw), len(written), skipped,
+        "Community summarization for run %s: %d attempted, %d written, %d skipped (levels summarized: %s).",
+        run_id, len(communities_raw), len(written), skipped, levels_to_summarize,
     )
-    return {"run_id": run_id, "attempted": len(communities_raw), "written": len(written), "skipped": skipped}
+    return {
+        "run_id": run_id, "attempted": len(communities_raw), "written": len(written), "skipped": skipped,
+        "levels_summarized": levels_to_summarize,
+    }
