@@ -53,7 +53,7 @@ verification.
 | 2 | [Non-matched-attribute evidence gap](#module-2-non-matched-attribute-evidence-gap) ✅ RESOLVED 2026-08-24 | 🟠 Medium-High | Small | — |
 | 3 | [Enumeration / list-synthesis refusal](#module-3-enumeration--list-synthesis-refusal) ✅ RESOLVED 2026-08-25 | 🟠 Medium-High | Medium | — |
 | 4 | [XAGG entity-type coverage gap](#module-4-xagg-entity-type-coverage-gap-weapon-aggregation) ✅ RESOLVED 2026-08-25 | 🟡 Medium | Medium-Large | — |
-| 5 | [SQL extractor phrasing brittleness](#module-5-sql-extractor-phrasing-brittleness) | 🟡 Medium | Medium | — |
+| 5 | [SQL extractor phrasing brittleness](#module-5-sql-extractor-phrasing-brittleness) ✅ RESOLVED 2026-08-25 | 🟡 Medium | Medium | — |
 | 6 | [Community detection never refreshes for real sync data](#module-6-community-detection-never-refreshes-for-real-sync-data) | 🟠 Medium-High | Small | — |
 | 7 | [No general adaptive multi-method retrieval](#module-7-no-general-adaptive-multi-method-retrieval) | 🟡 Medium | Large | — |
 | 8 | [Local Search — entity-based reasoning](#module-8-local-search--entity-based-reasoning) | 🟠 Medium-High | Large | — |
@@ -675,7 +675,48 @@ to other cases were found for this entity."*
 
 ## Module 5: SQL extractor phrasing brittleness
 
-### Problem
+### ✅ RESOLVED — 2026-08-25
+Fixed on `main` (merged from `fix/sql-extractor-progressive-relaxation`),
+implementing Option A exactly as scoped below:
+
+- `src/data_gateway/direct_backend.py`'s `query_police_reference_data()`
+  now extracts the pre-existing exact-match query verbatim into
+  `_query_police_reference_data_exact()`, and wraps it in a bounded
+  progressive-relaxation loop: on a 0-row full-AND result, retry with
+  `subject` dropped (weakest, most free-text signal), then `category`
+  too if still empty — `section_ref` is never dropped. Never relaxes
+  below a single remaining filter. At most 2 extra queries. A query
+  whose full filter set already matches returns from the very first
+  call, never entering the loop — the public method's signature and the
+  `DataGateway` protocol are unchanged, so `orchestrator.py`'s SQL route
+  call site needed no edit.
+
+**Live-verified** against the real Postgres `police_reference_data`
+table (direct `DirectGateway` calls, bypassing LLM sampling variance):
+- Already-working case (`category='penal_code', subject='Theft'`): the
+  relaxed wrapper and the raw exact-match call returned **identical** 5
+  rows (379/380/411/457, with 380 appearing twice) — proof relaxation
+  never engaged, byte-for-byte unchanged from before this fix.
+- Simulated over-specific extraction (`category='penal_code',
+  subject='Theft of Movable Property (Unlawful Taking)',
+  section_ref='379'`): full 3-filter AND confirmed 0 rows (reproducing
+  the bug); the relaxed wrapper found PPC 379 after dropping `subject`
+  then `category`.
+- Real HTTP round trip via `/api/chat`, both this session's exact
+  phrasings: the previously-failing *"What PPC section covers theft of
+  movable property and is it cognizable?"* now returns a grounded answer
+  citing Section 379 PPC as cognizable (retrieval found 21 rows, up from
+  0/fallback-to-RAG before the fix).
+- PPC 302 (confirmed absent from the table): stayed empty at every
+  relaxation level, including `section_ref='302'` alone — no fabrication.
+
+**Tests**: new `tests/test_sql_extractor_relaxation.py` (9 cases) covers
+the drop order, the single-filter/no-filter short circuits (no wasted
+queries), the bounded 2-extra-query cap, and a regression guard proving
+an already-matching full filter set issues exactly one query. Full
+backend suite green.
+
+### Problem (as originally found)
 Same underlying fact — PPC 379 (theft of movable property) is present in
 `police_reference_data`, confirmed live via direct SQL — gets two
 different outcomes depending only on phrasing:
