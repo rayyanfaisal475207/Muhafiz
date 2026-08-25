@@ -1286,6 +1286,88 @@ module actually needs before Option A/B/C can be chosen responsibly.
 
 ## Module 8: Local Search — entity-based reasoning
 
+### ✅ RESOLVED — 2026-08-25
+Fixed on `main` (merged from `feature/harness-local-search`), implementing
+the proposed design below exactly as scoped. **This RESOLVED block was
+missing from findings.md until a later audit caught it — the work itself
+landed and was live-verified on 2026-08-25; this is a documentation
+backfill, not a new fix.**
+
+- New `src/retrieval/entity_vector_store.py` — a lean, dedicated Chroma
+  collection (`muhafiz_entity_descriptions`) embedding each entity's
+  `canonical_name` plus its notable identifying properties (reusing
+  Module 2's `_NOTABLE_PROPERTIES` table), mirroring
+  `community_vector_store.py`'s shape exactly. Hard within-case scope
+  (server-side `case_id` filter, fails closed with no active case).
+- New `src/graph/entity_embedding_refresh.py` — incremental, diff-based
+  refresh (new/changed entities upserted, stale ones pruned); no
+  staleness heuristic needed (cheap and incremental, unlike community
+  detection). Includes an Officer's per-case `ASSIGNED_TO` role
+  (investigating/recording) in the embedded description text, since
+  that's the one thing distinguishing the two roles semantically and
+  `retrieve_graph()` didn't surface it.
+- New `src/pipeline/harness/tools/local_search.py` — semantic
+  entity-access-point match → `retrieve_graph()` fan-out (unchanged,
+  seeded with the matched entity's own name) →
+  `community_membership`/`community_reports` join → `cross_rerank()` →
+  `evaluate_relevance()`. Every chunk tagged `source_tool="GRAPH"`
+  (`SourceTool` is a closed Literal — Local Search's own identity lives
+  at the sub-agent/dispatch level only, same convention Module 9's own
+  Global Search tool later documents for itself).
+- New `src/pipeline/harness/agents/local_search.py` — composes
+  `local_search_tool` + `rag_tool` as its fallback target, generation +
+  `verify_grounding()`, same self-contained-prompt convention as
+  `semantic_search.py`/`cross_case_linkage.py`.
+- `src/pipeline/harness/supervisor.py` — `LOCAL_SEARCH` added as a 9th
+  sub-agent name; a narrow, evidence-anchored trigger override (officer-
+  role descriptive references, e.g. "investigating officer") for
+  GRAPH/GRAPH_HYBRID routes.
+- `scripts/sync_muhafiz_data.py` / `src/ingestion/service.py` — refresh
+  trigger wired at both call sites, mirroring Module 6's dual-wiring
+  exactly.
+
+**Tests**: `entity_vector_store` (real on-disk Chroma, fake embedder),
+`entity_embedding_refresh` (diff logic + description-text formatting),
+the `local_search` tool (including the direct regression test for this
+session's own confirmed failure — a descriptive query with no literal
+identifier finding a real seed via semantic match — and the
+community-fan-out include/omit cases), the `local_search` sub-agent
+(including a full Supervisor → Local Search → tool dispatch integration
+test). Full backend suite and the harness compliance suite both green;
+no RLS/role-gate guarantee weakened (no new enforcement point
+introduced — inherits `retrieve_graph()`'s existing case-scoping
+chokepoint unchanged).
+
+**Live-verified** (`fir-401-26`, real Postgres/AGE): *"who is the
+investigating officer in this case?"* — previously an ABSTAIN via both
+the legacy literal-match path and Local Search's own first-pass
+evaluator rejection — was traced one step further live: the semantic
+match correctly found the right officer, but the evaluator rejected the
+resulting evidence text because it never stated the officer's role
+(`retrieve_graph()`'s synthetic-evidence sentence surfaced
+`canonical_name`/`belt_no`/`phone` but never `ASSIGNED_TO.role`, since
+that lives on the edge, not a node property). Fixed as a same-day
+follow-up (`fix/graph-officer-role-evidence-text`,
+`e48f565`/`a8a321a`, "Module 8 follow-up"):
+`_fetch_appears_in()` now also fetches each Officer's current,
+non-superseded `ASSIGNED_TO` role(s) for the specific case, merged in
+Python (deliberately NOT folded into the same Cypher `OPTIONAL MATCH` —
+live-verification caught a real fan-out bug first: `fir-401-26` has one
+officer holding BOTH the investigating and recording role
+simultaneously, and an `OPTIONAL MATCH` on that edge produced two
+duplicate rows differing only in role, which a synthetic-id-keyed dict
+then silently overwrote non-deterministically depending on row order).
+`_synthetic_evidence_chunk()` now names ALL current roles, sorted for
+stable rendering. 10 new regression tests, including the exact
+dual-role shape run 5× to guard the determinism bug. Re-verified after
+the follow-up: `status=OK`, *"The investigating officer in this case is
+ذیشان, as recorded in [Document 1]."*, `tools_used=['GRAPH']`,
+`degraded_from=[]`.
+
+**Not wired into main.py/orchestrator.py/router.py live traffic** — same
+scope every harness sub-agent phase (7, 9, 11) shares; see this
+document's Module 9 report for the standing cutover caveat.
+
 ### Origin
 Requested explicitly by the team (Navaira Rehman, 2026-08-24): incorporate
 Microsoft GraphRAG's Local Search methodology, **at the agent-harness
