@@ -146,6 +146,13 @@ MAX_RETRIES: int = int(os.getenv("MAX_RETRIES", "1"))
 TOP_K_RETRIEVAL: int = int(os.getenv("TOP_K_RETRIEVAL", "10"))
 TOP_K_RERANK: int = int(os.getenv("TOP_K_RERANK", "5"))
 
+# findings.md Module 8 (Local Search) — how many semantically-matched
+# "access point" entities to fan out from per query. Small on purpose: each
+# match costs its own retrieve_graph() traversal call (asyncio.gather'd, not
+# free), and the entities that matter for a within-case question are almost
+# always a handful, not dozens.
+LOCAL_SEARCH_TOP_K_ENTITIES: int = int(os.getenv("LOCAL_SEARCH_TOP_K_ENTITIES", "3"))
+
 # RETRIEVAL_DIVERSITY_FIX_PROMPT.md, Fix 2: when a query is NOT scoped to a
 # single case (no case_id in the where_clause — more than one case could
 # legitimately match), pure nearest-neighbor vector search lets whichever

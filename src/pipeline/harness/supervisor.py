@@ -135,6 +135,22 @@ CROSS_CASE_LINKAGE = "Cross-Case Linkage"
 INVESTIGATIVE_ANALYSIS = "Investigative Analysis"
 REPORT_DRAFTING = "Report Drafting"
 DATA_QUALITY = "Data-Quality/Extraction-Coverage"
+# [AMENDMENT — findings.md Module 8, "Local Search"] A 9th sub-agent name,
+# additive on top of the plan's original 8-name scope (this module's own
+# docstring above documents that scope and its own Data-Quality
+# discrepancy note — this follows the same "flag the amendment, don't
+# rewrite the history" convention rather than silently editing the "8"s
+# above). Local Search composes a genuinely new tool
+# (tools/local_search.py — semantic entity-access-point matching, fanned
+# out through the existing retrieve_graph() traversal plus a new
+# community-report join) that has no predecessor in router.py's 9
+# tool-level routes at all, the same "new capability, no route to reuse"
+# shape Data-Quality/Extraction-Coverage was in — see the dedicated
+# trigger-pattern block near `classify_to_subagent()` below for how it
+# actually becomes reachable (unlike Data-Quality, it IS classification-
+# reachable, via a narrow trigger-vocabulary override on the confirmed
+# officer-role-reference failure class, not a route from router.py).
+LOCAL_SEARCH = "Local Search"
 
 SUB_AGENT_NAMES: tuple[str, ...] = (
     SEMANTIC_SEARCH,
@@ -145,6 +161,7 @@ SUB_AGENT_NAMES: tuple[str, ...] = (
     INVESTIGATIVE_ANALYSIS,
     REPORT_DRAFTING,
     DATA_QUALITY,
+    LOCAL_SEARCH,
 )
 
 # [Reconciliation fix — harness-reconciliation Unit 2] Returned by
@@ -281,6 +298,44 @@ _INVESTIGATIVE_ANALYSIS_TRIGGER_PATTERNS = [
 # cross-case route, leaving that classification untouched.
 _CROSS_CASE_ROUTES = frozenset({"XGRAPH", "XAGG", "XNETWORK"})
 
+# ═══════════════════════════════════════════════════════════════════════
+# [AMENDMENT — findings.md Module 8, "Local Search"] Local Search dispatch
+# trigger, same slot and same discipline as the two provisional overrides
+# above (checked before the `_ROUTE_TO_SUBAGENT` table lookup, only for
+# GRAPH-shaped, non-cross-case routes) — narrow, evidence-anchored
+# trigger vocabulary, not a general NER/entity-shape classifier.
+#
+# WHY A REGEX LIST, NOT THE BROADER "no literal identifier match" SIGNAL:
+# `classify_to_subagent()` is a pure, synchronous, no-I/O function — it
+# never calls the database. Actually checking "would
+# graph_retriever._find_seed_nodes() find nothing for this query" would
+# require a live DB round-trip at classification time, which no existing
+# override does and which would change this function's contract. A
+# trigger-vocabulary list is the same discipline
+# `_TIMELINE_TRIGGER_PATTERNS`/`_INVESTIGATIVE_ANALYSIS_TRIGGER_PATTERNS`
+# above already established for exactly this reason.
+#
+# SCOPE: the confirmed failure class only — a descriptive/role-based
+# officer reference with no literal name, cnic, phone, or belt number in
+# the query (findings.md Module 8's own live-reproduced "who is the
+# investigating officer in this case" repro; see
+# `src/pipeline/harness/agents/local_search.py`'s module docstring for the
+# ASSIGNED_TO-role finding this pattern set exists to reach). NOT extended
+# to complainant/accused/witness role references — a plausible future
+# extension, but with no confirmed-failure evidence backing it yet, same
+# "narrow, evidence-based, not maximally general" standard the two
+# existing provisional overrides were held to.
+_LOCAL_SEARCH_TRIGGER_PATTERNS = [
+    re.compile(r"\binvestigating\s+officer\b", re.IGNORECASE),
+    re.compile(r"\brecording\s+officer\b", re.IGNORECASE),
+    re.compile(r"\bduty\s+officer\b", re.IGNORECASE),
+    re.compile(r"\bwho\s+is\s+the\s+\w+\s+officer\b", re.IGNORECASE),
+    re.compile(r"\bwhich\s+officer\b", re.IGNORECASE),
+    re.compile(r"تفتیشی\s*افسر"),
+    re.compile(r"محرر\s*افسر"),
+    re.compile(r"\btaftishi\s*afsar\b", re.IGNORECASE),
+]
+
 
 def classify_to_subagent(route_result: dict, query_text: str = "") -> str:
     """
@@ -319,6 +374,14 @@ def classify_to_subagent(route_result: dict, query_text: str = "") -> str:
             return TIMELINE_BUILDING
         if any(pat.search(query_text) for pat in _INVESTIGATIVE_ANALYSIS_TRIGGER_PATTERNS):
             return INVESTIGATIVE_ANALYSIS
+        # [AMENDMENT — findings.md Module 8] Local Search override — only
+        # for the GRAPH-shaped routes it actually improves on (semantic
+        # entity access-point matching is meaningless for RAG/SQL/WEB,
+        # which never seed off an entity at all).
+        if route in ("GRAPH", "GRAPH_HYBRID") and any(
+            pat.search(query_text) for pat in _LOCAL_SEARCH_TRIGGER_PATTERNS
+        ):
+            return LOCAL_SEARCH
 
     sub_agent = _ROUTE_TO_SUBAGENT.get(route, SEMANTIC_SEARCH)
 

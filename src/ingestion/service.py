@@ -22,6 +22,7 @@ from src.ingestion.conflict_bg import _run_conflict_detection_bg
 from src.ingestion.reprioritization_bg import _run_reprioritization_bg
 from src.ingestion.community_refresh_bg import _run_community_refresh_bg
 from src.ingestion.entity_resolution_sampling_bg import _run_entity_resolution_sampling_bg
+from src.ingestion.entity_embedding_refresh_bg import _run_entity_embedding_refresh_bg
 
 logger = logging.getLogger(__name__)
 
@@ -632,6 +633,15 @@ async def ingest_documents(
             # community detection clusters the whole Person graph, so
             # there's no case-specific slice to pass in.
             asyncio.create_task(_run_community_refresh_bg())
+
+            # findings.md Module 8 (Local Search) — entity description
+            # embeddings kept fresh alongside community detection above,
+            # same fire-and-forget shape and same "not case-scoped, a new/
+            # changed entity anywhere should be embedded" reasoning. Unlike
+            # community detection this is a plain incremental diff, not a
+            # staleness-gated recompute — see
+            # src/graph/entity_embedding_refresh.py's own module docstring.
+            asyncio.create_task(_run_entity_embedding_refresh_bg())
 
             # Ingestion Quality Control at Scale, Module G3 — continuous
             # sampling-based re-verification of already-resolved SAME_AS
