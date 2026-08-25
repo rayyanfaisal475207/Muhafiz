@@ -493,6 +493,20 @@ async def _run_sync(endpoints: tuple[str, ...], *, dry_run: bool, snapshot_path:
         else:
             print(f"  not stale ({staleness['reason']}) — skipped")
 
+        # findings.md Module 8 (Local Search) — entity description
+        # embeddings never refreshed for real sync data because nothing
+        # here ever called it, same gap Module 6 found for community
+        # detection above. Piggybacks on this exact call site per the
+        # approved plan. Awaited directly (not fire-and-forget) for the
+        # same reason the community refresh above is — this is a one-shot
+        # CLI process about to tear down its own connection pool.
+        print("\n-- Entity description embedding refresh --")
+        from src.graph.entity_embedding_refresh import refresh_entity_embeddings
+        entity_refresh_result = await refresh_entity_embeddings()
+        print(f"  {entity_refresh_result['scanned']} scanned, "
+              f"{entity_refresh_result['upserted']} upserted, "
+              f"{entity_refresh_result['deleted']} deleted")
+
         await age_client.close_pool()
 
 
