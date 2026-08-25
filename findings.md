@@ -59,7 +59,7 @@ verification.
 | 8 | [Local Search — entity-based reasoning](#module-8-local-search--entity-based-reasoning) ✅ RESOLVED 2026-08-25 | 🟠 Medium-High | Large | — |
 | 9 | [Global Search — whole-dataset map-reduce reasoning](#module-9-global-search--whole-dataset-map-reduce-reasoning) ✅ RESOLVED 2026-08-25 (both stages) | 🟠 Medium-High | Large | Module 6 |
 | 10 | [Meta-analysis — query decomposition and aggregation](#module-10-meta-analysis--query-decomposition-and-aggregation) | 🟠 Medium-High | Large | Relates to 7, 8, 9 |
-| 11 | [Unreviewed name-fallback duplicates poison community detection](#module-11-unreviewed-name-fallback-duplicates-poison-community-detection-plus-a-common-noun-mistagged-as-a-person) | 🟠 Medium-High | Small-Medium | Discovered via Module 9 |
+| 11 | [Unreviewed name-fallback duplicates poison community detection](#module-11-unreviewed-name-fallback-duplicates-poison-community-detection-plus-a-common-noun-mistagged-as-a-person) ✅ A1/A2 RESOLVED 2026-08-25 (B open) | 🟠 Medium-High | Small-Medium | Discovered via Module 9 |
 
 Modules 1-8 are independent of each other (different files, no shared edit
 surface) — they can be done in any order or in parallel across sessions.
@@ -1829,6 +1829,118 @@ meta_analysis.py`, with three stages:
 ---
 
 ## Module 11: Unreviewed name-fallback duplicates poison community detection, plus a common-noun mistagged as a Person
+
+### ✅ A1/A2 RESOLVED — 2026-08-25 (B corrected, not fixed — see below)
+Fixed on `main` (merged from `fix/module11-duplicate-person-mentions`):
+
+- **A1** (`src/ingestion/service.py`): added `document_resolved_persons`,
+  a document-scoped (not chunk-scoped) `canonical_name -> entity_id`
+  cache. A `person` mention whose exact string was already resolved
+  earlier in the same ingestion run now reuses that `entity_id` — one
+  `APPEARS_IN` edge is still written for the new occurrence's own chunk
+  (real provenance preserved), but the node-mint +
+  `BELONGS_TO_CASE`-edge + candidate-search + pending-`SAME_AS`-proposal
+  steps `resolve_and_write()` would otherwise repeat are skipped
+  entirely. `resolved_persons` (the pre-existing, still chunk-scoped
+  dict used for relationship extraction) is completely unchanged —
+  A1 does not touch which names get passed into
+  `_extract_and_write_relationships()` at all, only whether a *node* gets
+  re-minted for an exact-string repeat.
+- **A2** (new `scripts/collapse_same_document_duplicate_persons.py`):
+  a narrow bulk-confirm over the *existing* review-queue machinery
+  (`src/api/graph_review.py::confirm_match()` — the same function a
+  human clicking "Confirm" calls) for `pending` `SAME_AS` edges where
+  BOTH endpoints share the exact same `source_doc_id` AND the exact same
+  `case_id`. Confirming (not merging) is sufficient:
+  `community_detection.build_canonical_map()` already collapses
+  confirmed, non-superseded `SAME_AS` components at READ time, before
+  clustering — so this directly fixes the community-detection symptom
+  without any new merge machinery. `--dry-run` (default) / `--apply`,
+  same convention as `scripts/cleanup_orphaned_person_nodes.py`.
+
+**Correction to the original diagnosis (root cause B):** live-verified
+`_is_plausible_person_name("قبضے")` returns `False` *already*, via the
+existing single-token rule (`" " not in stripped`) — `قبضے`/`کاشف`/`فیصل`
+(324 of the 692 raw mentions) never actually reached
+`community_detection.py`'s clustering graph at all; they were filtered
+before Stage 2's own diagnosis even ran. The 368-member giant community
+is composed entirely of the 5 MULTI-token variants (138+92+46+46+46 =
+368 exactly), which correctly pass today's plausibility filter (they
+read as real 2-4-word names) and are exactly what A1/A2 target. Root
+cause B (`قبضے` reaching the *graph* as a real `Person` node, still true
+at the AGE level, just not the thing distorting Module 9) is real but
+separate and NOT fixed by this pass — see "B — corrected, not fixed"
+below. Adding it to `_NON_NAME_PHRASES` would have been dead code (the
+single-token rule already excludes it there), so that patch was
+deliberately not made.
+
+**Tests**: `tests/test_ingestion_graph_extraction.py` (+2 cases — a
+same-document repeat resolves once and gets its own `APPEARS_IN` edge; a
+second, separate document with the same name is unaffected, proving A1
+doesn't widen cross-document matching), `tests/test_collapse_same_document_duplicate_persons.py`
+(new, 4 cases — dry-run makes no confirm calls, `--apply` confirms every
+qualifying edge, per-edge errors don't abort the batch, empty-queue
+reports cleanly). Full backend suite green.
+
+**Live-verified** against the real running Postgres/AGE instance:
+`--dry-run` found **6,523 qualifying pending edges**, `--apply` confirmed
+them via the real `confirm_match()` path (571 unique edges actually
+confirmed; the remaining ~5,952 attempts correctly 409'd as
+"already reviewed" — the qualifying-edge query itself returns duplicate
+rows per edge_id where a person has more than one non-superseded
+`BELONGS_TO_CASE` edge to the same case, a pre-existing data-versioning
+detail unrelated to this fix; `confirm_match()`'s own idempotency guard
+made every duplicate attempt a safe no-op, not a partial failure — the
+post-run "remaining: 0" check confirms every qualifying edge really was
+resolved). Directly verified: `fir-1001-26`'s 700 raw `Person` nodes now
+canonicalize (via confirmed `SAME_AS`, at read time, no physical merge)
+down to **36** — not the 1-2 the LLM's own summary implied, but a ~95%
+reduction, exactly matching the narrow same-document+same-case safety
+bar (residual duplicate name-fallback candidates that were never
+proposed as a pending pair against each other in the first place are
+correctly left untouched, not force-merged).
+
+**Downstream effect on the graph — dramatic and exactly as predicted**:
+re-running `detect_communities()` afterward, the projected graph shrank
+from 428 nodes / 67,603 edges to **64 nodes / 81 edges**. The former
+368+-member mega-community is completely gone — the largest community
+in the new run has **6 members**, matching the healthy 2-6-member
+distribution every other (legitimate) case cluster already had. The
+graph-density symptom that blocked Module 9 Stage 2's hierarchy is fully
+resolved at its actual root cause, not papered over. **Still only one
+Louvain level** (`[19]`) on this now-healthy, much smaller (64-node)
+graph — this is no longer a duplication-pollution artifact (confirmed:
+the pathological cluster is gone), just a small-graph structural
+property Module 9 Stage 2's own code already handles correctly whenever
+it does arise (proven on the karate-club fixture) — left as an honest,
+unforced observation, not something this pass manufactured a second
+level for.
+
+**Operational note for any future re-run**: `_ScriptAdmin.id`'s random
+`uuid.uuid4()` (mirroring `scripts/verify_milestone_d.py`'s own
+documented `_Admin` precedent) is not a row in `users` — this
+environment's `audit_logs.user_id` carries a real foreign-key constraint
+(stricter than that precedent's own "harmlessly logged and swallowed"
+comment anticipated), so every `confirm_match()` call's own audit-log
+write failed with a caught `ForeignKeyViolationError`, loud but
+non-fatal — the underlying `SAME_AS` confirmation itself still succeeded
+every time (verified directly against the graph, not inferred). A future
+run wanting a clean audit trail for this action should pass a real
+service-account/admin UUID that actually exists in `users`, not a fresh
+random one.
+
+**B — corrected, not fixed this pass.** `قبضے` (Urdu: "possession/
+custody") still exists as a real `Person` node in AGE — `resolve_and_write()`
+writes it unconditionally at ingestion time; only `community_detection.py`'s
+own downstream read-time filter happens to exclude single-token noise
+from clustering. It can still surface through XGRAPH, XAGG, or any other
+consumer that reads `Person` nodes directly without that same filter. A
+real fix needs a precision gate at the extraction layer
+(`src/extraction/ner.py`/`domain_entities.py`) — a stoplist check or a
+minimum-corroboration requirement for a bare single-word `person`
+candidate — not a `community_detection.py` blocklist entry (provably a
+no-op for single-token strings, given the existing space-check runs
+first). Left as an open, documented, NOT-implemented finding.
 
 ### Origin
 Discovered as a side effect of Module 9 Stage 2's own live verification
