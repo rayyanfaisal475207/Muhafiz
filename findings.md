@@ -1407,6 +1407,83 @@ rebuilding:
 
 ## Module 9: Global Search — whole-dataset map-reduce reasoning
 
+### ✅ Stage 1 RESOLVED — 2026-08-25 (Stage 2, real hierarchy, still pending)
+Fixed on `main` (merged from `feature/harness-global-search-stage1`),
+implementing Stage 1 exactly as scoped below — a real map-reduce
+sub-agent over the existing flat community level. Stage 2 (real
+hierarchy) is a separate, still-open follow-up per this module's own
+staging.
+
+- New `src/pipeline/global_search.py::run_global_search_query()` — same
+  role-gate-then-RLS-arm-then-fetch shape as `xnetwork.py`'s
+  `run_network_query()`, but fetches EVERY community report for a
+  hierarchy level directly from Postgres
+  (`community_detection.get_community_reports_for_level()`, new), not a
+  Chroma top-k similarity cut.
+- New `src/pipeline/harness/tools/global_search.py` — thin `ToolResult`
+  wrapper, cross-case role-gated, registered into
+  `_source_scan.py`'s `TOOL_WRAPPER_MODULE_NAMES` /
+  `CROSS_CASE_TOOL_MODULE_NAMES` (enforcement points 2/3/4/5 now cover
+  it) plus a dedicated behavioral DENIED test added to
+  `test_enforcement_3_cross_case_role_gate.py`.
+- New `src/pipeline/harness/agents/global_search.py` — the actual
+  map-reduce: caps the fetched report set at 60 (sampled beyond that),
+  batches at 5, shuffles each batch, one `call_llm_json()` per batch for
+  importance-rated points, reduce step keeps the top 15 points by
+  importance, generates the final answer from their distinct backing
+  community reports, verified through the existing
+  `verify_grounding()` + structural-tier `validate_answer()`.
+- `src/pipeline/harness/supervisor.py` — new `GLOBAL_SEARCH` sub-agent
+  name, a narrow provisional trigger vocabulary ("top 5 themes", "most
+  common patterns", etc.) that overrides ONLY the XNETWORK route's
+  default (Cross-Case Linkage's existing "specific network" framing is
+  unaffected), and added to the cross-case `case_scope` demotion guard.
+
+**Real current community-report count this sizing was based on: 19**
+(confirmed live this session, `RUN-20260825074016`/later re-confirmed
+under `RUN-20260825142014` — both newer than the latest case data;
+Module 6 was already merged to `main` before this module started, so no
+manual dependency-workaround was needed, though the refresh was re-run
+once more immediately before live verification as belt-and-suspenders).
+
+**Live-verified** against the real running backend (Docker/Postgres
+healthy, backend `/health` → `database_status: ok`), refresh re-run
+immediately before verifying (`RUN-20260825142014`, 19 communities, 19
+reports):
+- Query A (today's existing XNETWORK trigger shape — this session's own
+  repro text, "overall picture of associate networks across the robbery
+  cases"): old top-5 retrieved 5 of 19 reports
+  (`C-...0006/0001/0000/0012/0008`); the new fetch sees all 19 —
+  **14 of 19 reports the old top-5 cut never retrieved at all.**
+- Query B (the new Global Search trigger shape — "what are the top 5
+  themes across all the cases"): old top-5 retrieved a *different* 5 of
+  19 reports; again **14 of 19 missed** by the old cut.
+- Full sub-agent run on Query B: `status=ok`, `tools_used=["XNETWORK"]`,
+  answer cited **all 19** community reports (`[Document 1]`..`[Document
+  19]`), producing five real dataset-wide themes (PPC-case prevalence,
+  co-accused relationship patterns, PECA 2016 cybercrime, Arms Ordinance
+  1965 cases, geographic/police-station diversity) — several of which
+  (the PECA and Arms Ordinance themes in particular) cite reports that
+  were NOT in Query B's own old top-5 cut, concretely demonstrating
+  map-reduce surfacing dataset-wide signal a top-k similarity cut
+  drops. Structural-tier validation flagged 4 minor claim/source
+  mismatches as non-blocking caveats (working as designed — caveat-only,
+  never blocking a verified answer).
+
+**Tests**: `tests/test_harness_tool_global_search.py` (5 cases — OK/EMPTY/
+DENIED/FAILED shape, `fallback_to_rag` pinned False),
+`tests/test_harness_agent_global_search.py` (13 cases, including the
+required Stage 1 test: a query needing signal from 2 reports that would
+NOT individually rank in a naive top-5-by-similarity cut still surfaces
+both because map-reduce processes every report, batching/shuffling/
+cap/reduce-step/partial-batch-failure/verifier-rejection/Supervisor-
+dispatch all covered), `tests/test_harness_supervisor.py` (+4 cases for
+the new classification override, including the case_scope demotion
+guard), `tests/test_community_detection.py` (+6 cases for the two new
+fetch helpers). Full backend suite green; harness compliance suite green
+(60+ cases, including the new module's own DENIED/RLS/role-provenance/
+no-raw-Cypher checks).
+
 ### Origin
 Same request as Module 8, MS GraphRAG's Global Search description:
 > Best for questions needing aggregation across the entire dataset (e.g.
