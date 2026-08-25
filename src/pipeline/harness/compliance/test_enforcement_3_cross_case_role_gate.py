@@ -118,3 +118,29 @@ async def test_xnetwork_tool_surfaces_permission_error_as_denied(monkeypatch):
     )
     assert result.status == ToolStatus.DENIED
     assert result.fallback_to_rag is False
+
+
+@pytest.mark.asyncio
+async def test_global_search_tool_surfaces_permission_error_as_denied(monkeypatch):
+    # [AMENDMENT — findings.md Module 9] Same hardcoded-per-tool
+    # behavioral shape as the three tests above — the static
+    # "no-duplicate-role-check" test above is parametrized over
+    # CROSS_CASE_TOOL_MODULE_NAMES, but this behavioral check is not, so
+    # adding global_search to that list alone does not exercise this;
+    # this test is what actually does.
+    import src.pipeline.harness.tools.global_search as global_search_mod
+
+    async def _get_gateway():
+        return object()
+
+    async def _denied(*a, **kw):
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(global_search_mod, "get_gateway", _get_gateway)
+    monkeypatch.setattr(global_search_mod, "run_global_search_query", _denied)
+
+    result = await global_search_mod.global_search_tool(
+        global_search_mod.GlobalSearchToolInput(query_text="q", execution=_denied_execution())
+    )
+    assert result.status == ToolStatus.DENIED
+    assert result.fallback_to_rag is False
