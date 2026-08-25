@@ -1343,6 +1343,32 @@ async def retrieve_graph(
     unconfirmed_links = await _unconfirmed_same_as_links(visited) if cross_case else []
 
     appears_in_rows = await _fetch_appears_in(visited)
+    # [Module 7 follow-up, findings.md] _fetch_appears_in() is a general,
+    # case-agnostic helper — it returns EVERY APPEARS_IN edge for a given
+    # entity set, each row correctly tagged with its OWN document's real
+    # case_id (see that function's own "Bug fix" docstring for the
+    # join-off-`d` history). That's exactly right for cross_case=True
+    # (XGRAPH's whole job is citing evidence from other cases) — but for
+    # a within-case query this was NEVER filtered back down to `case_id`,
+    # contradicting this function's own docstring ("ignored entirely on
+    # the within-case path, which is always scoped to case_id
+    # regardless"). Live-confirmed: an entity that legitimately belongs
+    # to the active case (a real BELONGS_TO_CASE edge, so it passes
+    # _filter_to_case() and is a valid seed/frontier member) can ALSO
+    # belong to a different case if the same real person/entity recurs —
+    # exactly the shape XGRAPH/XAGG exist to surface — and their evidence
+    # from THAT other case was leaking into a within-case answer's
+    # citation list unfiltered, caught only downstream by verify_grounding()'s
+    # leakage check (correctly rejecting the answer, but for a document
+    # that should never have reached the prompt at all). `row["case_id"]`
+    # is None for genuinely case-less content (e.g. a criminal_db record —
+    # that silo is CNIC-cross-referenced, not case-anchored, per
+    # _fetch_appears_in()'s own docstring) — kept, not filtered out.
+    if not cross_case and case_id:
+        appears_in_rows = [
+            row for row in appears_in_rows
+            if row.get("case_id") in (None, case_id)
+        ]
     chunk_ids: list[str] = []
     row_by_chunk: dict[str, dict] = {}
     synthetic_by_id: dict[str, dict] = {}

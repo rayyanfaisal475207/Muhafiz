@@ -1080,6 +1080,60 @@ the verifier) and explicit regression guards: a GRAPH route with no
 ignores a (should-never-happen) `secondary_methods` value entirely,
 preserving its structurally-separate contract. Full backend suite green.
 
+#### Follow-up fixes — 2026-08-25 (same day, `fix/module7-followup-graph-leak-and-xgraph-seeding`)
+Two of the gaps this module's own live verification surfaced were picked
+up as scoped follow-ups (a third — extending the graph schema with a
+"stolen/recovered item" entity type — was deliberately left open as its
+own, larger, module-sized project; a fourth — sourcing real Arms
+Ordinance 1965 reference data — was deliberately skipped, since
+fabricating authoritative legal-lookup content isn't something to do
+without a real source):
+
+1. **`retrieve_graph()` cross-case leak, root-caused and fixed.**
+   `_fetch_appears_in()` is a general, case-agnostic helper — every
+   APPEARS_IN edge for a given entity set, each row correctly tagged with
+   its own document's real `case_id`. Correct for `cross_case=True`
+   (XGRAPH's whole job), but the within-case (`cross_case=False`) caller
+   never filtered the result back down to the active `case_id` —
+   contradicting `retrieve_graph()`'s own docstring ("ignored entirely on
+   the within-case path, which is always scoped to case_id regardless").
+   A single canonical entity genuinely shared across two cases (identity
+   resolution had already merged it — no SAME_AS fold involved, a
+   different shape from the SAME_AS leak Milestone E2 already closed)
+   could legitimately seed a within-case traversal (it DOES belong to the
+   active case) and still pull in its OTHER case's evidence chunks
+   unfiltered. Fixed with a one-line filter on `appears_in_rows` gated on
+   `not cross_case and case_id`; regression test
+   `test_single_entity_belonging_to_two_cases_never_leaks_the_other_cases_evidence`
+   added to `tests/test_graph_retriever.py`, confirmed to fail without the
+   fix and pass with it.
+2. **XGRAPH secondary-fetch seeding improved.** The secondary XGRAPH
+   fetch used to seed from the router's own `target_entity`, almost
+   always `null` for exactly the queries that need this secondary (a
+   compound question's cross-case half is phrased descriptively — "the
+   accused" — since the router's one extraction, if any, went to the
+   PRIMARY route's own need). `_fetch_secondary_evidence()` now falls
+   back to the PRIMARY route's own already-resolved `seed_entities`,
+   filtered to `type == "Person"` specifically (never the investigating
+   officer, a vehicle, or an address also present in a case-wide
+   enumeration seed set).
+
+**Live-verified** (Docker/backend confirmed healthy, backend restarted):
+re-ran the same 6 mini-sweep questions. Q4 (GRAPH+XGRAPH: officer +
+accused's other cases) went from a full abstention (caused by the leak
+above tripping the verifier's leakage check) to a complete, ground-truth-
+correct compound answer — correctly named the investigating officer,
+correctly identified the one accused who genuinely recurs in another case
+(matching live Cypher ground truth exactly), and correctly stated the
+other accused have no other-case involvement rather than overclaiming.
+Q5 fell back to RAG again on this run (the evaluator accepted 25
+supplemental items in the pre-follow-up verification pass but rejected 6
+different, more targeted ones here) — genuine LLM/evaluator non-
+determinism run to run, not a regression, reported as such rather than
+claimed fixed. Q1/Q2/Q3/Q6 unchanged, as expected — none of their
+blockers (thin primary graph evidence, missing Arms Ordinance reference
+data) were in scope for these two fixes. Full backend suite green.
+
 ### Note on evidence quality — different from Modules 1-6
 The first six modules were each reproduced against live data or a live
 query. This one is confirmed a different, but equally certain, way:

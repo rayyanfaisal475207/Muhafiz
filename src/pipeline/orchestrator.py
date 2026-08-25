@@ -310,8 +310,16 @@ async def _fetch_secondary_evidence(
     user_id,
     user_role,
     jurisdiction_case_ids,
+    primary_seed_entities: Optional[list[dict]] = None,
 ) -> tuple[list[dict], list[str]]:
     """
+    Args:
+        primary_seed_entities: the PRIMARY route's own `graph_result[
+            "seed_entities"]` (GRAPH/GRAPH_HYBRID only — None for SQL,
+            which has no graph_result). Used ONLY to improve an "XGRAPH"
+            secondary fetch's seeding — see that branch's own comment
+            below for why.
+
     Returns:
         supplemental_chunks: pseudo-chunks in the same {"id", "text",
             "metadata"} shape every route already builds/consumes. Callers
@@ -363,8 +371,37 @@ async def _fetch_secondary_evidence(
                 chunks.extend(_dedupe_chunks_by_text(graph_result["chunks"]))
 
             elif method == "XGRAPH":
+                # [Module 7 follow-up, findings.md] `target_entity` is
+                # usually null for exactly the queries that need this
+                # secondary — a compound question's cross-case half is
+                # almost always phrased descriptively ("the accused"), not
+                # by literal name, since the router already spent its one
+                # `target_entity` extraction (if any) on the PRIMARY
+                # route's own within-case need. With no literal name/CNIC/
+                # phone anywhere in the query either, retrieve_graph()'s
+                # cross_case=True path falls into its broad recurrence/
+                # enumeration seeding instead of a focused single-entity
+                # lookup — live-confirmed inconsistent (0 items for one
+                # real compound question, 25 mostly-irrelevant items for
+                # another). The primary route's OWN within-case result
+                # already resolved who "the accused" actually is (a real
+                # Person node, seeded via BELONGS_TO_CASE) — reuse that
+                # name here instead of leaving the secondary fetch to
+                # guess blind. Restricted to type == "Person" specifically
+                # so this never accidentally seeds from the investigating
+                # officer, a vehicle, or an address that also belongs to
+                # the case (graph_retriever._SEED_LABELS' case-wide
+                # enumeration seeds all of those alongside Person).
+                xgraph_target_entity = target_entity
+                if not xgraph_target_entity and primary_seed_entities:
+                    person_names = [
+                        e.get("name") for e in primary_seed_entities
+                        if e.get("type") == "Person" and e.get("name")
+                    ]
+                    if person_names:
+                        xgraph_target_entity = person_names[0]
                 xgraph_result = await retrieve_graph(
-                    rewritten_query, target_entity, case_id=None, cross_case=True,
+                    rewritten_query, xgraph_target_entity, case_id=None, cross_case=True,
                     max_hops=2, user_id=user_id, user_role=user_role,
                     jurisdiction_case_ids=jurisdiction_case_ids,
                 )
@@ -1325,6 +1362,7 @@ async def process_query(
                     supplemental_chunks, graph_cross_case_ids = await _fetch_secondary_evidence(
                         secondary_methods, rewritten_query, target_entity, case_id,
                         gateway, user_id, user_role, jurisdiction_case_ids,
+                        primary_seed_entities=graph_result.get("seed_entities"),
                     )
                     if supplemental_chunks:
                         reranked = reranked + supplemental_chunks
@@ -1532,6 +1570,7 @@ async def process_query(
                     supplemental_chunks, hybrid_cross_case_ids = await _fetch_secondary_evidence(
                         secondary_methods, rewritten_query, target_entity, case_id,
                         gateway, user_id, user_role, jurisdiction_case_ids,
+                        primary_seed_entities=graph_result.get("seed_entities"),
                     )
                     if supplemental_chunks:
                         reranked = reranked + supplemental_chunks
