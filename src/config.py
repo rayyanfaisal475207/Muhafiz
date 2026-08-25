@@ -140,6 +140,17 @@ MUHAFIZ_API_TIMEOUT: float = float(os.getenv("MUHAFIZ_API_TIMEOUT", "60"))
 # Max page_size the API accepts (API_CONSUMER_GUIDE.md: "1 to 100").
 MUHAFIZ_API_PAGE_SIZE: int = int(os.getenv("MUHAFIZ_API_PAGE_SIZE", "100"))
 
+# [findings.md Module 10 — Meta-Analysis] Per-sub-query timeout for the
+# Meta-Analysis sub-agent's dispatch step (src/pipeline/harness/agents/
+# meta_analysis.py) — each sub-query re-enters the full Supervisor.handle()
+# pipeline (retrieval + generation + verification), a heavier multi-step
+# operation than a single LLM call, so this mirrors MUHAFIZ_API_TIMEOUT's
+# generous style rather than LOCAL_LLM_TIMEOUT's single-call budget. A
+# sub-query that exceeds this is treated as a non-contributing failure
+# (disclosed as a caveat) — it never blocks the other sub-queries or the
+# synthesis step.
+META_ANALYSIS_SUBQUERY_TIMEOUT: float = float(os.getenv("META_ANALYSIS_SUBQUERY_TIMEOUT", "60"))
+
 
 # ── Pipeline Settings ─────────────────────────────────────────────────────────
 MAX_RETRIES: int = int(os.getenv("MAX_RETRIES", "1"))

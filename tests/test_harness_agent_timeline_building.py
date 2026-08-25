@@ -354,7 +354,7 @@ async def test_supervisor_dispatches_to_real_timeline_building_via_direct_dispat
 
     monkeypatch.setattr(supervisor_mod, "route_query", _fake_route_query)
     monkeypatch.setattr(
-        supervisor_mod, "classify_to_subagent", lambda route_result, query_text="": TIMELINE_BUILDING
+        supervisor_mod, "classify_to_subagent", lambda route_result, query_text="", **kwargs: TIMELINE_BUILDING
     )
 
     _stub_scoped_cypher(

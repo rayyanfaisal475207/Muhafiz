@@ -166,6 +166,20 @@ LOCAL_SEARCH = "Local Search"
 # through to CROSS_CASE_LINKAGE unchanged.
 GLOBAL_SEARCH = "Global Search"
 
+# [AMENDMENT — findings.md Module 10, "Meta-Analysis"] An 11th sub-agent
+# name, same additive-amendment discipline as LOCAL_SEARCH/GLOBAL_SEARCH
+# above. Meta-Analysis is the OUTERMOST layer: it does not compose a tool at
+# all — it decomposes the QUESTION into bounded sub-questions and re-enters
+# this same Supervisor (one level only, never a tool directly) for each one,
+# concurrently, then synthesizes across the independently-produced
+# sub-answers. See agents/meta_analysis.py's own module docstring for the
+# full three-stage design (decompose / dispatch / aggregate) and the
+# `allow_meta_analysis` recursion guard `classify_to_subagent()`/
+# `Supervisor.handle()` both grow below — the one piece of this amendment
+# that has no precedent in LOCAL_SEARCH/GLOBAL_SEARCH, since neither of
+# those ever calls back into the Supervisor itself.
+META_ANALYSIS = "Meta-Analysis"
+
 SUB_AGENT_NAMES: tuple[str, ...] = (
     SEMANTIC_SEARCH,
     LARGE_SCALE_AGGREGATE,
@@ -177,6 +191,7 @@ SUB_AGENT_NAMES: tuple[str, ...] = (
     DATA_QUALITY,
     LOCAL_SEARCH,
     GLOBAL_SEARCH,
+    META_ANALYSIS,
 )
 
 # [Reconciliation fix — harness-reconciliation Unit 2] Returned by
@@ -224,7 +239,21 @@ _ROUTE_TO_SUBAGENT: dict[str, str] = {
 # cross-case sub-agent — where the tool's own role gate would then produce a
 # confusing DENIED on a query that never asked to cross cases, rather than a
 # clean same-case answer.
-_CROSS_CASE_SUBAGENTS = frozenset({CROSS_CASE_LINKAGE, LARGE_SCALE_AGGREGATE, GLOBAL_SEARCH})
+_CROSS_CASE_SUBAGENTS = frozenset(
+    {CROSS_CASE_LINKAGE, LARGE_SCALE_AGGREGATE, GLOBAL_SEARCH, META_ANALYSIS}
+)
+# [AMENDMENT — findings.md Module 10] META_ANALYSIS's inclusion above IS
+# this module's RBAC answer (resolved via AskUserQuestion, not guessed):
+# aggregating "a larger chunk of data" is inherently cross-case-shaped in
+# most real uses, so a compound-question trigger match (below) on a query
+# whose own `case_scope` is NOT `"cross_case"` demotes straight to
+# SEMANTIC_SEARCH via this exact guard — no N-way decompose+dispatch is ever
+# attempted for a within-case compound question. When `case_scope` IS
+# `"cross_case"`, Meta-Analysis dispatches, and — mirroring
+# `cross_case_linkage.py`'s/`large_scale_aggregate.py`'s explicit "no third
+# gate" discipline — `meta_analysis.py` itself adds NO role check of its
+# own; each sub-query re-enters this Supervisor and is gated on its own
+# merits by whichever tool it actually resolves to.
 
 # ═══════════════════════════════════════════════════════════════════════
 # [Contract amendment — classification reachability, pre-cutover-Part-3]
@@ -386,18 +415,81 @@ _GLOBAL_SEARCH_TRIGGER_PATTERNS = [
 ]
 
 
-def classify_to_subagent(route_result: dict, query_text: str = "") -> str:
+# ═══════════════════════════════════════════════════════════════════════
+# [AMENDMENT — findings.md Module 10, "Meta-Analysis"] Decomposition
+# trigger. Same provisional disclosure as _GLOBAL_SEARCH_TRIGGER_PATTERNS
+# above (no live-confirmed misclassification failure yet — derived from
+# findings.md's own Module 10 "Proposed approach" wording, not observed
+# traffic) and the same narrow, evidence-anchored discipline every override
+# in this file follows: these patterns exist to fast-path INTO the
+# decomposer LLM call cheaply, not to decide decomposition themselves — the
+# actual "genuinely compound vs. one ordinary question" judgment is made by
+# `meta_analysis.py`'s own decomposer step (prompts/meta_analysis_decomposer.txt),
+# which can still say "no decomposition needed" even when a pattern here
+# fires. Anchored on the two-part connector shapes findings.md's own
+# "Proposed approach" section named explicitly ("summarize...across all",
+# "aggregate...and flag", "recurring...and cross-reference"), plus one
+# general compound-ask shape — never a bare single keyword like "summarize"
+# or "aggregate" alone, which would swallow ordinary single-focus queries
+# XAGG/Case Summarization already handle correctly (e.g. "aggregate the case
+# counts by station" has no "and flag" nearby and correctly does not match).
+#
+# UNLIKE every other override list in this file, checked FIRST, before the
+# route-specific TIMELINE/INVESTIGATIVE_ANALYSIS/LOCAL_SEARCH/GLOBAL_SEARCH
+# blocks below and regardless of `route` — findings.md's own framing is
+# explicit that Module 10 is "the outermost layer, dispatching down into
+# whichever routes/sub-agents exist," so a genuinely compound question must
+# not be swallowed by a single-route override first (e.g. an
+# INVESTIGATIVE_ANALYSIS "comprehensive analysis" match on half of a
+# compound query would otherwise win before this ever gets a chance). Like
+# GLOBAL_SEARCH's own block, does NOT return early — the resulting
+# `sub_agent = META_ANALYSIS` still flows through the shared case_scope
+# demotion guard at the bottom of this function (see `allow_meta_analysis`'s
+# own docstring note below and `_CROSS_CASE_SUBAGENTS`'s own comment for
+# why: aggregating "a larger chunk of data" is inherently cross-case-shaped
+# in most real uses, resolved via AskUserQuestion as this module's RBAC
+# answer — no N-way decompose+dispatch is attempted for a within-case
+# compound question; it demotes straight to SEMANTIC_SEARCH instead).
+# ═══════════════════════════════════════════════════════════════════════
+_META_ANALYSIS_TRIGGER_PATTERNS = [
+    re.compile(r"\bsummarize\b.{0,80}\bacross all\b", re.IGNORECASE),
+    re.compile(r"\baggregate\b.{0,80}\band flag\b", re.IGNORECASE),
+    re.compile(r"\brecurring\b.{0,80}\bcross-?reference\b", re.IGNORECASE),
+    re.compile(r"\bacross all\b.{0,60}\band\b.{0,40}\b(flag|identify|highlight)\b", re.IGNORECASE),
+    re.compile(r"تمام\s*(کیسز|مقدمات)\s*میں.{0,60}(خلاصہ|نشاندہی)"),
+    re.compile(r"\bsab\s*cases\b.{0,60}\b(khulasa|nishandehi)\b", re.IGNORECASE),
+]
+
+
+def classify_to_subagent(
+    route_result: dict, query_text: str = "", *, allow_meta_analysis: bool = True
+) -> str:
     """
-    Translate `router.py::route_query()`'s output dict into one of the 8
-    sub-agent names, or `NO_SUB_AGENT` for DIRECT. Does not call
+    Translate `router.py::route_query()`'s output dict into one of the
+    canonical `SUB_AGENT_NAMES`, or `NO_SUB_AGENT` for DIRECT. Does not call
     `route_query()` itself and does not re-derive its classification — see
     module docstring.
 
-    `query_text` is optional (defaults to `""`, under which neither
-    provisional override below can ever match) so every existing direct
+    `query_text` is optional (defaults to `""`, under which none of the
+    provisional overrides below can ever match) so every existing direct
     caller — this module's own tests included — keeps working unchanged;
     `Supervisor.handle()` is the one real caller that has a query to pass,
     and does so below.
+
+    [AMENDMENT — findings.md Module 10] `allow_meta_analysis` is the
+    recursion guard `meta_analysis.py` needs and no prior sub-agent did:
+    every sub-agent before it composes TOOLS, never re-enters this
+    Supervisor, so nothing before Module 10 could ever recurse. Meta-Analysis
+    is the first to call `Supervisor.handle()` from inside a sub-agent (once
+    per sub-query, per its own module docstring) — without a guard, a
+    sub-query whose text still happens to match `_META_ANALYSIS_TRIGGER_PATTERNS`
+    would reclassify to META_ANALYSIS again, decomposing forever. Defaults to
+    `True` (every existing/top-level caller, including this module's own
+    tests, is unaffected); `meta_analysis.py` is the one caller that passes
+    `False` for every one of its own sub-query dispatches, which makes a
+    sub-query classify EXACTLY as if Module 10 did not exist — deterministic,
+    not dependent on the sub-queries happening to avoid the trigger
+    vocabulary textually.
     """
     output_format = str(route_result.get("output_format") or "chat").lower()
     route = str(route_result.get("route") or "RAG").upper()
@@ -418,43 +510,51 @@ def classify_to_subagent(route_result: dict, query_text: str = "") -> str:
     if output_format in _FILE_OUTPUT_FORMATS:
         return REPORT_DRAFTING
 
-    if route not in _CROSS_CASE_ROUTES:
-        if any(pat.search(query_text) for pat in _TIMELINE_TRIGGER_PATTERNS):
-            return TIMELINE_BUILDING
-        if any(pat.search(query_text) for pat in _INVESTIGATIVE_ANALYSIS_TRIGGER_PATTERNS):
-            return INVESTIGATIVE_ANALYSIS
-        # [AMENDMENT — findings.md Module 8] Local Search override — only
-        # for the GRAPH-shaped routes it actually improves on (semantic
-        # entity access-point matching is meaningless for RAG/SQL/WEB,
-        # which never seed off an entity at all).
-        if route in ("GRAPH", "GRAPH_HYBRID") and any(
-            pat.search(query_text) for pat in _LOCAL_SEARCH_TRIGGER_PATTERNS
-        ):
-            return LOCAL_SEARCH
-
-    # [AMENDMENT — findings.md Module 9] Global Search override — narrows
-    # ONLY the XNETWORK route (deliberately outside the
-    # `route not in _CROSS_CASE_ROUTES` guard above, since XNETWORK IS a
-    # cross-case route): a whole-dataset theme/pattern aggregation
-    # question goes to Global Search's map-reduce; XNETWORK's existing
-    # default (a specific network/cluster question, no match here) stays
-    # CROSS_CASE_LINKAGE, unaffected. See _GLOBAL_SEARCH_TRIGGER_PATTERNS'
-    # own comment block for the full rationale.
-    #
-    # Deliberately does NOT `return` here (unlike LOCAL_SEARCH's own
-    # override above) — GLOBAL_SEARCH is itself cross-case-role-gated (see
-    # _CROSS_CASE_SUBAGENTS), so it must still pass through the
-    # case_scope demotion guard immediately below; an early return here
-    # would let a within-case-scoped XNETWORK misclassification reach
-    # Global Search directly, the exact bug the demotion guard exists to
-    # prevent (RESOLVED... see _CROSS_CASE_SUBAGENTS's own comment).
-    if route == "XNETWORK" and any(pat.search(query_text) for pat in _GLOBAL_SEARCH_TRIGGER_PATTERNS):
-        sub_agent = GLOBAL_SEARCH
+    # [AMENDMENT — findings.md Module 10] Checked before every route-specific
+    # override below — see _META_ANALYSIS_TRIGGER_PATTERNS' own comment
+    # block for why this must win over TIMELINE/INVESTIGATIVE_ANALYSIS/
+    # LOCAL_SEARCH/GLOBAL_SEARCH rather than being folded alongside them.
+    if allow_meta_analysis and any(
+        pat.search(query_text) for pat in _META_ANALYSIS_TRIGGER_PATTERNS
+    ):
+        sub_agent = META_ANALYSIS
     else:
-        sub_agent = _ROUTE_TO_SUBAGENT.get(route, SEMANTIC_SEARCH)
+        if route not in _CROSS_CASE_ROUTES:
+            if any(pat.search(query_text) for pat in _TIMELINE_TRIGGER_PATTERNS):
+                return TIMELINE_BUILDING
+            if any(pat.search(query_text) for pat in _INVESTIGATIVE_ANALYSIS_TRIGGER_PATTERNS):
+                return INVESTIGATIVE_ANALYSIS
+            # [AMENDMENT — findings.md Module 8] Local Search override — only
+            # for the GRAPH-shaped routes it actually improves on (semantic
+            # entity access-point matching is meaningless for RAG/SQL/WEB,
+            # which never seed off an entity at all).
+            if route in ("GRAPH", "GRAPH_HYBRID") and any(
+                pat.search(query_text) for pat in _LOCAL_SEARCH_TRIGGER_PATTERNS
+            ):
+                return LOCAL_SEARCH
+
+        # [AMENDMENT — findings.md Module 9] Global Search override — narrows
+        # ONLY the XNETWORK route (deliberately outside the
+        # `route not in _CROSS_CASE_ROUTES` guard above, since XNETWORK IS a
+        # cross-case route): a whole-dataset theme/pattern aggregation
+        # question goes to Global Search's map-reduce; XNETWORK's existing
+        # default (a specific network/cluster question, no match here) stays
+        # CROSS_CASE_LINKAGE, unaffected. See _GLOBAL_SEARCH_TRIGGER_PATTERNS'
+        # own comment block for the full rationale.
+        if route == "XNETWORK" and any(
+            pat.search(query_text) for pat in _GLOBAL_SEARCH_TRIGGER_PATTERNS
+        ):
+            sub_agent = GLOBAL_SEARCH
+        else:
+            sub_agent = _ROUTE_TO_SUBAGENT.get(route, SEMANTIC_SEARCH)
 
     # [Reconciliation fix — Unit 2] case_scope demotion guard — see
-    # _CROSS_CASE_SUBAGENTS's own comment for the full rationale.
+    # _CROSS_CASE_SUBAGENTS's own comment for the full rationale. Deliberately
+    # does NOT get bypassed by an early `return` above for GLOBAL_SEARCH or
+    # META_ANALYSIS — both are cross-case-role-gated (see
+    # _CROSS_CASE_SUBAGENTS), so both must still pass through here; an early
+    # return would let a within-case-scoped misclassification reach either
+    # directly, the exact bug this guard exists to prevent.
     case_scope = str(route_result.get("case_scope") or "within_case").lower()
     if sub_agent in _CROSS_CASE_SUBAGENTS and case_scope != "cross_case":
         return SEMANTIC_SEARCH
@@ -546,6 +646,7 @@ class Supervisor:
         *,
         on_event: Optional[Callable[[PipelineEvent], None]] = None,
         gateway: Optional[DataGateway] = None,
+        allow_meta_analysis: bool = True,
     ) -> SubAgentResult:
         """
         Classify `agent_input.query_text`, dispatch to the matching
@@ -567,11 +668,19 @@ class Supervisor:
         the dispatched sub-agent. Only Report Drafting currently uses it
         (to persist a generated file record); every other sub-agent
         accepts-and-ignores it, same as `on_event` before Phase 7.
+
+        [AMENDMENT — findings.md Module 10] `allow_meta_analysis`, forwarded
+        unchanged to `classify_to_subagent()` — see that function's own
+        docstring for the full recursion-guard rationale. Defaults to `True`
+        for every existing/top-level caller; `meta_analysis.py` is the one
+        caller that passes `False`, once per sub-query it dispatches.
         """
         emit = on_event if on_event is not None else (lambda _evt: None)
 
         route_result = await route_query(agent_input.query_text)
-        sub_agent_name = classify_to_subagent(route_result, agent_input.query_text)
+        sub_agent_name = classify_to_subagent(
+            route_result, agent_input.query_text, allow_meta_analysis=allow_meta_analysis
+        )
 
         # [Reconciliation fix — harness-reconciliation Unit 4/7/8] Thread the
         # router's target_entity onto the input — see
