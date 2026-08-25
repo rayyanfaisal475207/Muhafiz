@@ -777,17 +777,18 @@ class DirectGateway:
                         doc_type = EXCLUDED.doc_type
                 """), doc)
 
-    async def query_police_reference_data(
+    async def _query_police_reference_data_exact(
         self,
         category: Optional[str] = None,
         subject: Optional[str] = None,
         section_ref: Optional[str] = None,
     ) -> list[dict]:
         """
-        Direct parameterized fast path for the SQL route (Phase 3). Every
-        filter is optional and combined with AND; a query with no filters
-        returns nothing (mirrors the old tax_rates branch, which always
-        supplied at least one ILIKE clause before querying).
+        Single exact-match query: every non-null filter is ANDed together
+        with ILIKE. A query with no filters returns nothing (mirrors the
+        old tax_rates branch, which always supplied at least one ILIKE
+        clause before querying). No relaxation here — see
+        query_police_reference_data() for the retry loop that calls this.
         """
         conditions = []
         if category:
@@ -817,6 +818,60 @@ class DirectGateway:
                 }
                 for r in rows
             ]
+
+    # Weakest, most free-text/variable signal dropped first on a 0-row
+    # exact match; section_ref (never listed here) is the strongest signal
+    # and is kept as long as possible.
+    _RELAX_DROP_ORDER = ("subject", "category")
+
+    async def query_police_reference_data(
+        self,
+        category: Optional[str] = None,
+        subject: Optional[str] = None,
+        section_ref: Optional[str] = None,
+    ) -> list[dict]:
+        """
+        Direct parameterized fast path for the SQL route (Phase 3).
+
+        Every filter is optional and combined with AND (see
+        _query_police_reference_data_exact). Because an extracted filter
+        can only narrow the result set, a more precisely-worded question
+        can zero-match data that a vaguer question about the same fact
+        would have found (findings.md Module 5). If the full-AND query
+        returns no rows, progressively relax by dropping one filter at a
+        time (subject first, then category — section_ref is never
+        dropped), down to a single remaining filter, before giving up.
+        Bounded at 2 extra queries. A query whose full filter set already
+        matches returns from the first call below, unchanged from before
+        this retry loop existed.
+        """
+        filters = {}
+        if category:
+            filters["category"] = category
+        if subject:
+            filters["subject"] = subject
+        if section_ref:
+            filters["section_ref"] = section_ref
+
+        if not filters:
+            return []
+
+        rows = await self._query_police_reference_data_exact(**filters)
+        if rows:
+            return rows
+
+        relaxed = dict(filters)
+        for field in self._RELAX_DROP_ORDER:
+            if len(relaxed) <= 1:
+                break  # never relax below a single filter
+            if field not in relaxed:
+                continue  # nothing to drop for this field this round
+            del relaxed[field]
+            rows = await self._query_police_reference_data_exact(**relaxed)
+            if rows:
+                return rows
+
+        return []
 
     # ══════════════════════════════════════════════════════════════════
     # Admin dashboard: errors, ingestion jobs, KB stats, usage, latency
