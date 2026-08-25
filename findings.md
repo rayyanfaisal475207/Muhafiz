@@ -55,7 +55,7 @@ verification.
 | 4 | [XAGG entity-type coverage gap](#module-4-xagg-entity-type-coverage-gap-weapon-aggregation) ✅ RESOLVED 2026-08-25 | 🟡 Medium | Medium-Large | — |
 | 5 | [SQL extractor phrasing brittleness](#module-5-sql-extractor-phrasing-brittleness) ✅ RESOLVED 2026-08-25 | 🟡 Medium | Medium | — |
 | 6 | [Community detection never refreshes for real sync data](#module-6-community-detection-never-refreshes-for-real-sync-data) ✅ RESOLVED 2026-08-25 | 🟠 Medium-High | Small | — |
-| 7 | [No general adaptive multi-method retrieval](#module-7-no-general-adaptive-multi-method-retrieval) | 🟡 Medium | Large | — |
+| 7 | [No general adaptive multi-method retrieval](#module-7-no-general-adaptive-multi-method-retrieval) ✅ RESOLVED 2026-08-25 | 🟡 Medium | Large | — |
 | 8 | [Local Search — entity-based reasoning](#module-8-local-search--entity-based-reasoning) | 🟠 Medium-High | Large | — |
 | 9 | [Global Search — whole-dataset map-reduce reasoning](#module-9-global-search--whole-dataset-map-reduce-reasoning) | 🟠 Medium-High | Large | Module 6 |
 | 10 | [Meta-analysis — query decomposition and aggregation](#module-10-meta-analysis--query-decomposition-and-aggregation) | 🟠 Medium-High | Large | Relates to 7, 8, 9 |
@@ -974,6 +974,111 @@ whether a recompute actually ran).
 ---
 
 ## Module 7: No general adaptive multi-method retrieval
+
+### ✅ RESOLVED — 2026-08-25
+Fixed on `main` (merged from
+`feature/module7-adaptive-multi-method-retrieval`), implementing Option A
+(general adaptive combiner) after a live mini-sweep — the "Suggested first
+step" below — was run before picking a direction.
+
+**Mini-sweep first (per the module's own instructions):** 6 real,
+ground-truth-driven compound questions were run against the live corpus
+before any code was written. Only 1/6 (a GRAPH+XGRAPH officer/repeat-case
+shape) was a clean hit of this module's exact gap; the other failures
+traced to three separate, unrelated issues (a missing Arms Ordinance
+category in `police_reference_data`, an apparent SQL-verifier bug, and an
+XGRAPH wrong-entity-resolution bug). Reported to the user with all three
+options (A/B/C) restated against this evidence, plus an explicit
+"don't build yet" option — the user's call, given the small/mixed sample,
+was to build Option A anyway: the measured low hit-rate today is a
+snapshot of the current corpus, not a ceiling, and the fusion plumbing is
+cheap relative to what it unblocks as the graph/corpus grow and compound-
+need questions become more common.
+
+**What was built:**
+- `src/pipeline/router.py` / `prompts/router.txt`: `route_query()` gained
+  an optional `secondary_methods` field (subset of `SQL`/`GRAPH`/`XGRAPH`/
+  `XAGG`, capped at 2, self-reference and unrecognized values dropped) the
+  LLM router can set alongside its primary route for a genuinely compound
+  question. Only ever honored downstream for a within-case primary route
+  (SQL/GRAPH/GRAPH_HYBRID) — XGRAPH/XAGG/XNETWORK's existing structurally-
+  separate, never-blended cross-case contract is completely untouched.
+  Also fixed a real gap found while building this: the SQL deterministic
+  regex fast-path (bypasses the LLM entirely for reliability on
+  unambiguous single-intent SQL lookups) was swallowing the SQL HALF of a
+  compound question before the LLM router — and `secondary_methods` — ever
+  got a chance to run. A narrow exception (`_sql_override_has_compound_signal`)
+  now skips the override only when the query also names a case-specific
+  "this X" via an explicit conjunction, leaving the override's fast path
+  for ordinary single-intent SQL queries completely unaffected.
+- `src/pipeline/orchestrator.py`: new `_fetch_secondary_evidence()` helper
+  fetches whichever additional methods were flagged and returns pseudo-
+  chunks in the same shape every route already builds. Wired into SQL/
+  GRAPH/GRAPH_HYBRID, reusing GRAPH_HYBRID's existing fuse-then-cite
+  machinery (`_format_documents_for_prompt` + `verify_grounding`) rather
+  than building new fusion logic — confirming this module's own root-cause
+  correction that the hard part (proven 3-way fusion) already existed.
+  Critically, the fetch runs **before** the relevance evaluator, not just
+  before generation (a live-caught bug during verification — see below),
+  and `verify_grounding()`'s pre-existing `cross_case_ids` parameter (built
+  for XGRAPH) is reused unchanged to keep a legitimately-cited cross-case
+  supplemental chunk from tripping the leakage check.
+
+**Live-verified**, Docker/backend confirmed healthy, backend restarted
+(no `--reload`) after every code change — the same 6 mini-sweep questions
+re-run against the real `/api/chat` endpoint:
+- **1/6 (the GRAPH_HYBRID+XGRAPH repeat-offender question) now gets a
+  full, correct compound answer** where it previously abstained
+  completely: the router set `secondary_methods: ["XGRAPH"]`, the fetch
+  found 25 cross-case chunks, the evaluator accepted the merged evidence,
+  generation correctly hedged the cross-case citations, the verifier
+  passed cleanly, and the final answer covered both halves — a full case
+  summary AND an honest, evidence-grounded "not a repeat offender"
+  conclusion that correctly distinguishes the accused from the *other*
+  people who do recur in other cases (matching live ground truth).
+- **3/6 (the GRAPH+SQL/XAGG questions) show the wiring working but
+  blocked by a separate limiting factor**: the secondary fetch correctly
+  ran and found evidence every time, but the evaluator still judged the
+  combined evidence insufficient — traced to the primary GRAPH retrieval
+  itself being thin (the graph schema has no dedicated "stolen item"
+  entity type for these cases), a retrieval-coverage gap, not a fusion
+  defect this module's scope covers.
+- **1/6 surfaced a genuine pre-existing, unrelated bug**: the secondary
+  XGRAPH fetch (seeded with `target_entity: null`) found 0 items, but
+  `retrieve_graph()`'s own PRIMARY within-case traversal leaked a chunk
+  from a different case anyway — correctly caught by the verifier's
+  leakage check (working as designed), but revealing `retrieve_graph()`
+  can cross case boundaries even with `cross_case=False`. Filed as its own
+  follow-up, out of this module's scope.
+- **1/6 remains confounded** by the missing Arms Ordinance reference-data
+  category found during the mini-sweep — independent of routing.
+
+**Two bugs were caught and fixed live during this verification pass**,
+both real integration gaps, not present in the design as originally
+planned:
+1. The secondary-evidence fetch originally ran after the relevance
+   evaluator — so a compound question whose primary-only evidence looked
+   incomplete to the evaluator (exactly the case that most needs the
+   second method) fell back to RAG before the fetch ever got a chance.
+   Moved the fetch before the evaluator in both GRAPH and GRAPH_HYBRID.
+2. The merged prompt had no hedging-word instruction for a low-confidence
+   supplemental cross-case citation — `verify_grounding()`'s deterministic
+   hedging check discarded an otherwise-correct answer that cited one
+   without a hedge word. Added `_CROSS_CASE_HEDGING_RULE`, appended to the
+   prompt only when a secondary XGRAPH fetch actually contributed
+   cross-case evidence.
+
+**Tests**: `tests/test_router.py` gained coverage for `secondary_methods`
+parsing (valid/invalid/self-reference/cap-at-2/absent-defaults-to-empty,
+parity on the exception-fallback dict, and the deterministic-override
+short-circuit) and the SQL-override compound-exception guard (both clause
+orders, plus a guard that an ordinary single-intent SQL query is
+unaffected). `tests/test_orchestrator.py` gained compound-merge tests
+(SQL+GRAPH, GRAPH+SQL, GRAPH_HYBRID+XGRAPH with `cross_case_ids` reaching
+the verifier) and explicit regression guards: a GRAPH route with no
+`secondary_methods` key fetches nothing extra, and an XGRAPH primary route
+ignores a (should-never-happen) `secondary_methods` value entirely,
+preserving its structurally-separate contract. Full backend suite green.
 
 ### Note on evidence quality — different from Modules 1-6
 The first six modules were each reproduced against live data or a live

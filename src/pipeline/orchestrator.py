@@ -48,6 +48,43 @@ _FINAL_PROMPT_PATH = (
 )
 _FINAL_PROMPT_TEMPLATE = _FINAL_PROMPT_PATH.read_text(encoding="utf-8")
 
+# [findings.md Module 7] final_response.txt (above) has no hedging-word
+# instruction at all — it was never designed to receive a low-confidence
+# CROSS-CASE citation, only this case's own evidence. verify_grounding()'s
+# _check_hedging() (src/pipeline/verifier.py) enforces the SAME hedge-word
+# requirement regardless of which prompt generated the answer — XGRAPH's
+# own dedicated prompt (prompts/cross_case_response.txt, rule 5b) already
+# satisfies it because it carries this exact instruction; GRAPH/
+# GRAPH_HYBRID's shared final_response.txt never needed to until an
+# XGRAPH "secondary_methods" fetch (see _fetch_secondary_evidence()) can
+# now put a low-confidence cross-case chunk into their evidence too.
+# Live-confirmed: without this, the model correctly cited a low-confidence
+# supplemental XGRAPH chunk but with no hedge word, and the deterministic
+# verifier check discarded the whole answer for it — appended to
+# system_prompt ONLY when a secondary XGRAPH fetch actually contributed
+# cross-case evidence (graph_cross_case_ids/hybrid_cross_case_ids
+# non-empty), never unconditionally, so every ordinary GRAPH/GRAPH_HYBRID
+# answer's prompt is completely unaffected.
+_CROSS_CASE_HEDGING_RULE = (
+    "\n\nADDITIONAL RULE — hedging a supplemental cross-case citation: "
+    "some of the evidence above is a supplemental cross-case chunk (marked "
+    "with a [CASE-ID: ...] tag different from this case's own evidence, and "
+    "possibly an entity-resolution confidence score). If you cite one of "
+    "those with a confidence score below 0.85 (marked \"LOW, must be "
+    "hedged\"), your sentence citing it MUST contain one of these words — "
+    "in whichever language you are answering in:\n"
+    "  English: unconfirmed, possible, pending, not yet verified, under "
+    "review, flagged, uncertain, may be\n"
+    "  Urdu: غیر تصدیق شدہ، ممکنہ، ممکن ہے، زیر التواء، تصدیق نہیں ہوئی، "
+    "زیر جائزہ، زیر غور، نشان زد، غیر یقینی، ہو سکتا ہے\n"
+    "This is checked mechanically after you answer — a citation to a "
+    "LOW-confidence cross-case document with none of these words nearby "
+    "causes your entire response to be discarded. A document with no "
+    "confidence score shown, or a score at/above 0.85 (including every "
+    "chunk that is this case's own evidence, not cross-case), needs no "
+    "hedge word."
+)
+
 # Load DIRECT-route and WEB-route response prompt templates
 _DIRECT_PROMPT_PATH = (
     Path(__file__).resolve().parent.parent.parent / "prompts" / "direct_response.txt"
@@ -235,6 +272,163 @@ def _dedupe_chunks_by_text(chunks: list[dict]) -> list[dict]:
     return deduped
 
 
+# [findings.md Module 7 — no general adaptive multi-method retrieval]
+# A genuinely compound question needs two DIFFERENT retrieval methods
+# merged into one answer (e.g. "what is this weapon's condition, AND what
+# PPC section covers unlicensed possession?" needs GRAPH + SQL). Before
+# this, the router picked exactly one route and whichever method wasn't
+# picked contributed nothing — confirmed by direct code inspection of the
+# old if/elif dispatch chain, and then measured live: a 6-question
+# mini-sweep against the real corpus found this exact failure shape
+# (one route ran, needed a second, the query fell through to an honest
+# abstention instead of a merged answer).
+#
+# This function fetches evidence for whatever ADDITIONAL methods
+# route_query() flagged in "secondary_methods" (router.py), so the
+# within-case route that actually ran (SQL/GRAPH/GRAPH_HYBRID — the only
+# three that ever call this; see the scoping check in process_query()
+# right after route_result is parsed) can fold that evidence into its own
+# answer instead of dropping it.
+#
+# Deliberately does NOT touch XGRAPH/XAGG/XNETWORK's own dispatch: those
+# three keep their existing structurally-separate, never-blended-with-
+# case-scoped-evidence, never-falls-back-to-RAG contract exactly as it
+# was — this function only ever RUNS their retrieval as a one-off
+# supplemental fetch from inside a within-case branch, it never changes
+# what happens when XGRAPH/XAGG/XNETWORK are themselves the primary route.
+#
+# Every individual method fetch is independently best-effort: a secondary
+# fetch failing (e.g. no SQL match, a transient graph error) must never
+# take down a primary answer that already succeeded, so each is wrapped
+# and logged, not raised.
+async def _fetch_secondary_evidence(
+    secondary_methods: list[str],
+    rewritten_query: str,
+    target_entity,
+    case_id,
+    gateway,
+    user_id,
+    user_role,
+    jurisdiction_case_ids,
+) -> tuple[list[dict], list[str]]:
+    """
+    Returns:
+        supplemental_chunks: pseudo-chunks in the same {"id", "text",
+            "metadata"} shape every route already builds/consumes. Callers
+            append these to their OWN primary chunk list and format/cite
+            the combined list as one call — deliberately NOT pre-formatted
+            into "[Document N]" text here, since this function has no idea
+            how many documents the caller's own primary evidence already
+            numbered 1..k; numbering supplemental chunks independently
+            here would produce "[Document 1]" text describing what's
+            actually chunk k+1 in the combined list verify_grounding()
+            checks against. Each caller decides how to combine (GRAPH/
+            GRAPH_HYBRID: concatenate onto `reranked` and format once;
+            SQL: format separately and renumber by its own row count —
+            see the SQL branch's own comment).
+        cross_case_ids: case ids touched by an "XGRAPH" secondary fetch
+            only — pass through to verify_grounding()'s own cross_case_ids
+            param so its leakage check (src/pipeline/verifier.py's
+            _check_leakage()) doesn't flag a legitimately-cited chunk from
+            another case as leakage. Always [] unless "XGRAPH" was fetched
+            and found something — SQL/GRAPH/XAGG chunks never carry a
+            foreign case_id (SQL/XAGG chunks carry no case_id at all;
+            GRAPH is already scoped to the same case_id as the primary
+            route), so they need no allowlist entry.
+    """
+    chunks: list[dict] = []
+    cross_case_ids: list[str] = []
+
+    for method in secondary_methods:
+        try:
+            if method == "SQL":
+                params = await extract_sql_params(rewritten_query)
+                db_results = await gateway.query_police_reference_data(
+                    category=(params or {}).get("category"),
+                    subject=(params or {}).get("subject"),
+                    section_ref=(params or {}).get("section_ref"),
+                )
+                if db_results:
+                    chunks.extend(
+                        {"id": f"secondary-sql-row-{idx}", "text": str(row),
+                         "metadata": {"source": f"police_reference_data row {idx}"}}
+                        for idx, row in enumerate(db_results, start=1)
+                    )
+
+            elif method == "GRAPH":
+                graph_result = await retrieve_graph(
+                    rewritten_query, target_entity, case_id, cross_case=False,
+                    max_hops=2, user_id=user_id, user_role=user_role,
+                )
+                chunks.extend(_dedupe_chunks_by_text(graph_result["chunks"]))
+
+            elif method == "XGRAPH":
+                xgraph_result = await retrieve_graph(
+                    rewritten_query, target_entity, case_id=None, cross_case=True,
+                    max_hops=2, user_id=user_id, user_role=user_role,
+                    jurisdiction_case_ids=jurisdiction_case_ids,
+                )
+                xgraph_chunks = xgraph_result["chunks"]
+                if xgraph_chunks:
+                    chunks.extend(xgraph_chunks)
+                    # These chunks already carry their own case_id in
+                    # metadata (surfaced as "[CASE-ID: ...]" by
+                    # _format_documents_for_prompt), so they read as
+                    # visibly distinct from the primary case's own
+                    # evidence without any extra wrapper text needed here.
+                    cross_case_ids.extend(sorted({
+                        (c.get("metadata") or {}).get("case_id")
+                        for c in xgraph_chunks if (c.get("metadata") or {}).get("case_id")
+                    }))
+
+            elif method == "XAGG":
+                agg_result = await run_aggregate(
+                    rewritten_query, target_entity, gateway, user_id=user_id,
+                    user_role=user_role, jurisdiction_case_ids=jurisdiction_case_ids,
+                )
+                if agg_result["kind"] == "graph_recurrence":
+                    lines = [
+                        f"- {r['name']} ({agg_result['entity_type']}): appears in "
+                        f"{r['case_count']} cases — {', '.join(r['case_ids'])}"
+                        for r in agg_result["results"]
+                    ]
+                elif agg_result["kind"] == "case_listing":
+                    lines = [
+                        f"- {c['case_id']} (FIR {c['fir_number'] or 'N/A'}): "
+                        f"{c['crime_category'] or 'uncategorized'}"
+                        for c in agg_result["cases"]
+                    ]
+                elif agg_result["kind"] == "total_count":
+                    lines = [f"Total cases: {agg_result['total_cases']}"]
+                else:
+                    lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result.get("counts", [])]
+                aggregate_text = "\n".join(lines)
+                if aggregate_text:
+                    chunks.append({
+                        "id": "secondary-xagg-aggregate", "text": aggregate_text,
+                        "metadata": {"source": "cross-case aggregate"},
+                    })
+        except Exception as e:
+            logger.error("Secondary evidence fetch failed for method=%s: %s", method, e)
+            continue
+
+    return chunks, cross_case_ids
+
+
+def _renumber_documents(formatted_text: str, offset: int) -> str:
+    """
+    Shift every "[Document N]" label in an independently-formatted block
+    (numbered 1..k by _format_documents_for_prompt) by `offset`, so it
+    matches that block's real position when it's appended after `offset`
+    other already-numbered documents in the SAME combined prompt/citation
+    list — used by the SQL branch, whose primary evidence (police_reference_data
+    rows) is NOT built via _format_documents_for_prompt, so a supplemental
+    block can't just be concatenated into one shared numbering pass the
+    way GRAPH/GRAPH_HYBRID do it.
+    """
+    return re.sub(r"\[Document (\d+)\]", lambda m: f"[Document {int(m.group(1)) + offset}]", formatted_text)
+
+
 # [Module 3 fix, findings.md] GRAPH/GRAPH_HYBRID's cross_rerank() cut used
 # to share config.TOP_K_RERANK (5) with RAG's whole-corpus search, despite
 # graph-derived evidence already being tightly scoped to one case_id and
@@ -256,7 +450,21 @@ _GRAPH_ANSWER_RERANK_TOP_K = 20
 # longer, more verbose completions (per-item CNIC/phone/role detail across
 # several distinct people). A larger budget for these two routes only —
 # not a change to call_llm()'s global default.
-_GRAPH_ANSWER_MAX_TOKENS = 2000
+#
+# [findings.md Module 7] Bumped 2000 -> 2600: a compound answer that also
+# synthesizes secondary_methods evidence (see _fetch_secondary_evidence()
+# below) has strictly more source material to cite across than a single-
+# method answer did when this ceiling was last tuned — same reasoning as
+# the original bump, just for the new, larger evidence set a compound
+# query can now produce.
+_GRAPH_ANSWER_MAX_TOKENS = 2600
+
+# [findings.md Module 7] SQL's own generation call had no explicit
+# max_tokens override before (inheriting call_llm()'s global default of
+# 1000, sized for a short structured-lookup answer) — enough for that,
+# but not for a compound SQL+secondary answer that also has to cite a
+# GRAPH/XGRAPH/XAGG evidence block alongside the reference-table rows.
+_SQL_ANSWER_MAX_TOKENS = 1600
 
 
 def _filter_allowed_domains(sources: list[dict]) -> list[dict]:
@@ -619,6 +827,15 @@ async def process_query(
         # see src/retrieval/graph_retriever.py and src/pipeline/xagg.py.
 
         target_entity = route_result.get("target_entity")
+        # [findings.md Module 7] Adaptive multi-method retrieval — see
+        # _fetch_secondary_evidence()'s own docstring below. Scoped to
+        # within-case primary routes only: XGRAPH/XAGG/XNETWORK's
+        # existing structurally-separate, never-blended cross-case
+        # contract is untouched regardless of what the router returns
+        # here (this is the ONE place that scoping is enforced).
+        secondary_methods = route_result.get("secondary_methods") or []
+        if route_str not in ("SQL", "GRAPH", "GRAPH_HYBRID") or not isinstance(secondary_methods, list):
+            secondary_methods = []
         router_confidence = route_result.get("confidence")
         # [Milestone E1] station/district — see router.py's route_query()
         # docstring/schema. Only ever non-null for XGRAPH/XAGG/XNETWORK
@@ -637,6 +854,7 @@ async def process_query(
         output_format = "chat"
         case_scope = "within_case"
         target_entity = None
+        secondary_methods = []
         router_confidence = "low"
         router_station = None
         router_district = None
@@ -789,6 +1007,41 @@ async def process_query(
                 route_str = "RAG"
             else:
                 yield event("retrieval", "done", f"Found {len(db_results)} rows", elapsed_ms)
+
+                # [findings.md Module 7] Adaptive multi-method retrieval —
+                # a compound question the router flagged (e.g. "what does
+                # 379 PPC cover, and what item was stolen in this case?")
+                # needs case-specific evidence SQL's reference table has no
+                # path to on its own. See _fetch_secondary_evidence()'s
+                # docstring. No-op (empty loop, no LLM calls, no behavior
+                # change) whenever secondary_methods is empty — the
+                # overwhelming majority of SQL-routed queries.
+                sql_cross_case_ids: list[str] = []
+                supplemental_chunks: list[dict] = []
+                supplemental_text = ""
+                if secondary_methods:
+                    yield event("retrieval", "active", f"Fetching supplemental evidence ({', '.join(secondary_methods)})...")
+                    supplemental_chunks, sql_cross_case_ids = await _fetch_secondary_evidence(
+                        secondary_methods, rewritten_query, target_entity, case_id,
+                        gateway, user_id, user_role, jurisdiction_case_ids,
+                    )
+                    yield event("retrieval", "done", f"Supplemental evidence: {len(supplemental_chunks)} item(s)")
+                    if supplemental_chunks:
+                        # db_text below is a raw, un-numbered list repr (the
+                        # model infers row position itself — this is the
+                        # pre-existing, already-working SQL prompt design,
+                        # untouched here) — but the supplemental block DOES
+                        # need explicit "[Document N]" markers, continuing
+                        # the numbering after the len(db_results) SQL rows,
+                        # so [Document N] means the same thing in the prompt
+                        # as it does in sql_chunks below (position N-1).
+                        supplemental_text = (
+                            "\n\nAdditional evidence from other retrieval methods "
+                            "(continuing the same [Document N] citation numbering "
+                            f"after the {len(db_results)} database record(s) above):\n"
+                            + _renumber_documents(_format_documents_for_prompt(supplemental_chunks), offset=len(db_results))
+                        )
+
                 yield event("response", "active", "Generating SQL-grounded response...")
 
                 db_text = str(db_results)
@@ -797,22 +1050,32 @@ async def process_query(
                     "You are a helpful police reference assistant. Answer the user's question accurately "
                     "using ONLY the following database records:\n"
                     f"{db_text}\n\n"
-                    "After every fact, cite the database row it came from as [Document N], "
-                    "where N is the 1-based position of that row in the list above.\n\n"
+                    + (f"{supplemental_text}\n\n" if supplemental_text else "")
+                    + "After every fact, cite the database row or document it came from as [Document N], "
+                    "where N is the 1-based position of that item in the combined evidence above "
+                    "(database records first, then any additional evidence).\n\n"
+                    # [findings.md Module 7] see _CROSS_CASE_HEDGING_RULE's own
+                    # comment — only appended when a secondary XGRAPH fetch
+                    # actually contributed cross-case evidence.
+                    + (_CROSS_CASE_HEDGING_RULE if sql_cross_case_ids else "")
                     + _personalization_block()
                     + (f"\n\nConversation history:\n{history_text}" if history_text else "")
                 )
 
                 # Build fake chunks for the verifier so it can check
-                # [Document N] citations against actual row content.
+                # [Document N] citations against actual row content. Any
+                # supplemental_chunks are appended AFTER the SQL rows, in
+                # the same order they're described in sql_system above, so
+                # [Document N] numbering stays consistent between the
+                # prompt and what the verifier checks it against.
                 sql_chunks = [
                     {"id": f"sql-row-{idx}", "text": str(row),
                      "metadata": {"source": f"police_reference_data row {idx}"}}
                     for idx, row in enumerate(db_results, start=1)
-                ]
+                ] + supplemental_chunks
 
                 t0_resp = time.monotonic()
-                full_response = await call_llm(sql_system, rewritten_query, llm_mode=llm_mode, role=_generation_role(preferred_language))
+                full_response = await call_llm(sql_system, rewritten_query, llm_mode=llm_mode, role=_generation_role(preferred_language), max_tokens=_SQL_ANSWER_MAX_TOKENS)
                 elapsed_ms_resp = int((time.monotonic() - t0_resp) * 1000)
 
                 _spawn(asyncio.to_thread(pipeline_logger.log_llm_call,
@@ -823,7 +1086,8 @@ async def process_query(
                 # ── Verify before delivering ──────────────────────────────
                 t0_verify = time.monotonic()
                 verification = await verify_grounding(
-                    answer=full_response, cited_chunks=sql_chunks, case_id=case_id
+                    answer=full_response, cited_chunks=sql_chunks, case_id=case_id,
+                    cross_case_ids=sql_cross_case_ids or None,
                 )
                 verifier_ms = int((time.monotonic() - t0_verify) * 1000)
                 verifier_passed = verification.get("grounded", False) and not verification.get("off_topic", False)
@@ -1035,6 +1299,37 @@ async def process_query(
                 # case awareness at all.
                 reranked = await _case_record_chunk(gateway, case_id) + reranked
 
+                # [findings.md Module 7] Adaptive multi-method retrieval —
+                # see _fetch_secondary_evidence()'s docstring. Deliberately
+                # fetched BEFORE the evaluator, not just before generation:
+                # live-confirmed the evaluator can judge the PRIMARY
+                # route's evidence alone as "not relevant" for exactly a
+                # compound question (it only covers half of what was
+                # asked), which used to fall back to RAG before the
+                # secondary evidence ever got a chance to fill the other
+                # half — shutting out the compound mechanism precisely
+                # when it was needed most. Evaluating the MERGED evidence
+                # gives the compound question a fair chance to be judged
+                # sufficient. Merged straight into `reranked` so the ONE
+                # downstream _format_documents_for_prompt()/
+                # verify_grounding() call numbers and cites primary and
+                # supplemental evidence together consistently (an XGRAPH
+                # secondary's chunks already carry their own case_id,
+                # surfaced as "[CASE-ID: ...]" by that same formatter, so
+                # they read as visibly distinct from this case's own
+                # evidence with no extra wrapper text needed). No-op
+                # whenever secondary_methods is empty.
+                graph_cross_case_ids: list[str] = []
+                if secondary_methods:
+                    yield event("retrieval", "active", f"Fetching supplemental evidence ({', '.join(secondary_methods)})...")
+                    supplemental_chunks, graph_cross_case_ids = await _fetch_secondary_evidence(
+                        secondary_methods, rewritten_query, target_entity, case_id,
+                        gateway, user_id, user_role, jurisdiction_case_ids,
+                    )
+                    if supplemental_chunks:
+                        reranked = reranked + supplemental_chunks
+                    yield event("retrieval", "done", f"Supplemental evidence: {len(supplemental_chunks)} item(s)")
+
                 yield event("evaluator", "active")
                 try:
                     evaluation = await evaluate_relevance(user_message, rewritten_query, reranked)
@@ -1063,6 +1358,11 @@ async def process_query(
                     # to fill, so the old .format(documents=..., ...) call here
                     # silently dropped all of it and the LLM got zero evidence.
                     system_prompt = _FINAL_PROMPT_TEMPLATE.format(preferred_language=preferred_language)
+                    if graph_cross_case_ids:
+                        # [findings.md Module 7] see _CROSS_CASE_HEDGING_RULE's
+                        # own comment — only appended when a secondary XGRAPH
+                        # fetch actually contributed cross-case evidence.
+                        system_prompt = system_prompt + _CROSS_CASE_HEDGING_RULE
                     grounded_user_message = _build_grounded_user_message(
                         documents_text, project_memory_text, grounded_user_context,
                         history_text, user_message,
@@ -1078,7 +1378,8 @@ async def process_query(
                     # ── Verify before delivering ──────────────────────────
                     t0_verify = time.monotonic()
                     verification = await verify_grounding(
-                        answer=full_response, cited_chunks=reranked, case_id=case_id
+                        answer=full_response, cited_chunks=reranked, case_id=case_id,
+                        cross_case_ids=graph_cross_case_ids or None,
                     )
                     verifier_ms = int((time.monotonic() - t0_verify) * 1000)
                     verifier_passed = verification.get("grounded", False) and not verification.get("off_topic", False)
@@ -1219,6 +1520,23 @@ async def process_query(
                 # itself count toward relevance, not just toward generation.
                 reranked = await _case_record_chunk(gateway, case_id) + reranked
 
+                # [findings.md Module 7] Adaptive multi-method retrieval —
+                # see the identical comment (and its full rationale for why
+                # this runs BEFORE the evaluator, not just before
+                # generation) in the GRAPH branch above, and
+                # _fetch_secondary_evidence()'s docstring. No-op whenever
+                # secondary_methods is empty.
+                hybrid_cross_case_ids: list[str] = []
+                if secondary_methods:
+                    yield event("retrieval", "active", f"Fetching supplemental evidence ({', '.join(secondary_methods)})...")
+                    supplemental_chunks, hybrid_cross_case_ids = await _fetch_secondary_evidence(
+                        secondary_methods, rewritten_query, target_entity, case_id,
+                        gateway, user_id, user_role, jurisdiction_case_ids,
+                    )
+                    if supplemental_chunks:
+                        reranked = reranked + supplemental_chunks
+                    yield event("retrieval", "done", f"Supplemental evidence: {len(supplemental_chunks)} item(s)")
+
                 yield event("evaluator", "active")
                 try:
                     evaluation = await evaluate_relevance(user_message, rewritten_query, reranked)
@@ -1243,6 +1561,11 @@ async def process_query(
                     # USER turn — see the identical comment in the GRAPH branch
                     # above and _build_grounded_user_message's docstring.
                     system_prompt = _FINAL_PROMPT_TEMPLATE.format(preferred_language=preferred_language)
+                    if hybrid_cross_case_ids:
+                        # [findings.md Module 7] see the identical comment in
+                        # the GRAPH branch above and _CROSS_CASE_HEDGING_RULE's
+                        # own comment.
+                        system_prompt = system_prompt + _CROSS_CASE_HEDGING_RULE
                     grounded_user_message = _build_grounded_user_message(
                         documents_text, project_memory_text, grounded_user_context,
                         history_text, user_message,
@@ -1258,7 +1581,8 @@ async def process_query(
                     # ── Verify before delivering ──────────────────────────
                     t0_verify = time.monotonic()
                     verification = await verify_grounding(
-                        answer=full_response, cited_chunks=reranked, case_id=case_id
+                        answer=full_response, cited_chunks=reranked, case_id=case_id,
+                        cross_case_ids=hybrid_cross_case_ids or None,
                     )
                     verifier_ms = int((time.monotonic() - t0_verify) * 1000)
                     verifier_passed = verification.get("grounded", False) and not verification.get("off_topic", False)

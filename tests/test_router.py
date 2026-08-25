@@ -351,3 +351,137 @@ def test_every_few_shot_example_output_is_valid_json_with_station_and_district()
         parsed = json.loads(raw)  # must not raise
         assert "station" in parsed, f"missing 'station' key: {raw[:100]}..."
         assert "district" in parsed, f"missing 'district' key: {raw[:100]}..."
+
+
+# ── secondary_methods [findings.md Module 7 — adaptive multi-method
+# retrieval] ──────────────────────────────────────────────────────────────
+#
+# An OPTIONAL, additive field: every test above this section predates it
+# and returns LLM JSON with no "secondary_methods" key at all — the single
+# most important regression this section guards is that ALL of those
+# existing single-method classifications still come back with
+# secondary_methods == [] (the same as the field never having existed),
+# never breaking or altering their own "route" value.
+
+async def test_secondary_methods_absent_defaults_to_empty_list(monkeypatch):
+    """The overwhelming common case: no compound need, key omitted entirely."""
+    result = await _route(monkeypatch, json.dumps({"route": "GRAPH"}))
+    assert result["secondary_methods"] == []
+    assert result["route"] == "GRAPH"  # unaffected by the new field's presence
+
+
+async def test_secondary_methods_parses_valid_values(monkeypatch):
+    result = await _route(monkeypatch, json.dumps({"route": "GRAPH", "secondary_methods": ["SQL"]}))
+    assert result["secondary_methods"] == ["SQL"]
+
+
+async def test_secondary_methods_is_case_insensitive(monkeypatch):
+    result = await _route(monkeypatch, json.dumps({"route": "GRAPH", "secondary_methods": ["sql"]}))
+    assert result["secondary_methods"] == ["SQL"]
+
+
+async def test_secondary_methods_drops_unrecognized_values(monkeypatch):
+    result = await _route(monkeypatch, json.dumps({
+        "route": "GRAPH", "secondary_methods": ["SQL", "NOT_A_REAL_METHOD", "WEB"],
+    }))
+    assert result["secondary_methods"] == ["SQL"]
+
+
+async def test_secondary_methods_drops_self_reference(monkeypatch):
+    """A route can't be its own secondary method — the router's own primary
+    choice already covers whatever that method retrieves."""
+    result = await _route(monkeypatch, json.dumps({
+        "route": "SQL", "secondary_methods": ["SQL", "GRAPH"],
+    }))
+    assert result["secondary_methods"] == ["GRAPH"]
+
+
+async def test_secondary_methods_capped_at_two(monkeypatch):
+    result = await _route(monkeypatch, json.dumps({
+        "route": "GRAPH", "secondary_methods": ["SQL", "XGRAPH", "XAGG"],
+    }))
+    assert len(result["secondary_methods"]) == 2
+    assert result["secondary_methods"] == ["SQL", "XGRAPH"]
+
+
+async def test_secondary_methods_not_a_list_defaults_to_empty(monkeypatch):
+    result = await _route(monkeypatch, json.dumps({"route": "GRAPH", "secondary_methods": "SQL"}))
+    assert result["secondary_methods"] == []
+
+
+async def test_secondary_methods_non_string_items_are_dropped(monkeypatch):
+    result = await _route(monkeypatch, json.dumps({"route": "GRAPH", "secondary_methods": [123, "SQL", None]}))
+    assert result["secondary_methods"] == ["SQL"]
+
+
+async def test_secondary_methods_empty_on_json_parse_failure(monkeypatch):
+    """The exception-fallback dict (malformed/unparseable LLM output) must
+    carry the same field, at parity with the success dict, so callers never
+    have to special-case a missing key."""
+    async def fake_call_llm(system_prompt, user_message, **kwargs):
+        return "not valid json"
+
+    monkeypatch.setattr(router, "call_llm", fake_call_llm)
+    result = await router.route_query("some query")
+    assert result["route"] == "RAG"
+    assert result["secondary_methods"] == []
+
+
+async def test_sql_override_still_fires_for_an_ordinary_single_intent_lookup(monkeypatch):
+    """
+    Regression guard: the compound exception below must NOT weaken the
+    override for the overwhelming majority of SQL-shaped queries that have
+    no compound "and ... this X" language — this is the exact query the
+    override's own comment cites as the reason it exists (LLM reliably
+    misclassified it live).
+    """
+    monkeypatch.setattr(router, "call_llm", _no_llm_call)
+    result = await router.route_query("What PPC section covers mobile phone theft?")
+    assert result["route"] == "SQL"
+
+
+async def test_sql_override_skips_for_a_compound_question_naming_this_x_first(monkeypatch):
+    """
+    [findings.md Module 7] The override's own trigger vocabulary
+    ("PPC section") can appear as just the SQL HALF of a genuinely
+    compound question — this is this module's own live-tested example,
+    phrased with the case-specific "this weapon" clause FIRST. Must fall
+    through to the LLM classifier (only it can set secondary_methods),
+    not short-circuit to a SQL-only route that silently drops the other
+    half.
+    """
+    async def fake_call_llm(system_prompt, user_message, **kwargs):
+        return json.dumps({"route": "GRAPH", "secondary_methods": ["SQL"]})
+
+    monkeypatch.setattr(router, "call_llm", fake_call_llm)
+    result = await router.route_query(
+        "What is this weapon's condition, and what PPC section covers "
+        "illegal possession of an unlicensed firearm?"
+    )
+    assert result["route"] == "GRAPH", "must reach the LLM classifier, not short-circuit to SQL"
+    assert result["secondary_methods"] == ["SQL"]
+
+
+async def test_sql_override_skips_for_a_compound_question_naming_this_x_second(monkeypatch):
+    """Same guard, other clause order — 'and' before 'this weapon'."""
+    async def fake_call_llm(system_prompt, user_message, **kwargs):
+        return json.dumps({"route": "SQL", "secondary_methods": ["GRAPH"]})
+
+    monkeypatch.setattr(router, "call_llm", fake_call_llm)
+    result = await router.route_query(
+        "What does 379 PPC cover, and what item was stolen in this case?"
+    )
+    assert result["route"] == "SQL"
+    assert result["secondary_methods"] == ["GRAPH"]
+
+
+async def test_secondary_methods_present_on_every_deterministic_override(monkeypatch):
+    """The four regex fast-paths (SQL/XNETWORK/XAGG/XGRAPH) bypass the LLM
+    entirely and never set this key — callers must still get a safe []
+    via .get(...) rather than a missing key. Guards that route_query()'s
+    caller-facing contract (always a "secondary_methods" list) holds even
+    on the short-circuit path, not just the LLM path tested above."""
+    monkeypatch.setattr(router, "call_llm", _no_llm_call)
+    result = await router.route_query("What PPC section covers mobile phone theft?")
+    assert result["route"] == "SQL"
+    assert result.get("secondary_methods", []) == []
