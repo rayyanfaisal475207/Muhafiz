@@ -178,12 +178,14 @@ def run_pipeline(monkeypatch, patched_gateway):
         retrieve_graph_calls = []
         run_aggregate_calls = []
         jurisdiction_case_ids_calls = []
+        target_entity_calls = []
 
         async def fake_retrieve_graph(_query, _target_entity, case_id=None, cross_case=False,
                                        max_hops=2, user_id=None, user_role="investigator",
                                        jurisdiction_case_ids=None):
             retrieve_graph_calls.append(user_role)
             jurisdiction_case_ids_calls.append(jurisdiction_case_ids)
+            target_entity_calls.append(_target_entity)
             return graph_result if graph_result is not None else default_graph_result
 
         async def fake_run_aggregate(_query, _target_entity, _gateway, user_id=None, user_role="investigator",
@@ -257,6 +259,7 @@ def run_pipeline(monkeypatch, patched_gateway):
         _run.retrieve_graph_calls = retrieve_graph_calls
         _run.run_aggregate_calls = run_aggregate_calls
         _run.jurisdiction_case_ids_calls = jurisdiction_case_ids_calls
+        _run.target_entity_calls = target_entity_calls
         return events, patched_gateway
 
     return _run
@@ -1698,6 +1701,43 @@ async def test_graph_hybrid_route_with_xgraph_secondary_passes_cross_case_ids_to
     cited_ids = {c["id"] for c in captured_kwargs.get("cited_chunks", [])}
     assert "g-xgraph" in cited_ids, "the secondary XGRAPH chunk must be part of the cited evidence, not dropped"
     assert "CASE-777" in _text_of(events)
+
+
+async def test_xgraph_secondary_fetch_seeds_from_primary_graphs_own_person_entity(run_pipeline):
+    """
+    [Module 7 follow-up, findings.md] router's target_entity is null for
+    the common compound-question shape ("the accused" — descriptive, not
+    a literal name), which used to leave the secondary XGRAPH fetch with
+    nothing to seed from but that same null value. This must instead
+    reuse the PRIMARY route's own already-resolved Person entity name —
+    never an Officer/Vehicle/other non-Person entity also present in
+    seed_entities (graph_retriever's case-wide enumeration seeds all of
+    those alongside Person).
+    """
+    events, _ = await run_pipeline(
+        route='{"route": "GRAPH", "case_scope": "within_case", "target_entity": null, '
+              '"output_format": "chat", "secondary_methods": ["XGRAPH"]}',
+        message="Who is the investigating officer, and has the accused been in any other case?",
+        case_id="CASE-214",
+        answer="The officer is Muhammad Awais; the accused also appears in CASE-891.",
+        graph_result={
+            "chunks": [_graph_chunk(chunk_id="g-xgraph", case_id="CASE-891")],
+            "hop_count": 1, "compounded_confidence": 0.9,
+            "seed_entities": [
+                {"entity_id": "OFFICER-1", "type": "Officer", "name": "Muhammad Awais"},
+                {"entity_id": "PERSON-1", "type": "Person", "name": "Shahzaib"},
+            ],
+            "unconfirmed_links": [],
+        },
+    )
+
+    assert len(run_pipeline.target_entity_calls) == 2, "primary GRAPH call + secondary XGRAPH call"
+    primary_target, secondary_target = run_pipeline.target_entity_calls
+    assert primary_target is None, "primary GRAPH call still uses the router's own target_entity (null here)"
+    assert secondary_target == "Shahzaib", (
+        "secondary XGRAPH fetch must seed from the primary result's own Person entity, "
+        "not the Officer entity also present in seed_entities, and not stay null"
+    )
 
 
 async def test_xgraph_primary_route_ignores_secondary_methods(run_pipeline):

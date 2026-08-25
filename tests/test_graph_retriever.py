@@ -558,6 +558,43 @@ async def test_confirmed_same_as_never_leaks_another_case_within_case_traversal(
     assert "c5b" in chunk_ids, "the seed entity's own case chunk must still be returned"
 
 
+async def test_single_entity_belonging_to_two_cases_never_leaks_the_other_cases_evidence(fake_graph, fake_chunks):
+    """
+    [Module 7 follow-up, findings.md] A DIFFERENT leak shape from the
+    SAME_AS-fold test above: a single canonical entity_id (identity
+    resolution has ALREADY merged it — no SAME_AS edge involved at all)
+    with TWO real BELONGS_TO_CASE edges, because the same real person
+    genuinely recurs across two cases. Live-confirmed against the real
+    corpus: with no literal name/CNIC/phone in the query (target_entity
+    stays null for a descriptive reference like "the accused" — the
+    common shape for a compound question), retrieve_graph() seeds via
+    _find_all_case_entities(case_id), which correctly includes this
+    entity (it DOES belong to the active case) — but _fetch_appears_in()
+    is case-agnostic and, before this fix, returned ALL of that entity's
+    evidence unfiltered, including its OTHER case's document. Caught only
+    downstream by verify_grounding()'s leakage check (rejecting the whole
+    answer), never by retrieve_graph() itself — contradicting this
+    module's own docstring ("ignored entirely on the within-case path,
+    which is always scoped to case_id regardless").
+    """
+    fake_graph.add_node("P-777", "Person", canonical_name="Shahzaib")
+    fake_graph.add_case("P-777", "CASE-214")
+    fake_graph.add_case("P-777", "CASE-891")  # the SAME node, genuinely in both cases
+    fake_chunks["c-214"] = {"id": "c-214", "text": "Shahzaib named in CASE-214.", "metadata": {"case_id": "CASE-214"}}
+    fake_graph.add_appears_in("P-777", "c-214", confidence=1.0, doc_case_id="CASE-214")
+    fake_chunks["c-891"] = {"id": "c-891", "text": "Shahzaib named in CASE-891.", "metadata": {"case_id": "CASE-891"}}
+    fake_graph.add_appears_in("P-777", "c-891", confidence=1.0, doc_case_id="CASE-891")
+
+    result = await gr.retrieve_graph(
+        "who is the investigating officer, and has the accused been in any other case?",
+        None, case_id="CASE-214", cross_case=False,
+    )
+
+    chunk_ids = {c["id"] for c in result["chunks"]}
+    assert "c-891" not in chunk_ids, "the other case's evidence for a shared entity must never leak into a within-case query"
+    assert "c-214" in chunk_ids, "the seed entity's own-case evidence must still be returned"
+
+
 async def test_pending_same_as_is_surfaced_but_never_followed_as_identity(fake_graph, fake_chunks):
     """
     The P-006 flagship rule: a pending/flagged_unverified SAME_AS must
