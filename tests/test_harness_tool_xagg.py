@@ -94,6 +94,32 @@ async def test_case_listing_and_relational_aggregate_render(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_counts_by_act_renders_as_additional_breakdown(monkeypatch):
+    """[Legal-code semantic layer] Kept in sync with orchestrator.py's own
+    identical rendering — see _render_aggregate_text()'s own comment."""
+    async def _run_aggregate(*a, **kw):
+        return {
+            "kind": "relational_aggregate", "group_by": "crime_category",
+            "counts": [
+                {"key": "PPC, Arms Ordinance 1965", "count": 21},
+                {"key": "CNSA 1997, Arms Ordinance 1965", "count": 8},
+            ],
+            "counts_by_act": [
+                {"key": "Arms Ordinance 1965", "count": 29},
+                {"key": "PPC", "count": 21},
+                {"key": "CNSA 1997", "count": 8},
+            ],
+        }
+
+    monkeypatch.setattr(xagg_mod, "run_aggregate", _run_aggregate)
+    result = await xagg_tool(XAggToolInput(query_text="how many arms ordinance cases", execution=_execution()))
+
+    assert "PPC, Arms Ordinance 1965: 21 cases" in result.raw_summary_text
+    assert "Breakdown by individual legal code" in result.raw_summary_text
+    assert "Arms Ordinance 1965: 29 cases" in result.raw_summary_text
+
+
+@pytest.mark.asyncio
 async def test_permission_error_maps_to_denied(monkeypatch):
     async def _run_aggregate(*a, **kw):
         raise PermissionError("Cross-case aggregate queries require supervisor role or higher.")

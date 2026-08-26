@@ -24,6 +24,7 @@ from typing import Optional
 
 from src.graph import age_client
 from src.database.postgres import current_cross_case, current_rls_active
+from src.ingestion.muhafiz_cases import split_crime_category
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,42 @@ _CATEGORY_KEYWORDS = (
     "chori", "dhoka",
     "چوری", "ڈکیتی", "نقب زنی", "دھوکہ دہی", "قسم",
 )
+# [Legal-code semantic layer] Additional per-act category keywords, derived
+# ONLY from a real, sourced act-level description in police_reference_data
+# (category="legal_code_act", populated by scripts/load_legal_code_acts.py
+# — see that script's own _KNOWN_ACT_DESCRIPTIONS docstring for why
+# description text, and therefore any keyword implying a claim about what
+# the act covers, is never invented ahead of a real source). Deliberately
+# EMPTY until a human adds a real description for a given act — add its
+# entry here in the SAME change, never speculatively ahead of the
+# description. Static, not a live per-query DB lookup, for the same
+# zero-runtime-cost reason _WEAPON_KEYWORDS/_VEHICLE_KEYWORDS/
+# _PERSON_KEYWORDS above are static tuples rather than a query.
+#
+# Existing gap this closes once populated: _CATEGORY_KEYWORDS above filters
+# by checking whether the keyword itself appears AS A SUBSTRING of the raw
+# crime_category string (see _filtered_cases() below) — but this corpus's
+# real crime_category values are legal-code names ("PPC, Arms Ordinance
+# 1965"), never descriptive words like "theft"/"چوری", so that check
+# structurally never fires for a real case today. This dict is matched
+# differently (see _filtered_cases()): against a query keyword mapping to
+# an ACT NAME, then filtered via crime_category's actual per-act
+# membership (split_crime_category), not substring containment.
+#
+# CAVEAT for whoever populates an entry here: run_aggregate() below checks
+# _VEHICLE_KEYWORDS/_PERSON_KEYWORDS/_WEAPON_KEYWORDS BEFORE ever reaching
+# _station_or_category_counts()/_filtered_cases() — a keyword here that
+# overlaps one of those three (e.g. "weapon"/"pistol" for an Arms Ordinance
+# entry) will dispatch to that graph-based recurrence path instead and
+# never reach this filter at all. Confirmed live (test_xagg.py). Usually
+# the right outcome anyway — Module 4's weapon-type recurrence reads real
+# extracted Weapon-node data, a more precise signal than this crime_category
+# text field — but pick keyword vocabulary that's actually reachable for
+# acts with no existing entity-type family of their own (PECA 2016, CNSA
+# 1997, Illegal Dispossession Act 2005), not vocabulary that's shadowed by
+# an earlier, better-served dispatch branch.
+# "<exact act string, matching a police_reference_data.subject row exactly>": (keyword, ...)
+_LEGAL_CODE_ACT_KEYWORDS: dict[str, tuple[str, ...]] = {}
 # A plain "list/show every case" request — distinct from the grouped-count
 # queries below (which always answer "counts of cases by X", never the raw
 # records). Router previously had nowhere to send this ("list of all cases"
@@ -271,6 +308,24 @@ async def _filtered_cases(
                 cases = [c for c in cases if kw in (c.get("crime_category") or "").lower()]
                 break
 
+    # [Legal-code semantic layer] A query matching a known act's own
+    # keyword list (_LEGAL_CODE_ACT_KEYWORDS' own comment explains why this
+    # is empty until a real description exists) filters to cases whose
+    # crime_category actually NAMES that act — split on the comma-joined
+    # multi-act string first (split_crime_category), so this correctly
+    # matches a case like "CNSA 1997, Arms Ordinance 1965" even though
+    # "Arms Ordinance 1965" isn't the field's whole value. Independent of
+    # the _CATEGORY_KEYWORDS substring check just above: that check matches
+    # a keyword directly against the raw crime_category string, which
+    # structurally never fires for this corpus's real values (legal-code
+    # names like "PPC, Arms Ordinance 1965", never descriptive words like
+    # "theft"/"چوری") — this is the actual fix for that gap, not a
+    # duplicate of it.
+    for act, keywords in _LEGAL_CODE_ACT_KEYWORDS.items():
+        if _matches_any(query_text, keywords):
+            cases = [c for c in cases if act in split_crime_category(c.get("crime_category"))]
+            break
+
     return cases
 
 
@@ -280,11 +335,31 @@ async def _station_or_category_counts(
     cases = await _filtered_cases(gateway, query_text, jurisdiction_case_ids)
     group_field = "police_station" if _matches_any(query_text, _STATION_KEYWORDS) else "crime_category"
     counts = Counter(c.get(group_field) or "unknown" for c in cases)
-    return {
+    result = {
         "group_by": group_field,
         "counts": [{"key": k, "count": v} for k, v in counts.most_common(15)],
         "total_cases_considered": len(cases),
     }
+    # [Legal-code semantic layer] crime_category is a comma-joined,
+    # potentially multi-act free-text field (a real FIR can carry several
+    # acts — src/ingestion/muhafiz_cases.py::_crime_category()'s own
+    # docstring) — the raw-string "counts" above therefore fragments a
+    # single legal basis across every distinct combination it happens to
+    # co-occur with (e.g. "PPC, Arms Ordinance 1965" and "CNSA 1997, Arms
+    # Ordinance 1965" are two separate buckets above, even though both are
+    # real Arms-Ordinance cases — 21 + 8 = 29, invisible as one number
+    # anywhere before this). "counts_by_act" re-derives a per-ACT breakdown
+    # instead: each case's acts are split (split_crime_category) and
+    # counted individually, so a multi-act case counts under every act it
+    # carries. Purely additive — "counts" above is untouched, so no
+    # existing caller/renderer needs to change for this to be safe to ship.
+    if group_field == "crime_category":
+        act_counts: Counter = Counter()
+        for c in cases:
+            for act in split_crime_category(c.get("crime_category")):
+                act_counts[act] += 1
+        result["counts_by_act"] = [{"key": k, "count": v} for k, v in act_counts.most_common(15)]
+    return result
 
 
 async def _total_count(

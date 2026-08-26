@@ -8,8 +8,8 @@ schema below — leave a field null rather than refusing to respond.
 
 You MUST output ONLY a valid JSON object matching this schema:
 {
-  "category": "string (e.g., 'penal_code' — the type of reference data being asked about)",
-  "subject": "string (e.g., 'Mobile/Vehicle Theft', 'Cyber Fraud/Online Scam', 'overspeeding', 'FIR filing')",
+  "category": "string — 'penal_code' for a specific offense/section lookup (e.g., 'Mobile/Vehicle Theft'), or 'legal_code_act' when the question asks what an entire named ACT/ORDINANCE covers as a whole (e.g., 'Arms Ordinance 1965', 'PECA 2016', 'CNSA 1997') rather than one specific offense/section within it",
+  "subject": "string — for 'penal_code': e.g., 'Mobile/Vehicle Theft', 'Cyber Fraud/Online Scam', 'overspeeding', 'FIR filing'. For 'legal_code_act': the exact act/ordinance name as named in the question (e.g., 'Arms Ordinance 1965'), never a paraphrase or partial name.",
   "section_ref": "string (e.g., 'PPC Section 379', '420 PPC', or null if the user didn't name a specific section)",
   "date": "string (YYYY-MM-DD or null if unspecified)"
 }
@@ -39,6 +39,24 @@ Expected Output:
 {
   "category": "penal_code",
   "subject": "Harassment/Cyber Harassment",
+  "section_ref": null,
+  "date": null
+}
+
+Example User Query: "What does the Arms Ordinance 1965 cover?"
+Expected Output:
+{
+  "category": "legal_code_act",
+  "subject": "Arms Ordinance 1965",
+  "section_ref": null,
+  "date": null
+}
+
+Example User Query: "Give me an overview of PECA 2016 — what kind of offenses does it deal with?"
+Expected Output:
+{
+  "category": "legal_code_act",
+  "subject": "PECA 2016",
   "section_ref": null,
   "date": null
 }
