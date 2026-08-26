@@ -161,15 +161,67 @@ the knowledge-base ingestion path (`docs/INGESTION.md`).
 
 ### Reference data
 
-**`police_reference_data`** — `ref_id` (UUID PK), `category` (`penal_code` is
-the only category with real backing), `subject`, `description`, `fine_amount`,
-`section_ref`, `source_document`, `source_type` (`scraped` | `synthetic`).
-Two independent sources, both additive, neither replacing the other:
-`scripts/seed_police_reference_data.py` (6 hand-curated rows with
-descriptive text) and `scripts/load_real_offense_sections.py` (M7 of this
-migration — the 36 distinct real section/act pairs measured across the live
-FIR dataset, `description` left NULL since the API supplies no offense-text
-per section).
+**`police_reference_data`** — `ref_id` (UUID PK), `category`, `subject`,
+`description`, `fine_amount`, `section_ref`, `source_document`,
+`source_type` (`scraped` | `synthetic`). **Two real categories live as of
+this audit** (confirmed via `SELECT DISTINCT category`): `penal_code` (21
+rows, all with a real `description`) and `legal_code_act` (6 rows, all
+with a real, cited `description` — see "Legal-code semantic layer" below).
+
+Three source scripts exist, additive, none replacing another — but
+confirmed **live counts don't cleanly match what each script's own
+current code would produce**, flagged honestly rather than papered over:
+
+- `scripts/seed_police_reference_data.py` — its own docstring/`TEST_ROWS`
+  describes a "6-row subset" of `data/memory/offense_sections.csv` for
+  demo purposes. The live database's 21 `penal_code` rows are all
+  `source_type='synthetic'`, `source_document='offense_sections.csv'`,
+  and collectively match the **full** 22-row CSV (23 lines incl. header,
+  one collapses on upsert) — i.e. the live rows are real content from that
+  same real CSV file, not fabricated, but they don't trace to a run of
+  today's committed 6-row script. Most likely an earlier, since-trimmed
+  version of this script (or a one-off direct load) populated the live
+  table before it was reduced to its current 6-row form; not re-derivable
+  by re-running the script as it exists today. Worth a follow-up to
+  reconcile the script with what's actually live, not attempted here.
+- `scripts/load_real_offense_sections.py` (M7 of the Muhafiz API
+  migration) — real per-FIR `(section_code, act)` pairs measured from the
+  live FIR dataset (36 pairs across 6 acts, as of when this script was
+  last exercised), `description` deliberately left NULL (the API supplies
+  no offense-text per section; inventing one would be exactly the
+  fabrication this script's own header rejects). **Confirmed live: zero
+  rows with `source_document='muhafiz_api'` exist in this database right
+  now** — the script exists and is correct, but has not actually been
+  `--apply`'d against this specific live database (its "36 pairs / 6
+  acts" output was used as research input for the legal-code semantic
+  layer below via a dry run, not committed to this table).
+- `scripts/load_legal_code_acts.py` — act-level (not section-level)
+  reference data, a different granularity purpose-built for semantic
+  matching/aggregation rather than the SQL route's per-section lookup;
+  see "Legal-code semantic layer" below for the full story. This is the
+  one source of the three whose live rows fully match what its current
+  code produces (6/6 acts, 6/6 real descriptions).
+
+### Legal-code semantic layer (`category="legal_code_act"`)
+
+Distinct from the section-level `penal_code` rows above: covers every
+distinct **act** actually present in `cases.crime_category` (e.g. "Arms
+Ordinance 1965"), not every section. `scripts/load_legal_code_acts.py`
+detects the real, current act set (`split_crime_category()` on
+`cases.crime_category`, deduped) and upserts one row per act,
+`description` populated **only** from a small, hand-maintained,
+citation-backed dict in the script — an act with no real sourced text
+gets `description=NULL` and shows up in the script's own coverage
+report, never a guessed paraphrase. Six real acts covered as of this
+audit: PPC, Arms Ordinance 1965, CNSA 1997, PECA 2016, Illegal
+Dispossession Act 2005, Punjab Domestic Violence Act. Consumed by
+`src/pipeline/xagg.py` (`counts_by_act` — a per-act canonicalized case
+count, so a multi-act case counts under every act it carries instead of
+fragmenting by exact `crime_category` string — and
+`_LEGAL_CODE_ACT_KEYWORDS`, letting a natural-language query resolve to
+the right act) and by the SQL route's existing `category`-based lookup
+(no code change needed there — `prompts/sql_param_extractor.txt` just
+gained a `legal_code_act` few-shot example).
 
 ### Conversation & pipeline
 
@@ -203,7 +255,18 @@ read-only Postgres role, `migrations/009_mcp_readonly_role.sql`).
 never a versioned history, unlike the graph's own append-only discipline.
 
 **`community_membership`** — `entity_id` (PK, canonicalized Person entity_id
-post-`SAME_AS` collapse) → `community_id`, FK → `community_runs` (CASCADE).
+post-`SAME_AS` collapse) → `community_id`, FK → `community_runs` (CASCADE),
+`level` (int, not null, default `0`). Multi-level Louvain hierarchy
+(Module 9 Stage 2, `findings.md`): `detect_communities()` persists every
+level from `louvain_partitions()`'s full generator (finest → coarsest),
+not just one flattened partition — `level=0` is the FINEST partition
+(a real meaning change from before Stage 2, when the single stored
+partition, always `level=0`, was actually Louvain's COARSEST merge).
+Only the finest `MAX_LEVELS_TO_SUMMARIZE=3` levels a run persists are
+actually summarized into `community_reports` (summarizing every level
+multiplies LLM cost per level for little benefit at the coarse end) —
+Global Search reasons over a chosen hierarchy level of this table
+instead of one fixed granularity.
 
 **`community_reports`** — `community_id` (PK) → `run_id` FK (CASCADE),
 `member_entity_ids`/`case_ids` (arrays), `summary_text`. No FK to
@@ -309,6 +372,71 @@ mutated to reflect a status change — status changes are what deletes the
 row). The re-scoring columns are written exclusively by
 `src/graph/candidate_reprioritization.py`, which never calls
 `write_edge()` — structurally incapable of confirming/rejecting a match.
+
+### Ingestion run quality (`migrations/028_ingestion_run_quality.sql`)
+
+Ingestion Quality Control at Scale, Module G1 (see
+`INGESTION_QUALITY_AT_SCALE_PLAN.md`) — closes a documented gap:
+`ingestion_jobs` (see above) has no `case_id` column and the bulk
+case-scoped ingestion paths never wrote a row there at all. Rather than
+retrofit `ingestion_jobs`' single-file-upload shape to also carry
+per-run entity-resolution tier counts it was never designed for, this is
+a new, separate table — pure counting of decisions
+`entity_resolution.py`/`structured_projection.py` already make
+deterministically elsewhere, adding visibility, never a new judgment
+call (`src/graph/ingestion_quality.py`'s own module docstring).
+
+**`ingestion_run_quality`** — `run_id` (Text PK), `source`, `case_id`
+(nullable — `sync_muhafiz_data.py` runs always carry `case_id IS NULL`,
+confirmed live, so per-case grouping isn't meaningful for that source),
+`started_at`/`finished_at`, four `tier_*` counts
+(`tier_cnic_auto`/`tier_flagged_unverified`/`tier_human_review`/
+`tier_new`) mirroring `entity_resolution.py`'s own tier constants,
+`corroboration_gate_rejections`, `extraction_errors`,
+`flagged_for_review`/`flagged_reason` (Module G2's circuit breaker —
+`src/graph/ingestion_circuit_breaker.py` — flags a run, never
+auto-remediates, when its ambiguous-match or rejection rate comes in
+more than 10 points above the rolling average of the last 10
+same-source runs). One row per ingestion RUN (one `ingest_file()` call,
+or one whole `sync_muhafiz_data.py --full` pass), not per document and
+not per mention — maintained from `start_run()`/`finish_run()`, the two
+choke points every tracked call site goes through (a context-var
+accumulator, same idiom `src/database/postgres.py` already uses for
+`current_case_id`/`current_cross_case`).
+
+### Entity-resolution consistency findings (`migrations/029_entity_resolution_consistency_findings.sql`)
+
+Ingestion Quality Control at Scale, Module G3 — extends
+`scripts/eval_entity_resolution.py`'s ground-truth-driven idea into a
+continuous background check: periodically samples resolved `SAME_AS`
+candidates (pending *or* already-confirmed, never rejected) and
+re-diffs each one's original name-similarity/shared-case/shared-
+structured-id scoring snapshot (captured at write time by
+`entity_resolution.ResolutionDecision`) against the graph's current
+state, the same diff idiom `candidate_reprioritization.py` already uses
+for Milestone D1's reinforcement check, mirrored here to look for
+*degradation* instead. Scope stated honestly (per this table's own
+maintenance module, `src/graph/entity_resolution_sampling.py`):
+`TIER_CNIC_AUTO` merges create no `SAME_AS` edge at all, so there is
+nothing to diff a CNIC-auto merge's identity against — this table only
+ever covers the name-fallback tiers
+(`flagged_unverified`/`human_review`).
+
+**`entity_resolution_consistency_findings`** — `finding_id` (int PK,
+autoincrement), `edge_id` (the AGE `SAME_AS` edge this finding is
+about), `tier`, `status_at_detection`, `mention_entity_id`/
+`candidate_entity_id`, the original write-time signal
+(`original_basis`/`original_name_similarity`/`original_shared_case`/
+`original_shared_structured_id`) alongside the freshly-recomputed one
+(`fresh_name_similarity`/`fresh_shared_case`/
+`fresh_shared_structured_id`), `finding_reason`, `detected_at`, and an
+acknowledgment trail (`acknowledged`/`acknowledged_by`/
+`acknowledged_at` — recording that an investigator looked at a finding,
+never touching the underlying `SAME_AS` edge itself; confirm/reject on
+the graph-review queue is the only thing that does that).
+`src/graph/entity_resolution_sampling.py` never imports `versioning` or
+any AGE write path — structurally incapable of touching a `SAME_AS`/
+`CITES` edge; its only writes are to this table.
 
 ## Row-Level Security
 
