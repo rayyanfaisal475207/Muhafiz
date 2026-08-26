@@ -95,7 +95,12 @@ def _stub_verify_grounding(monkeypatch, grounded: bool, off_topic: bool = False,
     monkeypatch.setattr(global_search_mod, "verify_grounding", _fake)
 
 
-_REPORT_LABEL_RE = re.compile(r"\[Report (\d+)\]\n(.*?)(?=\n\n\[Report|\Z)", re.DOTALL)
+# [findings.md GS-1] The label line now carries a deterministic scope
+# annotation — "[Report 3] (cases: fir-88-26 — single-case)" — so the
+# optional "(...)" group is skipped when recovering the report text.
+_REPORT_LABEL_RE = re.compile(
+    r"\[Report (\d+)\](?: \([^\n]*\))?\n(.*?)(?=\n\n\[Report|\Z)", re.DOTALL
+)
 
 
 def _parse_batch_reports(user_message: str) -> dict[int, str]:
@@ -412,3 +417,208 @@ async def test_supervisor_dispatches_to_global_search(monkeypatch):
 
     assert result.status == SubAgentStatus.OK
     assert result.tools_used == ["XNETWORK"]
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# GS-1 — per-community scope must survive all the way into the text the
+# model actually sees, at BOTH the map and the reduce stage.
+#
+# Metadata-only coverage does not close GS-1: the defect is that the
+# model could not tell a single-case cluster from a cross-case one, so
+# these tests assert on the captured prompt/context, not on the chunks.
+#
+# Fixtures mirror the live corpus: two single-case communities from
+# DIFFERENT cases plus one genuinely multi-case community
+# (C-20260825-0005 really does span fir-214-26 and fir-891-24).
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def _gs1_chunk(community_id: str, cases: list[str], text: str = None) -> EvidenceChunk:
+    return EvidenceChunk(
+        id=f"community-{community_id}",
+        text=text or f"Summary for {community_id}.",
+        metadata=ChunkMetadata(
+            source_tool="XNETWORK",
+            source_file=community_id,
+            case_id=cases[0] if len(cases) == 1 else None,
+            case_ids=list(cases),
+        ),
+    )
+
+
+def _capture_prompts(monkeypatch):
+    """Record the exact map user_messages and the final reduce system prompt."""
+    captured = {"map": [], "reduce": None}
+
+    async def _fake_call_llm_json(system_prompt, user_message, **kwargs):
+        captured["map"].append(user_message)
+        batch_reports = _parse_batch_reports(user_message)
+        return (
+            {"points": [
+                {"point": t, "importance": 90, "supporting_reports": [n]}
+                for n, t in batch_reports.items()
+            ]},
+            "{}",
+        )
+
+    async def _fake_call_llm(system_prompt, user_message, **kwargs):
+        captured["reduce"] = system_prompt
+        return "Synthesized answer [Document 1]."
+
+    monkeypatch.setattr(global_search_mod, "call_llm_json", _fake_call_llm_json)
+    monkeypatch.setattr(global_search_mod, "call_llm", _fake_call_llm)
+    _stub_verify_grounding(monkeypatch, grounded=True)
+    return captured
+
+
+@pytest.mark.asyncio
+async def test_gs1_map_shows_independent_single_case_communities_separately(monkeypatch):
+    """
+    (A) Two single-case communities from different cases must each be
+    labelled with ONLY their own case — the invariant is that neither
+    report receives both case IDs.
+    """
+    chunks = [_gs1_chunk("C-A", ["fir-88-26"]), _gs1_chunk("C-B", ["fir-117-26"])]
+    _stub_global_search_tool(
+        monkeypatch, _tool_result(chunks, case_ids=["fir-88-26", "fir-117-26"])
+    )
+    captured = _capture_prompts(monkeypatch)
+
+    result = await global_search(_agent_input())
+    assert result.status == SubAgentStatus.OK
+
+    map_text = "\n\n".join(captured["map"])
+    assert "fir-88-26" in map_text and "fir-117-26" in map_text
+    assert map_text.count("single-case") == 2
+
+    # Neither report line may carry BOTH case IDs — that is the defect.
+    for line in map_text.splitlines():
+        if line.startswith("[Report "):
+            assert not ("fir-88-26" in line and "fir-117-26" in line), line
+            assert "spans" not in line, line
+
+
+@pytest.mark.asyncio
+async def test_gs1_map_preserves_genuine_multi_case_community(monkeypatch):
+    """(B) No overcorrection: a real cross-case community still reads as one."""
+    chunks = [_gs1_chunk("C-C", ["fir-214-26", "fir-891-24"])]
+    _stub_global_search_tool(
+        monkeypatch, _tool_result(chunks, case_ids=["fir-214-26", "fir-891-24"])
+    )
+    captured = _capture_prompts(monkeypatch)
+
+    result = await global_search(_agent_input())
+    assert result.status == SubAgentStatus.OK
+
+    map_text = "\n\n".join(captured["map"])
+    assert "spans 2 cases" in map_text
+    assert "fir-214-26" in map_text and "fir-891-24" in map_text
+    assert "single-case" not in map_text
+
+
+@pytest.mark.asyncio
+async def test_gs1_reduce_prompt_keeps_per_document_scope_distinct(monkeypatch):
+    """
+    (C) The real 2-single + 1-multi shape, asserted on the final reduce
+    prompt: each document carries its own community AND its own
+    footprint, and no single-case document receives the query union.
+    """
+    chunks = [
+        _gs1_chunk("C-A", ["fir-88-26"]),
+        _gs1_chunk("C-B", ["fir-117-26"]),
+        _gs1_chunk("C-C", ["fir-214-26", "fir-891-24"]),
+    ]
+    union = ["fir-117-26", "fir-214-26", "fir-88-26", "fir-891-24"]
+    _stub_global_search_tool(monkeypatch, _tool_result(chunks, case_ids=union))
+    captured = _capture_prompts(monkeypatch)
+
+    result = await global_search(_agent_input())
+    assert result.status == SubAgentStatus.OK
+
+    reduce_prompt = captured["reduce"]
+    doc_lines = [ln for ln in reduce_prompt.splitlines() if ln.startswith("[Document ")]
+    assert len(doc_lines) == 3
+
+    by_community = {cid: ln for cid in ("C-A", "C-B", "C-C") for ln in doc_lines if cid in ln}
+
+    # Each single-case document names ONLY its own case.
+    assert "fir-88-26" in by_community["C-A"] and "single-case" in by_community["C-A"]
+    assert "fir-117-26" not in by_community["C-A"]
+    assert "fir-117-26" in by_community["C-B"] and "single-case" in by_community["C-B"]
+    assert "fir-88-26" not in by_community["C-B"]
+
+    # The genuinely multi-case document keeps BOTH of its own cases.
+    assert "fir-214-26" in by_community["C-C"] and "fir-891-24" in by_community["C-C"]
+    assert "spans 2 cases" in by_community["C-C"]
+
+    # No document line is stamped with the whole union.
+    for line in doc_lines:
+        assert not all(c in line for c in union), line
+
+
+@pytest.mark.asyncio
+async def test_gs1_single_case_citation_carries_its_case_id(monkeypatch):
+    """
+    (D) Citation.case_id is built from metadata.case_id — now truthful
+    for single-case communities, and still None for multi-case ones
+    rather than naming one case arbitrarily.
+
+    Chunks come from the REAL tool here (only its upstream fetch is
+    stubbed) rather than from `_gs1_chunk`, so this exercises the actual
+    production metadata path end-to-end. Building them locally would make
+    the assertion vacuous — it would pass even with the tool's
+    attribution removed.
+    """
+    import src.pipeline.harness.tools.global_search as gs_tool_mod
+
+    async def _run(*a, **kw):
+        return {
+            "kind": "global_search_reports",
+            "hierarchy_level": 0,
+            "reports": [
+                {"community_id": "C-A", "summary_text": "Summary for C-A.",
+                 "case_ids": ["fir-88-26"], "member_count": 2},
+                {"community_id": "C-C", "summary_text": "Summary for C-C.",
+                 "case_ids": ["fir-214-26", "fir-891-24"], "member_count": 3},
+            ],
+            "community_ids": ["C-A", "C-C"],
+            "case_ids": ["fir-214-26", "fir-88-26", "fir-891-24"],
+        }
+
+    async def _fake_gateway():
+        return None
+
+    monkeypatch.setattr(gs_tool_mod, "run_global_search_query", _run)
+    monkeypatch.setattr(gs_tool_mod, "get_gateway", _fake_gateway)
+    monkeypatch.setattr(global_search_mod, "global_search_tool", gs_tool_mod.global_search_tool)
+    _capture_prompts(monkeypatch)
+
+    result = await global_search(_agent_input())
+    assert result.status == SubAgentStatus.OK
+
+    by_file = {c.source_file: c for c in result.citations}
+    assert by_file["C-A"].case_id == "fir-88-26"
+    assert by_file["C-C"].case_id is None
+
+
+@pytest.mark.asyncio
+async def test_gs1_unknown_scope_is_not_rendered_as_single_case(monkeypatch):
+    """
+    An absent footprint must render "scope unknown" — never "single-case",
+    never "0 cases", and never the query-level union. This is the guard
+    against the aggregate-stamping defect returning via a fallback.
+    """
+    chunks = [_gs1_chunk("C-A", [])]
+    _stub_global_search_tool(monkeypatch, _tool_result(chunks, case_ids=["fir-88-26"]))
+    captured = _capture_prompts(monkeypatch)
+
+    result = await global_search(_agent_input())
+    assert result.status == SubAgentStatus.OK
+
+    map_text = "\n\n".join(captured["map"])
+    assert "scope unknown" in map_text
+    assert "single-case" not in map_text
+    assert "0 cases" not in map_text
+    assert "fir-88-26" not in map_text, "the union must never be stamped onto a chunk"
+
+    assert "scope unknown" in captured["reduce"]
