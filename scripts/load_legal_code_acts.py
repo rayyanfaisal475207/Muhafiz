@@ -110,6 +110,34 @@ _KNOWN_ACT_DESCRIPTIONS: dict[str, tuple[str, str]] = {
         "Section 3) plus compensation to the victim.",
         "na.gov.pk (Illegal Dispossession Act, 2005 — official text)",
     ),
+    # NAME-INFERENCE CAVEAT, flagged not silently assumed: no Pakistani law
+    # is officially titled exactly "Punjab Domestic Violence Act" — that
+    # string (as it appears verbatim in this corpus's real FIR data, see
+    # _crime_category()'s own fix) doesn't match any real statute's title.
+    # Researched and cross-checked: no other Punjab-specific domestic-
+    # violence law exists under any name (the 2020/2025 federal "Domestic
+    # Violence (Prevention and Protection)" bill is scoped to Islamabad
+    # Capital Territory, not Punjab; Khyber Pakhtunkhwa has its own,
+    # separate 2021 act). Multiple independent sources describe "The
+    # Punjab Protection of Women against Violence Act, 2016" (Act XVI of
+    # 2016) as THE primary/principal Punjab legislation on this subject —
+    # this entry is written on the confident inference that the raw data's
+    # generic label refers to that Act, the same way "Provincial Act"
+    # itself turned out to be a generic label for a real law, NOT a
+    # confirmed official-title match. User-approved before writing, given
+    # this caveat.
+    "Punjab Domestic Violence Act": (
+        "Punjab's principal law addressing violence against women — "
+        "domestic, sexual, psychological, and economic abuse, and "
+        "stalking — by a spouse, family member, relative, or domestic "
+        "employer. Establishes a civil protection and rehabilitation "
+        "system (courts and Women Protection Officers can issue "
+        "Protection, Residence, and Monetary Orders) rather than being a "
+        "standalone penal statute; related domestic-violence FIRs are "
+        "also commonly registered under PPC sections (e.g. 354, 506) "
+        "alongside it.",
+        "punjablaws.gov.pk (The Punjab Protection of Women against Violence Act, 2016 — official text)",
+    ),
     # [RESOLVED — see src/ingestion/muhafiz_cases.py::_crime_category()'s
     # own "Legal-code semantic layer follow-up" note] "Provincial Act" no
     # longer reaches crime_category at all as of that fix — for a row

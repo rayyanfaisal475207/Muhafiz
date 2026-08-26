@@ -116,6 +116,7 @@ _LEGAL_CODE_ACT_KEYWORDS: dict[str, tuple[str, ...]] = {
     # before shipping this entry.
     "PECA 2016": ("cybercrime", "cyber crime", "hacking", "cyber harassment"),
     "Illegal Dispossession Act 2005": ("land grabbing", "illegal dispossession", "property grabbing", "قبضہ"),
+    "Punjab Domestic Violence Act": ("domestic violence", "گھریلو تشدد"),
 }
 # A plain "list/show every case" request — distinct from the grouped-count
 # queries below (which always answer "counts of cases by X", never the raw
