@@ -1278,6 +1278,52 @@ async def test_xagg_is_labeled_cross_case(run_pipeline):
     assert "Kohsar" in _text_of(events)
 
 
+# [Legal-code semantic layer] counts_by_act, when present on a
+# relational_aggregate result, must reach the generation prompt as an
+# additional labeled breakdown — the raw "counts" rendering (existing
+# behavior) stays untouched either way.
+
+async def test_xagg_renders_counts_by_act_breakdown_when_present(run_pipeline):
+    await run_pipeline(
+        route='{"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat"}',
+        message="How many Arms Ordinance cases are there?",
+        agg_result={
+            "kind": "relational_aggregate", "group_by": "crime_category",
+            "counts": [
+                {"key": "PPC, Arms Ordinance 1965", "count": 21},
+                {"key": "CNSA 1997, Arms Ordinance 1965", "count": 8},
+            ],
+            "counts_by_act": [
+                {"key": "Arms Ordinance 1965", "count": 29},
+                {"key": "PPC", "count": 21},
+                {"key": "CNSA 1997", "count": 8},
+            ],
+            "total_cases_considered": 29,
+        },
+    )
+
+    prompt = run_pipeline.call.last_system
+    assert "PPC, Arms Ordinance 1965: 21 cases" in prompt  # raw grouping unchanged
+    assert "Breakdown by individual legal code" in prompt
+    assert "Arms Ordinance 1965: 29 cases" in prompt
+
+
+async def test_xagg_omits_breakdown_section_when_counts_by_act_absent(run_pipeline):
+    """station-grouped results (or any result predating this field) must
+    not show an empty/spurious breakdown section."""
+    await run_pipeline(
+        route='{"route": "XAGG", "case_scope": "cross_case", "target_entity": null, "output_format": "chat"}',
+        message="Which stations have the most cases?",
+        agg_result={
+            "kind": "relational_aggregate", "group_by": "police_station",
+            "counts": [{"key": "Kohsar", "count": 4}],
+            "total_cases_considered": 4,
+        },
+    )
+
+    assert "Breakdown by individual legal code" not in run_pipeline.call.last_system
+
+
 # ── Real RBAC role reaches XGRAPH/XAGG (role-threading fix) ────────────────────
 #
 # Bug: orchestrator.py used to compute `user_role` from `user_profile.get(

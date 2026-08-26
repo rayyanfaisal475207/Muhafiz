@@ -353,6 +353,106 @@ async def test_total_keyword_yields_to_explicit_group_by_request(monkeypatch):
     assert result["group_by"] == "police_station"
 
 
+# ── Legal-code semantic layer ───────────────────────────────────────────────
+
+def test_split_crime_category_splits_and_trims():
+    assert xagg.split_crime_category("PPC, Arms Ordinance 1965") == ["PPC", "Arms Ordinance 1965"]
+
+
+def test_split_crime_category_single_act():
+    assert xagg.split_crime_category("PPC") == ["PPC"]
+
+
+def test_split_crime_category_none_and_blank():
+    assert xagg.split_crime_category(None) == []
+    assert xagg.split_crime_category("") == []
+
+
+def test_split_crime_category_dedupes_preserving_order():
+    assert xagg.split_crime_category("PPC, PPC, CNSA 1997") == ["PPC", "CNSA 1997"]
+
+
+async def test_counts_by_act_collapses_differently_combined_cases():
+    """The real gap this closes: 'PPC, Arms Ordinance 1965' and 'CNSA 1997,
+    Arms Ordinance 1965' are two disconnected raw-string buckets, but both
+    are real Arms-Ordinance cases — counts_by_act must show them as one
+    number. The existing raw 'counts' field must stay exactly as it was
+    (regression guard — no existing caller/renderer should see a change)."""
+    gateway = FakeGateway([
+        {"police_station": "Kohsar", "crime_category": "PPC, Arms Ordinance 1965", "investigation_status": "open"},
+        {"police_station": "Ramna", "crime_category": "CNSA 1997, Arms Ordinance 1965", "investigation_status": "open"},
+        {"police_station": "Kohsar", "crime_category": "PPC", "investigation_status": "open"},
+    ])
+
+    result = await xagg.run_aggregate(
+        "how many cases by category", None, gateway, user_role="supervisor"
+    )
+
+    # Unchanged: raw-string grouping still fragments the two combinations.
+    raw_counts = {c["key"]: c["count"] for c in result["counts"]}
+    assert raw_counts == {
+        "PPC, Arms Ordinance 1965": 1,
+        "CNSA 1997, Arms Ordinance 1965": 1,
+        "PPC": 1,
+    }
+
+    # New: per-act breakdown collapses both Arms-Ordinance combinations.
+    by_act = {c["key"]: c["count"] for c in result["counts_by_act"]}
+    assert by_act == {"Arms Ordinance 1965": 2, "PPC": 2, "CNSA 1997": 1}
+
+
+async def test_counts_by_act_absent_when_grouping_by_station():
+    gateway = FakeGateway([
+        {"police_station": "Kohsar", "crime_category": "PPC, Arms Ordinance 1965", "investigation_status": "open"},
+    ])
+
+    result = await xagg.run_aggregate(
+        "cases by station", None, gateway, user_role="supervisor"
+    )
+
+    assert result["group_by"] == "police_station"
+    assert "counts_by_act" not in result
+
+
+async def test_legal_code_act_keyword_filters_by_real_act_membership(monkeypatch):
+    """_LEGAL_CODE_ACT_KEYWORDS is empty by design until a real, sourced
+    description exists for an act (see its own comment in xagg.py) — this
+    proves the FILTERING MECHANISM itself is correct once populated,
+    without asserting anything about which acts are covered today.
+
+    Deliberately uses "narcotics", not weapon vocabulary — a keyword
+    overlapping _WEAPON_KEYWORDS would dispatch to the graph-based weapon
+    recurrence path before ever reaching this filter (see
+    _LEGAL_CODE_ACT_KEYWORDS' own caveat comment); this test isolates the
+    relational/_filtered_cases() path specifically."""
+    monkeypatch.setitem(xagg._LEGAL_CODE_ACT_KEYWORDS, "CNSA 1997", ("narcotics",))
+    gateway = FakeGateway([
+        {"police_station": "Kohsar", "crime_category": "CNSA 1997, Arms Ordinance 1965", "investigation_status": "open"},
+        {"police_station": "Ramna", "crime_category": "PPC", "investigation_status": "open"},
+    ])
+
+    result = await xagg.run_aggregate(
+        "how many narcotics cases are there", None, gateway, user_role="supervisor"
+    )
+
+    assert result["kind"] == "relational_aggregate"
+    assert result["total_cases_considered"] == 1
+
+
+async def test_legal_code_act_keyword_no_match_leaves_cases_unfiltered(monkeypatch):
+    monkeypatch.setitem(xagg._LEGAL_CODE_ACT_KEYWORDS, "CNSA 1997", ("narcotics",))
+    gateway = FakeGateway([
+        {"police_station": "Kohsar", "crime_category": "CNSA 1997, Arms Ordinance 1965", "investigation_status": "open"},
+        {"police_station": "Ramna", "crime_category": "PPC", "investigation_status": "open"},
+    ])
+
+    result = await xagg.run_aggregate(
+        "how many cases by category", None, gateway, user_role="supervisor"
+    )
+
+    assert result["total_cases_considered"] == 2
+
+
 # ── RBAC gate ────────────────────────────────────────────────────────────────
 
 async def test_investigator_cannot_run_cross_case_aggregate():

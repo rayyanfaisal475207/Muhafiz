@@ -1824,6 +1824,17 @@ async def process_query(
                 lines = [f"Total cases: {agg_result['total_cases']}"]
             else:
                 lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
+                # [Legal-code semantic layer] crime_category can combine
+                # several legal acts per case (e.g. "PPC, Arms Ordinance
+                # 1965") — counts_by_act, when present
+                # (src/pipeline/xagg.py::_station_or_category_counts()),
+                # re-derives a per-ACT total so e.g. two differently-
+                # combined Arms-Ordinance buckets above collapse into one
+                # real number here instead of staying invisible.
+                if agg_result.get("counts_by_act"):
+                    lines.append("")
+                    lines.append("Breakdown by individual legal code (a case can involve more than one):")
+                    lines.extend(f"- {c['key']}: {c['count']} cases" for c in agg_result["counts_by_act"])
             aggregate_text = "\n".join(lines) or "(no matching cases found)"
 
             yield event(

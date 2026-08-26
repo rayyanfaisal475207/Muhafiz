@@ -91,6 +91,30 @@ def _crime_category(fir: FirRecord) -> Optional[str]:
     return ", ".join(acts) if acts else None
 
 
+def split_crime_category(raw: Optional[str]) -> list[str]:
+    """
+    [Legal-code semantic layer] The reverse of `_crime_category()`'s own
+    `", ".join(acts)` above — same split point, same trim, first-seen-order
+    dedup preserved. Kept right beside the join it reverses so the two stay
+    in sync by construction, not by convention.
+
+    Public (unlike `_crime_category`) — reused outside this module by
+    `src/pipeline/xagg.py` (real-time per-act aggregation/keyword
+    filtering) and `scripts/load_legal_code_acts.py` (detecting every
+    distinct act actually present in `cases.crime_category`), matching this
+    module's own stated "reusable... when it needs to decide" design goal
+    (see module docstring). Returns `[]` for `None`/blank input.
+    """
+    if not raw:
+        return []
+    seen: dict[str, None] = {}
+    for part in raw.split(","):
+        act = part.strip()
+        if act:
+            seen.setdefault(act, None)
+    return list(seen.keys())
+
+
 def _current_investigating_officer(fir: FirRecord) -> Optional[str]:
     """
     fir_investigating_officer can have more than one row over a case's
