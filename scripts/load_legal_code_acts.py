@@ -110,27 +110,17 @@ _KNOWN_ACT_DESCRIPTIONS: dict[str, tuple[str, str]] = {
         "Section 3) plus compensation to the victim.",
         "na.gov.pk (Illegal Dispossession Act, 2005 — official text)",
     ),
-    # "Provincial Act" is DELIBERATELY EXCLUDED from this dict — not a
-    # sourcing gap, a data-shape one. Live-checked against the raw FIR
-    # source data behind every real "Provincial Act"-tagged case in this
-    # corpus (4 cases, all citing the same underlying law): the ACTUAL
-    # specific law name ("Punjab Domestic Violence Act") lives in that
-    # row's section_code field, not its act field — "Provincial Act" is a
-    # generic category label the source data uses, never a real single
-    # law with content of its own to describe. Writing a description for
-    # it would misrepresent it as one specific, describable act, which it
-    # structurally isn't. It will correctly keep showing up in this
-    # script's own "uncovered" report — that's the honest state, not a
-    # bug. Fixing this properly means teaching
-    # src/ingestion/muhafiz_cases.py::_crime_category() to surface
-    # section_code instead of/alongside act for this shape — a separate,
-    # larger, ingestion-level change (touches what gets WRITTEN to
-    # Case.crime_category on every sync, not just this reference layer),
-    # deliberately not attempted here. Confirmed only against Punjab
-    # Domestic Violence Act specifically; whether section_code always
-    # holds the real law name for every "Provincial Act" row, in every
-    # province, is unverified and would need checking before that fix is
-    # scoped.
+    # [RESOLVED — see src/ingestion/muhafiz_cases.py::_crime_category()'s
+    # own "Legal-code semantic layer follow-up" note] "Provincial Act" no
+    # longer reaches crime_category at all as of that fix — for a row
+    # shaped that way, _crime_category() now substitutes section_code (the
+    # real specific act name, e.g. "Punjab Domestic Violence Act") in its
+    # place, the same way every other act's own real name already flows
+    # through. This dict therefore has no "Provincial Act" entry to
+    # exclude any more; a genuine new act name like "Punjab Domestic
+    # Violence Act" instead shows up as its own real, describable,
+    # sourceable entry — uncovered here only until someone adds a real
+    # sourced description for it, same as any other act.
 }
 
 

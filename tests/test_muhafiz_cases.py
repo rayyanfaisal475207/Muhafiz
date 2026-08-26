@@ -77,6 +77,60 @@ class TestCaseFieldsFromFir:
         fir = FirRecord({"fir_id": "fir-4-26"})
         assert mc.case_fields_from_fir(fir)["crime_category"] is None
 
+    def test_provincial_act_uses_section_code_as_the_real_act_name(self):
+        """[Legal-code semantic layer follow-up] "Provincial Act" is a
+        generic bucket, not a real describable law — section_code carries
+        the actual specific act name for this row shape (confirmed live
+        against every real "Provincial Act" row in the corpus: all say
+        "Punjab Domestic Violence Act"), unlike every other act, where
+        section_code is a genuine section number."""
+        fir = FirRecord({
+            "fir_id": "fir-416-26",
+            "fir_section": [
+                {"section_code": "337-A(i)", "act": "PPC"},
+                {"section_code": "Punjab Domestic Violence Act", "act": "Provincial Act"},
+            ],
+        })
+        assert mc.case_fields_from_fir(fir)["crime_category"] == "PPC, Punjab Domestic Violence Act"
+
+    def test_provincial_act_with_no_section_code_falls_back_to_the_generic_label(self):
+        """Defensive only — real data always carries a section_code for a
+        Provincial Act row (confirmed live), but a row missing one must
+        not silently vanish or crash."""
+        fir = FirRecord({
+            "fir_id": "fir-417-26",
+            "fir_section": [{"section_code": None, "act": "Provincial Act"}],
+        })
+        assert mc.case_fields_from_fir(fir)["crime_category"] == "Provincial Act"
+
+    def test_provincial_act_two_different_provincial_laws_both_kept_distinct(self):
+        """Two DIFFERENT provincial acts on the same FIR (both tagged
+        act="Provincial Act" but different section_code values) must
+        surface as two distinct entries, not collapse into one — the
+        pre-fix behavior would have collapsed both into a single
+        "Provincial Act" entry via the existing dedup-by-act check."""
+        fir = FirRecord({
+            "fir_id": "fir-418-26",
+            "fir_section": [
+                {"section_code": "Punjab Domestic Violence Act", "act": "Provincial Act"},
+                {"section_code": "Punjab Local Government Act", "act": "Provincial Act"},
+            ],
+        })
+        assert mc.case_fields_from_fir(fir)["crime_category"] == (
+            "Punjab Domestic Violence Act, Punjab Local Government Act"
+        )
+
+    def test_non_provincial_acts_still_use_the_bare_act_name_unchanged(self):
+        """Regression guard: the section_code substitution is scoped
+        EXCLUSIVELY to act == "Provincial Act" — every other act's own
+        section_code (a real section number) must never leak into
+        crime_category."""
+        fir = FirRecord({
+            "fir_id": "fir-419-26",
+            "fir_section": [{"section_code": "9(c)", "act": "CNSA 1997"}],
+        })
+        assert mc.case_fields_from_fir(fir)["crime_category"] == "CNSA 1997"
+
     def test_officer_prefers_one_with_no_assigned_to(self):
         fir = FirRecord({
             "fir_id": "fir-5-26",

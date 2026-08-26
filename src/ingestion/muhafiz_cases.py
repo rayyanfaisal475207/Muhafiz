@@ -82,10 +82,32 @@ def _crime_category(fir: FirRecord) -> Optional[str]:
     common). Joins the distinct acts in the order they appear on
     fir_section, rather than picking just the first one, so the category
     reflects the whole FIR, not an arbitrary row.
+
+    [Legal-code semantic layer follow-up] "Provincial Act" is NOT a real,
+    specific law name in this data source — it's a generic bucket the API
+    uses for provincial-level legislation that isn't cited by a numbered
+    section the way PPC/Arms Ordinance 1965/CNSA 1997/PECA 2016/Illegal
+    Dispossession Act 2005 all are. Confirmed against every real
+    "Provincial Act" fir_section row across this corpus (4 rows, all): for
+    every OTHER act, `section_code` is a genuine numeric/alphanumeric
+    section reference ("384", "13", "9(c)") — only for "Provincial Act" is
+    it instead the actual specific act name itself ("Punjab Domestic
+    Violence Act"), with no numbered section to cite. Using bare `act`
+    ("Provincial Act") for this row therefore discarded the one real,
+    specific, meaningful value the row actually carried. Substituting
+    `section_code` in for `act` specifically for this row (never for any
+    other act, where section_code genuinely is just a section number) is
+    what makes crime_category say "Punjab Domestic Violence Act" instead
+    of the uninformative generic label — real per-case law names now flow
+    through to XAGG's per-act aggregation and the legal-code reference
+    layer (src/pipeline/xagg.py, scripts/load_legal_code_acts.py) the same
+    way every other act already did.
     """
     acts = []
     for s in fir.child_rows("fir_section"):
         act = s.get("act")
+        if act == "Provincial Act" and s.get("section_code"):
+            act = s.get("section_code")
         if act and act not in acts:
             acts.append(act)
     return ", ".join(acts) if acts else None

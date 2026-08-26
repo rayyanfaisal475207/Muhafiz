@@ -9,14 +9,19 @@ import scripts.load_legal_code_acts as loader
 
 
 async def test_distinct_acts_matches_measured_corpus(monkeypatch):
-    """Locks in the same 6-act finding scripts/load_real_offense_sections.py
-    already established for this corpus (test_xagg.py's own
-    test_distinct_section_act_pairs_matches_measured_count locks the
-    section-level count; this is the act-level equivalent)."""
+    """Locks in this corpus's real act set, AFTER the
+    _crime_category()/"Provincial Act" fix (src/ingestion/muhafiz_cases.py)
+    — "Punjab Domestic Violence Act" is the real, specific law name that
+    now flows through instead of the old generic "Provincial Act" bucket
+    (test_muhafiz_cases.py's own test_provincial_act_uses_section_code_as_
+    the_real_act_name locks in the derivation side; this is the act-level
+    distinct-value equivalent test_xagg.py's own
+    test_distinct_section_act_pairs_matches_measured_count locks at the
+    section level)."""
     rows = [
         ("PPC",), ("PPC, Arms Ordinance 1965",), ("PECA 2016, PPC",),
         ("CNSA 1997, Arms Ordinance 1965",), ("CNSA 1997",),
-        ("PPC, Provincial Act",), ("PPC, Illegal Dispossession Act 2005",),
+        ("PPC, Punjab Domestic Violence Act",), ("PPC, Illegal Dispossession Act 2005",),
         (None,),
     ]
 
@@ -38,7 +43,7 @@ async def test_distinct_acts_matches_measured_corpus(monkeypatch):
 
     assert set(acts) == {
         "PPC", "Arms Ordinance 1965", "CNSA 1997", "PECA 2016",
-        "Illegal Dispossession Act 2005", "Provincial Act",
+        "Illegal Dispossession Act 2005", "Punjab Domestic Violence Act",
     }
 
 
@@ -201,7 +206,9 @@ def test_the_five_researched_acts_all_have_real_descriptions():
 
 
 def test_provincial_act_is_deliberately_not_a_known_act():
-    """See _KNOWN_ACT_DESCRIPTIONS' own comment: "Provincial Act" is a
-    generic category label, not one specific describable law — it must
-    never silently gain a fabricated description."""
+    """"Provincial Act" is a generic category label, never one specific
+    describable law — must never gain a fabricated description. No longer
+    even reaches crime_category after the _crime_category() fix
+    (src/ingestion/muhafiz_cases.py), but kept as a permanent defense-in-
+    depth guard in case a future row shape somehow produces it again."""
     assert "Provincial Act" not in loader._KNOWN_ACT_DESCRIPTIONS
