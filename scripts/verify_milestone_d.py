@@ -135,8 +135,17 @@ async def _cleanup():
     #
     # Deleting by r.source_doc_id — not by endpoint — is what makes this
     # safe: the fixture edge goes, the corpus node it touched stays.
+    # [PERF] Directed `()-[r]->()`, not undirected `()-[r]-()`. Every edge
+    # has exactly one stored direction, so a directed match visits each
+    # edge exactly once and deletes precisely the same set — while the
+    # undirected form makes AGE build a Cartesian product over both
+    # endpoint bindings (see graph_retriever._both_directions() for the
+    # full root cause). Measured on this graph, read-only, counting the
+    # same D1VERIFY- sweep: undirected 48,476ms (92 matches — each edge
+    # seen twice, once per orientation) vs directed 65ms (46 matches, the
+    # true edge count). Same deletions, ~750x less work.
     await age_client.execute_cypher(
-        "MATCH ()-[r]-() WHERE r.source_doc_id STARTS WITH $tag DELETE r",
+        "MATCH ()-[r]->() WHERE r.source_doc_id STARTS WITH $tag DELETE r",
         params={"tag": TAG}, columns=["result"],
     )
 
@@ -336,8 +345,9 @@ async def _wipe_leftover_synthetic_data_from_prior_runs():
     # RELATIONSHIP survives; historical orphan nodes remain an operational
     # cleanup decision.
     for prefix in ("D1VERIFY-", "D1DEBUG-"):
+        # [PERF] Directed, same reasoning as _cleanup()'s own sweep above.
         await age_client.execute_cypher(
-            "MATCH ()-[r]-() WHERE r.source_doc_id STARTS WITH $prefix DELETE r",
+            "MATCH ()-[r]->() WHERE r.source_doc_id STARTS WITH $prefix DELETE r",
             params={"prefix": prefix}, columns=["result"],
         )
     await age_client.execute_cypher(

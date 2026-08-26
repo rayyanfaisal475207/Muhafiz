@@ -304,7 +304,7 @@ async def test_prior_run_sweep_removes_relationship_remnants(graph, monkeypatch)
         # Postgres half is patched out; only the graph sweep is under test.
         for prefix in ("D1VERIFY-", "D1DEBUG-"):
             await graph.execute_cypher(
-                "MATCH ()-[r]-() WHERE r.source_doc_id STARTS WITH $prefix DELETE r",
+                "MATCH ()-[r]->() WHERE r.source_doc_id STARTS WITH $prefix DELETE r",
                 params={"prefix": prefix},
             )
 
