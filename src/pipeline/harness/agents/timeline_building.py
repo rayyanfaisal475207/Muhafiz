@@ -185,7 +185,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Sequence
 
 from src.data_gateway.base import DataGateway
 from src.graph.case_scope import scoped_cypher
@@ -349,6 +349,32 @@ def _sort_key(occurred_on: Optional[str]) -> tuple:
     return (1, occurred_on or "")
 
 
+# [findings.md TB-2] `position` is the ONLY event_type whose blank detail
+# gets an explicit placeholder. Deliberately NOT generalised to every
+# detail-less event: 341 events already render with no detail at all
+# (measured: incident 64, arrest 74, chalaan_dispatch 15, zimni_entry 188),
+# and for those the absence of a detail is unremarkable — an `incident`
+# event simply has no sub-detail to carry. `position` is different because
+# the detail IS the payload: the upstream psrms.fir_position row exists
+# precisely to record a case position, so a blank one is a recorded review
+# that captured no position text.
+_POSITION_EVENT_TYPE = "position"
+
+# Wording follows this module's own established idiom — compare
+# `f"Incident {entity_id} (no description recorded)"` below. States the
+# source fact exactly: a position row exists for this date, and no position
+# text was recorded on it.
+#
+# Deliberately NOT "unknown status": the upstream field is پوزیشن
+# (position), not a status enum, and "unknown" would imply the value exists
+# but could not be read. Measured on the live corpus, all 65 blank rows
+# carry a real status_date and null in EVERY other field
+# (position/prosecutor_name/cross_certificate_ref/
+# pending_challan_objections/remarks) — nothing was lost in projection;
+# there was nothing recorded to begin with.
+_NO_POSITION_RECORDED = "no position recorded"
+
+
 def _build_events(
     rows: list[dict],
     conflict_bases: Optional[dict[str, list[str]]],
@@ -390,8 +416,35 @@ def _build_events(
         # only ever present on M6a's typed-timestamp OCCURRED_ON edges;
         # a legacy, LLM-derived incident with no such properties keeps
         # exactly its old bare description.
+        #
+        # [findings.md TB-1] A typed event carries ONLY its own
+        # distinguishing text; the Incident narrative is rendered once, by
+        # _incident_narratives() below, instead of being repeated inside
+        # every event.
+        #
+        # T1 populated Incident.description from the FIR's own narrative
+        # (avg 1,347 chars, max 2,070). Because a real Incident carries
+        # 3-9 dated OCCURRED_ON edges (measured: avg 5.9 across 73/73
+        # cases), prefixing that narrative onto every event rendered it
+        # ~5.9x per timeline — 577,488 characters corpus-wide where
+        # ~98,400 carry the same information, and 17,676 characters in the
+        # worst single timeline. Every event read near-identically; the
+        # only per-event content was a ~20-character suffix, which is
+        # precisely the part a reader needs to tell two events apart.
+        #
+        # Deliberately NOT a truncation: the full narrative is still
+        # served verbatim, once, and no event-specific text is dropped.
+        # This removes duplication only.
+        #
+        # An event with NO event_type keeps its bare description
+        # unchanged — a pre-M6a, LLM-derived incident has no
+        # distinguishing text to fall back on, so stripping its
+        # description would leave it empty. Guarded by
+        # test_legacy_row_with_no_event_type_keeps_bare_description.
         if event_type:
-            description = f"{base_description} — {event_type}" + (f": {detail}" if detail else "")
+            description = f"{event_type}" + (f": {detail}" if detail else "")
+            if event_type == _POSITION_EVENT_TYPE and not (detail or "").strip():
+                description = f"{event_type}: {_NO_POSITION_RECORDED}"
         else:
             description = base_description
         locked = bool(row.get("locked"))
@@ -431,12 +484,48 @@ def _build_events(
     return events
 
 
-def _answer_text(events: list[TimelineEvent], conflict_checked: bool) -> str:
+def _incident_narratives(rows: list[dict]) -> list[str]:
+    """
+    [findings.md TB-1] Each distinct Incident narrative, once, in the order
+    first seen.
+
+    A case usually has exactly one Incident, so this is normally a
+    single-element list; it is a list rather than a scalar because
+    `_fetch_dated_incidents` is not restricted to one Incident per case and
+    a legacy, LLM-derived corpus can carry several. De-duplicated on the
+    narrative text itself, not on entity_id: two Incident nodes carrying
+    the identical narrative would otherwise reintroduce the duplication
+    this exists to remove.
+
+    Only rows that actually have an `event_type` contribute. A row without
+    one keeps its narrative inside its own `TimelineEvent.description`
+    (see _build_events), so surfacing it here too would duplicate it.
+    """
+    seen: set[str] = set()
+    out: list[str] = []
+    for row in rows:
+        if not row.get("event_type"):
+            continue
+        text = (row.get("description") or "").strip()
+        if text and text not in seen:
+            seen.add(text)
+            out.append(text)
+    return out
+
+
+def _answer_text(
+    events: list[TimelineEvent], conflict_checked: bool, narratives: Sequence[str] = (),
+) -> str:
     """
     Deterministic, graph-derived summary — see module docstring's
     "deterministic description" decision for why this needs no
     `verify_grounding()` call. Built via plain string formatting over
     already-computed `events`, never model-generated.
+
+    [findings.md TB-1] The Incident narrative(s) are prepended here, once
+    each, rather than repeated inside every event's own description. Same
+    text, same completeness, served exactly once — see _build_events'
+    own TB-1 comment for the measured duplication this removes.
     """
     n = len(events)
     span = ""
@@ -444,19 +533,23 @@ def _answer_text(events: list[TimelineEvent], conflict_checked: bool) -> str:
         span = f" (spanning {events[0].occurred_on} to {events[-1].occurred_on})"
 
     if not conflict_checked:
-        return (
+        summary = (
             f"This case's timeline has {n} dated event(s){span}. Conflict "
             "detection could not be completed for this case, so conflict "
             "status is unknown for every event."
         )
+    else:
+        conflict_count = sum(1 for e in events if e.conflict_state == ConflictState.CONFLICT)
+        clear_count = sum(1 for e in events if e.conflict_state == ConflictState.NONE)
+        summary = (
+            f"This case's timeline has {n} dated event(s){span}. "
+            f"{conflict_count} event(s) flagged with a contradicting record; "
+            f"{clear_count} checked with no conflict found."
+        )
 
-    conflict_count = sum(1 for e in events if e.conflict_state == ConflictState.CONFLICT)
-    clear_count = sum(1 for e in events if e.conflict_state == ConflictState.NONE)
-    return (
-        f"This case's timeline has {n} dated event(s){span}. "
-        f"{conflict_count} event(s) flagged with a contradicting record; "
-        f"{clear_count} checked with no conflict found."
-    )
+    if not narratives:
+        return summary
+    return "\n\n".join(list(narratives) + [summary])
 
 
 async def timeline_building(
@@ -523,7 +616,9 @@ async def timeline_building(
         events = _build_events(rows, conflict_bases=None, detection_confirmed=False)
         return SubAgentResult(
             status=SubAgentStatus.PARTIAL,
-            answer_text=_answer_text(events, conflict_checked=False),
+            answer_text=_answer_text(
+                events, conflict_checked=False, narratives=_incident_narratives(rows),
+            ),
             events=events,
             tools_used=["GRAPH"],
             degraded_from=[],
@@ -551,7 +646,9 @@ async def timeline_building(
         )
     return SubAgentResult(
         status=SubAgentStatus.PARTIAL if caveats else SubAgentStatus.OK,
-        answer_text=_answer_text(events, conflict_checked=detection_confirmed),
+        answer_text=_answer_text(
+            events, conflict_checked=detection_confirmed, narratives=_incident_narratives(rows),
+        ),
         events=events,
         tools_used=["GRAPH"],
         degraded_from=[],

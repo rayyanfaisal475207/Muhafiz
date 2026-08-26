@@ -224,7 +224,15 @@ async def test_one_incident_multiple_occurred_on_edges_become_multiple_events(mo
     descriptions = {e.description for e in result.events}
     assert any("zimni_entry: entry 1" in d for d in descriptions)
     assert any("chalaan_dispatch" in d for d in descriptions)
-    assert any(d == "Incident for FIR 100/26 — incident" for d in descriptions)
+    # [findings.md TB-1] The bare `event_type` event no longer carries the
+    # shared Incident narrative — that text is now served once via
+    # answer_text (see the TB-1 tests below). Previously this asserted
+    # `d == "Incident for FIR 100/26 — incident"`; the narrative half of
+    # that string was the duplication TB-1 removes.
+    assert any(d == "incident" for d in descriptions)
+    assert not any("Incident for FIR 100/26" in d for d in descriptions), (
+        "the shared narrative must not be repeated inside per-event descriptions"
+    )
 
     # Chronological order still holds across events from the SAME incident.
     assert [e.occurred_on for e in result.events] == ["2026-08-18", "2026-08-19", "2026-08-20"]
@@ -235,6 +243,301 @@ async def test_legacy_row_with_no_event_type_keeps_bare_description(monkeypatch)
     """A pre-M6a, LLM-derived incident (no event_type/detail properties)
     must render exactly as it always did — no dangling '— None' suffix."""
     _stub_scoped_cypher(monkeypatch, dated_rows=[_dated_row("INCIDENT-005", "Legacy incident", "2026-01-01")])
+
+    result = await timeline_building(_agent_input(), gateway=_FakeGateway(checked=True))
+
+    assert result.events[0].description == "Legacy incident"
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# findings.md TB-1 — the Incident narrative is served ONCE, not per event
+# ═══════════════════════════════════════════════════════════════════════
+
+# The real shape that exposed TB-1: one Incident, several dated
+# OCCURRED_ON edges, all sharing the same (long) Incident.description.
+# Measured on the live corpus: avg 5.9 events per incident, narrative avg
+# 1,347 chars -> ~5.9x duplication, 17,676 chars in the worst timeline.
+_TB1_NARRATIVE = (
+    "میں، عثمان خالد ملک، اسلام آباد کا رہائشی ہوں۔ "
+    "دو اپریل کو میرے گھر میں چوری ہوئی۔ " * 8
+).strip()
+
+
+def _tb1_rows():
+    return [
+        _dated_row("INCIDENT-097", _TB1_NARRATIVE, "2026-03-11", occ_id=1, event_type="incident"),
+        _dated_row("INCIDENT-097", _TB1_NARRATIVE, "2026-03-12",
+                   occ_id=2, event_type="zimni_entry", detail="entry 1"),
+        _dated_row("INCIDENT-097", _TB1_NARRATIVE, "2026-03-13",
+                   occ_id=3, event_type="zimni_entry", detail="entry 2"),
+        # `chalaan_dispatch`, not `position` — TB-2 gives a detail-less
+        # `position` an explicit placeholder, so it is no longer a valid
+        # example of a bare event_type. `chalaan_dispatch` genuinely
+        # carries no detail (15 such events live) and still renders bare.
+        _dated_row("INCIDENT-097", _TB1_NARRATIVE, "2026-03-14",
+                   occ_id=4, event_type="chalaan_dispatch"),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_narrative_is_not_repeated_once_per_event(monkeypatch):
+    """(1) The defining TB-1 assertion."""
+    _stub_scoped_cypher(monkeypatch, dated_rows=_tb1_rows())
+
+    result = await timeline_building(_agent_input(), gateway=_FakeGateway(checked=True))
+
+    assert len(result.events) == 4
+    for e in result.events:
+        assert _TB1_NARRATIVE not in e.description, (
+            "the shared Incident narrative must not appear inside a per-event description"
+        )
+
+
+@pytest.mark.asyncio
+async def test_narrative_appears_exactly_once_in_the_answer(monkeypatch):
+    """(2) Removed from the events, but NOT lost — served once, in full."""
+    _stub_scoped_cypher(monkeypatch, dated_rows=_tb1_rows())
+
+    result = await timeline_building(_agent_input(), gateway=_FakeGateway(checked=True))
+
+    assert result.answer_text is not None
+    assert result.answer_text.count(_TB1_NARRATIVE) == 1, (
+        "the narrative must be served exactly once — not zero times, not per event"
+    )
+
+
+@pytest.mark.asyncio
+async def test_narrative_is_served_verbatim_never_truncated(monkeypatch):
+    """(2b) TB-1 removes duplication only — it must not shorten the text."""
+    _stub_scoped_cypher(monkeypatch, dated_rows=_tb1_rows())
+
+    result = await timeline_building(_agent_input(), gateway=_FakeGateway(checked=True))
+
+    assert _TB1_NARRATIVE in result.answer_text
+    assert len(_TB1_NARRATIVE) > 500, "fixture must be long enough to make truncation detectable"
+
+
+@pytest.mark.asyncio
+async def test_event_type_and_detail_are_preserved_per_event(monkeypatch):
+    """(3) + (4) The distinguishing information survives."""
+    _stub_scoped_cypher(monkeypatch, dated_rows=_tb1_rows())
+
+    result = await timeline_building(_agent_input(), gateway=_FakeGateway(checked=True))
+
+    descriptions = [e.description for e in result.events]
+    assert "zimni_entry: entry 1" in descriptions
+    assert "zimni_entry: entry 2" in descriptions
+
+
+@pytest.mark.asyncio
+async def test_event_without_detail_still_renders_its_event_type(monkeypatch):
+    """(5) A typed event with no detail keeps its type, with no dangling ': '."""
+    _stub_scoped_cypher(monkeypatch, dated_rows=_tb1_rows())
+
+    result = await timeline_building(_agent_input(), gateway=_FakeGateway(checked=True))
+
+    descriptions = [e.description for e in result.events]
+    assert "incident" in descriptions
+    assert "chalaan_dispatch" in descriptions
+    assert not any(d.endswith(":") or d.endswith(": ") for d in descriptions)
+
+
+@pytest.mark.asyncio
+async def test_event_ordering_is_unchanged_by_tb1(monkeypatch):
+    """(6) TB-1 is a rendering change; chronology must be untouched."""
+    _stub_scoped_cypher(monkeypatch, dated_rows=_tb1_rows())
+
+    result = await timeline_building(_agent_input(), gateway=_FakeGateway(checked=True))
+
+    assert [e.occurred_on for e in result.events] == [
+        "2026-03-11", "2026-03-12", "2026-03-13", "2026-03-14",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_answer_text_still_carries_the_conflict_summary(monkeypatch):
+    """
+    (7) The narrative preamble must not displace the existing summary —
+    particularly the unchecked-conflict disclosure, which is the guard
+    that stops a false all-clear (RESOLVED-5 / Unit 6).
+    """
+    _stub_scoped_cypher(monkeypatch, dated_rows=_tb1_rows())
+
+    result = await timeline_building(_agent_input(), gateway=_FakeGateway(checked=False))
+
+    assert "4 dated event(s)" in result.answer_text
+    assert "conflict status is unknown for every event" in result.answer_text
+    assert result.answer_text.count(_TB1_NARRATIVE) == 1
+
+
+@pytest.mark.asyncio
+async def test_legacy_untyped_row_narrative_is_not_double_served(monkeypatch):
+    """
+    An untyped legacy row keeps its narrative in its own description (see
+    test_legacy_row_with_no_event_type_keeps_bare_description). It must
+    therefore NOT also be prepended to answer_text, or the very
+    duplication TB-1 removes would reappear by the other route.
+    """
+    _stub_scoped_cypher(
+        monkeypatch, dated_rows=[_dated_row("INCIDENT-005", "Legacy incident", "2026-01-01")],
+    )
+
+    result = await timeline_building(_agent_input(), gateway=_FakeGateway(checked=True))
+
+    assert result.events[0].description == "Legacy incident"
+    assert "Legacy incident" not in result.answer_text
+
+
+@pytest.mark.asyncio
+async def test_two_incidents_with_identical_narrative_serve_it_once(monkeypatch):
+    """De-duplication is on the narrative text, not on entity_id."""
+    _stub_scoped_cypher(
+        monkeypatch,
+        dated_rows=[
+            _dated_row("INCIDENT-A", "Shared narrative text", "2026-01-01",
+                       occ_id=1, event_type="incident"),
+            _dated_row("INCIDENT-B", "Shared narrative text", "2026-01-02",
+                       occ_id=2, event_type="incident"),
+        ],
+    )
+
+    result = await timeline_building(_agent_input(), gateway=_FakeGateway(checked=True))
+
+    assert result.answer_text.count("Shared narrative text") == 1
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# findings.md TB-2 — a blank `position` renders an explicit absence
+# ═══════════════════════════════════════════════════════════════════════
+
+# Real shape: 53/73 FIRs carry at least one fir_position row whose
+# `position` text is blank while its `status_date` is real. Measured on the
+# live corpus, all 65 such rows have null in EVERY other field, so the date
+# is the only recorded fact — suppressing them would erase 24 dates that
+# exist nowhere else in the timeline.
+def _tb2_rows():
+    return [
+        _dated_row("INCIDENT-1001", _TB1_NARRATIVE, "2024-09-25", occ_id=1, event_type="incident"),
+        _dated_row("INCIDENT-1001", _TB1_NARRATIVE, "2024-09-26",
+                   occ_id=2, event_type="zimni_entry", detail="entry 1"),
+        _dated_row("INCIDENT-1001", _TB1_NARRATIVE, "2025-02-13",
+                   occ_id=3, event_type="position", detail=""),
+        _dated_row("INCIDENT-1001", _TB1_NARRATIVE, "2026-01-29",
+                   occ_id=4, event_type="position", detail=""),
+        _dated_row("INCIDENT-1001", _TB1_NARRATIVE, "2026-02-01",
+                   occ_id=5, event_type="position", detail="ملزم گرفتار"),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_blank_position_event_is_still_present_and_dated(monkeypatch):
+    """(1) + (2) The event is never hidden and never loses its date."""
+    _stub_scoped_cypher(monkeypatch, dated_rows=_tb2_rows())
+
+    result = await timeline_building(_agent_input(), gateway=_FakeGateway(checked=True))
+
+    assert len(result.events) == 5, "a blank position event must not be suppressed"
+    dates = [e.occurred_on for e in result.events]
+    assert "2025-02-13" in dates and "2026-01-29" in dates, (
+        "dates carried only by a blank position row must survive"
+    )
+
+
+@pytest.mark.asyncio
+async def test_blank_position_renders_explicit_absence_not_bare_type(monkeypatch):
+    """(3) + (4) The defining TB-2 assertion."""
+    _stub_scoped_cypher(monkeypatch, dated_rows=_tb2_rows())
+
+    result = await timeline_building(_agent_input(), gateway=_FakeGateway(checked=True))
+
+    blanks = [e for e in result.events if e.occurred_on in ("2025-02-13", "2026-01-29")]
+    assert len(blanks) == 2
+    for e in blanks:
+        assert e.description == "position: no position recorded"
+        assert e.description != "position", "must not render as a bare event type"
+
+
+@pytest.mark.asyncio
+async def test_non_empty_position_detail_is_unchanged(monkeypatch):
+    """(5) A recorded position is preserved verbatim — including Urdu (TB-3 untouched)."""
+    _stub_scoped_cypher(monkeypatch, dated_rows=_tb2_rows())
+
+    result = await timeline_building(_agent_input(), gateway=_FakeGateway(checked=True))
+
+    e = next(e for e in result.events if e.occurred_on == "2026-02-01")
+    assert e.description == "position: ملزم گرفتار"
+
+
+@pytest.mark.asyncio
+async def test_other_detail_less_event_types_are_unchanged(monkeypatch):
+    """
+    (6) TB-2 is scoped to `position` ONLY. 341 events already render with no
+    detail (incident 64 / arrest 74 / chalaan_dispatch 15 / zimni_entry 188);
+    for those, an absent detail is unremarkable and must stay bare.
+    """
+    _stub_scoped_cypher(
+        monkeypatch,
+        dated_rows=[
+            _dated_row("INCIDENT-2", "N", "2026-01-01", occ_id=1, event_type="incident"),
+            _dated_row("INCIDENT-2", "N", "2026-01-02", occ_id=2, event_type="arrest"),
+            _dated_row("INCIDENT-2", "N", "2026-01-03", occ_id=3, event_type="chalaan_dispatch"),
+            _dated_row("INCIDENT-2", "N", "2026-01-04", occ_id=4, event_type="zimni_entry"),
+        ],
+    )
+
+    result = await timeline_building(_agent_input(), gateway=_FakeGateway(checked=True))
+
+    descriptions = [e.description for e in result.events]
+    assert descriptions == ["incident", "arrest", "chalaan_dispatch", "zimni_entry"]
+    assert not any("no position recorded" in d for d in descriptions)
+
+
+@pytest.mark.asyncio
+async def test_tb1_behaviour_intact_alongside_tb2(monkeypatch):
+    """(7) The narrative is still served once, and still not inside events."""
+    _stub_scoped_cypher(monkeypatch, dated_rows=_tb2_rows())
+
+    result = await timeline_building(_agent_input(), gateway=_FakeGateway(checked=True))
+
+    assert result.answer_text.count(_TB1_NARRATIVE) == 1
+    for e in result.events:
+        assert _TB1_NARRATIVE not in e.description
+
+
+@pytest.mark.asyncio
+async def test_tb2_preserves_event_ordering(monkeypatch):
+    """(8) Chronology is untouched by the placeholder."""
+    _stub_scoped_cypher(monkeypatch, dated_rows=_tb2_rows())
+
+    result = await timeline_building(_agent_input(), gateway=_FakeGateway(checked=True))
+
+    assert [e.occurred_on for e in result.events] == [
+        "2024-09-25", "2024-09-26", "2025-02-13", "2026-01-29", "2026-02-01",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_multiple_blank_position_events_stay_separate(monkeypatch):
+    """
+    (9) Two blank position events now render identical TEXT, so they must
+    not be collapsed — they are distinct dated reviews.
+    """
+    _stub_scoped_cypher(monkeypatch, dated_rows=_tb2_rows())
+
+    result = await timeline_building(_agent_input(), gateway=_FakeGateway(checked=True))
+
+    blanks = [e for e in result.events if e.description == "position: no position recorded"]
+    assert len(blanks) == 2, "identical rendered text must not deduplicate distinct dated events"
+    assert {e.occurred_on for e in blanks} == {"2025-02-13", "2026-01-29"}
+    assert len({e.event_id for e in blanks}) == 2, "event_ids must stay distinct"
+
+
+@pytest.mark.asyncio
+async def test_tb2_does_not_touch_legacy_untyped_rows(monkeypatch):
+    """(10) A pre-M6a row with no event_type keeps its bare description."""
+    _stub_scoped_cypher(
+        monkeypatch, dated_rows=[_dated_row("INCIDENT-005", "Legacy incident", "2026-01-01")],
+    )
 
     result = await timeline_building(_agent_input(), gateway=_FakeGateway(checked=True))
 

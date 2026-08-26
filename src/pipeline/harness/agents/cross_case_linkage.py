@@ -440,17 +440,48 @@ def _xgraph_confirmed_link(
     """
     Deterministic, structured description — see this module's docstring
     "XGRAPH-VS-XNETWORK DESCRIPTION-GENERATION DECISION". None when XGRAPH
-    has no confirmed chunks to describe (status != OK).
+    has no confirmed chunks to describe (status != OK), and None when the
+    traversal touched no case at all (see the empty-footprint note below).
+
+    [findings.md CCL-C2] `case_ids_touched` is the UNION of cases across
+    every returned chunk — an aggregate traversal footprint, and the
+    Verifier's allowed-cross-case-ID list. It is NOT evidence that any one
+    entity recurs in every case it contains.
+
+    When `target_entity` is set, the seed IS the thing traversed from, so
+    "X appears across these cases" is a claim the traversal actually
+    supports — that branch is unchanged.
+
+    When `target_entity` is None — the correct, intended state for broad
+    questions like "which cases share suspects?" (see
+    `_recover_target_entity`) — no single entity was ever identified, so
+    the footprint is described as what it is: the traversal's own reach.
+    The previous "A recurring entity appears across N case(s)" invented a
+    singular entity the evidence never established.
     """
     if tool_result.status != ToolStatus.OK:
         return None
-    entity_label = f"'{tool_input.target_entity}'" if tool_input.target_entity else "A recurring entity"
     case_ids = tool_result.case_ids_touched
-    description = (
-        f"{entity_label} appears across {len(case_ids)} case(s): "
-        f"{', '.join(case_ids) if case_ids else 'unknown'} "
-        f"(traversal depth {tool_result.hop_count} hop(s))."
-    )
+    if tool_input.target_entity:
+        description = (
+            f"'{tool_input.target_entity}' appears across {len(case_ids)} case(s): "
+            f"{', '.join(case_ids) if case_ids else 'unknown'} "
+            f"(traversal depth {tool_result.hop_count} hop(s))."
+        )
+    else:
+        # [findings.md CCL-C2] No seed entity: describe the traversal's
+        # aggregate reach, never a singular recurrence. An empty footprint
+        # supports no link at all — returning None lets the existing
+        # `_xgraph_summary_line` "No confirmed cross-case entity
+        # connections were found." path stand, rather than emitting a
+        # fabricated "0 case(s): unknown" link.
+        if not case_ids:
+            return None
+        description = (
+            f"This cross-case traversal returned linked evidence across "
+            f"{len(case_ids)} case(s): {', '.join(case_ids)} "
+            f"(traversal depth {tool_result.hop_count} hop(s))."
+        )
     return CrossCaseLink(
         description=description,
         case_ids=case_ids,
@@ -508,16 +539,35 @@ def _xnetwork_links(tool_result: XNetworkToolResult) -> list[CrossCaseLink]:
     verbatim from the tool's own (already-grounded) text — see the
     description-generation decision above for why this is never
     re-paraphrased per-item.
+
+    [findings.md CCL-C3] `case_ids` is each community's OWN case set
+    (`community_case_ids[i]`), never the tool's aggregate
+    `case_ids_touched`. `CrossCaseLink.case_ids` is documented as "Cases
+    this connection spans" — a per-item property — so stamping the union
+    on every link asserted a span the individual community was never shown
+    to have. Measured live: 17 of 19 communities are single-case, and a
+    3-result query rendered all three as spanning 4 cases.
+
+    This is the same principle this module already applies to unconfirmed
+    links (see the STATUS MAPPING section above: "using the tool's
+    aggregate `case_ids_touched` instead would misattribute an unconfirmed
+    pairing to specific cases it was never shown to actually span") — CCL-C3
+    is that reasoning extended to XNETWORK links.
+
+    A missing per-community entry degrades to `[]`, NOT to
+    `case_ids_touched`: an unknown span must read as unknown rather than
+    silently reinstating the aggregate this fix exists to remove.
     """
+    per_community = tool_result.community_case_ids
     return [
         CrossCaseLink(
             description=chunk.text,
-            case_ids=tool_result.case_ids_touched,
+            case_ids=list(per_community[i]) if i < len(per_community) else [],
             confidence=chunk.score,
             source_tool="XNETWORK",
             is_unconfirmed=False,
         )
-        for chunk in tool_result.chunks
+        for i, chunk in enumerate(tool_result.chunks)
     ]
 
 

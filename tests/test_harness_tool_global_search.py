@@ -120,3 +120,109 @@ def test_fallback_to_rag_cannot_be_overridden_true():
     from pydantic import ValidationError
     with pytest.raises(ValidationError):
         GlobalSearchToolResult(status=ToolStatus.OK, fallback_to_rag=True)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# GS-1 — a community's own case footprint must survive to the chunk, and
+# must stay distinct from the query-level `case_ids_touched` union.
+#
+# Fixtures use real-corpus IDs and the real 17:2 skew in miniature: two
+# single-case communities from DIFFERENT cases plus one genuinely
+# multi-case community (live: C-20260825-0005 spans fir-214-26 and
+# fir-891-24).
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def _gs1_reports(specs):
+    return {
+        "kind": "global_search_reports",
+        "hierarchy_level": 0,
+        "reports": [
+            {
+                "community_id": cid,
+                "summary_text": f"Summary for {cid}.",
+                "case_ids": list(cases),
+                "member_count": 2,
+            }
+            for cid, cases in specs
+        ],
+        "community_ids": [cid for cid, _ in specs],
+        "case_ids": sorted({c for _, cases in specs for c in cases}),
+    }
+
+
+def _stub_gs1(monkeypatch, specs):
+    async def _run(*a, **kw):
+        return _gs1_reports(specs)
+
+    monkeypatch.setattr(global_search_mod, "run_global_search_query", _run)
+
+
+async def _gs1_run():
+    return await global_search_tool(
+        GlobalSearchToolInput(query_text="dataset-wide themes", execution=_execution())
+    )
+
+
+@pytest.mark.asyncio
+async def test_gs1_single_case_community_keeps_its_own_footprint(monkeypatch):
+    """(A) A single-case community is never stamped with the union."""
+    _stub_gs1(monkeypatch, [("C-A", ["fir-88-26"])])
+    result = await _gs1_run()
+
+    assert result.community_case_ids == [["fir-88-26"]]
+    meta = result.chunks[0].metadata
+    assert meta.case_id == "fir-88-26"
+    assert meta.case_ids == ["fir-88-26"]
+
+
+@pytest.mark.asyncio
+async def test_gs1_multi_case_community_is_not_collapsed(monkeypatch):
+    """(B) No arbitrary "first case" — case_id stays None, both IDs kept."""
+    _stub_gs1(monkeypatch, [("C-B", ["fir-214-26", "fir-891-24"])])
+    result = await _gs1_run()
+
+    assert result.community_case_ids == [["fir-214-26", "fir-891-24"]]
+    meta = result.chunks[0].metadata
+    assert meta.case_id is None, "a 2-case community must not claim one case"
+    assert meta.case_ids == ["fir-214-26", "fir-891-24"]
+
+
+@pytest.mark.asyncio
+async def test_gs1_mixed_top_k_keeps_per_community_attribution(monkeypatch):
+    """(C) The real shape: per-community lists stay distinct from the union."""
+    specs = [
+        ("C-A", ["fir-88-26"]),
+        ("C-B", ["fir-117-26"]),
+        ("C-C", ["fir-214-26", "fir-891-24"]),
+    ]
+    _stub_gs1(monkeypatch, specs)
+    result = await _gs1_run()
+
+    assert result.community_case_ids == [
+        ["fir-88-26"],
+        ["fir-117-26"],
+        ["fir-214-26", "fir-891-24"],
+    ]
+    # Index alignment with chunks/community_ids is the whole contract.
+    assert len(result.community_case_ids) == len(result.chunks) == len(result.community_ids)
+
+    # The union is a SEPARATE contract and stays the union.
+    assert result.case_ids_touched == ["fir-117-26", "fir-214-26", "fir-88-26", "fir-891-24"]
+
+    # No single-case chunk carries the union.
+    for chunk, expected in zip(result.chunks, [c for _, c in specs]):
+        assert chunk.metadata.case_ids == expected
+        assert chunk.metadata.case_ids != result.case_ids_touched
+
+
+@pytest.mark.asyncio
+async def test_gs1_missing_case_ids_yields_empty_not_union(monkeypatch):
+    """(D) An absent footprint degrades to [] — never to the union."""
+    _stub_gs1(monkeypatch, [("C-A", []), ("C-B", ["fir-88-26"])])
+    result = await _gs1_run()
+
+    assert result.community_case_ids == [[], ["fir-88-26"]]
+    assert result.chunks[0].metadata.case_ids == []
+    assert result.chunks[0].metadata.case_id is None
+    assert result.case_ids_touched == ["fir-88-26"]

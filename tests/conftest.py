@@ -7,7 +7,9 @@ Design rules for this suite:
   * Tests assert behaviour that broke in production, not implementation
     detail. Each regression test names the bug it guards against.
 """
+import os
 import sys
+import tempfile
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -16,6 +18,173 @@ import pytest
 
 # Make `src` importable when pytest is run from the repo root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+# ═══════════════════════════════════════════════════════════════════════
+# CHROMA TEST ISOLATION — must run BEFORE anything imports `src.config`.
+#
+# `src.config.CHROMA_PERSIST_DIR` is a MODULE-LEVEL constant read from the
+# environment at import time, so a pytest process that does not override
+# the variable resolves to the live `data/chroma_db` and any test reaching
+# a real Chroma call writes to production persistence. Isolation used to
+# be per-file and opt-in; a module that forgot its own fixture had nothing
+# standing between it and the live store.
+#
+# Two protections, deliberately both:
+#
+#   C (isolation) — every pytest process gets a disposable persist root by
+#     default. Set here, at the top of conftest.py, because conftest is
+#     imported before any test module and imports no `src.*` itself, so no
+#     application module can have read the variable yet.
+#
+#   F (fail-closed guard) — `chromadb.PersistentClient` is wrapped so that
+#     ANY attempt to open the production root during a test raises instead
+#     of proceeding. C is a default a future test could override; F turns
+#     that mistake into a loud failure rather than silent data loss.
+#
+# Neither touches production runtime: both live entirely in test
+# infrastructure, and the wrapper is installed only inside pytest.
+# ═══════════════════════════════════════════════════════════════════════
+
+# The production root, resolved WITHOUT importing src.config (which would
+# defeat the point of setting the variable first).
+PRODUCTION_CHROMA_DIR = (Path(__file__).resolve().parent.parent / "data" / "chroma_db").resolve()
+
+_TEST_CHROMA_DIR = Path(tempfile.mkdtemp(prefix="muhafiz-pytest-chroma-")).resolve()
+os.environ["CHROMA_PERSIST_DIR"] = str(_TEST_CHROMA_DIR)
+
+# ═══════════════════════════════════════════════════════════════════════
+# POSTGRES / AGE TEST ISOLATION — same reasoning as the Chroma block, for
+# the other persistence layer, and it must run here for the same reason.
+#
+# `src.config.DATABASE_URL` is read from the environment at import time,
+# and `src/database/postgres.py` builds its SQLAlchemy engine at MODULE
+# IMPORT (`create_async_engine(_database_url)`), so the value must be set
+# before any application module is imported. `age_client._dsn()` reads
+# config lazily per call, so it follows whatever is set here.
+#
+# Measured before this guard existed: a pytest process resolved
+# `postgresql+asyncpg://postgres:dev@localhost:5432/muhafiz` — the LIVE
+# database and the live `evidence_graph`. `no_network` does not help:
+# it deliberately allows loopback (see _LOOPBACK_HOSTS below), which is
+# exactly where Postgres listens.
+#
+# Isolation here is by DATABASE IDENTITY, not by server: the URL is
+# repointed at a clearly-named non-existent test database. Most suites
+# fake their gateway/age_client anyway; anything that genuinely tries to
+# open a connection now fails loudly against a test identity instead of
+# silently succeeding against production.
+#
+# Test-infrastructure only — no production DB semantics are changed.
+# ═══════════════════════════════════════════════════════════════════════
+
+PRODUCTION_DB_NAME = "muhafiz"
+PRODUCTION_GRAPH_NAME = "evidence_graph"
+
+_TEST_DB_NAME = f"muhafiz_pytest_{uuid.uuid4().hex[:12]}"
+_LIVE_DATABASE_URL = os.environ.get("DATABASE_URL", "")
+os.environ["DATABASE_URL"] = (
+    f"postgresql+asyncpg://postgres:dev@localhost:5432/{_TEST_DB_NAME}"
+)
+
+
+class LiveDatabaseAccessError(RuntimeError):
+    """Raised when a test tries to open the live Muhafiz Postgres/AGE database."""
+
+
+def _database_name_of(dsn) -> str:
+    """Last path segment of a DSN, minus any query string. '' when unparseable."""
+    if not dsn:
+        return ""
+    try:
+        text = str(dsn).split("?", 1)[0]
+        return text.rstrip("/").rsplit("/", 1)[-1]
+    except (AttributeError, IndexError):
+        return ""
+
+
+def _is_production_database(dsn) -> bool:
+    """True when `dsn` names the live Muhafiz database."""
+    return _database_name_of(dsn) == PRODUCTION_DB_NAME
+
+
+def _install_live_database_guard() -> None:
+    """
+    Wrap `asyncpg.create_pool` so the live database fails closed.
+
+    This is the single boundary every AGE write crosses
+    (`age_client.get_pool()` -> `asyncpg.create_pool(dsn)`), so guarding
+    it covers `execute_cypher` and therefore every graph mutation,
+    without touching production code.
+    """
+    import asyncpg
+
+    if getattr(asyncpg.create_pool, "_muhafiz_live_db_guard", False):
+        return
+
+    _real_create_pool = asyncpg.create_pool
+
+    def _guarded_create_pool(dsn=None, *args, **kwargs):
+        if _is_production_database(dsn):
+            raise LiveDatabaseAccessError(
+                "Refusing live Muhafiz Postgres/AGE access during pytest: "
+                f"{dsn}. Tests must use the disposable DATABASE_URL set in "
+                "tests/conftest.py."
+            )
+        return _real_create_pool(dsn, *args, **kwargs)
+
+    _guarded_create_pool._muhafiz_live_db_guard = True
+    _guarded_create_pool._real_create_pool = _real_create_pool
+    asyncpg.create_pool = _guarded_create_pool
+
+
+_install_live_database_guard()
+
+
+class LiveChromaAccessError(RuntimeError):
+    """Raised when a test tries to open the live Chroma persist directory."""
+
+
+def _is_production_chroma_path(path) -> bool:
+    """True when `path` resolves to the live persist root (or inside it)."""
+    if path is None:
+        return False
+    try:
+        candidate = Path(path).resolve()
+    except (OSError, ValueError, TypeError):
+        return False
+    return candidate == PRODUCTION_CHROMA_DIR or PRODUCTION_CHROMA_DIR in candidate.parents
+
+
+def _install_live_chroma_guard() -> None:
+    """
+    Wrap chromadb.PersistentClient so the production root fails closed.
+
+    Guards the persistence ROOT, not a collection name, so it covers
+    muhafiz_kb, muhafiz_community_reports, muhafiz_entity_descriptions and
+    any collection added later.
+    """
+    import chromadb
+
+    if getattr(chromadb.PersistentClient, "_muhafiz_live_guard", False):
+        return
+
+    _real_persistent_client = chromadb.PersistentClient
+
+    def _guarded_persistent_client(path=None, *args, **kwargs):
+        if _is_production_chroma_path(path):
+            raise LiveChromaAccessError(
+                f"Refusing to use live Chroma persistence during pytest: {path}. "
+                "Tests must use the disposable CHROMA_PERSIST_DIR set in "
+                "tests/conftest.py."
+            )
+        return _real_persistent_client(path, *args, **kwargs)
+
+    _guarded_persistent_client._muhafiz_live_guard = True
+    _guarded_persistent_client._real_persistent_client = _real_persistent_client
+    chromadb.PersistentClient = _guarded_persistent_client
+
+
+_install_live_chroma_guard()
 
 
 # ── Fake data gateway ─────────────────────────────────────────────────────────

@@ -1508,7 +1508,11 @@ class TestResolveJurisdictionCaseIds:
     async def test_station_name_resolves_to_case_ids(self, monkeypatch, fake_gate_gateway):
         async def fake_execute_cypher(cypher, params=None, columns=None, graph=None):
             if "PoliceStation" in cypher and "FILED_AT" not in cypher:
-                assert params["q"] == "Iqbal Town"
+                # [findings.md JURISDICTION] The resolver now normalizes
+                # (NFKC + trim + casefold) before querying, so the bound
+                # parameter is the normalized form. The resolved
+                # station_id asserted below is unchanged.
+                assert params["q"] == "iqbal town"
                 return [{"id": "PS-LHR-IQBALTOWN"}]
             assert "FILED_AT" in cypher
             assert params["station_id"] == "PS-LHR-IQBALTOWN"
@@ -1573,3 +1577,138 @@ class TestJurisdictionNarrowsCrossCaseSeedLookup:
         assert seed_ids == {"P-100"}
         chunk_ids = {c["id"] for c in result["chunks"]}
         assert "c101" not in chunk_ids
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [findings.md JURISDICTION] Bilingual jurisdiction alias resolution.
+#
+# District.name is Urdu-only and district_id is opaque ("DIST-04"), so an
+# English district name could never match by string comparison alone —
+# measured live before the fix: "Lahore" -> None, "لاہور" -> DIST-04.
+#
+# Fixtures mirror the nine real District nodes and the real station ids
+# this corpus stores, not synthetic DISTRICT_A placeholders.
+# ═══════════════════════════════════════════════════════════════════════
+
+_REAL_DISTRICTS = {
+    "DIST-01": "فیصل آباد",
+    "DIST-02": "کراچی وسطی",
+    "DIST-03": "حیدر آباد",
+    "DIST-04": "لاہور",
+    "DIST-05": "چنیوٹ",
+    "DIST-06": "اسلام آباد",
+    "DIST-07": "راولپنڈی",
+    "DIST-08": "کراچی ایسٹ",
+    "DIST-09": "ملتان",
+}
+
+_REAL_STATIONS = {
+    "PS-LHR-MODELTOWN": "تھانہ ماڈل ٹاؤن، لاہور",
+    "PS-KHI-NEWKARACHI": "تھانہ نیو کراچی، کراچی",
+    "PS-CHN-SADDAR": "تھانہ صدر، ضلع چنیوٹ",
+    "PS-RWP-SADDAR": "تھانہ صدر، راولپنڈی",
+}
+
+
+def _stub_jurisdiction_graph(monkeypatch):
+    """Serve the real district/station vocabulary through age_client."""
+    async def fake_execute_cypher(cypher, params=None, columns=None, graph=None):
+        # `q` is whatever the resolver passed: the fixed code casefolds it
+        # first, the pre-fix code passed it raw. Lowercasing here mirrors
+        # Cypher's own toLower() on the STORED side, so this stub behaves
+        # the same way for both — which is what makes the mutation check
+        # meaningful rather than an artifact of the fixture.
+        q = ((params or {}).get("q") or "").lower()
+        if "District" in cypher:
+            for did, name in _REAL_DISTRICTS.items():
+                if "CONTAINS" in cypher:
+                    if q and (q in did.lower() or q in name.lower()):
+                        return [{"id": did}]
+                elif "d.name = $q" in cypher:
+                    if q == name.lower():
+                        return [{"id": did}]
+                elif q in (did.lower(), name.lower()):
+                    return [{"id": did}]
+            return []
+        for sid, name in _REAL_STATIONS.items():
+            if "CONTAINS" in cypher:
+                if q and (q in sid.lower() or q in name.lower()):
+                    return [{"id": sid}]
+            elif q in (sid.lower(), name.lower()):
+                return [{"id": sid}]
+        return []
+
+    monkeypatch.setattr(gr.age_client, "execute_cypher", fake_execute_cypher)
+
+
+class TestJurisdictionAliasResolution:
+    """[findings.md JURISDICTION] English aliases, normalization, ambiguity."""
+
+    async def test_canonical_urdu_district_still_resolves(self, monkeypatch):
+        _stub_jurisdiction_graph(monkeypatch)
+        assert await gr._resolve_district_id("لاہور") == "DIST-04"
+
+    async def test_canonical_district_id_still_resolves(self, monkeypatch):
+        _stub_jurisdiction_graph(monkeypatch)
+        assert await gr._resolve_district_id("DIST-04") == "DIST-04"
+
+    async def test_english_district_alias_resolves(self, monkeypatch):
+        """The defect: English named the right district but resolved to nothing."""
+        _stub_jurisdiction_graph(monkeypatch)
+        for form in ("Lahore", "lahore", "LAHORE"):
+            assert await gr._resolve_district_id(form) == "DIST-04", form
+
+    async def test_whitespace_is_normalized(self, monkeypatch):
+        _stub_jurisdiction_graph(monkeypatch)
+        assert await gr._resolve_district_id(" Lahore ") == "DIST-04"
+        assert await gr._resolve_district_id(" لاہور ") == "DIST-04"
+
+    async def test_every_unambiguous_english_district_resolves(self, monkeypatch):
+        _stub_jurisdiction_graph(monkeypatch)
+        expected = {
+            "Rawalpindi": "DIST-07", "Faisalabad": "DIST-01", "Islamabad": "DIST-06",
+            "Multan": "DIST-09", "Chiniot": "DIST-05", "Hyderabad": "DIST-03",
+        }
+        for name, did in expected.items():
+            assert await gr._resolve_district_id(name) == did, name
+
+    async def test_ambiguous_karachi_does_not_pick_a_district(self, monkeypatch):
+        """Two real Karachi districts exist; choosing either would silently
+        narrow a supervisor's query to half the city."""
+        _stub_jurisdiction_graph(monkeypatch)
+        assert await gr._resolve_district_id("Karachi") is None
+        assert await gr._resolve_district_id(" karachi ") is None
+
+    async def test_specific_karachi_aliases_resolve(self, monkeypatch):
+        _stub_jurisdiction_graph(monkeypatch)
+        assert await gr._resolve_district_id("Karachi Central") == "DIST-02"
+        assert await gr._resolve_district_id("Karachi East") == "DIST-08"
+
+    async def test_unknown_district_fails_closed(self, monkeypatch):
+        _stub_jurisdiction_graph(monkeypatch)
+        assert await gr._resolve_district_id("Atlantis") is None
+        assert await gr._resolve_district_id("") is None
+
+    async def test_canonical_station_forms_still_resolve(self, monkeypatch):
+        _stub_jurisdiction_graph(monkeypatch)
+        assert await gr._resolve_station_id("PS-LHR-MODELTOWN") == "PS-LHR-MODELTOWN"
+        assert await gr._resolve_station_id(
+            "تھانہ ماڈل ٹاؤن، لاہور"
+        ) == "PS-LHR-MODELTOWN"
+
+    async def test_english_station_alias_resolves(self, monkeypatch):
+        _stub_jurisdiction_graph(monkeypatch)
+        for form in ("Model Town", " model town ", "MODEL TOWN"):
+            assert await gr._resolve_station_id(form) == "PS-LHR-MODELTOWN", form
+
+    async def test_substring_accident_no_longer_resolves_station(self, monkeypatch):
+        """"Karachi" used to resolve to PS-KHI-NEWKARACHI purely because
+        "khi" sits inside that ASCII id — an accident, not an alias."""
+        _stub_jurisdiction_graph(monkeypatch)
+        assert await gr._resolve_station_id("Karachi") is None
+
+    async def test_ambiguous_station_alias_fails_closed(self, monkeypatch):
+        """"Saddar" names two real stations (Chiniot and Rawalpindi)."""
+        _stub_jurisdiction_graph(monkeypatch)
+        assert await gr._resolve_station_id("Saddar") is None
+        assert await gr._resolve_station_id("Nowhere PS") is None

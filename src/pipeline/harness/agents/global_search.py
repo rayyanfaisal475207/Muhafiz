@@ -263,8 +263,13 @@ async def _map_batch(query_text: str, batch: list[EvidenceChunk]) -> Optional[li
     retries (including its escalate-on-failure policy) are exhausted;
     returns [] for a batch that ran fine and found nothing relevant.
     """
+    # [findings.md GS-1] Report numbering and summary text are unchanged;
+    # only each report's own deterministic case scope is now visible, so
+    # the map step can tell a single-case cluster from a genuinely
+    # cross-case one instead of inferring it from prose.
     documents_text = "\n\n".join(
-        f"[Report {i}]\n{chunk.text}" for i, chunk in enumerate(batch, start=1)
+        f"[Report {i}] ({_scope_annotation(chunk)})\n{chunk.text}"
+        for i, chunk in enumerate(batch, start=1)
     )
     user_message = f"QUESTION: {query_text}\n\n--- REPORTS ---\n{documents_text}\n--- END OF REPORTS ---"
 
@@ -295,6 +300,30 @@ def _make_batches(chunks: list[EvidenceChunk], batch_size: int) -> list[list[Evi
     return batches
 
 
+def _scope_annotation(chunk: EvidenceChunk) -> str:
+    """
+    [findings.md GS-1] Deterministic, per-community scope label built
+    ONLY from the chunk's own structured `case_ids` — never from
+    `case_ids_touched` (the query-level union) and never inferred from
+    the report's prose.
+
+    Both the map and the reduce stage render scope through this one
+    helper so the two stages cannot drift into subtly different wording.
+
+    Without it a single-case community and a genuinely cross-case one
+    were indistinguishable once several reports were flattened into one
+    prompt, so the query's aggregate footprint could be read as evidence
+    that any one community spanned every case it touched.
+    """
+    cases = list(getattr(chunk.metadata, "case_ids", None) or [])
+    if not cases:
+        return "scope unknown"
+    joined = ", ".join(cases)
+    if len(cases) == 1:
+        return f"cases: {joined} — single-case"
+    return f"cases: {joined} — spans {len(cases)} cases"
+
+
 def _format_documents_for_prompt(chunks: list[EvidenceChunk]) -> str:
     """[Document N] numbering here MUST match Citation.document_index and
     verify_grounding()'s positional chunks[n-1] indexing — same list,
@@ -302,7 +331,9 @@ def _format_documents_for_prompt(chunks: list[EvidenceChunk]) -> str:
     parts: list[str] = []
     for i, chunk in enumerate(chunks, start=1):
         source = chunk.metadata.source_file or "unknown"
-        parts.append(f"[Document {i}] (community {source})\n{chunk.text}")
+        parts.append(
+            f"[Document {i}] (community {source}; {_scope_annotation(chunk)})\n{chunk.text}"
+        )
     return "\n\n".join(parts)
 
 

@@ -100,6 +100,26 @@ class GlobalSearchToolResult(CrossCaseToolResult):
 
     hierarchy_level: Optional[int] = None
     community_ids: list[str] = Field(default_factory=list)
+    community_case_ids: list[list[str]] = Field(
+        default_factory=list,
+        description=(
+            "[findings.md GS-1] Per-community case IDs, index-aligned with "
+            "`chunks`/`community_ids`: entry i is the case footprint of "
+            "community i, and ONLY that community. Distinct from "
+            "`case_ids_touched`, which is deliberately the UNION across "
+            "every contributing report and must stay that way — it feeds "
+            "the Verifier's allowed-cross-case-ID list (see "
+            "CrossCaseToolResult's own [PRESERVE] note).\n\n"
+            "Exists because the union alone cannot answer 'which cases "
+            "does THIS community span?'. Dropping it made a single-case "
+            "community indistinguishable from a genuinely cross-case one "
+            "once several reports were flattened — measured live: 17 of "
+            "19 real communities are single-case.\n\n"
+            "Empty when a caller does not supply it. Consumers MUST treat "
+            "an absent entry as 'not known' and fall back to [] — NEVER "
+            "to `case_ids_touched`, which would silently recreate the bug."
+        ),
+    )
     report_count_total: int = Field(
         default=0,
         description=(
@@ -141,19 +161,36 @@ async def global_search_tool(tool_input: GlobalSearchToolInput) -> GlobalSearchT
         )
 
     reports = result["reports"]
+    # [findings.md GS-1] Each chunk carries its OWN community's footprint,
+    # never the query-level union. `case_id` is populated only when a
+    # single ID is exactly truthful (17 of 19 live communities); a
+    # multi-case community leaves it None rather than picking a "first"
+    # case, and carries both IDs in `case_ids` instead. ChunkMetadata
+    # allows extra keys, so this needs no shared-schema change.
+    community_case_ids = [list(r.get("case_ids") or []) for r in reports]
     chunks = [
         EvidenceChunk(
             id=f"community-{i}",
             text=r["summary_text"],
-            metadata=ChunkMetadata(source_tool="XNETWORK", source_file=r["community_id"]),
+            metadata=ChunkMetadata(
+                source_tool="XNETWORK",
+                source_file=r["community_id"],
+                case_id=cases[0] if len(cases) == 1 else None,
+                case_ids=cases,
+            ),
         )
-        for i, r in enumerate(reports, start=1)
+        for i, (r, cases) in enumerate(zip(reports, community_case_ids), start=1)
     ]
 
     return GlobalSearchToolResult(
         status=ToolStatus.OK if reports else ToolStatus.EMPTY,
         chunks=chunks,
+        # [PRESERVE] The UNION across every contributing report — the
+        # Verifier's allowed-cross-case-ID list. Deliberately unchanged by
+        # GS-1: narrowing this would make the leakage backstop reject
+        # legitimate cross-case answers.
         case_ids_touched=result["case_ids"],
+        community_case_ids=community_case_ids,
         hierarchy_level=result["hierarchy_level"],
         community_ids=result["community_ids"],
         report_count_total=len(reports),
