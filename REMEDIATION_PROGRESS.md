@@ -1,8 +1,8 @@
 # Muhafiz Agent-Harness Remediation — Progress Report
 
-**Branch:** `agent-harness` @ `5c32ea0`
+**Branch:** `agent-harness` @ `d5fa333`
 **Date:** 2026-08-26
-**Status:** ~85% complete · all HIGH-priority findings closed · all approved fixes checkpointed
+**Status:** ~90% complete (effort estimate, not a measured completion percentage) · all HIGH-priority findings closed · future graph drift fixed · live test-fixture contamination removed
 
 ---
 
@@ -19,9 +19,9 @@ Every defect found is the same class of failure: the system returning a *plausib
 answer* instead of admitting it could not answer. That violates the project's core
 principle — **"Muhafiz does not guess."**
 
-**Scope note:** the harness is not live — `HARNESS_CUTOVER_ROUTES` is empty. The one
-exception is the jurisdiction fix (§5), which is shared/live code reached by the
-orchestrator, and was verified on the live path before checkpointing.
+**Scope note:** the harness is not live — `HARNESS_CUTOVER_ROUTES` is empty. Two
+exceptions touch shared/live code: the jurisdiction fix (§5) and the ingestion
+idempotency fix (§7), both verified on the live path before checkpointing.
 
 ---
 
@@ -37,15 +37,19 @@ Three disciplines that repeatedly caught real problems:
 - **Verify against live data, never relay a sub-agent's numbers.** This caught wrong
   SAME_AS counts three times, and a sub-agent audit that misreported entity counts by 5x.
 - **Mutation-check every new test** — restore the old behaviour and prove the new tests
-  fail against it. This caught a vacuous test during GS-1 and forced a correction to a
-  badly-designed mutation during the jurisdiction phase.
+  fail against it. This caught a vacuous test during GS-1, a badly-designed mutation
+  during the jurisdiction phase, and an unsafe "mark complete too early" implementation
+  during the ingestion idempotency phase.
 - **Explicit "did anything change that I did not cause?" check** before every commit.
-  This surfaced both the legacy re-ingestion writer (§8) and the Chroma isolation failure
-  (§4).
+  This surfaced the legacy re-ingestion writer (§6), the Chroma isolation failure (§4),
+  the Postgres/AGE isolation failure (§4), and ultimately the test-fixture contamination
+  of the SAME_AS pool (§8).
 
-Three findings were **investigated and then closed or deferred without code changes**
-(§7). Two of the three turned out to be materially different from how the original audit
-recorded them.
+Several findings were **investigated and then closed, deferred, or corrected without code
+changes** (§10). Two of them turned out to be materially different from how the original
+audit recorded them. One destructive phase (§8) **halted itself** at a safety gate because
+a measured endpoint set was 25, not the assumed 24 — that halt prevented deletion of a
+real corpus record.
 
 ---
 
@@ -62,9 +66,12 @@ recorded them.
 | **Merge** | Reconciled 19 upstream commits — 37 files, +6,127 lines, **0 conflicts** | `67a5ac8` |
 | **Phase 3C-c** | CCL-C2 singular-entity attribution | `74ef93b` |
 | **Phase 3C-d** | GS-1 Global Search community scope | `3ba6ef1` |
-| **Test safety** | Global pytest Chroma isolation + fail-closed guard | `44acd8c` |
+| **Test safety (Chroma)** | Global pytest Chroma isolation + fail-closed guard | `44acd8c` |
 | **Jurisdiction** | Bilingual district/station alias resolution (**shared/live**) | `5c32ea0` |
+| **Test safety (Postgres/AGE)** | Global pytest DB isolation + fail-closed guard | `9f7ca35` |
+| **Future-drift fix** | Graph extraction made idempotent by chunk (**shared/live**) | `d5fa333` |
 | **LS-1** | Entity embeddings populated — operational, Chroma-only, no commit | — |
+| **SET B cleanup** | Live test-fixture graph remnants removed — operational, no commit | — |
 
 ### The five harness code fixes
 
@@ -89,150 +96,294 @@ from prose.
 
 ---
 
-## 4. Test-safety fix — a finding discovered mid-remediation (`44acd8c`)
+## 4. Test-infrastructure safety — two findings, both fixed
 
-`CHROMA_PERSIST_DIR` is read from the environment at import time, so **a pytest process
-with no override resolved to the live `data/chroma_db`**, and isolation was per-file and
-opt-in. Any test reaching a real Chroma call could mutate production persistence.
+Both were discovered by the "did anything change that I did not cause?" discipline, and
+both are **test-infrastructure only** — no production code was changed by either.
 
-Two protections now live in test infrastructure only:
+### Chroma isolation (`44acd8c`)
 
-- **Global isolation** — every pytest session gets a disposable temp persist root, set at
-  the top of `conftest.py` before any application module can read the variable.
-- **Fail-closed guard** — `chromadb.PersistentClient` is wrapped so that opening the
-  production root during a test *raises* rather than proceeding.
+`CHROMA_PERSIST_DIR` is read from the environment at import time, so a pytest process with
+no override resolved to the live `data/chroma_db`, and isolation was per-file and opt-in.
+Fixed with a disposable per-session persist root set before any application import, plus a
+fail-closed guard that raises if a test opens the production root.
 
-Both are mutation-verified. Production Chroma semantics are unchanged.
+### Postgres / AGE isolation (`9f7ca35`)
+
+**pytest previously resolved the live Postgres/AGE database** —
+`postgresql+asyncpg://postgres:dev@localhost:5432/muhafiz`. `tests/conftest.py` had no DB
+isolation, and the general `no_network` guard **explicitly allows loopback**, which is
+exactly where Postgres listens.
+
+Fixed with global test DB isolation (a disposable `muhafiz_pytest_<uuid>` identity set
+before any application import) plus a fail-closed guard on `asyncpg.create_pool` — the
+single boundary every AGE write crosses. Production DB semantics unchanged.
+
+Verification: guarded full suite **1,833 collected · 1,828 passed · 5 skipped · 0 failed**,
+with **live Postgres/AGE unchanged** throughout and zero guard trips.
+
+**Important wording:** the pytest live-DB exposure was a genuine safety defect, but **the
+historical re-ingestion trigger remained unproven**. This fix closed a real pathway; it
+did not establish that pytest caused the historical bursts.
 
 ---
 
-## 5. Jurisdiction fix (`5c32ea0`) — the first shared/live change
+## 5. Jurisdiction fix (`5c32ea0`) — first shared/live change
 
 English district names did not resolve: `Lahore` → nothing, while `لاہور` → `DIST-04`.
 District `name` values are Urdu-only and `district_id` is opaque, so no English query
 could match. When resolution failed the system did not narrow at all, and a supervisor
 asking about one district received **platform-wide figures presented as that district's**.
 
-**What the fix does:**
-
-- English aliases now resolve deterministically — no LLM, no transliteration, no data
-  migration — scoped strictly to the 9 real districts and 19 real stations.
+- Deterministic aliases — no LLM, no transliteration, no data migration — scoped to the
+  9 real districts and 19 real stations.
 - Normalization: **NFKC + trim + internal-whitespace collapse + casefold**.
-- **`Lahore` and `لاہور` resolve to the same 18-case scope** (previously English fell
-  through to all 73).
-- Generic **`Karachi` fails safely as ambiguous** — two real Karachi districts exist, so
-  picking either would silently narrow to half the city; it discloses instead.
-- **`Karachi Central` / `Karachi East`** resolve specifically.
-- Deterministic **station aliases** added where provable from the ASCII `station_id`
-  (e.g. `Model Town` → `PS-LHR-MODELTOWN`); `Saddar` and `Cyber` are treated as ambiguous
-  because each names two real stations.
+- **`Lahore` and `لاہور` resolve to the same 18-case scope.**
+- Generic **`Karachi` fails safely as ambiguous** (two real Karachi districts exist);
+  **`Karachi Central` / `Karachi East`** resolve specifically.
+- Station aliases added only where provable from the ASCII `station_id`; `Saddar` and
+  `Cyber` treated as ambiguous because each names two real stations.
 - **Accidental substring matches removed** — `Karachi` used to resolve to
   `PS-KHI-NEWKARACHI` purely because `khi` sits inside that id.
-- **RBAC unchanged** — investigator still denied, supervisor+ unaffected except in result
-  scope.
+- **RBAC unchanged.**
 
-**Verification:** 1,811 passed / 5 skipped at implementation time; the later guarded full
-suite passed 1,819 / 5 skipped.
+Verification: 1,811 passed / 5 skipped at implementation time; later guarded suites passed
+1,819 and 1,840.
 
 ---
 
-## 6. LS-1 — restored and test-safe, currently stale by 7
+## 6. Legacy re-ingestion — root cause proven
 
-**Original population:** 822 entities. **Those rows were unexpectedly lost.** The
-historical deleter **remains unproven** — the loss coincided with a full-suite run, but
-after the isolation fix a complete suite ran with the guard armed and nothing tripped,
-which weakens rather than confirms the in-suite hypothesis.
+The recurring graph drift (~+108 edges per burst, observed repeatedly) is now understood.
 
-Pytest Chroma isolation was then hardened globally and fail-closed (§4), and LS-1 was
-restored against a **newly-approved exact target of 836 entities**.
+**The mechanism, proven from code and live data:**
 
-| | Value |
+- Affected case: **`fir-1001-26` — a legitimate corpus case.** It is present in the
+  `cases` table; the corpus remains exactly **73 relational cases and 73 graph Case nodes**.
+- Repeated, stable narrative chunk: `psrms_fir_fir-1001-26#narrative_c8bf2613`.
+- Two provenance namespaces exist: clean `psrms/fir/...` (structured projection) and
+  sanitized `psrms_fir_...`, produced because `src/ingestion/document.py` replaces `/`
+  with `_`.
+- `scripts/sync_muhafiz_data.py` passes **`run_graph_extraction=False`** at every call
+  site, and purges by the clean `psrms/fir/{fir_id}#` prefix — correct by design.
+- Generic ingestion (e.g. `ingest_file`) **defaults to `run_graph_extraction=True`**, so
+  it runs the LLM/NER pass and writes the sanitized namespace, which sync's purge never
+  cleans.
+- `entity_resolution._new_entity_id()` mints a **random `uuid4`** for Person identities.
+  Only exact CNIC-auto resolution (`TIER_CNIC_AUTO`) reuses an existing entity.
+
+**Therefore** an unchanged, CNIC-less Person extraction could historically create *new*
+Person nodes on every replay, each carrying its own APPEARS_IN / BELONGS_TO_CASE edges and
+generating fresh pending SAME_AS candidates.
+
+Observed historical burst shape: **+41 APPEARS_IN, +35 BELONGS_TO_CASE, +32 SAME_AS
+≈ +108 edges.**
+
+> **Correction to earlier reporting:** earlier phase reports described `fir-1001-26` as
+> "out-of-corpus" or foreign. **That was wrong.** It is a legitimate corpus case; the
+> issue was repeated re-ingestion of it, not insertion of foreign data.
+
+**The external runtime trigger remains unproven.** No persistent process, scheduled task,
+or DB-side job was identified.
+
+---
+
+## 7. Future-drift fix (`d5fa333`) — graph extraction idempotent by chunk
+
+**What it does:** the chunk's existing `Document` node — keyed on the full
+content-derived `doc_id` — now carries a **`projection_complete`** property. Graph
+extraction is skipped only when that exact chunk is marked complete.
+
+**Why the marker was necessary rather than reusing existing state:** the `Document` node
+is written at the *start* of extraction, so its existence proves only that projection
+*began*. An earlier attempt at this fix deliberately halted rather than gate on it, because
+doing so would have made a half-projected document permanently unrecoverable.
+
+Safety properties, each covered by a test:
+
+- marker written **only after a clean extraction run** (`stats["errors"]` empty)
+- **partial/failed runs stay retryable** — marker absent
+- **marker-write failures stay retryable** — the failure is recorded, not swallowed
+- **changed content remains eligible** (different chunk hash → different `doc_id`)
+- `run_graph_extraction=False` behaviour unchanged (sync unaffected)
+- **Person UUID semantics unchanged**
+- **SAME_AS semantics unchanged**
+- **historical Documents were not backfilled**
+
+Verification: projection-specific tests passed; full suite **1,845 collected · 1,840
+passed · 5 skipped · 0 failed**, with both the DB and Chroma guards active.
+
+**Known limitation, stated plainly:** historical unmarked chunks are **not** automatically
+treated as completed. No historical completion-marker backfill has been performed, so a
+previously-projected chunk could replay once more before its marker is established.
+
+---
+
+## 8. SET B — live test-fixture contamination removed
+
+### The discovery (corrects an earlier interpretation)
+
+Earlier documentation recorded **"confirmed SAME_AS = 19"** and treated it as a corpus
+review result. **That interpretation is now disproven.**
+
+Investigation found test-fixture provenance in the live graph:
+
+| Provenance | SAME_AS edges |
 |---|---|
-| Approved target | **836** (Person 698 / Officer 137 / PhoneNumber 1) |
-| Target checksum | `9f341cdd4a24283f40372dd06e568f67d307ff65f6af2da07c0b21798bca884e` |
-| First refresh | `scanned=1163 · upserted=836 · deleted=0` |
-| Second refresh | `upserted=0 · deleted=0` (idempotence proven) |
-| Set equality | `target − chroma = 0`, `chroma − target = 0` |
-| Local Search | semantic retrieval ranked the target #1; case scoping enforced; empty `case_id` fails closed |
-| Guarded full suite | **1,824 collected · 1,819 passed · 5 skipped · 0 failed** |
-| Live Chroma after suite | **823 / 19 / 836**, unchanged, checksum identical |
+| `D1VERIFY-*` | **46** |
+| `D1DEBUG-*` | **2** |
+| **Total fixture** | **48** (19 confirmed / 5 rejected / 24 pending) |
 
-**LS-1 survived a complete guarded suite intact** — the outcome that failed before the
-isolation fix.
+**All 19 historical confirmed SAME_AS and all 5 historical rejected SAME_AS were
+test-fixture remnants.** At that checkpoint the corpus had **0 genuine confirmed** and
+**0 genuine rejected** SAME_AS relationships.
 
-### Status — not fully synchronized
+> The number "19 confirmed" *was* historically measured and is preserved here as a
+> historical observation. The corrected interpretation is: **19 test-fixture
+> confirmations, 0 genuine corpus confirmations.**
 
-**Operationally restored and test-safe at the approved 836-entity checkpoint; currently
-stale by 7 entities because ongoing legacy re-ingestion changed the graph target to 843.**
+### The cleanup — COMPLETE
 
-During the guarded suite the legacy writer caused:
+Operational graph cleanup; **no Git commit** (no repo files changed).
 
-- graph edges **9,154 → 9,262**
-- SAME_AS **1,650 → 1,682**
-- confirmed SAME_AS **19** (unchanged)
-- eligible LS-1 target **836 → 843** — 7 additional Person entities, 0 removed
+- **48 D1 fixture SAME_AS relationships deleted** by exact relationship id, in a
+  transaction.
+- **24 proven-orphan D1 Person nodes deleted** by exact `entity_id`, after re-verifying
+  post-edge-deletion that each had **zero** remaining relationships.
 
-All 7 belong to **`fir-1001-26`, a legitimate corpus case**. A top-up to 843 was
-deliberately **not** performed: it needs its own approval, and the recurring writer means
-the number may move again.
+**Critical safety result:** the 48 fixture edges had **25 distinct endpoints — 24 fixture
+Persons and 1 genuine corpus Person.** The first attempt at this cleanup **halted itself**
+at the LS-1 safety gate because the endpoint set was 25, not the assumed 24.
+
+The genuine endpoint was explicitly protected and **survived unchanged**:
+
+```
+PERSON-0075e0c602 · فہد میمن · psrms/fir/fir-142-26#structured · case fir-142-26
+```
+
+**Post-cleanup live state:**
+
+| Metric | Value |
+|---|---|
+| Postgres cases / graph Case nodes | 73 / 73 |
+| Graph nodes / edges | **4,129 / 9,214** |
+| SAME_AS | **1,634** — **0 confirmed · 0 rejected · 1,634 pending** |
+| APPEARS_IN / BELONGS_TO_CASE | 3,017 / 2,999 (unchanged) |
+| Chroma | 823 / 19 / 836 (unchanged) |
+
+**No `D1VERIFY` / `D1DEBUG` SAME_AS remain.**
+
+**Accurate statement:** the 19 confirmed and 5 rejected relationships were test-fixture
+remnants. After SET B cleanup, the live corpus contains **zero genuine confirmed and zero
+genuine rejected SAME_AS relationships.**
+
+LS-1 eligibility was proven unaffected: exact target set **843 → 843**, identical checksum
+`b5c5dee7cc51c0d5034dee85874c5b14eee3d2148ccfcb55bf9f7f863e86669f`.
 
 ---
 
-## 7. Findings closed or deferred without code changes
+## 9. SET A — historical replay duplication — BLOCKED
+
+`fir-1001-26` currently contains heavy historical replay duplication.
+
+Last measured: **577 Person nodes across only 8 distinct `canonical_name` values.**
+
+Large duplicate families: `کاشف`, `محمد رمضان`, `بجے فیصل`, `فیصل`, `مدعی فیصل`,
+`محمد رمضان ساکنہ محلہ`, `قبضے`, `تحت فیصل`.
+
+**These are not all safe duplicates.** SET A cleanup is **BLOCKED** because no
+deterministic survivor policy has been approved. For **7 of the 8** observed Person
+families, the sanitized provenance contains the **only** representation — so broad
+deletion of sanitized nodes could erase unique graph information.
+
+Some entries (`قبضے` = "possession", `تحت فیصل` = "under Faisal") appear to be extraction
+artefacts rather than people, which further complicates any survivor rule.
+
+**No SET A deletion has occurred.**
+
+---
+
+## 10. Findings closed, deferred, or corrected without code changes
 
 | Finding | Outcome | Why |
 |---|---|---|
-| **CS-3** | **Closed — no defect** | The prompt already treats vehicles/phones/organizations conditionally and forbids guessing; retrieval supports all five labels. Vehicle/Organization absence is corpus sparsity, not a defect. |
-| **CS-2** | **Reclassified + deferred** | The "hardcoded status enum" was **disproven** — the prompt lists *examples*, not an enum, and says "if the material indicates one". The real issue is that `investigation_status` never reaches the agent: a **shared data-plumbing gap**. |
-| **IA-I1** | **Deferred, narrowed** | `source_type` is missing from `ChunkMetadata`, but `text=str(row)` already puts it in the chunk text, **so the LLM and Verifier do see it**. The gap is structured metadata/citations only. All 21 rows are `synthetic`, and the live orchestrator has the identical pattern. |
+| **CS-3** | **Closed — no defect** | The prompt already treats vehicles/phones/organizations conditionally and forbids guessing; retrieval supports all five labels. Vehicle/Organization absence is corpus sparsity. |
+| **CS-2** | **Reclassified + deferred** | The "hardcoded status enum" was **disproven** — the prompt lists *examples*, not an enum. The real issue is that `investigation_status` never reaches the agent: a **shared data-plumbing gap**. |
+| **IA-I1** | **Deferred, narrowed** | `source_type` is missing from `ChunkMetadata`, but `text=str(row)` already puts it in the chunk text, **so the LLM and Verifier do see it**. The gap is structured metadata/citations only. |
 
 ---
 
-## 8. Unresolved: legacy re-ingestion / synchronization issue
+## 11. New findings — recorded, not investigated
 
-Tracked separately from this remediation, **not investigated or fixed in these phases**.
+### NEW FINDING — historical/entity-resolution CNIC deduplication anomaly
 
-Recurring bursts of **+108 edges / +32 SAME_AS** have now been observed six times
-(7,853 → 8,182 → 8,830 → 8,938 → 9,046 → 9,154 → 9,262). Characteristics:
+**77 Person nodes** associated with `fir-1001-26` share CNIC **`00000-9000058-1`**.
 
-- Every added edge carries the hashed `psrms_fir_` provenance form written by the legacy
-  LLM extraction path; the clean `psrms/fir` form written by our re-projection has held at
-  **exactly 62** throughout.
-- **Confirmed SAME_AS has stayed pinned at 19** across every measurement, ruling out the
-  earlier hypothesis that Module 11's bulk-confirm was responsible.
-- Activity centres on **`fir-1001-26`, a legitimate corpus case**.
-- It changes the entity/provenance footprint, which is what moves the LS-1 target.
-- One burst occurred with **zero Python processes running** and the backend stopped.
+This means the assumption that an exact CNIC necessarily resulted in `TIER_CNIC_AUTO`
+reuse **did not hold** for those historical graph writes.
 
-**Classification: a legacy re-ingestion / synchronization / idempotency issue — not
-foreign-data contamination.** The corpus remains exactly **73 relational cases and 73
-graph Case nodes** throughout.
+Status: **recorded · not investigated · not repaired.** No root cause is asserted here.
 
-> **Correction to earlier reporting:** an earlier version of this document and several
-> phase reports described `fir-1001-26` as "out-of-corpus". That was wrong. It is present
-> in the `cases` table and is a legitimate case; the issue is repeated re-ingestion of it,
-> not insertion of foreign data.
+### NEW FINDING — test-fixture script hygiene
+
+`scripts/verify_milestone_d.py` fixture cleanup is incomplete. Observed:
+
+- fixture **nodes** were removed
+- **D1-provenance SAME_AS relationships remained**
+- at least one fixture SAME_AS linked to a **real corpus Person**
+
+The script's cleanup is **node-identity scoped**, while the contamination is
+**provenance-scoped**.
+
+Status: **identified · not fixed.** The live cleanup (§8) and the script fix are
+deliberately separable.
 
 ---
 
-## 9. Remaining work
+## 12. Remaining work
 
-### MEDIUM — 7 open
+### Operational / data-state
+
+| Item | Status |
+|---|---|
+| **SET A** survivor policy + historical duplicate cleanup | **BLOCKED** — needs a product decision |
+| **LS-1 synchronization** (836 stored vs 843 eligible) | deferred until graph state is stable |
+| **CNIC deduplication anomaly** | recorded, may be needed for SET A correctness |
+| **Fixture-script hygiene** (`verify_milestone_d.py`) | identified, separate test-safety task |
+
+### MEDIUM — code findings, 7 open
 
 | Finding | What it is | Layer |
 |---|---|---|
-| **LS-2** | Degradation caveat misstates its cause ("no match found" vs. empty store) — lower priority now that the store is populated | Harness-only |
+| **LS-2** | Degradation caveat misstates its cause ("no match found" vs. empty store) | Harness-only |
 | **GS-2** | Leakage check inert on this route — consequence of GS-1, not independent | Harness-only |
-| **IA-I1** | `source_type` absent from structured metadata/citations (deferred, §7) | Harness-only |
-| **CS-2** | `investigation_status` never reaches Case Summarization (reclassified, §7) | **SHARED / live** |
+| **IA-I1** | `source_type` absent from structured metadata/citations (deferred, §10) | Harness-only |
+| **CS-2** | `investigation_status` never reaches Case Summarization (reclassified, §10) | **SHARED / live** |
 | **CS-1** | `Incident` unreachable by graph traversal — not in `_SEED_LABELS`; **highest blast radius** | **SHARED / live** |
-| **CCL-C4** | 1,224+ unconfirmed SAME_AS links emitted uncapped (must preserve the 20 `human_review`) | **SHARED / live** |
+| **CCL-C4** | Unconfirmed SAME_AS links emitted uncapped — **context corrected, see below** | **SHARED / live** |
 | **IA-I3** | `sql_param_extractor.txt` hardcodes old-corpus vocabulary | **SHARED / live** |
 
-### Operational — 1 open
+### CCL-C4 — context corrected
 
-**LS-1 top-up 836 → 843** (7 Person entities from `fir-1001-26`). Purely additive, 0
-removals. Needs its own approval.
+CCL-C4 remains **OPEN**, but its earlier framing is stale.
+
+The old description assumed a pool containing **19 genuine confirmed links** and 20
+`human_review` entries to preserve. **That is no longer accurate.** Post-SET-B state:
+
+```
+SAME_AS   = 1,634
+confirmed =     0
+rejected  =     0
+pending   = 1,634
+```
+
+The corpus currently has **no genuine reviewed/confirmed SAME_AS examples** to preserve.
+Separately, a very large portion of the pending pool has historically been associated with
+`fir-1001-26` replay duplication.
+
+**Therefore CCL-C4 should not be implemented until SET A / historical duplicate-state
+decisions are resolved** — capping or thresholding a pool that is mostly replay artefacts
+would tune against the wrong data.
 
 ### LOW — 4 open, all deliberately deferred
 
@@ -243,57 +394,92 @@ vs Urdu), LS-4 (partly-inapplicable label guard). None actionable.
 
 TB-3 (upstream semantic overloading), IA-I2 (data coverage gap, already disclosed),
 IA-I4 / RD-1 (inherent verifier limits), `fir-97-26` victim edge (n=1), Data Quality
-(zero actionable findings), CS-3 (closed, §7).
+(zero actionable findings), CS-3 (closed, §10).
 
 ### Phase 4 — mandatory, pending
 
 Test fixtures are still largely synthetic. **GS-1 is the proof this matters:** its
 fixtures were 50% multi-case against a corpus that is 10.5% multi-case, and no test
 asserted per-chunk attribution — exactly why the defect shipped green. The jurisdiction
-tests are the first to use real corpus values (the 9 Urdu district names, real `PS-LHR-*`
-station ids) and should be the model.
+and projection-idempotence tests are the first to use real corpus values and should be
+the model. **`fir-1001-26` is a mandatory real-data fixture:** replaying the same
+unchanged narrative twice must produce zero new graph state.
 
 ---
 
-## 10. Progress estimate
+## 13. LS-1 status — NOT synchronized
 
-**Overall ~85%.**
-
-| Area | Done | Note |
-|---|---|---|
-| Structural / data repair (Phases 1–3A) | **100%** | The heavy half — corpus split, re-projection, embeddings |
-| Harness-only code fixes | **~90%** | 5 shipped; LS-2 and the deferred IA-I1 remain |
-| Shared-module fixes | **~40%** | Jurisdiction checkpointed; CS-1, CCL-C4, IA-I3, CS-2 remain |
-| Test-infrastructure safety | **100%** | New finding, found and fixed this cycle |
-| Phase 4 real-data fixtures | **~10%** | Jurisdiction tests use real values; the rest do not |
-
-All figures are effort estimates, not measurements. By raw finding count the picture is
-more conservative — the breakdown above is the honest way to read it.
-
----
-
-## 11. Test and data state
+Historical sequence: **822** → approved restoration to **836** → graph target later moved
+to **843** because of legacy replay activity.
 
 | | Value |
 |---|---|
-| Full backend suite | **1,824 collected · 1,819 passed · 5 skipped · 0 failed** |
-| Harness compliance | **58 / 58** |
-| Exclusion | `tests/test_pdf_loader.py` — known Docling/MSVC environment issue |
-| Graph edges | 9,262 |
-| SAME_AS | 1,682 (19 confirmed) |
-| Chroma | `muhafiz_kb` 823 · `muhafiz_community_reports` 19 · `muhafiz_entity_descriptions` **836** |
-| Corpus | 73 relational cases · 73 graph Case nodes |
+| Stored Chroma entity embeddings | **836** |
+| Current graph eligible target | **843** |
+
+SET B proved exact LS-1 target equality across the cleanup — **843 → 843**, checksum
+`b5c5dee7cc51c0d5034dee85874c5b14eee3d2148ccfcb55bf9f7f863e86669f` — so **SET B did not
+affect LS-1 eligibility.**
+
+**Accurate status:** LS-1 remains operational and test-safe at the **836** stored
+checkpoint, but is **not synchronized** with the current **843** eligible graph target.
+
+Further synchronization should happen only after SET A / historical graph-state decisions,
+so LS-1 is refreshed once against a stable graph rather than chasing a moving target.
+
+---
+
+## 14. Progress estimate
+
+**Overall ~90% — an effort estimate, not a measured completion percentage.**
+
+| Area | Done | Note |
+|---|---|---|
+| Structural / data repair (Phases 1–3A) | **100%** | Corpus split, re-projection, embeddings |
+| Harness-only code fixes | **~90%** | 5 shipped; LS-2 and the narrowed IA-I1 remain |
+| Shared-module fixes | **~50%** | Jurisdiction + ingestion idempotency shipped; CS-1, CCL-C4, IA-I3, CS-2 remain |
+| Test-infrastructure safety | **100%** | Chroma + Postgres/AGE isolation, both mutation-verified |
+| Legacy re-ingestion | **~70%** | Root cause proven, future drift fixed; historical cleanup (SET A) blocked, trigger unproven |
+| Historical graph cleanup | **~40%** | SET B complete; SET A blocked |
+| Phase 4 real-data fixtures | **~15%** | Jurisdiction + projection tests use real values; the rest do not |
+
+The move from ~85% reflects the Postgres/AGE isolation fix, the proven legacy root cause,
+the future-drift fix, and the SET B cleanup.
+
+**This is not near-complete.** SET A, LS-1 synchronization, four shared findings, the
+CCL-C4 reassessment, and Phase 4 all remain.
+
+---
+
+## 15. Current test and data state
+
+| | Value |
+|---|---|
+| Full backend suite (after `d5fa333`) | **1,845 collected · 1,840 passed · 5 skipped · 0 failed** |
+| Known exclusion | `tests/test_pdf_loader.py` — Docling/MSVC environment issue |
+| Corpus | **73 relational cases · 73 graph Case nodes** |
+| Graph nodes / edges | **4,129 / 9,214** |
+| SAME_AS | **1,634** — 0 confirmed · 0 rejected · **1,634 pending** |
+| APPEARS_IN / BELONGS_TO_CASE | **3,017 / 2,999** |
+| Chroma | `muhafiz_kb` **823** · `muhafiz_community_reports` **19** · `muhafiz_entity_descriptions` **836** |
+| **Stored Chroma entities** | **836** |
+| **Current graph eligible target** | **843** |
 
 All test counts read from JUnit XML, not console output.
 
 ---
 
-## 12. Next steps, in order
+## 16. Next steps, in order
 
-1. **LS-1 top-up to 843** (optional, needs approval) — purely additive.
-2. Remaining harness-only work: **LS-2**, and **IA-I1** if its narrowed scope is worth it.
-3. Shared-module findings one at a time with live-orchestrator verification on each:
-   **CS-1** (highest blast radius), **CCL-C4**, **IA-I3**, **CS-2**.
-4. **Phase 4 real-data fixtures** before this effort closes.
-5. Separately, for whoever owns ingestion: the **legacy re-ingestion / synchronization
-   issue** in §8.
+1. **SET A survivor-policy / historical replay cleanup decision** (product decision).
+2. **Investigate the CNIC deduplication anomaly** if needed for SET A correctness.
+3. **Resolve historical `fir-1001-26` graph duplication safely.**
+4. **Establish / synchronize completion state** as appropriate.
+5. **Recompute the final LS-1 eligible target.**
+6. **Refresh LS-1 once** against stable graph state.
+7. **Reassess CCL-C4** using cleaned SAME_AS data.
+8. **Remaining shared/harness findings:** CS-1, IA-I3, CS-2, LS-2, and the narrowed IA-I1
+   if still worthwhile.
+9. **Phase 4 real-data fixtures** before remediation closes.
+
+Separately: **fixture-script hygiene** (`verify_milestone_d.py`) as a test-safety task.
