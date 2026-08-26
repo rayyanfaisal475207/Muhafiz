@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -68,6 +69,20 @@ async def _fetch_case_metadata(case_ids: list[str]) -> list[dict]:
         return [dict(row) for row in res.mappings()]
 
 
+# [2026-08-27] Structural English-prose signal for _validate() below — see
+# the long note there. Deliberately function words only: they appear in any
+# real English sentence and never in Urdu prose, and unlike a content-word
+# list they do not need to anticipate what a summary is about.
+_ENGLISH_FUNCTION_WORDS = re.compile(
+    r"(?i)\b(?:the|is|are|was|were|and|or|of|in|at|to|with|this|that|these|those|"
+    r"from|for|on|by|as|an|a|has|have|had|been|its|their|which|while|across)\b"
+)
+# Five is deliberately low: it is a floor for "this is a sentence", not a
+# quality bar. The live-rejected summary had well over it; a genuinely Urdu
+# summary has zero.
+_MIN_ENGLISH_FUNCTION_WORDS = 5
+
+
 def _validate(result) -> bool:
     # Live-observed: the local generation model sometimes wraps its answer
     # as {"summary": {"members": [...]}} — a nested dict instead of a
@@ -98,11 +113,33 @@ def _validate(result) -> bool:
     # Arabic-script characters make up a large share of the summary,
     # indicating the whole sentence structure is Urdu, not just a quoted
     # name within English prose.
+    #
+    # 2026-08-27 — THE COVERAGE RATIO ALONE IS STILL NOT ENOUGH. Live
+    # failure: a community whose members are all Urdu-named produced a
+    # correct ENGLISH summary that quotes each of them inline ("This
+    # cluster is linked to case fir-233-26 ... The named individuals
+    # طارق محمود, محمد اسلم, شعیب ارشد, ..."). With enough quoted names the
+    # Arabic share crosses 0.3 on genuinely English prose, so this check
+    # rejected it three times locally plus the cloud fallback and the
+    # community was written with NO summary at all — invisible to Global
+    # Search/XNETWORK. That is the same false positive the paragraph above
+    # was already narrowed once to avoid; a ratio cannot separate "English
+    # sentence quoting many Urdu names" from "Urdu sentence", because both
+    # look identical by character census.
+    #
+    # The structural signal does separate them: English prose carries
+    # English FUNCTION words (the/is/at/with/...), and Urdu prose carries
+    # essentially none no matter how it is transliterated. So reject only
+    # when the text is BOTH Arabic-heavy AND lacks English connective
+    # tissue. A name-heavy English summary keeps its function words and
+    # passes; an actually-Urdu summary has ~0 and is still rejected.
     non_space = [c for c in summary if not c.isspace()]
-    if non_space:
+    if non_space and summary != "NOT_ENOUGH_DATA":
         arabic_chars = sum(1 for c in non_space if _ARABIC_SCRIPT.match(c))
-        if summary != "NOT_ENOUGH_DATA" and (arabic_chars / len(non_space)) > 0.3:
-            return False
+        if (arabic_chars / len(non_space)) > 0.3:
+            english_function_words = len(_ENGLISH_FUNCTION_WORDS.findall(summary))
+            if english_function_words < _MIN_ENGLISH_FUNCTION_WORDS:
+                return False
     return True
 
 
