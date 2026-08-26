@@ -10,11 +10,23 @@ that half; not duplicated here).
 rewrote this document from scratch — it previously listed 5 tables and
 predated `cases`, `case_assignments`, `audit_logs`, the community-detection
 tables, and RLS entirely. `docs/schema-snapshot.json` (the "machine-generated
-dump this document is checked against") is **also stale** in the same way —
-missing the same tables — and nothing in this migration regenerates it (no
-live Postgres instance was available this session); treat it as informational
-only until it's regenerated against a live database, not as the source of
-truth `src/database/models.py` is.
+dump this document is checked against") was also stale in the same way at
+that time (missing the same tables, since nothing in that migration
+regenerated it against a live Postgres instance) — **fixed 2026-08-26**:
+`scripts/generate_schema_snapshot.py` (Documentation Gaps Fix Prompt,
+Module D) introspects `information_schema` directly and now produces this
+file for real, covering all 27 live tables; re-run it after any schema
+change to keep it current. `src/database/models.py` remains the source of
+truth for anything the SQLAlchemy ORM layer owns — the JSON snapshot also
+covers the plain-SQL-migration tables that have no ORM model at all
+(`community_membership`, `identity_index`, `chunk_fulltext`, etc.), which
+`models.py` alone would miss. **The rendered ERD image
+(`docs/database-schema.png`) is a separate, still-unresolved problem** —
+`scripts/build_erd.py`, the script that would regenerate it, turns out to
+be hardcoded for a different, unrelated product ("TaxIQ" — see that
+script's own title and table layout), not a general Muhafiz-schema
+renderer; there is currently no working path to regenerate the image
+itself, only the JSON data behind it.
 
 ## Schema Overview
 

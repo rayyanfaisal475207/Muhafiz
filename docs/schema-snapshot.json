@@ -1,864 +1,1584 @@
 {
- "documents": {
-  "columns": [
-   {
-    "name": "doc_id",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "user_id",
-    "type": "uuid",
-    "nullable": true
-   },
-   {
-    "name": "filename",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "doc_type",
-    "type": "text",
-    "nullable": true
-   },
-   {
-    "name": "chunk_count",
-    "type": "int4",
-    "nullable": true
-   },
-   {
-    "name": "ingested_at",
-    "type": "timestamp",
-    "nullable": false
-   },
-   {
-    "name": "document_date",
-    "type": "text",
-    "nullable": true
-   },
-   {
-    "name": "is_global",
-    "type": "bool",
-    "nullable": false
-   },
-   {
-    "name": "effective_from",
-    "type": "date",
-    "nullable": true
-   },
-   {
-    "name": "effective_to",
-    "type": "date",
-    "nullable": true
-   },
-   {
-    "name": "project_id",
-    "type": "uuid",
-    "nullable": true
-   }
+  "_fks": [
+    {
+      "src": "audit_logs",
+      "src_col": "case_id",
+      "tgt": "cases",
+      "tgt_col": "case_id"
+    },
+    {
+      "src": "audit_logs",
+      "src_col": "user_id",
+      "tgt": "users",
+      "tgt_col": "id"
+    },
+    {
+      "src": "case_assignments",
+      "src_col": "case_id",
+      "tgt": "cases",
+      "tgt_col": "case_id"
+    },
+    {
+      "src": "case_assignments",
+      "src_col": "user_id",
+      "tgt": "users",
+      "tgt_col": "id"
+    },
+    {
+      "src": "community_membership",
+      "src_col": "run_id",
+      "tgt": "community_runs",
+      "tgt_col": "run_id"
+    },
+    {
+      "src": "community_reports",
+      "src_col": "run_id",
+      "tgt": "community_runs",
+      "tgt_col": "run_id"
+    },
+    {
+      "src": "documents",
+      "src_col": "case_id",
+      "tgt": "cases",
+      "tgt_col": "case_id"
+    },
+    {
+      "src": "documents",
+      "src_col": "project_id",
+      "tgt": "projects",
+      "tgt_col": "id"
+    },
+    {
+      "src": "documents",
+      "src_col": "user_id",
+      "tgt": "users",
+      "tgt_col": "id"
+    },
+    {
+      "src": "generated_files",
+      "src_col": "case_id",
+      "tgt": "cases",
+      "tgt_col": "case_id"
+    },
+    {
+      "src": "generated_files",
+      "src_col": "message_id",
+      "tgt": "messages",
+      "tgt_col": "message_id"
+    },
+    {
+      "src": "generated_files",
+      "src_col": "session_id",
+      "tgt": "sessions",
+      "tgt_col": "session_id"
+    },
+    {
+      "src": "generated_files",
+      "src_col": "user_id",
+      "tgt": "users",
+      "tgt_col": "id"
+    },
+    {
+      "src": "mcp_tool_calls",
+      "src_col": "run_id",
+      "tgt": "pipeline_runs",
+      "tgt_col": "run_id"
+    },
+    {
+      "src": "messages",
+      "src_col": "session_id",
+      "tgt": "sessions",
+      "tgt_col": "session_id"
+    },
+    {
+      "src": "pipeline_runs",
+      "src_col": "session_id",
+      "tgt": "sessions",
+      "tgt_col": "session_id"
+    },
+    {
+      "src": "pipeline_runs",
+      "src_col": "user_id",
+      "tgt": "users",
+      "tgt_col": "id"
+    },
+    {
+      "src": "pipeline_steps",
+      "src_col": "run_id",
+      "tgt": "pipeline_runs",
+      "tgt_col": "run_id"
+    },
+    {
+      "src": "project_memory",
+      "src_col": "project_id",
+      "tgt": "projects",
+      "tgt_col": "id"
+    },
+    {
+      "src": "projects",
+      "src_col": "user_id",
+      "tgt": "users",
+      "tgt_col": "id"
+    },
+    {
+      "src": "sessions",
+      "src_col": "case_id",
+      "tgt": "cases",
+      "tgt_col": "case_id"
+    },
+    {
+      "src": "sessions",
+      "src_col": "project_id",
+      "tgt": "projects",
+      "tgt_col": "id"
+    },
+    {
+      "src": "sessions",
+      "src_col": "user_id",
+      "tgt": "users",
+      "tgt_col": "id"
+    },
+    {
+      "src": "user_context_profiles",
+      "src_col": "user_id",
+      "tgt": "users",
+      "tgt_col": "id"
+    }
   ],
-  "pk": [
-   "doc_id"
-  ]
- },
- "error_logs": {
-  "columns": [
-   {
-    "name": "error_id",
-    "type": "uuid",
-    "nullable": false
-   },
-   {
-    "name": "occurred_at",
-    "type": "timestamp",
-    "nullable": false
-   },
-   {
-    "name": "severity",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "error_type",
-    "type": "text",
-    "nullable": true
-   },
-   {
-    "name": "module",
-    "type": "text",
-    "nullable": true
-   },
-   {
-    "name": "message",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "stack_trace",
-    "type": "text",
-    "nullable": true
-   },
-   {
-    "name": "run_id",
-    "type": "uuid",
-    "nullable": true
-   },
-   {
-    "name": "session_id",
-    "type": "uuid",
-    "nullable": true
-   },
-   {
-    "name": "user_id",
-    "type": "uuid",
-    "nullable": true
-   },
-   {
-    "name": "context",
-    "type": "jsonb",
-    "nullable": true
-   }
-  ],
-  "pk": [
-   "error_id"
-  ]
- },
- "generated_files": {
-  "columns": [
-   {
-    "name": "file_id",
-    "type": "uuid",
-    "nullable": false
-   },
-   {
-    "name": "session_id",
-    "type": "uuid",
-    "nullable": false
-   },
-   {
-    "name": "user_id",
-    "type": "uuid",
-    "nullable": false
-   },
-   {
-    "name": "message_id",
-    "type": "uuid",
-    "nullable": true
-   },
-   {
-    "name": "file_type",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "file_name",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "storage_path",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "file_size_bytes",
-    "type": "int4",
-    "nullable": true
-   },
-   {
-    "name": "created_at",
-    "type": "timestamp",
-    "nullable": false
-   },
-   {
-    "name": "expires_at",
-    "type": "timestamp",
-    "nullable": true
-   }
-  ],
-  "pk": [
-   "file_id"
-  ]
- },
- "ingestion_jobs": {
-  "columns": [
-   {
-    "name": "job_id",
-    "type": "uuid",
-    "nullable": false
-   },
-   {
-    "name": "doc_id",
-    "type": "text",
-    "nullable": true
-   },
-   {
-    "name": "filename",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "file_type",
-    "type": "text",
-    "nullable": true
-   },
-   {
-    "name": "file_size_bytes",
-    "type": "int8",
-    "nullable": true
-   },
-   {
-    "name": "status",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "chunks_added",
-    "type": "int4",
-    "nullable": true
-   },
-   {
-    "name": "error_message",
-    "type": "text",
-    "nullable": true
-   },
-   {
-    "name": "uploaded_by",
-    "type": "uuid",
-    "nullable": true
-   },
-   {
-    "name": "started_at",
-    "type": "timestamp",
-    "nullable": false
-   },
-   {
-    "name": "finished_at",
-    "type": "timestamp",
-    "nullable": true
-   },
-   {
-    "name": "duration_ms",
-    "type": "int4",
-    "nullable": true
-   }
-  ],
-  "pk": [
-   "job_id"
-  ]
- },
- "mcp_tool_calls": {
-  "columns": [
-   {
-    "name": "call_id",
-    "type": "uuid",
-    "nullable": false
-   },
-   {
-    "name": "run_id",
-    "type": "uuid",
-    "nullable": false
-   },
-   {
-    "name": "mcp_server",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "tool_name",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "input_params",
-    "type": "jsonb",
-    "nullable": true
-   },
-   {
-    "name": "output_summary",
-    "type": "jsonb",
-    "nullable": true
-   },
-   {
-    "name": "status",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "duration_ms",
-    "type": "int4",
-    "nullable": true
-   },
-   {
-    "name": "created_at",
-    "type": "timestamp",
-    "nullable": false
-   },
-   {
-    "name": "rejected_by_role",
-    "type": "bool",
-    "nullable": true
-   }
-  ],
-  "pk": [
-   "call_id"
-  ]
- },
- "messages": {
-  "columns": [
-   {
-    "name": "message_id",
-    "type": "uuid",
-    "nullable": false
-   },
-   {
-    "name": "session_id",
-    "type": "uuid",
-    "nullable": false
-   },
-   {
-    "name": "role",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "content",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "source_type",
-    "type": "text",
-    "nullable": true
-   },
-   {
-    "name": "confidence_score",
-    "type": "int4",
-    "nullable": true
-   },
-   {
-    "name": "citation_validated",
-    "type": "bool",
-    "nullable": true
-   },
-   {
-    "name": "unverified_citations",
-    "type": "_text",
-    "nullable": true
-   },
-   {
-    "name": "created_at",
-    "type": "timestamp",
-    "nullable": false
-   }
-  ],
-  "pk": [
-   "message_id"
-  ]
- },
- "pipeline_runs": {
-  "columns": [
-   {
-    "name": "run_id",
-    "type": "uuid",
-    "nullable": false
-   },
-   {
-    "name": "session_id",
-    "type": "uuid",
-    "nullable": false
-   },
-   {
-    "name": "user_id",
-    "type": "uuid",
-    "nullable": true
-   },
-   {
-    "name": "original_query",
-    "type": "text",
-    "nullable": true
-   },
-   {
-    "name": "rewritten_query",
-    "type": "text",
-    "nullable": true
-   },
-   {
-    "name": "routed_to",
-    "type": "text",
-    "nullable": true
-   },
-   {
-    "name": "retry_count",
-    "type": "int4",
-    "nullable": false
-   },
-   {
-    "name": "final_outcome",
-    "type": "text",
-    "nullable": true
-   },
-   {
-    "name": "total_duration_ms",
-    "type": "int4",
-    "nullable": true
-   },
-   {
-    "name": "created_at",
-    "type": "timestamp",
-    "nullable": false
-   }
-  ],
-  "pk": [
-   "run_id"
-  ]
- },
- "pipeline_steps": {
-  "columns": [
-   {
-    "name": "step_id",
-    "type": "int4",
-    "nullable": false
-   },
-   {
-    "name": "run_id",
-    "type": "uuid",
-    "nullable": false
-   },
-   {
-    "name": "step_name",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "step_order",
-    "type": "int4",
-    "nullable": false
-   },
-   {
-    "name": "status",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "duration_ms",
-    "type": "int4",
-    "nullable": true
-   },
-   {
-    "name": "input_summary",
-    "type": "jsonb",
-    "nullable": true
-   },
-   {
-    "name": "output_summary",
-    "type": "jsonb",
-    "nullable": true
-   },
-   {
-    "name": "created_at",
-    "type": "timestamp",
-    "nullable": false
-   }
-  ],
-  "pk": [
-   "step_id"
-  ]
- },
- "police_reference_data": {
-  "columns": [
-   {
-    "name": "ref_id",
-    "type": "uuid",
-    "nullable": false
-   },
-   {
-    "name": "category",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "subject",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "description",
-    "type": "text",
-    "nullable": true
-   },
-   {
-    "name": "fine_amount",
-    "type": "numeric",
-    "nullable": true
-   },
-   {
-    "name": "section_ref",
-    "type": "text",
-    "nullable": true
-   },
-   {
-    "name": "source_document",
-    "type": "text",
-    "nullable": true
-   },
-   {
-    "name": "source_type",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "effective_from",
-    "type": "date",
-    "nullable": true
-   },
-   {
-    "name": "created_at",
-    "type": "timestamp",
-    "nullable": false
-   }
-  ],
-  "pk": [
-   "ref_id"
-  ]
- },
- "project_memory": {
-  "columns": [
-   {
-    "name": "id",
-    "type": "uuid",
-    "nullable": false
-   },
-   {
-    "name": "project_id",
-    "type": "uuid",
-    "nullable": false
-   },
-   {
-    "name": "summary_text",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "last_updated",
-    "type": "timestamp",
-    "nullable": false
-   }
-  ],
-  "pk": [
-   "id"
-  ]
- },
- "projects": {
-  "columns": [
-   {
-    "name": "id",
-    "type": "uuid",
-    "nullable": false
-   },
-   {
-    "name": "user_id",
-    "type": "uuid",
-    "nullable": false
-   },
-   {
-    "name": "name",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "description",
-    "type": "text",
-    "nullable": true
-   },
-   {
-    "name": "domain_context",
-    "type": "text",
-    "nullable": true
-   },
-   {
-    "name": "created_at",
-    "type": "timestamp",
-    "nullable": false
-   },
-   {
-    "name": "updated_at",
-    "type": "timestamp",
-    "nullable": false
-   }
-  ],
-  "pk": [
-   "id"
-  ]
- },
- "session_attachments": {
-  "columns": [
-   {
-    "name": "attachment_id",
-    "type": "uuid",
-    "nullable": false
-   },
-   {
-    "name": "session_id",
-    "type": "uuid",
-    "nullable": false
-   },
-   {
-    "name": "user_id",
-    "type": "uuid",
-    "nullable": true
-   },
-   {
-    "name": "filename",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "file_type",
-    "type": "text",
-    "nullable": true
-   },
-   {
-    "name": "file_size_bytes",
-    "type": "int8",
-    "nullable": true
-   },
-   {
-    "name": "extracted_text",
-    "type": "text",
-    "nullable": true
-   },
-   {
-    "name": "char_count",
-    "type": "int4",
-    "nullable": true
-   },
-   {
-    "name": "status",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "error_message",
-    "type": "text",
-    "nullable": true
-   },
-   {
-    "name": "created_at",
-    "type": "timestamp",
-    "nullable": false
-   }
-  ],
-  "pk": [
-   "attachment_id"
-  ]
- },
- "sessions": {
-  "columns": [
-   {
-    "name": "session_id",
-    "type": "uuid",
-    "nullable": false
-   },
-   {
-    "name": "user_id",
-    "type": "uuid",
-    "nullable": true
-   },
-   {
-    "name": "title",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "created_at",
-    "type": "timestamp",
-    "nullable": false
-   },
-   {
-    "name": "updated_at",
-    "type": "timestamp",
-    "nullable": false
-   },
-   {
-    "name": "deleted_at",
-    "type": "timestamp",
-    "nullable": true
-   },
-   {
-    "name": "project_id",
-    "type": "uuid",
-    "nullable": true
-   }
-  ],
-  "pk": [
-   "session_id"
-  ]
- },
- "user_context_profiles": {
-  "columns": [
-   {
-    "name": "user_id",
-    "type": "uuid",
-    "nullable": false
-   },
-   {
-    "name": "context_text",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "preferred_language",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "llm_mode",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "updated_at",
-    "type": "timestamp",
-    "nullable": false
-   }
-  ],
-  "pk": [
-   "user_id"
-  ]
- },
- "users": {
-  "columns": [
-   {
-    "name": "id",
-    "type": "uuid",
-    "nullable": false
-   },
-   {
-    "name": "email",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "password_hash",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "is_admin",
-    "type": "bool",
-    "nullable": false
-   },
-   {
-    "name": "company_name",
-    "type": "text",
-    "nullable": true
-   },
-   {
-    "name": "plan",
-    "type": "text",
-    "nullable": false
-   },
-   {
-    "name": "created_at",
-    "type": "timestamp",
-    "nullable": false
-   }
-  ],
-  "pk": [
-   "id"
-  ]
- },
- "_fks": [
-  {
-   "src": "documents",
-   "src_col": "project_id",
-   "tgt": "projects",
-   "tgt_col": "id"
+  "alembic_version": {
+    "columns": [
+      {
+        "name": "version_num",
+        "nullable": false,
+        "type": "varchar"
+      }
+    ],
+    "pk": [
+      "version_num"
+    ]
   },
-  {
-   "src": "documents",
-   "src_col": "user_id",
-   "tgt": "users",
-   "tgt_col": "id"
+  "audit_logs": {
+    "columns": [
+      {
+        "name": "log_id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "timestamp",
+        "nullable": true,
+        "type": "timestamp"
+      },
+      {
+        "name": "event_type",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "user_id",
+        "nullable": true,
+        "type": "uuid"
+      },
+      {
+        "name": "case_id",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "details",
+        "nullable": false,
+        "type": "jsonb"
+      }
+    ],
+    "pk": [
+      "log_id"
+    ]
   },
-  {
-   "src": "generated_files",
-   "src_col": "message_id",
-   "tgt": "messages",
-   "tgt_col": "message_id"
+  "case_assignments": {
+    "columns": [
+      {
+        "name": "assignment_id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "case_id",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "user_id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "role",
+        "nullable": false,
+        "type": "user_role"
+      },
+      {
+        "name": "created_at",
+        "nullable": true,
+        "type": "timestamp"
+      }
+    ],
+    "pk": [
+      "assignment_id"
+    ]
   },
-  {
-   "src": "generated_files",
-   "src_col": "session_id",
-   "tgt": "sessions",
-   "tgt_col": "session_id"
+  "cases": {
+    "columns": [
+      {
+        "name": "case_id",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "fir_number",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "crime_category",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "investigation_officer",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "police_station",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "incident_date",
+        "nullable": true,
+        "type": "date"
+      },
+      {
+        "name": "investigation_status",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "location",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "description",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "victim_info",
+        "nullable": true,
+        "type": "jsonb"
+      },
+      {
+        "name": "suspect_info",
+        "nullable": true,
+        "type": "jsonb"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "type": "timestamptz"
+      },
+      {
+        "name": "updated_at",
+        "nullable": false,
+        "type": "timestamptz"
+      },
+      {
+        "name": "conflicts_checked_at",
+        "nullable": true,
+        "type": "timestamptz"
+      }
+    ],
+    "pk": [
+      "case_id"
+    ]
   },
-  {
-   "src": "generated_files",
-   "src_col": "user_id",
-   "tgt": "users",
-   "tgt_col": "id"
+  "chunk_fulltext": {
+    "columns": [
+      {
+        "name": "chunk_id",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "doc_id",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "source",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "project_id",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "case_id",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "is_global",
+        "nullable": false,
+        "type": "bool"
+      },
+      {
+        "name": "text",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "metadata",
+        "nullable": false,
+        "type": "jsonb"
+      },
+      {
+        "name": "tsv",
+        "nullable": false,
+        "type": "tsvector"
+      },
+      {
+        "name": "updated_at",
+        "nullable": false,
+        "type": "timestamptz"
+      }
+    ],
+    "pk": [
+      "chunk_id"
+    ]
   },
-  {
-   "src": "mcp_tool_calls",
-   "src_col": "run_id",
-   "tgt": "pipeline_runs",
-   "tgt_col": "run_id"
+  "community_membership": {
+    "columns": [
+      {
+        "name": "entity_id",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "community_id",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "level",
+        "nullable": false,
+        "type": "int4"
+      },
+      {
+        "name": "run_id",
+        "nullable": false,
+        "type": "text"
+      }
+    ],
+    "pk": [
+      "entity_id"
+    ]
   },
-  {
-   "src": "messages",
-   "src_col": "session_id",
-   "tgt": "sessions",
-   "tgt_col": "session_id"
+  "community_reports": {
+    "columns": [
+      {
+        "name": "community_id",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "level",
+        "nullable": false,
+        "type": "int4"
+      },
+      {
+        "name": "run_id",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "member_entity_ids",
+        "nullable": false,
+        "type": "_text"
+      },
+      {
+        "name": "case_ids",
+        "nullable": false,
+        "type": "_text"
+      },
+      {
+        "name": "member_count",
+        "nullable": false,
+        "type": "int4"
+      },
+      {
+        "name": "summary_text",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "updated_at",
+        "nullable": false,
+        "type": "timestamptz"
+      }
+    ],
+    "pk": [
+      "community_id"
+    ]
   },
-  {
-   "src": "pipeline_runs",
-   "src_col": "session_id",
-   "tgt": "sessions",
-   "tgt_col": "session_id"
+  "community_runs": {
+    "columns": [
+      {
+        "name": "run_id",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "computed_at",
+        "nullable": false,
+        "type": "timestamptz"
+      },
+      {
+        "name": "node_count",
+        "nullable": false,
+        "type": "int4"
+      },
+      {
+        "name": "edge_count",
+        "nullable": false,
+        "type": "int4"
+      },
+      {
+        "name": "community_count",
+        "nullable": false,
+        "type": "int4"
+      },
+      {
+        "name": "algorithm",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "raw_node_count",
+        "nullable": true,
+        "type": "int4"
+      },
+      {
+        "name": "raw_edge_count",
+        "nullable": true,
+        "type": "int4"
+      }
+    ],
+    "pk": [
+      "run_id"
+    ]
   },
-  {
-   "src": "pipeline_runs",
-   "src_col": "user_id",
-   "tgt": "users",
-   "tgt_col": "id"
+  "documents": {
+    "columns": [
+      {
+        "name": "doc_id",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "user_id",
+        "nullable": true,
+        "type": "uuid"
+      },
+      {
+        "name": "filename",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "doc_type",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "chunk_count",
+        "nullable": true,
+        "type": "int4"
+      },
+      {
+        "name": "ingested_at",
+        "nullable": false,
+        "type": "timestamp"
+      },
+      {
+        "name": "document_date",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "is_global",
+        "nullable": false,
+        "type": "bool"
+      },
+      {
+        "name": "effective_from",
+        "nullable": true,
+        "type": "date"
+      },
+      {
+        "name": "effective_to",
+        "nullable": true,
+        "type": "date"
+      },
+      {
+        "name": "project_id",
+        "nullable": true,
+        "type": "uuid"
+      },
+      {
+        "name": "case_id",
+        "nullable": true,
+        "type": "text"
+      }
+    ],
+    "pk": [
+      "doc_id"
+    ]
   },
-  {
-   "src": "pipeline_steps",
-   "src_col": "run_id",
-   "tgt": "pipeline_runs",
-   "tgt_col": "run_id"
+  "entity_resolution_consistency_findings": {
+    "columns": [
+      {
+        "name": "finding_id",
+        "nullable": false,
+        "type": "int4"
+      },
+      {
+        "name": "edge_id",
+        "nullable": false,
+        "type": "int8"
+      },
+      {
+        "name": "tier",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "status_at_detection",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "mention_entity_id",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "candidate_entity_id",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "original_basis",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "original_name_similarity",
+        "nullable": true,
+        "type": "float8"
+      },
+      {
+        "name": "original_shared_case",
+        "nullable": true,
+        "type": "bool"
+      },
+      {
+        "name": "original_shared_structured_id",
+        "nullable": true,
+        "type": "bool"
+      },
+      {
+        "name": "fresh_name_similarity",
+        "nullable": true,
+        "type": "float8"
+      },
+      {
+        "name": "fresh_shared_case",
+        "nullable": true,
+        "type": "bool"
+      },
+      {
+        "name": "fresh_shared_structured_id",
+        "nullable": true,
+        "type": "bool"
+      },
+      {
+        "name": "finding_reason",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "detected_at",
+        "nullable": false,
+        "type": "timestamptz"
+      },
+      {
+        "name": "acknowledged",
+        "nullable": false,
+        "type": "bool"
+      },
+      {
+        "name": "acknowledged_by",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "acknowledged_at",
+        "nullable": true,
+        "type": "timestamptz"
+      }
+    ],
+    "pk": [
+      "finding_id"
+    ]
   },
-  {
-   "src": "project_memory",
-   "src_col": "project_id",
-   "tgt": "projects",
-   "tgt_col": "id"
+  "error_logs": {
+    "columns": [
+      {
+        "name": "error_id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "occurred_at",
+        "nullable": false,
+        "type": "timestamptz"
+      },
+      {
+        "name": "severity",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "error_type",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "module",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "message",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "stack_trace",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "run_id",
+        "nullable": true,
+        "type": "uuid"
+      },
+      {
+        "name": "session_id",
+        "nullable": true,
+        "type": "uuid"
+      },
+      {
+        "name": "user_id",
+        "nullable": true,
+        "type": "uuid"
+      },
+      {
+        "name": "context",
+        "nullable": true,
+        "type": "jsonb"
+      }
+    ],
+    "pk": [
+      "error_id"
+    ]
   },
-  {
-   "src": "projects",
-   "src_col": "user_id",
-   "tgt": "users",
-   "tgt_col": "id"
+  "generated_files": {
+    "columns": [
+      {
+        "name": "file_id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "session_id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "user_id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "message_id",
+        "nullable": true,
+        "type": "uuid"
+      },
+      {
+        "name": "file_type",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "file_name",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "storage_path",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "file_size_bytes",
+        "nullable": true,
+        "type": "int4"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "type": "timestamp"
+      },
+      {
+        "name": "expires_at",
+        "nullable": true,
+        "type": "timestamp"
+      },
+      {
+        "name": "case_id",
+        "nullable": true,
+        "type": "text"
+      }
+    ],
+    "pk": [
+      "file_id"
+    ]
   },
-  {
-   "src": "sessions",
-   "src_col": "project_id",
-   "tgt": "projects",
-   "tgt_col": "id"
+  "identity_index": {
+    "columns": [
+      {
+        "name": "label",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "id_key",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "id_value",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "entity_id",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "updated_at",
+        "nullable": false,
+        "type": "timestamptz"
+      }
+    ],
+    "pk": [
+      "label",
+      "id_key",
+      "id_value"
+    ]
   },
-  {
-   "src": "sessions",
-   "src_col": "user_id",
-   "tgt": "users",
-   "tgt_col": "id"
+  "ingestion_jobs": {
+    "columns": [
+      {
+        "name": "job_id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "doc_id",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "filename",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "file_type",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "file_size_bytes",
+        "nullable": true,
+        "type": "int8"
+      },
+      {
+        "name": "status",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "chunks_added",
+        "nullable": true,
+        "type": "int4"
+      },
+      {
+        "name": "error_message",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "uploaded_by",
+        "nullable": true,
+        "type": "uuid"
+      },
+      {
+        "name": "started_at",
+        "nullable": false,
+        "type": "timestamptz"
+      },
+      {
+        "name": "finished_at",
+        "nullable": true,
+        "type": "timestamptz"
+      },
+      {
+        "name": "duration_ms",
+        "nullable": true,
+        "type": "int4"
+      }
+    ],
+    "pk": [
+      "job_id"
+    ]
   },
-  {
-   "src": "user_context_profiles",
-   "src_col": "user_id",
-   "tgt": "users",
-   "tgt_col": "id"
+  "ingestion_run_quality": {
+    "columns": [
+      {
+        "name": "run_id",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "source",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "case_id",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "started_at",
+        "nullable": false,
+        "type": "timestamptz"
+      },
+      {
+        "name": "finished_at",
+        "nullable": true,
+        "type": "timestamptz"
+      },
+      {
+        "name": "tier_cnic_auto",
+        "nullable": false,
+        "type": "int4"
+      },
+      {
+        "name": "tier_flagged_unverified",
+        "nullable": false,
+        "type": "int4"
+      },
+      {
+        "name": "tier_human_review",
+        "nullable": false,
+        "type": "int4"
+      },
+      {
+        "name": "tier_new",
+        "nullable": false,
+        "type": "int4"
+      },
+      {
+        "name": "corroboration_gate_rejections",
+        "nullable": false,
+        "type": "int4"
+      },
+      {
+        "name": "extraction_errors",
+        "nullable": false,
+        "type": "int4"
+      },
+      {
+        "name": "flagged_for_review",
+        "nullable": false,
+        "type": "bool"
+      },
+      {
+        "name": "flagged_reason",
+        "nullable": true,
+        "type": "text"
+      }
+    ],
+    "pk": [
+      "run_id"
+    ]
+  },
+  "mcp_tool_calls": {
+    "columns": [
+      {
+        "name": "call_id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "run_id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "mcp_server",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "tool_name",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "input_params",
+        "nullable": true,
+        "type": "jsonb"
+      },
+      {
+        "name": "output_summary",
+        "nullable": true,
+        "type": "jsonb"
+      },
+      {
+        "name": "status",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "duration_ms",
+        "nullable": true,
+        "type": "int4"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "type": "timestamp"
+      },
+      {
+        "name": "rejected_by_role",
+        "nullable": true,
+        "type": "bool"
+      }
+    ],
+    "pk": [
+      "call_id"
+    ]
+  },
+  "messages": {
+    "columns": [
+      {
+        "name": "message_id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "session_id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "role",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "content",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "source_type",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "confidence_score",
+        "nullable": true,
+        "type": "int4"
+      },
+      {
+        "name": "citation_validated",
+        "nullable": true,
+        "type": "bool"
+      },
+      {
+        "name": "unverified_citations",
+        "nullable": true,
+        "type": "_text"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "type": "timestamp"
+      },
+      {
+        "name": "degradation_trace",
+        "nullable": true,
+        "type": "jsonb"
+      }
+    ],
+    "pk": [
+      "message_id"
+    ]
+  },
+  "pending_candidate_priority": {
+    "columns": [
+      {
+        "name": "edge_id",
+        "nullable": false,
+        "type": "int8"
+      },
+      {
+        "name": "edge_label",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "tier",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "a_key",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "b_key",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "original_confidence",
+        "nullable": true,
+        "type": "float8"
+      },
+      {
+        "name": "original_basis",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "original_name_similarity",
+        "nullable": true,
+        "type": "float8"
+      },
+      {
+        "name": "original_shared_case",
+        "nullable": true,
+        "type": "bool"
+      },
+      {
+        "name": "original_shared_structured_id",
+        "nullable": true,
+        "type": "bool"
+      },
+      {
+        "name": "priority_score",
+        "nullable": false,
+        "type": "float8"
+      },
+      {
+        "name": "why",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "group_id",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "deprioritized",
+        "nullable": false,
+        "type": "bool"
+      },
+      {
+        "name": "last_scored_at",
+        "nullable": true,
+        "type": "timestamptz"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "type": "timestamptz"
+      },
+      {
+        "name": "source_doc_id",
+        "nullable": true,
+        "type": "text"
+      }
+    ],
+    "pk": [
+      "edge_id"
+    ]
+  },
+  "pipeline_runs": {
+    "columns": [
+      {
+        "name": "run_id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "session_id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "user_id",
+        "nullable": true,
+        "type": "uuid"
+      },
+      {
+        "name": "original_query",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "rewritten_query",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "routed_to",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "retry_count",
+        "nullable": false,
+        "type": "int4"
+      },
+      {
+        "name": "final_outcome",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "total_duration_ms",
+        "nullable": true,
+        "type": "int4"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "type": "timestamp"
+      },
+      {
+        "name": "verifier_passed",
+        "nullable": true,
+        "type": "bool"
+      },
+      {
+        "name": "verifier_regenerated",
+        "nullable": true,
+        "type": "bool"
+      }
+    ],
+    "pk": [
+      "run_id"
+    ]
+  },
+  "pipeline_steps": {
+    "columns": [
+      {
+        "name": "step_id",
+        "nullable": false,
+        "type": "int4"
+      },
+      {
+        "name": "run_id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "step_name",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "step_order",
+        "nullable": false,
+        "type": "int4"
+      },
+      {
+        "name": "status",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "duration_ms",
+        "nullable": true,
+        "type": "int4"
+      },
+      {
+        "name": "input_summary",
+        "nullable": true,
+        "type": "jsonb"
+      },
+      {
+        "name": "output_summary",
+        "nullable": true,
+        "type": "jsonb"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "type": "timestamp"
+      }
+    ],
+    "pk": [
+      "step_id"
+    ]
+  },
+  "police_reference_data": {
+    "columns": [
+      {
+        "name": "ref_id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "category",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "subject",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "description",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "fine_amount",
+        "nullable": true,
+        "type": "numeric"
+      },
+      {
+        "name": "section_ref",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "source_document",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "source_type",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "effective_from",
+        "nullable": true,
+        "type": "date"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "type": "timestamp"
+      }
+    ],
+    "pk": [
+      "ref_id"
+    ]
+  },
+  "project_memory": {
+    "columns": [
+      {
+        "name": "id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "project_id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "summary_text",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "last_updated",
+        "nullable": false,
+        "type": "timestamp"
+      }
+    ],
+    "pk": [
+      "id"
+    ]
+  },
+  "projects": {
+    "columns": [
+      {
+        "name": "id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "user_id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "name",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "description",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "domain_context",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "type": "timestamp"
+      },
+      {
+        "name": "updated_at",
+        "nullable": false,
+        "type": "timestamp"
+      }
+    ],
+    "pk": [
+      "id"
+    ]
+  },
+  "session_attachments": {
+    "columns": [
+      {
+        "name": "attachment_id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "session_id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "user_id",
+        "nullable": true,
+        "type": "uuid"
+      },
+      {
+        "name": "filename",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "file_type",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "file_size_bytes",
+        "nullable": true,
+        "type": "int8"
+      },
+      {
+        "name": "extracted_text",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "char_count",
+        "nullable": true,
+        "type": "int4"
+      },
+      {
+        "name": "status",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "error_message",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "type": "timestamptz"
+      }
+    ],
+    "pk": [
+      "attachment_id"
+    ]
+  },
+  "sessions": {
+    "columns": [
+      {
+        "name": "session_id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "user_id",
+        "nullable": true,
+        "type": "uuid"
+      },
+      {
+        "name": "title",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "type": "timestamp"
+      },
+      {
+        "name": "updated_at",
+        "nullable": false,
+        "type": "timestamp"
+      },
+      {
+        "name": "deleted_at",
+        "nullable": true,
+        "type": "timestamp"
+      },
+      {
+        "name": "project_id",
+        "nullable": true,
+        "type": "uuid"
+      },
+      {
+        "name": "case_id",
+        "nullable": true,
+        "type": "text"
+      }
+    ],
+    "pk": [
+      "session_id"
+    ]
+  },
+  "user_context_profiles": {
+    "columns": [
+      {
+        "name": "user_id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "context_text",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "preferred_language",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "llm_mode",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "updated_at",
+        "nullable": false,
+        "type": "timestamp"
+      }
+    ],
+    "pk": [
+      "user_id"
+    ]
+  },
+  "users": {
+    "columns": [
+      {
+        "name": "id",
+        "nullable": false,
+        "type": "uuid"
+      },
+      {
+        "name": "email",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "password_hash",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "company_name",
+        "nullable": true,
+        "type": "text"
+      },
+      {
+        "name": "plan",
+        "nullable": false,
+        "type": "text"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "type": "timestamp"
+      },
+      {
+        "name": "role",
+        "nullable": false,
+        "type": "user_role"
+      },
+      {
+        "name": "police_station",
+        "nullable": true,
+        "type": "text"
+      }
+    ],
+    "pk": [
+      "id"
+    ]
   }
- ]
 }
