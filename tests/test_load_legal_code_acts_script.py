@@ -192,12 +192,14 @@ async def test_load_rows_reports_uncovered_acts_regardless_of_apply(monkeypatch)
 
 # ── Regression lock on the real, approved content itself ───────────────────
 
-def test_the_five_researched_acts_all_have_real_descriptions():
-    """Locks in that content-sourcing actually landed for the 5 approved
-    acts — a real, non-empty description and a named source for each."""
+def test_the_six_researched_acts_all_have_real_descriptions():
+    """Locks in that content-sourcing actually landed for the 6 approved
+    acts — a real, non-empty description and a named source for each.
+    "Punjab Domestic Violence Act" is the 6th, added after the
+    _crime_category() fix surfaced it as a real, distinct act name."""
     expected = {
         "PPC", "Arms Ordinance 1965", "CNSA 1997", "PECA 2016",
-        "Illegal Dispossession Act 2005",
+        "Illegal Dispossession Act 2005", "Punjab Domestic Violence Act",
     }
     assert set(loader._KNOWN_ACT_DESCRIPTIONS.keys()) == expected
     for act, (description, source_document) in loader._KNOWN_ACT_DESCRIPTIONS.items():
