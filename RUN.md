@@ -175,6 +175,78 @@ python scripts/apply_migration.py migrations/014_analytics_indexes.sql
 #     note right after this list; this one needs manual follow-up steps,
 #     it is not "just run it and move on" like the others.
 python scripts/apply_migration.py migrations/015_app_least_privilege_role.sql
+
+# 15. Community detection + summarization storage (GraphRAG-inspired layer,
+#     additive on top of the Phase 4 evidence_graph) — community_membership,
+#     community_summaries, community_runs
+python scripts/apply_migration.py migrations/016_community_detection.sql
+
+# 16. Raw pre-filter node/edge counts on community_runs, so
+#     check_community_staleness.py has a genuinely comparable baseline
+#     against the live graph's raw counts (not the post-filter ones)
+python scripts/apply_migration.py migrations/017_community_runs_raw_counts.sql
+
+# 17. cases.conflicts_checked_at — distinguishes "conflict detection ran and
+#     found nothing" from "detection never ran yet" (agent-harness
+#     reconciliation, Unit 6)
+python scripts/apply_migration.py migrations/018_case_conflicts_checked_at.sql
+
+# 18. Per-message degradation trace on messages (tools_used/degraded_from/
+#     caveats), so investigators keep the same "what worked, what failed"
+#     transparency the admin Run History page has, durably, in their own chat
+python scripts/apply_migration.py migrations/019_message_degradation_trace.sql
+
+# 19. Pre-create the AGE `Date` vlabel and `CITES` elabel — both already
+#     written live outside migration 005/011's static list (M8 of the
+#     Muhafiz Data API migration); closes the same concurrent-first-write
+#     race migration 005 pre-creates labels to prevent
+python scripts/apply_migration.py migrations/020_age_date_and_cites_labels.sql
+
+# 20. Identity index — a plain Postgres side table backing entity-resolution
+#     hard-block lookups with a real indexed primary-key match instead of an
+#     unindexed AGE label scan (Graph Scale & Schema Expansion, Milestone A1)
+python scripts/apply_migration.py migrations/021_identity_index.sql
+
+# 21. Persistent full-text index (chunk_fulltext) for BM25 keyword search —
+#     replaces rebuilding an in-memory BM25 index over the full scoped
+#     corpus on every query (Graph Scale & Schema Expansion, Milestone A2)
+python scripts/apply_migration.py migrations/022_chunk_fulltext_index.sql
+
+# 22. Pre-create the AGE `PoliceStation`/`District` vlabels and `FILED_AT`
+#     elabel — jurisdiction graph nodes (Graph Scale & Schema Expansion,
+#     Milestone B1)
+python scripts/apply_migration.py migrations/023_jurisdiction_graph_labels.sql
+
+# 23. Pre-create the AGE `Officer` vlabel and `ASSIGNED_TO` elabel — officer
+#     identity resolution (Graph Scale & Schema Expansion, Milestone B2)
+python scripts/apply_migration.py migrations/024_officer_graph_labels.sql
+
+# 24. Pre-create the AGE `RELATED_TO` elabel — person-relationship edges
+#     (Graph Scale & Schema Expansion, Milestone C1)
+python scripts/apply_migration.py migrations/025_related_to_label.sql
+
+# 25. Pre-create the AGE `CROSS_VERSION_OF` elabel — cross-version edge
+#     (Graph Scale & Schema Expansion, Milestone C4)
+python scripts/apply_migration.py migrations/026_cross_version_of_label.sql
+
+# 26. Pending-candidate priority index — a plain Postgres side table backing
+#     graph_review.list_pending()'s hot query with a real index instead of an
+#     unindexed AGE edge-label scan (Graph Scale & Schema Expansion,
+#     Milestone D1)
+python scripts/apply_migration.py migrations/027_pending_candidate_priority.sql
+
+# 27. Ingestion run quality rollup (ingestion_run_quality) — one row per
+#     ingestion run, entity-resolution tier counts (TIER_CNIC_AUTO/
+#     TIER_FLAGGED/TIER_REVIEW/TIER_NEW), closing the gap where
+#     ingestion_jobs has no case_id and bulk ingestion paths never wrote a
+#     row (Ingestion Quality Control at Scale, Module G1)
+python scripts/apply_migration.py migrations/028_ingestion_run_quality.sql
+
+# 28. Entity-resolution consistency findings — a continuous background check
+#     that re-diffs a sample of resolved SAME_AS matches' original scoring
+#     signal against a freshly recomputed one, looking for degradation
+#     (Ingestion Quality Control at Scale, Module G3)
+python scripts/apply_migration.py migrations/029_entity_resolution_consistency_findings.sql
 ```
 
 All of these are idempotent — safe to re-run. **Check what's actually applied
@@ -201,6 +273,30 @@ asyncio.run(main())
 "
 # Expect: users has 'role' (not 'is_admin'); tables include case_assignments
 # and audit_logs. If either is missing, migrations 6+ haven't run.
+```
+
+The same blind-trust risk applies at the other end of the list — a setup that
+stopped partway through 016-029 fails just as confusingly downstream (e.g.
+`community_membership` missing breaks Global Search's community summaries,
+`chunk_fulltext` missing breaks BM25 retrieval). Check the full-list end
+state too:
+
+```bash
+python -c "
+import asyncio, asyncpg, os
+from dotenv import load_dotenv
+load_dotenv()
+url = os.environ['DATABASE_URL'].replace('postgresql+asyncpg://', 'postgresql://')
+async def main():
+    conn = await asyncpg.connect(url)
+    tables = await conn.fetch(\"SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY tablename\")
+    names = {t['tablename'] for t in tables}
+    print('entity_resolution_consistency_findings' in names, 'ingestion_run_quality' in names)
+    await conn.close()
+asyncio.run(main())
+"
+# Expect: True True. If either is False, migrations 16-29 (or at least 028/029)
+# haven't run yet.
 ```
 
 If `apply_migration.py` fails with a connection error, Postgres isn't
