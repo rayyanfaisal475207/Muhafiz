@@ -74,8 +74,13 @@ async def rewrite_query(
         # Qwen3-14B's thinking trace consumes max_tokens before its one-line
         # answer, and this server ignores enable_thinking=False — 200 was
         # truncating to an empty response every time (esp. on Urdu/Roman-Urdu
-        # follow-ups, silently masked by the empty-string fallback below).
-        max_tokens=800,
+        # follow-ups, silently masked by the empty-string fallback below);
+        # 800 later turned out not to be enough either on live
+        # re-measurement. Raised to 2000 for the LOCAL budget;
+        # cloud_max_tokens pinned at the old 800 so the cloud fallback is
+        # unaffected.
+        max_tokens=2000,
+        cloud_max_tokens=800,
     )
 
     sanitized = _sanitize_rewrite(raw)
@@ -385,7 +390,10 @@ async def rewrite_for_retry(
             temperature=0.2,  # Slight creativity to try different keywords
             # See rewrite_query() above — Qwen3-14B's thinking trace needs room
             # inside max_tokens on this server, which can't be told to skip it.
-            max_tokens=800,
+            # Raised to 2000 for the LOCAL budget; cloud_max_tokens pinned
+            # at the old 800 so the cloud fallback is unaffected.
+            max_tokens=2000,
+            cloud_max_tokens=800,
         )
         improved = _sanitize_rewrite(raw)
         if improved is not None:

@@ -135,9 +135,14 @@ async def classify_document(text: str) -> Optional[dict]:
             user_message=snippet,
             temperature=0.0,
             # Qwen3-14B's thinking trace consumes max_tokens before the
-            # JSON answer; 800 is the floor that avoids truncating into
-            # the parse-failure path (see sql_extractor.py's identical note).
-            max_tokens=800,
+            # JSON answer; 800 turned out not to be enough on live
+            # re-measurement (confirmed: the trace alone can exhaust it) —
+            # raised to 2000 for the LOCAL budget only. cloud_max_tokens
+            # pinned at the old 800 so the cloud fallback's own token/rate
+            # accounting is unaffected (see router.py for why growing the
+            # cloud budget is its own separate hazard).
+            max_tokens=2000,
+            cloud_max_tokens=800,
         )
     except Exception as exc:
         logger.error("doc_classifier LLM call failed: %s", exc)

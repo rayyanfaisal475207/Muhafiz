@@ -5,8 +5,17 @@ Regression: this call site used max_tokens=20, the same bug class Phase 0
 fixed everywhere else (Qwen3's thinking trace consumes the token budget
 before the real answer, silently producing an empty/truncated title). Live
 testing this session showed a `title_generation` event firing with an empty
-detail. Guards the fix (max_tokens=800, explicit role="reasoning") and the
-existing fail-safe fallback behavior.
+detail. Guards the fix (originally max_tokens=800, explicit role="reasoning")
+and the existing fail-safe fallback behavior.
+
+2026-08-27: 800 turned out not to be enough either — a full live route/
+sub-agent test sweep found the thinking trace alone can exhaust it before
+any answer is produced (confirmed directly: a 50-token probe burned its
+whole budget on the trace, never reaching a reply). Raised to 2000 for the
+LOCAL budget; cloud_max_tokens pinned at the old 800 so the cloud
+fallback's own token accounting is unaffected — this test only asserts
+the local `max_tokens` kwarg call_llm() receives, not the resolved cloud
+value.
 """
 import pytest
 
@@ -30,7 +39,8 @@ async def test_generate_and_save_title_uses_a_real_token_budget(monkeypatch, gat
     title = await title_generator.generate_and_save_title(session_id, "Who stole my phone?")
 
     assert title == "Mobile Theft FIR Inquiry"
-    assert captured_kwargs["max_tokens"] == 800, "max_tokens=20 silently starved Qwen3's thinking trace"
+    assert captured_kwargs["max_tokens"] == 2000, "max_tokens=20/800 both silently starved Qwen3's thinking trace"
+    assert captured_kwargs["cloud_max_tokens"] == 800
     assert captured_kwargs["role"] == "reasoning"
     assert gateway.sessions[session_id]["title"] == "Mobile Theft FIR Inquiry"
 

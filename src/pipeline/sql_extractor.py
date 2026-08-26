@@ -21,8 +21,12 @@ async def extract_sql_params(query: str) -> dict:
         temperature=0.0,
         # Qwen3-14B's thinking trace consumes max_tokens before its JSON
         # answer, and this server ignores enable_thinking=False — 150 was
-        # truncating to an empty response every time.
-        max_tokens=800,
+        # truncating to an empty response every time; 800 later turned out
+        # not to be enough either on live re-measurement. Raised to 2000
+        # for the LOCAL budget; cloud_max_tokens pinned at the old 800 so
+        # the cloud fallback is unaffected.
+        max_tokens=2000,
+        cloud_max_tokens=800,
         validate=lambda r: isinstance(r, dict) and "category" in r,
         schema_hint='"category" (string), "subject" (string), "section_ref" (string or null), "date" (string or null)',
         _call_llm=call_llm,

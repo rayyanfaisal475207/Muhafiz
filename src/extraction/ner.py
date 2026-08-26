@@ -507,7 +507,12 @@ async def _adjudicate_low_confidence(
             system_prompt=_SYSTEM_PROMPT,
             user_message=user_message,
             temperature=0.0,
-            max_tokens=800,
+            # 800 wasn't enough on live re-measurement — Qwen3-14B's
+            # thinking trace can exhaust it before the answer. Raised to
+            # 2000 for the LOCAL budget; cloud_max_tokens pinned at the
+            # old 800 so the cloud fallback is unaffected.
+            max_tokens=2000,
+            cloud_max_tokens=800,
         )
     except Exception as exc:
         logger.warning("NER fallback LLM call failed: %s", exc)

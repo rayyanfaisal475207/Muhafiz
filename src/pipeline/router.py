@@ -355,9 +355,13 @@ async def route_query(rewritten_query: str, case_id: str | None = None) -> dict:
         # enable_thinking=False/"/no_think" — the trace still consumes
         # max_tokens even though it never leaks into the JSON content.
         # 250 let the trace eat the whole budget and truncate the JSON
-        # mid-"route"; 800 matches the client's own local-call ceiling
-        # (src/llm/client.py) and leaves room for both.
-        max_tokens=800,
+        # mid-"route"; 800 still weren't enough on live re-measurement
+        # (confirmed: a 50-token probe burned its entire budget on the
+        # thinking trace alone without reaching the answer) — raised to
+        # 2000, LOCAL-ONLY. Does not affect the cloud budget below, which
+        # stays independently tuned at cloud_max_tokens=300 for a
+        # different, already-solved reason (see that comment).
+        max_tokens=2000,
         # [Module 2 follow-up, findings.md] cloud_max_tokens + reasoning_effort:
         # without cloud_max_tokens, the cloud escalation branch (call_llm's
         # force_cloud=True attempt) inherited the same 800-token ceiling

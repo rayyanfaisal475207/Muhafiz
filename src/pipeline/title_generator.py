@@ -24,7 +24,12 @@ async def generate_and_save_title(session_id: str, user_message: str):
             system_prompt=system_prompt,
             user_message=user_message,
             temperature=0.7,
-            max_tokens=800,
+            # 800 wasn't enough on live re-measurement — Qwen3-14B's
+            # thinking trace can exhaust it before the answer. Raised to
+            # 2000 for the LOCAL budget; cloud_max_tokens pinned at the
+            # old 800 so the cloud fallback is unaffected.
+            max_tokens=2000,
+            cloud_max_tokens=800,
             role="reasoning",
         )
         title = title.strip().strip('"').strip("'")

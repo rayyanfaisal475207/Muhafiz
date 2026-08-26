@@ -86,10 +86,12 @@ async def generate_cross_script_variant(query: str) -> str | None:
             temperature=0.0,
             # Same Qwen3-14B thinking-trace consideration as every other
             # local call site in this codebase (see query_expander.py,
-            # query_rewriter.py) — 800 matches the client's local-call
-            # ceiling and leaves room for both the trace and the one-line
-            # answer.
-            max_tokens=800,
+            # query_rewriter.py) — 800 turned out not to be enough on live
+            # re-measurement, raised to 2000 for the LOCAL budget.
+            # cloud_max_tokens pinned at the old 800 so the cloud fallback
+            # is unaffected.
+            max_tokens=2000,
+            cloud_max_tokens=800,
         )
     except Exception as exc:
         logger.warning("Cross-script variant LLM call failed: %s — skipping", exc)

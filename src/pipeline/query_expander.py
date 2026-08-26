@@ -92,8 +92,12 @@ async def expand_query(rewritten_query: str, n: int = 2) -> list[str]:
             temperature=0.3,   # Some creativity, but grounded
             # Qwen3-14B's thinking trace eats into max_tokens before the JSON
             # array appears, and this server ignores enable_thinking=False —
-            # 200 was truncating to an empty response every time.
-            max_tokens=800,
+            # 200 was truncating to an empty response every time; 800 later
+            # turned out not to be enough either on live re-measurement.
+            # Raised to 2000 for the LOCAL budget; cloud_max_tokens pinned
+            # at the old 800 so the cloud fallback is unaffected.
+            max_tokens=2000,
+            cloud_max_tokens=800,
             validate=lambda r: isinstance(r, list),
             schema_hint="a bare JSON array of strings, e.g. [\"alt phrasing 1\", \"alt phrasing 2\"]",
         )
