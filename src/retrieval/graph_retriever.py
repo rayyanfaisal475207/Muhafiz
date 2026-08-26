@@ -92,6 +92,7 @@
 from __future__ import annotations
 
 import logging
+import unicodedata
 from contextvars import ContextVar
 from typing import Optional
 
@@ -1140,24 +1141,165 @@ def reset_jurisdiction_unresolved() -> None:
     _JURISDICTION_UNRESOLVED.set(False)
 
 
+def _normalize_jurisdiction(value: Optional[str]) -> str:
+    """
+    [findings.md JURISDICTION] Deterministic normalization for a free-text
+    jurisdiction expression, applied before any alias lookup.
+
+    NFKC (so Urdu presentation forms and ASCII width variants compare
+    equal), trim, collapse internal whitespace, casefold. Casefolding is a
+    no-op on Urdu — which is exactly the point: it makes the ASCII half of
+    the comparison reliable without touching the Urdu half.
+
+    Deliberately NOT transliteration and NOT spelling correction: an alias
+    either matches a jurisdiction this corpus actually stores, or the
+    input stays unresolved. Guessing a district is the failure mode this
+    whole layer exists to prevent.
+    """
+    if not value:
+        return ""
+    return " ".join(unicodedata.normalize("NFKC", value).split()).casefold()
+
+
+# [findings.md JURISDICTION] English -> stored-Urdu district aliases,
+# keyed ONLY to the nine District nodes this corpus actually has. District
+# `name` is Urdu-only and `district_id` is opaque ("DIST-04"), so no
+# English query could ever match by string comparison alone — measured
+# live: "Lahore" resolved to None while "لاہور" resolved to DIST-04.
+#
+# Scoped to real stored jurisdictions on purpose: this is not a gazetteer,
+# and an alias for a district the corpus does not contain would be a
+# guess, not a resolution.
+_DISTRICT_ALIASES: dict[str, str] = {
+    "lahore": "لاہور",
+    "rawalpindi": "راولپنڈی",
+    "faisalabad": "فیصل آباد",
+    "islamabad": "اسلام آباد",
+    "hyderabad": "حیدر آباد",
+    "multan": "ملتان",
+    "chiniot": "چنیوٹ",
+    "karachi central": "کراچی وسطی",
+    "karachi east": "کراچی ایسٹ",
+}
+
+# [findings.md JURISDICTION] Aliases that legitimately name more than one
+# stored jurisdiction. "Karachi" is two real districts here (کراچی وسطی /
+# کراچی ایسٹ), so resolving it to either one would silently narrow a
+# supervisor's query to half the city and present it as the whole.
+# Ambiguous input therefore fails through the SAME unresolved path as
+# unknown input — `resolve_jurisdiction_case_ids()` does not narrow, and
+# sets UNRESOLVED_JURISDICTION so the caller discloses it.
+#
+# Kept as a singular-resolver contract on purpose: widening
+# `_resolve_district_id()` to return multiple ids is a larger shared/live
+# change than this fix is scoped for.
+_AMBIGUOUS_DISTRICT_ALIASES: frozenset[str] = frozenset({"karachi"})
+
+# [findings.md JURISDICTION] English station aliases, each proven against
+# exactly one stored station_id. Derived from the ASCII id itself, never
+# translated from the Urdu name.
+#
+# "saddar" and "cyber" are deliberately ABSENT: each names two real
+# stations (PS-CHN-SADDAR/PS-RWP-SADDAR, PS-ISB-CYBER/PS-RWP-CYBER), so
+# they belong in the ambiguous set below, not here.
+_STATION_ALIASES: dict[str, str] = {
+    "model town": "PS-LHR-MODELTOWN",
+    "iqbal town": "PS-LHR-IQBALTOWN",
+    "barki": "PS-LHR-BARKI",
+    "civil lines": "PS-FSD-CIVILLINES",
+    "jhang road": "PS-FSD-JHANGROAD",
+    "kotwali": "PS-FSD-KOTWALI",
+    "madina town": "PS-FSD-MADINATOWN",
+    "latifabad": "PS-HYD-LATIFABAD",
+    "new karachi": "PS-KHI-NEWKARACHI",
+    "shah faisal": "PS-KHI-SHAHFAISAL",
+    "shah faisal colony": "PS-KHI-SHAHFAISAL",
+    "raja bazar": "PS-RWP-RAJABAZAR",
+    "waris khan": "PS-RWP-WARISKHAN",
+}
+
+_AMBIGUOUS_STATION_ALIASES: frozenset[str] = frozenset({"saddar", "cyber", "karachi"})
+
+
 async def _resolve_station_id(station: str) -> Optional[str]:
-    """Free-text station name/code (router.py's own extraction, not a caller-typed id) -> B1's PoliceStation.station_id, or None if nothing matches."""
+    """
+    Free-text station name/code (router.py's own extraction, not a
+    caller-typed id) -> B1's PoliceStation.station_id, or None if nothing
+    matches.
+
+    [findings.md JURISDICTION] Lookup order is deliberate: exact canonical
+    id, then exact stored name, then a proven English alias, and only then
+    the original CONTAINS behaviour as a compatibility tail. The old code
+    led with CONTAINS, which resolved "Karachi" to PS-KHI-NEWKARACHI purely
+    because "khi" sits inside that ASCII id — an accident, not an alias.
+    Ambiguous aliases are rejected before the tail can re-create it.
+    """
+    normalized = _normalize_jurisdiction(station)
+    if not normalized:
+        return None
+    if normalized in _AMBIGUOUS_STATION_ALIASES:
+        return None
+
     rows = await age_client.execute_cypher(
         "MATCH (s:PoliceStation) "
-        "WHERE toLower(s.station_id) CONTAINS toLower($q) OR toLower(s.name) CONTAINS toLower($q) OR toLower(s.code) CONTAINS toLower($q) "
+        "WHERE toLower(s.station_id) = $q OR toLower(s.name) = $q OR toLower(s.code) = $q "
         "RETURN s.station_id AS id LIMIT 1",
-        params={"q": station}, columns=["id"],
+        params={"q": normalized}, columns=["id"],
+    )
+    if rows and rows[0].get("id"):
+        return rows[0]["id"]
+
+    alias = _STATION_ALIASES.get(normalized)
+    if alias:
+        return alias
+
+    rows = await age_client.execute_cypher(
+        "MATCH (s:PoliceStation) "
+        "WHERE toLower(s.station_id) CONTAINS $q OR toLower(s.name) CONTAINS $q OR toLower(s.code) CONTAINS $q "
+        "RETURN s.station_id AS id LIMIT 1",
+        params={"q": normalized}, columns=["id"],
     )
     return rows[0]["id"] if rows and rows[0].get("id") else None
 
 
 async def _resolve_district_id(district: str) -> Optional[str]:
-    """Free-text district name -> B1's District.district_id, or None if nothing matches."""
+    """
+    Free-text district name -> B1's District.district_id, or None if
+    nothing matches.
+
+    [findings.md JURISDICTION] Same deliberate order as
+    `_resolve_station_id()`. An ambiguous alias ("karachi") returns None
+    rather than picking one of the two real Karachi districts.
+    """
+    normalized = _normalize_jurisdiction(district)
+    if not normalized:
+        return None
+    if normalized in _AMBIGUOUS_DISTRICT_ALIASES:
+        return None
+
     rows = await age_client.execute_cypher(
         "MATCH (d:District) "
-        "WHERE toLower(d.district_id) CONTAINS toLower($q) OR toLower(d.name) CONTAINS toLower($q) "
+        "WHERE toLower(d.district_id) = $q OR toLower(d.name) = $q "
         "RETURN d.district_id AS id LIMIT 1",
-        params={"q": district}, columns=["id"],
+        params={"q": normalized}, columns=["id"],
+    )
+    if rows and rows[0].get("id"):
+        return rows[0]["id"]
+
+    alias = _DISTRICT_ALIASES.get(normalized)
+    if alias:
+        rows = await age_client.execute_cypher(
+            "MATCH (d:District) WHERE d.name = $q RETURN d.district_id AS id LIMIT 1",
+            params={"q": alias}, columns=["id"],
+        )
+        if rows and rows[0].get("id"):
+            return rows[0]["id"]
+
+    rows = await age_client.execute_cypher(
+        "MATCH (d:District) "
+        "WHERE toLower(d.district_id) CONTAINS $q OR toLower(d.name) CONTAINS $q "
+        "RETURN d.district_id AS id LIMIT 1",
+        params={"q": normalized}, columns=["id"],
     )
     return rows[0]["id"] if rows and rows[0].get("id") else None
 
