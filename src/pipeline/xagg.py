@@ -72,11 +72,14 @@ _CATEGORY_KEYWORDS = (
 # (category="legal_code_act", populated by scripts/load_legal_code_acts.py
 # — see that script's own _KNOWN_ACT_DESCRIPTIONS docstring for why
 # description text, and therefore any keyword implying a claim about what
-# the act covers, is never invented ahead of a real source). Deliberately
-# EMPTY until a human adds a real description for a given act — add its
-# entry here in the SAME change, never speculatively ahead of the
-# description. Static, not a live per-query DB lookup, for the same
-# zero-runtime-cost reason _WEAPON_KEYWORDS/_VEHICLE_KEYWORDS/
+# the act covers, is never invented ahead of a real source). An act gets an
+# entry here ONLY in the same change that adds its real description, never
+# speculatively ahead of it — PPC and Arms Ordinance 1965 both HAVE real
+# descriptions today but deliberately have NO entry here: PPC has no narrow
+# vocabulary that wouldn't over-match every query, and Arms Ordinance's own
+# natural vocabulary is entirely shadowed by _WEAPON_KEYWORDS below (see
+# this block's own CAVEAT). Static, not a live per-query DB lookup, for the
+# same zero-runtime-cost reason _WEAPON_KEYWORDS/_VEHICLE_KEYWORDS/
 # _PERSON_KEYWORDS above are static tuples rather than a query.
 #
 # Existing gap this closes once populated: _CATEGORY_KEYWORDS above filters
@@ -102,7 +105,18 @@ _CATEGORY_KEYWORDS = (
 # 1997, Illegal Dispossession Act 2005), not vocabulary that's shadowed by
 # an earlier, better-served dispatch branch.
 # "<exact act string, matching a police_reference_data.subject row exactly>": (keyword, ...)
-_LEGAL_CODE_ACT_KEYWORDS: dict[str, tuple[str, ...]] = {}
+_LEGAL_CODE_ACT_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "CNSA 1997": ("narcotics", "drug trafficking", "narcotic substances", "منشیات"),
+    # "online fraud" deliberately excluded — it contains "fraud" as a
+    # substring, which _CATEGORY_KEYWORDS above already claims (checked
+    # first in _filtered_cases()); that check would fire first and filter
+    # to zero cases, since "fraud" never appears literally in this
+    # corpus's real crime_category values — confirmed live via a
+    # collision check across every existing keyword tuple in this module
+    # before shipping this entry.
+    "PECA 2016": ("cybercrime", "cyber crime", "hacking", "cyber harassment"),
+    "Illegal Dispossession Act 2005": ("land grabbing", "illegal dispossession", "property grabbing", "قبضہ"),
+}
 # A plain "list/show every case" request — distinct from the grouped-count
 # queries below (which always answer "counts of cases by X", never the raw
 # records). Router previously had nowhere to send this ("list of all cases"

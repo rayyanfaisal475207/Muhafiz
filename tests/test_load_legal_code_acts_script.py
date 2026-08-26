@@ -93,17 +93,27 @@ class _FakeSession:
         return False
 
 
+# Fictional act names, deliberately never real entries in
+# _KNOWN_ACT_DESCRIPTIONS — isolates "not yet sourced" behavior from
+# _KNOWN_ACT_DESCRIPTIONS' own real, populated content (PPC, Arms Ordinance
+# 1965, CNSA 1997, PECA 2016, Illegal Dispossession Act 2005 all have real
+# descriptions today; using any of those names here would silently start
+# testing against real content instead of the uncovered-act code path).
+_FAKE_ACT_1 = "Test Ordinance 1999"
+_FAKE_ACT_2 = "Test Substances Act 1999"
+
+
 async def test_load_rows_dry_run_makes_no_changes(monkeypatch):
     session = _FakeSession()
     session._current_lookup = None  # nothing present yet
     monkeypatch.setattr(loader, "get_session", lambda: session)
 
-    inserted, updated, unchanged, uncovered = await loader.load_rows(["PPC", "CNSA 1997"], apply=False)
+    inserted, updated, unchanged, uncovered = await loader.load_rows([_FAKE_ACT_1, _FAKE_ACT_2], apply=False)
 
     assert inserted == 2
     assert updated == 0
     assert unchanged == 0
-    assert uncovered == ["PPC", "CNSA 1997"]  # neither is in _KNOWN_ACT_DESCRIPTIONS
+    assert uncovered == [_FAKE_ACT_1, _FAKE_ACT_2]  # neither is in _KNOWN_ACT_DESCRIPTIONS
     assert session.added == []  # dry run: nothing actually added
     assert session.committed is False
 
@@ -113,17 +123,17 @@ async def test_load_rows_apply_inserts_new_acts(monkeypatch):
     session._current_lookup = None
     monkeypatch.setattr(loader, "get_session", lambda: session)
 
-    inserted, updated, unchanged, uncovered = await loader.load_rows(["PPC"], apply=True)
+    inserted, updated, unchanged, uncovered = await loader.load_rows([_FAKE_ACT_1], apply=True)
 
     assert inserted == 1
     assert len(session.added) == 1
     row = session.added[0]
     assert row.category == "legal_code_act"
-    assert row.subject == "PPC"
+    assert row.subject == _FAKE_ACT_1
     assert row.description is None  # never fabricated — see module docstring
     assert row.source_type == "scraped"
     assert session.committed is True
-    assert uncovered == ["PPC"]
+    assert uncovered == [_FAKE_ACT_1]
 
 
 async def test_load_rows_idempotent_on_second_run(monkeypatch):
@@ -133,7 +143,7 @@ async def test_load_rows_idempotent_on_second_run(monkeypatch):
     session._current_lookup = _FakeRow(description=None, source_document="cases.crime_category")
     monkeypatch.setattr(loader, "get_session", lambda: session)
 
-    inserted, updated, unchanged, uncovered = await loader.load_rows(["PPC"], apply=True)
+    inserted, updated, unchanged, uncovered = await loader.load_rows([_FAKE_ACT_1], apply=True)
 
     assert inserted == 0
     assert updated == 0
@@ -146,14 +156,14 @@ async def test_load_rows_updates_when_a_description_is_newly_supplied(monkeypatc
     is later added to _KNOWN_ACT_DESCRIPTIONS gets updated in place on
     re-run, not skipped as already-present."""
     monkeypatch.setitem(
-        loader._KNOWN_ACT_DESCRIPTIONS, "PPC",
-        ("Pakistan Penal Code 1860 — the general criminal code.", "test-source"),
+        loader._KNOWN_ACT_DESCRIPTIONS, _FAKE_ACT_1,
+        ("A fictional test-only description.", "test-source"),
     )
     session = _FakeSession()
     session._current_lookup = _FakeRow(description=None, source_document="cases.crime_category")
     monkeypatch.setattr(loader, "get_session", lambda: session)
 
-    inserted, updated, unchanged, uncovered = await loader.load_rows(["PPC"], apply=True)
+    inserted, updated, unchanged, uncovered = await loader.load_rows([_FAKE_ACT_1], apply=True)
 
     assert inserted == 0
     assert updated == 1
@@ -166,10 +176,32 @@ async def test_load_rows_reports_uncovered_acts_regardless_of_apply(monkeypatch)
     session._current_lookup = None
     monkeypatch.setattr(loader, "get_session", lambda: session)
 
-    _, _, _, uncovered_dry = await loader.load_rows(["PPC", "CNSA 1997"], apply=False)
+    _, _, _, uncovered_dry = await loader.load_rows([_FAKE_ACT_1, _FAKE_ACT_2], apply=False)
     session2 = _FakeSession()
     session2._current_lookup = None
     monkeypatch.setattr(loader, "get_session", lambda: session2)
-    _, _, _, uncovered_apply = await loader.load_rows(["PPC", "CNSA 1997"], apply=True)
+    _, _, _, uncovered_apply = await loader.load_rows([_FAKE_ACT_1, _FAKE_ACT_2], apply=True)
 
-    assert uncovered_dry == uncovered_apply == ["PPC", "CNSA 1997"]
+    assert uncovered_dry == uncovered_apply == [_FAKE_ACT_1, _FAKE_ACT_2]
+
+
+# ── Regression lock on the real, approved content itself ───────────────────
+
+def test_the_five_researched_acts_all_have_real_descriptions():
+    """Locks in that content-sourcing actually landed for the 5 approved
+    acts — a real, non-empty description and a named source for each."""
+    expected = {
+        "PPC", "Arms Ordinance 1965", "CNSA 1997", "PECA 2016",
+        "Illegal Dispossession Act 2005",
+    }
+    assert set(loader._KNOWN_ACT_DESCRIPTIONS.keys()) == expected
+    for act, (description, source_document) in loader._KNOWN_ACT_DESCRIPTIONS.items():
+        assert description and len(description) > 20, f"{act} has no real description"
+        assert source_document, f"{act} has no source document"
+
+
+def test_provincial_act_is_deliberately_not_a_known_act():
+    """See _KNOWN_ACT_DESCRIPTIONS' own comment: "Provincial Act" is a
+    generic category label, not one specific describable law — it must
+    never silently gain a fabricated description."""
+    assert "Provincial Act" not in loader._KNOWN_ACT_DESCRIPTIONS

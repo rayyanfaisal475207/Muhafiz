@@ -58,13 +58,80 @@ from src.ingestion.muhafiz_cases import split_crime_category
 
 _CATEGORY = "legal_code_act"
 
-# ── Real, sourced descriptions only. Empty until a human supplies real
-# source text for a given act (official ordinance/act text, or a vetted
-# legal reference) — see this module's own header note. An act missing
-# here gets description=NULL and is reported as "uncovered" below, never a
-# guessed paraphrase. ──────────────────────────────────────────────────
+# ── Real, sourced descriptions only — see this module's own header note.
+# Each entry researched and cross-referenced against official/primary
+# sources (national/provincial government sites, or the Act's own hosted
+# text) before being added here; `source_document` names the primary
+# source used. An act missing here gets description=NULL and is reported
+# as "uncovered" below, never a guessed paraphrase. ─────────────────────
 # "<exact act string as it appears in crime_category>": (description, source_document)
-_KNOWN_ACT_DESCRIPTIONS: dict[str, tuple[str, str]] = {}
+_KNOWN_ACT_DESCRIPTIONS: dict[str, tuple[str, str]] = {
+    "PPC": (
+        "Pakistan's general criminal code — defines most criminal offenses "
+        "(against the person, property, public order, and the state) and "
+        "their punishments, applicable throughout Pakistan. Originally "
+        "enacted 1860 as the Indian Penal Code, retained and renamed after "
+        "independence.",
+        "na.gov.pk (Pakistan Penal Code, 1860)",
+    ),
+    "Arms Ordinance 1965": (
+        "Governs licensing, possession, sale, transport, and carrying of "
+        "arms, ammunition, and military stores in Pakistan. A license is "
+        "required to lawfully possess or carry arms; unlicensed "
+        "possession, unlicensed dealing/sale, and failure to maintain "
+        "required transfer records are offenses. Extends to all of "
+        "Pakistan except the Tribal Areas.",
+        "fia.gov.pk/files/act/9.pdf (The Pakistan Arms Ordinance, 1965 — official text)",
+    ),
+    "CNSA 1997": (
+        "Pakistan's primary narcotics law — consolidates control over the "
+        "production, processing, trafficking, and possession of narcotic "
+        "drugs, psychotropic substances, and controlled precursor "
+        "chemicals, and provides for treatment/rehabilitation of addicts. "
+        "Covers offenses including cultivation, unauthorized possession/"
+        "manufacture, and trafficking of controlled substances.",
+        "na.gov.pk (Control of Narcotic Substances Act, 1997 — official text)",
+    ),
+    "PECA 2016": (
+        "Pakistan's cybercrime law — criminalizes offenses committed "
+        "through electronic systems and digital networks, including "
+        "unauthorized access to information systems/data, electronic "
+        "fraud, reputational-damage/privacy-breach offenses, and "
+        "distribution of exploitative digital content. Provides the legal "
+        "framework for investigating and prosecuting such offenses.",
+        "wpc.org.pk (Prevention of Electronic Crimes Act, 2016 — official text hosted)",
+    ),
+    "Illegal Dispossession Act 2005": (
+        "Protects lawful owners/occupiers of immovable property from "
+        "illegal or forcible dispossession by property grabbers. "
+        "Criminalizes entering, occupying, or forcibly dispossessing "
+        "someone from a property without lawful authority — punishable by "
+        "imprisonment (up to 10 years for the primary offense under "
+        "Section 3) plus compensation to the victim.",
+        "na.gov.pk (Illegal Dispossession Act, 2005 — official text)",
+    ),
+    # "Provincial Act" is DELIBERATELY EXCLUDED from this dict — not a
+    # sourcing gap, a data-shape one. Live-checked against the raw FIR
+    # source data behind every real "Provincial Act"-tagged case in this
+    # corpus (4 cases, all citing the same underlying law): the ACTUAL
+    # specific law name ("Punjab Domestic Violence Act") lives in that
+    # row's section_code field, not its act field — "Provincial Act" is a
+    # generic category label the source data uses, never a real single
+    # law with content of its own to describe. Writing a description for
+    # it would misrepresent it as one specific, describable act, which it
+    # structurally isn't. It will correctly keep showing up in this
+    # script's own "uncovered" report — that's the honest state, not a
+    # bug. Fixing this properly means teaching
+    # src/ingestion/muhafiz_cases.py::_crime_category() to surface
+    # section_code instead of/alongside act for this shape — a separate,
+    # larger, ingestion-level change (touches what gets WRITTEN to
+    # Case.crime_category on every sync, not just this reference layer),
+    # deliberately not attempted here. Confirmed only against Punjab
+    # Domestic Violence Act specifically; whether section_code always
+    # holds the real law name for every "Provincial Act" row, in every
+    # province, is unverified and would need checking before that fix is
+    # scoped.
+}
 
 
 async def distinct_acts() -> list[str]:
