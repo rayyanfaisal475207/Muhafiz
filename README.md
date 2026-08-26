@@ -240,7 +240,7 @@ PostgreSQL (local/self-hosted, reached via direct SQL only) holds all relational
 
 ![Database schema](docs/database-schema.png)
 
-_ER diagram generated from an earlier snapshot of the database (`scripts/build_erd.py`); it predates the Phase 1/4/6/7/8 schema changes below (cases, case_assignments, audit_logs, verifier fields, the AGE graph) — regenerate it before relying on the image. The column/FK data itself is current: [`docs/schema-snapshot.json`](docs/schema-snapshot.json) is regenerated directly from the live database._
+_The rendered image predates the Phase 1/4/6/7/8 schema changes below (cases, case_assignments, audit_logs, verifier fields, the AGE graph) and has **no working regeneration path** — `scripts/build_erd.py` is not a general-purpose renderer for this schema at all; its own title ("TaxIQ — Database Schema") and hardcoded table layout (`tax_rates`, `document_chunks`/pgvector — none of which exist here) confirm it's a leftover artifact from an unrelated product, confirmed 2026-08-26. Treat the image as illustrative-only/stale until a real Muhafiz-schema-aware ERD renderer is written. The column/FK data itself is current as of the same date: [`docs/schema-snapshot.json`](docs/schema-snapshot.json) is machine-generated straight from live `information_schema` introspection (`scripts/generate_schema_snapshot.py`, all 27 tables), not hand-maintained — re-run that script to refresh it after a schema change._
 
 Relationship overview (crow's-foot `<` = the many side):
 
