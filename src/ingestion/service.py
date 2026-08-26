@@ -148,6 +148,73 @@ async def _extract_and_write_relationships(
             stats["errors"].append(f"associated_with[{chunk_id}]: {exc}")
 
 
+PROJECTION_COMPLETE_PROPERTY = "projection_complete"
+
+
+async def _graph_projection_complete(doc_id: str) -> bool:
+    """
+    [findings.md legacy re-ingestion] Has THIS exact chunk-document already
+    been projected all the way through, successfully?
+
+    Deliberately keyed on the full content-derived `doc_id` (e.g.
+    "psrms_fir_fir-1001-26#narrative_c8bf2613"), not on the FIR id: a
+    changed narrative yields a different chunk hash and so must remain
+    eligible for extraction.
+
+    Existence of the Document node is NOT the test. That node is written at
+    the START of `_run_graph_extraction()`, so it only proves projection
+    began — every stage after it catches its own exception and continues.
+    Skipping on existence alone would make a half-projected document
+    permanently unrecoverable. Only the explicit completion marker, written
+    last and only when nothing errored, means "done".
+
+    Historical documents predate the marker and therefore read as
+    incomplete, which is the safe answer: they stay eligible rather than
+    being retroactively assumed good.
+    """
+    from src.graph import age_client
+
+    try:
+        rows = await age_client.execute_cypher(
+            "MATCH (d:Document {doc_id: $doc_id}) "
+            f"RETURN d.{PROJECTION_COMPLETE_PROPERTY} AS complete LIMIT 1",
+            params={"doc_id": doc_id},
+            columns=["complete"],
+        )
+    except Exception as exc:
+        # Fail OPEN on a lookup error: re-extracting costs time, but
+        # wrongly skipping would silently drop a document's graph state.
+        logger.warning("Projection-completion lookup failed for %s: %s", doc_id, exc)
+        return False
+
+    if not rows:
+        return False
+    return rows[0].get("complete") is True
+
+
+async def _mark_graph_projection_complete(doc_id: str, stats: dict) -> None:
+    """
+    Stamp the completion marker — the LAST thing a successful projection
+    does, and only when `stats["errors"]` is empty.
+
+    If the stamp itself fails the run is NOT durably complete, so the
+    failure is appended to `stats["errors"]` and the marker stays absent:
+    the next replay re-projects rather than trusting a half-written state.
+    """
+    from src.graph import versioning
+
+    try:
+        await versioning.write_node(
+            "Document",
+            {"doc_id": doc_id},
+            {PROJECTION_COMPLETE_PROPERTY: True},
+            source_doc_id=doc_id,
+        )
+    except Exception as exc:
+        logger.error("Failed to mark graph projection complete for %s: %s", doc_id, exc)
+        stats["errors"].append(f"projection_complete_marker: {exc}")
+
+
 async def _run_graph_extraction(
     source_name: str, documents: list, chunks: list, case_id: str, doc_id: str,
 ) -> dict:
@@ -438,6 +505,14 @@ async def _run_graph_extraction(
         logger.error("Graph extraction failed for %s (case %s): %s", source_name, case_id, exc)
         stats["errors"].append(str(exc))
 
+    # [findings.md legacy re-ingestion] Completion marker, written LAST and
+    # only on a clean run. Every stage above records its own failure into
+    # stats["errors"] and continues, so an empty list is what "every stage
+    # either succeeded or had nothing to do" actually looks like here.
+    # Anything else leaves the marker unset and the document replayable.
+    if not stats["errors"]:
+        await _mark_graph_projection_complete(doc_id, stats)
+
     return stats
 
 
@@ -642,6 +717,24 @@ async def ingest_documents(
         # function's own docstring for why a caller with a better,
         # deterministic graph writer opts out here.
         graph_stats = None
+        # [findings.md legacy re-ingestion] Replay gate. This chunk's
+        # content-derived doc_id is stable, so a document already projected
+        # to completion has nothing left to contribute — and re-running the
+        # NER/LLM pass would mint fresh random Person entity_ids
+        # (entity_resolution._new_entity_id) for every CNIC-less mention,
+        # adding duplicate nodes plus their APPEARS_IN/BELONGS_TO_CASE and
+        # a new batch of pending SAME_AS candidates on every replay.
+        #
+        # Checked BEFORE the extraction call so the expensive,
+        # non-deterministic work never runs, not after.
+        if case_id and doc_id and run_graph_extraction and await _graph_projection_complete(str(doc_id)):
+            logger.info(
+                "Graph extraction skipped for %s: chunk %s already projected.",
+                source_name, doc_id,
+            )
+            run_graph_extraction = False
+            graph_stats = {"skipped": "already_projected"}
+
         if case_id and doc_id and run_graph_extraction:
             # [Ingestion Quality Control at Scale, Module G1] One
             # tracked run per document — entity_resolution.py's own

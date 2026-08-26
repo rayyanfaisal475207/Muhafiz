@@ -124,9 +124,16 @@ async def test_unrecognized_doc_type_does_not_clobber_document_node_with_null(mo
     stats = await service._run_graph_extraction("t.pdf", documents, chunks, "CASE-001", "DOC-1")
 
     # The FIRST Document write (filename, from the top of the function) has
-    # no doc_type key at all; the SECOND (classification-driven) write
-    # must also omit doc_type — never set it to None.
-    classification_write = written_properties[-1]
+    # no doc_type key at all; the classification-driven write must also omit
+    # doc_type — never set it to None.
+    #
+    # Selected by content rather than position: a clean run now also stamps
+    # a `projection_complete` marker onto this same Document node as its
+    # LAST write (findings.md legacy re-ingestion), so `[-1]` is no longer
+    # the classification write.
+    classification_write = next(
+        p for p in written_properties if "date_registered" in p
+    )
     assert "doc_type" not in classification_write
     assert classification_write["date_registered"] == "2026-01-20"
     assert stats["doc_type"] is None
