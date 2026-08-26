@@ -7,7 +7,9 @@ Design rules for this suite:
   * Tests assert behaviour that broke in production, not implementation
     detail. Each regression test names the bug it guards against.
 """
+import os
 import sys
+import tempfile
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -16,6 +18,86 @@ import pytest
 
 # Make `src` importable when pytest is run from the repo root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+# ═══════════════════════════════════════════════════════════════════════
+# CHROMA TEST ISOLATION — must run BEFORE anything imports `src.config`.
+#
+# `src.config.CHROMA_PERSIST_DIR` is a MODULE-LEVEL constant read from the
+# environment at import time, so a pytest process that does not override
+# the variable resolves to the live `data/chroma_db` and any test reaching
+# a real Chroma call writes to production persistence. Isolation used to
+# be per-file and opt-in; a module that forgot its own fixture had nothing
+# standing between it and the live store.
+#
+# Two protections, deliberately both:
+#
+#   C (isolation) — every pytest process gets a disposable persist root by
+#     default. Set here, at the top of conftest.py, because conftest is
+#     imported before any test module and imports no `src.*` itself, so no
+#     application module can have read the variable yet.
+#
+#   F (fail-closed guard) — `chromadb.PersistentClient` is wrapped so that
+#     ANY attempt to open the production root during a test raises instead
+#     of proceeding. C is a default a future test could override; F turns
+#     that mistake into a loud failure rather than silent data loss.
+#
+# Neither touches production runtime: both live entirely in test
+# infrastructure, and the wrapper is installed only inside pytest.
+# ═══════════════════════════════════════════════════════════════════════
+
+# The production root, resolved WITHOUT importing src.config (which would
+# defeat the point of setting the variable first).
+PRODUCTION_CHROMA_DIR = (Path(__file__).resolve().parent.parent / "data" / "chroma_db").resolve()
+
+_TEST_CHROMA_DIR = Path(tempfile.mkdtemp(prefix="muhafiz-pytest-chroma-")).resolve()
+os.environ["CHROMA_PERSIST_DIR"] = str(_TEST_CHROMA_DIR)
+
+
+class LiveChromaAccessError(RuntimeError):
+    """Raised when a test tries to open the live Chroma persist directory."""
+
+
+def _is_production_chroma_path(path) -> bool:
+    """True when `path` resolves to the live persist root (or inside it)."""
+    if path is None:
+        return False
+    try:
+        candidate = Path(path).resolve()
+    except (OSError, ValueError, TypeError):
+        return False
+    return candidate == PRODUCTION_CHROMA_DIR or PRODUCTION_CHROMA_DIR in candidate.parents
+
+
+def _install_live_chroma_guard() -> None:
+    """
+    Wrap chromadb.PersistentClient so the production root fails closed.
+
+    Guards the persistence ROOT, not a collection name, so it covers
+    muhafiz_kb, muhafiz_community_reports, muhafiz_entity_descriptions and
+    any collection added later.
+    """
+    import chromadb
+
+    if getattr(chromadb.PersistentClient, "_muhafiz_live_guard", False):
+        return
+
+    _real_persistent_client = chromadb.PersistentClient
+
+    def _guarded_persistent_client(path=None, *args, **kwargs):
+        if _is_production_chroma_path(path):
+            raise LiveChromaAccessError(
+                f"Refusing to use live Chroma persistence during pytest: {path}. "
+                "Tests must use the disposable CHROMA_PERSIST_DIR set in "
+                "tests/conftest.py."
+            )
+        return _real_persistent_client(path, *args, **kwargs)
+
+    _guarded_persistent_client._muhafiz_live_guard = True
+    _guarded_persistent_client._real_persistent_client = _real_persistent_client
+    chromadb.PersistentClient = _guarded_persistent_client
+
+
+_install_live_chroma_guard()
 
 
 # ── Fake data gateway ─────────────────────────────────────────────────────────
