@@ -1,0 +1,534 @@
+// ============================================================
+// Muhafiz — Islamabad Police Digital Data Systems
+// ============================================================
+
+Project muhafiz_psrms {
+  database_type: 'PostgreSQL'
+  Note: '''
+    Four schema blocks below = four separate real-world systems, each
+    very likely a fully separate database in an actual deployment.
+    Cross-silo reconciliation happens downstream in Muhafiz's own
+    CNIC-first entity-resolution graph (docs/graph_schema.md),
+    deliberately NOT drawn as an extra schema here.
+    psrms rebuilt against two real filled case files (see header).
+    cms/pkm/criminal_db unchanged from revision 7. hotel_eye removed.
+  '''
+}
+
+Enum fir_section_action_enum {
+  original
+  added
+  removed
+}
+
+Enum zimni_entry_type_enum {
+  routine
+  challan
+}
+
+// A / B / C custody classification for an accused named in a chalaan
+// dispatch, per the real form's legend.
+Enum custody_classification_enum {
+  direct_trial
+  bail_or_reconciliation
+  recommended_release
+}
+
+Enum pkm_service_type_enum {
+  police_character_certificate
+  driving_license
+  tenant_registration
+  employee_registration
+  vehicle_verification
+  loss_report
+  women_violence_report
+}
+
+Enum written_by_enum {
+  applicant
+  duty_officer
+}
+
+Enum report_method_enum {
+  written
+  typed
+  handwritten
+}
+
+Enum language_enum {
+  urdu
+  english
+  urdu_english
+}
+
+Enum person_source_enum {
+  real
+  synthetic
+}
+
+// ════════════════════════════════════════════════════════════
+// SILO: cms — Complaint Management System (unchanged from revision 7)
+// ════════════════════════════════════════════════════════════
+
+Table cms.person {
+  id uuid [pk]
+  cnic text
+  full_name text [not null]
+  phone text
+  source person_source_enum
+  Note: 'CONFIRMED - digitized. cms-local only. UNCHANGED from revision 7 — not re-examined this round.'
+}
+
+Table cms.complaint {
+  complaint_id uuid [pk]
+  case_tag_number text
+  police_station_name text
+  police_station_code text
+  complainant_person_id uuid [ref: > cms.person.id]
+  one_line_summary text
+  submitted_at timestamptz
+  method report_method_enum
+  language language_enum
+  Note: 'CONFIRMED - digitized (summary only). UNCHANGED from revision 7.'
+}
+
+// ════════════════════════════════════════════════════════════
+// SILO: psrms — Police Station Record Management System
+// ════════════════════════════════════════════════════════════
+
+Table psrms.district {
+  id uuid [pk]
+  name text [not null]
+  province text
+  Note: 'Infrastructure lookup table, required for police_station to function. Low risk of being wrong.'
+}
+
+Table psrms.police_station {
+  id uuid [pk]
+  name text [not null]
+  code text
+  district_id uuid [ref: > psrms.district.id]
+  Note: 'Infrastructure lookup table. Station name/district appear on every FIR header.'
+}
+
+Table psrms.fir {
+  fir_id uuid [pk]
+  police_station_id uuid [ref: > psrms.police_station.id]
+  fir_display_code text [not null, note: 'e.g. "891/24" — CONFIRMED, printed as "نمبر".']
+  serial_number text [note: 'CONFIRMED, printed as "سیریل نمبر".']
+  e_tag_number text [note: 'CONFIRMED — printed as its own line on the real FIR form, distinct from fir_display_code and serial_number. CONFIRMED (team sign-off, revision 11) to be the same value as cms.complaint.case_tag_number — the CMS complaint tag carried straight through onto the FIR once it escalates.']
+  form_type text [note: 'CONFIRMED — filed زیر دفعہ 154 ضابطہ فوجداری (cognizable offence report).']
+  report_datetime timestamptz [note: 'CONFIRMED — field 1, "تاریخ و وقت رپورٹ".']
+  station_departure_datetime timestamptz [note: 'CONFIRMED — field 6, "تھانہ سے روانگی کی تاریخ و بوقت".']
+  incident_datetime timestamptz [note: 'CONFIRMED — "تاریخ و وقت وقوعہ".']
+  complainant_full_name text [note: 'RENAMED from informant_full_name in revision 9. CONFIRMED — printed directly on the FIR form as "نام و سکونت اطلاع دہندہ مستغیث", not a separate tab.']
+  complainant_father_name text [note: 'RENAMED from informant_father_name. CONFIRMED, same field.']
+  complainant_address text [note: 'RENAMED from informant_address. CONFIRMED, same field.']
+  complainant_cnic text [note: 'RENAMED from informant_cnic. CONFIRMED — "شناختی کارڈ نمبر", same field.']
+  complainant_phone text [note: 'RENAMED from informant_phone. CONFIRMED — "فون نمبر", same field.']
+  victim_name text [note: 'NOT OBSERVED in either real case file. Added on direct instruction despite this. No injury or relationship field added alongside it — add one if a real example turns up needing it.']
+  crime_scene_location text [note: '''
+    MERGED, revision 11 — was four separate columns
+    (crime_scene_description / crime_scene_distance_km /
+    crime_scene_direction / crime_scene_beat_number). Per direct
+    instruction, these are now one combined field written as flowing
+    Urdu prose (e.g. "دکان کے سامنے، تھانہ سے فاصلہ 1.2 کلومیٹر جنوب
+    کی جانب، بیٹ نمبر 5"), matching how this reads on the real form
+    more naturally than four separate structured values. Still
+    CONFIRMED as real content on the FIR form (field 4) — only the
+    column shape changed, not the underlying evidence.
+  ''']
+  reporting_delay_reason text [note: 'CONFIRMED — field 5, present as its own printed field even where blank.']
+  recording_officer_name text [note: 'CONFIRMED — printed at the bottom of the form with designation/belt/phone.']
+  recording_officer_designation text [note: 'CONFIRMED, e.g. "ASI".']
+  recording_officer_belt_no text [note: 'CONFIRMED.']
+  recording_officer_phone text [note: 'CONFIRMED.']
+  narrative_text text [note: 'CONFIRMED - paper only. The long free-text account below the structured fields.']
+  source person_source_enum
+  created_at timestamptz [note: 'Dataset bookkeeping field, not a PSRMS field.']
+  updated_at timestamptz [note: 'Dataset bookkeeping field, not a PSRMS field.']
+
+  indexes {
+    (police_station_id, fir_display_code) [unique]
+  }
+
+  Note: 'ایف آئی آر — CONFIRMED - digitized (structural/summary fields); narrative_text is paper-only. No separate complainant table — complainant is inline here.'
+}
+
+Table psrms.fir_section {
+  id uuid [pk]
+  fir_id uuid [ref: > psrms.fir.fir_id]
+  section_code text
+  act text [note: "'PPC' | 'PECA' | 'Arms Ordinance' | ..."]
+  action fir_section_action_enum
+  action_date date [note: 'CONFIRMED — the "ازیاد" (addition) date printed against each section.']
+  zimni_index_no int [note: 'CONFIRMED — each added section is tagged with a specific zimni index number.']
+  amendment_datetime timestamptz [note: 'CONFIRMED — a SEPARATE "ترمیم تاریخ و وقت" line, distinct from action_date.']
+  remarks text
+  Note: 'جرم ایزاد حذف (معہ دفعہ) — CONFIRMED - digitized. This IS the crime/section listing tab — confirmed directly on Casefile 1, field 3.'
+}
+
+Table psrms.fir_zimni_index {
+  id uuid [pk]
+  fir_id uuid [ref: > psrms.fir.fir_id]
+  sr_no int [note: 'CONFIRMED — "نمبر شمار".']
+  zimni_report_date date [note: 'CONFIRMED — "تاریخ ضمنی رپورٹ".']
+  officer_name text [note: 'CONFIRMED — "نام افسر تفصیل کنندہ".']
+  Note: '''
+    انڈیکس ضمنیات — CONFIRMED - digitized. A pure TRACKING index —
+    serial number, date, officer name, nothing else. Deliberately a
+    separate table from fir_zimni below, which holds the actual
+    content of each entry — both are real, distinct tabs.
+  '''
+}
+
+Table psrms.fir_zimni {
+  id uuid [pk]
+  fir_id uuid [ref: > psrms.fir.fir_id]
+  entry_number int
+  entry_date date
+  officer_name text
+  entry_text text [note: 'summary-level content of this specific zimni entry']
+  entry_type zimni_entry_type_enum
+  Note: '''
+    تفتیش (ضمنی) — CONFIRMED - digitized. Individual entries WITH
+    content (مختصر حالات / ملاحظہ موقع / دریافت مدعی / گرفتاری ملزم /
+    etc). A case closes with an entry_type=challan row here.
+  '''
+}
+
+Table psrms.fir_accused {
+  id uuid [pk]
+  fir_id uuid [ref: > psrms.fir.fir_id]
+  full_name text
+  father_name text
+  spouse_name text [note: 'ولدیت/زوجہ — used in place of father_name for a married woman accused.']
+  cnic text
+  address_text text
+  gender text
+  nationality text
+  occupation text [note: 'پیشہ یا مالی حیثیت']
+  education text
+  age int
+  physical_description text [note: 'حلیہ']
+  relationship_to_victim text [note: 'Kept here, not on psrms.fir — this accused-specific relationship can differ across accused within the same FIR. See revision 9 changelog item 5.']
+  relationship_to_complainant text [note: 'Same reasoning as relationship_to_victim above.']
+  arrest_status text
+  custody_position text [note: 'پوزیشن']
+  nominated_date date
+  arrested_date date
+  arresting_officer_name text
+  other_arresting_officer_name text
+  warrant_date date
+  criminal_record_ref text [note: 'کریمنل نمبر — SOFT REFERENCE ONLY, to criminal_db.criminal_record.external_record_ref']
+  accused_type text [note: 'نوعیت ملزم']
+  sections_applied text [note: '''
+    FLAGGED — not clearly seen as its own separate column on the real
+    accused table checked (Casefile 2's نامزد ملزمان table didn't show
+    a distinct per-accused sections field). May be a reasonable
+    assumption rather than a confirmed one; kept here rather than on
+    psrms.fir for the reasoning above, but double-check before relying
+    on it as CONFIRMED.
+  ''']
+  Note: '''
+    نامزد ملزمان — CONFIRMED - digitized. No person_id link anywhere —
+    this table holds its own inline fields, per the removal of the
+    shared person table.
+  '''
+}
+
+Table psrms.fir_witness {
+  id uuid [pk]
+  fir_id uuid [ref: > psrms.fir.fir_id]
+  full_name text
+  father_or_spouse_name text
+  cnic text
+  address_text text [note: 'residence']
+  police_station_of_residence_id uuid [ref: > psrms.police_station.id]
+  other_district text
+  nationality text
+  gender text
+  phone text
+  age int
+  relationship_to_complainant text
+  guardian_cnic text
+  witness_type text [note: '''
+    CONFIRMED — گواہ کی قسم, real values seen on Casefile 2's گواہان
+    table: مدعی (complainant / the person who reported it), ٹائپسٹ
+    (typist), ڈیوٹی افسر (duty officer), تفتیشی افسر (investigating
+    officer). Worth noting the real structure this reveals: the
+    "witness" list on a real FIR sometimes just includes the on-duty
+    officer or the investigating officer themselves, not necessarily
+    an outside bystander. Corrected in revision 10 — an earlier
+    revision wrongly marked this field UNCONFIRMED; it is not.
+  ''']
+  ethnicity text [note: 'SENSITIVE — real field on the Witness tab, confirm with the team whether to actually populate it.']
+  religion text [note: 'SENSITIVE — same as above.']
+  Note: '''
+    گواہان — CONFIRMED - digitized. NO statement content field of any
+    kind, and none should ever be added: witness statement content is
+    handled by the courts / law department, not stored in PSRMS.
+  '''
+}
+
+Table psrms.fir_investigating_officer {
+  id uuid [pk]
+  fir_id uuid [ref: > psrms.fir.fir_id]
+  officer_name text
+  designation text
+  belt_no text
+  assigned_from date
+  assigned_to date
+  Note: 'تفتیشی افسران — CONFIRMED - digitized. No person_id link — plain fields, matching the real tab.'
+}
+
+Table psrms.malkhana_register {
+  id uuid [pk]
+  fir_display_code text [note: 'SOFT REFERENCE to psrms.fir.fir_display_code, matching the real register which lists the FIR number as a plain value, not a foreign key column.']
+  sr_no int
+  reg_no text [note: 'e.g. "19" — "رجسٹر نمبر 19".']
+  date_entered date
+  item_detail text
+  quantity text
+  condition text [note: 'کیفیت — disposition of the item.']
+  Note: '''
+    رجسٹر نمبر 19 کتاب مال خانہ — CONFIRMED - digitized. Replaces
+    revision 7's three invented, never-observed evidence tables
+    (weapon_involvement, recovered_evidence, stolen_property_recovery)
+    with the one real register that actually exists.
+    REVISION 11: weapons and ammunition are no longer entered here —
+    they now go on psrms.weapon_register instead (see below), per
+    direct instruction. This table now holds everything else recovered
+    or deposited: cash, stolen/recovered property, narcotics, phones,
+    vehicles, physical exhibits that aren't weapons or ammunition.
+  '''
+}
+
+Table psrms.weapon_register {
+  id uuid [pk]
+  fir_display_code text [note: 'SOFT REFERENCE to psrms.fir.fir_display_code, same soft-reference pattern as malkhana_register.']
+  sr_no int
+  item_detail text [note: 'e.g. "30 بور پستول" — weapon type/description.']
+  caliber_or_bore text
+  quantity text
+  license_status text [note: 'e.g. "بغیر لائسنس" (unlicensed) — whether the weapon was licensed.']
+  recovered_from text [note: 'Plain text name of the accused/person the weapon was recovered from — consistent with this schemas no-shared-person-table design, same pattern as arresting_officer_name etc.']
+  date_entered date
+  condition text [note: 'Disposition — e.g. ضبط شدہ (confiscated), forensic/ballistic status if relevant.']
+  Note: '''
+    NEW TABLE, revision 11 — NOT OBSERVED as its own separate real tab
+    in either of the two uploaded case files; both of those cases had
+    their weapon entries recorded inside the same رجسٹر نمبر 19 مال
+    خانہ register that malkhana_register models, not a separate
+    weapons-only ledger. Added on direct instruction anyway, to keep
+    weapons and ammunition separated from general recovered property.
+    Flagged the same way victim_name and cross_version are flagged —
+    real column shapes, but not yet backed by an observed populated
+    example. Fields are a reasonable best guess (item, caliber, license
+    status, quantity, who it was recovered from, condition) — revisit
+    if a real weapons-specific tab ever turns up.
+  '''
+}
+
+Table psrms.chalaan_dispatch {
+  id uuid [pk]
+  fir_id uuid [ref: > psrms.fir.fir_id]
+  accused_names text
+  witness_names text
+  forensic_sample_note text [note: 'e.g. "نمونہ درکار نہیں ہے".']
+  dispatch_datetime timestamptz
+  sections_and_accused_chalaaned text
+  property_involved text
+  custody_classification custody_classification_enum [note: 'الف / ب / ج legend, printed on the real form.']
+  Note: '''
+    اطلاع جو چالان یا رپورٹ اختتامی کے بھیجنے کے بعد درج کی جاوے گی —
+    CONFIRMED - digitized. Kept as its own table, separate from
+    chalaan_outcome below, per instruction — these are two distinct
+    real tables in the source document, not one.
+  '''
+}
+
+Table psrms.chalaan_outcome {
+  id uuid [pk]
+  fir_id uuid [ref: > psrms.fir.fir_id]
+  case_outcome text [note: 'نتیجہ مقدمہ — e.g. conviction / acquittal.']
+  court_order_detail text [note: 'عدالت کا نام اور تاریخ و تفصیل حکم.']
+  challan_reached_court_date date
+  Note: '''
+    اطلاع جو موصول ہونے پر فورا درج ہونی چاہیے — CONFIRMED - digitized.
+    Kept separate from chalaan_dispatch above, per instruction.
+  '''
+}
+
+Table psrms.fir_position {
+  id uuid [pk]
+  fir_id uuid [ref: > psrms.fir.fir_id]
+  position text [note: 'پوزیشن — CONFIRMED, e.g. "زیر تفتیش" (under investigation).']
+  status_date date [note: 'CONFIRMED — "تاریخ".']
+  prosecutor_name text [note: 'CONFIRMED — "پراسیکیوٹر نام".']
+  cross_certificate_ref text [note: 'CONFIRMED — "روڈ سرٹیفیکیٹ / دیگر حوالہ جات".']
+  pending_challan_objections text [note: 'CONFIRMED — "چالان پینڈنگ اعتراضات".']
+  remarks text [note: 'CONFIRMED — "کیفیت".']
+  Note: '''
+    پوزیشن مقدمہ — CONFIRMED - digitized. RENAMED in revision 9 from
+    fir_status_log to match the real Urdu tab name (پوزیشن) directly —
+    no field-level change, same evidence (Casefile 2, page 1). Current
+    position = latest row for a given fir_id.
+  '''
+}
+
+Table psrms.cross_version {
+  id uuid [pk]
+  fir_id uuid [ref: > psrms.fir.fir_id]
+  related_fir_display_code text [note: '''
+    SOFT REFERENCE ONLY, to the OTHER, separately and independently
+    registered FIR — same as any other FIR, with its own full record
+    (own fir_id, own accused/witness/zimni/etc). This table does not
+    duplicate or store that other FIR's content.
+  ''']
+  filed_by text [note: "e.g. 'accused side' | 'complainant side' — whichever party registered the second FIR."]
+  Note: '''
+    کراس ورژن — NOT OBSERVED as a populated tab in the source material.
+    Fields inferred from Pakistani criminal procedure: a "cross
+    version" is a SEPARATE, second FIR registered by the opposing
+    party about the same incident — modeled here exactly like any
+    other FIR (own row in psrms.fir), with this table existing only to
+    record the link between the two FIR numbers and who filed the
+    second one. remarks field removed in revision 9, per instruction —
+    not needed, and nothing else was confirmed to belong here either.
+  '''
+}
+
+Table psrms.roznamcha_entry {
+  id uuid [pk]
+  police_station_id uuid [ref: > psrms.police_station.id]
+  entry_date date
+  entry_number int
+  entry_text text
+  Note: 'روزنامچہ — CONFIRMED - digitized. Station-level daily diary, NOT case-scoped, no FIR link at all. Carried forward unchanged.'
+}
+
+// ════════════════════════════════════════════════════════════
+// SILO: pkm — Khidmat Markaz (unchanged from revision 7)
+// ════════════════════════════════════════════════════════════
+
+Table pkm.police_station {
+  id uuid [pk]
+  name text [not null]
+  code text
+  Note: 'CONFIRMED - digitized (PKM-local copy). UNCHANGED from revision 7.'
+}
+
+Table pkm.person {
+  id uuid [pk]
+  cnic text
+  full_name text [not null]
+  father_name text
+  address_text text
+  phone text
+  source person_source_enum
+  Note: 'CONFIRMED - digitized. PKM-local only. UNCHANGED from revision 7.'
+}
+
+Table pkm.application {
+  application_id uuid [pk]
+  service_type pkm_service_type_enum
+  applicant_person_id uuid [ref: > pkm.person.id]
+  police_station_id uuid [ref: > pkm.police_station.id]
+  submitted_at timestamptz
+  status text
+  certificate_number text
+  language language_enum
+  Note: 'CONFIRMED - digitized. UNCHANGED from revision 7.'
+}
+
+Table pkm.character_certificate {
+  application_id uuid [pk, ref: - pkm.application.application_id]
+  passport_no text
+  nationality text
+  purpose text
+  destination_country text
+  photograph_ref text
+  signature_ref text
+  issuing_officer_name text [note: 'plain text — PKM staff, not a person row.']
+  Note: 'CONFIRMED - digitized. UNCHANGED from revision 7.'
+}
+
+Table pkm.driving_license {
+  application_id uuid [pk, ref: - pkm.application.application_id]
+  license_category text
+  dob date
+  blood_group text
+  application_ref_no text
+  photograph_ref text
+  is_renewal_or_duplicate boolean
+  previous_license_no text
+  reason text
+  Note: 'CONFIRMED - digitized. UNCHANGED from revision 7.'
+}
+
+Table pkm.tenant_registration {
+  application_id uuid [pk, ref: - pkm.application.application_id]
+  owner_person_id uuid [ref: > pkm.person.id]
+  tenant_person_id uuid [ref: > pkm.person.id]
+  property_address text
+  rent_agreement_ref text
+  tenant_photograph_ref text
+  registration_date date
+  Note: 'CONFIRMED - digitized. UNCHANGED from revision 7.'
+}
+
+Table pkm.employee_registration {
+  application_id uuid [pk, ref: - pkm.application.application_id]
+  employer_person_id uuid [ref: > pkm.person.id]
+  employee_person_id uuid [ref: > pkm.person.id]
+  employee_photograph_ref text
+  affidavit_ref text
+  Note: 'CONFIRMED - digitized. UNCHANGED from revision 7.'
+}
+
+Table pkm.vehicle_verification {
+  application_id uuid [pk, ref: - pkm.application.application_id]
+  vehicle_registration_no text
+  vehicle_make text
+  vehicle_model text
+  vehicle_chassis_no text
+  vehicle_engine_no text
+  verification_result text
+  cross_checked_against_psrms boolean
+  Note: 'CONFIRMED - digitized. UNCHANGED from revision 7.'
+}
+
+Table pkm.loss_report {
+  application_id uuid [pk, ref: - pkm.application.application_id]
+  lost_item_description text
+  approx_loss_date date
+  approx_loss_location text
+  Note: 'CONFIRMED - digitized. UNCHANGED from revision 7.'
+}
+
+Table pkm.women_violence_report {
+  application_id uuid [pk, ref: - pkm.application.application_id]
+  incident_description text
+  written_by written_by_enum
+  assigned_women_station_id uuid [ref: > pkm.police_station.id]
+  assigned_io_name text
+  assigned_io_badge_no text
+  forwarded_fir_number text
+  Note: 'CONFIRMED - digitized. UNCHANGED from revision 7.'
+}
+
+// ════════════════════════════════════════════════════════════
+// SILO: criminal_db (unchanged from revision 7)
+// ════════════════════════════════════════════════════════════
+
+Table criminal_db.criminal_record {
+  id uuid [pk]
+  subject_cnic text
+  subject_full_name text
+  external_record_ref text
+  offense_summary text
+  source_case_ref text
+  conviction_status text
+  Note: 'EXTERNAL SYSTEM. UNCHANGED from revision 7.'
+}
