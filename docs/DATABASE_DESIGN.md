@@ -4,7 +4,10 @@ This document details the PostgreSQL (local/self-hosted) database schema
 powering the platform. It covers relational data only — vector embeddings
 live in ChromaDB (`data/chroma_db`), and the entity/relationship graph lives
 in Apache AGE on this same Postgres instance (see `docs/graph_schema.md` for
-that half; not duplicated here).
+that half; not duplicated here). This is also **Muhafiz's own** schema, not
+the external Muhafiz Data API's — that's a separate thing entirely
+(`muhafiz_schema.dbml.txt` at the repo root, plus `muhafiz_schema_v11.png`;
+see README.md's "Source data: the Muhafiz Data API's own schema" section).
 
 **M12 of the Muhafiz Data API migration** (`docs/decisions/0001-muhafiz-api-migration.md`)
 rewrote this document from scratch — it previously listed 5 tables and
@@ -21,12 +24,16 @@ truth for anything the SQLAlchemy ORM layer owns — the JSON snapshot also
 covers the plain-SQL-migration tables that have no ORM model at all
 (`community_membership`, `identity_index`, `chunk_fulltext`, etc.), which
 `models.py` alone would miss. **The rendered ERD image
-(`docs/database-schema.png`) is a separate, still-unresolved problem** —
-`scripts/build_erd.py`, the script that would regenerate it, turns out to
-be hardcoded for a different, unrelated product ("TaxIQ" — see that
-script's own title and table layout), not a general Muhafiz-schema
-renderer; there is currently no working path to regenerate the image
-itself, only the JSON data behind it.
+(`docs/database-schema.png`/`.svg`) — also fixed 2026-08-26.**
+`scripts/build_erd.py` used to be hardcoded for a different, unrelated
+product ("TaxIQ" — its own title and table layout, e.g. `tax_rates`,
+none of which exist in this schema) rather than a general Muhafiz-schema
+renderer; a user spotted the wrong product name/tables in the actual
+rendered image. Rewritten to auto-layout every real table from
+`docs/schema-snapshot.json` into zones mirroring this document's own
+section headers below — see the script's own header comment for the
+full story and for the (optional, not a runtime dependency) PNG-export
+path.
 
 ## Schema Overview
 
