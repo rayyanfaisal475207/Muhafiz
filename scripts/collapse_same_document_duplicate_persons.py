@@ -39,7 +39,13 @@
 # first, read the report, get explicit go-ahead before --apply.
 #
 # Run: python scripts/collapse_same_document_duplicate_persons.py --dry-run
-#      python scripts/collapse_same_document_duplicate_persons.py --apply
+#      python scripts/collapse_same_document_duplicate_persons.py --apply \
+#          --admin-email you@example.com
+#
+# --admin-email is REQUIRED for --apply: the confirmation is stamped onto
+# every edge it touches (reviewed_by) and written to the append-only audit
+# log, so it must name a real, accountable platform-admin. See
+# scripts/_script_admin.py for the live audit gap that made this mandatory.
 # ============================================================
 
 import asyncio
@@ -56,6 +62,7 @@ try:
 except Exception:
     pass
 
+from scripts._script_admin import AdminIdentityError, resolve_admin
 from src.graph import age_client
 
 _SAFE_SUBSET_QUERY = (
@@ -82,18 +89,34 @@ async def _fetch_qualifying_edges() -> list[dict]:
     return rows
 
 
-class _ScriptAdmin:
-    # A real UUID, not a bare string — graph_review.confirm_match()'s own
-    # audit-log write casts this to ::UUID (same live-confirmed gotcha
-    # scripts/verify_milestone_d.py's own _Admin already documents: a
-    # non-UUID id makes the audit write itself fail, harmlessly logged
-    # and swallowed, but noisy).
-    id = uuid.uuid4()
+def _admin_email_arg() -> str:
+    """--admin-email <email>, required for --apply. See _script_admin.py."""
+    for i, arg in enumerate(sys.argv):
+        if arg == "--admin-email" and i + 1 < len(sys.argv):
+            return sys.argv[i + 1]
+        if arg.startswith("--admin-email="):
+            return arg.split("=", 1)[1]
+    return ""
 
 
 async def main() -> None:
     apply = "--apply" in sys.argv
     dry_run = not apply
+
+    # [audit-gap fix] Resolve a REAL admin BEFORE any mutation. This used
+    # to be a locally-minted uuid.uuid4(), whose comment claimed the
+    # resulting audit failure was "harmlessly logged and swallowed, but
+    # noisy". That was wrong: measured on a real run, 103 confirmations
+    # landed in the graph with ZERO audit records, and the fake id was
+    # stamped onto every edge as `reviewed_by`. See scripts/_script_admin.py.
+    admin = None
+    if apply:
+        try:
+            admin = await resolve_admin(_admin_email_arg())
+        except AdminIdentityError as exc:
+            print(f"REFUSING TO APPLY — {exc}")
+            return
+        print(f"Acting as: {admin.email} ({admin.role}, id={admin.id})\n")
 
     edges = await _fetch_qualifying_edges()
 
@@ -122,8 +145,7 @@ async def main() -> None:
 
     from src.api import graph_review
 
-    print(f"\nApplying: confirm_match() on {len(edges)} edges...")
-    admin = _ScriptAdmin()
+    print(f"\nApplying: confirm_match() on {len(edges)} edges as {admin.email}...")
     action = graph_review.ReviewAction()
     confirmed = 0
     errors: list[dict] = []

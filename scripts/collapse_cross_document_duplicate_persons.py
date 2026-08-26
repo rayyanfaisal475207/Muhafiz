@@ -54,7 +54,13 @@
 # --dry-run first, read the report, get explicit go-ahead before --apply.
 #
 # Run: python scripts/collapse_cross_document_duplicate_persons.py --dry-run
-#      python scripts/collapse_cross_document_duplicate_persons.py --apply
+#      python scripts/collapse_cross_document_duplicate_persons.py --apply \
+#          --admin-email you@example.com
+#
+# --admin-email is REQUIRED for --apply: the confirmation is stamped onto
+# every edge it touches (reviewed_by) and written to the append-only audit
+# log, so it must name a real, accountable platform-admin. See
+# scripts/_script_admin.py for the live audit gap that made this mandatory.
 # ============================================================
 
 import asyncio
@@ -71,6 +77,7 @@ try:
 except Exception:
     pass
 
+from scripts._script_admin import AdminIdentityError, resolve_admin
 from src.graph import age_client
 
 # Directed, not undirected: AGE compiles `(a)-[r]-(b)` into a Cartesian
@@ -143,16 +150,32 @@ async def _fetch_candidates() -> tuple[list[dict], list[dict], list[dict]]:
     return qualifying, cnic_rejected, fir_rejected
 
 
-class _ScriptAdmin:
-    # A real UUID, not a bare string — graph_review.confirm_match()'s own
-    # audit-log write casts this to ::UUID (same live-confirmed gotcha
-    # pass 1 and scripts/verify_milestone_d.py both already document).
-    id = uuid.uuid4()
+def _admin_email_arg() -> str:
+    """--admin-email <email>, required for --apply. See _script_admin.py."""
+    for i, arg in enumerate(sys.argv):
+        if arg == "--admin-email" and i + 1 < len(sys.argv):
+            return sys.argv[i + 1]
+        if arg.startswith("--admin-email="):
+            return arg.split("=", 1)[1]
+    return ""
 
 
 async def main() -> None:
     apply = "--apply" in sys.argv
     dry_run = not apply
+
+    # Resolve the acting admin BEFORE any mutation — a run that cannot be
+    # attributed must not start, rather than confirm half the edges and
+    # then discover it has no identity to record them under. See
+    # scripts/_script_admin.py for the live audit gap this prevents.
+    admin = None
+    if apply:
+        try:
+            admin = await resolve_admin(_admin_email_arg())
+        except AdminIdentityError as exc:
+            print(f"REFUSING TO APPLY — {exc}")
+            return
+        print(f"Acting as: {admin.email} ({admin.role}, id={admin.id})\n")
 
     qualifying, cnic_rejected, fir_rejected = await _fetch_candidates()
 
@@ -200,8 +223,7 @@ async def main() -> None:
 
     from src.api import graph_review
 
-    print(f"\nApplying: confirm_match() on {len(qualifying)} edges...")
-    admin = _ScriptAdmin()
+    print(f"\nApplying: confirm_match() on {len(qualifying)} edges as {admin.email}...")
     action = graph_review.ReviewAction()
     confirmed = 0
     errors: list[dict] = []

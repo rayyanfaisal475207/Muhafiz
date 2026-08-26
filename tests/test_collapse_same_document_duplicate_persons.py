@@ -4,6 +4,7 @@ Module 11). No real AGE/Postgres — age_client.execute_cypher and
 src.api.graph_review.confirm_match are monkeypatched.
 """
 import sys
+import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -11,6 +12,23 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pytest
 
 import scripts.collapse_same_document_duplicate_persons as collapse_script
+from scripts._script_admin import ScriptAdmin
+
+_FAKE_ADMIN = ScriptAdmin(
+    id=uuid.UUID("a71bca6f-6ebb-46ed-a7d5-1fe4b5bf4cee"),
+    email="admin@example.com",
+    role="platform-admin",
+)
+
+
+def _stub_admin(monkeypatch):
+    """--apply now REFUSES without a resolvable real admin (see
+    scripts/_script_admin.py — a fake uuid4 admin meant 103 live
+    confirmations wrote ZERO audit records). Identity resolution has its
+    own suite in tests/test_script_admin.py; these tests stub it."""
+    async def _resolve(_email):
+        return _FAKE_ADMIN
+    monkeypatch.setattr(collapse_script, "resolve_admin", _resolve)
 
 
 def _edge(edge_id=1, tier="flagged_unverified", case_id="CASE-001", doc_id="DOC-1"):
@@ -58,7 +76,11 @@ async def test_apply_confirms_every_qualifying_edge(monkeypatch, capsys):
         return edges if call_count["n"] == 1 else []
 
     monkeypatch.setattr(collapse_script.age_client, "execute_cypher", fake_execute_cypher)
-    monkeypatch.setattr(sys, "argv", ["collapse_same_document_duplicate_persons.py", "--apply"])
+    _stub_admin(monkeypatch)
+    monkeypatch.setattr(sys, "argv", [
+        "collapse_same_document_duplicate_persons.py", "--apply",
+        "--admin-email", "admin@example.com",
+    ])
 
     import src.api.graph_review as graph_review
 
@@ -88,7 +110,11 @@ async def test_apply_reports_per_edge_errors_without_aborting(monkeypatch, capsy
         return edges if call_count["n"] == 1 else []
 
     monkeypatch.setattr(collapse_script.age_client, "execute_cypher", fake_execute_cypher)
-    monkeypatch.setattr(sys, "argv", ["collapse_same_document_duplicate_persons.py", "--apply"])
+    _stub_admin(monkeypatch)
+    monkeypatch.setattr(sys, "argv", [
+        "collapse_same_document_duplicate_persons.py", "--apply",
+        "--admin-email", "admin@example.com",
+    ])
 
     import src.api.graph_review as graph_review
 

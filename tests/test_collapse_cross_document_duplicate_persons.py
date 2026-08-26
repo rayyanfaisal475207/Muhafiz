@@ -15,9 +15,28 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import uuid
+
 import pytest
 
 import scripts.collapse_cross_document_duplicate_persons as collapse2
+from scripts._script_admin import ScriptAdmin
+
+_FAKE_ADMIN = ScriptAdmin(
+    id=uuid.UUID("a71bca6f-6ebb-46ed-a7d5-1fe4b5bf4cee"),
+    email="admin@example.com",
+    role="platform-admin",
+)
+
+
+def _stub_admin(monkeypatch):
+    """--apply now REFUSES without a resolvable real admin (see
+    scripts/_script_admin.py). These tests are about the confirm logic,
+    not identity resolution — that has its own suite in
+    tests/test_script_admin.py — so the lookup is stubbed here."""
+    async def _resolve(_email):
+        return _FAKE_ADMIN
+    monkeypatch.setattr(collapse2, "resolve_admin", _resolve)
 
 
 def _row(edge_id=1, name="فیصل", a_cnic=None, b_cnic=None,
@@ -154,7 +173,11 @@ async def test_apply_confirms_only_qualifying_edges(monkeypatch, capsys):
         return rows if calls["n"] == 1 else []
 
     monkeypatch.setattr(collapse2.age_client, "execute_cypher", fake_execute_cypher)
-    monkeypatch.setattr(sys, "argv", ["collapse_cross_document_duplicate_persons.py", "--apply"])
+    _stub_admin(monkeypatch)
+    monkeypatch.setattr(sys, "argv", [
+        "collapse_cross_document_duplicate_persons.py", "--apply",
+        "--admin-email", "admin@example.com",
+    ])
 
     confirmed = []
     import src.api.graph_review as graph_review
@@ -170,3 +193,32 @@ async def test_apply_confirms_only_qualifying_edges(monkeypatch, capsys):
     assert confirmed == [1], "only the qualifying edge may be confirmed"
     out = capsys.readouterr().out
     assert "REJECTED, CNIC conflict" in out, "a rejection is a finding and must be printed"
+
+
+@pytest.mark.asyncio
+async def test_apply_without_an_admin_refuses_before_touching_the_graph(monkeypatch, capsys):
+    """The audit-gap guard: an unattributable run must stop BEFORE any
+    confirm, not confirm first and fail to record it afterwards — which is
+    exactly what happened live (103 confirms, 0 audit rows)."""
+    queried = {"n": 0}
+
+    async def fake_execute_cypher(query, columns=None, params=None):
+        queried["n"] += 1
+        return [_row(1)]
+
+    monkeypatch.setattr(collapse2.age_client, "execute_cypher", fake_execute_cypher)
+    monkeypatch.setattr(sys, "argv", ["collapse_cross_document_duplicate_persons.py", "--apply"])
+
+    confirmed = []
+    import src.api.graph_review as graph_review
+
+    async def fake_confirm_match(edge_id, action, admin):
+        confirmed.append(edge_id)
+
+    monkeypatch.setattr(graph_review, "confirm_match", fake_confirm_match)
+
+    await collapse2.main()
+
+    assert confirmed == [], "must not confirm anything without a real admin"
+    assert queried["n"] == 0, "must refuse before even querying for candidates"
+    assert "REFUSING TO APPLY" in capsys.readouterr().out
