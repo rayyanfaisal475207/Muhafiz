@@ -141,6 +141,77 @@ def test_role_marker_rejects_action_clause_not_a_name():
     assert not any(m.type == "person" and "گھر" in m.text for m in mentions)
 
 
+# ── Kinship-formula boundary bleed (findings.md Module 11) ─────────────
+# Live-confirmed on fir-1001-26: a temporal/prepositional word or a role
+# marker immediately preceding a name inside a KINSHIP_RE capture, or a
+# residency clause immediately following one, bled into the captured
+# span the same way an uncaught copula would — each of these produced a
+# distinct duplicate/noise Person node in the live graph.
+
+def test_kinship_child_trims_leading_temporal_marker():
+    text = "2024-09-25 کو 17:10 بجے فیصل ولد محمد رمضان کی اطلاع پر۔"
+    mentions = ner.extract_statistical(text)
+    names = {m.text for m in mentions if m.type == "person"}
+    assert "فیصل" in names
+    assert "بجے فیصل" not in names
+
+
+def test_kinship_child_trims_leading_preposition():
+    text = "ایف آئی آر 1001/26 کے تحت فیصل ولد محمد رمضان کی شکایت پر۔"
+    mentions = ner.extract_statistical(text)
+    names = {m.text for m in mentions if m.type == "person"}
+    assert "فیصل" in names
+    assert "تحت فیصل" not in names
+
+
+def test_kinship_child_trims_leading_role_marker():
+    # Regression for the overlap-dedup interaction: _ROLE_RE alone would
+    # already strip "مدعی" (see test_role_marker_complainant), but
+    # _KINSHIP_RE's untrimmed "مدعی فیصل" child capture used to win the
+    # overlap on higher confidence (0.85 vs 0.75) before both patterns
+    # agreed on where the name starts.
+    text = "مدعی فیصل ولد محمد رمضان ساکنہ محلہ اقبال ٹاؤن، اسلام آباد۔"
+    mentions = ner.extract_statistical(text)
+    names = {m.text for m in mentions if m.type == "person"}
+    assert "فیصل" in names
+    assert "مدعی فیصل" not in names
+
+
+def test_kinship_parent_rejects_trailing_residency_clause():
+    # The parent-side counterpart: "ساکنہ محلہ" ("resident of the
+    # neighborhood of...") ran onto the father's name. "محلہ" can't be a
+    # blanket stopword (it's a real station-name token elsewhere in this
+    # corpus, e.g. "تھانہ محلہ اقبال ٹاؤن"), so this is rejected outright
+    # rather than partially trimmed — losing one redundant mention of a
+    # name captured correctly elsewhere is the accepted trade.
+    text = "مدعی فیصل ولد محمد رمضان ساکنہ محلہ اقبال ٹاؤن، اسلام آباد۔"
+    mentions = ner.extract_statistical(text)
+    names = {m.text for m in mentions if m.type == "person"}
+    assert "محمد رمضان ساکنہ محلہ" not in names
+
+
+def test_station_name_containing_mohalla_still_extracted():
+    # Guards against the obvious regression: "محلہ" must stay usable
+    # inside a real station name even though "ساکنہ" (a different word)
+    # is now a rejection trigger elsewhere.
+    text = "تھانہ محلہ اقبال ٹاؤن میں مقدمہ درج کیا گیا۔"
+    mentions = ner.extract_statistical(text)
+    assert any(m.type == "location" and "محلہ" in m.text for m in mentions)
+
+
+def test_role_marker_rejects_possession_clause_not_a_name():
+    # findings.md's own "root cause B", live-confirmed as the same
+    # failure class as the two rejection tests above, not a separate
+    # one: "ملزم کے قبضے سے ..." ("from the accused's possession...") has
+    # no name after the role marker at all — _ROLE_RE's name group still
+    # matches the following clause, and stopword trimming happens to
+    # strip it down to the one real content word in the middle, "قبضے"
+    # ("possession"), which used to survive because nothing rejected it.
+    text = "ملزم کے قبضے سے 30 بور پستول بمعہ 6 گولیاں برآمدگی پر۔"
+    mentions = ner.extract_statistical(text)
+    assert not any(m.type == "person" and "قبضے" in m.text for m in mentions)
+
+
 # ── English structural cues for location/organization (B-4) ────────────
 
 def test_english_location_suffix_highway():

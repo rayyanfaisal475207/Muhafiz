@@ -105,6 +105,26 @@ _STOPWORDS = {
     "ہے", "ہیں", "تھا", "تھی", "تھے", "کا", "کی", "کے", "نے", "میں",
     "کو", "سے", "پر", "اور", "یا", "کیا", "گیا", "گئی", "لیا", "دیا",
     "ہو", "ہوں", "کر", "بھی", "تو", "اس", "یہ", "وہ", "نام",
+    # findings.md Module 11 (live-verified on fir-1001-26): a temporal/
+    # prepositional word or a role marker immediately preceding a name
+    # inside a KINSHIP_RE/SELF_INTRO_RE capture bleeds into the captured
+    # span the same way a copula bleeds into a trailing one — "کے تحت
+    # فیصل ولد ..." ("under [section] Faisal son of...") captured "تحت
+    # فیصل" as the child name, "17:10 بجے فیصل ولد ..." ("at 17:10
+    # o'clock, Faisal son of...") captured "بجے فیصل". Neither "تحت" nor
+    # "بجے" is ever part of an actual personal/place name in this corpus,
+    # so both are safe leading-trim stopwords like the copulas above.
+    "تحت", "بجے",
+    # Role markers (mirrors _ROLE_MARKERS below) leaking into a KINSHIP_RE
+    # child capture the same way: "مدعی فیصل ولد محمد رمضان" captured
+    # "مدعی فیصل" as the child instead of just "فیصل" — _ROLE_RE's own
+    # dedicated pattern already strips these correctly when it fires
+    # first, but _dedupe_overlaps() prefers KINSHIP_RE's higher
+    # confidence (0.85 vs 0.75) when both match the same span, so the
+    # untrimmed kinship capture was winning. Trimming these here makes
+    # every pattern's output agree regardless of which one wins the
+    # overlap. Never a legitimate station/org/person name token.
+    "مدعی", "ملزم", "گواہ", "مشیر",
 }
 
 # "<name> ولد/بنت <father name>" — the standard Urdu kinship formula in FIRs
@@ -275,7 +295,35 @@ _LOCATION_GAZETTEER = {
 # contains any of these, so their presence anywhere in the captured run
 # (not just leading/trailing) is treated the same as a mid-run stopword
 # below: reject the whole candidate.
-_NON_NAME_CONTENT_WORDS = {"خلاف", "قانونی", "کارروائی", "گھر", "شناخت"}
+_NON_NAME_CONTENT_WORDS = {
+    "خلاف", "قانونی", "کارروائی", "گھر", "شناخت",
+    # findings.md Module 11 (live-verified on fir-1001-26):
+    # - "ساکنہ" ("resident of") is a residency-clause marker, not a name
+    #   token — "... ولد محمد رمضان ساکنہ محلہ اقبال ٹاؤن" over-captured
+    #   the parent's kinship-formula name as "محمد رمضان ساکنہ محلہ".
+    #   Unlike the leading-position words added to _STOPWORDS above, this
+    #   sits in the TRAILING position behind another real word ("محلہ",
+    #   itself a legitimate station-name token elsewhere in this corpus,
+    #   e.g. "تھانہ محلہ اقبال ٹاؤن" — so "محلہ" can't safely become a
+    #   blanket stopword) — the trailing-trim loop only ever pops from
+    #   the true end, so it never reaches "ساکنہ" while "محلہ" still sits
+    #   after it. Rejecting the whole candidate on "ساکنہ"'s presence
+    #   anywhere in the run is the same precision-over-salvage trade this
+    #   set already makes for "خلاف قانونی کارروائی" — it costs one
+    #   redundant mention of a name that's already captured correctly
+    #   elsewhere in the same document, not the person record itself.
+    # - "قبضے" ("possession/custody") reaching the graph as a `Person`
+    #   node (findings.md's "root cause B", left explicitly unfixed at
+    #   the time) turned out to be this exact failure class, not a
+    #   separate one: "ملزم کے قبضے سے 30 بور پستول..." ("from the
+    #   accused's possession...") has no real name after the "ملزم" role
+    #   marker at all — _ROLE_RE's name group still matches the following
+    #   clause (_URDU_WORD has no concept of "no name here"), and the
+    #   leading/trailing STOPWORDS trim ("کے"/"سے") happens to strip it
+    #   down to the one real content word in the middle, "قبضے", which
+    #   then survived because it was never on any rejection list.
+    "ساکنہ", "قبضے",
+}
 
 
 def _trim_and_reposition(raw: str, group_start: int) -> tuple[str, int, int]:
