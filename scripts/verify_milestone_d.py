@@ -61,7 +61,32 @@ CASE_B = f"{TAG}-CASE-B"
 # pending_candidate_priority rows (keyed by entity_id, not by
 # case_id/doc_id) can be cleaned up correctly — a `LIKE 'D1VERIFY-%'`
 # filter on a_key/b_key would silently match nothing (confirmed live).
+#
+# SAFETY: this list is also what _cleanup() deletes graph nodes by, so it
+# must contain ONLY ids this run actually minted. resolve_and_write()
+# returns is_new_node=False when it reused an existing entity via
+# TIER_CNIC_AUTO — that id can belong to the real corpus, and deleting it
+# would destroy genuine evidence. _track_created_entity() is the only
+# supported way to add to this list; it drops reused ids.
 _created_entity_ids: list[str] = []
+
+
+def _track_created_entity(result: dict) -> str:
+    """
+    Record a resolve_and_write() result for cleanup, but ONLY when it
+    minted a new node.
+
+    A CNIC-auto reuse returns an existing entity_id which may be a real
+    corpus Person (this script's mentions carry no CNIC, so that path is
+    not expected here — but the guard is what makes the deletion list
+    safe by construction rather than by assumption).
+    """
+    entity_id = result["entity_id"]
+    if result.get("is_new_node"):
+        _created_entity_ids.append(entity_id)
+    else:
+        print(f"  NOTE: reused existing entity {entity_id} — NOT tracked for deletion")
+    return entity_id
 
 
 async def _assert(condition: bool, message: str) -> None:
@@ -90,11 +115,44 @@ async def _prune_orphaned_priority_rows():
 
 async def _cleanup():
     print(f"\nCleaning up synthetic data tagged {TAG} ...")
+
+    # ── 1. Relationships, BY PROVENANCE — must run before node deletion.
+    #
+    # This step exists because node-identity cleanup alone provably
+    # cannot remove every fixture edge. Two independent reasons:
+    #
+    #   a) resolve_and_write() mints "PERSON-<hex>" ids that never carry
+    #      TAG, so the node predicate below matches no fixture Person at
+    #      all — their SAME_AS edges outlived every prior run.
+    #   b) entity resolution's candidate scan is global, so a fixture
+    #      mention can score a pending SAME_AS against a REAL corpus
+    #      Person (this script's own comments record that happening
+    #      live). That edge's other endpoint must survive.
+    #
+    # Measured consequence before this step existed: 48 fixture SAME_AS
+    # left in the production graph across runs, one of them attached to a
+    # genuine corpus Person.
+    #
+    # Deleting by r.source_doc_id — not by endpoint — is what makes this
+    # safe: the fixture edge goes, the corpus node it touched stays.
+    await age_client.execute_cypher(
+        "MATCH ()-[r]-() WHERE r.source_doc_id STARTS WITH $tag DELETE r",
+        params={"tag": TAG}, columns=["result"],
+    )
+
+    # ── 2. Fixture nodes: tagged identities, plus the Person ids this run
+    #      actually minted (see _track_created_entity — reused corpus ids
+    #      are deliberately absent from that list).
     await age_client.execute_cypher(
         "MATCH (n) WHERE n.entity_id STARTS WITH $tag OR n.case_id STARTS WITH $tag "
         "OR n.doc_id STARTS WITH $tag DETACH DELETE n",
         params={"tag": TAG}, columns=["result"],
     )
+    if _created_entity_ids:
+        await age_client.execute_cypher(
+            "MATCH (n) WHERE n.entity_id IN $ids DETACH DELETE n",
+            params={"ids": _created_entity_ids}, columns=["result"],
+        )
     # Postgres side: entity_id-keyed rows (see _created_entity_ids'
     # comment above) — cleaned by explicit id list, not a tag pattern
     # match that would never hit.
@@ -128,8 +186,7 @@ async def main():
     mention_b = {"canonical_name": f"Fahad {TAG} Anjum Chema"}  # deliberately near-identical, no CNIC
 
     result_a = await er.resolve_and_write("person", mention_a, CASE_A, source_doc_id=f"{TAG}-DOC-A")
-    entity_a = result_a["entity_id"]
-    _created_entity_ids.append(entity_a)
+    entity_a = _track_created_entity(result_a)
     # Real production data can still make mention_a itself score a
     # pending match against some unrelated existing person by partial
     # token overlap (confirmed live against this instance's real
@@ -141,8 +198,7 @@ async def main():
     await _assert(result_a["is_new_node"] is True, "first mention always resolves to a fresh node (no CNIC -> cnic_auto is impossible)")
 
     result_b = await er.resolve_and_write("person", mention_b, CASE_A, source_doc_id=f"{TAG}-DOC-B")
-    entity_b = result_b["entity_id"]
-    _created_entity_ids.append(entity_b)
+    entity_b = _track_created_entity(result_b)
     await _assert(
         result_b["tier"] in ("flagged_unverified", "human_review"),
         f"near-identical second mention lands in a pending tier (got {result_b['tier']!r})",
@@ -216,10 +272,10 @@ async def main():
     # above is now confirmed).
     mention_c = {"canonical_name": f"Rameez {TAG} Sultan Awan"}
     result_c = await er.resolve_and_write("person", mention_c, CASE_A, source_doc_id=f"{TAG}-DOC-E")
-    _created_entity_ids.append(result_c["entity_id"])
+    _track_created_entity(result_c)
     mention_d = {"canonical_name": f"Rameez {TAG} Sultan Awam"}
     result_d = await er.resolve_and_write("person", mention_d, CASE_B, source_doc_id=f"{TAG}-DOC-F")
-    _created_entity_ids.append(result_d["entity_id"])
+    _track_created_entity(result_d)
     await _assert(result_d["tier"] in ("flagged_unverified", "human_review"), "second synthetic pending pair created for the D2 traversal check")
 
     original_flag = config.FEATURE_HEDGED_PENDING_TRAVERSAL
@@ -266,6 +322,24 @@ async def _wipe_leftover_synthetic_data_from_prior_runs():
     invocation so each run starts from a genuinely clean synthetic-data
     slate, independent of whether the previous run's own `finally` ran.
     """
+    # Relationships first, by fixture provenance namespace — same reason
+    # as _cleanup()'s own step 1. A prior run's fixture Persons carry
+    # untagged "PERSON-<hex>" ids, so the node sweep below can never reach
+    # their edges; without this, remnants accumulate run after run.
+    #
+    # LIMITATION, stated rather than papered over: a crashed prior run's
+    # Person NODES cannot be identified retroactively — their ids carry no
+    # fixture marker and that run's tracked-id list died with the process.
+    # Those orphans are left alone rather than guessed at, because the only
+    # available heuristic (untagged Person with no case link) would also
+    # match genuine corpus data. This sweep guarantees no fixture
+    # RELATIONSHIP survives; historical orphan nodes remain an operational
+    # cleanup decision.
+    for prefix in ("D1VERIFY-", "D1DEBUG-"):
+        await age_client.execute_cypher(
+            "MATCH ()-[r]-() WHERE r.source_doc_id STARTS WITH $prefix DELETE r",
+            params={"prefix": prefix}, columns=["result"],
+        )
     await age_client.execute_cypher(
         "MATCH (n) WHERE n.entity_id STARTS WITH 'D1VERIFY-' OR n.case_id STARTS WITH 'D1VERIFY-' "
         "OR n.doc_id STARTS WITH 'D1VERIFY-' DETACH DELETE n",
