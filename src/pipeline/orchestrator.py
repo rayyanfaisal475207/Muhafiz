@@ -1718,6 +1718,21 @@ async def process_query(
 
                 yield event("response", "active", "Generating cross-case finding...")
                 t0_resp = time.monotonic()
+                # [findings.md XGRAPH-prompt-size] A broad/common target
+                # entity (or an open-ended "networks across all cases"
+                # question) can return dozens of chunks from the up-to-50
+                # seed-entity traversal above — confirmed live: an
+                # unbounded prompt here pushed a real request to 14,751
+                # tokens against Groq's 8,000 TPM cap, and took 820s to
+                # eventually recover. Bounded to the most confident
+                # evidence rather than an arbitrary prefix. Reassigns
+                # `chunks` itself (not a separate slice) so the prompt,
+                # its [Document N] numbering, and verify_grounding()'s
+                # positional chunks[n-1] lookup below all see the exact
+                # same list — case_ids_touched/sources_list above are
+                # unaffected, they're already computed from the full
+                # traversal result.
+                chunks = _bound_cross_case_chunks(chunks)
                 documents_text = (
                     _format_documents_for_prompt(chunks) if chunks
                     else "(no directly cited documents — see unconfirmed links below)"
@@ -1754,7 +1769,17 @@ async def process_query(
                     preferred_language=preferred_language,
                     history=history_text or "(no previous conversation)",
                 )
-                full_response = await call_llm(system_prompt, user_message, llm_mode=llm_mode, role=_generation_role(preferred_language))
+                # cloud_max_tokens + reasoning_effort: same fix router.py
+                # already proved for this exact TPM-cap failure mode — a
+                # small completion budget plus a low reasoning-effort hint
+                # keeps the CLOUD side of a large-prompt request from
+                # adding its own reasoning-trace overhead on top of an
+                # already-large system prompt.
+                full_response = await call_llm(
+                    system_prompt, user_message, llm_mode=llm_mode,
+                    role=_generation_role(preferred_language),
+                    cloud_max_tokens=500, reasoning_effort="low",
+                )
                 elapsed_ms_resp = int((time.monotonic() - t0_resp) * 1000)
 
                 _spawn(asyncio.to_thread(pipeline_logger.log_llm_call,
@@ -1984,7 +2009,17 @@ async def process_query(
                 preferred_language=preferred_language,
                 history=history_text or "(no previous conversation)",
             )
-            full_response = await call_llm(system_prompt, user_message, llm_mode=llm_mode, role=_generation_role(preferred_language))
+            # [findings.md XGRAPH-prompt-size] No chunk cap needed here —
+            # `results` is already bounded by query_similar_communities()'s
+            # own `top_k` (xnetwork.py), unlike XGRAPH's up-to-50-seed-
+            # entity traversal. cloud_max_tokens/reasoning_effort added
+            # anyway, same defense-in-depth as the XGRAPH branch, since
+            # the TPM cap is still one large community summary away.
+            full_response = await call_llm(
+                system_prompt, user_message, llm_mode=llm_mode,
+                role=_generation_role(preferred_language),
+                cloud_max_tokens=500, reasoning_effort="low",
+            )
             elapsed_ms_resp = int((time.monotonic() - t0_resp) * 1000)
 
             _spawn(asyncio.to_thread(pipeline_logger.log_llm_call,
@@ -2742,6 +2777,33 @@ async def _case_record_chunk(gateway, case_id: str | None) -> list[dict]:
         "text": text,
         "metadata": {"source": f"Case Record — {fir}", "case_id": case_id},
     }]
+
+
+_CROSS_CASE_PROMPT_CHUNK_LIMIT = 15
+
+
+def _bound_cross_case_chunks(chunks: list[dict], limit: int = _CROSS_CASE_PROMPT_CHUNK_LIMIT) -> list[dict]:
+    """
+    [findings.md XGRAPH-prompt-size] Cap the number of chunks fed into a
+    cross-case (XGRAPH/XNETWORK) generation prompt. A traversal seeded
+    from a broad/common entity, or an open-ended cross-case question, can
+    return far more chunks than any one prompt should carry — confirmed
+    live, an uncapped request reached 14,751 tokens against Groq's 8,000
+    TPM limit. Sorted by `graph_confidence` (highest first) when present
+    so the chunks kept are the most confident evidence, not an arbitrary
+    prefix; chunks without a confidence value keep their existing
+    relative order (Python's sort is stable) rather than being pushed to
+    either end.
+
+    Callers MUST reassign their own chunks variable to this function's
+    return value and use that same (possibly-capped) list for the
+    prompt, its [Document N] numbering, AND the verify_grounding() call
+    — never slice differently for one than the other (see
+    _format_documents_for_prompt's own indexing-consistency note).
+    """
+    if len(chunks) <= limit:
+        return chunks
+    return sorted(chunks, key=lambda c: c.get("graph_confidence") or 0, reverse=True)[:limit]
 
 
 def _format_documents_for_prompt(chunks: list[dict]) -> str:

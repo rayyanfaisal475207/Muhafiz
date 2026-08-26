@@ -377,8 +377,17 @@ async def _generate_xnetwork_text(
     verify_chunks = [_chunk_to_verifier_dict(c) for c in tool_result.chunks]
 
     try:
+        # [findings.md XGRAPH-prompt-size] cloud_max_tokens/reasoning_effort:
+        # same defense-in-depth as orchestrator.py's XGRAPH/XNETWORK
+        # branches — this generation shares the identical
+        # _format_documents_for_prompt()-over-unbounded-chunks shape that
+        # produced a real Groq TPM-cap failure elsewhere. tool_result.chunks
+        # is already top_k-bounded (xnetwork_tool()), lower risk than
+        # XGRAPH's traversal, but the cloud call gets the same safety net
+        # regardless rather than waiting for a live repro to add it.
         text = await call_llm(
-            system_prompt, agent_input.query_text, role=_generation_role(caller.preferred_language)
+            system_prompt, agent_input.query_text, role=_generation_role(caller.preferred_language),
+            cloud_max_tokens=500, reasoning_effort="low",
         )
     except Exception as exc:
         logger.error("Cross-Case Linkage: XNETWORK generation failed: %s", exc)
@@ -406,6 +415,7 @@ async def _generate_xnetwork_text(
                 agent_input.query_text,
                 role=_generation_role(caller.preferred_language),
                 force_cloud=True,
+                cloud_max_tokens=500, reasoning_effort="low",
             )
             verification = await verify_grounding(
                 answer=text,
