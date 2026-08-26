@@ -482,6 +482,60 @@ async def _find_recurring_entities_for_query(
     return seeds
 
 
+async def _both_directions(
+    edge_pattern: str, where_tail: str, returns: str,
+    entity_ids: set[str], columns: list[str],
+) -> list[dict]:
+    """
+    [PERF] Run an edge expansion as TWO DIRECTED queries (outgoing, then
+    incoming) and concatenate, instead of one undirected `(a)-[r]-(b)`.
+
+    WHY, measured — this is the single largest performance defect found in
+    the cross-case path, not a micro-optimization. Apache AGE compiles an
+    undirected match into a Cartesian product joined by
+    `(r.start_id = a.id AND r.end_id = b.id) OR (r.end_id = a.id AND
+    r.start_id = b.id)`. That OR-of-AND-pairs is not satisfiable by any
+    index, so the planner seq-scans EVERY vertex of EVERY label as a
+    candidate for an unlabeled `b` and filters the cross product.
+    EXPLAIN ANALYZE on the real graph, for ONE seed id returning ZERO
+    rows: `Rows Removed by Join Filter: 11,361,240`, 12.6s.
+
+    Measured on the live corpus (see the same-session profiling run):
+      - one undirected pending-SAME_AS expansion over a real frontier:
+        450s, and `retrieve_graph()` as a whole exceeded 600s with ZERO
+        LLM calls involved — 599.8s of it inside 10 Cypher queries.
+      - the same expansion, split into two directed queries: ~50ms.
+
+    Deliberately NOT also label-constraining the endpoints: benchmarked
+    at 50ms (unlabeled) vs 48ms (labeled `:Person` both ends), i.e. the
+    DIRECTION is the entire fix, while adding a label would silently drop
+    any SAME_AS/ASSOCIATED_WITH edge between non-Person entity types.
+    Performance must not be bought with a semantic change.
+
+    EQUIVALENCE, proven not assumed: verified against the live graph on
+    real seeds returning 189 actual pairs — the undirected query and this
+    two-directed-query union returned IDENTICAL (a_id, b_id) sets. The
+    row shape is also unchanged: `a` is always the seed-side node and `b`
+    the neighbour-side one in BOTH directions, exactly as the undirected
+    form bound them, so every caller's (a -> b) provenance reading still
+    holds with no call-site change. A pair whose two endpoints are BOTH
+    in `entity_ids` still yields two rows (one per orientation), matching
+    the undirected behaviour callers already dedupe against.
+    """
+    if not entity_ids:
+        return []
+    ids = list(entity_ids)
+    outgoing = await age_client.execute_cypher(
+        f"MATCH (a)-{edge_pattern}->(b) WHERE a.entity_id IN $ids {where_tail} RETURN {returns}",
+        params={"ids": ids}, columns=columns,
+    )
+    incoming = await age_client.execute_cypher(
+        f"MATCH (a)<-{edge_pattern}-(b) WHERE a.entity_id IN $ids {where_tail} RETURN {returns}",
+        params={"ids": ids}, columns=columns,
+    )
+    return outgoing + incoming
+
+
 async def _expand_confirmed_identity(entity_ids: set[str]) -> list[tuple[str, str, dict]]:
     """
     Every (from_id, to_id, to_node) reachable via a CONFIRMED SAME_AS edge
@@ -492,12 +546,12 @@ async def _expand_confirmed_identity(entity_ids: set[str]) -> list[tuple[str, st
     """
     if not entity_ids:
         return []
-    rows = await age_client.execute_cypher(
-        "MATCH (a)-[r:SAME_AS]-(b) "
-        "WHERE a.entity_id IN $ids AND r.status = 'confirmed' AND r.superseded_by IS NULL "
-        "RETURN a, b",
-        params={"ids": list(entity_ids)},
-        columns=["a", "b"],
+    rows = await _both_directions(
+        "[r:SAME_AS]",
+        "AND r.status = 'confirmed' AND r.superseded_by IS NULL",
+        "a, b",
+        entity_ids,
+        ["a", "b"],
     )
     out: list[tuple[str, str, dict]] = []
     for row in rows:
@@ -531,12 +585,13 @@ async def _expand_pending_identity(entity_ids: set[str]) -> list[tuple[str, str,
     """
     if not entity_ids:
         return []
-    rows = await age_client.execute_cypher(
-        "MATCH (a)-[r:SAME_AS]-(b) "
-        "WHERE a.entity_id IN $ids AND r.status = 'pending' AND r.superseded_by IS NULL "
-        "RETURN a, r, b",
-        params={"ids": list(entity_ids)},
-        columns=["a", "r", "b"],
+    # [PERF] See _both_directions() — this exact query was the 450s one.
+    rows = await _both_directions(
+        "[r:SAME_AS]",
+        "AND r.status = 'pending' AND r.superseded_by IS NULL",
+        "a, r, b",
+        entity_ids,
+        ["a", "r", "b"],
     )
     out: list[tuple[str, str, dict, float, str]] = []
     for row in rows:
@@ -559,12 +614,15 @@ async def _unconfirmed_same_as_links(entity_ids: set[str]) -> list[dict]:
     """
     if not entity_ids:
         return []
-    rows = await age_client.execute_cypher(
-        "MATCH (a)-[r:SAME_AS]-(b) "
-        "WHERE a.entity_id IN $ids AND r.status = 'pending' AND r.superseded_by IS NULL "
-        "RETURN a, r, b",
-        params={"ids": list(entity_ids)},
-        columns=["a", "r", "b"],
+    # [PERF] See _both_directions(). The existing frozenset dedupe below
+    # already collapses an (a,b)/(b,a) pair seen from either orientation,
+    # so splitting the direction changes nothing about this output.
+    rows = await _both_directions(
+        "[r:SAME_AS]",
+        "AND r.status = 'pending' AND r.superseded_by IS NULL",
+        "a, r, b",
+        entity_ids,
+        ["a", "r", "b"],
     )
     seen_pairs: set[frozenset] = set()
     out: list[dict] = []
@@ -598,14 +656,18 @@ async def _one_hop_neighbors(entity_ids: set[str]) -> list[dict]:
     """One ASSOCIATED_WITH hop out from `entity_ids` — the only relationship-expansion edge (see module docstring)."""
     if not entity_ids:
         return []
-    rows = await age_client.execute_cypher(
-        f"MATCH (a)-[r:{_HOP_EDGE_TYPE}]-(b) "
-        "WHERE a.entity_id IN $ids AND r.superseded_by IS NULL "
-        "RETURN a, r, b",
-        params={"ids": list(entity_ids)},
-        columns=["a", "r", "b"],
+    # [PERF] See _both_directions(). This one is doubly safe to split:
+    # retrieve_graph()'s consumer of these rows already walks BOTH
+    # orientations of every row explicitly (`((a_id, b_id, row["b"]),
+    # (b_id, a_id, row["a"]))`), so it never depended on a single row
+    # carrying a particular direction in the first place.
+    return await _both_directions(
+        f"[r:{_HOP_EDGE_TYPE}]",
+        "AND r.superseded_by IS NULL",
+        "a, r, b",
+        entity_ids,
+        ["a", "r", "b"],
     )
-    return rows
 
 
 async def _filter_to_case(entity_ids: set[str], case_id: str) -> set[str]:
