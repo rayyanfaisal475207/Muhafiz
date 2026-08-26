@@ -82,6 +82,13 @@ TODO_scratch.md
 
 # Untracked-on-request: kept locally, not synced to origin
 AGENT_HARNESS_IMPLEMENTATION_PLAN.md
+MUHAFIZ_REMEDIATION_CONTEXT_V2.md
+MUHAFIZ_REMEDIATION_CONTEXT_V3.md
+PHASE_3B_SUBAGENT_READINESS_AUDIT.md
+PROJECT_OVERVIEW.md
+REMEDIATION_INVESTIGATION_REPORT.md
+REMEDIATION_PROGRESS.md
+REMEDIATION_SESSION_STATE.md
 eval_results_phase9.json
 scripts/_dry_run*.py
 scripts/_smoketest.py
