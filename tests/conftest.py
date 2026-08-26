@@ -52,6 +52,93 @@ PRODUCTION_CHROMA_DIR = (Path(__file__).resolve().parent.parent / "data" / "chro
 _TEST_CHROMA_DIR = Path(tempfile.mkdtemp(prefix="muhafiz-pytest-chroma-")).resolve()
 os.environ["CHROMA_PERSIST_DIR"] = str(_TEST_CHROMA_DIR)
 
+# ═══════════════════════════════════════════════════════════════════════
+# POSTGRES / AGE TEST ISOLATION — same reasoning as the Chroma block, for
+# the other persistence layer, and it must run here for the same reason.
+#
+# `src.config.DATABASE_URL` is read from the environment at import time,
+# and `src/database/postgres.py` builds its SQLAlchemy engine at MODULE
+# IMPORT (`create_async_engine(_database_url)`), so the value must be set
+# before any application module is imported. `age_client._dsn()` reads
+# config lazily per call, so it follows whatever is set here.
+#
+# Measured before this guard existed: a pytest process resolved
+# `postgresql+asyncpg://postgres:dev@localhost:5432/muhafiz` — the LIVE
+# database and the live `evidence_graph`. `no_network` does not help:
+# it deliberately allows loopback (see _LOOPBACK_HOSTS below), which is
+# exactly where Postgres listens.
+#
+# Isolation here is by DATABASE IDENTITY, not by server: the URL is
+# repointed at a clearly-named non-existent test database. Most suites
+# fake their gateway/age_client anyway; anything that genuinely tries to
+# open a connection now fails loudly against a test identity instead of
+# silently succeeding against production.
+#
+# Test-infrastructure only — no production DB semantics are changed.
+# ═══════════════════════════════════════════════════════════════════════
+
+PRODUCTION_DB_NAME = "muhafiz"
+PRODUCTION_GRAPH_NAME = "evidence_graph"
+
+_TEST_DB_NAME = f"muhafiz_pytest_{uuid.uuid4().hex[:12]}"
+_LIVE_DATABASE_URL = os.environ.get("DATABASE_URL", "")
+os.environ["DATABASE_URL"] = (
+    f"postgresql+asyncpg://postgres:dev@localhost:5432/{_TEST_DB_NAME}"
+)
+
+
+class LiveDatabaseAccessError(RuntimeError):
+    """Raised when a test tries to open the live Muhafiz Postgres/AGE database."""
+
+
+def _database_name_of(dsn) -> str:
+    """Last path segment of a DSN, minus any query string. '' when unparseable."""
+    if not dsn:
+        return ""
+    try:
+        text = str(dsn).split("?", 1)[0]
+        return text.rstrip("/").rsplit("/", 1)[-1]
+    except (AttributeError, IndexError):
+        return ""
+
+
+def _is_production_database(dsn) -> bool:
+    """True when `dsn` names the live Muhafiz database."""
+    return _database_name_of(dsn) == PRODUCTION_DB_NAME
+
+
+def _install_live_database_guard() -> None:
+    """
+    Wrap `asyncpg.create_pool` so the live database fails closed.
+
+    This is the single boundary every AGE write crosses
+    (`age_client.get_pool()` -> `asyncpg.create_pool(dsn)`), so guarding
+    it covers `execute_cypher` and therefore every graph mutation,
+    without touching production code.
+    """
+    import asyncpg
+
+    if getattr(asyncpg.create_pool, "_muhafiz_live_db_guard", False):
+        return
+
+    _real_create_pool = asyncpg.create_pool
+
+    def _guarded_create_pool(dsn=None, *args, **kwargs):
+        if _is_production_database(dsn):
+            raise LiveDatabaseAccessError(
+                "Refusing live Muhafiz Postgres/AGE access during pytest: "
+                f"{dsn}. Tests must use the disposable DATABASE_URL set in "
+                "tests/conftest.py."
+            )
+        return _real_create_pool(dsn, *args, **kwargs)
+
+    _guarded_create_pool._muhafiz_live_db_guard = True
+    _guarded_create_pool._real_create_pool = _real_create_pool
+    asyncpg.create_pool = _guarded_create_pool
+
+
+_install_live_database_guard()
+
 
 class LiveChromaAccessError(RuntimeError):
     """Raised when a test tries to open the live Chroma persist directory."""
