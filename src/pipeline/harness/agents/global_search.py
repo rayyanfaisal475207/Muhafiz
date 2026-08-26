@@ -276,7 +276,19 @@ async def _map_batch(query_text: str, batch: list[EvidenceChunk]) -> Optional[li
     result, raw = await call_llm_json(
         system_prompt=_MAP_SYSTEM_PROMPT,
         user_message=user_message,
-        max_tokens=700,
+        # 700 wasn't a schema mismatch (an earlier read of a truncated log
+        # line got that wrong) — it's the same thinking-trace-exhaustion
+        # bug fixed everywhere else this session. Confirmed live: every
+        # map-batch call over a MAP_BATCH_SIZE=5 batch failed after
+        # exhausting retries, both local and cloud, on JSON visibly cut
+        # off mid-string. Raised to 2000 for the LOCAL budget;
+        # cloud_max_tokens pinned at the old 700 so the cloud fallback's
+        # own token/cost accounting is unaffected. Unrelated to this
+        # module's own cost-control note above (MAP_BATCH_SIZE, call
+        # COUNT) — this is a per-call completion-size floor, not a
+        # call-count lever.
+        max_tokens=2000,
+        cloud_max_tokens=700,
         role="reasoning",
         validate=_validate_map_result,
         schema_hint=_MAP_SCHEMA_HINT,
