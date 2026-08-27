@@ -444,3 +444,23 @@ CORS_ORIGINS = os.getenv(
 # provisioned the role yet doesn't hard-break.
 MCP_DATABASE_URL: str = os.getenv("MCP_DATABASE_URL", "")
 DATABASE_URL = os.getenv("DATABASE_URL", "")
+
+# ── Rate-limiter proxy awareness (audit finding F-09) ────────────────────────
+# slowapi's default key_func (get_remote_address) reads the TCP peer address.
+# Behind any reverse proxy/load balancer that address is the proxy's own IP
+# for every request, collapsing every client into one shared rate-limit
+# bucket -- one user can exhaust the login/case-create limit for everyone.
+#
+# Trusting X-Forwarded-For unconditionally would be worse than that bug: it's
+# a plain request header, so any direct client could forge it to evade rate
+# limiting entirely. This is therefore opt-in and paired with an allowlist --
+# the forwarded header is only honored when the immediate TCP peer is itself
+# one of these trusted proxies; a request arriving directly from anyone else
+# still gets rate-limited on its real peer address, header or not.
+#
+# Default false / empty: exactly today's behavior (peer address, no XFF) for
+# any deployment that hasn't explicitly configured its proxy.
+TRUST_PROXY_HEADERS: bool = os.getenv("TRUST_PROXY_HEADERS", "false").strip().lower() == "true"
+TRUSTED_PROXY_IPS: list[str] = [
+    ip.strip() for ip in os.getenv("TRUSTED_PROXY_IPS", "").split(",") if ip.strip()
+]

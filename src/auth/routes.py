@@ -20,7 +20,30 @@ from src.data_gateway import get_gateway
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-limiter = Limiter(key_func=get_remote_address)
+
+def _rate_limit_key(request: Request) -> str:
+    """
+    Audit finding F-09: slowapi's default get_remote_address reads the TCP
+    peer address, which is the reverse proxy's own IP for every request when
+    this app sits behind one -- collapsing every distinct client into one
+    shared rate-limit bucket. See src/config.py's TRUST_PROXY_HEADERS
+    docstring for why this is opt-in and allowlist-gated rather than trusting
+    X-Forwarded-For unconditionally (a client-controlled header would
+    otherwise let anyone forge their way past the limit).
+    """
+    peer_ip = get_remote_address(request)
+    if config.TRUST_PROXY_HEADERS and peer_ip in config.TRUSTED_PROXY_IPS:
+        forwarded = request.headers.get("X-Forwarded-For", "")
+        # X-Forwarded-For may be a comma-separated hop chain; the first
+        # entry is the original client as reported by the nearest trusted
+        # hop -- everything after it is proxy-to-proxy, not the client.
+        client_ip = forwarded.split(",")[0].strip()
+        if client_ip:
+            return client_ip
+    return peer_ip
+
+
+limiter = Limiter(key_func=_rate_limit_key)
 
 router = APIRouter()
 
