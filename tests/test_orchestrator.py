@@ -1810,3 +1810,42 @@ async def test_xgraph_primary_route_ignores_secondary_methods(run_pipeline):
     # fetch, and critically no SECOND retrieve_graph()/gateway call either.
     assert len(run_pipeline.retrieve_graph_calls) == 1
     assert not any(e["step"] == "retrieval" for e in events), "XGRAPH must still never run the case-scoped retrieval path"
+
+
+async def test_router_exception_still_yields_full_stream(monkeypatch, run_pipeline):
+    """
+    [Bug fix, 2026-08-27 route sweep] route_query() raising (confirmed live
+    trigger: a Groq 413 TPM-limit error on the cloud-escalation branch) used
+    to kill the SSE generator with a SECOND, unrelated UnboundLocalError —
+    the except block around the router call assigned every fallback
+    variable it needed except route_result, and the unconditional
+    `event("router", "done", ..., reason=route_result.get("reason"))` a few
+    lines later crashed on that missing name. The client got no events at
+    all for the turn: not the router's own error event, not a degraded
+    answer, nothing. This must instead complete the whole stream and fall
+    back to a real (RAG) response, exactly like any other router failure.
+    """
+    async def _raising_route_query(*_args, **_kwargs):
+        raise RuntimeError("Error code: 413 - rate_limit_exceeded")
+
+    monkeypatch.setattr(orch, "route_query", _raising_route_query)
+
+    events, _ = await run_pipeline(
+        message="What is the latest press release from Islamabad Police?",
+        answer="Here is what the documents say.",
+    )
+
+    # The stream must not die mid-way: a router error event, a router "done"
+    # event that degraded to RAG, and a real response must all be present.
+    steps = [e["step"] for e in events]
+    assert "router" in steps, "router error event must still be emitted, not swallow the whole turn"
+    router_events = [e for e in events if e["step"] == "router"]
+    assert any(e["status"] == "error" for e in router_events)
+    done_events = [e for e in router_events if e["status"] == "done"]
+    assert len(done_events) == 1, "router must still reach its 'done' event despite the raised exception"
+    assert done_events[0]["detail"] == "Route decided: RAG"
+    # The reason string must come from the fallback route_result now
+    # assigned in the except block, not crash trying to read it.
+    assert "Router failed" in (done_events[0].get("reason") or "")
+    response_events = [e for e in events if e["step"] == "response" and e["status"] == "done"]
+    assert response_events, "a real response must still be generated after the router falls back to RAG"

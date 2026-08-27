@@ -353,8 +353,24 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, current_use
     # RBAC/ABAC: a case_id from the client (or a session it never verified either)
     # must never reach the pipeline unchecked — RLS only enforces that retrieved
     # rows belong to this case_id, not that this user is allowed to see it.
-    if case_id and not await gateway.check_case_access(case_id, user_id, current_user.role):
-        raise HTTPException(status_code=403, detail="Not assigned to this case")
+    #
+    # Existence checked BEFORE access, and unconditionally (not skipped for
+    # platform-admin) — [bug fix, 2026-08-27 route sweep] check_case_access()
+    # short-circuits to True for platform-admin without ever confirming the
+    # case exists, so a stale/foreign/mistyped case_id (an old bookmark, a
+    # case deleted since, a copy-pasted id from another environment) used to
+    # sail straight through into create_session()'s INSERT below and die on
+    # sessions_case_id_fkey — an unhandled 500 with a full stack trace,
+    # before the router or any pipeline step ever ran. 404-before-403 is
+    # deliberate: case ids aren't secret in this system (they surface in FIR
+    # numbers, cross-case answers, etc.), so this doesn't leak anything a
+    # user couldn't already infer, and it turns that silent 500 into an
+    # actionable message instead.
+    if case_id:
+        if await gateway.get_case(case_id) is None:
+            raise HTTPException(status_code=404, detail="Case not found")
+        if not await gateway.check_case_access(case_id, user_id, current_user.role):
+            raise HTTPException(status_code=403, detail="Not assigned to this case")
 
     # Phase 2: arm Postgres RLS for this request HERE, once case_id is
     # resolved and access-checked — process_query() no longer sets this

@@ -373,6 +373,9 @@ def test_unassign_user_from_case(station_admin_api):
 
 def test_chat_rejects_a_case_the_user_is_not_assigned_to(api, session_id):
     client, gateway = api
+    # A real case (must exist so the 404-before-403 existence check below
+    # doesn't shadow the 403 this test actually means to exercise).
+    gateway.cases["CASE-FORBIDDEN"] = {"case_id": "CASE-FORBIDDEN"}
     gateway.denied_case_ids.add("CASE-FORBIDDEN")
 
     response = client.post("/api/chat", json={
@@ -388,6 +391,7 @@ def test_chat_rejects_a_session_remembered_case_the_user_is_not_assigned_to(api,
     stored case_id — that fallback path must be checked too, not just the
     explicit-request-body path."""
     client, gateway = api
+    gateway.cases["CASE-FORBIDDEN"] = {"case_id": "CASE-FORBIDDEN"}
     gateway.sessions[session_id] = {
         "session_id": session_id, "user_id": user_id, "project_id": None,
         "case_id": "CASE-FORBIDDEN", "title": "Existing",
@@ -397,6 +401,82 @@ def test_chat_rejects_a_session_remembered_case_the_user_is_not_assigned_to(api,
     response = client.post("/api/chat", json={"session_id": session_id, "message": "hello"})
 
     assert response.status_code == 403
+
+
+# Regression [bug fix, 2026-08-27 route sweep]: check_case_access() used to
+# short-circuit to True for platform-admin WITHOUT ever confirming the case
+# exists, so a stale/foreign/mistyped case_id sailed straight into
+# create_session()'s INSERT and died on a foreign-key violation — an
+# unhandled 500 with a full stack trace, for every role, before the router
+# or any pipeline step ever ran. A nonexistent case_id must now 404 instead,
+# checked BEFORE the access check (and unconditionally, including for
+# platform-admin) so a bad id can never reach that far.
+
+def test_chat_rejects_a_case_that_does_not_exist(api, session_id):
+    client, gateway = api
+    assert "CASE-DOES-NOT-EXIST" not in gateway.cases
+
+    response = client.post("/api/chat", json={
+        "session_id": session_id, "message": "tell me about this case",
+        "case_id": "CASE-DOES-NOT-EXIST",
+    })
+
+    assert response.status_code == 404
+
+
+def test_chat_rejects_a_nonexistent_case_even_for_platform_admin(api, session_id, user_id):
+    """The existence check must not be skipped for platform-admin the way
+    check_case_access() itself skips its own assignment check — otherwise
+    an admin's stale/mistyped case_id still 500s."""
+    from src.auth.routes import get_current_user
+
+    client, gateway = api
+    assert "CASE-DOES-NOT-EXIST" not in gateway.cases
+    app.dependency_overrides[get_current_user] = lambda: _User(user_id, is_admin=True, role="platform-admin")
+
+    response = client.post("/api/chat", json={
+        "session_id": session_id, "message": "tell me about this case",
+        "case_id": "CASE-DOES-NOT-EXIST",
+    })
+
+    assert response.status_code == 404
+
+
+def test_chat_rejects_a_session_remembered_case_that_no_longer_exists(api, session_id, user_id):
+    """Same existence check on the session-fallback path — a case deleted
+    since the session was created must 404, not 500."""
+    client, gateway = api
+    gateway.sessions[session_id] = {
+        "session_id": session_id, "user_id": user_id, "project_id": None,
+        "case_id": "CASE-DELETED-SINCE", "title": "Existing",
+    }
+    assert "CASE-DELETED-SINCE" not in gateway.cases
+
+    response = client.post("/api/chat", json={"session_id": session_id, "message": "hello"})
+
+    assert response.status_code == 404
+
+
+def test_chat_accepts_a_real_assigned_case(api, session_id, user_id, monkeypatch):
+    """The existence check must not false-positive on a real, assigned
+    case — this must still reach 200 and stream normally."""
+    import src.main as main_mod
+
+    async def _fake_process_query(*args, **kwargs):
+        yield {"step": "response", "status": "done", "detail": "ok"}
+
+    monkeypatch.setattr(main_mod, "process_query", _fake_process_query)
+
+    client, gateway = api
+    gateway.cases["CASE-REAL"] = {"case_id": "CASE-REAL"}
+    gateway.case_assignments["CASE-REAL"] = [{"user_id": str(user_id), "role": "investigator"}]
+
+    response = client.post("/api/chat", json={
+        "session_id": session_id, "message": "hello",
+        "case_id": "CASE-REAL",
+    })
+
+    assert response.status_code == 200
 
 
 # ── Live-traffic cutover gating (AGENT_HARNESS_IMPLEMENTATION_PLAN.md §6) ──

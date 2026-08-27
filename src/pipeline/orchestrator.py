@@ -902,6 +902,18 @@ async def process_query(
         router_station = None
         router_district = None
         elapsed_ms = int((time.monotonic() - t0) * 1000)
+        # [Bug fix, 2026-08-27 route sweep] route_result itself was never
+        # assigned on this error path, unlike every sibling fallback above —
+        # the "router done" event below unconditionally reads
+        # route_result.get("reason"), so a router failure (confirmed live
+        # trigger: a Groq 413 TPM-limit error on the cloud-escalation
+        # branch) raised a SECOND, unrelated UnboundLocalError right here,
+        # killing the whole SSE generator with literally no event reaching
+        # the client — defeating this except block's entire "fall back to
+        # RAG" purpose. Shape matches route_query()'s own internal-failure
+        # return (see router.py's final except block) so both failure
+        # sources produce the same kind of reason string downstream.
+        route_result = {"reason": f"Router failed ({type(exc).__name__}), defaulting to RAG"}
 
     # [Milestone E1 — GRAPH_SCALE_SCHEMA_EXPANSION_PLAN.md] Query-scope
     # preclassification: resolve station/district ONCE, before any of the
@@ -972,7 +984,11 @@ async def process_query(
     yield event(
         "router", "done", f"Route decided: {route_str}", elapsed_ms,
         confidence=router_confidence, case_scope=case_scope,
-        reason=route_result.get("reason"),
+        # Defensive .get on a possibly-None route_result — [bug fix, 2026-08-27
+        # route sweep] a future edit to the except block above that forgets to
+        # assign route_result again should degrade this to a missing reason,
+        # not kill the whole SSE stream a second time the same way.
+        reason=(route_result or {}).get("reason"),
     )
 
     # ─── No retrieval needed path ──────────────────────────────────────────
