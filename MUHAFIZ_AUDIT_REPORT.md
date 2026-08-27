@@ -37,8 +37,13 @@ All three P0 blockers and one of the two P1 findings have been fixed, tested, an
 | F-02 — missing `asteval` dependency | ✅ **FIXED** — `bc1effd` | Added `asteval>=1.0.0` to `requirements.txt` / `asteval==1.0.10` to `requirements.lock.txt` | Clean import via `src.llm.tools`; Groq streaming path unblocked |
 | F-04 — domain allowlist substring bypass | ✅ **FIXED** — `fc1be82` | New `src/pipeline/url_safety.py::is_domain_allowed()` (hostname-parsed exact/suffix match), replacing `domain in url` at both call sites (`orchestrator.py`, `harness/tools/web.py`) | 23 new/updated tests, including all 7 of this report's attack URLs — full 93-test suite passes |
 | F-03 — shared `.env` public JWT default | ⚪ **Deferred, downgraded** | No code fix applies — `.env`/`SHARE/` are gitignored and `.env.example` already documents the risk. Distribution confirmed team-internal only, with a planned secret reset | Owner to confirm the team-shared copy is actually rotated; third-party API key rotation (Groq/Gemini/Tavily/Muhafiz) remains manual, at each provider's dashboard |
+| F-05 — attachment metadata leak before sessions row exists | ✅ **FIXED** — `72043da` | Fall back to the attachment rows' own `user_id` (set at upload time) when there's no `sessions` row to check ownership against, on both the list and upload endpoints | 3 new tests reproducing the exact audit scenario (cross-user list denied, own pre-session list allowed, cross-user upload denied); full suite green |
+| F-06 — unvalidated UUID casts → 500 | ✅ **FIXED** — `4bd9cbd` | New `src/api/validation.py::validate_uuid_field()` at every entrypoint (chat, attachment upload/list/delete); `jwt.py`'s `except JWTError` now also catches `ValueError` | 8 new tests, including both live reproductions end-to-end (forged non-UUID JWT `sub` → 401, malformed `session_id` → 422) |
+| F-07 — unbounded admin pagination | ✅ **FIXED** — `165bb11` | `Query(ge=1, le=1000)` added to all 7 admin `limit` params (`errors`, `kb/jobs`, `audit-logs`, `runs`, `files`, `mcp-calls`, `users`) | 21 new parametrized tests (excessive limit → 422, boundary → 200, default → 200) across all 7 routes |
+| F-08 — NULL-station admin bypass | ✅ **FIXED** — `863533b` | Changed the NULL-`police_station` fallback from unrestricted access to a 403 deny, matching the fail-closed posture of every other ABAC check in this codebase | Live DB check confirmed the one remaining NULL-station account is a synthetic smoke-test fixture, not a real officer — nothing left to backfill. Existing + new tests updated/added, full suite green |
+| F-09 — rate limiter keyed on raw IP | ✅ **FIXED** — `e93e79a` | New allowlist-gated `_rate_limit_key()`: `X-Forwarded-For` only honored when `TRUST_PROXY_HEADERS=true` AND the immediate peer is in `TRUSTED_PROXY_IPS`; default behavior unchanged | 5 new tests, including the anti-regression case (an untrusted peer's forged header is ignored even with the flag on) |
 
-Remaining open items from §2 below: F-05 through F-10 (all Medium/Low) are unaddressed as of this update.
+All findings from §2 except F-03 (deferred, owner decision) and F-10 (Low/P3 hygiene items) are now fixed. F-10 remains open as of this update.
 
 ---
 
@@ -103,7 +108,7 @@ The SHARE `.env` sets `ENVIRONMENT=development` and keeps `JWT_SECRET_KEY=your-s
 ---
 
 ### 🟡 F-05 — Attachment metadata leaks across users when the session row doesn't yet exist
-**Medium · P2**
+**Medium · P2 · ✅ FIXED `72043da` (28 Aug 2026) — see §0**
 
 `src/api/attachments.py:170` guards ownership with `if session and session.get("user_id") != …`. When the session row is absent — the normal case, since attachments can be uploaded before the first chat message creates the session — the check is skipped and any user can list another user's attachment *metadata*.
 
@@ -112,7 +117,7 @@ The SHARE `.env` sets `ENVIRONMENT=development` and keeps `JWT_SECRET_KEY=your-s
 ---
 
 ### 🟡 F-06 — Unvalidated identifiers reach a UUID cast → HTTP 500 (a repeated pattern)
-**Medium · P2**
+**Medium · P2 · ✅ FIXED `4bd9cbd` (28 Aug 2026) — see §0**
 
 Two endpoints accept a string where a UUID is required, then cast it and let `ValueError` escape as a 500:
 
@@ -124,21 +129,21 @@ Two endpoints accept a string where a UUID is required, then cast it and let `Va
 ---
 
 ### 🟡 F-07 — Unbounded admin pagination: `audit-logs` returns 149k rows
-**Medium · P2**
+**Medium · P2 · ✅ FIXED `165bb11` (28 Aug 2026) — see §0**
 
 Every admin `limit` is a bare `int` with no upper bound (`src/api/admin.py` lines 153, 219, 227, 402, 415, 421, 539). `/api/admin/audit-logs?limit=99999999` returned **149,502 rows in 5.9 s** — a memory/serialization DoS vector. Other endpoints are naturally capped by small tables. Platform-admin-only, which bounds it. Fix: `Query(le=…)` ceilings.
 
 ---
 
 ### 🟡 F-08 — Station-admin with NULL `police_station` bypasses station scoping
-**Medium · P2**
+**Medium · P2 · ✅ FIXED `863533b` (28 Aug 2026) — see §0**
 
 `src/api/case_assignments.py:50` falls back to unrestricted access (logged) when the caller's `police_station` is NULL. Migration 012 adds the column with no backfill, so this is the default state. In the shipped DB, **1 of 2 station-admins is NULL**. Fix: backfill stations, then deny on NULL.
 
 ---
 
 ### 🟡 F-09 — Rate limiting keys on raw remote address — collapses behind a proxy
-**Medium · P2**
+**Medium · P2 · ✅ FIXED `e93e79a` (28 Aug 2026) — see §0**
 
 `src/auth/routes.py:23` uses `get_remote_address` with no `X-Forwarded-For` handling or trusted-proxy config. Behind a reverse proxy all users share one IP; one client can exhaust the limit for everyone. The limits themselves are exact (login 10/min, case-create 20/min — both verified to the boundary).
 
