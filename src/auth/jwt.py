@@ -70,7 +70,12 @@ async def get_current_user(request: Request) -> User:
         if user_id_str is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
         user_id = UUID(user_id_str)
-    except JWTError:
+    except (JWTError, ValueError):
+        # F-06: UUID(user_id_str) raises ValueError, not JWTError, for a
+        # validly-signed token whose `sub` claim isn't a UUID -- that used
+        # to escape this except clause entirely and surface as a 500.
+        # Still requires a valid signature, so this was never an auth
+        # bypass, just a wrong status code / unhandled crash.
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
     gateway = await get_gateway()

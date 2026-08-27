@@ -38,6 +38,7 @@ from src.pipeline.harness.cutover import run_cutover_query
 from src.data_gateway import get_gateway
 
 from src.auth.routes import router as auth_router, limiter, get_current_user
+from src.api.validation import validate_uuid_field
 from src.auth.jwt import require_role
 from src.database.models import User
 from fastapi import Depends
@@ -339,6 +340,15 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, current_use
     + the final response as Server-Sent Events.
     """
     import asyncio
+
+    # F-06: session_id is typed str (not UUID) so the frontend's client-side
+    # generation of it isn't tangled with parsing, but that means a malformed
+    # value used to reach one of several unguarded uuid.UUID(session_id)
+    # casts deep in the gateway layer and surface as an unhandled 500 instead
+    # of a clean validation error. Validate once, at the boundary, before
+    # anything downstream sees it.
+    validate_uuid_field(chat_request.session_id, "session_id")
+
     gateway = await get_gateway()
     user_id = str(current_user.id)
 

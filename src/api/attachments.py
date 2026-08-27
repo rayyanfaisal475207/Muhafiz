@@ -28,6 +28,7 @@ from src.auth.routes import get_current_user, limiter
 from src.auth.rls_context import cross_case_rls_dependency
 from src.database.models import User
 from src.data_gateway import get_gateway
+from src.api.validation import validate_uuid_field
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,8 @@ async def upload_attachment(
     current_user: User = Depends(get_current_user),
 ):
     """Attach a file to one conversation. Returns immediately with its status."""
+    validate_uuid_field(session_id, "session_id")  # F-06
+
     ext = Path(file.filename or "").suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
@@ -172,6 +175,8 @@ async def upload_attachment(
 @router.get("")
 async def list_attachments(session_id: str, current_user: User = Depends(get_current_user)):
     """Attachments on a conversation (metadata only — never the extracted text)."""
+    validate_uuid_field(session_id, "session_id")  # F-06
+
     gateway = await get_gateway()
     session = await gateway.get_session(session_id)
     # Phase 5, Module 5.3: was `session.get("user_id") and ...`, which
@@ -202,6 +207,8 @@ async def list_attachments(session_id: str, current_user: User = Depends(get_cur
 
 @router.delete("/{attachment_id}")
 async def delete_attachment(attachment_id: str, current_user: User = Depends(get_current_user)):
+    validate_uuid_field(attachment_id, "attachment_id")  # F-06
+
     gateway = await get_gateway()
     record = await gateway.get_attachment(attachment_id)
     if not record:
