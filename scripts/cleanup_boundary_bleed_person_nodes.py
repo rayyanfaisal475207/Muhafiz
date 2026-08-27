@@ -19,11 +19,23 @@
 #   قبضے                    "possession/custody" — common noun
 #   تحت فیصل                 "under" + name bleed (کے تحت فیصل ولد ...)
 #   بجے فیصل                 "o'clock" + name bleed (17:10 بجے فیصل ولد ...)
-#   مدعی فیصل                role marker + name bleed (مدعی فیصل ولد ...)
 #   محمد رمضان ساکنہ محلہ      name + "resident of" run-together
 #
+# "مدعی فیصل" (role marker + name bleed, مدعی فیصل ولد ...) was ORIGINALLY
+# on this list and has been REMOVED — a teammate's domain review against
+# the FIR narrative and the Muhafiz API record (HANDOFF_TO_TEAMMATE.md,
+# 2026-08-27) found it is NOT a grammar fragment: "مدعی" means
+# "complainant" and "مدعی فیصل" is a role-prefixed mention of the SAME
+# real complainant as the clean "فیصل" node (CNIC 00000-9000057-1), not
+# noise. Deleting a node matching this string would have deleted a real
+# person's mention, not an artifact — confirmed live no such node
+# currently exists in the graph, so removing it from this list here cost
+# nothing. src/extraction/ner.py's _ROLE_MARKERS trim set already strips
+# "مدعی" from NEW extractions at the source; this list only ever existed
+# to clean up nodes written before that fix landed.
+#
 # Corpus-wide by canonical_name match, not restricted to one case_id —
-# these five strings are not real names anywhere they'd occur, so a
+# these four strings are not real names anywhere they'd occur, so a
 # match elsewhere in the corpus would be the same defect, not a
 # different one.
 #
@@ -61,7 +73,6 @@ _NOISE_STRINGS = [
     "قبضے",
     "تحت فیصل",
     "بجے فیصل",
-    "مدعی فیصل",
     "محمد رمضان ساکنہ محلہ",
 ]
 
