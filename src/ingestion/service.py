@@ -404,25 +404,39 @@ async def _run_graph_extraction(
         # pass — see its own comment below.
         written_pairs: set[frozenset] = set()
         prev_chunk: Optional[dict] = None
-        # [findings.md Module 11] canonical_name -> entity_id for every
-        # PERSON resolved anywhere in THIS document so far (unlike
-        # `resolved_persons` below, deliberately NOT reset per chunk).
-        # entity_resolution.resolve_and_write()'s name-fallback tiers
-        # mint a brand-new node for every mention with no CNIC, by design
-        # (architecture §7.3 — a name match alone must never auto-merge
-        # ACROSS documents/cases). That design is correct for its stated
-        # purpose, but it was also firing for the SAME literal string
-        # repeated many times within one document's own narrative prose —
-        # live-confirmed: one document minted 692 Person nodes for 8
-        # distinct strings (231/138/92/47/46/46/46/46 repeats). An exact-
-        # string repeat within one ingestion run is a categorically safer
-        # case than a cross-document name match — it's the same sentence-
-        # level narrative referring back to a person it already named, not
-        # two independent documents that merely happen to share a name —
-        # so it's collapsed here, at the one point that already knows it's
-        # within a single document, rather than loosening
-        # resolve_and_write()'s own cross-document matching at all.
-        document_resolved_persons: dict[str, str] = {}
+        # [findings.md Module 11] (mention_type, canonical_name) -> entity_id
+        # for every mention resolved anywhere in THIS document so far
+        # (unlike `resolved_persons` below, deliberately NOT reset per
+        # chunk). entity_resolution.resolve_and_write()'s name-fallback
+        # tiers mint a brand-new node for every mention with no exact
+        # identifier, by design (architecture §7.3 — a name match alone
+        # must never auto-merge ACROSS documents/cases). That design is
+        # correct for its stated purpose, but it was also firing for the
+        # SAME literal string repeated many times within one document's
+        # own narrative prose — live-confirmed: one document minted 692
+        # Person nodes for 8 distinct strings (231/138/92/47/46/46/46/46
+        # repeats). An exact-string repeat within one ingestion run is a
+        # categorically safer case than a cross-document name match — it's
+        # the same sentence-level narrative referring back to an entity it
+        # already named, not two independent documents that merely happen
+        # to share a name — so it's collapsed here, at the one point that
+        # already knows it's within a single document, rather than
+        # loosening resolve_and_write()'s own cross-document matching.
+        #
+        # [GRAPH_QUALITY_VISIBILITY_FIX_PROMPT.md follow-up, 2026-08-27]
+        # Originally Person-only. Generalized to every resolvable type
+        # after measuring the SAME failure mode dwarfing the Person one:
+        # "location" has no TYPE_PRIMARY_ID_KEY entry at all (no CNIC-
+        # equivalent — TYPE_PRIMARY_ID_KEY only covers person/vehicle/
+        # phone/officer), so a common place name like "اسلام آباد"
+        # mentioned repeatedly throughout a document minted a fresh
+        # Address node and a fresh pending SAME_AS candidate on EVERY
+        # occurrence — measured live: 2,097 of 2,162 total pending SAME_AS
+        # edges were exactly this, one document alone accounting for 1,679
+        # duplicate "اسلام آباد" nodes. Keyed on (mention_type, text), not
+        # just text, so a Person and an Address that happen to share a
+        # literal string can never collide into the same cache entry.
+        document_resolved_entities: dict[tuple[str, str], str] = {}
         # name -> cnic, for every person mention in THIS document whose
         # CNIC was DIRECTLY found by _attach_chunk_identifiers (never a
         # hoisted/propagated one — see _document_cnic_for_name's own
@@ -470,7 +484,7 @@ async def _run_graph_extraction(
                         # (first observation wins; do not let a later,
                         # possibly OCR-noisier chunk overwrite it).
                         document_person_cnics.setdefault(m["text"], mention_dict["cnic"])
-                    elif m["text"] not in document_resolved_persons:
+                    elif (mention_type, m["text"]) not in document_resolved_entities:
                         # No CNIC on this mention itself — see if this
                         # document already resolved a name-related mention
                         # (e.g. the given name alone, vs. an earlier full
@@ -480,10 +494,12 @@ async def _run_graph_extraction(
                             mention_dict = {**mention_dict, "cnic": hoisted}
                 mention_dict["extraction_confidence"] = m.get("confidence", 1.0)
 
+                entity_cache_key = (mention_type, m["text"])
                 try:
-                    if mention_type == "person" and m["text"] in document_resolved_persons:
-                        # [findings.md Module 11] Exact-string repeat of a
-                        # person already resolved earlier in this same
+                    if mention_type in _RESOLVABLE_MENTION_TYPES and entity_cache_key in document_resolved_entities:
+                        # [findings.md Module 11 / GRAPH_QUALITY_VISIBILITY_
+                        # FIX_PROMPT.md follow-up] Exact-string repeat of an
+                        # entity already resolved earlier in this same
                         # document — reuse that entity_id instead of
                         # minting a fresh node, a fresh BELONGS_TO_CASE
                         # edge, and a fresh (near-certain-to-be-a-
@@ -495,8 +511,9 @@ async def _run_graph_extraction(
                         # node-minting/candidate-search/SAME_AS-proposal
                         # steps are skipped, not provenance for this
                         # specific mention.
-                        entity_id = document_resolved_persons[m["text"]]
-                        if mention_dict.get("cnic"):
+                        entity_id = document_resolved_entities[entity_cache_key]
+                        label = entity_resolution.TYPE_TO_LABEL[mention_type]
+                        if mention_type == "person" and mention_dict.get("cnic"):
                             # [Faisal-in-doc gap] This exact name was
                             # already resolved from an earlier mention
                             # that carried no CNIC (e.g. a bare given-name
@@ -510,19 +527,20 @@ async def _run_graph_extraction(
                             # another duplicate. Idempotent MERGE/SET —
                             # harmless to repeat if already backfilled.
                             await versioning.write_node(
-                                entity_resolution.TYPE_TO_LABEL["person"], {"entity_id": entity_id},
+                                label, {"entity_id": entity_id},
                                 {"cnic": mention_dict["cnic"]},
                                 source_doc_id=doc_id, confidence=mention_dict.get("extraction_confidence", 1.0),
                             )
                         await versioning.write_edge(
                             "APPEARS_IN",
-                            entity_resolution.TYPE_TO_LABEL["person"], {"entity_id": entity_id},
+                            label, {"entity_id": entity_id},
                             "Document", {"doc_id": doc_id},
                             {"surface_text": mention_dict.get("canonical_name", "")},
                             source_doc_id=doc_id, source_chunk_id=chunk_id,
                             confidence=mention_dict.get("extraction_confidence", 1.0),
                         )
-                        resolved_persons[m["text"]] = entity_id
+                        if mention_type == "person":
+                            resolved_persons[m["text"]] = entity_id
                         stats["entities_resolved"] += 1
                     elif mention_type in _RESOLVABLE_MENTION_TYPES:
                         resolution = await entity_resolution.resolve_and_write(
@@ -531,7 +549,7 @@ async def _run_graph_extraction(
                         stats["entities_resolved"] += 1
                         if mention_type == "person":
                             resolved_persons[m["text"]] = resolution["entity_id"]
-                            document_resolved_persons[m["text"]] = resolution["entity_id"]
+                        document_resolved_entities[entity_cache_key] = resolution["entity_id"]
                     else:
                         label = entity_resolution.TYPE_TO_LABEL.get(mention_type, mention_type.capitalize())
                         await _write_unresolved_mention(
