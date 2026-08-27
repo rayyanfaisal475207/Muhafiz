@@ -34,6 +34,17 @@ class FakeGraph:
         self.appears_in: list[tuple] = []
         self.conflicts: list[tuple] = []
         self.assigned_to: list[tuple] = []
+        # [Bug fix, 2026-08-27 route sweep, BUG-3/4] donor_id -> survivor_id,
+        # for scripts/merge_confirmed_duplicate_persons.py's physical merge.
+        # Models the net reader-visible effect of that script's redirect:
+        # the donor's OWN BELONGS_TO_CASE edge is marked superseded (the
+        # survivor holds the new, active one instead), so every
+        # BELONGS_TO_CASE-based lookup below must treat a merged donor as
+        # if it no longer belongs to any case at all — real Cypher does
+        # this via `n.merged_into IS NULL AND b.superseded_by IS NULL`;
+        # this fake reproduces the same outcome directly since it doesn't
+        # evaluate WHERE clauses, only dispatches on cypher_query shape.
+        self.merged_into: dict[str, str] = {}
 
     def add_node(self, entity_id, label, **props):
         self.nodes[entity_id] = {"id": entity_id, "label": label, "properties": {"entity_id": entity_id, **props}}
@@ -41,8 +52,17 @@ class FakeGraph:
     def add_case(self, entity_id, case_id):
         self.belongs_to_case.setdefault(entity_id, set()).add(case_id)
 
-    def add_associated(self, a, b, confidence=1.0, superseded_by=None):
-        self.associated_with.append((a, b, {"confidence": confidence, "superseded_by": superseded_by}))
+    def add_merge(self, donor_id: str, survivor_id: str) -> None:
+        """Mark `donor_id` as physically merged into `survivor_id` —
+        see `self.merged_into`'s own docstring above for what this models."""
+        self.merged_into[donor_id] = survivor_id
+        self.nodes[donor_id]["properties"]["merged_into"] = survivor_id
+
+    def add_associated(self, a, b, confidence=1.0, superseded_by=None, source_doc_id=None, basis=None):
+        self.associated_with.append((a, b, {
+            "confidence": confidence, "superseded_by": superseded_by,
+            "source_doc_id": source_doc_id, "basis": basis,
+        }))
 
     def add_same_as(self, a, b, status="pending", tier="flagged_unverified", confidence=0.5, superseded_by=None, basis="matched on near-identical name"):
         self.same_as.append((a, b, {
@@ -179,6 +199,11 @@ class FakeGraph:
                 if case_id in self.belongs_to_case.get(b, set())
             ]
 
+        # [Bug fix, 2026-08-27 route sweep, BUG-3/4] every branch below
+        # excludes `eid in self.merged_into` — see self.merged_into's own
+        # docstring for why. Mirrors the real code's `n.merged_into IS
+        # NULL AND b.superseded_by IS NULL` filter (graph_retriever.py).
+
         if "BELONGS_TO_CASE" in cypher_query and "case_ids" in params and "RETURN n, c" not in cypher_query:
             # Milestone E1: jurisdiction-narrowed cross-case seed lookup
             # (_find_seed_nodes's cross_case branch, jurisdiction_case_ids
@@ -190,6 +215,7 @@ class FakeGraph:
             return [
                 {"n": node} for eid, node in self.nodes.items()
                 if node["label"] == label
+                and eid not in self.merged_into
                 and self._matches_candidate(node, cand)
                 and self.belongs_to_case.get(eid, set()) & allowed
             ]
@@ -197,7 +223,10 @@ class FakeGraph:
         if "BELONGS_TO_CASE" in cypher_query and "entity_id IN $ids" in cypher_query:
             ids = set(params.get("ids", []))
             case_id = params.get("case_id")
-            return [{"n": self.nodes[eid]} for eid in ids if case_id in self.belongs_to_case.get(eid, set())]
+            return [
+                {"n": self.nodes[eid]} for eid in ids
+                if eid not in self.merged_into and case_id in self.belongs_to_case.get(eid, set())
+            ]
 
         if "BELONGS_TO_CASE" in cypher_query and "RETURN n, c" in cypher_query:
             # Cross-case recurrence lookup (_find_recurring_entities_for_query) —
@@ -206,18 +235,25 @@ class FakeGraph:
             return [
                 {"n": node, "c": {"properties": {"case_id": cid}}}
                 for eid, node in self.nodes.items()
-                if node["label"] == label
+                if node["label"] == label and eid not in self.merged_into
                 for cid in self.belongs_to_case.get(eid, set())
             ]
 
-        if "BELONGS_TO_CASE" in cypher_query and "MATCH (n:" in cypher_query and "WHERE" not in cypher_query:
+        if "BELONGS_TO_CASE" in cypher_query and "MATCH (n:" in cypher_query and "cand" not in params:
             # Case-wide enumeration seed lookup (_find_all_case_entities) —
-            # no candidate string, just "every node of this label in this case".
+            # no candidate string, just "every node of this label in this
+            # case". Discriminated on the ABSENCE of a `cand` param
+            # (rather than "no WHERE clause", which stopped being true
+            # once the merged_into/superseded_by filter above added one) —
+            # this is the one BELONGS_TO_CASE call site that never binds
+            # `$cand` at all.
             label = cypher_query.split("MATCH (n:")[1].split(")")[0]
             case_id = params.get("case_id")
             return [
                 {"n": node} for eid, node in self.nodes.items()
-                if node["label"] == label and case_id in self.belongs_to_case.get(eid, set())
+                if node["label"] == label
+                and eid not in self.merged_into
+                and case_id in self.belongs_to_case.get(eid, set())
             ]
 
         if "BELONGS_TO_CASE" in cypher_query:
@@ -228,17 +264,19 @@ class FakeGraph:
             return [
                 {"n": node} for eid, node in self.nodes.items()
                 if node["label"] == label
+                and eid not in self.merged_into
                 and case_id in self.belongs_to_case.get(eid, set())
                 and self._matches_candidate(node, cand)
             ]
 
         if "toLower(n." in cypher_query:
-            # Cross-case seed lookup — deliberately unscoped.
+            # Cross-case seed lookup — deliberately unscoped (case-wise;
+            # still excludes a merged donor, per the note above).
             label = cypher_query.split("MATCH (n:")[1].split(")")[0]
             cand = str(params.get("cand", "")).lower()
             return [
                 {"n": node} for eid, node in self.nodes.items()
-                if node["label"] == label and self._matches_candidate(node, cand)
+                if node["label"] == label and eid not in self.merged_into and self._matches_candidate(node, cand)
             ]
 
         return []
@@ -283,6 +321,74 @@ async def test_within_case_seed_lookup_finds_person_by_name(fake_graph, fake_chu
     assert len(result["chunks"]) == 1
     assert result["chunks"][0]["id"] == "c1"
     assert result["hop_count"] == 0
+
+
+async def test_within_case_seed_lookup_excludes_a_merged_donor_node(fake_graph, fake_chunks):
+    """
+    [Bug fix, 2026-08-27 route sweep, BUG-3/4] scripts/merge_confirmed_
+    duplicate_persons.py physically merges confirmed-duplicate Person
+    nodes but never deletes the donor — it stays in the graph, tagged
+    merged_into, with its BELONGS_TO_CASE edge superseded by a new one on
+    the survivor. Seed lookup must resolve to ONLY the survivor: a donor
+    matching by name must not come back as a second, independent seed
+    (this was live-confirmed on the real graph — a single canonical name
+    with 141 already-merged donors returned 146 seed candidates instead
+    of 1, diluting the real traversal enough that a genuine
+    ASSOCIATED_WITH relationship never made it into the final evidence).
+    """
+    fake_graph.add_node("PERSON-donor", "Person", canonical_name="Kashif", cnic="00000-9000058-1")
+    fake_graph.add_node("PERSON-survivor", "Person", canonical_name="Kashif", cnic="00000-9000058-1")
+    fake_graph.add_case("PERSON-donor", "fir-1001-26")
+    fake_graph.add_case("PERSON-survivor", "fir-1001-26")
+    fake_graph.add_merge("PERSON-donor", "PERSON-survivor")
+    fake_chunks["c1"] = {"id": "c1", "text": "Kashif named as accused.", "metadata": {"case_id": "fir-1001-26"}}
+    fake_graph.add_appears_in("PERSON-survivor", "c1", confidence=1.0)
+
+    result = await gr.retrieve_graph("Is Kashif known to associate with anyone else?", "Kashif", "fir-1001-26")
+
+    seeded_ids = {e["entity_id"] for e in result["seed_entities"]}
+    assert seeded_ids == {"PERSON-survivor"}, "the merged donor must never come back as a seed"
+
+
+async def test_case_wide_enumeration_excludes_a_merged_donor_node(fake_graph, fake_chunks):
+    """Same donor exclusion for the case-wide enumeration fallback (no named entity)."""
+    fake_graph.add_node("PERSON-donor", "Person", canonical_name="Kashif")
+    fake_graph.add_node("PERSON-survivor", "Person", canonical_name="Kashif")
+    fake_graph.add_case("PERSON-donor", "fir-1001-26")
+    fake_graph.add_case("PERSON-survivor", "fir-1001-26")
+    fake_graph.add_merge("PERSON-donor", "PERSON-survivor")
+
+    result = await gr.retrieve_graph(
+        "How many accused are involved in this case?", target_entity=None, case_id="fir-1001-26",
+    )
+
+    seeded_ids = {e["entity_id"] for e in result["seed_entities"]}
+    assert seeded_ids == {"PERSON-survivor"}
+
+
+async def test_cross_case_recurrence_does_not_double_count_a_merged_donor(fake_graph, fake_chunks):
+    """
+    A merged donor's leftover (superseded) case membership must not make a
+    single real person look like they recur across cases when they don't,
+    nor should it be silently miscounted the other way — the donor simply
+    should not contribute at all; only the survivor's own (consolidated)
+    case memberships count toward recurrence.
+    """
+    fake_graph.add_node("PH-donor", "PhoneNumber", number="0372-1590538")
+    fake_graph.add_node("PH-survivor", "PhoneNumber", number="0372-1590538")
+    fake_graph.add_case("PH-donor", "CASE-004")
+    fake_graph.add_case("PH-survivor", "CASE-004")
+    fake_graph.add_case("PH-survivor", "CASE-005")
+    fake_graph.add_merge("PH-donor", "PH-survivor")
+
+    result = await gr.retrieve_graph(
+        "Has any phone number been used across multiple cases?",
+        target_entity=None, case_id=None, cross_case=True, user_role="supervisor",
+    )
+
+    seeded_ids = {e["entity_id"] for e in result["seed_entities"]}
+    assert "PH-donor" not in seeded_ids
+    assert seeded_ids == {"PH-survivor"}
 
 
 async def test_within_case_query_without_case_id_fails_closed(fake_graph, fake_chunks):
@@ -631,6 +737,64 @@ async def test_associated_with_hop_reaches_a_second_entity_within_case(fake_grap
     assert result["hop_count"] == 1
     assert result["chunks"][0]["via_entity"] == "Accused Person"
     assert result["chunks"][0]["graph_confidence"] == pytest.approx(0.9)
+
+
+async def test_associated_with_hop_generates_an_explicit_relationship_chunk(fake_graph, fake_chunks):
+    """
+    [Bug fix, 2026-08-27 route sweep, BUG-4] Before this fix, a real
+    one-hop ASSOCIATED_WITH connection produced chunks about EACH entity
+    separately ("X appears in record...", "Y appears in record...") but
+    never a sentence stating they're connected — live-confirmed to make
+    the evaluator correctly (!) judge the evidence insufficient to answer
+    "is X associated with anyone?", because nothing in the retrieved text
+    actually said so. This asserts the missing sentence now exists.
+    """
+    fake_graph.add_node("P-010", "Person", canonical_name="Kashif")
+    fake_graph.add_node("P-011", "Person", canonical_name="Faisal")
+    fake_graph.add_case("P-010", "fir-1001-26")
+    fake_graph.add_case("P-011", "fir-1001-26")
+    fake_graph.add_associated(
+        "P-010", "P-011", confidence=0.85,
+        source_doc_id="psrms/fir/fir-1001-26#structured",
+        basis="co-mentioned in case fir-1001-26's incident",
+    )
+    fake_chunks["c2"] = {"id": "c2", "text": "Faisal named in the case diary.", "metadata": {"case_id": "fir-1001-26"}}
+    fake_graph.add_appears_in("P-011", "c2", confidence=1.0)
+
+    result = await gr.retrieve_graph("Is Kashif known to associate with anyone else?", "Kashif", "fir-1001-26")
+
+    rel_chunks = [c for c in result["chunks"] if c["metadata"].get("doc_type") == "graph_relationship"]
+    assert len(rel_chunks) == 1
+    assert rel_chunks[0]["text"] == (
+        "Kashif is associated with Faisal (co-mentioned in case fir-1001-26's incident)."
+    )
+    assert rel_chunks[0]["graph_confidence"] == pytest.approx(0.85)
+    assert rel_chunks[0]["metadata"]["case_id"] == "fir-1001-26"
+
+
+async def test_reversed_hop_does_not_duplicate_the_relationship_chunk(fake_graph, fake_chunks):
+    """A later hop walking the SAME edge backward (once the far side is
+    itself in the frontier) must not re-emit the identical fact as a
+    second, reverse-worded chunk."""
+    fake_graph.add_node("P-020", "Person", canonical_name="A")
+    fake_graph.add_node("P-021", "Person", canonical_name="B")
+    fake_graph.add_node("P-022", "Person", canonical_name="C")
+    for eid in ("P-020", "P-021", "P-022"):
+        fake_graph.add_case(eid, "CASE-100")
+    fake_graph.add_associated("P-020", "P-021", source_doc_id="doc1", basis="co-mentioned")
+    fake_graph.add_associated("P-021", "P-022", source_doc_id="doc2", basis="co-mentioned")
+    fake_chunks["c3"] = {"id": "c3", "text": "C named.", "metadata": {"case_id": "CASE-100"}}
+    fake_graph.add_appears_in("P-022", "c3", confidence=1.0)
+
+    result = await gr.retrieve_graph("Who is A connected to?", "A", "CASE-100", max_hops=3)
+
+    rel_chunks = [c for c in result["chunks"] if c["metadata"].get("doc_type") == "graph_relationship"]
+    # Exactly one chunk per real edge (A<->B, B<->C) — never A<->B AND its
+    # reverse B<->A both appearing once B itself becomes part of frontier.
+    assert len(rel_chunks) == 2
+    assert {c["id"] for c in rel_chunks} == {
+        "synthetic-rel:A:B:doc1", "synthetic-rel:B:C:doc2",
+    }
 
 
 async def test_traversal_never_crosses_into_another_case(fake_graph, fake_chunks):

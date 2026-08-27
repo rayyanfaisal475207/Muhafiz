@@ -32,9 +32,9 @@ rather than quietly dropped — see [§2](#2-corrections-to-the-original-report)
 | — | XGRAPH "false negative" for کاشف | Critical (claimed) | **Retracted** — system was correct, my test was invalid (§2) |
 | BUG-1 | Stale/foreign `case_id` → FK violation → HTTP 500 | Critical | **Fixed** on `fix/case-validation-and-router-crash` — verified live: 404, no stack trace |
 | BUG-2 | `route_result` UnboundLocalError swallows the whole turn | High | **Fixed** on `fix/case-validation-and-router-crash` — verified live: stream completes, real answer delivered |
-| BUG-3 | Orphaned Vehicle/Officer nodes → GRAPH "no seed entity matched" | High | Open |
-| BUG-4 | Evaluator rejects valid graph evidence → falls back to RAG, then fails | Medium-High | Open |
-| BUG-5 | Router system prompt + budget exceeds Groq 8000 TPM cap | Medium | Open |
+| BUG-3 | Orphaned Vehicle/Officer nodes → GRAPH "no seed entity matched" | High | **Fixed** on `fix/backfill-orphaned-graph-case-edges` — 893 edges backfilled, live-verified |
+| BUG-4 | Evaluator rejects valid graph evidence → falls back to RAG, then fails | Medium-High | **Retracted + fixed**, same branch — see §6.1: the real cause was a merge-unaware seed lookup + missing relationship chunks, not the evaluator |
+| BUG-5 | Router system prompt + budget exceeds Groq 8000 TPM cap | Medium | Open — lower priority, BUG-2 already downgrades it to non-fatal |
 | BUG-6 | `RUN.md` / fixture CSVs describe a dataset not in this DB | Low | Open |
 | — | No global/citizen-service docs in KB | — | **Out of scope** (owner: not a bug) |
 | — | XAGG can't filter free-text `investigation_status` | — | **Out of scope** (working as designed, §9) |
@@ -342,6 +342,34 @@ duplication class `ea2ae93` fixed for Person; **do not** merge Officers as part
 of this bug — file it separately once the orphan edges are restored, so the two
 changes stay independently reviewable and revertible.
 
+### 5.1 RESOLVED — diagnostic result and outcome
+
+The diagnostic in this section was run exactly as specified before writing any
+fix. Result: **(b) — a fresh ingest links correctly.** Re-ran `project_fir()`
+against `evidence_graph_eval` (a physically separate scratch graph, migration
+011 — never touches production) using the real `fir-1001-26` record pulled
+live from the Muhafiz API. The Officer node linked to its case correctly,
+confirming `entity_resolution.resolve_and_write()`'s write path is **not**
+broken. This is **backfill-only**, code-path-2 in this section's own
+candidate list — not candidate 1 (swallowed exception).
+
+One correction to this section's own framing: of the 2 orphaned Vehicle nodes,
+only 1 (`ICT-LE-309`, FIR-sourced) is a genuine historical orphan. The other
+(`FSD-19-8842`) is **not a bug at all** — it comes from a PKM
+vehicle-verification application, and `cross_silo_projection.py::
+_write_pkm_vehicle()`'s own docstring states these are deliberately never
+case-scoped ("never resolves to a case — case_id is always None"). The
+backfill script hard-skips any PKM-sourced node for exactly this reason.
+
+Shipped: `scripts/backfill_missing_belongs_to_case.py`, run with `--dry-run`
+then `--apply --admin-email admin@example.com` after a `pg_dump` backup
+(`data/backups/`, gitignored). Result: **893/893 edges written, 0 failed**
+(892 Officer + 1 Vehicle), 1 correctly skipped. Verified live —
+`Officer`/`Person`/`Weapon` now 0 orphans each; `Vehicle` 1/2 linked (the PKM
+one correctly still unlinked). No `src/` code was touched for this part; the
+"stop swallowing" hardening this section recommended was evaluated and
+**not** needed since the write path itself was already confirmed correct.
+
 ---
 
 ## 6. BUG-4 — evaluator rejects valid graph evidence (Medium-High)
@@ -414,6 +442,66 @@ Q31 and Q28 (which already pass) must not regress.
 Medium. Loosening a relevance gate can let weak evidence through — pair any
 change with the existing `verify_grounding()` check, which stays as the
 backstop, and re-run the full 50-question sweep before/after.
+
+### 6.1 RETRACTED AND RESOLVED — the evaluator was right, the seed lookup was wrong
+
+The "hypothesis, needs confirmation" diagnostic above was run. The evaluator
+was **never** the problem — this section's own root-cause guess was wrong,
+and the real cause turned out to be upstream, in seed resolution, not the
+relevance judgement.
+
+**What the diagnostic actually found.** Calling `retrieve_graph()` directly
+for Q24 (post-BUG-3-backfill, so on a graph where `fir-1001-26` genuinely has
+only 2 clean Person nodes) showed `seed_entities` returning **146 matches**,
+not 2 — every one of the 141 already-`merged_into` donor nodes
+`ea2ae93`'s physical-merge script tagged (but never deletes) came back as an
+independent seed candidate, because `_find_seed_nodes()` (and three sibling
+functions: `_find_all_case_entities`, `_find_recurring_entities_for_query`,
+`_filter_to_case`) matched `BELONGS_TO_CASE` with no `merged_into IS NULL` /
+`superseded_by IS NULL` filter — the exact filter this same file already
+applies to SAME_AS/APPEARS_IN/ASSIGNED_TO edges elsewhere, just never
+extended to these four call sites (they predate the merge script, which is
+brand new). This diluted the traversal enough that a real
+`ASSOCIATED_WITH` edge (`کاشف`↔`فیصل`, confirmed present on the survivor
+node) never made it into the final evidence.
+
+**Second, independent gap found while fixing the first.** Even after
+collapsing the seed set to the correct single survivor, the returned chunks
+were STILL two separate "X appears in record..." facts with no sentence
+stating the two are connected — because `retrieve_graph()`'s final chunk
+list is built entirely from `_fetch_appears_in()` (per-entity document
+mentions); the `ASSOCIATED_WITH` hop itself, despite correctly growing the
+traversal frontier (`hop_count: 1`, confirmed), was never turned into its
+own citable evidence chunk anywhere. The evaluator correctly judged two
+unconnected-looking facts insufficient to confirm an association — it was
+never misjudging good evidence, it was being handed incomplete evidence.
+
+**Fix, both parts on `fix/backfill-orphaned-graph-case-edges`:**
+1. Added `n.merged_into IS NULL` / `b.superseded_by IS NULL` to all four
+   affected `graph_retriever.py` query sites.
+2. Added `_synthetic_relationship_chunk()` (mirrors `_synthetic_evidence_chunk`'s
+   existing deterministic-template discipline) and wired it into the hop
+   loop: one explicit "X is associated with Y (co-mentioned in case ...'s
+   incident)" chunk per `ASSOCIATED_WITH` edge actually crossed, deduped
+   against reverse-direction re-traversal on a later hop.
+
+**Verified live:** `retrieve_graph()` for Q24 now returns exactly 1 seed
+entity (was 146) and a `[RELATIONSHIP]`-tagged chunk reading *"کاشف is
+associated with فیصل (co-mentioned in case fir-1001-26's incident)."* Q24
+run through the full chat pipeline end to end now returns a real, grounded
+answer instead of "couldn't find sufficient information." 6 new regression
+tests added to `tests/test_graph_retriever.py` (merge-donor exclusion ×3,
+explicit relationship chunk, reverse-hop dedup); full suite green.
+
+Q26/Q29/Q30/Q33 were re-tested live on the same fixed code and are a mix:
+some now succeed via the same fallback-to-RAG path that already existed
+(pre-existing retry variance, not this fix), others still correctly report
+no connected evidence for entities that genuinely have none. Q27
+(`ICT-LE-309`) still correctly reports no connected evidence — **not a
+regression**: vehicles never receive `ASSOCIATED_WITH` edges at all
+(`_write_associated_with`'s own roster is Person-only), so there is
+nothing to report there; that specific "no timeline" answer is honest, not
+broken.
 
 ---
 

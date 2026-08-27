@@ -302,6 +302,28 @@ async def _find_seed_nodes(
     runs, per E1's own "cut the candidate set up front" goal. `None` (the
     default, and always the case for the within-case branch) leaves the
     query exactly as before this milestone.
+
+    [Bug fix, 2026-08-27 route sweep, BUG-3/4] Every branch below now
+    excludes a merged donor node (`n.merged_into IS NULL`) and, where a
+    BELONGS_TO_CASE edge is matched, a superseded one
+    (`b.superseded_by IS NULL`) — the same filter this file already
+    applies to SAME_AS/APPEARS_IN/ASSIGNED_TO matches elsewhere (see
+    _expand_confirmed_identity, _fetch_appears_in, _fetch_officer_roles),
+    just never extended to seed lookup. Confirmed live, on the exact
+    component scripts/merge_confirmed_duplicate_persons.py physically
+    merged: without this filter, one case's seed lookup for a single
+    canonical name returned 146 matches (141 already-merged donor nodes
+    plus superseded edges) instead of the 1 real survivor, diluting the
+    seed set enough that the traversal's real ASSOCIATED_WITH relationship
+    never made it into the final synthetic evidence — the evaluator was
+    correctly rejecting what it was handed, not misjudging good evidence.
+    A merge landing here (this file) as a genuine no-op for every OTHER
+    consumer already routes through build_canonical_map()
+    (community_detection.py) — this module's own docstring's "confirmed
+    SAME_AS identity" rule already covers this data at the SEMANTIC level;
+    this fix is the physical-merge counterpart of that same rule so a
+    node the merge already resolved doesn't get treated as a live,
+    independent seed candidate again.
     """
     if not candidates:
         return []
@@ -316,8 +338,9 @@ async def _find_seed_nodes(
                 if cross_case:
                     if jurisdiction_case_ids is not None:
                         cypher = f"""
-                            MATCH (n:{label})-[:BELONGS_TO_CASE]->(c:Case)
+                            MATCH (n:{label})-[b:BELONGS_TO_CASE]->(c:Case)
                             WHERE ({where_clause}) AND c.case_id IN $case_ids
+                              AND n.merged_into IS NULL AND b.superseded_by IS NULL
                             RETURN n
                         """
                         rows = await age_client.execute_cypher(
@@ -326,7 +349,7 @@ async def _find_seed_nodes(
                     else:
                         cypher = f"""
                             MATCH (n:{label})
-                            WHERE {where_clause}
+                            WHERE ({where_clause}) AND n.merged_into IS NULL
                             RETURN n
                         """
                         rows = await age_client.execute_cypher(cypher, params={"cand": cand}, columns=["n"])
@@ -334,8 +357,8 @@ async def _find_seed_nodes(
                     # Case-scoped: routed through case_scope.scoped_cypher()
                     # so a future edit can't silently drop the case filter.
                     cypher = f"""
-                        MATCH (n:{label})-[:BELONGS_TO_CASE]->(c:Case {{case_id: $case_id}})
-                        WHERE {where_clause}
+                        MATCH (n:{label})-[b:BELONGS_TO_CASE]->(c:Case {{case_id: $case_id}})
+                        WHERE ({where_clause}) AND n.merged_into IS NULL AND b.superseded_by IS NULL
                         RETURN n
                     """
                     rows = await scoped_cypher(cypher, case_id, params={"cand": cand}, columns=["n"])
@@ -372,13 +395,19 @@ async def _find_all_case_entities(case_id: str) -> list[dict]:
     CASE-009", "who are the witnesses in FIR-2026-ARMS-001"). Bounded to
     one case's own (small) entity set via BELONGS_TO_CASE, same scoping
     guarantee as the literal-match branch in `_find_seed_nodes`.
+
+    [Bug fix, 2026-08-27 route sweep, BUG-3/4] Same donor/superseded
+    exclusion as `_find_seed_nodes` — see that function's own docstring
+    for why. A case-wide enumeration is exactly as vulnerable to a merge's
+    donor nodes inflating the seed set as a named-entity lookup is.
     """
     seeds: list[dict] = []
     seen_ids: set[str] = set()
     for label in _SEED_LABELS:
         try:
             rows = await scoped_cypher(
-                f"MATCH (n:{label})-[:BELONGS_TO_CASE]->(c:Case {{case_id: $case_id}}) RETURN n",
+                f"MATCH (n:{label})-[b:BELONGS_TO_CASE]->(c:Case {{case_id: $case_id}}) "
+                f"WHERE n.merged_into IS NULL AND b.superseded_by IS NULL RETURN n",
                 case_id,
                 columns=["n"],
             )
@@ -443,12 +472,16 @@ async def _find_recurring_entities_for_query(
         try:
             if jurisdiction_case_ids is not None:
                 rows = await age_client.execute_cypher(
-                    f"MATCH (n:{label})-[:BELONGS_TO_CASE]->(c:Case) WHERE c.case_id IN $case_ids RETURN n, c",
+                    f"MATCH (n:{label})-[b:BELONGS_TO_CASE]->(c:Case) "
+                    f"WHERE c.case_id IN $case_ids AND n.merged_into IS NULL AND b.superseded_by IS NULL "
+                    f"RETURN n, c",
                     params={"case_ids": jurisdiction_case_ids}, columns=["n", "c"],
                 )
             else:
                 rows = await age_client.execute_cypher(
-                    f"MATCH (n:{label})-[:BELONGS_TO_CASE]->(c:Case) RETURN n, c",
+                    f"MATCH (n:{label})-[b:BELONGS_TO_CASE]->(c:Case) "
+                    f"WHERE n.merged_into IS NULL AND b.superseded_by IS NULL "
+                    f"RETURN n, c",
                     columns=["n", "c"],
                 )
         except Exception as exc:
@@ -671,12 +704,22 @@ async def _one_hop_neighbors(entity_ids: set[str]) -> list[dict]:
 
 
 async def _filter_to_case(entity_ids: set[str], case_id: str) -> set[str]:
-    """Keep only entities that BELONG_TO_CASE `case_id` — prevents a within-case traversal wandering into another case at any hop."""
+    """
+    Keep only entities that BELONG_TO_CASE `case_id` — prevents a
+    within-case traversal wandering into another case at any hop.
+
+    [Bug fix, 2026-08-27 route sweep, BUG-3/4] Same donor/superseded
+    exclusion as `_find_seed_nodes` — defense in depth: a merged donor
+    node reached mid-traversal (its own entity_id still resolvable, just
+    never meant to act as a live node again) must not re-enter the
+    frontier here either, even though the fix at the seed-lookup sites
+    should already keep one from ever being a starting point.
+    """
     if not entity_ids:
         return set()
     rows = await scoped_cypher(
-        "MATCH (n)-[:BELONGS_TO_CASE]->(c:Case {case_id: $case_id}) "
-        "WHERE n.entity_id IN $ids "
+        "MATCH (n)-[b:BELONGS_TO_CASE]->(c:Case {case_id: $case_id}) "
+        "WHERE n.entity_id IN $ids AND n.merged_into IS NULL AND b.superseded_by IS NULL "
         "RETURN n",
         case_id,
         params={"ids": list(entity_ids)},
@@ -1031,6 +1074,67 @@ def _synthetic_evidence_chunk(row: dict, matched_property: Optional[dict] = None
         "id": f"synthetic:{entity_id}:{source_doc_id}",
         "text": f"{surface_text}{match_clause} appears in {doc_type} record {filename} ({source_doc_id}){notable_clause}{role_clause}.",
         "metadata": metadata,
+    }
+
+
+def _synthetic_relationship_chunk(
+    from_name: str, to_name: str, edge_props: dict, case_id: Optional[str], hop: int, chain_confidence: float,
+) -> Optional[dict]:
+    """
+    [Bug fix, 2026-08-27 route sweep, BUG-4] Build an explicit "X is
+    associated with Y" evidence chunk for an ASSOCIATED_WITH hop actually
+    crossed during traversal — same deterministic-template discipline as
+    `_synthetic_evidence_chunk` (never an LLM call, never fabricated,
+    every field sourced from this same edge's own properties).
+
+    ROOT CAUSE THIS CLOSES: `retrieve_graph()`'s hop-expansion loop always
+    correctly walked ASSOCIATED_WITH edges to grow the traversal frontier
+    (hop_of/via_entity/path_confidence all track it) — but the final
+    evidence chunk list was built entirely from `_fetch_appears_in()`,
+    i.e. per-entity "X appears in document Y" facts. The relationship
+    itself — the actual reason two entities are connected — was never
+    turned into a citable sentence anywhere. Live-confirmed: a query like
+    "Is X known to associate with anyone else in this case?" reached
+    hop_count=1 (Y genuinely was found one hop out) and returned real
+    evidence about X and real evidence about Y as two SEPARATE "appears
+    in record" facts, with nothing anywhere stating they are connected —
+    the evaluator correctly judged that insufficient to confirm an
+    association, because nothing in the text said so. Exactly the "the
+    graph knows this but the cited text doesn't say so" failure class
+    _synthetic_evidence_chunk's own docstring already documents fixing
+    for node properties/officer roles; this is the same fix for the
+    relationship edge itself, the one thing this function's docstring
+    admits was still missing.
+
+    `edge_props["basis"]` is the edge's own honestly-worded provenance
+    (structured_projection.py's _write_associated_with(): "co-mentioned
+    in case <id>'s incident" — a structural fact, not a stated
+    relationship, which is exactly why that write site also caps
+    confidence at 0.5 rather than 1.0). Falls back to a bare "associated
+    with" statement if a future writer ever omits `basis` — still true,
+    just less specific, never fabricated beyond what the edge itself
+    asserts.
+
+    Returns None only when the edge carries no `source_doc_id` at all
+    (mirrors `_synthetic_evidence_chunk`'s own "genuinely nothing to
+    cite" fallback) — real ASSOCIATED_WITH edges always carry one.
+    """
+    source_doc_id = edge_props.get("source_doc_id")
+    if not source_doc_id:
+        return None
+    basis = edge_props.get("basis")
+    relation_clause = f" ({basis})" if basis else ""
+    metadata = {"source": source_doc_id, "doc_type": "graph_relationship", "synthetic_evidence": True}
+    if case_id:
+        metadata["case_id"] = case_id
+    return {
+        "id": f"synthetic-rel:{from_name}:{to_name}:{source_doc_id}",
+        "text": f"{from_name} is associated with {to_name}{relation_clause}.",
+        "metadata": metadata,
+        "rrf_score": chain_confidence,
+        "hop": hop,
+        "graph_confidence": chain_confidence,
+        "via_entity": from_name,
     }
 
 
@@ -1606,6 +1710,16 @@ async def retrieve_graph(
     pending_identity_basis: dict[str, str] = {}
     pending_hedge_enabled = cross_case and config.FEATURE_HEDGED_PENDING_TRAVERSAL
 
+    # [Bug fix, 2026-08-27 route sweep, BUG-4] one explicit "X is
+    # associated with Y" chunk per ASSOCIATED_WITH edge actually crossed
+    # — see _synthetic_relationship_chunk()'s own docstring for why this
+    # exists at all (the relationship itself was never citable evidence
+    # before this fix, only the two entities' separate document-mention
+    # facts were). Keyed on the chunk's own id so the two directions
+    # `_one_hop_neighbors()` returns for one real edge collapse to a
+    # single chunk, not a duplicate.
+    relationship_chunks: dict[str, dict] = {}
+
     for hop in range(1, max_hops + 1):
         if not frontier:
             break
@@ -1678,14 +1792,33 @@ async def retrieve_graph(
         next_frontier: set[str] = set()
         for row in neighbor_rows:
             a_id, b_id = _entity_id_of(row.get("a")), _entity_id_of(row.get("b"))
-            edge_conf = float((row.get("r", {}).get("properties", {}) or {}).get("confidence", 1.0))
+            edge_props = row.get("r", {}).get("properties", {}) or {}
+            edge_conf = float(edge_props.get("confidence", 1.0))
             for from_id, to_id, to_node in ((a_id, b_id, row.get("b")), (b_id, a_id, row.get("a"))):
                 if not from_id or not to_id or from_id not in frontier or to_id in visited:
                     continue
+                chain_confidence = path_confidence.get(from_id, 1.0) * edge_conf
+                # [Bug fix, 2026-08-27 route sweep, BUG-4] Record the
+                # relationship itself, right alongside first-discovering
+                # `to_id` — gated on the SAME `to_id not in visited` check
+                # as the frontier growth just above, deliberately: it both
+                # (a) fixes the bug (no relationship chunk existed at all
+                # for a hop that plainly happened) and (b) stays a
+                # first-discovery-only event, so a later hop walking the
+                # SAME edge backward (to_id's own neighbor lookup finding
+                # from_id again once to_id is itself in frontier) doesn't
+                # re-emit the identical fact as a second, reverse-worded
+                # duplicate chunk.
+                rel_chunk = _synthetic_relationship_chunk(
+                    display_name.get(from_id, from_id), _display_name(to_node),
+                    edge_props, case_id, hop, chain_confidence,
+                )
+                if rel_chunk is not None:
+                    relationship_chunks.setdefault(rel_chunk["id"], rel_chunk)
                 next_frontier.add(to_id)
                 display_name[to_id] = _display_name(to_node)
                 via_entity[to_id] = via_entity.get(from_id, from_id)
-                path_confidence[to_id] = path_confidence.get(from_id, 1.0) * edge_conf
+                path_confidence[to_id] = chain_confidence
                 hop_of[to_id] = hop
                 # D2: a hop OUT of an entity only reachable via a pending
                 # identity link is itself downstream of that same
@@ -1814,6 +1947,18 @@ async def retrieve_graph(
             else:
                 chunks.append(cc)
                 weakest_confidence = min(weakest_confidence, cc["graph_confidence"])
+
+    # [Bug fix, 2026-08-27 route sweep, BUG-4] append the explicit
+    # relationship chunks collected during the hop loop above — see
+    # _synthetic_relationship_chunk()'s own docstring. Appended after the
+    # per-entity APPEARS_IN chunks (not interleaved) so an entity's own
+    # facts are cited first and the "here's how they connect" statement
+    # reads as the synthesis of those, matching how a human summary would
+    # order it.
+    for rel_chunk in relationship_chunks.values():
+        chunks.append(rel_chunk)
+        max_hop_returned = max(max_hop_returned, rel_chunk["hop"])
+        weakest_confidence = min(weakest_confidence, rel_chunk["graph_confidence"])
 
     return {
         "chunks": chunks,
