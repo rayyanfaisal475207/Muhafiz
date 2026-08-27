@@ -40,6 +40,7 @@ from pydantic import Field
 
 from src import config
 from src.llm.client import call_gemini_with_search
+from src.pipeline.url_safety import is_domain_allowed
 from src.pipeline.harness.types import (
     ChunkMetadata,
     EvidenceChunk,
@@ -82,8 +83,12 @@ def _filter_allowed_domains(sources: list[dict]) -> list[dict]:
     Tavily's include_domains), so its grounding sources are filtered
     post-hoc against the same `config.WEB_ALLOWED_DOMAINS` allowlist
     Tavily is restricted to at request time.
+
+    Matches on the parsed hostname (exact or dot-boundary subdomain), not a
+    raw substring test — audit finding F-04, fixed identically here since
+    this is a verbatim port of the same function.
     """
-    return [s for s in sources if any(domain in s.get("url", "") for domain in config.WEB_ALLOWED_DOMAINS)]
+    return [s for s in sources if is_domain_allowed(s.get("url", ""), config.WEB_ALLOWED_DOMAINS)]
 
 
 def _tavily_chunks(web_results: list[dict]) -> list[EvidenceChunk]:

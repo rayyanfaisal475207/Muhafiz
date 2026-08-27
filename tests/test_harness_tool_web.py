@@ -146,7 +146,33 @@ async def test_gemini_sources_filtered_to_allowed_domains(monkeypatch):
     assert result.chunks[0].metadata.source_file == "https://gov.pk/x"
 
 
-def test_filter_allowed_domains_matches_substring():
+def test_filter_allowed_domains_matches_hostname():
     web_mod.config.WEB_ALLOWED_DOMAINS = ["gov.pk"]
     sources = [{"url": "https://gov.pk/a"}, {"url": "https://other.example/a"}]
     assert web_mod._filter_allowed_domains(sources) == [{"url": "https://gov.pk/a"}]
+
+
+def test_filter_allowed_domains_matches_subdomain():
+    web_mod.config.WEB_ALLOWED_DOMAINS = ["gov.pk"]
+    sources = [{"url": "https://islamabadpolice.gov.pk/a"}]
+    assert web_mod._filter_allowed_domains(sources) == sources
+
+
+@pytest.mark.parametrize("url", [
+    "https://dawn.com.attacker.tld/a",
+    "https://evil.example/?ref=gov.pk",
+    "https://evil.example/gov.pk/path",
+    "https://evil.example/#dawn.com",
+    "https://evil.example/?to=dawn.com",
+    "http://192.0.2.1/gov.pk",
+    "not a url at all gov.pk",
+])
+def test_filter_allowed_domains_rejects_substring_bypass(url):
+    """
+    F-04 regression: `domain in url` used to accept any URL that merely
+    *contained* an allowed domain string; the real fix requires the URL's
+    actual hostname to match (or be a subdomain of) an allowed domain.
+    """
+    web_mod.config.WEB_ALLOWED_DOMAINS = ["gov.pk", "dawn.com"]
+    sources = [{"url": url}]
+    assert web_mod._filter_allowed_domains(sources) == []
