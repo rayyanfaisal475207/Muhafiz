@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
@@ -60,6 +60,13 @@ class NERMention:
     confidence: float
     method: str            # "statistical" | "llm_fallback"
     source_chunk_id: Optional[str] = None
+    # [HANDOFF_TO_TEAMMATE.md, 2026-08-27] Non-empty only for the kinship-
+    # formula child mention, carrying {"father_name": <parent text>} — see
+    # _KINSHIP_RE's own handling below for why the parent is attached here
+    # instead of emitted as its own independent person mention. Every
+    # other caller of this dataclass leaves this at its default `{}`,
+    # matching to_dict()'s previous hardcoded behavior exactly.
+    attributes: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -68,10 +75,10 @@ class NERMention:
             "char_span": [self.start, self.end],
             "source_chunk_id": self.source_chunk_id,
             "confidence": self.confidence,
-            # Uniform with domain_entities.py's mention shape (4.6) — empty
-            # here since NER doesn't extract type-specific attributes;
+            # Uniform with domain_entities.py's mention shape (4.6) —
             # structured_fields.py/entity_resolution.py attach CNIC etc.
-            "attributes": {},
+            # on top of whatever this dataclass itself already carries.
+            "attributes": self.attributes,
         }
 
 
@@ -378,13 +385,38 @@ def extract_statistical(text: str, source_chunk_id: Optional[str] = None) -> lis
     norm = normalize_urdu(text)
     out: list[NERMention] = []
 
+    # [HANDOFF_TO_TEAMMATE.md, 2026-08-27] The parent side of "X ولد/بنت Y"
+    # is attached to the child mention as a father_name ATTRIBUTE, never
+    # emitted as its own independent person mention. Domain-confirmed root
+    # cause of a real live bug: a corpus-wide father's name (one
+    # live-measured case, محمد رمضان, five different complainants' father,
+    # never an independent party in any of 73 cases) previously minted a
+    # brand-new "person" mention on EVERY kinship-formula occurrence — 176
+    # of them from repeated replay of one document alone before the
+    # idempotency fix (d5fa333) landed, and would still mint one spurious
+    # node per DOCUMENT going forward without this change, since the
+    # document-level exact-string dedup only collapses repeats WITHIN one
+    # ingestion pass, not the initial (still-wrong) creation.
+    # structured_projection.py's own handling of a FIR's formal
+    # complainant/accused fields already does this correctly — father_name
+    # as a property on the child's node, no separate node for the father —
+    # this makes the narrative-NER path match that established, correct
+    # pattern instead of diverging from it.
+    #
+    # Side benefit, not the primary motivation: _attach_chunk_identifiers()
+    # (src/ingestion/service.py) only attaches a nearby CNIC when a chunk
+    # contains EXACTLY ONE person mention. A kinship sentence previously
+    # always counted as two ("X" and "Y"), so a compact header block
+    # naming one real person next to their one CNIC and their father in
+    # the same breath ALWAYS failed that single-person gate. With only the
+    # child counted, that common corpus shape can now correctly attach.
     for m in _KINSHIP_RE.finditer(norm):
         child, cs, ce = _trim_and_reposition(m.group("child"), m.start("child"))
-        if child:
-            out.append(NERMention(child, "person", cs, ce, 0.85, "statistical", source_chunk_id))
-        parent, ps, pe = _trim_and_reposition(m.group("parent"), m.start("parent"))
-        if parent:
-            out.append(NERMention(parent, "person", ps, pe, 0.8, "statistical", source_chunk_id))
+        if not child:
+            continue
+        parent, _ps, _pe = _trim_and_reposition(m.group("parent"), m.start("parent"))
+        attributes = {"father_name": parent} if parent else {}
+        out.append(NERMention(child, "person", cs, ce, 0.85, "statistical", source_chunk_id, attributes))
 
     for m in _ROLE_RE.finditer(norm):
         name, ns, ne = _trim_and_reposition(m.group("name"), m.start("name"))

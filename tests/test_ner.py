@@ -7,16 +7,26 @@ import src.extraction.ner as ner
 
 # ── Statistical pass: kinship formula ─────────────────────────────────
 
-def test_kinship_formula_extracts_both_names_and_stops_before_copula():
+def test_kinship_formula_extracts_child_and_attaches_father_name_stops_before_copula():
     # Real narrative sentence from FIR-2026-ARMS-001's ground truth: the
     # regression case for the greedy-name-run-over-capturing-"ہے" bug.
+    #
+    # [HANDOFF_TO_TEAMMATE.md, 2026-08-27] The parent ("غلام ستار") is no
+    # longer emitted as its own independent person mention — attached as
+    # a father_name attribute on the child instead, matching
+    # structured_projection.py's own handling of a FIR's formal fields.
+    # Emitting the father as a separate mention was a real, live-measured
+    # bug: one corpus name (محمد رمضان) minted 176 phantom Person nodes
+    # this way from a single document's repeated kinship-formula mentions.
     text = "جس کا نام عمران ستار ولد غلام ستار ہے۔"
     mentions = ner.extract_statistical(text)
-    names = {m.text: m.type for m in mentions}
-    assert names.get("عمران ستار") == "person"
-    assert names.get("غلام ستار") == "person"
+    person_mentions = [m for m in mentions if m.type == "person"]
+    assert len(person_mentions) == 1
+    child = person_mentions[0]
+    assert child.text == "عمران ستار"
+    assert child.attributes.get("father_name") == "غلام ستار"
     # The trailing copula "ہے" must never end up inside a captured name.
-    assert not any("ہے" in text for text in names)
+    assert "ہے" not in child.text and "ہے" not in child.attributes["father_name"]
 
 
 def test_kinship_offsets_are_correct():
@@ -24,8 +34,7 @@ def test_kinship_offsets_are_correct():
     mentions = ner.extract_statistical(text)
     child = next(m for m in mentions if m.text == "عمران ستار")
     assert text[child.start:child.end] == "عمران ستار"
-    parent = next(m for m in mentions if m.text == "غلام ستار")
-    assert text[parent.start:parent.end] == "غلام ستار"
+    assert child.attributes.get("father_name") == "غلام ستار"
 
 
 # ── Role-marker pattern ────────────────────────────────────────────────
@@ -184,10 +193,17 @@ def test_kinship_parent_rejects_trailing_residency_clause():
     # corpus, e.g. "تھانہ محلہ اقبال ٹاؤن"), so this is rejected outright
     # rather than partially trimmed — losing one redundant mention of a
     # name captured correctly elsewhere is the accepted trade.
+    #
+    # The parent is now attached as the child's father_name attribute
+    # rather than its own mention (see the kinship-formula test above) —
+    # checked directly on the child here instead of via a person-type
+    # mention of its own.
     text = "مدعی فیصل ولد محمد رمضان ساکنہ محلہ اقبال ٹاؤن، اسلام آباد۔"
     mentions = ner.extract_statistical(text)
-    names = {m.text for m in mentions if m.type == "person"}
-    assert "محمد رمضان ساکنہ محلہ" not in names
+    child = next(m for m in mentions if m.type == "person" and m.text == "فیصل")
+    # Rejected outright, not partially trimmed — no father_name at all,
+    # rather than the bled-together "محمد رمضان ساکنہ محلہ".
+    assert "father_name" not in child.attributes
 
 
 def test_station_name_containing_mohalla_still_extracted():
