@@ -278,3 +278,141 @@ async def test_supervisor_dispatches_investigating_officer_query_to_local_search
     assert result.answer_text == "The investigating officer is ندیم, belt GEN-0301 [Document 1]."
     assert result.tools_used == ["GRAPH"]
     assert result.citations[0].source_file == "fir-401-26"
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# (g) LS-2 — degradation caveats must be truthful per empty_reason.
+#
+# The predecessor emitted ONE line for every EMPTY state: "No semantic
+# entity match was found for this question; ...". That was false on
+# `evaluator_rejected`/`no_linked_evidence` (matched_entities is populated)
+# and unscoped on `no_entity_match`. These lock the per-branch wording.
+# ═══════════════════════════════════════════════════════════════════════
+
+_OLD_GENERIC_CAVEAT_FRAGMENT = "No semantic entity match was found"
+
+
+def _degradation_caveat(result) -> str:
+    """The single degradation caveat on the PARTIAL fallback path."""
+    non_validation = [
+        c for c in result.caveats if "answered from document search" in c or "returned nothing usable" in c
+    ]
+    assert len(non_validation) == 1, f"expected exactly one degradation caveat, got {result.caveats}"
+    return non_validation[0]
+
+
+async def _run_fallback(monkeypatch, empty_reason, matched_entities=None):
+    """EMPTY-with-reason from the tool, healthy RAG fallback -> PARTIAL."""
+    _stub_local_search_tool(monkeypatch, LocalSearchToolResult(
+        status=ToolStatus.EMPTY, fallback_to_rag=True, empty_reason=empty_reason,
+        matched_entities=matched_entities or [],
+    ))
+    _stub_rag_tool(monkeypatch, RagToolResult(status=ToolStatus.OK, chunks=[_rag_chunk()]))
+    _stub_call_llm(monkeypatch, "The officer is mentioned [Document 1].")
+    _stub_verify_grounding(monkeypatch, grounded=True)
+    return await local_search(_agent_input())
+
+
+@pytest.mark.asyncio
+async def test_no_entity_match_caveat_is_case_scoped_and_claims_no_absence(monkeypatch):
+    """§8/§11 — must be scoped to the active case and must NOT assert the
+    entity does not exist anywhere."""
+    result = await _run_fallback(monkeypatch, "no_entity_match")
+
+    assert result.status == SubAgentStatus.PARTIAL
+    assert result.tools_used == ["RAG"] and result.degraded_from == ["GRAPH"]
+
+    caveat = _degradation_caveat(result)
+    assert "within the active case" in caveat
+    assert "document search" in caveat
+    # Must not claim absence from the evidence.
+    for forbidden in ("does not exist", "no such person", "no such entity", "is not in"):
+        assert forbidden not in caveat.lower()
+    assert _OLD_GENERIC_CAVEAT_FRAGMENT not in caveat
+
+
+@pytest.mark.asyncio
+async def test_evaluator_rejected_caveat_admits_matches_existed(monkeypatch):
+    """§9 — the strongest LS-2 regression. matched_entities is populated, so
+    a caveat claiming no match was found is a factual contradiction."""
+    result = await _run_fallback(
+        monkeypatch, "evaluator_rejected",
+        matched_entities=[{"entity_id": "PERSON-1", "canonical_name": "فیصل", "label": "Person"}],
+    )
+
+    caveat = _degradation_caveat(result)
+    assert "Entity matches were found" in caveat
+    assert "not judged sufficiently relevant" in caveat
+    # The exact defect LS-2 was raised for.
+    assert _OLD_GENERIC_CAVEAT_FRAGMENT not in caveat
+    assert "No entity-index entry matched" not in caveat
+
+
+@pytest.mark.asyncio
+async def test_no_linked_evidence_caveat_admits_matches_existed(monkeypatch):
+    """§10 — semantic match succeeded but the graph fan-out yielded nothing."""
+    result = await _run_fallback(
+        monkeypatch, "no_linked_evidence",
+        matched_entities=[{"entity_id": "PERSON-1", "canonical_name": "فیصل", "label": "Person"}],
+    )
+
+    caveat = _degradation_caveat(result)
+    assert "Entity matches were found" in caveat
+    assert "no usable linked entity-graph evidence" in caveat
+    assert _OLD_GENERIC_CAVEAT_FRAGMENT not in caveat
+
+
+@pytest.mark.asyncio
+async def test_the_three_degradation_caveats_are_distinct(monkeypatch):
+    """Guards against a future edit collapsing them back to one string."""
+    seen = {
+        reason: _degradation_caveat(await _run_fallback(monkeypatch, reason))
+        for reason in ("no_entity_match", "no_linked_evidence", "evaluator_rejected")
+    }
+    assert len(set(seen.values())) == 3, seen
+
+
+@pytest.mark.asyncio
+async def test_empty_without_reason_uses_noncommittal_caveat(monkeypatch):
+    """A reasonless EMPTY must not be described as a semantic-match failure."""
+    result = await _run_fallback(monkeypatch, None)
+
+    caveat = _degradation_caveat(result)
+    assert "returned nothing usable" in caveat
+    assert _OLD_GENERIC_CAVEAT_FRAGMENT not in caveat
+
+
+@pytest.mark.asyncio
+async def test_entity_retrieval_failure_abstains_without_false_no_match_claim(monkeypatch):
+    """§12 (agent half) — FAILED must route to ABSTAINED via the existing
+    path, never to a 'no match' statement."""
+    _stub_local_search_tool(monkeypatch, LocalSearchToolResult(
+        status=ToolStatus.FAILED,
+        error=ToolError(kind="upstream_failure", message="chroma down"),
+    ))
+    result = await local_search(_agent_input())
+
+    assert result.status == SubAgentStatus.ABSTAINED
+    assert result.answer_text is None
+    assert result.error is not None and "chroma down" in result.error.message
+    assert all(_OLD_GENERIC_CAVEAT_FRAGMENT not in c for c in result.caveats)
+    assert any("Entity search failed" in c for c in result.caveats)
+
+
+@pytest.mark.asyncio
+async def test_successful_local_search_emits_no_degradation_caveat(monkeypatch):
+    """§13 — healthy paths must stay silent about degradation."""
+    _stub_local_search_tool(monkeypatch, LocalSearchToolResult(
+        status=ToolStatus.OK, chunks=[_chunk()],
+        matched_entities=[{"entity_id": "PERSON-1", "canonical_name": "ندیم", "label": "Person"}],
+        community_reports_included=True,
+    ))
+    _stub_call_llm(monkeypatch)
+    _stub_verify_grounding(monkeypatch, grounded=True)
+    result = await local_search(_agent_input())
+
+    assert result.status == SubAgentStatus.OK
+    assert result.tools_used == ["GRAPH"] and not result.degraded_from
+    for caveat in result.caveats:
+        assert "answered from document search" not in caveat
+        assert _OLD_GENERIC_CAVEAT_FRAGMENT not in caveat

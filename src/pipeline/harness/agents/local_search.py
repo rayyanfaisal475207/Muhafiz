@@ -121,6 +121,32 @@ _SYSTEM_PROMPT_TEMPLATE = (
 
 _NON_PERSON_LABELS = frozenset({"Officer", "Vehicle", "PhoneNumber", "Organization"})
 
+# One caveat per LocalSearchToolResult.empty_reason. Each states only what the
+# tool actually observed: none of them may imply the entity is ABSENT from the
+# evidence, which the single generic predecessor line did for three of the four
+# branches (and flatly contradicted on `evaluator_rejected`, where
+# matched_entities is populated).
+_DEGRADATION_CAVEATS: dict[str, str] = {
+    "no_entity_match": (
+        "No entity-index entry matched this question within the active case; "
+        "answered from document search instead of entity-graph search."
+    ),
+    "no_linked_evidence": (
+        "Entity matches were found, but no usable linked entity-graph evidence "
+        "was available; answered from document search instead."
+    ),
+    "evaluator_rejected": (
+        "Entity matches were found, but the retrieved entity-graph evidence was "
+        "not judged sufficiently relevant; answered from document search instead."
+    ),
+}
+
+# Used when the tool reports EMPTY without a reason (e.g. a stub or an older
+# result shape). Deliberately makes no claim about WHY it degraded.
+_DEGRADATION_CAVEAT_FALLBACK = (
+    "Entity-graph search returned nothing usable; answered from document search instead."
+)
+
 
 def _generation_role(preferred_language: Optional[str]) -> str:
     """Mirrors every prior sub-agent module's own inline `_generation_role()`
@@ -284,8 +310,9 @@ async def local_search(
             tools_used=["RAG"],
             degraded_from=["GRAPH"],
             caveats=[
-                "No semantic entity match was found for this question; answered from document "
-                "search instead of entity-graph search.",
+                _DEGRADATION_CAVEATS.get(
+                    tool_result.empty_reason or "", _DEGRADATION_CAVEAT_FALLBACK
+                ),
                 *caveats_for_validation(validation_status, validation_claims),
             ],
             validation_status=validation_status,

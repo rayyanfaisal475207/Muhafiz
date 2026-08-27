@@ -61,7 +61,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import Field
 from sqlalchemy import text
@@ -70,12 +70,25 @@ from src import config
 from src.database.postgres import get_session
 from src.pipeline.evaluator import evaluate_relevance
 from src.pipeline.harness.tools.graph import _to_evidence_chunk
-from src.pipeline.harness.types import ToolInput, ToolResult, ToolStatus
+from src.pipeline.harness.types import ToolError, ToolInput, ToolResult, ToolStatus
 from src.retrieval.cross_reranker import cross_rerank
 from src.retrieval.entity_vector_store import query_similar_entities
 from src.retrieval.graph_retriever import DEFAULT_HOPS, MAX_HOPS, retrieve_graph
 
 logger = logging.getLogger(__name__)
+
+
+# Closed set, same Literal-alias convention ToolError.kind already uses in
+# types.py rather than a new Enum class. Deliberately does NOT distinguish an
+# empty entity index from case-scope filtering: `query_similar_entities()` is
+# hard-scoped server-side, so both surface identically as zero scoped matches
+# and separating them would need an unscoped lookup this tool must not make.
+EmptyReason = Literal[
+    "no_case_scope",
+    "no_entity_match",
+    "no_linked_evidence",
+    "evaluator_rejected",
+]
 
 
 class LocalSearchToolInput(ToolInput):
@@ -102,6 +115,14 @@ class LocalSearchToolResult(ToolResult):
     GRAPH/GRAPH_HYBRID today.
     """
 
+    empty_reason: Optional[EmptyReason] = Field(
+        default=None,
+        description=(
+            "Which EMPTY condition fired, so the caller can describe the degradation "
+            "truthfully instead of collapsing every EMPTY to 'no semantic match'. "
+            "Observability only — never influences retrieval."
+        ),
+    )
     hop_count: int = Field(default=0, description="Deepest hop reached across every matched entity's traversal.")
     chain_confidence: Optional[float] = Field(
         default=None, description="Weakest link across every matched entity's traversal."
@@ -167,12 +188,24 @@ async def local_search_tool(tool_input: LocalSearchToolInput) -> LocalSearchTool
     if not caller.active_case_id:
         # Fail closed — within-case only, no case in scope means nothing to
         # search. Mirrors retrieve_graph()'s own rule for the same shape.
-        return LocalSearchToolResult(status=ToolStatus.EMPTY)
+        return LocalSearchToolResult(status=ToolStatus.EMPTY, empty_reason="no_case_scope")
 
     top_k_entities = tool_input.top_k_entities or config.LOCAL_SEARCH_TOP_K_ENTITIES
-    matches = await query_similar_entities(tool_input.query_text, caller.active_case_id, top_k_entities)
+    try:
+        matches = await query_similar_entities(tool_input.query_text, caller.active_case_id, top_k_entities)
+    except Exception as exc:
+        # Same shape every sibling tool already uses for an infrastructure
+        # failure. Without this the exception escapes the tool/agent contract
+        # entirely and Local Search can never emit a caveat at all.
+        logger.error("LOCAL_SEARCH tool: entity retrieval failed: %s", exc)
+        return LocalSearchToolResult(
+            status=ToolStatus.FAILED,
+            error=ToolError(kind="upstream_failure", message=str(exc)),
+        )
     if not matches:
-        return LocalSearchToolResult(status=ToolStatus.EMPTY, fallback_to_rag=True)
+        return LocalSearchToolResult(
+            status=ToolStatus.EMPTY, fallback_to_rag=True, empty_reason="no_entity_match"
+        )
 
     graph_results = await asyncio.gather(*[
         retrieve_graph(
@@ -203,7 +236,8 @@ async def local_search_tool(tool_input: LocalSearchToolInput) -> LocalSearchTool
     candidate_pool = graph_chunks + community_chunks
     if not candidate_pool:
         return LocalSearchToolResult(
-            status=ToolStatus.EMPTY, fallback_to_rag=True, matched_entities=matches,
+            status=ToolStatus.EMPTY, fallback_to_rag=True, empty_reason="no_linked_evidence",
+            matched_entities=matches,
             hop_count=hop_count, chain_confidence=chain_confidence,
         )
 
@@ -221,7 +255,8 @@ async def local_search_tool(tool_input: LocalSearchToolInput) -> LocalSearchTool
 
     if not evaluation.get("relevant", False):
         return LocalSearchToolResult(
-            status=ToolStatus.EMPTY, fallback_to_rag=True, matched_entities=matches,
+            status=ToolStatus.EMPTY, fallback_to_rag=True, empty_reason="evaluator_rejected",
+            matched_entities=matches,
             hop_count=hop_count, chain_confidence=chain_confidence,
         )
 

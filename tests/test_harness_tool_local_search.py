@@ -242,3 +242,99 @@ async def test_multi_entity_fanout_dedupes_shared_chunks(monkeypatch):
     ids = [c.id for c in result.chunks]
     assert ids.count("shared") == 1
     assert "only_tariq" in ids
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# (h) LS-2 — every EMPTY return must carry the reason describing the state
+#     it actually observed, and entity-retrieval failure must be contained
+#     inside the tool contract instead of escaping as an exception.
+# ═══════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_no_case_scope_sets_no_case_scope_reason(monkeypatch):
+    result = await local_search_tool(
+        LocalSearchToolInput(query_text="who is the officer?", execution=_execution(case_id=None))
+    )
+    assert result.status == ToolStatus.EMPTY
+    assert result.empty_reason == "no_case_scope"
+
+
+@pytest.mark.asyncio
+async def test_no_scoped_entity_match_sets_no_entity_match_reason(monkeypatch):
+    """Covers an empty entity index AND case-scope filtering — the tool
+    cannot tell them apart (query_similar_entities is hard-scoped
+    server-side) and must not add an unscoped lookup to try."""
+    _stub_query_similar_entities(monkeypatch, [])
+
+    result = await local_search_tool(
+        LocalSearchToolInput(query_text="who is the officer?", execution=_execution())
+    )
+    assert result.status == ToolStatus.EMPTY
+    assert result.empty_reason == "no_entity_match"
+    assert result.fallback_to_rag is True
+    assert result.matched_entities == []
+
+
+@pytest.mark.asyncio
+async def test_no_linked_evidence_sets_its_own_reason(monkeypatch):
+    """Semantic match succeeded, traversal produced nothing."""
+    _stub_query_similar_entities(monkeypatch, [_entity_match()])
+    _stub_retrieve_graph(monkeypatch, {"ندیم": _graph_result([])})
+
+    result = await local_search_tool(
+        LocalSearchToolInput(query_text="who is the officer?", execution=_execution())
+    )
+    assert result.status == ToolStatus.EMPTY
+    assert result.empty_reason == "no_linked_evidence"
+    # The state that makes the old generic caveat false.
+    assert result.matched_entities and result.matched_entities[0]["canonical_name"] == "ندیم"
+
+
+@pytest.mark.asyncio
+async def test_evaluator_rejection_sets_evaluator_rejected_reason(monkeypatch):
+    _stub_query_similar_entities(monkeypatch, [_entity_match()])
+    _stub_retrieve_graph(monkeypatch, {"ندیم": _graph_result([_graph_chunk()])})
+
+    async def _not_relevant(orig, rewritten, chunks):
+        return {"relevant": False, "reason": "off topic"}
+
+    monkeypatch.setattr(local_search_mod, "evaluate_relevance", _not_relevant)
+
+    result = await local_search_tool(
+        LocalSearchToolInput(query_text="what is the weather?", execution=_execution())
+    )
+    assert result.status == ToolStatus.EMPTY
+    assert result.empty_reason == "evaluator_rejected"
+    assert result.matched_entities  # a match DID exist
+
+
+@pytest.mark.asyncio
+async def test_entity_retrieval_exception_returns_failed_not_raises(monkeypatch):
+    """§12 — before LS-2 this propagated out of the tool AND the agent, so
+    Local Search could never emit any caveat at all."""
+    async def _boom(query, case_id, top_k=3):
+        raise RuntimeError("chroma unavailable")
+
+    monkeypatch.setattr(local_search_mod, "query_similar_entities", _boom)
+
+    result = await local_search_tool(
+        LocalSearchToolInput(query_text="who is the officer?", execution=_execution())
+    )
+    assert result.status == ToolStatus.FAILED
+    assert result.error is not None
+    assert result.error.kind == "upstream_failure"
+    assert "chroma unavailable" in result.error.message
+    # A failure is not an emptiness claim.
+    assert result.empty_reason is None
+
+
+@pytest.mark.asyncio
+async def test_successful_search_sets_no_empty_reason(monkeypatch):
+    _stub_query_similar_entities(monkeypatch, [_entity_match()])
+    _stub_retrieve_graph(monkeypatch, {"ندیم": _graph_result([_graph_chunk()])})
+
+    result = await local_search_tool(
+        LocalSearchToolInput(query_text="who is the officer?", execution=_execution())
+    )
+    assert result.status == ToolStatus.OK
+    assert result.empty_reason is None
