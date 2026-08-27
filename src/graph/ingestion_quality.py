@@ -150,7 +150,7 @@ def record_extraction_error() -> None:
     acc["extraction_errors"] += 1
 
 
-async def finish_run(run_id: str, *, source: Optional[str] = None) -> Optional[dict]:
+async def finish_run(run_id: str, *, source: Optional[str] = None, case_id: Optional[str] = None) -> Optional[dict]:
     """
     Flush the accumulated counts to the run's row and clear the
     contextvar. Returns the flushed counts dict, or None if no run was
@@ -173,6 +173,23 @@ async def finish_run(run_id: str, *, source: Optional[str] = None) -> Optional[d
     exist) simply gets G1's original flush-only behavior, no circuit
     breaker check. The returned dict gains "flagged_for_review"/
     "flagged_reason" keys only when `source` is given.
+
+    `case_id` — [GRAPH_QUALITY_VISIBILITY_FIX_PROMPT.md, Feature B] when
+    given, additionally runs src/graph/same_as_integrity.py's CNIC-
+    conflict audit scoped to this ONE case (never the unscoped full-graph
+    scan — that stays a periodic/manual job, see that module's own
+    docstring). Deliberately NOT folded into ingestion_circuit_breaker.py
+    itself: that module's own docstring and test suite state a hard rule
+    — "never even imports src.graph.versioning or age_client" — so this
+    read-only AGE check lives here instead, at the layer that already
+    composes G1 (this function) with G2 (the call above). A caller that
+    omits `case_id` (sync_muhafiz_data's NULL-case_id bulk passes) simply
+    never runs this check — same "additive, never a behavior change for
+    an existing caller" contract as `source` above. If G2's own check
+    already flagged the run, this still runs (a CNIC conflict is a
+    correctness violation, not a rate anomaly — worth its own distinct
+    reason even on an already-flagged run) but never DOWNGRADES an
+    existing flag; it can only add to why the run is flagged.
     """
     acc = _current_run.get()
     if acc is None:
@@ -202,6 +219,40 @@ async def finish_run(run_id: str, *, source: Optional[str] = None) -> Optional[d
         decision = await ingestion_circuit_breaker.check_and_flag(run_id, source, acc)
         acc = {**acc, "flagged_for_review": decision["flagged"], "flagged_reason": decision["reason"]}
 
+    if case_id:
+        from src.graph import same_as_integrity
+        try:
+            conflicts = await same_as_integrity.find_cnic_conflicts(case_id)
+        except Exception as exc:
+            logger.error(
+                "ingestion_quality.finish_run: CNIC-conflict audit failed for %s (case %s): %s",
+                run_id, case_id, exc,
+            )
+            conflicts = []
+        if conflicts:
+            edge_ids = ", ".join(str(c["edge_id"]) for c in conflicts)
+            cnic_reason = (
+                f"{len(conflicts)} confirmed SAME_AS edge(s) violate the CNIC hard-conflict "
+                f"veto for case {case_id!r} (edge_id(s): {edge_ids})"
+            )
+            prior_reason = acc.get("flagged_reason")
+            combined_reason = f"{prior_reason}; {cnic_reason}" if prior_reason else cnic_reason
+            try:
+                async with get_session() as db:
+                    await db.execute(
+                        text(
+                            "UPDATE ingestion_run_quality SET flagged_for_review = true, "
+                            "flagged_reason = :reason WHERE run_id = :run_id"
+                        ),
+                        {"run_id": run_id, "reason": combined_reason},
+                    )
+            except Exception as exc:
+                logger.error(
+                    "ingestion_quality.finish_run: failed to write CNIC-conflict flag for %s: %s",
+                    run_id, exc,
+                )
+            acc = {**acc, "flagged_for_review": True, "flagged_reason": combined_reason}
+
     return acc
 
 
@@ -218,4 +269,4 @@ async def track_run(run_id: str, source: str, case_id: Optional[str] = None) -> 
     try:
         yield
     finally:
-        await finish_run(run_id, source=source)
+        await finish_run(run_id, source=source, case_id=case_id)
