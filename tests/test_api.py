@@ -279,6 +279,22 @@ def test_supervisor_assignment_can_update_and_delete_case(api, user_id):
     assert "CASE-001" not in gateway.cases
 
 
+def test_delete_nonexistent_case_returns_404_not_success(admin_api):
+    """
+    F-10: delete_case had a "# Verify it exists" comment that never did —
+    platform-admin's check_case_access() short-circuits to True without
+    consulting the cases table, so a nonexistent/already-deleted case_id
+    used to return {"status": "deleted"} and write a misleading audit
+    event (gateway.delete_case() silently no-ops on an unknown id).
+    """
+    client, gateway = admin_api
+    assert "GHOST-CASE" not in gateway.cases
+
+    response = client.delete("/api/cases/GHOST-CASE")
+
+    assert response.status_code == 404
+
+
 def test_investigator_assignment_can_still_read_case(api, user_id):
     """Read access stays at the original 'any assignment' threshold."""
     client, gateway = api
@@ -583,6 +599,16 @@ def test_chat_file_output_classification_excluded_from_cutover_even_if_route_mat
 def test_health_is_public(api):
     client, _ = api
     assert client.get("/health").status_code == 200
+
+
+def test_health_version_matches_app_metadata(api):
+    """
+    F-10: /health hardcoded its own "0.1.0" independently of the FastAPI
+    app's version="1.0.0" -- the two had drifted apart. /health now reads
+    app.version directly so they can't diverge again.
+    """
+    client, _ = api
+    assert client.get("/health").json()["version"] == app.version
 
 
 def test_health_reports_degraded_when_postgres_unreachable(api, monkeypatch):

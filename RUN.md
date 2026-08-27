@@ -1,8 +1,11 @@
 # Running Muhafiz from scratch
 
 Everything needed to bring the whole stack up on a fresh machine, and to stop it
-cleanly. Written against a live, tested run on Windows (backend on `:8000`,
-chat app on `:5173`, admin app on `:5174`, Postgres+Apache AGE in Docker on
+cleanly. Written against a live, tested run on Windows (backend on `:8001` —
+matches both frontends' Vite proxy target in `frontend/vite.config.ts` and
+`admin-frontend/vite.config.ts`; audit finding F-10 caught this doc
+previously saying `:8000`, which the proxies never pointed at — chat app on
+`:5173`, admin app on `:5174`, Postgres+Apache AGE in Docker on
 `:5432`) — including the actual errors hit while bringing it up, not a
 theoretical happy path.
 
@@ -394,9 +397,9 @@ docker inspect --format='{{.State.Health.Status}}' muhafiz-postgres
 > is what you want.
 
 ```bash
-# Terminal 1 — API  (http://localhost:8000)
+# Terminal 1 — API  (http://localhost:8001)
 source .venv/bin/activate          # if using a venv
-uvicorn src.main:app --host 127.0.0.1 --port 8000 --reload
+uvicorn src.main:app --host 127.0.0.1 --port 8001 --reload
 
 # Terminal 2 — Chat app  (http://localhost:5173)
 cd frontend && npm run dev
@@ -406,10 +409,10 @@ cd admin-frontend && npm run dev
 ```
 
 **Start the API first** — both frontends proxy `/api` to
-`http://127.0.0.1:8000` and will error until it is up. Confirm it's healthy:
+`http://127.0.0.1:8001` and will error until it is up. Confirm it's healthy:
 
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:8001/health
 # {"status":"ok", ..., "documents_in_store": <chunk count>}
 ```
 
@@ -542,10 +545,10 @@ If a process was backgrounded or a port is stuck:
 
 ```bash
 # macOS / Linux
-lsof -ti:8000 | xargs kill      # repeat for 5173, 5174
+lsof -ti:8001 | xargs kill      # repeat for 5173, 5174
 
 # Windows (PowerShell)
-Get-NetTCPConnection -LocalPort 8000 | Select-Object -Expand OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force }
+Get-NetTCPConnection -LocalPort 8001 | Select-Object -Expand OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force }
 
 # Windows (Git Bash) — find the PID, then taskkill
 tasklist | grep -i "node\|python"

@@ -156,8 +156,18 @@ async def update_case(case: CaseUpdate, case_id: str = Depends(require_case_acce
 
 @router.delete("/{case_id}")
 async def delete_case(case_id: str = Depends(require_case_access(min_role="supervisor")), current_user: User = Depends(get_current_user)):
-    # Verify it exists
     gateway = await get_gateway()
+
+    # F-10: this comment said "Verify it exists" but never did — a
+    # nonexistent/already-deleted case_id returned {"status": "deleted"}
+    # and wrote a misleading "delete_case" audit event, because
+    # gateway.delete_case() silently no-ops on an unknown case_id (same
+    # short-circuit-for-platform-admin gap check_case_access() has
+    # elsewhere — see main.py's chat_endpoint for the identical fix
+    # already applied there). Check existence before acting or logging.
+    if await gateway.get_case(case_id) is None:
+        raise HTTPException(status_code=404, detail="Case not found")
+
     await gateway.log_audit_event("admin_action", {"action": "delete_case"}, str(current_user.id), case_id)
     await gateway.delete_case(case_id)
     return {"status": "deleted"}

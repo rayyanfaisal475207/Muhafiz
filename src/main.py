@@ -322,7 +322,11 @@ async def health_check():
 
     return {
         "status": overall_status,
-        "version": "0.1.0",
+        # F-10: this used to be a second, independently-hardcoded "0.1.0"
+        # that had drifted from the FastAPI app's own version="1.0.0" above
+        # — read from the same app instance instead of a second literal so
+        # they can't drift apart again.
+        "version": app.version,
         "llm_provider": config.LLM_PROVIDER,
         "vector_store_status": store_status,
         "database_status": db_status,
