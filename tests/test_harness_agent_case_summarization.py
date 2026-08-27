@@ -425,3 +425,71 @@ async def test_supervisor_dispatches_to_real_case_summarization_and_real_tools(m
     assert result.status == SubAgentStatus.OK
     assert result.tools_used == ["RAG", "GRAPH"]
     assert len(result.citations) == 2
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# (g) CS-2A — Status-section prompt contract.
+#
+# The prompt used to offer "e.g. open, closed, under investigation". No such
+# vocabulary exists in this corpus: cases.investigation_status is free-text
+# Urdu from psrms.fir_position, and 0 of 73 live cases match "open" or
+# "closed". Teaching that taxonomy invited the model to classify narrative
+# evidence into a status the source never stated.
+#
+# Deterministic prompt-contract assertions only — no LLM call. Whether a
+# given model ever emits "open" is not a testable property here; what the
+# prompt TEACHES is.
+# ═══════════════════════════════════════════════════════════════════════
+
+def _status_instruction() -> str:
+    """The Status section of the summarization prompt, lowercased."""
+    template = cs_mod._SYSTEM_PROMPT_TEMPLATE
+    start = template.index("1. Status")
+    end = template.index("2. Key Entities")
+    return template[start:end].lower()
+
+
+def test_status_section_advertises_no_open_closed_taxonomy():
+    """TEST A — no unsupported fixed-enum examples are taught."""
+    status = _status_instruction()
+
+    # The exact stale pairing, and each term as a standalone example.
+    assert "open, closed" not in status
+    assert "e.g. open" not in status
+    assert "under investigation" not in status
+    # Guard the whole prompt, not just the Status section, against the
+    # taxonomy creeping back in elsewhere.
+    assert "open, closed" not in cs_mod._SYSTEM_PROMPT_TEMPLATE.lower()
+
+
+def test_status_section_requires_the_sources_own_wording():
+    """TEST B — status must be preserved, not classified."""
+    status = _status_instruction()
+
+    assert "exactly as the" in status and "material states it" in status
+    assert "quoted or closely paraphrased" in status
+    assert "classified into a fixed vocabulary" in status
+    # Must not be inferable from events.
+    assert "do not infer a status from case events" in status
+
+
+def test_unknown_status_stays_unknown_and_no_guessing_rule_survives():
+    """TEST C — absent status is reportable as absent, and the prompt-wide
+    no-guessing instruction is not weakened by the Status rewording."""
+    status = _status_instruction()
+    assert "does not state one" in status
+
+    # [PRESERVE] the global rule every section depends on.
+    assert (
+        "say so plainly rather than guessing or inventing content"
+        in cs_mod._SYSTEM_PROMPT_TEMPLATE
+    )
+
+
+def test_status_rewording_preserves_the_four_section_contract():
+    """§5 — output shape is unchanged; only wording moved."""
+    template = cs_mod._SYSTEM_PROMPT_TEMPLATE
+    for section in ("1. Status", "2. Key Entities", "3. Key Events", "4. Open Questions"):
+        assert template.count(section) == 1
+    # Citation contract verify_grounding() depends on is untouched.
+    assert "[Document N]" in template

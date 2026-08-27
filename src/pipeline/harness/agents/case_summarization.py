@@ -147,6 +147,17 @@ logger = logging.getLogger(__name__)
 # at the call site, not just inherited silently.
 _SUMMARY_MAX_HOPS = DEFAULT_HOPS
 
+# STATUS WORDING [CS-2A]. The Status section previously offered "e.g. open,
+# closed, under investigation". That vocabulary does not exist in this corpus:
+# `cases.investigation_status` is `_current_status()`'s projection of
+# psrms.fir_position's latest row (src/ingestion/muhafiz_cases.py:158) — free
+# text Urdu such as "ملزم ریمانڈ پر، چالان کی تیاری زیر عمل". Measured live:
+# 0 of 73 cases match "open" or "closed". Teaching the model that taxonomy
+# invited it to CLASSIFY narrative evidence into a status the source never
+# stated. The section now asks for the source's own wording, or an explicit
+# "not stated" — the same stance xagg.py's _status_filter_supported() already
+# takes on this field. No enum replaces it; none is authoritative.
+#
 # Self-contained, sub-agent-scoped prompt — same convention Semantic Search
 # established (semantic_search.py's own module docstring): no coupling to
 # orchestrator.py's own prompt-assembly machinery. Structures the answer
@@ -157,8 +168,10 @@ _SYSTEM_PROMPT_TEMPLATE = (
     "You are a police case-summarization assistant. Using ONLY the case "
     "material provided below, produce a structured case summary with "
     "these four sections, in this order:\n"
-    "  1. Status — the case's current state (e.g. open, closed, under "
-    "investigation), if the material indicates one.\n"
+    "  1. Status — the case's current investigative state exactly as the "
+    "material states it, quoted or closely paraphrased rather than "
+    "classified into a fixed vocabulary. Do not infer a status from case "
+    "events. If the material does not state one, say so.\n"
     "  2. Key Entities — people, vehicles, phone numbers, organizations, "
     "or other named entities involved.\n"
     "  3. Key Events — significant events, ordered as best fits the case "
