@@ -510,6 +510,9 @@ class FakeGateway:
     async def get_error_facets(self) -> dict:
         return {"modules": [], "error_types": [], "severities": []}
 
+    async def get_audit_logs(self, limit: int = 100, offset: int = 0, **kwargs) -> list[dict]:
+        return getattr(self, "audit_log_rows", [])[offset:offset + limit]
+
     async def get_errors_since(self, since: str) -> list[dict]:
         return self.errors
 
