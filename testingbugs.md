@@ -30,8 +30,8 @@ rather than quietly dropped — see [§2](#2-corrections-to-the-original-report)
 |---|---|---|---|
 | — | Duplicate Person node explosion (141 nodes / 1 person / 1 case) | Critical | **Fixed** by `ea2ae93` — verified, 2 active Person ids on `fir-1001-26` |
 | — | XGRAPH "false negative" for کاشف | Critical (claimed) | **Retracted** — system was correct, my test was invalid (§2) |
-| BUG-1 | Stale/foreign `case_id` → FK violation → HTTP 500 | Critical | Open |
-| BUG-2 | `route_result` UnboundLocalError swallows the whole turn | High | Open |
+| BUG-1 | Stale/foreign `case_id` → FK violation → HTTP 500 | Critical | **Fixed** on `fix/case-validation-and-router-crash` — verified live: 404, no stack trace |
+| BUG-2 | `route_result` UnboundLocalError swallows the whole turn | High | **Fixed** on `fix/case-validation-and-router-crash` — verified live: stream completes, real answer delivered |
 | BUG-3 | Orphaned Vehicle/Officer nodes → GRAPH "no seed entity matched" | High | Open |
 | BUG-4 | Evaluator rejects valid graph evidence → falls back to RAG, then fails | Medium-High | Open |
 | BUG-5 | Router system prompt + budget exceeds Groq 8000 TPM cap | Medium | Open |
