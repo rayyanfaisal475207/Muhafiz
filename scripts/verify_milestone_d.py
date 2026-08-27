@@ -154,7 +154,7 @@ async def _cleanup():
     #      are deliberately absent from that list).
     await age_client.execute_cypher(
         "MATCH (n) WHERE n.entity_id STARTS WITH $tag OR n.case_id STARTS WITH $tag "
-        "OR n.doc_id STARTS WITH $tag DETACH DELETE n",
+        "OR n.doc_id STARTS WITH $tag OR n.source_doc_id STARTS WITH $tag DETACH DELETE n",
         params={"tag": TAG}, columns=["result"],
     )
     if _created_entity_ids:
@@ -336,14 +336,27 @@ async def _wipe_leftover_synthetic_data_from_prior_runs():
     # untagged "PERSON-<hex>" ids, so the node sweep below can never reach
     # their edges; without this, remnants accumulate run after run.
     #
-    # LIMITATION, stated rather than papered over: a crashed prior run's
-    # Person NODES cannot be identified retroactively — their ids carry no
-    # fixture marker and that run's tracked-id list died with the process.
-    # Those orphans are left alone rather than guessed at, because the only
-    # available heuristic (untagged Person with no case link) would also
-    # match genuine corpus data. This sweep guarantees no fixture
-    # RELATIONSHIP survives; historical orphan nodes remain an operational
-    # cleanup decision.
+    # LIMITATION, narrowed but not eliminated: a crashed prior run's Person
+    # NODES generally cannot be identified retroactively by entity_id —
+    # resolve_and_write() mints a real "PERSON-<hex>" id that carries no
+    # fixture marker, and that run's tracked-id list died with the
+    # process. "Untagged Person with no case link" was rejected as a
+    # heuristic for exactly this reason — it would also match genuine
+    # corpus data.
+    #
+    # [2026-08-27, real contamination found, not hypothetical] node.
+    # source_doc_id is a SAFE, unambiguous exception to that limitation —
+    # unlike entity_id, it's a caller-supplied string this script's own
+    # main() stamps with TAG on every synthetic mention it writes, and no
+    # real corpus document is ever ingested with a "D1VERIFY-"/"D1DEBUG-"
+    # source_doc_id. Measured live: 24 orphaned Person nodes ("Fahad Anjum
+    # Cheema" and near-variants) from a run that crashed on 2026-08-22,
+    # invisible to every OTHER sweep here because their entity_id/case_id/
+    # doc_id carried no tag at all — only their own source_doc_id did.
+    # Zero edges of any kind on any of them when found, confirming they
+    # were pure orphans, not attached to real corpus data — DETACH DELETE
+    # is still used defensively in case a future run's fixture Person node
+    # does pick up a stray edge before crashing.
     for prefix in ("D1VERIFY-", "D1DEBUG-"):
         # [PERF] Directed, same reasoning as _cleanup()'s own sweep above.
         await age_client.execute_cypher(
@@ -352,7 +365,8 @@ async def _wipe_leftover_synthetic_data_from_prior_runs():
         )
     await age_client.execute_cypher(
         "MATCH (n) WHERE n.entity_id STARTS WITH 'D1VERIFY-' OR n.case_id STARTS WITH 'D1VERIFY-' "
-        "OR n.doc_id STARTS WITH 'D1VERIFY-' DETACH DELETE n",
+        "OR n.doc_id STARTS WITH 'D1VERIFY-' OR n.source_doc_id STARTS WITH 'D1VERIFY-' "
+        "OR n.source_doc_id STARTS WITH 'D1DEBUG-' DETACH DELETE n",
         columns=["result"],
     )
     from sqlalchemy import text

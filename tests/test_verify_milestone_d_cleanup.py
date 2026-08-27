@@ -50,9 +50,12 @@ class FakeGraph:
         self.nodes: dict[str, dict] = {}
         self.edges: list[dict] = []
 
-    def add_node(self, entity_id=None, case_id=None, doc_id=None):
-        key = entity_id or case_id or doc_id
-        self.nodes[key] = {"entity_id": entity_id, "case_id": case_id, "doc_id": doc_id}
+    def add_node(self, entity_id=None, case_id=None, doc_id=None, source_doc_id=None):
+        key = entity_id or case_id or doc_id or source_doc_id
+        self.nodes[key] = {
+            "entity_id": entity_id, "case_id": case_id, "doc_id": doc_id,
+            "source_doc_id": source_doc_id,
+        }
         return key
 
     def add_edge(self, a, b, source_doc_id):
@@ -72,10 +75,18 @@ class FakeGraph:
             return []
         if "DETACH DELETE n" in query:
             tag = p.get("tag", "D1VERIFY-")
+            # The startup sweep's query (no $tag param) hardcodes both
+            # prefixes directly rather than parameterizing — mirror that:
+            # check source_doc_id against BOTH known prefixes whenever
+            # this query has no bound tag param of its own.
+            prefixes = [tag] if "tag" in p else ["D1VERIFY-", "D1DEBUG-"]
             self._detach_delete([
                 k for k, n in self.nodes.items()
-                if any((n.get(f) or "").startswith(tag)
-                       for f in ("entity_id", "case_id", "doc_id"))
+                if any(
+                    (n.get(f) or "").startswith(prefix)
+                    for f in ("entity_id", "case_id", "doc_id", "source_doc_id")
+                    for prefix in prefixes
+                )
             ])
             return []
         return []
@@ -282,6 +293,31 @@ async def test_cleanup_runs_after_assertion_failure(graph, monkeypatch):
 
     assert graph.edges == []
     assert graph.nodes == {}
+
+
+@pytest.mark.asyncio
+async def test_prior_run_sweep_removes_orphaned_fixture_persons_tagged_only_by_source_doc_id(graph, monkeypatch):
+    """
+    [2026-08-27, real contamination found live] A crashed prior run's
+    fixture Person carries no tag on entity_id/case_id/doc_id (the
+    documented limitation) — but DOES carry one on its own source_doc_id,
+    stamped there by resolve_and_write() at write time. That's a SAFE,
+    unambiguous signal (no real corpus document is ever ingested with a
+    "D1VERIFY-"/"D1DEBUG-" source_doc_id), unlike the "untagged Person
+    with no case link" heuristic this module's own docstring already
+    rejected as too risky.
+
+    Measured live: 24 such orphans ("Fahad Anjum Cheema" and near-
+    variants) survived every previous sweep for weeks, invisible to all
+    of them.
+    """
+    orphan = graph.add_node(entity_id="PERSON-orphan0001", source_doc_id="D1VERIFY-oldrun03-DOC-A")
+    real_person = graph.add_node(entity_id=REAL_CORPUS_PERSON, source_doc_id=REAL_CORPUS_EDGE_PROVENANCE)
+
+    await vmd._wipe_leftover_synthetic_data_from_prior_runs()
+
+    assert orphan not in graph.nodes, "the source_doc_id-tagged orphan must be removed"
+    assert real_person in graph.nodes, "a real corpus Person's own source_doc_id must never match a fixture tag"
 
 
 @pytest.mark.asyncio
