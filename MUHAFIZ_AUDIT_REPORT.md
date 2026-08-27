@@ -42,8 +42,9 @@ All three P0 blockers and one of the two P1 findings have been fixed, tested, an
 | F-07 — unbounded admin pagination | ✅ **FIXED** — `165bb11` | `Query(ge=1, le=1000)` added to all 7 admin `limit` params (`errors`, `kb/jobs`, `audit-logs`, `runs`, `files`, `mcp-calls`, `users`) | 21 new parametrized tests (excessive limit → 422, boundary → 200, default → 200) across all 7 routes |
 | F-08 — NULL-station admin bypass | ✅ **FIXED** — `863533b` | Changed the NULL-`police_station` fallback from unrestricted access to a 403 deny, matching the fail-closed posture of every other ABAC check in this codebase | Live DB check confirmed the one remaining NULL-station account is a synthetic smoke-test fixture, not a real officer — nothing left to backfill. Existing + new tests updated/added, full suite green |
 | F-09 — rate limiter keyed on raw IP | ✅ **FIXED** — `e93e79a` | New allowlist-gated `_rate_limit_key()`: `X-Forwarded-For` only honored when `TRUST_PROXY_HEADERS=true` AND the immediate peer is in `TRUSTED_PROXY_IPS`; default behavior unchanged | 5 new tests, including the anti-regression case (an untrusted peer's forged header is ignored even with the flag on) |
+| F-10 — minor correctness & hygiene (5 items) | ✅ **4/5 FIXED** — `6c6caa1` | Nonexistent-case delete now 404s; `/health` reads `app.version` directly; `RUN.md` port refs corrected to `:8001`; `npm audit fix` run in both frontends (0 vulnerabilities) | 2 new tests; both frontend builds + Vitest suites (23/23, 34/34) verified green. Docling test flakiness item **not fixed** — not reproducing after 5+ full-suite runs, so no speculative fix applied |
 
-All findings from §2 except F-03 (deferred, owner decision) and F-10 (Low/P3 hygiene items) are now fixed. F-10 remains open as of this update.
+Every finding from this audit is now fixed except F-03 (deferred, owner decision) and F-10's Docling flakiness item (open, non-reproducing).
 
 ---
 
@@ -150,13 +151,13 @@ Every admin `limit` is a bare `int` with no upper bound (`src/api/admin.py` line
 ---
 
 ### 🟢 F-10 — Minor correctness & hygiene
-**Low · P3**
+**Low · P3 · ✅ 4/5 FIXED `6c6caa1` (28 Aug 2026) — see §0**
 
-- **Delete nonexistent case → `{"status":"deleted"}`** (`cases.py` `delete_case`) and writes a misleading audit event. Verified as platform-admin.
-- **`/health` version mismatch:** app metadata `1.0.0` vs `/health` body `0.1.0`.
-- **4 high-severity npm advisories** in `react-router-dom` (CSRF-bypass advisory applies to RSC mode, which this app doesn't use), plus nanoid/PostCSS build-time — `npm audit fix` available.
-- **`RUN.md` vs Vite proxy port mismatch:** both frontends proxy to `:8001` while `RUN.md §` starts the backend on `:8000` — following RUN.md verbatim leaves the UI unable to reach the API.
-- **Docling PDF-loader tests flaky under the full suite** (3 failures that vanish in isolation and on re-run) — ML warm-up ordering, not a product bug.
+- **Delete nonexistent case → `{"status":"deleted"}`** (`cases.py` `delete_case`) and writes a misleading audit event. Verified as platform-admin. — ✅ FIXED: existence check added, 404s before acting or logging.
+- **`/health` version mismatch:** app metadata `1.0.0` vs `/health` body `0.1.0`. — ✅ FIXED: `/health` now reads `app.version` directly.
+- **4 high-severity npm advisories** in `react-router-dom` (CSRF-bypass advisory applies to RSC mode, which this app doesn't use), plus nanoid/PostCSS build-time — `npm audit fix` available. — ✅ FIXED: `npm audit fix` run in both `frontend/` and `admin-frontend/`, 0 vulnerabilities in each; both builds and full Vitest suites (23/23, 34/34) verified green.
+- **`RUN.md` vs Vite proxy port mismatch:** both frontends proxy to `:8001` while `RUN.md §` starts the backend on `:8000` — following RUN.md verbatim leaves the UI unable to reach the API. — ✅ FIXED: every port reference in `RUN.md` updated to `:8001` to match the (agreeing) frontend proxy configs.
+- **Docling PDF-loader tests flaky under the full suite** (3 failures that vanish in isolation and on re-run) — ML warm-up ordering, not a product bug. — ⚪ NOT FIXED: the full backend suite was run 5+ times during this remediation pass with zero Docling failures; not currently reproducing, so no speculative fix was applied. Remains open.
 
 ---
 
