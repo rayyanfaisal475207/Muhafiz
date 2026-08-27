@@ -171,7 +171,12 @@ def test_sessions_without_case_filter_returns_everything(api, user_id):
 @pytest.fixture
 def station_admin_api(api, user_id):
     client, gateway = api
-    app.dependency_overrides[get_current_user] = lambda: _User(user_id, role="station-admin")
+    # F-08: a station-admin with no police_station is denied outright, so
+    # this fixture's admin and CASE-001 must share a station for the
+    # existing "can assign" tests below to exercise the intended path
+    # rather than the now-fail-closed NULL-station case.
+    gateway.cases["CASE-001"] = {"case_id": "CASE-001", "police_station": "Kohsar"}
+    app.dependency_overrides[get_current_user] = lambda: _User(user_id, role="station-admin", police_station="Kohsar")
     return client, gateway
 
 
@@ -289,9 +294,9 @@ def test_investigator_assignment_can_still_read_case(api, user_id):
 #
 # Case-assignment routes used to be gated only by the global "station-admin"
 # role, with no check that the case actually belongs to that admin's
-# station. These guard the fix, and its explicit NULL-police_station bridge
-# (no backfill data exists yet, so a station-admin with police_station=None
-# must keep working, not get locked out of every case).
+# station. These guard the fix, and (audit finding F-08) its NULL-station
+# handling: a station-admin with no police_station configured is denied,
+# not given unrestricted cross-station access.
 
 def test_station_admin_mismatched_station_cannot_assign(api, user_id):
     client, gateway = api
@@ -320,10 +325,11 @@ def test_station_admin_matching_station_can_assign(api, user_id):
     assert response.status_code == 200
 
 
-def test_station_admin_with_no_station_backfilled_falls_back_to_unrestricted(api, user_id):
+def test_station_admin_with_no_station_configured_is_denied(api, user_id):
     """
-    Bridge behavior: police_station IS NULL means "not yet backfilled", not
-    "belongs to no station" — must not be locked out of every case.
+    F-08 fix: police_station IS NULL used to fall back to unrestricted
+    cross-station access ("not yet backfilled"). It now denies by default —
+    an account with no station configured has no station to scope against.
     """
     client, gateway = api
     gateway.cases["CASE-001"] = {"case_id": "CASE-001", "police_station": "Kohsar"}
@@ -335,7 +341,7 @@ def test_station_admin_with_no_station_backfilled_falls_back_to_unrestricted(api
         "email": "investigator@example.com", "role": "investigator",
     })
 
-    assert response.status_code == 200
+    assert response.status_code == 403
 
 
 def test_platform_admin_always_can_assign_regardless_of_station(api, user_id):
