@@ -280,6 +280,61 @@ async def test_review_stats_counts_by_tier_and_status(fake_age):
     assert stats["human_review"]["pending"] == 1
 
 
+# ── queue/history (GRAPH_QUALITY_VISIBILITY_FIX_PROMPT.md, Feature A) ────
+
+@pytest.mark.asyncio
+async def test_queue_history_defaults_to_global_scope(monkeypatch):
+    captured = {}
+
+    async def fake_read_history(case_id=None, days=30):
+        captured["case_id"] = case_id
+        captured["days"] = days
+        return [{"snapshot_at": "2026-08-27T00:00:00+00:00", "case_id": None,
+                  "tier": "flagged_unverified", "status": "pending", "edge_count": 5}]
+
+    monkeypatch.setattr(graph_review.same_as_queue_history, "read_history", fake_read_history)
+
+    result = await graph_review.queue_history(admin=None)
+
+    assert captured == {"case_id": None, "days": 30}
+    assert result["case_id"] is None
+    assert result["days"] == 30
+    assert result["snapshots"][0]["edge_count"] == 5
+
+
+@pytest.mark.asyncio
+async def test_queue_history_passes_through_case_id_and_days(monkeypatch):
+    captured = {}
+
+    async def fake_read_history(case_id=None, days=30):
+        captured["case_id"] = case_id
+        captured["days"] = days
+        return []
+
+    monkeypatch.setattr(graph_review.same_as_queue_history, "read_history", fake_read_history)
+
+    await graph_review.queue_history(case_id="CASE-1", days=7, admin=None)
+
+    assert captured == {"case_id": "CASE-1", "days": 7}
+
+
+@pytest.mark.asyncio
+async def test_queue_history_clamps_days_to_a_sane_range(monkeypatch):
+    captured = {}
+
+    async def fake_read_history(case_id=None, days=30):
+        captured["days"] = days
+        return []
+
+    monkeypatch.setattr(graph_review.same_as_queue_history, "read_history", fake_read_history)
+
+    await graph_review.queue_history(days=99999, admin=None)
+    assert captured["days"] == 365
+
+    await graph_review.queue_history(days=0, admin=None)
+    assert captured["days"] == 1
+
+
 # ── CITES review queue — M6b of the Muhafiz Data API migration
 # (docs/decisions/0001-muhafiz-api-migration.md), a PARALLEL queue to
 # SAME_AS above, keyed on case_id (Case nodes have no entity_id) ────────
