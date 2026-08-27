@@ -14,6 +14,7 @@ from typing import AsyncGenerator, Optional
 import httpx
 
 from src.pipeline.memory_updater import update_project_memory
+from src.pipeline.url_safety import is_domain_allowed
 from src.data_gateway import get_gateway
 from src import config
 from src.memory.conversation import async_load_history, async_save_history, format_history_for_prompt
@@ -517,8 +518,13 @@ def _filter_allowed_domains(sources: list[dict]) -> list[dict]:
     post-hoc against the same config.WEB_ALLOWED_DOMAINS allowlist Tavily
     is restricted to at request time — both web-search paths must honor
     the same guardrail, not just the one with a native API parameter.
+
+    Matches on the parsed hostname (exact or dot-boundary subdomain), not a
+    raw substring test — audit finding F-04: `domain in url` let a hostile
+    URL like `evil.example/?ref=gov.pk` or `dawn.com.attacker.tld` slip
+    through, since the allowed string merely appeared somewhere in the URL.
     """
-    return [s for s in sources if any(domain in s.get("url", "") for domain in config.WEB_ALLOWED_DOMAINS)]
+    return [s for s in sources if is_domain_allowed(s.get("url", ""), config.WEB_ALLOWED_DOMAINS)]
 
 
 # Safe response when all retries are exhausted because genuinely no relevant
