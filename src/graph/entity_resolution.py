@@ -347,6 +347,70 @@ async def _shares_case_batch(
     return {row["entity_id"] for row in rows}
 
 
+async def _case_hoisted_id_value(
+    label: str, id_key: str, mention_name: str, case_id: str, *, graph: str = age_client.GRAPH_NAME
+) -> Optional[str]:
+    """
+    Case-scoped analogue of src/ingestion/service.py's
+    _document_cnic_for_name() (the "if his CNIC is anywhere in this
+    document, it belongs to him" fix) — one level up, across documents.
+
+    A mention arriving with NO primary-id value of its own (the common
+    case for a roznamcha/zimni entry that just names someone by their
+    given name, with no ID-card line in that specific document) still
+    deserves a shot at TIER_CNIC_AUTO if some OTHER document already in
+    this SAME case recorded a primary id for a name that safely contains
+    this one — e.g. an earlier FIR narrative's "فیصل ولد محمد رمضان،
+    شناختی کارڈ ..." line, with this mention just "فیصل".
+
+    Same token-containment-with-refusal rule as the document-scoped
+    version: a bare given name matches a longer name whose tokens start
+    with the same tokens, and if two DIFFERENT full names already in
+    this case both contain the short name with DIFFERENT id values, this
+    refuses to guess — returns None rather than picking one, never a
+    silent wrong merge.
+
+    Deliberately scoped to case_id (via BELONGS_TO_CASE, through
+    case_scope.scoped_cypher's enforcement chokepoint), unlike
+    _generate_candidates()'s own deliberately cross-case scan (the P-006
+    repeat-offender design). Hoisting an id value onto a bare name routes
+    straight to TIER_CNIC_AUTO — an immediate merge, no SAME_AS, no
+    review — which is a much stronger, effectively irreversible action
+    than merely flagging a candidate for a human. That's only safe to
+    trust by default inside the one boundary (a single case) where "same
+    given name, no other evidence it's a different person" is the
+    ordinary, expected case — not across cases, where two unrelated
+    people sharing a first name is unremarkable.
+    """
+    rows = await scoped_cypher(
+        f"MATCH (n:{label})-[b:BELONGS_TO_CASE]->(c:Case {{case_id: $case_id}}) "
+        f"WHERE b.superseded_by IS NULL AND n.{id_key} IS NOT NULL AND n.{id_key} <> '' "
+        f"RETURN DISTINCT n.canonical_name AS name, n.{id_key} AS id_value",
+        case_id, params=None, columns=["name", "id_value"], graph=graph,
+    )
+    name_tokens = normalize_urdu(mention_name).split()
+    if not name_tokens:
+        return None
+
+    found: set[str] = set()
+    for row in rows:
+        other_name = row.get("name") or ""
+        other_id = row.get("id_value")
+        if not other_id or other_name == mention_name:
+            continue
+        other_tokens = normalize_urdu(other_name).split()
+        if not other_tokens:
+            continue
+        shorter, longer = (
+            (name_tokens, other_tokens) if len(name_tokens) <= len(other_tokens)
+            else (other_tokens, name_tokens)
+        )
+        if longer[: len(shorter)] == shorter:
+            found.add(other_id)
+
+    return next(iter(found)) if len(found) == 1 else None
+
+
 async def _generate_candidates(
     label: str, mention: dict, case_id: str, id_key: Optional[str] = None,
     *, graph: str = age_client.GRAPH_NAME,
@@ -485,6 +549,26 @@ async def resolve_mention(
                 tier=TIER_CNIC_AUTO, target_entity_id=target_id, confidence=1.0,
                 basis=f"matched on {id_key} ({id_value})", candidates_considered=1,
             )
+    elif id_key and case_id:
+        # [case-wide hoisting] This mention carries no primary id of its
+        # own — before falling to name-fallback scoring, check whether
+        # some OTHER document already in this SAME case recorded one for
+        # a name that safely contains this one. See
+        # _case_hoisted_id_value()'s own docstring for the containment-
+        # with-refusal rule and why this stays case-scoped, unlike
+        # _generate_candidates()'s deliberately cross-case scan below.
+        hoisted_id = await _case_hoisted_id_value(
+            label, id_key, mention.get("canonical_name", ""), case_id, graph=graph,
+        )
+        if hoisted_id:
+            existing = await _find_by_primary_id(label, id_key, hoisted_id, graph=graph)
+            if existing:
+                target_id = existing["properties"].get("entity_id")
+                return ResolutionDecision(
+                    tier=TIER_CNIC_AUTO, target_entity_id=target_id, confidence=1.0,
+                    basis=f"matched on {id_key} ({hoisted_id}) hoisted from elsewhere in case {case_id}",
+                    candidates_considered=1,
+                )
 
     candidates = await _generate_candidates(label, mention, case_id, id_key=id_key, graph=graph)
     if not candidates:
