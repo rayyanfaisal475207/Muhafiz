@@ -227,10 +227,24 @@ async def _fake_check_and_flag(monkeypatch, calls=None):
     monkeypatch.setattr(ingestion_circuit_breaker, "check_and_flag", _fake)
 
 
+async def _fake_find_cnic_conflicts(monkeypatch, conflicts=None):
+    """[Feature B] finish_run(case_id=...) now calls
+    same_as_integrity.find_cnic_conflicts() — stub it out so these
+    (pre-existing) tests stay pure-unit, no real AGE reachable via
+    same_as_integrity's own age_client import."""
+    from src.graph import same_as_integrity
+
+    async def _fake(case_id):
+        return conflicts or []
+
+    monkeypatch.setattr(same_as_integrity, "find_cnic_conflicts", _fake)
+
+
 async def test_track_run_starts_and_finishes_around_the_body(monkeypatch):
     session = _FakeSession()
     monkeypatch.setattr(ingestion_quality, "get_session", _fake_get_session(session))
     await _fake_check_and_flag(monkeypatch)
+    await _fake_find_cnic_conflicts(monkeypatch)
 
     async with ingestion_quality.track_run("run-1", "ingest_file", case_id="CASE-A"):
         ingestion_quality.record_tier("cnic_auto")
@@ -306,3 +320,92 @@ async def test_finish_run_with_no_active_run_never_calls_the_circuit_breaker(mon
 
     assert result is None
     assert called == []
+
+
+# ── finish_run(case_id=...) -> CNIC-conflict audit (Feature B) ───────────
+
+async def test_finish_run_without_case_id_never_runs_the_cnic_audit(monkeypatch):
+    """sync_muhafiz_data's NULL-case_id bulk passes must never trigger the
+    case-scoped audit — same additive contract as `source`."""
+    session = _FakeSession()
+    monkeypatch.setattr(ingestion_quality, "get_session", _fake_get_session(session))
+    from src.graph import same_as_integrity
+    called = []
+    monkeypatch.setattr(same_as_integrity, "find_cnic_conflicts", lambda *a, **k: called.append(1))
+    await ingestion_quality.start_run("run-1", "ingest_file")
+
+    result = await ingestion_quality.finish_run("run-1")
+
+    assert called == []
+    assert "flagged_for_review" not in result
+
+
+async def test_finish_run_with_case_id_and_no_conflicts_is_unaffected(monkeypatch):
+    session = _FakeSession()
+    monkeypatch.setattr(ingestion_quality, "get_session", _fake_get_session(session))
+    await _fake_find_cnic_conflicts(monkeypatch, conflicts=[])
+    await ingestion_quality.start_run("run-1", "ingest_file", case_id="fir-1001-26")
+
+    result = await ingestion_quality.finish_run("run-1", case_id="fir-1001-26")
+
+    assert "flagged_for_review" not in result
+    update_calls = [c for c in session.executed if "UPDATE ingestion_run_quality" in c[0]]
+    assert len(update_calls) == 1  # only the plain count-flush UPDATE, no flag write
+
+
+async def test_finish_run_with_case_id_and_a_conflict_flags_the_run(monkeypatch):
+    session = _FakeSession()
+    monkeypatch.setattr(ingestion_quality, "get_session", _fake_get_session(session))
+    await _fake_find_cnic_conflicts(monkeypatch, conflicts=[
+        {"edge_id": 42, "a_id": "PERSON-1", "b_id": "PERSON-2"},
+    ])
+    await ingestion_quality.start_run("run-1", "ingest_file", case_id="fir-1001-26")
+
+    result = await ingestion_quality.finish_run("run-1", case_id="fir-1001-26")
+
+    assert result["flagged_for_review"] is True
+    assert "CNIC hard-conflict veto" in result["flagged_reason"]
+    assert "fir-1001-26" in result["flagged_reason"]
+    assert "42" in result["flagged_reason"]
+    flag_calls = [c for c in session.executed if "flagged_for_review = true" in c[0]]
+    assert len(flag_calls) == 1
+    assert flag_calls[0][1]["run_id"] == "run-1"
+
+
+async def test_finish_run_cnic_conflict_appends_to_an_existing_g2_flag_not_overwrite(monkeypatch):
+    """If G2's own threshold check already flagged the run, a CNIC
+    conflict found afterward must ADD its own reason, not silently
+    replace G2's — both are independently true and worth surfacing."""
+    session = _FakeSession()
+    monkeypatch.setattr(ingestion_quality, "get_session", _fake_get_session(session))
+    await _fake_check_and_flag(monkeypatch)  # returns flagged=False by default
+    from src.graph import ingestion_circuit_breaker
+
+    async def _fake_flagged(run_id, source, counts):
+        return {"flagged": True, "reason": "ambiguous-match rate 40.0% vs. baseline avg 10.0%"}
+    monkeypatch.setattr(ingestion_circuit_breaker, "check_and_flag", _fake_flagged)
+    await _fake_find_cnic_conflicts(monkeypatch, conflicts=[{"edge_id": 7}])
+    await ingestion_quality.start_run("run-1", "ingest_file", case_id="fir-1001-26")
+
+    result = await ingestion_quality.finish_run("run-1", source="ingest_file", case_id="fir-1001-26")
+
+    assert result["flagged_for_review"] is True
+    assert "ambiguous-match rate" in result["flagged_reason"]
+    assert "CNIC hard-conflict veto" in result["flagged_reason"]
+
+
+async def test_finish_run_cnic_audit_failure_is_swallowed(monkeypatch):
+    """A failure inside the audit itself must never fail finish_run() —
+    same resilience contract as every other write in this module."""
+    session = _FakeSession()
+    monkeypatch.setattr(ingestion_quality, "get_session", _fake_get_session(session))
+    from src.graph import same_as_integrity
+
+    async def _boom(case_id):
+        raise RuntimeError("AGE unreachable")
+    monkeypatch.setattr(same_as_integrity, "find_cnic_conflicts", _boom)
+    await ingestion_quality.start_run("run-1", "ingest_file", case_id="fir-1001-26")
+
+    result = await ingestion_quality.finish_run("run-1", case_id="fir-1001-26")  # must not raise
+
+    assert "flagged_for_review" not in result
