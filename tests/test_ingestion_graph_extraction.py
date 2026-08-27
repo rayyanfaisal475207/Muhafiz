@@ -264,6 +264,118 @@ async def test_attach_chunk_identifiers_only_fires_for_single_person_single_cnic
     assert "cnic" not in without_cnic
 
 
+# ── Document-wide CNIC hoisting (the "if his CNIC is in the document, all
+# his mentions in it belong to him" gap) ────────────────────────────────
+
+def test_document_cnic_for_name_matches_bare_given_name_to_full_name():
+    name_cnics = {"فیصل ولد محمد رمضان": "00000-9000057-1"}
+    assert service._document_cnic_for_name("فیصل", name_cnics) == "00000-9000057-1"
+    # Symmetric: the full name looking up the bare name's CNIC works too.
+    assert service._document_cnic_for_name(
+        "فیصل ولد محمد رمضان", {"فیصل": "00000-9000057-1"}
+    ) == "00000-9000057-1"
+
+
+def test_document_cnic_for_name_refuses_to_guess_between_two_different_people():
+    """Two different people in the same document share a given name, with
+    different CNICs — both are reachable via containment, so this must
+    return None rather than pick one."""
+    name_cnics = {
+        "فیصل ولد محمد رمضان": "00000-9000057-1",
+        "فیصل احمد": "00000-1111111-1",
+    }
+    assert service._document_cnic_for_name("فیصل", name_cnics) is None
+
+
+def test_document_cnic_for_name_no_match():
+    assert service._document_cnic_for_name("کاشف", {"فیصل ولد محمد رمضان": "00000-9000057-1"}) is None
+
+
+def test_document_cnic_for_name_ignores_character_prefix_that_is_not_a_word_boundary():
+    """'فیصل' must not match 'فیصلآباد' (a place name) just because it
+    shares a character prefix — the check is token-based, not substring."""
+    assert service._document_cnic_for_name("فیصل", {"فیصلآباد": "00000-9000057-1"}) is None
+
+
+@pytest.mark.asyncio
+async def test_full_name_cnic_hoisted_onto_later_bare_name_mention(monkeypatch, stub_graph_deps):
+    """
+    The exact scenario this fix targets: chunk 1 has the narrative's own
+    identification line (full name + CNIC, alone in its chunk); chunk 2
+    later refers to the same person by given name alone, with no CNIC
+    nearby. The bare-name mention must resolve with the hoisted CNIC
+    attached, so entity_resolution routes it through TIER_CNIC_AUTO
+    against the SAME node instead of minting a name-fallback duplicate.
+    """
+    import src.extraction.ner as ner_mod
+
+    async def fake_extract_entities(text, source_chunk_id=None):
+        if source_chunk_id == "DOC-1_c0":
+            return [{"text": "فیصل ولد محمد رمضان", "type": "person", "char_span": [0, 5],
+                      "source_chunk_id": source_chunk_id, "confidence": 0.9, "attributes": {}}]
+        return [{"text": "فیصل", "type": "person", "char_span": [0, 5],
+                  "source_chunk_id": source_chunk_id, "confidence": 0.9, "attributes": {}}]
+    monkeypatch.setattr(ner_mod, "extract_entities", fake_extract_entities)
+
+    documents = [SimpleNamespace(text="text")]
+    chunks = [
+        FakeChunk("DOC-1_c0", "فیصل ولد محمد رمضان، شناختی کارڈ نمبر 00000-9000057-1۔"),
+        FakeChunk("DOC-1_c1", "فیصل نے دوبارہ بیان دیا۔"),
+    ]
+
+    await service._run_graph_extraction("t.pdf", documents, chunks, "CASE-001", "DOC-1")
+
+    person_mentions = [c["mention"] for c in stub_graph_deps["resolved"] if c["type"] == "person"]
+    assert len(person_mentions) == 2
+    assert person_mentions[0]["cnic"] == "00000-9000057-1"
+    assert person_mentions[1]["canonical_name"] == "فیصل"
+    assert person_mentions[1]["cnic"] == "00000-9000057-1", \
+        "the bare given-name mention must inherit the document's already-observed CNIC"
+
+
+@pytest.mark.asyncio
+async def test_cnic_found_after_the_fact_is_backfilled_onto_the_already_resolved_node(stub_graph_deps, monkeypatch):
+    """
+    Reverse order: the bare given name is mentioned FIRST (resolves to a
+    new node with no CNIC), and the full identification line with the
+    CNIC only appears in a LATER chunk, on an exact repeat of that same
+    string. Because the dedup cache short-circuits resolve_and_write for
+    exact-string repeats, the only place this CNIC can still land is a
+    backfill write onto the node the first mention already created.
+    """
+    import src.extraction.ner as ner_mod
+    import src.graph.versioning as versioning_mod
+
+    async def fake_extract_entities(text, source_chunk_id=None):
+        return [{"text": "فیصل", "type": "person", "char_span": [0, 5],
+                  "source_chunk_id": source_chunk_id, "confidence": 0.9, "attributes": {}}]
+    monkeypatch.setattr(ner_mod, "extract_entities", fake_extract_entities)
+
+    backfills = []
+    original_write_node = versioning_mod.write_node
+
+    async def spying_write_node(label, match, properties=None, *, source_doc_id=None, confidence=1.0):
+        if properties and "cnic" in properties:
+            backfills.append({"label": label, "match": match, "properties": properties})
+        return await original_write_node(label, match, properties, source_doc_id=source_doc_id, confidence=confidence)
+    monkeypatch.setattr(versioning_mod, "write_node", spying_write_node)
+
+    documents = [SimpleNamespace(text="text")]
+    chunks = [
+        FakeChunk("DOC-1_c0", "فیصل نے بیان دیا۔"),
+        FakeChunk("DOC-1_c1", "فیصل، شناختی کارڈ نمبر 00000-9000057-1۔"),
+    ]
+
+    await service._run_graph_extraction("t.pdf", documents, chunks, "CASE-001", "DOC-1")
+
+    person_resolutions = [c for c in stub_graph_deps["resolved"] if c["type"] == "person"]
+    assert len(person_resolutions) == 1, "still only ONE resolve_and_write call for the exact-string repeat"
+
+    assert len(backfills) == 1
+    assert backfills[0]["match"] == {"entity_id": "X-1"}
+    assert backfills[0]["properties"]["cnic"] == "00000-9000057-1"
+
+
 # ── Relationship extraction (4.6) — within-chunk and cross-chunk (Priority
 # 4 of the 2026-08-06 open-gaps audit) ───────────────────────────────────
 
