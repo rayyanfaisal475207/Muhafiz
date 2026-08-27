@@ -798,6 +798,73 @@ def test_delete_attachment_denies_an_attachment_with_no_owner(api, gateway):
     assert response.status_code == 403
 
 
+# ── F-05: attachment metadata leaks before the sessions row exists ──────────
+#
+# The checks above only ever guarded a session that already has a `sessions`
+# row. But the frontend generates session_id client-side before the first
+# chat message, so a brand-new conversation legitimately has no sessions row
+# for a window — and `if session and ...` skipped ownership entirely in
+# that window, letting any authenticated user list (and, on the upload side,
+# add to) another user's attachments for a session_id they merely guessed or
+# observed. The fix falls back to the attachment rows' own user_id (set at
+# upload time) when there is no session row to check against.
+
+def test_list_attachments_denies_another_users_pre_session_attachments(api, gateway):
+    """
+    The exact scenario the audit proved live: invB reads invA's attachment
+    list before invA's first chat message has created the sessions row.
+    """
+    client, gw = api
+    other_user_session = str(uuid.uuid4())
+    gw.attachments.append({
+        "attachment_id": str(uuid.uuid4()), "session_id": other_user_session,
+        "user_id": str(uuid.uuid4()), "filename": "victim-note.txt", "status": "ready",
+    })
+
+    response = client.get("/api/attachments", params={"session_id": other_user_session})
+
+    assert response.status_code == 403
+
+
+def test_list_attachments_allows_own_pre_session_attachments(api, gateway, user_id):
+    """The legitimate case the fix must not break: the owner listing their
+    own attachments before their first message creates the sessions row."""
+    client, gw = api
+    my_new_session = str(uuid.uuid4())
+    gw.attachments.append({
+        "attachment_id": str(uuid.uuid4()), "session_id": my_new_session,
+        "user_id": user_id, "filename": "my-note.txt", "status": "ready",
+    })
+
+    response = client.get("/api/attachments", params={"session_id": my_new_session})
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+
+
+def test_upload_attachment_denied_when_session_already_has_another_users_files(api, gateway, no_op_extract):
+    """
+    Defense in depth on the write side: even before a sessions row exists,
+    a second uploader who isn't the owner of that session_id's existing
+    attachments must still be denied — not just able to read the list, but
+    also blocked from adding a poisoned attachment to it.
+    """
+    client, gw = api
+    other_user_session = str(uuid.uuid4())
+    gw.attachments.append({
+        "attachment_id": str(uuid.uuid4()), "session_id": other_user_session,
+        "user_id": str(uuid.uuid4()), "filename": "victim-note.txt", "status": "ready",
+    })
+
+    response = client.post(
+        "/api/attachments",
+        data={"session_id": other_user_session},
+        files={"file": ("evil.txt", b"hello", "text/plain")},
+    )
+
+    assert response.status_code == 403
+
+
 # ── Downloads ─────────────────────────────────────────────────────────────────
 
 @pytest.fixture

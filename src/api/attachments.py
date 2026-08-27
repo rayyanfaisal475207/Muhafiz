@@ -99,6 +99,18 @@ async def upload_attachment(
         raise HTTPException(status_code=403, detail="Not authorized to attach files to this session.")
 
     existing = await gateway.get_attachments_for_session(session_id)
+
+    # F-05, upload side: a fresh session_id with zero attachments can't be
+    # distinguished from someone else's not-yet-used one (that's the
+    # accepted tradeoff of a client-generated id with no session row yet),
+    # but once a session_id already has attachments, they carry `user_id`
+    # from their own upload — a second uploader who isn't that owner must
+    # still be denied, the same as if the session row already existed.
+    if not session and any(
+        a.get("user_id") and a.get("user_id") != str(current_user.id) for a in existing
+    ):
+        raise HTTPException(status_code=403, detail="Not authorized to attach files to this session.")
+
     if len(existing) >= MAX_ATTACHMENTS_PER_SESSION:
         raise HTTPException(
             status_code=400,
@@ -169,7 +181,23 @@ async def list_attachments(session_id: str, current_user: User = Depends(get_cur
     # every create_session call site), so this only closes a latent gap.
     if session and session.get("user_id") != str(current_user.id):
         raise HTTPException(status_code=403, detail="Not authorized to access this session.")
-    return await gateway.get_attachments_for_session(session_id)
+
+    attachments = await gateway.get_attachments_for_session(session_id)
+
+    # Audit finding F-05: a brand-new conversation legitimately has no
+    # `sessions` row yet (the frontend generates session_id client-side
+    # before the first chat message — see upload_attachment above), so
+    # `session` being None used to skip ownership entirely, letting any
+    # authenticated user list another user's attachment metadata for a
+    # session_id they merely guessed or observed. With no session row to
+    # check against, fall back to the attachment rows' own `user_id`
+    # (set at upload time) instead of skipping the check.
+    if not session and any(
+        a.get("user_id") and a.get("user_id") != str(current_user.id) for a in attachments
+    ):
+        raise HTTPException(status_code=403, detail="Not authorized to access this session.")
+
+    return attachments
 
 
 @router.delete("/{attachment_id}")
