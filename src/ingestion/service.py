@@ -100,6 +100,46 @@ def _attach_chunk_identifiers(mention: dict, chunk_text: str, person_mentions_in
     return mention
 
 
+def _document_cnic_for_name(name: str, name_cnics: dict[str, str]) -> Optional[str]:
+    """
+    Look up a CNIC recorded elsewhere in THIS document for a name that is
+    a whitespace-bounded prefix of `name`, or vice versa — the common
+    narrative pattern where a person's given name alone ("فیصل") recurs
+    later in the same document after an earlier full identification line
+    ("فیصل ولد محمد رمضان، شناختی کارڈ ..."). Token-based, not a
+    substring/similarity score, so "فیصل" matches "فیصل ولد محمد رمضان"
+    (the longer name's tokens start with the shorter one's) but never an
+    unrelated word that merely shares a character prefix ("فیصلآباد").
+
+    Refuses to guess unless exactly ONE distinct CNIC is reachable this
+    way. If the document names two different people who happen to share
+    a given name ("فیصل" and "فیصل احمد" with different CNICs), both are
+    reachable and this returns None rather than picking one — same "an
+    incorrect CNIC attachment is far more damaging than a missed one"
+    rule _attach_chunk_identifiers already applies to the single-CNIC-
+    per-chunk case.
+    """
+    name_tokens = normalize_urdu(name).split()
+    if not name_tokens:
+        return None
+
+    found: set[str] = set()
+    for other_name, other_cnic in name_cnics.items():
+        if other_name == name:
+            continue
+        other_tokens = normalize_urdu(other_name).split()
+        if not other_tokens:
+            continue
+        shorter, longer = (
+            (name_tokens, other_tokens) if len(name_tokens) <= len(other_tokens)
+            else (other_tokens, name_tokens)
+        )
+        if longer[: len(shorter)] == shorter:
+            found.add(other_cnic)
+
+    return next(iter(found)) if len(found) == 1 else None
+
+
 async def _extract_and_write_relationships(
     relationship_extraction, versioning, text: str, persons: dict[str, str],
     doc_id: str, chunk_id: str, written_pairs: set[frozenset], stats: dict,
@@ -383,6 +423,17 @@ async def _run_graph_extraction(
         # within a single document, rather than loosening
         # resolve_and_write()'s own cross-document matching at all.
         document_resolved_persons: dict[str, str] = {}
+        # name -> cnic, for every person mention in THIS document whose
+        # CNIC was DIRECTLY found by _attach_chunk_identifiers (never a
+        # hoisted/propagated one — see _document_cnic_for_name's own
+        # docstring for why only direct observations seed this map).
+        # Lets a later mention of the same person by given name alone
+        # ("فیصل") resolve via TIER_CNIC_AUTO against the CNIC an earlier
+        # chunk's identification line already attached to the full name
+        # ("فیصل ولد محمد رمضان"), instead of minting a name-fallback
+        # duplicate that only a pending SAME_AS (and later, a human or a
+        # collapse script) would ever link back.
+        document_person_cnics: dict[str, str] = {}
         for chunk in chunks:
             chunk_id = chunk.doc_id  # the CHUNK's own id (parent doc_id lives in chunk.metadata)
             try:
@@ -414,6 +465,19 @@ async def _run_graph_extraction(
                 mention_dict = {"canonical_name": m["text"], **(m.get("attributes") or {})}
                 if mention_type == "person":
                     mention_dict = _attach_chunk_identifiers(mention_dict, chunk.text, person_count)
+                    if mention_dict.get("cnic"):
+                        # Directly observed — seed the document-wide map
+                        # (first observation wins; do not let a later,
+                        # possibly OCR-noisier chunk overwrite it).
+                        document_person_cnics.setdefault(m["text"], mention_dict["cnic"])
+                    elif m["text"] not in document_resolved_persons:
+                        # No CNIC on this mention itself — see if this
+                        # document already resolved a name-related mention
+                        # (e.g. the given name alone, vs. an earlier full
+                        # "X ولد Y" identification line) with one.
+                        hoisted = _document_cnic_for_name(m["text"], document_person_cnics)
+                        if hoisted:
+                            mention_dict = {**mention_dict, "cnic": hoisted}
                 mention_dict["extraction_confidence"] = m.get("confidence", 1.0)
 
                 try:
@@ -432,6 +496,24 @@ async def _run_graph_extraction(
                         # steps are skipped, not provenance for this
                         # specific mention.
                         entity_id = document_resolved_persons[m["text"]]
+                        if mention_dict.get("cnic"):
+                            # [Faisal-in-doc gap] This exact name was
+                            # already resolved from an earlier mention
+                            # that carried no CNIC (e.g. a bare given-name
+                            # occurrence before the narrative's own
+                            # identification line). THIS occurrence
+                            # directly carries one — backfill it onto the
+                            # already-created node rather than losing it,
+                            # so a later document in this case that finds
+                            # the same CNIC can still match via
+                            # TIER_CNIC_AUTO instead of minting yet
+                            # another duplicate. Idempotent MERGE/SET —
+                            # harmless to repeat if already backfilled.
+                            await versioning.write_node(
+                                entity_resolution.TYPE_TO_LABEL["person"], {"entity_id": entity_id},
+                                {"cnic": mention_dict["cnic"]},
+                                source_doc_id=doc_id, confidence=mention_dict.get("extraction_confidence", 1.0),
+                            )
                         await versioning.write_edge(
                             "APPEARS_IN",
                             entity_resolution.TYPE_TO_LABEL["person"], {"entity_id": entity_id},
