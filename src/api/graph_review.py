@@ -23,7 +23,7 @@ from src.auth.jwt import require_role
 from src.auth.rls_context import cross_case_rls_dependency
 from src.data_gateway import get_gateway
 from src.database.models import User
-from src.graph import age_client, candidate_reprioritization, pending_candidate_priority, versioning
+from src.graph import age_client, candidate_reprioritization, pending_candidate_priority, same_as_queue_history, versioning
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +121,27 @@ async def review_stats(admin: User = Depends(require_role("supervisor"))):
         counts.setdefault(tier, {}).setdefault(status, 0)
         counts[tier][status] += 1
     return counts
+
+
+@router.get("/queue/history")
+async def queue_history(case_id: str | None = None, days: int = 30, admin: User = Depends(require_role("supervisor"))):
+    """
+    The pending-backlog trend (GRAPH_QUALITY_VISIBILITY_FIX_PROMPT.md,
+    Feature A) — same tier x status shape /stats reports live, but as a
+    time series from same_as_queue_snapshot (migration 030) instead of a
+    single point-in-time read. Populated by
+    scripts/snapshot_same_as_queue.py (no automatic writer here — see
+    that script's own module docstring for why).
+
+    `case_id` omitted returns the GLOBAL (cross-case) rollup history, not
+    "every case" — matches same_as_queue_history.write_snapshot()'s own
+    NULL-means-global convention. An empty result here most likely means
+    the snapshot script has never been run, not that the queue is empty
+    — check GET /stats for the live number first if that's ambiguous.
+    """
+    days = max(1, min(days, 365))
+    rows = await same_as_queue_history.read_history(case_id=case_id, days=days)
+    return {"case_id": case_id, "days": days, "snapshots": rows}
 
 
 async def _get_same_as_edge(edge_id: int) -> tuple[dict, dict, dict]:
