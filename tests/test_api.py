@@ -1069,6 +1069,58 @@ def test_admin_metrics_include_the_fields_the_dashboard_renders(admin_api):
     assert "table_stats" in body
 
 
+# ── F-07: unbounded admin pagination ─────────────────────────────────────────
+#
+# Every admin `limit` param was a bare `int` with no upper bound.
+# GET /api/admin/audit-logs?limit=99999999 returned 149,502 rows in 5.9s in
+# the audit — a memory/serialization DoS vector reachable by any
+# platform-admin. Each route below now caps `limit` at 1000.
+
+@pytest.mark.parametrize("path", [
+    "/api/admin/errors",
+    "/api/admin/kb/jobs",
+    "/api/admin/audit-logs",
+    "/api/admin/runs",
+    "/api/admin/files",
+    "/api/admin/mcp-calls",
+    "/api/admin/users",
+])
+def test_admin_pagination_rejects_excessive_limit(admin_api, path):
+    client, _ = admin_api
+    response = client.get(path, params={"limit": 99999999})
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize("path", [
+    "/api/admin/errors",
+    "/api/admin/kb/jobs",
+    "/api/admin/audit-logs",
+    "/api/admin/runs",
+    "/api/admin/files",
+    "/api/admin/mcp-calls",
+    "/api/admin/users",
+])
+def test_admin_pagination_allows_limit_at_the_boundary(admin_api, path):
+    client, _ = admin_api
+    response = client.get(path, params={"limit": 1000})
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize("path", [
+    "/api/admin/errors",
+    "/api/admin/kb/jobs",
+    "/api/admin/audit-logs",
+    "/api/admin/runs",
+    "/api/admin/files",
+    "/api/admin/mcp-calls",
+    "/api/admin/users",
+])
+def test_admin_pagination_default_still_works(admin_api, path):
+    client, _ = admin_api
+    response = client.get(path)
+    assert response.status_code == 200
+
+
 # ── Phase 7, Module 7.2: KB upload validation ───────────────────────────────
 #
 # validate_file()'s own checks are unit-tested directly in

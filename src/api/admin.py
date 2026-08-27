@@ -19,7 +19,7 @@ import uuid
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, BackgroundTasks, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.dialects import postgresql
@@ -150,8 +150,11 @@ async def get_latency(days: int = 30, granularity: str = "day", admin: User = De
 
 @router.get("/errors")
 async def get_errors(
-    limit: int = 100,
-    offset: int = 0,
+    # F-07 audit finding: an unbounded `limit` let /audit-logs return
+    # 149,502 rows in 5.9s off a single request. Every admin `limit` here
+    # now carries the same le=1000 ceiling.
+    limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
     days: int = 30,
     severity: str = None,
     module: str = None,
@@ -216,7 +219,7 @@ async def get_entity_resolution_metrics(admin: User = Depends(require_role("supe
 
 
 @router.get("/kb/jobs")
-async def get_kb_jobs(limit: int = 50, offset: int = 0, admin: User = Depends(require_role("platform-admin"))):
+async def get_kb_jobs(limit: int = Query(default=50, ge=1, le=1000), offset: int = Query(default=0, ge=0), admin: User = Depends(require_role("platform-admin"))):
     """Ingestion status per uploaded document: processing / success / failed."""
     gateway = await get_gateway()
     return await gateway.get_ingestion_jobs(limit=limit, offset=offset)
@@ -224,8 +227,8 @@ async def get_kb_jobs(limit: int = 50, offset: int = 0, admin: User = Depends(re
 
 @router.get("/audit-logs")
 async def get_audit_logs(
-    limit: int = 100,
-    offset: int = 0,
+    limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
     days: int = 30,
     event_type: str = None,
     case_id: str = None,
@@ -399,7 +402,7 @@ async def delete_kb_document(source_file: str, admin: User = Depends(require_rol
 # ══════════════════════════════════════════════════════════════════════
 
 @router.get("/runs")
-async def get_runs(limit: int = 50, offset: int = 0, route_filter: str = None,
+async def get_runs(limit: int = Query(default=50, ge=1, le=1000), offset: int = Query(default=0, ge=0), route_filter: str = None,
                    admin: User = Depends(require_role("platform-admin"))):
     gateway = await get_gateway()
     return await gateway.get_runs(limit=limit, offset=offset, route_filter=route_filter)
@@ -412,13 +415,13 @@ async def get_run_steps(run_id: str, admin: User = Depends(require_role("platfor
 
 
 @router.get("/files")
-async def get_files(limit: int = 50, offset: int = 0, admin: User = Depends(require_role("platform-admin"))):
+async def get_files(limit: int = Query(default=50, ge=1, le=1000), offset: int = Query(default=0, ge=0), admin: User = Depends(require_role("platform-admin"))):
     gateway = await get_gateway()
     return await gateway.get_generated_files(limit=limit, offset=offset)
 
 
 @router.get("/mcp-calls")
-async def get_mcp_calls(limit: int = 50, offset: int = 0, admin: User = Depends(require_role("platform-admin"))):
+async def get_mcp_calls(limit: int = Query(default=50, ge=1, le=1000), offset: int = Query(default=0, ge=0), admin: User = Depends(require_role("platform-admin"))):
     gateway = await get_gateway()
     return await gateway.get_mcp_calls(limit=limit, offset=offset)
 
@@ -536,6 +539,6 @@ async def delete_file(file_id: str, admin: User = Depends(require_role("platform
 
 
 @router.get("/users")
-async def get_users(limit: int = 50, offset: int = 0, admin: User = Depends(require_role("platform-admin"))):
+async def get_users(limit: int = Query(default=50, ge=1, le=1000), offset: int = Query(default=0, ge=0), admin: User = Depends(require_role("platform-admin"))):
     gateway = await get_gateway()
     return await gateway.get_all_users(limit=limit, offset=offset)
