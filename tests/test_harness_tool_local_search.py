@@ -73,6 +73,14 @@ def stub_shared(monkeypatch):
 
     monkeypatch.setattr(local_search_mod, "_fetch_community_chunks", _no_community_reports)
 
+    # Default: no confirmed SAME_AS expansion — passthrough. The dedicated
+    # canonicalization test below overrides this to prove the expansion is
+    # actually wired in.
+    async def _passthrough(entity_ids):
+        return entity_ids
+
+    monkeypatch.setattr(local_search_mod, "_canonicalize_entity_ids", _passthrough)
+
 
 def _stub_query_similar_entities(monkeypatch, matches):
     async def _fake(query, case_id, top_k=3):
@@ -199,6 +207,44 @@ async def test_fan_out_omits_community_report_without_crashing(monkeypatch):
     assert result.status == ToolStatus.OK
     assert result.community_reports_included is False
     assert all(c.id != "community:C-001" for c in result.chunks)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# (d.1) canonicalization — a semantically-matched NON-canonical duplicate
+# still finds its community report via a confirmed SAME_AS expansion
+# ═══════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_community_join_expands_through_confirmed_same_as(monkeypatch):
+    """
+    The matched entity ("p-dup") is itself a physical duplicate of the real
+    community member ("p1") via a confirmed SAME_AS edge. Without
+    canonicalizing before the community_membership join, the report would
+    be missed entirely (the KNOWN GAP this fix closes).
+    """
+    _stub_query_similar_entities(monkeypatch, [_entity_match(entity_id="p-dup", label="Person", canonical_name="کاشف")])
+    _stub_retrieve_graph(monkeypatch, {"کاشف": _graph_result([_graph_chunk(id_="g1")])})
+
+    async def _expand(entity_ids):
+        assert entity_ids == ["p-dup"]
+        return ["p-dup", "p1"]
+
+    monkeypatch.setattr(local_search_mod, "_canonicalize_entity_ids", _expand)
+
+    async def _with_community(entity_ids, case_id):
+        assert set(entity_ids) == {"p-dup", "p1"}
+        return [{
+            "id": "community:C-002", "text": "Recurring pattern community report.",
+            "metadata": {"case_id": case_id, "source": "community:C-002", "evidence_kind": "community_report", "member_count": 3},
+        }]
+
+    monkeypatch.setattr(local_search_mod, "_fetch_community_chunks", _with_community)
+
+    result = await local_search_tool(LocalSearchToolInput(query_text="who is کاشف connected to?", execution=_execution()))
+
+    assert result.status == ToolStatus.OK
+    assert result.community_reports_included is True
+    assert any(c.id == "community:C-002" for c in result.chunks)
 
 
 # ═══════════════════════════════════════════════════════════════════════

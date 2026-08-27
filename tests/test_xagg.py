@@ -36,6 +36,19 @@ def _case(case_id):
     return {"id": case_id, "label": "Case", "properties": {"case_id": case_id}}
 
 
+@pytest.fixture(autouse=True)
+def _stub_confirmed_same_as(monkeypatch):
+    """
+    Default: no confirmed SAME_AS pairs, so canonicalization is a no-op and
+    every pre-existing test's raw entity_ids pass through unchanged. Tests
+    that care about canonicalization override this explicitly.
+    """
+    async def _empty():
+        return []
+
+    monkeypatch.setattr(xagg, "fetch_confirmed_same_as", _empty)
+
+
 # ── Graph recurrence (vehicle/person keyword) ───────────────────────────────
 
 async def test_vehicle_query_ranks_recurring_vehicles_by_case_count(monkeypatch):
@@ -73,6 +86,37 @@ async def test_person_query_routes_to_person_recurrence(monkeypatch):
     assert result["kind"] == "graph_recurrence"
     assert result["entity_type"] == "Person"
     assert result["results"][0]["case_count"] == 2
+
+
+async def test_person_recurrence_folds_confirmed_duplicate_entity_ids(monkeypatch):
+    """
+    Physical Person duplicates (e.g. the fir-1001-26 کاشف component's 139
+    fresh entity_ids for one real human) must fold into ONE recurrence
+    bucket, not fragment across several low-count entity_id buckets that
+    each fall below the "recurring" bar. P-A and P-B are confirmed SAME_AS
+    and each appears in only one distinct case — without folding, neither
+    would even qualify as "recurring" (case_count > 1); folded, they must
+    sum to 2 distinct cases under one canonical id.
+    """
+    rows = [
+        {"n": _node("P-A", "Person", canonical_name="کاشف"), "c": _case("CASE-100")},
+        {"n": _node("P-B", "Person", canonical_name="کاشف"), "c": _case("CASE-101")},
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    async def _confirmed_pair():
+        return [("P-A", "P-B")]
+
+    monkeypatch.setattr(xagg, "fetch_confirmed_same_as", _confirmed_pair)
+
+    result = await xagg.run_aggregate(
+        "who is the top repeat offender across cases", None, gateway=None, user_role="supervisor"
+    )
+
+    assert result["kind"] == "graph_recurrence"
+    assert len(result["results"]) == 1
+    assert result["results"][0]["case_count"] == 2
+    assert set(result["results"][0]["case_ids"]) == {"CASE-100", "CASE-101"}
 
 
 async def test_urdu_word_for_people_routes_to_person_recurrence(monkeypatch):

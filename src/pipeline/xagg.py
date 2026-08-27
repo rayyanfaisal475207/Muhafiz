@@ -24,6 +24,7 @@ from typing import Optional
 
 from src.graph import age_client
 from src.database.postgres import current_cross_case, current_rls_active
+from src.graph.community_detection import build_canonical_map, canon, fetch_confirmed_same_as
 from src.ingestion.muhafiz_cases import split_crime_category
 
 logger = logging.getLogger(__name__)
@@ -231,6 +232,17 @@ async def _top_recurring_nodes(
             "RETURN n, c",
             columns=["n", "c"],
         )
+    # Physical Person duplicates (unresolved CNIC-less name mentions minted
+    # as fresh entity_ids — see same_as_integrity.py's module docstring)
+    # would otherwise fragment one real person's cross-case footprint across
+    # several low-count entity_id buckets, hiding genuine recurrence. Fold
+    # confirmed-duplicate ids to one canonical id first, same mechanism
+    # community_summarization.py already uses at read time. Vehicle has no
+    # SAME_AS/CNIC-merge concept, so skip the extra query for that label.
+    canonical_map: dict[str, str] = {}
+    if label == "Person":
+        canonical_map = build_canonical_map(await fetch_confirmed_same_as())
+
     per_entity_cases: dict[str, set[str]] = {}
     display: dict[str, str] = {}
     for row in rows:
@@ -240,6 +252,7 @@ async def _top_recurring_nodes(
         case_id = c_props.get("case_id")
         if not entity_id or not case_id:
             continue
+        entity_id = canon(canonical_map, entity_id)
         per_entity_cases.setdefault(entity_id, set()).add(case_id)
         display[entity_id] = n_props.get("canonical_name") or n_props.get("plate") or n_props.get("name") or entity_id
 

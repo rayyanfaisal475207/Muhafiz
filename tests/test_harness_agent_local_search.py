@@ -256,6 +256,9 @@ async def test_supervisor_dispatches_investigating_officer_query_to_local_search
     async def _fake_fetch_community_chunks(entity_ids, case_id):
         return []
 
+    async def _fake_canonicalize_entity_ids(entity_ids):
+        return entity_ids
+
     async def _cross_rerank(query, candidates, top_k=None):
         return candidates[: (top_k or len(candidates))]
 
@@ -265,6 +268,7 @@ async def test_supervisor_dispatches_investigating_officer_query_to_local_search
     monkeypatch.setattr(local_search_tool_mod, "query_similar_entities", _fake_query_similar_entities)
     monkeypatch.setattr(local_search_tool_mod, "retrieve_graph", _fake_retrieve_graph)
     monkeypatch.setattr(local_search_tool_mod, "_fetch_community_chunks", _fake_fetch_community_chunks)
+    monkeypatch.setattr(local_search_tool_mod, "_canonicalize_entity_ids", _fake_canonicalize_entity_ids)
     monkeypatch.setattr(local_search_tool_mod, "cross_rerank", _cross_rerank)
     monkeypatch.setattr(local_search_tool_mod, "evaluate_relevance", _relevant)
 

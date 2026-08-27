@@ -48,13 +48,17 @@ seeded), with an additional open `metadata["evidence_kind"]` key
 disambiguation only (ChunkMetadata.model_config = {"extra": "allow"}
 already supports this — no schema change).
 
-KNOWN GAP, not fixed here (see plan): the community-report join looks up
-`community_membership` by the matched entity's OWN entity_id directly, not
-canonicalized through confirmed SAME_AS. A non-canonical duplicate of a
-community member will miss that community. Fully closing this needs the
-same fetch_confirmed_same_as()+canon() pass community_summarization.py
-already does — deliberately not pulled into this per-query hot path (a
-graph-wide fetch, wasteful to redo on every Local Search call).
+CLOSED GAP (previously "KNOWN GAP, not fixed here"): the community-report
+join used to look up `community_membership` by the matched entity's OWN
+entity_id directly, not canonicalized through confirmed SAME_AS, so a
+non-canonical duplicate of a community member would miss that community.
+Rather than the graph-wide fetch_confirmed_same_as()+canon() pass
+community_summarization.py does (wasteful to redo on every Local Search
+call), `_canonicalize_entity_ids()` below does a SCOPED one-hop confirmed
+SAME_AS expansion limited to just the matched entity_ids — same directed
+two-query shape as graph_retriever._expand_confirmed_identity(), kept local
+here rather than imported (that function is private, and this module's own
+design keeps `src/retrieval/graph_retriever.py` untouched/unimported).
 """
 
 from __future__ import annotations
@@ -68,6 +72,7 @@ from sqlalchemy import text
 
 from src import config
 from src.database.postgres import get_session
+from src.graph import age_client
 from src.pipeline.evaluator import evaluate_relevance
 from src.pipeline.harness.tools.graph import _to_evidence_chunk
 from src.pipeline.harness.types import ToolError, ToolInput, ToolResult, ToolStatus
@@ -182,6 +187,32 @@ async def _fetch_community_chunks(entity_ids: list[str], case_id: Optional[str])
     return chunks
 
 
+async def _canonicalize_entity_ids(entity_ids: list[str]) -> list[str]:
+    """
+    One-hop confirmed-SAME_AS expansion, scoped to just `entity_ids` — see
+    this module's docstring ("CLOSED GAP"). Non-Person ids (Officer,
+    Vehicle, ...) pass through unchanged: the query is `:Person`-label-
+    scoped on both endpoints, so such an id simply never matches either
+    side and the result set is just `entity_ids` back, deduped.
+    """
+    if not entity_ids:
+        return entity_ids
+    outgoing = await age_client.execute_cypher(
+        "MATCH (a:Person)-[r:SAME_AS]->(b:Person) WHERE a.entity_id IN $ids "
+        "AND r.status = 'confirmed' AND r.superseded_by IS NULL "
+        "RETURN b.entity_id AS to_id",
+        params={"ids": entity_ids}, columns=["to_id"],
+    )
+    incoming = await age_client.execute_cypher(
+        "MATCH (a:Person)-[r:SAME_AS]->(b:Person) WHERE b.entity_id IN $ids "
+        "AND r.status = 'confirmed' AND r.superseded_by IS NULL "
+        "RETURN a.entity_id AS to_id",
+        params={"ids": entity_ids}, columns=["to_id"],
+    )
+    expanded = {row["to_id"] for row in outgoing + incoming if row.get("to_id")}
+    return list(set(entity_ids) | expanded)
+
+
 async def local_search_tool(tool_input: LocalSearchToolInput) -> LocalSearchToolResult:
     """The LOCAL_SEARCH primitive."""
     caller = tool_input.execution.caller
@@ -229,8 +260,9 @@ async def local_search_tool(tool_input: LocalSearchToolInput) -> LocalSearchTool
     confidences = [r["compounded_confidence"] for r in graph_results if r["chunks"]]
     chain_confidence = min(confidences) if confidences else None
 
+    canonical_entity_ids = await _canonicalize_entity_ids([m["entity_id"] for m in matches])
     community_chunks = await _fetch_community_chunks(
-        [m["entity_id"] for m in matches], caller.active_case_id
+        canonical_entity_ids, caller.active_case_id
     )
 
     candidate_pool = graph_chunks + community_chunks
