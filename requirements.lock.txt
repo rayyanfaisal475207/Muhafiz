@@ -53,6 +53,7 @@ annotated-doc==0.0.4
 annotated-types==0.7.0
 anthropic==0.112.0
 anyio==4.13.0
+asteval==1.0.10
 asyncpg==0.31.0
 attrs==25.4.0
 bcrypt==5.0.0
