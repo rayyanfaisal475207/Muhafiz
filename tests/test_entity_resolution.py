@@ -278,6 +278,13 @@ async def test_shares_case_batch_short_circuits_with_no_candidates(fake_age):
     assert len(fake_age.calls) == 1  # just the fetch-all-nodes call
 
 
+async def _no_case_hoist(label, id_key, mention_name, case_id, *, graph=None):
+    """Stub for er._case_hoisted_id_value — always 'nothing to hoist',
+    for tests that monkeypatch _generate_candidates directly and have no
+    fake_age/case_scope wiring for this new, separate AGE call."""
+    return None
+
+
 # ── Name-fallback tiers ─────────────────────────────────────────────────
 
 @pytest.mark.asyncio
@@ -287,6 +294,13 @@ async def test_near_exact_name_flags_even_without_corroboration(fake_age):
     # No CNIC on the mention -> _find_by_cnic() is never called, so no
     # placeholder response is queued for it (see the candidate-scan
     # response landing there instead was the original bug this fixed).
+    #
+    # [case-wide hoisting] No CNIC also means resolve_mention() first
+    # tries _case_hoisted_id_value()'s own scoped_cypher call — queue an
+    # empty result for it (no case-mate with an id found) so it correctly
+    # falls through to candidate generation below, same as before that
+    # addition existed.
+    fake_age.queue([])  # case-hoist scan: nothing
     fake_age.queue([{"n": _node("P-006", "عدنان قریشی وحید")}])
     fake_age.queue([])  # batched shared-case query — no entity_ids come back, so none share the case
 
@@ -312,6 +326,10 @@ async def test_weak_match_goes_to_human_review(monkeypatch):
     async def fake_generate_candidates(label, mention, case_id, id_key=None, *, graph=None):
         return [weak]
     monkeypatch.setattr(er, "_generate_candidates", fake_generate_candidates)
+    # [case-wide hoisting] No CNIC on the mention -> resolve_mention() tries
+    # this first; stub it out so the test stays isolated from AGE/case_scope,
+    # same as _generate_candidates above.
+    monkeypatch.setattr(er, "_case_hoisted_id_value", _no_case_hoist)
 
     decision = await er.resolve_mention("person", {"canonical_name": "زید علی"}, "CASE-099")
     assert decision.tier == er.TIER_REVIEW
@@ -340,6 +358,7 @@ async def test_medium_band_calls_llm_and_respects_same_entity_false(monkeypatch)
     async def fake_generate_candidates(label, mention, case_id, id_key=None, *, graph=None):
         return [_medium_band_candidate()]
     monkeypatch.setattr(er, "_generate_candidates", fake_generate_candidates)
+    monkeypatch.setattr(er, "_case_hoisted_id_value", _no_case_hoist)
 
     called = []
 
@@ -363,6 +382,7 @@ async def test_medium_band_llm_confirms_match_gets_flagged(monkeypatch):
     async def fake_generate_candidates(label, mention, case_id, id_key=None, *, graph=None):
         return [_medium_band_candidate()]
     monkeypatch.setattr(er, "_generate_candidates", fake_generate_candidates)
+    monkeypatch.setattr(er, "_case_hoisted_id_value", _no_case_hoist)
 
     async def fake_call_llm(system_prompt, user_message, **kwargs):
         return '{"same_entity": true, "tier": "flagged_unverified", "confidence": 0.7, "reasoning": "matching father name"}'
@@ -380,6 +400,7 @@ async def test_llm_never_grants_auto_merge_tier(monkeypatch):
     async def fake_generate_candidates(label, mention, case_id, id_key=None, *, graph=None):
         return [_medium_band_candidate()]
     monkeypatch.setattr(er, "_generate_candidates", fake_generate_candidates)
+    monkeypatch.setattr(er, "_case_hoisted_id_value", _no_case_hoist)
 
     async def fake_call_llm(system_prompt, user_message, **kwargs):
         # A misbehaving/malformed LLM response trying to claim auto-merge.
@@ -413,6 +434,9 @@ async def test_resolve_and_write_cnic_auto_reuses_node_no_same_as_edge(fake_age,
 @pytest.mark.asyncio
 async def test_resolve_and_write_flagged_creates_new_node_and_same_as_edge(fake_age, fake_versioning, monkeypatch):
     # No CNIC on the mention -> no _find_by_cnic() call, no placeholder queued for it.
+    # [case-wide hoisting] Queue an empty result for _case_hoisted_id_value()'s
+    # own scoped_cypher call first — see the sibling resolve_mention() test above.
+    fake_age.queue([])  # case-hoist scan: nothing
     fake_age.queue([{"n": _node("P-006", "عدنان قریشی وحید")}])
     fake_age.queue([])  # batched shared-case query — no entity_ids come back, so none share the case
 
@@ -572,3 +596,96 @@ async def test_generate_candidates_falls_back_to_full_scan_with_no_excludes(fake
 
     scan_call = fake_age.calls[1]  # [0] cnic lookup miss, [1] the plain full scan
     assert scan_call["cypher"].strip().startswith("MATCH (n:Person) RETURN n")
+
+
+# ── Case-wide CNIC hoisting (roznamcha/zimni mentions with no CNIC of
+# their own, elsewhere-in-case identity carried over) ──────────────────
+
+@pytest.mark.asyncio
+async def test_case_hoisted_id_value_matches_bare_name_to_full_name(fake_age):
+    fake_age.queue([{"name": "فیصل ولد محمد رمضان", "id_value": "00000-9000057-1"}])
+
+    hoisted = await er._case_hoisted_id_value("Person", "cnic", "فیصل", "CASE-fir-1001-26")
+
+    assert hoisted == "00000-9000057-1"
+
+
+@pytest.mark.asyncio
+async def test_case_hoisted_id_value_ignores_character_prefix_that_is_not_a_word_boundary(fake_age):
+    """'فیصل' must not match 'فیصلآباد' just because it shares a character
+    prefix — token-based, not substring."""
+    fake_age.queue([{"name": "فیصلآباد", "id_value": "00000-9000057-1"}])
+
+    hoisted = await er._case_hoisted_id_value("Person", "cnic", "فیصل", "CASE-001")
+
+    assert hoisted is None
+
+
+@pytest.mark.asyncio
+async def test_resolve_mention_hoists_cnic_from_elsewhere_in_the_case(fake_age):
+    """
+    The roznamcha/zimni case: this mention ("فیصل") carries no CNIC of its
+    own, but a full name containing it ("فیصل ولد محمد رمضان") already has
+    one recorded elsewhere in the SAME case. resolve_mention() must route
+    this straight to TIER_CNIC_AUTO against the SAME existing node — no
+    SAME_AS, no review — exactly like a directly-observed CNIC would.
+    """
+    fake_age.queue([  # _case_hoisted_id_value()'s own scoped_cypher call
+        {"name": "فیصل ولد محمد رمضان", "id_value": "00000-9000057-1"},
+    ])
+    fake_age.queue([{"n": _node("P-EXISTING", "فیصل ولد محمد رمضان", cnic="00000-9000057-1")}])
+
+    decision = await er.resolve_mention("person", {"canonical_name": "فیصل"}, "CASE-fir-1001-26")
+
+    assert decision.tier == er.TIER_CNIC_AUTO
+    assert decision.target_entity_id == "P-EXISTING"
+    assert decision.confidence == 1.0
+    assert "hoisted from elsewhere in case" in decision.basis
+
+
+@pytest.mark.asyncio
+async def test_resolve_mention_does_not_hoist_across_two_different_people_same_given_name(fake_age):
+    """
+    The document already has TWO different full names sharing the given
+    name "فیصل", with DIFFERENT CNICs — ambiguous, so no hoist happens
+    and this falls through to ordinary name-fallback scoring instead of
+    silently picking one of the two people.
+    """
+    fake_age.queue([  # case-hoist scan: two conflicting candidates
+        {"name": "فیصل ولد محمد رمضان", "id_value": "00000-9000057-1"},
+        {"name": "فیصل احمد", "id_value": "00000-1111111-1"},
+    ])
+    fake_age.queue([])  # falls through to _generate_candidates -> _fetch_all_nodes: nothing
+
+    decision = await er.resolve_mention("person", {"canonical_name": "فیصل"}, "CASE-fir-1001-26")
+
+    assert decision.tier == er.TIER_NEW  # never auto-merged against either candidate
+
+
+@pytest.mark.asyncio
+async def test_resolve_mention_hoist_is_case_scoped_via_scoped_cypher(fake_age):
+    """Must route through case_scope.scoped_cypher (the $case_id-enforcing
+    chokepoint), not a raw cross-case age_client call — confirmed by
+    checking the query text actually filters on BELONGS_TO_CASE/case_id."""
+    fake_age.queue([])
+    fake_age.queue([])
+
+    await er.resolve_mention("person", {"canonical_name": "کوئی شخص"}, "CASE-SCOPE-TEST")
+
+    hoist_call = fake_age.calls[0]
+    assert "$case_id" in hoist_call["cypher"]
+    assert "BELONGS_TO_CASE" in hoist_call["cypher"]
+    assert hoist_call["params"]["case_id"] == "CASE-SCOPE-TEST"
+
+
+@pytest.mark.asyncio
+async def test_organization_and_address_never_attempt_case_hoisting(fake_age):
+    """Entity types with no primary id key (organization, address) have
+    nothing to hoist — must skip straight to candidate generation, one
+    call, not the hoist call plus a scan."""
+    fake_age.queue([])  # _fetch_all_nodes for Organization
+
+    await er.resolve_mention("organization", {"canonical_name": "کوئی ادارہ"}, "CASE-001")
+
+    assert len(fake_age.calls) == 1
+    assert fake_age.calls[0]["cypher"].strip().startswith("MATCH (n:Organization) RETURN n")
