@@ -38,23 +38,33 @@ async def _require_station_match(gateway, case_id: str, current_user: User) -> N
     police station — otherwise any station-admin anywhere could
     assign/unassign users on any case regardless of station.
 
-    Bridge until `User.police_station` is backfilled (migration
-    012_user_station.sql adds the column with no backfill — this
-    environment has no existing case_assignments data to infer a station
-    from): a caller with `police_station IS NULL` falls back to the old
-    unrestricted behavior, loudly logged, rather than being locked out of
-    every case the moment this check ships.
+    Audit finding F-08: the original bridge fell back to unrestricted
+    access (loudly logged) when `police_station IS NULL`, on the reasoning
+    that this environment had no case_assignments data to backfill a
+    station from at the time migration 012 shipped. That bridge has now
+    outlived its purpose — the one station-admin account still missing a
+    station is a synthetic smoke-test fixture, not a real officer with a
+    real jurisdiction to infer, so there is nothing left to backfill and
+    no reason left to keep the unrestricted fallback. A station-admin with
+    no police_station set is now denied by default, matching the
+    fail-closed posture used everywhere else in this codebase's ABAC
+    checks (see e.g. harness role gating). An operator must set
+    police_station on any station-admin account before it can manage case
+    assignments.
     """
     if current_user.role == "platform-admin":
         return
     if getattr(current_user, "police_station", None) is None:
         logger.warning(
-            "case_assignments station-scoping bypassed: user %s (role=%s) has "
-            "no police_station set (not yet backfilled) — falling back to "
-            "unrestricted access for case %s",
+            "case_assignments station-scoping denied: user %s (role=%s) has "
+            "no police_station set — an operator must set it before this "
+            "account can manage assignments on case %s",
             current_user.id, current_user.role, case_id,
         )
-        return
+        raise HTTPException(
+            status_code=403,
+            detail="Your account has no police station configured. Contact an administrator.",
+        )
     case = await gateway.get_case(case_id)
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
