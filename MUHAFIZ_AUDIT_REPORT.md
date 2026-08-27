@@ -27,6 +27,21 @@ None is an application-logic flaw; all are release-blockers until fixed. **No ve
 
 ---
 
+## 0. Post-Audit Remediation Update (28 Aug 2026)
+
+All three P0 blockers and one of the two P1 findings have been fixed, tested, and merged to `main` on the same day as the audit:
+
+| Finding | Status | Fix | Verification |
+|---|---|---|---|
+| F-01 — RLS inert (superuser bypass) | ✅ **FIXED** — `bc1effd` | Applied `migrations/015_app_least_privilege_role.sql`, created `muhafiz_app` (no superuser/BYPASSRLS), repointed local `DATABASE_URL` at it | `scripts/verify_app_role.py` — all checks pass; `tests/test_rls_integration.py` — 4/4 pass (was 2/4 failing) |
+| F-02 — missing `asteval` dependency | ✅ **FIXED** — `bc1effd` | Added `asteval>=1.0.0` to `requirements.txt` / `asteval==1.0.10` to `requirements.lock.txt` | Clean import via `src.llm.tools`; Groq streaming path unblocked |
+| F-04 — domain allowlist substring bypass | ✅ **FIXED** — `fc1be82` | New `src/pipeline/url_safety.py::is_domain_allowed()` (hostname-parsed exact/suffix match), replacing `domain in url` at both call sites (`orchestrator.py`, `harness/tools/web.py`) | 23 new/updated tests, including all 7 of this report's attack URLs — full 93-test suite passes |
+| F-03 — shared `.env` public JWT default | ⚪ **Deferred, downgraded** | No code fix applies — `.env`/`SHARE/` are gitignored and `.env.example` already documents the risk. Distribution confirmed team-internal only, with a planned secret reset | Owner to confirm the team-shared copy is actually rotated; third-party API key rotation (Groq/Gemini/Tavily/Muhafiz) remains manual, at each provider's dashboard |
+
+Remaining open items from §2 below: F-05 through F-10 (all Medium/Low) are unaddressed as of this update.
+
+---
+
 ## 1. Production Readiness Scorecard
 
 Scored 0–10 against verified evidence. A single class of defect can cap a category regardless of other strengths — RLS/data-isolation is capped by the inert-backstop finding even though its *design* is correct and its own integration tests pass under a least-privilege role.
@@ -52,7 +67,7 @@ Scored 0–10 against verified evidence. A single class of defect can cap a cate
 ---
 
 ### 🔴 F-01 — RLS is silently inert: the app connects as a Postgres superuser
-**Critical · P0**
+**Critical · P0 · ✅ FIXED `bc1effd` (28 Aug 2026) — see §0**
 
 All five RLS policies (`cases, documents, sessions, messages, pipeline_runs`) are correctly defined and `FORCE`-enabled, but `DATABASE_URL` connects as `postgres`, which has `SUPERUSER` + `BYPASSRLS`. Superusers bypass row-level security unconditionally. The least-privilege `muhafiz_app` role from migration 015 does not exist in the shipped database, nor does `muhafiz_mcp_readonly`.
 
@@ -61,7 +76,7 @@ All five RLS policies (`cases, documents, sessions, messages, pipeline_runs`) ar
 ---
 
 ### 🔴 F-02 — Missing `asteval` dependency breaks all Groq streaming on a clean install
-**Critical · P0**
+**Critical · P0 · ✅ FIXED `bc1effd` (28 Aug 2026) — see §0**
 
 `src/llm/tools.py:3` does `from asteval import Interpreter`, and `src/llm/client.py:378` imports that module unconditionally inside `_stream_groq` — yet `asteval` appears in neither `requirements.txt` nor `requirements.lock.txt`. Every Groq streaming call raises `ModuleNotFoundError`. CI never caught it because the suite mocks all external LLM calls.
 
@@ -70,7 +85,7 @@ All five RLS policies (`cases, documents, sessions, messages, pipeline_runs`) ar
 ---
 
 ### 🟠 F-03 — Shared `.env` ships the public default JWT secret
-**High · P1**
+**High · P1 · ⚪ DEFERRED (28 Aug 2026) — see §0**
 
 The SHARE `.env` sets `ENVIRONMENT=development` and keeps `JWT_SECRET_KEY=your-secret-key-for-dev`. Anyone with the folder can forge a valid JWT for any user, including platform-admin. The startup guard *does* work — with `ENVIRONMENT=production` it correctly raises a critical error and `src/main.py:190` refuses to boot — so this is a foot-gun of the shared file, not a code defect. It also carries live Groq/Gemini/Tavily API keys in a distributable folder.
 
@@ -79,7 +94,7 @@ The SHARE `.env` sets `ENVIRONMENT=development` and keeps `JWT_SECRET_KEY=your-s
 ---
 
 ### 🟠 F-04 — Web-search domain allowlist is bypassable via substring match
-**High · P1**
+**High · P1 · ✅ FIXED `fc1be82` (28 Aug 2026) — see §0**
 
 `_filter_allowed_domains()` in `src/pipeline/orchestrator.py:521` (and a verbatim port in `harness/tools/web.py`) filters with `domain in url` — a raw substring test. Any URL containing an allowed domain anywhere passes.
 
