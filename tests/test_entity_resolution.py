@@ -180,6 +180,47 @@ async def test_officer_with_no_belt_no_falls_through_to_name_fallback(fake_age):
     assert decision.tier == er.TIER_NEW
 
 
+@pytest.mark.asyncio
+async def test_complainant_person_and_asi_officer_sharing_a_name_never_cross_resolve(fake_age):
+    """
+    Regression for HANDOFF_TO_TEAMMATE.md's exact fir-1001-26 case: a
+    complainant Person and an ASI Officer both named "فیصل" — different
+    humans (CNIC 00000-9000057-1 vs belt GEN-0901), same given name. A
+    name-derived identity scheme would risk silently merging a
+    complainant with the investigating officer.
+
+    Verified structurally, not by a threshold: resolve_mention() for
+    "officer" only ever issues a Cypher query scoped to :Officer, and
+    for "person" only ever :Person — the two labels are never scanned
+    against each other, so a same-named Person can never even be
+    FETCHED as an officer candidate, let alone matched. No belt_no or
+    CNIC on either mention here, to prove the isolation holds even in
+    the weakest (pure name-fallback) case, not just when a strong
+    identifier already disambiguates them.
+    """
+    fake_age.queue([])  # officer candidate scan
+    officer_decision = await er.resolve_mention(
+        "officer", {"canonical_name": "فیصل"}, "fir-1001-26",
+    )
+    officer_scan_call = fake_age.calls[-1]
+    assert officer_scan_call["cypher"].strip().startswith("MATCH (n:Officer) RETURN n")
+    assert officer_decision.tier == er.TIER_NEW
+
+    fake_age.queue([])  # person candidate scan
+    person_decision = await er.resolve_mention(
+        "person", {"canonical_name": "فیصل"}, "fir-1001-26",
+    )
+    person_scan_call = fake_age.calls[-1]
+    assert person_scan_call["cypher"].strip().startswith("MATCH (n:Person) RETURN n")
+    assert person_decision.tier == er.TIER_NEW
+
+    # Neither scan's query could ever return the other label's node —
+    # the isolation is structural (a different MATCH pattern per type),
+    # not a filter applied after fetching a shared candidate pool.
+    assert "Officer" not in person_scan_call["cypher"]
+    assert "Person" not in officer_scan_call["cypher"]
+
+
 # ── Roman-Urdu <-> Urdu-script name bridging (A-2) ─────────────────────
 
 @pytest.mark.parametrize("roman,urdu", [
