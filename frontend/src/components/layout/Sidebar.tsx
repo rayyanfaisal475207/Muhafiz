@@ -5,6 +5,7 @@ import { useProjectStore } from '../../store/projectStore';
 import { ProjectSettingsModal } from './ProjectSettingsModal';
 import { useCaseStore } from '../../store/caseStore';
 import { CaseSettingsModal } from './CaseSettingsModal';
+import { CaseSelector } from './CaseSelector';
 import { useSessionStore } from '../../store/sessionStore';
 import { useChatStore } from '../../store/chatStore';
 import { ThemeToggle } from './ThemeToggle';
@@ -219,23 +220,16 @@ export function Sidebar() {
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
           </button>
         </div>
-        <select
-          aria-label="Case"
-          className="w-full bg-[var(--bg-surface)] border border-[var(--border)] rounded-sm px-2.5 py-1.5 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--border-hover)] focus:outline-none focus:border-[var(--accent)]"
-          value={activeCaseId || ''}
-          onChange={(e) => {
-            setActiveCase(e.target.value || null);
+        <CaseSelector
+          cases={cases}
+          activeCaseId={activeCaseId}
+          allCasesLabel={ALL_CASES_ROLES.has(user?.role || '') ? 'All Cases' : 'No Case'}
+          onSelect={(caseId) => {
+            setActiveCase(caseId);
             newSession();
             navigate('/', { state: { fresh: true } });
           }}
-        >
-          <option value="">{ALL_CASES_ROLES.has(user?.role || '') ? 'All Cases' : 'No Case'}</option>
-          {cases.map((c) => (
-            <option key={c.case_id} value={c.case_id}>
-              {c.fir_number || c.case_id}
-            </option>
-          ))}
-        </select>
+        />
         {casesLoading && cases.length === 0 && !casesError && (
           <p className="mt-1 text-[10.5px]" style={{ color: 'var(--text-faint)' }}>Loading cases…</p>
         )}
