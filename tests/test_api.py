@@ -1123,6 +1123,45 @@ def test_admin_metrics_include_the_fields_the_dashboard_renders(admin_api):
     assert "table_stats" in body
 
 
+# ── Hypotheses #6/#7: preferred_language/llm_mode allow-lists ───────────────
+#
+# ProfileUpdate.preferred_language and .llm_mode were both a bare `str` --
+# any string was accepted, including XSS-shaped input. The frontend's own
+# <select> (SettingsPage.tsx) only ever sends preferred_language in
+# {auto, english, urdu} and llm_mode in {cloud, local}.
+
+def _profile_payload(**overrides):
+    payload = {"context_text": "", "preferred_language": "auto", "llm_mode": "cloud"}
+    payload.update(overrides)
+    return payload
+
+
+def test_update_profile_rejects_an_arbitrary_preferred_language(api):
+    client, _ = api
+    response = client.put("/api/profile", json=_profile_payload(preferred_language="<script>alert(1)</script>"))
+    assert response.status_code == 422
+
+
+def test_update_profile_rejects_an_arbitrary_llm_mode(api):
+    client, _ = api
+    response = client.put("/api/profile", json=_profile_payload(llm_mode="anything-goes"))
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize("preferred_language", ["auto", "english", "urdu"])
+def test_update_profile_accepts_every_real_preferred_language(api, preferred_language):
+    client, _ = api
+    response = client.put("/api/profile", json=_profile_payload(preferred_language=preferred_language))
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize("llm_mode", ["cloud", "local"])
+def test_update_profile_accepts_every_real_llm_mode(api, llm_mode):
+    client, _ = api
+    response = client.put("/api/profile", json=_profile_payload(llm_mode=llm_mode))
+    assert response.status_code == 200
+
+
 # ── F-07: unbounded admin pagination ─────────────────────────────────────────
 #
 # Every admin `limit` param was a bare `int` with no upper bound.

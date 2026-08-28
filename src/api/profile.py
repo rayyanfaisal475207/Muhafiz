@@ -2,6 +2,8 @@
 # API Routes — User Profile
 # ============================================================
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -15,8 +17,13 @@ router = APIRouter()
 
 class ProfileUpdate(BaseModel):
     context_text: str = Field(..., max_length=1000)
-    preferred_language: str
-    llm_mode: str
+    # Audit hypotheses #6/#7: both were a bare `str` -- any string was
+    # accepted here, including XSS-shaped input. The frontend's own
+    # <select> (SettingsPage.tsx) only ever sends these exact values, so
+    # this just enforces server-side what was already the only reachable
+    # UI path.
+    preferred_language: Literal["auto", "english", "urdu"]
+    llm_mode: Literal["cloud", "local"]
 
 @router.get("")
 async def get_profile(
