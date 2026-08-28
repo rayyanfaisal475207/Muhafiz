@@ -26,8 +26,22 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./certs:/certs_src:ro
-    # Copy certs to a temporary location and set permissions because Postgres 
+    # Copy certs to a temporary location and set permissions because Postgres
     # demands 0600 on the key file, which volume mounts from Windows don't support.
+    #
+    # shared_preload_libraries=age (found missing live, 28 Aug 2026, while
+    # verifying the cross-lingual graph name-matching fix): src/graph/
+    # age_client.py's _load_age() runs `LOAD 'age'` per-connection, but that
+    # statement is SUPERUSER-ONLY -- migration 015's whole point is that the
+    # app no longer connects as one. _load_age()'s own docstring says this is
+    # fine "when the server has it in shared_preload_libraries (the standard
+    # AGE deployment)", silently swallowing the LOAD failure on that
+    # assumption -- but this container never actually set it, so every graph
+    # call as muhafiz_app failed with "type agtype does not exist"/"unhandled
+    # cypher(cstring) function call". Preloading here makes the extension
+    # available process-wide without a per-connection LOAD, matching what
+    # _load_age() already assumed was true. Requires a container restart to
+    # take effect (shared_preload_libraries is not reloadable via SIGHUP).
     entrypoint: >
       sh -c '
         mkdir -p /tmp/certs &&
@@ -35,7 +49,7 @@ services:
         cp /certs_src/postgres.key /tmp/certs/postgres.key &&
         chown postgres:postgres /tmp/certs/postgres.key &&
         chmod 600 /tmp/certs/postgres.key &&
-        exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/tmp/certs/postgres.crt -c ssl_key_file=/tmp/certs/postgres.key
+        exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/tmp/certs/postgres.crt -c ssl_key_file=/tmp/certs/postgres.key -c shared_preload_libraries=age
       '
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d muhafiz"]
