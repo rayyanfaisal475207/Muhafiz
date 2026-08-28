@@ -1818,14 +1818,19 @@ async def process_query(
                 )
                 # cloud_max_tokens + reasoning_effort: same fix router.py
                 # already proved for this exact TPM-cap failure mode — a
-                # small completion budget plus a low reasoning-effort hint
-                # keeps the CLOUD side of a large-prompt request from
-                # adding its own reasoning-trace overhead on top of an
-                # already-large system prompt.
+                # bounded completion budget plus a low reasoning-effort hint
+                # keeps the CLOUD side of a large-prompt request from adding
+                # its own reasoning-trace overhead on top of an already-large
+                # system prompt. Scaled by case_ids_touched (see
+                # _cross_case_completion_budget's own docstring) — a fixed
+                # 500 truncated a real 12-case answer before every case got
+                # its own citation, which then failed verification and
+                # abstained the whole query even though retrieval succeeded.
                 full_response = await call_llm(
                     system_prompt, user_message, llm_mode=llm_mode,
                     role=_generation_role(preferred_language),
-                    cloud_max_tokens=500, reasoning_effort="low",
+                    cloud_max_tokens=_cross_case_completion_budget(len(case_ids_touched)),
+                    reasoning_effort="low",
                 )
                 elapsed_ms_resp = int((time.monotonic() - t0_resp) * 1000)
 
@@ -2061,11 +2066,16 @@ async def process_query(
             # own `top_k` (xnetwork.py), unlike XGRAPH's up-to-50-seed-
             # entity traversal. cloud_max_tokens/reasoning_effort added
             # anyway, same defense-in-depth as the XGRAPH branch, since
-            # the TPM cap is still one large community summary away.
+            # the TPM cap is still one large community summary away — and
+            # scaled by cluster count for the same reason XGRAPH's own
+            # budget is scaled (see _cross_case_completion_budget): a
+            # narrative synthesizing many clusters needs more room than a
+            # fixed guess sized for a single short JSON reply ever gave it.
             full_response = await call_llm(
                 system_prompt, user_message, llm_mode=llm_mode,
                 role=_generation_role(preferred_language),
-                cloud_max_tokens=500, reasoning_effort="low",
+                cloud_max_tokens=_cross_case_completion_budget(len(results)),
+                reasoning_effort="low",
             )
             elapsed_ms_resp = int((time.monotonic() - t0_resp) * 1000)
 
@@ -2839,6 +2849,38 @@ def _bound_cross_case_chunks(chunks: list[dict], limit: int = _CROSS_CASE_PROMPT
     if len(chunks) <= limit:
         return chunks
     return sorted(chunks, key=lambda c: c.get("graph_confidence") or 0, reverse=True)[:limit]
+
+
+# Bug fix (reported live): "which cases is suspect X connected to" found 12
+# real connections but the CLOUD generation call's fixed cloud_max_tokens=500
+# truncated the answer before every case got its own [Document N] citation
+# — verify_grounding() then correctly rejected the truncated answer
+# ("substantial list but cites no source"), and after MAX_RETRIES the query
+# abstained outright, even though retrieval had genuinely succeeded. 500 was
+# copied from router.py's short JSON-classification budget (a single object,
+# never more than ~300 tokens of real content) without being re-sized for
+# XGRAPH/XNETWORK's own shape: a natural-language enumeration that can need
+# to name and cite dozens of items in one answer. Scaled by item count
+# instead of a second fixed guess — a 1-connection answer doesn't need
+# 1500 tokens of headroom, and a 40-connection one doesn't fit in 500.
+_CROSS_CASE_RESPONSE_TOKENS_BASE = 500
+_CROSS_CASE_RESPONSE_TOKENS_PER_ITEM = 60
+_CROSS_CASE_RESPONSE_TOKENS_CEILING = 1500
+
+
+def _cross_case_completion_budget(item_count: int) -> int:
+    """
+    `cloud_max_tokens` for an XGRAPH/XNETWORK response generation call,
+    scaled to how many items (cases touched / community clusters) the
+    answer may need to enumerate and cite. Capped well under Groq's 8,000
+    TPM limit even combined with a (separately, already) chunk-bounded
+    prompt — see _bound_cross_case_chunks's own docstring for that half
+    of this same TPM-cap concern.
+    """
+    return min(
+        _CROSS_CASE_RESPONSE_TOKENS_BASE + _CROSS_CASE_RESPONSE_TOKENS_PER_ITEM * max(item_count, 0),
+        _CROSS_CASE_RESPONSE_TOKENS_CEILING,
+    )
 
 
 def _format_documents_for_prompt(chunks: list[dict]) -> str:
