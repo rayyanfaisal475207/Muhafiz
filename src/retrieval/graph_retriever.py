@@ -100,6 +100,13 @@ from src import config
 from src.extraction.structured_fields import _CNIC_RE, _PHONE_RE, _PLATE_RE
 from src.graph import age_client
 from src.graph.case_scope import scoped_cypher
+# Cross-lingual graph name matching: the same Roman-Urdu <-> Urdu-script
+# consonant-skeleton function entity_resolution.py's ingestion-time merge
+# decisions already use (see its own comment block for the full
+# rationale) — reused here, not reimplemented, so a Person/Officer/
+# Organization node whose canonical_name ended up in one script is still
+# findable as a graph-traversal seed by a query in the other script.
+from src.graph.entity_resolution import _consonant_skeleton
 from src.ingestion.text_normalizer import normalize_urdu
 from src.retrieval.vector_store import get_chunks_by_ids
 from src.data_gateway import get_gateway
@@ -333,6 +340,23 @@ async def _find_seed_nodes(
     for label, (id_props, _display) in _SEED_LABELS.items():
         for cand in candidates:
             where_parts = [f"toLower(n.{prop}) CONTAINS toLower($cand)" for prop in id_props]
+            params: dict = {"cand": cand}
+
+            # Cross-lingual name matching (only for labels that carry a
+            # name — canonical_name is in id_props): a raw CONTAINS above
+            # is script-blind, so a node whose canonical_name ended up in
+            # Urdu script is invisible to an English-worded query and vice
+            # versa. name_skeleton is precomputed at write time
+            # (entity_resolution.resolve_and_write) via the same
+            # consonant-skeleton function; matched here on equality, not
+            # CONTAINS, since the skeleton is a coarse phonetic reduction
+            # and a substring match on it would be too permissive.
+            if "canonical_name" in id_props:
+                cand_skeleton = _consonant_skeleton(cand)
+                if cand_skeleton:
+                    where_parts.append("n.name_skeleton = $cand_skeleton")
+                    params["cand_skeleton"] = cand_skeleton
+
             where_clause = " OR ".join(where_parts)
             try:
                 if cross_case:
@@ -344,7 +368,7 @@ async def _find_seed_nodes(
                             RETURN n
                         """
                         rows = await age_client.execute_cypher(
-                            cypher, params={"cand": cand, "case_ids": jurisdiction_case_ids}, columns=["n"],
+                            cypher, params={**params, "case_ids": jurisdiction_case_ids}, columns=["n"],
                         )
                     else:
                         cypher = f"""
@@ -352,7 +376,7 @@ async def _find_seed_nodes(
                             WHERE ({where_clause}) AND n.merged_into IS NULL
                             RETURN n
                         """
-                        rows = await age_client.execute_cypher(cypher, params={"cand": cand}, columns=["n"])
+                        rows = await age_client.execute_cypher(cypher, params=params, columns=["n"])
                 else:
                     # Case-scoped: routed through case_scope.scoped_cypher()
                     # so a future edit can't silently drop the case filter.
@@ -361,7 +385,7 @@ async def _find_seed_nodes(
                         WHERE ({where_clause}) AND n.merged_into IS NULL AND b.superseded_by IS NULL
                         RETURN n
                     """
-                    rows = await scoped_cypher(cypher, case_id, params={"cand": cand}, columns=["n"])
+                    rows = await scoped_cypher(cypher, case_id, params=params, columns=["n"])
             except Exception as exc:
                 logger.error("Graph seed lookup failed for %r (%s): %s", cand, label, exc)
                 continue

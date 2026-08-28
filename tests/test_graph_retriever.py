@@ -107,7 +107,7 @@ class FakeGraph:
         a different case)."""
         self.assigned_to.append((entity_id, case_id, {"role": role, "superseded_by": superseded_by}))
 
-    def _matches_candidate(self, node, cand_lower):
+    def _matches_candidate(self, node, cand_lower, cand_skeleton=None):
         props = node["properties"]
         # "phone"/"belt_no" added for the Person.phone / Officer
         # _SEED_LABELS bug fix — this fake must recognize every property
@@ -118,6 +118,11 @@ class FakeGraph:
             val = props.get(key)
             if val and cand_lower in str(val).lower():
                 return True
+        # Cross-lingual name matching: mirrors the real
+        # `n.name_skeleton = $cand_skeleton` clause _find_seed_nodes() adds
+        # for name-carrying labels.
+        if cand_skeleton and props.get("name_skeleton") == cand_skeleton:
+            return True
         return False
 
     async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
@@ -211,12 +216,13 @@ class FakeGraph:
             # branch below, plus the case_id allow-list.
             label = cypher_query.split("MATCH (n:")[1].split(")")[0]
             cand = str(params.get("cand", "")).lower()
+            cand_skeleton = params.get("cand_skeleton")
             allowed = set(params.get("case_ids", []))
             return [
                 {"n": node} for eid, node in self.nodes.items()
                 if node["label"] == label
                 and eid not in self.merged_into
-                and self._matches_candidate(node, cand)
+                and self._matches_candidate(node, cand, cand_skeleton)
                 and self.belongs_to_case.get(eid, set()) & allowed
             ]
 
@@ -260,13 +266,14 @@ class FakeGraph:
             # Within-case seed lookup.
             label = cypher_query.split("MATCH (n:")[1].split(")")[0]
             cand = str(params.get("cand", "")).lower()
+            cand_skeleton = params.get("cand_skeleton")
             case_id = params.get("case_id")
             return [
                 {"n": node} for eid, node in self.nodes.items()
                 if node["label"] == label
                 and eid not in self.merged_into
                 and case_id in self.belongs_to_case.get(eid, set())
-                and self._matches_candidate(node, cand)
+                and self._matches_candidate(node, cand, cand_skeleton)
             ]
 
         if "toLower(n." in cypher_query:
@@ -274,9 +281,11 @@ class FakeGraph:
             # still excludes a merged donor, per the note above).
             label = cypher_query.split("MATCH (n:")[1].split(")")[0]
             cand = str(params.get("cand", "")).lower()
+            cand_skeleton = params.get("cand_skeleton")
             return [
                 {"n": node} for eid, node in self.nodes.items()
-                if node["label"] == label and eid not in self.merged_into and self._matches_candidate(node, cand)
+                if node["label"] == label and eid not in self.merged_into
+                and self._matches_candidate(node, cand, cand_skeleton)
             ]
 
         return []
@@ -321,6 +330,56 @@ async def test_within_case_seed_lookup_finds_person_by_name(fake_graph, fake_chu
     assert len(result["chunks"]) == 1
     assert result["chunks"][0]["id"] == "c1"
     assert result["hop_count"] == 0
+
+
+async def test_urdu_stored_name_found_by_english_query(fake_graph, fake_chunks):
+    """
+    Cross-lingual graph name matching: a Person node whose canonical_name
+    is in Urdu script must still be findable as a seed by an English-
+    worded query, via the precomputed name_skeleton property
+    (entity_resolution.resolve_and_write) and _find_seed_nodes()'s
+    skeleton-equality match.
+    """
+    skeleton = gr._consonant_skeleton("ظفر اقبال")
+    fake_graph.add_node("P-URDU", "Person", canonical_name="ظفر اقبال", name_skeleton=skeleton)
+    fake_graph.add_case("P-URDU", "CASE-009")
+    fake_chunks["c1"] = {"id": "c1", "text": "ظفر اقبال ملزم کے طور پر نامزد.", "metadata": {"case_id": "CASE-009", "source": "fir.pdf"}}
+    fake_graph.add_appears_in("P-URDU", "c1", confidence=1.0)
+
+    result = await gr.retrieve_graph("Tell me about Zafar Iqbal", "Zafar Iqbal", "CASE-009")
+
+    assert result["seed_entities"][0]["entity_id"] == "P-URDU"
+    assert len(result["chunks"]) == 1
+
+
+async def test_english_stored_name_found_by_urdu_query(fake_graph, fake_chunks):
+    """Same fix, opposite direction: an English-stored canonical_name found
+    by an Urdu-script query."""
+    skeleton = gr._consonant_skeleton("Zafar Iqbal")
+    fake_graph.add_node("P-ENG", "Person", canonical_name="Zafar Iqbal", name_skeleton=skeleton)
+    fake_graph.add_case("P-ENG", "CASE-010")
+    fake_chunks["c1"] = {"id": "c1", "text": "Zafar Iqbal named as accused.", "metadata": {"case_id": "CASE-010", "source": "fir.pdf"}}
+    fake_graph.add_appears_in("P-ENG", "c1", confidence=1.0)
+
+    result = await gr.retrieve_graph("ظفر اقبال کے بارے میں بتائیں", "ظفر اقبال", "CASE-010")
+
+    assert result["seed_entities"][0]["entity_id"] == "P-ENG"
+    assert len(result["chunks"]) == 1
+
+
+async def test_unrelated_name_does_not_false_positive_via_skeleton(fake_graph, fake_chunks):
+    """
+    The skeleton is a coarse phonetic reduction, so it must not turn into
+    a loose fuzzy match — an unrelated name in the other script must NOT
+    be found just because a query happens to be in that script too.
+    """
+    skeleton = gr._consonant_skeleton("محمد حنیف")  # unrelated to "Zafar Iqbal"
+    fake_graph.add_node("P-OTHER", "Person", canonical_name="محمد حنیف", name_skeleton=skeleton)
+    fake_graph.add_case("P-OTHER", "CASE-011")
+
+    result = await gr.retrieve_graph("Tell me about Zafar Iqbal", "Zafar Iqbal", "CASE-011")
+
+    assert result["seed_entities"] == []
 
 
 async def test_within_case_seed_lookup_excludes_a_merged_donor_node(fake_graph, fake_chunks):

@@ -671,6 +671,15 @@ async def resolve_and_write(
         is_new_node = True
 
     node_properties = {k: v for k, v in mention.items() if v is not None}
+    # Cross-lingual graph name matching: precompute the same consonant
+    # skeleton _name_similarity() already uses for cross-script merge
+    # decisions, so graph_retriever._find_seed_nodes() can match this
+    # node by name regardless of which script canonical_name ended up in
+    # (Person/Officer/Organization only — Vehicle/PhoneNumber key on
+    # plate/phone, never canonical_name, so this is naturally a no-op
+    # for those).
+    if node_properties.get("canonical_name"):
+        node_properties["name_skeleton"] = _consonant_skeleton(node_properties["canonical_name"])
     await versioning.write_node(
         label, {"entity_id": entity_id}, node_properties,
         source_doc_id=source_doc_id, confidence=decision.confidence if decision.tier != TIER_NEW else 1.0,

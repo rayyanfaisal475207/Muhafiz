@@ -508,6 +508,42 @@ async def test_resolve_and_write_new_entity_no_same_as_edge(fake_age, fake_versi
     assert "SAME_AS" not in edge_labels
 
 
+# ── Cross-lingual graph name matching: name_skeleton precomputed at write
+# time (audit hypothesis section-4 follow-up) ───────────────────────────────
+
+@pytest.mark.asyncio
+async def test_resolve_and_write_precomputes_name_skeleton(fake_age, fake_versioning):
+    """
+    graph_retriever._find_seed_nodes() matches on a precomputed
+    name_skeleton property so a node can be found by name regardless of
+    script -- this must actually get set on every named-entity write.
+    """
+    fake_age.queue([])  # no cnic
+    fake_age.queue([])  # no candidates at all
+
+    await er.resolve_and_write(
+        "person", {"canonical_name": "ظفر اقبال"}, "CASE-001", "DOC-1",
+    )
+
+    node_write = fake_versioning.nodes_written[0]
+    assert node_write["properties"]["name_skeleton"] == er._consonant_skeleton("ظفر اقبال")
+
+
+@pytest.mark.asyncio
+async def test_resolve_and_write_skips_name_skeleton_when_no_canonical_name(fake_age, fake_versioning):
+    """Vehicle/PhoneNumber mentions key on plate/phone, never
+    canonical_name -- name_skeleton must not appear on those writes."""
+    fake_age.queue([])  # no cnic-equivalent match
+    fake_age.queue([])  # no candidates at all
+
+    await er.resolve_and_write(
+        "vehicle", {"plate": "LEA-1234"}, "CASE-001", "DOC-1",
+    )
+
+    node_write = fake_versioning.nodes_written[0]
+    assert "name_skeleton" not in node_write["properties"]
+
+
 # ── Ingestion Quality Control at Scale, Module G1: resolve_and_write() is
 # the one chokepoint every tier decision flows through ────────────────────
 
