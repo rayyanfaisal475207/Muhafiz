@@ -10,14 +10,28 @@ import { MessageBubble } from './MessageBubble';
 import { ChatInput } from './ChatInput';
 import { LogoMark } from '../brand/Logo';
 import type { Source } from '../../types';
-
-const SUPERVISOR_PLUS = ['supervisor', 'station-admin', 'platform-admin'];
+import { ALL_CASES_ROLES } from '../../lib/constants';
 
 const GENERAL_SUGGESTIONS = [
   'What PPC section covers mobile phone theft?',
   'What documents are needed to file an FIR?',
   'What section applies to unlicensed weapon possession?',
   'What is the procedure for a certified copy of an FIR?',
+];
+
+// "All Cases" (supervisor+, no case selected — orchestrator.py's
+// _build_retrieval_where) searches every case's evidence plus general
+// reference material, and can reach cross-case tools like XGRAPH/XAGG.
+// GENERAL_SUGGESTIONS alone (reference-lookup-only) undersold that scope
+// entirely — a supervisor landing here with no case selected saw the same
+// "ask about police procedure" framing an investigator with no cross-case
+// access at all sees, with nothing suggesting the cross-case capability
+// that's the actual point of being in this scope.
+const ALL_CASES_SUGGESTIONS = [
+  'Which cases is a named suspect connected to across the database?',
+  'Has this phone number or vehicle appeared in more than one case?',
+  'What PPC section covers mobile phone theft?',
+  'How many cases were opened at a given police station this year?',
 ];
 
 const CASE_SUGGESTIONS = [
@@ -139,13 +153,28 @@ export function ChatPanel({ onSourceClick }: ChatPanelProps) {
 function EmptyState() {
   const activeCase = useCaseStore((s) => s.cases.find((c) => c.case_id === s.activeCaseId));
   const role = useAuthStore((s) => s.user?.role);
+  const hasAllCasesScope = !!role && ALL_CASES_ROLES.includes(role);
 
   const suggestions = activeCase
     ? [
         ...CASE_SUGGESTIONS,
-        ...(role && SUPERVISOR_PLUS.includes(role) ? [CASE_SUPERVISOR_SUGGESTION] : []),
+        ...(hasAllCasesScope ? [CASE_SUPERVISOR_SUGGESTION] : []),
       ]
-    : GENERAL_SUGGESTIONS;
+    : hasAllCasesScope
+      ? ALL_CASES_SUGGESTIONS
+      : GENERAL_SUGGESTIONS;
+
+  const heading = activeCase
+    ? `Ask about ${activeCase.fir_number || activeCase.case_id}`
+    : hasAllCasesScope
+      ? 'Ask across every case'
+      : 'Ask about police procedure';
+
+  const subtext = activeCase
+    ? "Muhafiz searches this case's evidence, checks the entity graph, and answers with the source it came from."
+    : hasAllCasesScope
+      ? 'Muhafiz searches every case’s evidence and the general reference material, following connections across cases, and answers with the source it came from.'
+      : 'Muhafiz searches the reference material, checks its own sources, and answers with the section it came from.';
 
   return (
     <div className="flex flex-col items-center justify-center h-full gap-7 text-center px-8">
@@ -156,15 +185,13 @@ function EmptyState() {
           className="text-[22px] font-semibold tracking-[-0.02em]"
           style={{ color: 'var(--text-primary)' }}
         >
-          {activeCase ? `Ask about ${activeCase.fir_number || activeCase.case_id}` : 'Ask about police procedure'}
+          {heading}
         </h2>
         <p
           className="text-sm max-w-sm leading-relaxed mx-auto"
           style={{ color: 'var(--text-muted)' }}
         >
-          {activeCase
-            ? "Muhafiz searches this case's evidence, checks the entity graph, and answers with the source it came from."
-            : 'Muhafiz searches the reference material, checks its own sources, and answers with the section it came from.'}
+          {subtext}
         </p>
       </div>
 
