@@ -44,7 +44,12 @@ apiClient.interceptors.response.use(
 // call's expected latency — long enough not to false-positive on a
 // legitimately slow-but-working response, short enough that a genuinely
 // dead connection doesn't look "still working" forever.
-const STREAM_STALL_TIMEOUT_MS = 90_000;
+// 150s: the harness sub-agents now emit per-phase events (retrieval →
+// reranker → evaluator → response), so this timer resets on each phase and
+// rarely approaches the limit — but the raised ceiling is a safety net for
+// the one genuinely long gap (a single slow LLM generation call) so a
+// working-but-slow answer isn't killed mid-flight.
+const STREAM_STALL_TIMEOUT_MS = 150_000;
 
 class StreamStallError extends Error {
   constructor() {

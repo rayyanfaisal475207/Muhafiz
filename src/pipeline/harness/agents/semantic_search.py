@@ -102,6 +102,7 @@ from src.pipeline.harness.types import (
     Citation,
     EvidenceChunk,
     OnEventCallback,
+    PipelineEvent,
     SubAgentInput,
     SubAgentResult,
     SubAgentStatus,
@@ -210,7 +211,10 @@ async def semantic_search(
     execution = agent_input.execution
     caller = execution.caller
 
-    tool_result = await rag_tool(RagToolInput(query_text=agent_input.query_text, execution=execution))
+    tool_result = await rag_tool(
+        RagToolInput(query_text=agent_input.query_text, execution=execution),
+        on_event=on_event,
+    )
 
     if tool_result.status == ToolStatus.FAILED:
         return SubAgentResult(
@@ -277,6 +281,8 @@ async def semantic_search(
         documents=_format_documents_for_prompt(chunks),
     )
 
+    if on_event is not None:
+        on_event(PipelineEvent(step="response", status="active", detail="Writing the answer…"))
     try:
         answer = await call_llm(
             system_prompt,
@@ -285,12 +291,16 @@ async def semantic_search(
         )
     except Exception as exc:
         logger.error("Semantic Search: generation failed: %s", exc)
+        if on_event is not None:
+            on_event(PipelineEvent(step="response", status="error", detail="Generation failed"))
         return SubAgentResult(
             status=SubAgentStatus.ABSTAINED,
             error=ToolError(kind="upstream_failure", message=str(exc)),
             caveats=["Answer generation failed; no answer could be produced."],
         )
 
+    if on_event is not None:
+        on_event(PipelineEvent(step="citation_validator", status="active", detail="Verifying grounding…"))
     verification = await verify_grounding(
         answer=answer,
         cited_chunks=[_chunk_to_verifier_dict(c) for c in chunks],

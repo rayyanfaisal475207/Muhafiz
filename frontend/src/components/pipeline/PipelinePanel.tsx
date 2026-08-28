@@ -118,7 +118,7 @@ function IdleState() {
       </div>
       <div className="w-full border-t border-[var(--border)]" />
       <div className="flex flex-col gap-2 w-full text-left">
-        {['Query Rewriter', 'Router', 'Retrieval', 'Re-ranker', 'Evaluator', 'Response', 'Memory'].map((step) => (
+        {['Supervisor', 'Sub-Agent Dispatch', 'Retrieval', 'Response', 'Memory'].map((step) => (
           <div key={step} className="flex items-center gap-2 px-2 py-1.5 rounded-md border border-[var(--border)] bg-[var(--bg-surface)] shadow-sm">
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-muted)]" />
             <span className="text-[11px] font-medium text-[var(--text-secondary)]">{step}</span>

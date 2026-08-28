@@ -67,6 +67,8 @@ from src.pipeline.harness.types import (
     CallerContext,
     ChunkMetadata,
     EvidenceChunk,
+    OnEventCallback,
+    PipelineEvent,
     ToolError,
     ToolInput,
     ToolResult,
@@ -257,12 +259,26 @@ def _to_evidence_chunk(raw: dict) -> EvidenceChunk:
     )
 
 
-async def rag_tool(tool_input: RagToolInput) -> RagToolResult:
+async def rag_tool(
+    tool_input: RagToolInput,
+    *,
+    on_event: Optional[OnEventCallback] = None,
+) -> RagToolResult:
     """
     The RAG primitive: embed -> vector search + BM25 -> RRF -> cross-rerank
     -> evaluate, retrying with evaluator feedback up to `config.MAX_RETRIES`
     times before abstaining.
+
+    `on_event`, if given, is called with a `PipelineEvent` at each internal
+    phase boundary (retrieval, reranking, evaluation) so the live trace panel
+    shows granular progress instead of one silent "sub-agent ran" gap — and,
+    just as importantly, so a long run keeps emitting events and the client's
+    stall-detector never fires mid-query. Ignored (no-op) when not passed.
     """
+    def _emit(step: str, status: str, detail: str) -> None:
+        if on_event is not None:
+            on_event(PipelineEvent(step=step, status=status, detail=detail))
+
     caller = tool_input.execution.caller
     where = _build_where(caller, tool_input.include_global, tool_input.execution.project_id)
     if not where:
@@ -292,25 +308,33 @@ async def rag_tool(tool_input: RagToolInput) -> RagToolResult:
                 # Fall through with the unchanged current_query, matching
                 # orchestrator.py's own retry-rewriter exception handling.
 
+        _emit("retrieval", "active",
+              "Searching documents…" if retry_count == 0
+              else f"Re-searching (attempt {retry_count + 1})…")
         try:
             semantic_results, bm25_results = await _retrieve_candidates(
                 current_query, where, fetch_top_k, top_k, is_cross_case
             )
         except Exception as retr_exc:
             logger.error("RAG tool: retrieval infrastructure failed: %s", retr_exc)
+            _emit("retrieval", "error", "Retrieval failed")
             return RagToolResult(
                 status=ToolStatus.FAILED,
                 error=ToolError(kind="upstream_failure", message=str(retr_exc)),
                 retries_used=retry_count,
             )
+        _emit("retrieval", "done",
+              f"{len(semantic_results)} semantic + {len(bm25_results)} lexical candidates")
 
         fused = rerank_results(semantic_results, bm25_results, top_k=top_k)
 
+        _emit("reranker", "active", "Re-ranking candidates…")
         try:
             reranked = await cross_rerank(current_query, fused, top_k=config.TOP_K_RERANK)
         except Exception as exc:
             logger.error("RAG tool: cross-encoder rerank failed: %s. Falling back to RRF order.", exc)
             reranked = fused[: config.TOP_K_RERANK]
+        _emit("reranker", "done", f"Top {len(reranked)} selected")
 
         # [Reconciliation fix — harness-reconciliation Unit 3] Track whether
         # the evaluator itself raised, distinct from it returning a genuine
@@ -323,12 +347,15 @@ async def rag_tool(tool_input: RagToolInput) -> RagToolResult:
         # unvetted either way (a flaky evaluator must not take retrieval
         # down with it) — what changes is that the caller can now see it.
         evaluator_unavailable = False
+        _emit("evaluator", "active", "Checking relevance…")
         try:
             evaluation = await evaluate_relevance(tool_input.query_text, current_query, reranked)
         except Exception as exc:
             logger.error("RAG tool: evaluator failed: %s", exc)
             evaluation = {"relevant": True, "reason": "Evaluator failed, proceeding"}
             evaluator_unavailable = True
+        _emit("evaluator", "done",
+              "Relevant" if evaluation.get("relevant", False) else "Not relevant — retrying")
 
         if evaluation.get("relevant", False):
             return RagToolResult(

@@ -20,44 +20,73 @@ import type {
 import { useProjectStore } from './projectStore';
 import { useCaseStore } from './caseStore';
 
-import { PIPELINE_STEPS } from '../types';
+import { stepLabel } from '../types';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+// Start empty: steps are appended as their SSE events arrive (see
+// applyEventToSteps), so the panel shows exactly the steps the pipeline
+// actually ran — whether that's the legacy orchestrator's 7 named steps or
+// the agent-harness's Supervisor → Dispatch → Response — each lighting up
+// live in real execution order instead of a frozen pre-seeded list.
+// PIPELINE_STEPS is still used by the idle-state preview in PipelinePanel.
 function buildInitialSteps(): PipelineStep[] {
-  return PIPELINE_STEPS.map((s) => ({
-    name: s.name,
-    label: s.label,
-    status: 'waiting' as const,
-  }));
+  return [];
+}
+
+function statusForEvent(event: PipelineEvent, prev: PipelineStep['status']): PipelineStep['status'] {
+  let status: PipelineStep['status'] = prev;
+  // 'streaming' is the response step actively producing tokens — show it as
+  // active (spinner), not stuck on 'waiting', so Response animates before it
+  // resolves to done.
+  if (event.status === 'active' || event.status === 'streaming') status = 'active';
+  else if (event.status === 'done') status = 'done';
+  else if (event.status === 'skipped') status = 'skipped';
+  else if (event.status === 'error') status = 'error';
+  // Retry: evaluator with retry_num > 0 and status != done
+  if (
+    event.step === 'evaluator' &&
+    event.status === 'done' &&
+    event.retry_num !== undefined &&
+    event.retry_num > 0
+  ) {
+    status = 'retry';
+  }
+  return status;
 }
 
 function applyEventToSteps(
   steps: PipelineStep[],
   event: PipelineEvent,
 ): PipelineStep[] {
+  const known = steps.some((s) => s.name === event.step);
+
+  // A step that isn't in the pre-seeded legacy list (e.g. the agent-harness
+  // 'supervisor' / 'supervisor:dispatch' steps, or any future backend step)
+  // is appended in arrival order so the trace panel lights it up live rather
+  // than dropping the event on the floor. This is what makes the harness
+  // path show progressive steps instead of a frozen panel.
+  if (!known) {
+    return [
+      ...steps,
+      {
+        name: event.step,
+        label: stepLabel(event.step),
+        status: statusForEvent(event, 'waiting'),
+        detail: event.detail,
+        ms: event.ms,
+        retryNum: event.retry_num,
+        hopCount: event.hop_count,
+        graphConfidence: event.graph_confidence,
+      },
+    ];
+  }
+
   return steps.map((step) => {
     if (step.name !== event.step) return step;
-
-    // Determine visual status
-    let status: PipelineStep['status'] = step.status;
-    if (event.status === 'active') status = 'active';
-    else if (event.status === 'done') status = 'done';
-    else if (event.status === 'skipped') status = 'skipped';
-    else if (event.status === 'error') status = 'error';
-    // Retry: evaluator with retry_num > 0 and status != done
-    if (
-      event.step === 'evaluator' &&
-      event.status === 'done' &&
-      event.retry_num !== undefined &&
-      event.retry_num > 0
-    ) {
-      status = 'retry';
-    }
-
     return {
       ...step,
-      status,
+      status: statusForEvent(event, step.status),
       detail: event.detail ?? step.detail,
       ms: event.ms ?? step.ms,
       retryNum: event.retry_num,

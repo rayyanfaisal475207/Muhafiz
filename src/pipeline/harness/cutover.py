@@ -91,6 +91,20 @@ from typing import AsyncGenerator, Optional
 from src.data_gateway.base import DataGateway
 from src.memory.conversation import async_load_history, async_save_history, format_history_for_prompt
 from src.pipeline.harness.supervisor import Supervisor
+# Importing the agent modules is what registers each sub-agent into the
+# Supervisor's registry (see agents/__init__.py: registration happens at
+# each module's import time, and the package deliberately does not import
+# them itself so a caller opts in). This module is the live cutover entry
+# point, so importing them here makes every implemented sub-agent
+# dispatchable whenever the harness actually runs a query — without this,
+# the Supervisor classifies correctly but every route returns "capability
+# not available yet" because nothing ever imported the handlers.
+from src.pipeline.harness import agents as _harness_agents  # noqa: F401
+import importlib as _importlib
+import pkgutil as _pkgutil
+for _m in _pkgutil.iter_modules(_harness_agents.__path__):
+    if not _m.name.startswith("_"):
+        _importlib.import_module(f"src.pipeline.harness.agents.{_m.name}")
 from src.pipeline.harness.types import (
     SOURCE_TOOL_DISPLAY_LABELS,
     CallerContext,
@@ -307,15 +321,53 @@ async def run_cutover_query(
     except Exception:
         pg_run_id = None  # Never let observability failure block the query.
 
-    events: list[PipelineEvent] = []
+    # Live event bridge: Supervisor.handle() is an awaited coroutine that
+    # calls `on_event` synchronously as it progresses, but a generator can't
+    # `yield` from inside that callback. So push each event onto a queue and
+    # run handle() as a task, draining the queue AS events arrive — this is
+    # what makes `supervisor:dispatch` show its "active" spinner DURING the
+    # sub-agent's work instead of flashing straight to done at the end (the
+    # whole run's events used to be buffered and flushed only after handle()
+    # returned). A sentinel marks completion. The sub-agent and supervisor
+    # are untouched; only this adapter's delivery changed.
+    event_queue: asyncio.Queue = asyncio.Queue()
+    _DONE = object()
 
     def _on_event(evt: PipelineEvent) -> None:
-        events.append(evt)
+        event_queue.put_nowait(evt)
 
     yield {"step": "supervisor", "status": "active", "detail": "Routing through the agent harness..."}
 
     supervisor = Supervisor()
-    result = await supervisor.handle(agent_input, on_event=_on_event, gateway=gateway)
+
+    async def _run() -> SubAgentResult:
+        try:
+            return await supervisor.handle(agent_input, on_event=_on_event, gateway=gateway)
+        finally:
+            event_queue.put_nowait(_DONE)
+
+    handle_task = asyncio.create_task(_run())
+
+    # Drain events live until the task signals completion via the sentinel.
+    while True:
+        evt = await event_queue.get()
+        if evt is _DONE:
+            break
+        out: dict = {"step": evt.step, "status": evt.status, "detail": evt.detail}
+        if evt.ms is not None:
+            out["ms"] = evt.ms
+        if evt.sources:
+            out["sources"] = evt.sources
+        yield out
+
+    result = await handle_task
+
+    # The Supervisor's own "active" step (emitted before the queue drain
+    # above) has no completion event of its own — routing + dispatch are the
+    # observable phases, and both have now finished. Mark it done so the UI's
+    # Supervisor row resolves from spinner to check instead of spinning
+    # forever.
+    yield {"step": "supervisor", "status": "done", "detail": "Harness routing complete"}
 
     # [Merge reconciliation — harness-reconciliation Unit 12 follow-up]
     # DIRECT classifies to NO_SUB_AGENT (supervisor.py) — the honest thing
@@ -333,14 +385,6 @@ async def run_cutover_query(
             "delegate_to_legacy": True,
         }
         return
-
-    for evt in events:
-        out: dict = {"step": evt.step, "status": evt.status, "detail": evt.detail}
-        if evt.ms is not None:
-            out["ms"] = evt.ms
-        if evt.sources:
-            out["sources"] = evt.sources
-        yield out
 
     # ── Cross-Case Linkage — mirrors orchestrator.py's own XGRAPH-route
     # event("cross_case_finding", "done", ..., sources=..., case_scope=...,
