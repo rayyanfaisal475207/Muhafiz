@@ -1,6 +1,6 @@
 import logging
 from fastapi import APIRouter, HTTPException, Depends, Request
-from typing import List
+from typing import List, Literal
 from pydantic import BaseModel
 from src.data_gateway import get_gateway
 from src.auth.routes import get_current_user, limiter
@@ -29,7 +29,12 @@ class CaseAssignmentCreate(BaseModel):
     # platform-admin-only, so a station-admin assigning someone to a case
     # they're already on has no other way to find a user_id.
     email: str
-    role: str
+    # Audit hypothesis #5: was a bare `str` -- any string was accepted here
+    # with no allow-list, unlike users.role which is a real DB enum. These
+    # are the same 4 values check_case_access()'s role hierarchy
+    # (src/data_gateway/direct_backend.py) and require_role() already use
+    # everywhere else in this codebase.
+    role: Literal["investigator", "supervisor", "station-admin", "platform-admin"]
 
 async def _require_station_match(gateway, case_id: str, current_user: User) -> None:
     """
