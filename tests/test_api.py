@@ -196,6 +196,34 @@ def test_assign_user_to_case_by_email(station_admin_api, gateway):
     assert assignments[0]["role"] == "investigator"
 
 
+def test_assign_user_rejects_a_role_outside_the_allowlist(station_admin_api, gateway):
+    """
+    Audit hypothesis #5: CaseAssignmentCreate.role used to be a bare str --
+    any string was accepted, unlike users.role which is a real DB enum.
+    """
+    client, gw = station_admin_api
+    gw.users["target"] = {"id": "target", "email": "investigator@example.com", "role": "investigator"}
+
+    response = client.post("/api/cases/CASE-001/assignments/", json={
+        "email": "investigator@example.com", "role": "superadmin",
+    })
+
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize("role", ["investigator", "supervisor", "station-admin", "platform-admin"])
+def test_assign_user_accepts_every_real_role(station_admin_api, gateway, role):
+    client, gw = station_admin_api
+    target_id = str(uuid.uuid4())
+    gw.users[target_id] = {"id": target_id, "email": "investigator@example.com", "role": "investigator"}
+
+    response = client.post("/api/cases/CASE-001/assignments/", json={
+        "email": "investigator@example.com", "role": role,
+    })
+
+    assert response.status_code == 200
+
+
 def test_assign_user_to_case_unknown_email_404s(station_admin_api):
     client, _ = station_admin_api
 
