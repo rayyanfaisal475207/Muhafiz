@@ -307,6 +307,22 @@ async def semantic_search(
         case_id=caller.active_case_id,
     )
     verifier_passed = verification.get("grounded", False) and not verification.get("off_topic", False)
+    # [Bug fix] The `active` event above had no matching resolution anywhere
+    # -- unlike `response` (resolved here on the error path, and again by
+    # cutover.py's own streaming/done pair on success), `citation_validator`
+    # was never given a `done`/`error` counterpart at all, on EITHER branch
+    # below. verify_grounding() runs on every request that reaches this
+    # point (not a rare failure path), so the trace panel's "Citation Check"
+    # row was left shimmering (status=active) for the rest of the message's
+    # life, every single time -- after the answer was already fully
+    # delivered to the user. Emitted once, before the branch splits, so it
+    # fires regardless of which way the check goes.
+    if on_event is not None:
+        on_event(PipelineEvent(
+            step="citation_validator",
+            status="done" if verifier_passed else "error",
+            detail="Grounded" if verifier_passed else "Not grounded — answer rejected",
+        ))
 
     if not verifier_passed:
         logger.warning(
