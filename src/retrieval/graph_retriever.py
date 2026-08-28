@@ -261,11 +261,51 @@ def _entity_id_of(node: Optional[dict]) -> Optional[str]:
     return (node.get("properties", {}) or {}).get("entity_id")
 
 
+# Interrogative/relative particles a router's LLM-based target_entity
+# extraction can mistakenly glue onto a name when the name is immediately
+# followed by one in the source sentence — confirmed live: "ذیشان کن
+# کیسز سے منسلک ہے؟" ("which cases is Zeeshan connected to?") extracted
+# target_entity="ذیشان کن" instead of "ذیشان", and that extra "کن"
+# ("which") alone was enough to make seed lookup match zero nodes instead
+# of the 13 real ones a clean "ذیشان" correctly finds. A real Person/
+# Officer/Organization name is never a multi-word phrase ending in one of
+# these, so stripping the last token when it's one of these is a safe,
+# narrow recovery for this specific extraction-boundary error — not a
+# general stopword filter, and not a substitute for improving the
+# router's own extraction prompt (still worth doing, see router.py), just
+# a deterministic backstop that doesn't depend on the LLM getting it right.
+_TRAILING_ENTITY_PARTICLES = (
+    "کن", "کونسا", "کونسے", "کونسی", "کس", "کیا",
+    "which", "what",
+)
+
+
+def _strip_trailing_particle(text: str) -> Optional[str]:
+    """
+    If `text`'s last whitespace-separated token is a known trailing
+    interrogative/relative particle, return the text with that token
+    removed. None if there's nothing to strip (including single-token
+    text — a bare particle with no name preceding it isn't a name at all,
+    so there's nothing to fall back to).
+    """
+    tokens = text.strip().split()
+    if len(tokens) < 2:
+        return None
+    if tokens[-1].lower() in _TRAILING_ENTITY_PARTICLES:
+        stripped = " ".join(tokens[:-1]).strip()
+        return stripped or None
+    return None
+
+
 def _seed_candidates(target_entity: Optional[str], query_text: str) -> list[str]:
     """
     Build the list of literal strings to look up as graph seed nodes.
     `target_entity` (the router's verbatim extraction) is always tried
-    first; identifier regexes (CNIC/phone/plate — reused from
+    first, plus a trailing-particle-stripped variant when applicable (see
+    _strip_trailing_particle's own docstring) — both are tried, not one
+    in place of the other, so a correct extraction is never second-
+    guessed and a corrupted one still has a real shot at matching.
+    Identifier regexes (CNIC/phone/plate — reused from
     structured_fields.py, never re-copied) additionally scan both
     `target_entity` and the raw query text, since the router may name an
     entity in prose ("the suspect's phone") while the actual dialable
@@ -280,6 +320,8 @@ def _seed_candidates(target_entity: Optional[str], query_text: str) -> list[str]
             candidates.append(text.strip())
 
     _add(target_entity)
+    if target_entity:
+        _add(_strip_trailing_particle(target_entity))
     for raw in (target_entity or "", query_text or ""):
         norm = normalize_urdu(raw)
         for regex in (_CNIC_RE, _PHONE_RE, _PLATE_RE):

@@ -15,7 +15,7 @@ Schema:
 {
   "route": "DIRECT" | "RAG" | "WEB" | "SQL" | "GRAPH" | "GRAPH_HYBRID" | "XGRAPH" | "XAGG" | "XNETWORK",
   "case_scope": "within_case" | "cross_case",
-  "target_entity": <verbatim name, phone number, CNIC, vehicle plate, or organization/gang mentioned in the query, or null if none>,
+  "target_entity": <verbatim name, phone number, CNIC, vehicle plate, or organization/gang mentioned in the query, or null if none — the NAME ONLY: never include a trailing interrogative/relative word that happens to sit right after it in the sentence ("کن," "کونسا/کونسے/کونسی," "کس," "کیا," "which," "what"). "ذیشان کن کیسز سے منسلک ہے؟" ("which cases is Zeeshan connected to?") is target_entity="ذیشان" — NOT "ذیشان کن", which is not a name and will not match anything in the graph. If you are ever unsure whether the word right after a name belongs to the name or to the question itself, it does not belong to the name>,
   "output_format": "chat" | "file_xlsx" | "file_docx" | "file_pdf",
   "target_year": <integer year or null if not explicitly asking about a historical year>,
   "confidence": "high" | "medium" | "low",
@@ -165,6 +165,9 @@ Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": "this s
 
 Query: "Which cases involve the سوزوکی pickup with plate ICT-LE-309?"
 Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": "ICT-LE-309", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "\"Which cases involve\" is explicit cross-case entity language", "station": null, "district": null}
+
+Query: "ذیشان کن کیسز سے منسلک ہے؟"
+Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": "ذیشان", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Explicit cross-case entity lookup for named suspect \"ذیشان\" — target_entity is the name alone; \"کن\" (\"which,\" part of \"کن کیسز\"/\"which cases\") is the question's own wording, not part of the name, and must not be included", "station": null, "district": null}
 
 Query: "List all the people mentioned in the cases."
 Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Plural \"cases\" with no single case named or active and no specific person named — a cross-case enumeration request, not GRAPH's within-case enumeration (which requires an active/named case)", "station": null, "district": null}
