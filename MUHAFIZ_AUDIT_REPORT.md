@@ -48,6 +48,24 @@ Every finding from this audit is now fixed except F-03 (deferred, owner decision
 
 ---
 
+## 0.1 Further Remediation — Hypothesis Ledger, Cross-Lingual Graph Matching, and a Post-Audit Discovery (28 Aug 2026, same day)
+
+Beyond the 10 numbered findings, §4's Hypothesis Ledger carried 7 more VERIFIED defects that were never given an F-number and so were untouched by the work above. All 7 are now fixed, plus one new capability and one significant bug this work surfaced that was outside the original audit's scope entirely:
+
+| Item | Status | Fix | Verification |
+|---|---|---|---|
+| Hyp #1 — frontend/backend password-length mismatch | ✅ **FIXED** — `ba79491` | `RegisterPage.tsx` `minLength` 8→12, matching the backend's real minimum, plus a visible helper hint | 2 new tests; full frontend suite 25/25 |
+| Hyp #5 — `case_assignments.role` no API allow-list | ✅ **FIXED** — `ddc2c86` | `CaseAssignmentCreate.role` → `Literal["investigator","supervisor","station-admin","platform-admin"]` | 8 new tests (bogus role → 422, each real value → 200) |
+| Hyp #6/#7 — `preferred_language`/`llm_mode` unrestricted strings | ✅ **FIXED** — `6ca10d9` | Both → `Literal[...]` matching the frontend's own `<select>` values | 7 new tests (no prior profile tests existed at all) |
+| Hyp #12 — Data-Quality/Extraction-Coverage unreachable | ✅ **FIXED** — `ac12896` | New `_DATA_QUALITY_TRIGGER_PATTERNS` (English/Urdu-script/Roman-Urdu) wired into `classify_to_subagent()` | 9 new tests; harness compliance suite 58/58 |
+| Hyp #13/#14 — RLS integration tests and frontend Vitest never ran in CI | ✅ **FIXED** — `200a247` (PR #5) | New `rls-integration` CI job (Postgres+AGE service container, full migration chain, live RLS tests); `npm test -- --run` added to the frontend job | **Actually watched live in CI**, not just merged blind — first push failed (`ModuleNotFoundError: No module named 'src'` in Alembic), diagnosed from real logs, fixed, re-run confirmed RLS tests genuinely execute (4/4 passed, not skipped) before merging |
+| **New** — cross-lingual graph name matching | ✅ **SHIPPED** — `18785e8` | RAG retrieval already handled this (`cross_script_variant.py`, pre-existing); the graph side (`graph_retriever._find_seed_nodes()`) did a raw script-blind `CONTAINS` on `canonical_name`. Reused `entity_resolution._consonant_skeleton()` (already built for ingestion-time cross-script merges, never reached query time) — precomputed at write time, matched at query time | 5 new unit tests (both directions + a false-positive guard) **and a live, real-data end-to-end proof**: backfilled `name_skeleton` on 1,459 real nodes; a real Urdu-stored node (`نعیم اختر`, case `fir-891-24`) is now found by the English query `"Naeem Akhtar"` — confirmed the *old* logic found 0 results for the identical query |
+| **Post-audit discovery** — `muhafiz_app` had zero AGE graph-schema access | ✅ **FIXED** — `8db03a5` | Found live while verifying the item above: every graph call under `muhafiz_app` failed (`type agtype does not exist`). Two gaps, both required: (1) `docker-compose.yml`'s Postgres never set `shared_preload_libraries=age`, so `LOAD 'age'` — superuser-only — had nothing to fall back on; (2) migration 015 granted DML on relational tables but never touched `ag_catalog`/`evidence_graph`/`evidence_graph_eval` at all. New migration 031 grants `USAGE` + DML via `ALTER DEFAULT PRIVILEGES` (so every future AGE-created label is covered automatically, unlike 009/015's per-table style) | Live: a basic Person read and a full `versioning.write_node()` round-trip both failed identically pre-fix, succeeded post-fix; `verify_app_role.py` and `test_rls_integration.py` re-run live afterward, unaffected (still all-pass) |
+
+**Severity note on the post-audit discovery:** this means F-01's own fix (repointing `DATABASE_URL` at `muhafiz_app`) had an unintended side effect this audit's own verification never caught, because neither `verify_app_role.py` nor `test_rls_integration.py` exercises the graph/AGE path at all — both are relational-only. Every XGRAPH/GRAPH/GRAPH_HYBRID route and every ingestion-time entity-resolution write would have been silently broken in any deployment that completed migration 015 without also applying 031. Worth treating as a reminder that a least-privilege migration needs a smoke test against *every* subsystem the app touches, not just the one the migration was written for.
+
+---
+
 ## 1. Production Readiness Scorecard
 
 Scored 0–10 against verified evidence. A single class of defect can cap a category regardless of other strengths — RLS/data-isolation is capped by the inert-backstop finding even though its *design* is correct and its own integration tests pass under a least-privilege role.
@@ -206,20 +224,20 @@ These are the controls that make the platform trustworthy for police evidence. E
 
 | # | Hypothesis | Status | Evidence |
 |---|---|---|---|
-| 1 | Frontend allows 8-char password, backend requires 12 | 🔴 VERIFIED | `RegisterPage.tsx:68` vs `routes.py:38` |
-| 2 | Non-UUID JWT `sub` → 500 not 401 | 🔴 VERIFIED | Reproduced live; see F-06 |
-| 3 | NULL-station station-admin bypasses station match | 🔴 VERIFIED | 1/2 live station-admins NULL; F-08 |
-| 4 | Admin Vite proxy → 8001 while backend defaults 8000 | 🟢 NOT REPROD. | Both proxies → 8001; but `RUN.md` says 8000 (F-10) |
-| 5 | `case_assignments.role` lacks API allow-list | 🔴 VERIFIED | Free string at schema vs DB enum |
-| 6 | `preferred_language` unrestricted server string | 🔴 VERIFIED | XSS/arbitrary accepted; downstream impact low |
-| 7 | `llm_mode` unrestricted server string | 🔴 VERIFIED | Accepted verbatim; degrades to default, no crash |
-| 8 | Deleting nonexistent authorized case returns success | 🔴 VERIFIED | `{"status":"deleted"}` live; F-10 |
-| 9 | Some admin pagination `limit` unbounded | 🔴 VERIFIED | 149,502 rows in 5.9s; F-07 |
-| 10 | Health version ≠ app metadata version | 🔴 VERIFIED | `1.0.0` vs `0.1.0` |
+| 1 | Frontend allows 8-char password, backend requires 12 | 🔴 VERIFIED — ✅ **FIXED** `ba79491` | `RegisterPage.tsx:68` vs `routes.py:38`; see §0.1 |
+| 2 | Non-UUID JWT `sub` → 500 not 401 | 🔴 VERIFIED — ✅ FIXED | Reproduced live; see F-06 |
+| 3 | NULL-station station-admin bypasses station match | 🔴 VERIFIED — ✅ FIXED | 1/2 live station-admins NULL; see F-08 |
+| 4 | Admin Vite proxy → 8001 while backend defaults 8000 | 🟢 NOT REPROD. — ✅ FIXED | Both proxies → 8001; but `RUN.md` said 8000 — see F-10 |
+| 5 | `case_assignments.role` lacks API allow-list | 🔴 VERIFIED — ✅ **FIXED** `ddc2c86` | Free string at schema vs DB enum; see §0.1 |
+| 6 | `preferred_language` unrestricted server string | 🔴 VERIFIED — ✅ **FIXED** `6ca10d9` | XSS/arbitrary accepted; downstream impact low; see §0.1 |
+| 7 | `llm_mode` unrestricted server string | 🔴 VERIFIED — ✅ **FIXED** `6ca10d9` | Accepted verbatim; degrades to default, no crash; see §0.1 |
+| 8 | Deleting nonexistent authorized case returns success | 🔴 VERIFIED — ✅ FIXED | `{"status":"deleted"}` live; see F-10 |
+| 9 | Some admin pagination `limit` unbounded | 🔴 VERIFIED — ✅ FIXED | 149,502 rows in 5.9s; see F-07 |
+| 10 | Health version ≠ app metadata version | 🔴 VERIFIED — ✅ FIXED | `1.0.0` vs `0.1.0`; see F-10 |
 | 11 | Timeline Building unreachable from classification | 🟢 NOT REPROD. | Reachable via trigger patterns; stale docstring |
-| 12 | Data-Quality unreachable from classification | 🔴 VERIFIED | No trigger patterns; falls through to Semantic Search |
-| 13 | RLS integration tests skipped by default CI | 🔴 VERIFIED | 4 skips without `RUN_POSTGRES_TESTS` |
-| 14 | Frontend tests exist but aren't run in CI | 🔴 VERIFIED | `ci.yml` runs `build` only, never `test` |
+| 12 | Data-Quality unreachable from classification | 🔴 VERIFIED — ✅ **FIXED** `ac12896` | No trigger patterns; fell through to Semantic Search; see §0.1 |
+| 13 | RLS integration tests skipped by default CI | 🔴 VERIFIED — ✅ **FIXED** `200a247` | 4 skips without `RUN_POSTGRES_TESTS`; see §0.1 |
+| 14 | Frontend tests exist but aren't run in CI | 🔴 VERIFIED — ✅ **FIXED** `200a247` | `ci.yml` ran `build` only, never `test`; see §0.1 |
 | 15 | Reranker text-remap ambiguous for duplicate text | 🟢 NOT REPROD. | Order-consumed queue disambiguates; documented |
 
 ---
