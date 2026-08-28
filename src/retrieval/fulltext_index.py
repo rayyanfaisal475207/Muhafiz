@@ -135,6 +135,16 @@ def _scope_where(where: Optional[dict]) -> tuple[str, dict]:
     if project_id:
         clauses.append("(project_id = :project_id OR is_global = TRUE)")
         params["project_id"] = str(project_id)
+    elif where.get("all_cases") is True:
+        # Mirrors vector_store._build_where()'s "All Cases" scope: every
+        # case's evidence plus global reference material, never a private
+        # caseless project upload. A real, nullable Postgres column here
+        # (unlike Chroma's sparse metadata), so `case_id IS NOT NULL` is
+        # exact -- no need for vector_store's has_case workaround. Getting
+        # this branch wrong (i.e. leaving `all_cases` unhandled) would fall
+        # through to the `if not clauses: return "TRUE", {}` case below --
+        # completely unscoped, leaking every project's chunks into BM25.
+        clauses.append("(is_global = TRUE OR case_id IS NOT NULL)")
     elif where.get("is_global") is True:
         clauses.append("is_global = TRUE")
     case_id = where.get("case_id")

@@ -58,6 +58,19 @@ _METADATA_KEYS = (
     # orchestrator.py's FIR-based query auto-scope match a real display
     # code the way it already matches synthetic-corpus filenames.
     "fir_display_code",
+    # "All Cases" retrieval scope (supervisor+, orchestrator.py's
+    # _build_retrieval_where()) needs to match "every case-linked chunk,
+    # plus global reference material" without matching a private,
+    # caseless project upload. Chroma's `where` DSL here has no `$exists`
+    # operator (confirmed empirically against this collection), so
+    # "case_id is set to something" isn't directly expressible — `case_id`
+    # itself is also dropped entirely from a chunk's metadata when None
+    # (_sanitize_metadata below), which rules out `$ne` too (undefined
+    # behavior against a genuinely absent key, not a documented one for
+    # this Chroma version). `has_case` mirrors `is_global`'s own pattern
+    # instead: always a real bool, written on every chunk, never dropped,
+    # so `{"has_case": {"$eq": True}}` is a filter that actually works.
+    "has_case",
 )
 
 
@@ -292,6 +305,18 @@ def _build_where(where: Optional[dict]) -> Optional[dict]:
          filter": an unfiltered search returns every project's scoped
          documents to any user, which is the leak this branch exists to
          prevent.
+       - `{"all_cases": True}` — the "All Cases" retrieval scope
+         (orchestrator.py's `_build_retrieval_where()`, gated to
+         supervisor/station-admin/platform-admin — the same role floor
+         `graph_retriever.py`'s cross-case tools already use). Matches
+         every case-linked chunk PLUS global reference material — still
+         NOT "no filter": a private, caseless project upload must stay
+         invisible here exactly as it does under `is_global`. Uses
+         `has_case` (always a real bool on every chunk, mirroring
+         `is_global`'s own always-present pattern), not `case_id`
+         directly — this Chroma version has no `$exists` operator
+         (confirmed empirically), and `case_id` itself is dropped
+         entirely from a chunk missing it, ruling out `$ne` too.
 
     2. Case scoping (Phase 1, additive) — `{"case_id": <id>}` restricts
        results to that case's evidence only. This is deliberately an
@@ -322,6 +347,16 @@ def _build_where(where: Optional[dict]) -> Optional[dict]:
             "$or": [
                 {"project_id": {"$eq": project_id}},
                 {"is_global": {"$eq": True}},
+            ]
+        })
+    elif where.get("all_cases") is True:
+        # "All Cases": every case's evidence plus global reference material,
+        # never a private caseless project upload. See this function's own
+        # docstring for why `has_case`, not `case_id`, is the right field.
+        conditions.append({
+            "$or": [
+                {"is_global": {"$eq": True}},
+                {"has_case": {"$eq": True}},
             ]
         })
     elif where.get("is_global") is True:
@@ -379,6 +414,7 @@ async def upsert_documents(
         project_id = meta.get("project_id")
         case_id = meta.get("case_id")
         is_global = bool(meta.get("is_global", False))
+        has_case = bool(case_id)
         emb_list = embeddings[i].tolist() if hasattr(embeddings[i], "tolist") else embeddings[i]
 
         doc_params.append({
@@ -400,6 +436,7 @@ async def upsert_documents(
                 "project_id": project_id,
                 "case_id": case_id,
                 "is_global": is_global,
+                "has_case": has_case,
                 "doc_type": meta.get("doc_type"),
                 "source_type": meta.get("source_type"),
                 "page": meta.get("page") or meta.get("page_number"),

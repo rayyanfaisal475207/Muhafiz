@@ -35,6 +35,7 @@ from src.retrieval.graph_retriever import (
     resolve_jurisdiction_case_ids,
     jurisdiction_unresolved,
     reset_jurisdiction_unresolved,
+    CROSS_CASE_ROLES,
 )
 from src.pipeline.xagg import run_aggregate
 from src.pipeline.xagg import _UNSUPPORTED_JURISDICTION as _UNRESOLVED_JURISDICTION_NOTE
@@ -562,6 +563,41 @@ _ABSTENTION_RESPONSE = (
     "to this question — the cited sources do not sufficiently support a specific "
     "claim. Please consult the original case documents directly."
 )
+
+
+def _build_retrieval_where(project_id: Optional[str], case_id: Optional[str], user_role: str) -> dict:
+    """
+    Single source of truth for the project/case/global `where` filter —
+    replaces three separately-maintained copies of the same three-line
+    if/elif/if block (GRAPH_HYBRID, the FIR-auto-scope lookup, and the main
+    RAG retrieval loop), which had already drifted once (the FIR-auto-scope
+    site never got Module 4.1's case_id-before-is_global fix the other two
+    did, since nothing forced them to change together).
+
+    - `project_id` given: that project's docs, or global. (unchanged)
+    - `case_id` given (no project_id): that case's evidence only. (unchanged)
+    - Neither given, caller is supervisor/station-admin/platform-admin:
+      "All Cases" — every case's evidence, plus global reference material.
+      Replaces the old is_global-only fallback for these roles, on the
+      same role floor as this codebase's other cross-case capabilities
+      (graph_retriever.CROSS_CASE_ROLES) — an investigator asking a
+      question with no case selected must not silently gain cross-case
+      access just because the "no case" default changed; the fallback for
+      them is unchanged from before this scope existed.
+    - Neither given, caller is an investigator: global reference material
+      only. (unchanged)
+    """
+    where_clause: dict = {}
+    if project_id:
+        where_clause["project_id"] = project_id
+    if case_id:
+        where_clause["case_id"] = case_id
+    if not project_id and not case_id:
+        if user_role in CROSS_CASE_ROLES:
+            where_clause["all_cases"] = True
+        else:
+            where_clause["is_global"] = True
+    return where_clause
 
 
 async def process_query(
@@ -1479,18 +1515,7 @@ async def process_query(
         yield event("retrieval", "active", "Running graph + hybrid retrieval...")
         t0 = time.monotonic()
         try:
-            # Module 4.1: filter on case_id alone when present, only falling
-            # back to is_global=True when there's neither a project_id nor a
-            # case_id — see the matching where_clause site later in this
-            # function for why the old project_id-or-is_global fallback
-            # excluded real case evidence (is_global=False) from results.
-            where_clause = {}
-            if project_id:
-                where_clause["project_id"] = project_id
-            if case_id:
-                where_clause["case_id"] = case_id
-            if not project_id and not case_id:
-                where_clause["is_global"] = True
+            where_clause = _build_retrieval_where(project_id, case_id, user_role)
 
             # Parity with the RAG route's retrieval (query expansion + cross-script
             # variant + full-corpus BM25 scope) — this branch used to run a single,
@@ -2177,7 +2202,7 @@ async def process_query(
             if fir_matches or display_code_matches:
                 target_fir = fir_matches[0].normalized if fir_matches else None
                 target_display_code = display_code_matches[0].normalized if display_code_matches else None
-                scope_only_where = {"project_id": project_id} if project_id else {"is_global": True}
+                scope_only_where = _build_retrieval_where(project_id, None, user_role)
                 try:
                     candidate_pool_for_scoping = await get_all_chunks(where=scope_only_where)
                 except Exception as scope_exc:
@@ -2277,19 +2302,7 @@ async def process_query(
                 # corpus (no case attached to any of it) keeps working exactly
                 # as before.
                 #
-                # Module 4.1: a case-scoped query with no project_id must
-                # filter on case_id alone, NOT fall back to is_global=True —
-                # case evidence is ingested with is_global=False, so ANDing
-                # that fallback against a real case_id excluded it entirely.
-                # is_global=True is only correct when there is genuinely no
-                # project_id AND no case_id (a true general-KB query).
-                where_clause = {}
-                if project_id:
-                    where_clause["project_id"] = project_id
-                if case_id:
-                    where_clause["case_id"] = case_id
-                if not project_id and not case_id:
-                    where_clause["is_global"] = True
+                where_clause = _build_retrieval_where(project_id, case_id, user_role)
 
                 # RETRIEVAL_DIVERSITY_FIX_PROMPT.md, Fix 2: a query is
                 # "cross-case" (more than one case could legitimately match)

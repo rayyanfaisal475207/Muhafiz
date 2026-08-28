@@ -58,8 +58,15 @@ function groupSessions(sessions: any[]) {
   return groups;
 }
 
+// Same role floor the backend gates "All Cases" retrieval on
+// (graph_retriever.CROSS_CASE_ROLES / orchestrator._build_retrieval_where)
+// — an investigator selecting this option would still only get the
+// unchanged is_global-only scope server-side, so the label must not
+// promise them cross-case access the backend never grants.
+const ALL_CASES_ROLES = new Set(['supervisor', 'station-admin', 'platform-admin']);
+
 export function Sidebar() {
-  const { logout, isAuthenticated } = useAuthStore();
+  const { logout, isAuthenticated, user } = useAuthStore();
   const { sessions, deleteSession, renameSession, error: sessionsError, isLoading: sessionsLoading } = useSessionStore();
   const newSession = useChatStore((s) => s.newSession);
   const { projects, activeProjectId, fetchProjects, setActiveProject, error: projectsError, isLoading: projectsLoading } = useProjectStore();
@@ -222,7 +229,7 @@ export function Sidebar() {
             navigate('/', { state: { fresh: true } });
           }}
         >
-          <option value="">No Case</option>
+          <option value="">{ALL_CASES_ROLES.has(user?.role || '') ? 'All Cases' : 'No Case'}</option>
           {cases.map((c) => (
             <option key={c.case_id} value={c.case_id}>
               {c.fir_number || c.case_id}
@@ -236,7 +243,11 @@ export function Sidebar() {
           <p className="mt-1 text-[11px]" style={{ color: 'var(--error)' }} role="alert">Failed to load cases: {casesError}</p>
         )}
         <p className="mt-1 text-[10.5px] leading-snug" style={{ color: 'var(--text-faint)' }}>
-          Formal investigation — evidence &amp; entities scoped to this case.
+          {activeCaseId
+            ? 'Formal investigation — evidence & entities scoped to this case.'
+            : ALL_CASES_ROLES.has(user?.role || '')
+              ? 'Searches every case’s evidence plus general reference material.'
+              : 'General reference material only — select a case to search its evidence.'}
         </p>
       </div>
 

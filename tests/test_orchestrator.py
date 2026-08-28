@@ -525,6 +525,39 @@ async def test_rag_no_case_or_project_falls_back_to_is_global(run_pipeline):
         assert where == {"is_global": True}
 
 
+async def test_rag_supervisor_no_case_or_project_gets_all_cases_scope(run_pipeline):
+    """
+    "All Cases": a supervisor+ caller with no case_id and no project_id
+    gets every case's evidence plus global reference material, not the
+    old is_global-only fallback -- gated on the same role floor
+    graph_retriever.CROSS_CASE_ROLES already uses for XGRAPH/XAGG/XNETWORK.
+    """
+    events, _ = await run_pipeline(
+        route='{"route": "RAG", "output_format": "chat"}',
+        user_role="supervisor",
+    )
+    assert run_pipeline.where_calls, "query_similar was never called"
+    for where in run_pipeline.where_calls:
+        assert where == {"all_cases": True}
+
+
+async def test_rag_investigator_no_case_or_project_still_falls_back_to_is_global(run_pipeline):
+    """
+    The other half of the same guard: an investigator (below the
+    CROSS_CASE_ROLES floor) must NOT get All Cases scope just because no
+    case is selected -- that would silently grant cross-case access
+    through the plain RAG route, which has no role gate of its own the
+    way XGRAPH/XAGG/XNETWORK do.
+    """
+    events, _ = await run_pipeline(
+        route='{"route": "RAG", "output_format": "chat"}',
+        user_role="investigator",
+    )
+    assert run_pipeline.where_calls, "query_similar was never called"
+    for where in run_pipeline.where_calls:
+        assert where == {"is_global": True}
+
+
 async def test_rag_project_scoped_query_unaffected_by_case_fix(run_pipeline):
     """A project-scoped query (no case_id) keeps its existing project_id filter."""
     events, _ = await run_pipeline(
