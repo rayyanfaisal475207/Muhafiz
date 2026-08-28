@@ -237,6 +237,48 @@ async def test_rag_tool_failure_abstains_with_error(monkeypatch):
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# (g) on_event lifecycle -- every step that goes 'active' must resolve
+#
+# Bug fix: citation_validator emitted only an 'active' event before this,
+# with no 'done'/'error' counterpart on either branch below it. Since
+# verify_grounding() runs on every request that reaches this point (not a
+# rare failure path), the trace panel's "Citation Check" row was left
+# shimmering (status=active) for the rest of the message's life, every
+# single time -- after the answer had already been fully delivered.
+# ═══════════════════════════════════════════════════════════════════════
+
+def _events_for_step(events: list, step: str) -> list[str]:
+    return [e.status for e in events if e.step == step]
+
+
+@pytest.mark.asyncio
+async def test_citation_validator_resolves_to_done_when_grounded(monkeypatch):
+    chunks = [_chunk("c1", source="fir.pdf")]
+    _stub_rag_tool(monkeypatch, RagToolResult(status=ToolStatus.OK, chunks=chunks, evaluator_verdict="relevant"))
+    _stub_call_llm(monkeypatch, "The suspect fled [Document 1].")
+    _stub_verify_grounding(monkeypatch, grounded=True)
+
+    events = []
+    result = await semantic_search(_agent_input(), on_event=events.append)
+
+    assert result.status == SubAgentStatus.OK
+    assert _events_for_step(events, "citation_validator") == ["active", "done"]
+
+
+@pytest.mark.asyncio
+async def test_citation_validator_resolves_to_error_when_rejected(monkeypatch):
+    _stub_rag_tool(monkeypatch, RagToolResult(status=ToolStatus.OK, chunks=[_chunk()], evaluator_verdict="relevant"))
+    _stub_call_llm(monkeypatch, "I don't have access to case files.")
+    _stub_verify_grounding(monkeypatch, grounded=False, off_topic=True, reason="generic refusal")
+
+    events = []
+    result = await semantic_search(_agent_input(), on_event=events.append)
+
+    assert result.status == SubAgentStatus.ABSTAINED
+    assert _events_for_step(events, "citation_validator") == ["active", "error"]
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # (f) Supervisor integration -- real registration, real dispatch chain
 # ═══════════════════════════════════════════════════════════════════════
 
