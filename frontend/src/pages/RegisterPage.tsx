@@ -58,6 +58,12 @@ export function RegisterPage() {
 
           <div>
             <label htmlFor="register-password" className="block text-sm font-medium text-[var(--text-primary)]">Password</label>
+            {/* Audit hypothesis #1: this used to say minLength={8} while the
+                backend (routes.py's UserCreate.password validator) has always
+                required 12+ -- a user could pass this client-side check, then
+                get a confusing 422 on submit. 12 matches the real backend
+                minimum so the two can't disagree again. */}
+            <p className="mt-1 text-xs text-[var(--text-muted)]">At least 12 characters.</p>
             <div className="relative mt-1">
               <input
                 id="register-password"
@@ -65,7 +71,7 @@ export function RegisterPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={8}
+                minLength={12}
                 className="block w-full rounded-sm border border-[var(--border-strong)] px-3 py-2 text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none pr-16"
               />
               <button
