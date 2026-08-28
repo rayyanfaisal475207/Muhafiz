@@ -8,6 +8,9 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { useChatStore } from '../../store/chatStore';
+import { useCaseStore } from '../../store/caseStore';
+import { useAuthStore } from '../../store/authStore';
+import { ALL_CASES_ROLES } from '../../lib/constants';
 import { AttachmentChips } from './AttachmentChips';
 
 interface Props {
@@ -19,6 +22,16 @@ interface Props {
 const ACCEPTED =
   '.pdf,.txt,.md,.csv,.xlsx,.xls,.html,.htm,.docx,.png,.jpg,.jpeg,.webp';
 
+// Same three scopes ChatPanel's empty state reflects — the placeholder
+// went stale the same way that landing copy did: a supervisor+ user with
+// no case selected is in a real cross-case search scope now, not just a
+// reference-lookup one, and this text never mentioned it.
+function placeholderFor(hasActiveCase: boolean, hasAllCasesScope: boolean): string {
+  if (hasActiveCase) return "Ask about this case's evidence, entities, or timeline…";
+  if (hasAllCasesScope) return 'Ask about any case, connection, or SOP…';
+  return 'Ask about any section, procedure, or SOP…';
+}
+
 export function ChatInput({ onSend, onNewSession, disabled }: Props) {
   const [text, setText] = useState('');
   const [isDraggingOver, setIsDraggingOver] = useState(false);
@@ -27,6 +40,9 @@ export function ChatInput({ onSend, onNewSession, disabled }: Props) {
   const attachFile = useChatStore((s) => s.attachFile);
   const webSearchEnabled = useChatStore((s) => s.webSearchEnabled);
   const setWebSearchEnabled = useChatStore((s) => s.setWebSearchEnabled);
+  const hasActiveCase = useCaseStore((s) => !!s.activeCaseId);
+  const role = useAuthStore((s) => s.user?.role);
+  const placeholder = placeholderFor(hasActiveCase, !!role && ALL_CASES_ROLES.includes(role));
 
   const handleFiles = useCallback(
     (files: FileList | null) => {
@@ -155,7 +171,7 @@ export function ChatInput({ onSend, onNewSession, disabled }: Props) {
           value={text}
           onChange={handleInput}
           onKeyDown={handleKeyDown}
-          placeholder="Ask about any section, procedure, or SOP…"
+          placeholder={placeholder}
           rows={1}
           className="flex-1 bg-transparent text-[15px] text-[var(--text-primary)] placeholder-[var(--text-faint)] resize-none outline-none leading-relaxed py-1"
           style={{ maxHeight: '160px' }}

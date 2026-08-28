@@ -10,7 +10,7 @@ import { useSessionStore } from '../../store/sessionStore';
 import { useChatStore } from '../../store/chatStore';
 import { ThemeToggle } from './ThemeToggle';
 import { apiClient } from '../../lib/api';
-import { LAST_SESSION_KEY } from '../../lib/constants';
+import { LAST_SESSION_KEY, ALL_CASES_ROLES } from '../../lib/constants';
 import { LogoLockup } from '../brand/Logo';
 
 // New Chat icon, kept alongside the (now button) control below.
@@ -58,13 +58,6 @@ function groupSessions(sessions: any[]) {
 
   return groups;
 }
-
-// Same role floor the backend gates "All Cases" retrieval on
-// (graph_retriever.CROSS_CASE_ROLES / orchestrator._build_retrieval_where)
-// — an investigator selecting this option would still only get the
-// unchanged is_global-only scope server-side, so the label must not
-// promise them cross-case access the backend never grants.
-const ALL_CASES_ROLES = new Set(['supervisor', 'station-admin', 'platform-admin']);
 
 export function Sidebar() {
   const { logout, isAuthenticated, user } = useAuthStore();
@@ -223,7 +216,7 @@ export function Sidebar() {
         <CaseSelector
           cases={cases}
           activeCaseId={activeCaseId}
-          allCasesLabel={ALL_CASES_ROLES.has(user?.role || '') ? 'All Cases' : 'No Case'}
+          allCasesLabel={ALL_CASES_ROLES.includes(user?.role || '') ? 'All Cases' : 'No Case'}
           onSelect={(caseId) => {
             setActiveCase(caseId);
             newSession();
@@ -239,7 +232,7 @@ export function Sidebar() {
         <p className="mt-1 text-[10.5px] leading-snug" style={{ color: 'var(--text-faint)' }}>
           {activeCaseId
             ? 'Formal investigation — evidence & entities scoped to this case.'
-            : ALL_CASES_ROLES.has(user?.role || '')
+            : ALL_CASES_ROLES.includes(user?.role || '')
               ? 'Searches every case’s evidence plus general reference material.'
               : 'General reference material only — select a case to search its evidence.'}
         </p>
