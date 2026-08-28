@@ -464,6 +464,57 @@ async def test_seed_candidates_extracts_phone_and_plate_from_query_text():
     assert "ICT-LE-309" in candidates
 
 
+# ── Urdu entity-extraction trailing-particle recovery ────────────────────────
+#
+# Confirmed live: route_query()'s LLM extraction of "ذیشان کن کیسز سے منسلک
+# ہے؟" ("which cases is Zeeshan connected to?") produced
+# target_entity="ذیشان کن" instead of "ذیشان" -- the trailing "کن"
+# ("which") glued onto the name. That extra word alone was enough to drop
+# seed-lookup results from 13 real matches to 0, on a corpus where the
+# clean name already resolves correctly (this is a separate defect from
+# cross-script name matching, which was already fixed and re-verified
+# working here).
+
+def test_strip_trailing_particle_removes_a_known_urdu_particle():
+    assert gr._strip_trailing_particle("ذیشان کن") == "ذیشان"
+
+
+def test_strip_trailing_particle_removes_a_known_english_particle():
+    assert gr._strip_trailing_particle("zeeshan which") == "zeeshan"
+
+
+def test_strip_trailing_particle_leaves_a_clean_name_untouched():
+    assert gr._strip_trailing_particle("ذیشان") is None
+    assert gr._strip_trailing_particle("zeeshan") is None
+
+
+def test_strip_trailing_particle_does_not_strip_a_bare_particle_with_nothing_before_it():
+    assert gr._strip_trailing_particle("کن") is None
+
+
+def test_seed_candidates_includes_both_the_raw_and_particle_stripped_entity():
+    candidates = gr._seed_candidates("ذیشان کن", "ذیشان کن کیسز سے منسلک ہے؟")
+    assert "ذیشان کن" in candidates
+    assert "ذیشان" in candidates
+
+
+async def test_dirty_urdu_extraction_still_finds_seeds_via_the_stripped_fallback(fake_graph, fake_chunks):
+    """
+    End-to-end reproduction of the live failure: a corrupted target_entity
+    ("ذیشان کن") must still resolve to the real node a clean extraction
+    ("ذیشان") would have found -- the exact bug, fixed.
+    """
+    fake_graph.add_node("P-ZEESHAN", "Person", canonical_name="ذیشان")
+    fake_graph.add_case("P-ZEESHAN", "CASE-020")
+    fake_chunks["c1"] = {"id": "c1", "text": "ذیشان کیس میں ملزم کے طور پر شامل۔", "metadata": {"case_id": "CASE-020", "source": "fir.pdf"}}
+    fake_graph.add_appears_in("P-ZEESHAN", "c1", confidence=1.0)
+
+    result = await gr.retrieve_graph("ذیشان کن کیسز سے منسلک ہے؟", "ذیشان کن", "CASE-020")
+
+    assert result["seed_entities"][0]["entity_id"] == "P-ZEESHAN"
+    assert len(result["chunks"]) == 1
+
+
 # ── Matched-identifier evidence text (Bug fix) ───────────────────────────────
 #
 # _synthetic_evidence_chunk() used to say "X appears in record Y" with no
