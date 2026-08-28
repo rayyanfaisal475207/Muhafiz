@@ -1149,6 +1149,26 @@ def test_dedupe_chunks_by_text_collapses_exact_duplicates():
     assert [c["id"] for c in deduped] == ["dup0", "real1", "real2"]
 
 
+def test_cross_case_completion_budget_scales_with_item_count():
+    """
+    Direct unit coverage for the pure function both XGRAPH's and
+    XNETWORK's response-generation call sites share (see its own
+    docstring for the live bug it fixes: a fixed 500-token budget,
+    inherited from router.py's single-JSON-object use case, truncated a
+    real 12-connection XGRAPH answer before every case got cited).
+    """
+    assert orch._cross_case_completion_budget(0) == orch._CROSS_CASE_RESPONSE_TOKENS_BASE
+    assert orch._cross_case_completion_budget(1) == (
+        orch._CROSS_CASE_RESPONSE_TOKENS_BASE + orch._CROSS_CASE_RESPONSE_TOKENS_PER_ITEM
+    )
+    # Monotonic: more items never means less headroom.
+    assert orch._cross_case_completion_budget(12) > orch._cross_case_completion_budget(1)
+    # Ceiling holds even for a very large item count — this is a completion
+    # budget, not an unbounded one; still real headroom above the old fixed
+    # 500 for a query that legitimately touches many cases.
+    assert orch._cross_case_completion_budget(1000) == orch._CROSS_CASE_RESPONSE_TOKENS_CEILING
+
+
 async def test_graph_hybrid_merges_graph_and_vector_chunks(run_pipeline):
     events, _ = await run_pipeline(
         route='{"route": "GRAPH_HYBRID", "case_scope": "within_case", "target_entity": null, "output_format": "chat"}',
@@ -1199,6 +1219,35 @@ async def test_xgraph_is_labeled_cross_case_and_never_falls_back_to_rag(run_pipe
     # be injected — only the hop_count=0, independently-listed case (below)
     # gets it.
     assert "No relationship/connection edges were found" not in run_pipeline.call.last_system
+
+
+async def test_xgraph_completion_budget_scales_with_cases_touched(run_pipeline):
+    """
+    Bug fix (reported live): 'which cases is suspect X connected to' found
+    12 real connections, but the generation call's fixed
+    cloud_max_tokens=500 -- sized for router.py's short JSON-classification
+    replies, never re-sized for XGRAPH's own enumeration shape -- truncated
+    the answer before every case got its own [Document N] citation.
+    verify_grounding() then correctly rejected the truncated answer, and
+    the query abstained after retries even though retrieval had genuinely
+    succeeded. cloud_max_tokens must now scale with how many cases the
+    answer actually needs to enumerate and cite.
+    """
+    chunks = [_graph_chunk(chunk_id=f"g{i}", case_id=f"CASE-{i:03d}") for i in range(12)]
+    await run_pipeline(
+        route='{"route": "XGRAPH", "case_scope": "cross_case", "target_entity": "zeeshan", "output_format": "chat"}',
+        message="Which cases is suspect zeeshan connected to?",
+        graph_result={
+            "chunks": chunks, "hop_count": 1, "compounded_confidence": 0.9,
+            "seed_entities": [{"entity_id": "P-001", "type": "Person", "name": "zeeshan"}],
+            "unconfirmed_links": [],
+        },
+    )
+
+    assert run_pipeline.call.last_kwargs.get("cloud_max_tokens") == orch._cross_case_completion_budget(12)
+    assert run_pipeline.call.last_kwargs.get("cloud_max_tokens") > 500, (
+        "12 cases must get more completion headroom than the old fixed 500-token budget"
+    )
 
 
 async def test_xgraph_enumeration_result_warns_against_inventing_relationships(run_pipeline):
