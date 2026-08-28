@@ -86,9 +86,16 @@ jobs:
       # every plain-SQL migration in numeric order) -- globbed and sorted
       # rather than hardcoded so a future new migration is picked up
       # automatically instead of silently skipped here.
+      # PYTHONPATH is required here: alembic/env.py does `from src import
+      # config`, relying on the repo root already being on sys.path -- true
+      # for however `alembic` happens to get invoked in local dev, but not
+      # for the pip-installed console-script entry point CI resolves via
+      # PATH, which doesn't add CWD to sys.path. scripts/apply_migration.py
+      # doesn't need this (it inserts the repo root itself), only alembic.
       - name: Apply schema (Alembic baseline + plain-SQL migration chain)
         env:
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/muhafiz
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           alembic upgrade head
           for f in $(ls migrations/*.sql | sort -V); do
