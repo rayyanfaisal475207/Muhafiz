@@ -27,6 +27,7 @@ import src.pipeline.harness.supervisor as supervisor_mod
 from src.pipeline.harness.supervisor import (
     CASE_SUMMARIZATION,
     CROSS_CASE_LINKAGE,
+    DATA_QUALITY,
     GLOBAL_SEARCH,
     INVESTIGATIVE_ANALYSIS,
     LARGE_SCALE_AGGREGATE,
@@ -192,10 +193,32 @@ def test_investigative_analysis_trigger_overrides_base_classification(query_text
     assert classify_to_subagent(route_result, query_text) == INVESTIGATIVE_ANALYSIS
 
 
+# [Audit hypothesis #12] classify_to_subagent() had no trigger vocabulary
+# for DATA_QUALITY at all — every one of these queries fell through to
+# SEMANTIC_SEARCH instead, regardless of route, before this fix.
+@pytest.mark.parametrize(
+    "query_text",
+    [
+        "what is the data quality for this case",
+        "show me the extraction coverage",
+        "how complete is the data for this case",
+        "are there any missing fields in this case",
+        "is this case's data unstructured",
+        "اس کیس کی ڈیٹا کوالٹی کیا ہے",
+        "اس کیس میں کتنا ڈیٹا نکالا گیا",
+        "is case ki data quality kitni hai",
+        "is case mein kitna data nikala gaya",
+    ],
+)
+def test_data_quality_trigger_overrides_base_classification(query_text):
+    route_result = {"route": "RAG", "output_format": "chat"}
+    assert classify_to_subagent(route_result, query_text) == DATA_QUALITY
+
+
 @pytest.mark.parametrize("route", ["XGRAPH", "XAGG", "XNETWORK"])
 @pytest.mark.parametrize(
     "query_text",
-    ["give me a timeline of events", "give me a deep dive on this"],
+    ["give me a timeline of events", "give me a deep dive on this", "what is the data quality for this case"],
 )
 def test_provisional_triggers_never_override_a_cross_case_classification(route, query_text):
     """[PRESERVE] A query matching both a cross-case trigger and one of the

@@ -381,6 +381,30 @@ _LOCAL_SEARCH_TRIGGER_PATTERNS = [
 ]
 
 # ═══════════════════════════════════════════════════════════════════════
+# [Audit hypothesis #12] Data-Quality/Extraction-Coverage dispatch
+# trigger. No route in `_ROUTE_TO_SUBAGENT` maps to DATA_QUALITY — it is
+# reachable only through a trigger override, the same "narrow, evidence-
+# based" discipline as `_TIMELINE_TRIGGER_PATTERNS`/
+# `_LOCAL_SEARCH_TRIGGER_PATTERNS` above, and was verified unreachable
+# entirely before this: every query that should land here fell through to
+# Semantic Search instead. Scoped like Timeline/Investigative
+# Analysis/Local Search (within-case, not one of `_CROSS_CASE_SUBAGENTS`)
+# since `data_quality.py`'s own stats functions all require a case_id —
+# there is no cross-case shape for "how complete is this case's data".
+_DATA_QUALITY_TRIGGER_PATTERNS = [
+    re.compile(r"\bdata\s+quality\b", re.IGNORECASE),
+    re.compile(r"\bextraction\s+coverage\b", re.IGNORECASE),
+    re.compile(r"\bhow\s+complete\s+is\b", re.IGNORECASE),
+    re.compile(r"\bmissing\s+(fields?|data)\b", re.IGNORECASE),
+    re.compile(r"\bunstructured\b", re.IGNORECASE),
+    re.compile(r"\bstructured\s+data\b", re.IGNORECASE),
+    re.compile(r"ڈیٹا\s*کوالٹی"),
+    re.compile(r"کتنا\s*ڈیٹا\s*نکالا\s*گیا"),
+    re.compile(r"\bdata\s*quality\s*kitni\s*hai\b", re.IGNORECASE),
+    re.compile(r"\bkitna\s*data\s*nikala\s*gaya\b", re.IGNORECASE),
+]
+
+# ═══════════════════════════════════════════════════════════════════════
 # [AMENDMENT — findings.md Module 9, "Global Search"] Global Search
 # dispatch trigger. PROVISIONAL, same disclosure as
 # _TIMELINE_TRIGGER_PATTERNS/_INVESTIGATIVE_ANALYSIS_TRIGGER_PATTERNS
@@ -524,6 +548,11 @@ def classify_to_subagent(
                 return TIMELINE_BUILDING
             if any(pat.search(query_text) for pat in _INVESTIGATIVE_ANALYSIS_TRIGGER_PATTERNS):
                 return INVESTIGATIVE_ANALYSIS
+            # [Audit hypothesis #12] Data-Quality override — no route maps
+            # to it in `_ROUTE_TO_SUBAGENT`, so this trigger check is the
+            # only way it is ever reachable at all.
+            if any(pat.search(query_text) for pat in _DATA_QUALITY_TRIGGER_PATTERNS):
+                return DATA_QUALITY
             # [AMENDMENT — findings.md Module 8] Local Search override — only
             # for the GRAPH-shaped routes it actually improves on (semantic
             # entity access-point matching is meaningless for RAG/SQL/WEB,
