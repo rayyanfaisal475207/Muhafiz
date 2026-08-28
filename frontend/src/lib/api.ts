@@ -49,7 +49,15 @@ apiClient.interceptors.response.use(
 // rarely approaches the limit — but the raised ceiling is a safety net for
 // the one genuinely long gap (a single slow LLM generation call) so a
 // working-but-slow answer isn't killed mid-flight.
-const STREAM_STALL_TIMEOUT_MS = 150_000;
+// Exported (not just module-local) so api.test.ts's stall-detection test
+// advances fake timers by this exact value instead of a second, separately
+// maintained copy -- a prior bump of this constant (90s -> 150s) never
+// touched the test's own hardcoded 90_000, leaving it hung on Vitest's
+// real 5000ms watchdog instead of the fake-timer path it was meant to
+// exercise (found live running this suite, unrelated to the change that
+// caused it -- confirmed via `git blame` equivalent: the bump landed
+// without updating this test).
+export const STREAM_STALL_TIMEOUT_MS = 150_000;
 
 class StreamStallError extends Error {
   constructor() {
