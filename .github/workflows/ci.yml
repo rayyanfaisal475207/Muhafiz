@@ -48,6 +48,78 @@ jobs:
       - run: pip-audit -r requirements.lock.txt
         continue-on-error: true
 
+  # Audit hypothesis #13: tests/test_rls_integration.py needs a live
+  # Postgres+AGE instance with the full migration chain applied, connecting
+  # as a non-superuser role -- none of which the `backend` job above
+  # provides (its pytest run is fully mocked, no DB). These 4 tests
+  # previously ran only when someone happened to do it by hand; a separate
+  # job (not folded into `backend`) keeps the mocked suite's environment
+  # completely untouched -- DATABASE_URL/TEST_DATABASE_URL are set only on
+  # the two steps below that actually need them, never job-wide.
+  rls-integration:
+    name: RLS integration tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: apache/age:release_PG16_1.5.0
+        env:
+          POSTGRES_DB: muhafiz
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d muhafiz"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      - run: pip install -r requirements.lock.txt
+
+      # RUN.md §4's exact first-run order (Alembic baseline first, then
+      # every plain-SQL migration in numeric order) -- globbed and sorted
+      # rather than hardcoded so a future new migration is picked up
+      # automatically instead of silently skipped here.
+      - name: Apply schema (Alembic baseline + plain-SQL migration chain)
+        env:
+          DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/muhafiz
+        run: |
+          alembic upgrade head
+          for f in $(ls migrations/*.sql | sort -V); do
+            echo "Applying $f"
+            python scripts/apply_migration.py "$f"
+          done
+
+      # Migration 015 deliberately sets no password (no secrets belong in
+      # version control) -- an operator step every real deployment needs
+      # too, see that migration's own "Manual steps" footer. CI-only
+      # throwaway password, never used outside this job's lifetime.
+      - name: Set a CI-only password on the muhafiz_app role
+        run: |
+          python - <<'PY'
+          import asyncio
+          import asyncpg
+
+          async def main():
+              conn = await asyncpg.connect("postgresql://postgres:postgres@localhost:5432/muhafiz")
+              await conn.execute("ALTER ROLE muhafiz_app WITH PASSWORD 'ci-test-only-password'")
+              await conn.close()
+
+          asyncio.run(main())
+          PY
+
+      - name: RLS integration tests
+        env:
+          RUN_POSTGRES_TESTS: "1"
+          TEST_DATABASE_URL: postgresql+asyncpg://muhafiz_app:ci-test-only-password@localhost:5432/muhafiz
+        run: pytest tests/test_rls_integration.py -v
+
   frontend:
     name: Frontend build
     runs-on: ubuntu-latest
@@ -67,6 +139,13 @@ jobs:
         working-directory: ${{ matrix.app }}
 
       - run: npm run build
+        working-directory: ${{ matrix.app }}
+
+      # Audit hypothesis #14: this job used to only ever run `npm run
+      # build` -- the frontend/admin-frontend Vitest suites (23 + 34 tests)
+      # existed but were never wired into CI, so a regression in either
+      # could merge silently. Blocking, same as the build step above.
+      - run: npm test -- --run
         working-directory: ${{ matrix.app }}
 
       # Non-blocking dependency-vulnerability scan, same rationale as the
