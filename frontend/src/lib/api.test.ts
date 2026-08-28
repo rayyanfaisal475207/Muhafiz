@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { streamChat } from './api'
+import { streamChat, STREAM_STALL_TIMEOUT_MS } from './api'
 
 function sseChunk(obj: unknown): Uint8Array {
   return new TextEncoder().encode(`data: ${JSON.stringify(obj)}\n\n`)
@@ -50,8 +50,12 @@ describe('streamChat — stall detection', () => {
     await vi.advanceTimersByTimeAsync(0)
     expect(onEvent).toHaveBeenCalledTimes(1)
 
-    // Advance past the stall timeout for the second read, which never resolves.
-    await vi.advanceTimersByTimeAsync(90_000)
+    // Advance past the stall timeout for the second read, which never
+    // resolves. Imported, not a second hardcoded copy of the value -- a
+    // prior bump of the real constant (90s -> 150s) left this test still
+    // advancing only 90s, hanging on Vitest's real 5000ms watchdog instead
+    // of the fake-timer path it exists to exercise.
+    await vi.advanceTimersByTimeAsync(STREAM_STALL_TIMEOUT_MS)
 
     await assertion
     expect(cancel).toHaveBeenCalled()
