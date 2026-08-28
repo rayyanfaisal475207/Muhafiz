@@ -127,3 +127,36 @@ export const PIPELINE_STEPS: Array<{ name: string; label: string }> = [
   { name: 'response',       label: 'Response' },
   { name: 'memory',         label: 'Memory' },
 ];
+
+// Human-readable labels for any pipeline step that can arrive in an SSE
+// event, including the agent-harness steps the legacy PIPELINE_STEPS list
+// above doesn't cover. Steps not listed here fall back to a title-cased
+// version of their raw name, so a new backend step still renders sanely.
+export const STEP_LABELS: Record<string, string> = {
+  query_rewriter: 'Query Rewriter',
+  router: 'Router',
+  retrieval: 'Retrieval',
+  reranker: 'Re-ranker',
+  cross_reranker: 'Cross-Encoder Rerank',
+  evaluator: 'Evaluator',
+  web_search: 'Web Search',
+  citation_validator: 'Citation Check',
+  cross_case_finding: 'Cross-Case Finding',
+  response: 'Response',
+  file_generation: 'File Generation',
+  title_generation: 'Title',
+  memory: 'Memory',
+  // Agent-harness steps
+  supervisor: 'Supervisor',
+  'supervisor:dispatch': 'Sub-Agent Dispatch',
+  timeline_building: 'Timeline Building',
+  data_quality: 'Data Quality',
+  system: 'System',
+};
+
+export function stepLabel(name: string): string {
+  if (STEP_LABELS[name]) return STEP_LABELS[name];
+  return name
+    .replace(/[:_]/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}

@@ -5,6 +5,7 @@
 // ============================================================
 
 import { memo, useMemo } from 'react';
+import type { ReactNode } from 'react';
 import type { ChatMessage, Source } from '../../types';
 import { GenerationStatus } from './GenerationStatus';
 import { AlertIcon, GlobeIcon, ReadIcon } from './StatusIcons';
@@ -16,34 +17,106 @@ interface Props {
   onSourceClick?: (source: Source) => void;
 }
 
-function parseContent(content: string) {
-  return content.split(/(\[Document \d+\])/g).map((part, i) => {
-    if (part.match(/\[Document \d+\]/)) {
+// Inline parsing: [Document N] citation chips, **bold**, and `code`.
+// Deliberately NOT a full markdown/HTML renderer — no dangerouslySetInnerHTML,
+// so model output can never inject markup (the answer text is untrusted).
+function parseInline(text: string, keyPrefix: string) {
+  // Split on citations first so a citation inside bold still renders as a chip.
+  return text.split(/(\[Document \d+\])/g).map((part, i) => {
+    if (part.match(/^\[Document \d+\]$/)) {
       return (
         <span
-          key={i}
+          key={`${keyPrefix}-cite-${i}`}
           className="text-accent text-xs font-semibold px-1 py-0.5 bg-accent/10 rounded mx-0.5 inline-block"
         >
           {part}
         </span>
       );
     }
-    // Basic bold parsing
+    // Then **bold** and `code` within the non-citation segments.
     return (
-      <span key={i}>
-        {part.split(/(\*\*.*?\*\*)/g).map((subPart, j) => {
-          if (subPart.startsWith('**') && subPart.endsWith('**')) {
-            return (
-              <strong key={j} className="font-semibold text-[var(--text-primary)]">
-                {subPart.slice(2, -2)}
-              </strong>
-            );
+      <span key={`${keyPrefix}-seg-${i}`}>
+        {part.split(/(\*\*.*?\*\*|`[^`]+`)/g).map((sub, j) => {
+          if (sub.startsWith('**') && sub.endsWith('**')) {
+            return <strong key={j}>{sub.slice(2, -2)}</strong>;
           }
-          return subPart;
+          if (sub.startsWith('`') && sub.endsWith('`') && sub.length > 1) {
+            return <code key={j}>{sub.slice(1, -1)}</code>;
+          }
+          return sub;
         })}
       </span>
     );
   });
+}
+
+// Block-level markdown → real React elements: headings (#..######), bullet
+// lists (- / *), ordered lists (1.), and paragraphs. Consecutive list items
+// are grouped into a single <ul>/<ol>. Blank lines separate paragraphs.
+function parseContent(content: string) {
+  const lines = content.split('\n');
+  const blocks: ReactNode[] = [];
+  let list: { ordered: boolean; items: string[] } | null = null;
+  let para: string[] = [];
+  let key = 0;
+
+  const flushPara = () => {
+    if (para.length) {
+      const text = para.join(' ');
+      blocks.push(<p key={`b-${key++}`}>{parseInline(text, `p-${key}`)}</p>);
+      para = [];
+    }
+  };
+  const flushList = () => {
+    if (list) {
+      const items = list.items.map((it, i) => (
+        <li key={i}>{parseInline(it, `li-${key}-${i}`)}</li>
+      ));
+      blocks.push(
+        list.ordered ? <ol key={`b-${key++}`}>{items}</ol> : <ul key={`b-${key++}`}>{items}</ul>,
+      );
+      list = null;
+    }
+  };
+
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    const heading = line.match(/^(#{1,6})\s+(.*)$/);
+    const bullet = line.match(/^\s*[-*]\s+(.*)$/);
+    const ordered = line.match(/^\s*\d+\.\s+(.*)$/);
+
+    if (heading) {
+      flushPara();
+      flushList();
+      const level = Math.min(heading[1].length, 6);
+      const text = heading[2];
+      const Tag = (`h${Math.min(level + 1, 6)}` as 'h2' | 'h3' | 'h4' | 'h5' | 'h6');
+      blocks.push(<Tag key={`b-${key++}`}>{parseInline(text, `h-${key}`)}</Tag>);
+    } else if (bullet) {
+      flushPara();
+      if (!list || list.ordered) {
+        flushList();
+        list = { ordered: false, items: [] };
+      }
+      list.items.push(bullet[1]);
+    } else if (ordered) {
+      flushPara();
+      if (!list || !list.ordered) {
+        flushList();
+        list = { ordered: true, items: [] };
+      }
+      list.items.push(ordered[1]);
+    } else if (line.trim() === '') {
+      flushPara();
+      flushList();
+    } else {
+      flushList();
+      para.push(line);
+    }
+  }
+  flushPara();
+  flushList();
+  return blocks;
 }
 
 function safeSourceLabel(filename: string): string {
@@ -120,7 +193,7 @@ export const MessageBubble = memo(function MessageBubble({ message, onSourceClic
 
           {message.content ? (
             <div
-              className={`prose-chat text-[15px] text-[var(--text-primary)] leading-relaxed whitespace-pre-wrap ${
+              className={`prose-chat text-[15px] text-[var(--text-primary)] leading-relaxed ${
                 message.isStreaming ? 'streaming-cursor' : ''
               }`}
             >

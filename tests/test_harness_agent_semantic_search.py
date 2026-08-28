@@ -64,7 +64,10 @@ def _agent_input(caller=None, query_text="who was involved in the theft?", **kw)
 
 
 def _stub_rag_tool(monkeypatch, result: RagToolResult):
-    async def _fake(tool_input):
+    # Accept **kwargs so the stub tolerates rag_tool's on_event keyword (the
+    # sub-agent forwards it for live per-phase trace events); the stub has no
+    # phases to report, so it just ignores it.
+    async def _fake(tool_input, **kwargs):
         return result
 
     monkeypatch.setattr(semantic_search_mod, "rag_tool", _fake)

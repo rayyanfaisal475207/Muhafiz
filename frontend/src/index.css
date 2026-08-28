@@ -364,7 +364,17 @@ a:not([class]) {
 }
 .prose-chat strong { color: var(--text-primary); font-weight: 600; }
 .prose-chat ul, .prose-chat ol { padding-left: 1.4em; margin-bottom: 0.7em; }
+.prose-chat ul { list-style: disc; }
+.prose-chat ol { list-style: decimal; }
 .prose-chat li { margin-bottom: 0.25em; }
+.prose-chat li::marker { color: var(--text-muted); }
+/* Headings from model markdown (#..######). h1/h2 are demoted a level in the
+   parser so an answer never competes with the page's own hierarchy. */
+.prose-chat h2 { font-size: 1.15em; font-weight: 700; margin: 1em 0 0.4em; color: var(--text-primary); line-height: 1.3; }
+.prose-chat h3 { font-size: 1.05em; font-weight: 700; margin: 0.9em 0 0.35em; color: var(--text-primary); line-height: 1.3; }
+.prose-chat h4 { font-size: 0.97em; font-weight: 600; margin: 0.8em 0 0.3em; color: var(--text-secondary); text-transform: none; }
+.prose-chat h5, .prose-chat h6 { font-size: 0.9em; font-weight: 600; margin: 0.7em 0 0.3em; color: var(--text-secondary); }
+.prose-chat h2:first-child, .prose-chat h3:first-child, .prose-chat h4:first-child { margin-top: 0; }
 
 /* ── Query checks ("what I checked") ────────────────────────────────────────
    Per-query transparency under each assistant answer. Deliberately quiet by
