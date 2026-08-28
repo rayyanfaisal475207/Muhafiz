@@ -77,13 +77,13 @@ describe('Sidebar — "All Cases" vs "No Case" label is role-gated', () => {
     (role) => {
       useAuthStore.setState({ isAuthenticated: false, user: { id: 'u1', email: 'a@b.com', role, is_admin: false } as any })
       renderSidebar()
-      expect(screen.getByRole('option', { name: 'All Cases' })).toBeInTheDocument()
+      expect(screen.getByRole('combobox', { name: 'Case' })).toHaveValue('All Cases')
     },
   )
 
   it('shows "No Case" for investigator', () => {
     useAuthStore.setState({ isAuthenticated: false, user: { id: 'u1', email: 'a@b.com', role: 'investigator', is_admin: false } as any })
     renderSidebar()
-    expect(screen.getByRole('option', { name: 'No Case' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Case' })).toHaveValue('No Case')
   })
 })
