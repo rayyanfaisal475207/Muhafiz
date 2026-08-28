@@ -59,3 +59,31 @@ describe('Sidebar — store errors and swallowed action failures are now visible
     })
   })
 })
+
+describe('Sidebar — "All Cases" vs "No Case" label is role-gated', () => {
+  // The backend only widens retrieval to every case's evidence for
+  // supervisor/station-admin/platform-admin (orchestrator.py's
+  // _build_retrieval_where(), same floor as graph_retriever.CROSS_CASE_ROLES).
+  // The label must not promise an investigator something the backend
+  // never actually grants them.
+  beforeEach(() => {
+    useProjectStore.setState({ projects: [], activeProjectId: null, isLoading: false, error: null })
+    useCaseStore.setState({ cases: [], activeCaseId: null, isLoading: false, error: null })
+    useSessionStore.setState({ sessions: [], isLoading: false, error: null })
+  })
+
+  it.each(['supervisor', 'station-admin', 'platform-admin'])(
+    'shows "All Cases" for %s',
+    (role) => {
+      useAuthStore.setState({ isAuthenticated: false, user: { id: 'u1', email: 'a@b.com', role, is_admin: false } as any })
+      renderSidebar()
+      expect(screen.getByRole('option', { name: 'All Cases' })).toBeInTheDocument()
+    },
+  )
+
+  it('shows "No Case" for investigator', () => {
+    useAuthStore.setState({ isAuthenticated: false, user: { id: 'u1', email: 'a@b.com', role: 'investigator', is_admin: false } as any })
+    renderSidebar()
+    expect(screen.getByRole('option', { name: 'No Case' })).toBeInTheDocument()
+  })
+})

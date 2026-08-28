@@ -199,6 +199,24 @@ async def test_candidate_pool_scopes_by_case_id(monkeypatch):
     assert params["case_id"] == "CASE-1"
 
 
+async def test_candidate_pool_scopes_by_all_cases(monkeypatch):
+    """
+    "All Cases" (supervisor+, orchestrator.py's _build_retrieval_where):
+    must produce a real scope clause here, not fall through to the
+    unscoped "TRUE" default -- an unhandled `all_cases` key would leave
+    `clauses` empty and leak every project's chunks into BM25 (see
+    _scope_where's own comment on this exact risk).
+    """
+    session = _FakeSession(result_rows=[])
+    monkeypatch.setattr(fulltext_index, "get_session", _fake_get_session(session))
+
+    await fulltext_index.candidate_pool("theft", where={"all_cases": True})
+
+    sql, params = session.executed[0]
+    assert "is_global = TRUE OR case_id IS NOT NULL" in sql
+    assert sql.count("WHERE TRUE") == 0
+
+
 async def test_candidate_pool_no_filter_scans_no_scope_restriction(monkeypatch):
     session = _FakeSession(result_rows=[])
     monkeypatch.setattr(fulltext_index, "get_session", _fake_get_session(session))

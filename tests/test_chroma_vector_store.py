@@ -51,6 +51,11 @@ def _chunk(chunk_id, project_id=None, is_global=False, text="some chunk text", c
             **({"project_id": project_id} if project_id else {}),
             **({"case_id": case_id} if case_id else {}),
             "is_global": is_global,
+            # Mirrors upsert_documents()'s own has_case = bool(case_id) —
+            # always a real bool, never dropped, since it's the field
+            # "All Cases" scope (_build_where's all_cases branch) actually
+            # filters on (Chroma has no $exists to check case_id directly).
+            "has_case": bool(case_id),
         },
     }
 
@@ -161,6 +166,30 @@ class TestCaseScopedIsolation:
         """
         results = case_populated_store.search([0.1] * 8, top_k=10, metadata_filter={"is_global": True})
         assert _ids(results) == {"c1", "c2", "c3"}
+
+    def test_all_cases_scope_returns_every_case_and_global_chunk(self, case_populated_store):
+        """
+        "All Cases" (supervisor+, orchestrator.py's _build_retrieval_where):
+        every case's evidence plus global reference material, in one
+        unscoped-by-case search -- what a supervisor gets instead of the
+        old is_global-only fallback when no case is selected.
+        """
+        results = case_populated_store.search([0.1] * 8, top_k=10, metadata_filter={"all_cases": True})
+        assert _ids(results) == {"c1", "c2", "c3", "c4"}
+
+    def test_all_cases_scope_excludes_a_private_project_only_chunk(self, case_populated_store):
+        """
+        The one thing "All Cases" must NOT do: leak a private, caseless
+        project upload just because the filter got broader. c4 has BOTH
+        project_id and case_id, so it's a case chunk and correctly
+        included -- the real regression guard is a project-only chunk
+        with no case_id at all, added here explicitly.
+        """
+        store = case_populated_store
+        store.upsert([_chunk("p1", project_id=PROJECT_A, text="Project A's own private notes, no case")])
+        results = store.search([0.1] * 8, top_k=10, metadata_filter={"all_cases": True})
+        assert "p1" not in _ids(results), "A private project-only chunk leaked into All Cases scope"
+        assert _ids(results) == {"c1", "c2", "c3", "c4"}
 
     def test_case_filter_composes_with_project_filter(self, case_populated_store):
         """
