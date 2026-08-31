@@ -341,12 +341,28 @@ async def large_scale_aggregate(
             caveats=["Aggregate summary generation failed; no answer could be produced."],
         )
 
-    verification = await verify_grounding(
-        answer=paraphrase,
-        cited_chunks=[_chunk_to_verifier_dict(chunk)],
-        case_id="cross_case",
-        cross_case_ids=tool_result.case_ids_touched,
-    )
+    # [Scenario-test Finding G] An empty/whitespace paraphrase must be
+    # treated as a FAILED paraphrase, not sent to the verifier. `call_llm()`
+    # can return empty content without raising (confirmed live: "Local LLM
+    # returned empty content" -> Groq fallback also produced nothing), so the
+    # `except` above never fires. An empty string then trivially PASSES
+    # verify_grounding ("The answer is empty and contains no claims to
+    # verify" -> grounded=True), so a 0-char answer was served to the user as
+    # a success, with no error surfaced. Short-circuiting here routes it into
+    # the existing, already-correct raw-aggregate fallback below instead.
+    if not paraphrase or not paraphrase.strip():
+        logger.warning(
+            "Large-Scale Aggregate: generation returned empty content; "
+            "serving raw computed aggregate instead."
+        )
+        verification = {"grounded": False, "reason": "Generation returned an empty answer."}
+    else:
+        verification = await verify_grounding(
+            answer=paraphrase,
+            cited_chunks=[_chunk_to_verifier_dict(chunk)],
+            case_id="cross_case",
+            cross_case_ids=tool_result.case_ids_touched,
+        )
     verifier_passed = verification.get("grounded", False) and not verification.get("off_topic", False)
 
     if not verifier_passed:

@@ -511,6 +511,20 @@ _GRAPH_ANSWER_MAX_TOKENS = 2600
 # GRAPH/XGRAPH/XAGG evidence block alongside the reference-table rows.
 _SQL_ANSWER_MAX_TOKENS = 1600
 
+# [Scenario-test Finding C] The RAG route's own generation call had no
+# explicit max_tokens and so inherited call_llm()'s global default of 1000 —
+# the SMALLEST budget of any route, despite RAG producing the LONGEST answers
+# (multi-section case summaries, timelines, per-entity breakdowns, each with
+# several [Document N] citations). Confirmed live: a 1340-char answer stopped
+# mid-citation ("...by police [Document 2, Document") and was stored that way,
+# i.e. the truncation is real and happens at generation time, not in the UI.
+# Reproduced on 5 of 21 manual scenarios, always on the longer/multi-section
+# answers. Matches the same class of fix already applied to GRAPH (2600) and
+# SQL (1600); sized above GRAPH's because RAG summaries enumerate more
+# per-item detail (victim/accused/officer/station blocks with CNICs, phones,
+# addresses) than a graph answer typically does.
+_RAG_ANSWER_MAX_TOKENS = 3000
+
 
 def _filter_allowed_domains(sources: list[dict]) -> list[dict]:
     """
@@ -2581,6 +2595,7 @@ async def process_query(
                             full_response = await call_llm(
                                 generation_prompt, grounded_user_message, llm_mode=llm_mode,
                                 role=_generation_role(preferred_language),
+                                max_tokens=_RAG_ANSWER_MAX_TOKENS,
                             )
                         else:
                             # Retry attempts only: a local call_llm failure
@@ -2593,6 +2608,7 @@ async def process_query(
                                 full_response = await call_llm(
                                     generation_prompt, grounded_user_message, llm_mode=llm_mode,
                                     role=_generation_role(preferred_language),
+                                    max_tokens=_RAG_ANSWER_MAX_TOKENS,
                                 )
                             except Exception as regen_exc:
                                 logger.warning(

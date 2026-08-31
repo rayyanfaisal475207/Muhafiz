@@ -172,6 +172,42 @@ def test_build_where_case_still_wins_over_project():
     }
 
 
+# [Scenario-test Finding A] The bug that forced harness cutover to be
+# reverted: a supervisor+ with no case selected ("All Cases") fell through to
+# the is_global branch and got global-reference-only scoping. The global
+# corpus is empty in this deployment, so those queries silently returned
+# nothing. orchestrator.py::_build_retrieval_where() always had this
+# role-based fallback; this tool never did, and the two drifted.
+@pytest.mark.parametrize("role", ["supervisor", "station-admin", "platform-admin"])
+def test_build_where_gives_cross_case_roles_all_cases_when_no_case(role):
+    caller = CallerContext(user_id="u1", role=role, active_case_id=None)
+    assert rag_mod._build_where(caller, include_global=True) == {"all_cases": True}
+
+
+def test_build_where_investigator_never_gains_cross_case_reach():
+    """The other half of the same fix: an investigator with no case selected
+    must NOT silently gain cross-case access — their fallback is unchanged."""
+    caller = CallerContext(user_id="u1", role="investigator", active_case_id=None)
+    assert rag_mod._build_where(caller, include_global=True) == {"is_global": True}
+
+
+@pytest.mark.parametrize("role", ["supervisor", "station-admin", "platform-admin"])
+def test_build_where_active_case_still_wins_for_cross_case_roles(role):
+    """An explicitly selected case must still scope to that case, even for a
+    role that would otherwise get the all_cases fallback."""
+    caller = CallerContext(user_id="u1", role=role, active_case_id="CASE-009")
+    assert rag_mod._build_where(caller, include_global=True) == {"case_id": "CASE-009"}
+
+
+@pytest.mark.parametrize("role", ["supervisor", "platform-admin"])
+def test_build_where_project_still_wins_over_all_cases(role):
+    """Project scoping is narrower than 'All Cases' and must take precedence."""
+    caller = CallerContext(user_id="u1", role=role, active_case_id=None)
+    assert rag_mod._build_where(caller, include_global=True, project_id="PROJ-1") == {
+        "project_id": "PROJ-1"
+    }
+
+
 def test_rag_tool_result_fallback_cannot_be_true():
     from pydantic import ValidationError
     with pytest.raises(ValidationError):

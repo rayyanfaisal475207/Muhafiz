@@ -465,6 +465,33 @@ async def verify_grounding(
             "unsupported_claims" (list[str])
             "reason"            (str)
     """
+    # [Scenario-test Finding G] An EMPTY answer must never pass this gate.
+    # `call_llm()` can return empty content without raising (a local-model
+    # empty response whose cloud fallback also yields nothing), so callers'
+    # try/except around generation doesn't catch it. Before this guard, an
+    # empty string reached the LLM verifier, which reasonably concluded
+    # "the answer is empty and contains no claims to verify" and returned
+    # grounded=True — so a 0-char answer was delivered to the user as a
+    # verified success, with no error surfaced anywhere. Confirmed live on
+    # the XAGG/Large-Scale-Aggregate route.
+    #
+    # This is deliberately fixed HERE rather than in each sub-agent: six of
+    # the eleven agents call verify_grounding() with no empty-answer guard of
+    # their own, and a future agent would inherit the same trap. Agents that
+    # have a meaningful fallback (e.g. large_scale_aggregate's raw computed
+    # aggregate) now correctly route into it via the not-grounded branch they
+    # already have.
+    if not answer or not answer.strip():
+        logger.warning("Verifier received an empty answer — returning not grounded.")
+        return {
+            "grounded": False,
+            "off_topic": False,
+            "leaked_case_id": None,
+            "unsupported_claims": [],
+            "reason": "The generated answer was empty; nothing to verify or serve.",
+            "refusal_detected": False,
+        }
+
     if not cited_chunks:
         logger.warning("Verifier received empty chunk list — returning not grounded.")
         return {

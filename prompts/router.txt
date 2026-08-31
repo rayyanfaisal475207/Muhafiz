@@ -26,7 +26,8 @@ Schema:
 }
 
 Routes:
-- DIRECT: Greetings ("hello", "hi", "thanks"), meta-questions ("what can you do", "who are you"), simple statements, or anything NOT related to police facts. When in doubt between DIRECT and another route, use DIRECT.
+- DIRECT: Greetings ("hello", "hi", "thanks"), meta-questions ("what can you do", "who are you"), simple statements, or anything NOT related to police facts. When in doubt between DIRECT and another route, use DIRECT — EXCEPT where the exception below applies.
+  CRITICAL EXCEPTION — never route to DIRECT a question that asks for a SPECIFIC, CHECKABLE POLICE-DOMAIN FACT, even when you are confident you know the answer from general knowledge. This includes fine/penalty amounts, punishment or sentence lengths, statute/ordinance/section numbers, cognizability, bail status, prescribed procedures, and fee/time limits — for example "what is the fine for over-speeding on the motorway", "what is the punishment under section 302", "how long do I have to file an appeal". Those are police-domain factual lookups and MUST go to SQL (for a penal-code/cognizability lookup) or RAG (for anything else in the corpus), so the answer is grounded in and cited from this system's own records. Routing such a question to DIRECT bypasses retrieval, the evaluator, and the citation check entirely, and produces confident, uncited, unverifiable numbers — which is strictly worse than answering "that information is not in my records." If such a lookup finds nothing, the correct outcome is an honest "not available", NOT a general-knowledge answer.
 - SQL: ONLY use this for a deterministic structured lookup against the police reference table — asking which PENAL CODE SECTION applies to an offense, or whether an offense is cognizable (e.g., "what section covers mobile phone theft?", "is cyber harassment cognizable?"). Do NOT use SQL for general procedure questions, FIR content summaries, or anything requiring document search.
 - RAG: Questions requiring search over the ingested document corpus — citizen service procedures (FIR copies, lost reports, registrations), FIR/case-diary/charge-sheet content, safety guidance, or general police-domain questions not covered by a structured section/cognizability lookup.
 - WEB: Current, time-sensitive information that is GENUINELY related to Islamabad Police or public safety AND not in the static corpus — e.g., today's road closures or traffic diversions in Islamabad, current Islamabad Police advisories/alerts, recent official police press releases or announcements, or recent crime/safety news relevant to the Islamabad Police context. Do NOT use WEB for general current events, weather, sports scores, stock prices, or any general-knowledge/how-to question that is not about Islamabad Police or public safety — those are DIRECT (never trigger a web search for them).
@@ -114,6 +115,12 @@ Output: {"route": "DIRECT", "output_format": "chat", "target_year": null, "confi
 
 Query: "What's the capital of France?"
 Output: {"route": "DIRECT", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "General knowledge unrelated to Islamabad Police", "station": null, "district": null}
+
+Query: "What is the fine amount for over-speeding on the motorway?"
+Output: {"route": "SQL", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Asks for a specific, checkable police-domain fact (a penalty amount) — this is a structured reference lookup, NOT DIRECT. Answering it from general knowledge would produce confident uncited numbers; if the reference table has no such row the correct answer is an honest 'not available'", "station": null, "district": null}
+
+Query: "What is the punishment under PPC section 302?"
+Output: {"route": "SQL", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Penal-code section lookup — a specific checkable statutory fact, must be grounded in the reference table rather than answered from general knowledge", "station": null, "district": null}
 
 Query: "Generate a document about the FIR filing procedure."
 Output: {"route": "RAG", "output_format": "file_docx", "target_year": null, "confidence": "high", "reason": "User requested a document about a police procedure topic requiring document search", "station": null, "district": null}

@@ -412,6 +412,30 @@ async def test_verify_returns_not_grounded_for_empty_chunks():
     assert "No source chunks" in result["reason"]
 
 
+# [Scenario-test Finding G] An empty answer must never be reported as
+# grounded. call_llm() can return empty content without raising, and before
+# this guard the LLM verifier concluded "empty answer, no claims to verify"
+# -> grounded=True, so a 0-char answer was served to the user as a verified
+# success. Confirmed live on the XAGG route.
+@pytest.mark.asyncio
+@pytest.mark.parametrize("empty_answer", ["", "   ", "\n\n", "\t "])
+async def test_verify_returns_not_grounded_for_empty_answer(empty_answer, monkeypatch):
+    import src.pipeline.verifier as vmod
+
+    async def _must_not_be_called(*a, **kw):  # pragma: no cover
+        raise AssertionError("verifier must short-circuit before the LLM call")
+
+    monkeypatch.setattr(vmod, "call_llm", _must_not_be_called)
+
+    result = await verify_grounding(
+        answer=empty_answer,
+        cited_chunks=[{"id": "c1", "text": "Some evidence.", "metadata": {}}],
+        case_id="CASE-001",
+    )
+    assert result["grounded"] is False
+    assert "empty" in result["reason"].lower()
+
+
 @pytest.mark.asyncio
 async def test_verify_propagates_llm_grounded_verdict(monkeypatch):
     import src.pipeline.verifier as vmod
