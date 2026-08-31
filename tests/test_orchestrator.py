@@ -1931,3 +1931,67 @@ async def test_router_exception_still_yields_full_stream(monkeypatch, run_pipeli
     assert "Router failed" in (done_events[0].get("reason") or "")
     response_events = [e for e in events if e["step"] == "response" and e["status"] == "done"]
     assert response_events, "a real response must still be generated after the router falls back to RAG"
+
+
+# ── Query-language detection (Scenario-test Finding N) ───────────────────────
+#
+# `_detect_query_language()` used to return "Urdu" if the message contained
+# ANY Urdu-script character. That misfires on the most common query shape in
+# this system: English prose naming an Urdu-script person or station. Live
+# failure: "Is the ذیشان in these cases definitely the same person across all
+# of them?" — an entirely English question — came back answered wholly in
+# Urdu, because one name flipped the language directive for the whole answer.
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Is the \u0630\u06cc\u0634\u0627\u0646 in these cases definitely the same person across all of them?",
+        "Which cases across the database is the suspect \u0630\u06cc\u0634\u0627\u0646 connected to?",
+        "Who is \u06a9\u0627\u0634\u0641 and which cases mention him?",
+        "Summarise the FIR filed at \u062a\u06be\u0627\u0646\u06c1 \u0645\u0627\u0688\u0644 \u0679\u0627\u0624\u0646 last week.",
+    ],
+)
+def test_english_query_naming_an_urdu_entity_stays_english(query):
+    assert orch._detect_query_language(query) == "English"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "\u06a9\u0627\u0634\u0641 \u06a9\u0648\u0646 \u06c1\u06d2 \u0627\u0648\u0631 \u0627\u0633 \u06a9\u0627 \u06a9\u06cc\u0633 \u0633\u06d2 \u06a9\u06cc\u0627 \u062a\u0639\u0644\u0642 \u06c1\u06d2\u061f",
+        "\u062a\u06c1\u0627\u0646\u06c1 \u0645\u0627\u0688\u0644 \u0679\u0627\u0624\u0646 \u0645\u06cc\u06ba \u06a9\u062a\u0646\u06d2 \u0645\u0642\u062f\u0645\u0627\u062a \u06c1\u06cc\u06ba\u061f",
+    ],
+)
+def test_predominantly_urdu_query_still_detected_as_urdu(query):
+    assert orch._detect_query_language(query) == "Urdu"
+
+
+def test_plain_english_query_is_english():
+    assert orch._detect_query_language("What weapon was used in this case?") == "English"
+
+
+def test_empty_query_defaults_to_english():
+    assert orch._detect_query_language("") == "English"
+    assert orch._detect_query_language(None) == "English"
+
+
+def test_explicit_language_setting_still_overrides_detection():
+    """An explicit Settings choice must pin the language regardless of the
+    query's own script — only "auto"/unset defers to detection."""
+    assert orch._resolve_language_directive("urdu", "What weapon was used?") == "urdu"
+    assert (
+        orch._resolve_language_directive(
+            "english", "\u06a9\u0627\u0634\u0641 \u06a9\u0648\u0646 \u06c1\u06d2\u061f"
+        )
+        == "english"
+    )
+
+
+def test_auto_defers_to_query_language():
+    assert orch._resolve_language_directive("auto", "What weapon was used?") == "English"
+    assert (
+        orch._resolve_language_directive(
+            "auto", "\u06a9\u0627\u0634\u0641 \u06a9\u0648\u0646 \u06c1\u06d2 \u0627\u0648\u0631 \u0627\u0633 \u06a9\u0627 \u06a9\u06cc\u0633 \u0633\u06d2 \u06a9\u06cc\u0627 \u062a\u0639\u0644\u0642 \u06c1\u06d2\u061f"
+        )
+        == "Urdu"
+    )

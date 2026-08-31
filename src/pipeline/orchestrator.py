@@ -152,8 +152,8 @@ _ARABIC_SCRIPT_RE = re.compile(
 
 def _detect_query_language(text: str) -> str:
     """
-    Cheap, deterministic script check on the user's own message: any
-    Urdu-script character present -> "Urdu", otherwise -> "English".
+    Cheap, deterministic script check on the user's own message: reply in
+    Urdu when the message is *predominantly* Urdu script, otherwise English.
 
     Deliberately NOT delegated to the response LLM ("detect the query's
     language yourself and reply in it") — tested against this exact
@@ -165,8 +165,24 @@ def _detect_query_language(text: str) -> str:
     self-detect from prose is not, and Roman Urdu (Latin script, Urdu
     grammar) is rare in this corpus's actual queries and reads fine to a
     Roman-Urdu speaker either way, so it is not treated as its own case here.
+
+    [Scenario-test Finding N] This used to return "Urdu" if the message
+    contained ANY Urdu-script character. That misfires on the most common
+    query shape in this system: English prose naming an Urdu-script person
+    or station — e.g. "Is the ذیشان in these cases definitely the same
+    person?" — where a single name flipped the entire answer to Urdu for an
+    English-speaking investigator (confirmed live). Comparing letter counts
+    keeps genuinely Urdu queries (and mixed queries that are mostly Urdu) on
+    Urdu, while an English question that merely cites a name stays English.
+    Ties go to Urdu so a short, evenly-mixed query isn't forced to English.
     """
-    return "Urdu" if _ARABIC_SCRIPT_RE.search(text or "") else "English"
+    if not text:
+        return "English"
+    urdu_chars = len(_ARABIC_SCRIPT_RE.findall(text))
+    if not urdu_chars:
+        return "English"
+    latin_chars = sum(1 for ch in text if "a" <= ch.lower() <= "z")
+    return "Urdu" if urdu_chars >= latin_chars else "English"
 
 
 def _resolve_language_directive(preferred_language: Optional[str], user_message: str) -> str:
@@ -549,6 +565,22 @@ _SAFE_RESPONSE = (
     "I couldn't find sufficient information in the knowledge base to accurately "
     "answer your question. You may want to try rephrasing your question or "
     "ensure the relevant documents have been ingested into the system."
+)
+
+# [Scenario-test UX note] A role denial is NOT a search miss, and must not
+# read like one. Cross-case traversal raises PermissionError for a role below
+# supervisor; that used to fall through to _SAFE_RESPONSE, so an investigator
+# was told the system "couldn't find sufficient information" when in fact the
+# information exists and they simply aren't permitted to see it. They'd have
+# to expand the pipeline trace to discover it was an authorization boundary.
+# The denial itself is correct and stays fail-closed — only the wording
+# changes, and it deliberately reveals nothing about what the cross-case data
+# actually contains.
+_PERMISSION_DENIED_RESPONSE = (
+    "This question requires searching across multiple cases, which needs a "
+    "supervisor-level role or higher. Your account doesn't have that access, "
+    "so I can't run it. You can still ask about any case you're assigned to — "
+    "select it from the case list and ask again."
 )
 
 # Distinct from _SAFE_RESPONSE above: this fires when retrieval itself threw
@@ -1888,9 +1920,15 @@ async def process_query(
                 update_query_bg(verifier_passed=verifier_passed, verifier_regenerated=verifier_regenerated)
         except Exception as e:
             logger.error("XGRAPH route failed: %s", e)
-            yield event("cross_case_finding", "error", f"Cross-case traversal failed: {e}")
-            final_response = _SAFE_RESPONSE
-            response_type = "safe"
+            denied = isinstance(e, PermissionError)
+            yield event(
+                "cross_case_finding",
+                "skipped" if denied else "error",
+                f"Cross-case traversal not permitted for this role: {e}" if denied
+                else f"Cross-case traversal failed: {e}",
+            )
+            final_response = _PERMISSION_DENIED_RESPONSE if denied else _SAFE_RESPONSE
+            response_type = "denied" if denied else "safe"
             yield event("response", "streaming", final_response)
             yield event("response", "done", f"Response generated ({len(final_response)} chars)", 0)
 
@@ -2023,9 +2061,15 @@ async def process_query(
             update_query_bg(verifier_passed=verifier_passed, verifier_regenerated=verifier_regenerated)
         except Exception as e:
             logger.error("XAGG route failed: %s", e)
-            yield event("cross_case_finding", "error", f"Cross-case aggregate failed: {e}")
-            final_response = _SAFE_RESPONSE
-            response_type = "safe"
+            denied = isinstance(e, PermissionError)
+            yield event(
+                "cross_case_finding",
+                "skipped" if denied else "error",
+                f"Cross-case aggregate not permitted for this role: {e}" if denied
+                else f"Cross-case aggregate failed: {e}",
+            )
+            final_response = _PERMISSION_DENIED_RESPONSE if denied else _SAFE_RESPONSE
+            response_type = "denied" if denied else "safe"
             yield event("response", "streaming", final_response)
             yield event("response", "done", f"Response generated ({len(final_response)} chars)", 0)
 
@@ -2182,9 +2226,15 @@ async def process_query(
             update_query_bg(verifier_passed=verifier_passed, verifier_regenerated=verifier_regenerated)
         except Exception as e:
             logger.error("XNETWORK route failed: %s", e)
-            yield event("cross_case_finding", "error", f"Cross-case network query failed: {e}")
-            final_response = _SAFE_RESPONSE
-            response_type = "safe"
+            denied = isinstance(e, PermissionError)
+            yield event(
+                "cross_case_finding",
+                "skipped" if denied else "error",
+                f"Cross-case network query not permitted for this role: {e}" if denied
+                else f"Cross-case network query failed: {e}",
+            )
+            final_response = _PERMISSION_DENIED_RESPONSE if denied else _SAFE_RESPONSE
+            response_type = "denied" if denied else "safe"
             yield event("response", "streaming", final_response)
             yield event("response", "done", f"Response generated ({len(final_response)} chars)", 0)
 
@@ -2698,10 +2748,21 @@ async def process_query(
                         "All %d retries exhausted for session '%s'. Abstaining (no automatic web fallback).",
                         config.MAX_RETRIES, session_id
                     )
+                    # [Scenario-test UX note] status="done", not "error".
+                    # Exhausting the retry budget and abstaining is the
+                    # groundedness gate WORKING — the system correctly
+                    # declined to answer without sufficient evidence. Marking
+                    # it "error" painted the step red and put "Some steps
+                    # failed" at the top of a correct, safe answer, which
+                    # reads as a malfunction to an investigator (and to a
+                    # demo audience) rather than the safety behaviour it is.
+                    # Genuine pipeline failures (an LLM call raising, a
+                    # timeout, a 500) still use "error".
                     yield event(
                         "evaluator",
-                        "error",
-                        f"Max retries ({config.MAX_RETRIES}) reached — no sufficient evidence found",
+                        "done",
+                        f"No sufficient evidence found after {config.MAX_RETRIES} "
+                        f"retries — abstaining rather than answering unsupported",
                         retry_num=retry_count
                     )
                     final_response = _SAFE_RESPONSE

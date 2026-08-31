@@ -434,11 +434,27 @@ async def run_cutover_query(
     total_ms = int((time.monotonic() - query_start) * 1000)
 
     if result.status in (SubAgentStatus.ABSTAINED, SubAgentStatus.DENIED) or result.answer_text is None:
-        detail = (
-            "; ".join(result.caveats)
-            if result.caveats
-            else "The system could not produce a grounded answer to this question."
-        )
+        # [Scenario-test UX note] DENIED is an authorization boundary, not a
+        # failed search — say so. It previously shared ABSTAINED's generic
+        # "could not produce a grounded answer" wording, so a user below the
+        # cross-case role floor was told the system found nothing, when in
+        # fact the data exists and they simply aren't permitted to see it.
+        # The denial itself is unchanged and still fail-closed; only the
+        # wording differs, and it reveals nothing about the withheld data.
+        if result.status is SubAgentStatus.DENIED:
+            detail = (
+                "This question requires searching across multiple cases, which "
+                "needs a supervisor-level role or higher. Your account doesn't "
+                "have that access, so I can't run it. You can still ask about "
+                "any case you're assigned to — select it from the case list "
+                "and ask again."
+            )
+        else:
+            detail = (
+                "; ".join(result.caveats)
+                if result.caveats
+                else "The system could not produce a grounded answer to this question."
+            )
         yield {"step": "response", "status": "error", "detail": detail, "ms": total_ms}
         if pg_run_id:
             await _bg_update_run(gateway, pg_run_id, final_outcome=result.status.value, total_duration_ms=total_ms)
