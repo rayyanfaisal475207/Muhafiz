@@ -217,6 +217,56 @@ def _check_leakage(
     return None
 
 
+def _check_fabricated_case_ids(answer: str, chunks: list[dict]) -> list[str]:
+    """
+    [Scenario-test Finding J] Deterministic pre-check: cross-case answers use
+    a "[Document N, CASE-ID: <id>]" citation form (see
+    prompts/cross_case_response.txt). Verify every CASE-ID written INSIDE a
+    citation actually exists among the cited chunks' own metadata.
+
+    Found live: a cross-case answer cited "CASE-ID: CR-C101-1", "CR-C102-1"
+    and "CR-C105-1" alongside real `fir-NNN-26` ids. None of those `CR-*` ids
+    exist anywhere in the corpus — not as a case_id, an external_id, a source,
+    or even a substring of any chunk text. The model invented them and
+    presented them as provenance, which is worse than an uncited claim: it
+    looks like a verifiable reference and doesn't resolve to anything.
+
+    `_check_leakage()` above cannot catch this — it returns early for
+    cross-case queries, and it only inspects the chunk a [Document N] index
+    points at, never the case-id text the model wrote next to it.
+
+    Returns a list of issue strings (empty = every cited CASE-ID is real).
+    """
+    known: set[str] = set()
+    for chunk in chunks:
+        meta = chunk.get("metadata") or {}
+        for key in ("case_id", "external_id"):
+            value = meta.get(key)
+            if value:
+                known.add(str(value).strip().lower())
+
+    issues: list[str] = []
+    seen_bad: set[str] = set()
+    for m in re.finditer(
+        r"\[Document\s+\d+\s*,\s*CASE-ID:\s*([^\]]+)\]", answer, re.IGNORECASE
+    ):
+        cited = m.group(1).strip()
+        if not cited or cited.lower() in known or cited.lower() in seen_bad:
+            continue
+        seen_bad.add(cited.lower())
+        logger.error(
+            "FABRICATED CITATION: answer cites CASE-ID '%s', which does not "
+            "appear in any retrieved chunk's metadata. Known ids: %s",
+            cited,
+            sorted(known)[:10] or "(none)",
+        )
+        issues.append(
+            f"Citation references case '{cited}', which is not among the "
+            "retrieved sources."
+        )
+    return issues
+
+
 def _check_hedging(answer: str, chunks: list[dict]) -> list[str]:
     """
     Deterministic pre-check: for any chunk with confidence < 0.85 (via
@@ -508,8 +558,12 @@ async def verify_grounding(
     leaked_case = _check_leakage(answer, cited_chunks, case_id, cross_case_ids)
     hedging_issues = _check_hedging(answer, cited_chunks)
     refusal_issue = _check_refusal(answer) or _check_no_citation(answer)
+    # [Scenario-test Finding J] Catch invented CASE-IDs inside citations —
+    # see _check_fabricated_case_ids()'s own docstring for why the leakage
+    # check above cannot cover this.
+    fabricated_issues = _check_fabricated_case_ids(answer, cited_chunks)
 
-    pre_check_issues: list[str] = temporal_issues + hedging_issues
+    pre_check_issues: list[str] = temporal_issues + hedging_issues + fabricated_issues
     pre_check_failed = bool(pre_check_issues or leaked_case or refusal_issue)
 
     # ── Build LLM judge input ─────────────────────────────────────────────

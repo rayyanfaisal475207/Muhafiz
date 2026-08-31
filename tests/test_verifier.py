@@ -6,6 +6,7 @@ All external calls (call_llm) are monkeypatched; no network, no disk.
 import pytest
 
 from src.pipeline.verifier import (
+    _check_fabricated_case_ids,
     _check_hedging,
     _check_leakage,
     _check_no_citation,
@@ -397,6 +398,63 @@ def test_no_citation_flags_long_enumerated_list_same_as_before():
     assert len(answer) >= 150
     issue = _check_no_citation(answer)
     assert issue is not None
+
+
+# ── _check_fabricated_case_ids (Scenario-test Finding J) ─────────────────────
+#
+# A cross-case answer cited "CASE-ID: CR-C101-1" / "CR-C102-1" / "CR-C105-1"
+# alongside real fir-NNN-26 ids. None of those CR-* ids exist anywhere in the
+# corpus — not as a case_id, external_id, source, or chunk-text substring.
+# Invented provenance is worse than an uncited claim: it looks verifiable and
+# resolves to nothing.
+
+def _id_chunk(case_id=None, external_id=None):
+    """Minimal chunk carrying only the id metadata this check looks at.
+    Named distinctly from this module's existing `_chunk()` fixture so it
+    doesn't shadow it."""
+    meta = {}
+    if case_id:
+        meta["case_id"] = case_id
+    if external_id:
+        meta["external_id"] = external_id
+    return {"id": "c1", "text": "Some evidence.", "metadata": meta}
+
+
+def test_fabricated_case_id_in_citation_is_flagged():
+    answer = "Faisal appears in [Document 1, CASE-ID: CR-C101-1]."
+    issues = _check_fabricated_case_ids(answer, [_id_chunk(case_id="fir-201-26")])
+    assert len(issues) == 1
+    assert "CR-C101-1" in issues[0]
+
+
+def test_real_case_id_in_citation_is_not_flagged():
+    answer = "Faisal appears in [Document 1, CASE-ID: fir-201-26]."
+    assert _check_fabricated_case_ids(answer, [_id_chunk(case_id="fir-201-26")]) == []
+
+
+def test_case_id_matching_is_case_insensitive():
+    answer = "Cited as [Document 1, CASE-ID: FIR-201-26]."
+    assert _check_fabricated_case_ids(answer, [_id_chunk(case_id="fir-201-26")]) == []
+
+
+def test_external_id_also_counts_as_known():
+    answer = "Cited as [Document 1, CASE-ID: rz-fir-465-26]."
+    assert _check_fabricated_case_ids(answer, [_id_chunk(external_id="rz-fir-465-26")]) == []
+
+
+def test_each_fabricated_id_reported_once_even_if_cited_repeatedly():
+    answer = (
+        "A [Document 1, CASE-ID: CR-C101-1] and "
+        "B [Document 2, CASE-ID: CR-C101-1] and "
+        "C [Document 3, CASE-ID: CR-C102-1]."
+    )
+    issues = _check_fabricated_case_ids(answer, [_id_chunk(case_id="fir-201-26")])
+    assert len(issues) == 2
+
+
+def test_plain_document_citations_without_case_ids_are_ignored():
+    answer = "The weapon was seized [Document 2]."
+    assert _check_fabricated_case_ids(answer, [_id_chunk(case_id="fir-430-26")]) == []
 
 
 # ── verify_grounding (async, with LLM monkeypatched) ─────────────────────────

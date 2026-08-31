@@ -33,12 +33,29 @@ function parseInline(text: string, keyPrefix: string) {
         </span>
       );
     }
-    // Then **bold** and `code` within the non-citation segments.
+    // Then **bold**, *emphasis* and `code` within the non-citation segments.
+    // [Scenario-test Finding B] Single-asterisk *emphasis* was previously
+    // unhandled and rendered as literal asterisks ("A *30-bore pistol*"),
+    // because only the ** form was matched. The ** alternative MUST stay
+    // first in this pattern so a bold run is consumed as bold rather than
+    // being mis-split into two single-asterisk fragments. The single-*
+    // alternative requires a non-asterisk, non-space char right after the
+    // opening * so it can't match a "**" boundary or a bare bullet/maths
+    // asterisk, and disallows * inside the run so it stops at its own
+    // closing delimiter.
     return (
       <span key={`${keyPrefix}-seg-${i}`}>
-        {part.split(/(\*\*.*?\*\*|`[^`]+`)/g).map((sub, j) => {
-          if (sub.startsWith('**') && sub.endsWith('**')) {
+        {part.split(/(\*\*[\s\S]*?\*\*|\*[^*\s][^*]*\*|`[^`]+`)/g).map((sub, j) => {
+          if (sub.length > 4 && sub.startsWith('**') && sub.endsWith('**')) {
             return <strong key={j}>{sub.slice(2, -2)}</strong>;
+          }
+          if (
+            sub.length > 2 &&
+            sub.startsWith('*') &&
+            sub.endsWith('*') &&
+            !sub.startsWith('**')
+          ) {
+            return <em key={j}>{sub.slice(1, -1)}</em>;
           }
           if (sub.startsWith('`') && sub.endsWith('`') && sub.length > 1) {
             return <code key={j}>{sub.slice(1, -1)}</code>;
@@ -56,7 +73,7 @@ function parseInline(text: string, keyPrefix: string) {
 function parseContent(content: string) {
   const lines = content.split('\n');
   const blocks: ReactNode[] = [];
-  let list: { ordered: boolean; items: string[] } | null = null;
+  let list: { ordered: boolean; items: string[]; start?: number } | null = null;
   let para: string[] = [];
   let key = 0;
 
@@ -73,7 +90,13 @@ function parseContent(content: string) {
         <li key={i}>{parseInline(it, `li-${key}-${i}`)}</li>
       ));
       blocks.push(
-        list.ordered ? <ol key={`b-${key++}`}>{items}</ol> : <ul key={`b-${key++}`}>{items}</ul>,
+        list.ordered ? (
+          <ol key={`b-${key++}`} start={list.start ?? 1}>
+            {items}
+          </ol>
+        ) : (
+          <ul key={`b-${key++}`}>{items}</ul>
+        ),
       );
       list = null;
     }
@@ -83,7 +106,7 @@ function parseContent(content: string) {
     const line = raw.trimEnd();
     const heading = line.match(/^(#{1,6})\s+(.*)$/);
     const bullet = line.match(/^\s*[-*]\s+(.*)$/);
-    const ordered = line.match(/^\s*\d+\.\s+(.*)$/);
+    const ordered = line.match(/^\s*(\d+)\.\s+(.*)$/);
 
     if (heading) {
       flushPara();
@@ -103,12 +126,23 @@ function parseContent(content: string) {
       flushPara();
       if (!list || !list.ordered) {
         flushList();
-        list = { ordered: true, items: [] };
+        // [Scenario-test Finding I] Carry the marker's own number as the
+        // list's `start`. A numbered list that gets split (by an intervening
+        // blank line, sub-bullet, or paragraph) previously restarted every
+        // fragment at "1.", so a ranked list rendered as 1./1./1. — losing
+        // the ranking, which in that answer WAS the information. The source
+        // markdown was correct (verified: it emits 1./2./3.); the split was
+        // ours.
+        list = { ordered: true, items: [], start: parseInt(ordered[1], 10) || 1 };
       }
-      list.items.push(ordered[1]);
+      list.items.push(ordered[2]);
     } else if (line.trim() === '') {
+      // [Scenario-test Finding I] A blank line no longer terminates a list.
+      // Models routinely put blank lines between list items (and between an
+      // item and its own sub-bullets); treating that as "list over" was what
+      // fragmented ordered lists into many single-item <ol>s. Paragraphs
+      // still break here, and any non-list line below still closes the list.
       flushPara();
-      flushList();
     } else {
       flushList();
       para.push(line);
