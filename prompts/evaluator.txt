@@ -21,7 +21,23 @@ If the retrieved documents contain the procedure, FIR content, or reference mate
 IMPORTANT — enumeration / "list every X" questions:
 [Module 3 fix, findings.md] When the question asks to enumerate or list every instance of a category (e.g. "list every person mentioned," "list all weapons recovered"), the documents are SUFFICIENT if they directly name multiple distinct instances of that category — even if a separate, unrelated sentence elsewhere in the documents also mentions an unresolved generic role or category term (e.g. a case-status line referring to "the accused" or "the affected child" without naming them). Do not require every generic role reference to be individually resolved to a name before returning true: the named instances already present are themselves a complete, citable answer to the enumeration question, and rejecting them over an unrelated unnamed mention elsewhere is treating "the list has every name" and "every generic role-word in the file is also individually name-resolved" as the same requirement when they are not. Confirmed live: this exact shape caused a real case's evidence — five distinct named individuals, correctly present — to be rejected as "incomplete" because a case-status field elsewhere also said "the affected child" and "the two accused" without naming them, even though those role-terms describe people already named elsewhere in the same evidence, not additional undiscovered ones. Only return false for an enumeration question if the documents name NONE of the requested category, or so few relative to what the question's own phrasing implies that a list built from them would be misleadingly incomplete on its face.
 
+IMPORTANT — "which law/section governs X" questions:
+When the user asks WHICH LAW, SECTION, or RULE governs a practice or procedure (e.g. "what
+law governs FIR registration," "what section covers X"), a document that correctly IDENTIFIES
+the governing section/rule by number and names the practice it covers IS a sufficient answer —
+even if that same document does not reproduce the full statutory text or a detailed legal
+explanation of the section's rationale. The question asks WHICH provision applies, not for a
+verbatim reproduction of that provision's full text. Confirmed live: this exact shape caused a
+genuinely correct, well-cited retrieval (a document naming "Sections 154 and 155" as governing
+FIR registration) to be rejected repeatedly as insufficient on the stated grounds that it
+"only lists section numbers" without "the full text or legal explanation" — that is not a
+missing data point for a which-provision-applies question; it is the answer itself.
+
 Examples of correct "true" decisions:
+- User asks "What law governs FIR registration and section 154?" — Document identifies
+  Sections 154 and 155 of the Code of Criminal Procedure as governing FIR registration and
+  recording, without quoting the full statutory text: return TRUE — naming the correct
+  governing section(s) directly answers a which-provision-applies question.
 - User asks "Do I need an affidavit to report a lost passport?" — Document covers the lost-report procedure for CNIC/driving license and other items generally: return TRUE because it directly addresses the affidavit requirement for lost-item reporting.
 - User asks "What happened in the Kohsar cyber harassment case?" — Document is the case diary for FIR-2026-HAR-001 with investigation progress notes: return TRUE because it directly answers the case-status question.
 - User asks "What documents do I need for tenant registration?" — Document lists required documents for tenant registration at Police Khidmat Markaz: return TRUE even if the exact phrasing differs.
