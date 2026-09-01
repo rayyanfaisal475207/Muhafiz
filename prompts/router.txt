@@ -131,6 +131,15 @@ Output: {"route": "DIRECT", "output_format": "file_docx", "target_year": null, "
 Query: "Export the penal code section reference table as an excel file."
 Output: {"route": "SQL", "output_format": "file_xlsx", "target_year": null, "confidence": "high", "reason": "Requires structured reference lookup and user explicitly asked for excel", "station": null, "district": null}
 
+Query: "Generate a PDF report summarizing this case"
+Output: {"route": "GRAPH_HYBRID", "case_scope": "within_case", "target_entity": null, "output_format": "file_pdf", "target_year": null, "confidence": "high", "reason": "User explicitly asked for a PDF report — output_format is file_pdf, NOT chat. The word 'report' or 'PDF' means a downloadable file is expected, not a chat answer; the route is still chosen normally from the question's own content (a case summary is GRAPH_HYBRID)", "station": null, "district": null, "secondary_methods": []}
+
+Query: "Create a formal case summary report for FIR 430/26."
+Output: {"route": "GRAPH_HYBRID", "case_scope": "within_case", "target_entity": null, "output_format": "file_pdf", "target_year": null, "confidence": "high", "reason": "'Formal ... report' means a document deliverable — file_pdf. A case summary is GRAPH_HYBRID's own job", "station": null, "district": null, "secondary_methods": []}
+
+Query: "Give me a PDF of all cases linked to this suspect."
+Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": null, "output_format": "file_pdf", "target_year": null, "confidence": "high", "reason": "Explicit PDF request over a cross-case entity linkage question — output_format file_pdf, route still XGRAPH", "station": null, "district": null, "secondary_methods": []}
+
 Query: "What is the fee for tenant registration in Islamabad?"
 Output: {"route": "RAG", "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Citizen service fee/procedure question requiring document search", "station": null, "district": null}
 

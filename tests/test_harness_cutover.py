@@ -509,3 +509,46 @@ async def test_no_events_or_metrics_means_no_new_steps(monkeypatch):
     steps = {e["step"] for e in events}
     assert "timeline_building" not in steps
     assert "data_quality" not in steps
+
+
+# ── Finding V regression: duplicate case-id list in cross-case answers ───────
+# cross_case_linkage.py builds descriptions that already spell out every case
+# id ("'X' appears across 13 case(s): fir-201-26, … (traversal depth 1 hop)").
+# _append_cross_case_links then appended the same ids again, printing the whole
+# list twice in a single bullet (verify-log Finding V). The suffix is now
+# suppressed when the description already contains the ids — but must still
+# appear when it doesn't, so no information is lost.
+
+from src.pipeline.harness.cutover import _case_suffix
+
+
+class _Link:
+    def __init__(self, description, case_ids, confidence=None, is_unconfirmed=False):
+        self.description = description
+        self.case_ids = case_ids
+        self.confidence = confidence
+        self.is_unconfirmed = is_unconfirmed
+
+
+def test_case_suffix_suppressed_when_description_already_lists_ids():
+    link = _Link(
+        "'X' appears across 3 case(s): fir-201-26, fir-202-26, fir-205-26 "
+        "(traversal depth 1 hop(s)).",
+        ["fir-201-26", "fir-202-26", "fir-205-26"],
+    )
+    assert _case_suffix(link) == ""
+
+
+def test_case_suffix_still_added_when_description_omits_ids():
+    link = _Link("Possible identity match on shared CNIC", ["fir-401-26", "fir-403-26"])
+    assert _case_suffix(link) == " — fir-401-26, fir-403-26"
+
+
+def test_case_suffix_added_when_description_lists_only_some_ids():
+    """Partial overlap must not suppress — the reader would lose the rest."""
+    link = _Link("Linked via fir-401-26", ["fir-401-26", "fir-403-26"])
+    assert _case_suffix(link) == " — fir-401-26, fir-403-26"
+
+
+def test_case_suffix_empty_without_case_ids():
+    assert _case_suffix(_Link("some description", [])) == ""

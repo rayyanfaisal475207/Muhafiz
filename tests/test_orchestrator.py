@@ -1995,3 +1995,42 @@ def test_auto_defers_to_query_language():
         )
         == "Urdu"
     )
+
+
+# ── Finding AB regression: file output_format must survive re-routing ────────
+# main.py classifies the raw message (it must, to choose harness vs legacy),
+# then process_query classifies the REWRITTEN query. The two calls can
+# legitimately disagree on `route`, and the second one's result — or its
+# error branch, which hardcodes "chat" — was overwriting the first one's
+# output_format. A "Generate a PDF report" request therefore came back as a
+# chat message with no file at all (verify-log Finding AB). process_query now
+# accepts `precomputed_route` and lets an upstream file_* format win.
+
+import inspect
+
+from src.pipeline import orchestrator as orchestrator_mod
+
+
+def test_process_query_accepts_precomputed_route():
+    sig = inspect.signature(orchestrator_mod.process_query)
+    assert "precomputed_route" in sig.parameters
+    assert sig.parameters["precomputed_route"].default is None
+
+
+def test_file_format_passthrough_is_one_directional():
+    """An upstream file_* must be honoured; an upstream 'chat' must never
+    suppress a file_* decided by the rewritten-query routing."""
+    source = inspect.getsource(orchestrator_mod.process_query)
+    # The upstream override only fires for real file formats...
+    assert 'upstream_format in ("file_pdf", "file_xlsx", "file_docx")' in source
+    # ...and the router-failure branch preserves it rather than hardcoding chat.
+    assert '_upstream_format if _upstream_format in ("file_pdf", "file_xlsx", "file_docx")' in source
+
+
+def test_main_passes_classification_into_both_legacy_call_sites():
+    """Both the direct legacy path and the delegate_to_legacy fallback must
+    forward the classification, or one of them silently loses the file."""
+    import pathlib
+
+    main_src = pathlib.Path("src/main.py").read_text(encoding="utf-8")
+    assert main_src.count("precomputed_route=classified_route") == 2

@@ -213,3 +213,52 @@ async def test_stream_local_falls_back_to_cloud_when_response_is_empty(monkeypat
 
     chunks = [chunk async for chunk in client.stream_llm("system", "user")]
     assert chunks == ["fallback answer"]
+
+
+# ── Finding U regression: 413 oversized-payload failover ─────────────────────
+# Groq reports "this request exceeds the per-request token cap" as HTTP 413
+# with code `rate_limit_exceeded`. That made it indistinguishable from a
+# throttle, so call_llm rotated keys — useless, since every key on the tier
+# shares the same cap — burned its retry budget, and killed the chat turn
+# outright (scenario-verify Finding U: the ~10.2k-token router prompt vs
+# Groq's 8k free-tier cap). It must now be recognised as an oversized payload
+# and failed over to a provider without that cap.
+
+from src.llm.client import _is_payload_too_large, _is_rate_limit
+
+_GROQ_413 = (
+    "Error code: 413 - {'error': {'message': 'Request too large for model "
+    "`openai/gpt-oss-120b` in organization `org_x` service tier `on_demand` on "
+    "tokens per minute (TPM): Limit 8000, Requested 9970, please reduce your "
+    "message size and try again.', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}"
+)
+_GROQ_429 = (
+    "Error code: 429 - {'error': {'message': 'Rate limit reached for model', "
+    "'code': 'rate_limit_exceeded'}}"
+)
+
+
+def test_groq_413_is_detected_as_oversized_not_throttle():
+    exc = Exception(_GROQ_413)
+    assert _is_payload_too_large(exc) is True
+    # Must NOT be treated as a throttle, or it gets "retried" by rotating keys
+    # that all share the same per-request cap.
+    assert _is_rate_limit(exc) is False
+
+
+def test_real_throttle_still_routes_to_key_rotation():
+    exc = Exception(_GROQ_429)
+    assert _is_payload_too_large(exc) is False
+    assert _is_rate_limit(exc) is True
+
+
+def test_gemini_resource_exhausted_is_still_a_throttle():
+    exc = Exception("429 RESOURCE_EXHAUSTED. quota exceeded for this project")
+    assert _is_payload_too_large(exc) is False
+    assert _is_rate_limit(exc) is True
+
+
+def test_unrelated_errors_are_neither():
+    exc = Exception("500 internal server error")
+    assert _is_payload_too_large(exc) is False
+    assert _is_rate_limit(exc) is False

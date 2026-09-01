@@ -655,9 +655,22 @@ async def process_query(
     user_id: str = None,
     user_role: str = "investigator",
     enable_web_search: bool = False,
+    precomputed_route: dict | None = None,
 ) -> AsyncGenerator[dict, None]:
     """
     Run the full RAG pipeline for a user message.
+
+    `precomputed_route`: a `route_query()` result the CALLER already
+    computed, reused verbatim instead of routing again. `main.py` must
+    classify before it can decide harness-vs-legacy, so without this the
+    router ran twice per turn — doubling latency and, worse, letting the
+    two calls disagree. That is exactly how a "Generate a PDF report"
+    request lost its `output_format="file_pdf"`: the first classification
+    got it right, the second returned `chat` (or fell into the
+    router-failure branch, which hardcodes `chat`), so file generation
+    never triggered and the report came back as a chat message
+    (verify-log Finding AB). Passing the decision through makes the route
+    a single source of truth for the turn.
 
     `user_role`: the caller's real RBAC role (`current_user.role` in
     main.py's chat_endpoint — "investigator" | "supervisor" |
@@ -945,6 +958,26 @@ async def process_query(
             route_result = await route_query(rewritten_query, case_id=case_id)
         route_str = route_result.get("route", "RAG").upper()
         output_format = route_result.get("output_format", "chat").lower()
+        # The caller's own classification wins for output_format ONLY.
+        #
+        # main.py has to classify before it can choose harness-vs-legacy, so
+        # the router effectively runs twice per turn — once on the raw
+        # message there, once on the rewritten query here. The two can
+        # legitimately disagree on `route` (rewriting adds case context, which
+        # is exactly why this call uses the rewritten query and why its route
+        # is kept), but a file request must not be downgraded to a chat answer
+        # just because the second call happened to say "chat" — or because
+        # this call failed and fell into the hardcoded-"chat" error branch
+        # below. That is how "Generate a PDF report" silently returned a chat
+        # message with no file (verify-log Finding AB).
+        #
+        # Deliberately one-directional: an upstream file_* classification is
+        # honoured, but a `chat` upstream never overrides a file_* decided
+        # here, so this can only ever ADD a file, never suppress one.
+        if precomputed_route:
+            upstream_format = str(precomputed_route.get("output_format") or "chat").lower()
+            if upstream_format in ("file_pdf", "file_xlsx", "file_docx"):
+                output_format = upstream_format
         case_scope = route_result.get("case_scope", "within_case")
 
         # Phase 2: current_cross_case is NO LONGER armed here. It used to be
@@ -982,7 +1015,14 @@ async def process_query(
         logger.error("Router failed: %s", exc)
         yield event("router", "error", str(exc))
         route_str = "RAG"  # Default to retrieval on error (safer)
-        output_format = "chat"
+        # Preserve an upstream file request even when THIS router call fails.
+        # Hardcoding "chat" here meant a transient router error silently
+        # turned a "Generate a PDF report" request into a chat answer with no
+        # file and no indication anything was dropped (verify-log Finding AB).
+        _upstream_format = str((precomputed_route or {}).get("output_format") or "chat").lower()
+        output_format = (
+            _upstream_format if _upstream_format in ("file_pdf", "file_xlsx", "file_docx") else "chat"
+        )
         case_scope = "within_case"
         target_entity = None
         secondary_methods = []

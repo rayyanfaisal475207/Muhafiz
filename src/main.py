@@ -423,9 +423,18 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, current_use
     # whose text happens to classify as "RAG" from being silently cut over
     # to a sub-agent nobody decided to cut over yet.
     cutover_route: Optional[str] = None
+    # Kept outside the try so the legacy path below can REUSE this
+    # classification instead of routing again. Two independent router calls
+    # per turn doubled latency and could disagree — that is how a
+    # "Generate a PDF report" request lost its output_format="file_pdf" and
+    # came back as a chat answer (verify-log Finding AB). Stays None if
+    # classification didn't run or failed, in which case process_query()
+    # routes for itself exactly as before.
+    classified_route: Optional[dict] = None
     if config.HARNESS_CUTOVER_ROUTES:
         try:
             route_result = await route_query(chat_request.message)
+            classified_route = route_result
             candidate = str(route_result.get("route") or "").upper()
             # route_query() itself decides output_format (e.g. "generate a
             # PDF report on..." classifies with output_format="file_pdf") —
@@ -457,6 +466,7 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, current_use
                     project_id=project_id, case_id=case_id, user_profile=user_profile, user_id=user_id,
                     user_role=current_user.role,
                     enable_web_search=chat_request.enable_web_search,
+                    precomputed_route=classified_route,
                 )
             async for event in stream:
                 # [Merge reconciliation — harness-reconciliation Unit 12
@@ -478,6 +488,7 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, current_use
                         user_profile=user_profile, user_id=user_id,
                         user_role=current_user.role,
                         enable_web_search=chat_request.enable_web_search,
+                        precomputed_route=classified_route,
                     ):
                         yield f"data: {json.dumps(legacy_event)}\n\n"
                     break

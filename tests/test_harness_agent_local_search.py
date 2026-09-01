@@ -420,3 +420,51 @@ async def test_successful_local_search_emits_no_degradation_caveat(monkeypatch):
     for caveat in result.caveats:
         assert "answered from document search" not in caveat
         assert _OLD_GENERIC_CAVEAT_FRAGMENT not in caveat
+
+
+# ── Finding T regression: citation-repair retry ──────────────────────────────
+# verifier.py rejects a substantial answer carrying no [Document N] marker.
+# Local Search was failing that gate on nearly every live run and abstaining
+# outright, killing the turn even though retrieval had succeeded
+# (scenario-verify Finding T). It now re-asks ONCE with an explicit repair
+# instruction — but only for the missing-citation rejection, never for a
+# genuine grounding/off-topic failure, which must still abstain.
+
+def test_missing_citation_rejection_is_recognised():
+    verification = {
+        "grounded": False,
+        "off_topic": False,
+        "reason": (
+            "Answer is substantial (long, or a multi-item list) but cites no "
+            "[Document N] source at all, despite the evaluator already "
+            "confirming relevant chunks exist"
+        ),
+    }
+    assert local_search_mod._is_missing_citation_rejection(verification) is True
+
+
+def test_genuine_grounding_failure_is_not_retried():
+    """A hallucination must ABSTAIN — re-prompting could launder it into a
+    cited-looking answer, which is strictly worse than abstaining."""
+    verification = {
+        "grounded": False,
+        "off_topic": False,
+        "reason": "Claim contradicts the cited source: chunk says 4 bullets, answer says 6.",
+    }
+    assert local_search_mod._is_missing_citation_rejection(verification) is False
+
+
+def test_off_topic_rejection_is_not_retried():
+    verification = {
+        "grounded": False,
+        "off_topic": True,
+        "reason": "Answer cites no [Document N] source at all.",
+    }
+    assert local_search_mod._is_missing_citation_rejection(verification) is False
+
+
+def test_repair_suffix_demands_citations_without_inventing_them():
+    suffix = local_search_mod._CITATION_REPAIR_SUFFIX
+    assert "[Document N]" in suffix
+    # Must not encourage fabricating a citation to satisfy the gate.
+    assert "Do not invent a citation" in suffix

@@ -45,23 +45,33 @@ function parseInline(text: string, keyPrefix: string) {
     // closing delimiter.
     return (
       <span key={`${keyPrefix}-seg-${i}`}>
-        {part.split(/(\*\*[\s\S]*?\*\*|\*[^*\s][^*]*\*|`[^`]+`)/g).map((sub, j) => {
-          if (sub.length > 4 && sub.startsWith('**') && sub.endsWith('**')) {
-            return <strong key={j}>{sub.slice(2, -2)}</strong>;
-          }
-          if (
-            sub.length > 2 &&
-            sub.startsWith('*') &&
-            sub.endsWith('*') &&
-            !sub.startsWith('**')
-          ) {
-            return <em key={j}>{sub.slice(1, -1)}</em>;
-          }
-          if (sub.startsWith('`') && sub.endsWith('`') && sub.length > 1) {
-            return <code key={j}>{sub.slice(1, -1)}</code>;
-          }
-          return sub;
-        })}
+        {part
+          // `_italic_` is matched only when the underscores sit on a word
+          // boundary, so identifiers that legitimately contain underscores
+          // (snake_case field names, some record IDs) are left alone — the
+          // backend's own degradation notes use the _..._ form, and those
+          // were rendering with literal underscores (verify-log Finding P).
+          .split(/(\*\*[\s\S]*?\*\*|\*[^*\s][^*]*\*|(?<![A-Za-z0-9])_[^_\s][^_]*_(?![A-Za-z0-9])|`[^`]+`)/g)
+          .map((sub, j) => {
+            if (sub.length > 4 && sub.startsWith('**') && sub.endsWith('**')) {
+              return <strong key={j}>{sub.slice(2, -2)}</strong>;
+            }
+            if (
+              sub.length > 2 &&
+              sub.startsWith('*') &&
+              sub.endsWith('*') &&
+              !sub.startsWith('**')
+            ) {
+              return <em key={j}>{sub.slice(1, -1)}</em>;
+            }
+            if (sub.length > 2 && sub.startsWith('_') && sub.endsWith('_')) {
+              return <em key={j}>{sub.slice(1, -1)}</em>;
+            }
+            if (sub.startsWith('`') && sub.endsWith('`') && sub.length > 1) {
+              return <code key={j}>{sub.slice(1, -1)}</code>;
+            }
+            return sub;
+          })}
       </span>
     );
   });

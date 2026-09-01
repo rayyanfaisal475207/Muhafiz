@@ -320,3 +320,62 @@ async def test_full_tier_never_passes_force_cloud_or_escalate(monkeypatch):
 
     assert captured_kwargs.get("force_cloud") in (None, False)
     assert captured_kwargs.get("escalate_to_cloud_on_failure") in (None, False)
+
+
+# ── Finding S regression: number tokenisation false positives ────────────────
+# The structural tier compares figures in a claim against its cited chunk by
+# literal token. `_NUMBER_RE` used to allow a trailing separator into the
+# token, so "arrested on 2024-09-22, the suspect" produced "22," and
+# "PECA 2016, PPC" produced "2016," — neither of which can ever match the
+# source's own "22"/"2016". Every date or statute year followed by a comma was
+# therefore reported as an unverifiable identifier, plastering correct answers
+# with "could not be confirmed against its source" warnings (scenario-verify
+# Finding S). These tests pin both halves: no false positives on separator-
+# adjacent figures, and genuine mismatches still caught.
+
+import pytest
+
+from src.pipeline.validation import _extract_numbers_and_ids
+
+
+def _missing(claim: str, chunk: str) -> set[str]:
+    claim_numbers, claim_ids = _extract_numbers_and_ids(claim, strip_citation_markers=True)
+    chunk_numbers, chunk_ids = _extract_numbers_and_ids(chunk, strip_citation_markers=False)
+    return (claim_numbers - chunk_numbers) | (claim_ids - chunk_ids)
+
+
+@pytest.mark.parametrize(
+    "claim, chunk",
+    [
+        # Trailing comma after a date component (the literal Finding S repro).
+        ("The suspect was arrested on 2024-09-22, then released.",
+         "Arrest recorded 2024-09-22 at the checkpoint."),
+        # Statute years in a comma-separated list.
+        ("Charged under PECA 2016, PPC and Arms Ordinance 1965, 2005.",
+         "Sections cited: PECA 2016; Arms Ordinance 1965; Act 2005."),
+        # Trailing comma after a phone number.
+        ("Contact 0332-4000032, CNIC 00000-9000034-1.",
+         "phone 0332-4000032 CNIC 00000-9000034-1"),
+        # Sentence-final period must not be swallowed into the token either.
+        ("Six bullets were recovered in 2024.",
+         "recovered 6 bullets during the 2024 raid"),
+        # Thousands separators are presentation, not a different figure.
+        ("A fine of 1,200 rupees was imposed.",
+         "fine imposed: 1200 rupees"),
+    ],
+)
+def test_separator_adjacent_figures_are_not_false_positives(claim, chunk):
+    assert _missing(claim, chunk) == set()
+
+
+@pytest.mark.parametrize(
+    "claim, chunk, expected",
+    [
+        ("6 bullets were seized.", "4 bullets were seized.", "6"),
+        ("A fine of 5000 rupees applied.", "No fine amount was recorded.", "5000"),
+        ("Linked to CASE-999.", "Linked to CASE-111.", "CASE-999"),
+    ],
+)
+def test_genuine_figure_mismatches_are_still_flagged(claim, chunk, expected):
+    """The false-positive fix must not weaken real mismatch detection."""
+    assert expected in _missing(claim, chunk)

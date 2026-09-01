@@ -224,15 +224,33 @@ def _append_cross_case_links(answer_text: str, result: SubAgentResult) -> str:
     if confirmed:
         parts.append("\n**Confirmed connections**\n")
         for ln in confirmed:
-            cases = f" — {', '.join(ln.case_ids)}" if ln.case_ids else ""
-            parts.append(f"- {ln.description}{cases}")
+            parts.append(f"- {ln.description}{_case_suffix(ln)}")
     if unconfirmed:
         parts.append("\n**Possible matches — unverified leads**\n")
         for ln in unconfirmed:
-            cases = f" — {', '.join(ln.case_ids)}" if ln.case_ids else ""
             conf = f" _(similarity {ln.confidence:.0%})_" if ln.confidence is not None else ""
-            parts.append(f"- {ln.description}{cases}{conf}")
+            parts.append(f"- {ln.description}{_case_suffix(ln)}{conf}")
     return answer_text + "\n" + "\n".join(parts)
+
+
+def _case_suffix(link) -> str:
+    """
+    The " — case-a, case-b" tail appended after a link's description.
+
+    Returns empty when the description already spells those case ids out.
+    `cross_case_linkage.py` builds descriptions like "'X' appears across 13
+    case(s): fir-201-26, fir-202-26, … (traversal depth 1 hop(s))", so
+    appending the same ids again printed the whole list twice in one bullet
+    (verify-log Finding V). Only links whose description omits the ids —
+    e.g. a shorter identity-match phrasing — still get the suffix.
+    """
+    case_ids = getattr(link, "case_ids", None) or []
+    if not case_ids:
+        return ""
+    description = getattr(link, "description", "") or ""
+    if all(case_id in description for case_id in case_ids):
+        return ""
+    return f" — {', '.join(case_ids)}"
 
 
 async def run_cutover_query(
