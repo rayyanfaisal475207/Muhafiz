@@ -82,6 +82,7 @@ from src.pipeline.harness.supervisor import LOCAL_SEARCH, register
 from src.pipeline.harness.tools.local_search import LocalSearchToolInput, LocalSearchToolResult, local_search_tool
 from src.pipeline.harness.tools.rag import RagToolInput, rag_tool
 from src.pipeline.harness.types import (
+    ANSWER_MAX_TOKENS,
     NAME_FIDELITY_RULE,
     Citation,
     EvidenceChunk,
@@ -244,7 +245,7 @@ async def _generate_and_verify(
 
     try:
         answer = await call_llm(
-            system_prompt, agent_input.query_text, role=_generation_role(caller.preferred_language)
+            system_prompt, agent_input.query_text, role=_generation_role(caller.preferred_language), max_tokens=ANSWER_MAX_TOKENS
         )
     except Exception as exc:
         logger.error("Local Search: generation failed: %s", exc)
@@ -277,6 +278,7 @@ async def _generate_and_verify(
                 system_prompt + _CITATION_REPAIR_SUFFIX,
                 agent_input.query_text,
                 role=_generation_role(caller.preferred_language),
+                max_tokens=ANSWER_MAX_TOKENS,
             )
         except Exception as exc:
             logger.error("Local Search: citation-repair retry failed: %s", exc)

@@ -174,6 +174,20 @@ _MAP_SYSTEM_PROMPT = (
 )
 _MAP_SCHEMA_HINT = '"points": [{"point", "importance", "supporting_reports"}]'
 
+# [verify-log Finding C] Budget for the REDUCE step's answer. This call
+# passed no max_tokens at all, so it silently took call_llm()'s 1000-token
+# default while every comparable answer path allows 2600-3000
+# (semantic_search's _ANSWER_MAX_TOKENS=3000, orchestrator's
+# _RAG_ANSWER_MAX_TOKENS=3000 / _GRAPH_ANSWER_MAX_TOKENS=2600). Global Search
+# synthesizes across EVERY community report at a hierarchy level, so it
+# produces the longest answer in the system — it was the one path still
+# truncating mid-sentence after the earlier truncation fixes.
+#
+# Distinct from the MAP step's own budget below: that one is per-batch JSON
+# with a deliberately pinned cloud ceiling for cost. This is the single
+# user-facing prose answer, where truncation is a correctness problem.
+_FINAL_ANSWER_MAX_TOKENS = 3000
+
 _FINAL_SYSTEM_PROMPT_TEMPLATE = (
     "You are a police cross-case pattern-synthesis assistant answering a "
     "question that requires aggregating signal across the WHOLE case "
@@ -467,7 +481,10 @@ async def global_search(
 
     try:
         answer = await call_llm(
-            system_prompt, agent_input.query_text, role=_generation_role(caller.preferred_language)
+            system_prompt,
+            agent_input.query_text,
+            role=_generation_role(caller.preferred_language),
+            max_tokens=_FINAL_ANSWER_MAX_TOKENS,
         )
     except Exception as exc:
         logger.error("Global Search: final generation failed: %s", exc)

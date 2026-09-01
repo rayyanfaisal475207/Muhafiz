@@ -1252,3 +1252,20 @@ NAME_FIDELITY_RULE = (
     "person appearing under different spellings reads as different people "
     "and breaks matching your answer against the case file."
 )
+
+
+# Default completion budget for a sub-agent's user-facing prose answer.
+#
+# `call_llm()`'s own default is 1000 tokens, which silently truncates a
+# multi-section case answer mid-sentence — and because it is a DEFAULT, a call
+# site that simply omits max_tokens inherits it invisibly. Several sub-agents
+# did exactly that, which is why truncation kept reappearing on a different
+# path after each targeted fix (verify-log Finding C).
+#
+# 3000 matches the budgets the equivalent legacy routes already use
+# (orchestrator's _RAG_ANSWER_MAX_TOKENS=3000, _GRAPH_ANSWER_MAX_TOKENS=2600)
+# and the value semantic_search.py arrived at independently.
+#
+# Structured/JSON generation (map steps, decomposers, extractors) is NOT this
+# — those have their own, deliberately different budgets and cost ceilings.
+ANSWER_MAX_TOKENS = 3000

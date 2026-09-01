@@ -191,6 +191,7 @@ from src.data_gateway.base import DataGateway
 from src.llm.client import call_llm
 from src.pipeline.harness.supervisor import META_ANALYSIS, Supervisor, register
 from src.pipeline.harness.types import (
+    ANSWER_MAX_TOKENS,
     Citation,
     OnEventCallback,
     SourceTool,
@@ -500,7 +501,7 @@ async def meta_analysis(
 
     try:
         answer = await call_llm(
-            system_prompt, agent_input.query_text, role=_generation_role(caller.preferred_language)
+            system_prompt, agent_input.query_text, role=_generation_role(caller.preferred_language), max_tokens=ANSWER_MAX_TOKENS
         )
     except Exception as exc:
         logger.error("Meta-Analysis: synthesis generation failed: %s", exc)

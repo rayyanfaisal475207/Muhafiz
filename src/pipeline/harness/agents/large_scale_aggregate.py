@@ -179,6 +179,7 @@ from src.llm.client import call_llm
 from src.pipeline.harness.supervisor import LARGE_SCALE_AGGREGATE, register
 from src.pipeline.harness.tools.xagg import XAggToolInput, xagg_tool
 from src.pipeline.harness.types import (
+    ANSWER_MAX_TOKENS,
     NAME_FIDELITY_RULE,
     Citation,
     EvidenceChunk,
@@ -328,6 +329,7 @@ async def large_scale_aggregate(
             system_prompt,
             agent_input.query_text,
             role=_generation_role(caller.preferred_language),
+            max_tokens=ANSWER_MAX_TOKENS,
         )
     except Exception as exc:
         # Generation itself raising (e.g. the LLM service is unreachable) is
