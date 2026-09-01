@@ -103,7 +103,17 @@ async def test_graph_no_chunks_falls_back_to_rag(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_graph_not_relevant_falls_back_to_rag(monkeypatch):
+async def test_within_case_graph_entities_survive_a_not_relevant_evaluator(monkeypatch):
+    """
+    [verify-log Finding Q] The evaluator judges whether retrieved DOCUMENT
+    TEXT answers the question. Within-case graph chunks are entity records
+    (names, CNICs, phones) scoped to the case by construction — read as prose
+    they look like "only personal details, nothing about the case", and were
+    being discarded. A real case with 18 graph nodes therefore reported
+    "Case graph data was unavailable for this case".
+
+    This previously asserted EMPTY; that was the defect, not the contract.
+    """
     async def _retrieve_graph(*a, **kw):
         return _graph_result([_graph_chunk()])
 
@@ -111,6 +121,28 @@ async def test_graph_not_relevant_falls_back_to_rag(monkeypatch):
     _not_relevant_evaluator(monkeypatch)
 
     result = await graph_tool(GraphToolInput(query_text="q", execution=_execution()))
+
+    assert result.status == ToolStatus.OK
+    assert result.fallback_to_rag is False
+    assert len(result.chunks) == 1
+
+
+@pytest.mark.asyncio
+async def test_cross_case_graph_still_honours_a_not_relevant_evaluator(monkeypatch):
+    """
+    The override above is safe only because case scoping guarantees
+    relevance. With no active case there is no such guarantee, so the
+    evaluator's rejection must still stand.
+    """
+    async def _retrieve_graph(*a, **kw):
+        return _graph_result([_graph_chunk()])
+
+    monkeypatch.setattr(graph_mod, "retrieve_graph", _retrieve_graph)
+    _not_relevant_evaluator(monkeypatch)
+
+    result = await graph_tool(
+        GraphToolInput(query_text="q", execution=_execution(case_id=None))
+    )
 
     assert result.status == ToolStatus.EMPTY
     assert result.fallback_to_rag is True
@@ -178,3 +210,41 @@ async def test_graph_hybrid_empty_combined_falls_back(monkeypatch):
 
     assert result.status == ToolStatus.EMPTY
     assert result.fallback_to_rag is True
+
+
+# ── Finding Q regression: within-case graph entities are not "irrelevant" ────
+# A case with 18 real graph nodes (2 Persons, an Officer, a Weapon, an
+# Incident) reported "Case graph data was unavailable for this case".
+# retrieve_graph() returned 4 chunks correctly; the evaluator then rejected
+# them — it judges whether retrieved DOCUMENT TEXT answers the question, and
+# entity records (names, CNICs, phone numbers) read as "only lists personal
+# details ... does not provide information about the case itself"
+# (verify-log Finding Q). Within-case graph chunks are scoped to the case by
+# construction, so they cannot be off-topic for a question about that case.
+
+import inspect as _inspect
+
+from src.pipeline.harness.tools import graph as _graph_mod
+
+
+def test_within_case_evaluator_rejection_is_overridden():
+    source = _inspect.getsource(_graph_mod.graph_tool)
+    # The override exists and is gated on the within-case path only.
+    assert "not tool_input.hybrid and caller.active_case_id" in source
+
+
+def test_hybrid_path_still_honours_the_evaluator():
+    """The hybrid path blends vector/BM25 document chunks whose topical
+    relevance genuinely is in question — its gate must stay."""
+    source = _inspect.getsource(_graph_mod.graph_tool)
+    override_index = source.index("not tool_input.hybrid and caller.active_case_id")
+    # The real EMPTY return still follows the override, so a hybrid or
+    # cross-case rejection can still short-circuit.
+    assert "ToolStatus.EMPTY" in source[override_index:]
+
+
+def test_cross_case_rejection_still_short_circuits():
+    """No active_case_id means no case scoping, so the guarantee that makes
+    the override safe does not hold — the gate must still apply."""
+    source = _inspect.getsource(_graph_mod.graph_tool)
+    assert "caller.active_case_id" in source
