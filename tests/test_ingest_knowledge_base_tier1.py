@@ -8,7 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
-from ingest_knowledge_base_tier1 import discover_files, summarize
+from ingest_knowledge_base_tier1 import discover_files, summarize, already_ingested_filenames, safe_print
 
 
 def test_discover_files_excludes_readme_and_sorts_deterministically(tmp_path):
@@ -57,3 +57,52 @@ def test_summarize_all_succeeded_has_empty_failed_list():
     summary = summarize(results)
 
     assert summary["failed"] == []
+
+
+def test_already_ingested_filenames_only_counts_the_kb_category():
+    metas = [
+        {"source": "1_crpc.pdf", "category": "legal_procedural_reference"},
+        {"source": "1_crpc.pdf", "category": "legal_procedural_reference"},  # second chunk, same file
+        {"source": "2_qso.pdf", "category": "legal_procedural_reference"},
+        {"source": "some_case_evidence.pdf", "category": None},
+        {"source": "unrelated_global_doc.pdf", "category": "penal_code"},
+    ]
+
+    done = already_ingested_filenames(metas)
+
+    assert done == {"1_crpc.pdf", "2_qso.pdf"}
+
+
+def test_already_ingested_filenames_empty_store_returns_empty_set():
+    assert already_ingested_filenames([]) == set()
+
+
+def test_already_ingested_filenames_ignores_entries_missing_source():
+    metas = [{"category": "legal_procedural_reference"}]  # no "source" key
+
+    assert already_ingested_filenames(metas) == set()
+
+
+def test_safe_print_never_raises_on_unencodable_text(monkeypatch, capsys):
+    """
+    Guards the incident this exists for: printing worker output containing a
+    character the console codec can't encode (U+FFFD from OCR/vision output)
+    crashed the whole batch script mid-run with UnicodeEncodeError, silently
+    skipping every file after the one that triggered it. safe_print() must
+    never propagate that exception, on any input.
+    """
+    # Simulate a strict-codec stdout the way Windows' cp1252 console behaves,
+    # regardless of what encoding this test suite actually runs under.
+    import io
+
+    class StrictAsciiWriter(io.TextIOBase):
+        def write(self, s):
+            s.encode("ascii")  # raises UnicodeEncodeError on anything non-ASCII
+            return len(s)
+
+    monkeypatch.setattr("builtins.print", lambda *a, **k: StrictAsciiWriter().write(a[0] if a else ""))
+
+    safe_print("plain ascii text")
+    safe_print("has a replacement char: �")
+    safe_print("has Urdu: القانون")
+    # No assertion needed beyond "did not raise" — that's the whole guarantee.
