@@ -759,3 +759,33 @@ def test_prepended_narrative_is_not_repeated_in_its_own_row():
     )
     assert text.count(narrative) == 1
     assert "2026-01-01" in text  # the event is still listed
+
+
+# ── Placeholder details must not be rendered as evidence ────────────────────
+# Some ingested rows carry a placeholder instead of real text — e.g. the
+# literal "entry None" from a zimni row whose entry number was absent at
+# extraction time. Rendering it verbatim produced timeline lines reading
+# "zimni_entry: entry None", which is noise dressed as evidence. Invisible
+# until Finding Z made event descriptions user-facing.
+
+from src.pipeline.harness.agents.timeline_building import _is_placeholder_detail
+
+
+@pytest.mark.parametrize("value", ["entry None", "None", "null", "n/a", "", "  ", "entry null"])
+def test_placeholder_details_are_suppressed(value):
+    assert _is_placeholder_detail(value) is True
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "none of the witnesses were present",  # real prose containing "none"
+        "suspect had no ID on him",
+        "entry 4",
+        "recovered 30-bore pistol",
+    ],
+)
+def test_real_detail_text_is_never_suppressed(value):
+    """Hiding genuine evidence would be far worse than showing a placeholder,
+    so the match must stay narrow."""
+    assert _is_placeholder_detail(value) is False

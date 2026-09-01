@@ -442,8 +442,18 @@ def _build_events(
         # description would leave it empty. Guarded by
         # test_legacy_row_with_no_event_type_keeps_bare_description.
         if event_type:
-            description = f"{event_type}" + (f": {detail}" if detail else "")
-            if event_type == _POSITION_EVENT_TYPE and not (detail or "").strip():
+            # Some ingested rows carry a placeholder detail rather than real
+            # text — e.g. the literal "entry None" from a zimni row whose
+            # entry number was absent at extraction time. Rendering that
+            # verbatim produced timeline lines reading "zimni_entry: entry
+            # None", which is noise dressed as evidence. Suppress the detail
+            # in that case and show the event type alone, which is true.
+            # Invisible until Finding Z made descriptions user-facing.
+            detail_text = (detail or "").strip()
+            if _is_placeholder_detail(detail_text):
+                detail_text = ""
+            description = f"{event_type}" + (f": {detail_text}" if detail_text else "")
+            if event_type == _POSITION_EVENT_TYPE and not detail_text:
                 description = f"{event_type}: {_NO_POSITION_RECORDED}"
         else:
             description = base_description
@@ -511,6 +521,27 @@ def _incident_narratives(rows: list[dict]) -> list[str]:
             seen.add(text)
             out.append(text)
     return out
+
+
+def _is_placeholder_detail(detail: str) -> bool:
+    """
+    True for an extracted `detail` that carries no real information.
+
+    Deliberately narrow — it matches only a value that is empty or ends in a
+    bare "None"/"null" placeholder (e.g. "entry None" from a zimni row whose
+    entry number was missing at extraction time). A detail that merely
+    CONTAINS the word "none" in real prose ("none of the witnesses were
+    present") is left untouched: hiding genuine evidence would be a far worse
+    failure than showing a clumsy placeholder.
+    """
+    normalized = (detail or "").strip().rstrip(".:;,").lower()
+    if not normalized:
+        return True
+    return (
+        normalized in {"none", "null", "n/a"}
+        or normalized.endswith(" none")
+        or normalized.endswith(" null")
+    )
 
 
 def _answer_text(
