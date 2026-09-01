@@ -123,6 +123,7 @@ from src.pipeline.harness.supervisor import CASE_SUMMARIZATION, register
 from src.pipeline.harness.tools.graph import GraphToolInput, graph_tool
 from src.pipeline.harness.tools.rag import RagToolInput, rag_tool
 from src.pipeline.harness.types import (
+    NAME_FIDELITY_RULE,
     Citation,
     EvidenceChunk,
     GRAPH_ONLY_SUMMARY_DISCLOSURE,
@@ -185,7 +186,7 @@ _SYSTEM_PROMPT_TEMPLATE = (
     "Respond in {preferred_language}.\n\n"
     "{conversation_block}"
     "--- CASE MATERIAL ---\n{documents}\n--- END OF CASE MATERIAL ---"
-)
+) + NAME_FIDELITY_RULE
 
 
 def _generation_role(preferred_language: Optional[str]) -> str:

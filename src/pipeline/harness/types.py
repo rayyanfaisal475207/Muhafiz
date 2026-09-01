@@ -1221,3 +1221,34 @@ class PipelineEvent(BaseModel):
     detail: str
     ms: Optional[int] = None
     sources: Optional[list[dict[str, Any]]] = None
+
+
+# ── Shared prompt fragments ─────────────────────────────────────────────────
+
+# Every sub-agent that generates user-facing prose MUST include this in its
+# system prompt.
+#
+# The same person was rendered under four different spellings across separate
+# answers from one identical source record — رابعہ (the actual text in the
+# case file) came back as رابعع, "Rabeeha", "Rabia", "رَبَعَه" and once
+# "Raheela" (verify-log Finding L). To an investigator that reads as several
+# different people and breaks matching an answer against the case file.
+#
+# The rule previously lived only in `prompts/final_response.txt`, which is the
+# LEGACY orchestrator's prompt. With the harness enabled, answers are written
+# by these sub-agents instead — none of which carried the rule — so the fix
+# never reached the path actually serving traffic. Defining it once here and
+# importing it means a new sub-agent cannot silently miss it, and the wording
+# cannot drift between copies.
+NAME_FIDELITY_RULE = (
+    "\n\nNAMES AND IDENTIFIERS — REPRODUCE, NEVER RE-SPELL: Write every "
+    "person, place, and station name EXACTLY as it appears in the documents "
+    "above, in the source's own script. Do NOT translate, transliterate, "
+    "romanize, anglicise, or 'correct' a name, and never substitute a "
+    "similar-sounding one. If you add a romanization for the reader, put it "
+    "in parentheses after the original — e.g. \"رابعہ (Rabia)\" — never "
+    "instead of it. Identifiers (CNIC, FIR/case numbers, phone numbers, "
+    "vehicle plates) must be reproduced character-for-character. The same "
+    "person appearing under different spellings reads as different people "
+    "and breaks matching your answer against the case file."
+)

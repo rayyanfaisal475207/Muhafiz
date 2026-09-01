@@ -688,3 +688,30 @@ async def test_gateway_forwarded_as_none_when_not_given(monkeypatch, isolated_re
     await sup.handle(_agent_input())
 
     assert mock.gateways_received == [None]
+
+
+# ── Finding AA regression: data-quality queries must reach their sub-agent ───
+# The Data-Quality/Extraction-Coverage sub-agent is selected by trigger
+# patterns on top of a real retrieval route. When the router classified a
+# data-quality question as DIRECT, the harness handed the turn back to the
+# legacy path and the sub-agent never ran (verify-log Finding AA) — DIRECT
+# performs no retrieval, so it cannot inspect a case at all. These pin the
+# selection for every route the query can legitimately land on.
+
+import pytest as _pytest
+
+from src.pipeline.harness.supervisor import classify_to_subagent as _classify
+
+_DQ_QUERIES = [
+    "What is the data quality and extraction coverage for this case — are any fields missing or incomplete?",
+    "Are there any gaps or missing fields in this case's records?",
+]
+
+
+@_pytest.mark.parametrize("query", _DQ_QUERIES)
+@_pytest.mark.parametrize("route", ["GRAPH_HYBRID", "GRAPH", "RAG"])
+def test_data_quality_query_selects_its_sub_agent(query, route):
+    selected = _classify(
+        {"route": route, "case_scope": "within_case"}, query, allow_meta_analysis=True
+    )
+    assert selected == "Data-Quality/Extraction-Coverage"

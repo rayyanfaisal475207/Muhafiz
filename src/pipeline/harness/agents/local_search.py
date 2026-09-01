@@ -82,6 +82,7 @@ from src.pipeline.harness.supervisor import LOCAL_SEARCH, register
 from src.pipeline.harness.tools.local_search import LocalSearchToolInput, LocalSearchToolResult, local_search_tool
 from src.pipeline.harness.tools.rag import RagToolInput, rag_tool
 from src.pipeline.harness.types import (
+    NAME_FIDELITY_RULE,
     Citation,
     EvidenceChunk,
     OnEventCallback,
@@ -117,7 +118,7 @@ _SYSTEM_PROMPT_TEMPLATE = (
     "Respond in {preferred_language}.\n\n"
     "{conversation_block}"
     "--- DOCUMENTS ---\n{documents}\n--- END OF DOCUMENTS ---"
-)
+) + NAME_FIDELITY_RULE
 
 # Appended to the system prompt on the single citation-repair retry (see
 # _generate_and_verify). Kept as a suffix rather than a second template so the

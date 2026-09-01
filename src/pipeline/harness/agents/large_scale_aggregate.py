@@ -179,6 +179,7 @@ from src.llm.client import call_llm
 from src.pipeline.harness.supervisor import LARGE_SCALE_AGGREGATE, register
 from src.pipeline.harness.tools.xagg import XAggToolInput, xagg_tool
 from src.pipeline.harness.types import (
+    NAME_FIDELITY_RULE,
     Citation,
     EvidenceChunk,
     OnEventCallback,
@@ -211,7 +212,7 @@ _SYSTEM_PROMPT_TEMPLATE = (
     "Respond in {preferred_language}.\n\n"
     "--- DOCUMENTS ---\n[Document 1] Source: cross-case aggregate\n{aggregate_text}\n"
     "--- END OF DOCUMENTS ---"
-)
+) + NAME_FIDELITY_RULE
 
 
 def _generation_role(preferred_language: Optional[str]) -> str:

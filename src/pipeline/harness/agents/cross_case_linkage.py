@@ -206,6 +206,7 @@ from src.pipeline.harness.supervisor import CROSS_CASE_LINKAGE, register
 from src.pipeline.harness.tools.xgraph import XGraphToolInput, XGraphToolResult, xgraph_tool
 from src.pipeline.harness.tools.xnetwork import XNetworkToolInput, XNetworkToolResult, xnetwork_tool
 from src.pipeline.harness.types import (
+    NAME_FIDELITY_RULE,
     Citation,
     CrossCaseLink,
     EvidenceChunk,
@@ -283,7 +284,7 @@ _XNETWORK_SYSTEM_PROMPT_TEMPLATE = (
     "that document's 1-based position below.\n\n"
     "Respond in {preferred_language}.\n\n"
     "--- DOCUMENTS ---\n{documents}\n--- END OF DOCUMENTS ---"
-)
+) + NAME_FIDELITY_RULE
 
 
 def _generation_role(preferred_language: Optional[str]) -> str:
@@ -581,12 +582,59 @@ def _xnetwork_links(tool_result: XNetworkToolResult) -> list[CrossCaseLink]:
     ]
 
 
-def _xgraph_summary_line(case_ids: list[str], hop_count: int, unconfirmed_count: int) -> str:
+# Below this compounded confidence, a link chain is reported as tentative
+# rather than stated flatly. `compounded_confidence` is the product of the
+# edge confidences along the weakest returned chain (graph_retriever.py's
+# `_compounded_confidence`), so it degrades with every hop — a 3-hop chain of
+# 0.9-confidence edges is already ~0.73. Matches the 0.85 threshold the
+# verifier's own hedging rule uses, so the two agree on what "uncertain" means.
+_CONFIDENT_CHAIN_THRESHOLD = 0.85
+
+
+def _xgraph_summary_line(
+    case_ids: list[str],
+    hop_count: int,
+    unconfirmed_count: int,
+    chain_confidence: Optional[float] = None,
+) -> str:
+    """
+    Deterministic summary of an entity-graph traversal.
+
+    States what the traversal actually establishes, and — just as important —
+    what it does not. A link means "these cases share an entity the graph
+    resolved to the same node", NOT "this is provably one human being": the
+    resolution is itself an inference, and `chain_confidence` degrades
+    multiplicatively with hop depth.
+
+    Saying only "found confirmed connections across N cases" read as a flat
+    assertion of identity, so a question explicitly about certainty ("is this
+    definitely the same person?") came back sounding certain, with the
+    supporting confidence never shown (verify-log Finding AC). The identity
+    caveat is therefore always stated whenever links are returned, and a
+    weak/multi-hop chain is additionally hedged in the sentence itself.
+    """
     lines: list[str] = []
     if case_ids:
+        tentative = (
+            chain_confidence is not None and chain_confidence < _CONFIDENT_CHAIN_THRESHOLD
+        )
+        verb = "found possible connections" if tentative else "found confirmed connections"
+        confidence_note = (
+            f" Chain confidence {chain_confidence:.0%}."
+            if chain_confidence is not None
+            else ""
+        )
         lines.append(
-            f"Entity-graph search found confirmed connections across {len(case_ids)} "
+            f"Entity-graph search {verb} across {len(case_ids)} "
             f"other case(s): {', '.join(case_ids)} (depth {hop_count} hop(s))."
+            f"{confidence_note}"
+        )
+        # Always stated when links exist: entity resolution is an inference,
+        # and the reader must not take a graph link as proof of one person.
+        lines.append(
+            "These cases are linked because the graph resolved a shared entity "
+            "across them; that resolution is an inference from the records, not "
+            "independent proof that every mention is the same individual."
         )
     if unconfirmed_count:
         plural = "es" if unconfirmed_count != 1 else ""
@@ -717,7 +765,10 @@ async def cross_case_linkage(
         caveats.extend(unconfirmed_caveats)
         answer_sections.append(
             _xgraph_summary_line(
-                xgraph_result.case_ids_touched, xgraph_result.hop_count, len(unconfirmed_links)
+                xgraph_result.case_ids_touched,
+                xgraph_result.hop_count,
+                len(unconfirmed_links),
+                chain_confidence=xgraph_result.chain_confidence,
             )
         )
         tools_used.append("XGRAPH")

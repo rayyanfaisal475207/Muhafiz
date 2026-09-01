@@ -131,6 +131,12 @@ Output: {"route": "DIRECT", "output_format": "file_docx", "target_year": null, "
 Query: "Export the penal code section reference table as an excel file."
 Output: {"route": "SQL", "output_format": "file_xlsx", "target_year": null, "confidence": "high", "reason": "Requires structured reference lookup and user explicitly asked for excel", "station": null, "district": null}
 
+Query: "What is the data quality and extraction coverage for this case — are any fields missing or incomplete?"
+Output: {"route": "GRAPH_HYBRID", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Asks about completeness/coverage of this case's own extracted record — a within-case question over the case's evidence and entities, NOT a general-knowledge question. Must not classify as DIRECT: DIRECT performs no retrieval, so it cannot inspect the case at all", "station": null, "district": null, "secondary_methods": []}
+
+Query: "Are there any gaps or missing fields in this case's records?"
+Output: {"route": "GRAPH_HYBRID", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "Completeness/coverage question about this case's own record — needs the case's evidence, so never DIRECT", "station": null, "district": null, "secondary_methods": []}
+
 Query: "Generate a PDF report summarizing this case"
 Output: {"route": "GRAPH_HYBRID", "case_scope": "within_case", "target_entity": null, "output_format": "file_pdf", "target_year": null, "confidence": "high", "reason": "User explicitly asked for a PDF report — output_format is file_pdf, NOT chat. The word 'report' or 'PDF' means a downloadable file is expected, not a chat answer; the route is still chosen normally from the question's own content (a case summary is GRAPH_HYBRID)", "station": null, "district": null, "secondary_methods": []}
 

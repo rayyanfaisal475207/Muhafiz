@@ -99,6 +99,7 @@ from src.llm.client import call_llm
 from src.pipeline.harness.supervisor import SEMANTIC_SEARCH, register
 from src.pipeline.harness.tools.rag import RagToolInput, rag_tool
 from src.pipeline.harness.types import (
+    NAME_FIDELITY_RULE,
     Citation,
     EvidenceChunk,
     OnEventCallback,
@@ -143,7 +144,7 @@ _SYSTEM_PROMPT_TEMPLATE = (
     "Respond in {preferred_language}.\n\n"
     "{conversation_block}"
     "--- DOCUMENTS ---\n{documents}\n--- END OF DOCUMENTS ---"
-)
+) + NAME_FIDELITY_RULE
 
 
 def _generation_role(preferred_language: Optional[str]) -> str:

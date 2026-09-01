@@ -134,6 +134,7 @@ from src.pipeline.harness.tools.global_search import (
     global_search_tool,
 )
 from src.pipeline.harness.types import (
+    NAME_FIDELITY_RULE,
     Citation,
     EvidenceChunk,
     OnEventCallback,
@@ -188,7 +189,7 @@ _FINAL_SYSTEM_PROMPT_TEMPLATE = (
     "--- KEY POINTS ACROSS THE DATASET ---\n{points_block}\n"
     "--- END OF KEY POINTS ---\n\n"
     "--- DOCUMENTS ---\n{documents}\n--- END OF DOCUMENTS ---"
-)
+) + NAME_FIDELITY_RULE
 
 
 def _generation_role(preferred_language: Optional[str]) -> str:
