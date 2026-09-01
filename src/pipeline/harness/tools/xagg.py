@@ -112,16 +112,30 @@ def _render_aggregate_text(agg_result: dict) -> str:
     orchestrator.py already builds today.
     """
     kind = agg_result["kind"]
+    # Every enumerating branch leads with its own total. This text is what the
+    # user actually reads whenever the natural-language paraphrase fails
+    # verification (see large_scale_aggregate.py's raw-aggregate fallback), and
+    # without a total a "how many cases involve PPC?" question was answered
+    # with 60+ bullet rows and no number anywhere — the reader had to count the
+    # list themselves (verify-log Finding W). The count is derived from the
+    # same rows being rendered, so it cannot disagree with them.
     if kind == "graph_recurrence":
+        rows = agg_result["results"]
         lines = [
+            f"**{len(rows)} matching {agg_result['entity_type']}(s) found.**",
+            "",
+        ] if rows else []
+        lines += [
             f"- {r['name']} ({agg_result['entity_type']}): appears in {r['case_count']} cases — {', '.join(r['case_ids'])}"
-            for r in agg_result["results"]
+            for r in rows
         ]
     elif kind == "case_listing":
-        lines = [
+        cases = agg_result["cases"]
+        lines = [f"**{len(cases)} matching case(s) found.**", ""] if cases else []
+        lines += [
             f"- {c['case_id']} (FIR {c['fir_number'] or 'N/A'}): {c['crime_category'] or 'uncategorized'} "
             f"— {c['investigation_status'] or 'unknown status'}, {c['police_station'] or 'unknown station'}"
-            for c in agg_result["cases"]
+            for c in cases
         ]
     elif kind == "total_count":
         lines = [f"Total cases: {agg_result['total_cases']}"]

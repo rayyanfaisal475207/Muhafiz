@@ -385,7 +385,13 @@ async def test_legacy_untyped_row_narrative_is_not_double_served(monkeypatch):
     result = await timeline_building(_agent_input(), gateway=_FakeGateway(checked=True))
 
     assert result.events[0].description == "Legacy incident"
-    assert "Legacy incident" not in result.answer_text
+    # TB-1's contract is "served exactly once", not "never shown". This
+    # previously asserted zero occurrences only because answer_text carried no
+    # event list at all — the gap that made Timeline Building answer "your
+    # timeline has N events" without ever showing them (verify-log Finding Z).
+    # The row is now rendered, so the narrative appears once (in its own row)
+    # and is NOT also prepended above it.
+    assert result.answer_text.count("Legacy incident") == 1
 
 
 @pytest.mark.asyncio
@@ -673,3 +679,83 @@ async def test_supervisor_dispatches_to_real_timeline_building_via_direct_dispat
     assert len(result.events) == 1
     assert result.events[0].conflict_state == ConflictState.NONE
     assert result.tools_used == ["GRAPH"]
+
+
+# ── Finding Z regression: the timeline itself must be rendered ───────────────
+# This sub-agent answers "build a chronological timeline", but `answer_text`
+# contained only the summary sentence ("This case's timeline has 9 dated
+# event(s)..."). The events went out solely in the structured payload, which
+# nothing renders, so the deliverable never reached the user (verify-log
+# Finding Z). Rendering stays deterministic — plain formatting, no model call.
+
+from src.pipeline.harness.agents.timeline_building import _answer_text as _tb_answer_text
+from src.pipeline.harness.types import ConflictState as _CS, TimelineEvent as _TE
+
+
+def _ev(eid, desc, on=None, state=_CS.NONE, basis=None):
+    return _TE(event_id=eid, description=desc, occurred_on=on,
+               conflict_state=state, conflict_basis=basis)
+
+
+def test_events_are_rendered_not_just_counted():
+    text = _tb_answer_text(
+        [_ev("1", "FIR registered", "2024-09-17"), _ev("2", "Weapon seized", "2024-09-22")],
+        conflict_checked=True,
+    )
+    assert "FIR registered" in text
+    assert "Weapon seized" in text
+    assert "2024-09-17" in text and "2024-09-22" in text
+    # The summary line is still there.
+    assert "2 dated event(s)" in text
+
+
+def test_unknown_conflict_state_is_visually_distinct_from_none():
+    """[PRESERVE] An unchecked event must never read as a verified all-clear."""
+    text = _tb_answer_text(
+        [_ev("1", "Checked event", "2024-09-17", _CS.NONE),
+         _ev("2", "Unchecked event", "2024-09-18", _CS.UNKNOWN)],
+        conflict_checked=False,
+    )
+    unchecked_line = next(ln for ln in text.splitlines() if "Unchecked event" in ln)
+    checked_line = next(ln for ln in text.splitlines() if "Checked event" in ln)
+    assert "not checked" in unchecked_line
+    assert "not checked" not in checked_line
+
+
+def test_conflicting_event_surfaces_its_basis():
+    text = _tb_answer_text(
+        [_ev("1", "Disputed event", "2024-09-18", _CS.CONFLICT, "two records disagree")],
+        conflict_checked=True,
+    )
+    assert "conflicting record" in text
+    assert "two records disagree" in text
+
+
+def test_undated_event_is_labelled_not_dropped():
+    text = _tb_answer_text([_ev("1", "Undated action", None)], conflict_checked=True)
+    assert "Undated action" in text
+    assert "undated" in text
+
+
+def test_no_timeline_header_when_there_are_no_events():
+    text = _tb_answer_text([], conflict_checked=True)
+    assert "**Timeline**" not in text
+    assert "0 dated event(s)" in text
+
+
+def test_prepended_narrative_is_not_repeated_in_its_own_row():
+    """
+    [findings.md TB-1] When a narrative is prepended to answer_text, its own
+    timeline row must point back to it rather than restate it — otherwise
+    rendering the event list (verify-log Finding Z) reintroduces exactly the
+    duplication TB-1 removed. The event must still be LISTED; dropping it
+    would hide an event from the timeline.
+    """
+    narrative = "A long incident narrative that is served once."
+    text = _tb_answer_text(
+        [_ev("1", narrative, "2026-01-01")],
+        conflict_checked=True,
+        narratives=[narrative],
+    )
+    assert text.count(narrative) == 1
+    assert "2026-01-01" in text  # the event is still listed

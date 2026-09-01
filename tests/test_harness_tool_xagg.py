@@ -150,3 +150,62 @@ def test_fallback_to_rag_cannot_be_overridden_true():
     from pydantic import ValidationError
     with pytest.raises(ValidationError):
         XAggToolResult(status=ToolStatus.OK, fallback_to_rag=True)
+
+
+# ── Finding W regression: enumerating aggregates must lead with a total ──────
+# When the natural-language paraphrase fails verification, the user is shown
+# `raw_summary_text` instead. For a "how many cases involve PPC?" question
+# that rendered 60+ bullet rows with no number anywhere, so the question was
+# never actually answered — the reader had to count the list (verify-log
+# Finding W). Enumerating branches now lead with their own count, derived from
+# the same rows so it cannot disagree with them.
+
+from src.pipeline.harness.tools.xagg import _render_aggregate_text
+
+
+def _case(case_id):
+    return {
+        "case_id": case_id, "fir_number": case_id.split("-")[1] + "/26",
+        "crime_category": "PPC", "investigation_status": None,
+        "police_station": "Model Town",
+    }
+
+
+def test_case_listing_leads_with_total():
+    text = _render_aggregate_text(
+        {"kind": "case_listing", "cases": [_case("fir-201-26"), _case("fir-202-26")]}
+    )
+    assert text.startswith("**2 matching case(s) found.**")
+    # The enumeration itself is still present.
+    assert "fir-201-26" in text and "fir-202-26" in text
+
+
+def test_case_listing_total_matches_row_count():
+    cases = [_case(f"fir-{200 + i}-26") for i in range(37)]
+    text = _render_aggregate_text({"kind": "case_listing", "cases": cases})
+    assert text.startswith("**37 matching case(s) found.**")
+    assert text.count("\n- ") == 37
+
+
+def test_graph_recurrence_leads_with_total():
+    text = _render_aggregate_text({
+        "kind": "graph_recurrence",
+        "entity_type": "Person",
+        "results": [
+            {"name": "A", "case_count": 2, "case_ids": ["fir-1-26", "fir-2-26"]},
+            {"name": "B", "case_count": 3, "case_ids": ["fir-3-26"]},
+        ],
+    })
+    assert text.startswith("**2 matching Person(s) found.**")
+
+
+def test_empty_listing_has_no_bogus_zero_header():
+    """An empty result must keep its existing wording, not say '0 matching'."""
+    assert _render_aggregate_text({"kind": "case_listing", "cases": []}).startswith(
+        "(no matching cases found)"
+    )
+
+
+def test_total_count_branch_is_unchanged():
+    text = _render_aggregate_text({"kind": "total_count", "total_cases": 61})
+    assert "Total cases: 61" in text

@@ -547,9 +547,48 @@ def _answer_text(
             f"{clear_count} checked with no conflict found."
         )
 
-    if not narratives:
-        return summary
-    return "\n\n".join(list(narratives) + [summary])
+    # Render the events themselves, not just a count of them.
+    #
+    # This sub-agent answers "build a chronological timeline", and it was
+    # replying with only the summary sentence above — "This case's timeline
+    # has 9 dated event(s) (spanning ...)" — while the actual events went out
+    # solely in the structured `events` payload, which nothing renders
+    # (verify-log Finding Z). The deliverable the user asked for never
+    # appeared. Still fully deterministic: plain formatting over
+    # already-computed events, no model call, so the module's
+    # "needs no verify_grounding()" reasoning is unchanged.
+    #
+    # [PRESERVE — TimelineEvent.conflict_state] UNKNOWN must stay visually
+    # distinct from NONE: an unchecked event must never read as a verified
+    # all-clear. NONE is left unmarked (the clean, checked case), CONFLICT is
+    # called out with its basis, and UNKNOWN says plainly that it wasn't
+    # checked.
+    # [findings.md TB-1] A narrative already prepended above must not be
+    # repeated verbatim in its own row — that is exactly the duplication TB-1
+    # removed. Such a row is still LISTED (dropping it would hide an event
+    # from the timeline), but points back to the text served once above
+    # instead of restating it.
+    served_narratives = {n.strip() for n in narratives if n and n.strip()}
+
+    event_lines: list[str] = []
+    for event in events:
+        when = event.occurred_on or "undated"
+        marker = ""
+        if event.conflict_state == ConflictState.CONFLICT:
+            basis = f" — {event.conflict_basis}" if event.conflict_basis else ""
+            marker = f" **[conflicting record{basis}]**"
+        elif event.conflict_state == ConflictState.UNKNOWN:
+            marker = " _(conflict not checked)_"
+        description = event.description
+        if description and description.strip() in served_narratives:
+            description = "(incident narrative above)"
+        event_lines.append(f"- **{when}** — {description}{marker}")
+
+    sections = list(narratives)
+    if event_lines:
+        sections.append("**Timeline**\n" + "\n".join(event_lines))
+    sections.append(summary)
+    return "\n\n".join(sections)
 
 
 async def timeline_building(
