@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
@@ -151,5 +151,70 @@ describe('Sidebar — collapse/expand (Module 3, FRONTEND_UX_MATURITY_IMPLEMENTA
     expect(screen.getByLabelText('Expand sidebar')).toBeInTheDocument()
     expect(screen.queryByText('Chat History')).not.toBeInTheDocument()
     expect(screen.getByLabelText('New Chat')).toBeInTheDocument()
+  })
+})
+
+// Module 8 (FRONTEND_UX_MATURITY_IMPLEMENTATION_PLAN.md): a first-ever
+// visit (nothing in SIDEBAR_COLLAPSED_KEY yet) defaults to collapsed below
+// the documented 768px minimum-usability breakpoint, via a matchMedia
+// check. Any stored preference — from either a manual toggle or a prior
+// visit, in either direction — always wins over that viewport check.
+describe('Sidebar — first-visit viewport default (Module 8)', () => {
+  let originalMatchMedia: typeof window.matchMedia
+
+  beforeEach(() => {
+    localStorage.removeItem(SIDEBAR_COLLAPSED_KEY)
+    useAuthStore.setState({ isAuthenticated: false, user: { id: 'u1', email: 'a@b.com', role: 'investigator', is_admin: false } as any })
+    useProjectStore.setState({ projects: [], activeProjectId: null, isLoading: false, error: null })
+    useCaseStore.setState({ cases: [], activeCaseId: null, isLoading: false, error: null })
+    useSessionStore.setState({ sessions: [], isLoading: false, error: null })
+    originalMatchMedia = window.matchMedia
+  })
+
+  function mockViewport(matchesNarrow: boolean) {
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: query === '(max-width: 767px)' ? matchesNarrow : false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })) as any
+  }
+
+  afterEach(() => {
+    window.matchMedia = originalMatchMedia
+  })
+
+  it('loads collapsed by default on a first-ever visit narrower than 768px', () => {
+    mockViewport(true)
+    renderSidebar()
+    expect(screen.getByLabelText('Expand sidebar')).toBeInTheDocument()
+    expect(screen.queryByText('Chat History')).not.toBeInTheDocument()
+  })
+
+  it('loads expanded by default on a first-ever visit at or above 768px', () => {
+    mockViewport(false)
+    renderSidebar()
+    expect(screen.getByLabelText('Collapse sidebar')).toBeInTheDocument()
+    expect(screen.getByText('Chat History')).toBeInTheDocument()
+  })
+
+  it('a stored "expanded" preference wins over a narrow viewport', () => {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, 'false')
+    mockViewport(true)
+    renderSidebar()
+    expect(screen.getByLabelText('Collapse sidebar')).toBeInTheDocument()
+    expect(screen.getByText('Chat History')).toBeInTheDocument()
+  })
+
+  it('a stored "collapsed" preference wins over a wide viewport', () => {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, 'true')
+    mockViewport(false)
+    renderSidebar()
+    expect(screen.getByLabelText('Expand sidebar')).toBeInTheDocument()
+    expect(screen.queryByText('Chat History')).not.toBeInTheDocument()
   })
 })
