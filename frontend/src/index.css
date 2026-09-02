@@ -381,6 +381,13 @@ a:not([class]) {
 .prose-chat h5, .prose-chat h6 { font-size: 0.9em; font-weight: 600; margin: 0.7em 0 0.3em; color: var(--text-secondary); }
 .prose-chat h2:first-child, .prose-chat h3:first-child, .prose-chat h4:first-child { margin-top: 0; }
 
+/* Tables — new with the react-markdown + remark-gfm migration (Module 5);
+   the hand-rolled parser it replaced had no table handling at all. */
+.prose-chat table { width: 100%; border-collapse: collapse; margin-bottom: 0.9em; font-size: 0.93em; }
+.prose-chat th, .prose-chat td { border: 1px solid var(--border); padding: 0.4em 0.7em; text-align: left; }
+.prose-chat th { background: var(--bg-surface-2); font-weight: 600; color: var(--text-primary); }
+.prose-chat tr:nth-child(even) td { background: var(--bg-surface-2); }
+
 /* ── Query checks ("what I checked") ────────────────────────────────────────
    Per-query transparency under each assistant answer. Deliberately quiet by
    default: one muted line that expands. It must be legible without competing

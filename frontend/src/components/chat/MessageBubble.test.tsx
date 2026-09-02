@@ -83,4 +83,54 @@ describe('MessageBubble markdown rendering', () => {
     expect(c.querySelector('h5')?.textContent).toBe('Incident Details')
     expect(c.textContent).not.toContain('####')
   })
+
+  // ── Module 5 migration regression tests (react-markdown + remark-gfm) ──
+  // Proving the two historical bug classes above are now structurally
+  // impossible under a real CommonMark parser, not just "should be fine
+  // because it's a real library."
+
+  it('does not merge two independent single-asterisk math expressions into one <em>', () => {
+    // Each "N * N" is space-flanked on both sides, so CommonMark's emphasis
+    // flanking rules never open/close emphasis on either one — unlike a
+    // naive regex that could greedily span from the first bare * to the
+    // second, swallowing "3 and then 7" into a fake <em>.
+    const c = renderContent('Compute 5 * 3 and then 7 * 2 to get the totals.')
+    expect(c.querySelectorAll('em')).toHaveLength(0)
+    expect(c.textContent).toContain('5 * 3')
+    expect(c.textContent).toContain('7 * 2')
+  })
+
+  it('renders two independent numbered lists, separated by other content, as two separate <ol> elements', () => {
+    const c = renderContent(
+      ['1. Faisal appears in 3 cases', '', 'A different ranking follows.', '', '1. Tariq appears in 2 cases'].join('\n'),
+    )
+    const lists = c.querySelectorAll('ol')
+    expect(lists).toHaveLength(2)
+    expect(lists[0].querySelectorAll('li')).toHaveLength(1)
+    expect(lists[1].querySelectorAll('li')).toHaveLength(1)
+  })
+
+  it('renders GFM table syntax as a real <table>, a capability the old parser never had', () => {
+    const c = renderContent(
+      ['| Name | Cases |', '| --- | --- |', '| Faisal | 3 |', '| Tariq | 2 |'].join('\n'),
+    )
+    const table = c.querySelector('table')
+    expect(table).toBeTruthy()
+    expect(table!.querySelectorAll('tr')).toHaveLength(3)
+    expect(c.textContent).toContain('Faisal')
+    expect(c.textContent).toContain('Tariq')
+  })
+
+  it('never renders injected raw HTML from a crafted "malicious-looking" markdown string', () => {
+    // No rehype-raw is registered, so this must never become a live <img>/
+    // <script> element — proving the safety property survived the
+    // migration, not assuming it because the library defaults to safe.
+    const c = renderContent(
+      'See the evidence <img src=x onerror="window.__mb_pwned = true"> here <script>window.__mb_pwned_2 = true</script> now.',
+    )
+    expect((window as unknown as { __mb_pwned?: boolean }).__mb_pwned).toBeUndefined()
+    expect((window as unknown as { __mb_pwned_2?: boolean }).__mb_pwned_2).toBeUndefined()
+    expect(c.querySelector('script')).toBeNull()
+    expect(c.querySelector('img')).toBeNull()
+  })
 })
