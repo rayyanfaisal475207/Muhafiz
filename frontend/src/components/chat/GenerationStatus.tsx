@@ -210,58 +210,80 @@ export const GenerationStatus = memo(function GenerationStatus({
     const isError = status === 'error';
 
     return (
-      <div
-        className="flex items-center gap-2.5 mb-3 animate-fade-in"
-        role="status"
-        aria-live="polite"
-      >
-        {/* Icon in a soft navy well, with a halo pulsing outward while it works */}
-        <span className="relative flex items-center justify-center w-7 h-7 shrink-0">
-          {!isError && (
+      <div className="mb-3 animate-fade-in">
+        <div
+          className="flex items-center gap-2.5"
+          role="status"
+          aria-live="polite"
+        >
+          {/* Icon in a soft navy well, with a halo pulsing outward while it works */}
+          <span className="relative flex items-center justify-center w-7 h-7 shrink-0">
+            {!isError && (
+              <span
+                className="absolute inset-0 rounded-pill"
+                style={{ background: 'var(--accent-soft)', animation: 'status-halo 1.8s ease-out infinite' }}
+              />
+            )}
             <span
-              className="absolute inset-0 rounded-pill"
-              style={{ background: 'var(--accent-soft)', animation: 'status-halo 1.8s ease-out infinite' }}
-            />
-          )}
-          <span
-            className="relative flex items-center justify-center w-7 h-7 rounded-pill"
-            style={{
-              background: isError ? 'var(--error-soft)' : 'var(--accent-soft)',
-              color: isError ? 'var(--error)' : 'var(--accent)',
-            }}
-          >
-            {/* keyed so the icon animates in whenever the phase changes */}
-            <span key={livePhase.key} className="animate-status-icon flex">
-              <Icon animate={!isError} />
+              className="relative flex items-center justify-center w-7 h-7 rounded-pill"
+              style={{
+                background: isError ? 'var(--error-soft)' : 'var(--accent-soft)',
+                color: isError ? 'var(--error)' : 'var(--accent)',
+              }}
+            >
+              {/* keyed so the icon animates in whenever the phase changes */}
+              <span key={livePhase.key} className="animate-status-icon flex">
+                <Icon animate={!isError} />
+              </span>
             </span>
           </span>
-        </span>
 
-        <span
-          className={`text-[13px] font-medium ${isError ? '' : 'animate-status-breathe'}`}
-          style={{ color: isError ? 'var(--error)' : 'var(--text-secondary)' }}
-        >
-          {isError ? `${label} failed` : label}
-        </span>
-
-        {elapsed > 400 && (
-          <span className="text-[11px] tabular-nums" style={{ color: 'var(--text-faint)' }}>
-            {formatMs(elapsed)}
+          <span
+            className={`text-[13px] font-medium ${isError ? '' : 'animate-status-breathe'}`}
+            style={{ color: isError ? 'var(--error)' : 'var(--text-secondary)' }}
+          >
+            {isError ? `${label} failed` : label}
           </span>
-        )}
 
-        {/* Breadcrumb of phases already finished — quiet progress, no bar */}
-        {visible.length > 1 && (
-          <span className="flex items-center gap-1 ml-0.5">
-            {visible.slice(0, -1).map((p) => (
-              <span
-                key={p.key}
-                title={p.label}
-                className="w-1 h-1 rounded-pill"
-                style={{ background: p.status === 'error' ? 'var(--error)' : 'var(--accent-border)' }}
-              />
-            ))}
-          </span>
+          {elapsed > 400 && (
+            <span className="text-[11px] tabular-nums" style={{ color: 'var(--text-faint)' }}>
+              {formatMs(elapsed)}
+            </span>
+          )}
+
+          {/* Breadcrumb of phases already finished — quiet progress, no bar */}
+          {visible.length > 1 && (
+            <span className="flex items-center gap-1 ml-0.5">
+              {visible.slice(0, -1).map((p) => (
+                <span
+                  key={p.key}
+                  title={p.label}
+                  className="w-1 h-1 rounded-pill"
+                  style={{ background: p.status === 'error' ? 'var(--error)' : 'var(--accent-border)' }}
+                />
+              ))}
+            </span>
+          )}
+        </div>
+
+        {/* Loading-skeleton shimmer — .animate-shimmer's earmarked new home
+            (its only previous caller, the deleted PipelineStepCard's
+            active-step progress sweep, went with the rest of PipelinePanel
+            in Module 2). Suggests the answer is on its way before the
+            first content token has arrived — not a fake percentage, same
+            spirit as the sweep it replaces. Hidden once an error is the
+            live phase; a failure line doesn't need a "content coming"
+            hint under it. */}
+        {!isError && (
+          <div
+            data-testid="generation-status-skeleton"
+            className="mt-2 ml-9 h-1.5 rounded-pill overflow-hidden"
+            style={{
+              background: 'linear-gradient(90deg, var(--bg-surface-3) 25%, var(--accent-soft) 50%, var(--bg-surface-3) 75%)',
+              backgroundSize: '200% 100%',
+              animation: 'shimmer 1.8s ease-in-out infinite',
+            }}
+          />
         )}
       </div>
     );
