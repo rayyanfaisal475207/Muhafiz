@@ -196,6 +196,11 @@ body {
   to   { opacity: 1; transform: translateX(0); }
 }
 
+/* Unused as of Module 2 (FRONTEND_UX_MATURITY_IMPLEMENTATION_PLAN.md) — its
+   only caller, PipelineStepCard.tsx's active-step progress sweep, was
+   deleted along with the rest of PipelinePanel. Held here, not removed:
+   Module 6 (animation polish) earmarks it for GenerationStatus's working-
+   phase loading-skeleton treatment. Between homes, not dead. */
 @keyframes shimmer {
   0%   { background-position: -200% 0; }
   100% { background-position:  200% 0; }
