@@ -1,5 +1,6 @@
 import type { Source } from '../../types';
 import { useModalA11y } from '../../hooks/useModalA11y';
+import { GlobeIcon, ReadIcon } from './StatusIcons';
 
 interface CitationPanelProps {
   source: Source;
@@ -39,7 +40,11 @@ export function CitationPanel({ source, onClose }: CitationPanelProps) {
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
           <h3 id="citation-panel-title" className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
-            {isWeb ? '🌐 Web Source' : '📄 Document Citation'}
+            {/* Same GlobeIcon/ReadIcon web-vs-document distinction
+                MessageBubble.tsx already draws on its citation chips — a
+                hand-drawn SVG here too, not a raw emoji glyph. */}
+            {isWeb ? <GlobeIcon className="text-[var(--text-secondary)]" /> : <ReadIcon className="text-[var(--text-secondary)]" />}
+            {isWeb ? 'Web Source' : 'Document Citation'}
           </h3>
           <button onClick={onClose} aria-label="Close" className="p-1 rounded-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-3)] transition-colors">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -230,6 +230,11 @@ export function Sidebar() {
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
           </button>
         </div>
+        {/* Deliberately still a plain <select>, not CaseSelector's
+            type-to-filter combobox: projects are a per-user, hand-created
+            list (typically a handful) rather than the dozens/hundreds of
+            FIR-numbered cases CaseSelector.tsx exists to make findable.
+            Revisit if a workspace ever grows to case-file volume. */}
         <select
           aria-label="Workspace"
           className="w-full bg-[var(--bg-surface)] border border-[var(--border)] rounded-sm px-2.5 py-1.5 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--border-hover)] focus:outline-none focus:border-[var(--accent)]"
@@ -479,14 +484,18 @@ export function Sidebar() {
           </NavLink>
         ))}
         <ThemeToggle collapsed={collapsed} />
+        {/* Same destructive-action hover treatment "Delete session" already
+            uses above (hover:text-[var(--error)] hover:bg-[var(--error-soft)])
+            — Sign Out is the one other destructive action in this file and
+            had been left with neutral hover styling in both variants. */}
         <button
           onClick={() => logout()}
           title="Sign Out"
           aria-label="Sign Out"
           className={
             collapsed
-              ? 'flex items-center justify-center w-9 h-9 text-sm font-medium rounded-sm text-[var(--text-secondary)] hover:bg-[var(--bg-surface-3)] hover:text-[var(--text-primary)] transition-colors'
-              : 'flex items-center w-full px-3 py-2 text-sm font-medium rounded-sm text-[var(--text-secondary)] hover:bg-[var(--bg-surface-3)] hover:text-[var(--text-primary)] transition-colors'
+              ? 'flex items-center justify-center w-9 h-9 text-sm font-medium rounded-sm text-[var(--text-secondary)] hover:bg-[var(--error-soft)] hover:text-[var(--error)] transition-colors'
+              : 'flex items-center w-full px-3 py-2 text-sm font-medium rounded-sm text-[var(--text-secondary)] hover:bg-[var(--error-soft)] hover:text-[var(--error)] transition-colors'
           }
         >
           <svg className={collapsed ? 'w-4 h-4' : 'w-4 h-4 mr-3'} fill="none" stroke="currentColor" viewBox="0 0 24 24">

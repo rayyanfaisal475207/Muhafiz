@@ -44,6 +44,24 @@ describe('CitationPanel — slide-in overlay', () => {
     )
   })
 
+  // Item 1 of the UI-polish module (FRONTEND_UX_MATURITY_REVIEW_FINDINGS.md):
+  // the 🌐/📄 emoji title icons were replaced with the same GlobeIcon/
+  // ReadIcon SVGs MessageBubble.tsx already draws for this exact
+  // web-vs-document distinction — no raw emoji left in the title, and no
+  // literal emoji character should render for either source type.
+  it('draws an SVG icon in the title, not an emoji glyph, for both source types', () => {
+    const { unmount } = render(<CitationPanel source={docSource} onClose={vi.fn()} />)
+    let title = screen.getByRole('dialog').querySelector('h3')!
+    expect(title.querySelector('svg')).toBeInTheDocument()
+    expect(title.textContent).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u)
+    unmount()
+
+    render(<CitationPanel source={webSource} onClose={vi.fn()} />)
+    title = screen.getByRole('dialog').querySelector('h3')!
+    expect(title.querySelector('svg')).toBeInTheDocument()
+    expect(title.textContent).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u)
+  })
+
   it('calls onClose when the close button is clicked', async () => {
     const onClose = vi.fn()
     render(<CitationPanel source={docSource} onClose={onClose} />)
