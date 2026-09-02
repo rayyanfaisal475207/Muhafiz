@@ -10,8 +10,8 @@ import { useSessionStore } from '../../store/sessionStore';
 import { useChatStore } from '../../store/chatStore';
 import { ThemeToggle } from './ThemeToggle';
 import { apiClient } from '../../lib/api';
-import { LAST_SESSION_KEY, ALL_CASES_ROLES } from '../../lib/constants';
-import { LogoLockup } from '../brand/Logo';
+import { LAST_SESSION_KEY, SIDEBAR_COLLAPSED_KEY, ALL_CASES_ROLES } from '../../lib/constants';
+import { LogoLockup, LogoMark } from '../brand/Logo';
 
 // New Chat icon, kept alongside the (now button) control below.
 const NewChatIcon = (
@@ -20,6 +20,21 @@ const NewChatIcon = (
     <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z" />
   </svg>
 );
+
+// Points left when the sidebar is expanded (click to collapse) and right
+// when collapsed (click to expand) — a single chevron, no separate icon set.
+function CollapseToggleIcon({ collapsed }: { collapsed: boolean }) {
+  return (
+    <svg
+      className={`w-4 h-4 transition-transform duration-200 ${collapsed ? 'rotate-180' : ''}`}
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+    </svg>
+  );
+}
 
 const navItems = [
   {
@@ -73,6 +88,28 @@ export function Sidebar() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+
+  // Collapse/expand — a per-browser preference, same plain-localStorage-key
+  // pattern as LAST_SESSION_KEY (read once on mount, written on toggle).
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+      } catch {
+        // Storage unavailable (private mode, quota) — the toggle still
+        // works for this session, it just won't survive a reload.
+      }
+      return next;
+    });
+  };
 
   // Delete/rename/export failures used to be swallowed with only
   // console.error — nothing told the user the action didn't work.
@@ -163,12 +200,28 @@ export function Sidebar() {
 
   return (
     <>
-    <aside className="flex flex-col w-64 h-full bg-[var(--bg-surface-2)] border-r border-[var(--border)] py-4 shrink-0 z-10">
-      {/* Muhafiz Logo */}
-      <div className="flex items-center px-4 mb-6">
-        <LogoLockup />
+    <aside
+      className={`flex flex-col h-full bg-[var(--bg-surface-2)] border-r border-[var(--border)] py-4 shrink-0 z-10 transition-[width] duration-200 ${collapsed ? 'w-14' : 'w-64'}`}
+    >
+      {/* Logo + collapse toggle */}
+      <div className={`flex items-center mb-6 ${collapsed ? 'flex-col gap-3 px-2' : 'justify-between px-4'}`}>
+        {collapsed ? <LogoMark className="w-7 h-7" /> : <LogoLockup />}
+        <button
+          onClick={toggleCollapsed}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="p-1.5 rounded-xs text-[var(--text-muted)] hover:text-[var(--accent)] hover:bg-[var(--accent-soft)] transition-colors"
+        >
+          <CollapseToggleIcon collapsed={collapsed} />
+        </button>
       </div>
 
+      {/* Workspace and Case selectors need label/search text to be usable
+          at all (unlike a static nav icon) — they hide entirely when
+          collapsed rather than shrinking to a broken icon form. One click
+          on the toggle above always brings them back. */}
+      {!collapsed && (
+      <>
       {/* Project Selector */}
       <div className="px-4 mb-4">
         <div className="flex items-center justify-between mb-2">
@@ -237,20 +290,31 @@ export function Sidebar() {
               : 'General reference material only — select a case to search its evidence.'}
         </p>
       </div>
+      </>
+      )}
 
       {/* Main Nav */}
 
-      <nav className="flex flex-col gap-1 px-3 mb-6">
+      <nav className={`flex flex-col gap-1 mb-6 ${collapsed ? 'px-2 items-center' : 'px-3'}`}>
         <button
           onClick={handleNewChat}
-          className="flex items-center px-3 py-2 rounded-sm transition-colors text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-surface-3)] hover:text-[var(--text-primary)]"
+          title="New Chat"
+          aria-label="New Chat"
+          className={
+            collapsed
+              ? 'flex items-center justify-center w-9 h-9 rounded-sm transition-colors text-[var(--text-secondary)] hover:bg-[var(--bg-surface-3)] hover:text-[var(--text-primary)]'
+              : 'flex items-center px-3 py-2 rounded-sm transition-colors text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-surface-3)] hover:text-[var(--text-primary)]'
+          }
         >
-          <span className="mr-3 opacity-70">{NewChatIcon}</span>
-          New Chat
+          <span className={collapsed ? '' : 'mr-3 opacity-70'}>{NewChatIcon}</span>
+          {!collapsed && 'New Chat'}
         </button>
       </nav>
 
-      {/* Chat History */}
+      {/* Chat History — hidden collapsed, same reasoning as the Workspace/
+          Case selectors above: session titles need to be readable to be
+          useful, an icon can't stand in for them. */}
+      {!collapsed && (
       <div className="flex-1 overflow-y-auto px-3">
         <div className="text-[11px] font-semibold uppercase tracking-wider mb-2 pl-3" style={{ color: 'var(--text-faint)' }}>
           Chat History
@@ -384,35 +448,51 @@ export function Sidebar() {
           )
         ))}
       </div>
+      )}
+      {collapsed && <div className="flex-1" />}
 
       {/* Account — Settings, theme, sign out grouped together at the bottom */}
-      <div className="mt-auto px-4 pt-4 border-t border-[var(--border)] flex flex-col gap-1">
+      <div className={`mt-auto pt-4 border-t border-[var(--border)] flex flex-col gap-1 ${collapsed ? 'px-2 items-center' : 'px-4'}`}>
         {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             end={item.to === '/'}
+            title={item.label}
+            aria-label={item.label}
             className={({ isActive }) =>
-              `flex items-center px-3 py-2 rounded-sm transition-colors text-sm font-medium ${
-                isActive
-                  ? 'bg-[var(--accent-soft)] text-[var(--accent)]'
-                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface-3)] hover:text-[var(--text-primary)]'
-              }`
+              collapsed
+                ? `flex items-center justify-center w-9 h-9 rounded-sm transition-colors ${
+                    isActive
+                      ? 'bg-[var(--accent-soft)] text-[var(--accent)]'
+                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface-3)] hover:text-[var(--text-primary)]'
+                  }`
+                : `flex items-center px-3 py-2 rounded-sm transition-colors text-sm font-medium ${
+                    isActive
+                      ? 'bg-[var(--accent-soft)] text-[var(--accent)]'
+                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface-3)] hover:text-[var(--text-primary)]'
+                  }`
             }
           >
-            <span className="mr-3 opacity-70">{item.icon}</span>
-            {item.label}
+            <span className={collapsed ? '' : 'mr-3 opacity-70'}>{item.icon}</span>
+            {!collapsed && item.label}
           </NavLink>
         ))}
-        <ThemeToggle />
+        <ThemeToggle collapsed={collapsed} />
         <button
           onClick={() => logout()}
-          className="flex items-center w-full px-3 py-2 text-sm font-medium rounded-sm text-[var(--text-secondary)] hover:bg-[var(--bg-surface-3)] hover:text-[var(--text-primary)] transition-colors"
+          title="Sign Out"
+          aria-label="Sign Out"
+          className={
+            collapsed
+              ? 'flex items-center justify-center w-9 h-9 text-sm font-medium rounded-sm text-[var(--text-secondary)] hover:bg-[var(--bg-surface-3)] hover:text-[var(--text-primary)] transition-colors'
+              : 'flex items-center w-full px-3 py-2 text-sm font-medium rounded-sm text-[var(--text-secondary)] hover:bg-[var(--bg-surface-3)] hover:text-[var(--text-primary)] transition-colors'
+          }
         >
-          <svg className="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className={collapsed ? 'w-4 h-4' : 'w-4 h-4 mr-3'} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
           </svg>
-          Sign Out
+          {!collapsed && 'Sign Out'}
         </button>
       </div>
     </aside>

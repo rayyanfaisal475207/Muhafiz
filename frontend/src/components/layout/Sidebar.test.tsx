@@ -6,6 +6,7 @@ import { useAuthStore } from '../../store/authStore'
 import { useProjectStore } from '../../store/projectStore'
 import { useCaseStore } from '../../store/caseStore'
 import { useSessionStore } from '../../store/sessionStore'
+import { SIDEBAR_COLLAPSED_KEY } from '../../lib/constants'
 
 // Sidebar's mount effects call fetchProjects/fetchCases/fetchSessions when
 // authenticated. Keeping isAuthenticated false in tests that pre-seed store
@@ -85,5 +86,70 @@ describe('Sidebar — "All Cases" vs "No Case" label is role-gated', () => {
     useAuthStore.setState({ isAuthenticated: false, user: { id: 'u1', email: 'a@b.com', role: 'investigator', is_admin: false } as any })
     renderSidebar()
     expect(screen.getByRole('combobox', { name: 'Case' })).toHaveValue('No Case')
+  })
+})
+
+describe('Sidebar — collapse/expand (Module 3, FRONTEND_UX_MATURITY_IMPLEMENTATION_PLAN.md)', () => {
+  beforeEach(() => {
+    localStorage.removeItem(SIDEBAR_COLLAPSED_KEY)
+    useAuthStore.setState({ isAuthenticated: false, user: { id: 'u1', email: 'a@b.com', role: 'investigator', is_admin: false } as any })
+    useProjectStore.setState({ projects: [], activeProjectId: null, isLoading: false, error: null })
+    useCaseStore.setState({ cases: [], activeCaseId: null, isLoading: false, error: null })
+    useSessionStore.setState({ sessions: [], isLoading: false, error: null })
+  })
+
+  it('starts expanded by default (no stored preference) with the Workspace/Case/history sections visible', () => {
+    renderSidebar()
+    expect(screen.getByRole('combobox', { name: 'Workspace' })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Case' })).toBeInTheDocument()
+    expect(screen.getByText('Chat History')).toBeInTheDocument()
+    expect(screen.getByText('New Chat')).toBeInTheDocument()
+  })
+
+  it('collapsing hides the Workspace/Case/history sections but keeps New Chat and Sign Out reachable as tooltip-labeled icons', () => {
+    renderSidebar()
+    fireEvent.click(screen.getByLabelText('Collapse sidebar'))
+
+    expect(screen.queryByRole('combobox', { name: 'Workspace' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Case' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Chat History')).not.toBeInTheDocument()
+    // The label text is gone, but the control is still there with a tooltip.
+    expect(screen.queryByText('New Chat')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('New Chat')).toBeInTheDocument()
+    expect(screen.getByLabelText('New Chat')).toHaveAttribute('title', 'New Chat')
+    expect(screen.getByLabelText('Sign Out')).toBeInTheDocument()
+    expect(screen.getByLabelText('Sign Out')).toHaveAttribute('title', 'Sign Out')
+    expect(screen.getByLabelText('Profile & Settings')).toBeInTheDocument()
+  })
+
+  it('re-expands on a second click, restoring the label-dependent sections', () => {
+    renderSidebar()
+    const toggle = () => screen.getByLabelText(/Collapse sidebar|Expand sidebar/)
+    fireEvent.click(toggle())
+    expect(screen.queryByText('Chat History')).not.toBeInTheDocument()
+
+    fireEvent.click(toggle())
+    expect(screen.getByText('Chat History')).toBeInTheDocument()
+    expect(screen.getByText('New Chat')).toBeInTheDocument()
+  })
+
+  it('persists the collapsed preference to localStorage on toggle', () => {
+    renderSidebar()
+    expect(localStorage.getItem(SIDEBAR_COLLAPSED_KEY)).not.toBe('true')
+
+    fireEvent.click(screen.getByLabelText('Collapse sidebar'))
+    expect(localStorage.getItem(SIDEBAR_COLLAPSED_KEY)).toBe('true')
+
+    fireEvent.click(screen.getByLabelText('Expand sidebar'))
+    expect(localStorage.getItem(SIDEBAR_COLLAPSED_KEY)).toBe('false')
+  })
+
+  it('reads a previously-persisted collapsed preference on a fresh mount', () => {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, 'true')
+    renderSidebar()
+
+    expect(screen.getByLabelText('Expand sidebar')).toBeInTheDocument()
+    expect(screen.queryByText('Chat History')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('New Chat')).toBeInTheDocument()
   })
 })
