@@ -27,8 +27,22 @@ from src.pipeline.harness.types import NAME_FIDELITY_RULE
 
 # (module, prompt-template attribute) for every sub-agent that generates
 # user-facing prose. Deterministic-text sub-agents (Timeline Building,
-# Data-Quality, Report Drafting's structured assembly) are excluded because
-# they never paraphrase a name — they emit stored values verbatim.
+# Data-Quality) are excluded because they never paraphrase a name — they
+# emit stored values verbatim.
+#
+# [Fix, confirmed live] Report Drafting was previously excluded here too,
+# on the claim its "structured assembly... never paraphrases a name" — that
+# claim was checked against the actual code and is false:
+# report_drafting.py's _DRAFT_SYSTEM_PROMPT_TEMPLATE explicitly instructs
+# "write a well-organized report in clear prose", a genuine call_llm()
+# paraphrase over case-summary material containing names, not a verbatim
+# reproduction. investigative_analysis.py and meta_analysis.py were never
+# even considered for this list despite both making an equivalent genuine
+# prose call_llm() call ("produce one synthesized analytical answer" /
+# "combining these sub-answers... do not just concatenate them") — this
+# test's own docstring says the rule must be asserted "on every prompt that
+# generates user-facing prose," and these three call_llm() sites do exactly
+# that; omitting them left 3 of 9 real prose call sites uncovered.
 PROSE_PROMPTS = [
     ("semantic_search", "_SYSTEM_PROMPT_TEMPLATE"),
     ("local_search", "_SYSTEM_PROMPT_TEMPLATE"),
@@ -36,6 +50,9 @@ PROSE_PROMPTS = [
     ("cross_case_linkage", "_XNETWORK_SYSTEM_PROMPT_TEMPLATE"),
     ("large_scale_aggregate", "_SYSTEM_PROMPT_TEMPLATE"),
     ("global_search", "_FINAL_SYSTEM_PROMPT_TEMPLATE"),
+    ("investigative_analysis", "_SYSTEM_PROMPT_TEMPLATE"),
+    ("meta_analysis", "_SYNTHESIS_SYSTEM_PROMPT_TEMPLATE"),
+    ("report_drafting", "_DRAFT_SYSTEM_PROMPT_TEMPLATE"),
 ]
 
 

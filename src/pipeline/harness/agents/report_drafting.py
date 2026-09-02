@@ -196,6 +196,7 @@ from src.pipeline.harness.agents.case_summarization import case_summarization
 from src.pipeline.harness.supervisor import REPORT_DRAFTING, register
 from src.pipeline.harness.types import (
     ANSWER_MAX_TOKENS,
+    NAME_FIDELITY_RULE,
     Citation,
     GeneratedFileRef,
     GRAPH_ONLY_SUMMARY_DISCLOSURE,
@@ -242,7 +243,7 @@ _DRAFT_SYSTEM_PROMPT_TEMPLATE = (
     "Respond in {preferred_language}.\n\n"
     "--- CASE SUMMARY MATERIAL ([Document 1]) ---\n{summary_text}\n"
     "--- END OF CASE SUMMARY MATERIAL ---"
-)
+) + NAME_FIDELITY_RULE
 
 
 def _generation_role(preferred_language: Optional[str]) -> str:

@@ -155,10 +155,29 @@ def _normalize_number(token: str) -> str:
     claim saying "1,200" is supported by a chunk saying "1200", and "09" and
     "9" are the same day. Comparing raw surface strings made both look like
     mismatches, so numbers are compared on this normalized form instead.
+
+    [PRESERVE] Leading-zero stripping is deliberately bounded to SHORT
+    tokens only (the token AS WRITTEN is 2 characters or fewer) — long
+    enough to cover every real calendar day/month ("01"-"31"), too short
+    to be a real phone/CNIC/badge-number segment. Confirmed live: the
+    previous unconditional float()/int() round-trip collapsed "0332" and
+    "332" to the identical normalized value "332" — a genuinely different,
+    incomplete phone number (Pakistani mobile numbers' leading "0"
+    trunk-code digit is semantically significant, not formatting) was
+    silently treated as a match. A claim citing "332-XXXXXXX" against a
+    source chunk that actually says "0332-XXXXXXX" would pass this
+    structural check unflagged. The length check is on the token as
+    WRITTEN, not on what remains after stripping zeros — "007" (3 chars)
+    must stay "007", not collapse to "7", the same reasoning as "0332".
+    Longer digit runs are compared on their literal, uncleaned-of-leading-
+    zeros form instead (thousands-separator commas are still stripped
+    first either way, so "1,200" still matches a source chunk's "1200").
     """
     cleaned = token.replace(",", "")
     if not cleaned:
         return token
+    if "." not in cleaned and len(cleaned) > 2:
+        return cleaned
     try:
         value = float(cleaned)
     except ValueError:

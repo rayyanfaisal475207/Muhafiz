@@ -25,6 +25,14 @@ import pytest
 
 AGENTS_DIR = pathlib.Path("src/pipeline/harness/agents")
 _CALL_RE = re.compile(r"await call_llm\((.*?)\)\n", re.DOTALL)
+# Matches a real `max_tokens=` kwarg, not the `cloud_max_tokens=` substring it
+# sits inside of. A plain `"max_tokens" in call_args` check is fooled by
+# `cloud_max_tokens=500` — confirmed live: cross_case_linkage.py's two
+# call_llm() sites passed only cloud_max_tokens (no real max_tokens at all,
+# so the LOCAL path silently inherited the 1000-token default) and this test
+# still reported them as compliant. The negative lookbehind excludes any
+# `max_tokens` immediately preceded by `cloud_`.
+_REAL_MAX_TOKENS_RE = re.compile(r"(?<!cloud_)\bmax_tokens\s*=")
 
 
 def _agent_modules():
@@ -37,7 +45,7 @@ def test_every_prose_call_llm_sets_max_tokens(path):
     offenders = [
         source[:m.start()].count("\n") + 1
         for m in _CALL_RE.finditer(source)
-        if "max_tokens" not in m.group(1)
+        if not _REAL_MAX_TOKENS_RE.search(m.group(1))
     ]
     assert not offenders, (
         f"{path.name} calls call_llm() without max_tokens at line(s) {offenders} — "
