@@ -1,11 +1,14 @@
 // ============================================================
-// ChatPage — two-column layout (60% chat, 40% pipeline)
+// ChatPage — full-width chat; a clicked citation opens as a slide-in
+// overlay rather than reserving a permanent right column (Module 2 of
+// FRONTEND_UX_MATURITY_IMPLEMENTATION_PLAN.md — the pipeline trace this
+// column used to show permanently now lives inline per-message in
+// GenerationStatus, see Module 1).
 // ============================================================
 
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ChatPanel } from '../components/chat/ChatPanel';
-import { PipelinePanel } from '../components/pipeline/PipelinePanel';
 import { CitationPanel } from '../components/chat/CitationPanel';
 import { useChatStore } from '../store/chatStore';
 import type { Source } from '../types';
@@ -45,8 +48,6 @@ export function ChatPage() {
     }
   }, [id, location.key]);
 
-  // Layout is unchanged: chat on the left, pipeline/citation on the right.
-  // Only the surface treatment changed — one soft shadow, warm border.
   return (
     <div className="flex justify-center h-full py-6 px-6" style={{ background: 'var(--bg-base)' }}>
       <div
@@ -57,26 +58,16 @@ export function ChatPage() {
           boxShadow: 'var(--shadow-md)',
         }}
       >
-        {/* Left: Chat */}
-        <div
-          className="flex flex-col border-r"
-          style={{ flex: '1 1 60%', minWidth: 0, borderColor: 'var(--border)' }}
-        >
+        <div className="flex flex-col flex-1 min-w-0">
           <ChatPanel onSourceClick={(s) => setActiveSource(s)} />
         </div>
-
-        {/* Right: Pipeline Trace or Citation */}
-        <div
-          className="flex flex-col"
-          style={{ flex: '0 0 40%', minWidth: '350px', background: 'var(--bg-surface-2)' }}
-        >
-          {activeSource ? (
-            <CitationPanel source={activeSource} onClose={() => setActiveSource(null)} />
-          ) : (
-            <PipelinePanel />
-          )}
-        </div>
       </div>
+
+      {/* Citation viewer — an on-demand overlay, not a reserved column.
+          Mounted only while a citation is active. */}
+      {activeSource && (
+        <CitationPanel source={activeSource} onClose={() => setActiveSource(null)} />
+      )}
     </div>
   );
 }

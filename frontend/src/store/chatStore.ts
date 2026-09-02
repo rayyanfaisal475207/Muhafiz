@@ -29,7 +29,9 @@ import { stepLabel } from '../types';
 // actually ran — whether that's the legacy orchestrator's 7 named steps or
 // the agent-harness's Supervisor → Dispatch → Response — each lighting up
 // live in real execution order instead of a frozen pre-seeded list.
-// PIPELINE_STEPS is still used by the idle-state preview in PipelinePanel.
+// (PipelinePanel, the previous consumer of PIPELINE_STEPS's idle-state
+// preview, was removed in Module 2 of FRONTEND_UX_MATURITY_IMPLEMENTATION_PLAN.md
+// — currentSteps now only feeds GenerationStatus's in-chat trace.)
 function buildInitialSteps(): PipelineStep[] {
   return [];
 }
