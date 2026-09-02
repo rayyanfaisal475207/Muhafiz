@@ -74,7 +74,7 @@ describe('MessageBubble markdown rendering', () => {
 
   // ── Existing behaviour that must not regress ──────────────────────────
   it('still renders [Document N] citations as chips', () => {
-    const c = renderContent('The pistol was seized [Document 2].')
+    renderContent('The pistol was seized [Document 2].')
     expect(screen.getByText('[Document 2]')).toBeTruthy()
   })
 
