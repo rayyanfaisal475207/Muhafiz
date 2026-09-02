@@ -4,8 +4,11 @@
 // unmemoized bubble re-rendered (and re-parsed) every message each token.
 // ============================================================
 
-import { memo, useMemo } from 'react';
+import { memo, useMemo, Children } from 'react';
 import type { ReactNode } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import type { Components } from 'react-markdown';
 import type { ChatMessage, Source } from '../../types';
 import { GenerationStatus } from './GenerationStatus';
 import { AlertIcon, GlobeIcon, ReadIcon } from './StatusIcons';
@@ -17,151 +20,84 @@ interface Props {
   onSourceClick?: (source: Source) => void;
 }
 
-// Inline parsing: [Document N] citation chips, **bold**, and `code`.
-// Deliberately NOT a full markdown/HTML renderer — no dangerouslySetInnerHTML,
-// so model output can never inject markup (the answer text is untrusted).
-function parseInline(text: string, keyPrefix: string) {
-  // Split on citations first so a citation inside bold still renders as a chip.
-  return text.split(/(\[Document \d+\])/g).map((part, i) => {
-    if (part.match(/^\[Document \d+\]$/)) {
-      return (
-        <span
-          key={`${keyPrefix}-cite-${i}`}
-          className="text-accent text-xs font-semibold px-1 py-0.5 bg-accent/10 rounded mx-0.5 inline-block"
-        >
-          {part}
-        </span>
-      );
-    }
-    // Then **bold**, *emphasis* and `code` within the non-citation segments.
-    // [Scenario-test Finding B] Single-asterisk *emphasis* was previously
-    // unhandled and rendered as literal asterisks ("A *30-bore pistol*"),
-    // because only the ** form was matched. The ** alternative MUST stay
-    // first in this pattern so a bold run is consumed as bold rather than
-    // being mis-split into two single-asterisk fragments. The single-*
-    // alternative requires a non-asterisk, non-space char right after the
-    // opening * so it can't match a "**" boundary or a bare bullet/maths
-    // asterisk, and disallows * inside the run so it stops at its own
-    // closing delimiter.
-    return (
-      <span key={`${keyPrefix}-seg-${i}`}>
-        {part
-          // `_italic_` is matched only when the underscores sit on a word
-          // boundary, so identifiers that legitimately contain underscores
-          // (snake_case field names, some record IDs) are left alone — the
-          // backend's own degradation notes use the _..._ form, and those
-          // were rendering with literal underscores (verify-log Finding P).
-          .split(/(\*\*[\s\S]*?\*\*|\*[^*\s][^*]*\*|(?<![A-Za-z0-9])_[^_\s][^_]*_(?![A-Za-z0-9])|`[^`]+`)/g)
-          .map((sub, j) => {
-            if (sub.length > 4 && sub.startsWith('**') && sub.endsWith('**')) {
-              return <strong key={j}>{sub.slice(2, -2)}</strong>;
-            }
-            if (
-              sub.length > 2 &&
-              sub.startsWith('*') &&
-              sub.endsWith('*') &&
-              !sub.startsWith('**')
-            ) {
-              return <em key={j}>{sub.slice(1, -1)}</em>;
-            }
-            if (sub.length > 2 && sub.startsWith('_') && sub.endsWith('_')) {
-              return <em key={j}>{sub.slice(1, -1)}</em>;
-            }
-            if (sub.startsWith('`') && sub.endsWith('`') && sub.length > 1) {
-              return <code key={j}>{sub.slice(1, -1)}</code>;
-            }
-            return sub;
-          })}
-      </span>
-    );
-  });
-}
+// ── Markdown rendering ───────────────────────────────────────────────────
+//
+// react-markdown + remark-gfm (Module 5 of FRONTEND_UX_MATURITY_IMPLEMENTATION_PLAN.md)
+// replaced a hand-rolled regex parser here. react-markdown renders to real
+// React elements, not dangerouslySetInnerHTML, and no rehype-raw (or any
+// raw-HTML plugin) is registered below — so the original parser's own
+// safety property survives exactly: model output can never inject markup,
+// because there is no code path anywhere in this file that turns a string
+// into HTML. remark-gfm adds table support, which the hand-rolled parser
+// had no handling for at all.
+//
+// [Document N] citation chips have no library equivalent, so they're
+// implemented as a small post-render pass over react-markdown's own
+// element tree (see withCitationChips) — not by keeping any part of the
+// old parser around as a patch on top of the library.
 
-// Block-level markdown → real React elements: headings (#..######), bullet
-// lists (- / *), ordered lists (1.), and paragraphs. Consecutive list items
-// are grouped into a single <ul>/<ol>. Blank lines separate paragraphs.
-function parseContent(content: string) {
-  const lines = content.split('\n');
-  const blocks: ReactNode[] = [];
-  let list: { ordered: boolean; items: string[]; start?: number } | null = null;
-  let para: string[] = [];
-  let key = 0;
+const CITATION_SPLIT = /(\[Document \d+\])/g;
+const CITATION_MATCH = /^\[Document \d+\]$/;
 
-  const flushPara = () => {
-    if (para.length) {
-      const text = para.join(' ');
-      blocks.push(<p key={`b-${key++}`}>{parseInline(text, `p-${key}`)}</p>);
-      para = [];
+/** Splits `[Document N]` markers out of a text-containing element's
+ * children into citation-chip spans, leaving everything else (including
+ * already-rendered nested elements like <strong>/<em>) untouched. Applied
+ * per text-bearing component override below, so a citation nested inside
+ * bold/italic text is still caught by that element's own override. */
+function withCitationChips(children: ReactNode): ReactNode[] {
+  const out: ReactNode[] = [];
+  Children.toArray(children).forEach((child, i) => {
+    if (typeof child !== 'string') {
+      out.push(child);
+      return;
     }
-  };
-  const flushList = () => {
-    if (list) {
-      const items = list.items.map((it, i) => (
-        <li key={i}>{parseInline(it, `li-${key}-${i}`)}</li>
-      ));
-      blocks.push(
-        list.ordered ? (
-          <ol key={`b-${key++}`} start={list.start ?? 1}>
-            {items}
-          </ol>
+    const parts = child.split(CITATION_SPLIT);
+    if (parts.length === 1) {
+      out.push(child);
+      return;
+    }
+    parts.forEach((part, j) => {
+      out.push(
+        CITATION_MATCH.test(part) ? (
+          <span
+            key={`cite-${i}-${j}`}
+            className="text-accent text-xs font-semibold px-1 py-0.5 bg-accent/10 rounded mx-0.5 inline-block"
+          >
+            {part}
+          </span>
         ) : (
-          <ul key={`b-${key++}`}>{items}</ul>
+          <span key={`txt-${i}-${j}`}>{part}</span>
         ),
       );
-      list = null;
-    }
-  };
-
-  for (const raw of lines) {
-    const line = raw.trimEnd();
-    const heading = line.match(/^(#{1,6})\s+(.*)$/);
-    const bullet = line.match(/^\s*[-*]\s+(.*)$/);
-    const ordered = line.match(/^\s*(\d+)\.\s+(.*)$/);
-
-    if (heading) {
-      flushPara();
-      flushList();
-      const level = Math.min(heading[1].length, 6);
-      const text = heading[2];
-      const Tag = (`h${Math.min(level + 1, 6)}` as 'h2' | 'h3' | 'h4' | 'h5' | 'h6');
-      blocks.push(<Tag key={`b-${key++}`}>{parseInline(text, `h-${key}`)}</Tag>);
-    } else if (bullet) {
-      flushPara();
-      if (!list || list.ordered) {
-        flushList();
-        list = { ordered: false, items: [] };
-      }
-      list.items.push(bullet[1]);
-    } else if (ordered) {
-      flushPara();
-      if (!list || !list.ordered) {
-        flushList();
-        // [Scenario-test Finding I] Carry the marker's own number as the
-        // list's `start`. A numbered list that gets split (by an intervening
-        // blank line, sub-bullet, or paragraph) previously restarted every
-        // fragment at "1.", so a ranked list rendered as 1./1./1. — losing
-        // the ranking, which in that answer WAS the information. The source
-        // markdown was correct (verified: it emits 1./2./3.); the split was
-        // ours.
-        list = { ordered: true, items: [], start: parseInt(ordered[1], 10) || 1 };
-      }
-      list.items.push(ordered[2]);
-    } else if (line.trim() === '') {
-      // [Scenario-test Finding I] A blank line no longer terminates a list.
-      // Models routinely put blank lines between list items (and between an
-      // item and its own sub-bullets); treating that as "list over" was what
-      // fragmented ordered lists into many single-item <ol>s. Paragraphs
-      // still break here, and any non-list line below still closes the list.
-      flushPara();
-    } else {
-      flushList();
-      para.push(line);
-    }
-  }
-  flushPara();
-  flushList();
-  return blocks;
+    });
+  });
+  return out;
 }
+
+/** Model markdown headings (#..######) are demoted one level, same as the
+ * old hand-rolled parser did (h(level+1), capped at h6) — so an answer's
+ * own heading never competes with the page's own hierarchy. */
+function headingComponent(level: 1 | 2 | 3 | 4 | 5 | 6) {
+  const Tag = (`h${Math.min(level + 1, 6)}` as 'h2' | 'h3' | 'h4' | 'h5' | 'h6');
+  return function Heading({ children }: { children?: ReactNode }) {
+    return <Tag>{withCitationChips(children)}</Tag>;
+  };
+}
+
+const markdownComponents: Components = {
+  p: ({ children }) => <p>{withCitationChips(children)}</p>,
+  li: ({ children }) => <li>{withCitationChips(children)}</li>,
+  strong: ({ children }) => <strong>{withCitationChips(children)}</strong>,
+  em: ({ children }) => <em>{withCitationChips(children)}</em>,
+  td: ({ children }) => <td>{withCitationChips(children)}</td>,
+  th: ({ children }) => <th>{withCitationChips(children)}</th>,
+  h1: headingComponent(1),
+  h2: headingComponent(2),
+  h3: headingComponent(3),
+  h4: headingComponent(4),
+  h5: headingComponent(5),
+  h6: headingComponent(6),
+};
 
 function safeSourceLabel(filename: string): string {
   if (filename.startsWith('http')) {
@@ -176,11 +112,6 @@ function safeSourceLabel(filename: string): string {
 
 export const MessageBubble = memo(function MessageBubble({ message, onSourceClick }: Props) {
   const isUser = message.role === 'user';
-
-  const parsedContent = useMemo(
-    () => (isUser ? null : parseContent(message.content)),
-    [isUser, message.content],
-  );
 
   const fileErrors = useMemo(
     () =>
@@ -241,7 +172,9 @@ export const MessageBubble = memo(function MessageBubble({ message, onSourceClic
                 message.isStreaming ? 'streaming-cursor' : ''
               }`}
             >
-              {parsedContent}
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                {message.content}
+              </ReactMarkdown>
             </div>
           ) : null}
           {/* What was checked for this query. Deliberately BELOW the answer and
