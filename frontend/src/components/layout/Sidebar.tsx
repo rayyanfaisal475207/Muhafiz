@@ -90,10 +90,22 @@ export function Sidebar() {
   const [editTitle, setEditTitle] = useState('');
 
   // Collapse/expand — a per-browser preference, same plain-localStorage-key
-  // pattern as LAST_SESSION_KEY (read once on mount, written on toggle).
+  // pattern as LAST_SESSION_KEY (read once on mount, written on toggle). A
+  // stored preference (from any prior visit or manual toggle) always wins,
+  // in either direction. Only a genuine first-ever visit (nothing stored
+  // yet) falls back to a viewport check — Module 8's documented minimum
+  // width is 768px (Tailwind's `md:`), so a first-time visitor narrower
+  // than that loads collapsed by default. This sets the INITIAL value
+  // only; it never re-fights a later manual toggle or window resize.
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
-      return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true';
+      const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+      if (stored !== null) return stored === 'true';
+    } catch {
+      return false;
+    }
+    try {
+      return window.matchMedia('(max-width: 767px)').matches;
     } catch {
       return false;
     }
