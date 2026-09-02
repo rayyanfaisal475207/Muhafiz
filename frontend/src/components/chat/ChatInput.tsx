@@ -177,13 +177,18 @@ export function ChatInput({ onSend, onNewSession, disabled }: Props) {
           style={{ maxHeight: '160px' }}
         />
 
-        {/* Send */}
+        {/* Send — the primary action, differentiated from the Attach/
+            Web-search/New Session utility row by shape and size (a
+            slightly larger pill, not their small square), on top of the
+            accent fill it already carried once composing. Chosen over a
+            blanket redesign of every composer button so the utility icons
+            stay at their current compact scale. */}
         <button
           id="send-btn"
           onClick={handleSend}
           disabled={!canSend}
           title={disabled ? 'Waiting for the current response' : 'Send'}
-          className="shrink-0 w-8 h-8 rounded-sm flex items-center justify-center transition-all duration-150 disabled:cursor-not-allowed"
+          className="shrink-0 w-9 h-9 rounded-pill flex items-center justify-center transition-all duration-150 hover:opacity-90 active:opacity-80 disabled:cursor-not-allowed disabled:hover:opacity-100"
           style={{
             background: canSend ? 'var(--accent)' : 'var(--bg-surface-3)',
             color: canSend ? 'var(--accent-on)' : 'var(--text-faint)',

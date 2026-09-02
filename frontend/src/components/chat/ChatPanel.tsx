@@ -49,7 +49,7 @@ interface ChatPanelProps {
 }
 
 export function ChatPanel({ onSourceClick }: ChatPanelProps) {
-  const { messages, isStreaming, sendMessage, newSession, sessionId, error, clearError } = useChatStore();
+  const { messages, isStreaming, sendMessage, newSession, error, clearError } = useChatStore();
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
@@ -79,16 +79,6 @@ export function ChatPanel({ onSourceClick }: ChatPanelProps) {
       >
         <div className="flex items-center gap-2">
           <h1 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Chat</h1>
-          <span
-            className="text-[10px] px-1.5 py-0.5 rounded-xs font-mono"
-            style={{
-              background: 'var(--bg-surface-2)',
-              color: 'var(--text-faint)',
-              border: '1px solid var(--border)',
-            }}
-          >
-            {sessionId.slice(0, 8)}
-          </span>
         </div>
         {isStreaming && (
           <div className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--accent)' }}>
