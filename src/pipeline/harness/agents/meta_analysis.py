@@ -192,6 +192,7 @@ from src.llm.client import call_llm
 from src.pipeline.harness.supervisor import META_ANALYSIS, Supervisor, register
 from src.pipeline.harness.types import (
     ANSWER_MAX_TOKENS,
+    NAME_FIDELITY_RULE,
     Citation,
     OnEventCallback,
     SourceTool,
@@ -236,7 +237,7 @@ _SYNTHESIS_SYSTEM_PROMPT_TEMPLATE = (
     "sub-answers state.\n\n"
     "Respond in {preferred_language}.\n\n"
     "--- SUB-ANSWERS ---\n{documents}\n--- END OF SUB-ANSWERS ---"
-)
+) + NAME_FIDELITY_RULE
 
 _NO_INFO_SUBANSWER_TEXT = "No information was found for this sub-question."
 

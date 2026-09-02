@@ -219,10 +219,12 @@ def _check_leakage(
 
 def _check_fabricated_case_ids(answer: str, chunks: list[dict]) -> list[str]:
     """
-    [Scenario-test Finding J] Deterministic pre-check: cross-case answers use
-    a "[Document N, CASE-ID: <id>]" citation form (see
-    prompts/cross_case_response.txt). Verify every CASE-ID written INSIDE a
-    citation actually exists among the cited chunks' own metadata.
+    [Scenario-test Finding J] Deterministic pre-check: cross-case answers cite
+    a case id inside a "[Document N, <case-id>]" bracket (see
+    prompts/cross_case_response.txt's own rules 2/8/11 and every worked
+    example there — e.g. "[Document 3, CASE-005]", with no "CASE-ID:" label
+    anywhere in the prompt's instructed format). Verify every case id written
+    INSIDE a citation actually exists among the cited chunks' own metadata.
 
     Found live: a cross-case answer cited "CASE-ID: CR-C101-1", "CR-C102-1"
     and "CR-C105-1" alongside real `fir-NNN-26` ids. None of those `CR-*` ids
@@ -231,11 +233,24 @@ def _check_fabricated_case_ids(answer: str, chunks: list[dict]) -> list[str]:
     presented them as provenance, which is worse than an uncited claim: it
     looks like a verifiable reference and doesn't resolve to anything.
 
+    [PRESERVE] The regex below matches the id with or without a "CASE-ID:"
+    label. That label-bound match was the ONLY form this check recognized
+    for a while — confirmed live by reading prompts/cross_case_response.txt
+    directly: its actual instructed format has never included the label, so
+    a model correctly following the prompt's own worked examples produced
+    citations this check could never match, making the fabrication check a
+    silent no-op against the documented citation shape. The one historical
+    "found live" example above happened to include the label (an incidental
+    model choice on that run, not the instructed format), which is why the
+    original regex looked correct against that one observation. Keep BOTH
+    forms matched — a future model run adding the label back must not
+    un-catch this either.
+
     `_check_leakage()` above cannot catch this — it returns early for
     cross-case queries, and it only inspects the chunk a [Document N] index
     points at, never the case-id text the model wrote next to it.
 
-    Returns a list of issue strings (empty = every cited CASE-ID is real).
+    Returns a list of issue strings (empty = every cited case id is real).
     """
     known: set[str] = set()
     for chunk in chunks:
@@ -248,7 +263,7 @@ def _check_fabricated_case_ids(answer: str, chunks: list[dict]) -> list[str]:
     issues: list[str] = []
     seen_bad: set[str] = set()
     for m in re.finditer(
-        r"\[Document\s+\d+\s*,\s*CASE-ID:\s*([^\]]+)\]", answer, re.IGNORECASE
+        r"\[Document\s+\d+\s*,\s*(?:CASE-ID:\s*)?([^\]]+)\]", answer, re.IGNORECASE
     ):
         cited = m.group(1).strip()
         if not cited or cited.lower() in known or cited.lower() in seen_bad:

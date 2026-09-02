@@ -2798,11 +2798,23 @@ async def process_query(
                     # demo audience) rather than the safety behaviour it is.
                     # Genuine pipeline failures (an LLM call raising, a
                     # timeout, a 500) still use "error".
+                    # [RetrievedDocsSection regression fix] The detail text
+                    # must still lead with "Relevant: False" — the frontend's
+                    # findLast('evaluator') picks up this event as the FINAL
+                    # evaluator verdict (its own filter only excludes
+                    # status:"error", and this is deliberately "done" per the
+                    # note above), then pattern-matches on "relevant: true/
+                    # false" to render the ✗/✓ badge. Confirmed live: without
+                    # this prefix, a correctly-abstaining query showed a
+                    # neutral gray "Evaluated" badge instead of "✗ Not
+                    # relevant" — the badge lost its verdict at exactly the
+                    # moment (retries exhausted) it matters most to show one.
                     yield event(
                         "evaluator",
                         "done",
-                        f"No sufficient evidence found after {config.MAX_RETRIES} "
-                        f"retries — abstaining rather than answering unsupported",
+                        f"Relevant: False — no sufficient evidence found after "
+                        f"{config.MAX_RETRIES} retries; abstaining rather than "
+                        f"answering unsupported",
                         retry_num=retry_count
                     )
                     final_response = _SAFE_RESPONSE

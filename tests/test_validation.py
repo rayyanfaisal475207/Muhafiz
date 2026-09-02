@@ -12,6 +12,7 @@ import pytest
 from src.pipeline.harness.types import ClaimSupport, ValidationStatus
 from src.pipeline.validation import (
     _extract_claim_chunk_pairs,
+    _normalize_number,
     validate_answer,
 )
 
@@ -103,6 +104,52 @@ async def test_structural_tier_flags_unsupported_case_id():
     assert status == ValidationStatus.ISSUES_FOUND
     assert results[0].support == ClaimSupport.NOT_SUPPORTED
     assert "CASE-099" in results[0].reason
+
+
+# ── _normalize_number leading-zero significance ──────────────────────────
+#
+# Found live: an unconditional float()/int() round-trip collapsed "0332"
+# and "332" to the identical normalized value, so a claim citing a phone
+# number missing its leading trunk-code digit passed this structural check
+# as if it matched the source exactly. Pakistani mobile numbers' leading
+# "0" is not formatting — "0332-XXXXXXX" and "332-XXXXXXX" are different,
+# and the second is not even a valid number. Leading-zero stripping must
+# stay bounded to short (<=2 character) tokens, where it's still needed for
+# genuine calendar day/month comparisons ("09" vs "9").
+
+def test_normalize_number_preserves_leading_zero_on_long_tokens():
+    assert _normalize_number("0332") == "0332"
+    assert _normalize_number("0332") != _normalize_number("332")
+
+
+def test_normalize_number_preserves_leading_zero_on_three_digit_token():
+    # Regression for a narrower version of the same bug: stripping the
+    # zeros first and THEN measuring length would still collapse "007" to
+    # "7" (only one significant digit remains) instead of treating "007"
+    # itself as the too-long-to-be-a-day token it is. The length check must
+    # run on the token as written.
+    assert _normalize_number("007") == "007"
+    assert _normalize_number("007") != _normalize_number("7")
+
+
+def test_normalize_number_still_collapses_short_calendar_style_tokens():
+    assert _normalize_number("09") == _normalize_number("9") == "9"
+    assert _normalize_number("01") == _normalize_number("1") == "1"
+
+
+def test_normalize_number_still_collapses_thousands_separators():
+    assert _normalize_number("1,200") == _normalize_number("1200") == "1200"
+
+
+@pytest.mark.asyncio
+async def test_structural_tier_flags_phone_number_missing_leading_zero():
+    # End-to-end regression for the same bug via the public validate_answer
+    # path, not just the helper in isolation.
+    answer = "The suspect can be reached at 332-4000032 [Document 1]."
+    chunks = [_chunk("The suspect can be reached at 0332-4000032.")]
+    status, results = await validate_answer(answer, chunks, tier="structural")
+    assert status == ValidationStatus.ISSUES_FOUND
+    assert results[0].support == ClaimSupport.NOT_SUPPORTED
 
 
 @pytest.mark.asyncio

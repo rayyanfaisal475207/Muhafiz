@@ -40,6 +40,33 @@ describe('RetrievedDocsSection relevance verdict', () => {
     expect(container.textContent).toContain('Not relevant')
   })
 
+  // Regression test for a bug introduced alongside Finding E's own fix:
+  // orchestrator.py's terminal "retries exhausted, abstaining" event uses
+  // status:"done" (not "error") so the abstention doesn't paint the step
+  // red — see that file's own comment at the yield site. findLast('evaluator')
+  // filters on status==='done', so THIS event, not a prior real verdict, is
+  // now what the panel reads. The two tests above used synthetic fixture
+  // text that didn't match the real orchestrator string (no "relevant:
+  // true/false" substring at all in the original bug), so they passed while
+  // production showed a neutral "Evaluated" badge instead of "✗ Not
+  // relevant" on every retries-exhausted abstention. This fixture is the
+  // real string orchestrator.py emits (src/pipeline/orchestrator.py, the
+  // MAX_RETRIES-exhausted yield) — keep the two in sync if that wording
+  // ever changes.
+  it('shows not-relevant on a retries-exhausted abstention (status="done", no prior verdict)', () => {
+    const events = [
+      ev('retrieval', '5 chunks retrieved'),
+      ev(
+        'evaluator',
+        'Relevant: False — no sufficient evidence found after 2 retries; abstaining rather than answering unsupported',
+        'done',
+      ),
+    ]
+    const { container } = render(<RetrievedDocsSection events={events} />)
+    expect(container.textContent).toContain('Not relevant')
+    expect(container.textContent).not.toContain('Evaluated')
+  })
+
   it('handles the simple single-attempt case unchanged', () => {
     const events = [
       ev('retrieval', '12 chunks retrieved'),

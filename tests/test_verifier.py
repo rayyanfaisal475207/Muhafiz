@@ -457,6 +457,37 @@ def test_plain_document_citations_without_case_ids_are_ignored():
     assert _check_fabricated_case_ids(answer, [_id_chunk(case_id="fir-430-26")]) == []
 
 
+# ── Unlabeled "[Document N, <case-id>]" form — no "CASE-ID:" text ────────────
+#
+# prompts/cross_case_response.txt's OWN rules (2, 8, 11) and every one of its
+# worked examples ("Phone X also appears in CASE-005 [Document 3, CASE-005]",
+# "X appears in CASE-001 [Document 1, CASE-001]") instruct exactly this
+# unlabeled form — the "CASE-ID:" label never appears anywhere in the actual
+# prompt. Confirmed live by reading the prompt directly: the tests above,
+# which only ever exercise the labeled form, would all still pass even if
+# this function stopped recognizing the unlabeled form entirely — a model
+# correctly following its own system prompt could fabricate a case id in
+# exactly this shape and this check would silently miss it. These tests
+# guard the format the prompt actually produces, not just the one incidental
+# example the original "Found live" bug happened to show.
+
+def test_fabricated_case_id_in_unlabeled_citation_is_flagged():
+    answer = "Faisal appears in CR-C101-1 [Document 1, CR-C101-1]."
+    issues = _check_fabricated_case_ids(answer, [_id_chunk(case_id="fir-201-26")])
+    assert len(issues) == 1
+    assert "CR-C101-1" in issues[0]
+
+
+def test_real_case_id_in_unlabeled_citation_is_not_flagged():
+    answer = "Faisal appears in CASE-005 [Document 1, fir-201-26]."
+    assert _check_fabricated_case_ids(answer, [_id_chunk(case_id="fir-201-26")]) == []
+
+
+def test_unlabeled_citation_matching_is_case_insensitive():
+    answer = "Cited as [Document 1, FIR-201-26]."
+    assert _check_fabricated_case_ids(answer, [_id_chunk(case_id="fir-201-26")]) == []
+
+
 # ── verify_grounding (async, with LLM monkeypatched) ─────────────────────────
 
 @pytest.mark.asyncio

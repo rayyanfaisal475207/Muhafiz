@@ -200,6 +200,7 @@ from src.pipeline.harness.tools.rag import RagToolInput, rag_tool
 from src.pipeline.harness.tools.sql import SqlToolInput, sql_tool
 from src.pipeline.harness.types import (
     ANSWER_MAX_TOKENS,
+    NAME_FIDELITY_RULE,
     Citation,
     EvidenceChunk,
     OnEventCallback,
@@ -234,7 +235,7 @@ _SYSTEM_PROMPT_TEMPLATE = (
     "Respond in {preferred_language}.\n\n"
     "{conversation_block}"
     "--- MATERIAL ---\n{documents}\n--- END OF MATERIAL ---"
-)
+) + NAME_FIDELITY_RULE
 
 # Canonical order used consistently for tools_used/degraded_from
 # construction AND for flattening the evidence list (design §5) — one

@@ -206,6 +206,7 @@ from src.pipeline.harness.supervisor import CROSS_CASE_LINKAGE, register
 from src.pipeline.harness.tools.xgraph import XGraphToolInput, XGraphToolResult, xgraph_tool
 from src.pipeline.harness.tools.xnetwork import XNetworkToolInput, XNetworkToolResult, xnetwork_tool
 from src.pipeline.harness.types import (
+    ANSWER_MAX_TOKENS,
     NAME_FIDELITY_RULE,
     Citation,
     CrossCaseLink,
@@ -388,7 +389,7 @@ async def _generate_xnetwork_text(
         # regardless rather than waiting for a live repro to add it.
         text = await call_llm(
             system_prompt, agent_input.query_text, role=_generation_role(caller.preferred_language),
-            cloud_max_tokens=500, reasoning_effort="low",
+            max_tokens=ANSWER_MAX_TOKENS, cloud_max_tokens=500, reasoning_effort="low",
         )
     except Exception as exc:
         logger.error("Cross-Case Linkage: XNETWORK generation failed: %s", exc)
@@ -416,7 +417,7 @@ async def _generate_xnetwork_text(
                 agent_input.query_text,
                 role=_generation_role(caller.preferred_language),
                 force_cloud=True,
-                cloud_max_tokens=500, reasoning_effort="low",
+                max_tokens=ANSWER_MAX_TOKENS, cloud_max_tokens=500, reasoning_effort="low",
             )
             verification = await verify_grounding(
                 answer=text,
