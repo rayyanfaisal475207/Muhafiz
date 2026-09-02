@@ -932,3 +932,61 @@ def test_ccl_c2_named_target_empty_footprint_unchanged():
     assert link is not None
     assert "unknown" in link.description
     assert f"'{_CCL_C2_NAMED_ENTITY}'" in link.description
+
+
+# ── Finding AC regression: identity certainty must be hedged ─────────────────
+# "Is X definitely the same person across all these cases?" came back as
+# "Entity-graph search found confirmed connections across 13 other case(s):
+# ..." — a flat assertion, with the supporting confidence never shown and no
+# statement that entity resolution is an inference rather than proof of one
+# individual (verify-log Finding AC). chain_confidence is the product of edge
+# confidences along the weakest chain, so it degrades with hop depth; a 50%
+# chain must not read the same as a 95% one.
+
+from src.pipeline.harness.agents.cross_case_linkage import (
+    _CONFIDENT_CHAIN_THRESHOLD,
+    _xgraph_summary_line,
+)
+
+_CASES = ["fir-201-26", "fir-202-26"]
+
+
+def test_weak_chain_is_reported_as_possible_not_confirmed():
+    text = _xgraph_summary_line(_CASES, 1, 0, chain_confidence=0.50)
+    assert "possible connections" in text
+    assert "found confirmed connections" not in text
+
+
+def test_strong_chain_may_still_say_confirmed():
+    text = _xgraph_summary_line(_CASES, 1, 0, chain_confidence=0.95)
+    assert "found confirmed connections" in text
+
+
+def test_chain_confidence_is_surfaced_to_the_reader():
+    assert "50%" in _xgraph_summary_line(_CASES, 1, 0, chain_confidence=0.50)
+    assert "95%" in _xgraph_summary_line(_CASES, 1, 0, chain_confidence=0.95)
+
+
+def test_identity_inference_caveat_always_present_when_links_exist():
+    """A graph link must never read as proof that every mention is one human."""
+    for confidence in (None, 0.20, 0.99):
+        text = _xgraph_summary_line(_CASES, 1, 0, chain_confidence=confidence)
+        assert "not independent proof" in text
+
+
+def test_threshold_boundary_is_not_hedged():
+    """Exactly at the threshold counts as confident, matching the verifier's
+    own 0.85 hedging rule so the two cannot disagree."""
+    text = _xgraph_summary_line(_CASES, 1, 0, chain_confidence=_CONFIDENT_CHAIN_THRESHOLD)
+    assert "found confirmed connections" in text
+
+
+def test_no_links_message_is_unchanged_and_carries_no_caveat():
+    text = _xgraph_summary_line([], 0, 0)
+    assert text == "No confirmed cross-case entity connections were found."
+
+
+def test_unconfirmed_matches_still_reported():
+    text = _xgraph_summary_line(_CASES, 1, 2, chain_confidence=0.95)
+    assert "2 additional possible identity matches" in text
+    assert "unconfirmed" in text

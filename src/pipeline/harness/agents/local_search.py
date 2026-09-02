@@ -82,6 +82,8 @@ from src.pipeline.harness.supervisor import LOCAL_SEARCH, register
 from src.pipeline.harness.tools.local_search import LocalSearchToolInput, LocalSearchToolResult, local_search_tool
 from src.pipeline.harness.tools.rag import RagToolInput, rag_tool
 from src.pipeline.harness.types import (
+    ANSWER_MAX_TOKENS,
+    NAME_FIDELITY_RULE,
     Citation,
     EvidenceChunk,
     OnEventCallback,
@@ -117,7 +119,34 @@ _SYSTEM_PROMPT_TEMPLATE = (
     "Respond in {preferred_language}.\n\n"
     "{conversation_block}"
     "--- DOCUMENTS ---\n{documents}\n--- END OF DOCUMENTS ---"
+) + NAME_FIDELITY_RULE
+
+# Appended to the system prompt on the single citation-repair retry (see
+# _generate_and_verify). Kept as a suffix rather than a second template so the
+# retry answers the SAME question against the SAME documents — only the
+# citation requirement is restated more forcefully.
+_CITATION_REPAIR_SUFFIX = (
+    "\n\nIMPORTANT — your previous attempt was rejected because it contained "
+    "no [Document N] citations. Rewrite the answer so that EVERY factual "
+    "sentence ends with the marker of the document it came from, e.g. "
+    "'The investigating officer is X [Document 2].' Use only the documents "
+    "above. Do not invent a citation for a claim the documents do not "
+    "support — if the documents cannot answer, say so plainly instead."
 )
+
+# Matches verifier.py's uncited-answer gate (the "cites no [Document N] source
+# at all" rejection). Only that specific rejection is worth re-prompting for;
+# a genuine grounding/off-topic failure must still abstain.
+_MISSING_CITATION_MARKERS = ("cites no [document n]", "cites no [document")
+
+
+def _is_missing_citation_rejection(verification: dict) -> bool:
+    """True only for the verifier's 'substantial but uncited' rejection."""
+    if verification.get("off_topic"):
+        return False
+    reason = str(verification.get("reason") or "").lower()
+    return any(marker in reason for marker in _MISSING_CITATION_MARKERS)
+
 
 _NON_PERSON_LABELS = frozenset({"Officer", "Vehicle", "PhoneNumber", "Organization"})
 
@@ -216,7 +245,7 @@ async def _generate_and_verify(
 
     try:
         answer = await call_llm(
-            system_prompt, agent_input.query_text, role=_generation_role(caller.preferred_language)
+            system_prompt, agent_input.query_text, role=_generation_role(caller.preferred_language), max_tokens=ANSWER_MAX_TOKENS
         )
     except Exception as exc:
         logger.error("Local Search: generation failed: %s", exc)
@@ -228,6 +257,46 @@ async def _generate_and_verify(
         case_id=caller.active_case_id,
     )
     verifier_passed = verification.get("grounded", False) and not verification.get("off_topic", False)
+
+    # One bounded citation-repair retry. The verifier rejects a substantial
+    # answer that carries no [Document N] marker at all (verifier.py's
+    # uncited-answer gate) — and this sub-agent was failing that gate on
+    # nearly every run, killing the whole turn even though the retrieved
+    # evidence was fine (scenario-verify Finding T). The generation itself is
+    # usually correct; it just omitted the markers. So re-ask ONCE with an
+    # explicit repair instruction rather than abstaining outright.
+    #
+    # Deliberately narrow: only for the missing-citation rejection, never for
+    # a genuine groundedness/off-topic failure (an answer that contradicts or
+    # ignores its sources must still ABSTAIN — re-prompting there would risk
+    # laundering a hallucination into a cited-looking one). Bounded at one
+    # attempt so a persistently uncited model can't loop.
+    if not verifier_passed and _is_missing_citation_rejection(verification):
+        logger.info("Local Search: retrying once with explicit citation repair instruction.")
+        try:
+            repaired = await call_llm(
+                system_prompt + _CITATION_REPAIR_SUFFIX,
+                agent_input.query_text,
+                role=_generation_role(caller.preferred_language),
+                max_tokens=ANSWER_MAX_TOKENS,
+            )
+        except Exception as exc:
+            logger.error("Local Search: citation-repair retry failed: %s", exc)
+            repaired = None
+
+        if repaired:
+            repaired_verification = await verify_grounding(
+                answer=repaired,
+                cited_chunks=[_chunk_to_verifier_dict(c) for c in chunks],
+                case_id=caller.active_case_id,
+            )
+            if repaired_verification.get("grounded", False) and not repaired_verification.get(
+                "off_topic", False
+            ):
+                return repaired, repaired_verification
+            verification = repaired_verification
+            verifier_passed = False
+
     if not verifier_passed:
         logger.warning(
             "Local Search: verifier rejected answer: %s", (verification.get("reason") or "")[:150],

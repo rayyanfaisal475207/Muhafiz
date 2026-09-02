@@ -199,6 +199,7 @@ from src.pipeline.harness.tools.graph import GraphToolInput, graph_tool
 from src.pipeline.harness.tools.rag import RagToolInput, rag_tool
 from src.pipeline.harness.tools.sql import SqlToolInput, sql_tool
 from src.pipeline.harness.types import (
+    ANSWER_MAX_TOKENS,
     Citation,
     EvidenceChunk,
     OnEventCallback,
@@ -458,6 +459,7 @@ async def _generate_and_verify(
             system_prompt,
             agent_input.query_text,
             role=_generation_role(caller.preferred_language),
+            max_tokens=ANSWER_MAX_TOKENS,
         )
     except Exception as exc:
         logger.error("Investigative Analysis: generation failed: %s", exc)

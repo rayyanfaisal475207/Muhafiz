@@ -10,15 +10,25 @@ interface Props {
 
 export function RetrievedDocsSection({ events }: Props) {
   // Find retrieval event
-  const retrievalEvent = events.find(
-    (e) => e.step === 'retrieval' && e.status === 'done',
-  );
-  const rerankerEvent = events.find(
-    (e) => e.step === 'reranker' && e.status === 'done',
-  );
-  const evaluatorEvent = events.find(
-    (e) => e.step === 'evaluator' && e.status === 'done',
-  );
+  // [Scenario-test Finding E] Take the LAST occurrence of each step, not the
+  // first. The evaluator-feedback retry loop emits one event per attempt, so
+  // a query that retried has both a "Relevant: False" (rejected first
+  // attempt) and a later "Relevant: True" (accepted final attempt). Using
+  // find() showed this panel the FIRST verdict while the step card above it
+  // showed the LAST, so the same response displayed "Relevant: True" and
+  // "✗ Not relevant" simultaneously — contradictory, and it undermined trust
+  // in the whole trace. Both now read the final, governing verdict.
+  const findLast = (step: string) => {
+    for (let i = events.length - 1; i >= 0; i--) {
+      const e = events[i];
+      if (e.step === step && e.status === 'done') return e;
+    }
+    return undefined;
+  };
+
+  const retrievalEvent = findLast('retrieval');
+  const rerankerEvent = findLast('reranker');
+  const evaluatorEvent = findLast('evaluator');
 
   if (!retrievalEvent && !rerankerEvent) return null;
 

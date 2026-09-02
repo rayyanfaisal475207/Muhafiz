@@ -195,6 +195,7 @@ from src.pipeline.file_structurer import structure_for_file
 from src.pipeline.harness.agents.case_summarization import case_summarization
 from src.pipeline.harness.supervisor import REPORT_DRAFTING, register
 from src.pipeline.harness.types import (
+    ANSWER_MAX_TOKENS,
     Citation,
     GeneratedFileRef,
     GRAPH_ONLY_SUMMARY_DISCLOSURE,
@@ -504,6 +505,7 @@ async def report_drafting(
             draft_system_prompt,
             agent_input.query_text,
             role=_generation_role(caller.preferred_language),
+            max_tokens=ANSWER_MAX_TOKENS,
         )
     except Exception as exc:
         logger.error("Report Drafting: draft generation failed: %s", exc)

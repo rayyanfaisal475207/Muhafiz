@@ -41,6 +41,43 @@ def _is_rate_limit(exc: Exception) -> bool:
     return "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "rate limit" in err_str.lower()
 
 
+def _is_payload_too_large(exc: Exception) -> bool:
+    """
+    True for "this single request exceeds the provider's per-request token
+    cap" — Groq returns this as HTTP 413 with code `rate_limit_exceeded`,
+    which makes it look like a throttle to `_is_rate_limit()` above.
+
+    It is NOT a throttle, and the distinction matters: a throttle clears by
+    waiting or rotating to another key, but a per-request size cap is
+    identical on every key of the same tier, so rotating just burns the
+    retry budget and then fails the whole request. Observed live: the
+    router prompt (~10.2k tokens) exceeded Groq's free-tier 8k cap, all
+    three rotations failed the same way, and the chat turn died outright
+    (scenario-verify Finding U).
+
+    Callers use this to fail over to a provider without that cap instead.
+    """
+    err_str = str(exc)
+    if "413" in err_str or "request_too_large" in err_str.lower():
+        return True
+    lowered = err_str.lower()
+    return "too large" in lowered and "token" in lowered
+
+
+def _fallback_provider_for(provider: str) -> Optional[str]:
+    """
+    A configured cloud provider to retry on when `provider` cannot serve a
+    request at all (currently: the payload exceeds its per-request cap).
+    Returns None when no distinct, configured alternative exists — the
+    caller then surfaces the original error rather than pretending to retry.
+    """
+    if provider != "groq" and config.GROQ_API_KEY:
+        return "groq"
+    if provider != "gemini" and config.GEMINI_API_KEY:
+        return "gemini"
+    return None
+
+
 # ── Public API ─────────────────────────────────────────────────────────────────
 
 async def call_llm(
@@ -115,6 +152,31 @@ async def call_llm(
             else:
                 return await _call_gemini(system_prompt, user_message, temperature, resolved_cloud_max_tokens)
         except Exception as e:
+            # Checked BEFORE _is_rate_limit: Groq reports an oversized request
+            # as 413 with code `rate_limit_exceeded`, so it would otherwise be
+            # mistaken for a throttle and "retried" by rotating keys — which
+            # cannot help, because every key on the tier has the same
+            # per-request cap. Fail over to a provider without that cap once.
+            if _is_payload_too_large(e):
+                fallback = _fallback_provider_for(provider)
+                if fallback is None:
+                    logger.error(
+                        "Request too large for %s and no alternative provider is "
+                        "configured: %s", provider, e,
+                    )
+                    raise
+                logger.warning(
+                    "Request too large for %s (per-request token cap). Failing over "
+                    "to %s for this call.", provider, fallback,
+                )
+                if fallback == "groq":
+                    return await _call_groq(
+                        system_prompt, user_message, temperature, resolved_cloud_max_tokens,
+                        reasoning_effort=reasoning_effort,
+                    )
+                return await _call_gemini(
+                    system_prompt, user_message, temperature, resolved_cloud_max_tokens,
+                )
             if _is_rate_limit(e):
                 logger.warning(f"Rate limit hit on {provider}. Rotating key... (Attempt {attempt+1}/{max_retries})")
                 key_manager.rotate_key(provider, observed_index)

@@ -9,6 +9,25 @@ over-matched?
 You are NOT talking to the user — you are a classifier called by other code.
 Never ask a clarifying question. Commit to your best judgment.
 
+PHRASING SUB-QUERIES THAT COUNT OR RANK: if a sub-query asks how often
+something occurs, which items are most/least frequent, or for a ranking or
+breakdown, phrase it as an explicit cross-case aggregate — begin it with
+"How many" or "What is the breakdown/count of", state the unit being counted
+("cases", "stations"), and say "across all cases". Those sub-queries are then
+answered by the deterministic aggregate computed directly from case records,
+which is exact and identical every time.
+
+Phrased loosely ("who shows up a lot?", "flag the frequent suspects"), the
+same sub-query is instead answered from whatever documents a text search
+happens to retrieve. That produced different frequency counts on repeated
+runs of the identical question, and missed the genuinely top-recurring
+entities entirely, because a text search sees only its own retrieved sample —
+never the whole corpus. Never report a count that came from a sample as if it
+were a total.
+
+  Weak:   "Which suspects appear most frequently?"
+  Strong: "How many cases does each suspect appear in, across all cases?"
+
 WHAT COUNTS AS GENUINELY COMPOUND: the query asks for two or more DISTINCT
 things that each need their OWN retrieval/reasoning pass to answer correctly
 — e.g. "summarize the recurring patterns across all X and flag any that
@@ -57,6 +76,9 @@ Output: {"decompose": true, "sub_queries": ["What is the breakdown of weapon typ
 
 Query: "What are the recurring themes across all cases at this station, and cross-reference them with cases involving juvenile suspects?"
 Output: {"decompose": true, "sub_queries": ["What are the recurring themes across all cases at this station?", "Which cases at this station involve juvenile suspects?"], "synthesis_goal": "State the recurring themes, then note which of those themes actually appear in the juvenile-suspect cases specifically, not just the full case set."}
+
+Query: "Summarize across all cases and flag the suspects who appear most frequently"
+Output: {"decompose": true, "sub_queries": ["What is the overall summary of themes and case types across all cases?", "How many cases does each suspect appear in, across all cases?"], "synthesis_goal": "Give the dataset-wide summary, then report the per-suspect case counts from the aggregate — naming the highest-count suspects and their exact counts, never a frequency estimated from a text-search sample."}
 
 Query: "Summarize case CASE-021."
 Output: {"decompose": false}

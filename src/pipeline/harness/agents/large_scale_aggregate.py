@@ -179,6 +179,8 @@ from src.llm.client import call_llm
 from src.pipeline.harness.supervisor import LARGE_SCALE_AGGREGATE, register
 from src.pipeline.harness.tools.xagg import XAggToolInput, xagg_tool
 from src.pipeline.harness.types import (
+    ANSWER_MAX_TOKENS,
+    NAME_FIDELITY_RULE,
     Citation,
     EvidenceChunk,
     OnEventCallback,
@@ -211,7 +213,7 @@ _SYSTEM_PROMPT_TEMPLATE = (
     "Respond in {preferred_language}.\n\n"
     "--- DOCUMENTS ---\n[Document 1] Source: cross-case aggregate\n{aggregate_text}\n"
     "--- END OF DOCUMENTS ---"
-)
+) + NAME_FIDELITY_RULE
 
 
 def _generation_role(preferred_language: Optional[str]) -> str:
@@ -327,6 +329,7 @@ async def large_scale_aggregate(
             system_prompt,
             agent_input.query_text,
             role=_generation_role(caller.preferred_language),
+            max_tokens=ANSWER_MAX_TOKENS,
         )
     except Exception as exc:
         # Generation itself raising (e.g. the LLM service is unreachable) is
@@ -341,12 +344,28 @@ async def large_scale_aggregate(
             caveats=["Aggregate summary generation failed; no answer could be produced."],
         )
 
-    verification = await verify_grounding(
-        answer=paraphrase,
-        cited_chunks=[_chunk_to_verifier_dict(chunk)],
-        case_id="cross_case",
-        cross_case_ids=tool_result.case_ids_touched,
-    )
+    # [Scenario-test Finding G] An empty/whitespace paraphrase must be
+    # treated as a FAILED paraphrase, not sent to the verifier. `call_llm()`
+    # can return empty content without raising (confirmed live: "Local LLM
+    # returned empty content" -> Groq fallback also produced nothing), so the
+    # `except` above never fires. An empty string then trivially PASSES
+    # verify_grounding ("The answer is empty and contains no claims to
+    # verify" -> grounded=True), so a 0-char answer was served to the user as
+    # a success, with no error surfaced. Short-circuiting here routes it into
+    # the existing, already-correct raw-aggregate fallback below instead.
+    if not paraphrase or not paraphrase.strip():
+        logger.warning(
+            "Large-Scale Aggregate: generation returned empty content; "
+            "serving raw computed aggregate instead."
+        )
+        verification = {"grounded": False, "reason": "Generation returned an empty answer."}
+    else:
+        verification = await verify_grounding(
+            answer=paraphrase,
+            cited_chunks=[_chunk_to_verifier_dict(chunk)],
+            case_id="cross_case",
+            cross_case_ids=tool_result.case_ids_touched,
+        )
     verifier_passed = verification.get("grounded", False) and not verification.get("off_topic", False)
 
     if not verifier_passed:

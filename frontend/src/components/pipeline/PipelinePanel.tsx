@@ -7,7 +7,11 @@ import { PipelineStepCard } from './PipelineStepCard';
 import { RetrievedDocsSection } from './RetrievedDocsSection';
 
 export function PipelinePanel() {
-  const { currentSteps, currentEvents, isStreaming } = useChatStore();
+  const { currentSteps, currentEvents, isStreaming, messages } = useChatStore();
+  // An assistant turn already exists but no steps do — see IdleState's own
+  // comment: this is a reopened conversation whose live trace was never
+  // persisted, not a conversation that has run nothing.
+  const hasPriorAnswers = messages.some((m) => m.role === 'assistant');
 
   const hasStarted = currentSteps.some((s) => s.status !== 'waiting');
   const retryEvents = currentEvents.filter(
@@ -48,7 +52,7 @@ export function PipelinePanel() {
       {/* Steps */}
       <div className="flex-1 overflow-y-auto px-3 py-3">
         {!hasStarted ? (
-          <IdleState />
+          <IdleState hasPriorAnswers={hasPriorAnswers} />
         ) : (
           <div className="flex flex-col gap-1.5">
             {currentSteps.map((step) => (
@@ -102,7 +106,21 @@ export function PipelinePanel() {
   );
 }
 
-function IdleState() {
+/**
+ * `hasPriorAnswers` distinguishes the two situations that both reach this
+ * component with an empty step list:
+ *
+ *  - a genuinely fresh conversation, where nothing has run yet; and
+ *  - a REOPENED conversation, where answers exist but the live trace does
+ *    not, because `loadSession` restores messages from the DB while the
+ *    per-step trace is only ever held in memory for the current turn.
+ *
+ * Both previously rendered "Pipeline idle / Steps animate here when you send
+ * a message", which reads as "nothing ran" on a conversation that plainly did
+ * run — the operator is told the wrong thing rather than an honest "not
+ * retained" (verify-log Finding R).
+ */
+function IdleState({ hasPriorAnswers = false }: { hasPriorAnswers?: boolean }) {
   return (
     <div className="flex flex-col items-center justify-center h-full text-center px-4 gap-4">
       <div className="w-12 h-12 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] shadow-sm flex items-center justify-center">
@@ -111,9 +129,13 @@ function IdleState() {
         </svg>
       </div>
       <div>
-        <p className="text-xs font-semibold text-[var(--text-primary)]">Pipeline idle</p>
+        <p className="text-xs font-semibold text-[var(--text-primary)]">
+          {hasPriorAnswers ? 'Trace not retained' : 'Pipeline idle'}
+        </p>
         <p className="text-[11px] text-[var(--text-muted)] mt-1">
-          Steps animate here when you send a message
+          {hasPriorAnswers
+            ? 'The live trace is kept only while a turn is running. Send a new message to see the steps for it.'
+            : 'Steps animate here when you send a message'}
         </p>
       </div>
       <div className="w-full border-t border-[var(--border)]" />

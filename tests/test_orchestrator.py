@@ -1931,3 +1931,106 @@ async def test_router_exception_still_yields_full_stream(monkeypatch, run_pipeli
     assert "Router failed" in (done_events[0].get("reason") or "")
     response_events = [e for e in events if e["step"] == "response" and e["status"] == "done"]
     assert response_events, "a real response must still be generated after the router falls back to RAG"
+
+
+# ── Query-language detection (Scenario-test Finding N) ───────────────────────
+#
+# `_detect_query_language()` used to return "Urdu" if the message contained
+# ANY Urdu-script character. That misfires on the most common query shape in
+# this system: English prose naming an Urdu-script person or station. Live
+# failure: "Is the ذیشان in these cases definitely the same person across all
+# of them?" — an entirely English question — came back answered wholly in
+# Urdu, because one name flipped the language directive for the whole answer.
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Is the \u0630\u06cc\u0634\u0627\u0646 in these cases definitely the same person across all of them?",
+        "Which cases across the database is the suspect \u0630\u06cc\u0634\u0627\u0646 connected to?",
+        "Who is \u06a9\u0627\u0634\u0641 and which cases mention him?",
+        "Summarise the FIR filed at \u062a\u06be\u0627\u0646\u06c1 \u0645\u0627\u0688\u0644 \u0679\u0627\u0624\u0646 last week.",
+    ],
+)
+def test_english_query_naming_an_urdu_entity_stays_english(query):
+    assert orch._detect_query_language(query) == "English"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "\u06a9\u0627\u0634\u0641 \u06a9\u0648\u0646 \u06c1\u06d2 \u0627\u0648\u0631 \u0627\u0633 \u06a9\u0627 \u06a9\u06cc\u0633 \u0633\u06d2 \u06a9\u06cc\u0627 \u062a\u0639\u0644\u0642 \u06c1\u06d2\u061f",
+        "\u062a\u06c1\u0627\u0646\u06c1 \u0645\u0627\u0688\u0644 \u0679\u0627\u0624\u0646 \u0645\u06cc\u06ba \u06a9\u062a\u0646\u06d2 \u0645\u0642\u062f\u0645\u0627\u062a \u06c1\u06cc\u06ba\u061f",
+    ],
+)
+def test_predominantly_urdu_query_still_detected_as_urdu(query):
+    assert orch._detect_query_language(query) == "Urdu"
+
+
+def test_plain_english_query_is_english():
+    assert orch._detect_query_language("What weapon was used in this case?") == "English"
+
+
+def test_empty_query_defaults_to_english():
+    assert orch._detect_query_language("") == "English"
+    assert orch._detect_query_language(None) == "English"
+
+
+def test_explicit_language_setting_still_overrides_detection():
+    """An explicit Settings choice must pin the language regardless of the
+    query's own script — only "auto"/unset defers to detection."""
+    assert orch._resolve_language_directive("urdu", "What weapon was used?") == "urdu"
+    assert (
+        orch._resolve_language_directive(
+            "english", "\u06a9\u0627\u0634\u0641 \u06a9\u0648\u0646 \u06c1\u06d2\u061f"
+        )
+        == "english"
+    )
+
+
+def test_auto_defers_to_query_language():
+    assert orch._resolve_language_directive("auto", "What weapon was used?") == "English"
+    assert (
+        orch._resolve_language_directive(
+            "auto", "\u06a9\u0627\u0634\u0641 \u06a9\u0648\u0646 \u06c1\u06d2 \u0627\u0648\u0631 \u0627\u0633 \u06a9\u0627 \u06a9\u06cc\u0633 \u0633\u06d2 \u06a9\u06cc\u0627 \u062a\u0639\u0644\u0642 \u06c1\u06d2\u061f"
+        )
+        == "Urdu"
+    )
+
+
+# ── Finding AB regression: file output_format must survive re-routing ────────
+# main.py classifies the raw message (it must, to choose harness vs legacy),
+# then process_query classifies the REWRITTEN query. The two calls can
+# legitimately disagree on `route`, and the second one's result — or its
+# error branch, which hardcodes "chat" — was overwriting the first one's
+# output_format. A "Generate a PDF report" request therefore came back as a
+# chat message with no file at all (verify-log Finding AB). process_query now
+# accepts `precomputed_route` and lets an upstream file_* format win.
+
+import inspect
+
+from src.pipeline import orchestrator as orchestrator_mod
+
+
+def test_process_query_accepts_precomputed_route():
+    sig = inspect.signature(orchestrator_mod.process_query)
+    assert "precomputed_route" in sig.parameters
+    assert sig.parameters["precomputed_route"].default is None
+
+
+def test_file_format_passthrough_is_one_directional():
+    """An upstream file_* must be honoured; an upstream 'chat' must never
+    suppress a file_* decided by the rewritten-query routing."""
+    source = inspect.getsource(orchestrator_mod.process_query)
+    # The upstream override only fires for real file formats...
+    assert 'upstream_format in ("file_pdf", "file_xlsx", "file_docx")' in source
+    # ...and the router-failure branch preserves it rather than hardcoding chat.
+    assert '_upstream_format if _upstream_format in ("file_pdf", "file_xlsx", "file_docx")' in source
+
+
+def test_main_passes_classification_into_both_legacy_call_sites():
+    """Both the direct legacy path and the delegate_to_legacy fallback must
+    forward the classification, or one of them silently loses the file."""
+    import pathlib
+
+    main_src = pathlib.Path("src/main.py").read_text(encoding="utf-8")
+    assert main_src.count("precomputed_route=classified_route") == 2

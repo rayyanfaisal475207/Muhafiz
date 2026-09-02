@@ -64,6 +64,7 @@ from src import config
 from src.pipeline.cross_script_variant import generate_cross_script_variant
 from src.pipeline.evaluator import evaluate_relevance
 from src.pipeline.harness.types import (
+    CROSS_CASE_ROLES,
     CallerContext,
     ChunkMetadata,
     EvidenceChunk,
@@ -181,6 +182,22 @@ def _build_where(
         where["case_id"] = caller.active_case_id
     elif project_id:
         where["project_id"] = project_id
+    elif caller.role in CROSS_CASE_ROLES:
+        # [Scenario-test Finding A] This branch was MISSING here, and its
+        # absence is why harness cutover had to be reverted: a supervisor+
+        # asking a question with no case selected ("All Cases") fell through
+        # to the `is_global` branch below and got global-reference-only
+        # scoping. The global corpus is empty in this deployment, so those
+        # queries silently returned nothing.
+        #
+        # orchestrator.py::_build_retrieval_where() has always had this
+        # role-based "all_cases" fallback; this tool never got it, so the
+        # two drifted. Mirrors that function exactly, on the same role floor
+        # (graph_retriever.CROSS_CASE_ROLES) every other cross-case
+        # capability in this codebase uses — an investigator with no case
+        # selected still falls through to global-only below and does NOT
+        # silently gain cross-case reach.
+        where["all_cases"] = True
     elif include_global:
         where["is_global"] = True
     return where

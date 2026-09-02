@@ -442,8 +442,18 @@ def _build_events(
         # description would leave it empty. Guarded by
         # test_legacy_row_with_no_event_type_keeps_bare_description.
         if event_type:
-            description = f"{event_type}" + (f": {detail}" if detail else "")
-            if event_type == _POSITION_EVENT_TYPE and not (detail or "").strip():
+            # Some ingested rows carry a placeholder detail rather than real
+            # text — e.g. the literal "entry None" from a zimni row whose
+            # entry number was absent at extraction time. Rendering that
+            # verbatim produced timeline lines reading "zimni_entry: entry
+            # None", which is noise dressed as evidence. Suppress the detail
+            # in that case and show the event type alone, which is true.
+            # Invisible until Finding Z made descriptions user-facing.
+            detail_text = (detail or "").strip()
+            if _is_placeholder_detail(detail_text):
+                detail_text = ""
+            description = f"{event_type}" + (f": {detail_text}" if detail_text else "")
+            if event_type == _POSITION_EVENT_TYPE and not detail_text:
                 description = f"{event_type}: {_NO_POSITION_RECORDED}"
         else:
             description = base_description
@@ -513,6 +523,27 @@ def _incident_narratives(rows: list[dict]) -> list[str]:
     return out
 
 
+def _is_placeholder_detail(detail: str) -> bool:
+    """
+    True for an extracted `detail` that carries no real information.
+
+    Deliberately narrow — it matches only a value that is empty or ends in a
+    bare "None"/"null" placeholder (e.g. "entry None" from a zimni row whose
+    entry number was missing at extraction time). A detail that merely
+    CONTAINS the word "none" in real prose ("none of the witnesses were
+    present") is left untouched: hiding genuine evidence would be a far worse
+    failure than showing a clumsy placeholder.
+    """
+    normalized = (detail or "").strip().rstrip(".:;,").lower()
+    if not normalized:
+        return True
+    return (
+        normalized in {"none", "null", "n/a"}
+        or normalized.endswith(" none")
+        or normalized.endswith(" null")
+    )
+
+
 def _answer_text(
     events: list[TimelineEvent], conflict_checked: bool, narratives: Sequence[str] = (),
 ) -> str:
@@ -547,9 +578,48 @@ def _answer_text(
             f"{clear_count} checked with no conflict found."
         )
 
-    if not narratives:
-        return summary
-    return "\n\n".join(list(narratives) + [summary])
+    # Render the events themselves, not just a count of them.
+    #
+    # This sub-agent answers "build a chronological timeline", and it was
+    # replying with only the summary sentence above — "This case's timeline
+    # has 9 dated event(s) (spanning ...)" — while the actual events went out
+    # solely in the structured `events` payload, which nothing renders
+    # (verify-log Finding Z). The deliverable the user asked for never
+    # appeared. Still fully deterministic: plain formatting over
+    # already-computed events, no model call, so the module's
+    # "needs no verify_grounding()" reasoning is unchanged.
+    #
+    # [PRESERVE — TimelineEvent.conflict_state] UNKNOWN must stay visually
+    # distinct from NONE: an unchecked event must never read as a verified
+    # all-clear. NONE is left unmarked (the clean, checked case), CONFLICT is
+    # called out with its basis, and UNKNOWN says plainly that it wasn't
+    # checked.
+    # [findings.md TB-1] A narrative already prepended above must not be
+    # repeated verbatim in its own row — that is exactly the duplication TB-1
+    # removed. Such a row is still LISTED (dropping it would hide an event
+    # from the timeline), but points back to the text served once above
+    # instead of restating it.
+    served_narratives = {n.strip() for n in narratives if n and n.strip()}
+
+    event_lines: list[str] = []
+    for event in events:
+        when = event.occurred_on or "undated"
+        marker = ""
+        if event.conflict_state == ConflictState.CONFLICT:
+            basis = f" — {event.conflict_basis}" if event.conflict_basis else ""
+            marker = f" **[conflicting record{basis}]**"
+        elif event.conflict_state == ConflictState.UNKNOWN:
+            marker = " _(conflict not checked)_"
+        description = event.description
+        if description and description.strip() in served_narratives:
+            description = "(incident narrative above)"
+        event_lines.append(f"- **{when}** — {description}{marker}")
+
+    sections = list(narratives)
+    if event_lines:
+        sections.append("**Timeline**\n" + "\n".join(event_lines))
+    sections.append(summary)
+    return "\n\n".join(sections)
 
 
 async def timeline_building(

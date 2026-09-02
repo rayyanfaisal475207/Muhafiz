@@ -211,6 +211,33 @@ async def graph_tool(tool_input: GraphToolInput) -> GraphToolResult:
         logger.error("%s tool: evaluator failed: %s", source_tool, exc)
         evaluation = {"relevant": True, "reason": "Evaluator failed, proceeding"}
 
+    # The evaluator judges whether retrieved DOCUMENT TEXT answers the
+    # question. Within-case graph chunks are a different kind of evidence:
+    # entity records (people, officers, weapons, CNICs, phone numbers) that
+    # are scoped to this case by construction — `retrieve_graph()` only
+    # traverses from seeds inside `case_id`, so they cannot be off-topic for
+    # a question about that case.
+    #
+    # Judged as prose, they read as "only lists personal details ... does not
+    # provide information about the case itself" and get rejected. That is
+    # what made a case with 18 real graph nodes (2 Persons, an Officer, a
+    # Weapon, an Incident) report "Case graph data was unavailable for this
+    # case" — the entity evidence was retrieved, then discarded by a gate
+    # meant for narrative text (verify-log Finding Q).
+    #
+    # Deliberately narrow: the rejection is only overridden for the
+    # within-case path, where case scoping already guarantees relevance. The
+    # hybrid path keeps the gate, because it blends vector/BM25 document
+    # chunks whose topical relevance genuinely is in question.
+    if not evaluation.get("relevant", False) and not tool_input.hybrid and caller.active_case_id:
+        logger.info(
+            "%s tool: evaluator judged within-case graph entities not relevant "
+            "(%s) — serving them anyway; they are case-scoped by construction.",
+            source_tool,
+            str(evaluation.get("reason") or "")[:120],
+        )
+        evaluation = {"relevant": True, "reason": "Within-case graph entities are case-scoped by construction."}
+
     if not evaluation.get("relevant", False):
         return GraphToolResult(
             status=ToolStatus.EMPTY,

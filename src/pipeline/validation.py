@@ -135,8 +135,37 @@ ValidationTier = Literal["full", "structural"]
 # structural-only tier. Deliberately conservative (few false positives) over
 # exhaustive, since a structural false-positive would flag a perfectly good
 # claim with no LLM judgment available to override it.
-_NUMBER_RE = re.compile(r"\d[\d,]*\.?\d*")
+# A number must START and END on a digit. The previous pattern
+# (`\d[\d,]*\.?\d*`) let a trailing separator into the captured token, so
+# "arrested on 2024-09-22, the suspect" yielded the literal token "22," and
+# "PECA 2016, PPC" yielded "2016,". Those never matched the source chunk's
+# own "22"/"2016", so every date or statute year followed by a comma was
+# reported as an unverifiable identifier — a false positive on correct,
+# well-grounded answers (scenario-verify Finding S). Internal separators are
+# still allowed so "1,200" stays one token.
+_NUMBER_RE = re.compile(r"\d(?:[\d,]*\d)?(?:\.\d+)?")
 _CASE_ID_RE = re.compile(r"\b(?:CASE|FIR)-[\w-]+\b", re.IGNORECASE)
+
+
+def _normalize_number(token: str) -> str:
+    """
+    Canonical form for comparing a claim's figure against its source text.
+
+    Thousands separators and trailing zeros are presentation, not fact: a
+    claim saying "1,200" is supported by a chunk saying "1200", and "09" and
+    "9" are the same day. Comparing raw surface strings made both look like
+    mismatches, so numbers are compared on this normalized form instead.
+    """
+    cleaned = token.replace(",", "")
+    if not cleaned:
+        return token
+    try:
+        value = float(cleaned)
+    except ValueError:
+        return cleaned
+    if value.is_integer():
+        return str(int(value))
+    return str(value)
 
 
 def _extract_numbers_and_ids(text: str, *, strip_citation_markers: bool) -> tuple[set[str], set[str]]:
@@ -151,7 +180,7 @@ def _extract_numbers_and_ids(text: str, *, strip_citation_markers: bool) -> tupl
         text = _CITATION_PATTERN.sub(" ", text)
     ids = set(m.upper() for m in _CASE_ID_RE.findall(text))
     remainder = _CASE_ID_RE.sub(" ", text)
-    numbers = set(_NUMBER_RE.findall(remainder))
+    numbers = {_normalize_number(m) for m in _NUMBER_RE.findall(remainder)}
     return numbers, ids
 
 

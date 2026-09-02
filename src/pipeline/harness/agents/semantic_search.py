@@ -99,6 +99,7 @@ from src.llm.client import call_llm
 from src.pipeline.harness.supervisor import SEMANTIC_SEARCH, register
 from src.pipeline.harness.tools.rag import RagToolInput, rag_tool
 from src.pipeline.harness.types import (
+    NAME_FIDELITY_RULE,
     Citation,
     EvidenceChunk,
     OnEventCallback,
@@ -113,6 +114,14 @@ from src.pipeline.validation import caveats_for_validation, validate_answer
 from src.pipeline.verifier import verify_grounding
 
 logger = logging.getLogger(__name__)
+
+# [Scenario-test Finding C] Generation budget for this sub-agent's answer.
+# Mirrors orchestrator.py's `_RAG_ANSWER_MAX_TOKENS` — the legacy RAG route
+# and this sub-agent produce the same shape of answer (multi-section case
+# summaries with per-entity detail and several [Document N] citations), so
+# they need the same headroom. Without this, call_llm()'s 1000-token default
+# truncates longer answers mid-sentence/mid-citation.
+_ANSWER_MAX_TOKENS = 3000
 
 # Kept self-contained rather than importing orchestrator.py's own
 # `_FINAL_PROMPT_TEMPLATE`/history/project-memory machinery -- that
@@ -135,7 +144,7 @@ _SYSTEM_PROMPT_TEMPLATE = (
     "Respond in {preferred_language}.\n\n"
     "{conversation_block}"
     "--- DOCUMENTS ---\n{documents}\n--- END OF DOCUMENTS ---"
-)
+) + NAME_FIDELITY_RULE
 
 
 def _generation_role(preferred_language: Optional[str]) -> str:
@@ -288,6 +297,11 @@ async def semantic_search(
             system_prompt,
             agent_input.query_text,
             role=_generation_role(caller.preferred_language),
+            # [Scenario-test Finding C] Same fix as orchestrator.py's
+            # _RAG_ANSWER_MAX_TOKENS: without an explicit budget this
+            # inherits call_llm()'s 1000-token default, which truncates
+            # longer multi-section answers mid-citation.
+            max_tokens=_ANSWER_MAX_TOKENS,
         )
     except Exception as exc:
         logger.error("Semantic Search: generation failed: %s", exc)
