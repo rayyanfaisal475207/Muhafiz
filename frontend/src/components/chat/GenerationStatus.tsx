@@ -61,6 +61,24 @@ interface Phase {
   detail?: string;
   ms?: number;
   retryNum?: number;
+  /** Deepest hop a GRAPH/GRAPH_HYBRID/XGRAPH traversal actually reached. */
+  hopCount?: number;
+  /** Compounded (multiplied-across-hops) confidence of that traversal. */
+  graphConfidence?: number;
+  /** Evaluator verdict, derived the same way RetrievedDocsSection reads it —
+   * from the raw `detail` string, not a separate structured field. */
+  isRelevant?: boolean;
+  isNotRelevant?: boolean;
+}
+
+/** Ported verbatim from RetrievedDocsSection's detection logic — keep the
+ * two in sync if the orchestrator's verdict wording ever changes. */
+function evaluatorVerdict(detail: string | undefined): { isRelevant?: boolean; isNotRelevant?: boolean } {
+  if (!detail) return {};
+  const lower = detail.toLowerCase();
+  const isRelevant = lower.includes('relevant: true') || lower.includes('relevant: yes');
+  const isNotRelevant = lower.includes('relevant: false') || lower.includes('relevant: no');
+  return { isRelevant: isRelevant || undefined, isNotRelevant: isNotRelevant || undefined };
 }
 
 /** Fold the raw event stream into an ordered list of user-facing phases. */
@@ -111,7 +129,21 @@ function derivePhases(events: PipelineEvent[]): Phase[] {
     }
 
     if (event.ms !== undefined) phase.ms = event.ms;
-    if (event.detail && event.status !== 'active') phase.detail = event.detail;
+    if (event.detail && event.status !== 'active') {
+      phase.detail = event.detail;
+      if (event.step === 'evaluator') {
+        const verdict = evaluatorVerdict(event.detail);
+        phase.isRelevant = verdict.isRelevant;
+        phase.isNotRelevant = verdict.isNotRelevant;
+      }
+    }
+    // Graph-traversal signals — only present on a GRAPH/GRAPH_HYBRID/XGRAPH
+    // hop, and only meaningful once the step is actually done (matching
+    // PipelineStepCard's own `status === 'done'` guard).
+    if (event.status === 'done') {
+      if (event.graph_confidence !== undefined) phase.graphConfidence = event.graph_confidence;
+      if (event.hop_count !== undefined) phase.hopCount = event.hop_count;
+    }
   }
 
   return order.map((key) => byKey.get(key)!);
@@ -314,6 +346,19 @@ export const GenerationStatus = memo(function GenerationStatus({
                         retry {phase.retryNum}
                       </span>
                     ) : null}
+                    {/* Relevant/not-relevant verdict — evaluator phases only,
+                        ported from RetrievedDocsSection's detection logic. */}
+                    {(phase.isRelevant || phase.isNotRelevant) && (
+                      <span
+                        className="text-[10px] px-1.5 rounded-pill font-medium"
+                        style={{
+                          background: phase.isRelevant ? 'var(--success-soft, rgba(34,197,94,0.12))' : 'var(--error-soft)',
+                          color: phase.isRelevant ? 'var(--success)' : 'var(--error)',
+                        }}
+                      >
+                        {phase.isRelevant ? '✓ Relevant' : '✗ Not relevant'}
+                      </span>
+                    )}
                     {phase.ms !== undefined && (
                       <span className="text-[11px] tabular-nums ml-auto shrink-0" style={{ color: 'var(--text-faint)' }}>
                         {formatMs(phase.ms)}
@@ -325,9 +370,44 @@ export const GenerationStatus = memo(function GenerationStatus({
                     <p
                       className="text-[11.5px] mt-0.5 leading-relaxed break-words"
                       style={{ color: 'var(--text-faint)' }}
+                      title={phase.step === 'evaluator' && phase.detail.length > 60 ? phase.detail : undefined}
                     >
-                      {phase.detail}
+                      {phase.step === 'retrieval' && `Semantic: ${phase.detail}`}
+                      {phase.step === 'reranker' && `After RRF: ${phase.detail}`}
+                      {phase.step === 'evaluator' &&
+                        (phase.detail.length > 60 ? `${phase.detail.slice(0, 60)}…` : phase.detail)}
+                      {phase.step !== 'retrieval' && phase.step !== 'reranker' && phase.step !== 'evaluator' &&
+                        phase.detail}
                     </p>
+                  )}
+
+                  {/* Graph-traversal confidence — degrades with every hop
+                      away from the seed entity, so a multi-hop connection
+                      never reads as certain as a direct one. */}
+                  {phase.graphConfidence !== undefined && phase.status === 'done' && (
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded-pill tabular-nums"
+                        style={{
+                          background: phase.graphConfidence >= 0.7
+                            ? 'var(--success-soft, rgba(34,197,94,0.12))'
+                            : phase.graphConfidence >= 0.4
+                              ? 'var(--warning-soft)'
+                              : 'var(--error-soft)',
+                          color: phase.graphConfidence >= 0.7
+                            ? 'var(--success)'
+                            : phase.graphConfidence >= 0.4
+                              ? 'var(--warning)'
+                              : 'var(--error)',
+                        }}
+                        title="Confidence compounds (weakens) with every relationship hop away from the seed entity"
+                      >
+                        confidence {(phase.graphConfidence * 100).toFixed(0)}%
+                        {phase.hopCount !== undefined && phase.hopCount > 0
+                          ? ` · ${phase.hopCount} hop${phase.hopCount > 1 ? 's' : ''}`
+                          : ' · direct'}
+                      </span>
+                    </div>
                   )}
                 </div>
               </li>
