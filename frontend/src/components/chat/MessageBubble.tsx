@@ -35,6 +35,31 @@ interface Props {
 // implemented as a small post-render pass over react-markdown's own
 // element tree (see withCitationChips) — not by keeping any part of the
 // old parser around as a patch on top of the library.
+//
+// ── Streaming-reveal treatment (Module 6) ───────────────────────────────
+//
+// The original plan assumed wiring .animate-token-in into the old
+// hand-rolled parseContent loop, which produced discrete text segments one
+// at a time — a natural "new token" boundary to animate. react-markdown
+// re-parses the FULL, growing message.content string into a fresh AST on
+// every SSE chunk; there is no equivalent per-token boundary exposed by
+// the library, and animating individual characters through a full markdown
+// re-render on every chunk would mean re-triggering (or hand-rolling a
+// diff against) a tree that mostly hasn't semantically changed — real
+// over-engineering for a "whisper of a fade."
+//
+// What DOES create a genuine, non-retriggering DOM boundary is a new
+// top-level block appearing — a new paragraph, list, heading, or table
+// starting. React's own reconciliation already patches an existing
+// block's text in place without remounting it as more tokens stream into
+// it (same type, same position in the tree), so a CSS rule keyed to
+// ":last-child" only ever plays on a block's first paint, never on every
+// keystroke within it: see `.token-stream > *:last-child` in index.css.
+// This reuses .animate-token-in's own keyframe with zero new JS
+// bookkeeping — no manual diffing, no per-character spans — and reads as
+// each new chunk of the answer's structure easing in as it lands, which is
+// the considered middle ground between a flat re-render and animating
+// through the AST.
 
 const CITATION_SPLIT = /(\[Document \d+\])/g;
 const CITATION_MATCH = /^\[Document \d+\]$/;
@@ -167,9 +192,12 @@ export const MessageBubble = memo(function MessageBubble({ message, onSourceClic
           />
 
           {message.content ? (
+            // `token-stream` (only while isStreaming) is the streaming-reveal
+            // treatment — see the file-level comment above for why this
+            // isn't a per-character animation.
             <div
               className={`prose-chat text-[15px] text-[var(--text-primary)] leading-relaxed ${
-                message.isStreaming ? 'streaming-cursor' : ''
+                message.isStreaming ? 'streaming-cursor token-stream' : ''
               }`}
             >
               <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>

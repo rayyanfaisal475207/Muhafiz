@@ -2,7 +2,7 @@
 // ChatPanel — left column: message list + input
 // ============================================================
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useChatStore } from '../../store/chatStore';
 import { useCaseStore } from '../../store/caseStore';
 import { useAuthStore } from '../../store/authStore';
@@ -53,18 +53,51 @@ export function ChatPanel({ onSourceClick }: ChatPanelProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
+  // "↓ New messages" pill — stickToBottom above already tracks whether the
+  // user has scrolled away; this just gives that already-tracked state a
+  // visible affordance. Only ever set true from the streaming-token effect
+  // below, in the exact case stickToBottom already distinguishes (scrolled
+  // away DURING an active stream) — when the user IS at the bottom nothing
+  // here changes, since handleScroll clears it the moment they're back.
+  const [showScrollPill, setShowScrollPill] = useState(false);
+
+  // Bulk-history-load detector for the staggered entrance below: messages
+  // grows by exactly 1 on every live append (the user's turn, then later
+  // the assistant's), but jumps by many at once when a past session's full
+  // history lands in one store update (loadSession's async resolution, or
+  // a page refresh restoring the last session) — that jump is the signal,
+  // not sessionId, since sessionId changes one render before the fetched
+  // history actually arrives.
+  const prevMessageCountRef = useRef(0);
+  const isBulkLoad = messages.length - prevMessageCountRef.current > 1;
+  useEffect(() => {
+    prevMessageCountRef.current = messages.length;
+  }, [messages.length]);
 
   // Track whether the user is near the bottom; if they scrolled up to read
   // something, streaming tokens must not yank them back down.
   const handleScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
-    stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    stickToBottom.current = atBottom;
+    if (atBottom) setShowScrollPill(false);
+  };
+
+  const scrollToBottom = () => {
+    stickToBottom.current = true;
+    setShowScrollPill(false);
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const lastMessage = messages[messages.length - 1];
   useEffect(() => {
-    if (!stickToBottom.current) return;
+    if (!stickToBottom.current) {
+      // New content landed while the user was reading further up — surface
+      // the pill instead of silently leaving it to be discovered.
+      if (isStreaming) setShowScrollPill(true);
+      return;
+    }
     // 'auto' during streaming — stacked smooth-scroll animations fight each
     // other on every token and cause visible jitter.
     bottomRef.current?.scrollIntoView({ behavior: isStreaming ? 'auto' : 'smooth' });
@@ -92,16 +125,49 @@ export function ChatPanel({ onSourceClick }: ChatPanelProps) {
       </div>
 
       {/* Messages — a comfortable measure, centered, like a document */}
-      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-6 py-8">
-        {messages.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div className="flex flex-col gap-7 max-w-[46rem] mx-auto w-full">
-            {messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} onSourceClick={onSourceClick} />
-            ))}
-            <div ref={bottomRef} />
-          </div>
+      <div className="relative flex-1 min-h-0">
+        <div ref={scrollRef} onScroll={handleScroll} className="h-full overflow-y-auto px-6 py-8">
+          {messages.length === 0 ? (
+            <EmptyState />
+          ) : (
+            <div className="flex flex-col gap-7 max-w-[46rem] mx-auto w-full">
+              {messages.map((msg, i) => (
+                // Staggered fade-in only on a bulk history load (see
+                // isBulkLoad above) — a live-appended message keeps its own
+                // per-message slide-in from MessageBubble unstaggered, so
+                // sending a message never feels delayed.
+                <div
+                  key={msg.id}
+                  className={isBulkLoad ? 'animate-fade-in' : undefined}
+                  style={isBulkLoad ? { animationDelay: `${Math.min(i, 12) * 35}ms` } : undefined}
+                >
+                  <MessageBubble message={msg} onSourceClick={onSourceClick} />
+                </div>
+              ))}
+              <div ref={bottomRef} />
+            </div>
+          )}
+        </div>
+
+        {/* "Back to bottom" — only ever visible in the scrolled-away-during-
+            streaming case handleScroll/the effect above already track. */}
+        {showScrollPill && (
+          <button
+            onClick={scrollToBottom}
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-[12px] font-medium animate-fade-in transition-colors"
+            style={{
+              background: 'var(--bg-surface-2)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-secondary)',
+              boxShadow: 'var(--shadow-md)',
+            }}
+          >
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+              <path d="M10 4v11" />
+              <path d="m5.5 10.5 4.5 4.5 4.5-4.5" />
+            </svg>
+            New messages
+          </button>
         )}
       </div>
 

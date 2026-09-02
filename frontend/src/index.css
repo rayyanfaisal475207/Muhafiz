@@ -277,6 +277,18 @@ body {
   animation: blink 1.1s step-end infinite;
 }
 
+/* Streaming reveal (Module 6) — see MessageBubble.tsx's file-level comment
+   for the full reasoning. react-markdown re-renders the whole growing AST
+   on every SSE chunk, so there's no per-token boundary to animate the way
+   the old hand-rolled parser's own segment loop had. A genuinely new
+   top-level block appearing (a new paragraph/list/heading/table starting)
+   IS a real DOM-creation boundary though: React patches an already-mounted
+   block's text in place as more tokens stream into it, so this only ever
+   plays on a block's first paint, never on every keystroke within it. */
+.token-stream > *:last-child {
+  animation: token-in 0.18s ease-out both;
+}
+
 /* ── Surfaces & utilities ─────────────────────────────────────── */
 .surface {
   background-color: var(--bg-surface);
