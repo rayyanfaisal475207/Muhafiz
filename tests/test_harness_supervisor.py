@@ -559,6 +559,151 @@ async def test_no_case_selected_and_no_history_reference_still_returns_guidance(
     assert result.status == SubAgentStatus.EMPTY
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# Gold-QA fix — Module 3 follow-up (query-text source): a case named
+# DIRECTLY in the current query ("summarize case 435/26") is a deliberate
+# request, not a passive history reference — must still pass a real
+# authorization check before use.
+# ═══════════════════════════════════════════════════════════════════════
+
+class _FakeGateway:
+    """Minimal DataGateway stand-in exposing only check_case_access,
+    recording every call it receives."""
+    def __init__(self, authorized: bool = True, raises: bool = False):
+        self.authorized = authorized
+        self.raises = raises
+        self.calls: list[tuple] = []
+
+    async def check_case_access(self, case_id, user_id, user_role, min_role=None):
+        self.calls.append((case_id, user_id, user_role))
+        if self.raises:
+            raise RuntimeError("db unreachable")
+        return self.authorized
+
+
+@pytest.mark.asyncio
+async def test_cross_case_role_naming_a_case_in_query_dispatches_without_assignment_check(
+    monkeypatch, isolated_registry
+):
+    """Supervisor/station-admin/platform-admin get the same blanket
+    cross-case reach here that every other cross-case capability in this
+    codebase already grants them (graph_retriever.CROSS_CASE_ROLES,
+    xagg.py's platform-admin get_cases() call) -- no CaseAssignment row
+    needed, and no gateway call made at all."""
+    _stub_route_query(monkeypatch, {"route": "GRAPH_HYBRID", "output_format": "chat"})
+    expected = SubAgentResult(status=SubAgentStatus.OK, answer_text="summary")
+    mock = _mock_sub_agent(CASE_SUMMARIZATION, expected)
+    isolated_registry[CASE_SUMMARIZATION] = mock
+    gateway = _FakeGateway(authorized=False)  # would deny -- must never even be asked
+
+    caller = CallerContext(user_id="u1", role=Role.SUPERVISOR, active_case_id=None)
+    agent_input = _agent_input(caller=caller, query_text="summarize case 435/26 for me")
+
+    sup = Supervisor(registry=isolated_registry)
+    result = await sup.handle(agent_input, gateway=gateway)
+
+    assert len(mock.calls) == 1
+    assert mock.calls[0].execution.caller.active_case_id == "case-435-26"
+    assert gateway.calls == []  # cross-case role never needs the check
+    assert any("case-435-26" in c for c in (result.caveats or []))
+
+
+@pytest.mark.asyncio
+async def test_investigator_naming_an_assigned_case_in_query_dispatches(
+    monkeypatch, isolated_registry
+):
+    """An investigator (not a cross-case role) CAN name a case directly
+    and get an answer -- provided a real CaseAssignment authorizes it."""
+    _stub_route_query(monkeypatch, {"route": "GRAPH_HYBRID", "output_format": "chat"})
+    expected = SubAgentResult(status=SubAgentStatus.OK, answer_text="summary")
+    mock = _mock_sub_agent(CASE_SUMMARIZATION, expected)
+    isolated_registry[CASE_SUMMARIZATION] = mock
+    gateway = _FakeGateway(authorized=True)
+
+    caller = CallerContext(user_id="u1", role=Role.INVESTIGATOR, active_case_id=None)
+    agent_input = _agent_input(caller=caller, query_text="summarize FIR-435-26")
+
+    sup = Supervisor(registry=isolated_registry)
+    result = await sup.handle(agent_input, gateway=gateway)
+
+    assert len(mock.calls) == 1
+    assert mock.calls[0].execution.caller.active_case_id == "fir-435-26"
+    assert gateway.calls == [("fir-435-26", "u1", "investigator")]
+    assert result.status == SubAgentStatus.OK
+
+
+@pytest.mark.asyncio
+async def test_investigator_naming_an_unassigned_case_in_query_is_denied(
+    monkeypatch, isolated_registry
+):
+    """The core security guarantee: an investigator naming a case they
+    have no assignment to must be denied outright -- never silently
+    fall through to the generic guidance message (which would look like
+    a routing quirk, not an access decision), and never dispatch."""
+    _stub_route_query(monkeypatch, {"route": "GRAPH_HYBRID", "output_format": "chat"})
+    mock = _mock_sub_agent(CASE_SUMMARIZATION, SubAgentResult(status=SubAgentStatus.OK))
+    isolated_registry[CASE_SUMMARIZATION] = mock
+    gateway = _FakeGateway(authorized=False)
+
+    caller = CallerContext(user_id="u1", role=Role.INVESTIGATOR, active_case_id=None)
+    agent_input = _agent_input(caller=caller, query_text="summarize FIR-999-99")
+
+    sup = Supervisor(registry=isolated_registry)
+    result = await sup.handle(agent_input, gateway=gateway)
+
+    assert len(mock.calls) == 0
+    assert result.status == SubAgentStatus.ABSTAINED
+    assert result.error is not None
+    assert result.error.kind == "permission_denied"
+    assert any("fir-999-99" in c.lower() for c in (result.caveats or []))
+
+
+@pytest.mark.asyncio
+async def test_investigator_naming_a_case_with_no_gateway_available_fails_closed(
+    monkeypatch, isolated_registry
+):
+    """No gateway to check against -- must deny, never best-effort-grant."""
+    _stub_route_query(monkeypatch, {"route": "GRAPH_HYBRID", "output_format": "chat"})
+    mock = _mock_sub_agent(CASE_SUMMARIZATION, SubAgentResult(status=SubAgentStatus.OK))
+    isolated_registry[CASE_SUMMARIZATION] = mock
+
+    caller = CallerContext(user_id="u1", role=Role.INVESTIGATOR, active_case_id=None)
+    agent_input = _agent_input(caller=caller, query_text="summarize FIR-435-26")
+
+    sup = Supervisor(registry=isolated_registry)
+    result = await sup.handle(agent_input, gateway=None)
+
+    assert len(mock.calls) == 0
+    assert result.status == SubAgentStatus.ABSTAINED
+    assert result.error.kind == "permission_denied"
+
+
+@pytest.mark.asyncio
+async def test_query_named_case_takes_priority_over_history_reference(
+    monkeypatch, isolated_registry
+):
+    """When both sources have something, the CURRENT query's own explicit
+    reference wins over an older history mention."""
+    _stub_route_query(monkeypatch, {"route": "GRAPH_HYBRID", "output_format": "chat"})
+    expected = SubAgentResult(status=SubAgentStatus.OK, answer_text="summary")
+    mock = _mock_sub_agent(CASE_SUMMARIZATION, expected)
+    isolated_registry[CASE_SUMMARIZATION] = mock
+
+    caller = CallerContext(user_id="u1", role=Role.SUPERVISOR, active_case_id=None)
+    agent_input = _agent_input(
+        caller=caller,
+        query_text="now summarize case-200-26 instead",
+        conversation_context=ConversationContext(
+            summary="Assistant: Here is what I found in fir-100-26."
+        ),
+    )
+
+    sup = Supervisor(registry=isolated_registry)
+    result = await sup.handle(agent_input, gateway=_FakeGateway(authorized=True))
+
+    assert mock.calls[0].execution.caller.active_case_id == "case-200-26"
+
+
 @pytest.mark.asyncio
 async def test_handle_allow_meta_analysis_false_reaches_classify_to_subagent(monkeypatch, isolated_registry):
     """[AMENDMENT — findings.md Module 10] End-to-end proof that
