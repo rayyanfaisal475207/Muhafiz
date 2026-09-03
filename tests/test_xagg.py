@@ -497,6 +497,58 @@ async def test_legal_code_act_keyword_no_match_leaves_cases_unfiltered(monkeypat
     assert result["total_cases_considered"] == 2
 
 
+# ── "List all cases" vs. a specific-act count query [Bug fix] ─────────────────
+#
+# Regression coverage for the DeepEval eval finding (xagg-01): "How many
+# cases involve the Arms Ordinance ACROSS ALL CASES? Give a count." answered
+# 79 (the whole corpus) instead of 29 (the real Arms-Ordinance count),
+# because "across all cases" contains the literal substring "all cases",
+# which matched _LIST_ALL_KEYWORDS and returned every case completely
+# unfiltered — the guard on that branch excluded station/status/category
+# keyword collisions but never a legal-code-act collision. No test at all
+# previously covered this branch (`case_listing`), which is exactly how the
+# bug shipped unnoticed.
+
+async def test_plain_list_all_with_no_act_mentioned_still_lists_every_case(monkeypatch):
+    """Non-regression: a genuine "list every case" request, naming no
+    specific act, must still return the full unfiltered case_listing — the
+    fix only needed to add ONE more exclusion, not weaken this branch."""
+    gateway = FakeGateway([
+        {"case_id": "C-1", "fir_number": "1/26", "crime_category": "PPC", "investigation_status": "open", "police_station": "Kohsar"},
+        {"case_id": "C-2", "fir_number": "2/26", "crime_category": "CNSA 1997", "investigation_status": "open", "police_station": "Ramna"},
+    ])
+
+    result = await xagg.run_aggregate(
+        "list all cases", None, gateway, user_role="supervisor"
+    )
+
+    assert result["kind"] == "case_listing"
+    assert len(result["cases"]) == 2
+
+
+async def test_act_query_phrased_with_all_cases_is_not_misrouted_to_unfiltered_listing(monkeypatch):
+    """The actual fix: a query naming a specific act (here "narcotics",
+    already keyword-mapped — see this module's own caveat on why "Arms
+    Ordinance 1965" itself needs a separate keyword-table fix, not this
+    routing fix alone) must never fall into the unfiltered "list every case"
+    branch just because it also happens to say "all cases"."""
+    monkeypatch.setitem(xagg._LEGAL_CODE_ACT_KEYWORDS, "CNSA 1997", ("narcotics",))
+    gateway = FakeGateway([
+        {"case_id": "C-1", "fir_number": "1/26", "crime_category": "CNSA 1997", "investigation_status": "open", "police_station": "Kohsar"},
+        {"case_id": "C-2", "fir_number": "2/26", "crime_category": "PPC", "investigation_status": "open", "police_station": "Ramna"},
+        {"case_id": "C-3", "fir_number": "3/26", "crime_category": "PPC, Illegal Dispossession Act 2005", "investigation_status": "open", "police_station": "Saddar"},
+    ])
+
+    result = await xagg.run_aggregate(
+        "How many cases involve narcotics across all cases? Give a count.",
+        None, gateway, user_role="supervisor",
+    )
+
+    assert result["kind"] != "case_listing"
+    assert result["kind"] == "total_count"
+    assert result["total_cases"] == 1
+
+
 # ── RBAC gate ────────────────────────────────────────────────────────────────
 
 async def test_investigator_cannot_run_cross_case_aggregate():
