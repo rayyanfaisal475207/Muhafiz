@@ -209,3 +209,107 @@ def test_empty_listing_has_no_bogus_zero_header():
 def test_total_count_branch_is_unchanged():
     text = _render_aggregate_text({"kind": "total_count", "total_cases": 61})
     assert "Total cases: 61" in text
+
+
+# ── Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 1: this wrapper is a
+# SEPARATE, hand-maintained copy of orchestrator.py's rendering (per this
+# module's own docstring) — orchestrator.py already handling a new kind
+# does NOT mean this file does. Live-confirmed bug this closes: every one
+# of these five kinds either failed XAggToolResult's Literal validation
+# or crashed _render_aggregate_text() with a bare KeyError the moment
+# XAGG reached this wrapper — i.e. in any deployment with XAGG in
+# HARNESS_CUTOVER_ROUTES (this project's own live config). ────────────
+
+@pytest.mark.asyncio
+async def test_unsupported_aggregate_renders_the_refusal_message(monkeypatch):
+    async def _run_aggregate(*a, **kw):
+        return {"kind": "unsupported_aggregate", "message": "Age-based aggregates are not available."}
+
+    monkeypatch.setattr(xagg_mod, "run_aggregate", _run_aggregate)
+    result = await xagg_tool(XAggToolInput(query_text="average age of accused", execution=_execution()))
+
+    assert result.status == ToolStatus.OK
+    assert result.aggregate_kind == "unsupported_aggregate"
+    assert result.raw_summary_text == "Age-based aggregates are not available."
+
+
+@pytest.mark.asyncio
+async def test_total_accused_count_renders(monkeypatch):
+    async def _run_aggregate(*a, **kw):
+        return {"kind": "total_accused_count", "total_accused": 92, "total_case_scoped_entries": 94}
+
+    monkeypatch.setattr(xagg_mod, "run_aggregate", _run_aggregate)
+    result = await xagg_tool(XAggToolInput(query_text="how many accused in total", execution=_execution()))
+
+    assert result.status == ToolStatus.OK
+    assert result.aggregate_kind == "total_accused_count"
+    assert result.raw_summary_text == "Total distinct accused persons: 92"
+
+
+@pytest.mark.asyncio
+async def test_gender_breakdown_renders_when_supported(monkeypatch):
+    async def _run_aggregate(*a, **kw):
+        return {
+            "kind": "gender_breakdown", "unsupported": False,
+            "counts": [{"key": "male", "count": 65}, {"key": "female", "count": 24}],
+            "total_accused": 92,
+        }
+
+    monkeypatch.setattr(xagg_mod, "run_aggregate", _run_aggregate)
+    result = await xagg_tool(XAggToolInput(query_text="how many women accused", execution=_execution()))
+
+    assert result.status == ToolStatus.OK
+    assert "male: 65" in result.raw_summary_text
+    assert "female: 24" in result.raw_summary_text
+    assert "Total accused: 92" in result.raw_summary_text
+
+
+@pytest.mark.asyncio
+async def test_gender_breakdown_renders_the_not_yet_synced_message(monkeypatch):
+    async def _run_aggregate(*a, **kw):
+        return {"kind": "gender_breakdown", "unsupported": True, "message": "Gender is not yet recorded."}
+
+    monkeypatch.setattr(xagg_mod, "run_aggregate", _run_aggregate)
+    result = await xagg_tool(XAggToolInput(query_text="how many women accused", execution=_execution()))
+
+    assert result.raw_summary_text == "Gender is not yet recorded."
+
+
+@pytest.mark.asyncio
+async def test_district_breakdown_renders(monkeypatch):
+    async def _run_aggregate(*a, **kw):
+        return {
+            "kind": "district_breakdown", "entity_label": None,
+            "counts": [{"district": "Lahore", "count": 18}, {"district": "Faisalabad", "count": 19}],
+        }
+
+    monkeypatch.setattr(xagg_mod, "run_aggregate", _run_aggregate)
+    result = await xagg_tool(XAggToolInput(query_text="which district has the most FIRs", execution=_execution()))
+
+    assert "Lahore: 18 case(s)" in result.raw_summary_text
+    assert "Faisalabad: 19 case(s)" in result.raw_summary_text
+
+
+@pytest.mark.asyncio
+async def test_district_breakdown_with_entity_label_renders(monkeypatch):
+    async def _run_aggregate(*a, **kw):
+        return {
+            "kind": "district_breakdown", "entity_label": "Weapon",
+            "counts": [{"district": "Lahore", "count": 3}],
+        }
+
+    monkeypatch.setattr(xagg_mod, "run_aggregate", _run_aggregate)
+    result = await xagg_tool(XAggToolInput(query_text="which district recovers the most weapons", execution=_execution()))
+
+    assert "Lahore: 3 Weapon record(s)" in result.raw_summary_text
+
+
+@pytest.mark.asyncio
+async def test_station_total_count_renders(monkeypatch):
+    async def _run_aggregate(*a, **kw):
+        return {"kind": "station_total_count", "total_stations": 19}
+
+    monkeypatch.setattr(xagg_mod, "run_aggregate", _run_aggregate)
+    result = await xagg_tool(XAggToolInput(query_text="how many police stations are there", execution=_execution()))
+
+    assert result.raw_summary_text == "Total police stations: 19"

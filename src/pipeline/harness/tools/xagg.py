@@ -63,7 +63,27 @@ logger = logging.getLogger(__name__)
 # See module docstring's "DEVIATION FROM THE LITERAL DOC TEXT" note:
 # "total_count" is additive to SUBAGENT_INTERFACES.md §1.5's three-value
 # Literal, not a replacement of it.
-AggregateKind = Literal["graph_recurrence", "relational_aggregate", "case_listing", "total_count"]
+#
+# [Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 1] Five more kinds added
+# the same additive way: run_aggregate() (xagg.py) gained
+# total_accused_count/gender_breakdown/district_breakdown/
+# station_total_count (real new aggregate families) and
+# unsupported_aggregate (an honest refusal for topics with no data path)
+# — see xagg.py's own module comments for each. Live-confirmed bug this
+# closes: this wrapper's _render_aggregate_text() and this Literal are a
+# SEPARATE, hand-maintained copy of orchestrator.py's rendering (per this
+# module's own docstring), not derived from it — so orchestrator.py
+# already handling these five kinds did NOT mean this file did. Before
+# this fix, any of these five (e.g. "how many accused in total") crashed
+# XAggToolResult construction (Literal validation) or _render_aggregate_text
+# (a bare KeyError on agg_result["counts"], confirmed live) the moment
+# XAGG reached this wrapper — i.e. every time in a deployment with XAGG in
+# HARNESS_CUTOVER_ROUTES.
+AggregateKind = Literal[
+    "graph_recurrence", "relational_aggregate", "case_listing", "total_count",
+    "total_accused_count", "gender_breakdown", "district_breakdown",
+    "station_total_count", "unsupported_aggregate",
+]
 
 
 class XAggToolInput(CrossCaseToolInput):
@@ -139,6 +159,28 @@ def _render_aggregate_text(agg_result: dict) -> str:
         ]
     elif kind == "total_count":
         lines = [f"Total cases: {agg_result['total_cases']}"]
+    # [Gold-QA fix — Module 1] Kept in sync with orchestrator.py's own
+    # identical branches for these five kinds — see this function's own
+    # docstring and AggregateKind's comment above for why this file needs
+    # its own copy rather than reusing orchestrator.py's.
+    elif kind == "unsupported_aggregate":
+        lines = [agg_result["message"]]
+    elif kind == "total_accused_count":
+        lines = [f"Total distinct accused persons: {agg_result['total_accused']}"]
+    elif kind == "gender_breakdown":
+        if agg_result["unsupported"]:
+            lines = [agg_result["message"]]
+        else:
+            lines = [f"- {c['key']}: {c['count']}" for c in agg_result["counts"]]
+            lines.append(f"Total accused: {agg_result['total_accused']}")
+    elif kind == "district_breakdown":
+        label = agg_result.get("entity_label")
+        lines = [
+            f"- {c['district']}: {c['count']} {label + ' record(s)' if label else 'case(s)'}"
+            for c in agg_result["counts"]
+        ]
+    elif kind == "station_total_count":
+        lines = [f"Total police stations: {agg_result['total_stations']}"]
     else:
         lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
         # [Legal-code semantic layer] Kept in sync with orchestrator.py's
