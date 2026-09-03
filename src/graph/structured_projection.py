@@ -392,6 +392,24 @@ async def resolve_structured_person(
 # ── person mention builders ──────────────────────────────────────────────
 
 def _person_mention(raw: dict, *, name_key: str = "full_name") -> Optional[dict]:
+    """
+    [Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 1d] `gender`/`age` added
+    alongside cnic/father_name/address_text/phone above: both columns exist
+    on the real upstream `psrms.fir_accused`/`fir_witness` tables
+    (`muhafiz_schema.dbml.txt` lines 208/250, 212/252) but were never
+    extracted here, which is why XAGG's gender aggregate had no data path
+    at all (live-confirmed: "how many women accused" silently fell through
+    to an unrelated recurrence/count answer). `resolve_structured_person()`'s
+    two write paths (`_write_new_person()`,
+    `entity_resolution.resolve_and_write()`) both do a generic
+    `{k: v for k, v in mention.items() if v is not None}` pass-through onto
+    the Person node's properties — adding these two keys here is
+    sufficient, no other write-path change needed. Values are written
+    verbatim (whatever free-text the source system carries, e.g. "Male"/
+    "Female"/"M"/"F") — `xagg.py::_gender_breakdown()` lower-cases when
+    grouping, so casing/vocabulary differences bucket together without a
+    normalization table here.
+    """
     name = raw.get(name_key)
     if not name:
         return None
@@ -399,6 +417,7 @@ def _person_mention(raw: dict, *, name_key: str = "full_name") -> Optional[dict]
     for src_key, dst_key in (
         ("cnic", "cnic"), ("father_name", "father_name"),
         ("address_text", "address_text"), ("phone", "phone"),
+        ("gender", "gender"), ("age", "age"),
     ):
         val = raw.get(src_key)
         if val:
