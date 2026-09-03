@@ -212,41 +212,58 @@ At the dispatch point (locate via the harness agent-selection call site), add a 
 ## Module 4 — Verifier: stop dumping raw JSON for structured-aggregate answers
 
 **Branch:** `fix/verifier-structured-aggregate-paraphrase` · **Files:**
-[src/pipeline/harness/agents/large_scale_aggregate.py](src/pipeline/harness/agents/large_scale_aggregate.py) (~line 393),
-[src/pipeline/harness/agents/cross_case_linkage.py](src/pipeline/harness/agents/cross_case_linkage.py) (~line 803)
+[src/pipeline/verifier.py](src/pipeline/verifier.py) (new `verify_structured_aggregate_paraphrase()`),
+[src/pipeline/harness/agents/large_scale_aggregate.py](src/pipeline/harness/agents/large_scale_aggregate.py)
 
 ### Problem (report §2.4)
 "Has anyone been arrested more than once" → "Entity-graph search found connections
 across 6 cases, chain confidence 50%" + raw case IDs, never a plain yes/no answer with
 names. "4 matching Person(s) found... showing the raw computed aggregate instead."
 
-### Root cause
-Both agents generate an NL paraphrase of a computed result, run it through the
-Verifier, and **fall back to the raw computed aggregate/cluster data** whenever the
-Verifier can't confirm the paraphrase is a faithful representation. The raw dump is a
-safety fallback, not the primary behavior — it fires too often because the Verifier's
-strict free-text-grounding check is the wrong tool for a paraphrase of
-**deterministic, code-computed** data (the numbers came from the query itself, not an
-LLM claim, so they're grounded by construction).
+### Root cause — corrected during implementation
+The XAGG half of this is exactly as diagnosed: `large_scale_aggregate.py` generates an
+NL paraphrase of a computed aggregate, runs it through `verify_grounding()` (tuned for
+free-text claims grounded in narrative document chunks), and **falls back to the raw
+computed aggregate** whenever the free-text judge can't confirm the paraphrase — firing
+too often because the numbers are grounded by construction (they came from the query),
+not from an LLM claim the strict judge should be scrutinizing.
+
+The XGRAPH half (the literal "chain confidence 50%" example the report quotes, from
+`cross_case_linkage.py::_xgraph_summary_line()`) is **not** this defect: that line is
+explicitly documented as deterministic and **never run through the Verifier at all** —
+a deliberate prior fix (the module's own "verify-log Finding AC") that intentionally
+avoids stating graph-resolved identity as flat fact, after an earlier version overclaimed
+certainty. Rewriting it into a flat "Yes — the following people..." answer would undo
+that fix. This module therefore does **not** touch `cross_case_linkage.py`'s XGRAPH
+output; XNETWORK's own `verify_grounding()` calls in that file are a legitimate
+narrative-paraphrase-of-retrieved-text shape (community-summary chunks), not the
+computed-aggregate shape this module targets, and are also left unchanged.
 
 ### Fix design
-- Add a relaxed verification mode scoped to **only** these two call sites — either skip
-  the Verifier entirely for this call shape and format directly from the structured
-  result, or pass a looser threshold/prompt variant specific to these two agents. Do
-  **not** change the Verifier's default behavior elsewhere; it is doing its job on
-  free-text claims.
-- For any residual case that still needs a fallback, reformat it as a plain sentence
-  ("Yes — the following people appear across multiple cases: Tarique, Faisal...")
-  instead of the current "chain confidence 50%" technical dump.
+- New `verify_structured_aggregate_paraphrase()` in `verifier.py`, used only by
+  `large_scale_aggregate.py`: keeps the two *security-relevant* deterministic checks
+  (cross-case leakage, fabricated case-id citations) unconditionally, and replaces the
+  free-text LLM judge with a deterministic numeric-consistency check — every number the
+  paraphrase states must appear in the aggregate's own computed source text. Does
+  **not** touch `verify_grounding()` or any of its narrative call sites (RAG/GRAPH/SQL/
+  WEB/XGRAPH/XNETWORK).
+- Citation markers (`[Document N, ...]`) are stripped before the numeric check so a
+  citation index or a cited case-id's own digits are never mistaken for a claimed
+  figure.
 
 ### Acceptance criteria
-- "Has anyone been arrested more than once" returns a plain answer with names, not a
-  confidence-score + case-ID dump.
 - "How many of the accused are women" (once Module 1 lands) returns its NL summary
   directly, without the "could not be verified as an accurate paraphrase" caveat
   firing on a deterministic count.
-- Verifier's behavior on ordinary free-text RAG/GRAPH answers elsewhere is unchanged
-  (regression-test the existing Verifier test suite).
+- A paraphrase that invents a number not present in the computed result still fails
+  (verified by test — this is a relaxation of the free-text judge, not a removal of
+  grounding entirely).
+- `verify_grounding()`'s behavior on every other route (RAG/GRAPH/SQL/WEB/XGRAPH/
+  XNETWORK) is completely unchanged (regression-test the existing Verifier suite).
+- "Has anyone been arrested more than once" (XGRAPH) is **not** in this module's scope
+  — its deterministic, unverified summary line is a deliberate, already-fixed design
+  choice; a future readability pass on its phrasing (without reintroducing flat
+  identity claims) is separate work, not tracked here.
 
 ---
 
