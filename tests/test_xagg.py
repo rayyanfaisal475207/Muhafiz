@@ -768,6 +768,26 @@ async def test_district_question_returns_a_district_rollup(monkeypatch):
     assert result["counts"][0] == {"district": "Lahore", "count": 5}
 
 
+async def test_station_count_question_counts_distinct_stations_not_cases_per_station(monkeypatch):
+    """
+    Module 2a: "how many police stations are there" must count distinct
+    PoliceStation nodes, not fall into the group-by-station case-count path
+    (which would answer a different question, or nothing for an empty
+    corpus).
+    """
+    rows = [
+        {"station_id": "ST-001"}, {"station_id": "ST-002"}, {"station_id": "ST-002"},
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        "how many police stations are there", None, gateway=None, user_role="supervisor"
+    )
+
+    assert result["kind"] == "station_total_count"
+    assert result["total_stations"] == 2
+
+
 async def test_district_weapon_question_scopes_to_weapon_label(monkeypatch):
     rows = [{"district": "Lahore", "n_count": 3}]
     captured = {}

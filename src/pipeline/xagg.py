@@ -91,6 +91,19 @@ _GENDER_KEYWORDS = (
     "عورت", "عورتیں", "خواتین", "مرد", "جنس",
 )
 _STATION_KEYWORDS = ("station", "thana", "تھانہ", "چوکی")
+# [Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 2a] Distinct from
+# _STATION_KEYWORDS above, which only ever drives the group-by dimension in
+# _station_or_category_counts ("how many CASES per station") — a bare "how
+# many police stations are there" wants a count of STATIONS themselves,
+# which that grouped path can't produce (it counts cases, not distinct
+# station values, and would answer "0 groups" for an empty corpus rather
+# than the real station count). Router.py's own deterministic override for
+# this shape only got this query to XAGG at all; this is what lets XAGG
+# actually answer it once it arrives.
+_STATION_TOTAL_KEYWORDS = (
+    "how many stations", "how many police stations", "total stations",
+    "kitne thanay", "kitni thana", "تھانے کتنے", "کتنے تھانے",
+)
 _DISTRICT_KEYWORDS = ("district", "zila", "zilay", "ضلع")
 # Previously English-only, unlike the three keyword sets above — an Urdu
 # query mentioning "بند" (closed) or "چوری" (theft) silently skipped the
@@ -469,6 +482,22 @@ async def _top_districts_by(
     return {"kind": "district_breakdown", "entity_label": entity_label, "counts": ranked}
 
 
+# [Gold-QA fix — Module 2a] "How many police stations are there" — a count
+# of distinct PoliceStation graph nodes, not of cases per station (that's
+# _station_or_category_counts's job, a different question). Reads directly
+# from the graph's PoliceStation node set (written once per real station by
+# structured_projection.py's _write_jurisdiction()) rather than counting
+# distinct police_station strings off case rows, since a station with zero
+# currently-open cases is still a real station.
+async def _station_total_count() -> dict:
+    rows = await age_client.execute_cypher(
+        "MATCH (s:PoliceStation) RETURN DISTINCT s.station_id AS station_id",
+        columns=["station_id"],
+    )
+    station_ids = {r.get("station_id") for r in rows if r.get("station_id")}
+    return {"kind": "station_total_count", "total_stations": len(station_ids)}
+
+
 # [findings.md Module 4] Strips a trailing ammunition-count clause shaped
 # "بمعہ N گولیاں" ("with N bullets") — e.g. "30 بور پستول بمعہ 3 گولیاں"
 # and "...بمعہ 6 گولیاں" are the SAME weapon type as bare "30 بور پستول",
@@ -784,6 +813,13 @@ async def run_aggregate(
         return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_TREND}
     if _matches_any(query_lower, _GENDER_KEYWORDS):
         return await _gender_breakdown(jurisdiction_case_ids=jurisdiction_case_ids)
+
+    # [Gold-QA fix — Module 2a] A bare "how many police stations are
+    # there" — checked before _STATION_KEYWORDS's own group-by dispatch
+    # further below, since that path counts CASES per station, not
+    # stations themselves (see _station_total_count()'s own docstring).
+    if _matches_any(query_lower, _STATION_TOTAL_KEYWORDS):
+        return await _station_total_count()
 
     # [Gold-QA fix — Module 1c] District rollup — checked before the
     # station/vehicle/person/weapon families below since "which district
