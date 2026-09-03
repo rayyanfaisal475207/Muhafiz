@@ -773,6 +773,47 @@ class Supervisor:
                 ],
             )
 
+        # [Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 3] Case Summarization
+        # (GRAPH/GRAPH_HYBRID) is structurally within-case: it summarizes ONE
+        # active case's own documents/graph. router.py always forces
+        # case_scope="within_case" for these two routes (only XGRAPH/XAGG/
+        # XNETWORK are ever cross_case — see route_query()'s own comment), so
+        # a genuinely cross-case, multi-record question (compare two cases,
+        # trace an item across cases, analyze the whole caseload) that the
+        # LLM classifier happens to still route to GRAPH/GRAPH_HYBRID lands
+        # here with NOTHING to summarize whenever no case is actively
+        # selected — live-confirmed (Gold-QA report §2.1, CR3/CR4/G2/G3/G5/G6):
+        # this dispatched straight into Case Summarization, which returned
+        # its generic EMPTY "No case documents or case graph data were found
+        # to summarize" caveat — a message that reads as "no data exists"
+        # when the real problem is "wrong sub-agent for a query with no case
+        # context." Caught here, before dispatch, rather than inside Case
+        # Summarization itself: this is a routing-context defect (no case_id
+        # to scope to), not something the sub-agent's own retrieval logic can
+        # detect or fix.
+        if sub_agent_name == CASE_SUMMARIZATION and not agent_input.execution.caller.active_case_id:
+            emit(
+                PipelineEvent(
+                    step="supervisor:dispatch",
+                    status="skipped",
+                    detail=(
+                        "GRAPH/GRAPH_HYBRID classified with no active case_id — "
+                        "Case Summarization has nothing to scope to; returning "
+                        "guidance instead of dispatching."
+                    ),
+                )
+            )
+            return SubAgentResult(
+                status=SubAgentStatus.EMPTY,
+                answer_text=None,
+                caveats=[
+                    "This question needs either a specific case selected to "
+                    "summarize, or rephrasing as a cross-case question (e.g. "
+                    "\"...across cases\", \"...in total\", \"which cases...\") "
+                    "so it can be answered from the whole caseload instead."
+                ],
+            )
+
         handler = self._registry.get(sub_agent_name)
         if handler is None:
             emit(
