@@ -1,0 +1,342 @@
+[
+  {
+    "id": "direct-01",
+    "route": "DIRECT",
+    "subagent": "(none — legacy DIRECT)",
+    "query": "What does FIR stand for and what is it, in one sentence?",
+    "scores": {
+      "AnswerRelevancy": 1.0,
+      "Faithfulness": 1.0,
+      "Hallucination": 1.0,
+      "Correctness": 0.6,
+      "NameFactFidelity": 0.0
+    },
+    "reasons": {
+      "AnswerRelevancy": "The score is 1.00 because the response is fully relevant and contains no irrelevant statements.",
+      "Faithfulness": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context, with no contradictions detected. Great job maintaining complete accuracy!",
+      "Hallucination": "The score is 1.00 because the actual output aligns perfectly with the context, correctly identifying FIR as 'First Information Report' and describing it consistently as a recorded piece of information without any contradictions.",
+      "Correctness": "The Actual Output correctly identifies that FIR stands for First Information Report, aligning with the Expected Output. However, it fails to accurately define what it is in the context of the Expected Output (the initial written record of a cognizable offence). Instead, it cites a specific legal sec",
+      "NameFactFidelity": "The Actual Output includes the specific identifier 'section 154' and the citation '[Document 1]', neither of which are present in the Expected Output. According to the evaluation steps, any extra identifiers or values not found in the Expected Output constitute a failure."
+    }
+  },
+  {
+    "id": "rag-02",
+    "route": "RAG",
+    "subagent": "Semantic Search",
+    "query": "Who is the complainant in case fir-891-24?",
+    "scores": {
+      "AnswerRelevancy": 0.0,
+      "Faithfulness": 1.0,
+      "Hallucination": 0.0,
+      "Correctness": 0.0,
+      "NameFactFidelity": 0.0
+    },
+    "reasons": {
+      "AnswerRelevancy": "The score is 0.00 because the output consists entirely of meta-commentary regarding verification status and fails to provide any information about the identity of the complainant in case fir-891-24.",
+      "Faithfulness": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context, with no contradictions detected. Great job maintaining complete accuracy!",
+      "Hallucination": "The score is 0.00 because the actual output falsely claims the case summary could not be verified, directly contradicting the provided context which contains specific, verifiable details such as the complainant's name, CNIC, and incident information.",
+      "Correctness": "The Actual Output failed to provide the specific factual answer (the complainant's name) present in the Expected Output. Instead, it incorrectly abstained by claiming the data could not be verified, which contradicts the authoritative Expected Output that clearly identifies the complainant as نعیم ا",
+      "NameFactFidelity": "The Actual Output fails to provide the specific entity name 'نعیم اختر' found in the Expected Output. Instead, it returns a generic error message stating the summary could not be verified, which constitutes a complete failure to extract and report the required proper name."
+    }
+  },
+  {
+    "id": "timeline-01",
+    "route": "GRAPH",
+    "subagent": "Timeline Building",
+    "query": "Build a timeline of events for case fir-891-24.",
+    "scores": {
+      "AnswerRelevancy": 0.533,
+      "Faithfulness": 0.933,
+      "Hallucination": 1.0,
+      "Correctness": 0.6,
+      "NameFactFidelity": 0.2
+    },
+    "reasons": {
+      "AnswerRelevancy": "The score is 0.53 because the output includes static background details like incident location, date, and legal charges, which are not chronological events required for a timeline. While these details provide context, they do not constitute the procedural sequence of events (e.g., arrest, court date",
+      "Faithfulness": "The score is 0.93 because the actual output incorrectly states the incident took place 'near a rickshaw stand', whereas the retrieval context explicitly specifies it occurred 'at the Rickshaw Stand', creating a direct contradiction regarding the specific location.",
+      "Hallucination": "The score is 1.00 because the actual output aligns perfectly with the context regarding the incident date and time, with no contradictions detected.",
+      "Correctness": "The Actual Output correctly identifies the incident date and time (September 14, 2024, at 22:00 UTC) which aligns with the Expected Output. However, it fails to mention the specific time the report was recorded (22:15 UTC), which is a key component of the expected timeline. Additionally, the Actual ",
+      "NameFactFidelity": "The Actual Output contains numerous specific details (FIR number, location, sections, weapon type, suspect status) that are not present in the Expected Output, violating the requirement to confirm no extra identifiers or values are present. Additionally, while the date and time of the incident match"
+    }
+  },
+  {
+    "id": "graph-01",
+    "route": "GRAPH",
+    "subagent": "Case Summarization",
+    "query": "Who are the people involved in case fir-891-24?",
+    "scores": {
+      "AnswerRelevancy": 0.476,
+      "Faithfulness": 1.0,
+      "Hallucination": 0.0,
+      "Correctness": 0.2,
+      "NameFactFidelity": 0.1
+    },
+    "reasons": {
+      "AnswerRelevancy": "The score is 0.48 because the output consists almost entirely of meta-statements regarding data availability, verification issues, and the generation process, rather than providing the specific names or details of the people involved in case fir-891-24 as requested.",
+      "Faithfulness": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context, with no contradictions detected. Great job maintaining complete accuracy!",
+      "Hallucination": "The score is 0.00 because the actual output explicitly contradicts the contexts by claiming no significant events are described, whereas the contexts detail a specific armed robbery. Additionally, the output hallucinates specific details such as the accused's name, CNIC, and weapon caliber, which ar",
+      "Correctness": "The Actual Output fails to identify the specific roles (complainant vs. accused) and key case details (weapon, legal sections) present in the Expected Output. It incorrectly labels 'Rana Ihsan Iqbal' as an Investigating Officer without evidence and omits the weapon and legal sections entirely. Furth",
+      "NameFactFidelity": "The Actual Output fails to identify the correct roles for the entities, listing 'شہزیب عرف شابی' and 'نعیم اختر' without specifying them as accused and complainant respectively, whereas the Expected Output explicitly defines these roles. Furthermore, the Actual Output completely omits critical detai"
+    }
+  },
+  {
+    "id": "invanalysis-01",
+    "route": "GRAPH_HYBRID",
+    "subagent": "Investigative Analysis",
+    "query": "What are the key investigative leads in case fir-891-24 based on the evidence?",
+    "scores": {
+      "AnswerRelevancy": 0.579,
+      "Faithfulness": 1.0,
+      "Hallucination": 0.0,
+      "Correctness": 0.3,
+      "NameFactFidelity": 0.2
+    },
+    "reasons": {
+      "AnswerRelevancy": "The score is 0.58 because the response fails to provide the specific investigative leads requested, instead listing multiple instances of missing information and internal verification issues that are irrelevant to the core query.",
+      "Faithfulness": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context, with no contradictions detected. Great job maintaining complete accuracy!",
+      "Hallucination": "The score is 0.00 because the actual output contains significant factual contradictions, including misidentifying the accused as a named individual instead of an unknown person, incorrectly stating that no victim information is provided when it is clearly present, and listing incorrect CNIC and phon",
+      "Correctness": "The Actual Output fails to identify the complainant (Naeem Akhtar) and the specific legal sections (392 PPC, 34 PPC, 13 Arms Ordinance 1965) listed in the Expected Output. It incorrectly identifies 'Rana Ahsan Iqbal' as a key entity, which is not present in the expected data. Furthermore, the system",
+      "NameFactFidelity": "The Actual Output fails to include the complainant 'نعیم اختر' (Naeem Akhtar) and the specific legal sections (392 PPC, 34 PPC, 13 Arms Ordinance 1965) present in the Expected Output. Additionally, the Actual Output includes extra identifiers (CNIC 00000-1000001-1, phone number 0300-4405380) and ent"
+    }
+  },
+  {
+    "id": "dataquality-01",
+    "route": "DIRECT",
+    "subagent": "Data-Quality/Extraction-Coverage",
+    "query": "How complete is the extracted data for case fir-891-24? Are there any witnesses recorded?",
+    "scores": {
+      "AnswerRelevancy": 1.0,
+      "Faithfulness": 1.0,
+      "Hallucination": 0.0,
+      "Correctness": 0.0,
+      "NameFactFidelity": 0.0
+    },
+    "reasons": {
+      "AnswerRelevancy": "The score is 1.00 because the output contains no irrelevant statements, fully addressing the input with complete relevance.",
+      "Faithfulness": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context, with no contradictions detected. Great job maintaining complete accuracy!",
+      "Hallucination": "The score is 0.00 because the actual output is empty, failing to provide any information that aligns with the contexts, resulting in complete contradictions.",
+      "Correctness": "The Actual Output failed to provide any answer, whereas the Expected Output contains specific factual information (1 accused, 0 witnesses) that should have been retrieved. The model did not correctly abstain because the data was available, resulting in a complete failure to align with the evaluation",
+      "NameFactFidelity": "The Actual Output is empty ('no answer produced'), whereas the Expected Output contains specific quantities (1 accused, 0 witnesses). Since the Actual Output fails to provide any of the required information, it does not align with the evaluation steps."
+    }
+  },
+  {
+    "id": "graphhybrid-01",
+    "route": "GRAPH_HYBRID",
+    "subagent": "Case Summarization",
+    "query": "Summarize case fir-891-24: what happened, who was involved, and what was recovered?",
+    "scores": {
+      "AnswerRelevancy": 0.857,
+      "Faithfulness": 0.85,
+      "Hallucination": 1.0,
+      "Correctness": 0.8,
+      "NameFactFidelity": 0.6
+    },
+    "reasons": {
+      "AnswerRelevancy": "The score is 0.86 because the response includes meta-commentary regarding the absence or presence of specific information in the source material, which is irrelevant to the direct request for factual details about the case events, parties, and recovered items.",
+      "Faithfulness": "The score is 0.85 because the actual output contains specific factual errors: it misidentifies the accused as 'Shahzib' instead of 'Shahzeb alias Shabi', incorrectly lists the complainant's ID card number as '00000-1000001-1' rather than '00000-1000010-1', and provides the wrong phone number '0300-4",
+      "Hallucination": "The score is 1.00 because the actual output fully aligns with the context, accurately reflecting the incident details, complainant name, and weapon used without any contradictions.",
+      "Correctness": "The Actual Output correctly identifies the accused (Shahzib a.k.a. Shabi), the weapon (30 bore pistol), and the legal sections (392 PPC, 34 PPC, 13 Arms Ordinance 1965), which aligns with the Expected Output. However, it fails to explicitly name the complainant (Naeem Akhtar) as a key entity, instea",
+      "NameFactFidelity": "The Actual Output correctly identifies the accused (Shahzib a.k.a. Shabi), the weapon (30 bore pistol), and the specific legal sections (392 PPC, 34 PPC, 13 Arms Ordinance 1965) found in the Expected Output. However, it fails to mention the complainant 'Naeem Akhtar' (نعیم اختر), which is a key enti"
+    }
+  },
+  {
+    "id": "rag-global-01",
+    "route": "RAG",
+    "subagent": "Semantic Search",
+    "query": "What is the procedure for registering an FIR under Pakistani law?",
+    "scores": {
+      "AnswerRelevancy": 0.0,
+      "Faithfulness": 1.0,
+      "Hallucination": 1.0,
+      "Correctness": 0.0,
+      "NameFactFidelity": 0.0
+    },
+    "reasons": {
+      "AnswerRelevancy": "The score is 0.00 because the output is a system error message stating that no information was found, which fails to provide any details regarding the procedure for registering an FIR under Pakistani law.",
+      "Faithfulness": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context, with no contradictions detected. Great job maintaining complete accuracy!",
+      "Hallucination": "The score is 1.00 because there are no contradictions between the actual output and the contexts; the output's failure to retrieve information is treated as a lack of detail rather than a factual error, resulting in a perfect alignment score.",
+      "Correctness": "The Actual Output incorrectly abstains from answering by claiming no relevant documents were found, whereas the Expected Output provides a specific, valid procedure for registering an FIR under Pakistani law. This constitutes a failure to provide the correct information available in the authoritativ",
+      "NameFactFidelity": "The Actual Output is a generic error message stating no documents were found, whereas the Expected Output provides specific legal information regarding FIR registration. The Actual Output fails to extract or provide any of the required entities, facts, or details present in the Expected Output, resu"
+    }
+  },
+  {
+    "id": "rag-01",
+    "route": "RAG",
+    "subagent": "Semantic Search",
+    "query": "In case fir-891-24, what weapon was involved?",
+    "scores": {
+      "AnswerRelevancy": 0.0,
+      "Faithfulness": 1.0,
+      "Hallucination": 0.5,
+      "Correctness": 1.0,
+      "NameFactFidelity": 0.9
+    },
+    "reasons": {
+      "AnswerRelevancy": "The score is 0.00 because the output fails to provide a valid answer, containing a factual error regarding the caliber and relying on a meta-reference to a source document instead of stating the weapon involved.",
+      "Faithfulness": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context, with no contradictions detected. Great job maintaining complete accuracy!",
+      "Hallucination": "The score is 0.50 because the output correctly identifies the weapon as a pistol, aligning with the context, but hallucinates the specific detail '30-bore' which is not present in the provided text.",
+      "Correctness": "The Actual Output correctly identifies the weapon as '30 بور پستول' (30-bore pistol), which matches the factual claim in the Expected Output. There are no contradictions or inaccuracies, and the response directly answers the specific question regarding case fir-891-24.",
+      "NameFactFidelity": "The response correctly identifies the weapon as '30 بور پستول' (30-bore pistol), which matches the entity in the Expected Output. While the Actual Output includes additional context ('as stated in [Document 1]') and a parenthetical translation, these do not introduce conflicting identifiers, dates, "
+    }
+  },
+  {
+    "id": "report-01",
+    "route": "GRAPH_HYBRID",
+    "subagent": "Report Drafting",
+    "query": "Draft a brief case report for fir-891-24 as a document.",
+    "scores": {
+      "AnswerRelevancy": 1.0,
+      "Faithfulness": 0.905,
+      "Hallucination": 1.0,
+      "Correctness": 0.9,
+      "NameFactFidelity": 0.4
+    },
+    "reasons": {
+      "AnswerRelevancy": "The score is 1.00 because the output contains no irrelevant statements and fully addresses the input request.",
+      "Faithfulness": "The score is 0.90 because the actual output incorrectly identifies the location as 'house number 2' instead of approximately 0.5 kilometers east of the police station, and misstates the application receipt time as 22:25 rather than 22:15, while also referencing Section 154 PPC which is not mentioned",
+      "Hallucination": "The score is 1.00 because the actual output fully aligns with the provided contexts, accurately reflecting all factual details such as the incident time, location, complainant name, stolen items, and legal sections without any contradictions.",
+      "Correctness": "The Actual Output correctly identifies the FIR number, crime category, legal sections (392 PPC, 34 PPC, 13 Arms Ordinance 1965), and the weapon (30-bore pistol) as specified in the Expected Output. It does not contradict the authoritative data and provides a structured case report format as requeste",
+      "NameFactFidelity": "The Actual Output fails to mention the specific proper names of the complainant (Naeem Akhtar) and the accused (Shahzib alias Shabi) found in the Expected Output. While it correctly identifies the weapon (30-bore pistol) and the legal sections (392 PPC, 34 PPC, 13 Arms Ordinance 1965), the omission "
+    }
+  },
+  {
+    "id": "abstain-01",
+    "route": "RAG",
+    "subagent": "Semantic Search",
+    "query": "In case fir-891-24, what was the DNA lab result and the getaway car's license plate?",
+    "scores": {
+      "AnswerRelevancy": 0.286,
+      "Faithfulness": 1.0,
+      "Hallucination": 1.0,
+      "Correctness": 1.0,
+      "NameFactFidelity": 0.2
+    },
+    "reasons": {
+      "AnswerRelevancy": "The score is 0.29 because the output consists entirely of meta-statements regarding data availability and generation methods, failing to provide the specific DNA lab result or license plate requested in the input.",
+      "Faithfulness": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context, with no contradictions detected. Great job maintaining complete accuracy!",
+      "Hallucination": "The score is 1.00 because the actual output accurately reflects the context by correctly stating that DNA lab results and a getaway car's license plate are not mentioned, with no contradictions identified.",
+      "Correctness": "The Actual Output correctly identifies that the requested information (DNA lab result and license plate) is not present in the case material, aligning with the Expected Output. It appropriately abstains from providing false details, satisfying the requirement to refuse or abstain when data is missin",
+      "NameFactFidelity": "The Actual Output contains extra identifiers and values not present in the Expected Output, specifically the file name 'AGENT_HARNESS_IMPLEMENTATION_PLAN.md' and section number '§7.4'. According to evaluation step 4, the presence of extra identifiers or values constitutes a failure. Additionally, th"
+    }
+  },
+  {
+    "id": "sql-01",
+    "route": "SQL",
+    "subagent": "(legacy SQL route)",
+    "query": "What PPC section covers robbery?",
+    "scores": {
+      "AnswerRelevancy": 0.0,
+      "Faithfulness": 1.0,
+      "Hallucination": 0.0,
+      "Correctness": 0.0,
+      "NameFactFidelity": 0.0
+    },
+    "reasons": {
+      "AnswerRelevancy": "The score is 0.00 because the output consists entirely of meta-commentary regarding verification status rather than providing the specific PPC section requested for robbery.",
+      "Faithfulness": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context, with no contradictions detected. Great job maintaining complete accuracy!",
+      "Hallucination": "The score is 0.00 because the actual output is a generic statement about verification failure that lacks the specific factual details ('Robbery' or 'PPC Section 392') present in the context, resulting in no alignment.",
+      "Correctness": "The Actual Output failed to provide the specific factual answer (PPC Section 392) present in the Expected Output. Instead, it incorrectly claimed the analysis could not be verified, which contradicts the authoritative data and fails to answer the valid question.",
+      "NameFactFidelity": "The Actual Output fails to provide the specific legal information required by the Expected Output. It does not mention the proper name 'Robbery', the statute 'PPC', or the section number '392'. Instead, it returns a generic error message, resulting in a complete mismatch of all key entities and valu"
+    }
+  },
+  {
+    "id": "xgraph-01",
+    "route": "XGRAPH",
+    "subagent": "Cross-Case Linkage",
+    "query": "Are there any suspects who appear across more than one case? Show the links.",
+    "scores": {
+      "AnswerRelevancy": 1.0,
+      "Faithfulness": 1.0,
+      "Hallucination": 0.0,
+      "Correctness": 0.2,
+      "NameFactFidelity": 0.0
+    },
+    "reasons": {
+      "AnswerRelevancy": "The score is 1.00 because the output contains no irrelevant statements, fully addressing the input with complete relevance.",
+      "Faithfulness": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context, with no contradictions detected. Great job maintaining complete accuracy!",
+      "Hallucination": "The score is 0.00 because the actual output presents unconfirmed links as definitive facts, directly contradicting the context's requirement to hedge such information.",
+      "Correctness": "The Actual Output provides specific factual claims (names and FIR IDs) that are not present in the Expected Output, which only describes the general nature of the answer (cross-case identity links via CNIC). The Actual Output fails to follow the instruction to 'hedge unconfirmed links' and instead p",
+      "NameFactFidelity": "The Actual Output fails to align with the Expected Output in several critical ways. First, the Expected Output specifies that links should be based on CNICs, but the Actual Output lists names and FIR numbers without any CNICs, failing to verify the core identity mechanism. Second, the Expected Outpu"
+    }
+  },
+  {
+    "id": "xagg-01",
+    "route": "XAGG",
+    "subagent": "Large-Scale Aggregate",
+    "query": "How many cases involve the Arms Ordinance across all cases? Give a count.",
+    "scores": {
+      "AnswerRelevancy": 0.053,
+      "Faithfulness": 0.941,
+      "Hallucination": 0.0,
+      "Correctness": 0.0,
+      "NameFactFidelity": 0.0
+    },
+    "reasons": {
+      "AnswerRelevancy": "The score is 0.05 because the output is overwhelmingly irrelevant, listing detailed case statuses, FIR numbers, and unrelated laws (such as PPC, PECA, and CNSA) instead of providing the requested count of cases involving the Arms Ordinance.",
+      "Faithfulness": "The score is 0.94 because the actual output incorrectly claims that 79 matching cases were found, whereas the retrieval context states that the number of arms ordinance cases is 29.",
+      "Hallucination": "The score is 0.00 because the actual output claims 79 matching cases, which directly contradicts the context specifying an arms ordinance case count of 29.",
+      "Correctness": "The Actual Output provides a count of 79 cases, which directly contradicts the Expected Output's count of 29. Additionally, the list of cases in the Actual Output includes many entries that do not explicitly mention the Arms Ordinance (e.g., cases citing only PPC or PECA), indicating a failure to co",
+      "NameFactFidelity": "The Actual Output reports 79 matching cases, whereas the Expected Output explicitly states there are 29 cases. This is a direct contradiction in the quantity of results. Additionally, the Actual Output lists specific case identifiers (e.g., CASE-TEST-41ec94, fir-203-26) and details that are not pres"
+    }
+  },
+  {
+    "id": "xnetwork-01",
+    "route": "XNETWORK",
+    "subagent": "Meta-Analysis",
+    "query": "What are the common themes or patterns across the cases in the system?",
+    "scores": {
+      "AnswerRelevancy": 0.984,
+      "Faithfulness": 1.0,
+      "Hallucination": 0.0,
+      "Correctness": 0.2,
+      "NameFactFidelity": 0.0
+    },
+    "reasons": {
+      "AnswerRelevancy": "The score is 0.98 because the response effectively addresses the input by identifying common themes and patterns, with only a minor deduction for including a definitional statement that does not directly describe a theme or pattern.",
+      "Faithfulness": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context, with no contradictions detected. Great job maintaining complete accuracy!",
+      "Hallucination": "The score is 0.00 because the actual output explicitly denies the existence of overarching thematic or operational connections, directly contradicting the context which requires a thematic synthesis grounded in the cluster summaries.",
+      "Correctness": "The Actual Output fails to identify the specific thematic patterns (arms/robbery) explicitly required by the Expected Output. Instead, it focuses on structural co-occurrence and legal frameworks, explicitly stating that no overarching thematic connections exist, which contradicts the expected synthe",
+      "NameFactFidelity": "The Actual Output fails to provide the requested thematic synthesis (e.g., arms/robbery patterns) and instead lists specific case details, names, and FIR numbers. It invents specific identifiers (names like Saad ur Rehman, FIR 64/26) that are not present in the Expected Output, violating the require"
+    }
+  },
+  {
+    "id": "localsearch-01",
+    "route": "RAG",
+    "subagent": "Local Search",
+    "query": "Tell me everything about the accused شہزیب in case fir-891-24.",
+    "scores": {
+      "AnswerRelevancy": 0.19,
+      "Faithfulness": 0.818,
+      "Hallucination": 0.0,
+      "Correctness": 0.3,
+      "NameFactFidelity": 0.2
+    },
+    "reasons": {
+      "AnswerRelevancy": "The score is 0.19 because the output is overwhelmingly composed of meta-statements about data availability and omissions, along with details about the investigating officer and other individuals, rather than providing specific factual information about the accused Shazib as requested.",
+      "Faithfulness": "The score is 0.82 because the actual output incorrectly claims that no document text is available and that the material does not clarify the nature of the case and charges, which directly contradicts the retrieval context that provides specific factual data, including the complainant, accused, and l",
+      "Hallucination": "The score is 0.00 because the actual output falsely claims that no document text was available, directly contradicting the provided contexts which contain explicit narrative details and source text. Additionally, the output omits core factual information present in the contexts and introduces entiti",
+      "Correctness": "The Actual Output fails to include critical factual details present in the Expected Output, specifically the weapon (30 bour pistol) and the legal sections (392 PPC, 34 PPC, 13 Arms Ordinance 1965). While it correctly identifies the accused and complainant, it explicitly states that the nature of th",
+      "NameFactFidelity": "The Actual Output fails to include critical details present in the Expected Output, specifically the weapon (30 bour pistol) and the legal sections (392 PPC, 34 PPC, 13 Arms Ordinance 1965). Additionally, the Actual Output invents specific identifiers (CNICs, phone numbers, belt numbers) that are no"
+    }
+  },
+  {
+    "id": "globalsearch-01",
+    "route": "RAG",
+    "subagent": "Global Search",
+    "query": "Across all cases, summarize the types of crimes being investigated.",
+    "scores": {
+      "AnswerRelevancy": 0.0,
+      "Faithfulness": 1.0,
+      "Hallucination": 1.0,
+      "Correctness": 1.0,
+      "NameFactFidelity": 0.0
+    },
+    "reasons": {
+      "AnswerRelevancy": "The score is 0.00 because the output fails to provide a summary of crime types, instead listing irrelevant specific details such as FIR numbers, locations, individual names, and data structure descriptions.",
+      "Faithfulness": "The score is 1.00 because the actual output is perfectly faithful to the retrieval context, with no contradictions detected. Great job maintaining complete accuracy!",
+      "Hallucination": "The score is 1.00 because the actual output aligns with the contexts by explicitly listing 'Arms-related offenses' and 'PPC cases' as part of the crime category synthesis, with no contradictions identified.",
+      "Correctness": "The Actual Output correctly identifies the crime categories (Cybercrime/PECA, Arms-related, PPC) and cites specific FIRs, aligning with the Expected Output's requirement for a synthesis of crime categories grounded in case records. It accurately reflects the data provided in the test case parameters",
+      "NameFactFidelity": "The Actual Output fails to align with the Expected Output in several key areas. First, it invents specific identifiers (FIR numbers like 64/26, 301/26, etc.) and proper names (Saad ur Rehman, Asim Rashed, etc.) that are not present in the Expected Output, violating the requirement to confirm no extr"
+    }
+  }
+]
