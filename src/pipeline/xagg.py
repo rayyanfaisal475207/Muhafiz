@@ -107,6 +107,22 @@ _CATEGORY_KEYWORDS = (
 # an earlier, better-served dispatch branch.
 # "<exact act string, matching a police_reference_data.subject row exactly>": (keyword, ...)
 _LEGAL_CODE_ACT_KEYWORDS: dict[str, tuple[str, ...]] = {
+    # [Bug fix — eval finding, DeepEval xagg-01] "Arms Ordinance 1965" was
+    # missing from this dict entirely, despite being one of the most common
+    # acts in the corpus. A query naming the act directly ("how many cases
+    # involve the Arms Ordinance") is a statute-name question, not an
+    # entity-type one — it doesn't seed a graph weapon-node traversal the
+    # way "how many cases involve a pistol" does, so it belongs here, on
+    # the relational/crime_category path, same as CNSA 1997/PECA 2016
+    # below. Deliberately uses "arms"/"ordinance" vocabulary, never
+    # "weapon"/"pistol"/"gun"/"firearm" (already _WEAPON_KEYWORDS) — see
+    # this dict's own CAVEAT comment just above: that overlap would still
+    # be shadowed by the earlier, better-served graph-recurrence dispatch,
+    # which is the right outcome for THOSE queries, just not this one.
+    "Arms Ordinance 1965": (
+        "arms ordinance", "illegal arms", "unlicensed arms", "arms act",
+        "اسلحہ آرڈیننس", "غیر قانونی اسلحہ",
+    ),
     "CNSA 1997": ("narcotics", "drug trafficking", "narcotic substances", "منشیات"),
     # "online fraud" deliberately excluded — it contains "fraud" as a
     # substring, which _CATEGORY_KEYWORDS above already claims (checked
