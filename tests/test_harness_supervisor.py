@@ -43,6 +43,7 @@ from src.pipeline.harness.supervisor import (
 )
 from src.pipeline.harness.types import (
     CallerContext,
+    ConversationContext,
     ExecutionContext,
     PipelineEvent,
     Role,
@@ -472,6 +473,90 @@ async def test_case_summarization_with_active_case_still_dispatches_normally(
 
     assert result is expected
     assert len(mock.calls) == 1
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Gold-QA fix — Module 3 follow-up: "All Cases" history-based case-scope
+# inference. Only a case the ASSISTANT itself mentioned earlier in THIS
+# session's history may be reused; the user's own text never counts.
+# ═══════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_no_case_selected_reuses_case_the_assistant_mentioned_earlier(
+    monkeypatch, isolated_registry
+):
+    _stub_route_query(monkeypatch, {"route": "GRAPH_HYBRID", "output_format": "chat"})
+    expected = SubAgentResult(status=SubAgentStatus.OK, answer_text="summary of fir-401-26")
+    mock = _mock_sub_agent(CASE_SUMMARIZATION, expected)
+    isolated_registry[CASE_SUMMARIZATION] = mock
+
+    caller = CallerContext(user_id="u1", role=Role.SUPERVISOR, active_case_id=None)
+    history_summary = (
+        "User: who are the accused in FIR-401-26?\n"
+        "Assistant: The accused in fir-401-26 is Faisal, son of Abdul Hamid."
+    )
+    agent_input = _agent_input(
+        caller=caller,
+        query_text="give me a case summary for this accused",
+        conversation_context=ConversationContext(summary=history_summary),
+    )
+
+    sup = Supervisor(registry=isolated_registry)
+    result = await sup.handle(agent_input)
+
+    # Dispatched for real, scoped to the case found in the assistant's own
+    # prior turn -- not the guidance-only EMPTY fallback.
+    assert len(mock.calls) == 1
+    assert mock.calls[0].execution.caller.active_case_id == "fir-401-26"
+    # The original caller-supplied input (still carrying active_case_id=None)
+    # must never be mutated -- only a copy is threaded to the sub-agent.
+    assert agent_input.execution.caller.active_case_id is None
+    # Caller is told the scope was implied, not left to guess.
+    assert any("fir-401-26" in c for c in (result.caveats or []))
+
+
+@pytest.mark.asyncio
+async def test_no_case_selected_ignores_a_case_id_the_user_typed_themselves(
+    monkeypatch, isolated_registry
+):
+    """Security boundary: a case reference in the USER's own message or
+    the user's own earlier turns must never be trusted to imply scope --
+    only what the ASSISTANT already surfaced counts."""
+    _stub_route_query(monkeypatch, {"route": "GRAPH_HYBRID", "output_format": "chat"})
+    mock = _mock_sub_agent(CASE_SUMMARIZATION, SubAgentResult(status=SubAgentStatus.OK))
+    isolated_registry[CASE_SUMMARIZATION] = mock
+
+    caller = CallerContext(user_id="u1", role=Role.SUPERVISOR, active_case_id=None)
+    history_summary = "User: what happened in FIR-999-26?\nAssistant: I don't have access to that case."
+    agent_input = _agent_input(
+        caller=caller,
+        query_text="tell me more about that case",
+        conversation_context=ConversationContext(summary=history_summary),
+    )
+
+    sup = Supervisor(registry=isolated_registry)
+    result = await sup.handle(agent_input)
+
+    assert len(mock.calls) == 0  # never dispatched -- the user-typed id doesn't count
+    assert result.status == SubAgentStatus.EMPTY
+
+
+@pytest.mark.asyncio
+async def test_no_case_selected_and_no_history_reference_still_returns_guidance(
+    monkeypatch, isolated_registry
+):
+    """Regression guard: with no conversation_context at all, behavior is
+    unchanged from the original Module 3 fix (guidance, no dispatch)."""
+    _stub_route_query(monkeypatch, {"route": "GRAPH_HYBRID", "output_format": "chat"})
+    mock = _mock_sub_agent(CASE_SUMMARIZATION, SubAgentResult(status=SubAgentStatus.OK))
+    isolated_registry[CASE_SUMMARIZATION] = mock
+
+    caller = CallerContext(user_id="u1", role=Role.SUPERVISOR, active_case_id=None)
+    sup = Supervisor(registry=isolated_registry)
+    result = await sup.handle(_agent_input(caller=caller, query_text="compare these two cases"))
+
+    assert len(mock.calls) == 0
+    assert result.status == SubAgentStatus.EMPTY
 
 
 @pytest.mark.asyncio

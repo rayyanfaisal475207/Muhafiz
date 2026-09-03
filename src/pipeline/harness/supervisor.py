@@ -655,6 +655,48 @@ def _not_yet_available_result(sub_agent_name: str) -> SubAgentResult:
     )
 
 
+# [Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 3 follow-up] "All Cases"
+# history-based case-scope inference. Only ever scans lines the ASSISTANT
+# itself authored in THIS session's history — never the user's own
+# message text, past or present. That distinction is the whole safety
+# argument: CallerContext.active_case_id is documented as pre-authorized
+# by the API boundary, not re-checked below it (see CallerContext's own
+# docstring) — inferring a case_id from arbitrary user-typed text would
+# let a user reference a case they have no assignment to and have this
+# guard silently grant it access. A case_id the ASSISTANT already
+# surfaced in an earlier turn of THIS session carries no such risk: it
+# was already retrieved and shown to this exact user, under this exact
+# session's own authorization, so reusing it for a same-session follow-up
+# grants nothing new.
+#
+# Matches "fir-401-26" / "FIR-97-26" / "CASE-009" style ids — the same
+# vocabulary router.py's own _ACTIVE_CASE_RE recognizes, just extracting
+# the id instead of only detecting presence.
+_CASE_REF_RE = re.compile(r"\b(?:fir|case)-\d[\w-]*\b", re.IGNORECASE)
+
+
+def _infer_case_id_from_assistant_history(conversation_summary: Optional[str]) -> Optional[str]:
+    """
+    The most recently assistant-mentioned case/FIR id in `conversation_summary`
+    (the `"Role: text"`-per-line format `format_history_for_prompt()`
+    produces — see `ConversationContext.summary`'s own docstring), or
+    `None`. Only scans lines starting with `"Assistant:"` — see this
+    function group's own module-level comment for why that boundary is
+    the entire safety argument here. Returns the LAST match across all
+    assistant lines (most recent turn wins), not the first, since a
+    follow-up question is almost always about what was JUST discussed.
+    """
+    if not conversation_summary:
+        return None
+    last: Optional[str] = None
+    for line in conversation_summary.splitlines():
+        if not line.startswith("Assistant:"):
+            continue
+        for m in _CASE_REF_RE.finditer(line):
+            last = m.group(0)
+    return last
+
+
 class Supervisor:
     """
     The single entry point every question goes through. Classifies,
@@ -791,28 +833,70 @@ class Supervisor:
         # Summarization itself: this is a routing-context defect (no case_id
         # to scope to), not something the sub-agent's own retrieval logic can
         # detect or fix.
+        inferred_case_id: Optional[str] = None
         if sub_agent_name == CASE_SUMMARIZATION and not agent_input.execution.caller.active_case_id:
-            emit(
-                PipelineEvent(
-                    step="supervisor:dispatch",
-                    status="skipped",
-                    detail=(
-                        "GRAPH/GRAPH_HYBRID classified with no active case_id — "
-                        "Case Summarization has nothing to scope to; returning "
-                        "guidance instead of dispatching."
-                    ),
+            # [Gold-QA fix — Module 3 follow-up] Before giving up, try the
+            # same recovery a human analyst would: "we were just discussing
+            # FIR-401-26 — is this follow-up about that?" — see
+            # _infer_case_id_from_assistant_history()'s own docstring for
+            # why only the ASSISTANT's own prior turns are trusted for
+            # this. Only fires in "All Cases" mode (this branch already
+            # requires no active_case_id); an explicitly selected case
+            # always wins and this inference never runs.
+            found_case_id = _infer_case_id_from_assistant_history(
+                agent_input.conversation_context.summary if agent_input.conversation_context else None
+            )
+            if found_case_id is not None:
+                inferred_case_id = found_case_id
+                emit(
+                    PipelineEvent(
+                        step="supervisor:dispatch",
+                        status="active",
+                        detail=(
+                            f"GRAPH/GRAPH_HYBRID classified with no active case_id — "
+                            f"reusing case {inferred_case_id!r} from this session's own "
+                            f"earlier turn instead of dispatching scope-less."
+                        ),
+                    )
                 )
-            )
-            return SubAgentResult(
-                status=SubAgentStatus.EMPTY,
-                answer_text=None,
-                caveats=[
-                    "This question needs either a specific case selected to "
-                    "summarize, or rephrasing as a cross-case question (e.g. "
-                    "\"...across cases\", \"...in total\", \"which cases...\") "
-                    "so it can be answered from the whole caseload instead."
-                ],
-            )
+                scoped_caller = agent_input.execution.caller.model_copy(
+                    update={"active_case_id": inferred_case_id}
+                )
+                scoped_execution = agent_input.execution.model_copy(update={"caller": scoped_caller})
+                # sub_agent_name (CASE_SUMMARIZATION) and every other
+                # classification output are already correct for a
+                # within-case dispatch — only the missing case scope
+                # needed filling in. Reassigning agent_input here means
+                # the normal dispatch path below (`handler(agent_input,
+                # ...)`) picks it up unchanged from this point on — no
+                # separate dispatch call is duplicated. The caveat added
+                # after that call returns tells the caller which case was
+                # implied, so this never looks like a silent, unexplained
+                # scope change.
+                agent_input = agent_input.model_copy(update={"execution": scoped_execution})
+            else:
+                emit(
+                    PipelineEvent(
+                        step="supervisor:dispatch",
+                        status="skipped",
+                        detail=(
+                            "GRAPH/GRAPH_HYBRID classified with no active case_id and no "
+                            "case referenced earlier in this session — Case Summarization "
+                            "has nothing to scope to; returning guidance instead of "
+                            "dispatching."
+                        ),
+                    )
+                )
+                return SubAgentResult(
+                    status=SubAgentStatus.EMPTY,
+                    answer_text=None,
+                    caveats=[
+                        "This question needs either a specific case selected to "
+                        "summarize, or rephrasing as a cross-case question (e.g. "
+                        "\"...across cases\", \"...in total\", \"which cases...\") "
+                        "so it can be answered from the whole caseload instead."
+                    ],
+                )
 
         handler = self._registry.get(sub_agent_name)
         if handler is None:
@@ -852,6 +936,26 @@ class Supervisor:
             )
         )
 
-        # [PRESERVE] Returned exactly as received — not touched,
+        # [AMENDMENT — Gold-QA fix, Module 3 follow-up] The one deliberate
+        # exception to "[PRESERVE] returned exactly as received" below:
+        # when this dispatch was scoped to a case inferred from history
+        # (see the guard above), the caller must be told which case was
+        # implied — an answer that looks like it came from "All Cases" but
+        # is actually scoped to one case, with no caveat, would be far more
+        # misleading than the original "nothing to summarize" gap this
+        # whole mechanism exists to fix. Only fires on this one path;
+        # every other dispatch keeps the original untouched-passthrough
+        # guarantee.
+        if inferred_case_id is not None:
+            result = result.model_copy(
+                update={
+                    "caveats": [
+                        f"No case was selected, so this answer reuses {inferred_case_id}, "
+                        "which was discussed earlier in this conversation."
+                    ] + list(result.caveats or [])
+                }
+            )
+
+        # [PRESERVE] Otherwise returned exactly as received — not touched,
         # reformatted, or unwrapped.
         return result
