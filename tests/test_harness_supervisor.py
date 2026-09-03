@@ -426,6 +426,54 @@ async def test_handle_threads_query_text_into_classify_to_subagent_for_provision
     assert len(other_mock.calls) == 0
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 3: GRAPH/GRAPH_HYBRID with
+# no active case_id must never reach Case Summarization (nothing to
+# summarize) — must short-circuit to a guidance EMPTY result instead.
+# ═══════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("route", ["GRAPH", "GRAPH_HYBRID"])
+async def test_case_summarization_with_no_active_case_returns_guidance_not_dispatch(
+    monkeypatch, isolated_registry, route
+):
+    """Live-confirmed failure (Gold-QA report §2.1, CR3/CR4/G2/G3/G5/G6):
+    a cross-case-shaped question classified GRAPH/GRAPH_HYBRID (router.py
+    always forces case_scope="within_case" for these two routes) with no
+    case selected must never dispatch into Case Summarization -- it has
+    nothing to scope to and would return a generic, misleading "no data
+    found" caveat instead."""
+    _stub_route_query(monkeypatch, {"route": route, "output_format": "chat"})
+    mock = _mock_sub_agent(CASE_SUMMARIZATION, SubAgentResult(status=SubAgentStatus.OK))
+    isolated_registry[CASE_SUMMARIZATION] = mock
+
+    caller = CallerContext(user_id="u1", role=Role.SUPERVISOR, active_case_id=None)
+    sup = Supervisor(registry=isolated_registry)
+    result = await sup.handle(_agent_input(caller=caller, query_text="compare these two cases"))
+
+    assert result.status == SubAgentStatus.EMPTY
+    assert len(mock.calls) == 0  # never dispatched
+    assert any("case" in c.lower() for c in (result.caveats or []))
+
+
+@pytest.mark.asyncio
+async def test_case_summarization_with_active_case_still_dispatches_normally(
+    monkeypatch, isolated_registry
+):
+    """Regression guard: the guard above must only fire on the NO-case-id
+    combination -- an ordinary within-case query is unaffected."""
+    _stub_route_query(monkeypatch, {"route": "GRAPH_HYBRID", "output_format": "chat"})
+    expected = SubAgentResult(status=SubAgentStatus.OK, answer_text="summary")
+    mock = _mock_sub_agent(CASE_SUMMARIZATION, expected)
+    isolated_registry[CASE_SUMMARIZATION] = mock
+
+    sup = Supervisor(registry=isolated_registry)
+    result = await sup.handle(_agent_input(query_text="summarize this case"))  # default caller has active_case_id="CASE-001"
+
+    assert result is expected
+    assert len(mock.calls) == 1
+
+
 @pytest.mark.asyncio
 async def test_handle_allow_meta_analysis_false_reaches_classify_to_subagent(monkeypatch, isolated_registry):
     """[AMENDMENT — findings.md Module 10] End-to-end proof that
