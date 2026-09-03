@@ -110,6 +110,7 @@ from typing import Callable, Optional
 
 from src.data_gateway.base import DataGateway
 from src.pipeline.harness.types import (
+    CROSS_CASE_ROLES,
     PipelineEvent,
     SubAgent,
     SubAgentInput,
@@ -656,23 +657,57 @@ def _not_yet_available_result(sub_agent_name: str) -> SubAgentResult:
 
 
 # [Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 3 follow-up] "All Cases"
-# history-based case-scope inference. Only ever scans lines the ASSISTANT
-# itself authored in THIS session's history — never the user's own
-# message text, past or present. That distinction is the whole safety
-# argument: CallerContext.active_case_id is documented as pre-authorized
-# by the API boundary, not re-checked below it (see CallerContext's own
-# docstring) — inferring a case_id from arbitrary user-typed text would
-# let a user reference a case they have no assignment to and have this
-# guard silently grant it access. A case_id the ASSISTANT already
-# surfaced in an earlier turn of THIS session carries no such risk: it
-# was already retrieved and shown to this exact user, under this exact
-# session's own authorization, so reusing it for a same-session follow-up
-# grants nothing new.
+# case-scope resolution has two sources, in priority order, each with its
+# own distinct safety argument:
 #
-# Matches "fir-401-26" / "FIR-97-26" / "CASE-009" style ids — the same
-# vocabulary router.py's own _ACTIVE_CASE_RE recognizes, just extracting
-# the id instead of only detecting presence.
-_CASE_REF_RE = re.compile(r"\b(?:fir|case)-\d[\w-]*\b", re.IGNORECASE)
+#   1. The CURRENT query text itself ("summarize case 435/26") — a
+#      deliberate, explicit reference the user is making RIGHT NOW. This
+#      is NOT automatically trusted the way history is below: it must
+#      still pass a real authorization check (_case_access_authorized())
+#      before use, because CallerContext.active_case_id is documented as
+#      pre-authorized by the API boundary and never re-checked below it
+#      (see CallerContext's own docstring) — a bare case number typed in
+#      chat has not been through that boundary's normal case-assignment
+#      check yet. Denied (not silently ignored) when the check fails, so
+#      the caller gets an honest "you don't have access to that case"
+#      instead of a misleading generic "no data" or "select a case"
+#      message for a case they explicitly named.
+#   2. A case/FIR id the ASSISTANT ITSELF mentioned earlier in this same
+#      session's history (`_infer_case_id_from_assistant_history()`) —
+#      trusted WITHOUT a fresh access check, because it was already
+#      retrieved and shown to this exact user under this exact session's
+#      own prior authorization; reusing it for a same-session follow-up
+#      grants nothing new. Never scans the user's OWN historical text,
+#      only "Assistant:"-prefixed lines — same reasoning as source 1: the
+#      user's own text, past or present, is never self-authorizing.
+#
+# Matches "fir-401-26" / "FIR-97-26" / "CASE-009" (hyphenated, router.py's
+# own _ACTIVE_CASE_RE vocabulary) AND the human-typed display shape
+# "case 435/26" / "FIR 435/26" (space before the number, slash between
+# the two halves — how an investigator actually types a case number in
+# conversation, not how it's stored). Group 1 is the prefix word, group 2
+# the first number, group 3 the optional second number (hyphen OR slash
+# OR space separated). _normalize_case_ref() rebuilds a canonical
+# "prefix-num1-num2" id from the captured groups rather than using the
+# raw matched text verbatim — necessary because "case 435/26" and
+# "fir-401-26" need different reconstruction, not just a case-fold.
+_CASE_REF_RE = re.compile(r"\b(fir|case)[\s-]+(\d+)(?:[\s/-]+(\d+))?\b", re.IGNORECASE)
+
+
+def _normalize_case_ref(m: re.Match) -> str:
+    prefix = m.group(1).lower()
+    num1, num2 = m.group(2), m.group(3)
+    return f"{prefix}-{num1}-{num2}" if num2 else f"{prefix}-{num1}"
+
+
+def _case_id_from_query_text(query_text: str) -> Optional[str]:
+    """The LAST case/FIR id named in `query_text` itself, normalized, or
+    `None`. Still requires _case_access_authorized() before use — see the
+    module-level comment above."""
+    last: Optional[str] = None
+    for m in _CASE_REF_RE.finditer(query_text or ""):
+        last = _normalize_case_ref(m)
+    return last
 
 
 def _infer_case_id_from_assistant_history(conversation_summary: Optional[str]) -> Optional[str]:
@@ -693,8 +728,42 @@ def _infer_case_id_from_assistant_history(conversation_summary: Optional[str]) -
         if not line.startswith("Assistant:"):
             continue
         for m in _CASE_REF_RE.finditer(line):
-            last = m.group(0)
+            last = _normalize_case_ref(m)
     return last
+
+
+async def _case_access_authorized(
+    case_id: str, caller, gateway: Optional[DataGateway],
+) -> bool:
+    """
+    Real authorization check for a case named directly in the CURRENT
+    query text — the one source above that isn't already
+    self-authorizing. `CROSS_CASE_ROLES` (supervisor/station-admin/
+    platform-admin) are granted access to any named case without a
+    per-case assignment row, matching how every OTHER cross-case
+    capability in this codebase already treats those roles (e.g.
+    `graph_retriever.CROSS_CASE_ROLES`'s own `all_cases` scoping,
+    `xagg.py::_filtered_cases()`'s platform-admin-wide `get_cases()`
+    call) — this is not a new, looser standard invented here. Every other
+    role needs a real `CaseAssignment` row, checked via the same
+    `gateway.check_case_access()` primitive `src/api/cases.py`'s own
+    `require_case_access()` dependency uses. Fails CLOSED (False) when no
+    gateway or no user_id is available to check against — never
+    best-effort-grants on missing plumbing.
+    """
+    if caller.role in CROSS_CASE_ROLES:
+        return True
+    if gateway is None or not caller.user_id:
+        return False
+    try:
+        role_str = caller.role.value if hasattr(caller.role, "value") else str(caller.role)
+        return await gateway.check_case_access(case_id, caller.user_id, role_str)
+    except Exception:
+        logger.exception(
+            "Supervisor: check_case_access failed for case_id=%s user_id=%s — denying.",
+            case_id, caller.user_id,
+        )
+        return False
 
 
 class Supervisor:
@@ -834,34 +903,68 @@ class Supervisor:
         # to scope to), not something the sub-agent's own retrieval logic can
         # detect or fix.
         inferred_case_id: Optional[str] = None
+        inferred_case_source: Optional[str] = None  # "query" or "history", for the caveat wording below
         if sub_agent_name == CASE_SUMMARIZATION and not agent_input.execution.caller.active_case_id:
-            # [Gold-QA fix — Module 3 follow-up] Before giving up, try the
-            # same recovery a human analyst would: "we were just discussing
-            # FIR-401-26 — is this follow-up about that?" — see
+            caller = agent_input.execution.caller
+            resolved_case_id: Optional[str] = None
+            resolution_source: Optional[str] = None
+
+            # Source 1 — a case named directly in THIS query ("summarize
+            # case 435/26"). Requires a real authorization check before
+            # use — see _case_access_authorized()'s own docstring.
+            named_case_id = _case_id_from_query_text(agent_input.query_text)
+            if named_case_id is not None:
+                if await _case_access_authorized(named_case_id, caller, gateway):
+                    resolved_case_id, resolution_source = named_case_id, "query"
+                else:
+                    emit(
+                        PipelineEvent(
+                            step="supervisor:dispatch",
+                            status="skipped",
+                            detail=(
+                                f"Query named case {named_case_id!r} but caller is not "
+                                f"authorized for it — denying rather than falling through."
+                            ),
+                        )
+                    )
+                    return SubAgentResult(
+                        status=SubAgentStatus.ABSTAINED,
+                        answer_text=None,
+                        error=ToolError(
+                            kind="permission_denied",
+                            message=f"Not authorized for case '{named_case_id}'.",
+                        ),
+                        caveats=[
+                            f"You don't have access to case {named_case_id} — this couldn't "
+                            "be answered from it."
+                        ],
+                    )
+
+            # Source 2 — a case the ASSISTANT itself already surfaced
+            # earlier in this session. See
             # _infer_case_id_from_assistant_history()'s own docstring for
-            # why only the ASSISTANT's own prior turns are trusted for
-            # this. Only fires in "All Cases" mode (this branch already
-            # requires no active_case_id); an explicitly selected case
-            # always wins and this inference never runs.
-            found_case_id = _infer_case_id_from_assistant_history(
-                agent_input.conversation_context.summary if agent_input.conversation_context else None
-            )
-            if found_case_id is not None:
-                inferred_case_id = found_case_id
+            # why no fresh authorization check is needed for this source.
+            if resolved_case_id is None:
+                resolved_case_id = _infer_case_id_from_assistant_history(
+                    agent_input.conversation_context.summary if agent_input.conversation_context else None
+                )
+                resolution_source = "history" if resolved_case_id is not None else None
+
+            if resolved_case_id is not None:
+                inferred_case_id = resolved_case_id
+                inferred_case_source = resolution_source
                 emit(
                     PipelineEvent(
                         step="supervisor:dispatch",
                         status="active",
                         detail=(
                             f"GRAPH/GRAPH_HYBRID classified with no active case_id — "
-                            f"reusing case {inferred_case_id!r} from this session's own "
-                            f"earlier turn instead of dispatching scope-less."
+                            f"resolved case {inferred_case_id!r} from the {resolution_source} "
+                            f"instead of dispatching scope-less."
                         ),
                     )
                 )
-                scoped_caller = agent_input.execution.caller.model_copy(
-                    update={"active_case_id": inferred_case_id}
-                )
+                scoped_caller = caller.model_copy(update={"active_case_id": inferred_case_id})
                 scoped_execution = agent_input.execution.model_copy(update={"caller": scoped_caller})
                 # sub_agent_name (CASE_SUMMARIZATION) and every other
                 # classification output are already correct for a
@@ -881,9 +984,9 @@ class Supervisor:
                         status="skipped",
                         detail=(
                             "GRAPH/GRAPH_HYBRID classified with no active case_id and no "
-                            "case referenced earlier in this session — Case Summarization "
-                            "has nothing to scope to; returning guidance instead of "
-                            "dispatching."
+                            "case named in this query or referenced earlier in this "
+                            "session — Case Summarization has nothing to scope to; "
+                            "returning guidance instead of dispatching."
                         ),
                     )
                 )
@@ -938,22 +1041,24 @@ class Supervisor:
 
         # [AMENDMENT — Gold-QA fix, Module 3 follow-up] The one deliberate
         # exception to "[PRESERVE] returned exactly as received" below:
-        # when this dispatch was scoped to a case inferred from history
-        # (see the guard above), the caller must be told which case was
-        # implied — an answer that looks like it came from "All Cases" but
-        # is actually scoped to one case, with no caveat, would be far more
-        # misleading than the original "nothing to summarize" gap this
-        # whole mechanism exists to fix. Only fires on this one path;
-        # every other dispatch keeps the original untouched-passthrough
-        # guarantee.
+        # when this dispatch was scoped to a case resolved from the query
+        # text or history (see the guard above), the caller must be told
+        # which case was implied and how — an answer that looks like it
+        # came from "All Cases" but is actually scoped to one case, with
+        # no caveat, would be far more misleading than the original
+        # "nothing to summarize" gap this whole mechanism exists to fix.
+        # Only fires on this one path; every other dispatch keeps the
+        # original untouched-passthrough guarantee.
         if inferred_case_id is not None:
+            note = (
+                f"No case was selected, so this answers about {inferred_case_id}, "
+                "as named in your question."
+                if inferred_case_source == "query" else
+                f"No case was selected, so this answer reuses {inferred_case_id}, "
+                "which was discussed earlier in this conversation."
+            )
             result = result.model_copy(
-                update={
-                    "caveats": [
-                        f"No case was selected, so this answer reuses {inferred_case_id}, "
-                        "which was discussed earlier in this conversation."
-                    ] + list(result.caveats or [])
-                }
+                update={"caveats": [note] + list(result.caveats or [])}
             )
 
         # [PRESERVE] Otherwise returned exactly as received — not touched,
