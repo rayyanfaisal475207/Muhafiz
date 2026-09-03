@@ -91,9 +91,19 @@ def _stub_call_llm(monkeypatch, answer: str = "3 vehicles recurred across cases 
 
 
 def _stub_verify_grounding(monkeypatch, grounded: bool, off_topic: bool = False, reason: str = "ok"):
+    """
+    [Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 4] Stubs
+    verify_structured_aggregate_paraphrase() now, not verify_grounding() —
+    large_scale_aggregate.py switched to the relaxed, deterministic
+    numeric-consistency check for this call site (see that function's own
+    docstring in verifier.py). Same fake-return shape and captured-args
+    contract as before so every existing test using this helper is
+    unaffected; only the patched attribute name and callee signature
+    changed (`source_text` instead of `cited_chunks`).
+    """
     captured = {}
 
-    async def _fake(answer, cited_chunks, case_id, cross_case_ids=None, target_date=None):
+    async def _fake(answer, source_text, case_id, cross_case_ids=None):
         captured["case_id"] = case_id
         captured["cross_case_ids"] = cross_case_ids
         return {
@@ -104,7 +114,7 @@ def _stub_verify_grounding(monkeypatch, grounded: bool, off_topic: bool = False,
             "reason": reason,
         }
 
-    monkeypatch.setattr(lsa_mod, "verify_grounding", _fake)
+    monkeypatch.setattr(lsa_mod, "verify_structured_aggregate_paraphrase", _fake)
     return captured
 
 

@@ -673,3 +673,125 @@ async def verify_grounding(
         (llm_result.get("reason") or "")[:80],
     )
     return llm_result
+
+
+# [Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 4] `verify_grounding()`
+# above is tuned for free-text claims grounded in narrative document
+# chunks — its LLM judge, hedging checks, and citation-format checks all
+# assume the "source" is prose a human wrote. large_scale_aggregate.py and
+# cross_case_linkage.py hand it something structurally different: an NL
+# paraphrase of a DETERMINISTIC, code-computed result (a count, a list of
+# recurring entities) — the numbers are correct by construction, they came
+# from the query, not an LLM claim. Live-confirmed (Gold-QA report §2.4):
+# applying the strict free-text judge to this shape rejected accurate
+# paraphrases often enough that the raw-aggregate fallback ("Entity-graph
+# search found connections across 6 cases, chain confidence 50%...")
+# became the DE FACTO primary answer instead of the safety fallback it was
+# designed to be.
+#
+# This does not touch verify_grounding()'s own behavior or its narrative
+# call sites (RAG/GRAPH/SQL/WEB/XGRAPH/XNETWORK) at all — it is a
+# separate, deliberately narrower check for this one call shape:
+#   1. Still runs the two SECURITY-relevant deterministic checks
+#      (cross-case leakage, fabricated case IDs) unconditionally — those
+#      are about what the answer CLAIMS, not about narrative-vs-structured
+#      source shape, and must never be relaxed.
+#   2. Replaces the free-text LLM judge with a deterministic numeric-
+#      consistency check: every number the paraphrase states must appear
+#      somewhere in the structured source text it was paraphrasing. A
+#      paraphrase that invents a number not present in the computed result
+#      fails; one that only restates the real numbers in prose passes,
+#      regardless of hedging phrasing or citation-tag conventions that
+#      make sense for a narrative document but not for a one-shot computed
+#      summary.
+_NUMBER_RE = re.compile(r"\d[\d,]*")
+# Strip [Document N] / [Document N, CASE-ID] citation markers before
+# extracting numbers from the ANSWER (never from source_text) — the
+# citation index itself ("1" in "[Document 1]") and any digits inside a
+# cited case id are provenance formatting, not a claimed figure, and must
+# not be checked against the computed source text the way a genuine
+# number in the prose is.
+_CITATION_MARKER_RE = re.compile(r"\[Document\s+\d+(?:\s*,[^\]]*)?\]", re.IGNORECASE)
+
+
+def _numbers_in(text: str, *, strip_citations: bool = False) -> set[str]:
+    """Every digit run in `text`, comma separators stripped, as a set of
+    canonical strings — "1,234" and "1234" compare equal, order and
+    duplicates don't matter for a subset check."""
+    if strip_citations:
+        text = _CITATION_MARKER_RE.sub("", text or "")
+    return {m.group(0).replace(",", "") for m in _NUMBER_RE.finditer(text or "")}
+
+
+async def verify_structured_aggregate_paraphrase(
+    answer: str,
+    source_text: str,
+    case_id: Optional[str],
+    cross_case_ids: Optional[list[str]] = None,
+) -> dict:
+    """
+    Relaxed grounding check for an NL paraphrase of a deterministic,
+    code-computed aggregate/cluster result — see this module-level comment
+    block above for the full rationale. `source_text` is the raw
+    computed-result text the paraphrase was generated from (e.g.
+    `XAggToolResult.raw_summary_text`), NOT a retrieved document chunk.
+
+    Returns the same shape as `verify_grounding()` so callers (
+    large_scale_aggregate.py, cross_case_linkage.py) need no change beyond
+    swapping which function they call.
+    """
+    if not answer or not answer.strip():
+        return {
+            "grounded": False, "off_topic": False, "leaked_case_id": None,
+            "unsupported_claims": [], "reason": "The generated answer was empty; nothing to verify or serve.",
+            "refusal_detected": False,
+        }
+    if not source_text or not source_text.strip():
+        return {
+            "grounded": False, "off_topic": False, "leaked_case_id": None,
+            "unsupported_claims": [], "reason": "No computed source text was provided; cannot verify grounding.",
+            "refusal_detected": False,
+        }
+
+    # Reuse the existing deterministic security checks — [Document N]-style
+    # citations still appear in these paraphrases (the generation prompt
+    # asks for them same as any other route), so _check_leakage's citation
+    # scan still applies; it needs a chunk list, so wrap source_text as a
+    # single synthetic chunk the same way the two call sites already do
+    # for verify_grounding(). _check_fabricated_case_ids additionally needs
+    # every case id the paraphrase is LEGITIMATELY allowed to cite present
+    # in some chunk's metadata — a cross-case aggregate paraphrase routinely
+    # names several real case ids from `cross_case_ids` (e.g. the recurring
+    # entity's own case list), so one synthetic chunk per allowed id, not
+    # just the single "computed-aggregate" placeholder.
+    synthetic_chunks = [{"id": "computed-aggregate", "text": source_text, "metadata": {"case_id": case_id if case_id != "cross_case" else None}}]
+    synthetic_chunks += [
+        {"id": f"computed-aggregate-{cid}", "text": "", "metadata": {"case_id": cid}}
+        for cid in (cross_case_ids or [])
+    ]
+    leaked_case = _check_leakage(answer, synthetic_chunks, case_id, cross_case_ids)
+    fabricated_issues = _check_fabricated_case_ids(answer, synthetic_chunks)
+
+    unsupported_numbers = sorted(_numbers_in(answer, strip_citations=True) - _numbers_in(source_text))
+
+    grounded = not leaked_case and not fabricated_issues and not unsupported_numbers
+    reason = "Paraphrase numbers match the computed source; deterministic check passed."
+    if leaked_case:
+        reason = f"Cross-case evidence leakage detected: source from case '{leaked_case}' cited outside its allowed scope."
+    elif fabricated_issues:
+        reason = fabricated_issues[0]
+    elif unsupported_numbers:
+        reason = f"Paraphrase states number(s) not present in the computed result: {', '.join(unsupported_numbers)}."
+
+    logger.info(
+        "Structured-aggregate verifier: grounded=%s leaked=%s unsupported_numbers=%s — %s",
+        grounded, leaked_case, unsupported_numbers, reason[:80],
+    )
+    return {
+        "grounded": grounded,
+        "off_topic": False,
+        "leaked_case_id": leaked_case,
+        "unsupported_claims": fabricated_issues + [f"number: {n}" for n in unsupported_numbers],
+        "reason": reason,
+        "refusal_detected": False,
+    }

@@ -190,7 +190,7 @@ from src.pipeline.harness.types import (
     ToolStatus,
 )
 from src.pipeline.validation import caveats_for_validation, validate_answer
-from src.pipeline.verifier import verify_grounding
+from src.pipeline.verifier import verify_structured_aggregate_paraphrase
 
 logger = logging.getLogger(__name__)
 
@@ -360,9 +360,19 @@ async def large_scale_aggregate(
         )
         verification = {"grounded": False, "reason": "Generation returned an empty answer."}
     else:
-        verification = await verify_grounding(
+        # [Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 4] Was
+        # verify_grounding() — the free-text LLM judge it runs is tuned for
+        # narrative document chunks, not a paraphrase of a deterministic,
+        # code-computed aggregate, and live-confirmed to reject accurate
+        # paraphrases often enough that the raw-aggregate fallback below
+        # became the de facto answer (Gold-QA report §2.4). See
+        # verify_structured_aggregate_paraphrase()'s own module-level
+        # comment in verifier.py for the full rationale — this checks
+        # numeric consistency against the computed source deterministically
+        # instead of running the narrative LLM judge.
+        verification = await verify_structured_aggregate_paraphrase(
             answer=paraphrase,
-            cited_chunks=[_chunk_to_verifier_dict(chunk)],
+            source_text=tool_result.raw_summary_text,
             case_id="cross_case",
             cross_case_ids=tool_result.case_ids_touched,
         )

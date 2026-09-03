@@ -13,6 +13,7 @@ from src.pipeline.verifier import (
     _check_temporal,
     _format_chunks_for_verifier,
     verify_grounding,
+    verify_structured_aggregate_paraphrase,
 )
 
 
@@ -651,3 +652,81 @@ async def test_verify_cross_case_scope_skips_leakage_check(monkeypatch):
     )
     assert result["grounded"] is True
     assert result["leaked_case_id"] is None
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 4:
+# verify_structured_aggregate_paraphrase() — relaxed grounding for a
+# paraphrase of a deterministic, code-computed aggregate/cluster result.
+# No call_llm() involved at all — purely deterministic, no monkeypatching
+# needed.
+# ═══════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_structured_paraphrase_passes_when_numbers_match_source():
+    result = await verify_structured_aggregate_paraphrase(
+        answer="4 people appear across multiple cases, each in 2 cases.",
+        source_text="4 matching Person(s) found, each appears in 2 cases.",
+        case_id="cross_case",
+    )
+    assert result["grounded"] is True
+
+
+@pytest.mark.asyncio
+async def test_structured_paraphrase_fails_when_a_number_is_invented():
+    """The over-rejection Module 4 fixes is one direction; this guards the
+    opposite failure mode — a paraphrase must not pass with a fabricated
+    number the source never stated."""
+    result = await verify_structured_aggregate_paraphrase(
+        answer="94 people appear across multiple cases.",
+        source_text="4 matching Person(s) found, each appears in 2 cases.",
+        case_id="cross_case",
+    )
+    assert result["grounded"] is False
+    assert "94" in result["reason"]
+
+
+@pytest.mark.asyncio
+async def test_structured_paraphrase_passes_regardless_of_hedging_phrasing():
+    """The exact bug this fixes: verify_grounding()'s free-text judge/
+    hedging checks are tuned for narrative claims and reject an accurate,
+    confidently-phrased paraphrase of a deterministic count. This check
+    only cares whether the numbers match."""
+    result = await verify_structured_aggregate_paraphrase(
+        answer="There are definitely 3 recurring vehicles across these cases.",
+        source_text="3 Vehicle(s) found recurring across cases: V-001, V-002, V-003.",
+        case_id="cross_case",
+    )
+    assert result["grounded"] is True
+
+
+@pytest.mark.asyncio
+async def test_structured_paraphrase_empty_answer_fails_closed():
+    result = await verify_structured_aggregate_paraphrase(
+        answer="", source_text="4 matching Person(s) found.", case_id="cross_case",
+    )
+    assert result["grounded"] is False
+
+
+@pytest.mark.asyncio
+async def test_structured_paraphrase_allows_real_cross_case_ids_in_citations():
+    """A paraphrase legitimately citing several real case ids from
+    cross_case_ids must not be flagged as a fabricated citation."""
+    result = await verify_structured_aggregate_paraphrase(
+        answer="This person appears in [Document 1, CASE-100] and [Document 1, CASE-101].",
+        source_text="2 cases: CASE-100, CASE-101.",
+        case_id="cross_case",
+        cross_case_ids=["CASE-100", "CASE-101"],
+    )
+    assert result["grounded"] is True
+
+
+@pytest.mark.asyncio
+async def test_structured_paraphrase_flags_a_fabricated_case_citation():
+    result = await verify_structured_aggregate_paraphrase(
+        answer="This person appears in [Document 1, CASE-999].",
+        source_text="2 cases: CASE-100, CASE-101.",
+        case_id="cross_case",
+        cross_case_ids=["CASE-100", "CASE-101"],
+    )
+    assert result["grounded"] is False
