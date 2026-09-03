@@ -597,6 +597,12 @@ class DirectGateway:
             c = res.scalars().first()
             return self._case_to_dict(c) if c else None
 
+    async def get_case_by_fir_number(self, fir_number: str) -> Optional[dict]:
+        async with get_session() as db:
+            res = await db.execute(select(Case).where(Case.fir_number == fir_number))
+            c = res.scalars().first()
+            return self._case_to_dict(c) if c else None
+
     async def get_cases(self, user_id: str = None, user_role: str = None) -> list[dict]:
         # RBAC: Platform admins see all cases. Others see only assigned cases.
         async with get_session() as db:

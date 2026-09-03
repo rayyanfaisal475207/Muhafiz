@@ -657,16 +657,20 @@ def _not_yet_available_result(sub_agent_name: str) -> SubAgentResult:
 
 
 # [Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 3 follow-up] "All Cases"
-# case-scope resolution has two sources, in priority order, each with its
-# own distinct safety argument:
+# case-scope resolution has three sources, in priority order, each with
+# its own distinct safety argument:
 #
-#   1. The CURRENT query text itself ("summarize case 435/26") — a
-#      deliberate, explicit reference the user is making RIGHT NOW. This
-#      is NOT automatically trusted the way history is below: it must
-#      still pass a real authorization check (_case_access_authorized())
-#      before use, because CallerContext.active_case_id is documented as
-#      pre-authorized by the API boundary and never re-checked below it
-#      (see CallerContext's own docstring) — a bare case number typed in
+#   1. The CURRENT query text itself — either a keyword-anchored
+#      reference ("summarize case 435/26", `_case_id_from_query_text()`)
+#      or a bare number pair that resolves to a real case's own display
+#      number ("summarize 435/26" / "435 26", no "case"/"FIR" word at
+#      all — `_case_id_from_bare_number()`). Either shape is a
+#      deliberate, explicit reference the user is making RIGHT NOW, and
+#      NEITHER is automatically trusted the way history is below: both
+#      require a real authorization check (`_case_access_authorized()`)
+#      before use, because `CallerContext.active_case_id` is documented
+#      as pre-authorized by the API boundary and never re-checked below
+#      it (see `CallerContext`'s own docstring) — a case number typed in
 #      chat has not been through that boundary's normal case-assignment
 #      check yet. Denied (not silently ignored) when the check fails, so
 #      the caller gets an honest "you don't have access to that case"
@@ -730,6 +734,43 @@ def _infer_case_id_from_assistant_history(conversation_summary: Optional[str]) -
         for m in _CASE_REF_RE.finditer(line):
             last = _normalize_case_ref(m)
     return last
+
+
+# [Gold-QA fix follow-up] A THIRD, lowest-priority resolution source: a
+# bare number pair with no "case"/"FIR" word at all ("summarize 435 26",
+# "what about 435/26"). Deliberately not treated as a case reference
+# purely by shape — two small numbers are genuinely ambiguous (a date, a
+# section pair, anything) — so this is gated on actually resolving to a
+# real case's own display number (Case.fir_number, e.g. "435/26" — see
+# src/database/models.py's Case model; NOT a fixed transform of case_id,
+# which is why this needs a real DB lookup rather than string-building
+# like _normalize_case_ref() does for the keyword-anchored sources
+# above). A pair that doesn't resolve is silently not a case reference —
+# no false-positive risk to a query that just happens to contain two
+# numbers. Second number pinned to exactly 2 digits (every real
+# fir_number in this corpus is "NNN/YY", a 2-digit year suffix) to keep
+# the candidate shape itself already narrow, ahead of the DB check.
+_BARE_CASE_NUMBER_RE = re.compile(r"\b(\d{2,4})[\s/](\d{2})\b")
+
+
+async def _case_id_from_bare_number(
+    query_text: str, gateway: Optional[DataGateway],
+) -> Optional[str]:
+    if gateway is None:
+        return None
+    m = _BARE_CASE_NUMBER_RE.search(query_text or "")
+    if not m:
+        return None
+    fir_number = f"{m.group(1)}/{m.group(2)}"
+    try:
+        case = await gateway.get_case_by_fir_number(fir_number)
+    except Exception:
+        logger.exception(
+            "Supervisor: get_case_by_fir_number failed for fir_number=%s — treating as no match.",
+            fir_number,
+        )
+        return None
+    return case.get("case_id") if case else None
 
 
 async def _case_access_authorized(
@@ -910,9 +951,19 @@ class Supervisor:
             resolution_source: Optional[str] = None
 
             # Source 1 — a case named directly in THIS query ("summarize
-            # case 435/26"). Requires a real authorization check before
-            # use — see _case_access_authorized()'s own docstring.
+            # case 435/26"), or (1b) a bare number pair that resolves to a
+            # real case's display number ("summarize 435/26" / "435 26",
+            # no "case"/"FIR" word — see _case_id_from_bare_number()'s own
+            # docstring for why that's safe without a keyword anchor).
+            # Either way, requires a real authorization check before use —
+            # see _case_access_authorized()'s own docstring. Denied
+            # outright (not silently ignored) on failure: once a specific
+            # case has been identified as what the user meant, silently
+            # falling through to a different answer would be more
+            # confusing than an honest denial, not less.
             named_case_id = _case_id_from_query_text(agent_input.query_text)
+            if named_case_id is None:
+                named_case_id = await _case_id_from_bare_number(agent_input.query_text, gateway)
             if named_case_id is not None:
                 if await _case_access_authorized(named_case_id, caller, gateway):
                     resolved_case_id, resolution_source = named_case_id, "query"

@@ -567,18 +567,25 @@ async def test_no_case_selected_and_no_history_reference_still_returns_guidance(
 # ═══════════════════════════════════════════════════════════════════════
 
 class _FakeGateway:
-    """Minimal DataGateway stand-in exposing only check_case_access,
-    recording every call it receives."""
-    def __init__(self, authorized: bool = True, raises: bool = False):
+    """Minimal DataGateway stand-in exposing check_case_access and
+    get_case_by_fir_number, recording every call each receives."""
+    def __init__(self, authorized: bool = True, raises: bool = False, fir_number_map: dict | None = None):
         self.authorized = authorized
         self.raises = raises
+        self.fir_number_map = fir_number_map or {}
         self.calls: list[tuple] = []
+        self.fir_number_calls: list[str] = []
 
     async def check_case_access(self, case_id, user_id, user_role, min_role=None):
         self.calls.append((case_id, user_id, user_role))
         if self.raises:
             raise RuntimeError("db unreachable")
         return self.authorized
+
+    async def get_case_by_fir_number(self, fir_number):
+        self.fir_number_calls.append(fir_number)
+        case_id = self.fir_number_map.get(fir_number)
+        return {"case_id": case_id} if case_id else None
 
 
 @pytest.mark.asyncio
@@ -702,6 +709,107 @@ async def test_query_named_case_takes_priority_over_history_reference(
     result = await sup.handle(agent_input, gateway=_FakeGateway(authorized=True))
 
     assert mock.calls[0].execution.caller.active_case_id == "case-200-26"
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Gold-QA fix — Module 3 follow-up (bare-number source): "summarize
+# 435/26" or "435 26" with no "case"/"FIR" word, resolved via a real DB
+# lookup against the case's own display number rather than trusted by
+# shape alone.
+# ═══════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("query_text", [
+    "summarize 435/26 for me",
+    "what's going on with 435 26",
+])
+async def test_bare_number_pair_resolves_when_it_matches_a_real_case(
+    monkeypatch, isolated_registry, query_text
+):
+    _stub_route_query(monkeypatch, {"route": "GRAPH_HYBRID", "output_format": "chat"})
+    expected = SubAgentResult(status=SubAgentStatus.OK, answer_text="summary")
+    mock = _mock_sub_agent(CASE_SUMMARIZATION, expected)
+    isolated_registry[CASE_SUMMARIZATION] = mock
+    gateway = _FakeGateway(authorized=True, fir_number_map={"435/26": "fir-435-26"})
+
+    caller = CallerContext(user_id="u1", role=Role.SUPERVISOR, active_case_id=None)
+    agent_input = _agent_input(caller=caller, query_text=query_text)
+
+    sup = Supervisor(registry=isolated_registry)
+    result = await sup.handle(agent_input, gateway=gateway)
+
+    assert len(mock.calls) == 1
+    assert mock.calls[0].execution.caller.active_case_id == "fir-435-26"
+    assert gateway.fir_number_calls == ["435/26"]
+
+
+@pytest.mark.asyncio
+async def test_bare_number_pair_with_no_matching_case_is_silently_ignored(
+    monkeypatch, isolated_registry
+):
+    """The core safety property: a query that happens to contain two
+    numbers with no real case behind them must never be mistaken for a
+    case reference -- falls through to guidance exactly as if the numbers
+    were never there."""
+    _stub_route_query(monkeypatch, {"route": "GRAPH_HYBRID", "output_format": "chat"})
+    mock = _mock_sub_agent(CASE_SUMMARIZATION, SubAgentResult(status=SubAgentStatus.OK))
+    isolated_registry[CASE_SUMMARIZATION] = mock
+    gateway = _FakeGateway(authorized=True, fir_number_map={})  # nothing resolves
+
+    caller = CallerContext(user_id="u1", role=Role.SUPERVISOR, active_case_id=None)
+    agent_input = _agent_input(caller=caller, query_text="he called 435 26 times that week")
+
+    sup = Supervisor(registry=isolated_registry)
+    result = await sup.handle(agent_input, gateway=gateway)
+
+    assert len(mock.calls) == 0
+    assert result.status == SubAgentStatus.EMPTY
+
+
+@pytest.mark.asyncio
+async def test_bare_number_pair_resolving_to_an_unassigned_case_is_denied(
+    monkeypatch, isolated_registry
+):
+    """Same access-control guarantee as the keyword-anchored source: a
+    real case that resolves but the caller isn't authorized for must be
+    denied outright, not silently skipped."""
+    _stub_route_query(monkeypatch, {"route": "GRAPH_HYBRID", "output_format": "chat"})
+    mock = _mock_sub_agent(CASE_SUMMARIZATION, SubAgentResult(status=SubAgentStatus.OK))
+    isolated_registry[CASE_SUMMARIZATION] = mock
+    gateway = _FakeGateway(authorized=False, fir_number_map={"435/26": "fir-435-26"})
+
+    caller = CallerContext(user_id="u1", role=Role.INVESTIGATOR, active_case_id=None)
+    agent_input = _agent_input(caller=caller, query_text="summarize 435/26")
+
+    sup = Supervisor(registry=isolated_registry)
+    result = await sup.handle(agent_input, gateway=gateway)
+
+    assert len(mock.calls) == 0
+    assert result.status == SubAgentStatus.ABSTAINED
+    assert result.error.kind == "permission_denied"
+
+
+@pytest.mark.asyncio
+async def test_keyword_anchored_query_reference_wins_over_bare_number_fallback(
+    monkeypatch, isolated_registry
+):
+    """The bare-number source is the LAST resort -- an explicit "case"/
+    "FIR" reference elsewhere in the query must win even if a bare
+    number pair also happens to be present."""
+    _stub_route_query(monkeypatch, {"route": "GRAPH_HYBRID", "output_format": "chat"})
+    expected = SubAgentResult(status=SubAgentStatus.OK, answer_text="summary")
+    mock = _mock_sub_agent(CASE_SUMMARIZATION, expected)
+    isolated_registry[CASE_SUMMARIZATION] = mock
+    gateway = _FakeGateway(authorized=True, fir_number_map={"1 2": "fir-wrong-case"})
+
+    caller = CallerContext(user_id="u1", role=Role.SUPERVISOR, active_case_id=None)
+    agent_input = _agent_input(caller=caller, query_text="summarize case-435-26, item 1 2")
+
+    sup = Supervisor(registry=isolated_registry)
+    result = await sup.handle(agent_input, gateway=gateway)
+
+    assert mock.calls[0].execution.caller.active_case_id == "case-435-26"
+    assert gateway.fir_number_calls == []  # bare-number path never even tried
 
 
 @pytest.mark.asyncio
