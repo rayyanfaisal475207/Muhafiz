@@ -549,6 +549,63 @@ async def test_act_query_phrased_with_all_cases_is_not_misrouted_to_unfiltered_l
     assert result["total_cases"] == 1
 
 
+# ── "Arms Ordinance 1965" missing from _LEGAL_CODE_ACT_KEYWORDS [Bug fix] ──────
+#
+# The second, independent half of the same eval finding (xagg-01):
+# _LEGAL_CODE_ACT_KEYWORDS had no entry at all for "Arms Ordinance 1965",
+# despite it being one of the most common acts in the corpus — so even a
+# query that named the act directly, with no _LIST_ALL_KEYWORDS collision,
+# never filtered to just those cases. This reproduces the real eval query
+# verbatim, now with the keyword entry populated by the actual fix.
+
+async def test_arms_ordinance_query_now_reaches_and_narrows_via_the_act_filter():
+    """The real eval query, byte-for-byte, against a fixture mirroring the
+    corpus's actual comma-joined crime_category shape (a case can carry
+    more than one act) -- ground truth for the live corpus was 29; this
+    fixture uses a smaller equivalent (3 real matches out of 5 cases,
+    including one where Arms Ordinance is joined with a second act)."""
+    gateway = FakeGateway([
+        {"case_id": "C-1", "fir_number": "1/26", "crime_category": "PPC, Arms Ordinance 1965", "investigation_status": "open", "police_station": "Kohsar"},
+        {"case_id": "C-2", "fir_number": "2/26", "crime_category": "CNSA 1997, Arms Ordinance 1965", "investigation_status": "open", "police_station": "Ramna"},
+        {"case_id": "C-3", "fir_number": "3/26", "crime_category": "Arms Ordinance 1965", "investigation_status": "open", "police_station": "Saddar"},
+        {"case_id": "C-4", "fir_number": "4/26", "crime_category": "PPC", "investigation_status": "open", "police_station": "Kohsar"},
+        {"case_id": "C-5", "fir_number": "5/26", "crime_category": "PECA 2016, PPC", "investigation_status": "open", "police_station": "Ramna"},
+    ])
+
+    result = await xagg.run_aggregate(
+        "How many cases involve the Arms Ordinance across all cases? Give a count.",
+        None, gateway, user_role="supervisor",
+    )
+
+    assert result["kind"] == "total_count"
+    assert result["total_cases"] == 3
+
+
+async def test_arms_ordinance_keyword_does_not_collide_with_weapon_dispatch():
+    """The chosen keywords ("arms ordinance", "illegal arms", "unlicensed
+    arms", "arms act") must not overlap _WEAPON_KEYWORDS ("weapon",
+    "pistol", "gun", "firearm", ...) -- an overlap would shadow this act
+    filter behind the earlier graph-based weapon-recurrence dispatch (see
+    _LEGAL_CODE_ACT_KEYWORDS' own CAVEAT comment). Confirms the query
+    actually reaches the relational path, not xagg.age_client."""
+    gateway = FakeGateway([
+        {"case_id": "C-1", "fir_number": "1/26", "crime_category": "Arms Ordinance 1965", "investigation_status": "open", "police_station": "Kohsar"},
+        {"case_id": "C-2", "fir_number": "2/26", "crime_category": "PPC", "investigation_status": "open", "police_station": "Ramna"},
+    ])
+
+    result = await xagg.run_aggregate(
+        "how many cases involve illegal arms", None, gateway, user_role="supervisor"
+    )
+
+    # "how many cases..." also matches _TOTAL_KEYWORDS, so this correctly
+    # lands on the bare-total path (kind total_count) rather than the
+    # grouped-count path -- what matters here is that it went through
+    # _filtered_cases()'s act filter at all (total_cases == 1, not 2),
+    # proving it wasn't shadowed by the weapon-recurrence dispatch above.
+    assert result["kind"] == "total_count"
+    assert result["total_cases"] == 1
+
+
 # ── RBAC gate ────────────────────────────────────────────────────────────────
 
 async def test_investigator_cannot_run_cross_case_aggregate():
