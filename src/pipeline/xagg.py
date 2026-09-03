@@ -582,8 +582,25 @@ async def run_aggregate(
     # forcing it through _station_or_category_counts's group-by, which would
     # silently turn "list all cases" into "counts of cases by category" instead
     # of actually listing them.
+    #
+    # [Bug fix — eval finding, DeepEval xagg-01] "How many cases involve the
+    # Arms Ordinance ACROSS ALL CASES? Give a count." contains the literal
+    # substring "all cases" (from "across all cases"), which matched
+    # _LIST_ALL_KEYWORDS. The guard below only backed off for station/status/
+    # category keyword collisions, never for a query that also names a
+    # specific legal act — so this branch fired, returned every case in the
+    # corpus completely unfiltered (79, the whole corpus), and labeled it
+    # "matching" a query about one act. Confirmed live in the pipeline output:
+    # cases with crime_category "PPC" only, and even "uncategorized" stub
+    # cases, were listed as "matching" an Arms-Ordinance question. Ground
+    # truth (SQL COUNT WHERE crime_category ILIKE '%Arms Ordinance%') is 29.
+    # A query naming a specific act is asking a filtered/counted question,
+    # not "list every case" — same reasoning as the existing station/status/
+    # category exclusions, just extended to cover this fourth filter family.
     if _matches_any(query_lower, _LIST_ALL_KEYWORDS) and not _matches_any(
         query_lower, _STATION_KEYWORDS + _STATUS_KEYWORDS + _CATEGORY_KEYWORDS
+    ) and not any(
+        _matches_any(query_lower, keywords) for keywords in _LEGAL_CODE_ACT_KEYWORDS.values()
     ):
         cases = await gateway.get_cases(user_id=None, user_role="platform-admin")
         if jurisdiction_case_ids is not None:
