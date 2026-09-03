@@ -48,7 +48,50 @@ _WEAPON_KEYWORDS = (
     "hathiyar", "hathyar",
     "ہتھیار", "پستول", "بندوق",
 )
+# [Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Root cause 2] A bare "how many
+# accused/people in total" question was silently answered by the
+# person-recurrence path below (it matches _PERSON_KEYWORDS on "accused"),
+# which structurally only returns people appearing in MORE than one case
+# (_top_recurring_nodes's own `if len(cases) > 1` filter) — e.g. "how many
+# accused persons in total" returned 4 (the repeat offenders) instead of the
+# real total (~94 accused entries), with no caveat that the number was
+# actually a recurrence count, not a total. This distinguishes the two
+# question shapes so a bare total gets a real total instead of being
+# silently answered by the recurrence path.
+_RECURRENCE_SIGNAL_KEYWORDS = (
+    "recurring", "repeat", "multiple cases", "more than one case",
+    "several cases", "across cases", "across all cases", "bar bar",
+    "دوبارہ", "بار بار", "ایک سے زیادہ",
+)
+_ACCUSED_TOTAL_KEYWORDS = (
+    "total", "grand total", "how many accused", "how many people",
+    "how many suspects", "how many mulzim", "kitne mulzim", "kul kitne",
+    "کل ملزم", "ملزمان کی تعداد", "کل تعداد",
+)
+# [Gold-QA fix] Topics the Gold-QA report confirmed the aggregate engine has
+# no data path for at all (gender, age, officer assignment, reporting-delay/
+# trend-over-time) — matched EARLY, before any entity-recurrence keyword
+# family below, so a query naming one of these topics gets an honest "can't
+# answer that" instead of silently falling through to an unrelated family
+# (e.g. a gender question matching "accused"/"mulzim" in _PERSON_KEYWORDS).
+# Gender is handled separately (see _GENDER_KEYWORDS below) since it has a
+# real, if not-yet-backfilled, data path; age/officer/trend genuinely have
+# none today.
+_AGE_KEYWORDS = ("age of", "how old", "average age", "عمر", "اوسط عمر")
+_OFFICER_KEYWORDS = (
+    "investigating officer", "officer assignment", "assigned officer",
+    "which officer", "تفتیشی افسر", "افسر تفتیش",
+)
+_TREND_KEYWORDS = (
+    "reporting delay", "trend", "over time", "month over month",
+    "year over year", "rate of increase", "رجحان",
+)
+_GENDER_KEYWORDS = (
+    "gender", "women", "woman", "female", "male accused", "men accused",
+    "عورت", "عورتیں", "خواتین", "مرد", "جنس",
+)
 _STATION_KEYWORDS = ("station", "thana", "تھانہ", "چوکی")
+_DISTRICT_KEYWORDS = ("district", "zila", "zilay", "ضلع")
 # Previously English-only, unlike the three keyword sets above — an Urdu
 # query mentioning "بند" (closed) or "چوری" (theft) silently skipped the
 # status/category filter entirely rather than applying it, since none of
@@ -195,6 +238,31 @@ _STATUTE_GROUPING_NOTE = (
     "CNSA 1997), not by crime type — these records carry no crime-type "
     "classification."
 )
+# [Gold-QA fix — Root cause 2] Explicit "I can't answer that" strings for
+# topics with genuinely no data path yet, returned via
+# {"kind": "unsupported_aggregate", ...} rather than letting the query fall
+# through to _station_or_category_counts's generic default, which would
+# answer a question it was never asked (the report's worst finding: e.g. a
+# gender question silently returning a crime-category breakdown).
+_UNSUPPORTED_AGE = (
+    "Age-based aggregates are not available: accused/witness age is not "
+    "currently extracted into this system's data model."
+)
+_UNSUPPORTED_OFFICER = (
+    "Officer-assignment aggregates are not available: investigating-officer "
+    "identity is not currently modeled as a queryable field in this system."
+)
+_UNSUPPORTED_TREND = (
+    "Trend/time-series aggregates (reporting delay, month-over-month, etc.) "
+    "are not available: this system does not currently compute date-based "
+    "aggregates."
+)
+_GENDER_NOT_YET_POPULATED = (
+    "Gender is not yet recorded against accused/witness records in this "
+    "deployment's data — the source system carries a gender field, but it "
+    "has not been synced into this system yet, so a gender breakdown cannot "
+    "be produced."
+)
 
 
 def _status_filter_supported(cases: list[dict]) -> bool:
@@ -278,6 +346,127 @@ async def _top_recurring_nodes(
         for eid, cases in ranked[:limit]
         if len(cases) > 1  # "recurring" — appearing in only one case isn't a cross-case pattern
     ]
+
+
+# [Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 1a] A bare "how many accused
+# persons in total" was previously answered by _top_recurring_nodes("Person")
+# above (it matches _PERSON_KEYWORDS on "accused") — which only ever returns
+# the subset appearing in MORE than one case ("recurring" — the `if
+# len(cases) > 1` filter just above). Live-confirmed: that returned 4 for
+# "how many accused in total" when the real cross-case headcount is far
+# higher. This counts every DISTINCT accused Person node instead — no
+# `len(cases) > 1` filter — reusing the exact same canonicalization
+# (build_canonical_map/canon) so a person who is the same real individual
+# across cases is still counted once, but a person appearing in only ONE
+# case is counted too (unlike the recurrence path above).
+async def _total_accused_count(jurisdiction_case_ids: Optional[list[str]] = None) -> dict:
+    if jurisdiction_case_ids is not None:
+        rows = await age_client.execute_cypher(
+            "MATCH (p:Person)-[r:INVOLVED_IN]->(i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+            "WHERE r.role = 'accused' AND c.case_id IN $case_ids "
+            "RETURN p, c",
+            params={"case_ids": jurisdiction_case_ids}, columns=["p", "c"],
+        )
+    else:
+        rows = await age_client.execute_cypher(
+            "MATCH (p:Person)-[r:INVOLVED_IN]->(i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+            "WHERE r.role = 'accused' "
+            "RETURN p, c",
+            columns=["p", "c"],
+        )
+    canonical_map = build_canonical_map(await fetch_confirmed_same_as())
+    per_entity_cases: dict[str, set[str]] = {}
+    for row in rows:
+        p_props = (row.get("p") or {}).get("properties", {}) or {}
+        c_props = (row.get("c") or {}).get("properties", {}) or {}
+        entity_id = p_props.get("entity_id")
+        case_id = c_props.get("case_id")
+        if not entity_id or not case_id:
+            continue
+        entity_id = canon(canonical_map, entity_id)
+        per_entity_cases.setdefault(entity_id, set()).add(case_id)
+    return {
+        "kind": "total_accused_count",
+        "total_accused": len(per_entity_cases),
+        "total_case_scoped_entries": sum(len(v) for v in per_entity_cases.values()),
+    }
+
+
+# [Gold-QA fix — Module 1d] Gender breakdown of accused Person nodes.
+# `gender` is written onto the Person node by structured_projection.py's
+# _write_accused()/_write_witnesses() ONLY once that ingestion change has
+# landed and the corpus has been re-synced — see ROOT_CAUSE_AND_FIXES.md
+# Module 1's own data-dependency note. Deliberately checks whether ANY node
+# actually carries the property before claiming a breakdown, the same
+# data-driven "can this filter even fire on this corpus" pattern
+# _status_filter_supported()/_crime_type_filter_supported() above use — a
+# corpus with the property populated self-heals with no code change; one
+# that doesn't states that honestly instead of returning an all-zero or
+# fabricated breakdown.
+async def _gender_breakdown(jurisdiction_case_ids: Optional[list[str]] = None) -> dict:
+    if jurisdiction_case_ids is not None:
+        rows = await age_client.execute_cypher(
+            "MATCH (p:Person)-[r:INVOLVED_IN]->(i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+            "WHERE r.role = 'accused' AND c.case_id IN $case_ids "
+            "RETURN p",
+            params={"case_ids": jurisdiction_case_ids}, columns=["p"],
+        )
+    else:
+        rows = await age_client.execute_cypher(
+            "MATCH (p:Person)-[r:INVOLVED_IN]->(i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+            "WHERE r.role = 'accused' "
+            "RETURN p",
+            columns=["p"],
+        )
+    seen_entities: dict[str, Optional[str]] = {}
+    for row in rows:
+        p_props = (row.get("p") or {}).get("properties", {}) or {}
+        entity_id = p_props.get("entity_id")
+        if not entity_id:
+            continue
+        seen_entities[entity_id] = (p_props.get("gender") or "").strip() or None
+
+    if not any(v for v in seen_entities.values()):
+        return {"kind": "gender_breakdown", "unsupported": True, "message": _GENDER_NOT_YET_POPULATED}
+
+    counts = Counter((v or "unknown").lower() for v in seen_entities.values())
+    return {
+        "kind": "gender_breakdown",
+        "unsupported": False,
+        "counts": [{"key": k, "count": v} for k, v in counts.most_common()],
+        "total_accused": len(seen_entities),
+    }
+
+
+# [Gold-QA fix — Module 1c] District-level rollup — District/PoliceStation
+# graph nodes already exist (structured_projection.py's District writes),
+# so this is a graph traversal, NOT a Postgres GROUP BY over the case rows
+# the way _station_or_category_counts() works — case rows only carry a
+# free-text `police_station` name, no district. Optionally filtered to a
+# named recurring-entity label (e.g. "Weapon") for "which district recovers
+# the most weapons" style questions; None counts cases per district instead.
+async def _top_districts_by(
+    entity_label: Optional[str] = None, jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    case_filter = "WHERE c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+    params = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+    if entity_label:
+        query = (
+            f"MATCH (n:{entity_label})-[:BELONGS_TO_CASE]->(c:Case)-[:FILED_AT]->(:PoliceStation)"
+            f"-[:PART_OF]->(d:District) {case_filter}"
+            "RETURN d.name AS district, count(DISTINCT n) AS n_count"
+        )
+    else:
+        query = (
+            f"MATCH (c:Case)-[:FILED_AT]->(:PoliceStation)-[:PART_OF]->(d:District) {case_filter}"
+            "RETURN d.name AS district, count(DISTINCT c) AS n_count"
+        )
+    rows = await age_client.execute_cypher(query, params=params, columns=["district", "n_count"])
+    ranked = sorted(
+        ({"district": r.get("district") or "unknown", "count": r.get("n_count") or 0} for r in rows),
+        key=lambda r: r["count"], reverse=True,
+    )
+    return {"kind": "district_breakdown", "entity_label": entity_label, "counts": ranked}
 
 
 # [findings.md Module 4] Strips a trailing ammunition-count clause shaped
@@ -578,9 +767,56 @@ async def run_aggregate(
 
     query_lower = query_text.lower()
 
+    # [Gold-QA fix — Module 1b] Topics with genuinely no data path yet,
+    # checked FIRST — before any entity-recurrence keyword family below —
+    # so a query naming one of these gets an honest refusal instead of
+    # silently falling through to an unrelated family (the report's worst
+    # finding: a gender/age/officer/trend question answered with an
+    # unrelated number and no caveat). Order matters: age/officer/trend
+    # have no data path at all; gender has a real one but is checked
+    # separately below since it degrades to an honest "not synced yet"
+    # rather than a hard refusal.
+    if _matches_any(query_lower, _AGE_KEYWORDS):
+        return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_AGE}
+    if _matches_any(query_lower, _OFFICER_KEYWORDS):
+        return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_OFFICER}
+    if _matches_any(query_lower, _TREND_KEYWORDS):
+        return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_TREND}
+    if _matches_any(query_lower, _GENDER_KEYWORDS):
+        return await _gender_breakdown(jurisdiction_case_ids=jurisdiction_case_ids)
+
+    # [Gold-QA fix — Module 1c] District rollup — checked before the
+    # station/vehicle/person/weapon families below since "which district
+    # recovers the most weapons" would otherwise be caught by
+    # _WEAPON_KEYWORDS first and answer with a case-scoped weapon ranking
+    # instead of the district breakdown actually asked for.
+    if _matches_any(query_lower, _DISTRICT_KEYWORDS):
+        entity_label = None
+        if _matches_any(query_lower, _WEAPON_KEYWORDS):
+            entity_label = "Weapon"
+        elif _matches_any(query_lower, _VEHICLE_KEYWORDS):
+            entity_label = "Vehicle"
+        return await _top_districts_by(entity_label, jurisdiction_case_ids=jurisdiction_case_ids)
+
     if _matches_any(query_lower, _VEHICLE_KEYWORDS):
         top = await _top_recurring_nodes("Vehicle", jurisdiction_case_ids=jurisdiction_case_ids)
         return {"kind": "graph_recurrence", "entity_type": "Vehicle", "results": top}
+
+    # [Gold-QA fix — Module 1a] A bare total ("how many accused persons in
+    # total") must NOT reach the recurring-persons dispatch just below —
+    # that path structurally excludes anyone appearing in only one case
+    # (see _top_recurring_nodes's own `if len(cases) > 1`), which is why
+    # "how many accused" used to return 4 instead of the real headcount.
+    # Only fires when the query names a bare-total shape AND does not also
+    # carry recurrence language ("recurring", "multiple cases", ...) — a
+    # query that names both (unlikely, but e.g. "how many people appear in
+    # multiple cases") still means recurrence, so the check below is
+    # deliberately AND NOT, matching _TOTAL_KEYWORDS/_LIST_ALL_KEYWORDS's
+    # own precedence pattern elsewhere in this function.
+    if _matches_any(query_lower, _PERSON_KEYWORDS) and _matches_any(
+        query_lower, _ACCUSED_TOTAL_KEYWORDS
+    ) and not _matches_any(query_lower, _RECURRENCE_SIGNAL_KEYWORDS):
+        return await _total_accused_count(jurisdiction_case_ids=jurisdiction_case_ids)
 
     if _matches_any(query_lower, _PERSON_KEYWORDS):
         top = await _top_recurring_nodes("Person", jurisdiction_case_ids=jurisdiction_case_ids)

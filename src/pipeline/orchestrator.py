@@ -461,6 +461,21 @@ async def _fetch_secondary_evidence(
                     ]
                 elif agg_result["kind"] == "total_count":
                     lines = [f"Total cases: {agg_result['total_cases']}"]
+                elif agg_result["kind"] == "unsupported_aggregate":
+                    lines = [agg_result["message"]]
+                elif agg_result["kind"] == "total_accused_count":
+                    lines = [f"Total distinct accused persons: {agg_result['total_accused']}"]
+                elif agg_result["kind"] == "gender_breakdown":
+                    if agg_result["unsupported"]:
+                        lines = [agg_result["message"]]
+                    else:
+                        lines = [f"- {c['key']}: {c['count']}" for c in agg_result["counts"]]
+                elif agg_result["kind"] == "district_breakdown":
+                    label = agg_result.get("entity_label")
+                    lines = [
+                        f"- {c['district']}: {c['count']} {label + ' record(s)' if label else 'case(s)'}"
+                        for c in agg_result["counts"]
+                    ]
                 else:
                     lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result.get("counts", [])]
                 aggregate_text = "\n".join(lines)
@@ -1998,6 +2013,31 @@ async def process_query(
                 ]
             elif agg_result["kind"] == "total_count":
                 lines = [f"Total cases: {agg_result['total_cases']}"]
+            # [Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 1] Four new
+            # XAGG result kinds: an honest refusal for topics with no data
+            # path (unsupported_aggregate), a real cross-case accused
+            # headcount distinct from the recurring-persons path
+            # (total_accused_count), a gender breakdown that degrades to an
+            # honest "not synced yet" pre-backfill (gender_breakdown), and a
+            # district rollup (district_breakdown) — see xagg.py's own
+            # docstrings on each for why these can't reuse the "counts"
+            # branch below (different keys, or no numeric result at all).
+            elif agg_result["kind"] == "unsupported_aggregate":
+                lines = [agg_result["message"]]
+            elif agg_result["kind"] == "total_accused_count":
+                lines = [f"Total distinct accused persons: {agg_result['total_accused']}"]
+            elif agg_result["kind"] == "gender_breakdown":
+                if agg_result["unsupported"]:
+                    lines = [agg_result["message"]]
+                else:
+                    lines = [f"- {c['key']}: {c['count']}" for c in agg_result["counts"]]
+                    lines.append(f"Total accused: {agg_result['total_accused']}")
+            elif agg_result["kind"] == "district_breakdown":
+                label = agg_result.get("entity_label")
+                lines = [
+                    f"- {c['district']}: {c['count']} {label + ' record(s)' if label else 'case(s)'}"
+                    for c in agg_result["counts"]
+                ]
             else:
                 lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
                 # [Legal-code semantic layer] crime_category can combine

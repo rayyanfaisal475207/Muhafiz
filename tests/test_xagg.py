@@ -645,3 +645,144 @@ async def test_authorized_aggregate_arms_the_rls_bypass():
         "how many cases are open right now", None, gateway=monkeypatch_gateway, user_role="supervisor"
     )
     assert current_cross_case.get() is True
+
+
+# ── Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 1 ──────────────────────────
+# A bare "how many accused in total" used to reach _top_recurring_nodes
+# ("Person") above (it matches _PERSON_KEYWORDS on "accused"), which only
+# ever returns people appearing in MORE than one case — live-confirmed to
+# answer 4 for a real headcount far higher. These tests cover the new
+# total-vs-recurring split, the unsupported-aggregate refusal, the district
+# rollup, and the gender breakdown's pre-/post-backfill shape.
+
+def _accused_row(entity_id, case_id, **props):
+    return {"p": _node(entity_id, "Person", **props), "c": _case(case_id)}
+
+
+async def test_bare_accused_total_counts_every_distinct_person_not_just_recurring(monkeypatch):
+    """The exact "4 vs 94" bug: a single-case-only accused must still be
+    counted here, unlike the recurring-persons path."""
+    rows = [
+        _accused_row("P-001", "CASE-001"),  # appears in only one case
+        _accused_row("P-002", "CASE-002"),  # appears in only one case
+        _accused_row("P-003", "CASE-003"),
+        _accused_row("P-003", "CASE-004"),  # recurring — still counted once here
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        "how many accused persons are there in total", None, gateway=None, user_role="supervisor"
+    )
+
+    assert result["kind"] == "total_accused_count"
+    assert result["total_accused"] == 3
+
+
+async def test_recurrence_language_still_routes_to_recurring_persons_path(monkeypatch):
+    """A query naming BOTH "accused" and recurrence language must still hit
+    the existing recurring-persons path, not the new total path."""
+    rows = [
+        {"n": _node("P-004", "Person", canonical_name="Repeat Offender"), "c": _case("CASE-010")},
+        {"n": _node("P-004", "Person", canonical_name="Repeat Offender"), "c": _case("CASE-011")},
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        "which accused appear in multiple cases", None, gateway=None, user_role="supervisor"
+    )
+
+    assert result["kind"] == "graph_recurrence"
+    assert result["entity_type"] == "Person"
+
+
+async def test_age_question_returns_unsupported_aggregate_not_a_wrong_number(monkeypatch):
+    result = await xagg.run_aggregate(
+        "what is the average age of the accused", None, gateway=None, user_role="supervisor"
+    )
+
+    assert result["kind"] == "unsupported_aggregate"
+    assert "age" in result["message"].lower()
+
+
+async def test_officer_question_returns_unsupported_aggregate(monkeypatch):
+    result = await xagg.run_aggregate(
+        "which investigating officer has the most cases", None, gateway=None, user_role="supervisor"
+    )
+
+    assert result["kind"] == "unsupported_aggregate"
+
+
+async def test_trend_question_returns_unsupported_aggregate(monkeypatch):
+    result = await xagg.run_aggregate(
+        "what is the reporting delay trend over time", None, gateway=None, user_role="supervisor"
+    )
+
+    assert result["kind"] == "unsupported_aggregate"
+
+
+async def test_gender_question_without_populated_data_is_an_honest_not_yet_synced(monkeypatch):
+    """Pre-backfill: no Person node carries a gender property yet — must
+    say so, not silently return zero or an unrelated number."""
+    rows = [_accused_row("P-001", "CASE-001"), _accused_row("P-002", "CASE-002")]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        "how many of the accused are women", None, gateway=None, user_role="supervisor"
+    )
+
+    assert result["kind"] == "gender_breakdown"
+    assert result["unsupported"] is True
+
+
+async def test_gender_question_with_populated_data_returns_a_real_breakdown(monkeypatch):
+    rows = [
+        _accused_row("P-001", "CASE-001", gender="female"),
+        _accused_row("P-002", "CASE-002", gender="male"),
+        _accused_row("P-003", "CASE-003", gender="male"),
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        "are there more male or female accused", None, gateway=None, user_role="supervisor"
+    )
+
+    assert result["kind"] == "gender_breakdown"
+    assert result["unsupported"] is False
+    counts = {c["key"]: c["count"] for c in result["counts"]}
+    assert counts == {"female": 1, "male": 2}
+
+
+async def test_district_question_returns_a_district_rollup(monkeypatch):
+    rows = [
+        {"district": "Lahore", "n_count": 5},
+        {"district": "Karachi", "n_count": 2},
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        "which district has the most FIRs", None, gateway=None, user_role="supervisor"
+    )
+
+    assert result["kind"] == "district_breakdown"
+    assert result["entity_label"] is None
+    assert result["counts"][0] == {"district": "Lahore", "count": 5}
+
+
+async def test_district_weapon_question_scopes_to_weapon_label(monkeypatch):
+    rows = [{"district": "Lahore", "n_count": 3}]
+    captured = {}
+
+    class CapturingAgeClient:
+        async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+            captured["query"] = cypher_query
+            return rows
+
+    monkeypatch.setattr(xagg, "age_client", CapturingAgeClient())
+
+    result = await xagg.run_aggregate(
+        "which district recovers the most weapons", None, gateway=None, user_role="supervisor"
+    )
+
+    assert result["kind"] == "district_breakdown"
+    assert result["entity_label"] == "Weapon"
+    assert "Weapon" in captured["query"]
