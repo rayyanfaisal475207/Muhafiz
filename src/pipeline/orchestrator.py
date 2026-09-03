@@ -476,6 +476,8 @@ async def _fetch_secondary_evidence(
                         f"- {c['district']}: {c['count']} {label + ' record(s)' if label else 'case(s)'}"
                         for c in agg_result["counts"]
                     ]
+                elif agg_result["kind"] == "station_total_count":
+                    lines = [f"Total police stations: {agg_result['total_stations']}"]
                 else:
                     lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result.get("counts", [])]
                 aggregate_text = "\n".join(lines)
@@ -2038,6 +2040,8 @@ async def process_query(
                     f"- {c['district']}: {c['count']} {label + ' record(s)' if label else 'case(s)'}"
                     for c in agg_result["counts"]
                 ]
+            elif agg_result["kind"] == "station_total_count":
+                lines = [f"Total police stations: {agg_result['total_stations']}"]
             else:
                 lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
                 # [Legal-code semantic layer] crime_category can combine

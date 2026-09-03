@@ -68,6 +68,17 @@ _XAGG_OVERRIDE_PATTERNS = [
     re.compile(r"\bkitn[ei]\b.{0,20}\bcases?\b", re.IGNORECASE),
     re.compile(r"کیسز?\s*کی\s*تعداد"),
     re.compile(r"کتن[ےی]\s*کیس"),
+    # [Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 2a] "How many police
+    # stations are there" names neither "cases" nor any pattern above, so it
+    # fell through to the LLM classifier, which (live-confirmed, Gold-QA
+    # report §2.3) sent it to document search instead of an aggregate/count
+    # route. A station-count question is exactly the same unambiguous count
+    # shape the patterns above already fast-path for "cases" — extending
+    # here, not inventing a new mechanism.
+    re.compile(r"\bhow many\b.{0,20}\b(police )?stations?\b", re.IGNORECASE),
+    re.compile(r"\bkitn[ei]\b.{0,20}\bthan[ea]y?\b", re.IGNORECASE),
+    re.compile(r"تھانے?\s*کتن[ےی]"),
+    re.compile(r"کتن[ےی]\s*تھانے?"),
     # Recurring-entity aggregates:
     # "recurring vehicles across cases", "top recurring vehicles",
     # "kitni gariyan bar bar cases mein aayi hain"
@@ -188,6 +199,26 @@ _SQL_OVERRIDE_COMPOUND_THIS_X_RE = re.compile(
 )
 
 
+# [Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 2b] A distinct shape from
+# _SQL_OVERRIDE_PATTERNS above: "what does Section 154 CrPC say" (or
+# "explain Section N", "text of Section N") asks for the CONTENT of a
+# statute — a document/RAG question — not "which section applies to this
+# offense" (SQL's job, answered from police_reference_data, not document
+# text). These two shapes share the word "section" but need opposite
+# routes; keeping them as separate pattern lists (rather than widening
+# _SQL_OVERRIDE_PATTERNS) keeps that distinction explicit and auditable.
+# This question will still come back "no relevant documents" until the
+# legal knowledge base is loaded (see ROOT_CAUSE_AND_FIXES.md Module 5) —
+# the defect this fixes is specifically the misroute to a route that
+# structurally cannot ever answer it (SQL has no legal text at all),
+# independent of whether the KB is loaded.
+_RAG_LEGAL_TEXT_OVERRIDE_PATTERNS = [
+    re.compile(r"\b(what does|explain|text of|meaning of)\b.{0,20}\bsection\b.{0,10}\d+", re.IGNORECASE),
+    re.compile(r"\bsection\b.{0,10}\d+.{0,20}\b(say|says|state|states|mean|means)\b", re.IGNORECASE),
+    re.compile(r"دفعہ\s*\d+.{0,20}(کیا کہتی ہے|کا متن|کیا بیان کرتی ہے)"),
+]
+
+
 def _sql_override_has_compound_signal(query: str) -> bool:
     return bool(re.search(r"\band\b", query, re.IGNORECASE)) and bool(
         _SQL_OVERRIDE_COMPOUND_THIS_X_RE.search(query)
@@ -263,6 +294,19 @@ def _deterministic_route_override(query: str, case_id: str | None = None) -> dic
                 "route": "SQL", "case_scope": "within_case", "target_entity": None,
                 "output_format": "chat", "target_year": None, "confidence": "high",
                 "reason": "Deterministic override: unambiguous structured penal-code/cognizability lookup trigger language detected before the LLM call",
+                "station": None, "district": None,
+            }
+
+    # [Gold-QA fix — Module 2b] Checked immediately after SQL, ahead of the
+    # active-case exclusion below, for the same reason SQL is: a "what does
+    # Section N say" legal-text question is orthogonal to whether a case
+    # happens to be named in the same sentence.
+    for pat in _RAG_LEGAL_TEXT_OVERRIDE_PATTERNS:
+        if pat.search(query):
+            return {
+                "route": "RAG", "case_scope": "within_case", "target_entity": None,
+                "output_format": "chat", "target_year": None, "confidence": "high",
+                "reason": "Deterministic override: unambiguous legal-text-content lookup trigger language detected before the LLM call",
                 "station": None, "district": None,
             }
 

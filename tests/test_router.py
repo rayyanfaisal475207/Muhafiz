@@ -308,6 +308,51 @@ async def test_sql_override_fires_regardless_of_an_active_case_id(monkeypatch):
     assert result["route"] == "SQL"
 
 
+# ── Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 2 ──────────────────────────
+
+@pytest.mark.parametrize("query", [
+    "How many police stations are there?",
+    "How many stations are there?",
+    "kitne thanay hain?",
+    "کتنے تھانے ہیں؟",
+])
+async def test_station_count_override_fires_to_xagg(monkeypatch, query):
+    """
+    Live-confirmed failure (Gold-QA report §2.3): "how many police stations
+    are there" routed to document search instead of an aggregate/count
+    route, because it matched none of the existing XAGG patterns (all
+    tuned to "cases", not "stations").
+    """
+    monkeypatch.setattr(router, "call_llm", _no_llm_call)
+    result = await router.route_query(query)
+    assert result["route"] == "XAGG"
+
+
+@pytest.mark.parametrize("query", [
+    "What does Section 154 of the CrPC say?",
+    "Explain Section 161 CrPC",
+    "What does section 302 say?",
+])
+async def test_legal_text_content_override_fires_to_rag_not_sql(monkeypatch, query):
+    """
+    Live-confirmed failure (Gold-QA report §2.3): "what does Section 154
+    CrPC say" is a legal-text-CONTENT question (document/RAG's job), not a
+    "which section applies" lookup (SQL's job) -- it must never reach a
+    route that structurally has no legal text to search.
+    """
+    monkeypatch.setattr(router, "call_llm", _no_llm_call)
+    result = await router.route_query(query)
+    assert result["route"] == "RAG"
+
+
+async def test_legal_text_content_override_distinct_from_sql_which_section_applies(monkeypatch):
+    """Regression guard: the existing "which section applies" SQL shape
+    must be unaffected by the new RAG override."""
+    monkeypatch.setattr(router, "call_llm", _no_llm_call)
+    result = await router.route_query("What PPC section covers mobile phone theft?")
+    assert result["route"] == "SQL"
+
+
 @pytest.mark.parametrize("query", [
     "Summarize the FIR for this case.",
     "Who is connected to the accused in CASE-009?",
