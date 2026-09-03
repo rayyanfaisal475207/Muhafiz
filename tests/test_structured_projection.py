@@ -297,6 +297,53 @@ class TestProjectFirWiring:
         located = [e for e in graph_calls["edges"] if e["edge_label"] == "LOCATED_AT"]
         assert len(located) == 1
 
+    async def test_accused_and_witness_gender_and_age_flow_into_the_person_mention(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        """
+        [Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 1d] gender/age exist
+        on the real upstream fir_accused/fir_witness tables but were
+        previously dropped by _person_mention() — the reason XAGG's gender
+        aggregate had no data path at all. Confirms the mention dict
+        resolve_and_write() receives (and therefore writes verbatim as
+        Person-node properties, per its own generic pass-through) now
+        carries them for both accused and witness rows.
+        """
+        fir = _minimal_fir(
+            fir_accused=[{
+                "id": "a1", "full_name": "ملزم ایک", "cnic": "00000-2000000-1",
+                "gender": "female", "age": 34,
+            }],
+            fir_witness=[{
+                "id": "w1", "full_name": "گواہ ایک", "cnic": "00000-3000000-1",
+                "gender": "male", "age": 41,
+            }],
+        )
+        await sp.project_fir(fir)
+
+        mentions_by_name = {c["mention"]["canonical_name"]: c["mention"] for c in fake_resolve_and_write}
+        accused_mention = mentions_by_name["ملزم ایک"]
+        witness_mention = mentions_by_name["گواہ ایک"]
+
+        assert accused_mention["gender"] == "female"
+        assert accused_mention["age"] == 34
+        assert witness_mention["gender"] == "male"
+        assert witness_mention["age"] == 41
+
+    async def test_missing_gender_and_age_are_not_added_to_the_mention(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        """A row with no gender/age on the source data must not write a
+        None/placeholder property onto the Person node."""
+        fir = _minimal_fir(
+            fir_accused=[{"id": "a1", "full_name": "بلا صنف", "cnic": "00000-2000000-9"}],
+        )
+        await sp.project_fir(fir)
+
+        mention = next(c["mention"] for c in fake_resolve_and_write if c["mention"]["canonical_name"] == "بلا صنف")
+        assert "gender" not in mention
+        assert "age" not in mention
+
     async def test_structured_records_written_for_all_five_tables(self, graph_calls, no_candidates_by_default, fake_resolve_and_write):
         fir = _minimal_fir(
             fir_section=[{"id": "s1", "section_code": "379", "act": "PPC"}],
