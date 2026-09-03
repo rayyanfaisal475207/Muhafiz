@@ -187,6 +187,46 @@ async def test_evaluator_not_relevant_after_retries_abstains(monkeypatch):
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 5: distinct
+# "knowledge base not loaded" message when the RAG tool signals the global
+# corpus itself appears empty.
+# ═══════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_global_corpus_empty_gets_distinct_kb_not_loaded_message(monkeypatch):
+    _stub_rag_tool(
+        monkeypatch,
+        RagToolResult(
+            status=ToolStatus.EMPTY, chunks=[], retries_used=2,
+            evaluator_verdict="not_relevant", global_corpus_appears_empty=True,
+        ),
+    )
+
+    result = await semantic_search(_agent_input(query_text="What does Section 154 of the CrPC say?"))
+
+    assert result.status == SubAgentStatus.ABSTAINED
+    assert any("knowledge base" in c.lower() for c in result.caveats)
+    assert not any("query refinements" in c.lower() for c in result.caveats)
+
+
+@pytest.mark.asyncio
+async def test_ordinary_not_relevant_keeps_generic_message_when_corpus_not_flagged_empty(monkeypatch):
+    """Regression guard: an ordinary 'nothing matched this question' EMPTY
+    (global_corpus_appears_empty defaults False) must keep the existing
+    generic message, not the new KB-specific one."""
+    _stub_rag_tool(
+        monkeypatch,
+        RagToolResult(status=ToolStatus.EMPTY, chunks=[], retries_used=2, evaluator_verdict="not_relevant"),
+    )
+
+    result = await semantic_search(_agent_input())
+
+    assert result.status == SubAgentStatus.ABSTAINED
+    assert any("query refinements" in c.lower() for c in result.caveats)
+    assert not any("knowledge base" in c.lower() for c in result.caveats)
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # (c) empty-result handling -- nothing in scope, no evaluator ran
 # ═══════════════════════════════════════════════════════════════════════
 

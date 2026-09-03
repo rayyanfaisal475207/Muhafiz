@@ -242,6 +242,27 @@ async def semantic_search(
 
     if tool_result.status == ToolStatus.EMPTY:
         if tool_result.evaluator_verdict == "not_relevant":
+            # [Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 5] A generic
+            # "no relevant documents" reads as a transient retrieval miss —
+            # misleading when the real cause is that the legal-knowledge-
+            # base corpus (CrPC, Police Order, etc.) simply is not loaded
+            # in this deployment at all (Gold-QA report §2.1's closing
+            # note). `global_corpus_appears_empty` is set only when this
+            # search was scoped to global reference material alone (no
+            # case/project/all_cases) and found zero candidates on every
+            # retry — see RagToolResult's own docstring for why that is a
+            # safe, cheap signal distinct from "this corpus has documents,
+            # none matched THIS question."
+            if tool_result.global_corpus_appears_empty:
+                return SubAgentResult(
+                    status=SubAgentStatus.ABSTAINED,
+                    caveats=[
+                        "The legal knowledge base (CrPC, Police Order, and "
+                        "similar reference documents) does not appear to be "
+                        "loaded in this deployment, so this question can't "
+                        "be answered from statute text yet."
+                    ],
+                )
             # [Phase 2 spec] Evaluator "not relevant" surviving RAG's
             # internal retry loop -> ABSTAINED, no answer_text served.
             # Same outcome as today's orchestrator.py RAG route exhausting

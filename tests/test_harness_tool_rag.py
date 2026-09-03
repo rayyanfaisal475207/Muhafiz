@@ -145,6 +145,89 @@ async def test_no_case_and_no_global_returns_empty_without_searching(monkeypatch
     assert called["embed"] is False  # never even attempted an unscoped search
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 5: global_corpus_appears_empty
+# ═══════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_global_only_search_with_zero_candidates_flags_corpus_empty(monkeypatch):
+    """A global-only-scoped search (no case, investigator role — the
+    legal-knowledge-base scope) that finds literally nothing on every
+    retry must set global_corpus_appears_empty, distinct from an ordinary
+    'nothing matched this question' EMPTY."""
+    async def _empty_query_similar(q, emb, top_k=10, where=None, **kwargs):
+        return []
+
+    async def _empty_bm25_pool(query_text, where=None):
+        return []
+
+    async def _not_relevant(orig, rewritten, chunks):
+        return {"relevant": False, "reason": "no evidence"}
+
+    monkeypatch.setattr(rag_mod, "query_similar", _empty_query_similar)
+    monkeypatch.setattr(rag_mod, "bm25_candidate_pool", _empty_bm25_pool)
+    monkeypatch.setattr(rag_mod, "evaluate_relevance", _not_relevant)
+    async def _rewrite_for_retry(original_message, previous_query, evaluator_feedback):
+        return previous_query
+
+    monkeypatch.setattr(rag_mod, "rewrite_for_retry", _rewrite_for_retry)
+
+    execution = _execution(case_id=None)
+    result = await rag_tool(RagToolInput(query_text="what does Section 154 CrPC say", execution=execution))
+
+    assert result.status == ToolStatus.EMPTY
+    assert result.global_corpus_appears_empty is True
+
+
+@pytest.mark.asyncio
+async def test_case_scoped_search_never_flags_corpus_empty(monkeypatch):
+    """The signal must only fire for the global-only scope — an ordinary
+    within-case search finding nothing is ambiguous ('no matching case
+    documents' is a normal, unremarkable EMPTY), not a KB-not-loaded
+    situation."""
+    async def _empty_query_similar(q, emb, top_k=10, where=None, **kwargs):
+        return []
+
+    async def _empty_bm25_pool(query_text, where=None):
+        return []
+
+    async def _not_relevant(orig, rewritten, chunks):
+        return {"relevant": False, "reason": "no evidence"}
+
+    monkeypatch.setattr(rag_mod, "query_similar", _empty_query_similar)
+    monkeypatch.setattr(rag_mod, "bm25_candidate_pool", _empty_bm25_pool)
+    monkeypatch.setattr(rag_mod, "evaluate_relevance", _not_relevant)
+    async def _rewrite_for_retry(original_message, previous_query, evaluator_feedback):
+        return previous_query
+
+    monkeypatch.setattr(rag_mod, "rewrite_for_retry", _rewrite_for_retry)
+
+    result = await rag_tool(RagToolInput(query_text="q", execution=_execution(case_id="CASE-001")))
+
+    assert result.status == ToolStatus.EMPTY
+    assert result.global_corpus_appears_empty is False
+
+
+@pytest.mark.asyncio
+async def test_global_only_search_with_real_candidates_never_flags_corpus_empty(monkeypatch):
+    """Global scope + candidates found (just not relevant to this specific
+    question) must NOT be reported as an empty corpus — the default stub
+    fixture already returns non-empty candidates."""
+    async def _not_relevant(orig, rewritten, chunks):
+        return {"relevant": False, "reason": "no evidence"}
+
+    monkeypatch.setattr(rag_mod, "evaluate_relevance", _not_relevant)
+    async def _rewrite_for_retry(original_message, previous_query, evaluator_feedback):
+        return previous_query
+
+    monkeypatch.setattr(rag_mod, "rewrite_for_retry", _rewrite_for_retry)
+
+    result = await rag_tool(RagToolInput(query_text="q", execution=_execution(case_id=None)))
+
+    assert result.status == ToolStatus.EMPTY
+    assert result.global_corpus_appears_empty is False
+
+
 def test_build_where_prefers_case_over_global():
     caller = CallerContext(user_id="u1", role="investigator", active_case_id="CASE-009")
     assert rag_mod._build_where(caller, include_global=True) == {"case_id": "CASE-009"}

@@ -159,6 +159,29 @@ class RagToolResult(ToolResult):
             "'unavailable'."
         ),
     )
+    # [Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 5] True when this
+    # search was scoped to the global/shared reference corpus ONLY (no
+    # case_id, no project_id, no all_cases — i.e. exactly the legal
+    # knowledge-base scope) AND every retrieval attempt returned zero
+    # candidates from BOTH semantic and lexical search — the strongest
+    # signal available from inside this one request that the underlying
+    # corpus itself has nothing in it, distinct from "this corpus has
+    # documents but none matched this specific question." Computed from
+    # data already fetched during this call (the candidate pools each
+    # retry already builds) — no extra query. Only meaningful when
+    # status == EMPTY and evaluator_verdict == "not_relevant"; False
+    # otherwise (including on the very first candidate-pool exception,
+    # where emptiness can't be distinguished from an infra failure).
+    global_corpus_appears_empty: bool = Field(
+        default=False,
+        description=(
+            "True when this was a global-only-scoped search (no case/"
+            "project/all_cases — the legal-knowledge-base scope) and every "
+            "retry found zero candidates from both semantic and lexical "
+            "search, suggesting the underlying corpus is empty rather than "
+            "merely irrelevant to this question."
+        ),
+    )
 
 
 def _build_where(
@@ -311,6 +334,10 @@ async def rag_tool(
     current_query = tool_input.query_text
     evaluator_feedback: Optional[str] = None
     retry_count = 0
+    # [Gold-QA fix — Module 5] Exactly the legal-knowledge-base scope: no
+    # case, no project, no all_cases — global reference material only.
+    is_global_only_scope = set(where.keys()) == {"is_global"}
+    every_attempt_found_nothing = True
 
     while retry_count <= config.MAX_RETRIES:
         if retry_count > 0 and evaluator_feedback:
@@ -342,6 +369,8 @@ async def rag_tool(
             )
         _emit("retrieval", "done",
               f"{len(semantic_results)} semantic + {len(bm25_results)} lexical candidates")
+        if semantic_results or bm25_results:
+            every_attempt_found_nothing = False
 
         fused = rerank_results(semantic_results, bm25_results, top_k=top_k)
 
@@ -395,6 +424,7 @@ async def rag_tool(
         status=ToolStatus.EMPTY,
         retries_used=retry_count,
         evaluator_verdict="not_relevant",
+        global_corpus_appears_empty=is_global_only_scope and every_attempt_found_nothing,
     )
 
 
