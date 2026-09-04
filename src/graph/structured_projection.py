@@ -651,6 +651,17 @@ async def project_fir(fir: FirRecord, *, graph: str = age_client.GRAPH_NAME) -> 
         }
         if (fir.narrative_text or "").strip():
             incident_properties["description"] = fir.narrative_text
+        # [Gold-QA fix — Module 2, A7] `reporting_delay_reason` is a confirmed
+        # FIR field already ingested into the free-text RAG index
+        # (muhafiz_records.py:167) but never projected as a STRUCTURED,
+        # countable graph property — so xagg._reporting_delay_count() has
+        # nothing to count without this. Same optional convention as
+        # `description` above: a blank/absent reason writes no property at
+        # all, so "no delay reason on file" stays distinguishable from
+        # "recorded as blank".
+        _delay_reason = (fir.raw.get("reporting_delay_reason") or "").strip()
+        if _delay_reason:
+            incident_properties["reporting_delay_reason"] = _delay_reason
         await versioning.write_node(
             "Incident", {"entity_id": incident_id}, incident_properties,
             source_doc_id=doc_id, graph=graph,
