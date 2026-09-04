@@ -230,7 +230,28 @@ _LABEL_KEYWORDS: dict[str, tuple[str, ...]] = {
     # though "افراد" (a more formal synonym) was present — a query using the
     # everyday word matched nothing at all and silently returned an empty
     # seed set instead of falling through to this label.
-    "Person": ("person", "people", "suspect", "offender", "شخص", "افراد", "لوگ"),
+    #
+    # [Gold-QA fix — ROOT_CAUSE_AND_FIXES.md remaining-work item #2]
+    # "accused"/"recidivist"/"mulzim"/"shakhs"/"ملزم" were missing here too
+    # — live-confirmed: "Has any accused been arrested more than once?"
+    # and its own Urdu phrasing ("کیا کسی ملزم کو ایک سے زیادہ بار گرفتار
+    # کیا گیا ہے؟", the report's own query) both name no OTHER label
+    # keyword, so `_find_recurring_entities_for_query` returned `labels=[]`
+    # and therefore `[]` unconditionally — never reaching the Cypher query
+    # at all, despite the graph genuinely holding real recurring accused
+    # Person nodes (live-verified: 4, matching xagg.py's own
+    # `_top_recurring_nodes("Person")` result for the same corpus). This
+    # is the exact reason G1/S3-style "has anyone been arrested more than
+    # once" questions came back "no cross-case patterns found" — not a
+    # graph-quality or data gap, a keyword-list gap. Brought into parity
+    # with `xagg.py::_PERSON_KEYWORDS`, which already had all of these —
+    # the two lists represent the same "this query is about people/
+    # accused" concept and had silently drifted apart.
+    "Person": (
+        "person", "people", "suspect", "offender", "recidivist", "accused",
+        "mulzim", "shakhs",
+        "شخص", "افراد", "لوگ", "ملزم",
+    ),
     "Organization": ("organization", "gang", "group", "ring", "گروہ"),
 }
 

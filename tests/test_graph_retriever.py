@@ -1506,6 +1506,37 @@ async def test_cross_case_recurrence_matches_the_everyday_urdu_word_for_people(f
     assert "P-999" not in seeded_ids
 
 
+@pytest.mark.parametrize("query_text", [
+    "Has any accused been arrested more than once?",
+    "کیا کسی ملزم کو ایک سے زیادہ بار گرفتار کیا گیا ہے؟",
+])
+async def test_cross_case_recurrence_matches_accused_and_mulzim(fake_graph, fake_chunks, query_text):
+    """
+    Gold-QA fix — ROOT_CAUSE_AND_FIXES.md remaining-work item #2:
+    "accused"/"ملزم" were missing from _LABEL_KEYWORDS' Person entry even
+    though xagg.py's own _PERSON_KEYWORDS already had them — live-confirmed
+    the exact report query (both languages) returned zero seeds despite
+    the graph genuinely holding recurring accused Person nodes, because
+    _find_recurring_entities_for_query's `labels = [...]` came back empty
+    and short-circuited before the Cypher query ever ran. This is what the
+    Gold-QA report's own G1/S3 "no cross-case patterns found" result
+    traced back to — not a graph-quality or data gap.
+    """
+    fake_graph.add_node("P-800", "Person", canonical_name="Repeat Accused")
+    fake_graph.add_node("P-999", "Person", canonical_name="Only One Case")
+    fake_graph.add_case("P-800", "CASE-800")
+    fake_graph.add_case("P-800", "CASE-801")
+    fake_graph.add_case("P-999", "CASE-800")
+
+    result = await gr.retrieve_graph(
+        query_text, target_entity=None, case_id=None, cross_case=True, user_role="supervisor",
+    )
+
+    seeded_ids = {e["entity_id"] for e in result["seed_entities"]}
+    assert seeded_ids == {"P-800"}
+    assert "P-999" not in seeded_ids
+
+
 async def test_cross_case_enumeration_returns_every_instance_not_just_recurring(fake_graph, fake_chunks):
     """
     Gap 3 fix: "list of all people mentioned in the cases" is an

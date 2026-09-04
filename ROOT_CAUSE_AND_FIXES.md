@@ -326,6 +326,46 @@ generic "no relevant documents found."
 
 ---
 
+## Module 6 — XGRAPH's own recurring-entity label keywords missed "accused"/"ملزم"
+
+**Branch:** `fix/graph-retriever-label-keywords-accused` · **File:**
+[src/retrieval/graph_retriever.py](src/retrieval/graph_retriever.py) (`_LABEL_KEYWORDS`)
+
+### Problem
+G1/S3-style "has anyone been arrested more than once" questions (report §2.1/§2.3)
+came back "no cross-case patterns found," even asked directly against the exact
+report wording, in both English and Urdu. Initially suspected as a graph-quality/data
+gap (this session's own `sync_muhafiz_data.py` run had flagged 31.6% node drift /
+52.5% edge drift in community detection) — investigated live before assuming that.
+
+### Root cause
+Not a data gap. `_find_recurring_entities_for_query()` (the function `retrieve_graph()`
+calls to seed a cross-case recurrence search with no named entity) picks which graph
+label(s) to search via `_LABEL_KEYWORDS` — a **separate, hand-maintained keyword list**
+from `xagg.py::_PERSON_KEYWORDS`, which already includes "accused"/"recidivist"/
+"mulzim"/"shakhs"/"ملزم" (fixed in an earlier session's own regression guard —
+see that list's own comment on "لوگ"). `_LABEL_KEYWORDS["Person"]` never got the
+same fix — it only had `("person", "people", "suspect", "offender", "شخص", "افراد",
+"لوگ")`. "Has any **accused** been arrested more than once" and "کیا کسی **ملزم**
+کو..." both name no other label keyword, so `labels` came back empty and the function
+returned `[]` unconditionally — never reaching the Cypher query that would have found
+the graph's real recurring accused (live-verified: 4 real recurring Person nodes,
+matching `xagg.py`'s own `_top_recurring_nodes("Person")` result for the same corpus).
+
+### Fix
+Brought `_LABEL_KEYWORDS["Person"]` into parity with `xagg.py::_PERSON_KEYWORDS`.
+Live re-verified before/after through the real harness `xgraph_tool()`: both the
+English and the report's own exact Urdu phrasing went from 0 seed entities/EMPTY
+status to 4 seed entities/OK status with 39 evidence chunks.
+
+### Acceptance criteria
+- "Has any accused been arrested more than once" (English and Urdu) returns real
+  cross-case results, not "no patterns found."
+- Existing Person-recurrence behavior (the everyday-Urdu-word "لوگ" fix, enumeration
+  vs. recurrence distinction) is unaffected — regression-tested.
+
+---
+
 ## Not in this plan — performance
 
 Report §2.5: G5 ~9 min, KB3 ~5 min, KB1 ~4.5 min — all multi-hop cross-case/analytical
