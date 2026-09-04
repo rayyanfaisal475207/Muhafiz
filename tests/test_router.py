@@ -353,6 +353,48 @@ async def test_legal_text_content_override_distinct_from_sql_which_section_appli
     assert result["route"] == "SQL"
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Root Cause 1 (the actual upstream
+# fix): the LLM classifier gets an explicit ACTIVE_CASE signal when no
+# case is selected, so a within-case-SHAPED question ("this weapon,"
+# "the accused") with no case active can be classified to a cross-case
+# route instead of GRAPH/GRAPH_HYBRID (which would find nothing to
+# summarize). None of these queries match any deterministic override
+# pattern, so they all reach the LLM call this test captures.
+# ═══════════════════════════════════════════════════════════════════════
+
+async def test_no_case_id_prefixes_the_llm_call_with_active_case_none(monkeypatch):
+    captured = {}
+
+    async def fake_call_llm(system_prompt, user_message, **kwargs):
+        captured["user_message"] = user_message
+        return json.dumps({"route": "XGRAPH", "case_scope": "cross_case"})
+
+    monkeypatch.setattr(router, "call_llm", fake_call_llm)
+    query = "If we have a weapon logged as evidence, can we tell who it was taken off?"
+    await router.route_query(query, case_id=None)
+
+    assert captured["user_message"].startswith("ACTIVE_CASE: none")
+    assert query in captured["user_message"]
+
+
+async def test_active_case_id_sends_the_query_unchanged_to_the_llm(monkeypatch):
+    """The one thing this fix must never do: change what's sent to the LLM
+    when a case IS active — that path stays byte-for-byte identical to
+    before, since it's the already-tested, already-tuned behavior."""
+    captured = {}
+
+    async def fake_call_llm(system_prompt, user_message, **kwargs):
+        captured["user_message"] = user_message
+        return json.dumps({"route": "GRAPH_HYBRID", "case_scope": "within_case"})
+
+    monkeypatch.setattr(router, "call_llm", fake_call_llm)
+    query = "Summarize what happened in this case."
+    await router.route_query(query, case_id="fir-401-26")
+
+    assert captured["user_message"] == query
+
+
 @pytest.mark.parametrize("query", [
     "Summarize the FIR for this case.",
     "Who is connected to the accused in CASE-009?",

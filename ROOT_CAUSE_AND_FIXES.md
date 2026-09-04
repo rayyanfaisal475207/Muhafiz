@@ -207,6 +207,37 @@ At the dispatch point (locate via the harness agent-selection call site), add a 
   are unaffected (guard only fires on the no-case-id + within-case-summarizer
   combination).
 
+### Follow-up — the actual upstream fix landed (`src/pipeline/router.py`, `prompts/router.txt`)
+The guard above patches the *symptom* (a misroute that already happened); it never
+re-routes an open-ended, no-case-named question like CR3/CR4/G2/G6 to a real
+cross-case answer on its own — those need the router's own classifier to recognize
+them as cross-case in the first place. That upstream fix is now done: when
+`route_query()` is called with no `case_id`, the LLM classifier's input is prefixed
+with an explicit `ACTIVE_CASE: none` line, and `router.txt` gained a new,
+narrowly-scoped rule — checked first against the literal presence of that line, so it
+never touches the well-tested active-case path — instructing the model that
+GRAPH/GRAPH_HYBRID cannot apply with no case active and no case named, and to pick
+XAGG/XGRAPH/XNETWORK based on the question's real content instead (a semantic
+judgment, not a keyword match — this is what lets it work even when the case_id truly
+isn't mentioned anywhere in the query).
+
+Live-verified, same-session, before/after:
+- CR4-shaped ("weapon logged as evidence, who was it taken off") — **GRAPH_HYBRID →
+  XGRAPH**, the exact misroute this module describes, fixed.
+- CR3-shaped (compare two unnamed cases) — **RAG → XNETWORK**.
+- G6-shaped (orientation note from the caseload) — **RAG → XNETWORK**.
+- A held-out active-case regression check (`case_id` set, "summarize this case") —
+  confirmed via git-stash A/B testing that its RAG/GRAPH_HYBRID flakiness is
+  **pre-existing** (present identically on the unmodified prompt), not introduced by
+  this change; a battery of 7 other within-case and cross-case sanity queries all
+  classified correctly after the fix.
+
+Still not fully solved by this: G2/G3/G5's own creative-generation *quality* (a
+correct route reaching an open-ended prompt doesn't guarantee XNETWORK's synthesis is
+good), and the pre-existing router non-determinism itself (temperature 0 does not
+guarantee identical output run-to-run on this local model) — this fix changes what
+the classifier is told, not the classifier's own sampling behavior.
+
 ---
 
 ## Module 4 — Verifier: stop dumping raw JSON for structured-aggregate answers

@@ -383,6 +383,24 @@ async def route_query(rewritten_query: str, case_id: str | None = None) -> dict:
     if override is not None:
         return override
 
+    # [Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Root Cause 1, the actual
+    # upstream fix] The LLM classifier previously had NO signal at all for
+    # whether a case is actually selected — it classified from the query
+    # TEXT alone, so a within-case-SHAPED question ("this weapon," "the
+    # accused") asked with no case active (e.g. "All Cases" mode) could
+    # still land on GRAPH/GRAPH_HYBRID, which then finds nothing to
+    # summarize (live-confirmed misroute, Gold-QA report CR3/CR4/G2/G3/G5/
+    # G6 — see router.txt's own "ACTIVE_CASE context" section for the full
+    # rule and worked examples). Only the "no case" shape changes the
+    # prompt at all — when `case_id` is set, `user_message` stays exactly
+    # `rewritten_query`, unchanged, so the (heavily tuned, already-tested)
+    # active-case behavior is untouched.
+    llm_user_message = (
+        rewritten_query if case_id else
+        "ACTIVE_CASE: none (no case is currently selected — the query below "
+        f"is being asked without any specific case active)\n\nQUESTION: {rewritten_query}"
+    )
+
     # Also handles a distinct failure mode from truncated/malformed JSON:
     # Qwen3 sometimes ignores the "respond with ONLY JSON" instruction
     # entirely and answers conversationally instead — e.g. asking "Could
@@ -392,7 +410,7 @@ async def route_query(rewritten_query: str, case_id: str | None = None) -> dict:
     # appends an explicit correction on retry that forbids exactly this.
     result, response = await call_llm_json(
         system_prompt=_SYSTEM_PROMPT,
-        user_message=rewritten_query,
+        user_message=llm_user_message,
         temperature=0.0,
         # Qwen3-14B (the local reasoning model) emits a visible thinking
         # trace before its answer, and this server doesn't honor
