@@ -83,8 +83,23 @@ _OFFICER_KEYWORDS = (
     "which officer", "تفتیشی افسر", "افسر تفتیش",
 )
 _TREND_KEYWORDS = (
-    "reporting delay", "trend", "over time", "month over month",
+    "trend", "over time", "month over month",
     "year over year", "rate of increase", "رجحان",
+)
+# [Gold-QA fix — A7] "How many FIRs recorded a reason for a reporting
+# delay?" is a COUNT question, now answerable from the Incident node's
+# `reporting_delay_reason` property (structured_projection.py). It is
+# distinct from a reporting-delay TREND over time (month-over-month),
+# which remains unsupported (no time-series) — so "reporting delay" was
+# removed from _TREND_KEYWORDS above and the answerable count shape is
+# matched here instead. Bilingual (en / Urdu-script / Roman-Urdu),
+# covering the A7 phrasing ("wajah batai ... waqe ke kuch arse baad").
+_REPORTING_DELAY_KEYWORDS = (
+    "reporting delay", "delay reason", "reason for delay", "delay in reporting",
+    "late report", "reported late", "delay in reporting",
+    "arse baad", "der se", "takheer", "takhir", "der ki wajah",
+    "waqe ke kuch arse baad", "foran aane ke",
+    "تاخیر", "تاخیر کی وجہ", "دیر سے", "دیر سے رپورٹ",
 )
 _GENDER_KEYWORDS = (
     "gender", "women", "woman", "female", "male accused", "men accused",
@@ -281,9 +296,15 @@ _UNSUPPORTED_OFFICER = (
     "identity is not currently modeled as a queryable field in this system."
 )
 _UNSUPPORTED_TREND = (
-    "Trend/time-series aggregates (reporting delay, month-over-month, etc.) "
+    "Trend/time-series aggregates (month-over-month, year-over-year, etc.) "
     "are not available: this system does not currently compute date-based "
     "aggregates."
+)
+_REPORTING_DELAY_NOT_YET_POPULATED = (
+    "Reporting-delay reasons are not yet recorded as a queryable field in "
+    "this deployment's data — the source system carries a "
+    "reporting_delay_reason field, but it has not been synced into the graph "
+    "yet, so a count of FIRs with a recorded delay reason cannot be produced."
 )
 _GENDER_NOT_YET_POPULATED = (
     "Gender is not yet recorded against accused/witness records in this "
@@ -463,6 +484,78 @@ async def _gender_breakdown(jurisdiction_case_ids: Optional[list[str]] = None) -
         "unsupported": False,
         "counts": [{"key": k, "count": v} for k, v in counts.most_common()],
         "total_accused": len(seen_entities),
+    }
+
+
+async def _reporting_delay_count(jurisdiction_case_ids: Optional[list[str]] = None) -> dict:
+    """
+    [Gold-QA fix — A7] Count FIRs that recorded a reporting-delay reason,
+    against the total FIR count, from the Incident node's
+    `reporting_delay_reason` property (structured_projection.py projects it;
+    a blank/absent reason writes no property, so a node HAVING the property
+    is exactly "this FIR recorded a delay reason").
+
+    Modeled on `_gender_breakdown` above: one Cypher read, a graceful
+    "not yet populated" fallback when the property is absent everywhere
+    (i.e. the graph predates this projection and hasn't been re-ingested),
+    so the answer degrades to a stated limitation instead of a wrong "0".
+
+    Counts DISTINCT Incidents (one per FIR) so a multi-chunk FIR is not
+    double-counted. `with_delay` is FIRs carrying a reason; `total` is all
+    FIRs reachable as Incidents in scope — the denominator the A7 gold
+    answer uses ("8 of 73").
+    """
+    case_filter = ""
+    params: dict = {}
+    if jurisdiction_case_ids is not None:
+        case_filter = "WHERE c.case_id IN $case_ids"
+        params = {"case_ids": jurisdiction_case_ids}
+
+    # Total FIRs (Incidents) in scope — the denominator.
+    total_rows = await age_client.execute_cypher(
+        f"MATCH (i:Incident)-[:BELONGS_TO_CASE]->(c:Case) {case_filter} "
+        "RETURN count(DISTINCT i) AS n",
+        params=params, columns=["n"],
+    )
+    total = int((total_rows[0] or {}).get("n") or 0) if total_rows else 0
+
+    # FIRs whose Incident carries a reporting_delay_reason property.
+    where_delay = "WHERE i.reporting_delay_reason IS NOT NULL"
+    if jurisdiction_case_ids is not None:
+        where_delay += " AND c.case_id IN $case_ids"
+    delay_rows = await age_client.execute_cypher(
+        f"MATCH (i:Incident)-[:BELONGS_TO_CASE]->(c:Case) {where_delay} "
+        "RETURN count(DISTINCT i) AS n",
+        params=params, columns=["n"],
+    )
+    with_delay = int((delay_rows[0] or {}).get("n") or 0) if delay_rows else 0
+
+    # Not-yet-populated: the property exists nowhere AND there are FIRs to
+    # check — distinguish "graph predates the projection" (honest can't-
+    # answer) from a real zero on a re-ingested corpus. If total is 0 too,
+    # there is simply no data; report the honest zero rather than a
+    # misleading "not populated".
+    if with_delay == 0 and total > 0:
+        # Confirm the property is genuinely absent everywhere (not just a
+        # real zero) before disclaiming — one probe for ANY node carrying it.
+        probe = await age_client.execute_cypher(
+            "MATCH (i:Incident) WHERE i.reporting_delay_reason IS NOT NULL "
+            "RETURN count(i) AS n LIMIT 1",
+            columns=["n"],
+        )
+        any_populated = int((probe[0] or {}).get("n") or 0) if probe else 0
+        if any_populated == 0:
+            return {
+                "kind": "reporting_delay_count",
+                "unsupported": True,
+                "message": _REPORTING_DELAY_NOT_YET_POPULATED,
+            }
+
+    return {
+        "kind": "reporting_delay_count",
+        "unsupported": False,
+        "with_delay_reason": with_delay,
+        "total_firs": total,
     }
 
 
@@ -822,6 +915,14 @@ async def run_aggregate(
     # rather than a hard refusal.
     if _matches_any(query_lower, _AGE_KEYWORDS):
         return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_AGE}
+    # [Gold-QA fix — A7] Reporting-delay COUNT checked before officer/trend:
+    # it now has a real data path (Incident.reporting_delay_reason), and it
+    # degrades to an honest "not synced yet" like gender, not a hard refusal.
+    # Placed ahead of _OFFICER_KEYWORDS because A7's phrasing ("mudai ne ...
+    # wajah batai") names no officer term, but ahead of _TREND_KEYWORDS is
+    # what matters now that "reporting delay" was moved out of that set.
+    if _matches_any(query_lower, _REPORTING_DELAY_KEYWORDS):
+        return await _reporting_delay_count(jurisdiction_case_ids=jurisdiction_case_ids)
     if _matches_any(query_lower, _OFFICER_KEYWORDS):
         return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_OFFICER}
     if _matches_any(query_lower, _TREND_KEYWORDS):

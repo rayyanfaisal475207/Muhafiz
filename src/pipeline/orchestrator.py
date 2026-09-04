@@ -470,6 +470,17 @@ async def _fetch_secondary_evidence(
                         lines = [agg_result["message"]]
                     else:
                         lines = [f"- {c['key']}: {c['count']}" for c in agg_result["counts"]]
+                elif agg_result["kind"] == "reporting_delay_count":
+                    if agg_result["unsupported"]:
+                        lines = [agg_result["message"]]
+                    else:
+                        _wd = agg_result["with_delay_reason"]
+                        _tot = agg_result["total_firs"]
+                        _pct = f" (~{round(100 * _wd / _tot)}%)" if _tot else ""
+                        lines = [
+                            f"{_wd} of {_tot} FIRs recorded a reporting-delay reason{_pct}; "
+                            f"the remaining {_tot - _wd} were reported with no stated delay."
+                        ]
                 elif agg_result["kind"] == "district_breakdown":
                     label = agg_result.get("entity_label")
                     lines = [
@@ -2034,6 +2045,22 @@ async def process_query(
                 else:
                     lines = [f"- {c['key']}: {c['count']}" for c in agg_result["counts"]]
                     lines.append(f"Total accused: {agg_result['total_accused']}")
+            # [Gold-QA fix — A7] Reporting-delay count: FIRs carrying a
+            # recorded reporting_delay_reason vs the total, from the Incident
+            # node property (structured_projection.py). Degrades to a stated
+            # limitation ("not synced yet") like gender_breakdown when the
+            # graph predates the projection.
+            elif agg_result["kind"] == "reporting_delay_count":
+                if agg_result["unsupported"]:
+                    lines = [agg_result["message"]]
+                else:
+                    _wd = agg_result["with_delay_reason"]
+                    _tot = agg_result["total_firs"]
+                    _pct = f" (~{round(100 * _wd / _tot)}%)" if _tot else ""
+                    lines = [
+                        f"{_wd} of {_tot} FIRs recorded a reporting-delay reason{_pct}; "
+                        f"the remaining {_tot - _wd} were reported with no stated delay."
+                    ]
             elif agg_result["kind"] == "district_breakdown":
                 label = agg_result.get("entity_label")
                 lines = [

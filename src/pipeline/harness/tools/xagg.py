@@ -173,6 +173,20 @@ def _render_aggregate_text(agg_result: dict) -> str:
         else:
             lines = [f"- {c['key']}: {c['count']}" for c in agg_result["counts"]]
             lines.append(f"Total accused: {agg_result['total_accused']}")
+    # [Gold-QA fix — A7] Reporting-delay count. Kept in sync with
+    # orchestrator.py's identical branch (same convention as the five kinds
+    # above). Degrades to the stated limitation when not yet populated.
+    elif kind == "reporting_delay_count":
+        if agg_result["unsupported"]:
+            lines = [agg_result["message"]]
+        else:
+            _wd = agg_result["with_delay_reason"]
+            _tot = agg_result["total_firs"]
+            _pct = f" (~{round(100 * _wd / _tot)}%)" if _tot else ""
+            lines = [
+                f"{_wd} of {_tot} FIRs recorded a reporting-delay reason{_pct}; "
+                f"the remaining {_tot - _wd} were reported with no stated delay."
+            ]
     elif kind == "district_breakdown":
         label = agg_result.get("entity_label")
         lines = [

@@ -651,6 +651,22 @@ async def project_fir(fir: FirRecord, *, graph: str = age_client.GRAPH_NAME) -> 
         }
         if (fir.narrative_text or "").strip():
             incident_properties["description"] = fir.narrative_text
+        # [Gold-QA fix — A7] `reporting_delay_reason` is a CONFIRMED FIR field
+        # (muhafiz_schema.dbml.txt:141) already ingested into the RAG text
+        # (muhafiz_records.py:167) but never projected as a STRUCTURED graph
+        # property — so XAGG could not COUNT "how many FIRs recorded a
+        # reporting-delay reason" (live-confirmed A7 miss), even though the
+        # per-FIR reason text was retrievable. Attaching it to the Incident
+        # node (the per-FIR event that already carries `description`) gives
+        # `xagg._reporting_delay_count()` a queryable field. Same optional
+        # convention as `description` above: a blank/absent reason writes no
+        # property at all, so "no delay reason on file" stays distinguishable
+        # from "recorded as blank" — and the count reflects only FIRs that
+        # actually carry one. Value written verbatim (free-text reason),
+        # matching gender/age's verbatim pass-through (see `_person_mention`).
+        _delay_reason = (fir.raw.get("reporting_delay_reason") or "").strip()
+        if _delay_reason:
+            incident_properties["reporting_delay_reason"] = _delay_reason
         await versioning.write_node(
             "Incident", {"entity_id": incident_id}, incident_properties,
             source_doc_id=doc_id, graph=graph,
