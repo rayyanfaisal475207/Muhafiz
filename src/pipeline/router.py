@@ -108,6 +108,57 @@ _XAGG_OVERRIDE_PATTERNS = [
         r".{0,40}\b(persons?|people|suspects?|accused|offenders?|vehicles?|mulzim|shakhs|weapons?|firearms?|pistols?|ہتھیار)\b",
         re.IGNORECASE,
     ),
+    # [Gold-QA fix — CR2/S3, name-threading root cause] Person-recurrence
+    # questions phrased NARRATIVELY rather than with a "multiple/several
+    # cases" count word. These are the exact same top-recurring-Person
+    # aggregate ("who appears in more than one case, by name?") — XAGG's
+    # graph_recurrence path already answers them with each person named
+    # AND their specific case set (طارق→fir-202,401; شہزیب→fir-214,891),
+    # which is precisely what the ground truth rewards. Without these they
+    # fell through to the LLM classifier, which sent them to XGRAPH —
+    # correct route for a NAMED-seed traversal, but for a broad "is anyone
+    # a repeat suspect" query XGRAPH has no seed entity and (by its own
+    # CCL-C2 safeguard) deliberately refuses to name a singular recurring
+    # entity, so it can only report a flat case-ID union, never the names.
+    # The recurrence belongs in XAGG; route it there deterministically.
+    #
+    # (a) English narrative recurrence: "resurfaced/reappears/shows up
+    #     again as a suspect in a newer/separate/different case", "already
+    #     on record ... in a(nother) case", "previously accused ... now
+    #     accused again". Requires BOTH a recurrence verb AND a person/
+    #     suspect/case-history token within a short span so it can't fire
+    #     on an unrelated "separate case" mention.
+    re.compile(
+        r"\b(resurfac\w+|reappear\w+|reemerg\w+|re-emerg\w+|surfaced?\s+again|"
+        r"shows?\s+up\s+again|again\b.{0,20}\b(?:suspect|accused)|"
+        r"already\s+on\s+record|prior\s+(?:case|conviction|record)|"
+        r"earlier\s+case\b.{0,40}\b(?:newer|separate|different|another))\b",
+        re.IGNORECASE,
+    ),
+    # (b) "arrested/accused/charged more than once / again" — the person-
+    #     centric recurrence count. "more than once" is the person analogue
+    #     of "more than one case" already handled above.
+    re.compile(
+        r"\b(arrested|accused|charged|booked|caught|detained)\b.{0,30}"
+        r"\b(more than once|again|multiple times|repeatedly|twice)\b",
+        re.IGNORECASE,
+    ),
+    # (c) Urdu person-recurrence: "کیا کسی شخص کو ایک سے زیادہ بار گرفتار
+    #     کیا گیا" (has any person been arrested more than once) and close
+    #     variants — "ایک سے زیادہ بار" (more than once) plus a person/
+    #     arrest token. Also Roman-Urdu "aik se zyada bar ... giraftar".
+    re.compile(r"ایک\s*سے\s*زیادہ\s*بار.{0,30}(گرفتار|ملزم|شخص|نامزد)"),
+    re.compile(r"(گرفتار|ملزم|شخص|نامزد).{0,30}ایک\s*سے\s*زیادہ\s*بار"),
+    re.compile(
+        r"\baik\s*se\s*zyada\s*(?:bar|dafa|martaba)\b.{0,30}"
+        r"\b(giraftar|mulzim|shakhs|namzad)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(giraftar|mulzim|shakhs|namzad)\b.{0,30}"
+        r"\baik\s*se\s*zyada\s*(?:bar|dafa|martaba)\b",
+        re.IGNORECASE,
+    ),
     # Station/category "most" aggregate: "which stations have the most open theft cases"
     re.compile(r"\bwhich (stations?|police stations?)\b.{0,50}\bmost\b", re.IGNORECASE),
     # Bare case-record listing/count
