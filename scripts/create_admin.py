@@ -28,14 +28,18 @@ async def main():
     else:
         print(f"User {email} already exists.")
         
-    print("Promoting user to admin...")
-    # Update user to be an admin directly in Postgres
+    print("Promoting user to platform-admin...")
+    # `is_admin` was removed by the RBAC migration (migrations/006_rbac.sql)
+    # in favor of a `role` enum column (investigator/supervisor/
+    # station-admin/platform-admin) — this script still referenced the old
+    # column and raised `CompileError: Unconsumed column names: is_admin` on
+    # every run since. Update the real column instead.
     from src.database.postgres import get_session
     from src.database.models import User
     from sqlalchemy import update
-    
+
     async with get_session() as db:
-        await db.execute(update(User).where(User.email == email).values(is_admin=True))
+        await db.execute(update(User).where(User.email == email).values(role="platform-admin"))
         await db.commit()
         
     print("--------------------------------------------------")
