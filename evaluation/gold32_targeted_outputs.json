@@ -1,0 +1,82 @@
+[
+  {
+    "id": "D1",
+    "type": "Fact Retrieval",
+    "language": "en",
+    "question": "How many FIRs are currently registered?",
+    "expected_answer": "73",
+    "actual_answer": "NOTE: Grouped by the statute(s) each case was registered under (e.g. PPC, CNSA 1997), not by crime type — these records carry no crime-type classification.\n\n- PPC: 25 cases\n- PPC, Arms Ordinance 1965: 21 cases\n- PECA 2016, PPC: 9 cases\n- CNSA 1997, Arms Ordinance 1965: 8 cases\n- unknown: 6 cases\n- CNSA 1997: 4 cases\n- PPC, Punjab Domestic Violence Act: 4 cases\n- PPC, Illegal Dispossession Act 2005: 2 cases\n\nBreakdown by individual legal code (a case can involve more than one):\n- PPC: 61 cases\n- Arms Ordinance 1965: 29 cases\n- CNSA 1997: 12 cases\n- PECA 2016: 9 cases\n- Punjab Domestic Violence Act: 4 cases\n- Illegal Dispossession Act 2005: 2 cases\n\n_The natural-language summary could not be verified as an accurate paraphrase; showing the raw computed aggregate instead._",
+    "route": "XAGG",
+    "status": "done"
+  },
+  {
+    "id": "S3",
+    "type": "Fact Retrieval",
+    "language": "ur",
+    "question": "کیا کسی شخص کو ایک سے زیادہ بار گرفتار کیا گیا ہے؟",
+    "expected_answer": "جی ہاں، دو شناختی کارڈ نمبر۔ شہزیب عرف شابی (00000-1000001-1) ایف آئی آر 891/24 اور 214/26 میں؛ عاصم رشید (00000-1000002-1) ایف آئی آر 64/26 اور 65/26 میں۔",
+    "actual_answer": "Yes (with some uncertainty) — the same entity recurs across 6 case(s), a possible cross-case link: fir-202-26, fir-214-26, fir-401-26, fir-64-26, fir-65-26, fir-891-24 (graph traversal, depth 1 hop(s)). Chain confidence 50%. These cases are linked because the graph resolved a shared entity across them; that resolution is an inference from the records, not independent proof that every mention is the same individual. The provided documents do not mention any individual being arrested more than once. Each document describes a single case or cluster of cases involving specific individuals, but there is no indication of prior arrests or multiple arrests for any person. The focus of the documents is on the current cases, co-accused relationships, and the police stations handling the cases, rather than on past arrest records. \n\n[Document 1], [Document 2], [Document 3], [Document 4], and [Document 5] all describe distinct cases or clusters of cases without referencing prior arrests.\n\n**Confirmed connections**\n\n- This cross-case traversal returned linked evidence across 6 case(s): fir-202-26, fir-214-26, fir-401-26, fir-64-26, fir-65-26, fir-891-24 (traversal depth 1 hop(s)).\n- This cluster centers on a domestic violence case, fir-97-26 (FIR 97/26), handled at خواتین تھانہ police station in Faisalabad. The individuals connected to this case are عدنان الطاف, نازیہ کوثر, فرحین کوثر, and صغراں بی بی, with the latter three being co-accused as per the available data.\n- This cluster centers on a single case, fir-233-26 (FIR 233/26), a PPC case handled at تھانہ ماڈل ٹاؤن، لاہور police station. The individuals connected to this case are طارق محمود, محمد اسلم, حمزہ طارق, شعیب ارشد, and ذیشان بٹ. Multiple relationships between these individuals are stated: محمد اسلم and شعیب ارشد, طارق محمود and شعیب ارشد, حمزہ طارق and شعیب ارشد, محمد اسلم and حمزہ طارق, طارق محمود and حمزہ طارق, محمد اسلم and ذیشان بٹ, طارق محمود and ذیشان بٹ, حمزہ طارق and ذیشان بٹ, شعیب ارشد and ذیشان بٹ.\n- This cluster centers on fir-620-26, an FIR registered under PPC at موٹروے پولیس اسٹیشن ایم ٹو، لاہور. The individuals Hammad Aslam, Faizal Javed, and Sarfaraz Ahmed are connected to this case, with co-accused relationships established between Hammad Aslam and Faizal Javed, as well as between Faizal Javed and Sarfaraz Ahmed.\n- This cluster centers on a single case, fir-245-26 (FIR 245/26), a PPC case handled at Thana Model Town, Lahore. عائشہ بی بی is the only named individual connected to this case, with بلال حسین and ندیم اختر also appearing in the case record. The available data states that عائشہ بی بی was co-mentioned with both بلال حسین and ندیم اختر in relation to this case.\n- This cluster connects two individuals, فہد میمن and شکیل احمد, who appear together in FIR 142/26, a PPC case from Thana Shah Faisal Colony, Karachi. The available data states that they have a co-accused relationship. — fir-142-26\n\n_A cited claim ([Document 1]) could not be confirmed against its source: The source only describes a single domestic‑violence case and its individuals; it does not mention any documents or state that the documents describe distinct cases without referencing prior arrests._\n_A cited claim ([Document 2]) could not be confirmed against its source: The source details one FIR and the people involved; it contains no information about five documents or about the absence of prior‑arrest references._\n_A cited claim ([Document 3]) could not be confirmed against its source: The source outlines a single FIR cluster and its participants, but does not address any documents or claim that they describe separate cases without prior arrests._\n_A cited claim ([Document 4]) could not be confirmed against its source: The source mentions one case and associated individuals; it provides no evidence that five documents each describe distinct cases or omit prior‑arrest references._\n_A cited claim ([Document 5]) could not be confirmed against its source: The source reports a co‑accused relationship in one FIR, with no mention of multiple documents or the claim that they describe separate cases without referencing prior arrests._",
+    "route": "XGRAPH",
+    "status": "done"
+  },
+  {
+    "id": "A1",
+    "type": "Fact Retrieval",
+    "language": "ur",
+    "question": "نامزد ملزمان میں مرد اور عورت کا تناسب کیا ہے؟",
+    "expected_answer": "مرد 67، عورت 24، غیر واضح 3 — کل 94 ملزم اندراجات میں سے۔",
+    "actual_answer": "According to [Document 1], among the 92 total accused, there are 65 males (مرد) and 24 females (عورت). This results in a male-to-female ratio of **65:24**.",
+    "route": "XAGG",
+    "status": "done"
+  },
+  {
+    "id": "A7",
+    "type": "Fact Retrieval",
+    "language": "roman_ur",
+    "question": "Kitne cases mein mudai ne police ke paas waqe ke kuch arse baad aane ki koi wajah batai, bajaye foran aane ke?",
+    "expected_answer": "73 mein se sirf 8 FIRs (~11%) mein takheer ki koi wajah darj hai — bari aksariyat bina kisi bayan karda takheer ke report hui.",
+    "actual_answer": "The provided document does not specify how many cases involved reasons given by \"Mudai\" for not reporting the incident immediately to the police. It only states the total number of cases as 79 [Document 1]. For details on specific cases or reasons cited, additional data would be required.",
+    "route": "XAGG",
+    "status": "done"
+  },
+  {
+    "id": "CP6",
+    "type": "Fact Retrieval",
+    "language": "roman_ur",
+    "question": "Kitne cases abhi tak bina kisi tafteeshi afsar ke asal tor par muqarrar kiye pade hue hain?",
+    "expected_answer": "11 FIRs mein naamzad tafteeshi afsar ki jagah sirf ek placeholder darj hai — \"(Naamzad ASI)\" 8 par aur \"(Naamzad SI)\" 3 par. Iske muqable mein sab se masroof naamzad afsraan (Faisal aur Tariq) ko 4-4 FIRs assign hain.",
+    "actual_answer": "According to [Document 1], the total number of cases is 79. However, the document does not specify how many of these cases are currently pending without any investigating officer assigned. This information is not provided in the source data.",
+    "route": "XAGG",
+    "status": "done"
+  },
+  {
+    "id": "CR2",
+    "type": "Complex Reasoning",
+    "language": "en",
+    "question": "Is there anyone with an earlier case already on record who has since resurfaced as a suspect in a newer, separate case?",
+    "expected_answer": "Yes — this identity has a prior conviction (from FIR 891/24) and is separately, currently accused in FIR 214/26.",
+    "actual_answer": "Yes (with some uncertainty) — the same entity recurs across 6 case(s), a possible cross-case link: fir-202-26, fir-214-26, fir-401-26, fir-64-26, fir-65-26, fir-891-24 (graph traversal, depth 1 hop(s)). Chain confidence 50%. These cases are linked because the graph resolved a shared entity across them; that resolution is an inference from the records, not independent proof that every mention is the same individual. No individual mentioned in the provided documents is linked to both an earlier case and a newer, separate case. All clusters involve distinct sets of individuals and FIR numbers, with no overlaps in names, case identifiers, or police stations across different documents. For example:  \n- [Document 1] involves Saad ur Rehman, Asim Rashed, and Saima Begum in FIRs 64/26 and 65/26.  \n- [Document 2] involves Asghar Ali and Akbar Ali in FIR 410/25.  \n- [Document 3] involves Shazia Nazeer, Nauman Jamil, and Abid Hussain in FIR 955/26.  \n- [Document 4] involves Wasim Akram Sheikh and Farheen Qosur in FIR 312/26.  \n- [Document 5] involves Zeinab Aslam, Imran Qureshi, and Saadia Pervaiz in FIR 88/26.  \n\nNo names or FIR numbers are shared between clusters, and no prior case history for any individual is indicated.\n\n**Confirmed connections**\n\n- This cross-case traversal returned linked evidence across 6 case(s): fir-202-26, fir-214-26, fir-401-26, fir-64-26, fir-65-26, fir-891-24 (traversal depth 1 hop(s)).\n- This cluster centers on two cases, FIR 64/26 and FIR 65/26, both related to cybercrime under PECA 2016 at different police circles in Islamabad and Rawalpindi. Saad ur Rehman and Asim Rashed are connected through co-mentions in the incidents of these cases, with Saima Begum also mentioned alongside Asim Rashed in one of the cases. — fir-64-26, fir-65-26\n- This cluster involves two individuals linked to FIR 410/25, a PPC case handled by Thana Model Town, Lahore police station. The individuals, Asghar Ali and Akbar Ali, have been mentioned together as co-accused in the case record. — fir-410-25\n- This cluster connects individuals involved in FIR 955/26, a PPC case registered at Thana Warth Khan, Rawalpindi. Shazia Nazeer, Nauman Jamil, and Abid Hussain are mentioned together in relation to this case, with Shazia Nazeer being co-mentioned with both Nauman Jamil and Abid Hussain. — fir-955-26\n- This cluster centers on a single case, FIR 312/26, a PPC case investigated at Thana Cant, Multan. Wasim Akram Sheikh and Farheen Qosur are named individuals linked to this case, with a stated co-accused relationship between them. — fir-312-26\n- This cluster centers on a single case, fir-88-26 (FIR 88/26), a PPC case handled at Thana Sadar, Rawalpindi. Zeinab Aslam and Imran Qureshi are named individuals connected to this case, with Saadia Pervaiz also appearing in the case record. The available data states that Zeinab Aslam and Imran Qureshi were co-mentioned in the case, as well as Zeinab Aslam and Saadia Pervaiz.\n\n_A cited claim ([Document 5]) could only be partially confirmed against its source: The source confirms Zeinab Aslam, Imran Qureshi, and Saadia Pervaiz are mentioned in FIR 88/26, but only states co-mentions between pairs, not all three together._",
+    "route": "XGRAPH",
+    "status": "done"
+  },
+  {
+    "id": "CP1",
+    "type": "Complex Reasoning",
+    "language": "roman_ur",
+    "question": "Kaunsa zila apne case load ke lihaz se sab se zyada hathiyar baramad karta hai?",
+    "expected_answer": "Hyderabad ki shrah sab se ziyada hai (3/5 = 60%), phir Faisalabad (10/19 ≈ 53%), Lahore (8/18 ≈ 44%); Rawalpindi kam hai 3/10 = 30% par; Multan ka 0/1.",
+    "actual_answer": "According to [Document 1], **فیصل آباد** has the highest number of weapon records with **10** entries, followed by **لاہور** with **8** records. Other districts with notable counts include **حیدر آباد**, **راولپنڈی**, and **کراچی ایسٹ** (3, 3, and 2 records respectively).",
+    "route": "XAGG",
+    "status": "done"
+  },
+  {
+    "id": "KB1",
+    "type": "Knowledge Base Reasoning",
+    "language": "en",
+    "question": "What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?",
+    "expected_answer": "Section 154 of the Code of Criminal Procedure, 1898 requires that oral information about a cognizable offence given to the officer-in-charge of a police station be reduced to writing, read back to the informant, signed by them, and entered in a register in the prescribed form — that's the actual legal basis for what we call an FIR. Our FIR records follow that structure: every entry carries a recording officer, a report timestamp, and complainant details, which is the database's structural equivalent of the Section 154 register entry.",
+    "actual_answer": "The documents provided do not explicitly detail the legal requirements governing the conversion of a crime report into a formal FIR or evaluate whether recordkeeping adheres to such requirements. They mention specific legal sections (e.g., 14 PECA 2016, 377A PPC) under which FIRs are registered but do not discuss procedural laws or standards for FIR documentation. \n\nFor example, [Document 1] references the registration of an FIR under \"دفعہ 154 ت.پ\" (likely Section 154 of the Criminal Procedure Code, which pertains to FIR registration), but no further details on procedural compliance are provided. Other documents focus on the offenses reported (e.g., unauthorized fund transfers, domestic violence) rather than the administrative or legal framework for FIR creation. \n\nThus, the records do not confirm whether the process follows legal requirements, as this information is absent from the provided materials.",
+    "route": "RAG",
+    "status": "done"
+  }
+]

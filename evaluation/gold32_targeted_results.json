@@ -1,0 +1,51 @@
+[
+  {
+    "id": "D1",
+    "scores": {
+      "FactualCorrectness": 0.2,
+      "AnswerRelevancy": 0.82
+    }
+  },
+  {
+    "id": "S3",
+    "scores": {
+      "FactualCorrectness": 0.0,
+      "AnswerRelevancy": 0.33
+    }
+  },
+  {
+    "id": "A1",
+    "scores": {
+      "FactualCorrectness": 0.4,
+      "AnswerRelevancy": 1.0
+    }
+  },
+  {
+    "id": "A7",
+    "scores": {
+      "FactualCorrectness": 0.2,
+      "AnswerRelevancy": 1.0
+    }
+  },
+  {
+    "id": "CP6",
+    "scores": {
+      "FactualCorrectness": 0.2,
+      "AnswerRelevancy": 1.0
+    }
+  },
+  {
+    "id": "CR2",
+    "scores": {
+      "FactualCorrectness": 0.3,
+      "AnswerRelevancy": 1.0
+    }
+  },
+  {
+    "id": "CP1",
+    "scores": {
+      "FactualCorrectness": 0.6,
+      "AnswerRelevancy": 1.0
+    }
+  }
+]

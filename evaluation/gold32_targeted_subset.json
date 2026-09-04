@@ -1,0 +1,83 @@
+[
+  {
+    "id": "D1",
+    "source": "Muhafiz",
+    "question": "How many FIRs are currently registered?",
+    "answer": "73",
+    "question_type": "Fact Retrieval",
+    "evidence": "",
+    "multi_step": false,
+    "language": "en"
+  },
+  {
+    "id": "S3",
+    "source": "Muhafiz",
+    "question": "کیا کسی شخص کو ایک سے زیادہ بار گرفتار کیا گیا ہے؟",
+    "answer": "جی ہاں، دو شناختی کارڈ نمبر۔ شہزیب عرف شابی (00000-1000001-1) ایف آئی آر 891/24 اور 214/26 میں؛ عاصم رشید (00000-1000002-1) ایف آئی آر 64/26 اور 65/26 میں۔",
+    "question_type": "Fact Retrieval",
+    "evidence": "",
+    "multi_step": false,
+    "language": "ur"
+  },
+  {
+    "id": "A1",
+    "source": "Muhafiz",
+    "question": "نامزد ملزمان میں مرد اور عورت کا تناسب کیا ہے؟",
+    "answer": "مرد 67، عورت 24، غیر واضح 3 — کل 94 ملزم اندراجات میں سے۔",
+    "question_type": "Fact Retrieval",
+    "evidence": "",
+    "multi_step": false,
+    "language": "ur"
+  },
+  {
+    "id": "A7",
+    "source": "Muhafiz",
+    "question": "Kitne cases mein mudai ne police ke paas waqe ke kuch arse baad aane ki koi wajah batai, bajaye foran aane ke?",
+    "answer": "73 mein se sirf 8 FIRs (~11%) mein takheer ki koi wajah darj hai — bari aksariyat bina kisi bayan karda takheer ke report hui.",
+    "question_type": "Fact Retrieval",
+    "evidence": "",
+    "multi_step": false,
+    "language": "roman_ur"
+  },
+  {
+    "id": "CP6",
+    "source": "Muhafiz",
+    "question": "Kitne cases abhi tak bina kisi tafteeshi afsar ke asal tor par muqarrar kiye pade hue hain?",
+    "answer": "11 FIRs mein naamzad tafteeshi afsar ki jagah sirf ek placeholder darj hai — \"(Naamzad ASI)\" 8 par aur \"(Naamzad SI)\" 3 par. Iske muqable mein sab se masroof naamzad afsraan (Faisal aur Tariq) ko 4-4 FIRs assign hain.",
+    "question_type": "Fact Retrieval",
+    "evidence": "",
+    "multi_step": false,
+    "language": "roman_ur"
+  },
+  {
+    "id": "CR2",
+    "source": "Muhafiz",
+    "question": "Is there anyone with an earlier case already on record who has since resurfaced as a suspect in a newer, separate case?",
+    "answer": "Yes — this identity has a prior conviction (from FIR 891/24) and is separately, currently accused in FIR 214/26.",
+    "question_type": "Complex Reasoning",
+    "evidence": "",
+    "multi_step": true,
+    "language": "en"
+  },
+  {
+    "id": "CP1",
+    "source": "Muhafiz",
+    "question": "Kaunsa zila apne case load ke lihaz se sab se zyada hathiyar baramad karta hai?",
+    "answer": "Hyderabad ki shrah sab se ziyada hai (3/5 = 60%), phir Faisalabad (10/19 ≈ 53%), Lahore (8/18 ≈ 44%); Rawalpindi kam hai 3/10 = 30% par; Multan ka 0/1.",
+    "question_type": "Complex Reasoning",
+    "evidence": "",
+    "multi_step": true,
+    "language": "roman_ur"
+  },
+  {
+    "id": "KB1",
+    "source": "Muhafiz",
+    "question": "What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?",
+    "answer": "Section 154 of the Code of Criminal Procedure, 1898 requires that oral information about a cognizable offence given to the officer-in-charge of a police station be reduced to writing, read back to the informant, signed by them, and entered in a register in the prescribed form — that's the actual legal basis for what we call an FIR. Our FIR records follow that structure: every entry carries a recording officer, a report timestamp, and complainant details, which is the database's structural equivalent of the Section 154 register entry.",
+    "question_type": "Knowledge Base Reasoning",
+    "kb_document": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+    "evidence": "",
+    "multi_step": true,
+    "language": "en"
+  }
+]

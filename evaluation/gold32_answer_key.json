@@ -1,0 +1,34 @@
+{
+  "_meta": {
+    "purpose": "Ground truth + before-baseline for the 32-question Gold-QA set, to prove whether the teammate's fixes improved things. Ground truth for FACTUAL questions is computed from the raw Muhafiz Data API (non-circular). For open-ended questions, no single ground truth exists; we use the testing report's verdict as the 'before' baseline and judge the fixed run on whether it now produces a grounded, on-topic answer.",
+    "computed_from": "Muhafiz Data API (/fir, /criminal-records)",
+    "before_baseline_from": "Muhafiz_Testing_Report.pdf (manual, admin + all cases)",
+    "note_D1": "API returns 73 FIRs; live DB has 79. The Gold-QA answer key said 73. Both are 'correct' depending on snapshot. Accept 73 or 79.",
+    "kb_excluded": ["KB1","KB2","KB3","KB4","KB5","KB6","KB8","KB9","CR6","CR8"],
+    "kb_exclusion_reason": "Need the legal knowledge base (CrPC/Police Order/etc.) which is NOT loaded in this deployment. Expected to fail; not app bugs."
+  },
+  "answers": [
+    {"id":"D1","type":"Fact","computed_truth":"73 FIRs (API) / 79 (live DB) — accept either","before_verdict":"Answered 79, verifier flagged unconfirmed"},
+    {"id":"S2","type":"Fact","computed_truth":"تھانہ ماڈل ٹاؤن، لاہور (Model Town, Lahore) with 7 cases","before_verdict":"CORRECT"},
+    {"id":"S3","type":"Fact","computed_truth":"2 accused appear in more than one FIR (by CNIC)","before_verdict":"NOT ANSWERED (no cross-case patterns found)"},
+    {"id":"A1","type":"Fact","computed_truth":"Accused by gender: 67 مرد (male), 24 عورت (female), 3 unspecified — so ~24 women, ~67 men out of 94","before_verdict":"INCORRECT (returned 4 repeat offenders, ignored gender)"},
+    {"id":"A7","type":"Fact","computed_truth":"8 FIRs record a reporting-delay reason","before_verdict":"not explicitly in report"},
+    {"id":"CP6","type":"Fact","computed_truth":"0 FIRs have no investigating officer assigned","before_verdict":"not explicitly in report"},
+    {"id":"CR2","type":"ComplexReasoning","computed_truth":"Yes — cross-case repeat suspects exist (e.g. Tarique/Faisal linkage); confirmed 2 by-CNIC repeats","before_verdict":"PARTIAL (found links, needed follow-up for names)"},
+    {"id":"CR3","type":"ComplexReasoning","computed_truth":"Requires comparing two online-banking-fraud victim cases — factual, DB-only. (No single number; judge on whether it retrieves+compares.)","before_verdict":"NOT ANSWERED (retrieval error, DB-only)"},
+    {"id":"CR4","type":"ComplexReasoning","computed_truth":"32 FIRs have a weapon logged; each links to its accused. Judge on whether it traces weapon->person->outcome.","before_verdict":"NOT ANSWERED (retrieval error, DB-only)"},
+    {"id":"CR7","type":"ComplexReasoning","computed_truth":"33 criminal-records exist; question compares closed vs pending + court match. Judge on grounded comparison.","before_verdict":"likely NOT ANSWERED (sent to aggregate engine)"},
+    {"id":"CS4","type":"ComplexReasoning","computed_truth":"Whether any criminal-history person doesn't match a local case — set comparison over criminal-records vs cases. Judge on grounded set-diff.","before_verdict":"not explicitly in report"},
+    {"id":"CP1","type":"ComplexReasoning","computed_truth":"Weapons recovered per district relative to case load — 32 weapon FIRs distributed by station/district. Judge on whether district-level answer is produced.","before_verdict":"NOT ANSWERED (no district-level weapon data)"},
+    {"id":"M1","type":"ContextualSummarization","computed_truth":"Open-ended: crime-type comparison now vs 2 years ago. No single truth; judge grounded + on-topic.","before_verdict":"misrouted to aggregate engine"},
+    {"id":"M2","type":"ContextualSummarization","computed_truth":"Open-ended: caseload growth general vs specialized stations. Judge grounded + on-topic.","before_verdict":"misrouted to aggregate engine"},
+    {"id":"M4","type":"ContextualSummarization","computed_truth":"Open-ended: charge severity vs court outcome. Judge grounded + on-topic.","before_verdict":"misrouted to aggregate engine"},
+    {"id":"M5","type":"ContextualSummarization","computed_truth":"Open-ended: weapon vs case-type, 2024 vs now. Judge grounded + on-topic.","before_verdict":"INCONSISTENT (route-dependent pass/fail)"},
+    {"id":"M7","type":"ContextualSummarization","computed_truth":"Open-ended: reporting-speed trend 2024 vs 2026. Judge grounded + on-topic.","before_verdict":"misrouted to aggregate engine"},
+    {"id":"G1","type":"CreativeGeneration","computed_truth":"Open-ended: crime-analyst review flagging anomalies. Judge grounded + produces a real analysis.","before_verdict":"NOT ANSWERED (no cross-case patterns)"},
+    {"id":"G2","type":"CreativeGeneration","computed_truth":"Open-ended: SHO briefing on overlooked cases. Judge grounded + on-topic.","before_verdict":"NOT ANSWERED (retrieval error, DB-only)"},
+    {"id":"G3","type":"CreativeGeneration","computed_truth":"Open-ended: court-referral case file, what's incomplete. Judge grounded + on-topic.","before_verdict":"NOT ANSWERED (retrieval error)"},
+    {"id":"G5","type":"CreativeGeneration","computed_truth":"Open-ended: weapon record-keeping compliance flags. Judge grounded + on-topic.","before_verdict":"NOT ANSWERED (retrieval error, ~9 min)"},
+    {"id":"G6","type":"CreativeGeneration","computed_truth":"Open-ended: orientation note for a new officer. Judge grounded + on-topic.","before_verdict":"NOT ANSWERED (retrieval error, DB-only)"}
+  ]
+}
