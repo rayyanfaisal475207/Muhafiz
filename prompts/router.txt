@@ -42,6 +42,9 @@ COMMON MISTAKE TO AVOID — do not default to RAG for a cross-case aggregate/cou
 Case scope:
 - Case-scoped is the default for every route — `case_scope` should be `"within_case"` unless the query explicitly asks about other cases, a pattern across cases, or uses language like "elsewhere," "repeat offender," "has this appeared before." Only `XGRAPH` and `XAGG` are ever `"cross_case"` — if cross-case language is detected but the query is a simple entity+relationship lookup, route it to `XGRAPH`, not `GRAPH` with `case_scope: "cross_case"`.
 
+ACTIVE_CASE context — CONDITIONAL, check this first: look at the literal first line of the input you received JUST NOW, this one time. Does it start with the exact text `ACTIVE_CASE: none`? If it does NOT (this is true for every example below except the two explicitly marked ACTIVE_CASE below, and true for the overwhelming majority of real input) — this whole section does not apply, skip it entirely, and classify exactly as every other rule in this prompt already describes, with zero changes to your normal GRAPH/GRAPH_HYBRID behavior.
+- Only when that literal `ACTIVE_CASE: none` line IS present: GRAPH and GRAPH_HYBRID summarize/traverse ONE active case, so if the question also does not itself name a specific case/FIR number, route to whichever of XAGG (a count/list), XGRAPH (tracing one described item/person's connections, even unnamed — `target_entity: null`), or XNETWORK (an open-ended review/comparison/synthesis across the caseload) actually fits the question, never GRAPH/GRAPH_HYBRID, and never RAG for a question that clearly needs one of those three's own capability (compare/count/trace). A question naming a real case/FIR number stays GRAPH/GRAPH_HYBRID regardless of this line.
+
 Station/district (only for XGRAPH/XAGG/XNETWORK):
 - When a cross-case query (XGRAPH/XAGG/XNETWORK) also names a specific police station or district — "کوتوالی فیصل آباد میں مقدمات," "repeat offenders in Islamabad district" — extract the verbatim station/district text into `station`/`district` so the candidate case set can be narrowed to that jurisdiction before any search runs. Leave both `null` when no station/district is named, or for any non-cross-case route (they're ignored there regardless).
 
@@ -283,3 +286,28 @@ Output: {"route": "GRAPH", "case_scope": "within_case", "target_entity": null, "
 
 Query: "Who is the complainant and who is the accused in this case?"
 Output: {"route": "GRAPH", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "NOT a compound question for secondary_methods purposes — both facts are the SAME kind (within-case entity roles) and GRAPH's own case-wide enumeration already covers both together, so secondary_methods stays empty", "station": null, "district": null, "secondary_methods": []}
+
+ACTIVE_CASE: none (no case is currently selected — the query below is being asked without any specific case active)
+
+QUESTION: If we have a weapon logged as evidence, can we tell who it was taken off and what happened to them?
+Output: {"route": "XGRAPH", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Shaped like a within-case weapon-provenance question (GRAPH_HYBRID's usual job for a descriptive, un-named entity), but ACTIVE_CASE is none and no case/FIR number is named — there is no single case for GRAPH_HYBRID to summarize. The real request is to trace a described item's connections and outcome across whatever cases exist, which is XGRAPH's job even with no literal identifier given (target_entity null, matching its own descriptive-reference convention)", "station": null, "district": null}
+
+ACTIVE_CASE: none (no case is currently selected — the query below is being asked without any specific case active)
+
+QUESTION: In the online banking fraud matter involving two separate victims, was each victim's case processed and recorded the same way?
+Output: {"route": "XNETWORK", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "Asks to compare how two separate (unnamed) cases were handled — a synthesis across specific case records, not a single-entity lookup (XGRAPH) or a count (XAGG). ACTIVE_CASE is none and no case/FIR number is named, so this cannot be GRAPH/GRAPH_HYBRID despite the within-case-shaped wording ('the case')", "station": null, "district": null}
+
+ACTIVE_CASE: none (no case is currently selected — the query below is being asked without any specific case active)
+
+QUESTION: Give me an orientation note for a newly posted officer covering what they should know about our current caseload.
+Output: {"route": "XNETWORK", "case_scope": "cross_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "medium", "reason": "An open-ended synthesis document drawing on the whole caseload, not one case — ACTIVE_CASE is none and no case is named, so GRAPH_HYBRID's 'broad investigative question' example does not apply here; this is XNETWORK's open-ended cross-case synthesis job instead", "station": null, "district": null}
+
+ACTIVE_CASE: none (no case is currently selected — the query below is being asked without any specific case active)
+
+QUESTION: What is an FIR?
+Output: {"route": "RAG", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "A general definitional question about police procedure, not about this system's own case records at all — ACTIVE_CASE is irrelevant here since the question was never within-case-shaped to begin with; ordinary document search answers it", "station": null, "district": null}
+
+ACTIVE_CASE: FIR-401-26
+
+QUESTION: Summarize what happened in this case.
+Output: {"route": "GRAPH_HYBRID", "case_scope": "within_case", "target_entity": null, "output_format": "chat", "target_year": null, "confidence": "high", "reason": "ACTIVE_CASE names a real case (FIR-401-26) — 'this case' resolves to it, so GRAPH_HYBRID's normal within-case summarization applies exactly as it would with no ACTIVE_CASE line at all. The ACTIVE_CASE constraint only ever REMOVES GRAPH/GRAPH_HYBRID as options when it says none; it never changes behavior when a case is actually active", "station": null, "district": null}
