@@ -730,3 +730,94 @@ async def test_structured_paraphrase_flags_a_fabricated_case_citation():
         cross_case_ids=["CASE-100", "CASE-101"],
     )
     assert result["grounded"] is False
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Gold-QA fix — Module 4, question D1: a paraphrase stating the GRAND
+# TOTAL that equals the sum of the source's own per-category breakdown
+# must pass, even though that summed number is not literally present in
+# the source text.
+# ═══════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_structured_paraphrase_allows_a_correct_grand_total_of_the_breakdown():
+    result = await verify_structured_aggregate_paraphrase(
+        answer="There are 79 FIRs in total.",
+        source_text=(
+            "- PPC: 25 cases\n- PPC, Arms Ordinance 1965: 21 cases\n"
+            "- PECA 2016, PPC: 9 cases\n- CNSA 1997, Arms Ordinance 1965: 8 cases\n"
+            "- unknown: 6 cases\n- CNSA 1997: 4 cases\n"
+            "- PPC, Punjab Domestic Violence Act: 4 cases\n"
+            "- PPC, Illegal Dispossession Act 2005: 2 cases"
+        ),
+        case_id="cross_case",
+    )
+    assert result["grounded"] is True
+
+
+@pytest.mark.asyncio
+async def test_structured_paraphrase_still_rejects_a_fabricated_total_close_to_the_real_sum():
+    """The leniency is narrow: a number that is merely IN THE VICINITY of
+    the real total, but not exactly it, must still fail — this is not a
+    fuzzy-match relaxation."""
+    result = await verify_structured_aggregate_paraphrase(
+        answer="There are 999 FIRs in total.",
+        source_text="- PPC: 25 cases\n- CNSA 1997: 4 cases",
+        case_id="cross_case",
+    )
+    assert result["grounded"] is False
+    assert "999" in result["reason"]
+
+
+@pytest.mark.asyncio
+async def test_structured_paraphrase_years_inside_statute_names_are_not_summed_in():
+    """A source naming "Arms Ordinance 1965" or "PECA 2016" must not let
+    those years leak into the grand-total sum — only counts immediately
+    followed by case/FIR/record are summed, never a bare number. The real
+    sum here is 25 + 4 = 29 (the years are not case counts); a paraphrase
+    stating a total that INCLUDES the years (e.g. 4010) must still fail."""
+    source_text = "- PPC, Arms Ordinance 1965: 25 cases\n- PECA 2016: 4 cases"
+
+    result_correct = await verify_structured_aggregate_paraphrase(
+        answer="There are 29 FIRs in total.", source_text=source_text, case_id="cross_case",
+    )
+    assert result_correct["grounded"] is True
+
+    result_with_years_leaked_in = await verify_structured_aggregate_paraphrase(
+        answer="There are 4010 FIRs in total.", source_text=source_text, case_id="cross_case",
+    )
+    assert result_with_years_leaked_in["grounded"] is False
+
+
+@pytest.mark.asyncio
+async def test_structured_paraphrase_grand_total_ignores_the_overlapping_per_act_breakdown():
+    """The narrowing this fix requires: `_render_aggregate_text()`'s
+    "Breakdown by individual legal code" section is a SEPARATE, OVERLAPPING
+    per-act count (a case can carry more than one act) - summing past that
+    marker would produce a plausible-looking but WRONG number, and must
+    never be accepted as a legitimate grand total. Only the first
+    (partition) breakdown sums to the real total (79 here); the per-act
+    section below it sums to something else entirely and must be ignored."""
+    source_text = (
+        "- PPC: 25 cases\n- PPC, Arms Ordinance 1965: 21 cases\n"
+        "- PECA 2016, PPC: 9 cases\n- CNSA 1997, Arms Ordinance 1965: 8 cases\n"
+        "- unknown: 6 cases\n- CNSA 1997: 4 cases\n"
+        "- PPC, Punjab Domestic Violence Act: 4 cases\n"
+        "- PPC, Illegal Dispossession Act 2005: 2 cases\n\n"
+        "Breakdown by individual legal code (a case can involve more than one):\n"
+        "- PPC: 61 cases\n- Arms Ordinance 1965: 29 cases\n- CNSA 1997: 12 cases\n"
+        "- PECA 2016: 9 cases\n- Punjab Domestic Violence Act: 4 cases\n"
+        "- Illegal Dispossession Act 2005: 2 cases"
+    )
+    # The correct partition total (79) still passes.
+    result_correct = await verify_structured_aggregate_paraphrase(
+        answer="There are 79 FIRs in total.", source_text=source_text, case_id="cross_case",
+    )
+    assert result_correct["grounded"] is True
+
+    # The per-act section's own sum (61+29+12+9+4+2=117) is NOT a real
+    # total (acts overlap) and must not be treated as one.
+    result_wrong = await verify_structured_aggregate_paraphrase(
+        answer="There are 117 FIRs in total.", source_text=source_text, case_id="cross_case",
+    )
+    assert result_wrong["grounded"] is False
