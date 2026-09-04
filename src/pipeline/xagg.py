@@ -86,6 +86,26 @@ _TREND_KEYWORDS = (
     "reporting delay", "trend", "over time", "month over month",
     "year over year", "rate of increase", "رجحان",
 )
+# [Gold-QA fix — Module 2, A7] "How many FIRs recorded a reason for a
+# reporting delay?" is a COUNT question, now answerable from the Incident
+# node's `reporting_delay_reason` property (structured_projection.py). It is
+# a DIFFERENT shape from a reporting-delay TREND over time (month-over-month),
+# which remains unsupported (no time-series) and stays in _TREND_KEYWORDS
+# above, UNCHANGED — "reporting delay" is deliberately left in that tuple as
+# the trend fallback net. This tuple only holds count-specific vocabulary
+# (a delay REASON, WHY it was late) — never the bare "reporting delay"/"تاخیر"
+# by themselves, which are exactly what a trend question is more likely to
+# say with no other qualifier. run_aggregate() additionally guards the count
+# check with `not _matches_any(..., _TREND_KEYWORDS)` against this SAME list
+# the trend branch uses, so the two shapes cannot silently drift apart the
+# way two independently-maintained lists could.
+_REPORTING_DELAY_COUNT_KEYWORDS = (
+    "delay reason", "reason for delay", "delay in reporting",
+    "late report", "reported late",
+    "arse baad", "der se", "takheer", "takhir", "der ki wajah",
+    "waqe ke kuch arse baad", "foran aane ke",
+    "تاخیر کی وجہ", "دیر سے رپورٹ",
+)
 _GENDER_KEYWORDS = (
     "gender", "women", "woman", "female", "male accused", "men accused",
     "عورت", "عورتیں", "خواتین", "مرد", "جنس",
@@ -270,6 +290,12 @@ _UNSUPPORTED_TREND = (
     "are not available: this system does not currently compute date-based "
     "aggregates."
 )
+_REPORTING_DELAY_NOT_YET_POPULATED = (
+    "Reporting-delay reasons are not yet recorded as a queryable field in "
+    "this deployment's data — the source system carries a "
+    "reporting_delay_reason field, but it has not been synced into the graph "
+    "yet, so a count of FIRs with a recorded delay reason cannot be produced."
+)
 _GENDER_NOT_YET_POPULATED = (
     "Gender is not yet recorded against accused/witness records in this "
     "deployment's data — the source system carries a gender field, but it "
@@ -448,6 +474,71 @@ async def _gender_breakdown(jurisdiction_case_ids: Optional[list[str]] = None) -
         "unsupported": False,
         "counts": [{"key": k, "count": v} for k, v in counts.most_common()],
         "total_accused": len(seen_entities),
+    }
+
+
+# [Gold-QA fix — Module 2, A7] Count FIRs that recorded a reporting-delay
+# reason, against the total FIR count, from the Incident node's
+# `reporting_delay_reason` property (structured_projection.py projects it; a
+# blank/absent reason writes no property, so a node HAVING the property is
+# exactly "this FIR recorded a delay reason").
+#
+# Modeled on `_gender_breakdown()` above: two plain Cypher reads (never a
+# negated relationship pattern in WHERE — Apache AGE's Cypher parser rejects
+# that with a bare syntax error, confirmed live), a graceful "not yet
+# populated" fallback when the property is absent everywhere (i.e. the graph
+# predates this projection and hasn't been re-synced), so the answer
+# degrades to a stated limitation instead of a wrong "0".
+#
+# Counts DISTINCT Incidents (one per FIR) so a multi-chunk FIR is not
+# double-counted. `with_delay_reason` is FIRs carrying a reason; `total_firs`
+# is all FIRs reachable as Incidents in scope — the denominator the A7 gold
+# answer uses ("8 of 73").
+async def _reporting_delay_count(jurisdiction_case_ids: Optional[list[str]] = None) -> dict:
+    case_filter = "WHERE c.case_id IN $case_ids" if jurisdiction_case_ids is not None else ""
+    params = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+
+    total_rows = await age_client.execute_cypher(
+        f"MATCH (i:Incident)-[:BELONGS_TO_CASE]->(c:Case) {case_filter} "
+        "RETURN count(DISTINCT i) AS n",
+        params=params, columns=["n"],
+    )
+    total = int((total_rows[0] or {}).get("n") or 0) if total_rows else 0
+
+    where_delay = "WHERE i.reporting_delay_reason IS NOT NULL"
+    if jurisdiction_case_ids is not None:
+        where_delay += " AND c.case_id IN $case_ids"
+    delay_rows = await age_client.execute_cypher(
+        f"MATCH (i:Incident)-[:BELONGS_TO_CASE]->(c:Case) {where_delay} "
+        "RETURN count(DISTINCT i) AS n",
+        params=params, columns=["n"],
+    )
+    with_delay = int((delay_rows[0] or {}).get("n") or 0) if delay_rows else 0
+
+    # Not-yet-populated: the property exists nowhere AND there are FIRs to
+    # check — distinguishes "graph predates the projection" (honest can't-
+    # answer) from a real zero on a re-synced corpus. If total is 0 too,
+    # there is simply no data; report the honest zero rather than a
+    # misleading "not populated" message.
+    if with_delay == 0 and total > 0:
+        probe = await age_client.execute_cypher(
+            "MATCH (i:Incident) WHERE i.reporting_delay_reason IS NOT NULL "
+            "RETURN count(i) AS n LIMIT 1",
+            columns=["n"],
+        )
+        any_populated = int((probe[0] or {}).get("n") or 0) if probe else 0
+        if any_populated == 0:
+            return {
+                "kind": "reporting_delay_count",
+                "unsupported": True,
+                "message": _REPORTING_DELAY_NOT_YET_POPULATED,
+            }
+
+    return {
+        "kind": "reporting_delay_count",
+        "unsupported": False,
+        "with_delay_reason": with_delay,
+        "total_firs": total,
     }
 
 
@@ -809,6 +900,18 @@ async def run_aggregate(
         return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_AGE}
     if _matches_any(query_lower, _OFFICER_KEYWORDS):
         return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_OFFICER}
+    # [Gold-QA fix — Module 2, A7] Checked before the trend fallback: a
+    # count-shaped reporting-delay question has a real data path now
+    # (Incident.reporting_delay_reason), degrading to an honest "not synced
+    # yet" like gender, not a hard refusal. The `not _matches_any(...,
+    # _TREND_KEYWORDS)` guard is the safety net against the exact regression
+    # a prior attempt at this fix shipped — a genuine trend question ("...
+    # trend over time") still falls through to the _TREND_KEYWORDS check
+    # below, unaffected, because it guards against that SAME list.
+    if _matches_any(query_lower, _REPORTING_DELAY_COUNT_KEYWORDS) and not _matches_any(
+        query_lower, _TREND_KEYWORDS
+    ):
+        return await _reporting_delay_count(jurisdiction_case_ids=jurisdiction_case_ids)
     if _matches_any(query_lower, _TREND_KEYWORDS):
         return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_TREND}
     if _matches_any(query_lower, _GENDER_KEYWORDS):

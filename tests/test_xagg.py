@@ -720,6 +720,80 @@ async def test_trend_question_returns_unsupported_aggregate(monkeypatch):
     assert result["kind"] == "unsupported_aggregate"
 
 
+class _RaisingAgeClient:
+    """Fails any execute_cypher call — used to prove a query never reaches
+    the DB at all, not just that its result was discarded."""
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        raise AssertionError("age_client.execute_cypher should not have been called")
+
+
+class _SequentialAgeClient:
+    """Returns one rows-list per call, in order — for a function like
+    _reporting_delay_count() that issues more than one distinct query."""
+
+    def __init__(self, rows_per_call):
+        self._rows_per_call = list(rows_per_call)
+        self.calls = 0
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        rows = self._rows_per_call[self.calls]
+        self.calls += 1
+        return rows
+
+
+# [Gold-QA fix — Module 2, A7] Reporting-delay COUNT is a distinct shape from
+# the reporting-delay TREND test above, and the two must never collide — see
+# xagg.py's own comment above _REPORTING_DELAY_COUNT_KEYWORDS for the exact
+# regression this pair of tests guards against (a prior attempt at this fix
+# shipped a keyword collision that misrouted a trend question into a live
+# count query).
+
+async def test_reporting_delay_count_question_routes_to_the_count_path(monkeypatch):
+    fake = _SequentialAgeClient([[{"n": 73}], [{"n": 8}]])
+    monkeypatch.setattr(xagg, "age_client", fake)
+
+    result = await xagg.run_aggregate(
+        "how many FIRs gave a delay reason for reporting late", None, gateway=None, user_role="supervisor"
+    )
+
+    assert result["kind"] == "reporting_delay_count"
+    assert result["unsupported"] is False
+    assert result["with_delay_reason"] == 8
+    assert result["total_firs"] == 73
+    assert fake.calls == 2
+
+
+async def test_reporting_delay_trend_question_never_reaches_the_count_path(monkeypatch):
+    """Regression-proofing: even though this phrasing contains reporting-
+    delay vocabulary, it also says "trend over time" and must fall straight
+    through to the honest unsupported-trend message WITHOUT ever calling
+    age_client — using a client that fails on any call proves this, rather
+    than just checking the returned kind (which a coincidentally-correct
+    fallback could satisfy while still having made a wrong query first)."""
+    monkeypatch.setattr(xagg, "age_client", _RaisingAgeClient())
+
+    result = await xagg.run_aggregate(
+        "what is the reporting delay reason trend over time", None, gateway=None, user_role="supervisor"
+    )
+
+    assert result["kind"] == "unsupported_aggregate"
+
+
+async def test_reporting_delay_count_pre_backfill_is_an_honest_not_yet_synced(monkeypatch):
+    """Pre-backfill: no Incident node carries reporting_delay_reason yet —
+    must say so, not silently return a wrong zero."""
+    fake = _SequentialAgeClient([[{"n": 73}], [{"n": 0}], [{"n": 0}]])
+    monkeypatch.setattr(xagg, "age_client", fake)
+
+    result = await xagg.run_aggregate(
+        "how many FIRs gave a delay reason for reporting late", None, gateway=None, user_role="supervisor"
+    )
+
+    assert result["kind"] == "reporting_delay_count"
+    assert result["unsupported"] is True
+
+
 async def test_gender_question_without_populated_data_is_an_honest_not_yet_synced(monkeypatch):
     """Pre-backfill: no Person node carries a gender property yet — must
     say so, not silently return zero or an unrelated number."""
