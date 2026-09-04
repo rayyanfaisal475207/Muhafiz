@@ -952,14 +952,17 @@ _CASES = ["fir-201-26", "fir-202-26"]
 
 
 def test_weak_chain_is_reported_as_possible_not_confirmed():
+    # [Gold-QA fix #3] Phrasing is now answer-first ("Yes — … a possible
+    # cross-case link"); a weak chain must read as tentative/possible, never
+    # as a flat confirmed assertion.
     text = _xgraph_summary_line(_CASES, 1, 0, chain_confidence=0.50)
-    assert "possible connections" in text
-    assert "found confirmed connections" not in text
+    assert "possible" in text and "uncertainty" in text
+    assert "confirmed cross-case link" not in text
 
 
 def test_strong_chain_may_still_say_confirmed():
     text = _xgraph_summary_line(_CASES, 1, 0, chain_confidence=0.95)
-    assert "found confirmed connections" in text
+    assert "confirmed cross-case link" in text
 
 
 def test_chain_confidence_is_surfaced_to_the_reader():
@@ -978,7 +981,7 @@ def test_threshold_boundary_is_not_hedged():
     """Exactly at the threshold counts as confident, matching the verifier's
     own 0.85 hedging rule so the two cannot disagree."""
     text = _xgraph_summary_line(_CASES, 1, 0, chain_confidence=_CONFIDENT_CHAIN_THRESHOLD)
-    assert "found confirmed connections" in text
+    assert "confirmed cross-case link" in text
 
 
 def test_no_links_message_is_unchanged_and_carries_no_caveat():
