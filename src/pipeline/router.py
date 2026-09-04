@@ -164,6 +164,18 @@ _XAGG_OVERRIDE_PATTERNS = [
     # Bare case-record listing/count
     re.compile(r"\blist of all cases\b", re.IGNORECASE),
     re.compile(r"\bhow many cases (are there|in total|exist)\b", re.IGNORECASE),
+    # [Gold-QA fix — D1] "How many FIRs are registered?" is the same bare
+    # cross-case count shape as "how many cases", but named FIRs, so the
+    # patterns above missed it and it fell to the LLM classifier — a
+    # source of D1's run-to-run route flakiness. An FIR is a case record
+    # here; a bare FIR count/total is an XAGG aggregate. English + Urdu-
+    # script + Roman-Urdu, with no group-by dimension (per-station/-category
+    # FIR breakdowns still carry those words and are handled inside XAGG).
+    re.compile(r"\bhow many\b.{0,20}\bf\.?i\.?r\.?s?\b", re.IGNORECASE),
+    re.compile(r"\b(total|number of)\b.{0,15}\bf\.?i\.?r\.?s?\b", re.IGNORECASE),
+    re.compile(r"\bkitn[ei]\b.{0,15}\bfirs?\b", re.IGNORECASE),
+    re.compile(r"(کتن[ےی]|کل|تعداد).{0,15}ایف\s*آئی\s*آر"),
+    re.compile(r"ایف\s*آئی\s*آر.{0,15}(کتن[ےی]|کل|تعداد)"),
 ]
 
 _XGRAPH_OVERRIDE_PATTERNS = [

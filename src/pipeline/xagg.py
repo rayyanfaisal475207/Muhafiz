@@ -217,6 +217,21 @@ _TOTAL_KEYWORDS = (
     "how many cases in total", "overall count",
     "kitne cases", "kul kitne", "kitne kul", "total kitne",
     "کل کتنے", "کتنے کیسز", "کل تعداد", "مجموعی تعداد", "کل کیسز",
+    # [Gold-QA fix — D1] "How many FIRs are currently registered?" names
+    # FIRs, not "cases", so it missed every phrase above and fell through
+    # to _station_or_category_counts's group-by-statute default — which is
+    # exactly D1's run-to-run flakiness (a bare number one run, a statute
+    # breakdown the next). An FIR record IS a case record in this corpus
+    # (get_cases() enumerates the same rows), so a bare "how many FIRs /
+    # total number of FIRs / how many FIRs registered" wants one number,
+    # the same as "how many cases in total". Added English + Urdu-script +
+    # Roman-Urdu, matching the bilingual pattern of the phrases above.
+    "how many firs", "how many fir", "how many f.i.r",
+    "number of firs", "total firs", "total number of firs",
+    "how many firs are registered", "how many firs registered",
+    "kitni firs", "kitne firs", "kitni fir", "kul firs",
+    "کتنی ایف آئی آر", "کتنے ایف آئی آر", "ایف آئی آر کی تعداد",
+    "کل ایف آئی آر",
 )
 
 
