@@ -772,7 +772,36 @@ async def verify_structured_aggregate_paraphrase(
     leaked_case = _check_leakage(answer, synthetic_chunks, case_id, cross_case_ids)
     fabricated_issues = _check_fabricated_case_ids(answer, synthetic_chunks)
 
-    unsupported_numbers = sorted(_numbers_in(answer, strip_citations=True) - _numbers_in(source_text))
+    # [Gold-QA fix — Module 4, question D1] A paraphrase legitimately states
+    # a TOTAL that is the sum of the source's own per-category counts — e.g.
+    # the source lists "PPC: 25 cases, Arms Ordinance 1965: 21 cases, …" and
+    # the answer correctly says "79 FIRs in total". That total is not
+    # literally present in the source, so a bare set-difference wrongly
+    # flags it as an invented number and triggers the raw-aggregate
+    # fallback instead of stating the plain count.
+    #
+    # Narrowed on purpose: only the FIRST breakdown group in the source is
+    # summed — `_render_aggregate_text()`'s "Breakdown by individual legal
+    # code" section (when present) is a SEPARATE, OVERLAPPING per-act
+    # breakdown (a case can carry more than one act), never a partition of
+    # the total, so summing past that marker would produce a number that
+    # looks plausible but is not the real total and must never be treated
+    # as a legitimate grand total. Extracting the per-category COUNTS
+    # specifically (numbers immediately followed by "case"/"cases"/"FIR"/
+    # "FIRs"/"record"/"records"), not every number, also keeps a source
+    # containing years like "1965"/"2016" inside statute names out of the
+    # sum.
+    first_breakdown = (source_text or "").split("Breakdown by individual legal code")[0]
+    src_nums = _numbers_in(source_text)
+    ans_nums = _numbers_in(answer, strip_citations=True)
+    _count_matches = re.findall(
+        r"(\d[\d,]*)\s*(?:cases?|firs?|records?)\b", first_breakdown, re.IGNORECASE
+    )
+    _count_total = sum(int(c.replace(",", "")) for c in _count_matches) if _count_matches else None
+    unsupported_numbers = sorted(
+        n for n in (ans_nums - src_nums)
+        if not (_count_total is not None and n.isdigit() and int(n) == _count_total)
+    )
 
     grounded = not leaked_case and not fabricated_issues and not unsupported_numbers
     reason = "Paraphrase numbers match the computed source; deterministic check passed."

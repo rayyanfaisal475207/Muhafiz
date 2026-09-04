@@ -167,6 +167,23 @@ _XAGG_OVERRIDE_PATTERNS = [
         r"\baik\s*se\s*zyada\s*(?:bar|dafa|martaba)\b",
         re.IGNORECASE,
     ),
+    # [Gold-QA fix — Module 4, question D1] "How many FIRs are registered?"
+    # is the same bare cross-case count shape as "how many cases" above, but
+    # named FIRs specifically, so none of the "cases?" patterns matched and
+    # it fell through to the LLM classifier — a source of D1's run-to-run
+    # route flakiness. An FIR record IS a case record in this corpus
+    # (gateway.get_cases() enumerates the same rows), so a bare FIR
+    # count/total wants the same XAGG total-count aggregate. English +
+    # Urdu-script + Roman-Urdu; a per-station/-category FIR breakdown still
+    # carries those group-by words and is handled inside XAGG itself (see
+    # _TOTAL_KEYWORDS's own station/category exclusion in xagg.py), not
+    # here — this override only decides the ROUTE, not which XAGG kind
+    # answers it.
+    re.compile(r"\bhow many\b.{0,20}\bf\.?i\.?r\.?s?\b", re.IGNORECASE),
+    re.compile(r"\b(total|number of)\b.{0,15}\bf\.?i\.?r\.?s?\b", re.IGNORECASE),
+    re.compile(r"\bkitn[ei]\b.{0,15}\bfirs?\b", re.IGNORECASE),
+    re.compile(r"(کتن[ےی]|کل|تعداد).{0,15}ایف\s*آئی\s*آر"),
+    re.compile(r"ایف\s*آئی\s*آر.{0,15}(کتن[ےی]|کل|تعداد)"),
 ]
 
 _XGRAPH_OVERRIDE_PATTERNS = [
