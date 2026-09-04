@@ -353,6 +353,57 @@ async def test_legal_text_content_override_distinct_from_sql_which_section_appli
     assert result["route"] == "SQL"
 
 
+# ── Gold-QA fix — Module 3 (questions CR2/S3) ───────────────────────────────
+
+@pytest.mark.parametrize("query", [
+    # CR2's exact gold-dataset text.
+    "Is there anyone with an earlier case already on record who has since "
+    "resurfaced as a suspect in a newer, separate case?",
+    "Has any suspect resurfaced in a separate case?",
+    "Was the same person arrested more than once?",
+    "Was anyone charged again in a different case?",
+])
+async def test_person_recurrence_narrative_override_fires_to_xagg(monkeypatch, query):
+    """
+    Live-confirmed failure (goldtest-eval3 branch review): a person-
+    recurrence question phrased NARRATIVELY ("resurfaced", "already on
+    record", "arrested more than once") rather than with the "multiple/
+    several cases" count-word shape the existing entity-group patterns
+    already cover fell through to the LLM classifier, which sent it to
+    XGRAPH -- correct for a NAMED-seed traversal, but for a broad
+    no-named-seed query XGRAPH can only report a flat case-ID union, never
+    the person's NAME the ground truth actually rewards. XAGG's own
+    graph_recurrence path already names the person; this override just
+    gets the deterministic pre-router to send it there.
+    """
+    monkeypatch.setattr(router, "call_llm", _no_llm_call)
+    result = await router.route_query(query)
+    assert result["route"] == "XAGG"
+
+
+@pytest.mark.parametrize("query", [
+    # S3's exact gold-dataset text (Urdu).
+    "کیا کسی شخص کو ایک سے زیادہ بار گرفتار کیا گیا ہے؟",
+    "کیا ملزم کو ایک سے زیادہ بار گرفتار کیا گیا؟",
+    "kya kisi shakhs ko aik se zyada bar giraftar kiya gaya hai?",
+])
+async def test_person_recurrence_urdu_roman_urdu_override_fires_to_xagg(monkeypatch, query):
+    """Same failure class as the English narrative test above, for the
+    Urdu/Roman-Urdu "arrested more than once" phrasing (S3)."""
+    monkeypatch.setattr(router, "call_llm", _no_llm_call)
+    result = await router.route_query(query)
+    assert result["route"] == "XAGG"
+
+
+async def test_person_recurrence_override_does_not_swallow_named_xgraph_query(monkeypatch):
+    """Regression guard: a query that actually NAMES an entity/case (XGRAPH's
+    own job) must be unaffected by the new narrative-recurrence patterns --
+    they require a recurrence verb/phrase, not just any mention of "case"."""
+    monkeypatch.setattr(router, "call_llm", _no_llm_call)
+    result = await router.route_query("Show connections for CNIC 12345-6789012-3 across other cases")
+    assert result["route"] == "XGRAPH"
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Root Cause 1 (the actual upstream
 # fix): the LLM classifier gets an explicit ACTIVE_CASE signal when no
