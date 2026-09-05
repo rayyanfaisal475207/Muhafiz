@@ -325,6 +325,59 @@ def test_meta_analysis_is_covered_by_the_case_scope_demotion_guard():
     assert classify_to_subagent(route_result, query_text) == SEMANTIC_SEARCH
 
 
+# [AMENDMENT — findings.md Module 11] Regression pin for RC-0's actual
+# evidence: `evaluation/UNTOUCHED_BUCKETS_DIAGNOSIS.md` found the ORIGINAL
+# four patterns above matched 0 of the 18 live Gold-32 questions RC-0 was
+# diagnosed from. These are that evidence, verbatim (English/Urdu/Roman
+# Urdu), plus G1's own live paraphrase from Module 11's verify step — every
+# one of these previously fell through to XAGG/XNETWORK/XGRAPH/RAG with no
+# decomposition ever attempted. A1 and CR4 are deliberately excluded (see
+# the trigger block's own comment for why neither is a decomposition
+# candidate).
+@pytest.mark.parametrize(
+    "query_text",
+    [
+        # (A) role-play / whole-caseload evaluative review
+        "Acting as a crime analyst, review our current caseload and flag "
+        "anything that looks unusual or worth monitoring.",
+        "Is there anything about this caseload a supervisor should be worried about?",
+        "فرض کریں آپ کسی ایس ایچ او کو بریفنگ دے رہے ہیں کہ کون سے مقدمے دب کر یا نظر سے اوجھل ہو کر رہ سکتے ہیں — آپ کن چیزوں کی نشاندہی کریں گے؟",
+        "آپ عدالت کو حوالگی کے لیے ایک کیس فائل تیار کر رہے ہیں — ڈیٹا کی روشنی میں، کن چیزوں کے نامکمل قرار پانے کا سب سے زیادہ امکان ہے؟",
+        "Baramad shuda hathiyaron ki record keeping ko dekhte hue, kya koi aisi baat hai jo compliance ke lihaz se flag karne layak ho?",
+        "Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation note likhein — unhein mojooda case load se kya tawaqqo rakhni chahiye?",
+        # (B) comparative-over-time / branching comparison
+        "What kinds of cases are we dealing with now compared to a couple of years back?",
+        "Is caseload growing faster at our general-purpose stations, or at the handful set up for one specific type of crime?",
+        "ہتھیار عام طور پر کس نوعیت کے مقدمات میں سامنے آتے ہیں، اور کیا 2024 کے مقابلے میں اب یہ نوعیت بدل گئی ہے؟",
+        "Kya log 2026 mein waqiaat ki police ko itni hi jaldi ittila de rahe hain jitni 2024 mein dete the?",
+        # (C) cross-record consistency/confirmation
+        "In the online banking fraud matter involving two separate victims, "
+        "was each victim's case processed and recorded the same way?",
+        "جب کوئی شخص تھانے آ کر شکایت درج کراتا ہے، تو کیا وہ کسی باقاعدہ ایف آئی آر سے منسلک ہو جاتی ہے، یا دونوں الگ الگ ہی رہتے ہیں؟",
+        "کرمنل ریکارڈ سسٹم میں کتنے کیس مکمل ہو چکے ہیں اور کتنے ابھی زیرِ کارروائی ہیں — اور جہاں کسی ایک کیس کا الگ عدالتی ریکارڈ بھی موجود ہے، کیا دونوں ایک دوسرے سے مطابقت رکھتے ہیں؟",
+        "اگر کسی گھریلو تشدد کی شکایت کو باقاعدہ کیس میں تبدیل ہونے کے طور پر درج کیا گیا ہو، تو کیا کیس ریکارڈ سے اس کی تصدیق ہو جاتی ہے؟",
+        "Kya wusee criminal-history records mein koi aisa shakhs hai jo hamare apne darj kiye hue kisi case se match nahi karta?",
+        "ایک طرف یہ دیکھیں کہ لوگوں پر کن دفعات میں مقدمے بن رہے ہیں، اور دوسری طرف یہ کہ وہ مقدمے عدالت میں کہاں تک پہنچے — کیا دونوں سے کیس لوڈ کی سنگینی کا ایک ہی اندازہ ہوتا ہے؟",
+    ],
+)
+def test_meta_analysis_trigger_covers_module_11_evidence(query_text):
+    route_result = {"route": "XNETWORK", "case_scope": "cross_case", "output_format": "chat"}
+    assert classify_to_subagent(route_result, query_text) == META_ANALYSIS
+
+
+# [AMENDMENT — findings.md Module 11] CP1 and A1 are the two gold-32
+# questions from the same 18-question set that must NOT trigger Meta-
+# Analysis: CP1 is a flat per-district rate (Module 13's job, not a
+# decomposition candidate) and A1/CR4-shaped single-chain lookups are
+# covered by `test_meta_analysis_trigger_does_not_fire_on_ordinary_queries`
+# above via their English equivalents. Pinned separately so a future
+# over-broadening of the trigger list is caught here first.
+def test_meta_analysis_trigger_still_excludes_flat_aggregate_question():
+    route_result = {"route": "XAGG", "case_scope": "cross_case", "output_format": "chat"}
+    query_text = "Kaunsa zila apne case load ke lihaz se sab se zyada hathiyar baramad karta hai?"
+    assert classify_to_subagent(route_result, query_text) != META_ANALYSIS
+
+
 def test_allow_meta_analysis_false_suppresses_the_trigger():
     """[PRESERVE -- the recursion guard] meta_analysis.py passes
     allow_meta_analysis=False for every sub-query it dispatches, so a

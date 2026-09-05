@@ -441,23 +441,42 @@ _GLOBAL_SEARCH_TRIGGER_PATTERNS = [
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# [AMENDMENT — findings.md Module 10, "Meta-Analysis"] Decomposition
-# trigger. Same provisional disclosure as _GLOBAL_SEARCH_TRIGGER_PATTERNS
-# above (no live-confirmed misclassification failure yet — derived from
+# [AMENDMENT — findings.md Module 10, "Meta-Analysis"; RE-EVIDENCED Module 11]
+# Decomposition trigger. Originally shipped provisional (derived from
 # findings.md's own Module 10 "Proposed approach" wording, not observed
-# traffic) and the same narrow, evidence-anchored discipline every override
-# in this file follows: these patterns exist to fast-path INTO the
-# decomposer LLM call cheaply, not to decide decomposition themselves — the
-# actual "genuinely compound vs. one ordinary question" judgment is made by
-# `meta_analysis.py`'s own decomposer step (prompts/meta_analysis_decomposer.txt),
-# which can still say "no decomposition needed" even when a pattern here
-# fires. Anchored on the two-part connector shapes findings.md's own
-# "Proposed approach" section named explicitly ("summarize...across all",
-# "aggregate...and flag", "recurring...and cross-reference"), plus one
-# general compound-ask shape — never a bare single keyword like "summarize"
-# or "aggregate" alone, which would swallow ordinary single-focus queries
-# XAGG/Case Summarization already handle correctly (e.g. "aggregate the case
-# counts by station" has no "and flag" nearby and correctly does not match).
+# traffic) — Module 10's live reconfirmation sweep then ran all 18 untouched
+# Gold-32 questions (the exact compound/comparative/evaluative shape this
+# trigger exists for) against it and got **0/18 matches**
+# (`evaluation/UNTOUCHED_BUCKETS_DIAGNOSIS.md`'s RC-0 section): the original
+# four patterns were written against hypothetical connector phrasing
+# ("summarize...across all", "aggregate...and flag") that no real question in
+# this set actually uses. Module 11 replaces them with patterns mined
+# directly from those 18 questions' own text — still the same "fast-path
+# INTO the decomposer LLM call cheaply, not decide decomposition itself"
+# discipline as before: `meta_analysis.py`'s own decomposer step
+# (prompts/meta_analysis_decomposer.txt) makes the actual "genuinely
+# compound vs. one ordinary question" judgment and can still say "no
+# decomposition needed" even when a pattern here fires, which is what makes
+# casting a wider net here low-risk — confirmed against 5 benign single-
+# focus queries below (a flat aggregate, a penal-code lookup, a plain count,
+# an officer-role lookup, a timeline ask) that must keep resolving to their
+# existing correct sub-agent, none of which this broadened list matches.
+#
+# Grouped by the three recurring shapes the 18 live questions actually take
+# (see `evaluation/UNTOUCHED_BUCKETS_DIAGNOSIS.md` for the per-question
+# routes these replaced):
+#   (A) role-play / whole-caseload evaluative review — G1 ("acting as a
+#       crime analyst, review our caseload and flag...") + its own live
+#       paraphrase ("is there anything about this caseload a supervisor
+#       should be worried about?"), G2, G3, G5, G6.
+#   (B) comparative-over-time / branching comparison — M1, M2, M5, M7.
+#   (C) cross-record consistency/confirmation ("does record A match/confirm
+#       record B") — CR3, CR6, CR7, CR8, CS4, M4.
+# Two of the 18 (A1, CR4) are deliberately NOT covered here: A1 is a flat
+# ratio, not a compound ask (Module 13's job); CR4 is a single traversal
+# chain ("weapon -> accused -> status"), not a decomposition candidate — its
+# fix is XGRAPH answering its own question properly (Module 12), not
+# splitting it into sub-questions.
 #
 # UNLIKE every other override list in this file, checked FIRST, before the
 # route-specific TIMELINE/INVESTIGATIVE_ANALYSIS/LOCAL_SEARCH/GLOBAL_SEARCH
@@ -477,6 +496,37 @@ _GLOBAL_SEARCH_TRIGGER_PATTERNS = [
 # compound question; it demotes straight to SEMANTIC_SEARCH instead).
 # ═══════════════════════════════════════════════════════════════════════
 _META_ANALYSIS_TRIGGER_PATTERNS = [
+    # (A) role-play / whole-caseload evaluative review — G1 (+ paraphrase),
+    # G2, G3, G5, G6.
+    re.compile(r"\breview\b.{0,60}\bcaseload\b", re.IGNORECASE),
+    re.compile(r"\bflag\s+anything\b", re.IGNORECASE),
+    re.compile(r"\bworth\s+(monitoring|flagging)\b", re.IGNORECASE),
+    re.compile(r"\bacting\s+as\s+a\b", re.IGNORECASE),
+    re.compile(r"\borientation\s+note\b", re.IGNORECASE),
+    re.compile(r"\banything\b.{0,80}\b(worried|concern(ed|ing)?)\b", re.IGNORECASE),
+    re.compile(r"بریفنگ"),  # "briefing" (G2)
+    re.compile(r"سب\s*سے\s*زیادہ\s*امکان"),  # "highest likelihood" (G3)
+    re.compile(r"\bcompliance\s*ke\s*lihaz\s*se\b", re.IGNORECASE),  # G5
+    re.compile(r"\bflag\s*karne\s*layak\b", re.IGNORECASE),  # G5
+    re.compile(r"\btawaqqo\b.{0,30}\brakhni\s*chahiye\b", re.IGNORECASE),  # G6
+
+    # (B) comparative-over-time / branching comparison — M1, M2, M5, M7.
+    re.compile(r"\bcompared\s+(to|with)\b", re.IGNORECASE),
+    re.compile(r"\bgrowing\s+faster\b", re.IGNORECASE),
+    re.compile(r"کے\s*مقابلے\s*میں"),  # "compared to" (M5)
+    re.compile(r"\bke\s*muqable\s*mein\b", re.IGNORECASE),
+    re.compile(r"\bitni\s*hi\b.{0,40}\bjitni\b", re.IGNORECASE),  # M7
+
+    # (C) cross-record consistency/confirmation ("does record A match/
+    # confirm record B") — CR3, CR6, CR7, CR8, CS4, M4.
+    re.compile(r"\b(the\s+)?same\s+way\b", re.IGNORECASE),  # CR3
+    re.compile(r"\bmatch\s*nahi\s*karta\b", re.IGNORECASE),  # CS4
+    re.compile(r"تصدیق\s*ہو\s*جاتی\s*ہے"),  # "is confirmed" (CR8)
+    re.compile(r"دونوں.{0,40}(مطابقت|الگ\s*الگ|ایک\s*ہی\s*اندازہ)"),  # "both...match/separate/same estimate" (CR6, CR7, M4)
+
+    # Original findings.md Module 10 patterns — kept since they still cover
+    # a plausible connector shape not present in the 18-question evidence
+    # set but that a future paraphrase could still use.
     re.compile(r"\bsummarize\b.{0,80}\bacross all\b", re.IGNORECASE),
     re.compile(r"\baggregate\b.{0,80}\band flag\b", re.IGNORECASE),
     re.compile(r"\brecurring\b.{0,80}\bcross-?reference\b", re.IGNORECASE),
