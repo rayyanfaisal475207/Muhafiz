@@ -388,6 +388,87 @@ async def test_both_definite_empty_returns_empty_as_real_finding(monkeypatch):
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# (c.1) Module 12 — RC-1: XNETWORK's relevance-gate reason must surface as
+# an honest, specific caveat/answer addition, never silently dropped, in
+# every branch where XNETWORK is EMPTY-but-not-FAILED.
+# ═══════════════════════════════════════════════════════════════════════
+
+_NO_RELEVANT_REASON = (
+    'No community cluster in the case corpus is closely related to this '
+    'specific question ("flag anything unusual in our caseload") (nearest '
+    "cluster found was distance 0.204 against a relevance cutoff of 0.145). "
+    "Rather than describing an unrelated cluster, no cross-case network "
+    "finding is being reported here."
+)
+
+
+@pytest.mark.asyncio
+async def test_both_definite_empty_with_relevance_gate_reason_appends_it(monkeypatch):
+    """[Module 12] Both empty, and XNETWORK's emptiness came from the
+    relevance gate specifically -> the generic EMPTY message is not left to
+    stand alone; the specific reason is appended so the answer names why."""
+    _stub_xgraph_tool(
+        monkeypatch, XGraphToolResult(status=ToolStatus.EMPTY, chunks=[], unconfirmed_links=[])
+    )
+    _stub_xnetwork_tool(
+        monkeypatch,
+        XNetworkToolResult(status=ToolStatus.EMPTY, chunks=[], no_relevant_reason=_NO_RELEVANT_REASON),
+    )
+
+    result = await cross_case_linkage(_agent_input())
+
+    assert result.status == SubAgentStatus.EMPTY
+    assert _NO_RELEVANT_REASON in result.answer_text
+
+
+@pytest.mark.asyncio
+async def test_xgraph_contributes_xnetwork_relevance_gated_adds_honest_caveat(monkeypatch):
+    """[Module 12] XGRAPH contributes real data; XNETWORK came back EMPTY
+    specifically because nothing cleared the relevance gate -> that specific
+    reason must appear as a caveat, not be silently absorbed into a bare
+    degraded_from entry the way a plain EMPTY (no reason) is."""
+    xg_chunk = _xgraph_chunk()
+    _stub_xgraph_tool(
+        monkeypatch,
+        XGraphToolResult(
+            status=ToolStatus.OK, chunks=[xg_chunk], case_ids_touched=["CASE-002"],
+            hop_count=1, chain_confidence=0.8,
+        ),
+    )
+    _stub_xnetwork_tool(
+        monkeypatch,
+        XNetworkToolResult(status=ToolStatus.EMPTY, chunks=[], no_relevant_reason=_NO_RELEVANT_REASON),
+    )
+
+    result = await cross_case_linkage(_agent_input())
+
+    assert result.status == SubAgentStatus.PARTIAL
+    assert result.degraded_from == ["XNETWORK"]
+    assert _NO_RELEVANT_REASON in result.caveats
+
+
+@pytest.mark.asyncio
+async def test_plain_empty_without_relevance_reason_unaffected(monkeypatch):
+    """[Module 12] A plain EMPTY with no `no_relevant_reason` set (e.g. the
+    community-report collection genuinely has nothing at all) must not gain
+    a fabricated caveat -- Module 12 only surfaces a reason when one exists."""
+    xg_chunk = _xgraph_chunk()
+    _stub_xgraph_tool(
+        monkeypatch,
+        XGraphToolResult(
+            status=ToolStatus.OK, chunks=[xg_chunk], case_ids_touched=["CASE-002"],
+            hop_count=1, chain_confidence=0.8,
+        ),
+    )
+    _stub_xnetwork_tool(monkeypatch, XNetworkToolResult(status=ToolStatus.EMPTY, chunks=[]))
+
+    result = await cross_case_linkage(_agent_input())
+
+    assert result.status == SubAgentStatus.PARTIAL
+    assert not any("relevant" in c.lower() for c in result.caveats)
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # (d) both DENIED -> DENIED, never collapsed (RESOLVED-6)
 # ═══════════════════════════════════════════════════════════════════════
 

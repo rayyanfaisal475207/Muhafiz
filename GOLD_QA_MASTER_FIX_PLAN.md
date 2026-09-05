@@ -71,50 +71,47 @@ is `rayyanfaisal475207 <rayyanfaisal475207@users.noreply.github.com>`** — the
 | 10.2 | RC-6 root-cause isolation | *(same branch as 10)* | ✅ Merged (investigation only; fix pending in 15) |
 | 10.3 | Merge Gold-32 harness onto `main` | `chore/merge-gold32-eval-harness` | ✅ Merged |
 | 11 | Route compound/creative questions to Meta-Analysis (RC-0) | `fix/router-meta-analysis-trigger-coverage` | ✅ Merged |
-| 12 | Stop XNETWORK/XGRAPH cluster-dump fallback (RC-1) | `fix/xnetwork-xgraph-broad-query-guard` | ⬜ Not started — **can start now** |
+| 12 | Stop XNETWORK/XGRAPH cluster-dump fallback (RC-1) | `fix/xnetwork-xgraph-broad-query-guard` | ✅ Merged |
 | 13 | XAGG rate/time-bucket primitives + A1 aggregate (RC-2) | `feature/xagg-derived-aggregate-primitives` | ⬜ Not started — **can start now** |
 | 14 | CR7 criminal-record × court-outcome cross-check | `feature/xagg-criminal-record-court-crosscheck` | ⬜ Not started (blocked on 13) |
-| 15 | Field-consistency questions → XAGG/graph joins (RC-3 + RC-6) | `fix/router-field-consistency-to-xagg` | ⬜ Not started — shares `router.py` with 12/16 |
-| 16 | Cross-case scope LLM fallback (RC-4) | `fix/router-cross-case-scope-llm-fallback` | ⬜ Not started — shares `router.py` with 12/15 |
+| 15 | Field-consistency questions → XAGG/graph joins (RC-3 + RC-6) | `fix/router-field-consistency-to-xagg` | ⬜ Not started — shares `router.py` with 16 (Module 12 turned out not to touch `router.py` — confirmed by reading it, no conflict there) |
+| 16 | Cross-case scope LLM fallback (RC-4) | `fix/router-cross-case-scope-llm-fallback` | ⬜ Not started — shares `router.py` with 15 |
 | 17 | Verifier paraphrase-strictness relaxation (RC-5) | `fix/verifier-paraphrase-strictness-relaxation` | ✅ Merged |
 | 18 | Second full Gold-32 rerun + updated report | *(docs only)* | ⬜ Not started (blocked on 10–17) |
 | 19 | DeepEval 17-query harness context-capture fix | `fix/deepeval-harness-context-capture` | ⬜ Not started — **can start now** |
 | 20 | Judge-prompt "close numbers OK" tightening | `fix/gold32-judge-close-number-tolerance` | ⬜ Not started — **can start now** |
 
-**Recommended order:** 9 → 12 → 13 → 14 → 15 → 16 → 17 → 18, with 12/15/16
-serialized against each other (all three touch `router.py`) rather than run
-concurrently — (19, 20, and now 9 are parallel-safe with everything, docs/eval-only).
+**Recommended order:** 9 → 13 → 14 → 15 → 16 → 18 (12 and 17 already
+merged), with 15/16 serialized against each other (both touch `router.py`)
+rather than run concurrently — (19, 20, and 9 are parallel-safe with
+everything, docs/eval-only).
 See "Which modules can run independently right now" below for the full
 per-module file-overlap reasoning.
 
 ---
 
-## Which modules can run independently right now (updated after Module 11)
+## Which modules can run independently right now (updated after Module 12/17)
 
-With Module 8 and Module 11 both merged, four modules are genuinely
-file-independent of everything else still open and of each other — safe to
-hand to separate chats/sessions **right now**, each in its own git worktree
-(the pattern Modules 8 and 11 just used to avoid colliding on one working
-directory):
+With Modules 8, 11, 12, and 17 all merged, the remaining open modules that
+are genuinely file-independent of everything else still open and of each
+other are safe to hand to separate chats/sessions **right now**, each in its
+own git worktree (the pattern Modules 8, 11, 12, and 17 all used to avoid
+colliding on one working directory):
 
 | Module | Files touched | Why it's independent |
 |---|---|---|
 | **9** | *(docs only — runs `evaluation/gold32_run.py`/`gold32_score.py`, writes a report)* | No app code at all; reads whatever is on `main` at run time. |
 | **13** | `src/pipeline/xagg.py` | No other open module touches this file. |
-| **17** | `src/pipeline/verifier.py` | No other open module touches this file. |
 | **19** | `evaluation/run_pipeline.py` | Eval-only, already flagged parallel-safe in the original plan. |
 | **20** | `evaluation/gold32_score.py` | Eval-only, already flagged parallel-safe in the original plan. |
 
-**Module 12 can also start now**, but with one caveat: it shares
-`src/pipeline/router.py` with Modules 15 and 16 (all three add/modify
-override-pattern lists in that file). Running 12 concurrently with 15 or 16
-in separate chats won't produce a *wrong* fix — the three are logically
-independent capabilities — but it will produce a git merge conflict at
-whichever one merges second, since they'll all be editing nearby regions of
-the same file. **Recommendation: start Module 12 now if you want a second
-parallel track going, but hold 15 and 16 until 12 has merged**, then do 15
-and 16 sequentially (or accept manually resolving the conflict, which is
-mechanical — three additive pattern-list blocks, not overlapping logic).
+Module 12 turned out NOT to touch `src/pipeline/router.py` in the end (the
+fix landed entirely in `xnetwork.py`/the harness `cross_case_linkage.py`
+layer — confirmed by reading `router.py` before writing any code, not
+assumed from the original file list). So `router.py` is now shared only
+between **Modules 15 and 16** — run those two sequentially against each
+other (or accept manually resolving the resulting conflict, which is
+mechanical: two additive pattern-list blocks, not overlapping logic).
 
 **Module 14 cannot start yet** — it's explicitly built on Module 13's
 rate/time-bucket primitives, so it's a sequential follow-on to 13, not a
@@ -123,10 +120,9 @@ parallel track.
 **Module 18 cannot start yet** — it's the final Gold-32 rerun and depends on
 11–17 all being merged.
 
-So, concretely, right now: **9, 12, 13, 17, 19, 20 can all be started in
-parallel chats today** (six tracks); queue 15 and 16 behind whichever of them
-starts first on `router.py`; queue 14 behind 13; hold 18 until everything
-else is in.
+So, concretely, right now: **9, 13, 15, 19, 20 can all be started in
+parallel chats today** (16 queued behind 15 on `router.py`); queue 14 behind
+13; hold 18 until everything else is in.
 
 ---
 
@@ -515,26 +511,83 @@ trigger-coverage gap; still open, not carried into any module number yet.
   wording ("synthesizes specific correct sub-facts, not a cluster dump")
   needs Module 12 layered on top to fully satisfy.
 
-## Module 12 — Stop XNETWORK/XGRAPH cluster-dump fallback (RC-1) ⬜
+## Module 12 — Stop XNETWORK/XGRAPH cluster-dump fallback (RC-1) ✅ DONE (merged 2026-09-05)
 
 **Branch:** `fix/xnetwork-xgraph-broad-query-guard`
 
-**Files:** `src/pipeline/router.py` (`_XGRAPH_OVERRIDE_PATTERNS` and
-whatever lets a no-named-entity evaluative query fall through to
-XNETWORK/XGRAPH), `src/pipeline/xnetwork.py`,
-`src/pipeline/harness/agents/cross_case_linkage.py`.
+**Root cause:** `query_similar_communities()` (`src/retrieval/
+community_vector_store.py`) always returns its top-k NEAREST community
+reports — it has no notion of "not relevant enough," only "nearest
+available." `run_network_query()` (`src/pipeline/xnetwork.py`) passed those
+straight through with no gate, so a broad/evaluative question with no named
+entity got narrated as if the nearest-but-unrelated clusters answered it.
+Router.py was NOT the bug here — Module 11 already fixed reachability to
+Meta-Analysis; this was purely about what XNETWORK/XGRAPH say once
+dispatched, so `router.py` needed no changes (confirmed by reading it, not
+assumed from the brief's file list).
 
-**What:** backstop for whatever Module 11 doesn't already catch — for a
-legitimate XNETWORK/XGRAPH query, community-cluster narration must stay
-scoped to clusters actually relevant to the *question* (not just "nearby
-clusters exist"), and must say so plainly when nothing relevant is found.
-Add a relevance gate before cluster narration is allowed to stand in as the
-final answer.
+**Fix — relevance gate, evidence-based threshold:** instrumented
+`query_similar_communities()`'s cosine-distance output directly against the
+**live** `muhafiz_community_reports` Chroma collection (not synthetic data)
+for all 6 confirmed-bad gold questions (CR3, CR4, CS4, M4, G1, G6) plus 4
+realistic "should genuinely match" control queries (3 named-entity/
+case-specific asks, 1 topical-but-broad "which clusters involve weapons").
+Result: the 6 bad questions' nearest-community distance ranged
+**0.1558–0.2057**; the realistic controls ranged **0.1256–0.1395** — a clean
+~0.016 gap. Set `RELEVANCE_DISTANCE_THRESHOLD = 0.145` (in `xnetwork.py`,
+full evidence recorded in the constant's own comment) in that gap.
+
+Implemented once in `run_network_query()` — the single function both the
+legacy `orchestrator.py` XNETWORK route and the harness `xnetwork_tool()` /
+`cross_case_linkage.py` (including Meta-Analysis's decomposed sub-query
+path) call through — so the fix applies uniformly regardless of dispatch
+path. Below the cutoff: unchanged behavior (narrate as before). At/above it
+for every candidate: `results` comes back empty and a new
+`no_relevant_reason` field carries an honest, specific message (names the
+actual question asked and the nearest distance found, never a generic "no
+information available" and never silence) — threaded through
+`XNetworkToolResult.no_relevant_reason` and surfaced as an answer
+addition/caveat in all three of `cross_case_linkage.py`'s EMPTY-handling
+branches (both-empty, XGRAPH-contributes-XNETWORK-doesn't, and vice versa).
+The legacy orchestrator route was restructured to skip LLM generation
+entirely and state the honest refusal directly when nothing clears the gate
+— the old behavior fed an empty-results placeholder string to the LLM and
+asked it to "synthesize" around it, which was RC-1's own bug shape.
 
 **Verify:**
-- `tests/test_harness_agent_cross_case_linkage.py`, `tests/test_xnetwork.py` full pass.
-- Live: a query designed to have no genuinely relevant cluster → app says so,
-  instead of narrating unrelated clusters as fact.
+- Unit: `tests/test_xnetwork.py` (relevant/no-relevant/boundary/
+  jurisdiction-composition cases), `tests/test_harness_tool_xnetwork.py`
+  (`no_relevant_reason` propagation), `tests/test_harness_agent_cross_case_
+  linkage.py` (all three EMPTY branches) — all pass. Full regression:
+  `pytest tests/` (entire suite), plus `test_router.py` and
+  `test_harness_supervisor.py` individually — all green, zero regressions.
+- Live, against the real corpus (`/api/chat`, platform-admin):
+  **CR3, CR4, CS4, M4, G1, G6, and one non-gold paraphrase** ("As the
+  on-duty analyst, look over everything currently open...") all now return
+  the honest relevance-gate message instead of a cluster narration.
+  Before/after for **G1** (word-for-word match to this module's own
+  documented "cross-regional cybercrime coordination" bug example):
+  - **Before** (`evaluation/module10_untouched_buckets_outputs.json`):
+    *"Based on the provided case clusters... 1. Cross-Regional Cybercrime
+    Coordination — Document 2 links two separate cybercrime cases (FIR
+    64/26 and FIR 65/26)..."* — an unrelated cluster dump, no connection to
+    "flag anything unusual."
+  - **After:** *"No community cluster in the case corpus is closely related
+    to this specific question (\"Acting as a crime analyst, review our
+    current caseload and flag anything that looks unusual or worth
+    monitoring.\") (nearest cluster found was distance 0.202 against a
+    relevance cutoff of 0.145). Rather than describing an unrelated
+    cluster, no cross-case network finding is being reported here."*
+  - **Confirmed full Meta-Analysis path** (raw SSE, not a bare XNETWORK
+    call): `route='XNETWORK' -> sub-agent='Meta-Analysis'`, which then
+    dispatches its decomposed sub-query to `Cross-Case Linkage`
+    (`status=empty`), and Meta-Analysis passes the honest message through
+    as its own synthesis (`status=empty`) — Module 11's reachability fix
+    and this module's answer-quality fix now compose correctly end-to-end.
+  - **CR3** before: *"(C-20260903-L0-0011) This cluster centers on two
+    cases, FIR 64/26 and FIR 65/26, both related to cybercrime under PECA
+    2016..."* (unrelated to the online-banking-fraud question asked).
+    After: the same honest relevance-gate message, nearest distance 0.156.
 
 ## Module 13 — XAGG rate/time-bucket primitives + A1 aggregate (RC-2) ⬜
 

@@ -96,6 +96,19 @@ class XNetworkToolResult(CrossCaseToolResult):
         default=None,
         description="[PRESERVE] Raw community-summary text — the sub-agent-level fallback.",
     )
+    no_relevant_reason: Optional[str] = Field(
+        default=None,
+        description=(
+            "[Module 12 — RC-1] Set (status=EMPTY) when `run_network_query()`'s "
+            "relevance gate found nearest communities but none cleared the "
+            "relevance cutoff — distinct from an EMPTY caused by the "
+            "community-report collection genuinely having nothing to return. "
+            "Callers should surface this text (or their own wording built from "
+            "it) rather than a generic 'no information available' message, and "
+            "never recite the filtered-out communities as if they answered the "
+            "question."
+        ),
+    )
 
 
 def _render_raw_summary(results: list[dict]) -> Optional[str]:
@@ -158,6 +171,7 @@ async def xnetwork_tool(tool_input: XNetworkToolInput) -> XNetworkToolResult:
         # refers to the same community in all three.
         community_case_ids=[list(r.get("case_ids") or []) for r in results],
         raw_summary_text=_render_raw_summary(results),
+        no_relevant_reason=net_result.get("no_relevant_reason"),
     )
 
 
