@@ -78,7 +78,7 @@ is `rayyanfaisal475207 <rayyanfaisal475207@users.noreply.github.com>`** — the
 | 16 | Cross-case scope LLM fallback (RC-4) | `fix/router-cross-case-scope-llm-fallback` | ⬜ Not started — shares `router.py` with 15 |
 | 17 | Verifier paraphrase-strictness relaxation (RC-5) | `fix/verifier-paraphrase-strictness-relaxation` | ✅ Merged |
 | 18 | Second full Gold-32 rerun + updated report | *(docs only)* | ⬜ Not started (blocked on 10–17) |
-| 19 | DeepEval 17-query harness context-capture fix | `fix/deepeval-harness-context-capture` | ⬜ Not started — **can start now** |
+| 19 | DeepEval 17-query harness context-capture fix | `fix/deepeval-harness-context-capture` | ✅ Merged |
 | 20 | Judge-prompt "close numbers OK" tightening | `fix/gold32-judge-close-number-tolerance` | ⬜ Not started — **can start now** |
 
 **Recommended order:** 9 → 13 → 14 → 15 → 16 → 18 (12 and 17 already
@@ -730,7 +730,7 @@ Generation 0.04→?), and note for each of the 7 root causes whether it was
 confirmed fixed by a **non-gold paraphrase**, per each module's own verify
 step.
 
-## Module 19 — DeepEval 17-query harness context-capture fix ⬜
+## Module 19 — DeepEval 17-query harness context-capture fix ✅ Merged
 
 **Branch:** `fix/deepeval-harness-context-capture`
 
@@ -740,13 +740,69 @@ against an incomplete captured retrieval context — correct answers sourced
 from structured API fields get penalized as "hallucinated" because the
 harness never captured that context, only narrative chunks.
 
-**Files:** `evaluation/run_pipeline.py`'s `_parse_sse()` — capture the full
-retrieval context actually used (structured-aggregate and graph-node data,
-not just narrative chunk text).
+**What was actually found (broader than the "Files" line above stated —
+read this before assuming it's a one-file fix):** direct code reading of
+every SSE event both live paths emit (`src/pipeline/harness/cutover.py`,
+the actual live path for this deployment's `HARNESS_CUTOVER_ROUTES=RAG,
+SQL,GRAPH,GRAPH_HYBRID,XGRAPH,XAGG,XNETWORK`, and `src/pipeline/
+orchestrator.py`'s legacy inline path for DIRECT/WEB) confirmed the
+`_parse_sse()` condition this fixes (`step in ("retrieval",
+"retrieved_docs") and d.get("documents")`) never matched anything on
+either path — `retrieval_context` in `pipeline_outputs.json` was always
+`[]`, worse than "narrative chunks only." Root cause: `SubAgentResult`
+(the harness's sub-agent-to-supervisor handoff type) deliberately carries
+NO raw evidence chunk text at all (`types.py` §3, "no raw evidence crosses
+the boundary" — a PRESERVE-tagged architectural decision, not an
+oversight) — the harness will never put narrative chunk TEXT on the wire,
+by design, and no fix scoped to the eval script alone can retrieve data
+that was never sent. What the harness DOES compute but was silently
+dropping: bounded per-claim `Citation` metadata (`document_index`,
+`source_tool`, `case_id`, `source_file`, `confidence` — real provenance,
+never chunk text, same boundary).
 
-**Verify:** re-run the 17-query harness; the 3 previously-understated
-metrics move up specifically for the queries §3 flagged as unfairly
-penalized — not a blanket score inflation across all 17.
+**Files (expanded from the original one-file scope, necessarily — the gap
+was in what the harness put on the wire, not just in how the eval script
+read it):**
+- `src/pipeline/harness/cutover.py` — new additive `"citations"` SSE step
+  exposing `result.citations`, same no-pre-harness-precedent pattern
+  already established there for `timeline_building`/`data_quality`. Does
+  NOT cross the evidence boundary — attribution only, never chunk text.
+- `evaluation/run_pipeline.py`'s `_parse_sse()` — captures the new
+  `citations` step and the `sources` lists (`web_search`/
+  `file_generation`) that were already being emitted but silently
+  dropped, as compact provenance strings into `retrieval_context`.
+
+**What this does NOT fix:** DeepEval's context-relative metrics
+(Relevancy/Hallucination/text-based Faithfulness) still need narrative
+chunk TEXT to score against, which the harness boundary will not expose by
+design. `evaluation/gold_set.json`'s own hand-authored `retrieval_context`
+(see `deepeval_score.py::build_cases()`) remains the primary text-context
+source for those metrics — this module closes the "always empty, silently
+dropped real data" gap, not the deeper "no narrative text ever crosses the
+harness boundary" one, which would require reopening the §3 boundary
+decision itself, out of scope here.
+
+**Verified:**
+- `tests/test_harness_cutover.py`: new `test_citations_yield_new_citations_step`
+  / `test_no_citations_means_no_citations_step`, full file passes (23
+  tests). New `tests/test_run_pipeline_parse_sse.py` (6 tests) — pure
+  parsing, including a regression guard confirming the old dead condition
+  never matched anything. Full repo suite: 2335 passed, 5 skipped, 1
+  xpassed, zero regressions.
+- Live: ran a temporary backend instance from this module's own worktree
+  (`.venv` and `data/`, `chroma_db` are not shared across git worktrees) on
+  a spare port against the same live Postgres, sent the FIR 891/24 weapon
+  question through real `/api/chat`, and confirmed the real captured SSE
+  now carries a `"citations"` event with 10 real entries (5 RAG chunks, 5
+  GRAPH structured-projection nodes, all `case_id: fir-891-24`) that were
+  previously invisible to the harness entirely. Ran the exact captured SSE
+  through `_parse_sse()` directly and confirmed all 10 land in
+  `retrieval_context` as `"[Document N] tool=..., source=..., case=...,
+  confidence=..."` strings. Full 17-query DeepEval re-run not done this
+  session — needs `EVAL_INVESTIGATOR_EMAIL`/`EVAL_SUPERVISOR_EMAIL`
+  test-account credentials this environment doesn't have configured; the
+  underlying mechanism this module fixes is confirmed working end-to-end
+  above.
 
 ## Module 20 — Judge-prompt "close numbers OK" tightening ⬜
 

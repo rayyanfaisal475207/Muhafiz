@@ -449,6 +449,30 @@ async def run_cutover_query(
             "metrics": [m.model_dump() for m in result.metrics],
         }
 
+    # ── Citations — [Gold-QA fix, GOLD_QA_MASTER_FIX_PLAN.md Module 19]
+    # `result.citations` (bounded `Citation` metadata — document_index,
+    # source_tool, case_id, source_file, confidence; deliberately NO chunk
+    # text, per design §3's no-raw-evidence-crosses-the-boundary rule, same
+    # as timeline_building/data_quality above) was computed by every
+    # sub-agent but silently dropped here — never reached the SSE wire at
+    # all. Confirmed live: this is the actual reason
+    # `evaluation/run_pipeline.py`'s `_parse_sse()` always captured an empty
+    # `retrieval_context` for every harness-routed query (all of RAG/SQL/
+    # GRAPH/GRAPH_HYBRID/XGRAPH/XAGG/XNETWORK under this deployment's
+    # `HARNESS_CUTOVER_ROUTES`) — there was no "documents" field anywhere in
+    # the stream for it to find, on this path or the legacy orchestrator.py
+    # one. This does not add chunk text to the wire (the boundary this
+    # sub-agent layer enforces is unchanged); it exposes source
+    # ATTRIBUTION that already existed but never got surfaced, same
+    # additive-new-step precedent as timeline_building/data_quality.
+    if result.citations:
+        yield {
+            "step": "citations",
+            "status": "done",
+            "detail": f"{len(result.citations)} citation(s)",
+            "citations": [c.model_dump() for c in result.citations],
+        }
+
     total_ms = int((time.monotonic() - query_start) * 1000)
 
     if result.status in (SubAgentStatus.ABSTAINED, SubAgentStatus.DENIED) or result.answer_text is None:
