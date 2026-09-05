@@ -483,6 +483,23 @@ async def _fetch_secondary_evidence(
                             f"{wd} of {tot} FIRs recorded a reporting-delay reason{pct}; "
                             f"the remaining {tot - wd} were reported with no stated delay."
                         ]
+                # [Gold-QA fix — Module 7, CP6] Placeholder-officer count.
+                # Kept in sync with the other two identical rendering sites
+                # (see the comment above the process_query() branch further
+                # below).
+                elif agg_result["kind"] == "placeholder_officer_count":
+                    cur, ever = agg_result["current_count"], agg_result["ever_count"]
+                    asi, si = agg_result["asi_count"], agg_result["si_count"]
+                    caveat = (
+                        f" {ever - cur} additional case(s) originally had a placeholder "
+                        f"officer too but have since been assigned a real one."
+                        if ever > cur else ""
+                    )
+                    lines = [
+                        f"{cur} FIRs currently carry only a placeholder investigating "
+                        f"officer — {asi} marked \"(نامزد ASI)\", {si} marked "
+                        f"\"(نامزد SI)\".{caveat}"
+                    ]
                 elif agg_result["kind"] == "district_breakdown":
                     label = agg_result.get("entity_label")
                     lines = [
@@ -2062,6 +2079,24 @@ async def process_query(
                         f"{wd} of {tot} FIRs recorded a reporting-delay reason{pct}; "
                         f"the remaining {tot - wd} were reported with no stated delay."
                     ]
+            # [Gold-QA fix — Module 7, CP6] Placeholder-officer count: Cases
+            # whose current investigating officer is still a placeholder
+            # name, from the ASSIGNED_TO supersession chain
+            # (structured_projection.py). Already-populated data, no
+            # "not synced yet" degradation needed.
+            elif agg_result["kind"] == "placeholder_officer_count":
+                cur, ever = agg_result["current_count"], agg_result["ever_count"]
+                asi, si = agg_result["asi_count"], agg_result["si_count"]
+                caveat = (
+                    f" {ever - cur} additional case(s) originally had a placeholder "
+                    f"officer too but have since been assigned a real one."
+                    if ever > cur else ""
+                )
+                lines = [
+                    f"{cur} FIRs currently carry only a placeholder investigating "
+                    f"officer — {asi} marked \"(نامزد ASI)\", {si} marked "
+                    f"\"(نامزد SI)\".{caveat}"
+                ]
             elif agg_result["kind"] == "district_breakdown":
                 label = agg_result.get("entity_label")
                 lines = [
