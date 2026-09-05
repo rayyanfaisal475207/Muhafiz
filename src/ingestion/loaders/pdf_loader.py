@@ -18,9 +18,11 @@
 
 import logging
 import json
+import math
 import re
 import threading
 from pathlib import Path
+from typing import Optional
 
 from dateutil import parser
 from src.ingestion.document import Document
@@ -30,6 +32,19 @@ logger = logging.getLogger(__name__)
 # Minimum characters per page before we consider extraction "failed"
 # and fall back to vision. Some pages have headers/footers but no real text.
 MIN_TEXT_CHARS = 50
+
+# [Gold-QA fix — Module 8b] A single converter.convert() call over a large
+# (200+ page) PDF corrupts specific pages' extracted text — confirmed
+# empirically against this exact corpus: the CrPC PDF's Section 154
+# paragraph extracted correctly, byte-for-byte identical, both in
+# isolation (page_range=(77, 78)) and within a 1-100 page batch, but was
+# truncated to just its bare heading when the whole 319-page document was
+# converted in ONE call. This is a Docling large-document behavior/bug,
+# not a per-page extraction failure (the SAME page, given less surrounding
+# context, extracts fine) — converting in page-range batches avoids it.
+# 80 is conservative relative to the empirically-verified-safe 100-page
+# batch above, not a proven hard ceiling for arbitrarily large documents.
+_DOCLING_BATCH_SIZE = 80
 
 # Docling's DocumentConverter loads layout/table-structure models on first
 # use (~a few minutes, one-time per process); reusing one instance across
@@ -46,6 +61,31 @@ def _get_converter():
                 from docling.document_converter import DocumentConverter
                 _converter = DocumentConverter()
     return _converter
+
+
+def _cheap_page_count(file_path: Path) -> Optional[int]:
+    """
+    [Gold-QA fix — Module 8b] Page count via PyMuPDF — already a dependency
+    here (see `_load_scanned_page_with_vision()` below) — instead of paying
+    for a full Docling conversion just to learn how many pages exist, which
+    is exactly the expensive, bug-triggering call `load_pdf()` is trying to
+    avoid doing in one shot for a large document. Returns None (never
+    raises) if the file can't be opened this way; the caller falls back to
+    the original single whole-document Docling conversion in that case.
+    """
+    try:
+        import fitz  # PyMuPDF
+        pdf = fitz.open(str(file_path))
+        try:
+            return pdf.page_count
+        finally:
+            pdf.close()
+    except Exception as exc:
+        logger.warning(
+            "Could not cheaply count pages for %s (%s); falling back to a "
+            "single whole-document Docling conversion.", file_path.name, exc,
+        )
+        return None
 
 
 def _extract_temporal_metadata(file_path: Path) -> tuple[int, int]:
@@ -106,17 +146,53 @@ def load_pdf(file_path: Path) -> list[Document]:
     """
     documents: list[Document] = []
     effective_from, effective_to = _extract_temporal_metadata(file_path)
+    converter = _get_converter()
 
-    try:
-        converter = _get_converter()
-        result = converter.convert(str(file_path))
-        doc = result.document
-    except Exception as exc:
-        logger.error("Docling failed to convert %s: %s", file_path.name, exc)
-        raise
+    # [Gold-QA fix — Module 8b] Convert in page-range batches rather than
+    # one whole-document call — see _DOCLING_BATCH_SIZE's own comment for
+    # why. `page_texts` collects every page's markdown regardless of which
+    # batch produced it; a document at or under the batch size (the common
+    # case) still ends up making exactly one convert() call, identical to
+    # the original behavior.
+    cheap_total_pages = _cheap_page_count(file_path)
+    page_texts: dict[int, str] = {}
 
-    total_pages = doc.num_pages()
-    logger.info("Opened PDF %s (%d pages) via Docling", file_path.name, total_pages)
+    if cheap_total_pages is None:
+        # Couldn't get a page count without Docling itself — fall back to
+        # the original single whole-document conversion (the only case
+        # this fix can't help: an unusual PDF PyMuPDF itself can't open).
+        try:
+            result = converter.convert(str(file_path))
+            doc = result.document
+        except Exception as exc:
+            logger.error("Docling failed to convert %s: %s", file_path.name, exc)
+            raise
+        total_pages = doc.num_pages()
+        for page_no in sorted(doc.pages.keys()):
+            page_texts[page_no] = doc.export_to_markdown(page_no=page_no).strip()
+    else:
+        total_pages = cheap_total_pages
+        num_batches = math.ceil(total_pages / _DOCLING_BATCH_SIZE)
+        for batch_start in range(1, total_pages + 1, _DOCLING_BATCH_SIZE):
+            batch_end = min(batch_start + _DOCLING_BATCH_SIZE - 1, total_pages)
+            try:
+                result = converter.convert(str(file_path), page_range=(batch_start, batch_end))
+                doc = result.document
+            except Exception as exc:
+                logger.error(
+                    "Docling failed to convert %s pages %d-%d: %s",
+                    file_path.name, batch_start, batch_end, exc,
+                )
+                raise
+            for page_no in sorted(doc.pages.keys()):
+                page_texts[page_no] = doc.export_to_markdown(page_no=page_no).strip()
+        logger.info(
+            "Opened PDF %s (%d pages) via Docling in %d batch(es) of up to %d pages",
+            file_path.name, total_pages, num_batches, _DOCLING_BATCH_SIZE,
+        )
+
+    if cheap_total_pages is None:
+        logger.info("Opened PDF %s (%d pages) via Docling", file_path.name, total_pages)
 
     # Pages that fail BOTH Docling and the vision fallback contribute zero
     # Documents — with no record of which page numbers those were. Module
@@ -125,8 +201,8 @@ def load_pdf(file_path: Path) -> list[Document]:
     # previously masked partial-ingestion silently.
     dropped_pages: list[int] = []
 
-    for page_no in sorted(doc.pages.keys()):
-        text = doc.export_to_markdown(page_no=page_no).strip()
+    for page_no in sorted(page_texts.keys()):
+        text = page_texts[page_no]
 
         if len(text) >= MIN_TEXT_CHARS:
             documents.append(
