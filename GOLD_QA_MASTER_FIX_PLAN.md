@@ -1,0 +1,575 @@
+# Muhafiz — Gold-QA Master Fix Plan (Modules 1–20)
+
+**Purpose of this file:** a single, self-contained reference covering the
+entire Gold-QA fix effort end to end — the original 9-module plan and the
+follow-on 10–20 platform-capability plan — so it can be picked up in any new
+chat/session without re-deriving context. Status below reflects git history
+on `main` as of **2026-09-05**; update the status table and each module's
+own status line as work lands.
+
+**Source documents this consolidates** (kept as-is for their original
+detail; this file is the authoritative status tracker going forward):
+- `GOLD_QA_FIXES_IMPLEMENTATION_PLAN.md` — Modules 1–9 (original)
+- `PLATFORM_REASONING_SUMMARIZATION_FIX_PLAN.md` — Modules 10–20 (this plan)
+- `evaluation/GROUND_TRUTH_NOTES.md` — resolved ground-truth numbers (D1, CP6, A1)
+- `evaluation/UNTOUCHED_BUCKETS_DIAGNOSIS.md` — Module 10/10.2 live findings
+
+---
+
+## ⚠️ Attribution — read before making any commit under this plan
+
+**Do not assume "no Claude co-author" from the original Modules 1–9 text
+below (§1's own working discipline literally says that) — it is
+superseded.** The active session-level rule for this work, confirmed
+current as of this file's writing, is:
+
+> End every git commit message with:
+> `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>`
+> End every PR description with:
+> `🤖 Generated with [Claude Code](https://claude.com/claude-code)`
+
+This is a fixed platform-level attribution requirement, not a per-project
+convention — it cannot be turned off by a plan document or a chat request,
+and it explicitly overrides Modules 1–9's originally-stated "no Claude
+co-author trailer" line. Every commit from Module 10 onward already carries
+it (see `git log` — commits `da789de`, `ee77181`, `1912a7d`, etc.). **Any
+future session picking up this plan should keep including it**, regardless
+of what §1 below says — that line is preserved only as a historical record
+of what Modules 1–9 actually did, not as a rule to keep following.
+
+Everything else about authorship stays as originally set: **author identity
+is `rayyanfaisal475207 <rayyanfaisal475207@users.noreply.github.com>`** — the
+`Co-Authored-By` trailer is additive, it does not replace the human author.
+
+---
+
+## Status snapshot (all 20 top-level modules + 3 sub-modules)
+
+| # | Module | Branch | Status |
+|---|---|---|---|
+| 1 | Ground-truth & data alignment | `chore/gold-qa-ground-truth-alignment` | ✅ Merged |
+| 2 | XAGG reporting-delay count (A7) | `feature/xagg-reporting-delay-count` | ✅ Merged |
+| 3 | Router: person-recurrence → XAGG (CR2/S3) | `fix/router-xagg-person-recurrence` | ✅ Merged |
+| 4 | XAGG grand-total for FIRs (D1) | `fix/xagg-fir-grand-total` | ✅ Merged |
+| 5 | Evaluator compound-question relaxation | `fix/evaluator-compound-question-relaxation` | ✅ Merged |
+| 6 | XGRAPH answer-first summary phrasing | `fix/xgraph-summary-answer-first-phrasing` | ✅ Merged |
+| 7 | CP6 placeholder-officer count | `feature/xagg-placeholder-officer-count` | ✅ Merged |
+| 8 | CrPC/legal-PDF structure-aware chunking | `feature/crpc-structure-aware-chunking` | 🔶 **In progress** (current branch) |
+| 9 | First full Gold-32 rerun + report | *(docs only)* | ⬜ Not started (blocked on Module 8) |
+| 10 | Live reconfirmation sweep (18 untouched questions) | `chore/gold-qa-untouched-buckets-diagnosis` | ✅ Merged |
+| 10.1 | A1 ground-truth check | *(same branch as 10)* | ✅ Merged |
+| 10.2 | RC-6 root-cause isolation | *(same branch as 10)* | ✅ Merged (investigation only; fix pending in 15) |
+| 10.3 | Merge Gold-32 harness onto `main` | `chore/merge-gold32-eval-harness` | ✅ Merged |
+| 11 | Route compound/creative questions to Meta-Analysis (RC-0) | `fix/router-meta-analysis-trigger-coverage` | ⬜ Not started |
+| 12 | Stop XNETWORK/XGRAPH cluster-dump fallback (RC-1) | `fix/xnetwork-xgraph-broad-query-guard` | ⬜ Not started |
+| 13 | XAGG rate/time-bucket primitives + A1 aggregate (RC-2) | `feature/xagg-derived-aggregate-primitives` | ⬜ Not started |
+| 14 | CR7 criminal-record × court-outcome cross-check | `feature/xagg-criminal-record-court-crosscheck` | ⬜ Not started |
+| 15 | Field-consistency questions → XAGG/graph joins (RC-3 + RC-6) | `fix/router-field-consistency-to-xagg` | ⬜ Not started |
+| 16 | Cross-case scope LLM fallback (RC-4) | `fix/router-cross-case-scope-llm-fallback` | ⬜ Not started |
+| 17 | Verifier paraphrase-strictness relaxation (RC-5) | `fix/verifier-paraphrase-strictness-relaxation` | ⬜ Not started |
+| 18 | Second full Gold-32 rerun + updated report | *(docs only)* | ⬜ Not started (blocked on 10–17) |
+| 19 | DeepEval 17-query harness context-capture fix | `fix/deepeval-harness-context-capture` | ⬜ Not started |
+| 20 | Judge-prompt "close numbers OK" tightening | `fix/gold32-judge-close-number-tolerance` | ⬜ Not started |
+
+**Recommended order:** finish 8 → run 9 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → (19, 20 whenever — parallel-safe with everything, eval-only).
+
+---
+
+## §0 — Working discipline (applies to every module, 1 through 20)
+
+1. `git checkout main && git pull` → `git checkout -b <module-branch> main`.
+2. Implement that module's change only — nothing bleeding in from another module.
+3. Verify, every module, both parts:
+   - **Unit/regression tests** for the touched files — no new failures.
+   - **Live**, against the real running stack (backend `http://127.0.0.1:8001`,
+     real Postgres/AGE, real model server, logged in as platform-admin with
+     All Cases unless a module specifies otherwise): send the exact gold
+     question(s) through `/api/chat`, read the actual answer, grade
+     **contextually** against `Gold_QA_Dataset_Final32.json` (same facts/points
+     covered, not exact wording). **Modules 10+ add a second live check**: at
+     least one free-form paraphrase that is *not* in the gold dataset, to
+     confirm the fix is a real capability improvement and not curve-fit to
+     32 fixed strings.
+4. `git checkout main && git merge --no-ff <module-branch>` → `git push origin main` → delete the branch (local and remote, if pushed).
+5. Report the before/after answer for that module's question(s) before starting the next one.
+6. One module at a time, in order — do not start the next until the current one is merged and pushed.
+7. **Author every commit as `rayyanfaisal475207 <rayyanfaisal475207@users.noreply.github.com>`.** Add the `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` trailer per the attribution note above (this supersedes the "no Claude co-author" line Modules 1–9 originally used).
+8. Never trust an unverified claim into a report — every number in every module's writeup must trace back to an actual captured live output, not an assertion (this is the discipline that caught `HANDOFF.md`'s false "verified end-to-end" claims on `goldtest-eval3` in the first place).
+
+### Environment (confirmed working as of Module 10)
+
+- Docker Desktop + `docker compose up -d postgres` — attaches to the existing `rag-chatbot_pgdata` volume.
+- Backend: `uvicorn src.main:app --reload --port 8001`. **Currently running
+  in an uncaptured console** — for any module that needs to see the actual
+  exception behind a generic error message (e.g. Module 15's RC-6 half),
+  restart it with `2>&1 | tee backend_<date>.log` first so output is
+  readable after the fact.
+- Remote model server (`MODEL_SERVER_BASE_URL`) — up and healthy.
+- `scripts/create_admin.py` creates/promotes `admin@example.com` /
+  `MuhafizAdmin2026!` — matches `evaluation/gold32_run.py`'s own default.
+- `Gold_QA_Dataset_Final32.json` at repo root — the 32-question gold set with
+  official answers. `evaluation/gold32_run.py` / `gold32_score.py` (merged
+  onto `main` by Module 10.3) run the full 32-question live eval.
+
+---
+
+# PART A — Modules 1–9 (original plan)
+
+**Where this came from:** `goldtest-eval3` (unmerged branch) had 5 commits
+of app-code fixes for the low Gold-QA baseline (`GOLD32_EVALUATION_REPORT.md`
+— 0.11 mean FactualCorrectness, 1/24 pass). Review found the fixes were never
+merged to `main`, one was a real regression (reporting-delay keyword
+collision), `HANDOFF.md`'s "verified end-to-end" claims were contradicted by
+its own bundled evidence, and two ground-truth conflicts existed. Modules
+1–9 rebuilt everything fresh against `main`, each live-verified before merge.
+
+## Module 1 — Ground-truth & data alignment ✅ Merged
+
+**Branch:** `chore/gold-qa-ground-truth-alignment`
+
+Resolved: live DB had 79 FIRs vs. gold's 73 (6 `CASE-TEST-*` rows were
+leftover test fixtures in the shared dev DB — deleted, backed up first);
+CP6's conflict between the draft answer key (0) and the official gold answer
+(11) — confirmed 11 is right (historical/ever-assigned placeholder-officer
+count; 10 is the live current-state count, both cited in the final CP6
+answer); the pre-existing 72-vs-73 Incident/`BELONGS_TO_CASE` edge gap was
+already resolved by an earlier backfill, no action needed. Numbers recorded
+in `evaluation/GROUND_TRUTH_NOTES.md`.
+
+## Module 2 — XAGG reporting-delay count aggregate (A7) ✅ Merged
+
+**Branch:** `feature/xagg-reporting-delay-count`
+
+**Question:** A7 — gold: 8 of 73 FIRs recorded a reporting-delay reason.
+
+**Files:** `src/graph/structured_projection.py` (project
+`reporting_delay_reason` onto Incident), `src/pipeline/xagg.py` (new
+`_reporting_delay_count()`, wired into `run_aggregate()`'s keyword routing —
+built trend-safe from the start: count phrasing → this aggregate; trend
+phrasing → still falls through to the honest "trend not supported" path),
+`src/pipeline/harness/tools/xagg.py` + `src/pipeline/orchestrator.py`
+(rendering).
+
+**Verified:** unit tests for both count and trend phrasing; live A7 → states
+a real count, matches Module 1's resolved denominator.
+
+## Module 3 — Router: person-recurrence questions → XAGG (CR2/S3) ✅ Merged
+
+**Branch:** `fix/router-xagg-person-recurrence`
+
+**Questions:** CR2 (English), S3 (Urdu) — "has anyone been arrested more
+than once / resurfaced as a suspect."
+
+**Files:** `src/pipeline/router.py` — added narrative + Urdu/Roman-Urdu
+person-recurrence patterns to `_XAGG_OVERRIDE_PATTERNS`, checked ahead of the
+LLM classifier, routing deterministically to XAGG's `graph_recurrence` path
+(names the people + their specific cases) instead of XGRAPH (flat case-ID
+union for a no-named-seed query).
+
+**Verified:** `tests/test_router.py` full pass; live CR2/S3 → route=XAGG,
+names the recurring person(s) with FIR numbers.
+
+## Module 4 — XAGG grand-total for "how many FIRs" (D1) ✅ Merged
+
+**Branch:** `fix/xagg-fir-grand-total`
+
+**Files:** `src/pipeline/router.py` ("how many FIRs" → `_XAGG_OVERRIDE_PATTERNS`),
+`src/pipeline/xagg.py` (FIR phrasing → `_TOTAL_KEYWORDS`, resolves to
+`_total_count()` not the statute breakdown), `src/pipeline/verifier.py`
+(`verify_structured_aggregate_paraphrase()` — allow a stated grand total
+that equals the sum of the source's own per-category counts, **narrowed** to
+one recognized breakdown group, not a blind sum across the whole source
+text — closes a fabrication-guard gap).
+
+**Verified:** full test suite passes across `test_verifier.py`,
+`test_xagg.py`, `test_router.py`; new verifier test for the narrowed-sum
+guard; live D1 → clean total, matches Module 1's resolved 73.
+
+## Module 5 — Evaluator: compound-question relaxation ✅ Merged
+
+**Branch:** `fix/evaluator-compound-question-relaxation`
+
+**Question:** KB1 and similar compound legal+data questions.
+
+**Files:** `prompts/evaluator.txt` — the relevance evaluator returns TRUE
+when retrieved documents answer at least the primary/answerable part of a
+compound question, instead of hard-rejecting on an uncovered secondary part.
+
+**Verified:** live KB1 → evaluator stops hard-rejecting, a substantive
+primary-part answer returns (full KB correctness gated on Module 8).
+
+## Module 6 — XGRAPH: answer-first summary phrasing ✅ Merged
+
+**Branch:** `fix/xgraph-summary-answer-first-phrasing`
+
+**Files:** `src/pipeline/harness/agents/cross_case_linkage.py` —
+`_xgraph_summary_line()` leads with "Yes — ..." / "Yes (with some
+uncertainty) — ..." instead of debug-log-style phrasing.
+
+**Verified:** `tests/test_harness_agent_cross_case_linkage.py` full pass;
+live check against a genuinely XGRAPH-shaped named-entity traversal query.
+
+## Module 7 — CP6 placeholder-officer count ✅ Merged
+
+**Branch:** `feature/xagg-placeholder-officer-count`
+
+**Question:** CP6 — gold (per Module 1): 11 historical / 10 current.
+
+**Files:** `src/pipeline/xagg.py` — new `_placeholder_officer_count()`,
+counts Cases whose current (non-superseded) investigating Officer matches
+the `"(نامزد ASI/SI)"` placeholder pattern (note: Urdu script, not the Latin
+"Naamzad" transliteration — matching on the Latin string alone silently
+matches zero rows); wired into routing keywords and all 3 rendering sites.
+
+**Verified:** new unit test; live CP6 → states the Module-1-confirmed number.
+
+## Module 8 — CrPC/legal-PDF structure-aware chunking 🔶 IN PROGRESS
+
+**Branch:** `feature/crpc-structure-aware-chunking` (**current branch** —
+`src/ingestion/chunker.py` modified, `tests/test_ingestion_chunker.py` added,
+uncommitted as of this file's writing)
+
+**Problem:** CrPC 1898 PDF ingested with broken fixed-size chunking — 2,360
+chunks, only 5 mention "154" — so §154's actual statutory text ranks poorly
+for its own topic and KB legal questions retrieve the wrong law. Blocks all
+~8 excluded KB questions (KB1, KB2, KB3, KB4, KB5, KB6, KB8, KB9) — the
+single biggest score lever in the original dataset.
+
+**Scope:** larger than Modules 1–7 (ingestion-pipeline work). At minimum:
+re-ingest CrPC (and other legal PDFs) with section-boundary-aware chunking
+instead of fixed-size windows, drop/down-weight table-of-contents/index
+pages, optionally tag chunks with a `section` metadata field.
+
+**Verify:** a direct vector query for "Section 154" surfaces real statutory
+text, not table-of-contents fragments; live run of all 8 previously-excluded
+KB questions through `/api/chat`, graded contextually against gold.
+
+**Next step for whoever picks this up:** finish and commit the in-progress
+`chunker.py` change, run `tests/test_ingestion_chunker.py`, re-ingest the
+legal PDFs, then run the KB1–KB9 live verification above before merging.
+
+## Module 9 — First full Gold-32 rerun + report ⬜ Not started
+
+**No app-code branch.** Blocked on Module 8 merging. Run
+`evaluation/gold32_run.py` then `evaluation/gold32_score.py` (both now
+available on `main` since Module 10.3) against the fully-fixed Modules 1–8
+build. Compare against `GOLD32_EVALUATION_REPORT.md`'s baseline (0.11 mean
+FactualCorrectness, 1/24 pass) and write an evidence-backed after-report —
+every claim backed by an actual captured output.
+
+---
+
+# PART B — Modules 10–20 (platform reasoning/summarization/creative-generation plan)
+
+## Framing
+
+Modules 1–9 fixed ~13–14 of the 32 gold questions with narrow,
+one-question-shaped bugs. The other 18 — A1, 7 of 8 Complex Reasoning, all 5
+Contextual Summarization, all 5 Creative Generation — were never in scope,
+and were the app's weakest buckets in the original baseline (0.10 / 0.06 /
+0.04 mean, 0/8, 0/5, 0/5 pass), never diagnosed.
+
+**The goal is stated in capability terms, not question terms:** fix the real
+platform gaps these 18 questions happen to expose, because those same gaps
+degrade any compound, comparative, or open-ended question a real
+investigator asks. Gold-32 is the test harness verified against, not the
+target — every fix module (11+) verifies against the gold question **and**
+at least one non-gold paraphrase, so it's a capability fix, not curve-fitting
+to 32 fixed strings.
+
+## Root causes found (read this before treating 11–17 as 7 unrelated fixes)
+
+Reading every one of the 18 questions' actual captured answers (not just
+scores) collapsed the failures into **7 root causes** (RC-0 through RC-6),
+each shared across multiple questions:
+
+- **RC-0 — Meta-Analysis never fires.** `src/pipeline/harness/agents/meta_analysis.py`
+  exists specifically to decompose a compound cross-case question into
+  sub-questions and synthesize across them — exactly the shape of every
+  Complex Reasoning/Contextual Summarization/Creative Generation question
+  here. **0 of 18 questions routed to `META_ANALYSIS`**, confirmed twice
+  (stale baseline and Module 10's live reconfirmation). Highest-leverage fix.
+- **RC-1 — Broad cross-case questions fall back to XNETWORK's raw
+  community-cluster dump.** CR3, CS4, M4, G1, G6: the answer is a wall of
+  "This cluster centers on FIR X..." text unrelated to what was actually
+  asked — XNETWORK answers "what communities are near this text embedding,"
+  not the question asked.
+- **RC-2 — XAGG's aggregate library is flat-count-only.** No rate/ratio, no
+  time-bucketing, no cross-record join. Blocks CP1 (rate per district), M1
+  (year-over-year statute mix), M2 (station-type-normalized caseload), M7
+  (year-over-year mean reporting-delay), CR7 (status × court-outcome
+  cross-check).
+- **RC-3 — Narrative RAG asked structured-consistency questions it can't
+  answer.** CR6, CR8, G2, M5, G5 ask "does field A on record-type 1 match
+  field B on record-type 2" — RAG can only speak to what one narrative chunk
+  says, no way to iterate every row for a field-level match. Same class of
+  bug Module 3 already fixed for CR2/S3, generalized.
+- **RC-4 — Router's cross-case trigger set is a fixed phrase list.** G3 gets
+  bounced outright for not containing the exact cue words the regex expects,
+  despite being a valid cross-case question.
+- **RC-5 — Claim-verifier over-rejects true claims phrased differently from
+  retrieved text.** CR4, M2, M7 — a correct answer gets buried under "could
+  not be confirmed" or replaced with a raw-dump fallback.
+- **RC-6 (found by Module 10, not in the original diagnosis) — RAG's
+  retry-and-refine path fails silently under live-server load.** Confirmed
+  real for CR6/CR8/G2 (reproduced identically twice through the live
+  pipeline; the retrieval function itself works fine called in isolation —
+  see Module 10.2). M5/G5 turned out to be a *different* bug: route
+  classification (RAG vs. XAGG) is non-deterministic run-to-run for the same
+  query text — folded into Module 11/16.
+
+Plus two evaluation-infrastructure issues found independently of the 18
+questions (Modules 19, 20 — see below), and one data-quality bug (A1's
+gender-count drift, resolved in Module 10.1, fixed in Module 13).
+
+## Module 10 — Live reconfirmation sweep ✅ DONE (merged)
+
+**Branch:** `chore/gold-qa-untouched-buckets-diagnosis`
+
+Ran all 18 previously-untouched questions live against the current stack
+(`evaluation/module10_run.py`), reconfirmed RC-0 through RC-5 exactly as
+diagnosed from the stale baseline trace, zero regressions from Modules 1–7.
+Found RC-6. Raw output: `evaluation/module10_untouched_buckets_outputs.json`.
+Full writeup: `evaluation/UNTOUCHED_BUCKETS_DIAGNOSIS.md`.
+
+## Module 10.1 — A1 ground-truth check ✅ DONE (merged)
+
+Not a data gap — a precisely pinpointed code bug. Live graph: accused
+**edges** (`INVOLVED_IN{role:"accused"}`, row-level) total 94, gender-split
+67 M / 24 F / 3 unknown — matches gold exactly. `xagg.py::_gender_breakdown()`
+instead counts **distinct Person nodes**, silently collapsing 2 entries
+belonging to two recidivist accused (شہزیب عرف شابی, عاصم رشید — each
+accused in two separate FIRs, already known from CR2/S3) down to 1 each.
+**Fix:** count edges (or group by `p.gender` over the relationship), not
+`DISTINCT p` — one line, in Module 13. Full writeup:
+`evaluation/GROUND_TRUTH_NOTES.md` §4.
+
+## Module 10.2 — RC-6 root-cause isolation ✅ DONE (merged), fix pending in Module 15
+
+Re-ran the 5 RC-6 questions in isolation. **M5, G5 now succeed** (routed to
+XAGG instead of RAG — same query, no code change — route non-determinism,
+folded into Module 11/16). **CR6, CR8, G2 fail identically twice** — RAG
+route, "Retrieval failed" both times. Traced the swallow point:
+`src/pipeline/harness/tools/rag.py:362-364` replaces whatever
+`_retrieve_candidates()` raises with a generic message. Called that function
+directly for the same 3 queries — **all 3 succeeded instantly**, so the
+retrieval logic itself isn't broken; the failure is specific to the live
+server's runtime context (71–99s before erroring vs. instant direct —
+consistent with the retry loop's repeated embedding calls under load).
+**Could not pin the exact exception** — requires restarting the dev backend
+with output captured to a file, deliberately not done without a go-ahead.
+Full writeup: `evaluation/UNTOUCHED_BUCKETS_DIAGNOSIS.md`.
+
+**Carried into Module 15:** (1) surface `ToolError.message` instead of the
+generic string; (2) restart backend with `2>&1 | tee` before re-attempting
+CR6/CR8/G2 to get the real exception before writing the fix.
+
+## Module 10.3 — Merge Gold-32 eval harness onto `main` ✅ DONE (merged)
+
+**Branch:** `chore/merge-gold32-eval-harness`
+
+`evaluation/gold32_run.py`, `gold32_score.py`, and
+`Gold_QA_Dataset_Final32_With_Answers.json` only existed on unmerged
+`goldtest-eval3`; neither the original Module 9 nor this plan's Module 18
+could run without them. Cherry-picked onto `main`, no app-code changes rode
+along. Verified: `gold32_run.py` runs end-to-end against the live stack.
+
+## Module 11 — Route compound/comparative/creative questions to Meta-Analysis (RC-0) ⬜
+
+**Branch:** `fix/router-meta-analysis-trigger-coverage`
+
+**Files:** `src/pipeline/router.py` (confirm exact classification site),
+`src/pipeline/harness/supervisor.py::classify_to_subagent()`,
+`src/pipeline/harness/agents/meta_analysis.py`'s trigger patterns/prompt.
+
+**Also investigate:** Module 10.2's finding that M5/G5 classify to a
+different route (RAG vs. XAGG) on identical repeated runs — if the route
+classifier has a non-deterministic (LLM-based, uncached) step, fix that
+instability here too.
+
+**What:** determine exactly why these 18 never reach `META_ANALYSIS` —
+narrow trigger patterns, an earlier route claiming the query first, or
+`case_scope` not resolving to `cross_case` — and fix that gate. Highest
+leverage: if Meta-Analysis correctly decomposes e.g. "review the caseload
+and flag anything unusual" into sub-questions and synthesizes across
+already-correct, tool-verified sub-answers, it should move most of
+G1/G2/G3/G6, M1/M2/M4/M5/M7, and several CR questions at once.
+
+**Verify:**
+- `tests/test_harness_supervisor.py` + meta-analysis's own test file, full pass.
+- Live: G1's exact text + a paraphrase (e.g. "Is there anything about this
+  caseload a supervisor should be worried about?") → routes to
+  `META_ANALYSIS`, decomposes, synthesizes specific correct sub-facts, not a
+  community-cluster dump.
+
+## Module 12 — Stop XNETWORK/XGRAPH cluster-dump fallback (RC-1) ⬜
+
+**Branch:** `fix/xnetwork-xgraph-broad-query-guard`
+
+**Files:** `src/pipeline/router.py` (`_XGRAPH_OVERRIDE_PATTERNS` and
+whatever lets a no-named-entity evaluative query fall through to
+XNETWORK/XGRAPH), `src/pipeline/xnetwork.py`,
+`src/pipeline/harness/agents/cross_case_linkage.py`.
+
+**What:** backstop for whatever Module 11 doesn't already catch — for a
+legitimate XNETWORK/XGRAPH query, community-cluster narration must stay
+scoped to clusters actually relevant to the *question* (not just "nearby
+clusters exist"), and must say so plainly when nothing relevant is found.
+Add a relevance gate before cluster narration is allowed to stand in as the
+final answer.
+
+**Verify:**
+- `tests/test_harness_agent_cross_case_linkage.py`, `tests/test_xnetwork.py` full pass.
+- Live: a query designed to have no genuinely relevant cluster → app says so,
+  instead of narrating unrelated clusters as fact.
+
+## Module 13 — XAGG rate/time-bucket primitives + A1 aggregate (RC-2) ⬜
+
+**Branch:** `feature/xagg-derived-aggregate-primitives`
+
+**Files:** `src/pipeline/xagg.py` — two composable primitives instead of
+more one-off functions:
+1. **Rate/ratio helper**: `count(subset) / count(group total)` per group
+   (powers CP1 — weapons recovered ÷ total cases, per district).
+2. **Time-bucket helper**: partition any aggregate by year (from
+   `incident_date`/`report_date`), diffable across buckets (powers M1's
+   2024-vs-now statute mix, M7's year-over-year mean reporting-delay, M5's
+   year-over-year weapon/statute co-occurrence).
+
+Wire both into routing keywords and all rendering sites (same discipline as
+Modules 2/7). **Also add A1's accused-gender-ratio aggregate here** — same
+flat-count shape as D1/CP6, built against Module 10.1's resolved
+denominator (67 M / 24 F / 3 unknown / 94 total, counting edges not distinct
+persons — see `evaluation/GROUND_TRUTH_NOTES.md` §4).
+
+**Verify:**
+- New unit tests for both primitives, one each for CP1/M1/M7/M5, one for A1.
+- `tests/test_xagg.py` full pass.
+- Live: CP1, M1, M7, M5, A1's exact text → each states the real
+  derived number/comparison, not a flat count or "additional data required."
+- One non-gold paraphrase per primitive (e.g. "what fraction of
+  Faisalabad's cases involve a firearm?").
+
+## Module 14 — CR7 criminal-record × court-outcome cross-check ⬜
+
+**Branch:** `feature/xagg-criminal-record-court-crosscheck`
+
+Built on Module 13's primitives (a group-by-status count, cross-referenced
+against the separate court-outcome record by case ID). Scoped separately
+because it needs a genuine cross-record-type join, closer to Module 3's
+person-recurrence join pattern than a plain XAGG breakdown — confirm the
+right home (XAGG vs. a small new harness tool) before implementing.
+
+**Verify:** live CR7 exact text → states the real status split and the
+match/mismatch finding for the one case with both records.
+
+## Module 15 — Field-consistency questions → XAGG/graph joins, not RAG (RC-3 + RC-6) ⬜
+
+**Branch:** `fix/router-field-consistency-to-xagg`
+
+**Depends on:** Module 10.2's finding. Before merging, re-check whether RC-6
+turned out to be a real RAG-retry-path exception (fix it directly here too)
+or is superseded once these questions stop routing through RAG at all.
+**First step:** restart the backend with `2>&1 | tee` captured, re-run
+CR6/CR8/G2 to get the actual exception behind "Retrieval failed" before
+writing the fix.
+
+**Files:** `src/pipeline/router.py` — generalize Module 3's person-recurrence
+override into a broader "does record-type A's field match record-type B" /
+"is X confirmed by the case record" trigger family (English, Urdu, Roman
+Urdu), covering CR6/CR8/G2/G5's shape; `src/pipeline/xagg.py` or a new small
+harness tool for the actual per-row field-match check (walk-in-complaint tag
+↔ FIR; forwarded-FIR field ↔ real FIR; incident-date presence rate;
+dispatch-time-before-report-time anomaly count; license-status rate).
+
+**Verify:**
+- `tests/test_router.py` full pass.
+- Live: CR6, CR8, G2, G5's exact text → each states the real per-record
+  match/mismatch count, not an abstention, generic narrative, or RC-6's
+  "document search failed."
+
+## Module 16 — Cross-case scope LLM fallback (RC-4) ⬜
+
+**Branch:** `fix/router-cross-case-scope-llm-fallback`
+
+**Files:** `src/pipeline/router.py` — when no regex override matches,
+instead of defaulting to case-scoped and rejecting outright, ask the
+existing LLM classifier explicitly "is this about one case or the whole
+caseload" before giving up — closes the gap structurally instead of one more
+regex pattern at a time.
+
+**Verify:**
+- `tests/test_router.py` full pass (existing routes unchanged).
+- Live: G3's exact text → no longer bounced; a paraphrase with no cue words
+  at all also resolves to cross-case scope.
+
+## Module 17 — Verifier paraphrase-strictness relaxation (RC-5) ⬜
+
+**Branch:** `fix/verifier-paraphrase-strictness-relaxation`
+
+**Files:** `src/pipeline/verifier.py` — extend Module 4's relaxation (XAGG's
+grand-total case) to XGRAPH's per-claim citation check and the general
+"could not be verified as an accurate paraphrase" XAGG fallback, so a
+semantically-equivalent restatement isn't treated as unconfirmed.
+
+**Verify:**
+- `tests/test_verifier.py` full pass + new test: a paraphrasing (not
+  contradicting) claim is confirmed.
+- Live: CR4's exact text → the weapon→FIR→accused chain stated directly, no
+  disclaimer burying it; M2/M7 confirm the verifier no longer forces a
+  raw-dump fallback on a correct NL summary.
+
+## Module 18 — Second full Gold-32 rerun + updated honest report ⬜
+
+**No app-code branch.** Depends on Module 10.3 (done) and Modules 11–17.
+Re-run `evaluation/gold32_run.py` / `gold32_score.py` against the fully
+merged build. Report per-bucket mean/pass-rate against the original baseline
+(Complex Reasoning 0.10→?, Contextual Summarization 0.06→?, Creative
+Generation 0.04→?), and note for each of the 7 root causes whether it was
+confirmed fixed by a **non-gold paraphrase**, per each module's own verify
+step.
+
+## Module 19 — DeepEval 17-query harness context-capture fix ⬜
+
+**Branch:** `fix/deepeval-harness-context-capture`
+
+**Why:** `evaluation/EVALUATION_REPORT.md`'s own §4 flags that 3 of 5 metrics
+(Answer Relevancy 0.47, Hallucination 0.44, NameFactFidelity 0.16) score
+against an incomplete captured retrieval context — correct answers sourced
+from structured API fields get penalized as "hallucinated" because the
+harness never captured that context, only narrative chunks.
+
+**Files:** `evaluation/run_pipeline.py`'s `_parse_sse()` — capture the full
+retrieval context actually used (structured-aggregate and graph-node data,
+not just narrative chunk text).
+
+**Verify:** re-run the 17-query harness; the 3 previously-understated
+metrics move up specifically for the queries §3 flagged as unfairly
+penalized — not a blanket score inflation across all 17.
+
+## Module 20 — Judge-prompt "close numbers OK" tightening ⬜
+
+**Branch:** `fix/gold32-judge-close-number-tolerance`
+
+**Why:** A1 scored 0.30 despite getting female/unknown counts exactly right
+and the total off by a small margin — the testing team's own explicit rule
+("close numbers are OK, don't match word-by-word") isn't reliably applied by
+the judge prompt.
+
+**Files:** `evaluation/gold32_score.py`'s judge prompt — make the rule an
+explicit, worked-example instruction, not an implicit expectation.
+
+**Verify:** re-score A1's already-captured baseline answer under the updated
+prompt, confirm pass/partial-pass instead of 0.30, without changing how 2–3
+known-bad answers from the same baseline score.
+
+---
+
+## Sequencing note
+
+Modules 10.1–10.3 (done) were independent of each other and of Module 8.
+Finish and merge Module 8 first, run the original Module 9 rerun, then work
+through 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 in order against the resulting
+`main`. Modules 19 and 20 touch only `evaluation/`, never app code — safe to
+run in parallel with anything else in this plan, including before or after
+Module 18's rerun.
