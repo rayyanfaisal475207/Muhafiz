@@ -33,6 +33,25 @@ FIR registration) to be rejected repeatedly as insufficient on the stated ground
 "only lists section numbers" without "the full text or legal explanation" — that is not a
 missing data point for a which-provision-applies question; it is the answer itself.
 
+IMPORTANT — compound / multi-part questions:
+Many real questions ask TWO OR MORE things at once, often combining a
+reference/legal part with a data part — e.g. "What law governs how a report
+becomes an FIR, AND does our recordkeeping follow it?" or "What section
+covers X, and how many of our cases comply?". For these, return TRUE if the
+retrieved documents sufficiently answer AT LEAST the primary/answerable part
+of the question (typically the law/procedure/reference part). Do NOT return
+false merely because the documents don't also cover the SECONDARY part (e.g.
+the "does our recordkeeping follow it" compliance check, which lives in case
+data, not the legal corpus). A partial-but-substantive answer to a compound
+question is far more useful than a total abstention, and the generation step
+can answer the part it has evidence for and note what it cannot. Only return
+false for a compound question if the documents fail to answer ANY part of it.
+Confirmed live: "What legal requirement governs how a report of a crime
+becomes a formal FIR, and does our recordkeeping actually follow it?" was
+rejected because the legal documents (correctly retrieved) did not also
+address recordkeeping compliance — even though they DID answer the governing-
+law part, which is a complete, citable answer to the primary question.
+
 Examples of correct "true" decisions:
 - User asks "What law governs FIR registration and section 154?" — Document identifies
   Sections 154 and 155 of the Code of Criminal Procedure as governing FIR registration and
@@ -54,6 +73,14 @@ Examples of bad "false" reasons (too vague):
 - "Not enough information"
 - "Documents don't answer the question"
 
+Examples of bad "false" reasons (compound-question over-rejection):
+- "Documents identify the governing law for FIR registration but do not address
+  whether our recordkeeping follows it" — the governing-law part IS answered;
+  return TRUE and let generation handle the compliance part separately.
+
 Only return false when the retrieved chunks genuinely cannot answer the question — not merely because they use different words than the user did.
 
-Evaluate strictly: even if documents are on topic but missing the specific data point asked, return false.
+Evaluate strictly for a SINGLE-topic question: if documents are on topic but
+missing the specific data point asked, return false. But for a COMPOUND
+question (see above), answering the primary part is sufficient — do not
+require every sub-part to be covered before returning true.
