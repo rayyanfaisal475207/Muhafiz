@@ -4,8 +4,18 @@
 entire Gold-QA fix effort end to end — the original 9-module plan and the
 follow-on 10–20 platform-capability plan — so it can be picked up in any new
 chat/session without re-deriving context. Status below reflects git history
-on `main` as of **2026-09-05**; update the status table and each module's
-own status line as work lands.
+on `main` as of **2026-09-05 (updated same day — Module 8 and Module 11 both
+landed)**; update the status table and each module's own status line as work
+lands.
+
+**Multiple chats are actively working this plan concurrently as of this
+update** — Module 8 (chunking) and Module 11 (Meta-Analysis routing) were
+implemented in parallel sessions and merged into `main` back-to-back
+(`baf9425`/`2c4f8bc` and `b21eab7`/`1d635ed`), each in its own git worktree to
+avoid the two sessions colliding on the same working directory. See
+"Which modules can run independently right now" below before starting a new
+module in a fresh chat — it names which of 9/12–17/19/20 are genuinely
+file-independent versus which share a file and should be serialized.
 
 **Source documents this consolidates** (kept as-is for their original
 detail; this file is the authoritative status tracker going forward):
@@ -54,24 +64,69 @@ is `rayyanfaisal475207 <rayyanfaisal475207@users.noreply.github.com>`** — the
 | 5 | Evaluator compound-question relaxation | `fix/evaluator-compound-question-relaxation` | ✅ Merged |
 | 6 | XGRAPH answer-first summary phrasing | `fix/xgraph-summary-answer-first-phrasing` | ✅ Merged |
 | 7 | CP6 placeholder-officer count | `feature/xagg-placeholder-officer-count` | ✅ Merged |
-| 8 | CrPC/legal-PDF structure-aware chunking | `feature/crpc-structure-aware-chunking` | 🔶 **In progress** (current branch) |
-| 9 | First full Gold-32 rerun + report | *(docs only)* | ⬜ Not started (blocked on Module 8) |
+| 8 | CrPC/legal-PDF structure-aware chunking | `feature/crpc-structure-aware-chunking` | ✅ Merged (2 narrower follow-on gaps found, not blocking) |
+| 9 | First full Gold-32 rerun + report | *(docs only)* | ⬜ Not started (unblocked — Module 8 merged) |
 | 10 | Live reconfirmation sweep (18 untouched questions) | `chore/gold-qa-untouched-buckets-diagnosis` | ✅ Merged |
 | 10.1 | A1 ground-truth check | *(same branch as 10)* | ✅ Merged |
 | 10.2 | RC-6 root-cause isolation | *(same branch as 10)* | ✅ Merged (investigation only; fix pending in 15) |
 | 10.3 | Merge Gold-32 harness onto `main` | `chore/merge-gold32-eval-harness` | ✅ Merged |
-| 11 | Route compound/creative questions to Meta-Analysis (RC-0) | `fix/router-meta-analysis-trigger-coverage` | ⬜ Not started |
-| 12 | Stop XNETWORK/XGRAPH cluster-dump fallback (RC-1) | `fix/xnetwork-xgraph-broad-query-guard` | ⬜ Not started |
-| 13 | XAGG rate/time-bucket primitives + A1 aggregate (RC-2) | `feature/xagg-derived-aggregate-primitives` | ⬜ Not started |
-| 14 | CR7 criminal-record × court-outcome cross-check | `feature/xagg-criminal-record-court-crosscheck` | ⬜ Not started |
-| 15 | Field-consistency questions → XAGG/graph joins (RC-3 + RC-6) | `fix/router-field-consistency-to-xagg` | ⬜ Not started |
-| 16 | Cross-case scope LLM fallback (RC-4) | `fix/router-cross-case-scope-llm-fallback` | ⬜ Not started |
-| 17 | Verifier paraphrase-strictness relaxation (RC-5) | `fix/verifier-paraphrase-strictness-relaxation` | ⬜ Not started |
+| 11 | Route compound/creative questions to Meta-Analysis (RC-0) | `fix/router-meta-analysis-trigger-coverage` | ✅ Merged |
+| 12 | Stop XNETWORK/XGRAPH cluster-dump fallback (RC-1) | `fix/xnetwork-xgraph-broad-query-guard` | ⬜ Not started — **can start now** |
+| 13 | XAGG rate/time-bucket primitives + A1 aggregate (RC-2) | `feature/xagg-derived-aggregate-primitives` | ⬜ Not started — **can start now** |
+| 14 | CR7 criminal-record × court-outcome cross-check | `feature/xagg-criminal-record-court-crosscheck` | ⬜ Not started (blocked on 13) |
+| 15 | Field-consistency questions → XAGG/graph joins (RC-3 + RC-6) | `fix/router-field-consistency-to-xagg` | ⬜ Not started — shares `router.py` with 12/16 |
+| 16 | Cross-case scope LLM fallback (RC-4) | `fix/router-cross-case-scope-llm-fallback` | ⬜ Not started — shares `router.py` with 12/15 |
+| 17 | Verifier paraphrase-strictness relaxation (RC-5) | `fix/verifier-paraphrase-strictness-relaxation` | ⬜ Not started — **can start now** |
 | 18 | Second full Gold-32 rerun + updated report | *(docs only)* | ⬜ Not started (blocked on 10–17) |
-| 19 | DeepEval 17-query harness context-capture fix | `fix/deepeval-harness-context-capture` | ⬜ Not started |
-| 20 | Judge-prompt "close numbers OK" tightening | `fix/gold32-judge-close-number-tolerance` | ⬜ Not started |
+| 19 | DeepEval 17-query harness context-capture fix | `fix/deepeval-harness-context-capture` | ⬜ Not started — **can start now** |
+| 20 | Judge-prompt "close numbers OK" tightening | `fix/gold32-judge-close-number-tolerance` | ⬜ Not started — **can start now** |
 
-**Recommended order:** finish 8 → run 9 → 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 → (19, 20 whenever — parallel-safe with everything, eval-only).
+**Recommended order:** 9 → 12 → 13 → 14 → 15 → 16 → 17 → 18, with 12/15/16
+serialized against each other (all three touch `router.py`) rather than run
+concurrently — (19, 20, and now 9 are parallel-safe with everything, docs/eval-only).
+See "Which modules can run independently right now" below for the full
+per-module file-overlap reasoning.
+
+---
+
+## Which modules can run independently right now (updated after Module 11)
+
+With Module 8 and Module 11 both merged, four modules are genuinely
+file-independent of everything else still open and of each other — safe to
+hand to separate chats/sessions **right now**, each in its own git worktree
+(the pattern Modules 8 and 11 just used to avoid colliding on one working
+directory):
+
+| Module | Files touched | Why it's independent |
+|---|---|---|
+| **9** | *(docs only — runs `evaluation/gold32_run.py`/`gold32_score.py`, writes a report)* | No app code at all; reads whatever is on `main` at run time. |
+| **13** | `src/pipeline/xagg.py` | No other open module touches this file. |
+| **17** | `src/pipeline/verifier.py` | No other open module touches this file. |
+| **19** | `evaluation/run_pipeline.py` | Eval-only, already flagged parallel-safe in the original plan. |
+| **20** | `evaluation/gold32_score.py` | Eval-only, already flagged parallel-safe in the original plan. |
+
+**Module 12 can also start now**, but with one caveat: it shares
+`src/pipeline/router.py` with Modules 15 and 16 (all three add/modify
+override-pattern lists in that file). Running 12 concurrently with 15 or 16
+in separate chats won't produce a *wrong* fix — the three are logically
+independent capabilities — but it will produce a git merge conflict at
+whichever one merges second, since they'll all be editing nearby regions of
+the same file. **Recommendation: start Module 12 now if you want a second
+parallel track going, but hold 15 and 16 until 12 has merged**, then do 15
+and 16 sequentially (or accept manually resolving the conflict, which is
+mechanical — three additive pattern-list blocks, not overlapping logic).
+
+**Module 14 cannot start yet** — it's explicitly built on Module 13's
+rate/time-bucket primitives, so it's a sequential follow-on to 13, not a
+parallel track.
+
+**Module 18 cannot start yet** — it's the final Gold-32 rerun and depends on
+11–17 all being merged.
+
+So, concretely, right now: **9, 12, 13, 17, 19, 20 can all be started in
+parallel chats today** (six tracks); queue 15 and 16 behind whichever of them
+starts first on `router.py`; queue 14 behind 13; hold 18 until everything
+else is in.
 
 ---
 
@@ -223,39 +278,58 @@ matches zero rows); wired into routing keywords and all 3 rendering sites.
 
 **Verified:** new unit test; live CP6 → states the Module-1-confirmed number.
 
-## Module 8 — CrPC/legal-PDF structure-aware chunking 🔶 IN PROGRESS
+## Module 8 — CrPC/legal-PDF structure-aware chunking ✅ Merged
 
-**Branch:** `feature/crpc-structure-aware-chunking` (**current branch** —
-`src/ingestion/chunker.py` modified, `tests/test_ingestion_chunker.py` added,
-uncommitted as of this file's writing)
+**Branch:** `feature/crpc-structure-aware-chunking`
 
-**Problem:** CrPC 1898 PDF ingested with broken fixed-size chunking — 2,360
-chunks, only 5 mention "154" — so §154's actual statutory text ranks poorly
-for its own topic and KB legal questions retrieve the wrong law. Blocks all
-~8 excluded KB questions (KB1, KB2, KB3, KB4, KB5, KB6, KB8, KB9) — the
-single biggest score lever in the original dataset.
+**Problem confirmed:** PDF loaders return one Document per page, and
+`chunk_documents()` chunked each page independently, so every chunk boundary
+was silently also a page boundary — of 2,360 CrPC chunks, only 5 mentioned
+"154", and the real Section 154 heading landed in a chunk with no body text
+(the substantive text was severed onto a different page's chunk).
 
-**Scope:** larger than Modules 1–7 (ingestion-pipeline work). At minimum:
-re-ingest CrPC (and other legal PDFs) with section-boundary-aware chunking
-instead of fixed-size windows, drop/down-weight table-of-contents/index
-pages, optionally tag chunks with a `section` metadata field.
+**Fix:** `chunker.py`'s new `_group_pdf_pages()` concatenates consecutive
+same-source PDF-type Documents into one continuous text stream before
+chunking (gated on `metadata["type"] == "pdf"` — Excel/docx real splits
+untouched). `split_text_into_chunks()`'s public behavior is unchanged
+(refactored internally to also return per-chunk offsets, so merged-page
+`page` metadata stays correct). New `_looks_like_table_of_contents()`
+heuristic tags TOC/index fragments via the existing `section` metadata
+field. Scoped re-ingestion (not a full collection wipe) for all 7 KB PDFs —
+zero dropped pages, zero errors.
 
-**Verify:** a direct vector query for "Section 154" surfaces real statutory
-text, not table-of-contents fragments; live run of all 8 previously-excluded
-KB questions through `/api/chat`, graded contextually against gold.
+**Verified:** 9 new cases in `tests/test_ingestion_chunker.py` (the exact
+page-break regression, grouping-scope guards, page-metadata correctness, TOC
+tagging both directions); full existing ingestion-adjacent suites pass with
+no regressions.
 
-**Next step for whoever picks this up:** finish and commit the in-progress
-`chunker.py` change, run `tests/test_ingestion_chunker.py`, re-ingest the
-legal PDFs, then run the KB1–KB9 live verification above before merging.
+**Honest status — two narrower follow-on gaps found, out of this module's
+scope, not blocking Module 9:**
+1. Section 154's own body text appears genuinely missing from Docling's
+   markdown extraction for this specific paragraph (153/155/200 extract
+   fine) — an extraction-quality gap, not a chunking-boundary problem.
+2. Live RAG retrieval for a legal question sometimes surfaces real FIR case
+   documents instead of the legal KB corpus — a retrieval-scoping/ranking
+   issue, observed once on a live KB1 run.
 
-## Module 9 — First full Gold-32 rerun + report ⬜ Not started
+Net effect: the chunking bug itself is fixed and confirmed not to recur, but
+alone it did not visibly move the 3 live KB1/KB3 samples run post-re-ingestion
+(1 substantive-but-wrong-corpus, 2 abstentions) — consistent with this
+module's stated scope (chunking, not ranking or extraction quality). The two
+follow-on issues are not yet assigned a module number; flag them when
+scoping whatever picks up full KB-question coverage.
 
-**No app-code branch.** Blocked on Module 8 merging. Run
-`evaluation/gold32_run.py` then `evaluation/gold32_score.py` (both now
-available on `main` since Module 10.3) against the fully-fixed Modules 1–8
-build. Compare against `GOLD32_EVALUATION_REPORT.md`'s baseline (0.11 mean
+## Module 9 — First full Gold-32 rerun + report ⬜ Not started (unblocked)
+
+**No app-code branch.** Module 8 is merged, so this can run now. Run
+`evaluation/gold32_run.py` then `evaluation/gold32_score.py` (both available
+on `main` since Module 10.3) against the current build (Modules 1–8 and 11).
+Compare against `GOLD32_EVALUATION_REPORT.md`'s baseline (0.11 mean
 FactualCorrectness, 1/24 pass) and write an evidence-backed after-report —
-every claim backed by an actual captured output.
+every claim backed by an actual captured output. Given Module 8's own honest
+status above, expect KB1/KB3-style questions to still be weak (extraction/
+retrieval-scoping gaps, not yet fixed) — report that plainly rather than
+treating a still-weak KB bucket as a regression in this rerun.
 
 ---
 
@@ -283,12 +357,18 @@ Reading every one of the 18 questions' actual captured answers (not just
 scores) collapsed the failures into **7 root causes** (RC-0 through RC-6),
 each shared across multiple questions:
 
-- **RC-0 — Meta-Analysis never fires.** `src/pipeline/harness/agents/meta_analysis.py`
-  exists specifically to decompose a compound cross-case question into
-  sub-questions and synthesize across them — exactly the shape of every
-  Complex Reasoning/Contextual Summarization/Creative Generation question
-  here. **0 of 18 questions routed to `META_ANALYSIS`**, confirmed twice
-  (stale baseline and Module 10's live reconfirmation). Highest-leverage fix.
+- **RC-0 — Meta-Analysis never fires. ✅ FIXED in Module 11.**
+  `src/pipeline/harness/agents/meta_analysis.py` exists specifically to
+  decompose a compound cross-case question into sub-questions and
+  synthesize across them — exactly the shape of every Complex Reasoning/
+  Contextual Summarization/Creative Generation question here. **0 of 18
+  questions routed to `META_ANALYSIS`**, confirmed twice (stale baseline and
+  Module 10's live reconfirmation) — root cause was the trigger-pattern
+  regex itself matching 0/18 real question texts. Module 11 replaced the
+  patterns and confirmed live that Meta-Analysis now dispatches at the top
+  level; RC-1's cluster-dump defect (still open, Module 12) governs what the
+  *decomposed sub-query* answers with, so full answer quality on these
+  questions still needs Module 12 too.
 - **RC-1 — Broad cross-case questions fall back to XNETWORK's raw
   community-cluster dump.** CR3, CS4, M4, G1, G6: the answer is a wall of
   "This cluster centers on FIR X..." text unrelated to what was actually
@@ -374,33 +454,66 @@ CR6/CR8/G2 to get the real exception before writing the fix.
 could run without them. Cherry-picked onto `main`, no app-code changes rode
 along. Verified: `gold32_run.py` runs end-to-end against the live stack.
 
-## Module 11 — Route compound/comparative/creative questions to Meta-Analysis (RC-0) ⬜
+## Module 11 — Route compound/comparative/creative questions to Meta-Analysis (RC-0) ✅ DONE (merged 2026-09-05)
 
 **Branch:** `fix/router-meta-analysis-trigger-coverage`
 
-**Files:** `src/pipeline/router.py` (confirm exact classification site),
-`src/pipeline/harness/supervisor.py::classify_to_subagent()`,
-`src/pipeline/harness/agents/meta_analysis.py`'s trigger patterns/prompt.
+**Root cause, precisely pinned down (not just "narrow patterns" as
+suspected):** `_META_ANALYSIS_TRIGGER_PATTERNS` in
+`src/pipeline/harness/supervisor.py::classify_to_subagent()` was checked
+directly against the actual text of all 18 gold questions RC-0 was
+diagnosed from — **it matched 0 of 18**. The four original patterns were
+written against hypothetical connector phrasing from `findings.md`
+("summarize...across all", "aggregate...and flag") that none of the real
+questions use. `case_scope`/routing-order were NOT the problem — once a
+question's route already resolves to a cross-case route (XGRAPH/XAGG/
+XNETWORK, as these 18 mostly do), the classification is checked correctly
+and `case_scope="cross_case"` is already set; the trigger regex alone was
+the gap. `_VALID_ROUTES` in `router.py` also does not (and does not need
+to) include `META_ANALYSIS` — routing to it happens entirely inside
+`classify_to_subagent()`, downstream of `route_query()`, exactly as
+originally designed.
 
-**Also investigate:** Module 10.2's finding that M5/G5 classify to a
-different route (RAG vs. XAGG) on identical repeated runs — if the route
-classifier has a non-deterministic (LLM-based, uncached) step, fix that
-instability here too.
+**Fix:** replaced the 4 patterns with a set mined directly from the 18
+questions' own text (English, Urdu, Roman Urdu), grouped into the three
+shapes they actually take: (A) role-play/whole-caseload evaluative review
+(G1 + its own live paraphrase, G2, G3, G5, G6), (B) comparative-over-time/
+branching comparison (M1, M2, M5, M7), (C) cross-record consistency/
+confirmation (CR3, CR6, CR7, CR8, CS4, M4). Covers 16/18 by design — **A1
+and CR4 are deliberately excluded**: A1 is a flat ratio (Module 13's job),
+CR4 is a single traversal chain (weapon→accused→status, Module 12's job),
+neither is a decomposition candidate. Original 4 patterns kept alongside
+the new ones (cheap fast-path into the decomposer LLM call, which can
+itself still say "no decomposition needed" — so casting a wider net here
+was low-risk, confirmed against 5 benign single-focus queries that must
+NOT trigger it).
 
-**What:** determine exactly why these 18 never reach `META_ANALYSIS` —
-narrow trigger patterns, an earlier route claiming the query first, or
-`case_scope` not resolving to `cross_case` — and fix that gate. Highest
-leverage: if Meta-Analysis correctly decomposes e.g. "review the caseload
-and flag anything unusual" into sub-questions and synthesizes across
-already-correct, tool-verified sub-answers, it should move most of
-G1/G2/G3/G6, M1/M2/M4/M5/M7, and several CR questions at once.
+**Module 10.2's M5/G5 route non-determinism** was investigated separately
+and found to be unrelated to this module's fix — it's route-classification
+noise (RAG vs. XAGG on identical repeated queries), not a Meta-Analysis
+trigger-coverage gap; still open, not carried into any module number yet.
 
-**Verify:**
-- `tests/test_harness_supervisor.py` + meta-analysis's own test file, full pass.
-- Live: G1's exact text + a paraphrase (e.g. "Is there anything about this
-  caseload a supervisor should be worried about?") → routes to
-  `META_ANALYSIS`, decomposes, synthesizes specific correct sub-facts, not a
-  community-cluster dump.
+**Verified:**
+- `tests/test_harness_supervisor.py` — added a regression test pinned to
+  the literal text of all 16 covered gold questions, plus one confirming a
+  flat-aggregate question (CP1) still does NOT trigger Meta-Analysis. 127
+  tests pass (up from 110), plus `test_harness_agent_meta_analysis.py` and
+  `test_router.py` unaffected.
+- **Live**, against a real backend (isolated git worktree, same Postgres/
+  Chroma as the working stack): G1's exact gold text **and** the paraphrase
+  "Is there anything about this caseload a supervisor should be worried
+  about?" both dispatch `route='XNETWORK' -> sub-agent='Meta-Analysis'` at
+  the top level, confirmed from the raw SSE event stream (a naive read that
+  keeps only the *last* route/sub-agent event in the stream is misleading —
+  Meta-Analysis's own recursive sub-query dispatch emits a second event for
+  whatever route the sub-question resolves to, e.g. `XNETWORK ->
+  Cross-Case Linkage`, which overwrites a naive last-write parse).
+- **Known limitation, correctly out of scope:** the decomposed sub-query's
+  synthesized answer for G1 is still a community-cluster dump (RC-1) — that
+  is Module 12's fix, not this one. Module 11's job was only getting
+  Meta-Analysis *reachable*, and it now is; the plan's own stricter verify
+  wording ("synthesizes specific correct sub-facts, not a cluster dump")
+  needs Module 12 layered on top to fully satisfy.
 
 ## Module 12 — Stop XNETWORK/XGRAPH cluster-dump fallback (RC-1) ⬜
 
@@ -567,9 +680,9 @@ known-bad answers from the same baseline score.
 
 ## Sequencing note
 
-Modules 10.1–10.3 (done) were independent of each other and of Module 8.
-Finish and merge Module 8 first, run the original Module 9 rerun, then work
-through 11 → 12 → 13 → 14 → 15 → 16 → 17 → 18 in order against the resulting
-`main`. Modules 19 and 20 touch only `evaluation/`, never app code — safe to
-run in parallel with anything else in this plan, including before or after
-Module 18's rerun.
+Modules 10.1–10.3, Module 8, and Module 11 are all done. See "Which modules
+can run independently right now" (above §0) for the current, up-to-date
+parallelization picture: **9, 12, 13, 17, 19, 20 can all start now, in
+parallel, each in its own worktree** — 12 shares `router.py` with 15/16 so
+those two should queue behind whichever of 12/15/16 starts first; 14 queues
+behind 13; 18 waits for everything (10–17) to land.
