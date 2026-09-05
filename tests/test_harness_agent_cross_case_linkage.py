@@ -952,14 +952,17 @@ _CASES = ["fir-201-26", "fir-202-26"]
 
 
 def test_weak_chain_is_reported_as_possible_not_confirmed():
+    # [Gold-QA fix — Module 6] Phrasing is now answer-first ("Yes — … a
+    # possible cross-case link"); a weak chain must still read as
+    # tentative/possible, never as a flat confirmed assertion.
     text = _xgraph_summary_line(_CASES, 1, 0, chain_confidence=0.50)
-    assert "possible connections" in text
-    assert "found confirmed connections" not in text
+    assert "possible" in text and "uncertainty" in text
+    assert "confirmed cross-case link" not in text
 
 
 def test_strong_chain_may_still_say_confirmed():
     text = _xgraph_summary_line(_CASES, 1, 0, chain_confidence=0.95)
-    assert "found confirmed connections" in text
+    assert "confirmed cross-case link" in text
 
 
 def test_chain_confidence_is_surfaced_to_the_reader():
@@ -978,7 +981,7 @@ def test_threshold_boundary_is_not_hedged():
     """Exactly at the threshold counts as confident, matching the verifier's
     own 0.85 hedging rule so the two cannot disagree."""
     text = _xgraph_summary_line(_CASES, 1, 0, chain_confidence=_CONFIDENT_CHAIN_THRESHOLD)
-    assert "found confirmed connections" in text
+    assert "confirmed cross-case link" in text
 
 
 def test_no_links_message_is_unchanged_and_carries_no_caveat():
@@ -990,3 +993,28 @@ def test_unconfirmed_matches_still_reported():
     text = _xgraph_summary_line(_CASES, 1, 2, chain_confidence=0.95)
     assert "2 additional possible identity matches" in text
     assert "unconfirmed" in text
+
+
+# ── Gold-QA fix — Module 6: answer-first phrasing ────────────────────────────
+# A cross-case-link question ("is anyone a repeat suspect across cases?")
+# must read as a direct answer, not a debug-log-style "Entity-graph search
+# found …" line — the underlying facts (case ids, hop depth, confidence,
+# identity caveat) are unchanged, only the lead-in framing.
+
+def test_confident_chain_leads_with_a_plain_yes():
+    text = _xgraph_summary_line(_CASES, 1, 0, chain_confidence=0.95)
+    assert text.startswith("Yes —")
+    assert "Entity-graph search found" not in text
+
+
+def test_tentative_chain_leads_with_a_hedged_yes():
+    text = _xgraph_summary_line(_CASES, 1, 0, chain_confidence=0.50)
+    assert text.startswith("Yes (with some uncertainty) —")
+
+
+def test_answer_first_phrasing_still_names_the_case_ids_and_hop_depth():
+    """The reframe must not drop any fact the old phrasing stated."""
+    text = _xgraph_summary_line(_CASES, 2, 0, chain_confidence=0.95)
+    for case_id in _CASES:
+        assert case_id in text
+    assert "depth 2 hop(s)" in text
