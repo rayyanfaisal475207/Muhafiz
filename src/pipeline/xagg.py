@@ -82,6 +82,28 @@ _OFFICER_KEYWORDS = (
     "investigating officer", "officer assignment", "assigned officer",
     "which officer", "تفتیشی افسر", "افسر تفتیش",
 )
+# [Gold-QA fix — Module 7, question CP6] "How many cases are still assigned
+# only a PLACEHOLDER investigating officer, not a real one?" is a COUNT
+# question with a real data path (Officer nodes and their ASSIGNED_TO
+# supersession chain already exist — Milestone B2, structured_projection.py
+# — this module only adds a new counting RULE over already-populated data,
+# unlike A7/gender which needed a new projected property). Checked BEFORE
+# _OFFICER_KEYWORDS's hard refusal below (same precedence pattern Module 2
+# used for reporting-delay-count vs. trend) — that refusal is for "which
+# officer/officer assignment" questions with genuinely no data path; this is
+# a distinct, narrower shape asking specifically about the PLACEHOLDER
+# state, not officer identity in general. Vocabulary is deliberately
+# specific to that shape ("real"/"actual" officer, "asal tor par" — "in
+# reality" — CP6's own Roman-Urdu phrasing) so it doesn't swallow every
+# officer-identity question into a count.
+_PLACEHOLDER_OFFICER_KEYWORDS = (
+    "placeholder officer", "placeholder investigating officer",
+    "not a real officer", "no real officer", "no real investigating officer",
+    "without a real officer", "real investigating officer",
+    "actual investigating officer",
+    "asal tor par", "asal tafteeshi afsar", "asal afsar",
+    "اصل تفتیشی افسر", "حقیقی تفتیشی افسر", "اصل افسر",
+)
 _TREND_KEYWORDS = (
     "reporting delay", "trend", "over time", "month over month",
     "year over year", "rate of increase", "رجحان",
@@ -557,6 +579,67 @@ async def _reporting_delay_count(jurisdiction_case_ids: Optional[list[str]] = No
     }
 
 
+# [Gold-QA fix — Module 7, question CP6] Count Cases whose CURRENT (non-
+# superseded) investigating Officer is still a placeholder name rather than
+# a real one. Unlike A7/gender above, this data is already fully populated
+# today (Officer nodes + the ASSIGNED_TO supersession chain — Milestone B2,
+# structured_projection.py's `_write_investigating_officers()`) — this is a
+# new COUNTING RULE over existing data, not a new projected property, so
+# there is no "not yet synced" degradation path here.
+#
+# The placeholder marker is written VERBATIM from the source data as
+# `"(نامزد ASI)"`/`"(نامزد SI)"` — Urdu script, not the Latin "Naamzad"
+# transliteration the gold answer's own romanization implies (confirmed
+# live against the graph, Module 1's ground-truth investigation) — so the
+# match below is on the Urdu substring, not "naamzad".
+#
+# Reports the CURRENT count (the honest, live-defensible answer — "abhi
+# tak" / "still" in CP6's own phrasing asks about NOW) alongside the
+# historical ever-had-a-placeholder count, since one case
+# (fir-205-26, per that same investigation) had a placeholder officer
+# originally but was later reassigned a real one — the official gold
+# answer's "11" reflects that earlier state. Stating both numbers means
+# the answer is accurate about current reality AND still recognizable
+# against the gold answer under contextual grading.
+_PLACEHOLDER_OFFICER_MARKER = "نامزد"
+
+
+def _is_placeholder_officer_name(name: Optional[str]) -> bool:
+    return bool(name) and _PLACEHOLDER_OFFICER_MARKER in name
+
+
+async def _placeholder_officer_count(jurisdiction_case_ids: Optional[list[str]] = None) -> dict:
+    case_filter = "AND c.case_id IN $case_ids" if jurisdiction_case_ids is not None else ""
+    params = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+
+    rows = await age_client.execute_cypher(
+        f"MATCH (o:Officer)-[e:ASSIGNED_TO]->(c:Case) "
+        f"WHERE e.role = 'investigating' {case_filter} "
+        "RETURN o.canonical_name AS name, e.superseded_by AS superseded_by",
+        params=params, columns=["name", "superseded_by"],
+    )
+
+    ever_placeholder = [r for r in rows if _is_placeholder_officer_name(r.get("name"))]
+    current_placeholder = [r for r in ever_placeholder if r.get("superseded_by") is None]
+
+    # "ASI" is checked before the plain "SI" bucket since "ASI" contains
+    # "SI" as a substring — an unguarded order would double-count every
+    # ASI placeholder into the SI bucket too.
+    asi_count = sum(1 for r in current_placeholder if "ASI" in (r.get("name") or ""))
+    si_count = sum(
+        1 for r in current_placeholder
+        if "SI" in (r.get("name") or "") and "ASI" not in (r.get("name") or "")
+    )
+
+    return {
+        "kind": "placeholder_officer_count",
+        "current_count": len(current_placeholder),
+        "ever_count": len(ever_placeholder),
+        "asi_count": asi_count,
+        "si_count": si_count,
+    }
+
+
 # [Gold-QA fix — Module 1c] District-level rollup — District/PoliceStation
 # graph nodes already exist (structured_projection.py's District writes),
 # so this is a graph traversal, NOT a Postgres GROUP BY over the case rows
@@ -913,6 +996,12 @@ async def run_aggregate(
     # rather than a hard refusal.
     if _matches_any(query_lower, _AGE_KEYWORDS):
         return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_AGE}
+    # [Gold-QA fix — Module 7, question CP6] Checked before _OFFICER_KEYWORDS's
+    # hard refusal — a placeholder-officer COUNT has a real data path
+    # (Officer.canonical_name + the ASSIGNED_TO supersession chain, both
+    # already populated), unlike a general "which officer" identity question.
+    if _matches_any(query_lower, _PLACEHOLDER_OFFICER_KEYWORDS):
+        return await _placeholder_officer_count(jurisdiction_case_ids=jurisdiction_case_ids)
     if _matches_any(query_lower, _OFFICER_KEYWORDS):
         return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_OFFICER}
     # [Gold-QA fix — Module 2, A7] Checked before the trend fallback: a

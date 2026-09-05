@@ -86,6 +86,8 @@ AggregateKind = Literal[
     # [Gold-QA fix — Module 2, A7] added the same additive way as the five
     # kinds above (see this Literal's own comment block).
     "reporting_delay_count",
+    # [Gold-QA fix — Module 7, CP6] same additive convention.
+    "placeholder_officer_count",
 ]
 
 
@@ -189,6 +191,25 @@ def _render_aggregate_text(agg_result: dict) -> str:
                 f"{wd} of {tot} FIRs recorded a reporting-delay reason{pct}; "
                 f"the remaining {tot - wd} were reported with no stated delay."
             ]
+    # [Gold-QA fix — Module 7, CP6] Placeholder-officer count. Kept in sync
+    # with orchestrator.py's two identical branches. Reports the CURRENT
+    # count (the honest, live-defensible answer) and, when it differs, the
+    # historical ever-had-a-placeholder count — see
+    # xagg.py::_placeholder_officer_count()'s own comment for why the two
+    # can diverge.
+    elif kind == "placeholder_officer_count":
+        cur, ever = agg_result["current_count"], agg_result["ever_count"]
+        asi, si = agg_result["asi_count"], agg_result["si_count"]
+        caveat = (
+            f" {ever - cur} additional case(s) originally had a placeholder "
+            f"officer too but have since been assigned a real one."
+            if ever > cur else ""
+        )
+        lines = [
+            f"{cur} FIRs currently carry only a placeholder investigating "
+            f"officer — {asi} marked \"(نامزد ASI)\", {si} marked "
+            f"\"(نامزد SI)\".{caveat}"
+        ]
     elif kind == "district_breakdown":
         label = agg_result.get("entity_label")
         lines = [

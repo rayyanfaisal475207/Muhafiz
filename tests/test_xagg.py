@@ -794,6 +794,60 @@ async def test_reporting_delay_count_pre_backfill_is_an_honest_not_yet_synced(mo
     assert result["unsupported"] is True
 
 
+# [Gold-QA fix — Module 7, CP6] Placeholder-officer count.
+
+def _officer_row(name, superseded_by=None):
+    return {"name": name, "superseded_by": superseded_by}
+
+
+async def test_placeholder_officer_count_question_routes_and_counts_correctly(monkeypatch):
+    rows = [
+        _officer_row("(نامزد ASI)"),                     # current placeholder, ASI
+        _officer_row("(نامزد ASI)"),                     # current placeholder, ASI
+        _officer_row("(نامزد SI)"),                       # current placeholder, SI
+        _officer_row("طارق"),                              # current, real name — not a placeholder
+        _officer_row("(نامزد ASI)", superseded_by=12345),  # HISTORICAL placeholder, since replaced
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        "Kitne cases abhi tak bina kisi tafteeshi afsar ke asal tor par muqarrar kiye pade hue hain?",
+        None, gateway=None, user_role="supervisor",
+    )
+
+    assert result["kind"] == "placeholder_officer_count"
+    assert result["current_count"] == 3
+    assert result["ever_count"] == 4
+    assert result["asi_count"] == 2
+    assert result["si_count"] == 1
+
+
+async def test_placeholder_officer_asi_is_not_double_counted_into_si_bucket(monkeypatch):
+    """"(نامزد ASI)" contains "SI" as a substring — the SI bucket must not
+    also count every ASI placeholder."""
+    rows = [_officer_row("(نامزد ASI)")]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        "how many cases have a placeholder investigating officer",
+        None, gateway=None, user_role="supervisor",
+    )
+
+    assert result["asi_count"] == 1
+    assert result["si_count"] == 0
+
+
+async def test_general_officer_identity_question_is_still_unsupported(monkeypatch):
+    """Regression guard: the new placeholder-specific keywords must not
+    swallow a general "which officer" identity question — that still has
+    no data path and must keep its honest hard refusal."""
+    result = await xagg.run_aggregate(
+        "which investigating officer has the most cases", None, gateway=None, user_role="supervisor"
+    )
+
+    assert result["kind"] == "unsupported_aggregate"
+
+
 async def test_gender_question_without_populated_data_is_an_honest_not_yet_synced(monkeypatch):
     """Pre-backfill: no Person node carries a gender property yet — must
     say so, not silently return zero or an unrelated number."""
