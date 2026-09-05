@@ -72,8 +72,8 @@ is `rayyanfaisal475207 <rayyanfaisal475207@users.noreply.github.com>`** — the
 | 10.3 | Merge Gold-32 harness onto `main` | `chore/merge-gold32-eval-harness` | ✅ Merged |
 | 11 | Route compound/creative questions to Meta-Analysis (RC-0) | `fix/router-meta-analysis-trigger-coverage` | ✅ Merged |
 | 12 | Stop XNETWORK/XGRAPH cluster-dump fallback (RC-1) | `fix/xnetwork-xgraph-broad-query-guard` | ✅ Merged |
-| 13 | XAGG rate/time-bucket primitives + A1 aggregate (RC-2) | `feature/xagg-derived-aggregate-primitives` | ⬜ Not started — **can start now** |
-| 14 | CR7 criminal-record × court-outcome cross-check | `feature/xagg-criminal-record-court-crosscheck` | ⬜ Not started (blocked on 13) |
+| 13 | XAGG rate/time-bucket primitives + A1 aggregate (RC-2) | `feature/xagg-derived-aggregate-primitives` | ✅ Merged |
+| 14 | CR7 criminal-record × court-outcome cross-check | `feature/xagg-criminal-record-court-crosscheck` | ⬜ Not started — **can start now** (13 merged) |
 | 15 | Field-consistency questions → XAGG/graph joins (RC-3 + RC-6) | `fix/router-field-consistency-to-xagg` | ⬜ Not started — shares `router.py` with 16 (Module 12 turned out not to touch `router.py` — confirmed by reading it, no conflict there) |
 | 16 | Cross-case scope LLM fallback (RC-4) | `fix/router-cross-case-scope-llm-fallback` | ⬜ Not started — shares `router.py` with 15 |
 | 17 | Verifier paraphrase-strictness relaxation (RC-5) | `fix/verifier-paraphrase-strictness-relaxation` | ✅ Merged |
@@ -81,27 +81,27 @@ is `rayyanfaisal475207 <rayyanfaisal475207@users.noreply.github.com>`** — the
 | 19 | DeepEval 17-query harness context-capture fix | `fix/deepeval-harness-context-capture` | ⬜ Not started — **can start now** |
 | 20 | Judge-prompt "close numbers OK" tightening | `fix/gold32-judge-close-number-tolerance` | ⬜ Not started — **can start now** |
 
-**Recommended order:** 9 → 13 → 14 → 15 → 16 → 18 (12 and 17 already
+**Recommended order:** 9 → 14 → 15 → 16 → 18 (12, 13, and 17 already
 merged), with 15/16 serialized against each other (both touch `router.py`)
-rather than run concurrently — (19, 20, and 9 are parallel-safe with
-everything, docs/eval-only).
+rather than run concurrently — (19, 20, 9, and now 14 are all startable
+today).
 See "Which modules can run independently right now" below for the full
 per-module file-overlap reasoning.
 
 ---
 
-## Which modules can run independently right now (updated after Module 12/17)
+## Which modules can run independently right now (updated after Module 13)
 
-With Modules 8, 11, 12, and 17 all merged, the remaining open modules that
-are genuinely file-independent of everything else still open and of each
-other are safe to hand to separate chats/sessions **right now**, each in its
-own git worktree (the pattern Modules 8, 11, 12, and 17 all used to avoid
+With Modules 8, 11, 12, 13, and 17 all merged, the remaining open modules
+that are genuinely file-independent of everything else still open and of
+each other are safe to hand to separate chats/sessions **right now**, each in
+its own git worktree (the pattern every merged module above used to avoid
 colliding on one working directory):
 
 | Module | Files touched | Why it's independent |
 |---|---|---|
 | **9** | *(docs only — runs `evaluation/gold32_run.py`/`gold32_score.py`, writes a report)* | No app code at all; reads whatever is on `main` at run time. |
-| **13** | `src/pipeline/xagg.py` | No other open module touches this file. |
+| **14** | `src/pipeline/xagg.py` (built on Module 13's now-merged primitives) or a small new harness tool — confirm which during implementation | Module 13 is merged, so this is now unblocked; no other open module touches `xagg.py`. |
 | **19** | `evaluation/run_pipeline.py` | Eval-only, already flagged parallel-safe in the original plan. |
 | **20** | `evaluation/gold32_score.py` | Eval-only, already flagged parallel-safe in the original plan. |
 
@@ -113,16 +113,24 @@ between **Modules 15 and 16** — run those two sequentially against each
 other (or accept manually resolving the resulting conflict, which is
 mechanical: two additive pattern-list blocks, not overlapping logic).
 
-**Module 14 cannot start yet** — it's explicitly built on Module 13's
-rate/time-bucket primitives, so it's a sequential follow-on to 13, not a
-parallel track.
+**Module 13's own live verification surfaced one bug outside its stated
+file scope**, worth knowing before starting Module 14 (which sits on the
+same file): `src/pipeline/harness/tools/xagg.py`'s `XAggToolResult
+.aggregate_kind` is a hand-maintained `Literal` enum, SEPARATE from
+`run_aggregate()`'s own result `kind` strings — every new `xagg.py` result
+kind needs an additive entry there too, or it crashes `XAggToolResult`
+construction with a Pydantic `literal_error` the instant XAGG reaches the
+harness cutover path (confirmed live: this silently swallowed CP1's and
+M7's answers into an empty response with no user-visible error, until
+found and fixed). Module 14 should check this Literal on its own new
+result kind(s) before considering itself live-verified.
 
 **Module 18 cannot start yet** — it's the final Gold-32 rerun and depends on
 11–17 all being merged.
 
-So, concretely, right now: **9, 13, 15, 19, 20 can all be started in
-parallel chats today** (16 queued behind 15 on `router.py`); queue 14 behind
-13; hold 18 until everything else is in.
+So, concretely, right now: **9, 14, 15, 19, 20 can all be started in
+parallel chats today** (16 queued behind 15 on `router.py`); hold 18 until
+everything else is in.
 
 ---
 
@@ -589,32 +597,89 @@ asked it to "synthesize" around it, which was RC-1's own bug shape.
     2016..."* (unrelated to the online-banking-fraud question asked).
     After: the same honest relevance-gate message, nearest distance 0.156.
 
-## Module 13 — XAGG rate/time-bucket primitives + A1 aggregate (RC-2) ⬜
+## Module 13 — XAGG rate/time-bucket primitives + A1 aggregate (RC-2) ✅ DONE (merged 2026-09-05)
 
 **Branch:** `feature/xagg-derived-aggregate-primitives`
 
-**Files:** `src/pipeline/xagg.py` — two composable primitives instead of
-more one-off functions:
-1. **Rate/ratio helper**: `count(subset) / count(group total)` per group
-   (powers CP1 — weapons recovered ÷ total cases, per district).
-2. **Time-bucket helper**: partition any aggregate by year (from
-   `incident_date`/`report_date`), diffable across buckets (powers M1's
-   2024-vs-now statute mix, M7's year-over-year mean reporting-delay, M5's
-   year-over-year weapon/statute co-occurrence).
+**Delivered, in `src/pipeline/xagg.py`:**
+1. **`_rate_breakdown(subset_counts, total_counts)`** — `subset/total` per
+   group, skipping (not fabricating) a rate for a zero-total group. Powers
+   **CP1**'s `_weapon_recovery_rate_by_district()` — dispatched when a
+   district+weapon query also carries a rate/relative-to-caseload signal,
+   so the existing plain "which district recovers the most weapons" flat
+   count is untouched.
+2. **`_extract_year()`/`_count_breakdown_by_year()`** — partitions rows by
+   year from a `YYYY-MM-DD`-shaped date field, supporting multi-key rows
+   (e.g. a comma-joined multi-act `crime_category`). Powers **M1**'s
+   `_statute_mix_by_year()` and **M7**'s `_reporting_delay_rate_by_year()`.
 
-Wire both into routing keywords and all rendering sites (same discipline as
-Modules 2/7). **Also add A1's accused-gender-ratio aggregate here** — same
-flat-count shape as D1/CP6, built against Module 10.1's resolved
-denominator (67 M / 24 F / 3 unknown / 94 total, counting edges not distinct
-persons — see `evaluation/GROUND_TRUTH_NOTES.md` §4).
+**M5 (weapon/statute co-occurrence by year) was NOT built** — out of this
+module's actual verify list; flag as a light follow-on if it's ever needed,
+since it would reuse the same two primitives.
 
-**Verify:**
-- New unit tests for both primitives, one each for CP1/M1/M7/M5, one for A1.
-- `tests/test_xagg.py` full pass.
-- Live: CP1, M1, M7, M5, A1's exact text → each states the real
-  derived number/comparison, not a flat count or "additional data required."
-- One non-gold paraphrase per primitive (e.g. "what fraction of
-  Faisalabad's cases involve a firearm?").
+**Two real data-model findings, same shape as A1's own bug, surfaced and
+handled honestly rather than fabricated:**
+- **M1**: `crime_category` is **not a graph property at all** — confirmed
+  by reading `structured_projection.py` (never written onto the Case
+  node) and by an early version of this function silently returning empty
+  buckets, no exception, when it tried reading it from the graph directly.
+  Fixed by joining the graph's real per-case incident-year data against
+  Postgres's `crime_category` (via `gateway.get_cases()`) by `case_id`.
+- **M7**: a true numeric day-count reporting delay **cannot be computed
+  today** — `report_datetime` exists on the raw FIR record (already read
+  once elsewhere, for officer-supersession tracking) but is never
+  projected as a structured, queryable delay value anywhere in the graph.
+  `_reporting_delay_rate_by_year()` instead reports the honestly-labeled
+  RATE of FIRs recording a delay reason per year (real, computed,
+  self-heals to a true mean-days figure with no code change once
+  `report_datetime` is projected) — flagged as a follow-on ingestion task,
+  not assigned a module number yet.
+
+**M2 (station-type-normalized caseload)** — confirmed no station-type
+dimension exists anywhere in the data model (`PoliceStation` carries only
+`name`/`code`); returns a new honest `unsupported_aggregate` refusal
+(`_UNSUPPORTED_STATION_TYPE`) instead of silently answering a flat
+per-station count — a different, easier question than the one asked.
+
+**A1's fix, exactly as Module 10.1 diagnosed:** `_gender_breakdown()` now
+counts every accused **edge**, not `DISTINCT entity_id` — a recidivist
+accused in two FIRs (already known from CR2/S3) was collapsing to one
+entry, losing 2 from the total. Live-confirmed: **67 M / 24 F / 94
+total**, matching gold exactly (previously 65 M / 92 total).
+
+**A real bug found and fixed outside `xagg.py`'s own file, during
+verification, not assumed from the plan:** `src/pipeline/harness/tools/
+xagg.py`'s `XAggToolResult.aggregate_kind` is a hand-maintained `Literal`
+type, separate from `run_aggregate()`'s own result-`kind` strings (the
+same class of gap that Literal's own docstring already documents for 7
+prior kinds). All three new kinds crashed `XAggToolResult` construction
+with a Pydantic `literal_error` the instant XAGG reached the harness
+cutover path — CP1's and M7's live answers came back **empty with no
+user-visible error** (swallowed into a bare "Chat pipeline error" log
+line) until this was traced via the actual backend traceback and fixed
+additively, same convention as every prior addition to that Literal.
+
+**Verified:**
+- `tests/test_xagg.py` — 59 tests (up from 48): both primitives tested
+  directly, one test each for CP1/M1/M7/M2, a regression pin for the exact
+  A1 edge-vs-distinct-node bug, and a regression guard that a plain
+  district+weapon query (no rate signal) keeps its old flat-count
+  behavior. `tests/test_harness_tool_xagg.py`, `tests/test_orchestrator.py`,
+  `tests/test_verifier.py`, `tests/test_harness_supervisor.py` all pass —
+  509 total after merging concurrently-landed Modules 12/17, 1
+  pre-existing documented flaky xpass unrelated to this change.
+- **Live**, against a running backend (isolated git worktree, same
+  Postgres/AGE/Chroma as the working stack): CP1, M7, A1, M2's exact gold
+  text all return real, correct, honestly-scoped answers. CP1 in
+  particular correctly ranks Hyderabad (60% recovery rate, 3/5 cases)
+  above Faisalabad's higher raw count (10/19 cases, 53%) — the entire
+  point of this being a rate primitive, not a flat count. M1 verified via
+  a non-gold paraphrase ("how does the case mix this year compare to a
+  couple of years back?") rather than its own exact gold text, which
+  non-deterministically routed to XGRAPH/Meta-Analysis instead of XAGG
+  during this session's live check (Module 10.2's already-documented route
+  non-determinism, RC-0/RC-4-adjacent, not a Module 13 defect) — worth a
+  second live check against M1's own exact text once that's addressed.
 
 ## Module 14 — CR7 criminal-record × court-outcome cross-check ⬜
 
@@ -768,9 +833,9 @@ known-bad answers from the same baseline score.
 
 ## Sequencing note
 
-Modules 10.1–10.3, Module 8, and Module 11 are all done. See "Which modules
+Modules 10.1–10.3, 8, 11, 12, 13, and 17 are all done. See "Which modules
 can run independently right now" (above §0) for the current, up-to-date
-parallelization picture: **9, 12, 13, 17, 19, 20 can all start now, in
-parallel, each in its own worktree** — 12 shares `router.py` with 15/16 so
-those two should queue behind whichever of 12/15/16 starts first; 14 queues
-behind 13; 18 waits for everything (10–17) to land.
+parallelization picture: **9, 14, 15, 19, 20 can all start now, in
+parallel, each in its own worktree** — 15 and 16 share `router.py` (12
+turned out not to touch it) so those two should queue against each other;
+18 waits for everything (10–17) to land.
