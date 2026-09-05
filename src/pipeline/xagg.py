@@ -134,6 +134,46 @@ _CRIMINAL_RECORD_KEYWORDS = (
     "کرمنل ریکارڈ", "کرمنل ریکارڈ سسٹم", "عدالتی ریکارڈ", "عدالتی نتیجے",
     "زیرِ کارروائی", "زیر کارروائی", "سزا یافتہ", "مطابقت رکھتے",
 )
+# [Gold-QA fix — CR6, Module 15] Walk-in CMS complaint ↔ FIR linkage
+# questions. CR6 (Urdu): when someone walks into a station and files a
+# complaint, does it link to a formal FIR or stay separate? English / Urdu /
+# Roman-Urdu.
+_CMS_LINKAGE_KEYWORDS = (
+    "walk-in complaint", "walk in complaint", "cms complaint",
+    "complaint linked to", "complaint connect", "complaint attached to fir",
+    "shikayat", "walk in shikayat",
+    "شکایت درج", "تھانے آ کر شکایت", "شکایت", "منسلک", "الگ الگ رہتے",
+)
+# [Gold-QA fix — CR8, Module 15] Domestic-violence report ↔ FIR confirmation
+# questions. CR8 (Urdu): if a DV complaint was recorded as converted into a
+# formal case, does the case record confirm it? English / Urdu / Roman-Urdu.
+_DV_REPORT_KEYWORDS = (
+    "domestic violence", "domestic-violence", "women violence",
+    "violence report", "converted into a case", "forwarded fir",
+    "gharelu tashaddud", "converted to fir",
+    "گھریلو تشدد", "باقاعدہ کیس میں تبدیل", "کیس ریکارڈ سے",
+)
+# [Gold-QA fix — G2, Module 15] Data-completeness / "which cases are weak or
+# might be overlooked" questions. G2 (Urdu, briefing an SHO on cases that
+# might get buried). English / Urdu / Roman-Urdu.
+_COMPLETENESS_KEYWORDS = (
+    "incomplete", "overlooked", "might be buried", "fall through the cracks",
+    "weak record", "not reliable", "worth monitoring", "data quality",
+    "which cases might", "cases that might be",
+    "dab kar", "nazar se ojhal", "adhoora record",
+    "دب کر", "نظر سے اوجھل", "نامکمل", "دبے", "بریفنگ", "مقدمے دب",
+)
+# [Gold-QA fix — G5, Module 15] Weapon-register COMPLIANCE questions. G5
+# (Roman-Urdu): given recovered weapons, is anything flag-worthy for
+# compliance? Deliberately requires a licence/compliance signal (not a bare
+# "weapon", which is the recurrence aggregate's job) — the dispatch below
+# gates on a weapon term AND a licence/compliance term co-occurring.
+_WEAPON_TERMS = ("weapon", "hathiyar", "firearm", "baramad", "ہتھیار", "اسلحہ")
+_COMPLIANCE_TERMS = (
+    "license", "licence", "unlicensed", "compliance", "flag",
+    "record keeping", "record-keeping",
+    "لائسنس", "بغیر لائسنس", "کمپلائنس",
+)
 _TREND_KEYWORDS = (
     "reporting delay", "trend", "over time", "month over month",
     "year over year", "rate of increase", "رجحان",
@@ -883,6 +923,257 @@ def render_criminal_record_crosscheck(agg_result: dict) -> list[str]:
     return lines
 
 
+async def _cms_fir_linkage(jurisdiction_case_ids: Optional[list[str]] = None) -> dict:
+    """
+    [Gold-QA fix — CR6, Module 15] Do walk-in CMS complaints link to a real
+    FIR, or stay separate? The exact-key join (CMS.case_tag_number ==
+    FIR.e_tag_number) is already projected by cross_silo_projection.py as a
+    BELONGS_TO_CASE edge (cms_complaint StructuredRecord -> Case); this
+    aggregate just counts and surfaces it: how many CMS complaints exist,
+    how many are linked to a real FIR, and the specific complaint->FIR
+    pairs. RAG could only ever speak to one complaint's narrative at a time
+    and never enumerate the field-level link across all of them, which is
+    why this belongs in XAGG (RC-3).
+    """
+    total_rows = await age_client.execute_cypher(
+        "MATCH (r:StructuredRecord) WHERE r.record_type = 'cms_complaint' "
+        "RETURN count(r) AS n",
+        columns=["n"],
+    )
+    total = int((total_rows[0] or {}).get("n") or 0) if total_rows else 0
+
+    link_rows = await age_client.execute_cypher(
+        "MATCH (r:StructuredRecord)-[:BELONGS_TO_CASE]->(c:Case) "
+        "WHERE r.record_type = 'cms_complaint' "
+        "RETURN r.case_tag_number AS tag, c.case_id AS case_id, "
+        "r.complainant_cnic AS cnic",
+        columns=["tag", "case_id", "cnic"],
+    )
+    links = [
+        {"case_tag": r.get("tag"), "case_id": r.get("case_id"), "cnic": r.get("cnic")}
+        for r in link_rows
+    ]
+
+    return {
+        "kind": "cms_fir_linkage",
+        "total_complaints": total,
+        "linked_count": len(links),
+        "unlinked_count": total - len(links),
+        "links": links,
+    }
+
+
+def render_cms_fir_linkage(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — CR6, Module 15] shared renderer, imported by both
+    rendering sites."""
+    total = agg_result["total_complaints"]
+    linked = agg_result["linked_count"]
+    unlinked = agg_result["unlinked_count"]
+    if total == 0:
+        return ["No walk-in CMS complaints are recorded."]
+    if linked == total:
+        head = (
+            f"Walk-in CMS complaints and FIRs are separate systems, but they "
+            f"are linked in practice: all {total} current CMS complaint(s) "
+            f"connect to a real FIR via a shared case tag (CMS.case_tag_number "
+            f"= FIR.e_tag_number)."
+        )
+    else:
+        head = (
+            f"Of {total} walk-in CMS complaint(s), {linked} link to a real FIR "
+            f"via a shared case tag; {unlinked} have no matching FIR."
+        )
+    lines = [head]
+    for lk in agg_result["links"]:
+        lines.append(f"  - {lk['case_tag']} → {lk['case_id']}")
+    return lines
+
+
+async def _dv_report_fir_match(jurisdiction_case_ids: Optional[list[str]] = None) -> dict:
+    """
+    [Gold-QA fix — CR8, Module 15] When a domestic-violence report is
+    recorded as forwarded/converted into a formal case, does the case record
+    confirm it? Women-violence reports are PKM applications
+    (service_type='women_violence_report'); the ones carrying a
+    forwarded_fir_number are projected with a BELONGS_TO_CASE edge to the
+    real FIR (cross_silo_projection.py, forwarded_fir_number ==
+    fir_display_code). This aggregate counts the total DV reports, how many
+    are confirmed by a matching real FIR, and the specific pairs.
+    """
+    total_rows = await age_client.execute_cypher(
+        "MATCH (r:StructuredRecord) "
+        "WHERE r.record_type = 'pkm_application' "
+        "AND r.service_type = 'women_violence_report' "
+        "RETURN count(r) AS n",
+        columns=["n"],
+    )
+    total = int((total_rows[0] or {}).get("n") or 0) if total_rows else 0
+
+    match_rows = await age_client.execute_cypher(
+        "MATCH (r:StructuredRecord)-[:BELONGS_TO_CASE]->(c:Case) "
+        "WHERE r.record_type = 'pkm_application' "
+        "AND r.service_type = 'women_violence_report' "
+        "RETURN r.record_id AS rid, c.case_id AS case_id",
+        columns=["rid", "case_id"],
+    )
+    matches = [{"record_id": r.get("rid"), "case_id": r.get("case_id")} for r in match_rows]
+
+    return {
+        "kind": "dv_report_fir_match",
+        "total_reports": total,
+        "confirmed_count": len(matches),
+        "unconfirmed_count": total - len(matches),
+        "matches": matches,
+    }
+
+
+def render_dv_report_fir_match(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — CR8, Module 15] shared renderer for both sites."""
+    total = agg_result["total_reports"]
+    confirmed = agg_result["confirmed_count"]
+    unconfirmed = agg_result["unconfirmed_count"]
+    if total == 0:
+        return ["No domestic-violence reports are recorded."]
+    lines = [
+        f"Yes — confirmed by the case records. Of {total} domestic-violence "
+        f"report(s), {confirmed} carry a forwarded FIR number that matches a "
+        f"real, active FIR; the remaining {unconfirmed} record no forwarded "
+        f"number."
+    ]
+    for m in agg_result["matches"]:
+        lines.append(f"  - {m['record_id']} → {m['case_id']}")
+    return lines
+
+
+# [Gold-QA fix — G2, Module 15] A synthetic test-fixture case (CASE-TEST-*)
+# is NOT a real case and must be excluded from a data-quality scan — live-
+# confirmed the live DB carries 6 such leftover rows (the same ones Module 1
+# deleted, re-seeded since), which inflate every completeness count away
+# from the gold's real 73-case baseline. Excluding them here makes the scan
+# correct regardless of DB hygiene, rather than depending on the rows being
+# absent.
+_TEST_CASE_RE = re.compile(r"CASE-TEST", re.IGNORECASE)
+
+
+async def _case_completeness_scan(
+    gateway, jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    """
+    [Gold-QA fix — G2, Module 15] Which cases have records too incomplete to
+    rely on? A data-quality scan over the real case rows (not the graph,
+    which backfills/defaults incident_date and so masks the very gaps this
+    question is about — live-confirmed the graph shows only 1 missing date
+    where the case rows show 9). Reports, over the real (non-test) cases:
+    how many lack an incident date, and how many lack any roznamcha/zimni
+    diary entry — the two completeness signals the G2 gold answer calls out.
+
+    `incident_date` comes from the case row; the zimni presence check is a
+    graph read (zimni entries are StructuredRecords linked to their Case).
+    """
+    cases = await gateway.get_cases(user_id=None, user_role="platform-admin")
+    cases = [c for c in cases if not _TEST_CASE_RE.search(str(c.get("case_id") or ""))]
+    if jurisdiction_case_ids is not None:
+        allowed = set(jurisdiction_case_ids)
+        cases = [c for c in cases if c.get("case_id") in allowed]
+
+    total = len(cases)
+    missing_incident_date = [
+        c.get("case_id") for c in cases if not c.get("incident_date")
+    ]
+    # A case with no recorded investigation status can't be tracked through
+    # its lifecycle — the second reliable completeness gap on the case row.
+    # (The gold also cites missing roznamcha/zimni entries, but the current
+    # graph only projects a per-FIR zimni INDEX, one per case, not the
+    # individual entries — so "which FIRs lack zimni content" isn't reliably
+    # queryable and is deliberately NOT reported here rather than fabricated.)
+    missing_status = [
+        c.get("case_id") for c in cases if not c.get("investigation_status")
+    ]
+
+    return {
+        "kind": "case_completeness_scan",
+        "total_cases": total,
+        "missing_incident_date": missing_incident_date,
+        "missing_status": missing_status,
+    }
+
+
+def render_case_completeness_scan(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — G2, Module 15] shared renderer for both sites."""
+    total = agg_result["total_cases"]
+    no_date = agg_result["missing_incident_date"]
+    no_status = agg_result["missing_status"]
+    lines = [
+        "Cases whose own records are too incomplete to fully rely on — worth "
+        "a closer look so they don't quietly stall:",
+        f"  - {len(no_date)} of {total} FIRs record no incident date"
+        + (f" ({', '.join(no_date[:12])}{'…' if len(no_date) > 12 else ''})" if no_date else "")
+        + ", so any timeline built on them is unanchored.",
+        f"  - {len(no_status)} of {total} FIRs carry no recorded investigation "
+        f"status, so they can't be tracked through their lifecycle and may "
+        f"silently stall.",
+    ]
+    return lines
+
+
+# [Gold-QA fix — G5, Module 15] The exact free-text the weapon register uses
+# for "no licence" (بغیر لائسنس = "without licence"). Matched as a substring
+# so minor spacing/vocabulary variants still bucket together.
+_UNLICENSED_TOKENS = ("بغیر لائسنس", "بلا لائسنس", "unlicensed", "no licence", "no license")
+
+
+async def _weapon_compliance_scan(jurisdiction_case_ids: Optional[list[str]] = None) -> dict:
+    """
+    [Gold-QA fix — G5, Module 15] Compliance scan over the weapon register:
+    how many recovered weapons are recorded WITHOUT a licence? Reads
+    Weapon.license_status off the graph (structured_projection.py projects it
+    from weapon_register). A weapon whose status matches an "unlicensed"
+    token is counted; weapons with no status recorded are reported separately
+    rather than assumed either way.
+    """
+    rows = await age_client.execute_cypher(
+        "MATCH (w:Weapon) RETURN w.license_status AS status", columns=["status"],
+    )
+    total = len(rows)
+    unlicensed = 0
+    no_status = 0
+    for r in rows:
+        s = (r.get("status") or "").strip()
+        if not s:
+            no_status += 1
+        elif any(t in s.lower() or t in s for t in _UNLICENSED_TOKENS):
+            unlicensed += 1
+
+    return {
+        "kind": "weapon_compliance_scan",
+        "total_weapons": total,
+        "unlicensed_count": unlicensed,
+        "no_status_count": no_status,
+    }
+
+
+def render_weapon_compliance_scan(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — G5, Module 15] shared renderer for both sites."""
+    total = agg_result["total_weapons"]
+    unlicensed = agg_result["unlicensed_count"]
+    no_status = agg_result["no_status_count"]
+    if total == 0:
+        return ["No recovered weapons are recorded in the register."]
+    pct = round(100 * unlicensed / total) if total else 0
+    lines = [
+        f"Reviewing the {total} weapon-register entries for compliance:",
+        f"  - {unlicensed} of {total} recovered weapons (~{pct}%) are recorded "
+        f"WITHOUT a licence — a pattern too broad to treat case-by-case; it "
+        f"warrants a standing compliance check.",
+    ]
+    if no_status:
+        lines.append(
+            f"  - {no_status} carry no licence status at all, so their "
+            f"compliance can't be confirmed either way."
+        )
+    return lines
+
+
 # [Gold-QA fix — Module 1c] District-level rollup — District/PoliceStation
 # graph nodes already exist (structured_projection.py's District writes),
 # so this is a graph traversal, NOT a Postgres GROUP BY over the case rows
@@ -1510,6 +1801,23 @@ async def run_aggregate(
     # "criminal record" question isn't answered as a plain case count.
     if _matches_any(query_lower, _CRIMINAL_RECORD_KEYWORDS):
         return await _criminal_record_court_crosscheck(jurisdiction_case_ids=jurisdiction_case_ids)
+    # [Gold-QA fix — CR8, Module 15] DV report ↔ FIR confirmation. Checked
+    # before the CMS linkage below since a DV question can also mention
+    # "complaint" (شکایت) but is specifically about the women-violence report.
+    if _matches_any(query_lower, _DV_REPORT_KEYWORDS):
+        return await _dv_report_fir_match(jurisdiction_case_ids=jurisdiction_case_ids)
+    # [Gold-QA fix — CR6, Module 15] Walk-in CMS complaint ↔ FIR linkage.
+    if _matches_any(query_lower, _CMS_LINKAGE_KEYWORDS):
+        return await _cms_fir_linkage(jurisdiction_case_ids=jurisdiction_case_ids)
+    # [Gold-QA fix — G2, Module 15] Case data-completeness scan (needs the
+    # gateway case rows, not the graph — see the function's own docstring).
+    if _matches_any(query_lower, _COMPLETENESS_KEYWORDS):
+        return await _case_completeness_scan(gateway, jurisdiction_case_ids=jurisdiction_case_ids)
+    # [Gold-QA fix — G5, Module 15] Weapon-register compliance — a weapon term
+    # AND a licence/compliance term together (a bare "weapon" stays the
+    # recurrence aggregate's job).
+    if _matches_any(query_lower, _WEAPON_TERMS) and _matches_any(query_lower, _COMPLIANCE_TERMS):
+        return await _weapon_compliance_scan(jurisdiction_case_ids=jurisdiction_case_ids)
     if _matches_any(query_lower, _OFFICER_KEYWORDS):
         return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_OFFICER}
     # [Gold-QA fix — Module 13, question M7] Checked before both the A7

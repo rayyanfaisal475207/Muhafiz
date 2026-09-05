@@ -184,6 +184,51 @@ _XAGG_OVERRIDE_PATTERNS = [
     re.compile(r"\bkitn[ei]\b.{0,15}\bfirs?\b", re.IGNORECASE),
     re.compile(r"(کتن[ےی]|کل|تعداد).{0,15}ایف\s*آئی\s*آر"),
     re.compile(r"ایف\s*آئی\s*آر.{0,15}(کتن[ےی]|کل|تعداد)"),
+    # [Gold-QA fix — Module 15, field-consistency questions CR6/CR8] Cross-
+    # record "does system A's record link to / match a real FIR" questions.
+    # These are XAGG graph-join aggregates (CMS/DV-report <-> FIR exact-key
+    # links), not RAG — RAG can only speak to one narrative chunk and can
+    # never enumerate the field-level link across all records (RC-3). Without
+    # these they fall to the LLM classifier, which sends them to RAG and they
+    # fail ("Retrieval failed"). English / Urdu / Roman-Urdu.
+    #
+    # (a) CMS walk-in complaint <-> FIR linkage (CR6): a "complaint" +
+    #     "FIR/linked/separate" co-occurrence.
+    re.compile(r"\b(complaint|walk[- ]?in)\b.{0,60}\b(f\.?i\.?r\.?|linked|attached|separate)\b", re.IGNORECASE),
+    re.compile(r"شکایت.{0,60}(ایف\s*آئی\s*آر|منسلک|الگ)"),
+    re.compile(r"تھانے\s*آ\s*کر\s*شکایت"),
+    re.compile(r"\bshikayat\b.{0,60}\b(fir|linked|alag|munsalik)\b", re.IGNORECASE),
+    # (b) forwarded/converted report <-> FIR match (CR8): a "report/
+    #     converted to a case" + "confirmed by the record / FIR number".
+    re.compile(r"\b(report|converted|forwarded)\b.{0,60}\b(f\.?i\.?r\.?|case record|confirm)\b", re.IGNORECASE),
+    re.compile(r"(رپورٹ|شکایت).{0,60}(کیس\s*میں\s*تبدیل|فارورڈ|کیس\s*ریکارڈ\s*سے\s*.{0,10}تصدیق)"),
+    re.compile(r"باقاعدہ\s*کیس\s*میں\s*تبدیل"),
+    # (c) Data-completeness / "which cases might be buried or overlooked"
+    #     (G2). Narrow, distinctive phrasing — "دب کر / نظر سے اوجھل"
+    #     (buried / out of sight), "fall through the cracks / overlooked /
+    #     buried" — that essentially only co-occurs with this data-quality
+    #     scan, so intercepting on it is safe (unlike a bare "which cases").
+    re.compile(r"مقدم[ےہ].{0,20}(دب|نظر\s*سے\s*اوجھل)"),
+    re.compile(r"(دب\s*کر|نظر\s*سے\s*اوجھل)"),
+    re.compile(r"\b(cases?|firs?)\b.{0,30}\b(buried|overlooked|fall through the cracks|slip through)\b", re.IGNORECASE),
+    re.compile(r"\b(dab kar|nazar se ojhal)\b", re.IGNORECASE),
+    # (d) Weapon-register COMPLIANCE SCAN (G5): a weapon term AND a
+    #     compliance-scan framing ("compliance", "record-keeping", "flag").
+    #     Deliberately does NOT trigger on a bare "unlicensed firearm" (that
+    #     appears in a within-case "what PPC section covers illegal
+    #     possession of an unlicensed firearm" compound question, which must
+    #     reach the LLM classifier), nor on "this weapon" (case-scoped).
+    re.compile(
+        r"\b(weapon|firearm|hathiyar|baramad)\w*\b"
+        r"(?!.{0,20}\bthis\b)"
+        r".{0,90}\b(compliance|record[- ]?keeping|flag\w*\s+(?:worthy|karne))\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(compliance|record[- ]?keeping)\b.{0,90}\b(weapon|firearm|hathiyar|baramad)\w*\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"(ہتھیار|اسلحہ).{0,90}(کمپلائنس|لائسنس.{0,20}(ریکارڈ|صورت))"),
 ]
 
 _XGRAPH_OVERRIDE_PATTERNS = [

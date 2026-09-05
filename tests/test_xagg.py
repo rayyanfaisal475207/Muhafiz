@@ -1237,3 +1237,101 @@ def test_cr7_renderer_settled_singular_and_consistency():
     assert "1 has reached a verdict" in text  # singular
     assert "consistent" in text
     assert "891-24" in text
+
+
+# ── [Gold-QA fix — CR6/CR8, Module 15] cross-record field-consistency ──
+
+class _RecordTypeAwareAgeClient:
+    """Routes each read by what the Cypher targets (count vs. edge query)."""
+    def __init__(self, total_n, edge_rows):
+        self.total_n = total_n
+        self.edge_rows = edge_rows
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        if "count(r)" in cypher_query:
+            return [{"n": self.total_n}]
+        return self.edge_rows
+
+
+async def test_cr6_cms_fir_linkage_all_linked(monkeypatch):
+    edges = [
+        {"tag": "CMS-KHI-2026-0417", "case_id": "fir-417-26", "cnic": "x"},
+        {"tag": "CMS-ISB-2026-0341", "case_id": "fir-64-26", "cnic": "y"},
+    ]
+    monkeypatch.setattr(xagg, "age_client", _RecordTypeAwareAgeClient(2, edges))
+    r = await xagg._cms_fir_linkage()
+    assert r["kind"] == "cms_fir_linkage"
+    assert r["total_complaints"] == 2
+    assert r["linked_count"] == 2
+    assert r["unlinked_count"] == 0
+    text = "\n".join(xagg.render_cms_fir_linkage(r))
+    assert "linked in practice" in text
+    assert "fir-417-26" in text
+
+
+async def test_cr6_cms_partial_link(monkeypatch):
+    edges = [{"tag": "CMS-KHI-2026-0417", "case_id": "fir-417-26", "cnic": "x"}]
+    monkeypatch.setattr(xagg, "age_client", _RecordTypeAwareAgeClient(3, edges))
+    r = await xagg._cms_fir_linkage()
+    assert r["total_complaints"] == 3
+    assert r["linked_count"] == 1
+    assert r["unlinked_count"] == 2
+
+
+async def test_cr8_dv_report_fir_match(monkeypatch):
+    edges = [
+        {"rid": "pkm_application:pkm-app-c9-02", "case_id": "fir-97-26"},
+        {"rid": "pkm_application:PKMAPP-C316-2", "case_id": "fir-416-26"},
+        {"rid": "pkm_application:PKMAPP-C326-1", "case_id": "fir-426-26"},
+        {"rid": "pkm_application:PKMAPP-C336-2", "case_id": "fir-436-26"},
+    ]
+    monkeypatch.setattr(xagg, "age_client", _RecordTypeAwareAgeClient(8, edges))
+    r = await xagg._dv_report_fir_match()
+    assert r["kind"] == "dv_report_fir_match"
+    assert r["total_reports"] == 8
+    assert r["confirmed_count"] == 4
+    assert r["unconfirmed_count"] == 4
+    text = "\n".join(xagg.render_dv_report_fir_match(r))
+    assert "confirmed by the case records" in text
+    assert "fir-97-26" in text
+
+
+# ── [Gold-QA fix — G2/G5, Module 15] completeness + weapon-compliance scans ──
+
+class _GatewayCases:
+    def __init__(self, cases): self._cases = cases
+    async def get_cases(self, user_id=None, user_role=None): return self._cases
+
+
+async def test_g2_completeness_excludes_test_rows(monkeypatch):
+    cases = [
+        {"case_id": "fir-1-26", "incident_date": None, "investigation_status": "open", "fir_number": "1/26"},
+        {"case_id": "fir-2-26", "incident_date": "2026-01-01", "investigation_status": None, "fir_number": "2/26"},
+        {"case_id": "CASE-TEST-abc", "incident_date": None, "investigation_status": None, "fir_number": None},
+    ]
+    r = await xagg._case_completeness_scan(_GatewayCases(cases))
+    assert r["kind"] == "case_completeness_scan"
+    assert r["total_cases"] == 2  # test row excluded
+    assert r["missing_incident_date"] == ["fir-1-26"]
+    assert r["missing_status"] == ["fir-2-26"]
+    text = "\n".join(xagg.render_case_completeness_scan(r))
+    assert "1 of 2 FIRs record no incident date" in text
+
+
+async def test_g5_weapon_compliance_counts_unlicensed(monkeypatch):
+    rows = (
+        [{"status": "بغیر لائسنس"}] * 30
+        + [{"status": None}] * 2
+    )
+    class _AC:
+        async def execute_cypher(self, q, params=None, columns=("result",), graph=None):
+            return rows
+    monkeypatch.setattr(xagg, "age_client", _AC())
+    r = await xagg._weapon_compliance_scan()
+    assert r["kind"] == "weapon_compliance_scan"
+    assert r["total_weapons"] == 32
+    assert r["unlicensed_count"] == 30
+    assert r["no_status_count"] == 2
+    text = "\n".join(xagg.render_weapon_compliance_scan(r))
+    assert "30 of 32" in text
+    assert "94%" in text
