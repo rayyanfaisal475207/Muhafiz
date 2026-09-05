@@ -121,6 +121,19 @@ _PLACEHOLDER_OFFICER_KEYWORDS = (
     "asal tor par", "asal tafteeshi afsar", "asal afsar",
     "اصل تفتیشی افسر", "حقیقی تفتیشی افسر", "اصل افسر",
 )
+# [Gold-QA fix — CR7, Module 14] Criminal-record status + court-outcome
+# consistency questions. CR7 (Urdu) asks how many criminal-record cases are
+# completed vs. in progress, AND whether, where a separate court record
+# exists, the two match. English / Urdu / Roman-Urdu. Requires a criminal-
+# record term so a generic "how many cases" count doesn't misfire here.
+_CRIMINAL_RECORD_KEYWORDS = (
+    "criminal record", "criminal-record", "criminal records",
+    "conviction status", "criminal record system", "court outcome",
+    "court record", "court-outcome", "conviction record",
+    "criminal record mein", "kitne case mukammal", "zer e karwai",
+    "کرمنل ریکارڈ", "کرمنل ریکارڈ سسٹم", "عدالتی ریکارڈ", "عدالتی نتیجے",
+    "زیرِ کارروائی", "زیر کارروائی", "سزا یافتہ", "مطابقت رکھتے",
+)
 _TREND_KEYWORDS = (
     "reporting delay", "trend", "over time", "month over month",
     "year over year", "rate of increase", "رجحان",
@@ -716,6 +729,158 @@ async def _placeholder_officer_count(jurisdiction_case_ids: Optional[list[str]] 
         "asi_count": asi_count,
         "si_count": si_count,
     }
+
+
+# [Gold-QA fix — CR7, Module 14] FIR number pulled out of a free-text case
+# reference so a criminal record's `source_case_ref` ("FIR 891/24, PS Jhang
+# Road Faisalabad") and a court outcome's `source_doc_id`
+# ("psrms/fir/fir-891-24#structured") can be matched on the same case even
+# though the two systems format the reference completely differently.
+_FIR_NUM_RE = re.compile(r"(\d{1,4})\s*[-/]\s*(\d{2,4})")
+
+
+def _fir_key(text: Optional[str]) -> Optional[str]:
+    """Normalize any FIR reference to 'NNN-YY' (e.g. 'FIR 891/24' and
+    'fir-891-24' both -> '891-24'), or None if no FIR number is present."""
+    if not text:
+        return None
+    m = _FIR_NUM_RE.search(str(text))
+    if not m:
+        return None
+    year = m.group(2)
+    year = year[-2:]  # 2024 -> 24, 24 -> 24
+    return f"{int(m.group(1))}-{year}"
+
+
+def _conviction_is_settled(status: Optional[str]) -> bool:
+    """A criminal record is 'settled/decided' (vs. still in progress) when its
+    conviction_status says a verdict was reached. Deterministic substring
+    match on both the English tokens the data uses and their Urdu forms."""
+    s = (status or "").lower()
+    return any(t in s for t in ("convicted", "acquitted", "سزا", "بری", "نمٹ"))
+
+
+async def _criminal_record_court_crosscheck(
+    jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    """
+    [Gold-QA fix — CR7, Module 14] Two-part answer:
+
+      (1) Status breakdown of the criminal-record system: how many records
+          are settled (a verdict reached) vs. still in progress, grouped by
+          the raw `conviction_status` the source system records.
+      (2) Consistency cross-check: for any case that ALSO has an independent
+          court-outcome record (chalaan_outcome), compare the two — does the
+          criminal record's conviction status agree with the court's recorded
+          outcome? Matched on the FIR number extracted from each system's own
+          (differently-formatted) case reference (`_fir_key`).
+
+    Criminal records are never case-scoped (a person's history spans cases),
+    so the aggregate reports over the whole criminal-record system; the
+    optional `jurisdiction_case_ids` only narrows which court outcomes are
+    considered for the cross-check, mirroring every other aggregate here.
+    """
+    cr_rows = await age_client.execute_cypher(
+        "MATCH (r:StructuredRecord) WHERE r.record_type = 'criminal_record' "
+        "RETURN r.conviction_status AS status, r.source_case_ref AS case_ref, "
+        "r.subject_full_name AS subject",
+        columns=["status", "case_ref", "subject"],
+    )
+
+    total = len(cr_rows)
+    settled = [r for r in cr_rows if _conviction_is_settled(r.get("status"))]
+    in_progress = total - len(settled)
+    status_counts = Counter((r.get("status") or "unknown") for r in cr_rows)
+
+    # Court outcomes, keyed by FIR number, for the cross-check.
+    co_case_filter = ""
+    params: dict = {}
+    if jurisdiction_case_ids is not None:
+        co_case_filter = "AND c.case_id IN $case_ids"
+        params = {"case_ids": jurisdiction_case_ids}
+    co_rows = await age_client.execute_cypher(
+        "MATCH (r:StructuredRecord) WHERE r.record_type = 'chalaan_outcome' "
+        "AND r.case_outcome IS NOT NULL "
+        f"RETURN r.source_doc_id AS doc_id, r.case_outcome AS outcome, "
+        f"r.court_order_detail AS detail",
+        params=params, columns=["doc_id", "outcome", "detail"],
+    )
+    court_by_fir = {}
+    for r in co_rows:
+        k = _fir_key(r.get("doc_id"))
+        if k:
+            court_by_fir[k] = {"outcome": r.get("outcome"), "detail": r.get("detail")}
+
+    # Cross-check every criminal record that names a FIR also present in the
+    # court-outcome set. A record and a court outcome are CONSISTENT when both
+    # indicate a reached verdict (settled) — the only comparison the data
+    # supports without parsing free-text sentences, and exactly CR7's ask
+    # ("do the two match?").
+    crosschecks = []
+    for r in cr_rows:
+        k = _fir_key(r.get("case_ref"))
+        if k and k in court_by_fir:
+            cr_settled = _conviction_is_settled(r.get("status"))
+            court = court_by_fir[k]
+            court_settled = _conviction_is_settled(court.get("outcome"))
+            crosschecks.append({
+                "fir": k,
+                "subject": r.get("subject"),
+                "criminal_status": r.get("status"),
+                "court_outcome": court.get("outcome"),
+                "court_detail": court.get("detail"),
+                "consistent": cr_settled == court_settled,
+            })
+
+    return {
+        "kind": "criminal_record_court_crosscheck",
+        "total_records": total,
+        "settled_count": len(settled),
+        "in_progress_count": in_progress,
+        "status_breakdown": [
+            {"status": k, "count": v} for k, v in status_counts.most_common()
+        ],
+        "crosschecks": crosschecks,
+    }
+
+
+def render_criminal_record_crosscheck(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — CR7, Module 14] Human-readable lines for the
+    criminal-record status + court-outcome cross-check. Defined here (the
+    result's own module) and imported by both rendering sites (harness
+    xagg tool + orchestrator) so the three stay in sync by construction."""
+    total = agg_result["total_records"]
+    settled = agg_result["settled_count"]
+    in_progress = agg_result["in_progress_count"]
+    _has = "has" if settled == 1 else "have"
+    lines = [
+        f"Of {total} criminal records, {in_progress} are still in progress "
+        f"and {settled} {_has} reached a verdict. Breakdown by recorded status:"
+    ]
+    for s in agg_result["status_breakdown"]:
+        lines.append(f"  - {s['status']}: {s['count']}")
+    checks = agg_result.get("crosschecks", [])
+    if checks:
+        lines.append("")
+        lines.append(
+            "Where a case also has an independent court-outcome record, "
+            "comparing the two:"
+        )
+        for c in checks:
+            verdict = "consistent" if c["consistent"] else "INCONSISTENT"
+            subj = f" ({c['subject']})" if c.get("subject") else ""
+            lines.append(
+                f"  - FIR {c['fir']}{subj}: criminal record says "
+                f"\"{c['criminal_status']}\"; court outcome says "
+                f"\"{c['court_outcome']}\" — {verdict}."
+            )
+    else:
+        lines.append("")
+        lines.append(
+            "No case currently has both a criminal record and a separate "
+            "court-outcome record to cross-check."
+        )
+    return lines
 
 
 # [Gold-QA fix — Module 1c] District-level rollup — District/PoliceStation
@@ -1340,6 +1505,11 @@ async def run_aggregate(
     # already populated), unlike a general "which officer" identity question.
     if _matches_any(query_lower, _PLACEHOLDER_OFFICER_KEYWORDS):
         return await _placeholder_officer_count(jurisdiction_case_ids=jurisdiction_case_ids)
+    # [Gold-QA fix — CR7, Module 14] Criminal-record status + court-outcome
+    # consistency, checked before the generic count/status paths so a
+    # "criminal record" question isn't answered as a plain case count.
+    if _matches_any(query_lower, _CRIMINAL_RECORD_KEYWORDS):
+        return await _criminal_record_court_crosscheck(jurisdiction_case_ids=jurisdiction_case_ids)
     if _matches_any(query_lower, _OFFICER_KEYWORDS):
         return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_OFFICER}
     # [Gold-QA fix — Module 13, question M7] Checked before both the A7

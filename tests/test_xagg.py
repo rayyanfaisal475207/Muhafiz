@@ -1139,3 +1139,101 @@ async def test_gender_breakdown_counts_accused_edges_not_distinct_persons(monkey
     counts = {c["key"]: c["count"] for c in result["counts"]}
     assert counts == {"male": 3, "female": 1}
     assert result["total_accused"] == 4
+
+
+# ── [Gold-QA fix — CR7, Module 14] criminal-record × court-outcome cross-check ──
+
+class _QueryAwareAgeClient:
+    """Returns different rows depending on which record_type the Cypher asks
+    for — the CR7 aggregate issues two distinct reads (criminal_record, then
+    chalaan_outcome)."""
+    def __init__(self, criminal_rows, court_rows):
+        self.criminal_rows = criminal_rows
+        self.court_rows = court_rows
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        if "criminal_record" in cypher_query:
+            return self.criminal_rows
+        if "chalaan_outcome" in cypher_query:
+            return self.court_rows
+        return []
+
+
+def test_fir_key_normalizes_differently_formatted_refs():
+    assert xagg._fir_key("FIR 891/24, PS Jhang Road") == "891-24"
+    assert xagg._fir_key("psrms/fir/fir-891-24#structured") == "891-24"
+    assert xagg._fir_key("FIR 891/2024") == "891-24"
+    assert xagg._fir_key("no fir number here") is None
+
+
+def test_conviction_is_settled():
+    assert xagg._conviction_is_settled("Convicted, on bail pending appeal")
+    assert xagg._conviction_is_settled("سزا یافتہ")
+    assert not xagg._conviction_is_settled("Under trial")
+    assert not xagg._conviction_is_settled(None)
+
+
+async def test_cr7_status_breakdown_and_consistent_crosscheck(monkeypatch):
+    criminal = [
+        {"status": "Under trial", "case_ref": "FIR 100/26", "subject": "A"},
+        {"status": "Under trial", "case_ref": "FIR 101/26", "subject": "B"},
+        {"status": "Convicted, on bail pending appeal",
+         "case_ref": "FIR 891/24, PS Jhang Road", "subject": "شہزیب عرف شابی"},
+    ]
+    court = [
+        {"doc_id": "psrms/fir/fir-891-24#structured",
+         "outcome": "5 سال قید بامشقت زیر دفعہ 392 ت.پ سزایاب",
+         "detail": "سیشن کورٹ فیصل آباد"},
+    ]
+    monkeypatch.setattr(xagg, "age_client", _QueryAwareAgeClient(criminal, court))
+
+    result = await xagg._criminal_record_court_crosscheck()
+    assert result["kind"] == "criminal_record_court_crosscheck"
+    assert result["total_records"] == 3
+    assert result["settled_count"] == 1
+    assert result["in_progress_count"] == 2
+    counts = {s["status"]: s["count"] for s in result["status_breakdown"]}
+    assert counts["Under trial"] == 2
+    # the one case with both records is cross-checked and consistent
+    assert len(result["crosschecks"]) == 1
+    cc = result["crosschecks"][0]
+    assert cc["fir"] == "891-24"
+    assert cc["consistent"] is True
+
+
+async def test_cr7_detects_inconsistency(monkeypatch):
+    # criminal record says settled/convicted, court outcome says still pending
+    criminal = [
+        {"status": "Convicted", "case_ref": "FIR 891/24", "subject": "X"},
+    ]
+    court = [
+        {"doc_id": "fir-891-24", "outcome": "زیرِ سماعت", "detail": None},
+    ]
+    monkeypatch.setattr(xagg, "age_client", _QueryAwareAgeClient(criminal, court))
+    result = await xagg._criminal_record_court_crosscheck()
+    assert len(result["crosschecks"]) == 1
+    assert result["crosschecks"][0]["consistent"] is False
+
+
+async def test_cr7_no_crosscheck_when_no_shared_case(monkeypatch):
+    criminal = [{"status": "Under trial", "case_ref": "FIR 100/26", "subject": "A"}]
+    court = [{"doc_id": "fir-891-24", "outcome": "سزایاب", "detail": None}]
+    monkeypatch.setattr(xagg, "age_client", _QueryAwareAgeClient(criminal, court))
+    result = await xagg._criminal_record_court_crosscheck()
+    assert result["crosschecks"] == []
+
+
+def test_cr7_renderer_settled_singular_and_consistency():
+    result = {
+        "total_records": 33, "settled_count": 1, "in_progress_count": 32,
+        "status_breakdown": [{"status": "Under trial", "count": 30},
+                             {"status": "Convicted, on bail pending appeal", "count": 1}],
+        "crosschecks": [{"fir": "891-24", "subject": "شہزیب عرف شابی",
+                         "criminal_status": "Convicted, on bail pending appeal",
+                         "court_outcome": "5 سال قید بامشقت", "consistent": True}],
+    }
+    text = "\n".join(xagg.render_criminal_record_crosscheck(result))
+    assert "33 criminal records" in text
+    assert "1 has reached a verdict" in text  # singular
+    assert "consistent" in text
+    assert "891-24" in text

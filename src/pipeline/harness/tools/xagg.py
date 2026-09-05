@@ -55,7 +55,11 @@ from src.pipeline.harness.types import (
     ToolError,
     ToolStatus,
 )
-from src.pipeline.xagg import run_aggregate, _UNSUPPORTED_JURISDICTION
+from src.pipeline.xagg import (
+    run_aggregate,
+    render_criminal_record_crosscheck,
+    _UNSUPPORTED_JURISDICTION,
+)
 from src.retrieval.graph_retriever import jurisdiction_unresolved
 
 logger = logging.getLogger(__name__)
@@ -102,6 +106,8 @@ AggregateKind = Literal[
     "rate_breakdown",
     "time_bucketed_breakdown",
     "time_bucketed_rate",
+    # [Gold-QA fix — Module 14, CR7] same additive convention.
+    "criminal_record_court_crosscheck",
 ]
 
 
@@ -230,6 +236,10 @@ def _render_aggregate_text(agg_result: dict) -> str:
             f"- {c['district']}: {c['count']} {label + ' record(s)' if label else 'case(s)'}"
             for c in agg_result["counts"]
         ]
+    # [Gold-QA fix — Module 14, CR7] Criminal-record status + court-outcome
+    # consistency. Kept in sync with orchestrator.py's two identical branches.
+    elif kind == "criminal_record_court_crosscheck":
+        lines = render_criminal_record_crosscheck(agg_result)
     elif kind == "station_total_count":
         lines = [f"Total police stations: {agg_result['total_stations']}"]
     # [Gold-QA fix — Module 13, RC-2] Three new kinds from the rate/ratio
