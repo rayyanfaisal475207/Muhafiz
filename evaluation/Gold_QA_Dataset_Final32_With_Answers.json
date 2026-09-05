@@ -1,0 +1,334 @@
+[
+  {
+    "id": "D1",
+    "source": "Muhafiz",
+    "question": "How many FIRs are currently registered?",
+    "answer": "73",
+    "question_type": "Fact Retrieval",
+    "evidence": "",
+    "multi_step": false,
+    "language": "en"
+  },
+  {
+    "id": "S2",
+    "source": "Muhafiz",
+    "question": "Which police station handles the most cases?",
+    "answer": "تھانہ ماڈل ٹاؤن، لاہور — 7 FIRs, ahead of 9 stations tied at 5.",
+    "question_type": "Fact Retrieval",
+    "evidence": "",
+    "multi_step": false,
+    "question_variants": [
+      "Which police station handles the most cases?",
+      "What's the busiest thana in our dataset?"
+    ],
+    "language": "en"
+  },
+  {
+    "id": "S3",
+    "source": "Muhafiz",
+    "question": "کیا کسی شخص کو ایک سے زیادہ بار گرفتار کیا گیا ہے؟",
+    "answer": "جی ہاں، دو شناختی کارڈ نمبر۔ شہزیب عرف شابی (00000-1000001-1) ایف آئی آر 891/24 اور 214/26 میں؛ عاصم رشید (00000-1000002-1) ایف آئی آر 64/26 اور 65/26 میں۔",
+    "question_type": "Fact Retrieval",
+    "evidence": "",
+    "multi_step": false,
+    "language": "ur"
+  },
+  {
+    "id": "A1",
+    "source": "Muhafiz",
+    "question": "نامزد ملزمان میں مرد اور عورت کا تناسب کیا ہے؟",
+    "answer": "مرد 67، عورت 24، غیر واضح 3 — کل 94 ملزم اندراجات میں سے۔",
+    "question_type": "Fact Retrieval",
+    "evidence": "",
+    "multi_step": false,
+    "language": "ur"
+  },
+  {
+    "id": "A7",
+    "source": "Muhafiz",
+    "question": "Kitne cases mein mudai ne police ke paas waqe ke kuch arse baad aane ki koi wajah batai, bajaye foran aane ke?",
+    "answer": "73 mein se sirf 8 FIRs (~11%) mein takheer ki koi wajah darj hai — bari aksariyat bina kisi bayan karda takheer ke report hui.",
+    "question_type": "Fact Retrieval",
+    "evidence": "",
+    "multi_step": false,
+    "language": "roman_ur"
+  },
+  {
+    "id": "CP6",
+    "source": "Muhafiz",
+    "question": "Kitne cases abhi tak bina kisi tafteeshi afsar ke asal tor par muqarrar kiye pade hue hain?",
+    "answer": "11 FIRs mein naamzad tafteeshi afsar ki jagah sirf ek placeholder darj hai — \"(Naamzad ASI)\" 8 par aur \"(Naamzad SI)\" 3 par. Iske muqable mein sab se masroof naamzad afsraan (Faisal aur Tariq) ko 4-4 FIRs assign hain.",
+    "question_type": "Fact Retrieval",
+    "evidence": "",
+    "multi_step": false,
+    "language": "roman_ur"
+  },
+  {
+    "id": "CR2",
+    "source": "Muhafiz",
+    "question": "Is there anyone with an earlier case already on record who has since resurfaced as a suspect in a newer, separate case?",
+    "answer": "Yes — this identity has a prior conviction (from FIR 891/24) and is separately, currently accused in FIR 214/26.",
+    "question_type": "Complex Reasoning",
+    "evidence": "",
+    "multi_step": true,
+    "language": "en"
+  },
+  {
+    "id": "CR3",
+    "source": "Muhafiz",
+    "question": "In the online banking fraud matter involving two separate victims, was each victim's case processed and recorded the same way?",
+    "answer": "No — not identically. 64/26 has a matching walk-in complaint (linked via matching case tag CMS-ISB-2026-0341, complainant سعد الرحمن); 65/26 has none.",
+    "question_type": "Complex Reasoning",
+    "evidence": "",
+    "multi_step": true,
+    "language": "en"
+  },
+  {
+    "id": "CR4",
+    "source": "Muhafiz",
+    "question": "If we've got a weapon logged as evidence, can we tell who it was taken off and what happened to them?",
+    "answer": "Yes. For example, the 30-bore pistol logged as evidence in FIR 891/24 was recovered from شہزیب عرف شابی, whose recorded status on that case is 'گرفتار، بعد ازاں سزا یافتہ' (arrested, later convicted). The trail runs from the weapon entry to the FIR number to the accused named on that FIR — though it relies on matching the FIR number rather than an enforced database key.",
+    "question_type": "Complex Reasoning",
+    "evidence": "",
+    "multi_step": true,
+    "language": "en"
+  },
+  {
+    "id": "CR6",
+    "source": "Muhafiz",
+    "question": "جب کوئی شخص تھانے آ کر شکایت درج کراتا ہے، تو کیا وہ کسی باقاعدہ ایف آئی آر سے منسلک ہو جاتی ہے، یا دونوں الگ الگ ہی رہتے ہیں؟",
+    "answer": "یہ الگ الگ نظام ہیں، لیکن عملی طور پر ان میں تعلق موجود ہے۔ چاروں موجودہ واک اِن شکایات ایک حقیقی ایف آئی آر سے مشترکہ کیس ٹیگ کے ذریعے جُڑتی ہیں: 417/26 (صبا)، 427/26 (عارفہ)، 462/26 (نمرہ)، 64/26 (سعد الرحمن)۔",
+    "question_type": "Complex Reasoning",
+    "evidence": "",
+    "multi_step": true,
+    "language": "ur"
+  },
+  {
+    "id": "CR7",
+    "source": "Muhafiz",
+    "question": "کرمنل ریکارڈ سسٹم میں کتنے کیس مکمل ہو چکے ہیں اور کتنے ابھی زیرِ کارروائی ہیں — اور جہاں کسی ایک کیس کا الگ عدالتی ریکارڈ بھی موجود ہے، کیا دونوں ایک دوسرے سے مطابقت رکھتے ہیں؟",
+    "answer": "33 میں سے 30 کرمنل ریکارڈ ’زیرِ سماعت‘ ہیں، 1 ’سزا یافتہ، اپیل کے دوران ضمانت پر‘ ہے۔ اُس ایک نمٹے ہوئے کیس (ایف آئی آر 891/24) کے لیے عدالتی نتیجے کا ریکارڈ آزادانہ طور پر وہی 5 سالہ سزا اور اپیل کی تفصیل کی تصدیق کرتا ہے — دونوں میں مطابقت ہے۔",
+    "question_type": "Complex Reasoning",
+    "evidence": "",
+    "multi_step": true,
+    "language": "ur"
+  },
+  {
+    "id": "CR8",
+    "source": "Muhafiz",
+    "question": "اگر کسی گھریلو تشدد کی شکایت کو باقاعدہ کیس میں تبدیل ہونے کے طور پر درج کیا گیا ہو، تو کیا کیس ریکارڈ سے اس کی تصدیق ہو جاتی ہے؟",
+    "answer": "جی ہاں، تصدیق شدہ۔ 8 میں سے 4 رپورٹوں پر آگے بھیجی گئی ایف آئی آر کا نمبر درج ہے (97/26، 416/26، 426/26، 436/26)، اور چاروں ایک حقیقی، فعال ایف آئی آر سے مطابقت رکھتے ہیں۔ باقی 4 پر کوئی فارورڈڈ نمبر درج نہیں۔",
+    "question_type": "Complex Reasoning",
+    "evidence": "",
+    "multi_step": true,
+    "language": "ur"
+  },
+  {
+    "id": "CS4",
+    "source": "Muhafiz",
+    "question": "Kya wusee criminal-history records mein koi aisa shakhs hai jo hamare apne darj kiye hue kisi case se match nahi karta?",
+    "answer": "Haan, ek — Waqas (00000-9000020-1) — criminal records system mein mojood hai magar iska koi matching local FIR-accused record nahi. Tawaqqo yehi hai: woh system ek beruni/wifaqi record source ki numainda hai, sirf local FIRs ka aks nahi.",
+    "question_type": "Complex Reasoning",
+    "evidence": "",
+    "multi_step": true,
+    "language": "roman_ur"
+  },
+  {
+    "id": "CP1",
+    "source": "Muhafiz",
+    "question": "Kaunsa zila apne case load ke lihaz se sab se zyada hathiyar baramad karta hai?",
+    "answer": "Hyderabad ki shrah sab se ziyada hai (3/5 = 60%), phir Faisalabad (10/19 ≈ 53%), Lahore (8/18 ≈ 44%); Rawalpindi kam hai 3/10 = 30% par; Multan ka 0/1.",
+    "question_type": "Complex Reasoning",
+    "evidence": "",
+    "multi_step": true,
+    "language": "roman_ur"
+  },
+  {
+    "id": "M1",
+    "source": "Muhafiz",
+    "question": "What kinds of cases are we dealing with now compared to a couple of years back?",
+    "answer": "2024 (13 FIRs) is a single narrow pattern — every case is armed robbery (PPC 34, 392, Arms Ordinance §13, each 13/13). 2026 (51 FIRs) is far more diversified: the armed-robbery cluster persists (34 x23, 392 x8, Arms Ord x16) alongside narcotics (CNSA §9(c) x12), cyber fraud/harassment (PECA §14 & §21, x9 each), financial fraud (419/420, x9 each), kidnapping (365-A x5), murder (302 x8), domestic violence (x4). Overall the armed-robbery baseline persists, but the mix has broadened substantially toward cyber-enabled and financial crime.",
+    "question_type": "Contextual Summarization",
+    "evidence": "",
+    "multi_step": true,
+    "language": "en"
+  },
+  {
+    "id": "M2",
+    "source": "Muhafiz",
+    "question": "Is caseload growing faster at our general-purpose stations, or at the handful set up for one specific type of crime?",
+    "answer": "Specialized cybercrime units already carry real load: 9 of 73 FIRs (~12%) from just 2 of 19 stations — disproportionate given they're single-purpose.",
+    "question_type": "Contextual Summarization",
+    "evidence": "",
+    "multi_step": true,
+    "language": "en"
+  },
+  {
+    "id": "M4",
+    "source": "Muhafiz",
+    "question": "ایک طرف یہ دیکھیں کہ لوگوں پر کن دفعات میں مقدمے بن رہے ہیں، اور دوسری طرف یہ کہ وہ مقدمے عدالت میں کہاں تک پہنچے — کیا دونوں سے کیس لوڈ کی سنگینی کا ایک ہی اندازہ ہوتا ہے؟",
+    "answer": "نہیں — دونوں ایک دوسرے سے پیچھے ہیں۔ ایف آئی آر کی دفعات پہلے ہی ظاہر کرتی ہیں کہ سنگین جرائم عام ہیں، لیکن 33 میں سے صرف 1 کرمنل ریکارڈ حتمی سزا ہے؛ 30 اب بھی زیرِ سماعت ہیں۔ موجودہ کیس لوڈ کی سنگینی کا اندازہ ایف آئی آر/دفعات کی گنتی پر لگانا چاہیے، سزاؤں کی گنتی پر نہیں، جو ابھی پیچھے ہے۔",
+    "question_type": "Contextual Summarization",
+    "evidence": "",
+    "multi_step": true,
+    "language": "ur"
+  },
+  {
+    "id": "M5",
+    "source": "Muhafiz",
+    "question": "ہتھیار عام طور پر کس نوعیت کے مقدمات میں سامنے آتے ہیں، اور کیا 2024 کے مقابلے میں اب یہ نوعیت بدل گئی ہے؟",
+    "answer": "2024 میں آرمز آرڈیننس §13 صرف ڈکیتی کی دفعات (پی پی سی 34 اور 392، دونوں 13/13) کے ساتھ آتی ہے۔ 2026 میں یہ منشیات (سی این ایس اے §9(c)، 8 مقدمات) اور قتل (پی پی سی 302، 8 مقدمات) کے ساتھ ساتھ اُنہی ڈکیتی کی دفعات (ہر ایک 8 مقدمات) کے ساتھ بھی آتی ہے — اسلحے کا استعمال محض ڈکیتی کے آلے تک محدود نہیں رہا۔",
+    "question_type": "Contextual Summarization",
+    "evidence": "",
+    "multi_step": true,
+    "language": "ur"
+  },
+  {
+    "id": "M7",
+    "source": "Muhafiz",
+    "question": "Kya log 2026 mein waqiaat ki police ko itni hi jaldi ittila de rahe hain jitni 2024 mein dete the?",
+    "answer": "Haan, bohat zyada farq se. 2024 ka ausat 15.0 minute hai — taqreeban foran, ek jari dakaiti jo saath hi report hui. 2026 ka ausat 1401.3 minute (~23.4 ghante) hai — kaafi sust, jo fraud/cyber cases ki taraf tabdeeli se mutabiq hai jinhein mutasireen baad mein maloom karte hain.",
+    "question_type": "Contextual Summarization",
+    "evidence": "",
+    "multi_step": true,
+    "language": "roman_ur"
+  },
+  {
+    "id": "G1",
+    "source": "Muhafiz",
+    "question": "Acting as a crime analyst, review our current caseload and flag anything that looks unusual or worth monitoring.",
+    "answer": "Approach: profile the accused, the victims, the property and the timing across the 73 FIRs, and flag what doesn't look routine. What stands out: (1) the offender profile is unusually uniform — every accused is between 24 and 49 (average ~31), none younger or older, and all are Pakistani nationals; (2) where an accused–complainant relationship is recorded at all, 'stranger' dominates, so this is largely stranger-perpetrated crime rather than disputes between people who know each other, apart from the domestic-violence cases; (3) seized-property records point to more fatalities than the charge sheet alone — 13 items sent to a forensic lab and 7 held for return to a deceased's heirs, alongside 8 murder-section FIRs; (4) incident times are fairly flat across the day with only a mild evening lean, so there's no strong night-crime pattern to build a patrol case around. The uniform offender profile and the stranger-perpetrated skew are the most useful things to keep watching.",
+    "question_type": "Creative Generation",
+    "evidence": "",
+    "multi_step": true,
+    "language": "en"
+  },
+  {
+    "id": "G2",
+    "source": "Muhafiz",
+    "question": "فرض کریں آپ کسی ایس ایچ او کو بریفنگ دے رہے ہیں کہ کون سے مقدمے دب کر یا نظر سے اوجھل ہو کر رہ سکتے ہیں — آپ کن چیزوں کی نشاندہی کریں گے؟",
+    "answer": "طریقہ کار: ایسے مقدمات تلاش کریں جن کے اپنے ریکارڈ اتنے مربوط نہیں کہ اُن پر انحصار کیا جا سکے۔ قابلِ توجہ نکات: (1) 9 ایف آئی آر میں واقعے کی تاریخ درج نہیں اور زیادہ تر روزنامچہ (زمنی) اندراجات کی کوئی قسم درج نہیں، اس لیے اِن مقدمات میں یہ واضح طور پر ترتیب دینا ممکن نہیں کہ کیا کب ہوا؛ (2) 73 میں سے 13 ایف آئی آر میں افسر کے تھانے سے جائے وقوعہ کی طرف روانگی کا وقت خود رپورٹ کے وقت سے پہلے کا درج ہے — یہ ترتیب کا تضاد ہے جو جانچ میں نہیں ٹکے گا؛ (3) واک اِن شکایات اور ایف آئی آر الگ الگ نظاموں میں ہیں جو صرف ایک اختیاری مشترکہ ٹیگ سے جُڑے ہیں، اس لیے غلط یا غائب ٹیگ والی شکایت ایف آئی آر موجود ہونے کے باوجود بغیر کارروائی کے دکھائی دے سکتی ہے۔ اِن میں سے کوئی بھی اکیلے کسی مقدمے کو ضائع نہیں کرتی، لیکن ہر ایک وہ خلا ہے جو جائزے میں رکاوٹ بنتا ہے۔",
+    "question_type": "Creative Generation",
+    "evidence": "",
+    "multi_step": true,
+    "language": "ur"
+  },
+  {
+    "id": "G3",
+    "source": "Muhafiz",
+    "question": "آپ عدالت کو حوالگی کے لیے ایک کیس فائل تیار کر رہے ہیں — ڈیٹا کی روشنی میں، کن چیزوں کے نامکمل قرار پانے کا سب سے زیادہ امکان ہے؟",
+    "answer": "طریقہ کار: ہر فائل میں وہ خانے دیکھیں جو ایک پراسیکیوٹر یا عدالت عموماً قبول کرنے سے پہلے بھرا ہوا دیکھنا چاہتی ہے۔ سب سے زیادہ امکان: (1) ملزم اور مدعی کے درمیان تعلق 94 میں سے 81 ملزم اندراجات میں خالی ہے — عدالتیں تقریباً ہمیشہ پوچھتی ہیں کہ دونوں کا آپس میں کیا تعلق ہے؛ (2) برآمد شدہ 32 ہتھیاروں میں سے 2 کی لائسنس کی حیثیت درج نہیں، جو کسی بھی آرمز آرڈیننس کی دفعہ والے مقدمے میں فیصلہ کن ہوتی ہے؛ (3) 9 ایف آئی آر میں واقعے کی تاریخ درج نہیں، اس لیے فائل کی ٹائم لائن عملاً واقعے کے بجائے رپورٹ سے شروع ہوتی ہے۔ اِن میں سے ہر ایک ایک متوقع تکرارِ آمدورفت ہے، نہ کہ کوئی مکمل رکاوٹ۔",
+    "question_type": "Creative Generation",
+    "evidence": "",
+    "multi_step": true,
+    "language": "ur"
+  },
+  {
+    "id": "G5",
+    "source": "Muhafiz",
+    "question": "Baramad shuda hathiyaron ki record keeping ko dekhte hue, kya koi aisi baat hai jo compliance ke lihaz se flag karne layak ho?",
+    "answer": "Tareeqa: 32 weapon-register entries ka jaiza lein — license status, case aur shakhs se rabta, aur handling record ki takmeel. Tashweeshaat: (1) 32 mein se 30 baramad hathiyar (94%) bila-license darj hain — itna wasee pattern ke ise case-by-case ke bajaye apni alag compliance note ki zaroorat hai; (2) register yeh darj karta hai ke kya baramad hua aur uski halat, magar packaging, tasaweer ya chain of custody ka koi khana nahi, is liye kisi bhi entry ke liye zaabte ki pasdari ki tasdeeq mumkin nahi; (3) hathiyar case se sirf ek narm FIR-code match se jurte hain, bina kisi lazmi key ke, is liye ek ghalat type kiya gaya code khamoshi se kisi item ko orphan kar dega. Bila-license ki shrah sab se numaya point hai.",
+    "question_type": "Creative Generation",
+    "evidence": "",
+    "multi_step": true,
+    "language": "roman_ur"
+  },
+  {
+    "id": "G6",
+    "source": "Muhafiz",
+    "question": "Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation note likhein — unhein mojooda case load se kya tawaqqo rakhni chahiye?",
+    "answer": "Aap 9 zilon mein phaili 73 khuli FIRs sambhaal rahe hain, zyada bojh Faisalabad aur Lahore mein. Case load haal hi mein badla hai: do saal pehle taqreeban sab kuch armed robbery tha; ab manshiyat, cyber fraud aur online haraasgi, mali fraud, aghwa aur qatal ka mishra hai, jisme armed robbery ab bhi sab se bara silsila hai. Zyada tar mulzim aisay mard hain jo apni pachees se chalees baras ki umar mein hain, aam tor par mudai ke liye ajnabi. Tawaqqo rakhein ke cases sust raftari se chalenge — girftari sirf har no mein se taqreeban ek FIR par darj hai aur zyada tar maamlaat abhi adaalaton mein zeir-e-samaat hain. Fraud aur cyber cases ab waqe ke kaafi baad report hote hain, purani dakaityon ke bar-aks jo minton mein aa jati thein. Hathiyar ki baramadgi aam hai aur taqreeban hamesha bila-license.",
+    "question_type": "Creative Generation",
+    "evidence": "",
+    "multi_step": true,
+    "language": "roman_ur"
+  },
+  {
+    "id": "KB1",
+    "source": "Muhafiz",
+    "question": "What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?",
+    "answer": "Section 154 of the Code of Criminal Procedure, 1898 requires that oral information about a cognizable offence given to the officer-in-charge of a police station be reduced to writing, read back to the informant, signed by them, and entered in a register in the prescribed form — that's the actual legal basis for what we call an FIR. Our FIR records follow that structure: every entry carries a recording officer, a report timestamp, and complainant details, which is the database's structural equivalent of the Section 154 register entry.",
+    "question_type": "Knowledge Base Reasoning",
+    "kb_document": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+    "evidence": "",
+    "multi_step": true,
+    "language": "en"
+  },
+  {
+    "id": "KB2",
+    "source": "Muhafiz",
+    "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+    "answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "question_type": "Knowledge Base Reasoning",
+    "kb_document": "2_qanun-e-shahadat-order-1984.pdf; 1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+    "evidence": "",
+    "multi_step": true,
+    "language": "en"
+  },
+  {
+    "id": "KB3",
+    "source": "Muhafiz",
+    "question": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+    "answer": "The law expects separation. Article 18 of the Police Order, 2002 sets up a distinct Investigation Wing under a dedicated head of investigation, states that registered cases \"shall be investigated by the investigation staff\" under that head, and bars the District Police Officer from interfering in the investigation process — the clear intent is that logging a case and investigating it are separate functions. In practice, our data shows the opposite: the officer who records the FIR and the officer who ends up investigating it are the same person in 68 of 74 pairs (92%); role-splitting happens in only 6 cases. So the separation the law sets up isn't what's actually happening on the ground in this data.",
+    "question_type": "Knowledge Base Reasoning",
+    "kb_document": "3_1527157863PoliceOrder2002.pdf",
+    "evidence": "",
+    "multi_step": true,
+    "language": "en"
+  },
+  {
+    "id": "KB4",
+    "source": "Muhafiz",
+    "question": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+    "answer": "جی ہاں۔ پنجاب پولیس رولز، 1934 (جلد 3) کا رول 27.16 پولیس کو پابند کرتا ہے کہ وہ مقررہ فارم میں کیس پراپرٹی اور لاوارث پراپرٹی کا رجسٹر برقرار رکھے، جسے مکمل ہونے کے تین سال بعد ہی تلف کیا جا سکتا ہے۔ ہمارا مال خانہ رجسٹر اِسی ساخت کی عکاسی کرتا ہے: ریکارڈ میں موجود 45 اندراجات میں سے ہر ایک میں سیریل نمبر، رجسٹریشن نمبر، اندراج کی تاریخ، شے کی تفصیل، مقدار اور حالت درج ہے — وہی خانے جن کا اِس رول کا مقررہ رجسٹر فارم تقاضا کرتا ہے۔",
+    "question_type": "Knowledge Base Reasoning",
+    "kb_document": "4_Punjab-Police-Rules-III.pdf",
+    "evidence": "",
+    "multi_step": true,
+    "language": "ur"
+  },
+  {
+    "id": "KB5",
+    "source": "Muhafiz",
+    "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+    "answer": "جی ہاں۔ اینٹی ریپ (انویسٹی گیشن) رولز، 2022 کا رول 3(2) تفتیشی افسر کو پابند کرتا ہے کہ وہ یقینی بنائے کہ ایک خاتون پولیس افسر شامل ہو، متاثرہ کا بیان اینٹی ریپ کرائسز سیل (اے آر سی سی) میں تنہائی میں ریکارڈ کیا جائے، اور شواہد کی چین آف کسٹڈی پورے عمل کے دوران برقرار رکھی جائے — یہ واضح فرائض ہیں، تھانے کی صوابدید پر نہیں چھوڑے گئے۔ ہماری خواتین سے تشدد کی رپورٹوں کے ریکارڈ اس کا کچھ حصہ ظاہر کرتے ہیں: ریکارڈ میں موجود 8 میں سے ہر رپورٹ میں مقررہ خواتین پولیس اسٹیشن اور بیج نمبر کے ساتھ نامزد تفتیشی افسر کا خانہ موجود ہے، جو کیس کے باقاعدہ ایف آئی آر میں تبدیل ہونے سے پہلے ہی درج کیا جاتا ہے۔ جو چیز درج نہیں ہوتی وہ یہ ہے کہ چین آف کسٹڈی واقعی برقرار رکھی گئی یا نہیں — تقاضے کے اُس حصے کے لیے کوئی متعلقہ خانہ موجود نہیں۔",
+    "question_type": "Knowledge Base Reasoning",
+    "kb_document": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+    "evidence": "",
+    "multi_step": true,
+    "language": "ur"
+  },
+  {
+    "id": "KB6",
+    "source": "Muhafiz",
+    "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+    "answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "question_type": "Knowledge Base Reasoning",
+    "kb_document": "5 Forensics guidelines.pdf",
+    "evidence": "",
+    "multi_step": true,
+    "language": "roman_ur"
+  },
+  {
+    "id": "KB8",
+    "source": "Muhafiz",
+    "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+    "answer": "Haan. Code of Criminal Procedure, 1898 ki dafa 173 ke tehat har tafteesh bila-zaroori takheer ke mukammal honi chahiye, aur agar FIR darj hone ke chaudah din ke andar mukammal na ho, to officer in charge us muddat ke khatam hone ke teen din ke andar magistrate ko (public prosecutor ke zariye) ek interim report bhejne ka paband hai, jisme ab tak ki tafteesh ka natija darj ho. Hamara data us pipeline ke aakhri hisse ko darj karta hai — adaalat bheja gaya challan (26 cases) aur, hal shuda cases ke liye, darj shuda natija — magar schema mein kahin interim report ka koi tasavvur nahi aur challan ko uski tafteesh ke aaghaaz se jorne wala koi field nahi. Is liye data yeh tasdeeq kar sakta hai ke case adaalat tak pohcha, magar yeh nahi ke raaste mein 14-din ki interim-report ki zimma-daari poori hui ya nahi.",
+    "question_type": "Knowledge Base Reasoning",
+    "kb_document": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+    "evidence": "",
+    "multi_step": true,
+    "language": "roman_ur"
+  },
+  {
+    "id": "KB9",
+    "source": "Muhafiz",
+    "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+    "answer": "Code of Criminal Procedure, 1898 ki dafa 174 officer in charge ko paband karti hai ke jab use maloom ho ke koi shakhs khudkushi se, qatl se, ya aise halaat mein mara gaya jo shak paida karte hain, to woh tehqeeqaat kare aur maut ki zaahiri wajah par ek report tayyar kare — jism par mojood zakhmon ya nishaanaat ki tafseel ke saath — aur ise qareeb tareen magistrate ko bheje. Hamara data zahir karta hai ke aise cases mojood hain: 8 FIRs qatl ki dafa (PPC 302) ka hawala dete hain, aur kai zabt shuda property entries meyyat ke warisaan ko wapas karne ke liye nishaanzad hain. Magar schema mein kahin koi inquest, post-mortem ya cause-of-death record nahi. FIR aur uski dafaat yeh darj karti hain ke maut ka daawa kiya gaya hai; woh alag qanooni maut ki tehqeeqaat ko darj nahi kartin.",
+    "question_type": "Knowledge Base Reasoning",
+    "kb_document": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+    "evidence": "",
+    "multi_step": true,
+    "language": "roman_ur"
+  }
+]

@@ -110,12 +110,54 @@ negated relationship pattern directly in a `WHERE` clause, e.g.
 live. Use two separate `MATCH`/count queries and diff in Python, as done here,
 rather than that pattern.)
 
-## Summary — authoritative numbers for Modules 2, 4, 7
+## 4. A1 (Module 10.1) — the app is dividing by the wrong denominator, not missing data; gold's 94/67/24/3 is exactly reproducible
+
+**Finding:** live graph, queried directly (`MATCH (p:Person)-[r:INVOLVED_IN
+{role: "accused"}]->(i:Incident) ...`):
+
+| Count basis | Male | Female | Unknown | Total |
+|---|---|---|---|---|
+| **Row-level** (`count(r)` — one per `fir_accused` row/mention) | **67** | **24** | **3** | **94** |
+| **Distinct-Person-level** (`count(DISTINCT p)` — one per resolved entity) | 65 | 24 | 3 | 92 |
+
+Row-level matches the official gold answer (67/24/3/94) **exactly** — female
+and unknown already matched at both levels; only male/total differ, by
+precisely 2.
+
+**Root cause, pinpointed to the line:** `src/pipeline/xagg.py::_gender_breakdown()`
+(~line 482) builds `seen_entities: dict[entity_id, gender]`, keyed by
+`entity_id` — i.e. it counts **distinct resolved persons**, not accused
+**entries**. Two people are named as accused in two different FIRs each
+(confirmed by direct query: two `PERSON-*` nodes each carry 2 `INVOLVED_IN
+{role: "accused"}` edges — these are the same two recidivist identities S3/CR2
+already surface: شہزیب عرف شابی across FIR 891/24 and 214/26, and عاصم رشید
+across FIR 64/26 and 65/26). Because `_gender_breakdown()` dedupes by
+`entity_id`, each of those two men's second accused-entry is silently dropped
+— losing exactly 2 from the male count and 2 from the total.
+
+**This is not a data gap and not an entity-resolution bug** — the entity
+resolution correctly recognizing the same person across two FIRs is exactly
+right and exactly what CR2/S3 depend on. It's a **question-framing mismatch**:
+gold's A1 explicitly asks about "94 ملزم اندراجات" — 94 accused **entries**
+(i.e. count the `fir_accused` row/mention, once per FIR each person is named
+in), not 94 distinct people. `_gender_breakdown()` needs to count
+`INVOLVED_IN {role: "accused"}` **edges**, not `DISTINCT p` — a one-line
+change (drop the `seen_entities` dedup-by-entity_id map, count edges with
+their own gender read directly, or equivalently `count(r)` grouped by
+`p.gender` in the Cypher itself).
+
+**Authoritative numbers for Module 13's A1 aggregate: 67 male / 24 female / 3
+unknown / 94 total — reproduced exactly by counting accused edges, not
+distinct persons.** No ground-truth ambiguity remains; this is a pure
+app-code fix, scoped and ready for Module 13.
+
+## Summary — authoritative numbers for Modules 2, 4, 7, 13
 
 | Question | Authoritative target | Source |
 |---|---|---|
 | D1 (how many FIRs) | **73** | Postgres `cases` table, post-cleanup; matches graph and gold |
 | A7 denominator (of how many FIRs) | **73** | same |
 | CP6 (placeholder-officer count) | **10 current** (mention 11 historical/ever-assigned for full context) | live graph, `ASSIGNED_TO` supersession chain |
+| A1 (accused gender ratio) | **67 M / 24 F / 3 unknown / 94 total** | live graph, `INVOLVED_IN{role:"accused"}` edge count (not distinct-person count) |
 
-No further ground-truth work is needed before Modules 2, 4, and 7 proceed.
+No further ground-truth work is needed before Modules 2, 4, 7, and 13 proceed.

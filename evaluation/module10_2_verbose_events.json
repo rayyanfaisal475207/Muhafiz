@@ -1,0 +1,212 @@
+{
+  "CR6": {
+    "question": "جب کوئی شخص تھانے آ کر شکایت درج کراتا ہے، تو کیا وہ کسی باقاعدہ ایف آئی آر سے منسلک ہو جاتی ہے، یا دونوں الگ الگ ہی رہتے ہیں؟",
+    "elapsed_s": 71.5,
+    "events": [
+      {
+        "step": "supervisor",
+        "status": "active",
+        "detail": "Routing through the agent harness..."
+      },
+      {
+        "step": "supervisor:dispatch",
+        "status": "active",
+        "detail": "Classified query as route='RAG' -> sub-agent='Semantic Search'"
+      },
+      {
+        "step": "retrieval",
+        "status": "active",
+        "detail": "Searching documents…"
+      },
+      {
+        "step": "retrieval",
+        "status": "error",
+        "detail": "Retrieval failed"
+      },
+      {
+        "step": "supervisor:dispatch",
+        "status": "done",
+        "detail": "Semantic Search completed with status=abstained"
+      },
+      {
+        "step": "supervisor",
+        "status": "done",
+        "detail": "Harness routing complete"
+      },
+      {
+        "step": "response",
+        "status": "error",
+        "detail": "Document search failed; no answer could be produced.",
+        "ms": 56679
+      }
+    ]
+  },
+  "CR8": {
+    "question": "اگر کسی گھریلو تشدد کی شکایت کو باقاعدہ کیس میں تبدیل ہونے کے طور پر درج کیا گیا ہو، تو کیا کیس ریکارڈ سے اس کی تصدیق ہو جاتی ہے؟",
+    "elapsed_s": 75.9,
+    "events": [
+      {
+        "step": "supervisor",
+        "status": "active",
+        "detail": "Routing through the agent harness..."
+      },
+      {
+        "step": "supervisor:dispatch",
+        "status": "active",
+        "detail": "Classified query as route='RAG' -> sub-agent='Semantic Search'"
+      },
+      {
+        "step": "retrieval",
+        "status": "active",
+        "detail": "Searching documents…"
+      },
+      {
+        "step": "retrieval",
+        "status": "error",
+        "detail": "Retrieval failed"
+      },
+      {
+        "step": "supervisor:dispatch",
+        "status": "done",
+        "detail": "Semantic Search completed with status=abstained"
+      },
+      {
+        "step": "supervisor",
+        "status": "done",
+        "detail": "Harness routing complete"
+      },
+      {
+        "step": "response",
+        "status": "error",
+        "detail": "Document search failed; no answer could be produced.",
+        "ms": 58885
+      }
+    ]
+  },
+  "M5": {
+    "question": "ہتھیار عام طور پر کس نوعیت کے مقدمات میں سامنے آتے ہیں، اور کیا 2024 کے مقابلے میں اب یہ نوعیت بدل گئی ہے؟",
+    "elapsed_s": 70.5,
+    "events": [
+      {
+        "step": "supervisor",
+        "status": "active",
+        "detail": "Routing through the agent harness..."
+      },
+      {
+        "step": "supervisor:dispatch",
+        "status": "active",
+        "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+      },
+      {
+        "step": "supervisor:dispatch",
+        "status": "done",
+        "detail": "Large-Scale Aggregate completed with status=ok"
+      },
+      {
+        "step": "supervisor",
+        "status": "done",
+        "detail": "Harness routing complete"
+      },
+      {
+        "step": "response",
+        "status": "streaming",
+        "detail": "**1 matching Weapon(s) found.**\n\n- 30 بور پستول (Weapon): appears in 30 cases — fir-1001-26, fir-201-26, fir-202-26, fir-203-26, fir-204-26, fir-210-26, fir-212-26, fir-213-26, fir-214-26, fir-217-26, fir-218-26, fir-301-26, fir-401-26, fir-403-26, fir-407-26, fir-408-26, fir-409-26, fir-410-26, fir-413-26, fir-420-26, fir-421-26, fir-423-26, fir-430-26, fir-431-26, fir-445-26, fir-458-26, fir-465-26, fir-466-26, fir-468-26, fir-891-24\n\n_The natural-language summary could not be verified as an accurate paraphrase; showing the raw computed aggregate instead._"
+      },
+      {
+        "step": "response",
+        "status": "done",
+        "detail": "Response generated (564 chars)",
+        "ms": 43843
+      },
+      {
+        "step": "memory",
+        "status": "done",
+        "detail": "Saved to session"
+      }
+    ]
+  },
+  "G2": {
+    "question": "فرض کریں آپ کسی ایس ایچ او کو بریفنگ دے رہے ہیں کہ کون سے مقدمے دب کر یا نظر سے اوجھل ہو کر رہ سکتے ہیں — آپ کن چیزوں کی نشاندہی کریں گے؟",
+    "elapsed_s": 98.8,
+    "events": [
+      {
+        "step": "supervisor",
+        "status": "active",
+        "detail": "Routing through the agent harness..."
+      },
+      {
+        "step": "supervisor:dispatch",
+        "status": "active",
+        "detail": "Classified query as route='RAG' -> sub-agent='Semantic Search'"
+      },
+      {
+        "step": "retrieval",
+        "status": "active",
+        "detail": "Searching documents…"
+      },
+      {
+        "step": "retrieval",
+        "status": "error",
+        "detail": "Retrieval failed"
+      },
+      {
+        "step": "supervisor:dispatch",
+        "status": "done",
+        "detail": "Semantic Search completed with status=abstained"
+      },
+      {
+        "step": "supervisor",
+        "status": "done",
+        "detail": "Harness routing complete"
+      },
+      {
+        "step": "response",
+        "status": "error",
+        "detail": "Document search failed; no answer could be produced.",
+        "ms": 66486
+      }
+    ]
+  },
+  "G5": {
+    "question": "Baramad shuda hathiyaron ki record keeping ko dekhte hue, kya koi aisi baat hai jo compliance ke lihaz se flag karne layak ho?",
+    "elapsed_s": 64.8,
+    "events": [
+      {
+        "step": "supervisor",
+        "status": "active",
+        "detail": "Routing through the agent harness..."
+      },
+      {
+        "step": "supervisor:dispatch",
+        "status": "active",
+        "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+      },
+      {
+        "step": "supervisor:dispatch",
+        "status": "done",
+        "detail": "Large-Scale Aggregate completed with status=ok"
+      },
+      {
+        "step": "supervisor",
+        "status": "done",
+        "detail": "Harness routing complete"
+      },
+      {
+        "step": "response",
+        "status": "streaming",
+        "detail": "**1 matching Weapon(s) found.**\n\n- 30 بور پستول (Weapon): appears in 30 cases — fir-1001-26, fir-201-26, fir-202-26, fir-203-26, fir-204-26, fir-210-26, fir-212-26, fir-213-26, fir-214-26, fir-217-26, fir-218-26, fir-301-26, fir-401-26, fir-403-26, fir-407-26, fir-408-26, fir-409-26, fir-410-26, fir-413-26, fir-420-26, fir-421-26, fir-423-26, fir-430-26, fir-431-26, fir-445-26, fir-458-26, fir-465-26, fir-466-26, fir-468-26, fir-891-24\n\n_The natural-language summary could not be verified as an accurate paraphrase; showing the raw computed aggregate instead._"
+      },
+      {
+        "step": "response",
+        "status": "done",
+        "detail": "Response generated (564 chars)",
+        "ms": 46876
+      },
+      {
+        "step": "memory",
+        "status": "done",
+        "detail": "Saved to session"
+      }
+    ]
+  }
+}
