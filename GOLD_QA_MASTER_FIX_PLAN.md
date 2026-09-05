@@ -72,16 +72,16 @@ is `rayyanfaisal475207 <rayyanfaisal475207@users.noreply.github.com>`** — the
 | 10.3 | Merge Gold-32 harness onto `main` | `chore/merge-gold32-eval-harness` | ✅ Merged |
 | 11 | Route compound/creative questions to Meta-Analysis (RC-0) | `fix/router-meta-analysis-trigger-coverage` | ✅ Merged |
 | 12 | Stop XNETWORK/XGRAPH cluster-dump fallback (RC-1) | `fix/xnetwork-xgraph-broad-query-guard` | ✅ Merged |
-| 13 | XAGG rate/time-bucket primitives + A1 aggregate (RC-2) | `feature/xagg-derived-aggregate-primitives` | ⬜ Not started — **can start now** |
-| 14 | CR7 criminal-record × court-outcome cross-check | `feature/xagg-criminal-record-court-crosscheck` | ⬜ Not started (blocked on 13) |
+| 13 | XAGG rate/time-bucket primitives + A1 aggregate (RC-2) | `feature/xagg-derived-aggregate-primitives` | ✅ Merged |
+| 14 | CR7 criminal-record × court-outcome cross-check | `feature/xagg-criminal-record-court-crosscheck` | ⬜ Not started — unblocked, Module 13 merged |
 | 15 | Field-consistency questions → XAGG/graph joins (RC-3 + RC-6) | `fix/router-field-consistency-to-xagg` | ⬜ Not started — shares `router.py` with 16 (Module 12 turned out not to touch `router.py` — confirmed by reading it, no conflict there) |
 | 16 | Cross-case scope LLM fallback (RC-4) | `fix/router-cross-case-scope-llm-fallback` | ⬜ Not started — shares `router.py` with 15 |
 | 17 | Verifier paraphrase-strictness relaxation (RC-5) | `fix/verifier-paraphrase-strictness-relaxation` | ✅ Merged |
 | 18 | Second full Gold-32 rerun + updated report | *(docs only)* | ⬜ Not started (blocked on 10–17) |
 | 19 | DeepEval 17-query harness context-capture fix | `fix/deepeval-harness-context-capture` | ✅ Merged |
-| 20 | Judge-prompt "close numbers OK" tightening | `fix/gold32-judge-close-number-tolerance` | ⬜ Not started — **can start now** |
+| 20 | Judge-prompt "close numbers OK" tightening | `fix/gold32-judge-close-number-tolerance` | ✅ Merged |
 
-**Recommended order:** 9 → 13 → 14 → 15 → 16 → 18 (12 and 17 already
+**Recommended order:** 9 → 14 → 15 → 16 → 18 (12, 13, 17, 19, 20 already
 merged), with 15/16 serialized against each other (both touch `router.py`)
 rather than run concurrently — (19, 20, and 9 are parallel-safe with
 everything, docs/eval-only).
@@ -90,39 +90,32 @@ per-module file-overlap reasoning.
 
 ---
 
-## Which modules can run independently right now (updated after Module 12/17)
+## Which modules can run independently right now (updated after Module 12/13/17/19/20)
 
-With Modules 8, 11, 12, and 17 all merged, the remaining open modules that
-are genuinely file-independent of everything else still open and of each
-other are safe to hand to separate chats/sessions **right now**, each in its
-own git worktree (the pattern Modules 8, 11, 12, and 17 all used to avoid
+With Modules 8, 11, 12, 13, 17, 19, and 20 all merged, the remaining open
+modules that are genuinely file-independent of everything else still open
+and of each other are safe to hand to separate chats/sessions **right now**,
+each in its own git worktree (the pattern all of the above used to avoid
 colliding on one working directory):
 
 | Module | Files touched | Why it's independent |
 |---|---|---|
 | **9** | *(docs only — runs `evaluation/gold32_run.py`/`gold32_score.py`, writes a report)* | No app code at all; reads whatever is on `main` at run time. |
-| **13** | `src/pipeline/xagg.py` | No other open module touches this file. |
-| **19** | `evaluation/run_pipeline.py` | Eval-only, already flagged parallel-safe in the original plan. |
-| **20** | `evaluation/gold32_score.py` | Eval-only, already flagged parallel-safe in the original plan. |
+| **14** | Built on Module 13's primitives — `src/pipeline/xagg.py` and/or a small new harness tool | Module 13 merged, so this is now unblocked; no other open module touches its likely files. |
 
 Module 12 turned out NOT to touch `src/pipeline/router.py` in the end (the
 fix landed entirely in `xnetwork.py`/the harness `cross_case_linkage.py`
 layer — confirmed by reading `router.py` before writing any code, not
-assumed from the original file list). So `router.py` is now shared only
-between **Modules 15 and 16** — run those two sequentially against each
-other (or accept manually resolving the resulting conflict, which is
-mechanical: two additive pattern-list blocks, not overlapping logic).
-
-**Module 14 cannot start yet** — it's explicitly built on Module 13's
-rate/time-bucket primitives, so it's a sequential follow-on to 13, not a
-parallel track.
+assumed from the original file list). So `router.py` is shared only between
+**Modules 15 and 16** — run those two sequentially against each other (or
+accept manually resolving the resulting conflict, which is mechanical: two
+additive pattern-list blocks, not overlapping logic).
 
 **Module 18 cannot start yet** — it's the final Gold-32 rerun and depends on
-11–17 all being merged.
+11–17 all being merged (11/12/13/17 are in; 14/15/16 still open).
 
-So, concretely, right now: **9, 13, 15, 19, 20 can all be started in
-parallel chats today** (16 queued behind 15 on `router.py`); queue 14 behind
-13; hold 18 until everything else is in.
+So, concretely, right now: **9, 14, 15 can all be started in parallel chats
+today** (16 queued behind 15 on `router.py`); hold 18 until 14/15/16 land.
 
 ---
 
