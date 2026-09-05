@@ -78,10 +78,10 @@ is `rayyanfaisal475207 <rayyanfaisal475207@users.noreply.github.com>`** — the
 | 16 | Cross-case scope LLM fallback (RC-4) | `fix/router-cross-case-scope-llm-fallback` | ⬜ Not started — shares `router.py` with 15 |
 | 17 | Verifier paraphrase-strictness relaxation (RC-5) | `fix/verifier-paraphrase-strictness-relaxation` | ✅ Merged |
 | 18 | Second full Gold-32 rerun + updated report | *(docs only)* | ⬜ Not started (blocked on 10–17) |
-| 19 | DeepEval 17-query harness context-capture fix | `fix/deepeval-harness-context-capture` | ⬜ Not started — **can start now** |
+| 19 | DeepEval 17-query harness context-capture fix | `fix/deepeval-harness-context-capture` | ✅ Merged |
 | 20 | Judge-prompt "close numbers OK" tightening | `fix/gold32-judge-close-number-tolerance` | ✅ Merged |
 
-**Recommended order:** 9 → 14 → 15 → 16 → 18 (12, 13, 17, and 20 already
+**Recommended order:** 9 → 14 → 15 → 16 → 18 (12, 13, 17, 19, 20 already
 merged), with 15/16 serialized against each other (both touch `router.py`)
 rather than run concurrently — (19, 9, and 14 are all startable today).
 See "Which modules can run independently right now" below for the full
@@ -89,27 +89,26 @@ per-module file-overlap reasoning.
 
 ---
 
-## Which modules can run independently right now (updated after Module 13)
+## Which modules can run independently right now (updated after Module 12/13/17/19/20)
 
-With Modules 8, 11, 12, 13, and 17 all merged, the remaining open modules
-that are genuinely file-independent of everything else still open and of
-each other are safe to hand to separate chats/sessions **right now**, each in
-its own git worktree (the pattern every merged module above used to avoid
+With Modules 8, 11, 12, 13, 17, 19, and 20 all merged, the remaining open
+modules that are genuinely file-independent of everything else still open
+and of each other are safe to hand to separate chats/sessions **right now**,
+each in its own git worktree (the pattern all of the above used to avoid
 colliding on one working directory):
 
 | Module | Files touched | Why it's independent |
 |---|---|---|
 | **9** | *(docs only — runs `evaluation/gold32_run.py`/`gold32_score.py`, writes a report)* | No app code at all; reads whatever is on `main` at run time. |
 | **14** | `src/pipeline/xagg.py` (built on Module 13's now-merged primitives) or a small new harness tool — confirm which during implementation | Module 13 is merged, so this is now unblocked; no other open module touches `xagg.py`. |
-| **19** | `evaluation/run_pipeline.py` | Eval-only, already flagged parallel-safe in the original plan. |
 
 Module 12 turned out NOT to touch `src/pipeline/router.py` in the end (the
 fix landed entirely in `xnetwork.py`/the harness `cross_case_linkage.py`
 layer — confirmed by reading `router.py` before writing any code, not
-assumed from the original file list). So `router.py` is now shared only
-between **Modules 15 and 16** — run those two sequentially against each
-other (or accept manually resolving the resulting conflict, which is
-mechanical: two additive pattern-list blocks, not overlapping logic).
+assumed from the original file list). So `router.py` is shared only between
+**Modules 15 and 16** — run those two sequentially against each other (or
+accept manually resolving the resulting conflict, which is mechanical: two
+additive pattern-list blocks, not overlapping logic).
 
 **Module 13's own live verification surfaced one bug outside its stated
 file scope**, worth knowing before starting Module 14 (which sits on the
@@ -124,11 +123,10 @@ found and fixed). Module 14 should check this Literal on its own new
 result kind(s) before considering itself live-verified.
 
 **Module 18 cannot start yet** — it's the final Gold-32 rerun and depends on
-11–17 all being merged.
+11–17 all being merged (11/12/13/17 are in; 14/15/16 still open).
 
-So, concretely, right now: **9, 14, 15, 19 can all be started in parallel
-chats today** (16 queued behind 15 on `router.py`); hold 18 until everything
-else is in.
+So, concretely, right now: **9, 14, 15 can all be started in parallel chats
+today** (16 queued behind 15 on `router.py`); hold 18 until 14/15/16 land.
 
 ---
 
@@ -793,7 +791,7 @@ Generation 0.04→?), and note for each of the 7 root causes whether it was
 confirmed fixed by a **non-gold paraphrase**, per each module's own verify
 step.
 
-## Module 19 — DeepEval 17-query harness context-capture fix ⬜
+## Module 19 — DeepEval 17-query harness context-capture fix ✅ Merged
 
 **Branch:** `fix/deepeval-harness-context-capture`
 
@@ -803,13 +801,69 @@ against an incomplete captured retrieval context — correct answers sourced
 from structured API fields get penalized as "hallucinated" because the
 harness never captured that context, only narrative chunks.
 
-**Files:** `evaluation/run_pipeline.py`'s `_parse_sse()` — capture the full
-retrieval context actually used (structured-aggregate and graph-node data,
-not just narrative chunk text).
+**What was actually found (broader than the "Files" line above stated —
+read this before assuming it's a one-file fix):** direct code reading of
+every SSE event both live paths emit (`src/pipeline/harness/cutover.py`,
+the actual live path for this deployment's `HARNESS_CUTOVER_ROUTES=RAG,
+SQL,GRAPH,GRAPH_HYBRID,XGRAPH,XAGG,XNETWORK`, and `src/pipeline/
+orchestrator.py`'s legacy inline path for DIRECT/WEB) confirmed the
+`_parse_sse()` condition this fixes (`step in ("retrieval",
+"retrieved_docs") and d.get("documents")`) never matched anything on
+either path — `retrieval_context` in `pipeline_outputs.json` was always
+`[]`, worse than "narrative chunks only." Root cause: `SubAgentResult`
+(the harness's sub-agent-to-supervisor handoff type) deliberately carries
+NO raw evidence chunk text at all (`types.py` §3, "no raw evidence crosses
+the boundary" — a PRESERVE-tagged architectural decision, not an
+oversight) — the harness will never put narrative chunk TEXT on the wire,
+by design, and no fix scoped to the eval script alone can retrieve data
+that was never sent. What the harness DOES compute but was silently
+dropping: bounded per-claim `Citation` metadata (`document_index`,
+`source_tool`, `case_id`, `source_file`, `confidence` — real provenance,
+never chunk text, same boundary).
 
-**Verify:** re-run the 17-query harness; the 3 previously-understated
-metrics move up specifically for the queries §3 flagged as unfairly
-penalized — not a blanket score inflation across all 17.
+**Files (expanded from the original one-file scope, necessarily — the gap
+was in what the harness put on the wire, not just in how the eval script
+read it):**
+- `src/pipeline/harness/cutover.py` — new additive `"citations"` SSE step
+  exposing `result.citations`, same no-pre-harness-precedent pattern
+  already established there for `timeline_building`/`data_quality`. Does
+  NOT cross the evidence boundary — attribution only, never chunk text.
+- `evaluation/run_pipeline.py`'s `_parse_sse()` — captures the new
+  `citations` step and the `sources` lists (`web_search`/
+  `file_generation`) that were already being emitted but silently
+  dropped, as compact provenance strings into `retrieval_context`.
+
+**What this does NOT fix:** DeepEval's context-relative metrics
+(Relevancy/Hallucination/text-based Faithfulness) still need narrative
+chunk TEXT to score against, which the harness boundary will not expose by
+design. `evaluation/gold_set.json`'s own hand-authored `retrieval_context`
+(see `deepeval_score.py::build_cases()`) remains the primary text-context
+source for those metrics — this module closes the "always empty, silently
+dropped real data" gap, not the deeper "no narrative text ever crosses the
+harness boundary" one, which would require reopening the §3 boundary
+decision itself, out of scope here.
+
+**Verified:**
+- `tests/test_harness_cutover.py`: new `test_citations_yield_new_citations_step`
+  / `test_no_citations_means_no_citations_step`, full file passes (23
+  tests). New `tests/test_run_pipeline_parse_sse.py` (6 tests) — pure
+  parsing, including a regression guard confirming the old dead condition
+  never matched anything. Full repo suite: 2335 passed, 5 skipped, 1
+  xpassed, zero regressions.
+- Live: ran a temporary backend instance from this module's own worktree
+  (`.venv` and `data/`, `chroma_db` are not shared across git worktrees) on
+  a spare port against the same live Postgres, sent the FIR 891/24 weapon
+  question through real `/api/chat`, and confirmed the real captured SSE
+  now carries a `"citations"` event with 10 real entries (5 RAG chunks, 5
+  GRAPH structured-projection nodes, all `case_id: fir-891-24`) that were
+  previously invisible to the harness entirely. Ran the exact captured SSE
+  through `_parse_sse()` directly and confirmed all 10 land in
+  `retrieval_context` as `"[Document N] tool=..., source=..., case=...,
+  confidence=..."` strings. Full 17-query DeepEval re-run not done this
+  session — needs `EVAL_INVESTIGATOR_EMAIL`/`EVAL_SUPERVISOR_EMAIL`
+  test-account credentials this environment doesn't have configured; the
+  underlying mechanism this module fixes is confirmed working end-to-end
+  above.
 
 ## Module 20 — Judge-prompt "close numbers OK" tightening ✅ DONE (merged, PR #6)
 
@@ -838,9 +892,9 @@ low at 0.20; A7 (outright abstention when the data exists) stayed at 0.0.
 
 ## Sequencing note
 
-Modules 10.1–10.3, 8, 11, 12, 13, 17, and 20 are all done. See "Which
+Modules 10.1–10.3, 8, 11, 12, 13, 17, 19, and 20 are all done. See "Which
 modules can run independently right now" (above §0) for the current,
-up-to-date parallelization picture: **9, 14, 15, 19 can all start now, in
+up-to-date parallelization picture: **9, 14, 15 can all start now, in
 parallel, each in its own worktree** — 15 and 16 share `router.py` (12
 turned out not to touch it) so those two should queue against each other;
 18 waits for everything (10–17) to land.
