@@ -52,6 +52,24 @@ _DOCLING_BATCH_SIZE = 80
 _converter = None
 _converter_lock = threading.Lock()
 
+# [Gold-QA fix — Module 8c] A SECOND, OCR-disabled converter, for PDFs that
+# already carry a usable embedded text layer. Two findings from Module 8b's
+# re-verification drive this:
+#   1. Correctness: Docling's default per-page RapidOCR, run over a page that
+#      ALREADY has a good text layer, can garble or drop that text — live-
+#      confirmed on the CrPC PDF, where §154's body ("Every information
+#      relating to the commission of a cognizable offence…") is present and
+#      correct in the PDF's own text layer and extracts cleanly with
+#      do_ocr=False, but is dropped from the markdown with OCR on. That
+#      missing body is exactly what KB1 needs, so this is a retrieval-
+#      correctness fix, not just a speed one.
+#   2. Speed: OCR on this corpus runs ~7s/page (a 319-page PDF is ~1hr of
+#      CPU); skipping it for text-layer PDFs makes re-ingestion practical.
+# Genuinely scanned/image-only pages are unaffected: `_pdf_has_text_layer()`
+# routes those to the default OCR converter, and the existing per-page vision
+# fallback (see load_pdf) still catches any page this converter can't read.
+_converter_no_ocr = None
+
 
 def _get_converter():
     global _converter
@@ -61,6 +79,59 @@ def _get_converter():
                 from docling.document_converter import DocumentConverter
                 _converter = DocumentConverter()
     return _converter
+
+
+def _get_converter_no_ocr():
+    global _converter_no_ocr
+    if _converter_no_ocr is None:
+        with _converter_lock:
+            if _converter_no_ocr is None:
+                from docling.document_converter import DocumentConverter, PdfFormatOption
+                from docling.datamodel.pipeline_options import PdfPipelineOptions
+                from docling.datamodel.base_models import InputFormat
+                opts = PdfPipelineOptions(do_ocr=False)
+                _converter_no_ocr = DocumentConverter(
+                    format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=opts)}
+                )
+    return _converter_no_ocr
+
+
+def _pdf_has_text_layer(file_path: Path, sample_pages: int = 5) -> bool:
+    """
+    [Gold-QA fix — Module 8c] True when the PDF carries a usable embedded
+    text layer, so it should be converted with OCR OFF (see
+    `_get_converter_no_ocr`' comment for why OCR harms these).
+
+    Samples up to `sample_pages` pages spread across the document (not just
+    the first few — a cover/title page is often image-only even in an
+    otherwise text-based PDF) and returns True if their combined extracted
+    text clears `MIN_TEXT_CHARS`. Conservative by construction: any read
+    failure returns False, so the document falls back to the default OCR
+    converter — never the other way round (a scanned PDF must never be
+    mistaken for a text one and have its only extraction path disabled).
+    """
+    try:
+        import fitz  # PyMuPDF — already a dependency (see _cheap_page_count)
+        pdf = fitz.open(str(file_path))
+        try:
+            n = pdf.page_count
+            if n == 0:
+                return False
+            # Evenly spaced sample indices across the whole document.
+            step = max(1, n // sample_pages)
+            idxs = list(range(0, n, step))[:sample_pages]
+            total = 0
+            for i in idxs:
+                total += len((pdf.load_page(i).get_text() or "").strip())
+            return total >= MIN_TEXT_CHARS
+        finally:
+            pdf.close()
+    except Exception as exc:
+        logger.warning(
+            "Could not probe text layer for %s (%s); using the default "
+            "OCR-enabled converter.", file_path.name, exc,
+        )
+        return False
 
 
 def _cheap_page_count(file_path: Path) -> Optional[int]:
@@ -146,7 +217,17 @@ def load_pdf(file_path: Path) -> list[Document]:
     """
     documents: list[Document] = []
     effective_from, effective_to = _extract_temporal_metadata(file_path)
-    converter = _get_converter()
+    # [Gold-QA fix — Module 8c] Prefer the OCR-disabled converter when the
+    # PDF has a usable text layer (correctness + speed — see
+    # `_get_converter_no_ocr`' comment). Genuinely scanned PDFs fall through
+    # to the default OCR converter, and the per-page vision fallback below
+    # still recovers any page this converter can't read.
+    use_ocr = not _pdf_has_text_layer(file_path)
+    converter = _get_converter() if use_ocr else _get_converter_no_ocr()
+    logger.info(
+        "Loading PDF %s with OCR %s (text-layer probe).",
+        file_path.name, "ON" if use_ocr else "OFF",
+    )
 
     # [Gold-QA fix — Module 8b] Convert in page-range batches rather than
     # one whole-document call — see _DOCLING_BATCH_SIZE's own comment for
