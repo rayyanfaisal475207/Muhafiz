@@ -74,6 +74,40 @@ async def test_empty_results_maps_to_empty_status(monkeypatch):
     assert result.status == ToolStatus.EMPTY
     assert result.chunks == []
     assert result.raw_summary_text is None
+    # Genuinely-empty-collection case: run_network_query() sets no
+    # no_relevant_reason of its own (missing key here, matching pre-Module-12
+    # callers) — the tool must not invent one.
+    assert result.no_relevant_reason is None
+
+
+@pytest.mark.asyncio
+async def test_relevance_gated_empty_carries_the_honest_reason(monkeypatch):
+    """[Module 12 — RC-1] When run_network_query()'s relevance gate is what
+    produced the empty result, XNetworkToolResult.no_relevant_reason carries
+    that specific reason through — the honest-refusal path, not a silent
+    EMPTY indistinguishable from 'the corpus had nothing at all'."""
+    async def _run_network_query(*a, **kw):
+        return {
+            "kind": "network_synthesis",
+            "results": [],
+            "community_ids": [],
+            "case_ids": [],
+            "no_relevant_reason": (
+                'No community cluster in the case corpus is closely related to '
+                'this specific question ("flag anything unusual") (nearest '
+                "cluster found was distance 0.201 against a relevance cutoff of "
+                "0.145). Rather than describing an unrelated cluster, no "
+                "cross-case network finding is being reported here."
+            ),
+        }
+
+    monkeypatch.setattr(xnetwork_mod, "run_network_query", _run_network_query)
+
+    result = await xnetwork_tool(XNetworkToolInput(query_text="flag anything unusual", execution=_execution()))
+
+    assert result.status == ToolStatus.EMPTY
+    assert result.no_relevant_reason is not None
+    assert "0.201" in result.no_relevant_reason
 
 
 @pytest.mark.asyncio
