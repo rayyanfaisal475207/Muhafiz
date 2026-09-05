@@ -619,16 +619,26 @@ def _xgraph_summary_line(
         tentative = (
             chain_confidence is not None and chain_confidence < _CONFIDENT_CHAIN_THRESHOLD
         )
-        verb = "found possible connections" if tentative else "found confirmed connections"
         confidence_note = (
             f" Chain confidence {chain_confidence:.0%}."
             if chain_confidence is not None
             else ""
         )
+        # [Gold-QA fix — Module 6] Lead with a plain-language ANSWER, not a
+        # debug-log-style "Entity-graph search found …" line. Live review
+        # (Gold-QA report §2.4) flagged that questions like "is anyone a
+        # repeat suspect across cases?" came back reading as a technical
+        # dump ("Entity-graph search found connections across 6 cases,
+        # chain confidence 50%") instead of a direct "Yes — …" answer. Keep
+        # every fact this sentence already stated (case ids, hop depth,
+        # confidence, and the identity caveat below, unchanged) — only the
+        # framing changes, from a log line to an answer.
+        lead = "Yes" if not tentative else "Yes (with some uncertainty)"
+        strength = "confirmed" if not tentative else "possible"
         lines.append(
-            f"Entity-graph search {verb} across {len(case_ids)} "
-            f"other case(s): {', '.join(case_ids)} (depth {hop_count} hop(s))."
-            f"{confidence_note}"
+            f"{lead} — the same entity recurs across {len(case_ids)} case(s), a "
+            f"{strength} cross-case link: {', '.join(case_ids)} "
+            f"(graph traversal, depth {hop_count} hop(s)).{confidence_note}"
         )
         # Always stated when links exist: entity resolution is an inference,
         # and the reader must not take a graph link as proof of one person.
