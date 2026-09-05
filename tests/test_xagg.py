@@ -934,3 +934,208 @@ async def test_district_weapon_question_scopes_to_weapon_label(monkeypatch):
     assert result["kind"] == "district_breakdown"
     assert result["entity_label"] == "Weapon"
     assert "Weapon" in captured["query"]
+
+
+# ── Module 13 — derived-aggregate primitives (RC-2) ─────────────────────────
+#
+# _rate_breakdown()/_extract_year()/_count_breakdown_by_year() tested
+# directly first (pure functions, no DB), then each of CP1/M1/M7/A1's own
+# aggregates through run_aggregate() same as every other question above.
+
+def test_rate_breakdown_computes_subset_over_total_per_group():
+    subset = {"Lahore": 3, "Karachi": 1}
+    total = {"Lahore": 10, "Karachi": 4, "Multan": 5}
+    ranked = xagg._rate_breakdown(subset, total)
+
+    by_key = {r["key"]: r for r in ranked}
+    assert by_key["Lahore"] == {"key": "Lahore", "subset_count": 3, "total_count": 10, "rate": 0.3}
+    assert by_key["Karachi"] == {"key": "Karachi", "subset_count": 1, "total_count": 4, "rate": 0.25}
+    # Multan has no subset entry at all — must default to 0, not KeyError.
+    assert by_key["Multan"] == {"key": "Multan", "subset_count": 0, "total_count": 5, "rate": 0.0}
+    # Sorted by rate descending by default.
+    assert [r["key"] for r in ranked] == ["Lahore", "Karachi", "Multan"]
+
+
+def test_rate_breakdown_skips_zero_total_groups():
+    """A group with total_count == 0 has an undefined rate — must be
+    dropped entirely, never fabricated as 0/0 == 0."""
+    ranked = xagg._rate_breakdown({"Ghost District": 2}, {"Ghost District": 0, "Lahore": 5})
+    assert [r["key"] for r in ranked] == ["Lahore"]
+
+
+def test_extract_year_parses_date_prefix_and_rejects_junk():
+    assert xagg._extract_year("2024-03-15") == 2024
+    assert xagg._extract_year("2024-03-15T10:00:00Z") == 2024
+    assert xagg._extract_year(None) is None
+    assert xagg._extract_year("") is None
+    assert xagg._extract_year("unknown") is None
+
+
+def test_count_breakdown_by_year_partitions_and_supports_multi_key_rows():
+    rows = [
+        {"incident_date": "2024-01-10", "acts": ["PPC"]},
+        {"incident_date": "2024-06-20", "acts": ["PPC", "Arms Ordinance 1965"]},
+        {"incident_date": "2026-02-01", "acts": ["CNSA 1997"]},
+        {"incident_date": None, "acts": ["PPC"]},  # unparseable — must be skipped, not mis-bucketed
+    ]
+    buckets = xagg._count_breakdown_by_year(rows, "incident_date", lambda r: r["acts"])
+
+    assert set(buckets.keys()) == {2024, 2026}
+    assert buckets[2024] == {"PPC": 2, "Arms Ordinance 1965": 1}
+    assert buckets[2026] == {"CNSA 1997": 1}
+
+
+# [Gold-QA fix — Module 13, question CP1]
+
+async def test_cp1_weapon_recovery_rate_routes_and_computes_rate(monkeypatch):
+    total_rows = [{"district": "Lahore", "n_count": 10}, {"district": "Karachi", "n_count": 4}]
+    subset_rows = [{"district": "Lahore", "n_count": 2}, {"district": "Karachi", "n_count": 2}]
+    fake = _SequentialAgeClient([total_rows, subset_rows])
+    monkeypatch.setattr(xagg, "age_client", fake)
+
+    result = await xagg.run_aggregate(
+        "Kaunsa zila apne case load ke lihaz se sab se zyada hathiyar baramad karta hai?",
+        None, gateway=None, user_role="supervisor",
+    )
+
+    assert result["kind"] == "rate_breakdown"
+    assert result["dimension"] == "weapon_recovery_rate_by_district"
+    by_district = {c["district"]: c for c in result["counts"]}
+    assert by_district["Lahore"] == {
+        "district": "Lahore", "cases_with_weapon": 2, "total_cases": 10, "rate": 0.2,
+    }
+    # Karachi has the higher RATE (0.5) despite fewer absolute recoveries
+    # than Lahore — the whole point of this being a rate, not a flat count.
+    assert by_district["Karachi"]["rate"] == 0.5
+    assert fake.calls == 2
+
+
+async def test_district_weapon_question_without_rate_signal_stays_a_flat_count(monkeypatch):
+    """Regression guard: a plain 'which district recovers the most weapons'
+    (no rate/relative-to-caseload language) must keep its existing
+    flat-count behavior — CP1's rate dispatch is additive, not a
+    replacement, and only fires when a rate signal is also present."""
+    rows = [{"district": "Lahore", "n_count": 3}]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        "which district recovers the most weapons", None, gateway=None, user_role="supervisor",
+    )
+
+    assert result["kind"] == "district_breakdown"
+
+
+# [Gold-QA fix — Module 13, question M1]
+
+async def test_m1_statute_mix_by_year_routes_and_buckets_by_year(monkeypatch):
+    # [Module 13 fix] crime_category is NOT a graph property (confirmed by
+    # reading structured_projection.py — it's Postgres-only, on the
+    # gateway.get_cases() row) — age_client supplies only the incident year
+    # per case_id; the gateway supplies crime_category per case_id, joined
+    # by case_id inside _statute_mix_by_year() itself.
+    year_rows = [
+        {"incident_date": "2024-02-01", "case_id": "CASE-1"},
+        {"incident_date": "2024-05-15", "case_id": "CASE-2"},
+        {"incident_date": "2026-01-10", "case_id": "CASE-3"},
+    ]
+    cases = [
+        {"case_id": "CASE-1", "crime_category": "PPC"},
+        {"case_id": "CASE-2", "crime_category": "PPC, Arms Ordinance 1965"},
+        {"case_id": "CASE-3", "crime_category": "CNSA 1997"},
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(year_rows))
+
+    result = await xagg.run_aggregate(
+        "What kinds of cases are we dealing with now compared to a couple of years back?",
+        None, gateway=FakeGateway(cases), user_role="supervisor",
+    )
+
+    assert result["kind"] == "time_bucketed_breakdown"
+    assert result["dimension"] == "statute_by_year"
+    by_year = {b["year"]: {c["key"]: c["count"] for c in b["counts"]} for b in result["buckets"]}
+    assert by_year[2024] == {"PPC": 2, "Arms Ordinance 1965": 1}
+    assert by_year[2026] == {"CNSA 1997": 1}
+
+
+async def test_m1_time_comparison_wins_over_the_generic_trend_refusal(monkeypatch):
+    """'year over year' is also a literal _TREND_KEYWORDS entry — this
+    proves the new time-comparison dispatch (a real aggregate) wins over
+    the older hard 'not available' refusal for the shapes it now covers."""
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient([]))
+
+    result = await xagg.run_aggregate(
+        "how does the statute mix compare year over year",
+        None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "time_bucketed_breakdown"
+
+
+# [Gold-QA fix — Module 13, question M7]
+
+async def test_m7_reporting_delay_rate_by_year_routes_and_computes_rate(monkeypatch):
+    rows = [
+        {"incident_date": "2024-03-01", "reporting_delay_reason": "late report"},
+        {"incident_date": "2024-04-01", "reporting_delay_reason": None},
+        {"incident_date": "2026-01-01", "reporting_delay_reason": None},
+        {"incident_date": "2026-02-01", "reporting_delay_reason": None},
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        "Kya log 2026 mein waqiaat ki police ko itni hi jaldi ittila de rahe hain jitni 2024 mein dete the?",
+        None, gateway=None, user_role="supervisor",
+    )
+
+    assert result["kind"] == "time_bucketed_rate"
+    assert result["dimension"] == "reporting_delay_rate_by_year"
+    assert "not" in result["note"] and "delay" in result["note"]  # honest-scope caveat present
+    by_year = {b["year"]: b for b in result["buckets"]}
+    assert by_year[2024] == {"year": 2024, "delayed_count": 1, "total_count": 2, "rate": 0.5}
+    assert by_year[2026] == {"year": 2026, "delayed_count": 0, "total_count": 2, "rate": 0.0}
+
+
+# [Gold-QA fix — Module 13, question M2]
+
+async def test_m2_station_type_question_is_an_honest_unsupported_not_a_flat_count(monkeypatch):
+    """No station-type dimension exists anywhere in this data model — must
+    say so plainly rather than silently answering a per-station case count
+    (a different, easier question than the one actually asked). Uses a
+    client that fails on any call to prove this never reaches the DB."""
+    monkeypatch.setattr(xagg, "age_client", _RaisingAgeClient())
+
+    result = await xagg.run_aggregate(
+        "Is caseload growing faster at our general-purpose stations, or at the handful "
+        "set up for one specific type of crime?",
+        None, gateway=None, user_role="supervisor",
+    )
+
+    assert result["kind"] == "unsupported_aggregate"
+    assert result["message"] == xagg._UNSUPPORTED_STATION_TYPE
+
+
+# [Gold-QA fix — Module 10.1 / Module 13, question A1]
+
+async def test_gender_breakdown_counts_accused_edges_not_distinct_persons(monkeypatch):
+    """The exact A1 bug: a recidivist accused in two separate FIRs (same
+    entity_id, two accused edges) must be counted TWICE here, matching the
+    gold answer's own edge-level derivation (94 total, not 92) — see
+    evaluation/GROUND_TRUTH_NOTES.md §4. The previous version keyed a dict
+    by entity_id and silently collapsed this down to one entry."""
+    rows = [
+        _accused_row("P-RECIDIVIST", "CASE-001", gender="male"),
+        _accused_row("P-RECIDIVIST", "CASE-002", gender="male"),  # same person, second FIR
+        _accused_row("P-002", "CASE-003", gender="male"),
+        _accused_row("P-003", "CASE-004", gender="female"),
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        "what is the male to female ratio among named accused", None, gateway=None, user_role="supervisor",
+    )
+
+    assert result["kind"] == "gender_breakdown"
+    assert result["unsupported"] is False
+    counts = {c["key"]: c["count"] for c in result["counts"]}
+    assert counts == {"male": 3, "female": 1}
+    assert result["total_accused"] == 4

@@ -508,6 +508,26 @@ async def _fetch_secondary_evidence(
                     ]
                 elif agg_result["kind"] == "station_total_count":
                     lines = [f"Total police stations: {agg_result['total_stations']}"]
+                # [Gold-QA fix — Module 13, RC-2] Kept in sync with the other
+                # two identical rendering sites.
+                elif agg_result["kind"] == "rate_breakdown":
+                    lines = [
+                        f"- {c['district']}: {c['cases_with_weapon']} of {c['total_cases']} cases "
+                        f"recovered a weapon (~{round(100 * c['rate'])}%)"
+                        for c in agg_result["counts"]
+                    ]
+                elif agg_result["kind"] == "time_bucketed_breakdown":
+                    lines = []
+                    for b in agg_result["buckets"]:
+                        lines.append(f"**{b['year']}:**")
+                        lines.extend(f"  - {c['key']}: {c['count']}" for c in b["counts"])
+                elif agg_result["kind"] == "time_bucketed_rate":
+                    lines = [agg_result["note"], ""]
+                    lines.extend(
+                        f"- {b['year']}: {b['delayed_count']} of {b['total_count']} FIRs recorded a "
+                        f"delay reason (~{round(100 * b['rate'])}%)"
+                        for b in agg_result["buckets"]
+                    )
                 else:
                     lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result.get("counts", [])]
                 aggregate_text = "\n".join(lines)
@@ -2105,6 +2125,30 @@ async def process_query(
                 ]
             elif agg_result["kind"] == "station_total_count":
                 lines = [f"Total police stations: {agg_result['total_stations']}"]
+            # [Gold-QA fix — Module 13, RC-2] Three new kinds from the
+            # rate/ratio and time-bucket primitives (questions CP1/M1/M7).
+            # Kept in sync with the other two identical rendering sites —
+            # see xagg.py's own docstrings on
+            # _weapon_recovery_rate_by_district()/_statute_mix_by_year()/
+            # _reporting_delay_rate_by_year() for the exact result shape.
+            elif agg_result["kind"] == "rate_breakdown":
+                lines = [
+                    f"- {c['district']}: {c['cases_with_weapon']} of {c['total_cases']} cases recovered "
+                    f"a weapon (~{round(100 * c['rate'])}%)"
+                    for c in agg_result["counts"]
+                ]
+            elif agg_result["kind"] == "time_bucketed_breakdown":
+                lines = []
+                for b in agg_result["buckets"]:
+                    lines.append(f"**{b['year']}:**")
+                    lines.extend(f"  - {c['key']}: {c['count']}" for c in b["counts"])
+            elif agg_result["kind"] == "time_bucketed_rate":
+                lines = [agg_result["note"], ""]
+                lines.extend(
+                    f"- {b['year']}: {b['delayed_count']} of {b['total_count']} FIRs recorded a delay "
+                    f"reason (~{round(100 * b['rate'])}%)"
+                    for b in agg_result["buckets"]
+                )
             else:
                 lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
                 # [Legal-code semantic layer] crime_category can combine
