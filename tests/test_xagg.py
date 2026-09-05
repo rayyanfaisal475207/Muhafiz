@@ -1335,3 +1335,32 @@ async def test_g5_weapon_compliance_counts_unlicensed(monkeypatch):
     text = "\n".join(xagg.render_weapon_compliance_scan(r))
     assert "30 of 32" in text
     assert "94%" in text
+
+
+# ── [Gold-QA fix — G3, Module 15/16] court-readiness completeness scan ──
+
+async def test_g3_court_readiness_combines_three_signals(monkeypatch):
+    # Graph reads: accused count, accused-with-relationship count, weapon rows.
+    class _AC:
+        async def execute_cypher(self, q, params=None, columns=("result",), graph=None):
+            if "role = 'accused'" in q and "RELATED_TO" not in q:
+                return [{"n": 93}]
+            if "RELATED_TO" in q:
+                return [{"n": 12}]
+            if "Weapon" in q:
+                return [{"status": "بغیر لائسنس"}] * 30 + [{"status": None}] * 2
+            if "zimni" in q:
+                return []
+            return []
+    monkeypatch.setattr(xagg, "age_client", _AC())
+    cases = [{"case_id": f"fir-{i}-26", "incident_date": None if i < 9 else "2026-01-01",
+              "investigation_status": "open", "fir_number": f"{i}/26"} for i in range(73)]
+    r = await xagg._court_readiness_scan(_GatewayCases(cases))
+    assert r["kind"] == "court_readiness_scan"
+    assert r["accused_no_relationship"] == 81       # 93 - 12
+    assert r["weapons_no_licence_status"] == 2
+    assert r["firs_no_incident_date"] == 9
+    text = "\n".join(xagg.render_court_readiness_scan(r))
+    assert "81 of 93" in text
+    assert "2 of 32" in text
+    assert "9 FIRs record no incident date" in text

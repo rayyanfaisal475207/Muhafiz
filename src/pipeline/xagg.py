@@ -174,6 +174,17 @@ _COMPLIANCE_TERMS = (
     "record keeping", "record-keeping",
     "لائسنس", "بغیر لائسنس", "کمپلائنس",
 )
+# [Gold-QA fix — G3, Module 15/16] Court-readiness completeness questions.
+# G3 (Urdu): preparing a case file for handover to court — which fields are
+# most likely incomplete? Distinct from G2's general "buried cases" scan by
+# the court/prosecutor/handover framing. English / Urdu / Roman-Urdu.
+_COURT_READINESS_KEYWORDS = (
+    "case file for court", "court file", "handover to court", "prosecutor",
+    "before accepting", "court accept", "ready for court", "case file ready",
+    "adalat ko hawalgi", "court file tayyar", "case file tayyar",
+    "عدالت کو حوالگی", "کیس فائل تیار", "پراسیکیوٹر", "عدالت", "حوالگی کے لیے",
+    "قبول کرنے سے پہلے",
+)
 _TREND_KEYWORDS = (
     "reporting delay", "trend", "over time", "month over month",
     "year over year", "rate of increase", "رجحان",
@@ -1174,6 +1185,77 @@ def render_weapon_compliance_scan(agg_result: dict) -> list[str]:
     return lines
 
 
+async def _court_readiness_scan(
+    gateway, jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    """
+    [Gold-QA fix — G3, Module 15/16] Preparing a case file for court: which
+    fields is a prosecutor/court most likely to find incomplete? Combines the
+    three court-readiness completeness signals the G3 gold answer calls out,
+    each read from the source it's reliably queryable in:
+      (1) accused↔complainant RELATIONSHIP blank — a court almost always asks
+          how the parties relate; from the graph (RELATED_TO edges vs. the
+          accused roster).
+      (2) recovered-weapon LICENCE status missing — decisive in any Arms
+          Ordinance charge; reuses the weapon-compliance read.
+      (3) INCIDENT DATE missing — the file's timeline otherwise starts at the
+          report, not the event; reuses the case-completeness read.
+    """
+    # (1) accused relationship completeness (graph).
+    acc_rows = await age_client.execute_cypher(
+        "MATCH (p:Person)-[r:INVOLVED_IN]->(:Incident) WHERE r.role = 'accused' "
+        "RETURN count(r) AS n",
+        columns=["n"],
+    )
+    total_accused = int((acc_rows[0] or {}).get("n") or 0) if acc_rows else 0
+    rel_rows = await age_client.execute_cypher(
+        "MATCH (p:Person)-[:INVOLVED_IN]->(:Incident) "
+        "MATCH (p)-[:RELATED_TO]->(:Person) "
+        "RETURN count(DISTINCT p) AS n",
+        columns=["n"],
+    )
+    accused_with_rel = int((rel_rows[0] or {}).get("n") or 0) if rel_rows else 0
+    accused_no_rel = max(0, total_accused - accused_with_rel)
+
+    # (2) weapon licence status (reuse the compliance read).
+    weapon = await _weapon_compliance_scan(jurisdiction_case_ids=jurisdiction_case_ids)
+
+    # (3) incident date (reuse the case-completeness read).
+    completeness = await _case_completeness_scan(
+        gateway, jurisdiction_case_ids=jurisdiction_case_ids
+    )
+
+    return {
+        "kind": "court_readiness_scan",
+        "total_accused": total_accused,
+        "accused_no_relationship": accused_no_rel,
+        "weapons_total": weapon["total_weapons"],
+        "weapons_no_licence_status": weapon["no_status_count"],
+        "firs_no_incident_date": len(completeness["missing_incident_date"]),
+        "total_cases": completeness["total_cases"],
+    }
+
+
+def render_court_readiness_scan(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — G3, Module 15/16] shared renderer for both sites."""
+    lines = [
+        "Preparing a case file for court — the fields a prosecutor or court "
+        "most often wants filled in before accepting a file, and where this "
+        "data is most likely to fall short:",
+        f"  - The accused↔complainant relationship is blank in "
+        f"{agg_result['accused_no_relationship']} of {agg_result['total_accused']} "
+        f"accused entries — courts almost always ask how the parties relate.",
+        f"  - {agg_result['weapons_no_licence_status']} of "
+        f"{agg_result['weapons_total']} recovered weapons record no licence "
+        f"status — decisive in any Arms Ordinance charge.",
+        f"  - {agg_result['firs_no_incident_date']} FIRs record no incident "
+        f"date, so the file's timeline effectively starts at the report, not "
+        f"the event.",
+        "Each is a likely round-trip to fix, not a hard blocker.",
+    ]
+    return lines
+
+
 # [Gold-QA fix — Module 1c] District-level rollup — District/PoliceStation
 # graph nodes already exist (structured_projection.py's District writes),
 # so this is a graph traversal, NOT a Postgres GROUP BY over the case rows
@@ -1809,6 +1891,11 @@ async def run_aggregate(
     # [Gold-QA fix — CR6, Module 15] Walk-in CMS complaint ↔ FIR linkage.
     if _matches_any(query_lower, _CMS_LINKAGE_KEYWORDS):
         return await _cms_fir_linkage(jurisdiction_case_ids=jurisdiction_case_ids)
+    # [Gold-QA fix — G3, Module 15/16] Court-readiness completeness — checked
+    # before G2's general scan since the court/handover framing is the more
+    # specific intent (and its answer combines three court-relevant signals).
+    if _matches_any(query_lower, _COURT_READINESS_KEYWORDS):
+        return await _court_readiness_scan(gateway, jurisdiction_case_ids=jurisdiction_case_ids)
     # [Gold-QA fix — G2, Module 15] Case data-completeness scan (needs the
     # gateway case rows, not the graph — see the function's own docstring).
     if _matches_any(query_lower, _COMPLETENESS_KEYWORDS):

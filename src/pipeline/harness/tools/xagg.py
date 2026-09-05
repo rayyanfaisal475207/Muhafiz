@@ -62,6 +62,7 @@ from src.pipeline.xagg import (
     render_dv_report_fir_match,
     render_case_completeness_scan,
     render_weapon_compliance_scan,
+    render_court_readiness_scan,
     _UNSUPPORTED_JURISDICTION,
 )
 from src.retrieval.graph_retriever import jurisdiction_unresolved
@@ -120,6 +121,8 @@ AggregateKind = Literal[
     "case_completeness_scan",
     # [Gold-QA fix — Module 15, G5] same additive convention.
     "weapon_compliance_scan",
+    # [Gold-QA fix — Module 15/16, G3] same additive convention.
+    "court_readiness_scan",
 ]
 
 
@@ -260,6 +263,8 @@ def _render_aggregate_text(agg_result: dict) -> str:
         lines = render_case_completeness_scan(agg_result)
     elif kind == "weapon_compliance_scan":
         lines = render_weapon_compliance_scan(agg_result)
+    elif kind == "court_readiness_scan":
+        lines = render_court_readiness_scan(agg_result)
     elif kind == "station_total_count":
         lines = [f"Total police stations: {agg_result['total_stations']}"]
     # [Gold-QA fix — Module 13, RC-2] Three new kinds from the rate/ratio

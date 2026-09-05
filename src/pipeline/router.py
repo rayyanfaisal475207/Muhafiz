@@ -229,6 +229,14 @@ _XAGG_OVERRIDE_PATTERNS = [
         re.IGNORECASE,
     ),
     re.compile(r"(ہتھیار|اسلحہ).{0,90}(کمپلائنس|لائسنس.{0,20}(ریکارڈ|صورت))"),
+    # (e) Court-readiness completeness (G3): preparing a case file for court /
+    #     handover, which fields are likely incomplete. Distinctive court/
+    #     prosecutor/handover framing.
+    re.compile(r"\b(case file|court file)\b.{0,40}\b(court|incomplete|ready|accept)\b", re.IGNORECASE),
+    re.compile(r"\b(prosecutor|court)\b.{0,60}\b(incomplete|missing|before accepting)\b", re.IGNORECASE),
+    re.compile(r"عدالت\s*کو\s*حوالگی"),
+    re.compile(r"کیس\s*فائل\s*تیار.{0,60}(نامکمل|عدالت|حوالگی)"),
+    re.compile(r"(نامکمل\s*قرار|قبول\s*کرنے\s*سے\s*پہلے)"),
 ]
 
 _XGRAPH_OVERRIDE_PATTERNS = [
