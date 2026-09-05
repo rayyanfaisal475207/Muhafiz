@@ -88,6 +88,20 @@ AggregateKind = Literal[
     "reporting_delay_count",
     # [Gold-QA fix — Module 7, CP6] same additive convention.
     "placeholder_officer_count",
+    # [Gold-QA fix — Module 13, RC-2] Three more kinds, same additive
+    # convention — the derived-aggregate primitives' own result shapes
+    # (questions CP1/M1/M7). Live-confirmed the exact same crash class this
+    # Literal's own docstring describes for the five kinds above: before
+    # this fix, any of CP1/M1/M7's new aggregates raised a Pydantic
+    # `literal_error` on `XAggToolResult` construction the instant XAGG
+    # reached this wrapper (confirmed live via the actual traceback, not
+    # just inferred from reading the code — CP1's and M7's live answers
+    # came back empty with no user-visible error at all, since main.py's
+    # top-level exception handler swallows this into a bare "Chat pipeline
+    # error" log line).
+    "rate_breakdown",
+    "time_bucketed_breakdown",
+    "time_bucketed_rate",
 ]
 
 
@@ -218,6 +232,30 @@ def _render_aggregate_text(agg_result: dict) -> str:
         ]
     elif kind == "station_total_count":
         lines = [f"Total police stations: {agg_result['total_stations']}"]
+    # [Gold-QA fix — Module 13, RC-2] Three new kinds from the rate/ratio
+    # and time-bucket primitives. Kept in sync with orchestrator.py's two
+    # identical branches (same convention as every other kind above) — see
+    # xagg.py's own docstrings on _weapon_recovery_rate_by_district()/
+    # _statute_mix_by_year()/_reporting_delay_rate_by_year() for the exact
+    # result shape each produces.
+    elif kind == "rate_breakdown":
+        lines = [
+            f"- {c['district']}: {c['cases_with_weapon']} of {c['total_cases']} cases recovered a "
+            f"weapon (~{round(100 * c['rate'])}%)"
+            for c in agg_result["counts"]
+        ]
+    elif kind == "time_bucketed_breakdown":
+        lines = []
+        for b in agg_result["buckets"]:
+            lines.append(f"**{b['year']}:**")
+            lines.extend(f"  - {c['key']}: {c['count']}" for c in b["counts"])
+    elif kind == "time_bucketed_rate":
+        lines = [agg_result["note"], ""]
+        lines.extend(
+            f"- {b['year']}: {b['delayed_count']} of {b['total_count']} FIRs recorded a delay "
+            f"reason (~{round(100 * b['rate'])}%)"
+            for b in agg_result["buckets"]
+        )
     else:
         lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
         # [Legal-code semantic layer] Kept in sync with orchestrator.py's

@@ -82,6 +82,23 @@ _OFFICER_KEYWORDS = (
     "investigating officer", "officer assignment", "assigned officer",
     "which officer", "تفتیشی افسر", "افسر تفتیش",
 )
+# [Gold-QA fix — Module 13, question M2] "Is caseload growing faster at our
+# general-purpose stations, or at the handful set up for one specific type
+# of crime?" needs a STATION-TYPE dimension (general-purpose vs a
+# specialized/single-crime-type station) that genuinely does not exist
+# anywhere in this data model — `PoliceStation` nodes carry only
+# `name`/`code` (`structured_projection._station_identity()`), and no
+# Postgres column classifies a station by type either. Checked early,
+# alongside AGE/OFFICER above, for the same reason: an honest "can't answer
+# that" beats silently falling through to a plain per-station case count
+# (which answers "which station has the most cases", not the type-
+# normalized question actually asked).
+_STATION_TYPE_KEYWORDS = (
+    "station type", "type of station", "general-purpose station",
+    "general purpose station", "specialized station", "specialised station",
+    "specific type of crime", "one specific type of crime",
+    "تھانے کی قسم", "مخصوص نوعیت کے تھانے",
+)
 # [Gold-QA fix — Module 7, question CP6] "How many cases are still assigned
 # only a PLACEHOLDER investigating officer, not a real one?" is a COUNT
 # question with a real data path (Officer nodes and their ASSIGNED_TO
@@ -244,6 +261,47 @@ _LIST_ALL_KEYWORDS = (
     "list", "show", "all cases", "every case", "dikhao", "sab cases",
     "فہرست", "تمام مقدمات", "دکھائیں",
 )
+# [Gold-QA fix — Module 13, question CP1] Distinguishes "which district
+# recovers the most weapons, RELATIVE TO ITS CASELOAD" (a rate — this
+# family) from a plain "which district recovers the most weapons" (a flat
+# count — `_top_districts_by()`'s existing default). Checked only when
+# BOTH `_DISTRICT_KEYWORDS` and `_WEAPON_KEYWORDS` also match (see
+# `run_aggregate()`) — this tuple alone is deliberately generic
+# ("rate"/"per case load"/"relative to") since it only needs to disambiguate
+# within an already-district-and-weapon-shaped query, not stand alone.
+_RATE_SIGNAL_KEYWORDS = (
+    "rate", "relative to", "per case load", "per caseload", "normalized",
+    "normalised", "proportion", "ke lihaz se", "kay lihaz se",
+    "کے لحاظ سے", "کی نسبت سے", "فیصد",
+)
+# [Gold-QA fix — Module 13, question M1] "What kinds of cases are we
+# dealing with now COMPARED TO a couple of years back" — a genuine
+# year-over-year comparison request. Checked BEFORE `_TREND_KEYWORDS`'s
+# hard "not available" refusal below (that refusal predates Module 13's
+# real year-partitioned primitive and would otherwise still catch some of
+# this vocabulary, e.g. "year over year") — a query naming a specific
+# reporting-SPEED comparison (M7's own shape) is a narrower, separately-
+# handled case, see `_REPORTING_SPEED_COMPARISON_KEYWORDS` below, checked
+# first in `run_aggregate()` so M7 doesn't fall into this more generic
+# statute-mix family instead.
+_TIME_COMPARISON_KEYWORDS = (
+    "compared to", "compared with", "vs 2024", "versus 2024",
+    "year over year", "a couple of years back", "few years back",
+    "this year vs", "than a couple of years", "than last year",
+    "کے مقابلے میں", "ke muqable mein", "ke muqabla mein",
+)
+# [Gold-QA fix — Module 13, question M7] "Kya log 2026 mein waqiaat ki
+# police ko itni hi jaldi ittila de rahe hain jitni 2024 mein dete the?" —
+# a reporting-SPEED/promptness comparison specifically, narrower than (and
+# checked before, in `run_aggregate()`) the general
+# `_TIME_COMPARISON_KEYWORDS` family above, since this one has its own
+# dedicated aggregate (`_reporting_delay_rate_by_year()`) rather than the
+# generic statute-mix-by-year one.
+_REPORTING_SPEED_COMPARISON_KEYWORDS = (
+    "itni hi jaldi", "jitni jaldi", "as quickly as", "as promptly as",
+    "report as quickly", "reporting speed", "reporting promptly",
+    "اتنی ہی جلدی", "جتنی جلدی",
+)
 # A bare "how many total" request — distinct from _LIST_ALL_KEYWORDS (which
 # wants the raw records) and from the grouped-count default below (which
 # always breaks the answer down by station/category). Live-observed gap
@@ -321,6 +379,13 @@ _UNSUPPORTED_AGE = (
 _UNSUPPORTED_OFFICER = (
     "Officer-assignment aggregates are not available: investigating-officer "
     "identity is not currently modeled as a queryable field in this system."
+)
+# [Gold-QA fix — Module 13, question M2]
+_UNSUPPORTED_STATION_TYPE = (
+    "Station-type-normalized aggregates are not available: this system's "
+    "data model does not currently classify a police station as "
+    "general-purpose vs. specialized for a particular crime type, so "
+    "caseload cannot be compared across that dimension."
 )
 _UNSUPPORTED_TREND = (
     "Trend/time-series aggregates (reporting delay, month-over-month, etc.) "
@@ -494,23 +559,36 @@ async def _gender_breakdown(jurisdiction_case_ids: Optional[list[str]] = None) -
             "RETURN p",
             columns=["p"],
         )
-    seen_entities: dict[str, Optional[str]] = {}
+    # [Gold-QA fix — Module 10.1 / Module 13, question A1] Count every
+    # accused EDGE (one per fir_accused mention — row-level, matching how
+    # the gold answer itself was derived: live-queried directly against the
+    # graph, `evaluation/GROUND_TRUTH_NOTES.md` §4), NOT `DISTINCT p`. The
+    # previous version keyed a dict by `entity_id`, which silently collapsed
+    # a recidivist accused in two separate FIRs (شہزیب عرف شابی, عاصم رشید —
+    # already known from CR2/S3) down to one entry each, losing exactly 2
+    # from the male count and the total (confirmed live: 65 M / 92 total
+    # instead of the correct 67 M / 24 F / 3 unknown / 94 total). A ratio
+    # question like A1 ("what is the male-to-female ratio among named
+    # accused") is asking about accused MENTIONS across the caseload, not
+    # distinct real individuals — the same reasoning `_total_accused_count()`
+    # above already gets right for a bare headcount, just not applied here
+    # until now.
+    genders: list[Optional[str]] = []
     for row in rows:
         p_props = (row.get("p") or {}).get("properties", {}) or {}
-        entity_id = p_props.get("entity_id")
-        if not entity_id:
+        if not p_props.get("entity_id"):
             continue
-        seen_entities[entity_id] = (p_props.get("gender") or "").strip() or None
+        genders.append((p_props.get("gender") or "").strip() or None)
 
-    if not any(v for v in seen_entities.values()):
+    if not any(genders):
         return {"kind": "gender_breakdown", "unsupported": True, "message": _GENDER_NOT_YET_POPULATED}
 
-    counts = Counter((v or "unknown").lower() for v in seen_entities.values())
+    counts = Counter((g or "unknown").lower() for g in genders)
     return {
         "kind": "gender_breakdown",
         "unsupported": False,
         "counts": [{"key": k, "count": v} for k, v in counts.most_common()],
-        "total_accused": len(seen_entities),
+        "total_accused": len(genders),
     }
 
 
@@ -669,6 +747,259 @@ async def _top_districts_by(
         key=lambda r: r["count"], reverse=True,
     )
     return {"kind": "district_breakdown", "entity_label": entity_label, "counts": ranked}
+
+
+# ============================================================
+# [Module 13, RC-2] Derived-aggregate primitives — a rate/ratio helper and
+# a time-bucket helper, composable over any existing per-group count
+# breakdown instead of the flat-count-only shape every prior XAGG module
+# (2/4/7) added one bespoke function at a time. See
+# PLATFORM_REASONING_SUMMARIZATION_FIX_PLAN.md's Module 13 section and
+# GOLD_QA_MASTER_FIX_PLAN.md's write-up for the full rationale — CP1/M1/M7
+# below are each a thin aggregate-specific query wired onto one of these
+# two generic functions, not a new one-off pattern.
+# ============================================================
+
+
+def _rate_breakdown(subset_counts: dict, total_counts: dict) -> list[dict]:
+    """
+    General rate/ratio primitive: given two per-group count mappings
+    sharing keys (`subset_counts` may hold a strict subset of
+    `total_counts`'s keys — a group with zero subset occurrences simply
+    isn't in it), compute `subset / total` per group.
+
+    A group whose total is 0 is skipped entirely — an undefined rate,
+    never fabricated as 0 or excluded silently without a reason. Sorted by
+    rate descending by default; a caller wanting a different order (e.g. a
+    chronological time series) re-sorts the returned list itself rather
+    than this primitive assuming everyone wants "biggest rate first".
+    """
+    out = []
+    for key, total in total_counts.items():
+        if not total:
+            continue
+        subset = subset_counts.get(key, 0)
+        out.append({"key": key, "subset_count": subset, "total_count": total, "rate": subset / total})
+    out.sort(key=lambda r: r["rate"], reverse=True)
+    return out
+
+
+def _extract_year(date_value) -> Optional[int]:
+    """
+    First 4 characters of a `YYYY-MM-DD`-shaped date string (the exact
+    format `structured_projection._write_occurred_on_edge()` writes onto
+    `Date.date`) as an int, or None for anything unparseable — a row with
+    no usable date is skipped by `_count_breakdown_by_year()`, never
+    silently folded into a wrong bucket.
+    """
+    s = str(date_value) if date_value else ""
+    if len(s) < 4 or not s[:4].isdigit():
+        return None
+    return int(s[:4])
+
+
+def _count_breakdown_by_year(rows: list[dict], date_key: str, value_fn) -> dict[int, Counter]:
+    """
+    General time-bucket primitive: given `rows` (each a plain dict from an
+    `age_client.execute_cypher()` result carrying a date-ish field at
+    `date_key`), partition into one `Counter` per year, incrementing
+    whatever key(s) `value_fn(row)` yields for that row (an iterable, so a
+    multi-value field like a comma-joined statute list can increment
+    several buckets per row — see `_statute_mix_by_year()` below, which
+    reuses `split_crime_category()` for exactly that).
+    """
+    buckets: dict[int, Counter] = {}
+    for row in rows:
+        year = _extract_year(row.get(date_key))
+        if year is None:
+            continue
+        bucket = buckets.setdefault(year, Counter())
+        for key in value_fn(row):
+            bucket[key] += 1
+    return buckets
+
+
+# [Module 13, RC-2, question CP1] "Which district recovers the most
+# weapons RELATIVE TO ITS CASELOAD" — distinct from `_top_districts_by`
+# above, which only ever returns a flat weapon (or case) count per
+# district with no denominator, so a large district always "wins" purely
+# by case volume. `subset` = distinct cases per district with >=1 Weapon
+# node recovered; `total` = distinct cases per district overall — built on
+# `_rate_breakdown()` rather than a bespoke division, so the next "rate
+# per district/station" question reuses this shape instead of another
+# one-off function.
+async def _weapon_recovery_rate_by_district(jurisdiction_case_ids: Optional[list[str]] = None) -> dict:
+    case_filter = "WHERE c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+    params = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+
+    total_rows = await age_client.execute_cypher(
+        f"MATCH (c:Case)-[:FILED_AT]->(:PoliceStation)-[:PART_OF]->(d:District) {case_filter}"
+        "RETURN d.name AS district, count(DISTINCT c) AS n_count",
+        params=params, columns=["district", "n_count"],
+    )
+    total_counts = {r.get("district") or "unknown": r.get("n_count") or 0 for r in total_rows}
+
+    subset_rows = await age_client.execute_cypher(
+        "MATCH (w:Weapon)-[:BELONGS_TO_CASE]->(c:Case)-[:FILED_AT]->(:PoliceStation)-[:PART_OF]->(d:District) "
+        f"{case_filter}"
+        "RETURN d.name AS district, count(DISTINCT c) AS n_count",
+        params=params, columns=["district", "n_count"],
+    )
+    subset_counts = {r.get("district") or "unknown": r.get("n_count") or 0 for r in subset_rows}
+
+    ranked = _rate_breakdown(subset_counts, total_counts)
+    return {
+        "kind": "rate_breakdown",
+        "dimension": "weapon_recovery_rate_by_district",
+        "subset_label": "cases_with_a_weapon_recovered",
+        "counts": [
+            {
+                "district": r["key"],
+                "cases_with_weapon": r["subset_count"],
+                "total_cases": r["total_count"],
+                "rate": r["rate"],
+            }
+            for r in ranked
+        ],
+    }
+
+
+# [Module 13, RC-2, question M1] Year-partitioned statute mix — "what kinds
+# of cases are we dealing with now compared to a couple of years back".
+# Built on `_count_breakdown_by_year()` above: each Incident's own year
+# comes from its `OCCURRED_ON {event_type: "incident"}` edge to a `Date`
+# node (already written by `structured_projection.py` — real data, not a
+# new projection this module needs to add).
+#
+# `crime_category` itself is NOT a graph property at all — confirmed by
+# reading `structured_projection.py`, which never writes it onto the Case
+# node — it only exists on the Postgres case row `gateway.get_cases()`
+# returns (live-confirmed: an earlier version of this function tried
+# `RETURN c.crime_category` from the graph directly and silently got back
+# every bucket empty, no exception, since the property genuinely doesn't
+# exist there). So this joins two sources by `case_id`: the graph for each
+# case's incident YEAR, Postgres (via `gateway`, same as
+# `_filtered_cases()`/`_station_or_category_counts()` above) for its
+# crime_category — split per-act (`split_crime_category()`, same per-act
+# split `_station_or_category_counts()`'s own `counts_by_act` already uses)
+# since it is a comma-joined multi-act string, not a single value.
+async def _statute_mix_by_year(gateway, jurisdiction_case_ids: Optional[list[str]] = None) -> dict:
+    where_parts = ["oe.event_type = 'incident'"]
+    params: dict = {}
+    if jurisdiction_case_ids is not None:
+        where_parts.append("c.case_id IN $case_ids")
+        params["case_ids"] = jurisdiction_case_ids
+    query = (
+        "MATCH (i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+        "MATCH (i)-[oe:OCCURRED_ON]->(d:Date) "
+        f"WHERE {' AND '.join(where_parts)} "
+        "RETURN d.date AS incident_date, c.case_id AS case_id"
+    )
+    year_rows = await age_client.execute_cypher(query, params=params, columns=["incident_date", "case_id"])
+    year_by_case: dict[str, int] = {}
+    for row in year_rows:
+        case_id = row.get("case_id")
+        year = _extract_year(row.get("incident_date"))
+        if case_id and year is not None:
+            year_by_case[case_id] = year
+
+    cases = await gateway.get_cases(user_id=None, user_role="platform-admin")
+    if jurisdiction_case_ids is not None:
+        allowed = set(jurisdiction_case_ids)
+        cases = [c for c in cases if c.get("case_id") in allowed]
+
+    # Year is already resolved per case above, so this bucketing loop is
+    # deliberately inline rather than routed back through
+    # `_count_breakdown_by_year()` — that primitive's own job is parsing a
+    # DATE STRING into a year, which has nothing left to do here.
+    buckets: dict[int, Counter] = {}
+    for c in cases:
+        year = year_by_case.get(c.get("case_id"))
+        if year is None:
+            continue
+        bucket = buckets.setdefault(year, Counter())
+        for act in split_crime_category(c.get("crime_category")) or []:
+            bucket[act] += 1
+    years = sorted(buckets.keys())
+    return {
+        "kind": "time_bucketed_breakdown",
+        "dimension": "statute_by_year",
+        "buckets": [
+            {"year": y, "counts": [{"key": k, "count": v} for k, v in buckets[y].most_common(15)]}
+            for y in years
+        ],
+    }
+
+
+# [Module 13, RC-2, question M7] Year-partitioned reporting-delay picture —
+# "are people reporting incidents to police as quickly in 2026 as in 2024".
+#
+# HONEST SCOPE NOTE, read before extending this: a true numeric day-count
+# delay (report_datetime - incident_datetime) cannot be computed today.
+# `report_datetime` DOES exist on the raw ingested FIR record
+# (`fir.raw.get("report_datetime")` — already read once, for officer-
+# supersession tracking, in `structured_projection.py`) but is NOT
+# projected onto the Incident node or linked via its own `OCCURRED_ON`
+# edge anywhere, so there is no queryable numeric delay in the graph at
+# all — the same "real data, never projected as a structured property"
+# shape as A1's bug (`evaluation/GROUND_TRUTH_NOTES.md` §4), just not yet
+# fixed. Projecting `report_datetime` (and computing the day delta) is a
+# follow-on ingestion task, out of this module's `xagg.py`-only scope —
+# flag it, don't silently fabricate a mean here.
+#
+# What IS real and computable today: `Incident.reporting_delay_reason`
+# (Module 2/A7) records whether a delay reason was recorded at all. This
+# reports the RATE of FIRs recording a delay reason, per incident year — a
+# genuine, honestly-labeled proxy for "reporting promptness trend", built
+# on the same two primitives as CP1/M1 above, not a fabricated day-count.
+# Self-heals to a true mean-days aggregate with no code change here once
+# `report_datetime` is projected.
+async def _reporting_delay_rate_by_year(jurisdiction_case_ids: Optional[list[str]] = None) -> dict:
+    where_parts = ["oe.event_type = 'incident'"]
+    params: dict = {}
+    if jurisdiction_case_ids is not None:
+        where_parts.append("c.case_id IN $case_ids")
+        params["case_ids"] = jurisdiction_case_ids
+    query = (
+        "MATCH (i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+        "MATCH (i)-[oe:OCCURRED_ON]->(d:Date) "
+        f"WHERE {' AND '.join(where_parts)} "
+        "RETURN d.date AS incident_date, i.reporting_delay_reason AS reporting_delay_reason"
+    )
+    rows = await age_client.execute_cypher(
+        query, params=params, columns=["incident_date", "reporting_delay_reason"],
+    )
+
+    total_by_year: Counter = Counter()
+    delayed_by_year: Counter = Counter()
+    for row in rows:
+        year = _extract_year(row.get("incident_date"))
+        if year is None:
+            continue
+        total_by_year[year] += 1
+        if row.get("reporting_delay_reason"):
+            delayed_by_year[year] += 1
+
+    ranked = _rate_breakdown(dict(delayed_by_year), dict(total_by_year))
+    return {
+        "kind": "time_bucketed_rate",
+        "dimension": "reporting_delay_rate_by_year",
+        "note": (
+            "This is the rate of FIRs recording a delay reason each year, "
+            "not a mean number of delay days — a day-level reporting delay "
+            "is not currently projected as a structured, queryable field "
+            "in this system's data model."
+        ),
+        "buckets": [
+            {
+                "year": r["key"],
+                "delayed_count": r["subset_count"],
+                "total_count": r["total_count"],
+                "rate": r["rate"],
+            }
+            for r in sorted(ranked, key=lambda r: r["key"])
+        ],
+    }
 
 
 # [Gold-QA fix — Module 2a] "How many police stations are there" — a count
@@ -996,6 +1327,13 @@ async def run_aggregate(
     # rather than a hard refusal.
     if _matches_any(query_lower, _AGE_KEYWORDS):
         return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_AGE}
+    # [Gold-QA fix — Module 13, question M2] Checked early, same precedence
+    # as AGE just above — no station-type dimension exists in this data
+    # model at all (see _STATION_TYPE_KEYWORDS' own comment), so this must
+    # win before _STATION_KEYWORDS' plain per-station group-by further down
+    # silently answers a different, easier question than the one asked.
+    if _matches_any(query_lower, _STATION_TYPE_KEYWORDS):
+        return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_STATION_TYPE}
     # [Gold-QA fix — Module 7, question CP6] Checked before _OFFICER_KEYWORDS's
     # hard refusal — a placeholder-officer COUNT has a real data path
     # (Officer.canonical_name + the ASSIGNED_TO supersession chain, both
@@ -1004,6 +1342,13 @@ async def run_aggregate(
         return await _placeholder_officer_count(jurisdiction_case_ids=jurisdiction_case_ids)
     if _matches_any(query_lower, _OFFICER_KEYWORDS):
         return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_OFFICER}
+    # [Gold-QA fix — Module 13, question M7] Checked before both the A7
+    # count-shaped reporting-delay check just below and _TREND_KEYWORDS'
+    # hard refusal — a reporting-SPEED-over-time comparison now has a real,
+    # honestly-labeled aggregate (_reporting_delay_rate_by_year(), see its
+    # own docstring for the exact scope of what it can and can't answer).
+    if _matches_any(query_lower, _REPORTING_SPEED_COMPARISON_KEYWORDS):
+        return await _reporting_delay_rate_by_year(jurisdiction_case_ids=jurisdiction_case_ids)
     # [Gold-QA fix — Module 2, A7] Checked before the trend fallback: a
     # count-shaped reporting-delay question has a real data path now
     # (Incident.reporting_delay_reason), degrading to an honest "not synced
@@ -1016,6 +1361,14 @@ async def run_aggregate(
         query_lower, _TREND_KEYWORDS
     ):
         return await _reporting_delay_count(jurisdiction_case_ids=jurisdiction_case_ids)
+    # [Gold-QA fix — Module 13, question M1] Checked before _TREND_KEYWORDS'
+    # hard refusal — a year-over-year case-type/statute comparison now has a
+    # real aggregate (_statute_mix_by_year(), powered by each Incident's own
+    # OCCURRED_ON->Date edge, already-real data). M7's own reporting-speed
+    # shape is checked above and wins first, so it doesn't fall into this
+    # more generic family instead.
+    if _matches_any(query_lower, _TIME_COMPARISON_KEYWORDS):
+        return await _statute_mix_by_year(gateway, jurisdiction_case_ids=jurisdiction_case_ids)
     if _matches_any(query_lower, _TREND_KEYWORDS):
         return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_TREND}
     if _matches_any(query_lower, _GENDER_KEYWORDS):
@@ -1034,6 +1387,14 @@ async def run_aggregate(
     # _WEAPON_KEYWORDS first and answer with a case-scoped weapon ranking
     # instead of the district breakdown actually asked for.
     if _matches_any(query_lower, _DISTRICT_KEYWORDS):
+        # [Gold-QA fix — Module 13, question CP1] A district+weapon query
+        # that ALSO carries a rate/relative-to-caseload signal wants the
+        # weapon-recovery RATE per district, not the flat weapon count
+        # `_top_districts_by()` returns for every other district+weapon
+        # query — checked first so the existing flat-count behavior for a
+        # plain "which district recovers the most weapons" is unchanged.
+        if _matches_any(query_lower, _WEAPON_KEYWORDS) and _matches_any(query_lower, _RATE_SIGNAL_KEYWORDS):
+            return await _weapon_recovery_rate_by_district(jurisdiction_case_ids=jurisdiction_case_ids)
         entity_label = None
         if _matches_any(query_lower, _WEAPON_KEYWORDS):
             entity_label = "Weapon"
