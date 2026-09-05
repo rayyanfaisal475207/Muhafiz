@@ -88,7 +88,12 @@ def test_metadata_carries_required_fields(loaded_documents):
         assert doc.metadata["source"] == "fixture.pdf"
         assert doc.metadata["type"] == "pdf"
         assert doc.metadata["total_pages"] == 2
-        assert doc.metadata["extraction_method"] in ("docling", "vision_llm")
+        # [Module 8c] pymupdf_text_layer is the intermediate fallback between
+        # docling and the vision LLM (a page Docling returns empty but whose
+        # embedded text layer PyMuPDF can read).
+        assert doc.metadata["extraction_method"] in (
+            "docling", "pymupdf_text_layer", "vision_llm",
+        )
 
 
 def test_pages_are_returned_in_order_and_1_indexed(loaded_documents):
