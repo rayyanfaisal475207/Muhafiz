@@ -79,12 +79,11 @@ is `rayyanfaisal475207 <rayyanfaisal475207@users.noreply.github.com>`** — the
 | 17 | Verifier paraphrase-strictness relaxation (RC-5) | `fix/verifier-paraphrase-strictness-relaxation` | ✅ Merged |
 | 18 | Second full Gold-32 rerun + updated report | *(docs only)* | ⬜ Not started (blocked on 10–17) |
 | 19 | DeepEval 17-query harness context-capture fix | `fix/deepeval-harness-context-capture` | ⬜ Not started — **can start now** |
-| 20 | Judge-prompt "close numbers OK" tightening | `fix/gold32-judge-close-number-tolerance` | ⬜ Not started — **can start now** |
+| 20 | Judge-prompt "close numbers OK" tightening | `fix/gold32-judge-close-number-tolerance` | ✅ Merged |
 
-**Recommended order:** 9 → 14 → 15 → 16 → 18 (12, 13, and 17 already
+**Recommended order:** 9 → 14 → 15 → 16 → 18 (12, 13, 17, and 20 already
 merged), with 15/16 serialized against each other (both touch `router.py`)
-rather than run concurrently — (19, 20, 9, and now 14 are all startable
-today).
+rather than run concurrently — (19, 9, and 14 are all startable today).
 See "Which modules can run independently right now" below for the full
 per-module file-overlap reasoning.
 
@@ -103,7 +102,6 @@ colliding on one working directory):
 | **9** | *(docs only — runs `evaluation/gold32_run.py`/`gold32_score.py`, writes a report)* | No app code at all; reads whatever is on `main` at run time. |
 | **14** | `src/pipeline/xagg.py` (built on Module 13's now-merged primitives) or a small new harness tool — confirm which during implementation | Module 13 is merged, so this is now unblocked; no other open module touches `xagg.py`. |
 | **19** | `evaluation/run_pipeline.py` | Eval-only, already flagged parallel-safe in the original plan. |
-| **20** | `evaluation/gold32_score.py` | Eval-only, already flagged parallel-safe in the original plan. |
 
 Module 12 turned out NOT to touch `src/pipeline/router.py` in the end (the
 fix landed entirely in `xnetwork.py`/the harness `cross_case_linkage.py`
@@ -128,9 +126,9 @@ result kind(s) before considering itself live-verified.
 **Module 18 cannot start yet** — it's the final Gold-32 rerun and depends on
 11–17 all being merged.
 
-So, concretely, right now: **9, 14, 15, 19, 20 can all be started in
-parallel chats today** (16 queued behind 15 on `router.py`); hold 18 until
-everything else is in.
+So, concretely, right now: **9, 14, 15, 19 can all be started in parallel
+chats today** (16 queued behind 15 on `router.py`); hold 18 until everything
+else is in.
 
 ---
 
@@ -813,29 +811,36 @@ not just narrative chunk text).
 metrics move up specifically for the queries §3 flagged as unfairly
 penalized — not a blanket score inflation across all 17.
 
-## Module 20 — Judge-prompt "close numbers OK" tightening ⬜
+## Module 20 — Judge-prompt "close numbers OK" tightening ✅ DONE (merged, PR #6)
 
 **Branch:** `fix/gold32-judge-close-number-tolerance`
 
-**Why:** A1 scored 0.30 despite getting female/unknown counts exactly right
-and the total off by a small margin — the testing team's own explicit rule
-("close numbers are OK, don't match word-by-word") isn't reliably applied by
-the judge prompt.
+**Root cause, confirmed live:** the close-numbers-OK rule lived only as one
+clause inside a free-text `criteria` string, which the GEval metric is free
+to regenerate/reinterpret into its own evaluation steps — re-running the
+metric against A1's already-captured baseline answer (92/65 vs. expected
+94/67, 24 females exact) still scored 0.30, with the judge's own reason
+citing the numeric gap as "a material error."
 
-**Files:** `evaluation/gold32_score.py`'s judge prompt — make the rule an
-explicit, worked-example instruction, not an implicit expectation.
+**Fix:** replaced `criteria` with explicit `evaluation_steps` in
+`evaluation/gold32_score.py`'s judge prompt, which GEval follows literally
+instead of reinterpreting — the close-numbers rule is now its own step with
+a worked example lifted from A1's real case, alongside the existing
+contradiction/omission/abstention penalties as separate explicit steps.
 
-**Verify:** re-score A1's already-captured baseline answer under the updated
-prompt, confirm pass/partial-pass instead of 0.30, without changing how 2–3
-known-bad answers from the same baseline score.
+**Verified live** (same judge, same metric, no other change): A1's captured
+baseline answer moved **0.30 → 1.00**. Two known-bad baseline answers
+re-scored under the same updated prompt to confirm no unwanted score
+inflation: D1 (raw-aggregate fallback, never states the FIR count) stayed
+low at 0.20; A7 (outright abstention when the data exists) stayed at 0.0.
 
 ---
 
 ## Sequencing note
 
-Modules 10.1–10.3, 8, 11, 12, 13, and 17 are all done. See "Which modules
-can run independently right now" (above §0) for the current, up-to-date
-parallelization picture: **9, 14, 15, 19, 20 can all start now, in
+Modules 10.1–10.3, 8, 11, 12, 13, 17, and 20 are all done. See "Which
+modules can run independently right now" (above §0) for the current,
+up-to-date parallelization picture: **9, 14, 15, 19 can all start now, in
 parallel, each in its own worktree** — 15 and 16 share `router.py` (12
 turned out not to touch it) so those two should queue against each other;
 18 waits for everything (10–17) to land.
