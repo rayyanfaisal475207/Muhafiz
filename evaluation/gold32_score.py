@@ -39,8 +39,10 @@ def _judge():
     # Judge = Gemini flash-lite. The earlier Qwen-27B judge (via Groq) was too
     # weak to honor the testing team's "semantic, close-numbers-OK" grading
     # rule — it reverted to literal fact-matching and unfairly scored correct
-    # answers low (e.g. A1's exact-24-females + 92-vs-94 got 0.20). Gemini
-    # flash-lite follows the nuanced instruction and scores the same case 0.80.
+    # answers low. Gemini flash-lite follows the nuanced instruction better,
+    # but even Gemini needed the FactualCorrectness metric's evaluation_steps
+    # (below) spelled out explicitly with a worked example before it actually
+    # honored the close-numbers rule in practice — see Module 20.
     # A raised per-attempt timeout accommodates Gemini's slower GEval calls.
     os.environ.setdefault("DEEPEVAL_PER_ATTEMPT_TIMEOUT_SECONDS_OVERRIDE", "180")
     from deepeval.models import GeminiModel
@@ -51,22 +53,60 @@ def _judge():
 def build_metrics(judge):
     from deepeval.metrics import AnswerRelevancyMetric, FaithfulnessMetric, GEval
     from deepeval.test_case import LLMTestCaseParams as P
+    # `criteria` alone (free text) lets GEval silently regenerate its own
+    # evaluation steps and drop the "close numbers are OK" rule — confirmed by
+    # actually re-running this metric against A1's captured baseline answer
+    # (92 total/65 males vs the expected 94 total/67 males, 24 females exact)
+    # with the criteria-only version below: it still scored 0.30 and its own
+    # reason cited the numeric difference as "a material error" — exactly the
+    # harshness this module exists to fix. `evaluation_steps` are followed
+    # literally instead of being reinterpreted, so the close-numbers rule is
+    # spelled out as an explicit step with a worked example lifted from that
+    # same real case.
     factual = GEval(
         name="FactualCorrectness",
-        criteria=(
-            "Judge whether the ACTUAL OUTPUT is factually correct compared to the "
-            "EXPECTED OUTPUT (the verified ground-truth answer). Follow these rules "
-            "strictly: (1) Do NOT require word-for-word matching or the same phrasing. "
-            "(2) If the actual output covers the key facts of the expected answer — in "
-            "its own words, and even with EXTRA correct information — that is a PASS "
-            "(high score). (3) Penalize ONLY when the actual output states something "
-            "that CONTRADICTS the expected answer, or is materially INCOMPLETE (omits a "
-            "key fact the question asked for), or refuses/abstains when the expected "
-            "answer has real content. (4) Numbers close to the expected (e.g. 92 vs 94 "
-            "for a count that depends on de-duplication) are acceptable; wildly wrong "
-            "numbers (4 vs 94) are a failure. (5) An answer that correctly says the data "
-            "does not contain something, when the expected answer agrees, is a PASS."
-        ),
+        evaluation_steps=[
+            "Read the QUESTION, the EXPECTED OUTPUT (verified ground truth), "
+            "and the ACTUAL OUTPUT.",
+            "List the key facts the EXPECTED OUTPUT asserts (the specific "
+            "things the question asked for — counts, names, statuses, "
+            "relationships, conclusions).",
+            "For each key fact, check whether the ACTUAL OUTPUT states an "
+            "equivalent fact, in its own words. Different phrasing, "
+            "different order, or extra correct information beyond what was "
+            "asked is NOT an error — do not penalize for any of that.",
+            "For any number in the EXPECTED OUTPUT, compare it to the "
+            "corresponding number in the ACTUAL OUTPUT by size, not by exact "
+            "digit match. Treat two numbers as MATCHING (not an error) when "
+            "they are close enough to plausibly be the same underlying fact "
+            "measured with a slightly different count/de-duplication method "
+            "— roughly within 5-10% of each other, or off by only a couple "
+            "of units on a small total. Worked example, a real case this "
+            "rule exists for: EXPECTED says 67 males, 24 females, 3 unclear, "
+            "94 total; ACTUAL says 65 males, 24 females, 92 total. Here 24 "
+            "is an exact match, and 65 vs 67 / 92 vs 94 are each off by only "
+            "2 (about 2-3%) — under this rule that whole answer MATCHES the "
+            "expected output and should score HIGH, not be marked as having "
+            "'incorrect numbers'.",
+            "Only score low when the ACTUAL OUTPUT does one of: (a) states "
+            "something that CONTRADICTS the expected output in kind, not "
+            "degree (e.g. reverses which group is larger, names the wrong "
+            "entity, gives a number that is wildly off — an order of "
+            "magnitude or a large fraction of the total, not a close "
+            "count); (b) is materially INCOMPLETE, omitting a key fact the "
+            "question specifically asked for; (c) refuses or abstains "
+            "('the data does not specify', 'insufficient information') when "
+            "the expected output shows real content was available.",
+            "An ACTUAL OUTPUT that correctly states the data does NOT "
+            "contain something, and the EXPECTED OUTPUT agrees with that, "
+            "is a PASS (high score) — this is not an abstention, it is the "
+            "correct answer.",
+            "Score high (pass) whenever the actual output covers the "
+            "expected output's key facts under the rules above, even with "
+            "close-but-not-identical numbers or extra correct detail. Score "
+            "low only for genuine contradiction, material omission, wildly "
+            "wrong numbers, or an unwarranted refusal.",
+        ],
         evaluation_params=[P.INPUT, P.ACTUAL_OUTPUT, P.EXPECTED_OUTPUT],
         model=judge, threshold=0.6,
     )
