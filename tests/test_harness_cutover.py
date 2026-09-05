@@ -511,6 +511,58 @@ async def test_no_events_or_metrics_means_no_new_steps(monkeypatch):
     assert "data_quality" not in steps
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# Gold-QA fix — GOLD_QA_MASTER_FIX_PLAN.md Module 19: `result.citations`
+# was computed by every sub-agent but never reached the SSE wire — the
+# actual reason evaluation/run_pipeline.py's `_parse_sse()` always captured
+# an empty `retrieval_context`. New, additive "citations" step, same
+# no-pre-harness-precedent pattern as timeline_building/data_quality above
+# — carries bounded `Citation` metadata (source_tool/case_id/source_file/
+# confidence), never chunk text (the boundary itself is unchanged).
+# ═══════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_citations_yield_new_citations_step(monkeypatch):
+    _stub_history(monkeypatch)
+    result = SubAgentResult(
+        status=SubAgentStatus.OK,
+        answer_text="The weapon was a 30-bore pistol [Document 1].",
+        citations=[
+            Citation(document_index=1, source_tool="GRAPH", case_id="fir-891-24",
+                      source_file="case_record", confidence=0.95),
+        ],
+    )
+    _stub_supervisor(monkeypatch, result)
+
+    events = await _collect(
+        run_cutover_query(
+            session_id="s1", user_message="q", project_id=None, case_id=None,
+            user_id="u1", user_role="investigator", preferred_language=None, gateway=_FakeGateway(),
+        )
+    )
+
+    cit = [e for e in events if e["step"] == "citations"]
+    assert len(cit) == 1
+    assert cit[0]["status"] == "done"
+    assert cit[0]["citations"][0]["source_tool"] == "GRAPH"
+    assert cit[0]["citations"][0]["case_id"] == "fir-891-24"
+
+
+@pytest.mark.asyncio
+async def test_no_citations_means_no_citations_step(monkeypatch):
+    _stub_history(monkeypatch)
+    result = SubAgentResult(status=SubAgentStatus.OK, answer_text="ok")
+    _stub_supervisor(monkeypatch, result)
+
+    events = await _collect(
+        run_cutover_query(
+            session_id="s1", user_message="q", project_id=None, case_id=None,
+            user_id="u1", user_role="investigator", preferred_language=None, gateway=_FakeGateway(),
+        )
+    )
+    assert "citations" not in {e["step"] for e in events}
+
+
 # ── Finding V regression: duplicate case-id list in cross-case answers ───────
 # cross_case_linkage.py builds descriptions that already spell out every case
 # id ("'X' appears across 13 case(s): fir-201-26, … (traversal depth 1 hop)").

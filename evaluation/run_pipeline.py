@@ -65,8 +65,35 @@ def _ask(query: str, case_id, access: str, csrf: str) -> str:
 
 
 def _parse_sse(sse: str) -> dict:
-    """Extract the final answer, route, sub-agent, retrieved-doc context, and
-    verifier verdict from the SSE stream."""
+    """Extract the final answer, route, sub-agent, retrieval context, and
+    verifier verdict from the SSE stream.
+
+    [Gold-QA fix — GOLD_QA_MASTER_FIX_PLAN.md Module 19, RC-context-gap]
+    The `step in ("retrieval", "retrieved_docs") and d.get("documents")`
+    check this replaced never matched anything, on this codebase's current
+    `HARNESS_CUTOVER_ROUTES=RAG,SQL,GRAPH,GRAPH_HYBRID,XGRAPH,XAGG,XNETWORK`
+    (.env) OR the legacy orchestrator.py path it falls back to for DIRECT/
+    WEB — confirmed by reading every SSE event both paths actually emit
+    (src/pipeline/harness/cutover.py, src/pipeline/orchestrator.py): neither
+    ever puts a "documents" field, or any chunk/aggregate TEXT at all, on
+    the wire — `SubAgentResult`'s own design (types.py §3, "no raw evidence
+    crosses the boundary") makes that a deliberate architectural choice for
+    the harness path, not an oversight to route around. `retrieval_context`
+    was therefore always `[]`, exactly EVALUATION_REPORT.md §4.1's finding.
+    What genuinely WAS being computed but silently dropped: `sources`
+    lists (web_search, file_generation — {"filename"/"url", "type", ...})
+    and, as of this module, `result.citations` (bounded per-claim
+    attribution — source_tool, case_id, source_file, confidence; still no
+    chunk text, same boundary) via the new "citations" SSE step
+    (cutover.py). Both are captured below as compact provenance strings —
+    real signal for the judge (which tool/case/document backs each claim)
+    that previously never reached `pipeline_outputs.json` at all, without
+    claiming to solve context-relative scoring outright: DeepEval's
+    text-context metrics still need narrative chunk TEXT the harness
+    boundary will not expose, so `evaluation/gold_set.json`'s own
+    hand-authored `retrieval_context` (see deepeval_score.py::build_cases())
+    remains the primary text-context source for those metrics.
+    """
     answer_parts, retrieved, route, subagent, status, verifier = [], [], None, None, None, None
     for line in sse.splitlines():
         if not line.startswith("data:"):
@@ -88,12 +115,25 @@ def _parse_sse(sse: str) -> dict:
             m2 = re.search(r"sub-agent='([^']*)'", detail)
             if m2:
                 subagent = m2.group(1)
-        # retrieved document text (context for contextual-precision/recall metrics)
-        if d.get("step") in ("retrieval", "retrieved_docs") and d.get("documents"):
-            for doc in d["documents"]:
-                txt = doc.get("text") or doc.get("content") or ""
-                if txt:
-                    retrieved.append(txt[:1000])
+        # Bounded per-claim attribution (cutover.py's "citations" step,
+        # Module 19) — no chunk text, but real source/case/tool provenance.
+        if d.get("step") == "citations" and d.get("citations"):
+            for c in d["citations"]:
+                parts = [f"tool={c.get('source_tool')}"]
+                if c.get("source_file"):
+                    parts.append(f"source={c['source_file']}")
+                if c.get("case_id"):
+                    parts.append(f"case={c['case_id']}")
+                if c.get("confidence") is not None:
+                    parts.append(f"confidence={c['confidence']}")
+                retrieved.append("[Document {}] {}".format(c.get("document_index"), ", ".join(parts)))
+        # Source references (web_search / file_generation `sources` lists —
+        # filenames/URLs, never chunk text).
+        if d.get("sources"):
+            for s in d["sources"]:
+                ref = s.get("filename") or s.get("url") or ""
+                if ref:
+                    retrieved.append(f"source: {ref}")
     answer = " ".join(answer_parts).strip()
     # strip the streaming UI chrome that isn't part of the answer content
     answer = re.sub(r"^Writing the answer…\s*", "", answer)
