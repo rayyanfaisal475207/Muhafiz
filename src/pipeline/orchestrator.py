@@ -2278,7 +2278,32 @@ async def process_query(
             elapsed_ms = int((time.monotonic() - t0) * 1000)
 
             results = net_result["results"]
-            if results:
+
+            # [Module 12 — RC-1] `results` is now post-relevance-gate (see
+            # run_network_query()'s RELEVANCE_DISTANCE_THRESHOLD) — empty
+            # here means either the corpus had nothing, or it had
+            # candidates but none cleared the relevance cutoff. Either way,
+            # asking the LLM to "synthesize" from a placeholder string was
+            # the RC-1 bug's own shape (an unrelated narrative dressed up
+            # as an answer): skip generation entirely and state plainly
+            # that nothing relevant was found, instead of narrating around
+            # empty/irrelevant evidence.
+            if not results:
+                no_relevant_reason = net_result.get("no_relevant_reason") or (
+                    "No community cluster in the case corpus is closely related "
+                    "to this specific question."
+                )
+                yield event(
+                    "cross_case_finding", "done",
+                    "No relevant community clusters found", elapsed_ms, case_scope="cross_case",
+                )
+                yield event("response", "active", "")
+                yield event("response", "streaming", no_relevant_reason)
+                yield event("response", "done", f"Response generated ({len(no_relevant_reason)} chars)", 0)
+                final_response = no_relevant_reason
+                response_type = "xnetwork"
+                update_query_bg(verifier_passed=True, verifier_regenerated=False)
+            else:
                 # [Document N] here, not [Community N] — live-root-caused
                 # (Stage 3 testing): verifier.py's deterministic
                 # _check_no_citation() hardcodes the literal word
@@ -2293,128 +2318,126 @@ async def process_query(
                     f"[Document {i}] ({r['community_id']}) {r['summary_text']}"
                     for i, r in enumerate(results, 1)
                 )
-            else:
-                network_text = "(no relevant community clusters found for this question)"
 
-            yield event(
-                "cross_case_finding", "done",
-                f"Retrieved {len(results)} relevant community cluster(s)",
-                elapsed_ms, case_scope="cross_case",
-            )
-
-            yield event("response", "active", "Synthesizing cross-case network summary...")
-            t0_resp = time.monotonic()
-            history_text = format_history_for_prompt(history)
-            system_prompt = _CROSS_CASE_NETWORK_PROMPT_TEMPLATE.format(
-                documents=network_text,
-                preferred_language=preferred_language,
-                history=history_text or "(no previous conversation)",
-            )
-            # [findings.md XGRAPH-prompt-size] No chunk cap needed here —
-            # `results` is already bounded by query_similar_communities()'s
-            # own `top_k` (xnetwork.py), unlike XGRAPH's up-to-50-seed-
-            # entity traversal. cloud_max_tokens/reasoning_effort added
-            # anyway, same defense-in-depth as the XGRAPH branch, since
-            # the TPM cap is still one large community summary away — and
-            # scaled by cluster count for the same reason XGRAPH's own
-            # budget is scaled (see _cross_case_completion_budget): a
-            # narrative synthesizing many clusters needs more room than a
-            # fixed guess sized for a single short JSON reply ever gave it.
-            full_response = await call_llm(
-                system_prompt, user_message, llm_mode=llm_mode,
-                role=_generation_role(preferred_language),
-                cloud_max_tokens=_cross_case_completion_budget(len(results)),
-                reasoning_effort="low",
-            )
-            elapsed_ms_resp = int((time.monotonic() - t0_resp) * 1000)
-
-            _spawn(asyncio.to_thread(pipeline_logger.log_llm_call,
-                query_id, "xnetwork_response", config.LLM_PROVIDER, config.GROQ_MODEL if config.LLM_PROVIDER=="groq" else config.GEMINI_MODEL,
-                system_prompt, user_message, full_response, elapsed_ms_resp
-            ))
-
-            # ── Verify before delivering ──────────────────────────────────
-            # One chunk per retrieved community, matching the [Document N]
-            # citation scheme above — same reasoning as XGRAPH's per-document
-            # verifier chunking, not XAGG's single-block shape, since here
-            # there genuinely can be multiple independent evidence sources.
-            net_chunks = [
-                {"id": f"community-{i}", "text": r["summary_text"],
-                 "metadata": {"source": r["community_id"]}}
-                for i, r in enumerate(results, 1)
-            ]
-            t0_verify = time.monotonic()
-            verification = await verify_grounding(
-                answer=full_response, cited_chunks=net_chunks, case_id="cross_case"
-            )
-            verifier_ms = int((time.monotonic() - t0_verify) * 1000)
-            verifier_passed = verification.get("grounded", False) and not verification.get("off_topic", False)
-            verifier_regenerated = False
-
-            if not verifier_passed:
-                logger.warning("Verifier rejected XNETWORK response (local): %s", verification.get("reason", "")[:100])
-                # One cloud regeneration attempt before falling back to raw
-                # evidence — live-confirmed (Stage 3 testing) the local
-                # generation model failed this specific task shape in all 3
-                # test runs, the same class of finding that justified
-                # community_summarization.py's own narrow cloud-escalation
-                # opt-in. Scoped the same way that one was: XNETWORK fires
-                # at most once per turn and is already supervisor+ gated —
-                # same low-volume profile as router.py's G-1 escalation, not
-                # RAG/evaluator's high-volume retry loop that ruled out
-                # blanket escalation project-wide. If the cloud attempt
-                # ALSO fails verification (or can't run at all, e.g.
-                # AIR_GAP_MODE refuses cloud calls entirely — call_llm
-                # raises rather than silently falling back per its own
-                # documented AIR_GAP_MODE contract), fall through to the
-                # existing raw-evidence fallback below rather than letting
-                # that exception escape to the route's outer handler and
-                # degrade all the way to the generic _SAFE_RESPONSE instead
-                # of the strictly-more-useful cited raw evidence.
-                try:
-                    full_response = await call_llm(
-                        system_prompt, user_message, llm_mode=llm_mode,
-                        role=_generation_role(preferred_language), force_cloud=True,
-                    )
-                    verification = await verify_grounding(
-                        answer=full_response, cited_chunks=net_chunks, case_id="cross_case"
-                    )
-                    verifier_passed = verification.get("grounded", False) and not verification.get("off_topic", False)
-                    if verifier_passed:
-                        logger.info("XNETWORK cloud regeneration passed verification.")
-                    else:
-                        logger.warning(
-                            "Verifier rejected XNETWORK response (cloud retry too): %s",
-                            verification.get("reason", "")[:100],
-                        )
-                except Exception as cloud_exc:
-                    logger.warning("XNETWORK cloud regeneration attempt failed: %s", cloud_exc)
-                    verifier_passed = False
-
-            if not verifier_passed:
-                # Same fallback reasoning as XAGG: the community summaries
-                # are already-grounded evidence (generated and verified at
-                # summarization time — see community_summarization.py's own
-                # NOT_ENOUGH_DATA/exclusion guards), so a verifier rejection
-                # here means this generation step's paraphrase failed to
-                # faithfully represent them, not that the evidence is thin.
-                full_response = (
-                    "Here are the relevant network clusters found directly from "
-                    "the case graph (shown in their original form; a synthesized "
-                    "summary was not consistently faithful to them):\n\n"
-                    + network_text
+                yield event(
+                    "cross_case_finding", "done",
+                    f"Retrieved {len(results)} relevant community cluster(s)",
+                    elapsed_ms, case_scope="cross_case",
                 )
-                verifier_regenerated = True
 
-            yield event("citation_validator", "done",
-                verification.get("reason", "")[:120], verifier_ms,
-                grounded=verifier_passed, regenerated=verifier_regenerated)
-            yield event("response", "streaming", full_response)
-            yield event("response", "done", f"Response generated ({len(full_response)} chars)", elapsed_ms_resp)
+                yield event("response", "active", "Synthesizing cross-case network summary...")
+                t0_resp = time.monotonic()
+                history_text = format_history_for_prompt(history)
+                system_prompt = _CROSS_CASE_NETWORK_PROMPT_TEMPLATE.format(
+                    documents=network_text,
+                    preferred_language=preferred_language,
+                    history=history_text or "(no previous conversation)",
+                )
+                # [findings.md XGRAPH-prompt-size] No chunk cap needed here —
+                # `results` is already bounded by query_similar_communities()'s
+                # own `top_k` (xnetwork.py), unlike XGRAPH's up-to-50-seed-
+                # entity traversal. cloud_max_tokens/reasoning_effort added
+                # anyway, same defense-in-depth as the XGRAPH branch, since
+                # the TPM cap is still one large community summary away — and
+                # scaled by cluster count for the same reason XGRAPH's own
+                # budget is scaled (see _cross_case_completion_budget): a
+                # narrative synthesizing many clusters needs more room than a
+                # fixed guess sized for a single short JSON reply ever gave it.
+                full_response = await call_llm(
+                    system_prompt, user_message, llm_mode=llm_mode,
+                    role=_generation_role(preferred_language),
+                    cloud_max_tokens=_cross_case_completion_budget(len(results)),
+                    reasoning_effort="low",
+                )
+                elapsed_ms_resp = int((time.monotonic() - t0_resp) * 1000)
 
-            final_response = full_response
-            response_type = "xnetwork"
-            update_query_bg(verifier_passed=verifier_passed, verifier_regenerated=verifier_regenerated)
+                _spawn(asyncio.to_thread(pipeline_logger.log_llm_call,
+                    query_id, "xnetwork_response", config.LLM_PROVIDER, config.GROQ_MODEL if config.LLM_PROVIDER=="groq" else config.GEMINI_MODEL,
+                    system_prompt, user_message, full_response, elapsed_ms_resp
+                ))
+
+                # ── Verify before delivering ──────────────────────────────
+                # One chunk per retrieved community, matching the [Document N]
+                # citation scheme above — same reasoning as XGRAPH's per-document
+                # verifier chunking, not XAGG's single-block shape, since here
+                # there genuinely can be multiple independent evidence sources.
+                net_chunks = [
+                    {"id": f"community-{i}", "text": r["summary_text"],
+                     "metadata": {"source": r["community_id"]}}
+                    for i, r in enumerate(results, 1)
+                ]
+                t0_verify = time.monotonic()
+                verification = await verify_grounding(
+                    answer=full_response, cited_chunks=net_chunks, case_id="cross_case"
+                )
+                verifier_ms = int((time.monotonic() - t0_verify) * 1000)
+                verifier_passed = verification.get("grounded", False) and not verification.get("off_topic", False)
+                verifier_regenerated = False
+
+                if not verifier_passed:
+                    logger.warning("Verifier rejected XNETWORK response (local): %s", verification.get("reason", "")[:100])
+                    # One cloud regeneration attempt before falling back to raw
+                    # evidence — live-confirmed (Stage 3 testing) the local
+                    # generation model failed this specific task shape in all 3
+                    # test runs, the same class of finding that justified
+                    # community_summarization.py's own narrow cloud-escalation
+                    # opt-in. Scoped the same way that one was: XNETWORK fires
+                    # at most once per turn and is already supervisor+ gated —
+                    # same low-volume profile as router.py's G-1 escalation, not
+                    # RAG/evaluator's high-volume retry loop that ruled out
+                    # blanket escalation project-wide. If the cloud attempt
+                    # ALSO fails verification (or can't run at all, e.g.
+                    # AIR_GAP_MODE refuses cloud calls entirely — call_llm
+                    # raises rather than silently falling back per its own
+                    # documented AIR_GAP_MODE contract), fall through to the
+                    # existing raw-evidence fallback below rather than letting
+                    # that exception escape to the route's outer handler and
+                    # degrade all the way to the generic _SAFE_RESPONSE instead
+                    # of the strictly-more-useful cited raw evidence.
+                    try:
+                        full_response = await call_llm(
+                            system_prompt, user_message, llm_mode=llm_mode,
+                            role=_generation_role(preferred_language), force_cloud=True,
+                        )
+                        verification = await verify_grounding(
+                            answer=full_response, cited_chunks=net_chunks, case_id="cross_case"
+                        )
+                        verifier_passed = verification.get("grounded", False) and not verification.get("off_topic", False)
+                        if verifier_passed:
+                            logger.info("XNETWORK cloud regeneration passed verification.")
+                        else:
+                            logger.warning(
+                                "Verifier rejected XNETWORK response (cloud retry too): %s",
+                                verification.get("reason", "")[:100],
+                            )
+                    except Exception as cloud_exc:
+                        logger.warning("XNETWORK cloud regeneration attempt failed: %s", cloud_exc)
+                        verifier_passed = False
+
+                if not verifier_passed:
+                    # Same fallback reasoning as XAGG: the community summaries
+                    # are already-grounded evidence (generated and verified at
+                    # summarization time — see community_summarization.py's own
+                    # NOT_ENOUGH_DATA/exclusion guards), so a verifier rejection
+                    # here means this generation step's paraphrase failed to
+                    # faithfully represent them, not that the evidence is thin.
+                    full_response = (
+                        "Here are the relevant network clusters found directly from "
+                        "the case graph (shown in their original form; a synthesized "
+                        "summary was not consistently faithful to them):\n\n"
+                        + network_text
+                    )
+                    verifier_regenerated = True
+
+                yield event("citation_validator", "done",
+                    verification.get("reason", "")[:120], verifier_ms,
+                    grounded=verifier_passed, regenerated=verifier_regenerated)
+                yield event("response", "streaming", full_response)
+                yield event("response", "done", f"Response generated ({len(full_response)} chars)", elapsed_ms_resp)
+
+                final_response = full_response
+                response_type = "xnetwork"
+                update_query_bg(verifier_passed=verifier_passed, verifier_regenerated=verifier_regenerated)
         except Exception as e:
             logger.error("XNETWORK route failed: %s", e)
             denied = isinstance(e, PermissionError)

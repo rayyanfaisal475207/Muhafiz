@@ -12,6 +12,8 @@ from src.pipeline.verifier import (
     _check_no_citation,
     _check_temporal,
     _format_chunks_for_verifier,
+    _is_derived_ratio,
+    _numbers_in,
     verify_grounding,
     verify_structured_aggregate_paraphrase,
 )
@@ -821,3 +823,79 @@ async def test_structured_paraphrase_grand_total_ignores_the_overlapping_per_act
         answer="There are 117 FIRs in total.", source_text=source_text, case_id="cross_case",
     )
     assert result_wrong["grounded"] is False
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Gold-QA fix — GOLD_QA_MASTER_FIX_PLAN.md Module 17 (RC-5): the
+# claim-verifier over-rejects true claims phrased differently from the
+# retrieved/computed text. Two deterministic pieces:
+#   1. `_numbers_in()` must not split a decimal number ("15.0") into two
+#      separate integer tokens ("15", "0") at the decimal point.
+#   2. `_is_derived_ratio()` / verify_structured_aggregate_paraphrase()
+#      must accept a percentage/fraction that is the exact arithmetic
+#      result of two counts the source already states (Module 13's
+#      rate primitive), the same "narrow, exact-arithmetic" carve-out
+#      Module 4 already established for a grand total.
+# ═══════════════════════════════════════════════════════════════════════
+
+def test_numbers_in_keeps_a_decimal_number_as_one_token():
+    assert _numbers_in("2024 ka ausat 15.0 minute hai") == {"2024", "15.0"}
+
+
+def test_numbers_in_strip_citations_still_keeps_decimals():
+    assert _numbers_in("[Document 1] average is 1401.3 minutes", strip_citations=True) == {"1401.3"}
+
+
+def test_is_derived_ratio_accepts_exact_percentage_of_two_source_counts():
+    # 9 / 73 -> 12.328...% -> rounds to 12.
+    assert _is_derived_ratio("12", {"9", "73"}) is True
+
+
+def test_is_derived_ratio_rejects_a_percentage_off_by_more_than_rounding():
+    assert _is_derived_ratio("50", {"9", "73"}) is False
+
+
+def test_is_derived_ratio_accepts_a_decimal_fraction_at_its_own_precision():
+    assert _is_derived_ratio("0.12", {"9", "73"}) is True
+
+
+def test_is_derived_ratio_false_when_source_has_no_matching_pair():
+    assert _is_derived_ratio("12", {"5"}) is False
+
+
+@pytest.mark.asyncio
+async def test_structured_paraphrase_allows_a_correct_derived_percentage():
+    """M2's shape: '9 of 73 FIRs (~12%)' — 9 and 73 are literal, 12 is the
+    exact round() of their ratio, not an invented number."""
+    result = await verify_structured_aggregate_paraphrase(
+        answer="Specialized cybercrime units carry 9 of 73 FIRs (~12%) from just 2 stations.",
+        source_text="Cybercrime stations: 9 cases. Total: 73 cases across 19 stations.",
+        case_id="cross_case",
+    )
+    assert result["grounded"] is True
+
+
+@pytest.mark.asyncio
+async def test_structured_paraphrase_still_rejects_a_fabricated_percentage():
+    """The leniency is narrow: a percentage that is NOT the real ratio of
+    any two source counts must still fail."""
+    result = await verify_structured_aggregate_paraphrase(
+        answer="Specialized cybercrime units carry 9 of 73 FIRs (~85%).",
+        source_text="Cybercrime stations: 9 cases. Total: 73 cases across 19 stations.",
+        case_id="cross_case",
+    )
+    assert result["grounded"] is False
+    assert "85" in result["reason"]
+
+
+@pytest.mark.asyncio
+async def test_structured_paraphrase_allows_restated_decimal_average_unchanged():
+    """A paraphrase that restates the source's own computed average verbatim
+    (down to the decimal) must pass — regression guard for the decimal-token
+    split this module fixes in `_numbers_in()`."""
+    result = await verify_structured_aggregate_paraphrase(
+        answer="2024's average reporting delay was 15.0 minutes; 2026's was 1401.3 minutes.",
+        source_text="2024 mean reporting delay: 15.0 minutes. 2026 mean reporting delay: 1401.3 minutes.",
+        case_id="cross_case",
+    )
+    assert result["grounded"] is True

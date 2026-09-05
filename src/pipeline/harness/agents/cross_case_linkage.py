@@ -725,12 +725,20 @@ async def cross_case_linkage(
     )
     xnetwork_definite_empty = xnetwork_result.status == ToolStatus.EMPTY
     if xgraph_definite_empty and xnetwork_definite_empty:
+        # [Module 12 — RC-1] When XNETWORK's own relevance gate is what
+        # produced the empty result (as opposed to the community-report
+        # collection genuinely holding nothing), say so specifically rather
+        # than the generic line below standing alone — same honesty
+        # requirement as the mixed-contribution branch further down.
+        answer_text = (
+            "No cross-case connections or patterns were found for this query, "
+            "across either entity-graph search or cross-case pattern synthesis."
+        )
+        if xnetwork_result.no_relevant_reason:
+            answer_text = f"{answer_text} {xnetwork_result.no_relevant_reason}"
         return SubAgentResult(
             status=SubAgentStatus.EMPTY,
-            answer_text=(
-                "No cross-case connections or patterns were found for this query, "
-                "across either entity-graph search or cross-case pattern synthesis."
-            ),
+            answer_text=answer_text,
         )
 
     xgraph_contributes = xgraph_result.status == ToolStatus.OK or bool(xgraph_result.unconfirmed_links)
@@ -749,6 +757,10 @@ async def cross_case_linkage(
             caveats.append("Entity-graph cross-case search encountered an error.")
         if xnetwork_result.status == ToolStatus.FAILED:
             caveats.append("Cross-case pattern synthesis encountered an error.")
+        elif xnetwork_result.no_relevant_reason:
+            # [Module 12 — RC-1] EMPTY-but-not-FAILED with a relevance-gate
+            # reason attached — the honest specific message, not silence.
+            caveats.append(xnetwork_result.no_relevant_reason)
         return SubAgentResult(
             status=SubAgentStatus.PARTIAL,
             answer_text="No confirmed cross-case connections were found.",
@@ -816,6 +828,11 @@ async def cross_case_linkage(
         degraded_from.append("XNETWORK")
         if xnetwork_result.status == ToolStatus.FAILED:
             caveats.append("Cross-case pattern synthesis encountered an error.")
+        elif xnetwork_result.no_relevant_reason:
+            # [Module 12 — RC-1] XGRAPH contributed, but XNETWORK's own
+            # relevance gate found nothing on-topic — state that plainly
+            # instead of silently dropping XNETWORK's side of the answer.
+            caveats.append(xnetwork_result.no_relevant_reason)
 
     # Validation gate — plan §4 row 5 / §5's table: FULL semantic tier is
     # MANDATORY here (not the lighter structural-only check some other
