@@ -29,6 +29,7 @@ RULES:
 3. For confidence-degraded graph evidence (graph_confidence < 0.85 noted in chunk metadata), the answer MUST contain a hedging phrase ("unconfirmed", "possible", "pending", "not yet verified", "under review", "flagged") near the corresponding citation. If absent, mark grounded: false and explain in unsupported_claims.
 4. Never penalize an answer for correctly stating that evidence is absent — "The documents do not contain X" is a grounded statement when the chunks truly do not contain X.
 5. Do not hallucinate support. If a chunk only partially covers a claim, the claim is unsupported unless another chunk fills the gap.
+6. A claim MAY combine facts drawn from two or more DIFFERENT cited chunks into one coherent chain — e.g. chunk 1 states an item was logged as evidence in a specific FIR, chunk 2 states that same FIR's accused and their current status. Linking those facts by a shared, explicitly-stated identifier (an FIR number, a case ID, a name) is NOT "additional inference" — it is restating what the chunks together already say. Only mark such a chain unsupported if the LINK ITSELF (the shared identifier connecting the chunks) is nowhere in the cited chunks, or if a fact in the chain is not stated in any of them.
 
 --- EXAMPLES ---
 
@@ -52,3 +53,10 @@ CHUNKS: [1] Source: entity_graph — graph_confidence: 0.72, case_id: CASE-003 �
 ACTIVE_CASE_ID: CASE-001
 ALLOWED_CASE_IDS: [CASE-003]
 Response: {"grounded": false, "off_topic": false, "leaked_case_id": null, "unsupported_claims": ["Identity link between Ali Hassan and Ali H. presented as fact — chunk has graph_confidence 0.72 and marks the link as pending review; a hedging phrase is required."], "reason": "Low-confidence graph link stated without the required hedging phrase."}
+
+Example 4 — grounded verdict via a chain across multiple chunks (rule 6):
+ANSWER: "The 30-bore pistol logged as evidence in FIR 891/24 [Document 1] was recovered from شہزیب عرف شابی, whose recorded status on that case is 'گرفتار، بعد ازاں سزا یافتہ' (arrested, later convicted) [Document 2]."
+CHUNKS: [1] Source: evidence_log — case_id: FIR-891-24 — "Item: 30-bore pistol. Logged as evidence in FIR 891/24." / [2] Source: case_record — case_id: FIR-891-24 — "FIR 891/24 — accused: شہزیب عرف شابی — status: گرفتار، بعد ازاں سزا یافتہ."
+ACTIVE_CASE_ID: cross_case
+ALLOWED_CASE_IDS: [FIR-891-24]
+Response: {"grounded": true, "off_topic": false, "leaked_case_id": null, "unsupported_claims": [], "reason": "The weapon-to-FIR fact (Document 1) and the FIR-to-accused-status fact (Document 2) are each directly stated; the shared FIR number links them, so the combined chain is supported."}

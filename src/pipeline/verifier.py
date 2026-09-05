@@ -704,7 +704,19 @@ async def verify_grounding(
 #      regardless of hedging phrasing or citation-tag conventions that
 #      make sense for a narrative document but not for a one-shot computed
 #      summary.
-_NUMBER_RE = re.compile(r"\d[\d,]*")
+#
+# [Gold-QA fix — GOLD_QA_MASTER_FIX_PLAN.md Module 17, RC-5] The digit-run
+# regex below used to stop at the decimal point, so "15.0" tokenized as two
+# SEPARATE numbers, "15" and "0". A source that computed an average as
+# "1401.34" and a paraphrase that (correctly) rounded it to "1401.3" then
+# split into "1401"/"3" vs "1401"/"34" — "3" is not "34", so a verbatim
+# restatement of the source's own computed average got flagged as an
+# invented number purely from a decimal-rounding difference, not an actual
+# fabrication. Live-confirmed shape: M7's "2024 ka ausat 15.0 minute...
+# 2026 ka ausat 1401.3 minute" reporting-delay comparison. Matching the
+# decimal tail keeps "15.0" and "1401.3" as single tokens, compared as
+# whole numbers the way an investigator actually reads them.
+_NUMBER_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
 # Strip [Document N] / [Document N, CASE-ID] citation markers before
 # extracting numbers from the ANSWER (never from source_text) — the
 # citation index itself ("1" in "[Document 1]") and any digits inside a
@@ -715,12 +727,53 @@ _CITATION_MARKER_RE = re.compile(r"\[Document\s+\d+(?:\s*,[^\]]*)?\]", re.IGNORE
 
 
 def _numbers_in(text: str, *, strip_citations: bool = False) -> set[str]:
-    """Every digit run in `text`, comma separators stripped, as a set of
-    canonical strings — "1,234" and "1234" compare equal, order and
-    duplicates don't matter for a subset check."""
+    """Every digit run in `text` (decimal point included), comma separators
+    stripped, as a set of canonical strings — "1,234" and "1234" compare
+    equal, "15.0" stays one token rather than splitting at the decimal
+    point, order and duplicates don't matter for a subset check."""
     if strip_citations:
         text = _CITATION_MARKER_RE.sub("", text or "")
     return {m.group(0).replace(",", "") for m in _NUMBER_RE.finditer(text or "")}
+
+
+# [Gold-QA fix — Module 17, RC-5] A paraphrase of a rate/ratio aggregate
+# (Module 13's rate primitive — e.g. "9 of 73 FIRs (~12%)") legitimately
+# states a PERCENTAGE that is the exact arithmetic result of two counts the
+# source already states — same shape as Module 4's grand-total carve-out,
+# generalized from addition to division. "9" and "73" are already literal
+# matches; only the derived "12" is new, and it is not invented — it is
+# `round(100 * 9 / 73) == 12`. Narrow on purpose, mirroring the grand-total
+# check's own discipline (ROOT_CAUSE_AND_FIXES.md Module 4 / the tests
+# above): only an EXACT round() result at the candidate's own precision
+# counts as supported, never a nearby approximation — a genuinely fabricated
+# number a few points off a real ratio must still fail.
+def _is_derived_ratio(candidate: str, source_values: set[str]) -> bool:
+    """True if `candidate` equals round(100*a/b, ...) or round(a/b, ...)
+    for some pair of DISTINCT numeric values already present in
+    `source_values`, rounded to the same number of decimal places the
+    candidate itself is stated with (0 decimals for a bare integer)."""
+    try:
+        cand_val = float(candidate)
+    except ValueError:
+        return False
+    places = len(candidate.split(".", 1)[1]) if "." in candidate else 0
+
+    parsed: list[float] = []
+    for s in source_values:
+        try:
+            parsed.append(float(s))
+        except ValueError:
+            continue
+
+    for a in parsed:
+        for b in parsed:
+            if a == b or b == 0:
+                continue
+            if round(100 * a / b, places) == cand_val:
+                return True
+            if round(a / b, places) == cand_val:
+                return True
+    return False
 
 
 async def verify_structured_aggregate_paraphrase(
@@ -801,6 +854,11 @@ async def verify_structured_aggregate_paraphrase(
     unsupported_numbers = sorted(
         n for n in (ans_nums - src_nums)
         if not (_count_total is not None and n.isdigit() and int(n) == _count_total)
+        # [Module 17, RC-5] ...or a rate/ratio (percentage or fraction)
+        # derived, by exact arithmetic, from two counts the source already
+        # states — see _is_derived_ratio()'s own docstring for why this is
+        # narrow, not a fuzzy-match relaxation.
+        and not _is_derived_ratio(n, src_nums)
     )
 
     grounded = not leaked_case and not fabricated_issues and not unsupported_numbers

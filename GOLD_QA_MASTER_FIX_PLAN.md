@@ -76,7 +76,7 @@ is `rayyanfaisal475207 <rayyanfaisal475207@users.noreply.github.com>`** — the
 | 14 | CR7 criminal-record × court-outcome cross-check | `feature/xagg-criminal-record-court-crosscheck` | ⬜ Not started (blocked on 13) |
 | 15 | Field-consistency questions → XAGG/graph joins (RC-3 + RC-6) | `fix/router-field-consistency-to-xagg` | ⬜ Not started — shares `router.py` with 12/16 |
 | 16 | Cross-case scope LLM fallback (RC-4) | `fix/router-cross-case-scope-llm-fallback` | ⬜ Not started — shares `router.py` with 12/15 |
-| 17 | Verifier paraphrase-strictness relaxation (RC-5) | `fix/verifier-paraphrase-strictness-relaxation` | ⬜ Not started — **can start now** |
+| 17 | Verifier paraphrase-strictness relaxation (RC-5) | `fix/verifier-paraphrase-strictness-relaxation` | ✅ Merged |
 | 18 | Second full Gold-32 rerun + updated report | *(docs only)* | ⬜ Not started (blocked on 10–17) |
 | 19 | DeepEval 17-query harness context-capture fix | `fix/deepeval-harness-context-capture` | ⬜ Not started — **can start now** |
 | 20 | Judge-prompt "close numbers OK" tightening | `fix/gold32-judge-close-number-tolerance` | ⬜ Not started — **can start now** |
@@ -616,21 +616,56 @@ regex pattern at a time.
 - Live: G3's exact text → no longer bounced; a paraphrase with no cue words
   at all also resolves to cross-case scope.
 
-## Module 17 — Verifier paraphrase-strictness relaxation (RC-5) ⬜
+## Module 17 — Verifier paraphrase-strictness relaxation (RC-5) ✅ Merged
 
 **Branch:** `fix/verifier-paraphrase-strictness-relaxation`
 
-**Files:** `src/pipeline/verifier.py` — extend Module 4's relaxation (XAGG's
-grand-total case) to XGRAPH's per-claim citation check and the general
-"could not be verified as an accurate paraphrase" XAGG fallback, so a
-semantically-equivalent restatement isn't treated as unconfirmed.
+**Files:**
+- `src/pipeline/verifier.py` — `_NUMBER_RE`/`_numbers_in()` now capture a
+  decimal tail (`15.0` stays one token instead of splitting into `15`/`0`
+  at the decimal point — the actual mechanism behind M7's average-minutes
+  paraphrase getting flagged for restating the source's own computed value
+  at a different rounding). New `_is_derived_ratio()` extends Module 4's
+  grand-total carve-out from addition to division: a percentage/fraction in
+  the answer that is the EXACT `round()` result of two counts already
+  present in the source (M2's "9 of 73 FIRs (~12%)" shape) is no longer
+  flagged as an invented number — narrow by construction, same discipline
+  as Module 4's own tests (a genuinely wrong ratio a few points off still
+  fails). Wired into `verify_structured_aggregate_paraphrase()`'s
+  `unsupported_numbers` filter.
+- `prompts/verifier.txt` — new rule 6 + worked Example 4: a claim that
+  combines directly-stated facts from two or more DIFFERENT cited chunks
+  into one coherent chain (linked by a shared identifier — an FIR number,
+  case ID, or name — e.g. CR4's weapon → FIR → accused → status shape) is
+  not "additional inference" and must not be marked unsupported on that
+  basis alone; only the link itself being absent, or an individual fact in
+  the chain not being stated anywhere, still fails it.
 
-**Verify:**
-- `tests/test_verifier.py` full pass + new test: a paraphrasing (not
-  contradicting) claim is confirmed.
-- Live: CR4's exact text → the weapon→FIR→accused chain stated directly, no
-  disclaimer burying it; M2/M7 confirm the verifier no longer forces a
-  raw-dump fallback on a correct NL summary.
+**Verified:**
+- `tests/test_verifier.py`: 78 passed (7 new — decimal-token extraction,
+  `_is_derived_ratio()` direct tests, and `verify_structured_aggregate_paraphrase()`
+  end-to-end tests for M2's percentage shape, a rejected fabricated
+  percentage, and M7's decimal-average restatement). Full repo suite: 2332
+  passed, 5 skipped, 1 xpassed — zero regressions.
+- Live: a direct paraphrase naming FIR 891/24 ("what weapon was recovered...
+  and what is the current status of the accused") routed to GRAPH/Case
+  Summarization and returned the correct grounded chain — 30-bore pistol →
+  شہزیب عرف شابی → 5-year sentence, bail granted on appeal — cleanly cited,
+  no verifier caveat. CR4's own exact wording (no FIR number named) still
+  routes to XGRAPH/Cross-Case Linkage and fell back to the raw
+  community-cluster dump on this run — but the captured verifier reason
+  this time is a genuine cross-chunk fact mismatch in the LLM's own
+  generation (claims about Document 1/3 misattributing names and case
+  counts actually present in the chunks), not the over-strict rejection of
+  a correct paraphrase RC-5 names — i.e. a real hallucination the verifier
+  is right to catch, out of this module's scope (RC-1 / Module 12's
+  broad-query cluster-dump guard, in progress in parallel). M2/M7's
+  aggregate-paraphrase relaxation itself is unit-verified above; full live
+  confirmation needs Module 13's rate/time-bucket primitive to actually
+  exist in XAGG's output (in progress in parallel) — this module's own
+  text already flags M2/M7 as "confirm the verifier no longer independently
+  forces the raw-dump fallback," not as this module's own aggregate to
+  build.
 
 ## Module 18 — Second full Gold-32 rerun + updated honest report ⬜
 
