@@ -491,6 +491,27 @@ def test_unlabeled_citation_matching_is_case_insensitive():
     assert _check_fabricated_case_ids(answer, [_id_chunk(case_id="fir-201-26")]) == []
 
 
+# ── Global KB corpus (no case-id concept) — live-caught false positive (KB1) ─
+#
+# Live regression: a plain-RAG answer over the global legal-KB corpus
+# (is_global=True, category="legal_procedural_reference", no case_id/
+# external_id on any chunk — there is no case-linkage concept for a
+# statutory-text document at all) cited "[Document 2, section 4(b)]",
+# referencing the statute's own subsection, not a case id. This check
+# misread the bracket's second field as an invented CASE-ID and rejected an
+# otherwise-correctly-grounded KB1 answer. `final_response.txt` (the prompt
+# governing plain RAG answers) never instructs the two-part bracket format
+# in the first place — that shape only belongs to
+# prompts/cross_case_response.txt's case-linked citations, where the cited
+# chunks always carry a real case_id/external_id. Skip the check entirely
+# when the chunk set has no case ids to check against.
+
+def test_no_case_id_concept_in_corpus_means_check_is_skipped_entirely():
+    chunk_no_ids = {"id": "c1", "text": "Statutory text.", "metadata": {}}
+    answer = "The requirement is stated in the statute [Document 2, section 4(b)]."
+    assert _check_fabricated_case_ids(answer, [chunk_no_ids]) == []
+
+
 # ── verify_grounding (async, with LLM monkeypatched) ─────────────────────────
 
 @pytest.mark.asyncio
