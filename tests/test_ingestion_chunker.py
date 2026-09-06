@@ -158,3 +158,46 @@ def test_split_text_into_chunks_public_api_is_unchanged():
     assert isinstance(result, list)
     assert all(isinstance(c, str) for c in result)
     assert "".join(result).replace(" ", "") != ""  # produced real content
+
+
+# ── [Gold-QA fix — Module 8d] no-gap coverage guarantee ──
+# The splitter must never DROP a span of text: every character of the input
+# must appear in at least one chunk. A short sentence-boundary chunk used to
+# trigger a full-chunk_size stride that leapt over the un-emitted tail,
+# silently dropping ~448-char spans (live-confirmed: CrPC §154's body).
+
+from src.ingestion.chunker import _split_text_into_chunks_with_offsets
+from src import config
+
+
+def _covers_all_chars(text, chunk_size, overlap):
+    spans = _split_text_into_chunks_with_offsets(text, chunk_size, overlap)
+    covered = [False] * len(text)
+    for start, chunk in spans:
+        # find the chunk's actual span in text (chunk is stripped, so locate it)
+        idx = text.find(chunk[:40], max(0, start - 5)) if chunk else -1
+        if idx < 0:
+            idx = start
+        for j in range(idx, min(len(text), idx + len(chunk))):
+            covered[j] = True
+    # allow uncovered runs only where the char is whitespace (strip artifacts)
+    gaps = [i for i, c in enumerate(covered) if not c and not text[i].isspace()]
+    return gaps
+
+
+def test_splitter_covers_every_non_whitespace_char_dense_text():
+    # Dense text with many short sentences (each ends well before chunk_size),
+    # the exact shape that triggered the drop.
+    text = " ".join(
+        f"{n}. A short section heading. Then a body sentence that ends here."
+        for n in range(140, 170)
+    )
+    gaps = _covers_all_chars(text, config.CHUNK_SIZE, config.CHUNK_OVERLAP)
+    assert gaps == [], f"splitter dropped non-whitespace chars at indices {gaps[:10]}"
+
+
+def test_splitter_no_gap_with_short_boundary_chunks():
+    # A pathological case: very short sentences so each chunk snaps early.
+    text = ". ".join("word " * 3 for _ in range(200))
+    gaps = _covers_all_chars(text, 512, 64)
+    assert gaps == [], f"dropped chars at {gaps[:10]}"
