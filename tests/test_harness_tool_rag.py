@@ -295,3 +295,115 @@ def test_rag_tool_result_fallback_cannot_be_true():
     from pydantic import ValidationError
     with pytest.raises(ValidationError):
         RagToolResult(status=ToolStatus.OK, fallback_to_rag=True)
+
+
+# ── [Gold-QA fix — Module 8c] legal-KB-intent scope narrowing ──────────────
+# A legal-reference question asked in "All Cases" mode must search the legal
+# KB corpus ALONE first (so statutory chunks aren't out-ranked by the far
+# more numerous case narratives), then fall back to the mixed all-cases pool
+# only if the KB-only search finds nothing relevant.
+
+def test_is_legal_kb_intent_detects_governing_law_questions():
+    assert rag_mod._is_legal_kb_intent(
+        "What legal requirement governs how a report of a crime becomes an FIR?"
+    )
+    assert rag_mod._is_legal_kb_intent("Which section governs FIR registration?")
+    assert rag_mod._is_legal_kb_intent("Under what act does a report become an FIR?")
+    assert rag_mod._is_legal_kb_intent("What does the CrPC say about recording information?")
+
+
+def test_is_legal_kb_intent_urdu_and_roman():
+    assert rag_mod._is_legal_kb_intent("کون سی دفعہ ایف آئی آر کے اندراج کو کنٹرول کرتی ہے؟")
+    assert rag_mod._is_legal_kb_intent("kis qanoon ke tehat FIR register hoti hai")
+
+
+def test_is_legal_kb_intent_false_for_case_anchored_or_non_legal():
+    # A case/FIR anchor means the question needs case data too — not KB-only.
+    assert not rag_mod._is_legal_kb_intent("what section applies to the offense in CASE-009")
+    assert not rag_mod._is_legal_kb_intent("what law governs FIR 891/24 registration")
+    # Plain case questions and counts must never trigger KB-only scoping.
+    assert not rag_mod._is_legal_kb_intent("summarize what happened in the theft case")
+    assert not rag_mod._is_legal_kb_intent("how many FIRs are there")
+
+
+def _spy_retrieve(monkeypatch, relevant_scopes):
+    """Patch _retrieve_candidates to record every `where` it's called with,
+    returning candidates ONLY for scopes named in `relevant_scopes` (a set of
+    frozenset(where.items())). Also forces the evaluator to accept whatever
+    comes back, so 'relevant' tracks 'found candidates'."""
+    seen = []
+
+    async def _fake_retrieve(query, where, fetch_top_k, final_top_k, is_cross_case):
+        seen.append(dict(where))
+        key = frozenset(where.items())
+        if key in relevant_scopes:
+            return [_chunk("c1")], [_chunk("c2")]
+        return [], []
+
+    async def _eval(orig, cur, reranked):
+        return {"relevant": bool(reranked), "reason": "no candidates"}
+
+    monkeypatch.setattr(rag_mod, "_retrieve_candidates", _fake_retrieve)
+    monkeypatch.setattr(rag_mod, "evaluate_relevance", _eval)
+    return seen
+
+
+def _cross_case_execution():
+    caller = CallerContext(user_id="u1", role="platform-admin", active_case_id=None)
+    return ExecutionContext(caller=caller)
+
+
+@pytest.mark.asyncio
+async def test_legal_intent_in_all_cases_tries_kb_only_first(monkeypatch):
+    # KB corpus HAS the answer — first scope tried must be is_global (KB-only),
+    # and the mixed all_cases pool must never be reached.
+    seen = _spy_retrieve(monkeypatch, {frozenset({("is_global", True)})})
+    result = await rag_tool(RagToolInput(
+        query_text="Which section governs FIR registration?",
+        execution=_cross_case_execution(),
+    ))
+    assert result.status == ToolStatus.OK
+    assert seen[0] == {"is_global": True}
+    assert {"all_cases": True} not in seen  # KB-only sufficed; no fallback
+
+
+@pytest.mark.asyncio
+async def test_legal_intent_falls_back_to_mixed_when_kb_empty(monkeypatch):
+    # KB-only finds nothing; must fall back to the mixed all_cases pool rather
+    # than abstain — the fix can only ADD an answer, never remove one.
+    seen = _spy_retrieve(monkeypatch, {frozenset({("all_cases", True)})})
+    result = await rag_tool(RagToolInput(
+        query_text="Which section governs FIR registration?",
+        execution=_cross_case_execution(),
+    ))
+    assert result.status == ToolStatus.OK
+    assert seen[0] == {"is_global": True}      # tried KB-only first
+    assert {"all_cases": True} in seen          # then widened to mixed
+
+
+@pytest.mark.asyncio
+async def test_non_legal_all_cases_query_never_narrows(monkeypatch):
+    # A non-legal cross-case question must search the mixed pool directly —
+    # no KB-only attempt injected.
+    seen = _spy_retrieve(monkeypatch, {frozenset({("all_cases", True)})})
+    result = await rag_tool(RagToolInput(
+        query_text="which cases involve a stolen motorcycle?",
+        execution=_cross_case_execution(),
+    ))
+    assert result.status == ToolStatus.OK
+    assert seen == [{"all_cases": True}]        # only the mixed pool, once
+
+
+@pytest.mark.asyncio
+async def test_legal_intent_respects_include_global_false(monkeypatch):
+    # include_global=False must NOT inject a KB-only scope the caller excluded.
+    # With a cross-case role the base scope is still all_cases; legal intent
+    # must not override an explicit global-exclusion into is_global.
+    seen = _spy_retrieve(monkeypatch, {frozenset({("all_cases", True)})})
+    result = await rag_tool(RagToolInput(
+        query_text="Which section governs FIR registration?",
+        execution=_cross_case_execution(),
+        include_global=False,
+    ))
+    assert result.status == ToolStatus.OK
+    assert {"is_global": True} not in seen      # never injected KB-only

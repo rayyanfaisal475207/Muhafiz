@@ -56,6 +56,7 @@ rather than searching unfiltered.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Literal, Optional
 
 from pydantic import Field
@@ -182,6 +183,87 @@ class RagToolResult(ToolResult):
             "merely irrelevant to this question."
         ),
     )
+
+
+# [Gold-QA fix — Module 8c] Legal / knowledge-base-INTENT detection.
+#
+# Problem this closes: in "All Cases" mode `_build_where()` returns the
+# mixed `{"all_cases": True}` pool, which searches case-narrative chunks AND
+# the global/KB legal corpus together in one ranked retrieval. For a pure
+# legal-reference question ("which section governs FIR registration?") the
+# far more numerous FIR case narratives — which share the question's own
+# vocabulary ("FIR", "registration", "154") — out-rank the actual CrPC
+# statutory chunks, so the governing-law answer never surfaces (live-
+# confirmed on KB1 in Module 8's honest status: "surfaces real FIR case
+# documents instead of the legal KB corpus"). Module 8 (chunking) and 8b
+# (large-PDF extraction) fixed the corpus; this fixes which corpus a legal
+# question searches.
+#
+# Fix: for a legal-KB-intent query with NO case anchor, narrow the mixed
+# `all_cases` pool to the KB-only `{"is_global": True}` scope the tool
+# already recognizes (Module 5's `is_global_only_scope`, rag.py:339) — so
+# legal chunks are ranked against each other, not drowned by case data. A
+# query that also names a specific case/FIR keeps the mixed scope (it
+# genuinely needs both), and if KB-only returns nothing the caller falls
+# back to the mixed pool (see `rag_tool()`), so this never makes an answer
+# strictly worse than today.
+#
+# Deliberately BROADER than router.py's `_RAG_LEGAL_TEXT_OVERRIDE_PATTERNS`
+# (which only catch "what does section N say" — text-OF-a-numbered-section):
+# the KB1 shape is "which law/section GOVERNS <practice>", which names no
+# section number at all. English / Urdu / Roman-Urdu.
+_LEGAL_KB_INTENT_PATTERNS = [
+    # "which/what law|section|rule|act|ordinance governs|covers|applies to X"
+    re.compile(
+        r"\b(which|what)\b.{0,30}\b(law|section|rule|act|ordinance|provision|clause|article)\b"
+        r".{0,40}\b(govern|cover|apply|applies|regulat|deal|require|mandate|prescrib)",
+        re.IGNORECASE,
+    ),
+    # "under what/which law|act|section ..." / "under the <Act>"
+    re.compile(r"\bunder\s+(what|which)\b.{0,20}\b(law|act|section|ordinance|rule|provision)\b", re.IGNORECASE),
+    # "legal requirement|basis|authority for X"
+    re.compile(r"\blegal\s+(requirement|basis|authority|provision|ground)s?\b", re.IGNORECASE),
+    # Named legal corpora / codes this KB actually holds (CrPC, PPC, PECA,
+    # Qanun-e-Shahadat, Police Order/Rules, Anti-Rape Act, PTA Act) —
+    # naming one is a strong signal the answer lives in the legal KB, not
+    # case files.
+    re.compile(
+        r"\b(cr\.?p\.?c\.?|code of criminal procedure|p\.?p\.?c\.?|pakistan penal code|"
+        r"peca|qanun[- ]e[- ]shahadat|police order|police rules|anti[- ]rape act|pta act)\b",
+        re.IGNORECASE,
+    ),
+    # Urdu: "کون سی دفعہ/قانون ... ہے", "قانونی تقاضا", "کس قانون کے تحت"
+    re.compile(r"(کون\s*س[یا]|کس)\s*(دفعہ|قانون|شق|ایکٹ)"),
+    re.compile(r"قانونی\s*تقاض"),
+    re.compile(r"کس\s*قانون\s*کے\s*تحت"),
+    # Roman-Urdu: "kaunsi dafa/qanoon", "kis qanoon ke tehat", "qanooni taqaza"
+    re.compile(r"\b(kaun\s*si|kis)\b.{0,15}\b(dafa|qanoon|qanun|shq|act)\b", re.IGNORECASE),
+    re.compile(r"\bkis\s+qanoon\s+ke\s+tehat\b", re.IGNORECASE),
+    re.compile(r"\bqanoon[iy]\s+taqaz", re.IGNORECASE),
+]
+
+# A case/FIR anchor in the query text means the question genuinely needs
+# case data too — keep the mixed scope rather than narrowing to KB-only.
+# Reuses router.py's own active-case shape (CASE-xxx / FIR-xxx / a bare FIR
+# number like "891/24"), plus "this case"/"is case".
+_CASE_ANCHOR_RE = re.compile(
+    r"\b(CASE|FIR)[-\s]?\d|\b\d{1,4}\s*/\s*\d{2}\b|\bthis case\b|\bin case\b",
+    re.IGNORECASE,
+)
+
+
+def _is_legal_kb_intent(query_text: str) -> bool:
+    """
+    True when the query is a pure legal/knowledge-base-reference question
+    with no case anchor — the shape that should search the legal KB corpus
+    alone rather than the mixed all-cases pool. See
+    `_LEGAL_KB_INTENT_PATTERNS`' own comment for the full rationale.
+    """
+    if not query_text:
+        return False
+    if _CASE_ANCHOR_RE.search(query_text):
+        return False  # names a specific case — needs the mixed pool
+    return any(pat.search(query_text) for pat in _LEGAL_KB_INTENT_PATTERNS)
 
 
 def _build_where(
@@ -320,8 +402,8 @@ async def rag_tool(
             on_event(PipelineEvent(step=step, status=status, detail=detail))
 
     caller = tool_input.execution.caller
-    where = _build_where(caller, tool_input.include_global, tool_input.execution.project_id)
-    if not where:
+    base_where = _build_where(caller, tool_input.include_global, tool_input.execution.project_id)
+    if not base_where:
         # No case to scope to, and global material explicitly excluded —
         # nothing legitimate to search. Never fall through to an unscoped
         # query_similar/fulltext_index.candidate_pool call (see module docstring).
@@ -331,6 +413,57 @@ async def rag_tool(
     top_k = tool_input.top_k or config.TOP_K_RETRIEVAL
     fetch_top_k = top_k * config.CROSS_CASE_RETRIEVAL_MULTIPLIER if is_cross_case else top_k
 
+    # [Gold-QA fix — Module 8c] For a legal-KB-intent question that landed in
+    # the mixed `all_cases` pool, search the legal KB corpus ALONE first
+    # (`{"is_global": True}`), so statutory chunks aren't out-ranked by the
+    # far more numerous case narratives (see `_is_legal_kb_intent`' comment).
+    # `where_scopes` is the ordered list of scopes to try: KB-only first,
+    # then the original mixed pool as a fallback if KB-only finds nothing
+    # relevant — so this can only ADD an answer where there was none, never
+    # remove one. For every other query it's a one-element list (unchanged
+    # behavior). include_global==False is respected: never inject a global
+    # scope a caller explicitly excluded.
+    where_scopes: list[dict] = [base_where]
+    if (
+        base_where.get("all_cases")
+        and tool_input.include_global
+        and _is_legal_kb_intent(tool_input.query_text)
+    ):
+        where_scopes = [{"is_global": True}, base_where]
+        logger.info(
+            "RAG tool: legal-KB-intent query in all-cases scope — trying "
+            "KB-only corpus first, mixed pool as fallback."
+        )
+
+    last_empty_result: Optional[RagToolResult] = None
+    for scope_index, where in enumerate(where_scopes):
+        if scope_index > 0:
+            _emit("retrieval", "active",
+                  "No legal-corpus match — widening to all case documents…")
+        result = await _run_retrieval_loop(
+            tool_input, where, fetch_top_k, top_k, is_cross_case, _emit
+        )
+        if result.status == ToolStatus.OK:
+            return result
+        last_empty_result = result
+    # Every scope tried; return the last (EMPTY/FAILED) outcome unchanged.
+    return last_empty_result if last_empty_result is not None else RagToolResult(status=ToolStatus.EMPTY)
+
+
+async def _run_retrieval_loop(
+    tool_input: "RagToolInput",
+    where: dict,
+    fetch_top_k: int,
+    top_k: int,
+    is_cross_case: bool,
+    _emit,
+) -> RagToolResult:
+    """
+    One full retrieve→rerank→evaluate retry loop against a SINGLE `where`
+    scope. Extracted from `rag_tool()` so Module 8c can run it once per
+    candidate scope (KB-only, then mixed) without duplicating the loop —
+    behavior for a single scope is byte-for-byte the original loop.
+    """
     current_query = tool_input.query_text
     evaluator_feedback: Optional[str] = None
     retry_count = 0

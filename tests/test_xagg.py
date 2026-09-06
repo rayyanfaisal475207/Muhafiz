@@ -1139,3 +1139,228 @@ async def test_gender_breakdown_counts_accused_edges_not_distinct_persons(monkey
     counts = {c["key"]: c["count"] for c in result["counts"]}
     assert counts == {"male": 3, "female": 1}
     assert result["total_accused"] == 4
+
+
+# ── [Gold-QA fix — CR7, Module 14] criminal-record × court-outcome cross-check ──
+
+class _QueryAwareAgeClient:
+    """Returns different rows depending on which record_type the Cypher asks
+    for — the CR7 aggregate issues two distinct reads (criminal_record, then
+    chalaan_outcome)."""
+    def __init__(self, criminal_rows, court_rows):
+        self.criminal_rows = criminal_rows
+        self.court_rows = court_rows
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        if "criminal_record" in cypher_query:
+            return self.criminal_rows
+        if "chalaan_outcome" in cypher_query:
+            return self.court_rows
+        return []
+
+
+def test_fir_key_normalizes_differently_formatted_refs():
+    assert xagg._fir_key("FIR 891/24, PS Jhang Road") == "891-24"
+    assert xagg._fir_key("psrms/fir/fir-891-24#structured") == "891-24"
+    assert xagg._fir_key("FIR 891/2024") == "891-24"
+    assert xagg._fir_key("no fir number here") is None
+
+
+def test_conviction_is_settled():
+    assert xagg._conviction_is_settled("Convicted, on bail pending appeal")
+    assert xagg._conviction_is_settled("سزا یافتہ")
+    assert not xagg._conviction_is_settled("Under trial")
+    assert not xagg._conviction_is_settled(None)
+
+
+async def test_cr7_status_breakdown_and_consistent_crosscheck(monkeypatch):
+    criminal = [
+        {"status": "Under trial", "case_ref": "FIR 100/26", "subject": "A"},
+        {"status": "Under trial", "case_ref": "FIR 101/26", "subject": "B"},
+        {"status": "Convicted, on bail pending appeal",
+         "case_ref": "FIR 891/24, PS Jhang Road", "subject": "شہزیب عرف شابی"},
+    ]
+    court = [
+        {"doc_id": "psrms/fir/fir-891-24#structured",
+         "outcome": "5 سال قید بامشقت زیر دفعہ 392 ت.پ سزایاب",
+         "detail": "سیشن کورٹ فیصل آباد"},
+    ]
+    monkeypatch.setattr(xagg, "age_client", _QueryAwareAgeClient(criminal, court))
+
+    result = await xagg._criminal_record_court_crosscheck()
+    assert result["kind"] == "criminal_record_court_crosscheck"
+    assert result["total_records"] == 3
+    assert result["settled_count"] == 1
+    assert result["in_progress_count"] == 2
+    counts = {s["status"]: s["count"] for s in result["status_breakdown"]}
+    assert counts["Under trial"] == 2
+    # the one case with both records is cross-checked and consistent
+    assert len(result["crosschecks"]) == 1
+    cc = result["crosschecks"][0]
+    assert cc["fir"] == "891-24"
+    assert cc["consistent"] is True
+
+
+async def test_cr7_detects_inconsistency(monkeypatch):
+    # criminal record says settled/convicted, court outcome says still pending
+    criminal = [
+        {"status": "Convicted", "case_ref": "FIR 891/24", "subject": "X"},
+    ]
+    court = [
+        {"doc_id": "fir-891-24", "outcome": "زیرِ سماعت", "detail": None},
+    ]
+    monkeypatch.setattr(xagg, "age_client", _QueryAwareAgeClient(criminal, court))
+    result = await xagg._criminal_record_court_crosscheck()
+    assert len(result["crosschecks"]) == 1
+    assert result["crosschecks"][0]["consistent"] is False
+
+
+async def test_cr7_no_crosscheck_when_no_shared_case(monkeypatch):
+    criminal = [{"status": "Under trial", "case_ref": "FIR 100/26", "subject": "A"}]
+    court = [{"doc_id": "fir-891-24", "outcome": "سزایاب", "detail": None}]
+    monkeypatch.setattr(xagg, "age_client", _QueryAwareAgeClient(criminal, court))
+    result = await xagg._criminal_record_court_crosscheck()
+    assert result["crosschecks"] == []
+
+
+def test_cr7_renderer_settled_singular_and_consistency():
+    result = {
+        "total_records": 33, "settled_count": 1, "in_progress_count": 32,
+        "status_breakdown": [{"status": "Under trial", "count": 30},
+                             {"status": "Convicted, on bail pending appeal", "count": 1}],
+        "crosschecks": [{"fir": "891-24", "subject": "شہزیب عرف شابی",
+                         "criminal_status": "Convicted, on bail pending appeal",
+                         "court_outcome": "5 سال قید بامشقت", "consistent": True}],
+    }
+    text = "\n".join(xagg.render_criminal_record_crosscheck(result))
+    assert "33 criminal records" in text
+    assert "1 has reached a verdict" in text  # singular
+    assert "consistent" in text
+    assert "891-24" in text
+
+
+# ── [Gold-QA fix — CR6/CR8, Module 15] cross-record field-consistency ──
+
+class _RecordTypeAwareAgeClient:
+    """Routes each read by what the Cypher targets (count vs. edge query)."""
+    def __init__(self, total_n, edge_rows):
+        self.total_n = total_n
+        self.edge_rows = edge_rows
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        if "count(r)" in cypher_query:
+            return [{"n": self.total_n}]
+        return self.edge_rows
+
+
+async def test_cr6_cms_fir_linkage_all_linked(monkeypatch):
+    edges = [
+        {"tag": "CMS-KHI-2026-0417", "case_id": "fir-417-26", "cnic": "x"},
+        {"tag": "CMS-ISB-2026-0341", "case_id": "fir-64-26", "cnic": "y"},
+    ]
+    monkeypatch.setattr(xagg, "age_client", _RecordTypeAwareAgeClient(2, edges))
+    r = await xagg._cms_fir_linkage()
+    assert r["kind"] == "cms_fir_linkage"
+    assert r["total_complaints"] == 2
+    assert r["linked_count"] == 2
+    assert r["unlinked_count"] == 0
+    text = "\n".join(xagg.render_cms_fir_linkage(r))
+    assert "linked in practice" in text
+    assert "fir-417-26" in text
+
+
+async def test_cr6_cms_partial_link(monkeypatch):
+    edges = [{"tag": "CMS-KHI-2026-0417", "case_id": "fir-417-26", "cnic": "x"}]
+    monkeypatch.setattr(xagg, "age_client", _RecordTypeAwareAgeClient(3, edges))
+    r = await xagg._cms_fir_linkage()
+    assert r["total_complaints"] == 3
+    assert r["linked_count"] == 1
+    assert r["unlinked_count"] == 2
+
+
+async def test_cr8_dv_report_fir_match(monkeypatch):
+    edges = [
+        {"rid": "pkm_application:pkm-app-c9-02", "case_id": "fir-97-26"},
+        {"rid": "pkm_application:PKMAPP-C316-2", "case_id": "fir-416-26"},
+        {"rid": "pkm_application:PKMAPP-C326-1", "case_id": "fir-426-26"},
+        {"rid": "pkm_application:PKMAPP-C336-2", "case_id": "fir-436-26"},
+    ]
+    monkeypatch.setattr(xagg, "age_client", _RecordTypeAwareAgeClient(8, edges))
+    r = await xagg._dv_report_fir_match()
+    assert r["kind"] == "dv_report_fir_match"
+    assert r["total_reports"] == 8
+    assert r["confirmed_count"] == 4
+    assert r["unconfirmed_count"] == 4
+    text = "\n".join(xagg.render_dv_report_fir_match(r))
+    assert "confirmed by the case records" in text
+    assert "fir-97-26" in text
+
+
+# ── [Gold-QA fix — G2/G5, Module 15] completeness + weapon-compliance scans ──
+
+class _GatewayCases:
+    def __init__(self, cases): self._cases = cases
+    async def get_cases(self, user_id=None, user_role=None): return self._cases
+
+
+async def test_g2_completeness_excludes_test_rows(monkeypatch):
+    cases = [
+        {"case_id": "fir-1-26", "incident_date": None, "investigation_status": "open", "fir_number": "1/26"},
+        {"case_id": "fir-2-26", "incident_date": "2026-01-01", "investigation_status": None, "fir_number": "2/26"},
+        {"case_id": "CASE-TEST-abc", "incident_date": None, "investigation_status": None, "fir_number": None},
+    ]
+    r = await xagg._case_completeness_scan(_GatewayCases(cases))
+    assert r["kind"] == "case_completeness_scan"
+    assert r["total_cases"] == 2  # test row excluded
+    assert r["missing_incident_date"] == ["fir-1-26"]
+    assert r["missing_status"] == ["fir-2-26"]
+    text = "\n".join(xagg.render_case_completeness_scan(r))
+    assert "1 of 2 FIRs record no incident date" in text
+
+
+async def test_g5_weapon_compliance_counts_unlicensed(monkeypatch):
+    rows = (
+        [{"status": "بغیر لائسنس"}] * 30
+        + [{"status": None}] * 2
+    )
+    class _AC:
+        async def execute_cypher(self, q, params=None, columns=("result",), graph=None):
+            return rows
+    monkeypatch.setattr(xagg, "age_client", _AC())
+    r = await xagg._weapon_compliance_scan()
+    assert r["kind"] == "weapon_compliance_scan"
+    assert r["total_weapons"] == 32
+    assert r["unlicensed_count"] == 30
+    assert r["no_status_count"] == 2
+    text = "\n".join(xagg.render_weapon_compliance_scan(r))
+    assert "30 of 32" in text
+    assert "94%" in text
+
+
+# ── [Gold-QA fix — G3, Module 15/16] court-readiness completeness scan ──
+
+async def test_g3_court_readiness_combines_three_signals(monkeypatch):
+    # Graph reads: accused count, accused-with-relationship count, weapon rows.
+    class _AC:
+        async def execute_cypher(self, q, params=None, columns=("result",), graph=None):
+            if "role = 'accused'" in q and "RELATED_TO" not in q:
+                return [{"n": 93}]
+            if "RELATED_TO" in q:
+                return [{"n": 12}]
+            if "Weapon" in q:
+                return [{"status": "بغیر لائسنس"}] * 30 + [{"status": None}] * 2
+            if "zimni" in q:
+                return []
+            return []
+    monkeypatch.setattr(xagg, "age_client", _AC())
+    cases = [{"case_id": f"fir-{i}-26", "incident_date": None if i < 9 else "2026-01-01",
+              "investigation_status": "open", "fir_number": f"{i}/26"} for i in range(73)]
+    r = await xagg._court_readiness_scan(_GatewayCases(cases))
+    assert r["kind"] == "court_readiness_scan"
+    assert r["accused_no_relationship"] == 81       # 93 - 12
+    assert r["weapons_no_licence_status"] == 2
+    assert r["firs_no_incident_date"] == 9
+    text = "\n".join(xagg.render_court_readiness_scan(r))
+    assert "81 of 93" in text
+    assert "2 of 32" in text
+    assert "9 FIRs record no incident date" in text

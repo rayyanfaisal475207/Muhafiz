@@ -55,7 +55,16 @@ from src.pipeline.harness.types import (
     ToolError,
     ToolStatus,
 )
-from src.pipeline.xagg import run_aggregate, _UNSUPPORTED_JURISDICTION
+from src.pipeline.xagg import (
+    run_aggregate,
+    render_criminal_record_crosscheck,
+    render_cms_fir_linkage,
+    render_dv_report_fir_match,
+    render_case_completeness_scan,
+    render_weapon_compliance_scan,
+    render_court_readiness_scan,
+    _UNSUPPORTED_JURISDICTION,
+)
 from src.retrieval.graph_retriever import jurisdiction_unresolved
 
 logger = logging.getLogger(__name__)
@@ -102,6 +111,18 @@ AggregateKind = Literal[
     "rate_breakdown",
     "time_bucketed_breakdown",
     "time_bucketed_rate",
+    # [Gold-QA fix — Module 14, CR7] same additive convention.
+    "criminal_record_court_crosscheck",
+    # [Gold-QA fix — Module 15, CR6] same additive convention.
+    "cms_fir_linkage",
+    # [Gold-QA fix — Module 15, CR8] same additive convention.
+    "dv_report_fir_match",
+    # [Gold-QA fix — Module 15, G2] same additive convention.
+    "case_completeness_scan",
+    # [Gold-QA fix — Module 15, G5] same additive convention.
+    "weapon_compliance_scan",
+    # [Gold-QA fix — Module 15/16, G3] same additive convention.
+    "court_readiness_scan",
 ]
 
 
@@ -230,6 +251,20 @@ def _render_aggregate_text(agg_result: dict) -> str:
             f"- {c['district']}: {c['count']} {label + ' record(s)' if label else 'case(s)'}"
             for c in agg_result["counts"]
         ]
+    # [Gold-QA fix — Module 14, CR7] Criminal-record status + court-outcome
+    # consistency. Kept in sync with orchestrator.py's two identical branches.
+    elif kind == "criminal_record_court_crosscheck":
+        lines = render_criminal_record_crosscheck(agg_result)
+    elif kind == "cms_fir_linkage":
+        lines = render_cms_fir_linkage(agg_result)
+    elif kind == "dv_report_fir_match":
+        lines = render_dv_report_fir_match(agg_result)
+    elif kind == "case_completeness_scan":
+        lines = render_case_completeness_scan(agg_result)
+    elif kind == "weapon_compliance_scan":
+        lines = render_weapon_compliance_scan(agg_result)
+    elif kind == "court_readiness_scan":
+        lines = render_court_readiness_scan(agg_result)
     elif kind == "station_total_count":
         lines = [f"Total police stations: {agg_result['total_stations']}"]
     # [Gold-QA fix — Module 13, RC-2] Three new kinds from the rate/ratio

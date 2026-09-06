@@ -140,3 +140,42 @@ def test_falls_back_to_a_single_conversion_when_page_count_is_unavailable(monkey
 
     assert fake_converter.calls == [(1, 5)]  # convert() called with page_range=None -> (1, total_pages) in the fake
     assert len(docs) == 5
+
+
+# ── [Gold-QA fix — Module 8c] OCR-aware converter selection ────────────────
+# A PDF with a usable embedded text layer must be converted with OCR OFF
+# (correctness — OCR garbles good text layers; and speed), while a genuinely
+# scanned PDF must keep the default OCR-enabled converter.
+
+def _patch_both_converters(monkeypatch, total_pages):
+    """Distinct fake converters so a test can assert WHICH one load_pdf picked."""
+    ocr = _FakeConverter(total_pages)
+    no_ocr = _FakeConverter(total_pages)
+    ocr.which, no_ocr.which = "ocr", "no_ocr"
+    monkeypatch.setattr(pdf_loader_module, "_get_converter", lambda: ocr)
+    monkeypatch.setattr(pdf_loader_module, "_get_converter_no_ocr", lambda: no_ocr)
+    monkeypatch.setattr(pdf_loader_module, "_cheap_page_count", lambda fp: total_pages)
+    return ocr, no_ocr
+
+
+def test_text_layer_pdf_uses_ocr_off_converter(monkeypatch, tmp_path):
+    ocr, no_ocr = _patch_both_converters(monkeypatch, total_pages=3)
+    monkeypatch.setattr(pdf_loader_module, "_pdf_has_text_layer", lambda fp, **k: True)
+    f = tmp_path / "textlayer.pdf"; f.write_bytes(b"%PDF-1.7 fake")
+    pdf_loader_module.load_pdf(f)
+    assert no_ocr.calls and not ocr.calls  # OCR-off converter used, OCR one untouched
+
+
+def test_scanned_pdf_uses_ocr_on_converter(monkeypatch, tmp_path):
+    ocr, no_ocr = _patch_both_converters(monkeypatch, total_pages=3)
+    monkeypatch.setattr(pdf_loader_module, "_pdf_has_text_layer", lambda fp, **k: False)
+    f = tmp_path / "scanned.pdf"; f.write_bytes(b"%PDF-1.7 fake")
+    pdf_loader_module.load_pdf(f)
+    assert ocr.calls and not no_ocr.calls  # default OCR converter used
+
+
+def test_text_layer_probe_is_conservative_on_read_failure(monkeypatch):
+    # An unreadable/nonexistent file must return False (fall back to OCR),
+    # never True — a scanned PDF must never lose its only extraction path.
+    from pathlib import Path
+    assert pdf_loader_module._pdf_has_text_layer(Path("does_not_exist_xyz.pdf")) is False

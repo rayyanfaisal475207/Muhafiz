@@ -33,24 +33,47 @@ logger = logging.getLogger(__name__)
 # and fall back to vision. Some pages have headers/footers but no real text.
 MIN_TEXT_CHARS = 50
 
-# [Gold-QA fix — Module 8b] A single converter.convert() call over a large
-# (200+ page) PDF corrupts specific pages' extracted text — confirmed
-# empirically against this exact corpus: the CrPC PDF's Section 154
-# paragraph extracted correctly, byte-for-byte identical, both in
-# isolation (page_range=(77, 78)) and within a 1-100 page batch, but was
-# truncated to just its bare heading when the whole 319-page document was
-# converted in ONE call. This is a Docling large-document behavior/bug,
-# not a per-page extraction failure (the SAME page, given less surrounding
-# context, extracts fine) — converting in page-range batches avoids it.
-# 80 is conservative relative to the empirically-verified-safe 100-page
-# batch above, not a proven hard ceiling for arbitrarily large documents.
-_DOCLING_BATCH_SIZE = 80
+# [Gold-QA fix — Module 8b, batch size corrected in Module 8c] A Docling
+# convert() call over a large page range silently DROPS specific pages'
+# body text (not just the crash 8b originally targeted) — confirmed
+# empirically against this exact corpus: the CrPC PDF's Section 154 body
+# ("Every information relating to the commission of a cognizable offence…")
+# extracts correctly, byte-for-byte, when the page it's on (77) is converted
+# in a SMALL range — page_range=(76,79), (61,80), and (41,80) all recover it
+# — but is LOST (only the bare TOC heading survives) when converted in an
+# 80-page batch (page_range=(1,80)) or the whole 319-page document at once.
+# This is a Docling large-range behavior/bug scaling with range size, not a
+# per-page extraction failure (the SAME page extracts fine given less
+# surrounding context). Module 8b set this to 80 believing 1-100 was safe;
+# Module 8c's live KB re-ingestion proved 80 still loses §154 (0 stored
+# chunks contained the body). 32 is comfortably inside the empirically-
+# verified-safe ≤40 range, trading a few more (cheap, safe) convert() calls
+# per document for correct extraction. Sizes ≥41 are NOT safe on this corpus.
+_DOCLING_BATCH_SIZE = 32
 
 # Docling's DocumentConverter loads layout/table-structure models on first
 # use (~a few minutes, one-time per process); reusing one instance across
 # calls means only the very first PDF in a process pays that cost.
 _converter = None
 _converter_lock = threading.Lock()
+
+# [Gold-QA fix — Module 8c] A SECOND, OCR-disabled converter, for PDFs that
+# already carry a usable embedded text layer. Two findings from Module 8b's
+# re-verification drive this:
+#   1. Correctness: Docling's default per-page RapidOCR, run over a page that
+#      ALREADY has a good text layer, can garble or drop that text — live-
+#      confirmed on the CrPC PDF, where §154's body ("Every information
+#      relating to the commission of a cognizable offence…") is present and
+#      correct in the PDF's own text layer and extracts cleanly with
+#      do_ocr=False, but is dropped from the markdown with OCR on. That
+#      missing body is exactly what KB1 needs, so this is a retrieval-
+#      correctness fix, not just a speed one.
+#   2. Speed: OCR on this corpus runs ~7s/page (a 319-page PDF is ~1hr of
+#      CPU); skipping it for text-layer PDFs makes re-ingestion practical.
+# Genuinely scanned/image-only pages are unaffected: `_pdf_has_text_layer()`
+# routes those to the default OCR converter, and the existing per-page vision
+# fallback (see load_pdf) still catches any page this converter can't read.
+_converter_no_ocr = None
 
 
 def _get_converter():
@@ -61,6 +84,59 @@ def _get_converter():
                 from docling.document_converter import DocumentConverter
                 _converter = DocumentConverter()
     return _converter
+
+
+def _get_converter_no_ocr():
+    global _converter_no_ocr
+    if _converter_no_ocr is None:
+        with _converter_lock:
+            if _converter_no_ocr is None:
+                from docling.document_converter import DocumentConverter, PdfFormatOption
+                from docling.datamodel.pipeline_options import PdfPipelineOptions
+                from docling.datamodel.base_models import InputFormat
+                opts = PdfPipelineOptions(do_ocr=False)
+                _converter_no_ocr = DocumentConverter(
+                    format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=opts)}
+                )
+    return _converter_no_ocr
+
+
+def _pdf_has_text_layer(file_path: Path, sample_pages: int = 5) -> bool:
+    """
+    [Gold-QA fix — Module 8c] True when the PDF carries a usable embedded
+    text layer, so it should be converted with OCR OFF (see
+    `_get_converter_no_ocr`' comment for why OCR harms these).
+
+    Samples up to `sample_pages` pages spread across the document (not just
+    the first few — a cover/title page is often image-only even in an
+    otherwise text-based PDF) and returns True if their combined extracted
+    text clears `MIN_TEXT_CHARS`. Conservative by construction: any read
+    failure returns False, so the document falls back to the default OCR
+    converter — never the other way round (a scanned PDF must never be
+    mistaken for a text one and have its only extraction path disabled).
+    """
+    try:
+        import fitz  # PyMuPDF — already a dependency (see _cheap_page_count)
+        pdf = fitz.open(str(file_path))
+        try:
+            n = pdf.page_count
+            if n == 0:
+                return False
+            # Evenly spaced sample indices across the whole document.
+            step = max(1, n // sample_pages)
+            idxs = list(range(0, n, step))[:sample_pages]
+            total = 0
+            for i in idxs:
+                total += len((pdf.load_page(i).get_text() or "").strip())
+            return total >= MIN_TEXT_CHARS
+        finally:
+            pdf.close()
+    except Exception as exc:
+        logger.warning(
+            "Could not probe text layer for %s (%s); using the default "
+            "OCR-enabled converter.", file_path.name, exc,
+        )
+        return False
 
 
 def _cheap_page_count(file_path: Path) -> Optional[int]:
@@ -86,6 +162,57 @@ def _cheap_page_count(file_path: Path) -> Optional[int]:
             "single whole-document Docling conversion.", file_path.name, exc,
         )
         return None
+
+
+def _page_text_layer(file_path: Path, page_no: int) -> str:
+    """
+    [Gold-QA fix — Module 8c] Extract one page's embedded text layer via
+    PyMuPDF (1-based `page_no`, matching Docling's numbering). Used as the
+    intermediate fallback when Docling returns empty for a page that
+    nonetheless has readable text — before the network/Gemini vision path.
+    Returns "" (never raises) on any read failure, so the caller then falls
+    through to the vision fallback exactly as before.
+    """
+    try:
+        import fitz  # PyMuPDF — already a dependency here
+        pdf = fitz.open(str(file_path))
+        try:
+            if 1 <= page_no <= pdf.page_count:
+                return (pdf.load_page(page_no - 1).get_text() or "").strip()
+            return ""
+        finally:
+            pdf.close()
+    except Exception as exc:
+        logger.warning(
+            "PyMuPDF text-layer read failed for page %d of %s (%s).",
+            page_no, file_path.name, exc,
+        )
+        return ""
+
+
+def _page_has_images(file_path: Path, page_no: int) -> bool:
+    """
+    [Gold-QA fix — Module 8c] True if the page carries embedded image
+    content (1-based `page_no`). Used to distinguish a genuinely BLANK page
+    (drop it, no vision call) from a real scanned page (send to vision).
+    Conservative: on any read failure returns True, so an uncertain page
+    still gets the vision fallback rather than being silently dropped.
+    """
+    try:
+        import fitz  # PyMuPDF
+        pdf = fitz.open(str(file_path))
+        try:
+            if 1 <= page_no <= pdf.page_count:
+                return len(pdf.load_page(page_no - 1).get_images(full=True)) > 0
+            return False
+        finally:
+            pdf.close()
+    except Exception as exc:
+        logger.warning(
+            "PyMuPDF image probe failed for page %d of %s (%s); assuming "
+            "image content to be safe.", page_no, file_path.name, exc,
+        )
+        return True
 
 
 def _extract_temporal_metadata(file_path: Path) -> tuple[int, int]:
@@ -146,7 +273,17 @@ def load_pdf(file_path: Path) -> list[Document]:
     """
     documents: list[Document] = []
     effective_from, effective_to = _extract_temporal_metadata(file_path)
-    converter = _get_converter()
+    # [Gold-QA fix — Module 8c] Prefer the OCR-disabled converter when the
+    # PDF has a usable text layer (correctness + speed — see
+    # `_get_converter_no_ocr`' comment). Genuinely scanned PDFs fall through
+    # to the default OCR converter, and the per-page vision fallback below
+    # still recovers any page this converter can't read.
+    use_ocr = not _pdf_has_text_layer(file_path)
+    converter = _get_converter() if use_ocr else _get_converter_no_ocr()
+    logger.info(
+        "Loading PDF %s with OCR %s (text-layer probe).",
+        file_path.name, "ON" if use_ocr else "OFF",
+    )
 
     # [Gold-QA fix — Module 8b] Convert in page-range batches rather than
     # one whole-document call — see _DOCLING_BATCH_SIZE's own comment for
@@ -224,14 +361,81 @@ def load_pdf(file_path: Path) -> list[Document]:
                 "  Page %d: extracted %d chars via Docling", page_no, len(text)
             )
         else:
+            # [Gold-QA fix — Module 8c] Before the (network, Gemini-quota-
+            # bound) vision fallback, try the PDF's own embedded TEXT LAYER
+            # via PyMuPDF. Docling can return empty for a page whose text
+            # layer is perfectly readable (live-confirmed: the CrPC's cover
+            # p1 and back-matter p319 — Docling extracted 0 chars, PyMuPDF
+            # reads 1210 and 15). Recovering these here means a text-layer
+            # PDF never needs the vision LLM at all, so ingestion no longer
+            # aborts the whole file when the daily Gemini free-tier quota
+            # (20 req/day) is exhausted — the exact failure that left the
+            # CrPC with 0 chunks mid-re-ingest. Only genuinely image-only
+            # pages (empty here too) still reach the vision fallback below.
+            pymupdf_text = _page_text_layer(file_path, page_no)
+            if pymupdf_text and len(pymupdf_text) >= MIN_TEXT_CHARS:
+                logger.info(
+                    "  Page %d of %s: Docling empty (%d chars) but PyMuPDF "
+                    "text layer recovered %d chars — no vision call needed.",
+                    page_no, file_path.name, len(text), len(pymupdf_text),
+                )
+                documents.append(Document(
+                    text=pymupdf_text,
+                    metadata={
+                        "source": file_path.name,
+                        "source_path": str(file_path),
+                        "type": "pdf",
+                        "page": page_no,
+                        "total_pages": total_pages,
+                        "extraction_method": "pymupdf_text_layer",
+                        "effective_from": effective_from,
+                        "effective_to": effective_to,
+                    },
+                ))
+                continue
+            # [Gold-QA fix — Module 8c] Skip the vision LLM entirely for a
+            # page that is genuinely BLANK — negligible text layer AND no
+            # embedded images. The CrPC's back-matter p319 ("Page 319 of
+            # 319", 15 chars, no image) is not a scanned page needing OCR;
+            # sending it to the Gemini vision path only risked a hang/quota
+            # abort for zero content gain. A page with real image content
+            # still goes to vision below (a true scanned page). Drop the
+            # blank page (tracked in `dropped_pages`), don't call vision.
+            if not _page_has_images(file_path, page_no):
+                logger.info(
+                    "  Page %d of %s: empty text and no image content — "
+                    "blank page, dropping (no vision call).",
+                    page_no, file_path.name,
+                )
+                dropped_pages.append(page_no)
+                continue
             logger.warning(
                 "  Page %d of %s: Docling extraction is empty/garbled (%d chars) "
-                "even with its built-in OCR. Falling back to vision LLM.",
+                "even with its built-in OCR, and no usable text layer. "
+                "Falling back to vision LLM.",
                 page_no, file_path.name, len(text)
             )
-            vision_docs = _load_scanned_page_with_vision(
-                file_path, page_no, total_pages, effective_from, effective_to
-            )
+            # [Gold-QA fix — Module 8c] A single unreadable page (e.g. a blank
+            # back-cover, or any image page when the daily Gemini vision quota
+            # is exhausted) must NOT abort the whole document's ingestion.
+            # Previously `_load_scanned_page_with_vision` re-raised the 429 on
+            # quota exhaustion, which propagated up and failed the entire file
+            # — live-confirmed leaving the 319-page CrPC with 0 chunks because
+            # its 15-char back-matter p319 could not reach vision. Drop just
+            # the offending page (already tracked in `dropped_pages`) and keep
+            # every page that did extract. `dropped_pages` still surfaces the
+            # loss honestly in the ingest stats, so this hides nothing.
+            try:
+                vision_docs = _load_scanned_page_with_vision(
+                    file_path, page_no, total_pages, effective_from, effective_to
+                )
+            except Exception as vexc:
+                logger.warning(
+                    "  Page %d of %s: vision fallback unavailable (%s) — "
+                    "dropping this page and continuing with the rest.",
+                    page_no, file_path.name, str(vexc)[:120],
+                )
+                vision_docs = []
             if not vision_docs:
                 dropped_pages.append(page_no)
             documents.extend(vision_docs)

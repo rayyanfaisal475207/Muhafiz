@@ -37,7 +37,15 @@ from src.retrieval.graph_retriever import (
     reset_jurisdiction_unresolved,
     CROSS_CASE_ROLES,
 )
-from src.pipeline.xagg import run_aggregate
+from src.pipeline.xagg import (
+    run_aggregate,
+    render_criminal_record_crosscheck,
+    render_cms_fir_linkage,
+    render_dv_report_fir_match,
+    render_case_completeness_scan,
+    render_weapon_compliance_scan,
+    render_court_readiness_scan,
+)
 from src.pipeline.xagg import _UNSUPPORTED_JURISDICTION as _UNRESOLVED_JURISDICTION_NOTE
 from src.pipeline.xnetwork import run_network_query
 from src.llm.client import call_llm, stream_llm
@@ -500,6 +508,18 @@ async def _fetch_secondary_evidence(
                         f"officer — {asi} marked \"(نامزد ASI)\", {si} marked "
                         f"\"(نامزد SI)\".{caveat}"
                     ]
+                elif agg_result["kind"] == "criminal_record_court_crosscheck":
+                    lines = render_criminal_record_crosscheck(agg_result)
+                elif agg_result["kind"] == "cms_fir_linkage":
+                    lines = render_cms_fir_linkage(agg_result)
+                elif agg_result["kind"] == "dv_report_fir_match":
+                    lines = render_dv_report_fir_match(agg_result)
+                elif agg_result["kind"] == "case_completeness_scan":
+                    lines = render_case_completeness_scan(agg_result)
+                elif agg_result["kind"] == "weapon_compliance_scan":
+                    lines = render_weapon_compliance_scan(agg_result)
+                elif agg_result["kind"] == "court_readiness_scan":
+                    lines = render_court_readiness_scan(agg_result)
                 elif agg_result["kind"] == "district_breakdown":
                     label = agg_result.get("entity_label")
                     lines = [
@@ -2117,6 +2137,18 @@ async def process_query(
                     f"officer — {asi} marked \"(نامزد ASI)\", {si} marked "
                     f"\"(نامزد SI)\".{caveat}"
                 ]
+            elif agg_result["kind"] == "criminal_record_court_crosscheck":
+                lines = render_criminal_record_crosscheck(agg_result)
+            elif agg_result["kind"] == "cms_fir_linkage":
+                lines = render_cms_fir_linkage(agg_result)
+            elif agg_result["kind"] == "dv_report_fir_match":
+                lines = render_dv_report_fir_match(agg_result)
+            elif agg_result["kind"] == "case_completeness_scan":
+                lines = render_case_completeness_scan(agg_result)
+            elif agg_result["kind"] == "weapon_compliance_scan":
+                lines = render_weapon_compliance_scan(agg_result)
+            elif agg_result["kind"] == "court_readiness_scan":
+                lines = render_court_readiness_scan(agg_result)
             elif agg_result["kind"] == "district_breakdown":
                 label = agg_result.get("entity_label")
                 lines = [

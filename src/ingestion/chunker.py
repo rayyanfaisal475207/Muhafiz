@@ -150,11 +150,26 @@ def _split_text_into_chunks_with_offsets(
 
         # Advance start with overlap, but never below min_advance: if the
         # break point found was too close to `start` to make real progress
-        # after applying overlap, skip the overlap for this one step and
-        # take a full chunk_size stride instead, rather than crawl.
+        # after applying overlap, reduce (or drop) the overlap for this one
+        # step rather than crawl.
+        #
+        # [Gold-QA fix — Module 8d] CRITICAL: the advance must never carry
+        # `start` PAST the end of the chunk just emitted, or the text between
+        # `end` and the new `start` is silently DROPPED — never emitted in any
+        # chunk. The old fallback `advance = min(chunk_size, ...)` did exactly
+        # that: when a sentence break made this chunk short (end - start well
+        # under chunk_size), it strode a full chunk_size from `start`, leaping
+        # over the un-chunked tail. Live-confirmed on the CrPC: §154's body
+        # ("Every information relating to the commission of a cognizable
+        # offence…") fell into one of these ~448-char skipped gaps and never
+        # reached a chunk at all — the real cause of KB1's failure, not a
+        # boundary split. The floor for `advance` is therefore capped at
+        # `end - start` (advance TO the chunk's end, losing only the overlap),
+        # so every character is covered by some chunk regardless of where the
+        # sentence-boundary snap landed.
         advance = (end - start) - chunk_overlap
         if advance < min_advance:
-            advance = min(chunk_size, text_len - start)
+            advance = min(min_advance, end - start)
         start += advance
 
     logger.debug("Split text into %d chunks (size=%d, overlap=%d)",
