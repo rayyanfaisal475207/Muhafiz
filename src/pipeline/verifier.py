@@ -260,6 +260,21 @@ def _check_fabricated_case_ids(answer: str, chunks: list[dict]) -> list[str]:
             if value:
                 known.add(str(value).strip().lower())
 
+    # Live-caught false positive (KB1): this check exists specifically for
+    # prompts/cross_case_response.txt's "[Document N, CASE-ID]" citation
+    # shape, which only ever appears in case-linked cross-case answers —
+    # those chunks virtually always carry a case_id/external_id, so `known`
+    # is non-empty. A plain-RAG answer over a corpus with NO case-linkage
+    # concept at all (e.g. the global legal-KB corpus, is_global=True,
+    # category="legal_procedural_reference", no case_id on any chunk) has
+    # no case ids to fabricate — a model citing "[Document 2, Section
+    # 4(b)]" there is citing a statute clause, not inventing case
+    # provenance, and `final_response.txt` never instructs the two-part
+    # bracket format in the first place. Only run this check when the
+    # chunk set actually has case ids to check against.
+    if not known:
+        return []
+
     issues: list[str] = []
     seen_bad: set[str] = set()
     for m in re.finditer(

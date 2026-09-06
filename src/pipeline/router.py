@@ -200,7 +200,16 @@ _XAGG_OVERRIDE_PATTERNS = [
     re.compile(r"\bshikayat\b.{0,60}\b(fir|linked|alag|munsalik)\b", re.IGNORECASE),
     # (b) forwarded/converted report <-> FIR match (CR8): a "report/
     #     converted to a case" + "confirmed by the record / FIR number".
-    re.compile(r"\b(report|converted|forwarded)\b.{0,60}\b(f\.?i\.?r\.?|case record|confirm)\b", re.IGNORECASE),
+    # NOTE: the second group deliberately does NOT include a bare
+    # "f\.?i\.?r\.?" alternative — "report ... FIR" alone is common,
+    # ordinary phrasing for an unrelated legal/definitional question (live
+    # collision found: KB1, "What legal requirement governs how a report of
+    # a crime becomes a formal FIR..." matched and got misrouted to XAGG
+    # instead of the KB-scoped RAG path). Require the actual
+    # verification/match framing instead; "forwarded/converted + FIR
+    # number" is still covered by its own narrower pattern below.
+    re.compile(r"\b(report|converted|forwarded)\b.{0,60}\b(case record|confirms?|confirmed by|matches?)\b", re.IGNORECASE),
+    re.compile(r"\b(forwarded|converted)\b.{0,40}\bf\.?i\.?r\.?\s*(number|no\.?)\b", re.IGNORECASE),
     re.compile(r"(رپورٹ|شکایت).{0,60}(کیس\s*میں\s*تبدیل|فارورڈ|کیس\s*ریکارڈ\s*سے\s*.{0,10}تصدیق)"),
     re.compile(r"باقاعدہ\s*کیس\s*میں\s*تبدیل"),
     # (c) Data-completeness / "which cases might be buried or overlooked"

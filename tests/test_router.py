@@ -623,3 +623,58 @@ async def test_secondary_methods_present_on_every_deterministic_override(monkeyp
     result = await router.route_query("What PPC section covers mobile phone theft?")
     assert result["route"] == "SQL"
     assert result.get("secondary_methods", []) == []
+
+
+# ── Gold-QA fix — Module 15's CR8 pattern vs. KB1 collision ─────────────────
+#
+# Live-caught regression (not covered by any existing test): Module 15's
+# forwarded/converted-report <-> FIR-match override for CR8
+# ("report|converted|forwarded" + a bare "f.i.r." mention) also matched
+# KB1's wording ("What legal requirement governs how a report of a crime
+# becomes a formal FIR...") purely because both words appear within 60
+# chars of each other — an ordinary, unrelated co-occurrence for a
+# definitional/legal-reasoning question, not the CR8-shaped "does the
+# record confirm a match" question the pattern was written for. KB1 was
+# hijacked to XAGG's flat statute-count aggregate instead of reaching the
+# KB-scoped RAG path Module 8c built for it. Fixed by requiring the actual
+# confirm/match framing in the second group instead of a bare FIR mention,
+# with "forwarded/converted + FIR number" kept as its own narrower pattern.
+
+async def test_kb1_legal_definitional_question_does_not_route_to_xagg(monkeypatch):
+    """Regression guard for the exact live collision: KB1's wording must
+    fall through to the LLM classifier (this test's fake LLM says RAG),
+    not get hijacked by CR8's forwarded-report/FIR override just because
+    both "report" and "FIR" appear in the sentence."""
+    async def fake_call_llm(system_prompt, user_message, **kwargs):
+        return json.dumps({"route": "RAG", "case_scope": "cross_case"})
+
+    monkeypatch.setattr(router, "call_llm", fake_call_llm)
+    result = await router.route_query(
+        "What legal requirement governs how a report of a crime becomes a "
+        "formal FIR, and does our recordkeeping actually follow it?"
+    )
+    assert result["route"] == "RAG"
+
+
+@pytest.mark.parametrize("query", [
+    "If a domestic violence complaint was recorded as converted into a formal case, is that confirmed by the case record?",
+    "Was this report's status confirmed by the case record?",
+])
+async def test_cr8_converted_report_confirm_override_still_fires_to_xagg(monkeypatch, query):
+    """The narrowed pattern must still catch the actual CR8 shape it exists
+    for — a converted/forwarded report whose match is confirmed against the
+    case record — even after dropping the bare "FIR mention" alternative
+    that caused the KB1 collision above."""
+    monkeypatch.setattr(router, "call_llm", _no_llm_call)
+    result = await router.route_query(query)
+    assert result["route"] == "XAGG"
+
+
+async def test_cr8_forwarded_fir_number_override_fires_to_xagg(monkeypatch):
+    """The "forwarded/converted + FIR number" shape (CR8's other real
+    phrasing) must still route to XAGG via its own narrower pattern."""
+    monkeypatch.setattr(router, "call_llm", _no_llm_call)
+    result = await router.route_query(
+        "Does the forwarded report's FIR number match a real, active FIR?"
+    )
+    assert result["route"] == "XAGG"
