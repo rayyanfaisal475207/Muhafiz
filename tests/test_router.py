@@ -678,3 +678,85 @@ async def test_cr8_forwarded_fir_number_override_fires_to_xagg(monkeypatch):
         "Does the forwarded report's FIR number match a real, active FIR?"
     )
     assert result["route"] == "XAGG"
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 26, question M1] Year-over-year / period comparison
+# override. See `_TIME_COMPARISON_XAGG_PATTERNS`'s own module-level comment
+# in router.py for the full rationale (shared with supervisor.py's
+# Meta-Analysis-skip guard).
+# ═══════════════════════════════════════════════════════════════════════
+
+async def test_m1_year_over_year_comparison_fires_to_xagg(monkeypatch):
+    """M1's exact gold-dataset text must route deterministically to XAGG —
+    the live-confirmed defect this module fixes: without this override the
+    classification depended on the flaky local LLM, which historically
+    (per GOLD32_RESULTS_FOR_TEAMMATE.md) sent this exact text to XGRAPH."""
+    monkeypatch.setattr(router, "call_llm", _no_llm_call)
+    result = await router.route_query(
+        "What kinds of cases are we dealing with now compared to a couple of years back?"
+    )
+    assert result["route"] == "XAGG"
+    assert result["case_scope"] == "cross_case"
+
+
+@pytest.mark.parametrize("query", [
+    # Non-gold paraphrases — the pattern must not be pinned to M1's one
+    # literal string.
+    "Has the mix of crimes we handle shifted since 2024?",
+    "How does this year's caseload compare with last year?",
+    "What's changed in our case types versus two years ago?",
+    "Crime type breakdown this year vs 2024?",
+    "Year over year, how has our caseload composition changed?",
+    # Urdu / Roman-Urdu paraphrases, matching M5's own comparison idiom.
+    "موجودہ کیسز کی نوعیت 2024 کے مقابلے میں کیا بدل گئی ہے؟",
+    "case types ab 2024 ke muqable mein kaise badal gaye hain?",
+])
+async def test_m1_paraphrases_fire_to_xagg(monkeypatch, query):
+    monkeypatch.setattr(router, "call_llm", _no_llm_call)
+    result = await router.route_query(query)
+    assert result["route"] == "XAGG"
+
+
+def test_m1_pattern_negative_control_against_all_other_gold_questions():
+    """
+    Mandatory negative control (per this module's brief, and the lesson
+    from the three historical collisions it names: Module 8c's 0/7 KB
+    pattern gap, CR8->KB1, and M4->G3 — a pattern that looks reasonable in
+    isolation is not evidence it matches only the intended question).
+
+    Asserts the new `_TIME_COMPARISON_XAGG_PATTERNS` family matches M1 and
+    matches NONE of the other 31 gold questions in the dataset.
+
+    M5 (a different question, itself already reaching XAGG's
+    `_statute_mix_by_year` today via its own Urdu "کے مقابلے میں" wording)
+    is the one EXPECTED co-match — both are genuine year-over-year
+    comparison questions that this same aggregate answers, so a shared
+    match here is correct, not a collision. Every other gold question must
+    match zero patterns in this family.
+    """
+    import json
+    import os
+
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "evaluation",
+        "Gold_QA_Dataset_Final32_With_Answers.json",
+    )
+    gold = json.load(open(path, encoding="utf-8"))
+    assert len(gold) == 32
+
+    matched_ids = [
+        item["id"]
+        for item in gold
+        if any(pat.search(item["question"]) for pat in router._TIME_COMPARISON_XAGG_PATTERNS)
+    ]
+
+    assert "M1" in matched_ids
+    # M5 is the one legitimate co-match (see docstring); every other ID
+    # matching would be a genuine false-positive collision.
+    unexpected = set(matched_ids) - {"M1", "M5"}
+    assert unexpected == set(), (
+        f"Year-over-year comparison pattern unexpectedly matched: {sorted(unexpected)} "
+        f"(full match list: {sorted(matched_ids)})"
+    )
