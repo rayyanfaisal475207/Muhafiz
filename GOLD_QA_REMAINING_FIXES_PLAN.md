@@ -66,7 +66,7 @@ several can run in parallel chats/worktrees without colliding.
 | 19a | KB-intent coverage for all 8 KB questions | `fix/kb-intent-coverage-all-gold-questions` | ✅ **PR #9 open** |
 | 19b | Evaluator compound-question relaxation not firing | `fix/evaluator-compound-relaxation-not-firing` | ⬜ Not started — **highest value** |
 | 21 | XNETWORK/XGRAPH relevance-gate over-refusal | `fix/xnetwork-relevance-gate-over-refusal` | ⬜ Not started |
-| 22 | M7 reporting-delay: wrong metric | `feature/xagg-incident-to-report-delta` | ✅ **Done — M7 verified live, matches gold exactly.** One known gap left to Module 26, see below |
+| 22 | M7 reporting-delay: wrong metric | `feature/xagg-incident-to-report-delta` | ✅ **Done — M7 AND its non-gold paraphrase both verified live, matching gold exactly** |
 | 23 | M5 weapon × statute co-occurrence join | `feature/xagg-weapon-statute-cooccurrence` | ⬜ Not started |
 | 24 | M4 statute × court-stage join | `feature/xagg-statute-court-stage-join` | ⬜ Blocked on PR #8 |
 | 25 | M2 Meta-Analysis → verifier rejection | `fix/meta-analysis-synthesis-verifier-rejection` | ⬜ Not started |
@@ -360,14 +360,26 @@ It is MATCH-only, idempotent, `--dry-run` capable. Result: **64 of 73 FIRs
 carry both timestamps; 64 nodes updated, 0 not found** (no graph/snapshot
 drift).
 
-**Known gap — handed to Module 26, deliberately not fixed here.** The
-required non-gold paraphrase (*"How long does it typically take someone to
-report a crime to us these days versus a couple of years ago?"*) still fails
-**end-to-end**, because `router.py` classifies it as `RAG` so it never
-reaches XAGG. Calling `run_aggregate()` directly with that paraphrase returns
-the correct answer, so this module's layer handles it — the remaining gap is
-a router override, and `router.py` is Module 26's file. **Module 26 should
-add a reporting-speed override alongside its year-over-year one.**
+**Non-gold paraphrase: ✅ now passes end-to-end — resolved by Module 26.**
+Mid-module this was an open gap: the paraphrase (*"How long does it typically
+take someone to report a crime to us these days versus a couple of years
+ago?"*) failed live because `router.py` classified it as `RAG`, so it never
+reached XAGG at all — even though calling `run_aggregate()` directly with it
+returned the correct answer. `router.py` is Module 26's file, so it was
+flagged for coordination rather than edited here.
+
+Module 26 (PR #13, deterministic XAGG routing) merged while this module was
+in flight. After merging `origin/main` in and re-testing, the paraphrase now
+routes `XAGG -> Large-Scale Aggregate` and returns:
+
+> *"the mean time from incident to report was **15.0 minutes** in 2024
+> (across 13 FIRs) compared to **1401.3 minutes (~23.4 hours)** in 2026
+> (across 51 FIRs). Reporting is notably slower in 2026 than in 2024."*
+
+Worth noting as a parallelization result: two file-disjoint tracks each fixed
+one layer of the same end-to-end failure, and neither alone was sufficient —
+Module 22 made the metric computable and the matcher paraphrase-tolerant,
+Module 26 made the routing deterministic.
 
 **A curve-fitting bug the paraphrase step caught** (this is what that step is
 for): `_REPORTING_SPEED_COMPARISON_KEYWORDS` was pinned to M7's literal
