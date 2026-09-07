@@ -1239,18 +1239,29 @@ class TestReportingSpeedComparisonBoundary:
         import json
         from pathlib import Path
 
-        # [Module 24] Re-pointed from `Gold_QA_Dataset_Final32.json` at the
-        # repo root, which is NOT tracked in this checkout — so this
-        # assertion silently skipped and had therefore never actually run
-        # since Module 22 shipped it. `evaluation/`'s answered copy holds
-        # the same 32 questions and IS tracked; asserted rather than skipped
-        # so the control can never go quiet again.
-        gold_path = (
-            Path(__file__).resolve().parent.parent
-            / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json"
+        # This used to look for a bare `Gold_QA_Dataset_Final32.json` at the
+        # repo root and `pytest.skip()` when it was missing. That file has
+        # never existed in this repo -- only the `_With_Answers` variant under
+        # `evaluation/` is tracked -- so this control SILENTLY SKIPPED on every
+        # run, in CI included, from the day it was written. It protected
+        # nothing. Found 2026-09-08 while verifying Modules 23 and 28, whose
+        # own all-32 controls resolve the correct path and do run.
+        #
+        # Resolved against candidates now, and a MISSING file is a FAILURE
+        # rather than a skip: a negative control that quietly stops running is
+        # worse than no control at all, because it reads as passing.
+        root = Path(__file__).resolve().parent.parent
+        candidates = [
+            root / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json",
+            root / "Gold_QA_Dataset_Final32.json",
+        ]
+        gold_path = next((p for p in candidates if p.exists()), None)
+        assert gold_path is not None, (
+            "Gold-32 dataset not found -- looked for: "
+            + ", ".join(str(p) for p in candidates)
         )
-        assert gold_path.exists(), gold_path
-        items = json.loads(gold_path.read_text(encoding="utf-8"))
+        payload = json.loads(gold_path.read_text(encoding="utf-8"))
+        items = payload if isinstance(payload, list) else payload.get("questions", payload)
         assert len(items) == 32
         matched = [
             (it.get("id") or "").upper()
