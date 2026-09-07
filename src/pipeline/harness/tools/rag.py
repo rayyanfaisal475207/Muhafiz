@@ -84,7 +84,11 @@ from src.retrieval.cross_reranker import cross_rerank, cross_rerank_multi
 from src.retrieval.embedder import embed_text
 from src.retrieval.fulltext_index import candidate_pool as bm25_candidate_pool
 from src.retrieval.reranker import rerank_results
-from src.retrieval.vector_store import cap_case_diversity, query_similar
+from src.retrieval.vector_store import (
+    cap_case_diversity,
+    expand_with_neighbors,
+    query_similar,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -715,6 +719,30 @@ async def _run_retrieval_loop(
             logger.error("RAG tool: cross-encoder rerank failed: %s. Falling back to RRF order.", exc)
             reranked = fused[: config.TOP_K_RERANK]
         _emit("reranker", "done", f"Top {len(reranked)} selected")
+
+        # [Module 30] Widen each surviving chunk with its immediate
+        # neighbours from the same document, for the KB corpus only.
+        #
+        # Retrieval can be right and the answer still absent: measured on
+        # KB3 after the fixes above, the Police Order Article 18 chunk
+        # carrying "All registered cases shall be investigated by the
+        # investigation staff in the district under" came back at rank 1 on
+        # every attempt, and the evaluator still returned relevant=False
+        # three times in a row — correctly, because that chunk ends
+        # mid-sentence and the words that answer the question ("under the
+        # supervision of the head of investigation", "(5) The District
+        # Police Officer shall not interfere with the process of
+        # investigation") are in the NEXT chunk. This corpus is chunked at
+        # roughly 350 characters and a provision routinely spans five of
+        # them.
+        #
+        # Retrieve narrow, read wide — ids, scores and metadata are
+        # untouched, so citations still name the chunk actually retrieved.
+        # Scoped to the KB-only corpus: case narratives are not split
+        # mid-clause the way statute text is, and this must not quietly
+        # change what every other route reads.
+        if is_global_only_scope and reranked:
+            reranked = await expand_with_neighbors(reranked, window=1)
 
         # [Module 30] Which chunks actually reached the evaluator, by id and
         # source file. The evaluator's own `relevant=…` reason is the most

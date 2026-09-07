@@ -456,3 +456,81 @@ async def test_mixed_all_cases_scope_still_gets_the_diversity_cap(monkeypatch):
         "q", {"all_cases": True}, 30, 10, is_cross_case=True
     )
     assert len(semantic) == 5
+
+
+# ── 7. Neighbour widening: retrieve narrow, read wide ────────────────────
+
+@pytest.mark.asyncio
+async def test_expand_with_neighbors_widens_a_mid_sentence_statutory_chunk():
+    """KB3's residual failure in one assertion: the Article 18 chunk was
+    retrieved at rank 1 on every attempt and the evaluator still returned
+    relevant=False, because the chunk ends mid-sentence and the words that
+    answer the question are in the next chunk."""
+    import src.retrieval.vector_store as vs
+
+    corpus = {
+        ("doc-po", 113): "...shall be responsible to his own hierarchy subject to "
+                         "general control of the District Police Officer",
+        ("doc-po", 115): "under the supervision of the head of investigation: ... "
+                         "(5) The District Police Officer shall not interfere with "
+                         "the process of investigation.",
+    }
+
+    class _FakeStore:
+        def get_by_metadata(self, metadata_filter):
+            clauses = metadata_filter["$and"]
+            doc_id = clauses[0]["doc_id"]["$eq"]
+            indices = clauses[1]["chunk_index"]["$in"]
+            return [
+                {"id": f"{doc_id}_c{i}", "text": corpus[(doc_id, i)],
+                 "metadata": {"doc_id": doc_id, "chunk_index": i}}
+                for i in indices if (doc_id, i) in corpus
+            ]
+
+    original = vs._get_store
+    vs._get_store = lambda: _FakeStore()
+    try:
+        retrieved = [{
+            "id": "doc-po_c114",
+            "text": "(4) All registered cases shall be investigated by the "
+                    "investigation staff in the district under",
+            "metadata": {"doc_id": "doc-po", "chunk_index": 114, "source": "po.pdf"},
+            "rerank_score": 0.9,
+        }]
+        widened = await vs.expand_with_neighbors(retrieved, window=1)
+    finally:
+        vs._get_store = original
+
+    assert len(widened) == 1
+    text = widened[0]["text"]
+    assert "shall be investigated by the investigation staff" in text
+    assert "shall not interfere with the process of investigation" in text
+    # Identity, provenance and score are untouched — citations still point
+    # at the chunk that was actually retrieved.
+    assert widened[0]["id"] == "doc-po_c114"
+    assert widened[0]["metadata"]["source"] == "po.pdf"
+    assert widened[0]["rerank_score"] == 0.9
+    assert retrieved[0]["text"].endswith("in the district under")
+
+
+@pytest.mark.asyncio
+async def test_expand_with_neighbors_degrades_to_the_unwidened_chunks():
+    """A chunk with no positional metadata, and a failing store, must both
+    yield the retrieved chunks unchanged — a narrower read, never a lost
+    one."""
+    import src.retrieval.vector_store as vs
+
+    plain = [{"id": "synthetic", "text": "case record", "metadata": {"source": "db"}}]
+    assert await vs.expand_with_neighbors(plain, window=1) == plain
+
+    class _BrokenStore:
+        def get_by_metadata(self, metadata_filter):
+            raise RuntimeError("chroma is down")
+
+    original = vs._get_store
+    vs._get_store = lambda: _BrokenStore()
+    try:
+        chunks = [{"id": "c1", "text": "t", "metadata": {"doc_id": "d", "chunk_index": 5}}]
+        assert await vs.expand_with_neighbors(chunks, window=1) == chunks
+    finally:
+        vs._get_store = original
