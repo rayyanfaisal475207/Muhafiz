@@ -99,10 +99,20 @@ and 7 heirs items exactly as gold states; اجنبی dominant as gold states),
 so these are aggregate gaps, not data gaps.
 
 **Correction to the task hand-off:** it said Module 23's
-`_weapon_statute_cooccurrence_by_year()` had landed. It has not — `xagg.py`
-on this branch's base has no such function; only Module 28's
-`_weapon_evidence_chain()` is present. Nothing in this module depended on
-it.
+`_weapon_statute_cooccurrence_by_year()` had already landed. At this
+branch's base commit (`c2a6ac6`) it had not — `xagg.py` there carried only
+Module 28's `_weapon_evidence_chain()`, and the gap analysis above was
+measured against that tree. Modules 23 and 24 (PRs #20 and #22) merged
+**while this module was in live verification** and are now merged into this
+branch; neither changes any row above.
+
+**One follow-up the merge creates, recorded not acted on.** Module 24's new
+`_statute_court_stage_join()` (33 / 1 / 30 under trial) answers gold G6's
+"most matters are still pending in court" element, which §6 below scores as
+a miss. It is a natural sixth sub-query for the `orientation_note` plan —
+but `_MAX_SUB_QUERIES` is 5 and that plan is already full, and adopting it
+would displace a slot that *was* live-verified in this module. Left to the
+cap decision that Modules 31–34 also need.
 
 **Why the plans do not simply dispatch the missing sub-questions anyway.**
 Four of the six would come back *confidently wrong* (the fall-through to

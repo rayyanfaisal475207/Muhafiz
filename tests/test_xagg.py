@@ -1239,11 +1239,30 @@ class TestReportingSpeedComparisonBoundary:
         import json
         from pathlib import Path
 
-        gold_path = Path(__file__).resolve().parent.parent / "Gold_QA_Dataset_Final32.json"
-        if not gold_path.exists():
-            pytest.skip("Gold_QA_Dataset_Final32.json not present in this checkout")
+        # This used to look for a bare `Gold_QA_Dataset_Final32.json` at the
+        # repo root and `pytest.skip()` when it was missing. That file has
+        # never existed in this repo -- only the `_With_Answers` variant under
+        # `evaluation/` is tracked -- so this control SILENTLY SKIPPED on every
+        # run, in CI included, from the day it was written. It protected
+        # nothing. Found 2026-09-08 while verifying Modules 23 and 28, whose
+        # own all-32 controls resolve the correct path and do run.
+        #
+        # Resolved against candidates now, and a MISSING file is a FAILURE
+        # rather than a skip: a negative control that quietly stops running is
+        # worse than no control at all, because it reads as passing.
+        root = Path(__file__).resolve().parent.parent
+        candidates = [
+            root / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json",
+            root / "Gold_QA_Dataset_Final32.json",
+        ]
+        gold_path = next((p for p in candidates if p.exists()), None)
+        assert gold_path is not None, (
+            "Gold-32 dataset not found -- looked for: "
+            + ", ".join(str(p) for p in candidates)
+        )
         payload = json.loads(gold_path.read_text(encoding="utf-8"))
         items = payload if isinstance(payload, list) else payload.get("questions", payload)
+        assert len(items) == 32
         matched = [
             (it.get("id") or "").upper()
             for it in items
@@ -1558,6 +1577,299 @@ def test_g3_still_matches_court_readiness_keywords_after_narrowing():
     assert xagg._matches_any(g3.lower(), xagg._COURT_READINESS_KEYWORDS)
 
 
+# ── Gold-QA fix — Module 23, question M5 ───────────────────────────────────
+#
+# M5: "ہتھیار عام طور پر کس نوعیت کے مقدمات میں سامنے آتے ہیں، اور کیا 2024
+# کے مقابلے میں اب یہ نوعیت بدل گئی ہے؟" — in what KINDS of cases do weapons
+# turn up, and has that changed since 2024?
+#
+# Before this module M5 matched `_TIME_COMPARISON_KEYWORDS` ("کے مقابلے میں"
+# is a literal entry there) and was answered by `_statute_mix_by_year()` —
+# a per-year statute ranking over ALL cases, with no weapon dimension at all,
+# so it could never say what a weapon charge pairs with. The tests below pin
+# both halves: the new aggregate's arithmetic, and the dispatch boundary that
+# keeps M1, G5, CP1 and the bare weapon-recurrence path exactly where they
+# were.
+
+# One weapon-bearing case per year pair, deliberately mirroring the real
+# corpus's shape in miniature: two 2024 armed-robbery cases, one 2026
+# narcotics case carrying the same weapons-law section, one 2026 case with a
+# non-firearm weapon and no weapons-law charge, one weapon case with no
+# resolvable incident date, and one non-weapon case that must not leak in.
+_M5_YEAR_ROWS = [
+    {"incident_date": "2024-09-22", "case_id": "CASE-A"},
+    {"incident_date": "2024-09-25", "case_id": "CASE-B"},
+    {"incident_date": "2026-02-14", "case_id": "CASE-C"},
+    {"incident_date": "2026-03-11", "case_id": "CASE-D"},
+    # CASE-E deliberately absent — a weapon case with no OCCURRED_ON edge.
+    {"incident_date": "2026-04-01", "case_id": "CASE-F"},
+]
+_M5_WEAPON_ROWS = [
+    {"weapon_name": "30 بور پستول", "case_id": "CASE-A"},
+    # Same weapon TYPE as CASE-A's, differing only by the ammunition-count
+    # suffix — must fold together via _normalize_weapon_type().
+    {"weapon_name": "30 بور پستول بمعہ 3 گولیاں", "case_id": "CASE-B"},
+    {"weapon_name": "30 بور پستول", "case_id": "CASE-C"},
+    {"weapon_name": "عام لکڑی کی چھڑی", "case_id": "CASE-D"},
+    {"weapon_name": "30 بور پستول", "case_id": "CASE-E"},
+]
+_M5_STATUTE_ROWS = [
+    {"act": "Arms Ordinance 1965", "section_code": "13", "case_id": "CASE-A"},
+    {"act": "PPC", "section_code": "34", "case_id": "CASE-A"},
+    {"act": "PPC", "section_code": "392", "case_id": "CASE-A"},
+    {"act": "Arms Ordinance 1965", "section_code": "13", "case_id": "CASE-B"},
+    {"act": "PPC", "section_code": "34", "case_id": "CASE-B"},
+    {"act": "PPC", "section_code": "392", "case_id": "CASE-B"},
+    {"act": "Arms Ordinance 1965", "section_code": "13", "case_id": "CASE-C"},
+    {"act": "CNSA 1997", "section_code": "9(c)", "case_id": "CASE-C"},
+    {"act": "PPC", "section_code": "328A", "case_id": "CASE-D"},
+    # CASE-F has statutes and a year but NO weapon — must not appear anywhere.
+    {"act": "PPC", "section_code": "302", "case_id": "CASE-F"},
+]
+
+_M5_GOLD_TEXT = (
+    "ہتھیار عام طور پر کس نوعیت کے مقدمات میں سامنے آتے ہیں، اور کیا 2024 کے "
+    "مقابلے میں اب یہ نوعیت بدل گئی ہے؟"
+)
+
+
+def _m5_age_client():
+    return _SequentialAgeClient([_M5_YEAR_ROWS, _M5_WEAPON_ROWS, _M5_STATUTE_ROWS])
+
+
+async def test_m5_gold_text_routes_to_the_weapon_statute_cooccurrence_aggregate(monkeypatch):
+    """The regression this module exists for: M5's LITERAL gold text must no
+    longer be answered by `_statute_mix_by_year()`."""
+    monkeypatch.setattr(xagg, "age_client", _m5_age_client())
+
+    result = await xagg.run_aggregate(
+        _M5_GOLD_TEXT, None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "weapon_statute_cooccurrence"
+    assert result["kind"] != "time_bucketed_breakdown"
+
+
+async def test_m5_aggregate_counts_statutes_per_year_for_weapon_cases_only(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _m5_age_client())
+
+    result = await xagg.run_aggregate(
+        _M5_GOLD_TEXT, None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    by_year = {b["year"]: b for b in result["buckets"]}
+    assert sorted(by_year) == [2024, 2026]
+
+    assert by_year[2024]["case_count"] == 2
+    assert {s["key"]: s["count"] for s in by_year[2024]["statutes"]} == {
+        "Arms Ordinance 1965 §13": 2, "PPC §34": 2, "PPC §392": 2,
+    }
+    # CASE-F carries PPC §302 in 2026 but has no Weapon — it must not appear.
+    assert {s["key"]: s["count"] for s in by_year[2026]["statutes"]} == {
+        "Arms Ordinance 1965 §13": 1, "CNSA 1997 §9(c)": 1, "PPC §328A": 1,
+    }
+    # One weapon case has no resolvable incident year: excluded from every
+    # bucket, but still counted in the stated total.
+    assert result["total_weapon_cases"] == 5
+    assert result["undated_weapon_cases"] == 1
+
+
+async def test_m5_cooccurrence_view_is_scoped_to_cases_carrying_a_weapons_law_charge(monkeypatch):
+    """The narrower view M5's answer actually turns on: what does the WEAPON
+    CHARGE itself pair with? CASE-D has a weapon but no Arms-Ordinance
+    section, so its PPC §328A must not enter 2026's co-occurrence set."""
+    monkeypatch.setattr(xagg, "age_client", _m5_age_client())
+
+    result = await xagg.run_aggregate(
+        _M5_GOLD_TEXT, None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    by_year = {b["year"]: b for b in result["buckets"]}
+    assert by_year[2024]["weapon_charge_case_count"] == 2
+    assert {c["key"]: c["count"] for c in by_year[2024]["cooccurring"]} == {
+        "PPC §34": 2, "PPC §392": 2,
+    }
+    assert by_year[2026]["weapon_charge_case_count"] == 1
+    assert {c["key"]: c["count"] for c in by_year[2026]["cooccurring"]} == {
+        "CNSA 1997 §9(c)": 1,
+    }
+
+
+async def test_m5_weapon_type_variants_fold_into_one_pairing(monkeypatch):
+    """The ammunition-count suffix variant is the same weapon
+    type — the same normalization `_top_recurring_weapon_types()` already
+    applies, reused here rather than reinvented."""
+    monkeypatch.setattr(xagg, "age_client", _m5_age_client())
+
+    result = await xagg.run_aggregate(
+        _M5_GOLD_TEXT, None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    by_year = {b["year"]: b for b in result["buckets"]}
+    assert {w["key"]: w["count"] for w in by_year[2024]["weapon_types"]} == {
+        "30 بور پستول": 2,
+    }
+    pairs_2024 = {(p["weapon_type"], p["statute"]): p["count"] for p in by_year[2024]["pairs"]}
+    assert pairs_2024[("30 بور پستول", "PPC §392")] == 2
+
+
+async def test_m5_renderer_states_the_widening_it_actually_measured(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _m5_age_client())
+
+    result = await xagg.run_aggregate(
+        _M5_GOLD_TEXT, None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+    rendered = "\n".join(xagg.render_weapon_statute_cooccurrence(result))
+
+    assert "**2024**" in rendered and "**2026**" in rendered
+    assert "Arms Ordinance 1965 §13: 2" in rendered
+    assert "CNSA 1997 §9(c)" in rendered
+    # Derived from the buckets, never a fixed narrative.
+    assert "Change 2024 to 2026" in rendered
+    assert "1 case(s) with a recovered weapon are excluded" in rendered
+
+
+def test_m5_renderer_does_not_claim_a_change_that_did_not_happen():
+    """Guards the derived-not-hardcoded property directly: identical
+    co-occurrence sets across years must render as UNCHANGED."""
+    agg = {
+        "kind": "weapon_statute_cooccurrence",
+        "total_weapon_cases": 2, "undated_weapon_cases": 0,
+        "buckets": [
+            {"year": 2024, "case_count": 1, "statutes": [{"key": "PPC §392", "count": 1}],
+             "weapon_types": [], "weapon_charge_case_count": 1,
+             "cooccurring": [{"key": "PPC §392", "count": 1}], "pairs": []},
+            {"year": 2026, "case_count": 1, "statutes": [{"key": "PPC §392", "count": 1}],
+             "weapon_types": [], "weapon_charge_case_count": 1,
+             "cooccurring": [{"key": "PPC §392", "count": 1}], "pairs": []},
+        ],
+    }
+    rendered = "\n".join(xagg.render_weapon_statute_cooccurrence(agg))
+    assert "unchanged between 2024 and 2026" in rendered
+    assert "Change 2024 to 2026" not in rendered
+
+
+class TestWeaponStatuteCooccurrenceBoundary:
+    """
+    [Gold-QA fix — Module 23] The three-signal AND, tested at its edges.
+    Every neighbour named here is a family this dispatch chain already
+    serves, and each one was a real collision site for an earlier module —
+    see `_is_weapon_statute_cooccurrence()`'s own comment.
+    """
+
+    def test_m5_gold_text_matches(self):
+        assert xagg._is_weapon_statute_cooccurrence(_M5_GOLD_TEXT.lower())
+
+    @pytest.mark.parametrize("paraphrase", [
+        # The required non-gold paraphrase: plain English, no Urdu statute
+        # vocabulary, no shared keyword with M5's literal phrasing.
+        "Are guns turning up in different types of cases than they used to?",
+        "Have the kinds of offences where firearms are recovered shifted since 2024?",
+        "Is the type of crime we recover weapons in changing?",
+    ])
+    def test_non_gold_paraphrases_match(self, paraphrase):
+        assert xagg._is_weapon_statute_cooccurrence(paraphrase.lower())
+
+    @pytest.mark.parametrize("other", [
+        # M1 — case-type + change, but no weapon term. Must stay with
+        # _statute_mix_by_year().
+        "What kinds of cases are we dealing with now compared to a couple of years back?",
+        # G5 — weapon + compliance, no case-type/change signal. Scores 1.0
+        # today; must stay with _weapon_compliance_scan().
+        "Baramad shuda hathiyaron ki record keeping ko dekhte hue, kya koi "
+        "aisi baat hai jo compliance ke lihaz se flag karne layak ho?",
+        # Bare weapon recurrence, and Module 1c's district+weapon paths.
+        "Which weapons show up across more than one case?",
+        "Which district recovers the most weapons?",
+        "Which district recovers the most weapons relative to its case load?",
+        # M7's reporting-speed shape.
+        "kya log 2026 mein waqiaat ki police ko itni hi jaldi ittila de rahe "
+        "hain jitni 2024 mein dete the?",
+    ])
+    def test_neighbouring_families_are_not_captured(self, other):
+        assert not xagg._is_weapon_statute_cooccurrence(other.lower())
+
+    def test_matches_m5_and_no_other_gold_question(self):
+        """The all-32 negative control, same discipline (and same rationale)
+        as `TestReportingSpeedComparisonBoundary`'s. Reads whichever copy of
+        the gold set this checkout actually has — the bare file at the repo
+        root is not tracked, but `evaluation/`'s answered copy is."""
+        import json
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parent.parent
+        for candidate in (
+            root / "Gold_QA_Dataset_Final32.json",
+            root / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json",
+        ):
+            if candidate.exists():
+                gold_path = candidate
+                break
+        else:
+            pytest.skip("no Gold-32 dataset present in this checkout")
+
+        payload = json.loads(gold_path.read_text(encoding="utf-8"))
+        items = payload if isinstance(payload, list) else payload.get("questions", payload)
+        matched = [
+            (it.get("id") or "").upper()
+            for it in items
+            if xagg._is_weapon_statute_cooccurrence(it["question"].lower())
+        ]
+        assert matched == ["M5"], f"expected only M5, got {matched}"
+
+
+async def test_m1_still_reaches_the_statute_mix_aggregate_after_module_23(monkeypatch):
+    """Negative control, end to end rather than at the predicate: M1's own
+    gold text must still be answered by `_statute_mix_by_year()`."""
+    year_rows = [{"incident_date": "2024-02-01", "case_id": "CASE-1"}]
+    cases = [{"case_id": "CASE-1", "crime_category": "PPC"}]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(year_rows))
+
+    result = await xagg.run_aggregate(
+        "What kinds of cases are we dealing with now compared to a couple of years back?",
+        None, gateway=FakeGateway(cases), user_role="supervisor",
+    )
+
+    assert result["kind"] == "time_bucketed_breakdown"
+    assert result["dimension"] == "statute_by_year"
+
+
+async def test_g5_still_reaches_the_weapon_compliance_scan_after_module_23(monkeypatch):
+    """Negative control: G5 scores 1.0 today and shares this module's whole
+    keyword space."""
+    rows = [{"status": "بغیر لائسنس"}, {"status": "لائسنس یافتہ"}]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        "Baramad shuda hathiyaron ki record keeping ko dekhte hue, kya koi "
+        "aisi baat hai jo compliance ke lihaz se flag karne layak ho?",
+        None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "weapon_compliance_scan"
+
+
+async def test_m5_jurisdiction_case_ids_narrow_every_one_of_the_three_reads(monkeypatch):
+    """All three graph reads must honour the jurisdiction allow-list — a
+    filter applied to two of three would silently over-count."""
+    captured = []
+
+    class _Capturing:
+        async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+            captured.append((cypher_query, params))
+            return []
+
+    monkeypatch.setattr(xagg, "age_client", _Capturing())
+
+    await xagg.run_aggregate(
+        _M5_GOLD_TEXT, None, gateway=FakeGateway([]), user_role="supervisor",
+        jurisdiction_case_ids=["CASE-A"],
+    )
+
+    assert len(captured) == 3
+    for query, params in captured:
+        assert "$case_ids" in query
+        assert params == {"case_ids": ["CASE-A"]}
 # ── [Gold-QA fix — CR4, Module 28] weapon -> FIR -> accused -> status chain ──
 
 class _WeaponChainAgeClient:
@@ -1696,3 +2008,320 @@ def test_cr4_attribution_terms_negative_control_over_gold32():
 
     assert chain_ids == ["CR4"], f"weapon-chain dispatch also selected {chain_ids}"
     assert compliance_ids == ["G5"], f"G5's compliance dispatch changed: {compliance_ids}"
+
+
+# ── [Gold-QA fix — Module 24, question M4] statute × court-stage join ──
+
+_M4_GOLD_TEXT = (
+    "ایک طرف یہ دیکھیں کہ لوگوں پر کن دفعات میں مقدمے بن رہے ہیں، اور دوسری "
+    "طرف یہ کہ وہ مقدمے عدالت میں کہاں تک پہنچے — کیا دونوں سے کیس لوڈ کی "
+    "سنگینی کا ایک ہی اندازہ ہوتا ہے؟"
+)
+
+_G3_GOLD_TEXT = (
+    "آپ عدالت کو حوالگی کے لیے ایک کیس فائل تیار کر رہے ہیں — ڈیٹا کی روشنی "
+    "میں، کن چیزوں کے نامکمل قرار پانے کا سب سے زیادہ امکان ہے؟"
+)
+
+_CR7_GOLD_TEXT = (
+    "کرمنل ریکارڈ سسٹم میں کتنے کیس مکمل ہو چکے ہیں اور کتنے ابھی زیرِ کارروائی "
+    "ہیں — اور جہاں کسی ایک کیس کا الگ عدالتی ریکارڈ بھی موجود ہے، کیا دونوں "
+    "ایک دوسرے سے مطابقت رکھتے ہیں؟"
+)
+
+
+class _M4AgeClient:
+    """Routes each of the four reads `_statute_court_stage_join()` issues by
+    what its Cypher targets. Kept deliberately literal rather than reusing
+    `_QueryAwareAgeClient` — this aggregate reads sections and Cases too, and
+    a fake that silently returned [] for an unrecognized query would let a
+    dropped read pass as an empty corpus."""
+
+    def __init__(self, sections, criminal, court, cases):
+        self.sections, self.criminal, self.court, self.cases = (
+            sections, criminal, court, cases,
+        )
+        self.queries = []
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        self.queries.append((cypher_query, params))
+        if "fir_section" in cypher_query:
+            return self.sections
+        if "criminal_record" in cypher_query:
+            return self.criminal
+        if "chalaan_outcome" in cypher_query:
+            return self.court
+        if "MATCH (c:Case)" in cypher_query:
+            return self.cases
+        raise AssertionError(f"unexpected read: {cypher_query}")
+
+
+def _m4_fixture(criminal=None):
+    """A miniature of the real corpus: three charged cases, and a court side
+    where almost nothing has been decided."""
+    sections = [
+        {"act": "PPC", "section_code": "302", "case_id": "fir-77-26"},
+        {"act": "PPC", "section_code": "34", "case_id": "fir-77-26"},
+        # the same case charged twice under one section must count once
+        {"act": "PPC", "section_code": "34", "case_id": "fir-77-26"},
+        {"act": "PPC", "section_code": "34", "case_id": "fir-64-26"},
+        {"act": "Arms Ordinance 1965", "section_code": "13", "case_id": "fir-891-24"},
+        {"act": "PPC", "section_code": "392", "case_id": "fir-891-24"},
+    ]
+    if criminal is None:
+        criminal = [
+            {"status": "Under trial", "case_ref": "FIR 77/26", "subject": "A"},
+            {"status": "Under trial", "case_ref": None, "subject": "B"},
+            {"status": "Convicted, on bail pending appeal",
+             "case_ref": "FIR 891/24, PS Jhang Road", "subject": "C"},
+        ]
+    cases = [
+        {"case_id": "fir-77-26", "fir_number": None},
+        {"case_id": "fir-64-26", "fir_number": None},
+        {"case_id": "fir-891-24", "fir_number": None},
+    ]
+    return _M4AgeClient(sections, criminal, [], cases)
+
+
+async def test_m4_aggregate_reports_both_halves_and_an_agreement_verdict(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _m4_fixture())
+
+    result = await xagg._statute_court_stage_join()
+
+    assert result["kind"] == "statute_court_stage_join"
+    # Half A — section-level, counted in CASES (PPC §34 is on two cases, and
+    # the duplicate row on fir-77-26 must not inflate it to three).
+    assert result["charged_case_count"] == 3
+    counts = {s["key"]: s["case_count"] for s in result["statutes"]}
+    assert counts == {
+        "PPC §34": 2, "PPC §302": 1, "PPC §392": 1, "Arms Ordinance 1965 §13": 1,
+    }
+    # Half B — CR7's own reader, untouched.
+    assert result["court"]["kind"] == "criminal_record_court_crosscheck"
+    assert result["court"]["total_records"] == 3
+    assert result["court"]["settled_count"] == 1
+    assert result["court"]["in_progress_count"] == 2
+    # The verdict: 1 of 3 decided is not a majority, so the two disagree.
+    assert result["agree"] is False
+    assert result["settled_share"] == pytest.approx(1 / 3)
+
+
+async def test_m4_agreement_verdict_flips_when_the_courts_have_caught_up(monkeypatch):
+    """The rule is a majority test over whatever the data says — not a
+    threshold tuned to this corpus. Same fixture, a decided court side."""
+    criminal = [
+        {"status": "Convicted", "case_ref": "FIR 77/26", "subject": "A"},
+        {"status": "Acquitted", "case_ref": None, "subject": "B"},
+        {"status": "Under trial", "case_ref": "FIR 891/24", "subject": "C"},
+    ]
+    monkeypatch.setattr(xagg, "age_client", _m4_fixture(criminal=criminal))
+
+    result = await xagg._statute_court_stage_join()
+
+    assert result["court"]["settled_count"] == 2
+    assert result["agree"] is True
+    rendered = "\n".join(xagg.render_statute_court_stage_join(result))
+    assert "Do the two agree? Yes." in rendered
+
+
+async def test_m4_joins_a_criminal_record_to_the_sections_of_its_own_case(monkeypatch):
+    """The join is on the FIR number, through `_fir_key()` — a criminal
+    record naming no FIR (the majority of the real ones) is excluded rather
+    than guessed at."""
+    monkeypatch.setattr(xagg, "age_client", _m4_fixture())
+
+    result = await xagg._statute_court_stage_join()
+
+    assert result["joinable_record_count"] == 2
+    joined = {j["fir"]: j for j in result["joined_records"]}
+    assert set(joined) == {"77-26", "891-24"}
+    assert joined["77-26"]["statutes"] == ["PPC §302", "PPC §34"]
+    assert joined["77-26"]["settled"] is False
+    assert joined["891-24"]["statutes"] == ["Arms Ordinance 1965 §13", "PPC §392"]
+    assert joined["891-24"]["settled"] is True
+
+
+async def test_m4_renderer_states_both_halves_and_the_disagreement(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _m4_fixture())
+    result = await xagg._statute_court_stage_join()
+
+    rendered = "\n".join(xagg.render_statute_court_stage_join(result))
+
+    # Half A present, section-level.
+    assert "PPC §34: 2 case(s)" in rendered
+    # Half B present, and rendered by CR7's own renderer (so the two can
+    # never drift) — its signature sentence is the proof.
+    assert "Of 3 criminal records, 2 are still in progress" in rendered
+    # The comparison itself, stated rather than left to the model.
+    assert "Do the two agree? No." in rendered
+    assert "lag behind" in rendered
+
+
+def test_m4_renderer_caps_the_section_list_without_dropping_the_tail():
+    statutes = [{"key": f"PPC §{i}", "case_count": 40 - i} for i in range(20)]
+    rendered = "\n".join(xagg.render_statute_court_stage_join({
+        "charged_case_count": 20, "section_entry_count": 20,
+        "distinct_statute_count": 20, "statutes": statutes,
+        "court": {"total_records": 0, "settled_count": 0, "in_progress_count": 0,
+                  "status_breakdown": [], "crosschecks": []},
+        "joined_records": [], "settled_share": None, "agree": False,
+    }))
+    assert "PPC §14: 26 case(s)" in rendered          # the 15th, kept
+    assert "PPC §15: 25 case(s)" not in rendered      # the 16th, folded
+    assert "and 5 further section(s)" in rendered
+
+
+async def test_m4_reports_an_empty_charging_side_instead_of_inventing_one(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _M4AgeClient([], [], [], []))
+    result = await xagg._statute_court_stage_join()
+    rendered = "\n".join(xagg.render_statute_court_stage_join(result))
+    assert result["charged_case_count"] == 0
+    assert "No case in scope has a recorded FIR section" in rendered
+    assert "no single case can be read on both sides at once" in rendered
+
+
+async def test_m4_jurisdiction_case_ids_narrow_the_section_and_case_reads(monkeypatch):
+    """The criminal-record read is deliberately corpus-wide (a person's
+    history spans cases — CR7's own docstring), but the two case-scoped reads
+    must honour the allow-list or the charging side over-counts."""
+    fake = _m4_fixture()
+    monkeypatch.setattr(xagg, "age_client", fake)
+
+    await xagg._statute_court_stage_join(jurisdiction_case_ids=["fir-77-26"])
+
+    scoped = [
+        (q, p) for q, p in fake.queries
+        if "fir_section" in q or "MATCH (c:Case)" in q
+    ]
+    assert len(scoped) == 2
+    for q, p in scoped:
+        assert "$case_ids" in q
+        assert p["case_ids"] == ["fir-77-26"]
+
+
+async def test_m4_gold_text_reaches_the_statute_court_stage_join(monkeypatch):
+    """THE REGRESSION PINNED TO M4's LITERAL URDU GOLD TEXT. Before this
+    module it landed on `graph_recurrence`/Person — "لوگوں" contains the
+    literal `_PERSON_KEYWORDS` entry "لوگ", so the ordered dispatch handed a
+    two-halves statute/court question to the repeat-accused ranking."""
+    monkeypatch.setattr(xagg, "age_client", _m4_fixture())
+
+    result = await xagg.run_aggregate(
+        _M4_GOLD_TEXT, None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "statute_court_stage_join"
+    assert result["kind"] != "graph_recurrence"
+
+
+class TestStatuteCourtStageJoinBoundary:
+    """
+    [Gold-QA fix — Module 24] The two-signal AND, tested at its edges. The
+    signal that separates M4 is COURT PROGRESSION, not the word "court" —
+    `_COURT_READINESS_KEYWORDS`' own comment records the live collision
+    where a bare Urdu "عدالت" hijacked M4 into G3's readiness scan, and
+    matching on "court" alone here would run that collision backwards.
+    """
+
+    def test_m4_gold_text_matches(self):
+        assert xagg._is_statute_court_stage_join(_M4_GOLD_TEXT.lower())
+
+    @pytest.mark.parametrize("paraphrase", [
+        # The required non-gold paraphrase: plain English, no Urdu, sharing
+        # no phrase with M4's literal text.
+        "Do the sections people are charged under and how far those cases "
+        "have got in court give the same picture of how serious our "
+        "caseload is?",
+        "What stage have our cases reached in court?",
+        "How many of our cases have actually ended in a conviction in court?",
+    ])
+    def test_non_gold_paraphrases_match(self, paraphrase):
+        assert xagg._is_statute_court_stage_join(paraphrase.lower())
+
+    @pytest.mark.parametrize("other", [
+        # G3 — a court question with no progression signal. Scores 1.0
+        # today; must stay with `_court_readiness_scan()`.
+        _G3_GOLD_TEXT,
+        # CR7 — criminal-record vs. court RECORD consistency, not a stage.
+        _CR7_GOLD_TEXT,
+        # M1/M5 — statute questions with no court dimension at all.
+        "What kinds of cases are we dealing with now compared to a couple "
+        "of years back?",
+        "Are guns turning up in different types of cases than they used to?",
+        # A progression word with no court term is not this family.
+        "Which investigations have progressed the furthest this month?",
+    ])
+    def test_neighbouring_families_are_not_captured(self, other):
+        assert not xagg._is_statute_court_stage_join(other.lower())
+
+    def test_matches_m4_and_no_other_gold_question(self):
+        """The all-32 negative control, same discipline as
+        `TestWeaponStatuteCooccurrenceBoundary`'s. Reads
+        `evaluation/Gold_QA_Dataset_Final32_With_Answers.json` — the bare
+        `Gold_QA_Dataset_Final32.json` some older tests look for is NOT
+        tracked in this repo, so a test pinned to it silently skips and has
+        never actually run."""
+        import json
+        from pathlib import Path
+
+        gold_path = (
+            Path(__file__).resolve().parent.parent
+            / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json"
+        )
+        assert gold_path.exists(), gold_path
+        items = json.loads(gold_path.read_text(encoding="utf-8"))
+        assert len(items) == 32
+        matched = [
+            (it.get("id") or "").upper()
+            for it in items
+            if xagg._is_statute_court_stage_join(it["question"].lower())
+        ]
+        assert matched == ["M4"], f"expected only M4, got {matched}"
+
+
+async def test_g3_still_reaches_the_court_readiness_scan_after_module_24(monkeypatch):
+    """Negative control, end to end rather than at the predicate: G3 scores
+    1.0 today and shares this module's entire court vocabulary. This is the
+    single most likely thing Module 24 breaks."""
+    class _AC:
+        async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+            return []
+
+    monkeypatch.setattr(xagg, "age_client", _AC())
+
+    result = await xagg.run_aggregate(
+        _G3_GOLD_TEXT, None,
+        gateway=FakeGateway([{"case_id": "fir-1-26", "incident_date": None}]),
+        user_role="supervisor",
+    )
+
+    assert result["kind"] == "court_readiness_scan"
+
+
+async def test_cr7_still_reaches_the_criminal_record_crosscheck_after_module_24(monkeypatch):
+    """Negative control: CR7 must keep reaching Module 14's reader directly,
+    not the join that merely wraps it."""
+    criminal = [{"status": "Under trial", "case_ref": "FIR 100/26", "subject": "A"}]
+    monkeypatch.setattr(xagg, "age_client", _QueryAwareAgeClient(criminal, []))
+
+    result = await xagg.run_aggregate(
+        _CR7_GOLD_TEXT, None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "criminal_record_court_crosscheck"
+
+
+async def test_m5_still_reaches_the_cooccurrence_aggregate_after_module_24(monkeypatch):
+    """Module 23 landed in this same dispatch chain immediately above this
+    module's entry; its own question must be unaffected by the insertion."""
+    class _AC:
+        async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+            return []
+
+    monkeypatch.setattr(xagg, "age_client", _AC())
+
+    result = await xagg.run_aggregate(
+        _M5_GOLD_TEXT, None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "weapon_statute_cooccurrence"

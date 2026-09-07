@@ -67,8 +67,8 @@ several can run in parallel chats/worktrees without colliding.
 | 19b | Evaluator compound-question relaxation not firing | `fix/evaluator-compound-relaxation-not-firing` | ✅ **Merged (PR #15)** — 5/8 KB questions now pass (was 1/8); see below |
 | 21 | XNETWORK/XGRAPH relevance-gate over-refusal | `fix/xnetwork-relevance-gate-over-refusal` | ✅ **PR #12 open** — investigated, no fix belongs in this module's files, split into Modules 28/29 |
 | 22 | M7 reporting-delay: wrong metric | `feature/xagg-incident-to-report-delta` | ✅ **Merged (PR #14)** — M7 AND its non-gold paraphrase both verified live, matching gold exactly |
-| 23 | M5 weapon × statute co-occurrence join | `feature/xagg-weapon-statute-cooccurrence` | ⬜ Not started — brief: `MODULE23_XAGG_WEAPON_STATUTE_COOCCURRENCE_PROMPT.md` |
-| 24 | M4 statute × court-stage join | `feature/xagg-statute-court-stage-join` | ⬜ Not started — **unblocked**, PR #8 has merged; brief: `MODULE24_XAGG_STATUTE_COURT_STAGE_PROMPT.md` |
+| 23 | M5 weapon × statute co-occurrence join | `feature/xagg-weapon-statute-cooccurrence` | ✅ **PR #20 open** — new `_weapon_statute_cooccurrence_by_year()` aggregate; M5 AND its non-gold paraphrase both verified live, **matching gold's per-year pairings exactly**; G5 and M1 negative-controlled live. Result: `docs/gold-qa-wave2-results/MODULE23_RESULT.md` |
+| 24 | M4 statute × court-stage join | `feature/xagg-statute-court-stage-join` | ✅ **PR #22 open** — new `_statute_court_stage_join()` aggregate reusing Module 14's reader; **gold's 33 / 1 / 30 matched exactly** and the non-gold paraphrase passes; G3, CR7 and M5 negative-controlled live. M4 end to end is now blocked **above** XAGG, in Meta-Analysis (Module 25's `[Document N]` defect) — see §8. Result: `docs/gold-qa-wave2-results/MODULE24_RESULT.md` |
 | 25 | M2 Meta-Analysis → verifier rejection | `fix/meta-analysis-synthesis-verifier-rejection` | ✅ **PR #16 open** |
 | 26 | M1 routing miss (XGRAPH instead of aggregate) | `fix/router-year-over-year-comparison-to-xagg` | ✅ **Merged (PR #13)** |
 | 28 | CR4 routing miss (weapon-recovery chain sent to cross-case entity linkage) | `fix/router-weapon-evidence-chain-to-xagg` | ✅ **PR #19 open** — routing fixed AND a new aggregate added (none existed); CR4 now returns gold's exact chain live; all-32 negative control clean; results: `docs/gold-qa-wave2-results/MODULE28_RESULT.md` |
@@ -740,6 +740,14 @@ would be actively harmful, because `run_aggregate()`'s keyword chain falls
 through to the unrelated person-recurrence family and answers confidently
 and wrongly with no caveat.
 
+**Follow-up created by the merge, recorded not acted on.** Module 24's
+`_statute_court_stage_join()` (33 / 1 / 30 under trial) landed while this
+module was in live verification, and it answers gold G6's "most matters are
+still pending in court" element that this module scores as a miss. It is a
+natural sixth sub-query for the `orientation_note` plan, but
+`_MAX_SUB_QUERIES` is 5 and that plan is full — the same cap decision
+Modules 31-34 need.
+
 **Negative control (the "too broad" half of the risk).** Across all 32 gold
 questions, exactly `{CR3: record_consistency, G1: caseload_review,
 G6: orientation_note}` match a plan — asserted as an equality, not a
@@ -1021,45 +1029,203 @@ collisions on this plan.
 
 ---
 
-# Module 23 — M5: weapon × statute co-occurrence join ⬜
+# Module 23 — M5: weapon × statute co-occurrence join ✅
 
 **Branch:** `feature/xagg-weapon-statute-cooccurrence`
+**Full result:** `docs/gold-qa-wave2-results/MODULE23_RESULT.md` (every number
+below traces to a captured live output recorded there).
 **Question:** M5. Gold: Arms Ordinance §13 paired only with robbery statutes
 in 2024, but with narcotics (CNSA §9(c), 8 cases) and murder (PPC 302, 8
 cases) in 2026.
 
-**Root cause:** M5 currently routes to `statute_by_year`, which returns valid
-but unrelated data (a flat statute breakdown). What M5 asks is *which case
-types weapons appear in, and whether that changed* — a weapon-type × statute
-**co-occurrence** join across years. No primitive does this.
+**Root cause — the brief's hypothesis, confirmed first-hand.** M5 contains
+the literal substring "کے مقابلے میں", an entry in
+`_TIME_COMPARISON_KEYWORDS`, so the ordered dispatch chain in `xagg.py`
+matched M1's branch first and answered M5 with `_statute_mix_by_year()`. That
+aggregate has no weapon dimension at all, and groups by ACT rather than
+section (its source is `cases.crime_category`, which
+`muhafiz_cases._crime_category()` reduces to the comma-joined `act` list), so
+it cannot distinguish robbery (PPC 392) from murder (PPC 302) — the exact
+distinction M5 turns on. Reading the chain end to end confirmed the brief's
+other claim too: **no aggregate joined Weapon nodes to their case's statute
+set**. A missing primitive, not a mis-tuned one.
 
-**Work:** new aggregate joining Weapon nodes to their case's statute set,
-grouped by year. Same shape family as Module 14's criminal-record × court
-cross-check, so follow that function's structure.
+**What the brief did not say, and what decided the module:** section-level
+statutes ARE in the graph, as `StructuredRecord{record_type: 'fir_section'}`
+nodes carrying `act` + `section_code`, each with a `BELONGS_TO_CASE` edge
+(218 of them, verified live against `evidence_graph`). Without them gold's
+section granularity would not have been derivable and this module would have
+had to report a data-availability gap instead.
 
-**Verify:** live M5 names the real statute pairings per year; a non-gold
-paraphrase; `tests/test_xagg.py` full pass.
+**Aggregate added:** `_weapon_statute_cooccurrence_by_year()` in
+`src/pipeline/xagg.py`, plus `render_weapon_statute_cooccurrence()` wired at
+all three XAGG rendering sites and the new kind added to the harness
+wrapper's hand-maintained `AggregateKind` Literal (omitting that is the
+documented silent-`literal_error` crash class Modules 13 and 22 each hit).
+Three graph reads joined on `case_id`: the year query is byte-identical to
+`_statute_mix_by_year()`'s, so the two can never disagree about which year a
+case falls in; the weapon query is `_top_recurring_weapon_types()`'s, through
+the same `_normalize_weapon_type()`.
+
+**Where it sits in the dispatch chain, and why:** immediately BEFORE
+`_TIME_COMPARISON_KEYWORDS` (the branch that was swallowing M5), and
+therefore also before `_TREND_KEYWORDS`' refusal, `_DISTRICT_KEYWORDS`
+(Module 1c's district+weapon path) and the bare `_WEAPON_KEYWORDS` recurrence
+branch — the three prior collision sites this chain's own comments name. It
+sits AFTER G5's weapon+compliance check and M7's
+`_is_reporting_speed_comparison()`. The predicate is a three-signal AND
+(weapon + case-type/statute + change-over-time), the same discipline Module
+22 established, because every narrower combination is already some
+neighbour's shape. `router.py` was NOT touched — M5 reaches XAGG on its own,
+confirmed by the live `route=` capture, so Track A/B independence with Module
+28 held.
+
+**Measured per-year pairings (live, All Cases, platform-admin), against
+gold:**
+
+| | 2024 | 2026 |
+|---|---|---|
+| Cases with a recovered weapon | 13 | 19 |
+| Carrying a weapons-law charge | 13 | 16 |
+| §13 co-occurs with | PPC §34 (13), PPC §392 (13) — nothing else | CNSA 1997 §9(c) (8), PPC §302 (8), PPC §34 (8), PPC §392 (8) |
+
+**Every one of gold's seven figures matches exactly**, and the qualitative
+point ("weapons no longer confined to robbery") is produced as a set
+difference over the buckets, not as a fixed narrative — a test feeds the
+renderer two identical years and asserts it then says *unchanged*. The raw
+data reproduced gold from a hand-written Cypher probe BEFORE the aggregate
+was written, so nothing was tuned to hit it.
+
+One number is deliberately not a gold match: the broader `statutes` view
+reports PPC §34 at 10 for 2026 where gold says 8. Different quantity —
+`statutes` counts all weapon-bearing cases, `cooccurring` counts only those
+also carrying a weapons-law charge, and two 2026 cases have a weapon and PPC
+§34 with no Arms-Ordinance section. Both views are reported and labelled.
+
+**Non-gold paraphrase (required):** *"Are guns turning up in different types
+of cases than they used to?"* — plain English, no statute vocabulary, no
+keyword shared with M5's literal phrasing. Reached the same aggregate and
+returned the same figures. Capability fix, not curve-fitting.
+
+**Negative controls — both re-run LIVE after the change:**
+
+- **G5** (weapon-register compliance, 1.0): unchanged, still
+  `_weapon_compliance_scan()`, still "30 of 32 (94%) recorded without a
+  licence" plus the 2 with no status — matching gold. The new aggregate's
+  log line did not fire on that request.
+- **M1** (year-over-year statute mix, Module 26): unchanged, still
+  `_statute_mix_by_year()`'s act-level breakdown — 2024 PPC 13 / Arms Ord 13;
+  2026 PPC 39 / Arms Ord 16 / CNSA 12 / PECA 9 / PDVA 4 / IDA 2. The new
+  aggregate's log line did not fire on that request either.
+
+Both boundaries are also pinned as unit tests, alongside an **all-32 negative
+control** asserting the new predicate matches exactly `["M5"]` across the
+whole gold set — the same assertion that would have caught all three
+historical pattern collisions on this plan.
+
+**Unit:** `tests/test_xagg.py` 105 passed / 1 pre-existing skip; the four
+neighbouring suites (`test_harness_tool_xagg`, `test_orchestrator`,
+`test_harness_agent_large_scale_aggregate`, `test_router`) 218 passed. 21 new
+tests, including the regression pinned to M5's literal Urdu gold text. The
+full suite was deliberately not run (it empties the real
+`muhafiz_entity_descriptions` Chroma collection).
+
+**New defects found, deliberately left unfixed** (see the result file for
+detail): (1) the generation layer splits Urdu weapon canonical names on their
+internal commas, so a 3-type list renders as 4 items — a rendering-layer bug
+affecting any answer that lists Urdu canonical names; (2) one of the two live
+runs conflated "16 of 19 carry a weapons-law charge" with the per-statute 8s,
+generation variance the numeric verifier did not catch; (3)
+`cases.crime_category` permanently discards `section_code`, so every
+Postgres-side statute aggregate — M1's included — is act-level while the
+graph holds the section. Whether M1 should also become section-level is a
+real question and a scope change, flagged rather than taken.
 
 ---
 
-# Module 24 — M4: statute × court-stage join ⬜
+# Module 24 — M4: statute × court-stage join ✅
 
 **Branch:** `feature/xagg-statute-court-stage-join`
-**Blocked on:** PR #8 (M4 is misrouted until that merges).
 **Question:** M4.
+**Full result:** `docs/gold-qa-wave2-results/MODULE24_RESULT.md`.
 
-**Root cause:** after PR #8's routing fix, M4 gets the statute half right
-(PPC 61, Arms Ordinance 29) but claims no court-stage data exists — it does,
-in the criminal-record table (33 records, 1 conviction, 30 under trial), the
-same source `_criminal_record_court_crosscheck` (Module 14) already reads.
+**PR #8 is merged, so this module was never blocked.** Its fix is intact and
+was re-confirmed live: M4 no longer matches `_COURT_READINESS_KEYWORDS` and
+no longer hijacks G3's readiness scan.
 
-**Work:** an aggregate joining statute counts with court/conviction stage,
-reusing Module 14's own record reader rather than a second query path.
+**Root cause found — the plan's framing needed two corrections.**
 
-**Verify:** live M4 reports both halves and whether they agree; a non-gold
-paraphrase; `tests/test_xagg.py` full pass. **Also re-confirm G3 still scores
-1.0** — M4 and G3 share the court-readiness keyword space (that's what PR #8
-had to untangle).
+1. *"M4 gets the statute half right (PPC 61, Arms Ordinance 29)"* — those
+   numbers are **act-level**, from `_station_or_category_counts()`'s
+   `counts_by_act` over `cases.crime_category`, which
+   `muhafiz_cases._crime_category()` reduces to a comma-joined act list.
+   M4 asks about **دفعات** (sections), and gold's own answer cites **no**
+   statute counts at all. Section-level statutes exist only in the graph, as
+   `StructuredRecord{record_type:'fir_section'}` (`act` + `section_code`) —
+   the source Module 23 found and this module reuses.
+2. *"M4 gets the statute half then claims no court-stage data exists"* —
+   true as a symptom, but **not because a single XAGG call answered half the
+   question**. M4's route is LLM-decided (`_deterministic_route_override()`
+   returns `None`) and came back `XNETWORK` on 4 of 5 live captures and
+   `XAGG` on 1; in every case the supervisor handed it to **Meta-Analysis**,
+   which decomposed it into a charging sub-query and a court sub-query. The
+   "no court-stage data" sentence is the **court sub-query's** own answer.
+   Inside `run_aggregate()`, M4's whole text lands on the **person-recurrence**
+   branch, because `_PERSON_KEYWORDS` contains the bare token `"لوگ"` and
+   M4's second word is `"لوگوں"`.
+
+**Work done:** `_statute_court_stage_join()` + `render_statute_court_stage_join()`
+in `src/pipeline/xagg.py`, dispatched by a two-signal `_is_statute_court_stage_join()`
+(a court term **and** a progression/stage term — never the bare word
+"court", which is what PR #8 had to untangle). Placed **after** CR7's and
+G3's branches (so both keep first claim structurally) and **before**
+`_TIME_COMPARISON_KEYWORDS` and `_PERSON_KEYWORDS`. The court half **calls
+`_criminal_record_court_crosscheck()` as-is and renders it through
+`render_criminal_record_crosscheck()`** — no second query path, and
+`_conviction_is_settled()` is not re-derived. Module 14's reader needed no
+extension. `router.py` was not touched.
+
+**Measured live (`_statute_court_stage_join()` against `evidence_graph`),
+derived from a hand-written Cypher probe before the aggregate was written:**
+
+- Charging side: **218** `fir_section` entries over **73** cases, **36**
+  distinct sections — PPC §34 ×40, Arms Ord 1965 §13 ×29, PPC §392 ×21,
+  CNSA §9(c) ×12, PPC §420 ×11, PPC §302 ×10, …
+- Court side: **33** criminal records — **30** `Under trial`, **1**
+  `Convicted, on bail pending appeal`, 1 `Sub judice, external prior case`,
+  1 `Under trial, priority hearing requested` → **1 settled / 32 in progress**.
+- Join coverage: only **4 of 33** criminal records name an FIR present in
+  this corpus (reported, not hidden).
+- Verdict (a derived majority test, not a tuned threshold): **do not agree**.
+
+**Gold comparison: 33 / 1 / 30 match exactly, and were not tuned for.**
+
+**Regression guard, all live:** **G3** unchanged (still `_court_readiness_scan()`,
+all three gold findings; the new aggregate's log counter did not increment);
+**CR7** unchanged (still `_criminal_record_court_crosscheck()`, still 33/30/1
+plus the FIR 891-24 consistency finding); **M5** unchanged (still Module 23's
+co-occurrence aggregate). Unit: `tests/test_xagg.py` 132 passed; the five
+touched suites 359 passed, 1 xpassed.
+
+**What is still broken, and it is not in `xagg.py`:** M4 completed end to end
+on only **1 of 5** post-change runs. The aggregate ran on all five (proved by
+its own log line). Three runs were rejected by Meta-Analysis's synthesis
+verifier with *"A claim is attributed to Document 1 but is absent from its
+text and instead appears in Document 2"* — **Module 25's defect exactly**
+(PR #16 open). One timed out on the model-server tunnel. Module 26's
+supervisor guard ("XAGG already answers this in one call, do not decompose")
+would cover M4's shape but is gated on `route == "XAGG"`, which M4 usually
+is not. A deterministic router override for the statute×court-stage shape
+plus an extension of that guard is the follow-on — it belongs in
+`router.py`/`supervisor.py`, both owned by other tracks this wave, so it is
+flagged here rather than folded in.
+
+**Also fixed in passing:** Module 22's own all-32 negative control
+(`test_matches_m7_and_no_other_gold_question`) pointed at
+`Gold_QA_Dataset_Final32.json` at the repo root, which is **not tracked in
+this repo** — so it silently skipped and had never run. Re-pointed at
+`evaluation/Gold_QA_Dataset_Final32_With_Answers.json` and asserted rather
+than skipped. It passes.
 
 ---
 
