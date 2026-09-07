@@ -62,17 +62,25 @@ several can run in parallel chats/worktrees without colliding.
 
 | # | Module | Branch | Status |
 |---|---|---|---|
-| 20b | M4/G3 bare-Urdu-keyword collision | `fix/xagg-court-readiness-bare-urdu-keyword-collision` | ✅ **PR #8 open** |
-| 19a | KB-intent coverage for all 8 KB questions | `fix/kb-intent-coverage-all-gold-questions` | ✅ **PR #9 open** |
-| 19b | Evaluator compound-question relaxation not firing | `fix/evaluator-compound-relaxation-not-firing` | ✅ **Done — 5/8 KB questions now pass (was 1/8); see below** |
-| 21 | XNETWORK/XGRAPH relevance-gate over-refusal | `fix/xnetwork-relevance-gate-over-refusal` | ⬜ Not started |
-| 22 | M7 reporting-delay: wrong metric | `feature/xagg-incident-to-report-delta` | ✅ **Done — M7 AND its non-gold paraphrase both verified live, matching gold exactly** |
-| 23 | M5 weapon × statute co-occurrence join | `feature/xagg-weapon-statute-cooccurrence` | ⬜ Not started |
-| 24 | M4 statute × court-stage join | `feature/xagg-statute-court-stage-join` | ⬜ Blocked on PR #8 |
-| 25 | M2 Meta-Analysis → verifier rejection | `fix/meta-analysis-synthesis-verifier-rejection` | ⬜ Not started |
-| 26 | M1 routing miss (XGRAPH instead of aggregate) | `fix/router-year-over-year-comparison-to-xagg` | ✅ PR open (branch pushed) |
-| 30 | KB3/KB8/KB9 retrieval-completeness gap (correct statutory chunk never enters the candidate pool) | *(not yet branched)* | ⬜ New — split out of Module 19b, see below |
-| 27 | Final Gold-32 rerun (Module 18 redo) | *(docs only)* | ⬜ Blocked on all above |
+| 20b | M4/G3 bare-Urdu-keyword collision | `fix/xagg-court-readiness-bare-urdu-keyword-collision` | ✅ **Merged (PR #8)** |
+| 19a | KB-intent coverage for all 8 KB questions | `fix/kb-intent-coverage-all-gold-questions` | ✅ **Merged (PR #9)** |
+| 19b | Evaluator compound-question relaxation not firing | `fix/evaluator-compound-relaxation-not-firing` | ✅ **Merged (PR #15)** — 5/8 KB questions now pass (was 1/8); see below |
+| 21 | XNETWORK/XGRAPH relevance-gate over-refusal | `fix/xnetwork-relevance-gate-over-refusal` | ✅ **PR #12 open** — investigated, no fix belongs in this module's files, split into Modules 28/29 |
+| 22 | M7 reporting-delay: wrong metric | `feature/xagg-incident-to-report-delta` | ✅ **Merged (PR #14)** — M7 AND its non-gold paraphrase both verified live, matching gold exactly |
+| 23 | M5 weapon × statute co-occurrence join | `feature/xagg-weapon-statute-cooccurrence` | ⬜ Not started — brief: `MODULE23_XAGG_WEAPON_STATUTE_COOCCURRENCE_PROMPT.md` |
+| 24 | M4 statute × court-stage join | `feature/xagg-statute-court-stage-join` | ⬜ Not started — **unblocked**, PR #8 has merged; brief: `MODULE24_XAGG_STATUTE_COURT_STAGE_PROMPT.md` |
+| 25 | M2 Meta-Analysis → verifier rejection | `fix/meta-analysis-synthesis-verifier-rejection` | ✅ **PR #16 open** |
+| 26 | M1 routing miss (XGRAPH instead of aggregate) | `fix/router-year-over-year-comparison-to-xagg` | ✅ **Merged (PR #13)** |
+| 28 | CR4 routing miss (weapon-recovery chain sent to cross-case entity linkage) | *(not yet branched)* | ⬜ New — split out of Module 21; **unblocked**, Module 26 has merged; brief: `MODULE28_ROUTER_WEAPON_EVIDENCE_CHAIN_PROMPT.md` |
+| 29 | Meta-Analysis decomposer doesn't split broad synthesis asks into XAGG-shaped sub-questions (CR3/G1/G6) | *(not yet branched)* | ⬜ New — split out of Module 21; blocked on PR #16 (same file); brief: `MODULE29_META_ANALYSIS_DECOMPOSER_PROMPT.md` |
+| 30 | KB3/KB8/KB9 retrieval-completeness gap (correct statutory chunk never enters the candidate pool) | *(not yet branched)* | ⬜ New — split out of Module 19b; brief: `MODULE30_KB_RETRIEVAL_COMPLETENESS_PROMPT.md` |
+| 27 | Final Gold-32 rerun (Module 18 redo) | *(docs only)* | ⬜ Blocked on all above — brief: `MODULE27_FINAL_GOLD32_RERUN_PROMPT.md` |
+
+> **Wave 2 hand-off:** `WAVE2_ORCHESTRATION_PROMPT.md` (added in PR #17)
+> carries the per-track plan, the infrastructure runbook, and **measured
+> machine constraints that supersede the "Which modules can run in parallel"
+> section below** — in particular, per-worktree virtualenvs are no longer
+> viable on this machine's free disk. Read it before starting a track.
 
 ---
 
@@ -90,6 +98,8 @@ several can run in parallel chats/worktrees without colliding.
 | 24 | `src/pipeline/xagg.py` |
 | 25 | `src/pipeline/harness/agents/meta_analysis.py`, `src/pipeline/verifier.py` |
 | 26 | `src/pipeline/router.py`, **and `src/pipeline/harness/supervisor.py`** (scope grew — see Module 26's own section below for why) |
+| 28 *(new, split from 21)* | `src/pipeline/router.py` — **same file as 26; serialize after it** |
+| 29 *(new, split from 21)* | `src/pipeline/harness/agents/meta_analysis.py` — **same file as 25; serialize after it** |
 
 ### ✅ Safe to run fully in parallel, right now, in separate worktrees
 
@@ -335,39 +345,217 @@ doesn't regress what 19b just fixed.
 
 ---
 
-# Module 21 — XNETWORK/XGRAPH relevance-gate over-refusal ⬜
+# Module 21 — XNETWORK/XGRAPH relevance-gate over-refusal ✅ investigated
 
 **Branch:** `fix/xnetwork-relevance-gate-over-refusal`
 **Questions:** CR3 (0.2), CR4 (0.0), CS4 (0.0), G1 (0.0), G6 (0.0).
 
-**What's happening:** Module 12 added `RELEVANCE_DISTANCE_THRESHOLD = 0.145`
-in `src/pipeline/xnetwork.py` to stop the RC-1 cluster-dump — narrating
-irrelevant community clusters as if they answered the question. It worked,
-but it now fails *closed*: these five questions get "no cross-case
-connections or patterns were found" where a real synthesized answer was
-expected. Per `MODULE_18_FINAL_REPORT.md` §6 these previously failed *open*
-(wrong answer) and now fail *closed* (no answer) — no net score gain.
+**Finding, stated up front:** the gate in `src/pipeline/xnetwork.py` is
+**correctly calibrated and correctly refusing** on all 5 of these questions.
+`RELEVANCE_DISTANCE_THRESHOLD = 0.145` was NOT touched — re-measuring live
+against the current `muhafiz_community_reports` collection (2026-09-08, all
+5 via real `/api/chat`) shows the same clean separation Module 12 originally
+documented, undisturbed by the KB re-ingest (that ingest added chunks to the
+*document* collection `muhafiz_kb`; the community-report collection this
+gate reads is built from case/graph clustering, a completely separate
+pipeline untouched by it):
 
-**Approach — do NOT just raise the number.** Module 12 chose 0.145 from real
-measured distances (bad questions 0.1558–0.2057, good controls 0.1256–0.1395).
-Raising it re-admits the cluster dumps. The real gap is that "no relevant
-*community cluster*" is being treated as "no answer at all", when for CR4
-(weapon → FIR → accused → status, a concrete traversal chain) the answer
-lives in the **graph**, not in community summaries.
+| Q | Nearest community distance | vs. cutoff 0.145 |
+|---|---|---|
+| CR3 | 0.156 | above — correctly gated |
+| CR4 | 0.184 | above — correctly gated |
+| CS4 | 0.159 | above — correctly gated |
+| G1 | 0.202 | above — correctly gated |
+| G6 | 0.181 | above — correctly gated |
 
-Investigate in this order:
-1. For each of the 5, capture which path actually runs (XNETWORK community
-   lookup vs. XGRAPH traversal) and what it returns *before* the gate.
-2. CR4 in particular is a named-chain question — check whether it should be
-   reaching XGRAPH's traversal at all rather than the community layer.
-3. Consider a **fallback rather than a threshold change**: when the community
-   gate finds nothing relevant, fall through to the graph/aggregate path
-   instead of returning the honest-refusal message immediately. The refusal
-   message stays as the last resort, preserving Module 12's fix.
+None of these five questions has a real answer sitting in the community-
+report corpus; the gate's job is exactly to say so instead of narrating the
+nearest-but-unrelated cluster, and it does. **The actual defects are all
+upstream or in a different route entirely** — none of them lives in
+`xnetwork.py`, and none is fixable there without either re-admitting RC-1
+(narrating an unrelated cluster) or violating `cross_case_linkage.py`'s own
+documented two-tool-composition contract (see below). Per this module's own
+brief §2/§6.4 ("if it's a routing problem, the fix may not belong in
+`xnetwork.py` — say so rather than forcing a fix into the wrong file"), this
+module ends as an investigation, split into two new tracked modules (28,
+29) plus one item folded into Module 25. **No production code changed.**
 
-**Verify:** all 5 gold questions + 1 non-gold paraphrase; confirm the RC-1
-cluster-dump regression does NOT return (re-run Module 12's own G1/CR3
-before/after examples, documented in the master plan).
+**Investigation, question by question (live captures, 2026-09-08):**
+
+- **CR3** — routes to XNETWORK, dispatched to *both* Meta-Analysis and
+  Cross-Case Linkage (confirmed the documented "second route event for the
+  decomposed sub-query" parsing trap: the SSE shows two
+  `route='XNETWORK'` dispatch lines, one for each sub-agent, not two
+  distinct routes). Both return `status=empty`. The real gap: gold's answer
+  ("64/26 has a matching walk-in complaint via case tag CMS-ISB-2026-0341;
+  65/26 has none") is a **per-record field-consistency comparison across two
+  named FIRs** — the same shape as Module 15's cross-check work, not a
+  network/cluster synthesis or an entity traversal. Neither tool XNETWORK
+  nor XGRAPH computes this. **Verdict: missing XAGG-shaped join, not an
+  xnetwork.py defect.** Folded into Module 29 below (decomposition gap) —
+  a decomposer that split this into "does 64/26 have a matching walk-in
+  complaint?" / "does 65/26?" would let each sub-query reach that join, once
+  it exists.
+
+- **CR4** — routes to **XGRAPH** (not XNETWORK), dispatched to Cross-Case
+  Linkage alone, `status=empty`. `_recover_target_entity()` correctly
+  returns `None` (verified reading `cross_case_linkage.py:228-267`): the
+  query names no person, only "a weapon" generically, so there is genuinely
+  no entity to recover — this is not an extraction bug. With no seed,
+  `xgraph_tool` runs its recurring-entity-**across-cases** traversal, which
+  is architecturally the wrong shape for what CR4 asks: gold wants ONE
+  example weapon→FIR→accused→status chain (a single-case lookup), not a
+  cross-case recurrence pattern. Confirmed with a live control probe: **CR2**
+  ("has anyone with an earlier case resurfaced as a suspect?") — a genuine
+  cross-case recurrence question — instead routes to **XAGG**'s
+  `Large-Scale Aggregate` sub-agent and returns real, useful results,
+  including `شہزیب عرف شابی: appears in 2 cases — fir-214-26, fir-891-24`
+  (the same person CR4's gold answer names, in the same FIR). This confirms
+  the data and a working aggregate path both already exist elsewhere in the
+  system, and that CR4's real fix is a **router classification change**
+  (send weapon-evidence-chain questions to XAGG or a single-case
+  GRAPH_HYBRID traversal instead of XGRAPH's cross-case linkage), which is
+  `router.py` — Module 26's file, out of this module's scope. **Verdict:
+  routing miss, not an xnetwork.py defect.** Split out as Module 28 below.
+
+- **CS4** — routes through Meta-Analysis, which decomposes into an XAGG
+  sub-query (answered OK) and two XGRAPH-via-Cross-Case-Linkage sub-queries
+  (both correctly `status=partial`/empty, nearest cluster distances 0.159
+  and 0.161, both above cutoff). The top-level failure is
+  `status=error`: *"The synthesized answer could not be verified as
+  grounded in the sub-answers."* — this is **not** a timeout (the module
+  brief's guess) and **not** an xnetwork.py relevance-gate failure; it is
+  the exact same Meta-Analysis-synthesis/Verifier-rejection signature
+  Module 25 already tracks for M2. **Verdict: same root cause as Module
+  25, a second instance of it, not a new defect.** No new module — folded
+  into Module 25's own verification scope (Module 25 should re-run CS4
+  alongside M2 once its fix lands).
+
+- **G1 / G6** — both route to XNETWORK, both dispatched to Meta-Analysis
+  *and* Cross-Case Linkage (same dual-dispatch parsing trap as CR3), both
+  `status=empty`. Reading `meta_analysis.py`'s decomposer (`_decompose()`,
+  lines 278-315): for these two queries it evidently returns
+  `decompose: false` (only one dispatch event appears per sub-agent, not
+  several), so Meta-Analysis falls back to re-dispatching the *original,
+  un-split* query — which lands back on XNETWORK/Cross-Case-Linkage and
+  gates the same way. Gold's expected content for both (G1: offender age
+  range, relationship-type skew, seized-property counts, incident-time
+  distribution; G6: case-mix trend, arrest rate, reporting-delay trend,
+  weapon-licensing rate) is entirely **XAGG aggregate/profile data** — every
+  one of those facts is a countable primitive, several already implemented
+  (age/relationship breakdowns, case-mix-by-year, arrest rate). The real
+  fix is the decomposer splitting a broad "flag anything unusual" /
+  "orientation note" question into several XAGG-shaped sub-questions, the
+  same mechanism that already works for compound questions elsewhere in
+  this module (M2, decomposed correctly per Module 25's own notes) — a
+  `meta_analysis.py` prompt/logic change. **Verdict: missing
+  decomposition, not an xnetwork.py defect**, and `meta_analysis.py` is
+  Module 25's file (shared with its verifier work), so this is flagged
+  as Module 29 rather than edited here, to avoid exactly the collision this
+  plan's parallel-safety table exists to prevent.
+
+**Regression check (mandatory, both re-run live 2026-09-08):** G1 and CR3
+(paraphrase-shape questions closest to Module 12's own before/after
+examples) both still return the honest refusal text quoted above — neither
+recites an unrelated cluster ("This cluster centers on FIR X…" / the
+cybercrime-under-PECA-2016 dump never reappears). Also ran the module's
+required non-gold paraphrase, *"As the on-duty analyst, look over
+everything currently open and tell me what's worth a second look"* — same
+honest-refusal shape, nearest cluster 0.243, correctly gated. **The RC-1
+fix is intact; nothing regressed, because nothing in `xnetwork.py` changed.**
+
+**Verify:** `tests/test_xnetwork.py` gained a parametrized regression test
+(`test_module21_five_over_refusal_questions_still_correctly_gated`) pinning
+all 5 questions' literal gold text + their measured live nearest-distance to
+the gate's current, correct "still refuses" behavior — protection against a
+future well-intentioned "just raise the threshold" change silently
+re-admitting RC-1 for these exact questions. Full suite run
+(`test_xnetwork.py`, `test_harness_tool_xnetwork.py`,
+`test_harness_agent_cross_case_linkage.py`): all pass, no changes needed
+beyond the new test.
+
+---
+
+# Module 28 — CR4: weapon-evidence chain routed to cross-case linkage instead of XAGG ⬜
+
+**Branch:** not yet created.
+**Split out of:** Module 21 (see its writeup above for the full live
+evidence — CR2 control, `_recover_target_entity()` read, distance capture).
+**Primary file:** `src/pipeline/router.py` (Module 26's file — **must be
+serialized after Module 26**, not run in parallel with it; the
+parallelization table below has been updated).
+
+**What's happening:** *"If we've got a weapon logged as evidence, can we
+tell who it was taken off and what happened to them?"* has no named entity,
+so it routes to XGRAPH's cross-case recurring-entity traversal via
+Cross-Case Linkage — the wrong tool for a single example chain (weapon →
+FIR → accused → status) rather than a cross-case recurrence pattern. A
+control probe of CR2 (a genuine cross-case recurrence question) shows XAGG's
+`Large-Scale Aggregate` sub-agent already resolves person-across-cases data
+correctly, including the exact person (شہزیب عرف شابی, fir-891-24) CR4's
+gold answer names — the data and a working query path both already exist.
+
+**Work:** add a router classification for "weapon logged as evidence →
+who/what happened" style questions that sends them to XAGG (an aggregate
+that, given a weapon-type filter or "give one example", surfaces a
+weapon→FIR→accused→status chain) rather than XGRAPH. Mine the pattern from
+CR4's literal gold text and negative-control it against all 32 gold
+questions, same discipline as Module 26's own M1 fix — a keyword that also
+matches CR2 (a genuinely different question shape) would misroute a working
+question.
+
+**Verify:** `tests/test_router.py` full pass plus a negative-control test
+over all 32 gold questions; live CR4 returns the real chain; a non-gold
+paraphrase (e.g. "For weapons we've seized as evidence, can we trace them
+back to whoever they were taken from?"); confirm CR2 is unaffected.
+
+---
+
+# Module 29 — Meta-Analysis decomposer doesn't split broad synthesis into XAGG-shaped sub-questions ⬜
+
+**Branch:** not yet created.
+**Split out of:** Module 21 (CR3, G1, G6).
+**Primary file:** `src/pipeline/harness/agents/meta_analysis.py` — **shared
+with Module 25**, which already owns this file for its verifier-interaction
+fix. Per this plan's own caution on Module 25's row, coordinate rather than
+both editing it concurrently; doing 25 then 29 sequentially in one chat is
+the safer order since 29 depends on understanding whatever the decomposer
+looks like after 25's changes.
+
+**What's happening:** CR3, G1 and G6 all route to XNETWORK, and Meta-
+Analysis's `_decompose()` evidently returns `decompose: false` for all
+three (only one sub-agent dispatch shows up per query in the live SSE trace,
+not several) — so Meta-Analysis falls back to re-dispatching the original,
+un-split query, which lands right back on the same XNETWORK/Cross-Case-
+Linkage path and correctly finds no relevant community cluster. Every one
+of these three questions' gold answer is actually built from several
+independently-computable XAGG facts:
+
+- **CR3**: two per-FIR field-consistency checks (does 64/26 have a matching
+  walk-in complaint? does 65/26?) — Module 15's cross-check territory.
+- **G1**: offender age range/average, accused–complainant relationship
+  breakdown, seized-property/forensic-lab counts, incident-time-of-day
+  distribution.
+- **G6**: case-mix-by-year trend, arrest rate, reporting-delay trend,
+  weapon-licensing rate.
+
+**Work:** extend the decomposer's prompt/logic so a broad, open-ended
+analytical or "orientation note" question triggers `decompose: true` with
+sub-queries shaped like the countable facts above, each of which should
+independently route to XAGG once decomposed and re-dispatched through
+`Supervisor().handle()`. Confirm which of the needed XAGG primitives already
+exist (several likely do, per Modules 13-15) vs. need adding — that gap
+analysis, not this module, is what determines whether new `xagg.py`
+aggregates are also required (if so, track them as Module 22/23/24-style
+additions rather than silently expanding this module's scope).
+
+**Verify:** live CR3/G1/G6 return real, gold-comparable synthesized answers;
+Meta-Analysis's own tests plus new cases pinned to these three questions'
+literal decomposition; a non-gold paraphrase for at least one (e.g. G1's own
+"look over everything currently open" paraphrase, already captured in
+Module 21's writeup, still correctly abstaining is the *before* state to
+improve on); confirm a genuinely non-decomposable single-topic question
+still returns `decompose: false` (regression guard).
 
 ---
 
