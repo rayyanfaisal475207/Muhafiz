@@ -175,6 +175,28 @@ _COMPLIANCE_TERMS = (
     "record keeping", "record-keeping",
     "لائسنس", "بغیر لائسنس", "کمپلائنس",
 )
+# [Gold-QA fix — CR4, Module 28] Weapon-evidence ATTRIBUTION questions:
+# "we have a weapon logged as evidence — who was it taken off, and what
+# happened to them?" Same house technique as G5 immediately above: the
+# dispatch gates on a weapon term AND one of these attribution terms
+# co-occurring, never on a bare weapon word.
+#
+# The attribution family is deliberately narrow — it is what separates CR4
+# from every other weapon question in the gold set, all of which currently
+# work and must not move: G5 (compliance scan), CP1 ("which district
+# recovers the most weapons" — a per-district rate), M5 ("what kinds of
+# cases do weapons show up in") and KB6 (forensics handling guidelines).
+# None of those asks WHOSE weapon it was, so none of them carries a term
+# below. It also cannot fire on CR2, which contains no weapon vocabulary at
+# all — the specific collision Module 21 warned about.
+_WEAPON_ATTRIBUTION_TERMS = (
+    "taken off", "taken from", "took it off", "recovered from",
+    "seized from", "trace them back", "trace it back", "traced back",
+    "trace back", "belonged to", "belongs to", "whose weapon",
+    "who it was taken", "who they were taken",
+    "kis se baramad", "kis ke qabze", "kis se barami", "kis ka tha",
+    "کس سے برآمد", "کس کے قبضے", "کس سے لیا", "کس کا تھا",
+)
 # [Gold-QA fix — G3, Module 15/16] Court-readiness completeness questions.
 # G3 (Urdu): preparing a case file for handover to court — which fields are
 # most likely incomplete? Distinct from G2's general "buried cases" scan by
@@ -1249,6 +1271,199 @@ def render_weapon_compliance_scan(agg_result: dict) -> list[str]:
     return lines
 
 
+async def _weapon_evidence_chain(
+    jurisdiction_case_ids: Optional[list[str]] = None, example_limit: int = 12,
+) -> dict:
+    """
+    [Gold-QA fix — CR4, Module 28] For every weapon logged in the weapon
+    register, reconstruct the evidence chain the question asks for:
+
+        weapon -> the FIR it is logged under -> the accused it was
+        recovered from -> that accused's recorded status on that case
+
+    Read entirely off the projected graph, which already holds every link:
+    `Weapon-[:BELONGS_TO_CASE]->Case`, `Person-[:OWNS]->Weapon` (written by
+    structured_projection._write_weapons from `weapon_register.recovered_from`)
+    and `Person-[:INVOLVED_IN {role:'accused', arrest_status}]->Incident`.
+
+    THE HEDGE IS PART OF THE ANSWER, NOT A DEFECT TO HIDE (CR4's gold answer
+    states it explicitly): the weapon->accused link is NOT an enforced
+    database key. `weapon_register.recovered_from` is a bare NAME, so
+    structured_projection matches it against the accused named in the SAME
+    FIR only — i.e. the trail runs weapon -> FIR number -> accused. The
+    downstream criminal-record lookup added below is the same kind of link:
+    `StructuredRecord.source_case_ref` is free text ("FIR 891/24, PS Jhang
+    Road Faisalabad"), matched on the normalized FIR number via `_fir_key`,
+    exactly as CR7's own cross-check already does. The renderer says so.
+
+    Weapons with no `recovered_from` match (crime-scene finds — a spent
+    casing, a wooden stick) are reported as a separate, honest count rather
+    than silently dropped.
+    """
+    weapon_filter = ""
+    params: dict = {}
+    if jurisdiction_case_ids is not None:
+        weapon_filter = "WHERE c.case_id IN $case_ids"
+        params = {"case_ids": jurisdiction_case_ids}
+    weapon_rows = await age_client.execute_cypher(
+        f"MATCH (w:Weapon)-[:BELONGS_TO_CASE]->(c:Case) {weapon_filter} "
+        "OPTIONAL MATCH (p:Person)-[:OWNS]->(w) "
+        "RETURN w.entity_id AS weapon_id, w.canonical_name AS weapon, "
+        "w.license_status AS license_status, c.case_id AS case_id, "
+        "p.canonical_name AS person, p.entity_id AS person_id",
+        params=params,
+        columns=["weapon_id", "weapon", "license_status", "case_id", "person", "person_id"],
+    )
+
+    # The accused's recorded status on that same case — the "what happened
+    # to them" half of the question.
+    status_rows = await age_client.execute_cypher(
+        "MATCH (p:Person)-[e:INVOLVED_IN]->(i:Incident)-[:PART_OF]->(c:Case) "
+        "WHERE e.role = 'accused' "
+        "RETURN p.entity_id AS person_id, c.case_id AS case_id, "
+        "e.arrest_status AS arrest_status",
+        columns=["person_id", "case_id", "arrest_status"],
+    )
+    status_by_person_case = {
+        (r.get("person_id"), r.get("case_id")): r.get("arrest_status")
+        for r in status_rows
+    }
+
+    # Optional downstream: the criminal-record system's own conviction
+    # status, joined on the FIR number (free text on both sides — see the
+    # docstring's hedge note).
+    cr_rows = await age_client.execute_cypher(
+        "MATCH (r:StructuredRecord) WHERE r.record_type = 'criminal_record' "
+        "RETURN r.subject_full_name AS subject, r.source_case_ref AS case_ref, "
+        "r.conviction_status AS conviction_status",
+        columns=["subject", "case_ref", "conviction_status"],
+    )
+    conviction_by_fir = {}
+    for r in cr_rows:
+        k = _fir_key(r.get("case_ref"))
+        if k:
+            conviction_by_fir[k] = {
+                "subject": r.get("subject"),
+                "conviction_status": r.get("conviction_status"),
+            }
+
+    chains = []
+    unattributed = []
+    for r in weapon_rows:
+        case_id = r.get("case_id")
+        person_id = r.get("person_id")
+        if not person_id:
+            unattributed.append({"weapon": r.get("weapon"), "case_id": case_id})
+            continue
+        fir = _fir_key(case_id)
+        cr = conviction_by_fir.get(fir) if fir else None
+        chains.append({
+            "weapon": r.get("weapon"),
+            "license_status": r.get("license_status"),
+            "case_id": case_id,
+            "fir": fir,
+            "recovered_from": r.get("person"),
+            "status": status_by_person_case.get((person_id, case_id)),
+            "conviction_status": cr.get("conviction_status") if cr else None,
+        })
+
+    # Richest chain first — the fullest worked example of the trail the
+    # question asks about is one whose accused status runs all the way to a
+    # decided outcome (`_conviction_is_settled`, reused from CR7's own
+    # cross-check) AND which also carries a criminal-record outcome, rather
+    # than one still sitting at "under investigation".
+    chains.sort(key=lambda c: (
+        not _conviction_is_settled(c["status"]),
+        c["conviction_status"] is None,
+        c["case_id"] or "",
+    ))
+
+    return {
+        "kind": "weapon_evidence_chain",
+        "total_weapons": len(weapon_rows),
+        "traceable_count": len(chains),
+        "untraceable_count": len(unattributed),
+        "untraceable": unattributed,
+        "example": chains[0] if chains else None,
+        "chains": chains[:example_limit],
+        "chains_shown": min(len(chains), example_limit),
+    }
+
+
+def render_weapon_evidence_chain(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — CR4, Module 28] shared renderer for all three XAGG
+    rendering sites (harness xagg tool + orchestrator's two branches)."""
+    total = agg_result["total_weapons"]
+    traceable = agg_result["traceable_count"]
+    untraceable = agg_result["untraceable_count"]
+    if total == 0:
+        return ["No weapons are logged in the weapon register."]
+    if traceable == 0:
+        return [
+            f"Of the {total} weapons logged as evidence, none records who it "
+            f"was recovered from, so no weapon can currently be traced back "
+            f"to a person."
+        ]
+
+    def _chain_line(c: dict) -> str:
+        # Render the FIR the way the source records themselves write it
+        # ("FIR 891/24"), not `_fir_key`'s internal 'NNN-YY' normal form.
+        fir = (
+            f"FIR {c['fir'].replace('-', '/')}"
+            if c.get("fir") else (c.get("case_id") or "unknown case")
+        )
+        lic = f", {c['license_status']}" if c.get("license_status") else ""
+        status = c.get("status") or "no status recorded on this case"
+        line = (
+            f"  - {c['weapon']}{lic} — logged in {fir}; recovered from "
+            f"{c['recovered_from']}; recorded status on that case: {status}."
+        )
+        if c.get("conviction_status"):
+            line += (
+                " The criminal-record system additionally records "
+                f"\"{c['conviction_status']}\" for that person on the same FIR."
+            )
+        return line
+
+    lines = [
+        f"Yes — for {traceable} of the {total} weapons logged as evidence, the "
+        f"register records who the weapon was recovered from, and that person's "
+        f"status on the same case can be read straight off the record.",
+        "",
+        "Worked example:",
+        _chain_line(agg_result["example"]),
+        "",
+        f"The same chain holds for the other traceable weapons — "
+        f"{max(agg_result['chains_shown'] - 1, 0)} more of the {traceable - 1} "
+        f"shown here:",
+    ]
+    lines.extend(
+        _chain_line(c) for c in agg_result["chains"] if c is not agg_result["example"]
+    )
+    if untraceable:
+        detail = "; ".join(
+            f"{u['weapon']} ({u['case_id']})" for u in agg_result.get("untraceable", [])[:5]
+        )
+        lines.append("")
+        lines.append(
+            f"{untraceable} of the {total} record no person at all — they are "
+            f"crime-scene recoveries rather than items taken off an accused"
+            + (f": {detail}." if detail else ".")
+        )
+    lines.append("")
+    lines.append(
+        "Caveat on how solid this trail is: the weapon -> person link is NOT "
+        "an enforced database key. The weapon register stores `recovered_from` "
+        "as a bare name, so it is matched to the accused named in the SAME FIR "
+        "— i.e. the trail runs weapon -> FIR number -> accused. The "
+        "criminal-record outcome above is joined the same way, on the FIR "
+        "number parsed out of a free-text case reference. It holds for this "
+        "data, but a name repeated across two FIRs would not be distinguished "
+        "by it."
+    )
+    return lines
+
+
 async def _court_readiness_scan(
     gateway, jurisdiction_case_ids: Optional[list[str]] = None,
 ) -> dict:
@@ -2140,6 +2355,18 @@ async def run_aggregate(
     # recurrence aggregate's job).
     if _matches_any(query_lower, _WEAPON_TERMS) and _matches_any(query_lower, _COMPLIANCE_TERMS):
         return await _weapon_compliance_scan(jurisdiction_case_ids=jurisdiction_case_ids)
+    # [Gold-QA fix — CR4, Module 28] Weapon-evidence ATTRIBUTION: a weapon
+    # term AND an attribution term ("taken off/from", "recovered from",
+    # "trace ... back", "کس سے برآمد") together. Checked AFTER G5's
+    # compliance scan on purpose — G5 currently scores 1.0 and carries no
+    # attribution term, so the order cannot move it, but keeping compliance
+    # first means a hypothetical question carrying BOTH signals still gets
+    # the compliance answer it had before this module. A bare weapon word
+    # stays the recurrence aggregate's job, exactly as for G5.
+    if _matches_any(query_lower, _WEAPON_TERMS) and _matches_any(
+        query_lower, _WEAPON_ATTRIBUTION_TERMS
+    ):
+        return await _weapon_evidence_chain(jurisdiction_case_ids=jurisdiction_case_ids)
     if _matches_any(query_lower, _OFFICER_KEYWORDS):
         return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_OFFICER}
     # [Gold-QA fix — Module 13, question M7] Checked before both the A7

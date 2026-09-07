@@ -1556,3 +1556,143 @@ def test_g3_still_matches_court_readiness_keywords_after_narrowing():
         "روشنی میں، کن چیزوں کے نامکمل قرار پانے کا سب سے زیادہ امکان ہے؟"
     )
     assert xagg._matches_any(g3.lower(), xagg._COURT_READINESS_KEYWORDS)
+
+
+# ── [Gold-QA fix — CR4, Module 28] weapon -> FIR -> accused -> status chain ──
+
+class _WeaponChainAgeClient:
+    """Routes the three reads _weapon_evidence_chain() makes, by their own
+    distinctive Cypher fragments — same fake style as the G3 test above."""
+
+    def __init__(self, weapons, statuses, criminal_records):
+        self.weapons, self.statuses, self.criminal_records = weapons, statuses, criminal_records
+
+    async def execute_cypher(self, q, params=None, columns=("result",), graph=None):
+        if "OWNS" in q:
+            return self.weapons
+        if "role = 'accused'" in q:
+            return self.statuses
+        if "criminal_record" in q:
+            return self.criminal_records
+        raise AssertionError(f"unexpected cypher: {q}")
+
+
+def _weapon_chain_fixture():
+    """Mirrors the shape of the real live graph (captured 2026-09-08): the
+    gold-answer chain for FIR 891/24, a second chain for the same person on a
+    newer FIR, and a crime-scene weapon with no `recovered_from` match."""
+    weapons = [
+        {"weapon_id": "WEAPON-WR-C2-1-fir-214-26", "weapon": "30 بور پستول بمعہ 3 گولیاں",
+         "license_status": "بغیر لائسنس", "case_id": "fir-214-26",
+         "person": "شہزیب عرف شابی", "person_id": "PERSON-685fc54914"},
+        {"weapon_id": "WEAPON-WR-C1-1-fir-891-24", "weapon": "30 بور پستول",
+         "license_status": "بغیر لائسنس", "case_id": "fir-891-24",
+         "person": "شہزیب عرف شابی", "person_id": "PERSON-685fc54914"},
+        {"weapon_id": "WEAPON-WR-117-1-fir-117-26", "weapon": "عام لکڑی کی چھڑی، ایک عدد",
+         "license_status": None, "case_id": "fir-117-26", "person": None, "person_id": None},
+    ]
+    statuses = [
+        {"person_id": "PERSON-685fc54914", "case_id": "fir-214-26", "arrest_status": "گرفتار"},
+        {"person_id": "PERSON-685fc54914", "case_id": "fir-891-24",
+         "arrest_status": "گرفتار، بعد ازاں سزا یافتہ"},
+    ]
+    criminal_records = [
+        {"subject": "شہزیب عرف شابی", "case_ref": "FIR 891/24, PS Jhang Road Faisalabad",
+         "conviction_status": "Convicted, on bail pending appeal"},
+    ]
+    return weapons, statuses, criminal_records
+
+
+async def test_cr4_weapon_evidence_chain_returns_gold_chain(monkeypatch):
+    """Regression test pinned to CR4's literal gold ANSWER: the 30-bore
+    pistol logged in FIR 891/24, recovered from شہزیب عرف شابی, whose
+    recorded status on that case is گرفتار، بعد ازاں سزا یافتہ."""
+    monkeypatch.setattr(xagg, "age_client", _WeaponChainAgeClient(*_weapon_chain_fixture()))
+    r = await xagg._weapon_evidence_chain()
+    assert r["kind"] == "weapon_evidence_chain"
+    assert r["total_weapons"] == 3
+    assert r["traceable_count"] == 2
+    assert r["untraceable_count"] == 1
+
+    # The chain whose status runs all the way to a decided outcome is the
+    # worked example — exactly the one gold picks.
+    example = r["example"]
+    assert example["fir"] == "891-24"
+    assert example["recovered_from"] == "شہزیب عرف شابی"
+    assert example["status"] == "گرفتار، بعد ازاں سزا یافتہ"
+    assert example["conviction_status"] == "Convicted, on bail pending appeal"
+
+    text = "\n".join(xagg.render_weapon_evidence_chain(r))
+    assert "FIR 891/24" in text          # rendered the way the source records write it
+    assert "شہزیب عرف شابی" in text
+    assert "گرفتار، بعد ازاں سزا یافتہ" in text
+    # Gold's own hedge must be stated, not hidden.
+    assert "not" in text.lower() and "enforced database key" in text.lower()
+    assert "weapon -> FIR number -> accused" in text
+    # Weapons with no attributable owner are disclosed, not dropped.
+    assert "1 of the 3 record no person at all" in text
+
+
+async def test_cr4_chain_reports_honestly_when_nothing_is_attributable(monkeypatch):
+    weapons = [{"weapon_id": "W1", "weapon": "چھڑی", "license_status": None,
+                "case_id": "fir-117-26", "person": None, "person_id": None}]
+    monkeypatch.setattr(xagg, "age_client", _WeaponChainAgeClient(weapons, [], []))
+    r = await xagg._weapon_evidence_chain()
+    assert r["traceable_count"] == 0
+    text = "\n".join(xagg.render_weapon_evidence_chain(r))
+    assert "none records who it was recovered from" in text
+
+
+async def test_cr4_dispatches_from_run_aggregate(monkeypatch):
+    """The dispatch conjunction (weapon term AND attribution term) reaches
+    the new aggregate for CR4's literal gold text."""
+    monkeypatch.setattr(xagg, "age_client", _WeaponChainAgeClient(*_weapon_chain_fixture()))
+    r = await xagg.run_aggregate(
+        "If we've got a weapon logged as evidence, can we tell who it was "
+        "taken off and what happened to them?",
+        None, FakeGateway([]), user_role="platform-admin",
+    )
+    assert r["kind"] == "weapon_evidence_chain"
+
+
+async def test_g5_still_reaches_the_compliance_scan_not_the_chain(monkeypatch):
+    """Regression guard named in Module 28's brief: G5 (currently 1.0) lives
+    in the same weapon keyword space and must keep its compliance answer."""
+    class _AC:
+        async def execute_cypher(self, q, params=None, columns=("result",), graph=None):
+            return [{"status": "بغیر لائسنس"}] * 30 + [{"status": None}] * 2
+    monkeypatch.setattr(xagg, "age_client", _AC())
+    r = await xagg.run_aggregate(
+        "Baramad shuda hathiyaron ki record keeping ko dekhte hue, kya koi "
+        "aisi baat hai jo compliance ke lihaz se flag karne layak ho?",
+        None, FakeGateway([]), user_role="platform-admin",
+    )
+    assert r["kind"] == "weapon_compliance_scan"
+
+
+def test_cr4_attribution_terms_negative_control_over_gold32():
+    """The xagg dispatch half of the all-32 negative control: the weapon
+    term AND attribution term conjunction must select CR4 alone, and G5's
+    own weapon-AND-compliance conjunction must still select G5 alone."""
+    import json
+    import os
+
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "evaluation",
+        "Gold_QA_Dataset_Final32_With_Answers.json",
+    )
+    gold = json.load(open(path, encoding="utf-8"))
+    assert len(gold) == 32
+
+    chain_ids, compliance_ids = [], []
+    for item in gold:
+        ql = item["question"].lower()
+        if xagg._matches_any(ql, xagg._WEAPON_TERMS):
+            if xagg._matches_any(ql, xagg._WEAPON_ATTRIBUTION_TERMS):
+                chain_ids.append(item["id"])
+            if xagg._matches_any(ql, xagg._COMPLIANCE_TERMS):
+                compliance_ids.append(item["id"])
+
+    assert chain_ids == ["CR4"], f"weapon-chain dispatch also selected {chain_ids}"
+    assert compliance_ids == ["G5"], f"G5's compliance dispatch changed: {compliance_ids}"
