@@ -64,13 +64,14 @@ several can run in parallel chats/worktrees without colliding.
 |---|---|---|---|
 | 20b | M4/G3 bare-Urdu-keyword collision | `fix/xagg-court-readiness-bare-urdu-keyword-collision` | ✅ **PR #8 open** |
 | 19a | KB-intent coverage for all 8 KB questions | `fix/kb-intent-coverage-all-gold-questions` | ✅ **PR #9 open** |
-| 19b | Evaluator compound-question relaxation not firing | `fix/evaluator-compound-relaxation-not-firing` | ⬜ Not started — **highest value** |
+| 19b | Evaluator compound-question relaxation not firing | `fix/evaluator-compound-relaxation-not-firing` | ✅ **Done — 5/8 KB questions now pass (was 1/8); see below** |
 | 21 | XNETWORK/XGRAPH relevance-gate over-refusal | `fix/xnetwork-relevance-gate-over-refusal` | ⬜ Not started |
 | 22 | M7 reporting-delay: wrong metric | `feature/xagg-incident-to-report-delta` | ✅ **Done — M7 AND its non-gold paraphrase both verified live, matching gold exactly** |
 | 23 | M5 weapon × statute co-occurrence join | `feature/xagg-weapon-statute-cooccurrence` | ⬜ Not started |
 | 24 | M4 statute × court-stage join | `feature/xagg-statute-court-stage-join` | ⬜ Blocked on PR #8 |
 | 25 | M2 Meta-Analysis → verifier rejection | `fix/meta-analysis-synthesis-verifier-rejection` | ⬜ Not started |
 | 26 | M1 routing miss (XGRAPH instead of aggregate) | `fix/router-year-over-year-comparison-to-xagg` | ✅ PR open (branch pushed) |
+| 30 | KB3/KB8/KB9 retrieval-completeness gap (correct statutory chunk never enters the candidate pool) | *(not yet branched)* | ⬜ New — split out of Module 19b, see below |
 | 27 | Final Gold-32 rerun (Module 18 redo) | *(docs only)* | ⬜ Blocked on all above |
 
 ---
@@ -81,7 +82,8 @@ several can run in parallel chats/worktrees without colliding.
 
 | Module | Primary file(s) touched |
 |---|---|
-| 19b | `prompts/evaluator.txt`, maybe `src/pipeline/evaluator.py` |
+| 19b | `prompts/evaluator.txt` only — no `evaluator.py` change was needed |
+| 30 *(new, split from 19b)* | Likely `src/pipeline/query_expander.py` / `src/pipeline/cross_script_variant.py` / retrieval top-k tuning — **not scoped yet**, disjoint from every other module's files today |
 | 21 | `src/pipeline/xnetwork.py` |
 | 22 | `src/pipeline/xagg.py` **+ `src/graph/structured_projection.py` + a graph backfill** (scope was larger than this table originally said — see Module 22's section) |
 | 23 | `src/pipeline/xagg.py` |
@@ -202,62 +204,134 @@ further defect, which is exactly how Module 19b itself was found.
 
 ---
 
-# Module 19b — Evaluator compound-question relaxation not firing ⬜
+# Module 19b — Evaluator compound-question relaxation not firing ✅ done
 
 **Branch:** `fix/evaluator-compound-relaxation-not-firing`
-**Why this is the highest-value module:** it is the *actual* remaining blocker
-on the whole KB bucket (8 questions, currently 0.06). Module 19a (PR #9) fixed
-which corpus gets searched; this one fixes why the right corpus still gets
-rejected.
+**Why this was the highest-value module:** it was the *actual* remaining
+blocker on the whole KB bucket (8 questions, was 0.06). Module 19a (PR #9)
+fixed which corpus gets searched; this one fixes why the right corpus still
+got rejected.
 
-**Evidence (captured live, 2026-09-07, with PR #9's branch active):**
-`prompts/evaluator.txt` already contains Module 5's compound-question
-relaxation ("return TRUE if the documents answer AT LEAST the primary part").
-It is not being applied. The evaluator's own reasons describe on-topic
-documents and then reject them anyway:
+**Both hypotheses confirmed real, both fixed in `prompts/evaluator.txt`:**
 
-- **KB2** → *"The retrieved documents discuss procedures for recording
-  witness/accused statements"* → `relevant=False`. That is precisely what KB2
-  asks about.
-- **KB3** → *"The retrieved documents discuss legal procedures for FIR
-  registration and investigation"* → `relevant=False`.
-- Three retries each, then `status=abstained`, `"No sufficiently relevant
-  documents were found ... after retrying with query refinements."`
+1. **Primary/secondary inversion (confirmed).** The old rule assumed the
+   LEGAL half is "primary." KB2 ("Why doesn't **our system** keep a
+   record...") leads with the data half, so the model concluded the primary
+   part was unanswered. **Fix:** the compound rule no longer talks about
+   "primary/secondary" at all — it defines a question as compound whenever
+   it contains BOTH a norm clause (law/rule/standard) and an our-data clause
+   (our system/records/data), in **either order**, and says explicitly not
+   to reason about which one is "primary."
+2. **Closing single-topic override (confirmed).** The prompt's last
+   paragraph — *"Evaluate strictly for a SINGLE-topic question..."* — read
+   last, won by default for any question not confidently classified as
+   compound. **Fix:** that paragraph now runs the compound check FIRST and
+   states the single-topic default "does NOT apply... and cannot override
+   this" once a question is compound.
 
-**Two hypotheses to test first — do not skip straight to prompt-editing:**
+A third defect surfaced during verification, **not fixed here — see Module
+30 below**: for KB3/KB8/KB9 the ideal statutory citation never enters the
+retrieval candidate pool at all (confirmed by manually querying the vector
+store with better-targeted text — the correct chunk exists in the corpus and
+is findable, just not by any of the query/expansion/rewrite variants the
+pipeline actually tries). No evaluator-prompt wording fixes a chunk that was
+never retrieved; forcing the evaluator to accept what *was* retrieved for
+these three would violate the "still correctly reject genuinely insufficient
+evidence" regression guard. Scope for 19b stayed prompts/evaluator.txt only,
+per the module brief.
 
-1. **Primary/secondary inversion.** The prompt's compound rule assumes the
-   LEGAL half is "primary" and the data half "secondary". KB2's phrasing
-   inverts that — *"Why doesn't **our system** keep a record …"* leads with
-   the data half, so an LLM reading "primary part" reasonably concludes the
-   primary part is unanswered. Fix direction: make the rule
-   *order-independent* — if the documents answer the legal/procedural half of
-   a compound question, that is sufficient **regardless of which half the
-   sentence leads with**.
-2. **The prompt's own closing line fights the rule.** The last paragraph says
-   *"Evaluate strictly for a SINGLE-topic question: if documents are on topic
-   but missing the specific data point asked, return false"* — for a question
-   the model does not confidently classify as compound, this is the
-   instruction that wins, and every KB question here is exactly "on topic but
-   missing the data point". Fix direction: make compound-detection the
-   default for any question containing both a norm clause and an our-data
-   clause, and soften the single-topic strictness to not override it.
+**Verified — unit:** `tests/test_pipeline.py`'s full evaluator suite (4
+pre-existing + 6 new) plus the rest of the file, 47/47 pass. New tests pin to
+KB2/KB3/KB4's literal gold text (mocking the LLM, asserting the prompt/parse
+contract) plus a regression-guard test using the prompt's own
+foreigner-registration/tenant-registration "false" example.
 
-**Verify:**
-- Unit: the evaluator's own tests, plus new cases pinned to KB2/KB3/KB4's
-  literal text (mock the LLM; assert the prompt/parse contract, not model
-  behavior).
-- **Live is the real test here** (this is a prompt fix — unit tests cannot
-  prove it): all 8 KB questions through `/api/chat`, expect `relevant=True`
-  and a substantive cited answer instead of `status=abstained`. Capture the
-  evaluator `relevant=`/`reason=` line for each from the backend log.
-- Non-gold paraphrase: e.g. *"Is there a legal standard for how long we keep
-  case property, and do our records follow it?"*
-- Regression guard: confirm the genuinely-insufficient case still returns
-  false (the prompt's own "Examples of correct false decisions" list).
+**Verified — live**, all 8 KB questions through real `/api/chat`
+(`admin@example.com`, All Cases, Postgres + model server up), evaluator
+`relevant=`/`reason=` lines captured from the backend log:
 
-**Expected impact:** the KB bucket is 8 of 32 questions at 0.06. This is the
-single largest available gain in the whole remaining plan.
+| Q | Before (Module 18/this module's own pre-fix probe) | After (live, this fix) |
+|---|---|---|
+| KB1 | `relevant=True` (already passing) | `relevant=True` — "Document 2 explicitly references Section 154..." |
+| **KB2** | `relevant=False` — *"documents discuss procedures for recording witness/accused statements"* (rejected despite being on-topic) | **`relevant=True`** — "The documents address the legal requirements for recording police interview stat[ements]..." |
+| KB3 | `relevant=False`, 3 retries, abstained | `relevant=False`, exhausted — genuine retrieval gap (Article 18 of Police Order 2002 never retrieved for any query variant tried); **see Module 30** |
+| KB4 | `relevant=False` (compound over-rejection: "do not explicitly outline a formal standard...compliance aspect unanswered") | **`relevant=True`** — "documents from Punjab Police Rules (Rule 27.18) directly address t[he norm clause]..." |
+| KB5 | `relevant=False` | **`relevant=True`** — "Documents mention legal provisions (e.g., Punjab Domestic Violence Act, 337-A(i)..." |
+| KB6 | `relevant=False` | **`relevant=True`** — "Document 1 addresses forensic handling procedures for seized weapons prior to re[cording]..." |
+| KB8 | `relevant=False`, abstained | `relevant=False`, exhausted — genuine retrieval gap (the specific CrPC provision on interim court reporting during a prolonged investigation is not surfaced); **see Module 30** |
+| KB9 | `relevant=False`, abstained | `relevant=False`, exhausted — genuine retrieval gap (Section 174 inquest text is not consistently in the retrieved chunk set); **see Module 30** |
+
+**Result: 5 of 8 KB questions now pass the evaluator gate and reach a
+substantive, cited answer (KB1/2/4/5/6), up from 1 of 8 before (KB1 only).**
+The remaining 3 (KB3/KB8/KB9) are a retrieval-completeness defect, not an
+evaluator defect — see the new Module 30 below rather than this module's
+scope being silently expanded.
+
+**Non-gold paraphrase** tested during development (mocked-LLM level, not
+re-run live in this final pass): *"Is there a legal standard for how long we
+keep case property, and do our records follow it?"* — same norm/our-data
+compound shape as KB1/KB4, exercised by the new unit tests.
+
+**Regression guard:** confirmed live and in unit tests — a genuinely
+off-topic retrieval (the prompt's own foreigner-registration /
+tenant-registration example) still returns `false`; the fix does not make
+the evaluator accept everything.
+
+---
+
+# Module 30 — KB3/KB8/KB9 retrieval-completeness gap ⬜ new, not yet branched
+
+**Found while verifying Module 19b.** Not fixed there — deliberately kept
+out of that module's scope (`prompts/evaluator.txt` only), per its brief's
+own instruction to split out a newly-discovered defect rather than silently
+expand scope.
+
+**What's happening:** for KB3, KB8 and KB9, the specific statutory
+provision the gold answer cites never enters the retrieval candidate pool —
+not in the top-5 after cross-rerank, not in the wider ~15-30 item semantic +
+BM25 pool before that cut, for the original question OR any of the 2
+expanded queries OR the cross-script variant OR the evaluator-feedback retry
+rewrite. Confirmed by manually querying the live vector store with better-
+targeted text (e.g. "Article 18 Police Order investigation staff head of
+investigation" for KB3) — **the correct chunk exists in the corpus and is
+findable**, it just isn't reached by any query text the actual pipeline
+generates from these questions' phrasing.
+
+- **KB3** — needs Police Order 2002 Article 18 (separate investigation
+  wing). Retrieved instead: CrPC sections on statements/bonds/imprisonment,
+  Police Order administrative forms.
+- **KB8** — needs the CrPC provision on interim court reporting during a
+  prolonged investigation. Retrieved instead: CrPC ss.170-171 ("case sent to
+  magistrate when evidence is sufficient"), a related but distinct
+  provision.
+- **KB9** — needs the CrPC s.174 inquest / cause-of-death investigation
+  text consistently in the retrieved set (it showed up in some attempts, not
+  reliably, and the evaluator's citation of "section 174" in an early
+  probe run turned out to be a model hallucination — the text wasn't
+  actually in the chunks it was judging that time).
+
+**This is a retrieval quality/coverage defect, not an evaluator defect** —
+confirmed by feeding the ACTUAL retrieved chunks (not idealized ones) through
+both the pre-fix and post-fix evaluator prompt: the post-fix prompt correctly
+recognizes when even a compound question's norm clause isn't addressed by
+what's on the page, and returns false. No prompt-only fix should make it
+return true here without also risking false-positive relevance elsewhere.
+
+**Likely fix directions (not investigated yet):** widen `query_expander.py`
+or `cross_script_variant.py`'s prompting to specifically try naming
+candidate governing statutes when the question is legal-KB-intent; raise
+`TOP_K_RETRIEVAL`/`CROSS_CASE_RETRIEVAL_MULTIPLIER` for the KB-only scope
+specifically (cheap but blunt); or add a keyword/BM25-boost path that
+searches for statute-name-shaped tokens directly. Whoever picks this up
+should re-probe the corpus first (as this investigation did) to confirm
+which of these would actually surface the missing chunk before committing to
+one.
+
+**Verify:** re-run KB3/KB8/KB9 live after any fix; confirm the evaluator
+then sees the right chunk and correctly returns true (no evaluator change
+should be needed if 19b's fix is present). Regression-guard against
+Module 19b's fix: rerun KB1/2/4/5/6 too, to confirm a retrieval change here
+doesn't regress what 19b just fixed.
 
 ---
 
