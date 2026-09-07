@@ -1184,6 +1184,74 @@ def test_render_time_bucketed_mean_states_scale_direction_and_coverage():
     assert "9 FIR(s) excluded" in rendered
 
 
+class TestReportingSpeedComparisonBoundary:
+    """
+    [Gold-QA fix — Module 22] The original keyword list was pinned to M7's
+    literal phrasing, so the required non-gold paraphrase ("How long does it
+    typically take someone to report a crime to us these days versus a
+    couple of years ago?") matched nothing — the capability was curve-fit to
+    one gold string. Widening it is a two-signal AND, because a one-signal
+    widening collides with A7 (a COUNT-of-delay-reasons question checked
+    AFTER this one in run_aggregate(), so an over-broad match silently
+    hijacks it) and with KB8 (whose "pehle" means "before completion", not
+    "years before" — matching it would regress PR #9's KB-corpus routing).
+    """
+
+    def test_m7_gold_text_matches(self):
+        assert xagg._is_reporting_speed_comparison(
+            "kya log 2026 mein waqiaat ki police ko itni hi jaldi ittila de "
+            "rahe hain jitni 2024 mein dete the?"
+        )
+
+    @pytest.mark.parametrize("paraphrase", [
+        "How long does it typically take someone to report a crime to us "
+        "these days versus a couple of years ago?",
+        "Are people informing police faster now compared to 2024?",
+        "Has reporting speed changed since 2024?",
+    ])
+    def test_non_gold_paraphrases_match(self, paraphrase):
+        assert xagg._is_reporting_speed_comparison(paraphrase.lower())
+
+    def test_a7_delay_reason_count_is_not_hijacked(self):
+        """A7 asks HOW MANY complainants gave a reason for reporting late —
+        a count, answered by a different aggregate checked after this one."""
+        assert not xagg._is_reporting_speed_comparison(
+            "kitne cases mein mudai ne police ke paas waqe ke kuch arse baad "
+            "aane ki koi wajah batai, bajaye foran aane ke?"
+        )
+
+    def test_kb8_before_completion_is_not_a_time_period_comparison(self):
+        """KB8's "pehle" means "before the investigation completes", not "a
+        few years before" — caught live during this module's negative
+        control, and it must stay excluded or PR #9's KB routing regresses."""
+        assert not xagg._is_reporting_speed_comparison(
+            "agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police "
+            "ko iske mukammal hone se pehle adaalat ko kuch report karna "
+            "zaroori karta hai — aur kya hamara case-tracking data batayega "
+            "ke aisa hua ya nahi?"
+        )
+
+    def test_matches_m7_and_no_other_gold_question(self):
+        """The all-32 negative control. This single assertion is what would
+        have caught every one of the three historical pattern collisions on
+        this plan (Module 8c's 0-of-7, CR8 hijacking KB1, "عدالت" hijacking
+        M4)."""
+        import json
+        from pathlib import Path
+
+        gold_path = Path(__file__).resolve().parent.parent / "Gold_QA_Dataset_Final32.json"
+        if not gold_path.exists():
+            pytest.skip("Gold_QA_Dataset_Final32.json not present in this checkout")
+        payload = json.loads(gold_path.read_text(encoding="utf-8"))
+        items = payload if isinstance(payload, list) else payload.get("questions", payload)
+        matched = [
+            (it.get("id") or "").upper()
+            for it in items
+            if xagg._is_reporting_speed_comparison(it["question"].lower())
+        ]
+        assert matched == ["M7"], f"expected only M7, got {matched}"
+
+
 def test_render_time_bucketed_mean_handles_no_usable_rows():
     rendered = "\n".join(xagg.render_time_bucketed_mean({
         "kind": "time_bucketed_mean", "buckets": [], "missing_timestamp_count": 4,

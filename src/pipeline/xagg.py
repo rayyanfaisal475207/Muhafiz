@@ -374,6 +374,62 @@ _REPORTING_SPEED_COMPARISON_KEYWORDS = (
     "report as quickly", "reporting speed", "reporting promptly",
     "اتنی ہی جلدی", "جتنی جلدی",
 )
+# [Gold-QA fix — Module 22] The literal list above is pinned to M7's own
+# phrasing and matches essentially nothing else. Live-caught: the required
+# non-gold paraphrase "How long does it typically take someone to report a
+# crime to us these days versus a couple of years ago?" matched none of
+# them, so the capability was curve-fit to one gold string rather than
+# actually answering reporting-speed questions.
+#
+# Widened as a two-signal AND rather than more literal phrases, because a
+# one-signal widening WOULD COLLIDE WITH A7 — "Kitne cases mein mudai ne
+# ... waqe ke kuch arse baad aane ki koi wajah batai" is a COUNT-of-reasons
+# question that naturally contains reporting/delay vocabulary, and it is
+# checked AFTER this one in run_aggregate(), so any over-broad match here
+# silently hijacks it. That is the same false-positive class already fixed
+# three times on this plan (Module 8c's KB patterns, Module 15's CR8
+# pattern hijacking KB1, Module 16's bare Urdu "court" hijacking M4).
+#
+# What actually separates M7's family from A7's is a TIME-PERIOD
+# COMPARISON, which A7 has none of. So: a reporting/speed signal AND a
+# comparison signal, both required.
+_REPORTING_SPEED_SIGNALS = (
+    "report", "reported", "reporting", "ittila", "ittala", "inform",
+    "jaldi", "quickly", "promptly", "how long", "how fast", "how quick",
+    "take to", "time to", "اطلاع", "رپورٹ", "جلدی", "دیر",
+)
+# NOTE on what is deliberately NOT here: a bare "pehle"/"پہلے" ("before").
+# Live-caught during this module's own negative control — KB8 ("...iske
+# mukammal hone se PEHLE adaalat ko kuch REPORT karna zaroori karta hai...")
+# carries both a reporting signal and that word, but its "before" means
+# "before the investigation completes", not "a few years before". Matching
+# it would have pulled a Knowledge-Base question into this aggregate and
+# regressed the KB-corpus routing PR #9 had just fixed. Only time-PERIOD
+# comparison forms are listed.
+_SPEED_COMPARISON_SIGNALS = (
+    "versus", " vs ", "compared", "compare", "these days",
+    "years ago", "year ago", "years back", "year back", "back then",
+    "used to", "muqable", "muqabla", "saal pehle", "sal pehle",
+    "مقابلے", "سال پہلے",
+    "2024", "2025", "2026",
+)
+
+
+def _is_reporting_speed_comparison(query_lower: str) -> bool:
+    """
+    True for a reporting-SPEED-over-time question (M7's family).
+
+    Kept as a named predicate rather than inlined so the A7 boundary it
+    protects is testable directly — see this module's
+    `_REPORTING_SPEED_COMPARISON_KEYWORDS` comment for why that boundary
+    matters and what breaks without it.
+    """
+    if _matches_any(query_lower, _REPORTING_SPEED_COMPARISON_KEYWORDS):
+        return True
+    return (
+        _matches_any(query_lower, _REPORTING_SPEED_SIGNALS)
+        and _matches_any(query_lower, _SPEED_COMPARISON_SIGNALS)
+    )
 # A bare "how many total" request — distinct from _LIST_ALL_KEYWORDS (which
 # wants the raw records) and from the grouped-count default below (which
 # always breaks the answer down by station/category). Live-observed gap
@@ -2099,7 +2155,7 @@ async def run_aggregate(
     # actually asks for is now computable. `_reporting_delay_rate_by_year()`
     # is deliberately KEPT — it answers the A7-family delay-reason question,
     # which is a different quantity with its own tests.
-    if _matches_any(query_lower, _REPORTING_SPEED_COMPARISON_KEYWORDS):
+    if _is_reporting_speed_comparison(query_lower):
         return await _incident_to_report_minutes_by_year(
             jurisdiction_case_ids=jurisdiction_case_ids
         )
