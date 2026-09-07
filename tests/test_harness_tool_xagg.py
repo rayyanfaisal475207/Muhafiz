@@ -365,3 +365,42 @@ async def test_weapon_statute_cooccurrence_renders(monkeypatch):
     assert "**2024**" in result.raw_summary_text
     assert "CNSA 1997 §9(c)" in result.raw_summary_text
     assert "Change 2024 to 2026" in result.raw_summary_text
+
+
+async def test_statute_court_stage_join_renders(monkeypatch):
+    """[Gold-QA fix — Module 24, M4] Guards the hand-maintained
+    `AggregateKind` Literal: omitting an entry there is the documented
+    silent-`literal_error` crash class Modules 13, 22 and 23 each hit."""
+    async def _run_aggregate(*a, **kw):
+        return {
+            "kind": "statute_court_stage_join",
+            "charged_case_count": 3,
+            "section_entry_count": 5,
+            "distinct_statute_count": 3,
+            "statutes": [
+                {"key": "PPC §34", "case_count": 2},
+                {"key": "PPC §302", "case_count": 1},
+                {"key": "Arms Ordinance 1965 §13", "case_count": 1},
+            ],
+            "court": {
+                "kind": "criminal_record_court_crosscheck",
+                "total_records": 33, "settled_count": 1, "in_progress_count": 32,
+                "status_breakdown": [{"status": "Under trial", "count": 30}],
+                "crosschecks": [],
+            },
+            "joined_records": [],
+            "joinable_record_count": 0,
+            "settled_share": 1 / 33,
+            "agree": False,
+        }
+
+    monkeypatch.setattr(xagg_mod, "run_aggregate", _run_aggregate)
+    result = await xagg_tool(XAggToolInput(
+        query_text="how far have our cases got in court",
+        execution=_execution(),
+    ))
+
+    assert result.status is ToolStatus.OK
+    assert "PPC §34: 2 case(s)" in result.raw_summary_text
+    assert "Of 33 criminal records" in result.raw_summary_text
+    assert "Do the two agree? No." in result.raw_summary_text

@@ -68,7 +68,7 @@ several can run in parallel chats/worktrees without colliding.
 | 21 | XNETWORK/XGRAPH relevance-gate over-refusal | `fix/xnetwork-relevance-gate-over-refusal` | ✅ **PR #12 open** — investigated, no fix belongs in this module's files, split into Modules 28/29 |
 | 22 | M7 reporting-delay: wrong metric | `feature/xagg-incident-to-report-delta` | ✅ **Merged (PR #14)** — M7 AND its non-gold paraphrase both verified live, matching gold exactly |
 | 23 | M5 weapon × statute co-occurrence join | `feature/xagg-weapon-statute-cooccurrence` | ✅ **PR #20 open** — new `_weapon_statute_cooccurrence_by_year()` aggregate; M5 AND its non-gold paraphrase both verified live, **matching gold's per-year pairings exactly**; G5 and M1 negative-controlled live. Result: `docs/gold-qa-wave2-results/MODULE23_RESULT.md` |
-| 24 | M4 statute × court-stage join | `feature/xagg-statute-court-stage-join` | ⬜ Not started — **unblocked**, PR #8 has merged; brief: `MODULE24_XAGG_STATUTE_COURT_STAGE_PROMPT.md` |
+| 24 | M4 statute × court-stage join | `feature/xagg-statute-court-stage-join` | ✅ **PR #21 open** — new `_statute_court_stage_join()` aggregate reusing Module 14's reader; **gold's 33 / 1 / 30 matched exactly** and the non-gold paraphrase passes; G3, CR7 and M5 negative-controlled live. M4 end to end is now blocked **above** XAGG, in Meta-Analysis (Module 25's `[Document N]` defect) — see §8. Result: `docs/gold-qa-wave2-results/MODULE24_RESULT.md` |
 | 25 | M2 Meta-Analysis → verifier rejection | `fix/meta-analysis-synthesis-verifier-rejection` | ✅ **PR #16 open** |
 | 26 | M1 routing miss (XGRAPH instead of aggregate) | `fix/router-year-over-year-comparison-to-xagg` | ✅ **Merged (PR #13)** |
 | 28 | CR4 routing miss (weapon-recovery chain sent to cross-case entity linkage) | `fix/router-weapon-evidence-chain-to-xagg` | ✅ **PR #19 open** — routing fixed AND a new aggregate added (none existed); CR4 now returns gold's exact chain live; all-32 negative control clean; results: `docs/gold-qa-wave2-results/MODULE28_RESULT.md` |
@@ -897,24 +897,89 @@ real question and a scope change, flagged rather than taken.
 
 ---
 
-# Module 24 — M4: statute × court-stage join ⬜
+# Module 24 — M4: statute × court-stage join ✅
 
 **Branch:** `feature/xagg-statute-court-stage-join`
-**Blocked on:** PR #8 (M4 is misrouted until that merges).
 **Question:** M4.
+**Full result:** `docs/gold-qa-wave2-results/MODULE24_RESULT.md`.
 
-**Root cause:** after PR #8's routing fix, M4 gets the statute half right
-(PPC 61, Arms Ordinance 29) but claims no court-stage data exists — it does,
-in the criminal-record table (33 records, 1 conviction, 30 under trial), the
-same source `_criminal_record_court_crosscheck` (Module 14) already reads.
+**PR #8 is merged, so this module was never blocked.** Its fix is intact and
+was re-confirmed live: M4 no longer matches `_COURT_READINESS_KEYWORDS` and
+no longer hijacks G3's readiness scan.
 
-**Work:** an aggregate joining statute counts with court/conviction stage,
-reusing Module 14's own record reader rather than a second query path.
+**Root cause found — the plan's framing needed two corrections.**
 
-**Verify:** live M4 reports both halves and whether they agree; a non-gold
-paraphrase; `tests/test_xagg.py` full pass. **Also re-confirm G3 still scores
-1.0** — M4 and G3 share the court-readiness keyword space (that's what PR #8
-had to untangle).
+1. *"M4 gets the statute half right (PPC 61, Arms Ordinance 29)"* — those
+   numbers are **act-level**, from `_station_or_category_counts()`'s
+   `counts_by_act` over `cases.crime_category`, which
+   `muhafiz_cases._crime_category()` reduces to a comma-joined act list.
+   M4 asks about **دفعات** (sections), and gold's own answer cites **no**
+   statute counts at all. Section-level statutes exist only in the graph, as
+   `StructuredRecord{record_type:'fir_section'}` (`act` + `section_code`) —
+   the source Module 23 found and this module reuses.
+2. *"M4 gets the statute half then claims no court-stage data exists"* —
+   true as a symptom, but **not because a single XAGG call answered half the
+   question**. M4's route is LLM-decided (`_deterministic_route_override()`
+   returns `None`) and came back `XNETWORK` on 4 of 5 live captures and
+   `XAGG` on 1; in every case the supervisor handed it to **Meta-Analysis**,
+   which decomposed it into a charging sub-query and a court sub-query. The
+   "no court-stage data" sentence is the **court sub-query's** own answer.
+   Inside `run_aggregate()`, M4's whole text lands on the **person-recurrence**
+   branch, because `_PERSON_KEYWORDS` contains the bare token `"لوگ"` and
+   M4's second word is `"لوگوں"`.
+
+**Work done:** `_statute_court_stage_join()` + `render_statute_court_stage_join()`
+in `src/pipeline/xagg.py`, dispatched by a two-signal `_is_statute_court_stage_join()`
+(a court term **and** a progression/stage term — never the bare word
+"court", which is what PR #8 had to untangle). Placed **after** CR7's and
+G3's branches (so both keep first claim structurally) and **before**
+`_TIME_COMPARISON_KEYWORDS` and `_PERSON_KEYWORDS`. The court half **calls
+`_criminal_record_court_crosscheck()` as-is and renders it through
+`render_criminal_record_crosscheck()`** — no second query path, and
+`_conviction_is_settled()` is not re-derived. Module 14's reader needed no
+extension. `router.py` was not touched.
+
+**Measured live (`_statute_court_stage_join()` against `evidence_graph`),
+derived from a hand-written Cypher probe before the aggregate was written:**
+
+- Charging side: **218** `fir_section` entries over **73** cases, **36**
+  distinct sections — PPC §34 ×40, Arms Ord 1965 §13 ×29, PPC §392 ×21,
+  CNSA §9(c) ×12, PPC §420 ×11, PPC §302 ×10, …
+- Court side: **33** criminal records — **30** `Under trial`, **1**
+  `Convicted, on bail pending appeal`, 1 `Sub judice, external prior case`,
+  1 `Under trial, priority hearing requested` → **1 settled / 32 in progress**.
+- Join coverage: only **4 of 33** criminal records name an FIR present in
+  this corpus (reported, not hidden).
+- Verdict (a derived majority test, not a tuned threshold): **do not agree**.
+
+**Gold comparison: 33 / 1 / 30 match exactly, and were not tuned for.**
+
+**Regression guard, all live:** **G3** unchanged (still `_court_readiness_scan()`,
+all three gold findings; the new aggregate's log counter did not increment);
+**CR7** unchanged (still `_criminal_record_court_crosscheck()`, still 33/30/1
+plus the FIR 891-24 consistency finding); **M5** unchanged (still Module 23's
+co-occurrence aggregate). Unit: `tests/test_xagg.py` 132 passed; the five
+touched suites 359 passed, 1 xpassed.
+
+**What is still broken, and it is not in `xagg.py`:** M4 completed end to end
+on only **1 of 5** post-change runs. The aggregate ran on all five (proved by
+its own log line). Three runs were rejected by Meta-Analysis's synthesis
+verifier with *"A claim is attributed to Document 1 but is absent from its
+text and instead appears in Document 2"* — **Module 25's defect exactly**
+(PR #16 open). One timed out on the model-server tunnel. Module 26's
+supervisor guard ("XAGG already answers this in one call, do not decompose")
+would cover M4's shape but is gated on `route == "XAGG"`, which M4 usually
+is not. A deterministic router override for the statute×court-stage shape
+plus an extension of that guard is the follow-on — it belongs in
+`router.py`/`supervisor.py`, both owned by other tracks this wave, so it is
+flagged here rather than folded in.
+
+**Also fixed in passing:** Module 22's own all-32 negative control
+(`test_matches_m7_and_no_other_gold_question`) pointed at
+`Gold_QA_Dataset_Final32.json` at the repo root, which is **not tracked in
+this repo** — so it silently skipped and had never run. Re-pointed at
+`evaluation/Gold_QA_Dataset_Final32_With_Answers.json` and asserted rather
+than skipped. It passes.
 
 ---
 

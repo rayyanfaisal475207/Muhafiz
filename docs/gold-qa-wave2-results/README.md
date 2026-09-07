@@ -15,7 +15,7 @@ excluding KB, **14/32** passing.
 |---|---|---|---|
 | 23 | M5 — weapon × statute co-occurrence | `MODULE23_RESULT.md` | in progress |
 | 28 | CR4 — weapon-evidence chain routing | `MODULE28_RESULT.md` | in progress |
-| 24 | M4 — statute × court-stage join | `MODULE24_RESULT.md` | queued (after 23) |
+| 24 | M4 — statute × court-stage join | `MODULE24_RESULT.md` | done |
 | 29 | CR3/G1/G6 — Meta-Analysis decomposition | `MODULE29_RESULT.md` | queued |
 | 30 | KB3/KB8/KB9 — retrieval completeness | `MODULE30_RESULT.md` | queued |
 | 27 | Final Gold-32 rerun | `MODULE27_RESULT.md` | queued (last) |
