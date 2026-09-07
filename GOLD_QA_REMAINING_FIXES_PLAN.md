@@ -111,6 +111,26 @@ keyword collision that misroutes it is merged.
 - **Wave 2 (one chat, sequential):** 22 → 23 → 24.
 - **Wave 3:** 27, the final rerun, once everything above is merged.
 
+### Ready-to-hand-off task briefs for Wave 1
+
+Each of the four parallel-safe modules has a **self-contained prompt file**
+at the repo root — paste it into a fresh chat as-is. Each carries its own
+captured evidence, hypotheses to test, verification requirements (unit +
+live + non-gold paraphrase + regression guard), git discipline, and a
+**required step to update this file** when the module lands.
+
+| Module | Task brief |
+|---|---|
+| 19b | `MODULE19B_EVALUATOR_COMPOUND_RELAXATION_PROMPT.md` |
+| 21 | `MODULE21_XNETWORK_RELEVANCE_GATE_OVER_REFUSAL_PROMPT.md` |
+| 25 | `MODULE25_META_ANALYSIS_VERIFIER_REJECTION_PROMPT.md` |
+| 26 | `MODULE26_ROUTER_YEAR_OVER_YEAR_COMPARISON_PROMPT.md` |
+
+**Every one of those briefs requires its chat to update this file's status
+table and its own module section before opening its PR** — including adding
+a new module section (rather than silently expanding scope) if it uncovers a
+further defect, which is exactly how Module 19b itself was found.
+
 ---
 
 # Module 19b — Evaluator compound-question relaxation not firing ⬜
