@@ -182,7 +182,16 @@ _COURT_READINESS_KEYWORDS = (
     "case file for court", "court file", "handover to court", "prosecutor",
     "before accepting", "court accept", "ready for court", "case file ready",
     "adalat ko hawalgi", "court file tayyar", "case file tayyar",
-    "عدالت کو حوالگی", "کیس فائل تیار", "پراسیکیوٹر", "عدالت", "حوالگی کے لیے",
+    # [Gold-QA fix — M4 false positive] The bare Urdu word "عدالت" (= "court")
+    # was in this list and matched ANY question merely mentioning a court —
+    # live-confirmed hijacking M4 ("...وہ مقدمے عدالت میں کہاں تک پہنچے" = how
+    # far cases progressed IN COURT, a statute-vs-court-stage severity
+    # comparison) into this court-READINESS scan, which answers an unrelated
+    # question about missing case-file fields. Same false-positive class as the
+    # CR8 pattern that over-matched KB1. The court-readiness intent is always
+    # carried by a handover/preparation phrase, never by "عدالت" alone, so the
+    # specific phrases below are sufficient and safe.
+    "عدالت کو حوالگی", "کیس فائل تیار", "پراسیکیوٹر", "حوالگی کے لیے",
     "قبول کرنے سے پہلے",
 )
 _TREND_KEYWORDS = (

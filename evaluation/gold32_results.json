@@ -196,20 +196,6 @@
     }
   },
   {
-    "id": "M4",
-    "type": "Contextual Summarization",
-    "language": "ur",
-    "route": "XAGG",
-    "scores": {
-      "FactualCorrectness": 0.2,
-      "AnswerRelevancy": 0.8
-    },
-    "reasons": {
-      "FactualCorrectness": "The actual output discusses case volume, legal sections, and procedural stages, but it completely misses the core expected conclusion that the two measures do not align (one shows serious crimes while actual convictions lag behind), which is a material omission of the expected comparative analysis.",
-      "AnswerRelevancy": "The score is 0.80 because while the output mostly addresses the comparison between legal sections and court stages, it includes irrelevant details about data gaps and data entry corrections."
-    }
-  },
-  {
     "id": "M5",
     "type": "Contextual Summarization",
     "language": "ur",
@@ -263,20 +249,6 @@
     "reasons": {
       "FactualCorrectness": "The actual output captures some key facts such as the 9 FIRs missing incident dates, but it misses several other core points from the expected output like the timeline contradictions and the system disconnect between walk-in complaints and FIRs, resulting in a material omission.",
       "AnswerRelevancy": "The score is 1.00 because the actual output is completely relevant and directly addresses the briefing to the SHO regarding cases that might remain suppressed or overlooked."
-    }
-  },
-  {
-    "id": "G3",
-    "type": "Creative Generation",
-    "language": "ur",
-    "route": "XAGG",
-    "scores": {
-      "FactualCorrectness": 1.0,
-      "AnswerRelevancy": 0.889
-    },
-    "reasons": {
-      "FactualCorrectness": "The actual output successfully captures all three key facts from the expected output with remarkable accuracy, including the missing relationship details (82 vs 81, which is within the acceptable close-number margin), the weapon license status issue, and the missing incident dates in 9 FIRs. It matc",
-      "AnswerRelevancy": "The score is 0.89 because while the output mostly addresses the missing items in the case file as requested by the input, it includes minor speculation about case delays which is slightly irrelevant."
     }
   },
   {
@@ -445,6 +417,34 @@
     "reasons": {
       "FactualCorrectness": "The actual output incorrectly abstains and refuses to answer by stating it cannot provide a confident answer due to insufficient sources, whereas the expected output demonstrates that clear content and data were available to address the question.",
       "AnswerRelevancy": "The score is 0.25 because the output includes meta-statements, refers to non-existent sources, and gives evasive advice instead of directly answering the user's question about whether the system records investigations into suspicious deaths."
+    }
+  },
+  {
+    "id": "M4",
+    "type": "Contextual Summarization",
+    "language": "ur",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 0.1,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output directly contradicts the expected output regarding how to assess the severity of the case load and whether the two metrics align. Furthermore, the actual output incorrectly claims that no data exists on court stages, whereas the expected output provides specific statistics about co",
+      "AnswerRelevancy": "The score is 1.00 because the actual output is completely relevant and directly addresses the input regarding court case loads and legal charges without including any extraneous or off-topic information."
+    }
+  },
+  {
+    "id": "G3",
+    "type": "Creative Generation",
+    "language": "ur",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 1.0,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output successfully covers all key facts from the expected output, including the missing relationship data for 81 or 82 out of 94 defendants, the unrecorded license status for 2 out of 32 recovered weapons, and the missing incident dates in 9 FIRs. The minor numerical variations fall well",
+      "AnswerRelevancy": "The score is 1.00 because the actual output is completely relevant and directly addresses the inquiry about preparing a case file for extradition without any irrelevant statements."
     }
   }
 ]
