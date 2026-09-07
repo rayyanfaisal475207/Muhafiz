@@ -510,6 +510,42 @@ _META_ANALYSIS_TRIGGER_PATTERNS = [
     re.compile(r"\bflag\s*karne\s*layak\b", re.IGNORECASE),  # G5
     re.compile(r"\btawaqqo\b.{0,30}\brakhni\s*chahiye\b", re.IGNORECASE),  # G6
 
+    # [Gold-QA fix — Module 29] Paraphrase reach for the three shapes
+    # `meta_analysis.py::_DECOMPOSITION_PLANS` now decomposes
+    # deterministically. The gold text of CR3/G1/G6 already matched the
+    # patterns above, but their PARAPHRASES did not, and this list is the
+    # gate that decides whether a question reaches Meta-Analysis at all:
+    # G1's own non-gold paraphrase — "As the on-duty analyst, look over
+    # everything currently open and tell me what's worth a second look"
+    # (captured in Module 21's writeup) — matched NOTHING here, so it went
+    # to XNETWORK/Cross-Case Linkage and was correctly refused, and no
+    # decomposition fix in `meta_analysis.py` could ever have reached it.
+    # Same class of "the capability was curve-fit to one gold string" gap
+    # Module 22 caught in its own reporting-speed keywords.
+    #
+    # Negative-controlled across all 32 gold questions
+    # (tests/test_harness_agent_meta_analysis.py): these patterns add NO
+    # new gold question to this list — the 15 that matched before still
+    # match, and nothing else does. In particular nothing here uses a bare
+    # "flag" or "briefing", which would have swallowed G5 and G2 (both
+    # already reach this module and already answer correctly through the
+    # `decompose: false` single-dispatch fallback).
+    re.compile(r"\bworth\s+watching\b", re.IGNORECASE),
+    re.compile(r"\bworth\s+a\s+(second|closer)\s+look\b", re.IGNORECASE),
+    re.compile(r"\blook\s+over\s+everything\b", re.IGNORECASE),
+    re.compile(r"\banything\b.{0,40}\b(unusual|out\s+of\s+the\s+ordinary)\b", re.IGNORECASE),
+    re.compile(r"\blooks?\s+unusual\b", re.IGNORECASE),
+    re.compile(r"\bghair\s*[- ]?\s*mamooli\b", re.IGNORECASE),
+    re.compile(r"غیر\s*معمولی"),
+    re.compile(r"\bnewly\s+(posted|assigned|transferred|joined|appointed)\b", re.IGNORECASE),
+    re.compile(r"\bnew(ly)?\b.{0,30}\bofficer\b.{0,60}\bexpect\b", re.IGNORECASE),
+    re.compile(r"\bnaye?\s*(tainaat|tayinaat)\b", re.IGNORECASE),
+    re.compile(r"نئے\s*تعینات"),
+    re.compile(r"\bprocessed\s+and\s+recorded\b", re.IGNORECASE),
+    re.compile(r"\b(handled|recorded|processed)\s+(the\s+)?same\b", re.IGNORECASE),
+    re.compile(r"\bek\s*hi\s*tarah\s*(se)?\b", re.IGNORECASE),
+    re.compile(r"ایک\s*ہی\s*طرح"),
+
     # (B) comparative-over-time / branching comparison — M1, M2, M5, M7.
     re.compile(r"\bcompared\s+(to|with)\b", re.IGNORECASE),
     re.compile(r"\bgrowing\s+faster\b", re.IGNORECASE),
