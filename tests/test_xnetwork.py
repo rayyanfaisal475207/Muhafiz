@@ -177,6 +177,57 @@ async def test_boundary_just_past_the_cutoff_is_filtered(monkeypatch):
     assert result["no_relevant_reason"] is not None
 
 
+# ── Module 21 — pinned regression: the gate's post-Module-12 refusals on
+# CR3/CR4/G1/G6/CS4 are CORRECT, not a bug to "fix" by raising the cutoff ──
+# Investigated live (2026-09-08) against the real running stack: nearest-
+# community distances for these 5 literal gold questions measured
+# 0.156-0.202, all above RELEVANCE_DISTANCE_THRESHOLD (0.145) — the same
+# separation Module 12 documented, undisturbed by the KB re-ingest (that
+# ingest added chunks to the *document* collection, `muhafiz_kb`; the
+# community-report collection this gate reads is built from case/graph
+# clustering and was not touched by it). See
+# GOLD_QA_REMAINING_FIXES_PLAN.md's Module 21 section for the full
+# investigation and why the real defect for each of these questions lives
+# outside this file (a missing XAGG-shaped aggregate for CR3/G1/G6, a
+# router mis-classification for CR4, and the Module 25 Meta-Analysis/
+# verifier interaction for CS4) — this test only pins that the GATE itself
+# keeps refusing correctly, so a future "just raise the threshold" change
+# doesn't silently re-admit the RC-1 cluster-dump behavior for these exact
+# questions.
+@pytest.mark.parametrize(
+    "query_text, nearest_distance",
+    [
+        ("In the online banking fraud matter involving two separate victims, "
+         "was each victim's case processed and recorded the same way?", 0.156),  # CR3
+        ("If we've got a weapon logged as evidence, can we tell who it was "
+         "taken off and what happened to them?", 0.184),  # CR4
+        ("Acting as a crime analyst, review our current caseload and flag "
+         "anything that looks unusual or worth monitoring.", 0.202),  # G1
+        ("Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation "
+         "note likhein - unhein mojooda case load se kya tawaqqo rakhni "
+         "chahiye?", 0.181),  # G6
+        ("Kya wusee criminal-history records mein koi aisa shakhs hai jo "
+         "hamare apne darj kiye hue kisi case se match nahi karta?", 0.159),  # CS4
+    ],
+)
+async def test_module21_five_over_refusal_questions_still_correctly_gated(
+    monkeypatch, query_text, nearest_distance
+):
+    reports = [_report("COMM-1", ["CASE-A"]), _report("COMM-2", ["CASE-B"])]
+    reports[0]["distance"] = nearest_distance
+    reports[1]["distance"] = nearest_distance + 0.02
+
+    async def fake_query_similar_communities(query, top_k=5):
+        return reports
+
+    monkeypatch.setattr(xnetwork, "query_similar_communities", fake_query_similar_communities)
+
+    result = await xnetwork.run_network_query(query_text, FakeGateway(), user_role="supervisor")
+
+    assert result["results"] == []
+    assert result["no_relevant_reason"] is not None
+
+
 async def test_relevance_gate_applies_after_jurisdiction_filter(monkeypatch):
     """The two post-filters compose: jurisdiction narrows the candidate set
     first, then relevance is judged only among the survivors, and the
