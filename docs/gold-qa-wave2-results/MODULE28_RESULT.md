@@ -376,6 +376,19 @@ alone:
    introduced or worsened here, and Module 23 owns `xagg.py`'s weapon family
    for this wave, so it is left to that track.
 
+3. **A known widening risk in the attribution family, accepted, not hidden.**
+   `recovered from` / `seized from` are person-attribution language in this
+   domain, but they also occur in *place* phrasings — e.g. a hypothetical
+   "how many weapons were recovered from crime scenes last year?" would match
+   the conjunction and get the chain aggregate rather than a count. No gold
+   question is affected (the all-32 control is exact), and the chain's own
+   answer does disclose the crime-scene recoveries separately, so the failure
+   mode is "a less specific answer", not a wrong one. Tightening the family to
+   require an explicit person interrogative would cost recall on legitimate
+   paraphrases such as the brief's own ("…whoever they were taken from"),
+   which is why it was left as is. Worth revisiting if Module 27's rerun
+   surfaces a real instance rather than a hypothetical one.
+
 **Deliberately not done:** `docs/gold-qa-wave2-results/README.md`'s index row
 for Module 28 is left at "in progress". Module 23's row is adjacent in the
 same table and Track A is editing it concurrently; a one-line edit there would
