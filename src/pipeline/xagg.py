@@ -430,6 +430,73 @@ def _is_reporting_speed_comparison(query_lower: str) -> bool:
         _matches_any(query_lower, _REPORTING_SPEED_SIGNALS)
         and _matches_any(query_lower, _SPEED_COMPARISON_SIGNALS)
     )
+
+
+# [Gold-QA fix — Module 23, question M5] "ہتھیار عام طور پر کس نوعیت کے
+# مقدمات میں سامنے آتے ہیں، اور کیا 2024 کے مقابلے میں اب یہ نوعیت بدل گئی
+# ہے؟" — in what KINDS OF CASES do weapons show up, and has that changed
+# since 2024? A weapon × statute CO-OCCURRENCE question, and the one shape
+# no aggregate in this module could express before: `_statute_mix_by_year()`
+# (M1's) has no weapon dimension at all, and `_top_recurring_weapon_types()`
+# has no statute or year dimension, so M5 fell through
+# `_TIME_COMPARISON_KEYWORDS` into the former and came back with a flat
+# per-year statute ranking over ALL cases — a valid answer to a different
+# question.
+#
+# Deliberately a THREE-signal AND (weapon + case-type/statute + change-over-
+# time), for the same reason `_is_reporting_speed_comparison()` above is a
+# two-signal AND: every one- or two-signal widening collides with a
+# neighbouring family this chain already serves.
+#   - weapon alone           -> the bare weapon-recurrence aggregate
+#                               (`_top_recurring_weapon_types()`), and CP1's
+#                               district+weapon rate path
+#   - weapon + compliance    -> G5's `_weapon_compliance_scan()`, which
+#                               scores 1.0 today and is checked ABOVE this
+#                               one in `run_aggregate()` regardless
+#   - case-type + change     -> M1's `_statute_mix_by_year()`, which is
+#                               exactly right for M1 and must keep it
+# Requiring all three is what leaves each of those untouched.
+_CASE_TYPE_TERMS = (
+    "kind of case", "kinds of case", "type of case", "types of case",
+    "case type", "case types", "nature of the case", "sort of case",
+    "sorts of case", "offence", "offense", "charge", "charged", "statute",
+    "section", "crime type", "kind of crime", "kinds of crime",
+    "type of crime", "types of crime",
+    "kis nau", "nauiyat", "qisam", "muqadmat", "mukadmat", "dafaat",
+    "نوعیت", "مقدمات", "مقدمے", "مقدموں", "دفعات", "جرائم",
+)
+# NOTE on what is deliberately NOT here: a bare "پہلے"/"pehle" ("before").
+# `_REPORTING_SPEED_SIGNALS` above records the live-caught reason — KB8's
+# "before" means "before the investigation completes", not "a few years
+# before" — and the same caution applies to any list this file uses as a
+# change-over-time signal. Only time-PERIOD forms are listed.
+_CHANGE_OVER_TIME_TERMS = (
+    "used to", "changed", "changing", "has changed", "any different",
+    "different than", "different from", "shifted", "shifting", "shift",
+    "these days", "nowadays", "now compared", "still the same",
+    "compared to", "compared with", "year over year", "years back",
+    "years ago", "over time", "trend",
+    "2024", "2025", "2026",
+    "badal", "badla", "tabdeel", "tabdeeli", "ke muqable", "kay muqable",
+    "بدل", "تبدیل", "کے مقابلے میں", "رجحان",
+)
+
+
+def _is_weapon_statute_cooccurrence(query_lower: str) -> bool:
+    """
+    True for M5's family: weapons + what kind of case they turn up in +
+    whether that changed over time.
+
+    A named predicate rather than an inlined three-way `and`, for the same
+    reason `_is_reporting_speed_comparison()` is one — the boundaries it
+    protects (G5, M1, CP1, the bare weapon recurrence path) are then
+    testable directly, without standing up a gateway and a fake graph.
+    """
+    return (
+        _matches_any(query_lower, _WEAPON_KEYWORDS + _WEAPON_TERMS)
+        and _matches_any(query_lower, _CASE_TYPE_TERMS)
+        and _matches_any(query_lower, _CHANGE_OVER_TIME_TERMS)
+    )
 # A bare "how many total" request — distinct from _LIST_ALL_KEYWORDS (which
 # wants the raw records) and from the grouped-count default below (which
 # always breaks the answer down by station/category). Live-observed gap
@@ -1593,6 +1660,272 @@ async def _statute_mix_by_year(gateway, jurisdiction_case_ids: Optional[list[str
     }
 
 
+# [Gold-QA fix — Module 23, question M5] Weapon × statute co-occurrence, by
+# incident year — "in what kinds of cases do weapons show up, and has that
+# changed since 2024?"
+#
+# The MISSING PRIMITIVE this closes: nothing in this module joined a Weapon
+# to its case's statutes. `_statute_mix_by_year()` directly above has the
+# year and statute dimensions but no weapon one; `_top_recurring_weapon_types()`
+# has the weapon dimension but neither of the others. M5 therefore fell into
+# the former and got a per-year statute ranking over ALL cases — the right
+# shape for M1, and unable in principle to say what a weapon charge pairs
+# with.
+#
+# Three graph reads, joined on case_id in Python rather than one four-label
+# Cypher MATCH chain, because each of the three is the SAME query an existing
+# aggregate here already issues, so their semantics stay pinned to those
+# aggregates':
+#   1. year per case      — identical to `_statute_mix_by_year()`'s own
+#                           query, so the two can never disagree about which
+#                           year a case falls in (the failure mode this
+#                           module's brief calls out explicitly).
+#   2. weapons per case   — `_top_recurring_weapon_types()`'s query, and
+#                           normalized through the same
+#                           `_normalize_weapon_type()`, so "30 بور پستول" and
+#                           "30 بور پستول بمعہ 3 گولیاں" stay one type.
+#   3. statutes per case  — `StructuredRecord{record_type: 'fir_section'}`,
+#                           projected by structured_projection.py from
+#                           psrms.fir_section and linked BELONGS_TO_CASE.
+#                           This is SECTION-level (`act` + `section_code`,
+#                           e.g. "PPC" + "392"), strictly finer than
+#                           `cases.crime_category`, which
+#                           `muhafiz_cases._crime_category()` reduces to the
+#                           ACT list alone ("PPC, Arms Ordinance 1965") and
+#                           which therefore cannot tell robbery (392) from
+#                           murder (302) — the exact distinction M5's answer
+#                           turns on. Verified live against the graph (218
+#                           fir_section records, every one carrying a
+#                           BELONGS_TO_CASE edge), not inferred.
+_WEAPONS_ACT_TOKENS = ("arms ordinance", "arms act", "آرمز آرڈیننس")
+
+
+def _statute_label(act: Optional[str], section_code: Optional[str]) -> Optional[str]:
+    """
+    "PPC" + "392" -> "PPC §392"; an act with no section code -> the bare act.
+    Section-first would read closer to how an FIR header writes it
+    ("392 PPC"), but act-first keeps one act's sections together once the
+    labels are sorted, which is what the renderer below relies on.
+    """
+    act = (act or "").strip()
+    section = (section_code or "").strip()
+    if not act:
+        return f"§{section}" if section else None
+    return f"{act} §{section}" if section else act
+
+
+def _is_weapons_act(statute_key: str) -> bool:
+    """True for a weapons-law statute (the 'weapon charge' itself) — matched
+    on the ACT name, never a hardcoded section number, so a different section
+    of the same ordinance still counts."""
+    lowered = (statute_key or "").lower()
+    return any(t in lowered for t in _WEAPONS_ACT_TOKENS)
+
+
+async def _weapon_statute_cooccurrence_by_year(
+    jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    """
+    [Gold-QA fix — Module 23, question M5] For every case with a recovered
+    Weapon, that case's statute set, bucketed by incident year.
+
+    Reports two views per year, because M5 asks two things at once:
+      - `statutes`: what every weapon-bearing case that year was charged
+        under — "in what kinds of cases do weapons show up".
+      - `cooccurring`: among the weapon-bearing cases that also carry a
+        WEAPONS-LAW charge, which OTHER statutes appear alongside it — the
+        narrower "what does a weapon charge pair with" view, and the one
+        whose change over time is M5's actual point.
+    `pairs` keeps the weapon-type × statute cross-tab underneath both, so a
+    corpus with a genuinely mixed weapon register can be read per type rather
+    than only in aggregate.
+
+    A weapon-bearing case with no resolvable incident year is counted in
+    `undated_weapon_cases` rather than folded into any year — the same
+    discipline as `_extract_year()`'s own contract.
+    """
+    case_filter = "AND c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+    plain_filter = "WHERE c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+    params: dict = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+
+    year_rows = await age_client.execute_cypher(
+        "MATCH (i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+        "MATCH (i)-[oe:OCCURRED_ON]->(d:Date) "
+        f"WHERE oe.event_type = 'incident' {case_filter}"
+        "RETURN d.date AS incident_date, c.case_id AS case_id",
+        params=params, columns=["incident_date", "case_id"],
+    )
+    year_by_case: dict[str, int] = {}
+    for row in year_rows:
+        case_id = row.get("case_id")
+        year = _extract_year(row.get("incident_date"))
+        if case_id and year is not None:
+            year_by_case[case_id] = year
+
+    weapon_rows = await age_client.execute_cypher(
+        "MATCH (w:Weapon)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"{plain_filter}"
+        "RETURN w.canonical_name AS weapon_name, c.case_id AS case_id",
+        params=params, columns=["weapon_name", "case_id"],
+    )
+    weapons_by_case: dict[str, set[str]] = {}
+    for row in weapon_rows:
+        case_id = row.get("case_id")
+        wtype = _normalize_weapon_type(row.get("weapon_name") or "")
+        if case_id and wtype:
+            weapons_by_case.setdefault(case_id, set()).add(wtype)
+
+    statute_rows = await age_client.execute_cypher(
+        "MATCH (s:StructuredRecord)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE s.record_type = 'fir_section' {case_filter}"
+        "RETURN s.act AS act, s.section_code AS section_code, c.case_id AS case_id",
+        params=params, columns=["act", "section_code", "case_id"],
+    )
+    statutes_by_case: dict[str, set[str]] = {}
+    for row in statute_rows:
+        case_id = row.get("case_id")
+        label = _statute_label(row.get("act"), row.get("section_code"))
+        if case_id and label:
+            statutes_by_case.setdefault(case_id, set()).add(label)
+
+    per_year: dict[int, dict] = {}
+    undated = 0
+    for case_id, wtypes in weapons_by_case.items():
+        year = year_by_case.get(case_id)
+        if year is None:
+            undated += 1
+            continue
+        statutes = statutes_by_case.get(case_id, set())
+        bucket = per_year.setdefault(year, {
+            "cases": set(), "statutes": Counter(), "weapon_types": Counter(),
+            "pairs": Counter(), "weapon_charge_cases": set(), "cooccurring": Counter(),
+        })
+        bucket["cases"].add(case_id)
+        for wtype in wtypes:
+            bucket["weapon_types"][wtype] += 1
+        for statute in statutes:
+            bucket["statutes"][statute] += 1
+            for wtype in wtypes:
+                bucket["pairs"][(wtype, statute)] += 1
+        # The co-occurrence view: only cases that actually carry a
+        # weapons-law charge, and only the OTHER statutes on them.
+        if any(_is_weapons_act(s) for s in statutes):
+            bucket["weapon_charge_cases"].add(case_id)
+            for statute in statutes:
+                if not _is_weapons_act(statute):
+                    bucket["cooccurring"][statute] += 1
+
+    def _counts(counter: Counter) -> list[dict]:
+        # Ties broken alphabetically so the rendered order is stable across
+        # runs — Counter.most_common() alone leaves equal counts in insertion
+        # order, which for a set-derived input is not deterministic.
+        return [
+            {"key": k, "count": v}
+            for k, v in sorted(counter.items(), key=lambda kv: (-kv[1], kv[0]))
+        ]
+
+    # Observability, not decoration: this module's verification standard
+    # requires PROVING which aggregate a live question reached, and the SSE
+    # stream only ever exposes `route='XAGG'` — one line per aggregate is the
+    # difference between a demonstrated route and an inferred one.
+    logger.info(
+        "XAGG weapon_statute_cooccurrence: %d weapon case(s), %d year bucket(s), "
+        "%d with no resolvable incident date",
+        len(weapons_by_case), len(per_year), undated,
+    )
+    return {
+        "kind": "weapon_statute_cooccurrence",
+        "total_weapon_cases": len(weapons_by_case),
+        "undated_weapon_cases": undated,
+        "buckets": [
+            {
+                "year": year,
+                "case_count": len(b["cases"]),
+                "statutes": _counts(b["statutes"]),
+                "weapon_types": _counts(b["weapon_types"]),
+                "weapon_charge_case_count": len(b["weapon_charge_cases"]),
+                "cooccurring": _counts(b["cooccurring"]),
+                "pairs": [
+                    {"weapon_type": wt, "statute": st, "count": n}
+                    for (wt, st), n in sorted(
+                        b["pairs"].items(), key=lambda kv: (-kv[1], kv[0][0], kv[0][1])
+                    )
+                ],
+            }
+            for year, b in sorted(per_year.items())
+        ],
+    }
+
+
+def render_weapon_statute_cooccurrence(agg_result: dict) -> list[str]:
+    """
+    [Gold-QA fix — Module 23, M5] Shared renderer for all three XAGG
+    rendering sites, same reason as `render_time_bucketed_mean()` above.
+
+    The closing "what changed" line is DERIVED from the buckets (a set
+    difference between the earliest and latest year's co-occurring statutes),
+    never a narrative pinned to the years or sections the gold answer happens
+    to name — if the corpus stops showing the widening, the line stops
+    claiming it.
+    """
+    buckets = agg_result.get("buckets") or []
+    if not buckets:
+        return [
+            "No case with a recovered weapon has a resolvable incident date, "
+            "so weapon charges cannot be broken down by year."
+        ]
+
+    total = agg_result.get("total_weapon_cases", 0)
+    lines = [
+        f"{total} case(s) recorded a recovered weapon. What those cases were "
+        f"charged under, by incident year:",
+    ]
+    for b in buckets:
+        lines.append("")
+        lines.append(f"**{b['year']}** — {b['case_count']} case(s) with a recovered weapon:")
+        for s in b["statutes"]:
+            lines.append(f"  - {s['key']}: {s['count']}")
+        wtypes = ", ".join(f"{w['key']} ({w['count']})" for w in b["weapon_types"])
+        if wtypes:
+            lines.append(f"  Weapon types recovered: {wtypes}.")
+        if b["weapon_charge_case_count"]:
+            paired = ", ".join(f"{c['key']} ({c['count']})" for c in b["cooccurring"])
+            lines.append(
+                f"  Of these, {b['weapon_charge_case_count']} carry a weapons-law "
+                f"charge; the sections it appears alongside: {paired or 'none'}."
+            )
+
+    if len(buckets) >= 2:
+        first, last = buckets[0], buckets[-1]
+        before = {c["key"] for c in first["cooccurring"]}
+        after = {c["key"] for c in last["cooccurring"]}
+        added = sorted(after - before)
+        dropped = sorted(before - after)
+        lines.append("")
+        if added:
+            lines.append(
+                f"Change {first['year']} to {last['year']}: the weapons charge now "
+                f"also appears with {', '.join(added)}, which it did not in "
+                f"{first['year']}."
+            )
+        if dropped:
+            lines.append(f"No longer paired with: {', '.join(dropped)}.")
+        if not added and not dropped:
+            lines.append(
+                f"The set of statutes a weapons charge appears alongside is "
+                f"unchanged between {first['year']} and {last['year']}."
+            )
+
+    undated = agg_result.get("undated_weapon_cases") or 0
+    if undated:
+        lines.append("")
+        lines.append(
+            f"({undated} case(s) with a recovered weapon are excluded — no "
+            f"incident date recorded.)"
+        )
+    return lines
+
+
 # [Module 13, RC-2, question M7] Year-partitioned reporting-delay picture —
 # "are people reporting incidents to police as quickly in 2026 as in 2024".
 #
@@ -2171,6 +2504,28 @@ async def run_aggregate(
         query_lower, _TREND_KEYWORDS
     ):
         return await _reporting_delay_count(jurisdiction_case_ids=jurisdiction_case_ids)
+    # [Gold-QA fix — Module 23, question M5] Weapon × statute co-occurrence,
+    # checked immediately BEFORE M1's `_TIME_COMPARISON_KEYWORDS` branch just
+    # below, which is exactly what used to swallow M5 ("...کے مقابلے میں..."
+    # is a literal entry in that tuple) and answer it with a per-year statute
+    # ranking that has no weapon dimension at all.
+    #
+    # Placement, in both directions:
+    #   - BELOW G5's weapon+compliance check and M7's
+    #     `_is_reporting_speed_comparison()`, both of which stay first for
+    #     their own shapes — neither carries all three of this predicate's
+    #     signals anyway, so this is belt-and-braces, not load-bearing.
+    #   - ABOVE `_TIME_COMPARISON_KEYWORDS` (M1), `_TREND_KEYWORDS`' refusal,
+    #     `_DISTRICT_KEYWORDS` (Module 1c's district+weapon path) and the bare
+    #     `_WEAPON_KEYWORDS` recurrence branch — the three prior collision
+    #     sites this chain's comments already name. A bare weapon question,
+    #     and a district+weapon question, still fall through untouched
+    #     because `_is_weapon_statute_cooccurrence()` also requires a
+    #     case-type/statute term AND a change-over-time term.
+    if _is_weapon_statute_cooccurrence(query_lower):
+        return await _weapon_statute_cooccurrence_by_year(
+            jurisdiction_case_ids=jurisdiction_case_ids
+        )
     # [Gold-QA fix — Module 13, question M1] Checked before _TREND_KEYWORDS'
     # hard refusal — a year-over-year case-type/statute comparison now has a
     # real aggregate (_statute_mix_by_year(), powered by each Incident's own
