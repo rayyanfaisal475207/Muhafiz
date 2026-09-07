@@ -65,7 +65,7 @@ several can run in parallel chats/worktrees without colliding.
 | 20b | M4/G3 bare-Urdu-keyword collision | `fix/xagg-court-readiness-bare-urdu-keyword-collision` | ✅ **PR #8 open** |
 | 19a | KB-intent coverage for all 8 KB questions | `fix/kb-intent-coverage-all-gold-questions` | ✅ **PR #9 open** |
 | 19b | Evaluator compound-question relaxation not firing | `fix/evaluator-compound-relaxation-not-firing` | ⬜ Not started — **highest value** |
-| 21 | XNETWORK/XGRAPH relevance-gate over-refusal | `fix/xnetwork-relevance-gate-over-refusal` | ✅ Investigated — no fix belongs in this module's files, see below |
+| 21 | XNETWORK/XGRAPH relevance-gate over-refusal | `fix/xnetwork-relevance-gate-over-refusal` | ✅ **PR #12 open** — investigated, no fix belongs in this module's files, split into Modules 28/29 |
 | 22 | M7 reporting-delay: wrong metric | `feature/xagg-incident-to-report-delta` | ⬜ Not started |
 | 23 | M5 weapon × statute co-occurrence join | `feature/xagg-weapon-statute-cooccurrence` | ⬜ Not started |
 | 24 | M4 statute × court-stage join | `feature/xagg-statute-court-stage-join` | ⬜ Blocked on PR #8 |
