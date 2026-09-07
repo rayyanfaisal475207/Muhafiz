@@ -240,7 +240,94 @@ _LEGAL_KB_INTENT_PATTERNS = [
     re.compile(r"\b(kaun\s*si|kis)\b.{0,15}\b(dafa|qanoon|qanun|shq|act)\b", re.IGNORECASE),
     re.compile(r"\bkis\s+qanoon\s+ke\s+tehat\b", re.IGNORECASE),
     re.compile(r"\bqanoon[iy]\s+taqaz", re.IGNORECASE),
+    # ── Module 18 follow-up: patterns mined from the ACTUAL text of the 7
+    # KB questions that were still abstaining (KB2/3/4/5/6/8/9) ───────────
+    #
+    # The patterns above were mined from KB1's shape alone ("which law
+    # GOVERNS X"). Checked directly against the other seven KB questions'
+    # literal gold text: they matched 0 of 7 — the same "patterns written
+    # against hypothetical phrasing" failure Module 11 found for
+    # Meta-Analysis's triggers. Live-confirmed consequence: KB2/KB3
+    # retrieved from the MIXED case pool, the evaluator correctly rejected
+    # the case narratives as irrelevant three times, and the question
+    # abstained ("No sufficiently relevant documents were found") even
+    # though the governing statute was sitting in the KB corpus.
+    #
+    # Widening is low-risk BY CONSTRUCTION here (unlike a router override):
+    # KB-only is only ever tried FIRST, with the original mixed pool kept
+    # as an automatic fallback (see `where_scopes` in `rag_tool()`), so a
+    # false positive costs one extra retrieval pass, never an answer.
+    #
+    # (a) "does/do the law require|expect|say|allow ..." — a normative
+    #     question about the law with no "which/what" interrogative, so
+    #     the first pattern above can't see it (KB3).
+    re.compile(
+        r"\b(does|do|is|are|must|should)\b.{0,25}\blaws?\b"
+        r".{0,40}\b(require|expect|mandate|say|allow|permit|oblige|treat|define|distinguish)",
+        re.IGNORECASE,
+    ),
+    # (b) "statutory/legal standard|obligation|duty|procedure|framework"
+    re.compile(
+        r"\b(statutory|legal)\s+(standard|obligation|duty|procedure|framework|threshold)s?\b",
+        re.IGNORECASE,
+    ),
+    # (c) Witness/accused STATEMENT-recording questions (KB2) — squarely
+    #     evidence-law territory (CrPC 161/162 statements, Qanun-e-Shahadat),
+    #     even when the question never says the word "law" at all.
+    re.compile(
+        r"\b(witness|accused|suspect|complainant)\b.{0,50}"
+        r"\b(statement|said|say|interview|interrogat|deposition|testimony)",
+        re.IGNORECASE,
+    ),
+    # (d) Named KB corpora the original list missed — the Forensics
+    #     guidelines and Punjab Police Rules are two of the seven PDFs
+    #     actually in this corpus (KB6, KB4).
+    re.compile(
+        r"\b(forensics?\s+guidelines?|punjab\s+police\s+rules|police\s+rules)\b",
+        re.IGNORECASE,
+    ),
+    # (e) Urdu: "قانون ... تقاضا/ضروری/لازم" (the law requires ...) — the
+    #     noun form, where the existing pattern only caught the adjective
+    #     "قانونی تقاضا" (KB5).
+    re.compile(r"قانون.{0,40}(تقاض|ضروری|لازم|پابند)"),
+    # (f) Urdu: "کوئی باقاعدہ معیار/ضابطہ/طریقۂ کار موجود ہے" (is there a
+    #     formal standard/procedure for this) — a norm question that never
+    #     uses the word "قانون" (KB4).
+    re.compile(r"(باقاعدہ|مقرر[ہہ]?)\s*(معیار|ضابط|اصول|طریق)"),
+    re.compile(r"کوئی\s*(باقاعدہ|قانونی|مقررہ)\s*(معیار|ضابط|اصول|طریق)"),
+    # (g) Roman-Urdu: "qanoon ... zaroori/lazmi karta hai" (KB8), and
+    #     "police ko ... karni hoti hai" (police are required to ..., KB9)
+    #     — normative duty phrasing with no interrogative law word.
+    re.compile(r"\bqanoo?n\b.{0,50}\b(zaroori|zaruri|lazmi|laazmi|paband|taqaza)", re.IGNORECASE),
+    re.compile(
+        r"\b(police|tafteesh|tehqeeqat|tehqiqat)\b.{0,50}"
+        r"\b(karni\s+hoti\s+hai|karna\s+hota\s+hai|zaroori|lazmi|laazmi)\b",
+        re.IGNORECASE,
+    ),
 ]
+
+# Module 18 follow-up, second half: the compound "[legal/procedural norm]
+# — and does OUR data actually reflect it?" shape that every one of these
+# KB questions takes (KB1 included). Neither half alone is a reliable KB
+# signal — "our weapon register" alone is a plain data question, and a
+# norm word alone can appear in any narrative — but their CO-OCCURRENCE is
+# distinctive to exactly this compound legal-vs-practice question type.
+# Kept as a two-signal AND rather than one long regex so each side stays
+# readable and independently testable.
+_NORM_SIGNAL_RE = re.compile(
+    r"\b(law|legal|statut\w+|rule|regulation|guideline|standard|procedure|"
+    r"required?|requirement|mandat\w+|oblig\w+|must|supposed to|meant to|expects?)\b"
+    r"|قانون|ضابط|معیار|لازم|ضروری|تقاض"
+    r"|\b(qanoo?n|zaroori|zaruri|lazmi|laazmi|usool|zabta)\b",
+    re.IGNORECASE,
+)
+_OUR_DATA_SIGNAL_RE = re.compile(
+    r"\b(our|we|us)\b.{0,30}\b(system|data|record|records|recordkeeping|register|"
+    r"database|file|files|tracking)\b"
+    r"|\bhamara|hamari|hamare\b"
+    r"|ہمار[اےی]",
+    re.IGNORECASE,
+)
 
 # A case/FIR anchor in the query text means the question genuinely needs
 # case data too — keep the mixed scope rather than narrowing to KB-only.
@@ -263,7 +350,14 @@ def _is_legal_kb_intent(query_text: str) -> bool:
         return False
     if _CASE_ANCHOR_RE.search(query_text):
         return False  # names a specific case — needs the mixed pool
-    return any(pat.search(query_text) for pat in _LEGAL_KB_INTENT_PATTERNS)
+    if any(pat.search(query_text) for pat in _LEGAL_KB_INTENT_PATTERNS):
+        return True
+    # Module 18 follow-up: the compound "does the law require X — and does
+    # OUR data reflect it?" shape, caught by the co-occurrence of a
+    # norm signal and an our-data signal (see those patterns' own comment).
+    return bool(
+        _NORM_SIGNAL_RE.search(query_text) and _OUR_DATA_SIGNAL_RE.search(query_text)
+    )
 
 
 def _build_where(

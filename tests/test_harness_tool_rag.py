@@ -326,6 +326,69 @@ def test_is_legal_kb_intent_false_for_case_anchored_or_non_legal():
     assert not rag_mod._is_legal_kb_intent("how many FIRs are there")
 
 
+# ── Module 18 follow-up: the 7 KB questions Module 8c's patterns missed ────
+#
+# Module 8c mined its patterns from KB1's shape alone ("which law GOVERNS
+# X"). Checked against the literal gold text of the other seven KB
+# questions, they matched 0 of 7 — so those questions searched the mixed
+# case pool, the evaluator correctly rejected the case narratives as
+# irrelevant, and every one of them abstained despite the governing
+# statute being present in the KB corpus (live-confirmed on KB2/KB3:
+# "No sufficiently relevant documents were found ... after retrying").
+# These are the questions' real texts, verbatim from
+# Gold_QA_Dataset_Final32.json.
+
+@pytest.mark.parametrize("qid,question", [
+    ("KB2", "Why doesn't our system keep a record of what a witness or an accused "
+            "person actually said in a police interview — is that a data gap?"),
+    ("KB3", "Does the law expect the officer who first registers a case to be the "
+            "same one who investigates it, or are those meant to be separate roles "
+            "— and does that match what actually happens in our data?"),
+    ("KB4", "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس "
+            "بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے "
+            "تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟"),
+    ("KB5", "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے "
+            "مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر "
+            "کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟"),
+    ("KB6", "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke "
+            "baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya "
+            "hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?"),
+    ("KB8", "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske "
+            "mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — "
+            "aur kya hamara case-tracking data batayega ke aisa hua ya nahi?"),
+    ("KB9", "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki "
+            "wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh "
+            "kahin darj karta hai, khaas tor par jab hamare itne cases mein maut "
+            "shamil hai?"),
+])
+def test_is_legal_kb_intent_covers_every_gold_kb_question(qid, question):
+    assert rag_mod._is_legal_kb_intent(question), f"{qid} must route to the KB corpus"
+
+
+def test_norm_signal_alone_is_not_kb_intent():
+    """The compound norm-AND-our-data check must need BOTH halves: a norm
+    word on its own appears in ordinary narrative text, and an our-data
+    phrase on its own is a plain data question."""
+    # Norm word, no "our data" half.
+    assert not rag_mod._is_legal_kb_intent("the accused must appear before the magistrate")
+    # "our data" half, no norm word.
+    assert not rag_mod._is_legal_kb_intent("how many records are in our system?")
+
+
+def test_non_kb_gold_questions_do_not_become_kb_intent():
+    """Negative control on the real non-KB gold questions' shapes: the
+    widened patterns must not pull ordinary aggregate/narrative questions
+    into KB-only scoping."""
+    for q in [
+        "How many FIRs are registered in total?",
+        "Which type of weapon appears most often across all cases?",
+        "Has anyone been arrested more than once?",
+        "Acting as a crime analyst, review our current caseload and flag "
+        "anything that looks unusual or worth monitoring.",
+    ]:
+        assert not rag_mod._is_legal_kb_intent(q), q
+
+
 def _spy_retrieve(monkeypatch, relevant_scopes):
     """Patch _retrieve_candidates to record every `where` it's called with,
     returning candidates ONLY for scopes named in `relevant_scopes` (a set of
