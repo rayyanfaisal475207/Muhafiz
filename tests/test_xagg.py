@@ -1364,3 +1364,31 @@ async def test_g3_court_readiness_combines_three_signals(monkeypatch):
     assert "81 of 93" in text
     assert "2 of 32" in text
     assert "9 FIRs record no incident date" in text
+
+
+# ── Gold-QA fix — M4 vs. G3 keyword collision (Module 18 rerun) ─────────────
+#
+# Live regression: _COURT_READINESS_KEYWORDS used to include the bare Urdu
+# word "عدالت" ("court") on its own. M4 ("...وہ مقدمے عدالت میں کہاں تک
+# پہنچے" — how far cases have progressed IN COURT, an unrelated
+# statute×court-stage comparison question) contains that word incidentally
+# and got hijacked into this court-file-readiness scan instead of its own
+# route. Fixed by keeping only the actual handover/readiness-framing
+# phrases (G3's own shape: "عدالت کو حوالگی", "کیس فائل تیار", etc.), never
+# the bare word alone.
+
+def test_m4_does_not_collide_with_court_readiness_keywords():
+    m4 = (
+        "ایک طرف یہ دیکھیں کہ لوگوں پر کن دفعات میں مقدمے بن رہے ہیں، اور "
+        "دوسری طرف یہ کہ وہ مقدمے عدالت میں کہاں تک پہنچے — کیا دونوں سے "
+        "کیس لوڈ کی سنگینی کا ایک ہی اندازہ ہوتا ہے؟"
+    )
+    assert not xagg._matches_any(m4.lower(), xagg._COURT_READINESS_KEYWORDS)
+
+
+def test_g3_still_matches_court_readiness_keywords_after_narrowing():
+    g3 = (
+        "آپ عدالت کو حوالگی کے لیے ایک کیس فائل تیار کر رہے ہیں — ڈیٹا کی "
+        "روشنی میں، کن چیزوں کے نامکمل قرار پانے کا سب سے زیادہ امکان ہے؟"
+    )
+    assert xagg._matches_any(g3.lower(), xagg._COURT_READINESS_KEYWORDS)
