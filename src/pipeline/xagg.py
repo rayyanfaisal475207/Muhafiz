@@ -182,7 +182,14 @@ _COURT_READINESS_KEYWORDS = (
     "case file for court", "court file", "handover to court", "prosecutor",
     "before accepting", "court accept", "ready for court", "case file ready",
     "adalat ko hawalgi", "court file tayyar", "case file tayyar",
-    "عدالت کو حوالگی", "کیس فائل تیار", "پراسیکیوٹر", "عدالت", "حوالگی کے لیے",
+    # NOTE: deliberately NOT the bare "عدالت" ("court") on its own — live
+    # collision found (Module 18 rerun): M4 asks how far cases have
+    # progressed "عدالت میں" (in court), an unrelated statute×court-stage
+    # comparison question, and the bare word alone was enough to hijack it
+    # into this court-file-readiness scan. Keep only the actual handover/
+    # readiness-framing phrases below, same discipline as the CR8/KB1
+    # false-positive already fixed in router.py.
+    "عدالت کو حوالگی", "کیس فائل تیار", "پراسیکیوٹر", "حوالگی کے لیے",
     "قبول کرنے سے پہلے",
 )
 _TREND_KEYWORDS = (
