@@ -66,11 +66,11 @@ several can run in parallel chats/worktrees without colliding.
 | 19a | KB-intent coverage for all 8 KB questions | `fix/kb-intent-coverage-all-gold-questions` | ✅ **PR #9 open** |
 | 19b | Evaluator compound-question relaxation not firing | `fix/evaluator-compound-relaxation-not-firing` | ⬜ Not started — **highest value** |
 | 21 | XNETWORK/XGRAPH relevance-gate over-refusal | `fix/xnetwork-relevance-gate-over-refusal` | ⬜ Not started |
-| 22 | M7 reporting-delay: wrong metric | `feature/xagg-incident-to-report-delta` | ⬜ Not started |
+| 22 | M7 reporting-delay: wrong metric | `feature/xagg-incident-to-report-delta` | ✅ **Done — M7 verified live, matches gold exactly.** One known gap left to Module 26, see below |
 | 23 | M5 weapon × statute co-occurrence join | `feature/xagg-weapon-statute-cooccurrence` | ⬜ Not started |
 | 24 | M4 statute × court-stage join | `feature/xagg-statute-court-stage-join` | ⬜ Blocked on PR #8 |
 | 25 | M2 Meta-Analysis → verifier rejection | `fix/meta-analysis-synthesis-verifier-rejection` | ⬜ Not started |
-| 26 | M1 routing miss (XGRAPH instead of aggregate) | `fix/router-year-over-year-comparison-to-xagg` | ⬜ Not started |
+| 26 | M1 routing miss (XGRAPH instead of aggregate) | `fix/router-year-over-year-comparison-to-xagg` | ✅ PR open (branch pushed) |
 | 27 | Final Gold-32 rerun (Module 18 redo) | *(docs only)* | ⬜ Blocked on all above |
 
 ---
@@ -83,11 +83,11 @@ several can run in parallel chats/worktrees without colliding.
 |---|---|
 | 19b | `prompts/evaluator.txt`, maybe `src/pipeline/evaluator.py` |
 | 21 | `src/pipeline/xnetwork.py` |
-| 22 | `src/pipeline/xagg.py` |
+| 22 | `src/pipeline/xagg.py` **+ `src/graph/structured_projection.py` + a graph backfill** (scope was larger than this table originally said — see Module 22's section) |
 | 23 | `src/pipeline/xagg.py` |
 | 24 | `src/pipeline/xagg.py` |
 | 25 | `src/pipeline/harness/agents/meta_analysis.py`, `src/pipeline/verifier.py` |
-| 26 | `src/pipeline/router.py` |
+| 26 | `src/pipeline/router.py`, **and `src/pipeline/harness/supervisor.py`** (scope grew — see Module 26's own section below for why) |
 
 ### ✅ Safe to run fully in parallel, right now, in separate worktrees
 
@@ -297,27 +297,91 @@ before/after examples, documented in the master plan).
 
 ---
 
-# Module 22 — M7: reporting-delay computes the wrong metric ⬜
+# Module 22 — M7: reporting-delay computes the wrong metric ✅ DONE
 
 **Branch:** `feature/xagg-incident-to-report-delta`
 **Question:** M7. Gold: **mean minutes from incident to report, 15.0 (2024) →
 1401.3 (2026)**.
 
-**Root cause (from the teammate's trace, worth re-confirming):**
-`_reporting_delay_rate_by_year` in `src/pipeline/xagg.py` computes *the rate
-of FIRs recording a delay REASON* (0% → 14.9%) — a different quantity
-entirely. Its own `note` field admits it. The primitive cannot answer M7 as
-asked.
+**Root cause — confirmed, and deeper than the reports said.** The reports
+correctly identified that `_reporting_delay_rate_by_year` computes the rate
+of FIRs recording a delay REASON (0% → 14.9%), a different quantity. But the
+real cause was one layer upstream: **neither timestamp reached a queryable
+field at all.**
 
-**Work:** add a real incident→report time-delta aggregate — per-FIR
-`report_date/time` minus `incident_date/time`, averaged, bucketed by year
-(Module 13's time-bucket primitive already exists to build on). Confirm both
-timestamps are actually projected onto the graph/records; if one isn't,
-projecting it is part of this module.
+| Layer | State before this module |
+|---|---|
+| Source API snapshot | ✅ has `incident_datetime` AND `report_datetime`, full time precision |
+| `cases` table | ❌ `incident_date` is a bare `DATE` (time discarded); no `report_date` column |
+| Graph `Incident` node | ❌ no report timestamp — it existed only inside the free-text narrative |
 
-**Verify:** live M7 states a real mean-minutes-per-year comparison matching
-gold's shape; a non-gold paraphrase ("how quickly do people report crimes now
-vs two years ago?"); `tests/test_xagg.py` full pass.
+`_write_occurred_on_edge()` truncates the incident timestamp to `[:10]` for
+the day-granular `Date` node — correct for a timeline, and deliberately left
+alone — but it means reporting SPEED was not computable finer than a day.
+`_reporting_delay_rate_by_year()`'s own comment had already anticipated the
+fix: *"self-heals to a true mean-days aggregate … once report_datetime is
+projected."*
+
+**What shipped:**
+1. `structured_projection.py` projects both timestamps as `Incident`
+   properties, following the same optional convention as
+   `description`/`reporting_delay_reason` (absent → no property, so "not
+   recorded" stays distinguishable from "recorded as blank"). Projects the
+   raw pair, not a precomputed delta.
+2. `xagg.py` adds `_incident_to_report_minutes_by_year()` plus pure,
+   unit-testable `_minutes_between()`/`_parse_iso_datetime()` helpers.
+   `_reporting_delay_rate_by_year()` is **kept** — it answers the A7-family
+   question and now has its own direct regression test.
+3. New `time_bucketed_mean` kind wired into **all three** rendering sites via
+   one shared `render_time_bucketed_mean()`.
+4. `scripts/backfill_incident_report_timestamps.py` — see the coordination
+   note below.
+
+**Result — live, through real `/api/chat`:**
+> *"No, people are not reporting incidents to the police as quickly in 2026
+> as they did in 2024… **15.0 minutes** across **13 FIRs** in 2024, compared
+> to **1401.3 minutes (~23.4 hours)** across **51 FIRs** in 2026."*
+
+An exact match to gold, including both FIR counts and the ~23.4-hour scale
+gold itself cites.
+
+**⚠️ Correction to this plan's own parallelization model.** This module was
+listed as `xagg.py`-only. It was not — it needed a projection change **and a
+write to the shared graph**. That is a *different kind* of conflict from file
+overlap, and the table above does not model it: file-disjoint tracks can
+still collide through the shared database. Modules 23/24 should assume the
+same may apply to them.
+
+The shared-DB write was made as safe as possible: a **targeted property
+backfill**, not a re-projection. It writes zero nodes and zero edges, so it
+cannot reproduce the duplicate-edge damage a previous re-projection caused
+(`MODULE_18_FINAL_REPORT.md` §3 — every relationship type roughly doubled).
+It is MATCH-only, idempotent, `--dry-run` capable. Result: **64 of 73 FIRs
+carry both timestamps; 64 nodes updated, 0 not found** (no graph/snapshot
+drift).
+
+**Known gap — handed to Module 26, deliberately not fixed here.** The
+required non-gold paraphrase (*"How long does it typically take someone to
+report a crime to us these days versus a couple of years ago?"*) still fails
+**end-to-end**, because `router.py` classifies it as `RAG` so it never
+reaches XAGG. Calling `run_aggregate()` directly with that paraphrase returns
+the correct answer, so this module's layer handles it — the remaining gap is
+a router override, and `router.py` is Module 26's file. **Module 26 should
+add a reporting-speed override alongside its year-over-year one.**
+
+**A curve-fitting bug the paraphrase step caught** (this is what that step is
+for): `_REPORTING_SPEED_COMPARISON_KEYWORDS` was pinned to M7's literal
+wording and matched no paraphrase at all. Widened to a two-signal AND
+(reporting/speed signal **and** time-period comparison signal), because a
+one-signal widening collided in two directions — with **A7** (a
+count-of-delay-reasons question checked *after* this one, so an over-broad
+match silently hijacks it) and with **KB8**, which initially DID match on
+"report" + "pehle" — but its "pehle" means "before completion", not "years
+before", and matching it would have regressed PR #9's KB routing. Now
+negative-controlled: **matches M7 and only M7 of the 32 gold questions**,
+while catching three natural paraphrases. That all-32 assertion is now a
+test — it is the check that would have caught all three historical pattern
+collisions on this plan.
 
 ---
 
@@ -386,25 +450,130 @@ genuinely hallucinated synthesis is still rejected.
 
 ---
 
-# Module 26 — M1: routing miss (XGRAPH instead of an aggregate) ⬜
+# Module 26 — M1: routing miss (XGRAPH instead of an aggregate) ✅
 
 **Branch:** `fix/router-year-over-year-comparison-to-xagg`
 **Question:** M1 — year-over-year case-type comparison.
 
-**Root cause:** routed to XGRAPH, which refuses ("cannot provide the
-requested comparison"). This is a countable comparison and belongs in XAGG
-(Module 13's time-bucket primitive already exists).
+**The brief's premise was stale — corrected here, per its own §1
+instruction to verify before writing a pattern.** `GOLD32_RESULTS_FOR_TEAMMATE.md`'s
+"routed to XGRAPH" finding predates a harness change
+(`b21eab7`, 2026-09-05 — "route compound/comparative/evaluative questions to
+Meta-Analysis") that landed *before* this plan's own baseline commit
+(`c435207`, 2026-09-07). **Live-verified actual behavior on the baseline this
+plan was written against: M1 already classifies as `route=XAGG`**, not
+XGRAPH — but two real, previously-undocumented defects still blocked the
+answer:
 
-**Work:** a year-over-year comparison override in `src/pipeline/router.py`,
-in the same additive style as Modules 3/4/15. **Mine the pattern from M1's
-literal gold text**, then negative-control it against every other gold
-question — the lesson from Module 8c (0/7) and the CR8→KB1 and M4→G3
-collisions (PRs #7, #8): a pattern that looks reasonable in isolation is not
-evidence it matches the real question or misses the others.
+1. **Router classification was non-deterministic, not wrong.** `router.py`
+   had no deterministic override for this comparison shape, so it depended
+   entirely on the flaky local LLM classifier for the route decision. A
+   correct `XAGG` classification on one live run is not evidence the
+   *pattern* is reliable — the whole reason every other override in this
+   file exists is that this exact LLM is confirmed to flip on other query
+   shapes, and this one is textually just as ambiguous.
+2. **A second, structurally separate bug — inside the new agent harness,
+   not `router.py` — actually blocked the answer even with the correct
+   route.** `supervisor.py`'s `_META_ANALYSIS_TRIGGER_PATTERNS` (added by
+   the same `b21eab7` commit, specifically targeting M1's own "compared to"
+   phrasing) fires on M1's exact text *regardless of route*, dispatching it
+   to the Meta-Analysis sub-agent, which decomposes it into two
+   independently-classified sub-questions ("breakdown of case types...
+   handled by this station in the current period" / "...two years ago" —
+   note the decomposer LLM invents "this station" wording that appears
+   nowhere in the original question, and is unstable run-to-run: a second
+   live attempt produced "last 6 months" / "2-3 years ago" instead). This
+   is actively counter-productive: `xagg.py`'s own `_statute_mix_by_year()`
+   (Module 13) already answers the *entire* comparison in ONE call — the
+   decomposition converts a working single-call answer into two slower,
+   worse ones. Each sub-question drops the "compared to ... years" language
+   that would have matched a router override, so its own classification
+   falls back to the same flaky LLM call one level down — live-observed to
+   land on `XGRAPH → Cross-Case Linkage` (wrong sub-agent, both dispatches
+   returned `status=empty`) on one run, and to simply **time out** (both
+   sub-queries hit `META_ANALYSIS_SUBQUERY_TIMEOUT=60s`, ~127s total) on
+   another.
 
-**Verify:** `tests/test_router.py` full pass **plus a negative-control test
-over all 32 gold questions**; live M1 returns the comparison; a non-gold
-paraphrase.
+**Work actually done (both files, not just router.py):**
+
+- `src/pipeline/router.py` — new named, shared constant
+  `_TIME_COMPARISON_XAGG_PATTERNS` (year-over-year/period-comparison
+  shapes: "compared to/with ... years", "a couple of years back/ago",
+  "versus ... years ago", "vs 20XX", "year over year", "shifted/changed
+  since 20XX", Urdu "کے مقابلے میں" / Roman-Urdu "ke muqable mein"), mined
+  from M1's literal gold text and widened only to paraphrase shapes
+  `xagg.py`'s own pre-existing `_TIME_COMPARISON_KEYWORDS` family already
+  trusts, appended to `_XAGG_OVERRIDE_PATTERNS`.
+- `src/pipeline/harness/supervisor.py` — `classify_to_subagent()` now
+  checks this SAME shared pattern list *before* the general
+  `_META_ANALYSIS_TRIGGER_PATTERNS` check: when `route == "XAGG"` and the
+  query matches it, dispatch straight to Large-Scale Aggregate instead of
+  Meta-Analysis. Deliberately narrow — conditioned on `route == "XAGG"`
+  specifically, not a bare text-pattern skip — so it can never suppress a
+  genuine Meta-Analysis decomposition for a different cross-case route
+  (XGRAPH/XNETWORK, which have no equivalent one-call aggregate) or for a
+  different XAGG-routed Meta-Analysis trigger (M2's "growing faster" shape
+  is untouched, unit-tested explicitly).
+
+  **This second file was NOT in this module's original file-overlap
+  entry** (`src/pipeline/router.py` only). No other Wave-1 module claims
+  `supervisor.py`; Module 25 owns `meta_analysis.py`/`verifier.py`
+  specifically, not the supervisor's classification logic. Flagging this
+  here per the brief's own instruction to say so when scope changes.
+
+**Verify — both halves, done:**
+
+- **Unit:** full existing suite unaffected (`test_router.py`,
+  `test_harness_supervisor.py`, `test_xagg.py`,
+  `test_harness_agent_meta_analysis.py`,
+  `test_harness_agent_large_scale_aggregate.py`, and the whole repo test
+  suite — zero failures). **Mandatory negative control**
+  (`test_m1_pattern_negative_control_against_all_other_gold_questions`,
+  `tests/test_router.py`): the new pattern family matches **M1 and exactly
+  one other question — M5** (a genuine co-match: M5 is itself a
+  year-over-year weapon-type comparison already reaching
+  `_statute_mix_by_year` via its own Urdu "کے مقابلے میں" wording) **and
+  zero of the remaining 30 gold questions.** A parallel supervisor-side
+  test (`test_time_comparison_guard_is_scoped_to_xagg_route_only`,
+  `test_time_comparison_guard_does_not_suppress_unrelated_xagg_meta_analysis_triggers`)
+  confirms the Meta-Analysis-skip guard doesn't leak into XNETWORK/XGRAPH
+  comparisons or M2's own decomposition need. Plus positive-control
+  paraphrase tests (English/Urdu/Roman-Urdu) so the pattern isn't pinned to
+  M1's one literal string.
+- **Live** (isolated worktree, own backend on `:8002`, shared
+  Postgres/model-server — see note below on why isolation was necessary):
+  M1's exact gold text now single-dispatches `route='XAGG' →
+  sub-agent='Large-Scale Aggregate' → status=ok` in **8.4s**, answering
+  with a real per-year statute breakdown matching the gold answer's shape
+  (2024: narrow PPC ×13 / Arms Ordinance ×13 pattern; 2026: diversified —
+  PPC ×39, Arms Ordinance ×16, plus CNSA ×12, PECA ×9, Domestic Violence
+  Act ×4, Illegal Dispossession Act ×2). Before fix (two separate live
+  captures on the baseline commit): one run timed out after 127s with both
+  decomposed sub-questions failing; a second (after only the router.py
+  half of the fix) came back "No information was found" via a wrong
+  `XGRAPH → Cross-Case Linkage` sub-dispatch. **Regression guard** — D1,
+  CP1, A7 all still single-dispatch to XAGG with correct-looking answers,
+  unaffected. **M5 and M7 unaffected** — both still reach XAGG (M5 via the
+  same new guard, single dispatch; M7 still decomposes via Meta-Analysis
+  exactly as before, since its own "itni hi jaldi jitni" phrasing doesn't
+  match this pattern family — correctly out of this module's scope, that's
+  Module 22's `_REPORTING_SPEED_COMPARISON_KEYWORDS` family, a different
+  aggregate). **Non-gold paraphrase** ("Has the mix of crimes we handle
+  shifted since 2024?") also single-dispatches to XAGG correctly (4.7s;
+  the verifier rejected its own paraphrase and served the raw computed
+  aggregate instead — XAGG's own pre-existing, unrelated fallback
+  behavior, not a regression from this module).
+
+**Note on environment — worktree isolation was required, not optional:**
+this session found the shared working directory mid-session with another
+module's uncommitted change already present (`meta_analysis.py`, not
+authored here) and the checked-out branch switched out from under it by
+concurrent activity — confirming the coordination note the Wave-1 hand-off
+docs added independently. This module's actual work happened in a
+dedicated `git worktree` (`fix/router-year-over-year-comparison-to-xagg`
+checked out at `D:/Rapids AI/eip-module26`) with its own backend instance
+on port 8002, to avoid colliding with or corrupting concurrent modules'
+work in the shared directory.
 
 ---
 
