@@ -396,7 +396,8 @@ def _spy_retrieve(monkeypatch, relevant_scopes):
     comes back, so 'relevant' tracks 'found candidates'."""
     seen = []
 
-    async def _fake_retrieve(query, where, fetch_top_k, final_top_k, is_cross_case):
+    async def _fake_retrieve(query, where, fetch_top_k, final_top_k, is_cross_case,
+                             statute_queries=None):
         seen.append(dict(where))
         key = frozenset(where.items())
         if key in relevant_scopes:
@@ -406,8 +407,17 @@ def _spy_retrieve(monkeypatch, relevant_scopes):
     async def _eval(orig, cur, reranked):
         return {"relevant": bool(reranked), "reason": "no candidates"}
 
+    # [Module 30] A legal-KB-intent query now also asks the LLM for a
+    # statute-vocabulary phrasing before retrieval. Stub it at its own
+    # boundary rather than letting it reach the network (these tests run
+    # with network access disabled) — the scope-selection behaviour these
+    # tests cover is independent of what it returns.
+    async def _no_statute_query(question, n=2):
+        return []
+
     monkeypatch.setattr(rag_mod, "_retrieve_candidates", _fake_retrieve)
     monkeypatch.setattr(rag_mod, "evaluate_relevance", _eval)
+    monkeypatch.setattr(rag_mod, "generate_statute_queries", _no_statute_query)
     return seen
 
 
