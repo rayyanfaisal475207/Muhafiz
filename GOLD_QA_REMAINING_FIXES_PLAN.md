@@ -105,11 +105,100 @@ chats concurrently.
 **24 additionally waits on PR #8** — M4 can't be verified live until the
 keyword collision that misroutes it is merged.
 
-### Recommended wave plan
+### ⚠️ Before starting ANY parallel chat: use a git worktree
 
-- **Wave 1 (now, 4 parallel chats):** 19b, 21, 25, 26 — plus merge PRs #8/#9.
-- **Wave 2 (one chat, sequential):** 22 → 23 → 24.
-- **Wave 3:** 27, the final rerun, once everything above is merged.
+**Two chats must never share one working directory.** This already bit this
+plan on 2026-09-08: a second chat created
+`fix/xnetwork-relevance-gate-over-refusal` in the shared checkout while
+another was mid-commit, and that commit landed on the wrong branch. Nothing
+was lost, but `git checkout` in one session silently rewrites the files the
+other session is editing.
+
+Give every parallel track its own worktree:
+
+```bash
+git worktree add ../muhafiz-m19b -b fix/evaluator-compound-relaxation-not-firing main
+git worktree add ../muhafiz-m21  -b fix/xnetwork-relevance-gate-over-refusal main
+git worktree add ../muhafiz-m25  -b fix/meta-analysis-synthesis-verifier-rejection main
+git worktree add ../muhafiz-m26  -b fix/router-year-over-year-comparison-to-xagg main
+git worktree add ../muhafiz-xagg -b feature/xagg-incident-to-report-delta main
+```
+
+Each worktree needs its own `.venv` and its own `data/`/`chroma_db` — those
+are NOT shared across worktrees (a lesson already recorded in the master
+plan's Module 19 section). For live verification, either run the backends on
+different ports, or verify one track at a time against the shared stack.
+
+### Recommended wave plan — **5 parallel tracks, not 4**
+
+The four Wave 1 modules touch `evaluator.txt`, `xnetwork.py`,
+`meta_analysis.py`+`verifier.py`, and `router.py`. The three xagg modules
+touch **only `src/pipeline/xagg.py`** — verified 2026-09-08: M7 and M5
+already reach XAGG today (they dispatch to `_reporting_delay_rate_by_year`
+and `statute_by_year`), so they need no router change and cannot collide
+with Module 26.
+
+**`xagg.py` is therefore disjoint from every Wave 1 file, and Track 5 can
+start immediately alongside them** — it is simply *internally* sequential.
+
+| Track | Modules | Files | Concurrency |
+|---|---|---|---|
+| 1 | **19b** | `prompts/evaluator.txt` | parallel |
+| 2 | **21** | `xnetwork.py` | parallel |
+| 3 | **25** | `meta_analysis.py`, `verifier.py` | parallel |
+| 4 | **26** | `router.py` | parallel |
+| 5 | **22 → 23 → 24** | `xagg.py` | parallel with 1–4; **sequential inside** |
+
+**Track 5's internal order:** 22 (M7 incident→report delta) → 23 (M5
+weapon×statute co-occurrence) → 24 (M4 statute×court-stage). Do 22 and 23
+first: **24 is blocked until PR #8 merges**, because M4 is misrouted until
+then and cannot be live-verified.
+
+**The one thing that would break this symmetry:** if any of 22/23/24 turns
+out to need a `router.py` override after all (i.e. the question doesn't
+reach XAGG at all), it collides with Track 4. Check the live `route=` event
+*before* writing code, and if you need `router.py`, coordinate with Track 4
+rather than both editing it.
+
+**Merge order matters in one place:** Module 19b's live verification is only
+meaningful with **PR #9 merged** (19a fixed *which corpus* is searched; 19b
+fixes *why the right corpus is still rejected*). Merge #8, #9 and #11 before
+Wave 1 chats start their live runs.
+
+### After the waves
+
+- **Module 27 — final Gold-32 rerun.** Blocked on all of the above. Needs a
+  freshly restored, UTF-8-clean dump (see §0's Environment note — take it
+  with the fixed `SHARE/database/create_dump.ps1`, never through a
+  PowerShell pipe).
+- **Re-share the SHARE package.** `SHARE_muhafiz_20260907.zip` was rebuilt
+  2026-09-07 with the corrected dump and the fixed create/restore scripts
+  (both previously corrupted Urdu text — the create side on export, the
+  restore side on import). Anyone holding an older copy should be re-sent it.
+- **Then re-assess.** Do not plan Modules 28+ from the current reports —
+  re-read the fresh `gold32_results.json` judge reasons first. Every module
+  in this plan that turned out to be mis-scoped was mis-scoped because it
+  inherited a claim from an earlier report instead of re-deriving it.
+
+### Ready-to-hand-off task briefs for Wave 1
+
+Each of the four parallel-safe modules has a **self-contained prompt file**
+at the repo root — paste it into a fresh chat as-is. Each carries its own
+captured evidence, hypotheses to test, verification requirements (unit +
+live + non-gold paraphrase + regression guard), git discipline, and a
+**required step to update this file** when the module lands.
+
+| Module | Task brief |
+|---|---|
+| 19b | `MODULE19B_EVALUATOR_COMPOUND_RELAXATION_PROMPT.md` |
+| 21 | `MODULE21_XNETWORK_RELEVANCE_GATE_OVER_REFUSAL_PROMPT.md` |
+| 25 | `MODULE25_META_ANALYSIS_VERIFIER_REJECTION_PROMPT.md` |
+| 26 | `MODULE26_ROUTER_YEAR_OVER_YEAR_COMPARISON_PROMPT.md` |
+
+**Every one of those briefs requires its chat to update this file's status
+table and its own module section before opening its PR** — including adding
+a new module section (rather than silently expanding scope) if it uncovers a
+further defect, which is exactly how Module 19b itself was found.
 
 ---
 
