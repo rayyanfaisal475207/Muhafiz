@@ -45,6 +45,7 @@ from src.pipeline.xagg import (
     render_case_completeness_scan,
     render_weapon_compliance_scan,
     render_court_readiness_scan,
+    render_time_bucketed_mean,
 )
 from src.pipeline.xagg import _UNSUPPORTED_JURISDICTION as _UNRESOLVED_JURISDICTION_NOTE
 from src.pipeline.xnetwork import run_network_query
@@ -548,6 +549,11 @@ async def _fetch_secondary_evidence(
                         f"delay reason (~{round(100 * b['rate'])}%)"
                         for b in agg_result["buckets"]
                     )
+                # [Gold-QA fix — Module 22, M7] shared renderer, kept in sync
+                # with the harness xagg_tool() wrapper and this file's second
+                # XAGG rendering site.
+                elif agg_result["kind"] == "time_bucketed_mean":
+                    lines = render_time_bucketed_mean(agg_result)
                 else:
                     lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result.get("counts", [])]
                 aggregate_text = "\n".join(lines)
@@ -2181,6 +2187,11 @@ async def process_query(
                     f"reason (~{round(100 * b['rate'])}%)"
                     for b in agg_result["buckets"]
                 )
+            # [Gold-QA fix — Module 22, M7] shared renderer, kept in sync with
+            # the harness xagg_tool() wrapper and this file's first XAGG
+            # rendering site above.
+            elif agg_result["kind"] == "time_bucketed_mean":
+                lines = render_time_bucketed_mean(agg_result)
             else:
                 lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
                 # [Legal-code semantic layer] crime_category can combine

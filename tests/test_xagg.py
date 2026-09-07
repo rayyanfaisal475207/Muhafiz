@@ -1071,14 +1071,21 @@ async def test_m1_time_comparison_wins_over_the_generic_trend_refusal(monkeypatc
     assert result["kind"] == "time_bucketed_breakdown"
 
 
-# [Gold-QA fix — Module 13, question M7]
+# [Gold-QA fix — Module 13, question M7 — SUPERSEDED BY MODULE 22]
+#
+# Module 13 could only offer the delay-REASON rate as an honest proxy for
+# M7, because no sub-day timestamp was projected anywhere queryable — see
+# _reporting_delay_rate_by_year()'s own `note`, which said so. Module 22
+# projects Incident.incident_datetime/.report_datetime, so M7 now dispatches
+# to the true mean-minutes aggregate instead. The rate aggregate itself is
+# NOT removed — it answers the A7-family delay-reason question, covered by
+# its own direct test below.
 
-async def test_m7_reporting_delay_rate_by_year_routes_and_computes_rate(monkeypatch):
+async def test_m7_routes_to_true_mean_minutes_not_the_delay_reason_rate(monkeypatch):
+    """M7's literal gold text must now reach the mean-minutes aggregate."""
     rows = [
-        {"incident_date": "2024-03-01", "reporting_delay_reason": "late report"},
-        {"incident_date": "2024-04-01", "reporting_delay_reason": None},
-        {"incident_date": "2026-01-01", "reporting_delay_reason": None},
-        {"incident_date": "2026-02-01", "reporting_delay_reason": None},
+        {"incident_datetime": "2024-09-25T17:10:00Z", "report_datetime": "2024-09-25T17:25:00Z"},
+        {"incident_datetime": "2026-01-01T10:00:00Z", "report_datetime": "2026-01-02T09:00:00Z"},
     ]
     monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
 
@@ -1087,12 +1094,101 @@ async def test_m7_reporting_delay_rate_by_year_routes_and_computes_rate(monkeypa
         None, gateway=None, user_role="supervisor",
     )
 
+    assert result["kind"] == "time_bucketed_mean"
+    assert result["dimension"] == "incident_to_report_minutes_by_year"
+    assert result["unit"] == "minutes"
+    by_year = {b["year"]: b for b in result["buckets"]}
+    assert by_year[2024]["mean_minutes"] == 15.0
+    assert by_year[2024]["case_count"] == 1
+    assert by_year[2026]["mean_minutes"] == 1380.0  # 23h
+    assert by_year[2026]["case_count"] == 1
+
+
+async def test_reporting_delay_rate_aggregate_still_works_for_its_own_question(monkeypatch):
+    """Regression guard: Module 22 re-pointed M7's dispatch but must not
+    have broken the delay-REASON rate aggregate, which answers a different
+    (A7-family) question and is still reachable directly."""
+    rows = [
+        {"incident_date": "2024-03-01", "reporting_delay_reason": "late report"},
+        {"incident_date": "2024-04-01", "reporting_delay_reason": None},
+        {"incident_date": "2026-01-01", "reporting_delay_reason": None},
+        {"incident_date": "2026-02-01", "reporting_delay_reason": None},
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg._reporting_delay_rate_by_year()
+
     assert result["kind"] == "time_bucketed_rate"
     assert result["dimension"] == "reporting_delay_rate_by_year"
-    assert "not" in result["note"] and "delay" in result["note"]  # honest-scope caveat present
     by_year = {b["year"]: b for b in result["buckets"]}
     assert by_year[2024] == {"year": 2024, "delayed_count": 1, "total_count": 2, "rate": 0.5}
     assert by_year[2026] == {"year": 2026, "delayed_count": 0, "total_count": 2, "rate": 0.0}
+
+
+# [Gold-QA fix — Module 22, question M7] mean incident->report minutes
+
+def test_parse_iso_datetime_tolerates_z_suffix_and_agtype_quoting():
+    """AGE returns the property as a quoted agtype string, and the API's own
+    values carry a `Z` suffix — both must parse."""
+    parsed = xagg._parse_iso_datetime("2024-09-25T17:10:00Z")
+    assert parsed is not None and parsed.year == 2024 and parsed.minute == 10
+    assert xagg._parse_iso_datetime('"2024-09-25T17:10:00Z"') == parsed
+    assert xagg._parse_iso_datetime("") is None
+    assert xagg._parse_iso_datetime(None) is None
+    assert xagg._parse_iso_datetime("not-a-timestamp") is None
+
+
+def test_minutes_between_rejects_out_of_order_pairs_instead_of_averaging_them():
+    """A report earlier than its incident is a data defect, not a negative
+    delay — averaging it in would silently drag the mean down and hide the
+    bad row, so it must be excluded (None), not returned as a negative."""
+    assert xagg._minutes_between("2024-09-25T17:10:00Z", "2024-09-25T17:25:00Z") == 15.0
+    assert xagg._minutes_between("2024-09-25T17:25:00Z", "2024-09-25T17:10:00Z") is None
+    assert xagg._minutes_between(None, "2024-09-25T17:25:00Z") is None
+    assert xagg._minutes_between("2024-09-25T17:10:00Z", "bad") is None
+
+
+async def test_incident_to_report_minutes_excludes_unusable_rows_and_reports_coverage(monkeypatch):
+    """Rows missing/reversing a timestamp must be EXCLUDED from the mean and
+    counted in missing_timestamp_count — never silently treated as a zero
+    delay, which would pull every average toward 0."""
+    rows = [
+        {"incident_datetime": "2024-01-01T10:00:00Z", "report_datetime": "2024-01-01T10:10:00Z"},
+        {"incident_datetime": "2024-01-02T10:00:00Z", "report_datetime": "2024-01-02T10:20:00Z"},
+        # reversed pair — a data defect, must not become a negative delay
+        {"incident_datetime": "2024-01-03T12:00:00Z", "report_datetime": "2024-01-03T11:00:00Z"},
+        # unparseable
+        {"incident_datetime": "not-a-date", "report_datetime": "2024-01-04T10:00:00Z"},
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg._incident_to_report_minutes_by_year()
+
+    assert result["buckets"] == [{"year": 2024, "mean_minutes": 15.0, "case_count": 2}]
+    assert result["missing_timestamp_count"] == 2
+
+
+def test_render_time_bucketed_mean_states_scale_direction_and_coverage():
+    rendered = "\n".join(xagg.render_time_bucketed_mean({
+        "kind": "time_bucketed_mean",
+        "buckets": [
+            {"year": 2024, "mean_minutes": 15.0, "case_count": 13},
+            {"year": 2026, "mean_minutes": 1401.3, "case_count": 51},
+        ],
+        "missing_timestamp_count": 9,
+    }))
+    # The gold answer's own numbers and scale ("1401.3 minute (~23.4 ghante)").
+    assert "15.0 minutes" in rendered and "13 FIRs" in rendered
+    assert "1401.3 minutes" in rendered and "23.4 hours" in rendered and "51 FIRs" in rendered
+    assert "slower in 2026" in rendered
+    assert "9 FIR(s) excluded" in rendered
+
+
+def test_render_time_bucketed_mean_handles_no_usable_rows():
+    rendered = "\n".join(xagg.render_time_bucketed_mean({
+        "kind": "time_bucketed_mean", "buckets": [], "missing_timestamp_count": 4,
+    }))
+    assert "cannot be computed" in rendered
 
 
 # [Gold-QA fix — Module 13, question M2]

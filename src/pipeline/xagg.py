@@ -20,6 +20,7 @@ from __future__ import annotations
 import logging
 import re
 from collections import Counter
+from datetime import datetime
 from typing import Optional
 
 from src.graph import age_client
@@ -1263,6 +1264,66 @@ def render_court_readiness_scan(agg_result: dict) -> list[str]:
     return lines
 
 
+def render_time_bucketed_mean(agg_result: dict) -> list[str]:
+    """
+    [Gold-QA fix — Module 22, M7] Shared renderer for all three XAGG
+    rendering sites (the harness `xagg_tool()` wrapper and orchestrator.py's
+    two legacy XAGG blocks), for the same reason
+    `render_court_readiness_scan()` above is shared: this file has a
+    documented history of a new aggregate being wired into one rendering
+    site and silently missed at another.
+
+    Renders minutes at whatever scale reads naturally — a 1401.3-minute mean
+    is far easier to judge as "~23.4 hours" — while always keeping the raw
+    minutes, since that is the unit the comparison is computed in.
+    """
+    buckets = agg_result.get("buckets") or []
+    if not buckets:
+        return [
+            "No FIR in scope records both an incident time and a report "
+            "time, so reporting speed cannot be computed."
+        ]
+
+    lines = [
+        "Mean time from incident to report, by incident year:",
+    ]
+    for b in buckets:
+        minutes = b["mean_minutes"]
+        readable = _humanize_minutes(minutes)
+        suffix = f" (~{readable})" if readable else ""
+        lines.append(
+            f"  - {b['year']}: {minutes} minutes{suffix} "
+            f"across {b['case_count']} FIRs"
+        )
+
+    if len(buckets) >= 2:
+        first, last = buckets[0], buckets[-1]
+        direction = "slower" if last["mean_minutes"] > first["mean_minutes"] else "faster"
+        lines.append(
+            f"Reporting is {direction} in {last['year']} than in {first['year']}."
+        )
+
+    # Coverage stated explicitly rather than left implicit — a mean over an
+    # unstated subset is the kind of number this project's own discipline
+    # says not to present without its denominator.
+    missing = agg_result.get("missing_timestamp_count") or 0
+    if missing:
+        lines.append(
+            f"({missing} FIR(s) excluded — incident or report time not "
+            f"recorded, or recorded out of order.)"
+        )
+    return lines
+
+
+def _humanize_minutes(minutes: float) -> Optional[str]:
+    """A friendlier scale for a large minute count; None when minutes already read fine."""
+    if minutes >= 1440:
+        return f"{round(minutes / 1440, 1)} days"
+    if minutes >= 60:
+        return f"{round(minutes / 60, 1)} hours"
+    return None
+
+
 # [Gold-QA fix — Module 1c] District-level rollup — District/PoliceStation
 # graph nodes already exist (structured_projection.py's District writes),
 # so this is a graph traversal, NOT a Postgres GROUP BY over the case rows
@@ -1499,6 +1560,117 @@ async def _statute_mix_by_year(gateway, jurisdiction_case_ids: Optional[list[str
 # on the same two primitives as CP1/M1 above, not a fabricated day-count.
 # Self-heals to a true mean-days aggregate with no code change here once
 # `report_datetime` is projected.
+async def _incident_to_report_minutes_by_year(
+    jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    """
+    [Gold-QA fix — Module 22, question M7] Mean minutes from incident to
+    report, bucketed by incident year — the metric M7 actually asks for
+    ("are people reporting as quickly in 2026 as in 2024?").
+
+    This is what `_reporting_delay_rate_by_year()` below could not compute,
+    and said so in its own `note`: the delay-REASON rate is a different
+    quantity, and no finer-than-a-day timestamp reached a queryable field.
+    Module 22 projects `Incident.incident_datetime` / `.report_datetime`
+    (structured_projection.py), so the real delta is now computable — the
+    "self-heals once report_datetime is projected" case that function's own
+    comment anticipated.
+
+    Both timestamps are optional by the projection's own convention, so a
+    FIR missing either is EXCLUDED from the mean rather than counted as a
+    zero delay (which would silently drag every average toward 0). The
+    per-bucket `n` and the corpus-level `missing_timestamp_count` are
+    reported so the answer can state its own coverage honestly instead of
+    presenting a mean over an unstated subset.
+    """
+    where_parts = ["i.incident_datetime IS NOT NULL", "i.report_datetime IS NOT NULL"]
+    params: dict = {}
+    if jurisdiction_case_ids is not None:
+        where_parts.append("c.case_id IN $case_ids")
+        params["case_ids"] = jurisdiction_case_ids
+    query = (
+        "MATCH (i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE {' AND '.join(where_parts)} "
+        "RETURN i.incident_datetime AS incident_datetime, "
+        "i.report_datetime AS report_datetime"
+    )
+    rows = await age_client.execute_cypher(
+        query, params=params, columns=["incident_datetime", "report_datetime"],
+    )
+
+    minutes_by_year: dict[int, list[float]] = {}
+    skipped = 0
+    for row in rows:
+        delta = _minutes_between(row.get("incident_datetime"), row.get("report_datetime"))
+        year = _extract_year(row.get("incident_datetime"))
+        if delta is None or year is None:
+            skipped += 1
+            continue
+        minutes_by_year.setdefault(year, []).append(delta)
+
+    buckets = [
+        {
+            "year": year,
+            "mean_minutes": round(sum(values) / len(values), 1),
+            "case_count": len(values),
+        }
+        for year, values in sorted(minutes_by_year.items())
+    ]
+    return {
+        "kind": "time_bucketed_mean",
+        "dimension": "incident_to_report_minutes_by_year",
+        "unit": "minutes",
+        "buckets": buckets,
+        "missing_timestamp_count": skipped,
+    }
+
+
+# [Gold-QA fix — Module 22] Shared by the aggregate above; kept module-level
+# and pure so the parsing rules (which tolerate the `Z` suffix AGE returns,
+# and reject a negative delta rather than averaging it in) are unit-testable
+# without a live graph.
+def _minutes_between(start_value, end_value) -> Optional[float]:
+    """
+    Whole minutes from `start_value` to `end_value`, or None if either is
+    unparseable or the pair is out of order.
+
+    A report timestamp EARLIER than its incident timestamp is a data defect,
+    not a negative delay — averaging it in would silently pull the mean
+    down and hide the bad row. Returning None routes it to the caller's
+    skipped/missing count instead, where it stays visible.
+    """
+    start = _parse_iso_datetime(start_value)
+    end = _parse_iso_datetime(end_value)
+    if start is None or end is None:
+        return None
+    delta_minutes = (end - start).total_seconds() / 60
+    if delta_minutes < 0:
+        return None
+    return delta_minutes
+
+
+def _parse_iso_datetime(value) -> Optional[datetime]:
+    """
+    Parse an ISO-8601 timestamp as projected onto the graph.
+
+    AGE returns the property as a quoted agtype string; the API's own values
+    carry a `Z` suffix (`2024-09-25T17:10:00Z`), which `fromisoformat()`
+    only accepts from Python 3.11 — normalized here rather than relying on
+    the runtime's version.
+    """
+    if not value:
+        return None
+    text = str(value).strip().strip('"')
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        return datetime.fromisoformat(text)
+    except ValueError:
+        return None
+
+
 async def _reporting_delay_rate_by_year(jurisdiction_case_ids: Optional[list[str]] = None) -> dict:
     where_parts = ["oe.event_type = 'incident'"]
     params: dict = {}
@@ -1916,11 +2088,21 @@ async def run_aggregate(
         return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_OFFICER}
     # [Gold-QA fix — Module 13, question M7] Checked before both the A7
     # count-shaped reporting-delay check just below and _TREND_KEYWORDS'
-    # hard refusal — a reporting-SPEED-over-time comparison now has a real,
-    # honestly-labeled aggregate (_reporting_delay_rate_by_year(), see its
-    # own docstring for the exact scope of what it can and can't answer).
+    # hard refusal — a reporting-SPEED-over-time comparison has a real
+    # aggregate rather than a refusal.
+    #
+    # [Gold-QA fix — Module 22] Re-pointed from
+    # `_reporting_delay_rate_by_year()` to the true mean-minutes aggregate.
+    # Module 13 could only offer the delay-REASON rate as an honest proxy
+    # because no sub-day timestamp was projected; Module 22 projects
+    # `Incident.incident_datetime`/`.report_datetime`, so the metric M7
+    # actually asks for is now computable. `_reporting_delay_rate_by_year()`
+    # is deliberately KEPT — it answers the A7-family delay-reason question,
+    # which is a different quantity with its own tests.
     if _matches_any(query_lower, _REPORTING_SPEED_COMPARISON_KEYWORDS):
-        return await _reporting_delay_rate_by_year(jurisdiction_case_ids=jurisdiction_case_ids)
+        return await _incident_to_report_minutes_by_year(
+            jurisdiction_case_ids=jurisdiction_case_ids
+        )
     # [Gold-QA fix — Module 2, A7] Checked before the trend fallback: a
     # count-shaped reporting-delay question has a real data path now
     # (Incident.reporting_delay_reason), degrading to an honest "not synced

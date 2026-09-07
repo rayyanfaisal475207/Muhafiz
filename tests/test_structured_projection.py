@@ -1224,6 +1224,94 @@ class TestIncidentDescriptionFromNarrative:
         assert _incident_node(graph_calls)["properties"]["canonical_name"] == "Incident for FIR 100/26"
 
 
+class TestIncidentReportTimestampsProjected:
+    """
+    [Gold-QA fix — Module 22, question M7] The FIR record carries typed
+    `incident_datetime` and `report_datetime`, but neither reached a
+    queryable structured field: `_write_occurred_on_edge()` truncates the
+    incident timestamp to `[:10]` for the day-granular Date node (correct
+    for a timeline, but it discards the time), and `report_datetime` was
+    never projected at all — it survived only inside the free-text
+    narrative. So "are people reporting as quickly as they used to?" could
+    not be answered at any precision finer than a day, and
+    `xagg._reporting_delay_rate_by_year()` had to substitute the
+    delay-REASON rate, saying so in its own note.
+    """
+
+    async def test_both_timestamps_become_incident_properties(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(
+            incident_datetime="2024-09-25T17:10:00Z",
+            report_datetime="2024-09-25T17:25:00Z",
+        )
+        await sp.project_fir(fir)
+        properties = _incident_node(graph_calls)["properties"]
+        assert properties["incident_datetime"] == "2024-09-25T17:10:00Z"
+        assert properties["report_datetime"] == "2024-09-25T17:25:00Z"
+
+    async def test_time_component_is_preserved_not_truncated_to_a_date(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        """The whole point of Module 22: the OCCURRED_ON Date node stays
+        day-granular, but the property must keep the time."""
+        fir = _minimal_fir(
+            incident_datetime="2024-09-25T17:10:00Z",
+            report_datetime="2024-09-25T17:25:00Z",
+        )
+        await sp.project_fir(fir)
+        assert "17:10" in _incident_node(graph_calls)["properties"]["incident_datetime"]
+
+    async def test_absent_timestamps_write_no_property(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        """Same optional convention as description/reporting_delay_reason —
+        "not recorded" stays distinguishable from "recorded as blank", so
+        the aggregate can report its own coverage honestly."""
+        fir = _minimal_fir(incident_datetime=None, report_datetime=None)
+        await sp.project_fir(fir)
+        properties = _incident_node(graph_calls)["properties"]
+        assert "incident_datetime" not in properties
+        assert "report_datetime" not in properties
+
+    async def test_blank_timestamp_writes_no_property(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(incident_datetime="   ", report_datetime="")
+        await sp.project_fir(fir)
+        properties = _incident_node(graph_calls)["properties"]
+        assert "incident_datetime" not in properties
+        assert "report_datetime" not in properties
+
+    async def test_one_timestamp_present_still_projects_that_one(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        """A FIR with only an incident time must not lose it just because
+        the report time is missing — the aggregate excludes that row from
+        the mean, but the data itself should still be queryable."""
+        fir = _minimal_fir(incident_datetime="2024-09-25T17:10:00Z", report_datetime=None)
+        await sp.project_fir(fir)
+        properties = _incident_node(graph_calls)["properties"]
+        assert properties["incident_datetime"] == "2024-09-25T17:10:00Z"
+        assert "report_datetime" not in properties
+
+    async def test_real_snapshot_projects_report_datetime_for_the_corpus(
+        self, firs_raw, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        """Sweep against the recorded snapshot: the corpus really does carry
+        both timestamps, so the aggregate has data to work with — this is
+        what makes M7's gold numbers (2024 mean 15.0 min, 2026 mean 1401.3
+        min) computable at all."""
+        projected = 0
+        for raw in firs_raw[:10]:
+            graph_calls["nodes"].clear()
+            await sp.project_fir(FirRecord(raw))
+            properties = _incident_node(graph_calls)["properties"]
+            if "incident_datetime" in properties and "report_datetime" in properties:
+                projected += 1
+        assert projected > 0, "no FIR in the snapshot projected both timestamps"
+
+
 class TestZimniDetailNeverStringifiesNone:
     """
     Regression: T2. Both zimni producers built detail as
