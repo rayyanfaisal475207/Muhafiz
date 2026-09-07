@@ -60,6 +60,48 @@ _VALID_ROUTES = ["DIRECT", "RAG", "WEB", "SQL", "GRAPH", "GRAPH_HYBRID", "XGRAPH
 # query (see router.txt), not a cross-case XAGG one.
 _ACTIVE_CASE_RE = re.compile(r"\b(CASE|FIR)[-\s]?\d", re.IGNORECASE)
 
+# [Gold-QA fix — Module 26, question M1] Year-over-year / period comparison
+# ("what kinds of cases are we dealing with now compared to a couple of
+# years back"). xagg.py's own `_TIME_COMPARISON_KEYWORDS` family (Module 13)
+# already has a real, working single-call aggregate for this shape
+# (`_statute_mix_by_year()`) — the gap this override closes is purely at the
+# ROUTE-classification layer: without a deterministic entry here, this
+# phrasing depended entirely on the local LLM classifier, which — per the
+# same local-model unreliability already documented at the top of this file
+# for other query shapes — is confirmed flaky for it (a live run during this
+# module's own verification classified it correctly as XAGG; the router.py
+# history this module's brief was written against recorded the same
+# phrasing landing on XGRAPH instead, which cannot answer a countable
+# comparison at all). Mined from M1's own literal gold text, then widened
+# only to the same paraphrase shapes `_TIME_COMPARISON_KEYWORDS` itself
+# already trusts, so the two layers stay in lockstep.
+#
+# A NAMED, MODULE-LEVEL constant (not inlined into `_XAGG_OVERRIDE_PATTERNS`
+# below) because `supervisor.py::classify_to_subagent()` also needs it: a
+# second, independently-discovered live defect (this module's own writeup
+# in GOLD_QA_REMAINING_FIXES_PLAN.md has the full trace) is that this exact
+# comparison shape ALSO matches `_META_ANALYSIS_TRIGGER_PATTERNS`' own
+# comparison group (both files' patterns were written by different modules
+# against the same M1 gold text), so the Meta-Analysis sub-agent
+# unnecessarily DECOMPOSES a question XAGG's single time-bucketed aggregate
+# call already answers whole into two independently-classified, undirected
+# sub-queries — each of which drops the "compared to" language that made
+# THIS pattern list match in the first place, so its own re-classification
+# is left to the flaky LLM call again, one level down. Sharing this exact
+# pattern list lets supervisor.py recognize "XAGG already has a one-call
+# answer for this" and skip decomposition instead of guessing at it with a
+# second, drifting copy.
+_TIME_COMPARISON_XAGG_PATTERNS = [
+    re.compile(r"\bcompared?\s+(to|with)\b.{0,60}\b(years?|year|couple|20\d\d)\b", re.IGNORECASE),
+    re.compile(r"\b(couple|few|two|three)\s+of\s+years?\s+(back|ago)\b", re.IGNORECASE),
+    re.compile(r"\bversus\b.{0,25}\byears?\s+ago\b", re.IGNORECASE),
+    re.compile(r"\bvs\.?\s*20\d\d\b", re.IGNORECASE),
+    re.compile(r"\byear[\s-]over[\s-]year\b", re.IGNORECASE),
+    re.compile(r"\b(shifted|changed)\b.{0,20}\bsince\s+20\d\d\b", re.IGNORECASE),
+    re.compile(r"کے\s*مقابلے\s*میں"),
+    re.compile(r"\bke\s*muqabl?[ae]\s*mein\b", re.IGNORECASE),
+]
+
 _XAGG_OVERRIDE_PATTERNS = [
     # Case status/category count aggregates:
     # "how many closed cases", "بند کیسز کی تعداد بتائیں", "band cases kitne hain"
@@ -246,7 +288,12 @@ _XAGG_OVERRIDE_PATTERNS = [
     re.compile(r"عدالت\s*کو\s*حوالگی"),
     re.compile(r"کیس\s*فائل\s*تیار.{0,60}(نامکمل|عدالت|حوالگی)"),
     re.compile(r"(نامکمل\s*قرار|قبول\s*کرنے\s*سے\s*پہلے)"),
-]
+    # (f) [Gold-QA fix — Module 26, question M1] Year-over-year / period
+    # comparison — see `_TIME_COMPARISON_XAGG_PATTERNS`'s own module-level
+    # comment (defined above, shared with supervisor.py) for the full
+    # rationale and why this is a NAMED shared constant rather than an
+    # inline list here.
+] + list(_TIME_COMPARISON_XAGG_PATTERNS)
 
 _XGRAPH_OVERRIDE_PATTERNS = [
     re.compile(r"\bacross\b.{0,15}\b(multiple |other )?cases\b", re.IGNORECASE),
