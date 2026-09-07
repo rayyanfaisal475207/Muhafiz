@@ -62,16 +62,25 @@ several can run in parallel chats/worktrees without colliding.
 
 | # | Module | Branch | Status |
 |---|---|---|---|
-| 20b | M4/G3 bare-Urdu-keyword collision | `fix/xagg-court-readiness-bare-urdu-keyword-collision` | ✅ **PR #8 open** |
-| 19a | KB-intent coverage for all 8 KB questions | `fix/kb-intent-coverage-all-gold-questions` | ✅ **PR #9 open** |
-| 19b | Evaluator compound-question relaxation not firing | `fix/evaluator-compound-relaxation-not-firing` | ⬜ Not started — **highest value** |
-| 21 | XNETWORK/XGRAPH relevance-gate over-refusal | `fix/xnetwork-relevance-gate-over-refusal` | ⬜ Not started |
-| 22 | M7 reporting-delay: wrong metric | `feature/xagg-incident-to-report-delta` | ⬜ Not started |
-| 23 | M5 weapon × statute co-occurrence join | `feature/xagg-weapon-statute-cooccurrence` | ⬜ Not started |
-| 24 | M4 statute × court-stage join | `feature/xagg-statute-court-stage-join` | ⬜ Blocked on PR #8 |
-| 25 | M2 Meta-Analysis → verifier rejection | `fix/meta-analysis-synthesis-verifier-rejection` | ✅ PR open |
-| 26 | M1 routing miss (XGRAPH instead of aggregate) | `fix/router-year-over-year-comparison-to-xagg` | ⬜ Not started |
-| 27 | Final Gold-32 rerun (Module 18 redo) | *(docs only)* | ⬜ Blocked on all above |
+| 20b | M4/G3 bare-Urdu-keyword collision | `fix/xagg-court-readiness-bare-urdu-keyword-collision` | ✅ **Merged (PR #8)** |
+| 19a | KB-intent coverage for all 8 KB questions | `fix/kb-intent-coverage-all-gold-questions` | ✅ **Merged (PR #9)** |
+| 19b | Evaluator compound-question relaxation not firing | `fix/evaluator-compound-relaxation-not-firing` | ✅ **Merged (PR #15)** — 5/8 KB questions now pass (was 1/8); see below |
+| 21 | XNETWORK/XGRAPH relevance-gate over-refusal | `fix/xnetwork-relevance-gate-over-refusal` | ✅ **PR #12 open** — investigated, no fix belongs in this module's files, split into Modules 28/29 |
+| 22 | M7 reporting-delay: wrong metric | `feature/xagg-incident-to-report-delta` | ✅ **Merged (PR #14)** — M7 AND its non-gold paraphrase both verified live, matching gold exactly |
+| 23 | M5 weapon × statute co-occurrence join | `feature/xagg-weapon-statute-cooccurrence` | ⬜ Not started — brief: `MODULE23_XAGG_WEAPON_STATUTE_COOCCURRENCE_PROMPT.md` |
+| 24 | M4 statute × court-stage join | `feature/xagg-statute-court-stage-join` | ⬜ Not started — **unblocked**, PR #8 has merged; brief: `MODULE24_XAGG_STATUTE_COURT_STAGE_PROMPT.md` |
+| 25 | M2 Meta-Analysis → verifier rejection | `fix/meta-analysis-synthesis-verifier-rejection` | ✅ **PR #16 open** |
+| 26 | M1 routing miss (XGRAPH instead of aggregate) | `fix/router-year-over-year-comparison-to-xagg` | ✅ **Merged (PR #13)** |
+| 28 | CR4 routing miss (weapon-recovery chain sent to cross-case entity linkage) | *(not yet branched)* | ⬜ New — split out of Module 21; **unblocked**, Module 26 has merged; brief: `MODULE28_ROUTER_WEAPON_EVIDENCE_CHAIN_PROMPT.md` |
+| 29 | Meta-Analysis decomposer doesn't split broad synthesis asks into XAGG-shaped sub-questions (CR3/G1/G6) | *(not yet branched)* | ⬜ New — split out of Module 21; blocked on PR #16 (same file); brief: `MODULE29_META_ANALYSIS_DECOMPOSER_PROMPT.md` |
+| 30 | KB3/KB8/KB9 retrieval-completeness gap (correct statutory chunk never enters the candidate pool) | *(not yet branched)* | ⬜ New — split out of Module 19b; brief: `MODULE30_KB_RETRIEVAL_COMPLETENESS_PROMPT.md` |
+| 27 | Final Gold-32 rerun (Module 18 redo) | *(docs only)* | ⬜ Blocked on all above — brief: `MODULE27_FINAL_GOLD32_RERUN_PROMPT.md` |
+
+> **Wave 2 hand-off:** `WAVE2_ORCHESTRATION_PROMPT.md` (added in PR #17)
+> carries the per-track plan, the infrastructure runbook, and **measured
+> machine constraints that supersede the "Which modules can run in parallel"
+> section below** — in particular, per-worktree virtualenvs are no longer
+> viable on this machine's free disk. Read it before starting a track.
 
 ---
 
@@ -81,13 +90,14 @@ several can run in parallel chats/worktrees without colliding.
 
 | Module | Primary file(s) touched |
 |---|---|
-| 19b | `prompts/evaluator.txt`, maybe `src/pipeline/evaluator.py` |
+| 19b | `prompts/evaluator.txt` only — no `evaluator.py` change was needed |
+| 30 *(new, split from 19b)* | Likely `src/pipeline/query_expander.py` / `src/pipeline/cross_script_variant.py` / retrieval top-k tuning — **not scoped yet**, disjoint from every other module's files today |
 | 21 | `src/pipeline/xnetwork.py` |
-| 22 | `src/pipeline/xagg.py` |
+| 22 | `src/pipeline/xagg.py` **+ `src/graph/structured_projection.py` + a graph backfill** (scope was larger than this table originally said — see Module 22's section) |
 | 23 | `src/pipeline/xagg.py` |
 | 24 | `src/pipeline/xagg.py` |
 | 25 | `src/pipeline/harness/agents/meta_analysis.py`, `src/pipeline/verifier.py` |
-| 26 | `src/pipeline/router.py` |
+| 26 | `src/pipeline/router.py`, **and `src/pipeline/harness/supervisor.py`** (scope grew — see Module 26's own section below for why) |
 
 ### ✅ Safe to run fully in parallel, right now, in separate worktrees
 
@@ -202,62 +212,134 @@ further defect, which is exactly how Module 19b itself was found.
 
 ---
 
-# Module 19b — Evaluator compound-question relaxation not firing ⬜
+# Module 19b — Evaluator compound-question relaxation not firing ✅ done
 
 **Branch:** `fix/evaluator-compound-relaxation-not-firing`
-**Why this is the highest-value module:** it is the *actual* remaining blocker
-on the whole KB bucket (8 questions, currently 0.06). Module 19a (PR #9) fixed
-which corpus gets searched; this one fixes why the right corpus still gets
-rejected.
+**Why this was the highest-value module:** it was the *actual* remaining
+blocker on the whole KB bucket (8 questions, was 0.06). Module 19a (PR #9)
+fixed which corpus gets searched; this one fixes why the right corpus still
+got rejected.
 
-**Evidence (captured live, 2026-09-07, with PR #9's branch active):**
-`prompts/evaluator.txt` already contains Module 5's compound-question
-relaxation ("return TRUE if the documents answer AT LEAST the primary part").
-It is not being applied. The evaluator's own reasons describe on-topic
-documents and then reject them anyway:
+**Both hypotheses confirmed real, both fixed in `prompts/evaluator.txt`:**
 
-- **KB2** → *"The retrieved documents discuss procedures for recording
-  witness/accused statements"* → `relevant=False`. That is precisely what KB2
-  asks about.
-- **KB3** → *"The retrieved documents discuss legal procedures for FIR
-  registration and investigation"* → `relevant=False`.
-- Three retries each, then `status=abstained`, `"No sufficiently relevant
-  documents were found ... after retrying with query refinements."`
+1. **Primary/secondary inversion (confirmed).** The old rule assumed the
+   LEGAL half is "primary." KB2 ("Why doesn't **our system** keep a
+   record...") leads with the data half, so the model concluded the primary
+   part was unanswered. **Fix:** the compound rule no longer talks about
+   "primary/secondary" at all — it defines a question as compound whenever
+   it contains BOTH a norm clause (law/rule/standard) and an our-data clause
+   (our system/records/data), in **either order**, and says explicitly not
+   to reason about which one is "primary."
+2. **Closing single-topic override (confirmed).** The prompt's last
+   paragraph — *"Evaluate strictly for a SINGLE-topic question..."* — read
+   last, won by default for any question not confidently classified as
+   compound. **Fix:** that paragraph now runs the compound check FIRST and
+   states the single-topic default "does NOT apply... and cannot override
+   this" once a question is compound.
 
-**Two hypotheses to test first — do not skip straight to prompt-editing:**
+A third defect surfaced during verification, **not fixed here — see Module
+30 below**: for KB3/KB8/KB9 the ideal statutory citation never enters the
+retrieval candidate pool at all (confirmed by manually querying the vector
+store with better-targeted text — the correct chunk exists in the corpus and
+is findable, just not by any of the query/expansion/rewrite variants the
+pipeline actually tries). No evaluator-prompt wording fixes a chunk that was
+never retrieved; forcing the evaluator to accept what *was* retrieved for
+these three would violate the "still correctly reject genuinely insufficient
+evidence" regression guard. Scope for 19b stayed prompts/evaluator.txt only,
+per the module brief.
 
-1. **Primary/secondary inversion.** The prompt's compound rule assumes the
-   LEGAL half is "primary" and the data half "secondary". KB2's phrasing
-   inverts that — *"Why doesn't **our system** keep a record …"* leads with
-   the data half, so an LLM reading "primary part" reasonably concludes the
-   primary part is unanswered. Fix direction: make the rule
-   *order-independent* — if the documents answer the legal/procedural half of
-   a compound question, that is sufficient **regardless of which half the
-   sentence leads with**.
-2. **The prompt's own closing line fights the rule.** The last paragraph says
-   *"Evaluate strictly for a SINGLE-topic question: if documents are on topic
-   but missing the specific data point asked, return false"* — for a question
-   the model does not confidently classify as compound, this is the
-   instruction that wins, and every KB question here is exactly "on topic but
-   missing the data point". Fix direction: make compound-detection the
-   default for any question containing both a norm clause and an our-data
-   clause, and soften the single-topic strictness to not override it.
+**Verified — unit:** `tests/test_pipeline.py`'s full evaluator suite (4
+pre-existing + 6 new) plus the rest of the file, 47/47 pass. New tests pin to
+KB2/KB3/KB4's literal gold text (mocking the LLM, asserting the prompt/parse
+contract) plus a regression-guard test using the prompt's own
+foreigner-registration/tenant-registration "false" example.
 
-**Verify:**
-- Unit: the evaluator's own tests, plus new cases pinned to KB2/KB3/KB4's
-  literal text (mock the LLM; assert the prompt/parse contract, not model
-  behavior).
-- **Live is the real test here** (this is a prompt fix — unit tests cannot
-  prove it): all 8 KB questions through `/api/chat`, expect `relevant=True`
-  and a substantive cited answer instead of `status=abstained`. Capture the
-  evaluator `relevant=`/`reason=` line for each from the backend log.
-- Non-gold paraphrase: e.g. *"Is there a legal standard for how long we keep
-  case property, and do our records follow it?"*
-- Regression guard: confirm the genuinely-insufficient case still returns
-  false (the prompt's own "Examples of correct false decisions" list).
+**Verified — live**, all 8 KB questions through real `/api/chat`
+(`admin@example.com`, All Cases, Postgres + model server up), evaluator
+`relevant=`/`reason=` lines captured from the backend log:
 
-**Expected impact:** the KB bucket is 8 of 32 questions at 0.06. This is the
-single largest available gain in the whole remaining plan.
+| Q | Before (Module 18/this module's own pre-fix probe) | After (live, this fix) |
+|---|---|---|
+| KB1 | `relevant=True` (already passing) | `relevant=True` — "Document 2 explicitly references Section 154..." |
+| **KB2** | `relevant=False` — *"documents discuss procedures for recording witness/accused statements"* (rejected despite being on-topic) | **`relevant=True`** — "The documents address the legal requirements for recording police interview stat[ements]..." |
+| KB3 | `relevant=False`, 3 retries, abstained | `relevant=False`, exhausted — genuine retrieval gap (Article 18 of Police Order 2002 never retrieved for any query variant tried); **see Module 30** |
+| KB4 | `relevant=False` (compound over-rejection: "do not explicitly outline a formal standard...compliance aspect unanswered") | **`relevant=True`** — "documents from Punjab Police Rules (Rule 27.18) directly address t[he norm clause]..." |
+| KB5 | `relevant=False` | **`relevant=True`** — "Documents mention legal provisions (e.g., Punjab Domestic Violence Act, 337-A(i)..." |
+| KB6 | `relevant=False` | **`relevant=True`** — "Document 1 addresses forensic handling procedures for seized weapons prior to re[cording]..." |
+| KB8 | `relevant=False`, abstained | `relevant=False`, exhausted — genuine retrieval gap (the specific CrPC provision on interim court reporting during a prolonged investigation is not surfaced); **see Module 30** |
+| KB9 | `relevant=False`, abstained | `relevant=False`, exhausted — genuine retrieval gap (Section 174 inquest text is not consistently in the retrieved chunk set); **see Module 30** |
+
+**Result: 5 of 8 KB questions now pass the evaluator gate and reach a
+substantive, cited answer (KB1/2/4/5/6), up from 1 of 8 before (KB1 only).**
+The remaining 3 (KB3/KB8/KB9) are a retrieval-completeness defect, not an
+evaluator defect — see the new Module 30 below rather than this module's
+scope being silently expanded.
+
+**Non-gold paraphrase** tested during development (mocked-LLM level, not
+re-run live in this final pass): *"Is there a legal standard for how long we
+keep case property, and do our records follow it?"* — same norm/our-data
+compound shape as KB1/KB4, exercised by the new unit tests.
+
+**Regression guard:** confirmed live and in unit tests — a genuinely
+off-topic retrieval (the prompt's own foreigner-registration /
+tenant-registration example) still returns `false`; the fix does not make
+the evaluator accept everything.
+
+---
+
+# Module 30 — KB3/KB8/KB9 retrieval-completeness gap ⬜ new, not yet branched
+
+**Found while verifying Module 19b.** Not fixed there — deliberately kept
+out of that module's scope (`prompts/evaluator.txt` only), per its brief's
+own instruction to split out a newly-discovered defect rather than silently
+expand scope.
+
+**What's happening:** for KB3, KB8 and KB9, the specific statutory
+provision the gold answer cites never enters the retrieval candidate pool —
+not in the top-5 after cross-rerank, not in the wider ~15-30 item semantic +
+BM25 pool before that cut, for the original question OR any of the 2
+expanded queries OR the cross-script variant OR the evaluator-feedback retry
+rewrite. Confirmed by manually querying the live vector store with better-
+targeted text (e.g. "Article 18 Police Order investigation staff head of
+investigation" for KB3) — **the correct chunk exists in the corpus and is
+findable**, it just isn't reached by any query text the actual pipeline
+generates from these questions' phrasing.
+
+- **KB3** — needs Police Order 2002 Article 18 (separate investigation
+  wing). Retrieved instead: CrPC sections on statements/bonds/imprisonment,
+  Police Order administrative forms.
+- **KB8** — needs the CrPC provision on interim court reporting during a
+  prolonged investigation. Retrieved instead: CrPC ss.170-171 ("case sent to
+  magistrate when evidence is sufficient"), a related but distinct
+  provision.
+- **KB9** — needs the CrPC s.174 inquest / cause-of-death investigation
+  text consistently in the retrieved set (it showed up in some attempts, not
+  reliably, and the evaluator's citation of "section 174" in an early
+  probe run turned out to be a model hallucination — the text wasn't
+  actually in the chunks it was judging that time).
+
+**This is a retrieval quality/coverage defect, not an evaluator defect** —
+confirmed by feeding the ACTUAL retrieved chunks (not idealized ones) through
+both the pre-fix and post-fix evaluator prompt: the post-fix prompt correctly
+recognizes when even a compound question's norm clause isn't addressed by
+what's on the page, and returns false. No prompt-only fix should make it
+return true here without also risking false-positive relevance elsewhere.
+
+**Likely fix directions (not investigated yet):** widen `query_expander.py`
+or `cross_script_variant.py`'s prompting to specifically try naming
+candidate governing statutes when the question is legal-KB-intent; raise
+`TOP_K_RETRIEVAL`/`CROSS_CASE_RETRIEVAL_MULTIPLIER` for the KB-only scope
+specifically (cheap but blunt); or add a keyword/BM25-boost path that
+searches for statute-name-shaped tokens directly. Whoever picks this up
+should re-probe the corpus first (as this investigation did) to confirm
+which of these would actually surface the missing chunk before committing to
+one.
+
+**Verify:** re-run KB3/KB8/KB9 live after any fix; confirm the evaluator
+then sees the right chunk and correctly returns true (no evaluator change
+should be needed if 19b's fix is present). Regression-guard against
+Module 19b's fix: rerun KB1/2/4/5/6 too, to confirm a retrieval change here
+doesn't regress what 19b just fixed.
 
 ---
 
@@ -297,27 +379,103 @@ before/after examples, documented in the master plan).
 
 ---
 
-# Module 22 — M7: reporting-delay computes the wrong metric ⬜
+# Module 22 — M7: reporting-delay computes the wrong metric ✅ DONE
 
 **Branch:** `feature/xagg-incident-to-report-delta`
 **Question:** M7. Gold: **mean minutes from incident to report, 15.0 (2024) →
 1401.3 (2026)**.
 
-**Root cause (from the teammate's trace, worth re-confirming):**
-`_reporting_delay_rate_by_year` in `src/pipeline/xagg.py` computes *the rate
-of FIRs recording a delay REASON* (0% → 14.9%) — a different quantity
-entirely. Its own `note` field admits it. The primitive cannot answer M7 as
-asked.
+**Root cause — confirmed, and deeper than the reports said.** The reports
+correctly identified that `_reporting_delay_rate_by_year` computes the rate
+of FIRs recording a delay REASON (0% → 14.9%), a different quantity. But the
+real cause was one layer upstream: **neither timestamp reached a queryable
+field at all.**
 
-**Work:** add a real incident→report time-delta aggregate — per-FIR
-`report_date/time` minus `incident_date/time`, averaged, bucketed by year
-(Module 13's time-bucket primitive already exists to build on). Confirm both
-timestamps are actually projected onto the graph/records; if one isn't,
-projecting it is part of this module.
+| Layer | State before this module |
+|---|---|
+| Source API snapshot | ✅ has `incident_datetime` AND `report_datetime`, full time precision |
+| `cases` table | ❌ `incident_date` is a bare `DATE` (time discarded); no `report_date` column |
+| Graph `Incident` node | ❌ no report timestamp — it existed only inside the free-text narrative |
 
-**Verify:** live M7 states a real mean-minutes-per-year comparison matching
-gold's shape; a non-gold paraphrase ("how quickly do people report crimes now
-vs two years ago?"); `tests/test_xagg.py` full pass.
+`_write_occurred_on_edge()` truncates the incident timestamp to `[:10]` for
+the day-granular `Date` node — correct for a timeline, and deliberately left
+alone — but it means reporting SPEED was not computable finer than a day.
+`_reporting_delay_rate_by_year()`'s own comment had already anticipated the
+fix: *"self-heals to a true mean-days aggregate … once report_datetime is
+projected."*
+
+**What shipped:**
+1. `structured_projection.py` projects both timestamps as `Incident`
+   properties, following the same optional convention as
+   `description`/`reporting_delay_reason` (absent → no property, so "not
+   recorded" stays distinguishable from "recorded as blank"). Projects the
+   raw pair, not a precomputed delta.
+2. `xagg.py` adds `_incident_to_report_minutes_by_year()` plus pure,
+   unit-testable `_minutes_between()`/`_parse_iso_datetime()` helpers.
+   `_reporting_delay_rate_by_year()` is **kept** — it answers the A7-family
+   question and now has its own direct regression test.
+3. New `time_bucketed_mean` kind wired into **all three** rendering sites via
+   one shared `render_time_bucketed_mean()`.
+4. `scripts/backfill_incident_report_timestamps.py` — see the coordination
+   note below.
+
+**Result — live, through real `/api/chat`:**
+> *"No, people are not reporting incidents to the police as quickly in 2026
+> as they did in 2024… **15.0 minutes** across **13 FIRs** in 2024, compared
+> to **1401.3 minutes (~23.4 hours)** across **51 FIRs** in 2026."*
+
+An exact match to gold, including both FIR counts and the ~23.4-hour scale
+gold itself cites.
+
+**⚠️ Correction to this plan's own parallelization model.** This module was
+listed as `xagg.py`-only. It was not — it needed a projection change **and a
+write to the shared graph**. That is a *different kind* of conflict from file
+overlap, and the table above does not model it: file-disjoint tracks can
+still collide through the shared database. Modules 23/24 should assume the
+same may apply to them.
+
+The shared-DB write was made as safe as possible: a **targeted property
+backfill**, not a re-projection. It writes zero nodes and zero edges, so it
+cannot reproduce the duplicate-edge damage a previous re-projection caused
+(`MODULE_18_FINAL_REPORT.md` §3 — every relationship type roughly doubled).
+It is MATCH-only, idempotent, `--dry-run` capable. Result: **64 of 73 FIRs
+carry both timestamps; 64 nodes updated, 0 not found** (no graph/snapshot
+drift).
+
+**Non-gold paraphrase: ✅ now passes end-to-end — resolved by Module 26.**
+Mid-module this was an open gap: the paraphrase (*"How long does it typically
+take someone to report a crime to us these days versus a couple of years
+ago?"*) failed live because `router.py` classified it as `RAG`, so it never
+reached XAGG at all — even though calling `run_aggregate()` directly with it
+returned the correct answer. `router.py` is Module 26's file, so it was
+flagged for coordination rather than edited here.
+
+Module 26 (PR #13, deterministic XAGG routing) merged while this module was
+in flight. After merging `origin/main` in and re-testing, the paraphrase now
+routes `XAGG -> Large-Scale Aggregate` and returns:
+
+> *"the mean time from incident to report was **15.0 minutes** in 2024
+> (across 13 FIRs) compared to **1401.3 minutes (~23.4 hours)** in 2026
+> (across 51 FIRs). Reporting is notably slower in 2026 than in 2024."*
+
+Worth noting as a parallelization result: two file-disjoint tracks each fixed
+one layer of the same end-to-end failure, and neither alone was sufficient —
+Module 22 made the metric computable and the matcher paraphrase-tolerant,
+Module 26 made the routing deterministic.
+
+**A curve-fitting bug the paraphrase step caught** (this is what that step is
+for): `_REPORTING_SPEED_COMPARISON_KEYWORDS` was pinned to M7's literal
+wording and matched no paraphrase at all. Widened to a two-signal AND
+(reporting/speed signal **and** time-period comparison signal), because a
+one-signal widening collided in two directions — with **A7** (a
+count-of-delay-reasons question checked *after* this one, so an over-broad
+match silently hijacks it) and with **KB8**, which initially DID match on
+"report" + "pehle" — but its "pehle" means "before completion", not "years
+before", and matching it would have regressed PR #9's KB routing. Now
+negative-controlled: **matches M7 and only M7 of the 32 gold questions**,
+while catching three natural paraphrases. That all-32 assertion is now a
+test — it is the check that would have caught all three historical pattern
+collisions on this plan.
 
 ---
 
@@ -473,25 +631,130 @@ owned by a different concurrent track.
 
 ---
 
-# Module 26 — M1: routing miss (XGRAPH instead of an aggregate) ⬜
+# Module 26 — M1: routing miss (XGRAPH instead of an aggregate) ✅
 
 **Branch:** `fix/router-year-over-year-comparison-to-xagg`
 **Question:** M1 — year-over-year case-type comparison.
 
-**Root cause:** routed to XGRAPH, which refuses ("cannot provide the
-requested comparison"). This is a countable comparison and belongs in XAGG
-(Module 13's time-bucket primitive already exists).
+**The brief's premise was stale — corrected here, per its own §1
+instruction to verify before writing a pattern.** `GOLD32_RESULTS_FOR_TEAMMATE.md`'s
+"routed to XGRAPH" finding predates a harness change
+(`b21eab7`, 2026-09-05 — "route compound/comparative/evaluative questions to
+Meta-Analysis") that landed *before* this plan's own baseline commit
+(`c435207`, 2026-09-07). **Live-verified actual behavior on the baseline this
+plan was written against: M1 already classifies as `route=XAGG`**, not
+XGRAPH — but two real, previously-undocumented defects still blocked the
+answer:
 
-**Work:** a year-over-year comparison override in `src/pipeline/router.py`,
-in the same additive style as Modules 3/4/15. **Mine the pattern from M1's
-literal gold text**, then negative-control it against every other gold
-question — the lesson from Module 8c (0/7) and the CR8→KB1 and M4→G3
-collisions (PRs #7, #8): a pattern that looks reasonable in isolation is not
-evidence it matches the real question or misses the others.
+1. **Router classification was non-deterministic, not wrong.** `router.py`
+   had no deterministic override for this comparison shape, so it depended
+   entirely on the flaky local LLM classifier for the route decision. A
+   correct `XAGG` classification on one live run is not evidence the
+   *pattern* is reliable — the whole reason every other override in this
+   file exists is that this exact LLM is confirmed to flip on other query
+   shapes, and this one is textually just as ambiguous.
+2. **A second, structurally separate bug — inside the new agent harness,
+   not `router.py` — actually blocked the answer even with the correct
+   route.** `supervisor.py`'s `_META_ANALYSIS_TRIGGER_PATTERNS` (added by
+   the same `b21eab7` commit, specifically targeting M1's own "compared to"
+   phrasing) fires on M1's exact text *regardless of route*, dispatching it
+   to the Meta-Analysis sub-agent, which decomposes it into two
+   independently-classified sub-questions ("breakdown of case types...
+   handled by this station in the current period" / "...two years ago" —
+   note the decomposer LLM invents "this station" wording that appears
+   nowhere in the original question, and is unstable run-to-run: a second
+   live attempt produced "last 6 months" / "2-3 years ago" instead). This
+   is actively counter-productive: `xagg.py`'s own `_statute_mix_by_year()`
+   (Module 13) already answers the *entire* comparison in ONE call — the
+   decomposition converts a working single-call answer into two slower,
+   worse ones. Each sub-question drops the "compared to ... years" language
+   that would have matched a router override, so its own classification
+   falls back to the same flaky LLM call one level down — live-observed to
+   land on `XGRAPH → Cross-Case Linkage` (wrong sub-agent, both dispatches
+   returned `status=empty`) on one run, and to simply **time out** (both
+   sub-queries hit `META_ANALYSIS_SUBQUERY_TIMEOUT=60s`, ~127s total) on
+   another.
 
-**Verify:** `tests/test_router.py` full pass **plus a negative-control test
-over all 32 gold questions**; live M1 returns the comparison; a non-gold
-paraphrase.
+**Work actually done (both files, not just router.py):**
+
+- `src/pipeline/router.py` — new named, shared constant
+  `_TIME_COMPARISON_XAGG_PATTERNS` (year-over-year/period-comparison
+  shapes: "compared to/with ... years", "a couple of years back/ago",
+  "versus ... years ago", "vs 20XX", "year over year", "shifted/changed
+  since 20XX", Urdu "کے مقابلے میں" / Roman-Urdu "ke muqable mein"), mined
+  from M1's literal gold text and widened only to paraphrase shapes
+  `xagg.py`'s own pre-existing `_TIME_COMPARISON_KEYWORDS` family already
+  trusts, appended to `_XAGG_OVERRIDE_PATTERNS`.
+- `src/pipeline/harness/supervisor.py` — `classify_to_subagent()` now
+  checks this SAME shared pattern list *before* the general
+  `_META_ANALYSIS_TRIGGER_PATTERNS` check: when `route == "XAGG"` and the
+  query matches it, dispatch straight to Large-Scale Aggregate instead of
+  Meta-Analysis. Deliberately narrow — conditioned on `route == "XAGG"`
+  specifically, not a bare text-pattern skip — so it can never suppress a
+  genuine Meta-Analysis decomposition for a different cross-case route
+  (XGRAPH/XNETWORK, which have no equivalent one-call aggregate) or for a
+  different XAGG-routed Meta-Analysis trigger (M2's "growing faster" shape
+  is untouched, unit-tested explicitly).
+
+  **This second file was NOT in this module's original file-overlap
+  entry** (`src/pipeline/router.py` only). No other Wave-1 module claims
+  `supervisor.py`; Module 25 owns `meta_analysis.py`/`verifier.py`
+  specifically, not the supervisor's classification logic. Flagging this
+  here per the brief's own instruction to say so when scope changes.
+
+**Verify — both halves, done:**
+
+- **Unit:** full existing suite unaffected (`test_router.py`,
+  `test_harness_supervisor.py`, `test_xagg.py`,
+  `test_harness_agent_meta_analysis.py`,
+  `test_harness_agent_large_scale_aggregate.py`, and the whole repo test
+  suite — zero failures). **Mandatory negative control**
+  (`test_m1_pattern_negative_control_against_all_other_gold_questions`,
+  `tests/test_router.py`): the new pattern family matches **M1 and exactly
+  one other question — M5** (a genuine co-match: M5 is itself a
+  year-over-year weapon-type comparison already reaching
+  `_statute_mix_by_year` via its own Urdu "کے مقابلے میں" wording) **and
+  zero of the remaining 30 gold questions.** A parallel supervisor-side
+  test (`test_time_comparison_guard_is_scoped_to_xagg_route_only`,
+  `test_time_comparison_guard_does_not_suppress_unrelated_xagg_meta_analysis_triggers`)
+  confirms the Meta-Analysis-skip guard doesn't leak into XNETWORK/XGRAPH
+  comparisons or M2's own decomposition need. Plus positive-control
+  paraphrase tests (English/Urdu/Roman-Urdu) so the pattern isn't pinned to
+  M1's one literal string.
+- **Live** (isolated worktree, own backend on `:8002`, shared
+  Postgres/model-server — see note below on why isolation was necessary):
+  M1's exact gold text now single-dispatches `route='XAGG' →
+  sub-agent='Large-Scale Aggregate' → status=ok` in **8.4s**, answering
+  with a real per-year statute breakdown matching the gold answer's shape
+  (2024: narrow PPC ×13 / Arms Ordinance ×13 pattern; 2026: diversified —
+  PPC ×39, Arms Ordinance ×16, plus CNSA ×12, PECA ×9, Domestic Violence
+  Act ×4, Illegal Dispossession Act ×2). Before fix (two separate live
+  captures on the baseline commit): one run timed out after 127s with both
+  decomposed sub-questions failing; a second (after only the router.py
+  half of the fix) came back "No information was found" via a wrong
+  `XGRAPH → Cross-Case Linkage` sub-dispatch. **Regression guard** — D1,
+  CP1, A7 all still single-dispatch to XAGG with correct-looking answers,
+  unaffected. **M5 and M7 unaffected** — both still reach XAGG (M5 via the
+  same new guard, single dispatch; M7 still decomposes via Meta-Analysis
+  exactly as before, since its own "itni hi jaldi jitni" phrasing doesn't
+  match this pattern family — correctly out of this module's scope, that's
+  Module 22's `_REPORTING_SPEED_COMPARISON_KEYWORDS` family, a different
+  aggregate). **Non-gold paraphrase** ("Has the mix of crimes we handle
+  shifted since 2024?") also single-dispatches to XAGG correctly (4.7s;
+  the verifier rejected its own paraphrase and served the raw computed
+  aggregate instead — XAGG's own pre-existing, unrelated fallback
+  behavior, not a regression from this module).
+
+**Note on environment — worktree isolation was required, not optional:**
+this session found the shared working directory mid-session with another
+module's uncommitted change already present (`meta_analysis.py`, not
+authored here) and the checked-out branch switched out from under it by
+concurrent activity — confirming the coordination note the Wave-1 hand-off
+docs added independently. This module's actual work happened in a
+dedicated `git worktree` (`fix/router-year-over-year-comparison-to-xagg`
+checked out at `D:/Rapids AI/eip-module26`) with its own backend instance
+on port 8002, to avoid colliding with or corrupting concurrent modules'
+work in the shared directory.
 
 ---
 
