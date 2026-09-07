@@ -28,6 +28,31 @@ were a total.
   Weak:   "Which suspects appear most frequently?"
   Strong: "How many cases does each suspect appear in, across all cases?"
 
+Prefer to BEGIN each counting sub-query with the literal words "How many
+cases" and to END it with "across all cases". That exact shape is the one
+the deterministic aggregate router recognizes without a further model call;
+other phrasings ("What is the breakdown of ...") were measured landing on
+the cross-case entity-linkage path instead, which cannot answer a count.
+
+BROAD ANALYTICAL AND ORIENTATION QUESTIONS ARE COMPOUND. A question that
+asks you to review a whole caseload and say what stands out, to write an
+orientation/briefing note about what a body of cases is like, or to judge
+whether two records were handled the same way, is NOT "one topic, one
+search". It has no single place to look it up: the answer only exists once
+several independent facts have each been computed and then read together.
+Decompose these, and make every sub-question a countable fact:
+
+  - "review the caseload / flag anything unusual or worth monitoring" ->
+    the separate "is anything off here?" scans: incomplete records, people
+    recurring across FIRs, unlicensed recovered weapons, criminal-record
+    versus court-outcome disagreements, how the case mix has shifted.
+  - "orientation note / what should a newly posted officer expect" -> how
+    many cases and where, what the case mix is now versus earlier, how
+    promptly crimes get reported, and the standing profile facts.
+  - "were both records processed and recorded the same way" -> first
+    identify which records the question covers, then run the SAME
+    record-linkage cross-check over each of them.
+
 WHAT COUNTS AS GENUINELY COMPOUND: the query asks for two or more DISTINCT
 things that each need their OWN retrieval/reasoning pass to answer correctly
 — e.g. "summarize the recurring patterns across all X and flag any that
@@ -79,6 +104,15 @@ Output: {"decompose": true, "sub_queries": ["What are the recurring themes acros
 
 Query: "Summarize across all cases and flag the suspects who appear most frequently"
 Output: {"decompose": true, "sub_queries": ["What is the overall summary of themes and case types across all cases?", "How many cases does each suspect appear in, across all cases?"], "synthesis_goal": "Give the dataset-wide summary, then report the per-suspect case counts from the aggregate — naming the highest-count suspects and their exact counts, never a frequency estimated from a text-search sample."}
+
+Query: "Take a look through what we currently have open and tell me if anything stands out as worth a closer look."
+Output: {"decompose": true, "sub_queries": ["How many cases have incomplete or missing record fields, across all cases?", "How many cases does each accused person appear in, and which FIR numbers, across all cases?", "How many cases involve a recovered weapon with no licence recorded, across all cases?", "What kinds of cases are we dealing with now compared to a couple of years back?"], "synthesis_goal": "Report what genuinely stands out in the current caseload — repeat offenders across FIRs, unlicensed weapons, incomplete records, and how the case mix has shifted — with the exact counts from the sub-answers, and without padding the answer with routine observations."}
+
+Query: "Write a short briefing for someone joining this team about what the workload here is actually like."
+Output: {"decompose": true, "sub_queries": ["How many cases are registered in each district, across all cases?", "What kinds of cases are we dealing with now compared to a couple of years back?", "How long does it typically take someone to report a crime to us these days versus a couple of years ago?", "How many of the accused are men and how many are women, across all cases?"], "synthesis_goal": "Write a short orientation note: how many cases there are and where they are concentrated, what the case mix is now and how it changed, how promptly crimes get reported, and what the accused profile looks like — using the exact counts from the sub-answers."}
+
+Query: "Two people reported the same scam. Were both of their reports processed and recorded the same way?"
+Output: {"decompose": true, "sub_queries": ["How many cases does each accused person appear in, and which FIR numbers, across all cases?", "How many cases have a matching walk-in complaint recorded in the complaint management system, across all cases?", "How many cases have incomplete or missing record fields, across all cases?"], "synthesis_goal": "Identify which FIRs the question covers from the recurring-person answer, then say FIR by FIR which of them has a matching walk-in complaint and which does not, answering 'yes, identically' or 'no, not identically' explicitly and naming the specific record that differs."}
 
 Query: "Summarize case CASE-021."
 Output: {"decompose": false}

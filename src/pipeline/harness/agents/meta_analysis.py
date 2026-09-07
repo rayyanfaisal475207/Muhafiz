@@ -237,7 +237,33 @@ _SYNTHESIS_SYSTEM_PROMPT_TEMPLATE = (
     "1-based position below. Do not invent anything beyond what the "
     "sub-answers state.\n\n"
     "Respond in {preferred_language}.\n\n"
-    "--- SUB-ANSWERS ---\n{documents}\n--- END OF SUB-ANSWERS ---"
+    "--- SUB-ANSWERS ---\n{documents}\n--- END OF SUB-ANSWERS ---\n\n"
+    # [Gold-QA fix — Module 29] Both of these were live-caught rejecting a
+    # decomposed answer that was otherwise correct, on this module's own
+    # first live run of CR3 and G6 (2026-09-08). They are restated HERE,
+    # after the sub-answers, rather than only in the instructions above:
+    # with a long `synthesis_goal` and five sub-answers in between, the
+    # citation rule at the top was reliably lost.
+    #   - CR3: verifier `off_topic=True`, reason "Answer is substantial
+    #     (long, or a multi-item list) but cites no [Document N] source at
+    #     all" — the model wrote a good answer and cited nothing.
+    #   - G6: verifier `unsupported=1`, reason "The claim about 73 total
+    #     cases is not directly stated in any chunk ... their sum requires
+    #     inference" — the model ADDED UP the per-district counts. Correct
+    #     arithmetic, but a number that appears in no sub-answer is
+    #     unverifiable by construction at this layer, because the raw
+    #     evidence is two levels down and never travels this far.
+    # This is the same Module 25 verifier-interaction family (M2), and the
+    # M2 regression is re-run against this wording — see this module's
+    # result file.
+    "Check both of these before you answer:\n"
+    "1. Every sentence that states a fact carries the [Document N] marker of "
+    "the sub-answer it came from. An answer that cites no [Document N] at all "
+    "is rejected outright as ungrounded, however good it is.\n"
+    "2. Every number you state appears literally in a sub-answer above. Do "
+    "not add up, average, or convert figures into percentages yourself — a "
+    "derived number that appears in no sub-answer is treated as unsupported "
+    "and the whole answer is rejected."
 ) + NAME_FIDELITY_RULE
 
 _NO_INFO_SUBANSWER_TEXT = "No information was found for this sub-question."
@@ -274,6 +300,254 @@ class _DecomposerResult:
     sub_queries: list[str]
     synthesis_goal: str
     parse_failed: bool = False
+    plan_name: Optional[str] = None  # Set iff a deterministic plan matched.
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 29, questions CR3 / G1 / G6] DETERMINISTIC
+# DECOMPOSITION PLANS — checked BEFORE the LLM decomposer call below.
+#
+# THE DEFECT. Measured on this branch's own base commit, calling
+# `_decompose()` directly against each question's literal gold text
+# (2026-09-08):
+#
+#     [CR3] decompose=False   [G1] decompose=False   [G6] decompose=False
+#     [M2]  decompose=True  -> 2 sub-queries        (Module 25's question,
+#                                                    unaffected)
+#
+# All three DID reach this module — `supervisor.py`'s
+# `_META_ANALYSIS_TRIGGER_PATTERNS` already carries a pattern for each —
+# but the LLM decomposer judged each one "a single broad-sounding question
+# that is still really one ask" and returned `decompose: false`, so
+# `meta_analysis()` fell back to ONE non-decomposed dispatch of the
+# original query. That re-dispatch lands on XNETWORK / Cross-Case Linkage,
+# whose relevance gate then correctly refuses (Module 21 measured the
+# nearest community distances: CR3 0.156, G1 0.202, G6 0.181, all above the
+# 0.145 cutoff). The gate is right; the question should never have reached
+# the community layer whole. Nothing in `xnetwork.py` is touched here.
+#
+# WHY DETERMINISTIC RATHER THAN PROMPT-ONLY. The decomposer prompt IS also
+# extended (see `prompts/meta_analysis_decomposer.txt`) so paraphrases
+# outside these families still decompose. But the prompt alone cannot be
+# the whole fix, for three reasons this codebase has already paid for:
+#
+#   1. It is a live LLM judgment on a rotating free-tier model. The brief
+#      for this module requires unit tests pinned to the LITERAL
+#      decomposition of CR3/G1/G6 — a promise only a deterministic path can
+#      keep across model drift.
+#   2. Each sub-query is re-dispatched through `Supervisor().handle()`,
+#      which routes it with ANOTHER LLM call unless a deterministic router
+#      override catches it first. Measured on this same base commit, the
+#      LLM router sent 6 of 9 naturally-phrased sub-questions to
+#      **XGRAPH / Cross-Case Linkage** — the exact dead end this module
+#      exists to route away from. Every sub-query below is phrased so that
+#      `router.py::_deterministic_route_override()` matches it outright
+#      (verified live: all 9 return `det=Y route=XAGG`), so decomposition
+#      adds ZERO extra router LLM calls and lands on a known aggregate.
+#   3. `xagg.py` itself is a family of CANNED aggregates selected by
+#      keyword, deliberately not a general text-to-SQL engine (see its own
+#      module header). A canned decomposition plan per question SHAPE is
+#      the same paradigm one layer up, not a new one.
+#
+# WHY THESE SUB-QUERIES AND NOT THE ONES THE MODULE BRIEF LISTED. The
+# brief expected G1 to decompose into offender age / accused-complainant
+# relationship / seized-property counts / incident time-of-day, and G6 to
+# include an arrest rate. This module's own gap analysis (published in
+# `GOLD_QA_REMAINING_FIXES_PLAN.md` and
+# `docs/gold-qa-wave2-results/MODULE29_RESULT.md`, probed live against
+# `run_aggregate()`) found that **none of those five aggregates exists**:
+# age is an explicit `unsupported_aggregate` refusal, and relationship /
+# seized-property / time-of-day / arrest-rate sub-questions fall through
+# `run_aggregate()`'s keyword chain to the unrelated person-RECURRENCE
+# family and come back with a confidently wrong answer and no caveat.
+# Dispatching them today would inject wrong facts into the synthesis. They
+# are therefore filed as Modules 31-35 (one per missing aggregate, per this
+# project's own "a new gap becomes its own module" discipline) and each
+# plan below carries only sub-questions that were LIVE-VERIFIED to reach a
+# real, correct aggregate. When one of those modules lands, its sub-question
+# is added to the plan here — that is a one-line change by design.
+#
+# NEGATIVE CONTROL. Too broad a trigger is as bad as too narrow: a
+# currently-correct single-fact answer must not turn into a muddled
+# synthesis. Every pattern below is asserted in
+# `tests/test_harness_agent_meta_analysis.py` against all 32 gold questions
+# — the only matches allowed are CR3, G1 and G6. In particular G5
+# ("compliance ke lihaz se ... flag karne layak") and G2 already reach this
+# module, already answer correctly via the `decompose: false` fallback, and
+# must keep doing so: no pattern here uses a bare "flag"/"briefing".
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@dataclass(frozen=True)
+class _DecompositionPlan:
+    """A question SHAPE, the standalone sub-questions it decomposes into,
+    and what the synthesis has to do with the answers."""
+
+    name: str
+    patterns: tuple[re.Pattern, ...]
+    sub_queries: tuple[str, ...]
+    synthesis_goal: str
+
+
+# Sub-question wordings are INTERNAL dispatch strings, never shown to the
+# user, so they are written in English regardless of the original query's
+# language (G6 is Roman Urdu): `router.py`'s deterministic overrides and
+# `xagg.py`'s keyword families are most reliable in English, and the final,
+# user-facing synthesis handles language separately via
+# `_SYNTHESIS_SYSTEM_PROMPT_TEMPLATE`'s own `{preferred_language}`.
+_SQ_COMPLETENESS = "How many cases have incomplete or missing record fields, across all cases?"
+_SQ_PERSON_RECURRENCE = (
+    "How many cases does each accused person appear in, and which FIR numbers, across all cases?"
+)
+_SQ_WEAPON_LICENCE = (
+    "How many cases involve a recovered weapon with no licence recorded, across all cases?"
+)
+_SQ_CASE_MIX_BY_YEAR = "What kinds of cases are we dealing with now compared to a couple of years back?"
+_SQ_CRIMINAL_RECORD_VS_COURT = (
+    "How many cases in the criminal record system have a court outcome that matches "
+    "the recorded conviction status, across all cases?"
+)
+_SQ_DISTRICT_SPREAD = "How many cases are registered in each district, across all cases?"
+_SQ_REPORTING_SPEED = (
+    "How long does it typically take someone to report a crime to us these days "
+    "versus a couple of years ago?"
+)
+_SQ_GENDER = "How many of the accused are men and how many are women, across all cases?"
+_SQ_CMS_LINKAGE = (
+    "How many cases have a matching walk-in complaint recorded in the complaint "
+    "management system, across all cases?"
+)
+# NOT USED IN ANY PLAN — kept, named, and explained because the live
+# evidence for leaving it out is the most useful thing this module learned
+# about CR3, and a future module WILL be tempted to add it.
+#
+# `case_listing` is the only path in `xagg.py` that returns PER-FIR
+# attributes (FIR number, statute, police station, status) rather than
+# counts, so it looks like the obvious way to work out WHICH FIRs a question
+# such as "the online banking fraud matter" is about. It was tried live in
+# the record-consistency plan and REMOVED again: rendering all 73 cases
+# takes ~4.6 KB of generation, and running it concurrently with the other
+# sub-queries starved them on the shared model server — both of the other
+# two sub-queries hit `META_ANALYSIS_SUBQUERY_TIMEOUT` (60 s) on that run
+# and the whole answer degraded. The identification gap it was meant to
+# close is real; it needs a SUBJECT-FILTERED FIR listing aggregate (Module
+# 36 in the plan), not a whole-corpus dump inside a concurrent fan-out.
+_SQ_CASE_LISTING = "Give me the list of all cases."
+
+_DECOMPOSITION_PLANS: tuple[_DecompositionPlan, ...] = (
+    # (1) CROSS-RECORD CONSISTENCY — "were these two records processed and
+    #     recorded the same way?" (CR3). Answering it needs the pair
+    #     IDENTIFIED (which FIRs are the two in question), then the same
+    #     record-linkage cross-check applied to each. Checked first: it is
+    #     the narrowest family, and a consistency question can also carry
+    #     caseload vocabulary.
+    _DecompositionPlan(
+        name="record_consistency",
+        patterns=(
+            re.compile(r"\b(the\s+)?same\s+way\b", re.IGNORECASE),
+            re.compile(r"\bprocessed\s+and\s+recorded\b", re.IGNORECASE),
+            re.compile(r"\b(handled|recorded|processed)\s+(the\s+)?same\b", re.IGNORECASE),
+            re.compile(r"\bek\s*hi\s*tarah\s*(se)?\b", re.IGNORECASE),
+            re.compile(r"ایک\s*ہی\s*طرح"),
+        ),
+        sub_queries=(_SQ_PERSON_RECURRENCE, _SQ_CMS_LINKAGE),
+        synthesis_goal=(
+            "Decide whether the records the user asked about were handled identically. "
+            "The sub-answers are dataset-wide lists, NOT pre-filtered to the records in "
+            "the question — locate the relevant FIR numbers inside them yourself: the "
+            "recurring-person answer names GROUPS of FIRs that share the same accused, "
+            "which is how two connected complaints show up in this data. Check each group "
+            "against the walk-in-complaint linkage list and work with the group that list "
+            "SPLITS — at least one of its FIRs present in the list, at least one absent. "
+            "A FIR that appears in that list has a matching complaint; one that does not "
+            "appear has none, and that difference IS the answer. If no group is split, the "
+            "records were handled the same way and you should say so. Never pair a FIR "
+            "from one group with a FIR from another. Say 'yes, identically' or 'no, not "
+            "identically' explicitly, name the FIR numbers, and name the specific record "
+            "(with its case tag) that exists for one and not the other. Do not reply that "
+            "the question cannot be answered merely because the sub-answers do not repeat "
+            "its wording."
+        ),
+    ),
+    # (2) ORIENTATION / WHAT-TO-EXPECT NOTE — "brief a newly posted officer
+    #     on what this caseload is like" (G6). Decomposes into the standing
+    #     shape of the caseload: how big and where, what it is made of and
+    #     how that changed, how fast things get reported, and the two
+    #     compliance/profile facts that most affect day-to-day work.
+    _DecompositionPlan(
+        name="orientation_note",
+        patterns=(
+            re.compile(r"\borientation\s+note\b", re.IGNORECASE),
+            re.compile(r"\btawaqqo\b.{0,30}\brakhni\s*chahiye\b", re.IGNORECASE),
+            re.compile(r"\bnewly\s+(posted|assigned|transferred|joined|appointed)\b", re.IGNORECASE),
+            re.compile(r"\bnew(ly)?\b.{0,30}\bofficer\b.{0,60}\bexpect\b", re.IGNORECASE),
+            re.compile(r"\bnaye?\s*(tainaat|tayinaat)\b", re.IGNORECASE),
+            re.compile(r"نئے\s*تعینات"),
+        ),
+        sub_queries=(
+            _SQ_DISTRICT_SPREAD,
+            _SQ_CASE_MIX_BY_YEAR,
+            _SQ_REPORTING_SPEED,
+            _SQ_WEAPON_LICENCE,
+            _SQ_GENDER,
+        ),
+        synthesis_goal=(
+            "Write a short orientation note for an officer joining this caseload. Say "
+            "which districts the cases are concentrated in, what the case mix is now and "
+            "how it has changed, how promptly crimes are reported now compared with "
+            "earlier, and what the accused profile and weapon-licensing picture look like. "
+            "Quote the per-district and per-year figures exactly as the sub-answers give "
+            "them — do not total them up — and state plainly anything the sub-answers say "
+            "is not available rather than guessing at it."
+        ),
+    ),
+    # (3) WHOLE-CASELOAD REVIEW — "review the caseload and flag anything
+    #     unusual or worth monitoring" (G1, and its non-gold paraphrase
+    #     "look over everything currently open ... worth a second look").
+    #     Decomposes into the four computable "is anything off here?"
+    #     scans plus the case-mix shift.
+    _DecompositionPlan(
+        name="caseload_review",
+        patterns=(
+            re.compile(r"\breview\b.{0,60}\bcaseload\b", re.IGNORECASE),
+            re.compile(r"\bflag\s+anything\b", re.IGNORECASE),
+            re.compile(r"\bworth\s+(monitoring|flagging|watching)\b", re.IGNORECASE),
+            re.compile(r"\bworth\s+a\s+(second|closer)\s+look\b", re.IGNORECASE),
+            re.compile(r"\banything\b.{0,40}\b(unusual|out\s+of\s+the\s+ordinary)\b", re.IGNORECASE),
+            re.compile(r"\blooks?\s+unusual\b", re.IGNORECASE),
+            re.compile(r"\blook\s+over\s+everything\b", re.IGNORECASE),
+            re.compile(r"\bghair\s*[- ]?\s*mamooli\b", re.IGNORECASE),
+            re.compile(r"غیر\s*معمولی"),
+        ),
+        sub_queries=(
+            _SQ_COMPLETENESS,
+            _SQ_PERSON_RECURRENCE,
+            _SQ_WEAPON_LICENCE,
+            _SQ_CASE_MIX_BY_YEAR,
+            _SQ_CRIMINAL_RECORD_VS_COURT,
+        ),
+        synthesis_goal=(
+            "Report what actually stands out in the current caseload and what is worth "
+            "monitoring. Lead with the findings that are genuinely unusual — repeat "
+            "offenders appearing across FIRs, weapons held without a licence, records that "
+            "are incomplete, criminal-record and court outcomes that do not agree, and how "
+            "the case mix has shifted — with the exact counts from the sub-answers. Do not "
+            "pad with routine observations, and do not assert anything the sub-answers do "
+            "not contain."
+        ),
+    ),
+)
+
+
+def _match_decomposition_plan(query_text: str) -> Optional[_DecompositionPlan]:
+    """First matching plan, in declaration order (narrowest family first).
+    Pure and deterministic — no LLM call — so the negative control in
+    `tests/test_harness_agent_meta_analysis.py` can assert over exactly the
+    32 gold questions."""
+    for plan in _DECOMPOSITION_PLANS:
+        if any(pat.search(query_text) for pat in plan.patterns):
+            return plan
+    return None
 
 
 async def _decompose(query_text: str) -> _DecomposerResult:
@@ -282,7 +556,22 @@ async def _decompose(query_text: str) -> _DecomposerResult:
     retries is reported via `parse_failed=True`, not an exception; the
     caller (`meta_analysis()`) treats that the same as `decompose=False`
     plus one caveat, per this module's docstring.
+
+    [Gold-QA fix — Module 29] A deterministic plan, when one matches, wins
+    outright and skips the LLM call entirely — see `_DECOMPOSITION_PLANS`'
+    own comment block for the measured evidence and for why the prompt
+    change alone was not enough.
     """
+    plan = _match_decomposition_plan(query_text)
+    if plan is not None:
+        logger.info("Meta-Analysis: deterministic decomposition plan %r matched.", plan.name)
+        return _DecomposerResult(
+            decompose=True,
+            sub_queries=list(plan.sub_queries[:_MAX_SUB_QUERIES]),
+            synthesis_goal=plan.synthesis_goal,
+            plan_name=plan.name,
+        )
+
     result, raw = await call_llm_json(
         system_prompt=_DECOMPOSER_SYSTEM_PROMPT.replace("{query}", query_text),
         user_message=query_text,
