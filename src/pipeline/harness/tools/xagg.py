@@ -62,6 +62,7 @@ from src.pipeline.xagg import (
     render_dv_report_fir_match,
     render_case_completeness_scan,
     render_weapon_compliance_scan,
+    render_weapon_evidence_chain,
     render_court_readiness_scan,
     render_time_bucketed_mean,
     render_weapon_statute_cooccurrence,
@@ -128,6 +129,8 @@ AggregateKind = Literal[
     "case_completeness_scan",
     # [Gold-QA fix — Module 15, G5] same additive convention.
     "weapon_compliance_scan",
+    # [Gold-QA fix — Module 28, CR4] same additive convention.
+    "weapon_evidence_chain",
     # [Gold-QA fix — Module 15/16, G3] same additive convention.
     "court_readiness_scan",
     # [Gold-QA fix — Module 23, M5] same additive convention — the
@@ -275,6 +278,10 @@ def _render_aggregate_text(agg_result: dict) -> str:
         lines = render_case_completeness_scan(agg_result)
     elif kind == "weapon_compliance_scan":
         lines = render_weapon_compliance_scan(agg_result)
+    # [Gold-QA fix — CR4, Module 28] Kept in sync with orchestrator.py's two
+    # identical XAGG-route rendering sites, per this function's own docstring.
+    elif kind == "weapon_evidence_chain":
+        lines = render_weapon_evidence_chain(agg_result)
     elif kind == "court_readiness_scan":
         lines = render_court_readiness_scan(agg_result)
     elif kind == "station_total_count":

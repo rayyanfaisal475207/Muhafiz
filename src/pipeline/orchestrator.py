@@ -44,6 +44,7 @@ from src.pipeline.xagg import (
     render_dv_report_fir_match,
     render_case_completeness_scan,
     render_weapon_compliance_scan,
+    render_weapon_evidence_chain,
     render_court_readiness_scan,
     render_time_bucketed_mean,
     render_weapon_statute_cooccurrence,
@@ -520,6 +521,8 @@ async def _fetch_secondary_evidence(
                     lines = render_case_completeness_scan(agg_result)
                 elif agg_result["kind"] == "weapon_compliance_scan":
                     lines = render_weapon_compliance_scan(agg_result)
+                elif agg_result["kind"] == "weapon_evidence_chain":
+                    lines = render_weapon_evidence_chain(agg_result)
                 elif agg_result["kind"] == "court_readiness_scan":
                     lines = render_court_readiness_scan(agg_result)
                 elif agg_result["kind"] == "district_breakdown":
@@ -2159,6 +2162,8 @@ async def process_query(
                 lines = render_case_completeness_scan(agg_result)
             elif agg_result["kind"] == "weapon_compliance_scan":
                 lines = render_weapon_compliance_scan(agg_result)
+            elif agg_result["kind"] == "weapon_evidence_chain":
+                lines = render_weapon_evidence_chain(agg_result)
             elif agg_result["kind"] == "court_readiness_scan":
                 lines = render_court_readiness_scan(agg_result)
             elif agg_result["kind"] == "district_breakdown":

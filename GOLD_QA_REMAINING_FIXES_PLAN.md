@@ -71,7 +71,7 @@ several can run in parallel chats/worktrees without colliding.
 | 24 | M4 statute × court-stage join | `feature/xagg-statute-court-stage-join` | ⬜ Not started — **unblocked**, PR #8 has merged; brief: `MODULE24_XAGG_STATUTE_COURT_STAGE_PROMPT.md` |
 | 25 | M2 Meta-Analysis → verifier rejection | `fix/meta-analysis-synthesis-verifier-rejection` | ✅ **PR #16 open** |
 | 26 | M1 routing miss (XGRAPH instead of aggregate) | `fix/router-year-over-year-comparison-to-xagg` | ✅ **Merged (PR #13)** |
-| 28 | CR4 routing miss (weapon-recovery chain sent to cross-case entity linkage) | *(not yet branched)* | ⬜ New — split out of Module 21; **unblocked**, Module 26 has merged; brief: `MODULE28_ROUTER_WEAPON_EVIDENCE_CHAIN_PROMPT.md` |
+| 28 | CR4 routing miss (weapon-recovery chain sent to cross-case entity linkage) | `fix/router-weapon-evidence-chain-to-xagg` | ✅ **PR #19 open** — routing fixed AND a new aggregate added (none existed); CR4 now returns gold's exact chain live; all-32 negative control clean; results: `docs/gold-qa-wave2-results/MODULE28_RESULT.md` |
 | 29 | Meta-Analysis decomposer doesn't split broad synthesis asks into XAGG-shaped sub-questions (CR3/G1/G6) | *(not yet branched)* | ⬜ New — split out of Module 21; blocked on PR #16 (same file); brief: `MODULE29_META_ANALYSIS_DECOMPOSER_PROMPT.md` |
 | 30 | KB3/KB8/KB9 retrieval-completeness gap (correct statutory chunk never enters the candidate pool) | *(not yet branched)* | ⬜ New — split out of Module 19b; brief: `MODULE30_KB_RETRIEVAL_COMPLETENESS_PROMPT.md` |
 | 27 | Final Gold-32 rerun (Module 18 redo) | *(docs only)* | ⬜ Blocked on all above — brief: `MODULE27_FINAL_GOLD32_RERUN_PROMPT.md` |
@@ -476,38 +476,162 @@ beyond the new test.
 
 ---
 
-# Module 28 — CR4: weapon-evidence chain routed to cross-case linkage instead of XAGG ⬜
+# Module 28 — CR4: weapon-evidence chain routed to cross-case linkage instead of XAGG ✅ fixed
 
-**Branch:** not yet created.
-**Split out of:** Module 21 (see its writeup above for the full live
+**Branch:** `fix/router-weapon-evidence-chain-to-xagg` — **PR #19 open.**
+**Split out of:** Module 21 (see its writeup above for the original live
 evidence — CR2 control, `_recover_target_entity()` read, distance capture).
-**Primary file:** `src/pipeline/router.py` (Module 26's file — **must be
-serialized after Module 26**, not run in parallel with it; the
-parallelization table below has been updated).
+**Full results:** `docs/gold-qa-wave2-results/MODULE28_RESULT.md`.
+**Primary files:** `src/pipeline/router.py` (routing) and
+`src/pipeline/xagg.py` (a new aggregate — one did NOT already exist; see
+below), in two separate commits.
 
-**What's happening:** *"If we've got a weapon logged as evidence, can we
-tell who it was taken off and what happened to them?"* has no named entity,
-so it routes to XGRAPH's cross-case recurring-entity traversal via
-Cross-Case Linkage — the wrong tool for a single example chain (weapon →
-FIR → accused → status) rather than a cross-case recurrence pattern. A
-control probe of CR2 (a genuine cross-case recurrence question) shows XAGG's
-`Large-Scale Aggregate` sub-agent already resolves person-across-cases data
-correctly, including the exact person (شہزیب عرف شابی, fir-891-24) CR4's
-gold answer names — the data and a working query path both already exist.
+**Root cause — confirmed by this module's own live capture, not inherited.**
+Re-run of CR4's exact gold text on `main` @ `dbd308f` before changing
+anything reproduced Module 21's finding number for number:
 
-**Work:** add a router classification for "weapon logged as evidence →
-who/what happened" style questions that sends them to XAGG (an aggregate
-that, given a weapon-type filter or "give one example", surfaces a
-weapon→FIR→accused→status chain) rather than XGRAPH. Mine the pattern from
-CR4's literal gold text and negative-control it against all 32 gold
-questions, same discipline as Module 26's own M1 fix — a keyword that also
-matches CR2 (a genuinely different question shape) would misroute a working
-question.
+```
+[step=supervisor:dispatch] Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'
+```
+> "…nearest cluster found was distance **0.184** against a relevance cutoff
+> of **0.145**. Rather than describing an unrelated cluster, no cross-case
+> network finding is being reported here."
 
-**Verify:** `tests/test_router.py` full pass plus a negative-control test
-over all 32 gold questions; live CR4 returns the real chain; a non-gold
-paraphrase (e.g. "For weapons we've seized as evidence, can we trace them
-back to whoever they were taken from?"); confirm CR2 is unaffected.
+CR4 names no entity, so it classified to XGRAPH; Cross-Case Linkage's
+`_recover_target_entity()` correctly returned `None`; with no seed the tool
+ran its recurring-entity-across-cases traversal — the wrong shape for a
+question asking for ONE example chain — and the relevance gate then correctly
+refused. **The gate was right, the route was wrong.** `xnetwork.py` and
+`RELEVANCE_DISTANCE_THRESHOLD` are untouched by this module.
+
+**Did the aggregate already exist? No.** The brief allowed for it. `xagg.py`'s
+weapon family is `_weapon_compliance_scan()` (G5),
+`_weapon_recovery_rate_by_district()` (CP1) and `_top_recurring_weapon_types()`
+— none can name who a weapon was taken off. So this module is router **plus**
+one new aggregate, `_weapon_evidence_chain()`, kept in its own commit as the
+brief requires. It reads links that were **already in the graph** — nothing is
+re-ingested or re-projected: `Weapon-[:BELONGS_TO_CASE]->Case`,
+`Person-[:OWNS]->Weapon` (written by `structured_projection._write_weapons()`
+from `weapon_register.recovered_from`),
+`Person-[:INVOLVED_IN {role:'accused', arrest_status}]->Incident`, plus the
+criminal-record system's `conviction_status` joined on the FIR number via the
+existing `_fir_key()`.
+
+**The routing rule and the exact discriminator.**
+`_WEAPON_EVIDENCE_CHAIN_XAGG_PATTERNS` in `router.py`, appended to
+`_XAGG_OVERRIDE_PATTERNS`. Every pattern — and the `xagg.py` dispatch that
+follows it — is a **CONJUNCTION of two term families**, the house technique
+G5's own entry already uses:
+
+- a **weapon** term: `weapon|firearm|pistol|gun|hathiyar|aslaha|ہتھیار|اسلحہ`
+- AND an **attribution** term: `taken off` / `taken from` / `recovered from` /
+  `seized from` / `trace … back` / `whose` / `کس سے برآمد` / `کس کے قبضے` /
+  `kis se baramad`.
+
+The attribution half is what separates CR4 from **CR2**: CR2 ("is there anyone
+with an earlier case … who has since resurfaced as a suspect?") contains no
+weapon vocabulary at all, so no conjunction can reach it. A *bare* weapon
+keyword — the mistake Module 21 warned against — would additionally have
+collided with **G5, CP1, M5 and KB6**, four gold questions that already work;
+none of them asks *whose* weapon it was.
+
+No `supervisor.py` counterpart was needed (unlike Module 26's M1 fix): CR4 and
+its paraphrase match none of `_META_ANALYSIS_TRIGGER_PATTERNS`, and the live
+stream shows exactly one route event — no decomposition.
+
+**All-32 negative control — verbatim result.** Two forms, both automated.
+
+(a) Pattern-family match across the 32 gold questions:
+
+```
+--- router weapon-chain pattern family matches ---
+ MATCH CR4 [0]
+--- xagg dispatch conjunction matches ---
+ XAGG-CHAIN CR4
+--- xagg G5 compliance conjunction (must be unchanged) ---
+ G5-PATH G5
+paraphrase router match: True
+paraphrase xagg match: True
+```
+
+CR4 and only CR4. Unlike Module 26's M1/M5 pair there is no legitimate
+co-match to allow, so the test asserts exact equality with `["CR4"]`.
+
+(b) The stronger whole-route form the brief asks for — the check that would
+have caught the M4/G3 collision of PR #8.
+`test_module28_changes_no_other_gold_question_route` computes
+`_deterministic_route_override()` for all 32 gold questions with the new
+pattern family in place and again with it removed, and asserts the diff is:
+
+```
+changed == {"CR4": (None, "XAGG")}
+```
+
+CR4 is the **only** gold question whose deterministic route changes, and it
+changes from "no deterministic override at all" to XAGG. CR2 and G5 are
+asserted by name as well.
+
+**The live chain captured (CR4, `/api/chat`, platform-admin, All Cases,
+2026-09-08).** One route event —
+`route='XAGG' -> sub-agent='Large-Scale Aggregate'`, `status=ok`, 12.5 s:
+
+> Yes, for 30 of the 32 weapons logged as evidence, the register records who
+> the weapon was recovered from … A **30 بور پستول, بغیر لائسنس** logged in
+> **FIR 891/24** was recovered from **شہزیب عرف شابی**, who was recorded as
+> **گرفتار، بعد ازاں سزا یافتہ** ("arrested, later convicted"). The
+> criminal-record system also notes "Convicted, on bail pending appeal" for
+> this person in the same FIR. … **2 of the 32 weapons** have no person linked
+> to them—they were recovered from crime scenes … **Limitation**: The weapon →
+> person link is not a database-enforced key. The **recovered_from** field
+> contains only a name, which is matched to the accused named in the **same
+> FIR** (i.e., weapon → FIR number → accused).
+
+Every element of gold's answer matches, **including gold's own hedge**, which
+the renderer states rather than hides (brief §3). CR4 was 0.0 before.
+
+**Non-gold paraphrase** — *"For weapons we've seized as evidence, can we trace
+them back to whoever they were taken from?"*: before the change it was
+`route='XGRAPH' -> Cross-Case Linkage` with the same refusal (nearest cluster
+**0.178** vs. 0.145); after, one route event `route='XAGG' -> Large-Scale
+Aggregate`, `status=done`, 11.5 s, returning the same real FIR 891/24 chain.
+**Passes** — a capability fix, not curve-fitting.
+
+**Regression results, both re-run live before AND after on the same backend
+and data:**
+
+- **CR2** — unchanged. Before and after: one route event,
+  `route='XAGG' -> 'Large-Scale Aggregate'`, and the identical answer —
+  4 persons: فیصل, طارق (fir-202-26 / fir-401-26), شہزیب عرف شابی
+  (fir-214-26 / fir-891-24), عاصم رشید (fir-64-26 / fir-65-26). The collision
+  Module 21 warned about did not happen.
+- **G5** — unchanged, word for word. Before and after: **two** route events
+  (`XAGG -> Meta-Analysis`, then `XAGG -> Large-Scale Aggregate`) and the same
+  answer, 30 of 32 (94%) unlicensed plus 2 with no licence status. G5 is also
+  the live instance of the documented parsing trap: reading only the last
+  route event would have hidden that Meta-Analysis handled it first.
+
+**Unit:** `tests/test_router.py` 118 passed; `tests/test_xagg.py` 90 passed,
+1 skipped (pre-existing). Combined with the supervisor / harness-xagg /
+orchestrator / large-scale-aggregate / cross-case-linkage / xnetwork suites:
+**501 passed, 1 skipped, 1 xpassed**, no new failures. The full `pytest -q`
+suite was deliberately not run (it empties the real
+`muhafiz_entity_descriptions` collection). New tests include a regression
+pinned to CR4's literal gold **answer** (FIR 891/24 / شہزیب عرف شابی /
+گرفتار، بعد ازاں سزا یافتہ / the FIR-matching caveat text), six paraphrases in
+three languages, and both negative controls above. One existing test's sample
+query was swapped: `test_no_case_id_prefixes_the_llm_call_with_active_case_none`
+used CR4's own text with an LLM stub returning XGRAPH — itself a record of the
+misroute — and is now intercepted before the LLM call; its assertions are
+unchanged.
+
+**Left unfixed, deliberately:** G5's trailing citation-verifier footnote
+("a cited claim could not be confirmed against its source") is byte-identical
+before and after this change, so it is pre-existing and belongs to Module 25's
+verifier family, not here. `_top_recurring_weapon_types()` is structurally
+dead on this data (weapon `entity_id`s are FIR-scoped, so no weapon spans
+cases — its own docstring records this and the live probe confirms all 32
+weapons belong to exactly one case each); `xagg.py`'s weapon family is Module
+23's for this wave, so it is left to that track.
 
 ---
 
