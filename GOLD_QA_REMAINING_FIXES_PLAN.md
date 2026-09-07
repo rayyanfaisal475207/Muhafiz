@@ -72,7 +72,7 @@ several can run in parallel chats/worktrees without colliding.
 | 25 | M2 Meta-Analysis → verifier rejection | `fix/meta-analysis-synthesis-verifier-rejection` | ✅ **PR #16 open** |
 | 26 | M1 routing miss (XGRAPH instead of aggregate) | `fix/router-year-over-year-comparison-to-xagg` | ✅ **Merged (PR #13)** |
 | 28 | CR4 routing miss (weapon-recovery chain sent to cross-case entity linkage) | `fix/router-weapon-evidence-chain-to-xagg` | ✅ **PR #19 open** — routing fixed AND a new aggregate added (none existed); CR4 now returns gold's exact chain live; all-32 negative control clean; results: `docs/gold-qa-wave2-results/MODULE28_RESULT.md` |
-| 29 | Meta-Analysis decomposer doesn't split broad synthesis asks into XAGG-shaped sub-questions (CR3/G1/G6) | `fix/meta-analysis-decompose-broad-synthesis` | ✅ **PR #<n> open** — deterministic decomposition plans added; G1, G6 and G1's paraphrase now return real synthesized answers built from computed aggregates, CR3 partially; gap analysis split out as Modules 31–36; results: `docs/gold-qa-wave2-results/MODULE29_RESULT.md` |
+| 29 | Meta-Analysis decomposer doesn't split broad synthesis asks into XAGG-shaped sub-questions (CR3/G1/G6) | `fix/meta-analysis-decompose-broad-synthesis` | ✅ **PR #23 open** — deterministic decomposition plans added; G1, G6 and G1's paraphrase now return real synthesized answers built from computed aggregates, CR3 partially; gap analysis split out as Modules 31–36; results: `docs/gold-qa-wave2-results/MODULE29_RESULT.md` |
 | 31 | G1 — offender age profile: no XAGG aggregate, and a now-stale hard refusal | *(not yet branched)* | ⬜ New — found by Module 29's gap analysis |
 | 32 | G1 — accused ↔ complainant relationship breakdown: no XAGG aggregate | *(not yet branched)* | ⬜ New — found by Module 29's gap analysis |
 | 33 | G1 — seized-property disposition counts: no XAGG aggregate | *(not yet branched)* | ⬜ New — found by Module 29's gap analysis |
@@ -645,7 +645,7 @@ weapons belong to exactly one case each); `xagg.py`'s weapon family is Module
 
 # Module 29 — Meta-Analysis decomposer doesn't split broad synthesis into XAGG-shaped sub-questions ✅
 
-**Branch:** `fix/meta-analysis-decompose-broad-synthesis` — **PR #<n> open.**
+**Branch:** `fix/meta-analysis-decompose-broad-synthesis` — **PR #23 open.**
 **Split out of:** Module 21 (CR3, G1, G6).
 **Full results, every number traced to a live capture:**
 `docs/gold-qa-wave2-results/MODULE29_RESULT.md`.
