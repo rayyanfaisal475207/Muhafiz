@@ -66,7 +66,7 @@ several can run in parallel chats/worktrees without colliding.
 | 19a | KB-intent coverage for all 8 KB questions | `fix/kb-intent-coverage-all-gold-questions` | ✅ **PR #9 open** |
 | 19b | Evaluator compound-question relaxation not firing | `fix/evaluator-compound-relaxation-not-firing` | ⬜ Not started — **highest value** |
 | 21 | XNETWORK/XGRAPH relevance-gate over-refusal | `fix/xnetwork-relevance-gate-over-refusal` | ⬜ Not started |
-| 22 | M7 reporting-delay: wrong metric | `feature/xagg-incident-to-report-delta` | ⬜ Not started |
+| 22 | M7 reporting-delay: wrong metric | `feature/xagg-incident-to-report-delta` | ✅ **Done — M7 AND its non-gold paraphrase both verified live, matching gold exactly** |
 | 23 | M5 weapon × statute co-occurrence join | `feature/xagg-weapon-statute-cooccurrence` | ⬜ Not started |
 | 24 | M4 statute × court-stage join | `feature/xagg-statute-court-stage-join` | ⬜ Blocked on PR #8 |
 | 25 | M2 Meta-Analysis → verifier rejection | `fix/meta-analysis-synthesis-verifier-rejection` | ⬜ Not started |
@@ -83,7 +83,7 @@ several can run in parallel chats/worktrees without colliding.
 |---|---|
 | 19b | `prompts/evaluator.txt`, maybe `src/pipeline/evaluator.py` |
 | 21 | `src/pipeline/xnetwork.py` |
-| 22 | `src/pipeline/xagg.py` |
+| 22 | `src/pipeline/xagg.py` **+ `src/graph/structured_projection.py` + a graph backfill** (scope was larger than this table originally said — see Module 22's section) |
 | 23 | `src/pipeline/xagg.py` |
 | 24 | `src/pipeline/xagg.py` |
 | 25 | `src/pipeline/harness/agents/meta_analysis.py`, `src/pipeline/verifier.py` |
@@ -297,27 +297,103 @@ before/after examples, documented in the master plan).
 
 ---
 
-# Module 22 — M7: reporting-delay computes the wrong metric ⬜
+# Module 22 — M7: reporting-delay computes the wrong metric ✅ DONE
 
 **Branch:** `feature/xagg-incident-to-report-delta`
 **Question:** M7. Gold: **mean minutes from incident to report, 15.0 (2024) →
 1401.3 (2026)**.
 
-**Root cause (from the teammate's trace, worth re-confirming):**
-`_reporting_delay_rate_by_year` in `src/pipeline/xagg.py` computes *the rate
-of FIRs recording a delay REASON* (0% → 14.9%) — a different quantity
-entirely. Its own `note` field admits it. The primitive cannot answer M7 as
-asked.
+**Root cause — confirmed, and deeper than the reports said.** The reports
+correctly identified that `_reporting_delay_rate_by_year` computes the rate
+of FIRs recording a delay REASON (0% → 14.9%), a different quantity. But the
+real cause was one layer upstream: **neither timestamp reached a queryable
+field at all.**
 
-**Work:** add a real incident→report time-delta aggregate — per-FIR
-`report_date/time` minus `incident_date/time`, averaged, bucketed by year
-(Module 13's time-bucket primitive already exists to build on). Confirm both
-timestamps are actually projected onto the graph/records; if one isn't,
-projecting it is part of this module.
+| Layer | State before this module |
+|---|---|
+| Source API snapshot | ✅ has `incident_datetime` AND `report_datetime`, full time precision |
+| `cases` table | ❌ `incident_date` is a bare `DATE` (time discarded); no `report_date` column |
+| Graph `Incident` node | ❌ no report timestamp — it existed only inside the free-text narrative |
 
-**Verify:** live M7 states a real mean-minutes-per-year comparison matching
-gold's shape; a non-gold paraphrase ("how quickly do people report crimes now
-vs two years ago?"); `tests/test_xagg.py` full pass.
+`_write_occurred_on_edge()` truncates the incident timestamp to `[:10]` for
+the day-granular `Date` node — correct for a timeline, and deliberately left
+alone — but it means reporting SPEED was not computable finer than a day.
+`_reporting_delay_rate_by_year()`'s own comment had already anticipated the
+fix: *"self-heals to a true mean-days aggregate … once report_datetime is
+projected."*
+
+**What shipped:**
+1. `structured_projection.py` projects both timestamps as `Incident`
+   properties, following the same optional convention as
+   `description`/`reporting_delay_reason` (absent → no property, so "not
+   recorded" stays distinguishable from "recorded as blank"). Projects the
+   raw pair, not a precomputed delta.
+2. `xagg.py` adds `_incident_to_report_minutes_by_year()` plus pure,
+   unit-testable `_minutes_between()`/`_parse_iso_datetime()` helpers.
+   `_reporting_delay_rate_by_year()` is **kept** — it answers the A7-family
+   question and now has its own direct regression test.
+3. New `time_bucketed_mean` kind wired into **all three** rendering sites via
+   one shared `render_time_bucketed_mean()`.
+4. `scripts/backfill_incident_report_timestamps.py` — see the coordination
+   note below.
+
+**Result — live, through real `/api/chat`:**
+> *"No, people are not reporting incidents to the police as quickly in 2026
+> as they did in 2024… **15.0 minutes** across **13 FIRs** in 2024, compared
+> to **1401.3 minutes (~23.4 hours)** across **51 FIRs** in 2026."*
+
+An exact match to gold, including both FIR counts and the ~23.4-hour scale
+gold itself cites.
+
+**⚠️ Correction to this plan's own parallelization model.** This module was
+listed as `xagg.py`-only. It was not — it needed a projection change **and a
+write to the shared graph**. That is a *different kind* of conflict from file
+overlap, and the table above does not model it: file-disjoint tracks can
+still collide through the shared database. Modules 23/24 should assume the
+same may apply to them.
+
+The shared-DB write was made as safe as possible: a **targeted property
+backfill**, not a re-projection. It writes zero nodes and zero edges, so it
+cannot reproduce the duplicate-edge damage a previous re-projection caused
+(`MODULE_18_FINAL_REPORT.md` §3 — every relationship type roughly doubled).
+It is MATCH-only, idempotent, `--dry-run` capable. Result: **64 of 73 FIRs
+carry both timestamps; 64 nodes updated, 0 not found** (no graph/snapshot
+drift).
+
+**Non-gold paraphrase: ✅ now passes end-to-end — resolved by Module 26.**
+Mid-module this was an open gap: the paraphrase (*"How long does it typically
+take someone to report a crime to us these days versus a couple of years
+ago?"*) failed live because `router.py` classified it as `RAG`, so it never
+reached XAGG at all — even though calling `run_aggregate()` directly with it
+returned the correct answer. `router.py` is Module 26's file, so it was
+flagged for coordination rather than edited here.
+
+Module 26 (PR #13, deterministic XAGG routing) merged while this module was
+in flight. After merging `origin/main` in and re-testing, the paraphrase now
+routes `XAGG -> Large-Scale Aggregate` and returns:
+
+> *"the mean time from incident to report was **15.0 minutes** in 2024
+> (across 13 FIRs) compared to **1401.3 minutes (~23.4 hours)** in 2026
+> (across 51 FIRs). Reporting is notably slower in 2026 than in 2024."*
+
+Worth noting as a parallelization result: two file-disjoint tracks each fixed
+one layer of the same end-to-end failure, and neither alone was sufficient —
+Module 22 made the metric computable and the matcher paraphrase-tolerant,
+Module 26 made the routing deterministic.
+
+**A curve-fitting bug the paraphrase step caught** (this is what that step is
+for): `_REPORTING_SPEED_COMPARISON_KEYWORDS` was pinned to M7's literal
+wording and matched no paraphrase at all. Widened to a two-signal AND
+(reporting/speed signal **and** time-period comparison signal), because a
+one-signal widening collided in two directions — with **A7** (a
+count-of-delay-reasons question checked *after* this one, so an over-broad
+match silently hijacks it) and with **KB8**, which initially DID match on
+"report" + "pehle" — but its "pehle" means "before completion", not "years
+before", and matching it would have regressed PR #9's KB routing. Now
+negative-controlled: **matches M7 and only M7 of the 32 gold questions**,
+while catching three natural paraphrases. That all-32 assertion is now a
+test — it is the check that would have caught all three historical pattern
+collisions on this plan.
 
 ---
 
