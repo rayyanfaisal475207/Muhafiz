@@ -1262,6 +1262,7 @@ class TestReportingSpeedComparisonBoundary:
         )
         payload = json.loads(gold_path.read_text(encoding="utf-8"))
         items = payload if isinstance(payload, list) else payload.get("questions", payload)
+        assert len(items) == 32
         matched = [
             (it.get("id") or "").upper()
             for it in items
@@ -2007,3 +2008,320 @@ def test_cr4_attribution_terms_negative_control_over_gold32():
 
     assert chain_ids == ["CR4"], f"weapon-chain dispatch also selected {chain_ids}"
     assert compliance_ids == ["G5"], f"G5's compliance dispatch changed: {compliance_ids}"
+
+
+# ── [Gold-QA fix — Module 24, question M4] statute × court-stage join ──
+
+_M4_GOLD_TEXT = (
+    "ایک طرف یہ دیکھیں کہ لوگوں پر کن دفعات میں مقدمے بن رہے ہیں، اور دوسری "
+    "طرف یہ کہ وہ مقدمے عدالت میں کہاں تک پہنچے — کیا دونوں سے کیس لوڈ کی "
+    "سنگینی کا ایک ہی اندازہ ہوتا ہے؟"
+)
+
+_G3_GOLD_TEXT = (
+    "آپ عدالت کو حوالگی کے لیے ایک کیس فائل تیار کر رہے ہیں — ڈیٹا کی روشنی "
+    "میں، کن چیزوں کے نامکمل قرار پانے کا سب سے زیادہ امکان ہے؟"
+)
+
+_CR7_GOLD_TEXT = (
+    "کرمنل ریکارڈ سسٹم میں کتنے کیس مکمل ہو چکے ہیں اور کتنے ابھی زیرِ کارروائی "
+    "ہیں — اور جہاں کسی ایک کیس کا الگ عدالتی ریکارڈ بھی موجود ہے، کیا دونوں "
+    "ایک دوسرے سے مطابقت رکھتے ہیں؟"
+)
+
+
+class _M4AgeClient:
+    """Routes each of the four reads `_statute_court_stage_join()` issues by
+    what its Cypher targets. Kept deliberately literal rather than reusing
+    `_QueryAwareAgeClient` — this aggregate reads sections and Cases too, and
+    a fake that silently returned [] for an unrecognized query would let a
+    dropped read pass as an empty corpus."""
+
+    def __init__(self, sections, criminal, court, cases):
+        self.sections, self.criminal, self.court, self.cases = (
+            sections, criminal, court, cases,
+        )
+        self.queries = []
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        self.queries.append((cypher_query, params))
+        if "fir_section" in cypher_query:
+            return self.sections
+        if "criminal_record" in cypher_query:
+            return self.criminal
+        if "chalaan_outcome" in cypher_query:
+            return self.court
+        if "MATCH (c:Case)" in cypher_query:
+            return self.cases
+        raise AssertionError(f"unexpected read: {cypher_query}")
+
+
+def _m4_fixture(criminal=None):
+    """A miniature of the real corpus: three charged cases, and a court side
+    where almost nothing has been decided."""
+    sections = [
+        {"act": "PPC", "section_code": "302", "case_id": "fir-77-26"},
+        {"act": "PPC", "section_code": "34", "case_id": "fir-77-26"},
+        # the same case charged twice under one section must count once
+        {"act": "PPC", "section_code": "34", "case_id": "fir-77-26"},
+        {"act": "PPC", "section_code": "34", "case_id": "fir-64-26"},
+        {"act": "Arms Ordinance 1965", "section_code": "13", "case_id": "fir-891-24"},
+        {"act": "PPC", "section_code": "392", "case_id": "fir-891-24"},
+    ]
+    if criminal is None:
+        criminal = [
+            {"status": "Under trial", "case_ref": "FIR 77/26", "subject": "A"},
+            {"status": "Under trial", "case_ref": None, "subject": "B"},
+            {"status": "Convicted, on bail pending appeal",
+             "case_ref": "FIR 891/24, PS Jhang Road", "subject": "C"},
+        ]
+    cases = [
+        {"case_id": "fir-77-26", "fir_number": None},
+        {"case_id": "fir-64-26", "fir_number": None},
+        {"case_id": "fir-891-24", "fir_number": None},
+    ]
+    return _M4AgeClient(sections, criminal, [], cases)
+
+
+async def test_m4_aggregate_reports_both_halves_and_an_agreement_verdict(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _m4_fixture())
+
+    result = await xagg._statute_court_stage_join()
+
+    assert result["kind"] == "statute_court_stage_join"
+    # Half A — section-level, counted in CASES (PPC §34 is on two cases, and
+    # the duplicate row on fir-77-26 must not inflate it to three).
+    assert result["charged_case_count"] == 3
+    counts = {s["key"]: s["case_count"] for s in result["statutes"]}
+    assert counts == {
+        "PPC §34": 2, "PPC §302": 1, "PPC §392": 1, "Arms Ordinance 1965 §13": 1,
+    }
+    # Half B — CR7's own reader, untouched.
+    assert result["court"]["kind"] == "criminal_record_court_crosscheck"
+    assert result["court"]["total_records"] == 3
+    assert result["court"]["settled_count"] == 1
+    assert result["court"]["in_progress_count"] == 2
+    # The verdict: 1 of 3 decided is not a majority, so the two disagree.
+    assert result["agree"] is False
+    assert result["settled_share"] == pytest.approx(1 / 3)
+
+
+async def test_m4_agreement_verdict_flips_when_the_courts_have_caught_up(monkeypatch):
+    """The rule is a majority test over whatever the data says — not a
+    threshold tuned to this corpus. Same fixture, a decided court side."""
+    criminal = [
+        {"status": "Convicted", "case_ref": "FIR 77/26", "subject": "A"},
+        {"status": "Acquitted", "case_ref": None, "subject": "B"},
+        {"status": "Under trial", "case_ref": "FIR 891/24", "subject": "C"},
+    ]
+    monkeypatch.setattr(xagg, "age_client", _m4_fixture(criminal=criminal))
+
+    result = await xagg._statute_court_stage_join()
+
+    assert result["court"]["settled_count"] == 2
+    assert result["agree"] is True
+    rendered = "\n".join(xagg.render_statute_court_stage_join(result))
+    assert "Do the two agree? Yes." in rendered
+
+
+async def test_m4_joins_a_criminal_record_to_the_sections_of_its_own_case(monkeypatch):
+    """The join is on the FIR number, through `_fir_key()` — a criminal
+    record naming no FIR (the majority of the real ones) is excluded rather
+    than guessed at."""
+    monkeypatch.setattr(xagg, "age_client", _m4_fixture())
+
+    result = await xagg._statute_court_stage_join()
+
+    assert result["joinable_record_count"] == 2
+    joined = {j["fir"]: j for j in result["joined_records"]}
+    assert set(joined) == {"77-26", "891-24"}
+    assert joined["77-26"]["statutes"] == ["PPC §302", "PPC §34"]
+    assert joined["77-26"]["settled"] is False
+    assert joined["891-24"]["statutes"] == ["Arms Ordinance 1965 §13", "PPC §392"]
+    assert joined["891-24"]["settled"] is True
+
+
+async def test_m4_renderer_states_both_halves_and_the_disagreement(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _m4_fixture())
+    result = await xagg._statute_court_stage_join()
+
+    rendered = "\n".join(xagg.render_statute_court_stage_join(result))
+
+    # Half A present, section-level.
+    assert "PPC §34: 2 case(s)" in rendered
+    # Half B present, and rendered by CR7's own renderer (so the two can
+    # never drift) — its signature sentence is the proof.
+    assert "Of 3 criminal records, 2 are still in progress" in rendered
+    # The comparison itself, stated rather than left to the model.
+    assert "Do the two agree? No." in rendered
+    assert "lag behind" in rendered
+
+
+def test_m4_renderer_caps_the_section_list_without_dropping_the_tail():
+    statutes = [{"key": f"PPC §{i}", "case_count": 40 - i} for i in range(20)]
+    rendered = "\n".join(xagg.render_statute_court_stage_join({
+        "charged_case_count": 20, "section_entry_count": 20,
+        "distinct_statute_count": 20, "statutes": statutes,
+        "court": {"total_records": 0, "settled_count": 0, "in_progress_count": 0,
+                  "status_breakdown": [], "crosschecks": []},
+        "joined_records": [], "settled_share": None, "agree": False,
+    }))
+    assert "PPC §14: 26 case(s)" in rendered          # the 15th, kept
+    assert "PPC §15: 25 case(s)" not in rendered      # the 16th, folded
+    assert "and 5 further section(s)" in rendered
+
+
+async def test_m4_reports_an_empty_charging_side_instead_of_inventing_one(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _M4AgeClient([], [], [], []))
+    result = await xagg._statute_court_stage_join()
+    rendered = "\n".join(xagg.render_statute_court_stage_join(result))
+    assert result["charged_case_count"] == 0
+    assert "No case in scope has a recorded FIR section" in rendered
+    assert "no single case can be read on both sides at once" in rendered
+
+
+async def test_m4_jurisdiction_case_ids_narrow_the_section_and_case_reads(monkeypatch):
+    """The criminal-record read is deliberately corpus-wide (a person's
+    history spans cases — CR7's own docstring), but the two case-scoped reads
+    must honour the allow-list or the charging side over-counts."""
+    fake = _m4_fixture()
+    monkeypatch.setattr(xagg, "age_client", fake)
+
+    await xagg._statute_court_stage_join(jurisdiction_case_ids=["fir-77-26"])
+
+    scoped = [
+        (q, p) for q, p in fake.queries
+        if "fir_section" in q or "MATCH (c:Case)" in q
+    ]
+    assert len(scoped) == 2
+    for q, p in scoped:
+        assert "$case_ids" in q
+        assert p["case_ids"] == ["fir-77-26"]
+
+
+async def test_m4_gold_text_reaches_the_statute_court_stage_join(monkeypatch):
+    """THE REGRESSION PINNED TO M4's LITERAL URDU GOLD TEXT. Before this
+    module it landed on `graph_recurrence`/Person — "لوگوں" contains the
+    literal `_PERSON_KEYWORDS` entry "لوگ", so the ordered dispatch handed a
+    two-halves statute/court question to the repeat-accused ranking."""
+    monkeypatch.setattr(xagg, "age_client", _m4_fixture())
+
+    result = await xagg.run_aggregate(
+        _M4_GOLD_TEXT, None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "statute_court_stage_join"
+    assert result["kind"] != "graph_recurrence"
+
+
+class TestStatuteCourtStageJoinBoundary:
+    """
+    [Gold-QA fix — Module 24] The two-signal AND, tested at its edges. The
+    signal that separates M4 is COURT PROGRESSION, not the word "court" —
+    `_COURT_READINESS_KEYWORDS`' own comment records the live collision
+    where a bare Urdu "عدالت" hijacked M4 into G3's readiness scan, and
+    matching on "court" alone here would run that collision backwards.
+    """
+
+    def test_m4_gold_text_matches(self):
+        assert xagg._is_statute_court_stage_join(_M4_GOLD_TEXT.lower())
+
+    @pytest.mark.parametrize("paraphrase", [
+        # The required non-gold paraphrase: plain English, no Urdu, sharing
+        # no phrase with M4's literal text.
+        "Do the sections people are charged under and how far those cases "
+        "have got in court give the same picture of how serious our "
+        "caseload is?",
+        "What stage have our cases reached in court?",
+        "How many of our cases have actually ended in a conviction in court?",
+    ])
+    def test_non_gold_paraphrases_match(self, paraphrase):
+        assert xagg._is_statute_court_stage_join(paraphrase.lower())
+
+    @pytest.mark.parametrize("other", [
+        # G3 — a court question with no progression signal. Scores 1.0
+        # today; must stay with `_court_readiness_scan()`.
+        _G3_GOLD_TEXT,
+        # CR7 — criminal-record vs. court RECORD consistency, not a stage.
+        _CR7_GOLD_TEXT,
+        # M1/M5 — statute questions with no court dimension at all.
+        "What kinds of cases are we dealing with now compared to a couple "
+        "of years back?",
+        "Are guns turning up in different types of cases than they used to?",
+        # A progression word with no court term is not this family.
+        "Which investigations have progressed the furthest this month?",
+    ])
+    def test_neighbouring_families_are_not_captured(self, other):
+        assert not xagg._is_statute_court_stage_join(other.lower())
+
+    def test_matches_m4_and_no_other_gold_question(self):
+        """The all-32 negative control, same discipline as
+        `TestWeaponStatuteCooccurrenceBoundary`'s. Reads
+        `evaluation/Gold_QA_Dataset_Final32_With_Answers.json` — the bare
+        `Gold_QA_Dataset_Final32.json` some older tests look for is NOT
+        tracked in this repo, so a test pinned to it silently skips and has
+        never actually run."""
+        import json
+        from pathlib import Path
+
+        gold_path = (
+            Path(__file__).resolve().parent.parent
+            / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json"
+        )
+        assert gold_path.exists(), gold_path
+        items = json.loads(gold_path.read_text(encoding="utf-8"))
+        assert len(items) == 32
+        matched = [
+            (it.get("id") or "").upper()
+            for it in items
+            if xagg._is_statute_court_stage_join(it["question"].lower())
+        ]
+        assert matched == ["M4"], f"expected only M4, got {matched}"
+
+
+async def test_g3_still_reaches_the_court_readiness_scan_after_module_24(monkeypatch):
+    """Negative control, end to end rather than at the predicate: G3 scores
+    1.0 today and shares this module's entire court vocabulary. This is the
+    single most likely thing Module 24 breaks."""
+    class _AC:
+        async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+            return []
+
+    monkeypatch.setattr(xagg, "age_client", _AC())
+
+    result = await xagg.run_aggregate(
+        _G3_GOLD_TEXT, None,
+        gateway=FakeGateway([{"case_id": "fir-1-26", "incident_date": None}]),
+        user_role="supervisor",
+    )
+
+    assert result["kind"] == "court_readiness_scan"
+
+
+async def test_cr7_still_reaches_the_criminal_record_crosscheck_after_module_24(monkeypatch):
+    """Negative control: CR7 must keep reaching Module 14's reader directly,
+    not the join that merely wraps it."""
+    criminal = [{"status": "Under trial", "case_ref": "FIR 100/26", "subject": "A"}]
+    monkeypatch.setattr(xagg, "age_client", _QueryAwareAgeClient(criminal, []))
+
+    result = await xagg.run_aggregate(
+        _CR7_GOLD_TEXT, None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "criminal_record_court_crosscheck"
+
+
+async def test_m5_still_reaches_the_cooccurrence_aggregate_after_module_24(monkeypatch):
+    """Module 23 landed in this same dispatch chain immediately above this
+    module's entry; its own question must be unaffected by the insertion."""
+    class _AC:
+        async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+            return []
+
+    monkeypatch.setattr(xagg, "age_client", _AC())
+
+    result = await xagg.run_aggregate(
+        _M5_GOLD_TEXT, None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "weapon_statute_cooccurrence"

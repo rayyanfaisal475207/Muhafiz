@@ -519,6 +519,70 @@ def _is_weapon_statute_cooccurrence(query_lower: str) -> bool:
         and _matches_any(query_lower, _CASE_TYPE_TERMS)
         and _matches_any(query_lower, _CHANGE_OVER_TIME_TERMS)
     )
+
+
+# [Gold-QA fix — Module 24, question M4] "ایک طرف یہ دیکھیں کہ لوگوں پر کن
+# دفعات میں مقدمے بن رہے ہیں، اور دوسری طرف یہ کہ وہ مقدمے عدالت میں کہاں
+# تک پہنچے — کیا دونوں سے کیس لوڈ کی سنگینی کا ایک ہی اندازہ ہوتا ہے؟" —
+# what sections are people charged under, HOW FAR did those cases get in
+# court, and do the two give the same impression of caseload severity?
+#
+# The signal that actually separates M4 from every neighbour is COURT
+# PROGRESSION — how far along, at what stage — not the word "court" itself.
+# That distinction is load-bearing and was learned the hard way twice:
+#
+#   - G3 ("preparing a case file for handover to court") is a court
+#     question with no progression signal. `_COURT_READINESS_KEYWORDS`'
+#     own comment records the live collision where a bare Urdu "عدالت" was
+#     enough to hijack M4 into G3's readiness scan; matching on "court"
+#     alone here would simply run that collision in the other direction.
+#   - CR7 ("how many criminal-record cases are done vs. in progress, and
+#     does the separate court record agree?") names court RECORDS, not a
+#     stage. It is also checked EARLIER in `run_aggregate()`, so it is
+#     structurally protected regardless of what this predicate says — but
+#     the two-signal AND means it would not match even if it were not.
+#
+# So: a court term AND a progression/stage term, both required. Same
+# two-signal house technique as `_is_reporting_speed_comparison()` (M7) and
+# the three-signal `_is_weapon_statute_cooccurrence()` (M5) above.
+_COURT_TERMS = (
+    "court", "courts", "adalat", "adaalat", "judicial",
+    "عدالت", "عدالتی", "عدالتوں",
+)
+# NOTE on what is deliberately NOT here: a bare "case"/"مقدمہ", and a bare
+# "status". Both would turn this into "any question that mentions a court",
+# which is exactly the G3 collision above. Every entry below names a POINT
+# ALONG A PROCESS — how far, which stage, reached, decided — or a specific
+# terminal court stage (verdict/conviction/acquittal/under-trial).
+_CASE_PROGRESS_TERMS = (
+    "how far", "how far along", "what stage", "which stage", "what point",
+    "at what stage", "progressed", "progress of", "reached", "reach",
+    "got to", "under trial", "trial stage", "still pending in",
+    "conviction", "convictions", "convicted", "acquitted", "verdict",
+    "sentenced", "disposed of", "concluded",
+    "kahan tak", "kis marhale", "kis darje", "zer e samaat", "zer-e-samaat",
+    "کہاں تک", "کس درجے", "کس مرحلے", "تک پہنچے", "کہاں پہنچ",
+    "زیرِ سماعت", "زیر سماعت", "فیصلہ ہو", "سزا سنائی",
+)
+
+
+def _is_statute_court_stage_join(query_lower: str) -> bool:
+    """
+    True for M4's family: the sections cases are charged under set against
+    how far those same cases have got in court.
+
+    A named predicate rather than an inlined `and`, for the same reason
+    `_is_reporting_speed_comparison()` and `_is_weapon_statute_cooccurrence()`
+    are ones — the boundaries it protects (G3's court-readiness scan, CR7's
+    criminal-record cross-check) are then testable directly, without
+    standing up a gateway and a fake graph.
+    """
+    return (
+        _matches_any(query_lower, _COURT_TERMS)
+        and _matches_any(query_lower, _CASE_PROGRESS_TERMS)
+    )
+
+
 # A bare "how many total" request — distinct from _LIST_ALL_KEYWORDS (which
 # wants the raw records) and from the grouped-count default below (which
 # always breaks the answer down by station/category). Live-observed gap
@@ -2141,6 +2205,258 @@ def render_weapon_statute_cooccurrence(agg_result: dict) -> list[str]:
     return lines
 
 
+
+# [Gold-QA fix - Module 24, question M4] Statute x court-stage JOIN - "what
+# sections are people charged under, how far did those cases get in court,
+# and do the two give the same impression of how serious the caseload is?"
+#
+# Two halves, deliberately from the two DIFFERENT systems that hold them,
+# and one derived agreement verdict:
+#
+#   Half A - the charging side. `StructuredRecord{record_type: "fir_section"}`
+#     nodes (`act` + `section_code`, linked BELONGS_TO_CASE), the same
+#     SECTION-level source `_weapon_statute_cooccurrence_by_year()` reads and
+#     through the same `_statute_label()`. NOT `cases.crime_category`, which
+#     `muhafiz_cases._crime_category()` reduces to the comma-joined ACT list
+#     ("PPC, Arms Ordinance 1965"): M4 asks about "دفعات" (sections), and the
+#     act view cannot tell murder (PPC 302) from a bounced cheque. The live
+#     act-level answer M4 used to give ("PPC 61, Arms Ordinance 1965 29") is
+#     exactly that limitation showing through.
+#
+#   Half B - the court side. `_criminal_record_court_crosscheck()` (CR7,
+#     Module 14) called AS-IS, and rendered through its own
+#     `render_criminal_record_crosscheck()`. Deliberately NOT a second query
+#     path over the same criminal-record table: two readers over one table
+#     drift apart, and `_conviction_is_settled()` already encodes what
+#     counts as a reached verdict. Nothing about that rule is re-derived
+#     here.
+#
+#   The join itself - a criminal record names its case as free text
+#     (`source_case_ref`, e.g. "FIR 891/24, PS Jhang Road Faisalabad"), so
+#     `_fir_key()` (CR7's own normalizer, reused) is what links a record to
+#     a Case and therefore to that case's sections. Live-measured coverage
+#     is thin (4 of 33 records name any FIR at all) and the result reports
+#     that number rather than hiding it - the thinness is itself part of
+#     why the two halves cannot be reconciled case by case.
+#
+# THE AGREEMENT RULE IS A MAJORITY TEST, stated here so it is not mistaken
+# for a threshold tuned to this corpus: the two views agree only when most
+# criminal records have actually reached a verdict, because only then does a
+# conviction count describe the same caseload the section counts describe.
+# On a corpus where the courts had caught up, the same rule returns "agree"
+# - nothing in it names a year, a section, or an expected ratio.
+async def _statute_court_stage_join(
+    jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    case_filter = "AND c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+    plain_filter = "WHERE c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+    params: dict = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+
+    # Half A - section-level charges, counted in CASES per section (a case
+    # charged twice under one section must not count twice), which is the
+    # denominator the court half is also expressed in.
+    statute_rows = await age_client.execute_cypher(
+        "MATCH (s:StructuredRecord)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE s.record_type = 'fir_section' {case_filter}"
+        "RETURN s.act AS act, s.section_code AS section_code, c.case_id AS case_id",
+        params=params, columns=["act", "section_code", "case_id"],
+    )
+    statutes_by_case: dict[str, set[str]] = {}
+    for row in statute_rows:
+        case_id = row.get("case_id")
+        label = _statute_label(row.get("act"), row.get("section_code"))
+        if case_id and label:
+            statutes_by_case.setdefault(case_id, set()).add(label)
+    statute_counts: Counter = Counter()
+    for labels in statutes_by_case.values():
+        for label in labels:
+            statute_counts[label] += 1
+
+    # Half B - reuse CR7's reader whole. See this function's comment above.
+    court = await _criminal_record_court_crosscheck(
+        jurisdiction_case_ids=jurisdiction_case_ids
+    )
+
+    # The join - which criminal records name a case this corpus actually
+    # holds, and what that case was charged under.
+    case_rows = await age_client.execute_cypher(
+        "MATCH (c:Case) "
+        f"{plain_filter}"
+        "RETURN c.case_id AS case_id, c.fir_number AS fir_number",
+        params=params, columns=["case_id", "fir_number"],
+    )
+    case_by_fir: dict[str, str] = {}
+    for row in case_rows:
+        # `fir_number` is not always projected onto the Case node, but the
+        # `case_id` itself carries the FIR reference ("fir-891-24") - try the
+        # explicit field first, fall back to the id, the same tolerance
+        # `_fir_key()` was written for.
+        key = _fir_key(row.get("fir_number")) or _fir_key(row.get("case_id"))
+        if key:
+            case_by_fir[key] = row.get("case_id")
+
+    cr_rows = await age_client.execute_cypher(
+        "MATCH (r:StructuredRecord) WHERE r.record_type = 'criminal_record' "
+        "RETURN r.conviction_status AS status, r.source_case_ref AS case_ref, "
+        "r.subject_full_name AS subject",
+        columns=["status", "case_ref", "subject"],
+    )
+    joined = []
+    for row in cr_rows:
+        key = _fir_key(row.get("case_ref"))
+        if not key or key not in case_by_fir:
+            continue
+        case_id = case_by_fir[key]
+        joined.append({
+            "fir": key,
+            "case_id": case_id,
+            "subject": row.get("subject"),
+            "court_stage": row.get("status"),
+            "settled": _conviction_is_settled(row.get("status")),
+            "statutes": sorted(statutes_by_case.get(case_id, set())),
+        })
+    joined.sort(key=lambda j: j["fir"])
+
+    total_records = court.get("total_records") or 0
+    settled = court.get("settled_count") or 0
+    settled_share = (settled / total_records) if total_records else None
+    # The majority test. See this function's comment block.
+    agree = bool(total_records) and settled * 2 >= total_records
+
+    # Observability, not decoration: the SSE stream only ever exposes
+    # `route='XAGG'` and never which aggregate inside XAGG ran, so one line
+    # per aggregate is the difference between a demonstrated route and an
+    # inferred one - the convention Module 23 established in this file.
+    logger.info(
+        "XAGG statute_court_stage_join: %d case(s) carry a recorded section "
+        "across %d distinct statute(s); %d criminal record(s), %d settled / "
+        "%d in progress; %d record(s) join to a case in this corpus; agree=%s",
+        len(statutes_by_case), len(statute_counts), total_records, settled,
+        court.get("in_progress_count") or 0, len(joined), agree,
+    )
+    return {
+        "kind": "statute_court_stage_join",
+        "charged_case_count": len(statutes_by_case),
+        "section_entry_count": len(statute_rows),
+        "distinct_statute_count": len(statute_counts),
+        "statutes": [
+            {"key": k, "case_count": v}
+            for k, v in sorted(statute_counts.items(), key=lambda kv: (-kv[1], kv[0]))
+        ],
+        "court": court,
+        "joined_records": joined,
+        "joinable_record_count": len(joined),
+        "settled_share": settled_share,
+        "agree": agree,
+    }
+
+
+_STATUTE_RENDER_LIMIT = 15
+
+
+def render_statute_court_stage_join(agg_result: dict) -> list[str]:
+    """
+    [Gold-QA fix - Module 24, M4] Shared renderer for all three XAGG
+    rendering sites, same reason as `render_weapon_statute_cooccurrence()`.
+
+    M4's whole value is the COMPARISON, so this renderer states the verdict
+    itself rather than emitting two number lists and leaving the synthesis
+    to the generation model - an answer that reports one half accurately and
+    stops is still a wrong answer to this question. The verdict sentence is
+    derived from the counts (see `_statute_court_stage_join()`'s majority
+    rule); it is not a narrative pinned to what this corpus happens to show.
+
+    Half B is rendered by `render_criminal_record_crosscheck()` rather than
+    re-formatted here, so the court-side wording can never drift from CR7's.
+    """
+    lines = [
+        "Two views of the same caseload, side by side: what people are "
+        "being charged under, and how far those cases have got in court.",
+        "",
+        "**1. What people are being charged under (FIR sections).**",
+    ]
+    charged = agg_result.get("charged_case_count") or 0
+    if not charged:
+        lines.append(
+            "  No case in scope has a recorded FIR section, so the charging "
+            "side cannot be described."
+        )
+    else:
+        lines.append(
+            f"  {charged} case(s) carry at least one FIR section - "
+            f"{agg_result.get('section_entry_count') or 0} section entries "
+            f"across {agg_result.get('distinct_statute_count') or 0} distinct "
+            f"statutes. Cases charged under each, most-charged first:"
+        )
+        statutes = agg_result.get("statutes") or []
+        # Capped for the same reason `_statute_mix_by_year()` caps its own
+        # per-year lists at 15: this corpus's tail is ~20 sections charged in
+        # a single case each, and a 36-line list dilutes the comparison this
+        # question is actually about. The remainder is stated, never dropped
+        # silently, and the full list stays in the result dict.
+        for s in statutes[:_STATUTE_RENDER_LIMIT]:
+            lines.append(f"  - {s['key']}: {s['case_count']} case(s)")
+        remaining = len(statutes) - _STATUTE_RENDER_LIMIT
+        if remaining > 0:
+            lines.append(
+                f"  ... and {remaining} further section(s), each charged in "
+                f"{statutes[_STATUTE_RENDER_LIMIT]['case_count']} case(s) or fewer."
+            )
+
+    lines.append("")
+    lines.append("**2. How far those cases have got in court.**")
+    for line in render_criminal_record_crosscheck(agg_result["court"]):
+        lines.append(f"  {line}" if line else "")
+
+    joined = agg_result.get("joined_records") or []
+    total_records = (agg_result.get("court") or {}).get("total_records") or 0
+    lines.append("")
+    lines.append("**3. The overlap between the two.**")
+    if joined:
+        lines.append(
+            f"  {len(joined)} of {total_records} criminal records name an FIR "
+            f"that is also a case in this corpus, so only those can be read on "
+            f"both sides at once:"
+        )
+        for j in joined:
+            statutes = ", ".join(j["statutes"]) or "no recorded section"
+            subject = f" ({j['subject']})" if j.get("subject") else ""
+            lines.append(
+                f"  - FIR {j['fir']}{subject} - charged under {statutes}; "
+                f"court stage: \"{j['court_stage']}\"."
+            )
+    else:
+        lines.append(
+            f"  None of the {total_records} criminal records names an FIR that "
+            f"is also a case in this corpus, so no single case can be read on "
+            f"both sides at once."
+        )
+
+    lines.append("")
+    settled = (agg_result.get("court") or {}).get("settled_count") or 0
+    share = agg_result.get("settled_share")
+    pct = f"{share * 100:.0f}%" if share is not None else "n/a"
+    if agg_result.get("agree"):
+        lines.append(
+            f"**Do the two agree? Yes.** {settled} of {total_records} criminal "
+            f"records ({pct}) have reached a verdict, so the court-stage view "
+            f"covers most of the recorded caseload and describes it at the "
+            f"same point the section counts do."
+        )
+    else:
+        lines.append(
+            f"**Do the two agree? No.** Every one of the {charged} charged "
+            f"case(s) is counted on the charging side, but only {settled} of "
+            f"{total_records} criminal records ({pct}) has reached a verdict - "
+            f"the rest are still in progress. A conviction count therefore "
+            f"describes {pct} of the recorded court caseload while the section "
+            f"counts describe all of it, so the two do NOT give the same "
+            f"impression of severity. Current caseload severity should be read "
+            f"off the FIR/section counts; the conviction counts lag behind them."
+        )
+    return lines
+
+
 # [Module 13, RC-2, question M7] Year-partitioned reporting-delay picture —
 # "are people reporting incidents to police as quickly in 2026 as in 2024".
 #
@@ -2732,8 +3048,9 @@ async def run_aggregate(
     ):
         return await _reporting_delay_count(jurisdiction_case_ids=jurisdiction_case_ids)
     # [Gold-QA fix — Module 23, question M5] Weapon × statute co-occurrence,
-    # checked immediately BEFORE M1's `_TIME_COMPARISON_KEYWORDS` branch just
-    # below, which is exactly what used to swallow M5 ("...کے مقابلے میں..."
+    # checked BEFORE M1's `_TIME_COMPARISON_KEYWORDS` branch below (Module
+    # 24's statute × court-stage join now sits between the two, and matches
+    # neither shape), which is exactly what used to swallow M5 ("...کے مقابلے میں..."
     # is a literal entry in that tuple) and answer it with a per-year statute
     # ranking that has no weapon dimension at all.
     #
@@ -2753,6 +3070,27 @@ async def run_aggregate(
         return await _weapon_statute_cooccurrence_by_year(
             jurisdiction_case_ids=jurisdiction_case_ids
         )
+    # [Gold-QA fix — Module 24, question M4] Statute × court-stage join —
+    # the sections cases are charged under set against how far those cases
+    # have got in court, plus a derived verdict on whether the two agree.
+    #
+    # Placement, in both directions:
+    #   - BELOW `_CRIMINAL_RECORD_KEYWORDS` (CR7) and
+    #     `_COURT_READINESS_KEYWORDS` (G3), the two families this one shares
+    #     court vocabulary with. Both keep first claim structurally, not by
+    #     keyword luck: G3 currently scores 1.0, and CR7's own reader is the
+    #     one this aggregate's court half calls, so neither may move.
+    #     `_is_statute_court_stage_join()` additionally does not match
+    #     either question's text — verified against all 32 gold questions in
+    #     `tests/test_xagg.py` — but the ordering is what guarantees it.
+    #   - ABOVE `_TIME_COMPARISON_KEYWORDS` (M1), `_TREND_KEYWORDS`' refusal
+    #     and, decisively, `_PERSON_KEYWORDS`. That last one is what M4
+    #     actually hit before this module: "لوگوں" ("people") contains the
+    #     literal `_PERSON_KEYWORDS` entry "لوگ", so an unplaced M4 falls
+    #     into the person-recurrence aggregate — a ranked list of repeat
+    #     accused, which answers nothing M4 asked.
+    if _is_statute_court_stage_join(query_lower):
+        return await _statute_court_stage_join(jurisdiction_case_ids=jurisdiction_case_ids)
     # [Gold-QA fix — Module 13, question M1] Checked before _TREND_KEYWORDS'
     # hard refusal — a year-over-year case-type/statute comparison now has a
     # real aggregate (_statute_mix_by_year(), powered by each Incident's own

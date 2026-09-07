@@ -66,6 +66,7 @@ from src.pipeline.xagg import (
     render_court_readiness_scan,
     render_time_bucketed_mean,
     render_weapon_statute_cooccurrence,
+    render_statute_court_stage_join,
     _UNSUPPORTED_JURISDICTION,
 )
 from src.retrieval.graph_retriever import jurisdiction_unresolved
@@ -138,6 +139,9 @@ AggregateKind = Literal[
     # exactly the silent `literal_error` crash the comment block above
     # documents.
     "weapon_statute_cooccurrence",
+    # [Gold-QA fix - Module 24, M4] same additive convention - the
+    # statute x court-stage join shape.
+    "statute_court_stage_join",
 ]
 
 
@@ -318,6 +322,9 @@ def _render_aggregate_text(agg_result: dict) -> str:
     # identical XAGG-route rendering sites, per this function's own docstring.
     elif kind == "weapon_statute_cooccurrence":
         lines = render_weapon_statute_cooccurrence(agg_result)
+    # [Gold-QA fix - Module 24, M4] same, for the statute x court-stage join.
+    elif kind == "statute_court_stage_join":
+        lines = render_statute_court_stage_join(agg_result)
     else:
         lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
         # [Legal-code semantic layer] Kept in sync with orchestrator.py's
