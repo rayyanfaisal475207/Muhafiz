@@ -182,6 +182,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -362,10 +363,58 @@ async def _dispatch_one(sub_query: str, agent_input: SubAgentInput, on_event, ga
         return _SubQueryOutcome(sub_query=sub_query, result=None, failure_reason=str(exc))
 
 
+# [Gold-QA fix — Module 25, M2] A sub-answer's own text already carries
+# `[Document N]` citations from whichever sub-agent produced it (RAG,
+# GRAPH, XAGG, ...) — those numbers referenced ITS OWN evidence chunks,
+# which never travel any further than that sub-agent's own SubAgentResult.
+# By the time this module wraps that text into a pseudo-chunk, the
+# original numbering is dangling: meaningless, and — worse — it COLLIDES
+# with the meta-analysis-level `[Document N]` numbering the SYNTHESIS
+# prompt instructs the model to use for citing pseudo-chunks 1..len(entries)
+# (see `_SYNTHESIS_SYSTEM_PROMPT_TEMPLATE`/`_format_subanswers_for_prompt`).
+# Two independent sub-answers each ending "...growth rates [Document 1]"
+# (each correctly citing chunk 1 of ITS OWN, now-invisible evidence) sit
+# side by side as meta-analysis pseudo-chunks [1] and [2] — both containing
+# a stale, identically-numbered "[Document 1]" inside their own text.
+#
+# Confirmed live (2026-09-08, M2's exact gold text, multiple runs): the
+# verifier's LLM judge, reading CHUNKS text with this stale numbering baked
+# in, mis-attributed which chunk backed which claim ("[Document 2] is not
+# present in the CHUNKS list... actually sourced from [Document 1] (chunk
+# 2)") and rejected an answer that reused the exact wording of its own,
+# fully-grounded sub-answers — this is the "M2 verifier rejection" this
+# module was written to fix, and no deterministic pre-check
+# (_check_fabricated_case_ids/_check_leakage/etc.) ever fired for it; only
+# the LLM judge misread the doubly-numbered citation scheme. This is the
+# same class of defect PR #7 fixed in `_check_fabricated_case_ids` — a
+# citation-parsing assumption that does not hold for this call shape — just
+# surfacing in the LLM judge's own reasoning instead of a deterministic
+# check.
+#
+# Fix: strip any `[Document N]`-shaped marker (bracketed, parenthesized, or
+# bare, optionally markdown-bold — same tolerant shape as verifier.py's own
+# `_DOCUMENT_CITATION_RE`, kept as a separate, local pattern rather than a
+# cross-module import since the two checks solve different problems: that
+# one detects presence, this one removes) out of the sub-answer text before
+# it becomes a pseudo-chunk. The synthesis prompt already tells the model
+# exactly what claim came from which sub-question via
+# `_format_subanswers_for_prompt`'s own `[Document N] Sub-question: ...`
+# framing — the inner citation was never needed at this level and, left
+# in, actively confuses both the synthesis model and the verifier's judge
+# about which numbering scheme is in play.
+_NESTED_CITATION_RE = re.compile(r"\s*[\[(]?\*{0,2}Document\s+\d+\*{0,2}[\])]?", re.IGNORECASE)
+
+
+def _strip_nested_citations(text: str) -> str:
+    return _NESTED_CITATION_RE.sub("", text).strip()
+
+
 def _pseudo_chunk(index: int, sub_query: str, text: str) -> dict:
     """Same flat `{"id", "text", "metadata"}` shape every other sub-agent's
     own `_chunk_to_verifier_dict()` produces — see module docstring's stage-3
-    note for why the source text here is a sub-answer, not raw evidence."""
+    note for why the source text here is a sub-answer, not raw evidence.
+    `text` is expected to already be `_strip_nested_citations()`-cleaned by
+    the caller — see that function's own docstring/comment for why."""
     return {
         "id": f"subquery-{index}",
         "text": text,
@@ -492,7 +541,12 @@ async def meta_analysis(
         )
 
     # ── Synthesis pass ────────────────────────────────────────────────
-    entries = [(sq, text) for sq, text, _r in contributing]
+    # [Gold-QA fix — Module 25, M2] Strip each sub-answer's own dangling
+    # `[Document N]` citations before they become part of the synthesis
+    # prompt OR a verifier pseudo-chunk — see `_strip_nested_citations()`'s
+    # own comment for why leaving them in confuses both the synthesis model
+    # and the verifier's LLM judge about which numbering scheme is in play.
+    entries = [(sq, _strip_nested_citations(text)) for sq, text, _r in contributing]
     resolved_language = caller.preferred_language or "the same language as the user's question"
     system_prompt = _SYNTHESIS_SYSTEM_PROMPT_TEMPLATE.format(
         synthesis_goal=decomposition.synthesis_goal or "combine these sub-answers into one complete answer",

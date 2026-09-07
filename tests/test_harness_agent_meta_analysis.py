@@ -20,7 +20,12 @@ Covers:
   (g) the recursion guard: every Supervisor.handle() call this module makes
       passes allow_meta_analysis=False;
   (h) N is capped at 5, even if the decomposer returns more;
-  (i) module-level self-registration into the Supervisor's registry.
+  (i) [Gold-QA fix — Module 25, M2] a sub-answer's own dangling
+      `[Document N]` citation is stripped before it reaches either the
+      synthesis prompt or a verifier pseudo-chunk (the live-confirmed root
+      cause of the M2 verifier-rejection bug), while a genuinely
+      hallucinated synthesis is still correctly rejected;
+  (j) module-level self-registration into the Supervisor's registry.
 
 `Supervisor.handle` (the bound method, patched at the class level so every
 `Supervisor()` instance this module constructs is covered), `call_llm_json`,
@@ -459,7 +464,139 @@ async def test_fallback_dispatch_also_passes_allow_meta_analysis_false(monkeypat
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# (i) registration
+# (i) [Gold-QA fix — Module 25, M2] the verifier-rejection interaction bug.
+#
+# Live-confirmed root cause (2026-09-08, M2's exact gold text — see
+# GOLD_QA_REMAINING_FIXES_PLAN.md's Module 25 section for the full writeup):
+# a sub-answer's own `[Document N]` citation (from whichever sub-agent
+# produced it) survived unchanged into the pseudo-chunk this module builds
+# for the Verifier, colliding with the SEPARATE `[Document N]` numbering
+# the synthesis prompt assigns to pseudo-chunks 1..len(entries). Two
+# sub-answers each independently citing their own "[Document 1]" landed
+# side by side as meta-analysis chunks [1] and [2], both still containing
+# a stale "[Document 1]" — which is what actually confused the Verifier's
+# LLM judge into misreading which chunk backed which claim, live. No
+# deterministic pre-check (_check_fabricated_case_ids/_check_leakage/etc.)
+# ever fired for this; the fix is `_strip_nested_citations()`, applied to
+# every sub-answer's text before it becomes part of the synthesis prompt OR
+# a verifier pseudo-chunk.
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def test_strip_nested_citations_removes_every_document_marker_shape():
+    strip = ma_mod._strip_nested_citations
+    assert strip("Caseload cannot be compared [Document 1].") == "Caseload cannot be compared."
+    assert strip("Caseload cannot be compared (Document 2).") == "Caseload cannot be compared."
+    assert strip("Caseload cannot be compared **Document 3**.") == "Caseload cannot be compared."
+    assert strip("No station-type data [Document 1], so no comparison is possible.") == (
+        "No station-type data, so no comparison is possible."
+    )
+    # No citation present -- text passes through unchanged (aside from the
+    # trim every call applies).
+    assert strip("Nothing to strip here.") == "Nothing to strip here."
+
+
+@pytest.mark.asyncio
+async def test_nested_citations_are_stripped_before_reaching_the_synthesis_prompt_and_verifier(monkeypatch):
+    """
+    Reproduces the exact live shape: both sub-answers cite their OWN
+    "[Document 1]" (from their respective sub-agent's unrelated evidence),
+    which must never survive into either (a) the synthesis prompt's own
+    `documents` section, or (b) the pseudo-chunks handed to
+    `verify_grounding()` -- both would otherwise carry a dangling,
+    colliding "[Document 1]" alongside the meta-analysis-level numbering.
+    """
+    _stub_decompose(
+        monkeypatch,
+        decompose=True,
+        sub_queries=[_SUB_Q1, _SUB_Q2],
+        synthesis_goal="Combine both station-type findings.",
+    )
+    _stub_supervisor_handle(
+        monkeypatch,
+        {
+            _SUB_Q1: SubAgentResult(
+                status=SubAgentStatus.OK,
+                answer_text="No station-type classification exists for general-purpose stations [Document 1].",
+            ),
+            _SUB_Q2: SubAgentResult(
+                status=SubAgentStatus.OK,
+                answer_text="No station-type classification exists for specialized stations [Document 1].",
+            ),
+        },
+    )
+
+    captured_prompt = {}
+
+    async def _fake_call_llm(system_prompt, user_message, **kwargs):
+        captured_prompt["system_prompt"] = system_prompt
+        return "Neither can be compared [Document 1][Document 2]."
+
+    monkeypatch.setattr(ma_mod, "call_llm", _fake_call_llm)
+
+    captured_chunks = {}
+
+    async def _fake_verify_grounding(*, answer, cited_chunks, **kwargs):
+        captured_chunks["chunks"] = cited_chunks
+        return {"grounded": True, "off_topic": False, "reason": "grounded"}
+
+    monkeypatch.setattr(ma_mod, "verify_grounding", _fake_verify_grounding)
+    _stub_validate_answer(monkeypatch)
+
+    result = await meta_analysis(_agent_input())
+
+    assert result.status == SubAgentStatus.OK
+    # Neither pseudo-chunk's text carries a leftover "[Document N]" from
+    # its own originating sub-agent.
+    for chunk in captured_chunks["chunks"]:
+        assert "Document" not in chunk["text"]
+    # Nor does the synthesis prompt's own sub-answers section carry the
+    # stale per-sub-answer citation (the legitimate `[Document N]
+    # Sub-question: ...` HEADER line this module itself adds is expected
+    # and excluded here).
+    subanswers_section = captured_prompt["system_prompt"].split("--- SUB-ANSWERS ---")[1]
+    assert "for general-purpose stations." in subanswers_section
+    assert "for general-purpose stations [Document 1]." not in subanswers_section
+    assert "for specialized stations." in subanswers_section
+    assert "for specialized stations [Document 1]." not in subanswers_section
+
+
+@pytest.mark.asyncio
+async def test_hallucinated_synthesis_is_still_rejected(monkeypatch):
+    """
+    The other half of the fix's contract, required alongside the false-
+    positive fix above: a synthesis that asserts something absent from
+    every sub-answer must still be caught. Stripping nested citations must
+    never widen into "the verifier always passes now."
+    """
+    _stub_decompose(
+        monkeypatch,
+        decompose=True,
+        sub_queries=[_SUB_Q1, _SUB_Q2],
+        synthesis_goal="Combine both findings.",
+    )
+    _stub_supervisor_handle(
+        monkeypatch,
+        {
+            _SUB_Q1: SubAgentResult(status=SubAgentStatus.OK, answer_text="Pattern: nighttime robberies."),
+            _SUB_Q2: SubAgentResult(status=SubAgentStatus.OK, answer_text="CASE-014 shares a suspect."),
+        },
+    )
+    _stub_call_llm(monkeypatch, "CASE-014's suspect was previously convicted twice [Document 2].")
+    _stub_verify_grounding(
+        monkeypatch,
+        grounded=False,
+        reason="The prior-convictions claim is not stated in any sub-answer.",
+    )
+
+    result = await meta_analysis(_agent_input())
+
+    assert result.status == SubAgentStatus.ABSTAINED
+    assert any("could not be verified as grounded" in c for c in result.caveats)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# (j) registration
 # ═══════════════════════════════════════════════════════════════════════
 
 

@@ -69,7 +69,7 @@ several can run in parallel chats/worktrees without colliding.
 | 22 | M7 reporting-delay: wrong metric | `feature/xagg-incident-to-report-delta` | ⬜ Not started |
 | 23 | M5 weapon × statute co-occurrence join | `feature/xagg-weapon-statute-cooccurrence` | ⬜ Not started |
 | 24 | M4 statute × court-stage join | `feature/xagg-statute-court-stage-join` | ⬜ Blocked on PR #8 |
-| 25 | M2 Meta-Analysis → verifier rejection | `fix/meta-analysis-synthesis-verifier-rejection` | ⬜ Not started |
+| 25 | M2 Meta-Analysis → verifier rejection | `fix/meta-analysis-synthesis-verifier-rejection` | ✅ PR open |
 | 26 | M1 routing miss (XGRAPH instead of aggregate) | `fix/router-year-over-year-comparison-to-xagg` | ⬜ Not started |
 | 27 | Final Gold-32 rerun (Module 18 redo) | *(docs only)* | ⬜ Blocked on all above |
 
@@ -363,26 +363,113 @@ had to untangle).
 
 ---
 
-# Module 25 — M2: Meta-Analysis synthesis rejected by the verifier ⬜
+# Module 25 — M2: Meta-Analysis synthesis rejected by the verifier ✅
 
 **Branch:** `fix/meta-analysis-synthesis-verifier-rejection`
 **Question:** M2. Gold is a simple computable fact: 9 of 73 FIRs (~12%) from
-2 of 19 stations.
+2 of 19 stations — **verified directly against the graph** (Postgres/Apache
+AGE, `evidence_graph`): `MATCH (c:Case)-[:FILED_AT]->(s:PoliceStation)` gives
+exactly 19 stations and 73 cases total, and the two "سائبر کرائم سرکل"
+(Cyber Crime Circle) stations — Islamabad and Rawalpindi — carry 5 + 4 = 9
+cases. Gold's numbers are exact.
 
-**Root cause:** M2 fails with *"The synthesized answer could not be verified
-as grounded in the sub-answers."* Meta-Analysis (Module 11) decomposes and
-composes sub-answers correctly; the **verifier** (Module 17) then rejects the
-synthesis. This is an 11×17 interaction, not an aggregate gap.
+**Root cause found — NOT what the plan's own framing assumed.** The original
+framing (an 11×17 interaction where Meta-Analysis composes correctly and the
+verifier alone is at fault) was written from `MODULE_18_FINAL_REPORT.md`/
+`GOLD32_RESULTS_FOR_TEAMMATE.md` without first-hand reproduction, and by the
+time this module actually ran, the picture had also moved: PRs #7-#9 landed
+in between, and **Module 13's own hard-refusal in `xagg.py`** (`_STATION_TYPE_KEYWORDS`
+→ `_UNSUPPORTED_STATION_TYPE`) had already been merged, changing M2's whole
+failure shape. Live reproduction (2026-09-08, this module's own session) found:
 
-**Investigate:** the verifier is being handed *sub-answers* as its evidence
-set, not retrieved chunks — check whether `verify_grounding()`'s contract
-even fits that input shape, or whether Meta-Analysis should use a different
-verification path (the same class of mismatch as the fabricated-case-id check
-running against a KB corpus with no case ids, fixed in PR #7).
+1. **M2's exact gold text no longer reliably reaches a rejectable synthesis
+   at all** — LLM-driven decomposition is non-deterministic run to run. When
+   it decomposes into "current vs. two-years-ago" sub-queries, both usually
+   route to Large-Scale Aggregate, which correctly and honestly answers "this
+   system does not classify stations by type" (Module 13's own deliberate,
+   correct behavior — station type genuinely isn't a modeled column; it
+   *is* derivable from station names, which Module 13 didn't have visibility
+   into, but that's a Module 13/xagg.py-scope question, not this module's).
+   That honest answer is real, self-consistent, and the verifier correctly
+   passes it — there is no bug in this specific path today.
+2. **The actual, reproducible verifier defect** surfaced on M2's exact gold
+   text and on a compound paraphrase alike, roughly half the time: *"The
+   answer incorrectly cites [Document 2], which is not present in the CHUNKS
+   list... actually sourced from [Document 1] (chunk 2)."* Captured full
+   verifier output live. **Confirmed the actual mechanism**: each
+   sub-answer's own text already carries a `[Document N]` citation from
+   *its own* originating sub-agent (RAG/GRAPH/XAGG/...), pointing at
+   evidence that never travels past that sub-agent's own `SubAgentResult`.
+   Meta-Analysis's pseudo-chunk builder left that citation embedded
+   verbatim, so two sub-answers each independently ending "...[Document 1]"
+   became meta-analysis chunks `[1]` and `[2]` — **both still containing a
+   stale, identically-numbered "[Document 1]" inside their own text**,
+   colliding with the *separate* `[Document N]` numbering the synthesis
+   prompt assigns to the pseudo-chunks themselves. This is what actually
+   confused the verifier's LLM judge into misreading which chunk backed
+   which claim. **No deterministic pre-check ever fired** (confirmed: no
+   `FABRICATED CITATION` / `SECURITY: Cross-case leakage` log lines on any
+   rejected run) — this is the LLM judge alone, misled by the doubly-numbered
+   citation scheme. Same *class* of defect as PR #7's
+   `_check_fabricated_case_ids` fix — a citation-parsing assumption that
+   doesn't hold for this input shape — just surfacing in the judge's own
+   reasoning instead of a deterministic check.
+3. `case_id="cross_case"` was checked and is **not** implicated:
+   `_check_leakage()` and `_check_fabricated_case_ids()` both no-op cleanly
+   on `"cross_case"` / an empty known-case-id set respectively (the latter is
+   exactly PR #7's own fix, already covering this shape).
 
-**Verify:** live M2 returns the computed figure; a non-gold compound
-paraphrase; confirm Module 17's own verifier tests still pass and that a
-genuinely hallucinated synthesis is still rejected.
+**Fix (`src/pipeline/harness/agents/meta_analysis.py`):** added
+`_strip_nested_citations()` — strips any `[Document N]` / `(Document N)` /
+`**Document N**` marker out of every sub-answer's text before it becomes
+part of the synthesis prompt *or* a verifier pseudo-chunk. A precondition
+guard, not a weakening of the verifier itself (`verifier.py` untouched) —
+same shape as PR #7's fix, applied at the call site that was feeding the
+verifier a shape it wasn't built for, rather than bending the general check.
+
+**Live verification, before/after (isolated worktree, `../muhafiz-m25`,
+own backend on :8010, own DB check independent of the shared dev stack):**
+- *Before fix:* M2's exact gold text rejected with the reason quoted above
+  (full verifier dict captured); a compound paraphrase ("Compared to
+  general-purpose stations, are the specialized crime units seeing faster
+  caseload growth?") rejected the same way.
+- *After fix:* M2's exact gold text run 3×: 2 clean `status=ok` passes
+  (no verifier rejection, in both the "honest no-classification-data" shape
+  and a "partially confirmed" shape that still resolved to OK), 1 unrelated
+  sub-query timeout (model-server latency — pre-existing infra flakiness,
+  not a verifier defect). The same paraphrase that reliably rejected before
+  the fix now also passes.
+- **Second half confirmed**: a genuinely hallucinated synthesis is still
+  rejected — both live (Module 17's own prior evidence of catching a real
+  cross-chunk hallucination, unaffected since `verifier.py` itself was not
+  touched) and by the new
+  `test_hallucinated_synthesis_is_still_rejected` unit test.
+- **Regression guard**: M4 (an existing Urdu compound-comparison question
+  that already reaches Meta-Analysis via its own trigger pattern) re-run
+  live post-fix — `status=ok`, no regression.
+
+**Unit tests added** (`tests/test_harness_agent_meta_analysis.py`):
+`test_strip_nested_citations_removes_every_document_marker_shape`,
+`test_nested_citations_are_stripped_before_reaching_the_synthesis_prompt_and_verifier`,
+`test_hallucinated_synthesis_is_still_rejected`. Full suite
+(`test_verifier.py` + `test_harness_agent_meta_analysis.py`) passes: 117
+tests (up from 111).
+
+**Correcting the plan's own framing, as this section originally asked:**
+the root cause is real and is squarely a verifier/Meta-Analysis interaction
+bug as originally suspected — but the *mechanism* (a citation-numbering
+collision confusing the LLM judge, not a precondition mismatch in a
+deterministic check, and not a composition defect in Meta-Analysis itself)
+differs from what §"Investigate" above guessed, and M2's *specific* live
+failure mode had already partly shifted to a **separate, out-of-scope gap**:
+Module 13's `xagg.py` hard-refusal for "station type" is honest but
+conservative — it does not attempt a name-based heuristic (station names
+literally contain "سائبر کرائم" — Cyber Crime — for the 2 specialized
+stations), so M2 will not reliably return gold's *exact* 9-of-73 figure
+until that separate gap is closed. That is a `xagg.py`/Module 13-scope
+follow-up, not this module's file scope (`meta_analysis.py`/`verifier.py`),
+and is flagged here rather than fixed in this PR to avoid touching a file
+owned by a different concurrent track.
 
 ---
 
