@@ -63,6 +63,7 @@ from src.pipeline.xagg import (
     render_case_completeness_scan,
     render_weapon_compliance_scan,
     render_court_readiness_scan,
+    render_time_bucketed_mean,
     _UNSUPPORTED_JURISDICTION,
 )
 from src.retrieval.graph_retriever import jurisdiction_unresolved
@@ -111,6 +112,11 @@ AggregateKind = Literal[
     "rate_breakdown",
     "time_bucketed_breakdown",
     "time_bucketed_rate",
+    # [Gold-QA fix — Module 22, M7] same additive convention — the true
+    # mean-incident-to-report-minutes shape that replaces the delay-REASON
+    # rate proxy for M7. Omitting this entry reproduces exactly the silent
+    # `literal_error` crash the comment block above documents.
+    "time_bucketed_mean",
     # [Gold-QA fix — Module 14, CR7] same additive convention.
     "criminal_record_court_crosscheck",
     # [Gold-QA fix — Module 15, CR6] same additive convention.
@@ -291,6 +297,10 @@ def _render_aggregate_text(agg_result: dict) -> str:
             f"reason (~{round(100 * b['rate'])}%)"
             for b in agg_result["buckets"]
         )
+    # [Gold-QA fix — Module 22, M7] Kept in sync with orchestrator.py's two
+    # identical XAGG-route rendering sites, per this function's own docstring.
+    elif kind == "time_bucketed_mean":
+        lines = render_time_bucketed_mean(agg_result)
     else:
         lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
         # [Legal-code semantic layer] Kept in sync with orchestrator.py's
