@@ -17,7 +17,7 @@ excluding KB, **14/32** passing.
 | 28 | CR4 — weapon-evidence chain routing | `MODULE28_RESULT.md` | in progress |
 | 24 | M4 — statute × court-stage join | `MODULE24_RESULT.md` | done |
 | 29 | CR3/G1/G6 — Meta-Analysis decomposition | `MODULE29_RESULT.md` | queued |
-| 30 | KB3/KB8/KB9 — retrieval completeness | `MODULE30_RESULT.md` | queued |
+| 30 | KB3/KB8/KB9 — retrieval completeness | `MODULE30_RESULT.md` | done |
 | 27 | Final Gold-32 rerun | `MODULE27_RESULT.md` | queued (last) |
 
 ## Required shape for each result file
