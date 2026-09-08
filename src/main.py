@@ -61,10 +61,68 @@ from slowapi import _rate_limit_exceeded_handler
 
 # ── Logging Setup ──────────────────────────────────────────────────────────────
 # Configure logging before anything else so all startup messages are captured.
+
+
+def _utf8_log_stream(stream):
+    """Return `stream` forced to UTF-8, so a log record carrying Urdu is
+    written rather than destroyed.
+
+    [Found live 2026-09-08, while verifying Module 36.] On Windows,
+    `python -m uvicorn ... > backend.log` gives a stdout whose encoding is the
+    console's ANSI codepage (cp1252 here), NOT UTF-8. Every log record
+    containing Urdu — weapon licence statuses, arrest statuses, person names,
+    the `XAGG <kind>: ...` diagnostics — then raised `UnicodeEncodeError`
+    inside `logging`'s own `emit()`.
+
+    That failure is silent in the worst way: `logging` swallows the exception,
+    the record is **never written** (confirmed: zero bytes reach the stream),
+    and it prints the *unformatted template* plus a traceback to stderr
+    instead. Three of Module 36's first four live calls lost their figures this
+    way.
+
+    Why that matters beyond tidiness: those `XAGG <kind>: ...` lines are the
+    ONLY way to tell which aggregate actually ran — the SSE stream reports just
+    `route='XAGG'`. So this bug silently removes the evidence every module in
+    the Gold-QA plan is verified against, and it does so preferentially for
+    Urdu-carrying aggregates, i.e. exactly the ones under test.
+
+    Fixed here at the handler rather than per call site: making individual
+    messages ASCII-safe fixes one line and leaves the next one to be
+    rediscovered, and it would strip the Urdu values that make the diagnostics
+    useful.
+
+    `errors="backslashreplace"` is deliberate over the default `"strict"`: if a
+    stream still cannot represent a character, the record must degrade to an
+    escape sequence, never vanish.
+    """
+    try:
+        # Python 3.7+: retarget the existing wrapper in place. Preferred, as it
+        # also fixes anything already holding a reference to this stream.
+        stream.reconfigure(encoding="utf-8", errors="backslashreplace")
+        return stream
+    except (AttributeError, ValueError, OSError):
+        pass
+    try:
+        # Fall back to wrapping the raw byte buffer ourselves.
+        import io
+
+        return io.TextIOWrapper(
+            stream.buffer,
+            encoding="utf-8",
+            errors="backslashreplace",
+            line_buffering=True,
+        )
+    except (AttributeError, ValueError, OSError):
+        # Nothing left to try (a stream with no .buffer, e.g. a test capture).
+        # Returning it unchanged keeps startup working; worst case we are back
+        # to the original behaviour rather than crashing the app over logging.
+        return stream
+
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)],
+    handlers=[logging.StreamHandler(_utf8_log_stream(sys.stdout))],
 )
 logger = logging.getLogger(__name__)
 
