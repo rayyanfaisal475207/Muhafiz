@@ -4,9 +4,61 @@ Tests for src/pipeline/xagg.py (Phase 5.4 — cross-case aggregate queries).
 age_client and the gateway are both faked — no real Postgres/AGE (matches
 the `no_network` guard, conftest, autouse).
 """
+import json
+import logging
+from pathlib import Path
+
 import pytest
 
 import src.pipeline.xagg as xagg
+
+
+# ── [Gold-QA fix — Modules 43/44] shared gold-32 fixtures ──────────────────
+#
+# The all-32 negative controls in this file each re-resolve the dataset path
+# inline. New controls use these instead: one place that knows where the
+# dataset lives, and one place that fails loudly if it moves. A MISSING file
+# is a FAILURE, never a skip — see the note on the Module 22 control below
+# for what a silently-skipping negative control cost this project.
+
+_GOLD32_PATH = (
+    Path(__file__).resolve().parent.parent
+    / "evaluation"
+    / "Gold_QA_Dataset_Final32_With_Answers.json"
+)
+
+# Literal gold text, copied verbatim from the dataset. Asserting over the
+# real strings rather than paraphrases is the whole point.
+_M7_GOLD = (
+    "Kya log 2026 mein waqiaat ki police ko itni hi jaldi ittila de rahe hain "
+    "jitni 2024 mein dete the?"
+)
+_M2_GOLD = (
+    "Is caseload growing faster at our general-purpose stations, or at the "
+    "handful set up for one specific type of crime?"
+)
+_CS4_GOLD = (
+    "Kya wusee criminal-history records mein koi aisa shakhs hai jo hamare "
+    "apne darj kiye hue kisi case se match nahi karta?"
+)
+
+
+def _gold32_items() -> list[dict]:
+    assert _GOLD32_PATH.exists(), f"Gold-32 dataset not found at {_GOLD32_PATH}"
+    payload = json.loads(_GOLD32_PATH.read_text(encoding="utf-8"))
+    items = payload if isinstance(payload, list) else payload.get("questions", payload)
+    assert len(items) == 32, f"expected 32 gold questions, got {len(items)}"
+    return items
+
+
+def test_gold32_fixture_texts_are_the_real_dataset_texts():
+    """The constants above are only worth asserting over while they are
+    byte-identical to the dataset. A gold text edited upstream must break
+    here, not silently turn every control below into a tautology."""
+    by_id = {(it.get("id") or "").upper(): it["question"] for it in _gold32_items()}
+    assert by_id["M7"] == _M7_GOLD
+    assert by_id["M2"] == _M2_GOLD
+    assert by_id["CS4"] == _CS4_GOLD
 
 
 class FakeAgeClient:
@@ -1290,6 +1342,110 @@ def test_render_time_bucketed_mean_handles_no_usable_rows():
         "kind": "time_bucketed_mean", "buckets": [], "missing_timestamp_count": 4,
     }))
     assert "cannot be computed" in rendered
+
+
+# ── [Gold-QA fix — Module 43, question M7] ─────────────────────────────────
+#
+# M7 was filed at FactualCorrectness 0.0 by the 2026-09-08 post-fix
+# evaluation, contradicting Module 22's recorded live verification. The
+# three-layer re-derivation found Module 22 CORRECT: against the live
+# 2026-09-08 corpus the aggregate returns 15.0 min / n=13 (2024) and
+# 1401.3 min / n=51 (2026), `run_aggregate()` dispatches M7's literal gold
+# text to it, and three consecutive live `/api/chat` runs returned exactly
+# those figures on `route='XAGG' -> sub-agent='Large-Scale Aggregate'`.
+#
+# So these tests pin the two things that would have to break for the
+# reported symptom to be real, neither of which any existing test covered:
+#
+#   1. The aggregate must SAY which aggregate it is, in the log. The SSE
+#      stream exposes only `route='XAGG'`; the `XAGG <kind>:` line is the
+#      only live proof of which family answered, and this one had none.
+#   2. M7 must keep skipping Meta-Analysis (asserted in
+#      tests/test_harness_supervisor.py). The one recorded M7 answer in
+#      this repository — `evaluation/gold32_pipeline_outputs.json`, last
+#      written 2026-09-06, i.e. two days BEFORE Module 22 landed — is the
+#      delay-REASON rate ("0% of 13 ... 14% of 50"), which is
+#      `_reporting_delay_rate_by_year()`'s output and is no longer
+#      reachable from `run_aggregate()` at all. A decomposed sub-question
+#      is the only remaining path back to a wrong-metric M7 answer.
+
+async def test_module43_m7_aggregate_logs_which_family_answered(monkeypatch, caplog):
+    """Without this line the only way to tell M7's aggregate from the
+    delay-REASON one in a live run is to match numbers out of the prose —
+    which is precisely how Module 43's investigation had to start."""
+    rows = [
+        {"incident_datetime": "2024-09-25T17:10:00Z", "report_datetime": "2024-09-25T17:25:00Z"},
+        {"incident_datetime": "2026-01-01T10:00:00Z", "report_datetime": "2026-01-02T09:00:00Z"},
+        {"incident_datetime": None, "report_datetime": "2026-01-02T09:00:00Z"},
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    with caplog.at_level(logging.INFO, logger="src.pipeline.xagg"):
+        await xagg._incident_to_report_minutes_by_year()
+
+    logged = "\n".join(r.getMessage() for r in caplog.records)
+    assert "XAGG incident_to_report_minutes_by_year:" in logged
+    # The kind is not enough on its own — the numbers must be there too, or
+    # the line cannot distinguish a correct run from a wrong-metric one.
+    assert "2024=15.0min/n=1" in logged
+    assert "2026=1380.0min/n=1" in logged
+    assert "1 row(s) excluded" in logged
+
+
+async def test_module43_m7_gold_figures_survive_the_whole_dispatch_chain(monkeypatch):
+    """Pinned to M7's literal gold text AND the literal figures its gold
+    answer cites — 15.0 minutes across 13 FIRs (2024) and 1401.3 minutes
+    (~23.4 hours) across 51 FIRs (2026), re-derived from the live graph by
+    a hand-written Cypher probe before being written down here.
+
+    Deliberately end-to-end through `run_aggregate()` and then the shared
+    renderer, because the two halves failed independently in this file's
+    history: Module 22 fixed the metric, Module 26 fixed the routing, and
+    neither alone produced a correct answer."""
+    # 13 FIRs at exactly 15 minutes -> mean 15.0; 51 FIRs whose mean is
+    # 1401.3 minutes (50 at 1400.0 plus one at 1466.0).
+    rows = (
+        [
+            {"incident_datetime": "2024-03-01T10:00:00Z",
+             "report_datetime": "2024-03-01T10:15:00Z"}
+        ] * 13
+        + [
+            {"incident_datetime": "2026-03-01T00:00:00Z",
+             "report_datetime": "2026-03-01T23:20:00Z"}
+        ] * 50
+        + [
+            {"incident_datetime": "2026-03-02T00:00:00Z",
+             "report_datetime": "2026-03-03T00:26:00Z"}
+        ]
+    )
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(_M7_GOLD, None, gateway=None, user_role="supervisor")
+
+    assert result["kind"] == "time_bucketed_mean"
+    assert result["dimension"] == "incident_to_report_minutes_by_year"
+    by_year = {b["year"]: b for b in result["buckets"]}
+    assert by_year[2024]["mean_minutes"] == 15.0 and by_year[2024]["case_count"] == 13
+    assert by_year[2026]["mean_minutes"] == 1401.3 and by_year[2026]["case_count"] == 51
+
+    rendered = "\n".join(xagg.render_time_bucketed_mean(result))
+    assert "15.0 minutes across 13 FIRs" in rendered
+    assert "1401.3 minutes (~23.4 hours) across 51 FIRs" in rendered
+
+
+def test_module43_m7_gold_text_still_resolves_only_to_the_mean_minutes_family():
+    """The all-32 equality control for M7's own dispatch KEY (the existing
+    one above covers the `_is_reporting_speed_comparison` predicate). Any
+    aggregate added after Module 22 that stole M7's dispatch — the
+    regression hypothesis Module 43 had to rule out — fails here."""
+    items = _gold32_items()
+    matched = [
+        (it.get("id") or "").upper()
+        for it in items
+        if xagg.resolve_aggregate_kind(it["question"]) == "incident_to_report_minutes_by_year"
+    ]
+    assert matched == ["M7"], f"expected only M7, got {matched}"
+    assert xagg.resolve_aggregate_kind(_M7_GOLD) == "incident_to_report_minutes_by_year"
 
 
 # [Gold-QA fix — Module 13, question M2]

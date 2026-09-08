@@ -3833,6 +3833,28 @@ async def _incident_to_report_minutes_by_year(
         }
         for year, values in sorted(minutes_by_year.items())
     ]
+    # [Gold-QA fix — Module 43, question M7] Observability, not decoration,
+    # and added here because its ABSENCE cost a whole investigation.
+    #
+    # The 2026-09-08 post-fix evaluation recorded M7 at FactualCorrectness
+    # 0.0, contradicting Module 22's recorded live verification. Deciding
+    # which of the two was wrong needed one thing above all: proof of WHICH
+    # aggregate answered a given live run. The SSE stream only ever exposes
+    # `route='XAGG'` (see WAVE2_ORCHESTRATION_PROMPT.md's trap list), so the
+    # `XAGG <kind>:` log line is the only evidence available — and Module 22
+    # predates the convention Modules 31-36 established, so this aggregate,
+    # uniquely among the ones under investigation, emitted nothing at all.
+    # Every re-run had to be identified by matching numbers out of the
+    # rendered prose. That is exactly the inference this line removes.
+    logger.info(
+        "XAGG incident_to_report_minutes_by_year: %d year bucket(s) [%s], "
+        "%d row(s) excluded for a missing/unparseable/out-of-order timestamp",
+        len(buckets),
+        ", ".join(
+            f"{b['year']}={b['mean_minutes']}min/n={b['case_count']}" for b in buckets
+        ) or "none",
+        skipped,
+    )
     return {
         "kind": "time_bucketed_mean",
         "dimension": "incident_to_report_minutes_by_year",

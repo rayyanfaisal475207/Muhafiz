@@ -1273,6 +1273,33 @@ _M2_GOLD = (
     "Is caseload growing faster at our general-purpose stations, or at the "
     "handful set up for one specific type of crime?"
 )
+# [Gold-QA fix — Module 43] M7's gold text.
+_M7_GOLD = (
+    "Kya log 2026 mein waqiaat ki police ko itni hi jaldi ittila de rahe hain "
+    "jitni 2024 mein dete the?"
+)
+
+
+def test_module43_m7_gold_text_skips_decomposition_and_reaches_the_aggregate():
+    """M7 must reach Large-Scale Aggregate in ONE call.
+
+    Module 43's investigation: M7 was filed at FactualCorrectness 0.0,
+    contradicting Module 22's recorded live verification. Layers 1 and 2
+    (the aggregate, and `run_aggregate()`'s dispatch) were re-derived
+    against the live graph and both return gold exactly, and three live
+    `/api/chat` runs did too — so Module 22 was right.
+
+    The one path that still leads back to a wrong-metric M7 answer is
+    decomposition: `_reporting_delay_rate_by_year()` (the delay-REASON
+    rate, 0% -> 14.9%, which is what the only M7 answer recorded in this
+    repository actually contains) has no dispatch entry of its own any
+    more, but a sub-question that drops M7's comparison vocabulary lands on
+    the neighbouring reporting-delay family instead. Module 41's guard is
+    what keeps M7 out of Meta-Analysis; nothing pinned that for M7
+    specifically until now."""
+    assert resolve_aggregate_kind(_M7_GOLD) == "incident_to_report_minutes_by_year"
+    assert resolves_to_specific_aggregate(_M7_GOLD)
+    assert classify_to_subagent(_XAGG_CROSS_CASE, _M7_GOLD) == LARGE_SCALE_AGGREGATE
 
 
 def test_module41_g2_gold_text_skips_decomposition_and_reaches_the_aggregate():

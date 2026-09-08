@@ -27,6 +27,7 @@ excluding KB, **14/32** passing.
 | 36 | CR3 — subject-filtered FIR listing | `MODULE36_RESULT.md` | done — returns `fir-64-26`/`fir-65-26` exactly; wiring into `record_consistency` deferred behind Module 41 |
 | 45 | Eval harness — a judge `null` scored as zero | `MODULE45_RESULT.md` | done — nulls retried then excluded from the mean; the 900-char cap tested and cleared of every current 0.0; split out as Modules 46–47 |
 | 41 | G2/G5 — Meta-Analysis over-decomposition (regression) | `MODULE41_RESULT.md` | done — guard generalised from one pattern list to "does XAGG resolve this?"; G2/G5 correct and deterministic on 3/3 live runs each |
+| 43 | M7 — incident-to-report mean, filed as factually wrong | `MODULE43_RESULT.md` | done — **the report is wrong, not Module 22**; M7 returns gold on 6/6 live runs. Fixed the missing `XAGG <kind>` log line; independently confirms Module 47 |
 
 ## Required shape for each result file
 

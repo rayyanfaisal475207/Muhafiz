@@ -85,7 +85,7 @@ several can run in parallel chats/worktrees without colliding.
 | 39 | The "and does our data show it?" half of every gold KB answer is unreachable from the RAG sub-agent | *(not yet branched)* | ⬜ New — found by Module 30; the largest remaining gap in the KB bucket |
 | 41 | **G2/G5 REGRESSION** — Meta-Analysis over-decomposes questions XAGG answers in one call; the supervisor guard fired only for time-comparison shapes | `fix/supervisor-skip-decomposition-for-resolvable-aggregates` | ✅ **Done — PR #31** — guard now asks `run_aggregate()`'s extracted, resolution-only chain; G2 and G5 correct on 3/3 live runs each. Result: `docs/gold-qa-wave2-results/MODULE41_RESULT.md` |
 | 42 | KB6 hard failure — `route=None`, FactualCorrectness 0.0 **and** AnswerRelevancy 0.0, did not recover on re-run | *(not yet branched)* | ⬜ New — found by the 2026-09-08 post-fix eval; the only question failing this way |
-| 43 | M7 answers with the wrong facts (FC 0.0 / AR 1.0) despite Module 22 verifying it live against gold | *(not yet branched)* | ⬜ New — found by the 2026-09-08 post-fix eval; contradicts a recorded module result |
+| 43 | M7 answers with the wrong facts (FC 0.0 / AR 1.0) despite Module 22 verifying it live against gold | `fix/m7-m2-cs4-factual-accuracy` | ✅ **Done — the report is wrong, not Module 22.** M7 returns gold exactly (15.0 min / 13 FIRs; 1401.3 min / 51 FIRs) on **6 of 6** live runs. The only M7 answer in this repo is `_reporting_delay_rate_by_year()`'s output — a function with no dispatch entry since Module 22 — recorded 2026-09-06, two days *before* Module 22 landed. Independently confirms Module 47. Fixed: the missing `XAGG <kind>` log line. Result: `docs/gold-qa-wave2-results/MODULE43_RESULT.md` |
 | 44 | M2 and CS4 reach XAGG and answer fluently but factually wrong (FC 0.0 / AR 1.0) | *(not yet branched)* | ⬜ New — found by the 2026-09-08 post-fix eval |
 | 45 | Eval harness: a judge `null` FactualCorrectness is scored as 0 rather than re-run | `fix/eval-harness-null-scores-and-truncation` | ✅ Done — confirmed and fixed. `measure()` never retried the CR8 failure at all (its `tries` loop only ran for rate limits), and **no mean was computed in the repo at all** — every published figure was hand-derived. Nulls are now retried, then recorded as unscored and excluded by a new null-safe `summarize()`. 22 new tests. The 900-char cap was measured and is **not** behind any current 0.0 — split out as Module 46. Result: `docs/gold-qa-wave2-results/MODULE45_RESULT.md` |
 | 46 | Eval harness: the 900-char answer cap silences whole answers, and its stated (Faithfulness) justification no longer exists | *(not yet branched)* | ⬜ New — found by Module 45. Proven with a positive control: an answer whose gold facts sit past char 900 scores **0.0** instead of 1.0. Does not fire on the committed run (only 2 of 32 answers exceed 900) but the current build produces 1,000–2,500-char KB answers. Cost of removing it: **under 2 s per metric, no extra judge calls.** **Settle before Module 27 runs.** |
@@ -94,6 +94,7 @@ several can run in parallel chats/worktrees without colliding.
 | 48 | KB2 and KB9 answer fluently but factually wrong (FC 0.0 / AR 1.0) after Module 30 fixed their retrieval | *(not yet branched)* | ⬜ New — the last two KB questions with no module of their own |
 | 49 | KB3 reaches Police Order Article 18 but still scores 0.1 — it quotes the article without drawing gold's conclusion | *(not yet branched)* | ⬜ New — Module 30 got the chunk in; the synthesis half is unaddressed |
 | 50 | G1/G6 consolidation: wire Modules 31–36's aggregates into their decomposition plans, and settle `_MAX_SUB_QUERIES` | *(not yet branched)* | ⬜ New — **the aggregates exist but nothing calls them**, which is why G1 sits at 0.1 and G6 at 0.3 |
+| 52 | Every XAGG aggregate predating Modules 31–36 emits no `XAGG <kind>:` log line, so no live run of it can be identified from `backend.log` | *(not yet branched)* | ⬜ New — found by Module 43, which had to add M7's before it could tell a correct run from a wrong-metric one. XAGG's SSE reports only `route='XAGG'`, so this is the project's only proof of which aggregate answered. Mechanical: one `logger.info()` per family. **Worth doing before Module 27's rerun**, so that run is diagnosable. |
 | 51 | `backend.log` is written through a cp1252 stream, so any Urdu-carrying log record is **silently destroyed** inside `logging.emit()` | `fix/backend-log-utf8-encoding` | ✅ **Fixed** — handler-level UTF-8; the `XAGG <kind>` diagnostics every module is verified against were being deleted |
 | 27 | Final Gold-32 rerun (Module 18 redo) | *(docs only)* | ⬜ Blocked on all above — brief: `MODULE27_FINAL_GOLD32_RERUN_PROMPT.md` |
 
@@ -1908,26 +1909,63 @@ no shared cause.
 
 ---
 
-# Module 43 — M7 answers with the wrong facts ⬜
+# Module 43 — M7 answers with the wrong facts ✅ DONE
 
-M7 scores **FC 0.0 / AR 1.0**, route **XAGG** — it answers fluently and is
-wrong. Gold: mean minutes incident→report, **15.0 (2024) → 1401.3 (2026)**.
+**Branch:** `fix/m7-m2-cs4-factual-accuracy` · **Result:**
+`docs/gold-qa-wave2-results/MODULE43_RESULT.md`
 
-**This contradicts a recorded module result.** Module 22's section in this
-plan states M7 *and* its non-gold paraphrase were both verified live and
-matched gold exactly. One of the two observations is wrong, and finding out
-which matters more than the score: either M7 regressed after Module 22 (the
-aggregates added since are the obvious suspects), or Module 22's verification
-did not measure what it reported.
+**Answered, and the answer is that the report is wrong.** This section asked
+which of two contradicting observations was wrong — the post-fix report's
+M7 row (FC 0.0) or Module 22's recorded live verification. **Module 22 was
+right. M7 never regressed, and nothing in `xagg.py` needed fixing.**
 
-**Do not assume the report is right and the module wrong, or vice versa.**
-Re-derive from the data with a hand-written Cypher probe, then compare against
-both. Note the 2026-09-08 dump now carries `incident_datetime`/`report_datetime`
-on 64 of 73 Incidents — confirm the eval ran against that data.
+The three-layer check, with the aggregate re-derived by hand-written Cypher
+rather than by calling it:
 
-**Verify:** M7 live several times; the three-layer check from
-`HOW_TO_REPRODUCE_THIS_EVALUATION.md` §4.1 (aggregate → `run_aggregate`
-dispatch → live pipeline).
+- **Layer 1** — direct Cypher over `Incident.incident_datetime` /
+  `.report_datetime`: 64 of 73 nodes carry both (matching this section's own
+  note), giving **2024 n=13 mean 15.0 min** and **2026 n=51 mean 1401.3 min**.
+  Gold exactly, both means and both counts.
+- **Layer 2** — `resolve_aggregate_kind()` returns
+  `incident_to_report_minutes_by_year` for M7's literal gold text, and no
+  aggregate added since Module 22 has taken it. An all-32 equality control now
+  pins that, which is what ruled out this section's "an aggregate added since
+  stole the dispatch" hypothesis.
+- **Layer 3** — **6 of 6** live `/api/chat` runs on `route='XAGG' ->
+  Large-Scale Aggregate` returned 15.0 min / 13 FIRs and 1401.3 min (~23.4 h)
+  / 51 FIRs. The non-gold paraphrase does too.
+
+**Where the report's answer came from.** The only M7 answer recorded anywhere
+in this repository (`evaluation/gold32_pipeline_outputs.json`) is the
+delay-REASON rate — "0% of FIRs recorded a delay reason (0 of 13), 14% (7 of
+50)", down to a paraphrase of `_reporting_delay_rate_by_year()`'s own `note`.
+That function has had **no dispatch entry since Module 22 re-pointed M7 away
+from it**, so it is unreachable from any query text. The file was last written
+by `d313a60` on **2026-09-06 11:27**; Module 22's aggregate landed `f364bf9`
+on **2026-09-08 00:48**. The answer predates the fix it is being used to
+judge.
+
+This **independently confirms Module 47** from the opposite direction: Module
+45 found the committed artefacts reproduce Module 9's headline figures, and
+Module 43 finds the same files carry per-question scores (M7 AR 0.667, M2 AR
+0.0, CS4 AR 0.2) that are not the report's (AR 1.0 for all three). Whether the
+post-fix run *also* hit M7 — plausibly via the Meta-Analysis decomposition its
+own §4 diagnoses for G2/G5, before Module 41 merged — cannot be settled,
+because that run's artefacts were never committed. Both readings put the fault
+outside `xagg.py` and both are closed on `main` today.
+
+**What was actually fixed.** M7's aggregate emitted **no `XAGG <kind>:` log
+line** — Module 22 predates the convention Modules 31–36 established. Since
+XAGG's SSE reports only `route='XAGG'`, the single aggregate under
+investigation was the one whose live runs could not be identified from the
+log; every run had to be recognised by matching numbers out of prose. That
+line now exists and carries the per-bucket figures, not just the kind.
+
+**Also pinned:** M7's decomposition skip (Module 41 made it true; nothing
+asserted it for M7), and an all-32 equality control on M7's dispatch key.
+
+**New defect split out as Module 52**, not folded in: every aggregate
+predating Modules 31–36 still has no log line.
 
 ---
 
@@ -2084,6 +2122,33 @@ checkable.
 This does not invalidate the post-fix report. It makes it unverifiable — which,
 for a document written expressly to be independently reproduced, is its own
 defect.
+
+---
+
+# Module 52 — pre-Module-31 aggregates emit no `XAGG <kind>:` log line ⬜
+
+**Found by:** Module 43
+
+XAGG's SSE stream reports only `route='XAGG'`. The `XAGG <kind>: ...` line in
+`backend.log` is therefore the only evidence of WHICH aggregate answered a
+live question — the fact every module in this wave is verified against.
+Modules 31–36 each added one. Everything older emits nothing, including the
+CR6/CR7/CR8/G2/G3 families and the whole entity-recurrence tier.
+
+Module 43 hit this directly: M7's own aggregate (Module 22) had no line, so
+the question "did M7's aggregate run, or the neighbouring delay-reason one?"
+— the entire point of that module — could only be answered by matching
+numbers out of rendered prose. Module 43 added M7's line; the rest are
+untouched.
+
+**Work:** one `logger.info("XAGG <kind>: ...")` per remaining family, carrying
+the figures and not just the kind (a kind alone cannot distinguish a correct
+run from a wrong-metric one). Mechanical, no behaviour change.
+
+**Do it before Module 27's rerun.** A 32-question rerun whose aggregate
+choices cannot be read back from the log is a rerun whose failures have to be
+re-investigated from scratch, which is what this wave spent Modules 43 and 44
+doing.
 
 ---
 
