@@ -71,3 +71,69 @@ def test_record_date_is_preferred_over_filename_when_both_present():
     result = reciprocal_rank_fusion([[doc]], top_k=5)
     # 2026, not 2020 -> boost = (2026-2020)*0.0005 = 0.003
     assert result[0]["rrf_score"] == round(1.0 / 61 + 0.003, 6)
+
+
+# ── [Module 38] weights / score_key / apply_year_boost ────────────────────
+#
+# `cross_rerank_multi()` fuses per-query cross-encoder lists with this same
+# function rather than growing a second RRF implementation. These three
+# parameters are what that reuse needs; each defaults to the behaviour every
+# pre-Module-38 caller already had.
+
+import pytest
+
+from src.retrieval.reranker import RRF_K, reciprocal_rank_fusion
+
+
+def test_weights_scale_a_lists_contribution_without_touching_rank_math():
+    """A weighted list contributes w/(rank+k). With one list at weight 3 the
+    doc it ranks first beats the doc the other two rank first."""
+    only_a = [_doc("a", "x.pdf")]
+    only_b = [_doc("b", "x.pdf")]
+    b_then_a = [_doc("b", "x.pdf"), _doc("a", "x.pdf")]
+    lists = [only_a, only_b, b_then_a]
+
+    equal = reciprocal_rank_fusion(lists, top_k=5)
+    assert [d["id"] for d in equal] == ["b", "a"]
+
+    weighted = reciprocal_rank_fusion(lists, top_k=5, weights=[3.0, 1.0, 1.0])
+    assert [d["id"] for d in weighted] == ["a", "b"]
+
+
+def test_weights_default_to_equal_and_reproduce_the_unweighted_score():
+    docs = [[_doc("a", "x.pdf"), _doc("b", "x.pdf")], [_doc("b", "x.pdf")]]
+    assert reciprocal_rank_fusion(docs, top_k=5) == reciprocal_rank_fusion(
+        docs, top_k=5, weights=[1.0, 1.0]
+    )
+
+
+def test_weights_must_correspond_one_to_one_with_the_ranked_lists():
+    with pytest.raises(ValueError):
+        reciprocal_rank_fusion([[_doc("a", "x.pdf")]], top_k=5, weights=[1.0, 1.0])
+
+
+def test_score_key_leaves_an_existing_rrf_score_untouched():
+    """The second fusion pass must not overwrite the score the candidate pool
+    was built with — that number is what retrieval logging and provenance
+    mean by `rrf_score`."""
+    doc = {"id": "a", "source": "x.pdf", "rrf_score": 0.87}
+    result = reciprocal_rank_fusion([[doc]], top_k=5, score_key="cross_rerank_rrf")
+    assert result[0]["rrf_score"] == 0.87
+    assert result[0]["cross_rerank_rrf"] == round(1.0 / (1 + RRF_K), 6)
+
+
+def test_year_boost_can_be_switched_off_for_a_second_fusion_pass():
+    """The boost is a recency prior over the CANDIDATE POOL and belongs to
+    the fusion that builds it. Up to +0.003 against a 0.00026 gap between
+    adjacent ranks, re-applying it would move chunks several places for
+    reasons unrelated to the question."""
+    case_doc = [_doc("case", "FIR-2026-ARMS-003.pdf")]
+    generic_doc = [_doc("generic", "REAL-004-copy-of-fir-procedure.pdf")]
+    boosted = reciprocal_rank_fusion([case_doc, generic_doc], top_k=5)
+    assert boosted[0]["id"] == "case"
+
+    plain = reciprocal_rank_fusion(
+        [case_doc, generic_doc], top_k=5, apply_year_boost=False
+    )
+    scores = {d["id"]: d["rrf_score"] for d in plain}
+    assert scores["case"] == scores["generic"] == round(1.0 / (1 + RRF_K), 6)

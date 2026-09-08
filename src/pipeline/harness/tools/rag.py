@@ -707,8 +707,16 @@ async def _run_retrieval_loop(
                 # about an English statute that score is noise (measured:
                 # every candidate inside 0.0007–0.0022, and the correct
                 # CrPC s.173 chunk — RRF rank 1 going in — cut). Scoring the
-                # same candidates against the statute phrasing as well, and
-                # keeping each chunk's best, retains it. See
+                # same candidates against the statute phrasing as well
+                # retains it.
+                #
+                # [Module 38] The original question goes FIRST, and the
+                # per-query lists are fused by reciprocal rank rather than by
+                # best score: cross-encoder scores are not comparable across
+                # queries, and taking the max let whichever phrasing produced
+                # the largest numbers take the whole window (measured on KB4
+                # — a wrong "Forensics guidelines" hypothesis displaced the
+                # register material the question was actually about). See
                 # `cross_rerank_multi()`.
                 reranked = await cross_rerank_multi(
                     [current_query, *statute_queries], fused, top_k=config.TOP_K_RERANK

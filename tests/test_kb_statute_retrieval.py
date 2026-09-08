@@ -19,9 +19,13 @@ LITERAL gold text of the questions it fixes:
   2. the multi-variant dedupe keeps a chunk's BEST similarity, not the
      first variant's (KB3's Article 18 chunk was locked to a weak score and
      sorted out of the pool);
-  3. the cross-encoder rerank scores against the statute phrasing too, and
-     keeps each chunk's best (KB8's s.173 chunk was RRF rank 1 and still
-     cut, because a Roman-Urdu query scores an English statute as noise).
+  3. the cross-encoder rerank scores against the statute phrasing too (KB8's
+     s.173 chunk was RRF rank 1 and still cut, because a Roman-Urdu query
+     scores an English statute as noise), and — Module 38 — fuses the
+     per-query lists by RECIPROCAL RANK rather than by best score, because
+     cross-encoder scores are not comparable across queries and the
+     max-over-queries merge let whichever phrasing produced the largest
+     numbers take the whole final window (measured on KB4).
 
 No network: every LLM/embedding/reranker boundary is stubbed.
 """
@@ -345,18 +349,19 @@ async def test_dedupe_keeps_the_best_similarity_across_query_variants(monkeypatc
     assert semantic[0]["id"] == "article18"
 
 
-# ── 5. cross_rerank_multi merges by best score ───────────────────────────
+# ── 5. cross_rerank_multi fuses the per-query lists by rank ──────────────
+#
+# [Module 38] This section used to pin a max-over-queries merge. That merge
+# was the defect Module 30 recorded on its way out (MODULE30_RESULT.md §8b):
+# cross-encoder scores are a per-query judgement, not a calibrated absolute,
+# so the phrasing that happened to produce the largest numbers took the whole
+# final window. The property Module 30 actually needed — a chunk that only
+# ONE phrasing recognises must survive — is pinned below against the rank
+# fusion that replaced it.
 
-@pytest.mark.asyncio
-async def test_cross_rerank_multi_keeps_each_chunks_best_query_score(monkeypatch):
-    """KB8's live failure in one assertion: the correct chunk scores as noise
-    against the Roman-Urdu question and well against the English statute
-    phrasing, so the max over both is what retains it."""
-    per_query = {
-        "roman urdu question": {"s173": 0.001, "noise": 0.002},
-        "english statute phrasing": {"s173": 0.80, "noise": 0.10},
-    }
 
+def _stub_per_query_rerank(monkeypatch, per_query: dict[str, dict[str, float]]):
+    """Install a `cross_rerank` that scores by a per-query score table."""
     async def _cross_rerank(query, candidates, top_k=None):
         scored = [
             {**c, "rerank_score": per_query[query][c["id"]]} for c in candidates
@@ -366,12 +371,208 @@ async def test_cross_rerank_multi_keeps_each_chunks_best_query_score(monkeypatch
 
     monkeypatch.setattr(cross_reranker, "cross_rerank", _cross_rerank)
 
-    candidates = [_chunk("s173"), _chunk("noise")]
+
+def _max_merge_order(per_query: dict[str, dict[str, float]]) -> list[str]:
+    """The pre-Module-38 merge, reproduced here so each test can show what it
+    would have returned on the same data rather than asserting into a void."""
+    best: dict[str, float] = {}
+    for scores in per_query.values():
+        for chunk_id, score in scores.items():
+            if score > best.get(chunk_id, float("-inf")):
+                best[chunk_id] = score
+    return sorted(best, key=lambda cid: best[cid], reverse=True)
+
+
+@pytest.mark.asyncio
+async def test_cross_rerank_multi_keeps_a_chunk_only_one_phrasing_recognises(monkeypatch):
+    """KB8's live failure: the correct chunk scores as noise against the
+    Roman-Urdu question (rank 5 of 5 there) and rank 1 against the English
+    statute phrasing. It must still survive into the final window — that is
+    the property Module 30 added this function for, and rank fusion keeps it
+    without letting one phrasing's score scale decide everything."""
+    per_query = {
+        "roman urdu question": {
+            "s173": 0.0011, "n1": 0.0022, "n2": 0.0020, "n3": 0.0018, "n4": 0.0015,
+        },
+        "english statute phrasing": {
+            "s173": 0.80, "n1": 0.10, "n2": 0.09, "n3": 0.08, "n4": 0.07,
+        },
+    }
+    _stub_per_query_rerank(monkeypatch, per_query)
+
+    candidates = [_chunk(i) for i in ("s173", "n1", "n2", "n3", "n4")]
     merged = await cross_reranker.cross_rerank_multi(
-        ["roman urdu question", "english statute phrasing"], candidates, top_k=2
+        ["roman urdu question", "english statute phrasing"], candidates, top_k=3
     )
-    assert [c["id"] for c in merged] == ["s173", "noise"]
-    assert merged[0]["rerank_score"] == pytest.approx(0.80)
+    assert "s173" in [c["id"] for c in merged]
+    # The best cross-encoder score any phrasing gave it is still carried
+    # through for provenance, even though it no longer decides the order.
+    assert next(c for c in merged if c["id"] == "s173")["rerank_score"] == pytest.approx(0.80)
+
+
+@pytest.mark.asyncio
+async def test_cross_rerank_multi_fuses_by_rank_not_by_score_scale(monkeypatch):
+    """KB4's live failure in one assertion (Module 38).
+
+    Two statute hypotheses were generated for KB4 (case property / malkhana
+    register): "Punjab Police Rules 1934 case property and malkhana" — the
+    book the question is actually about — and "Forensics guidelines handling
+    and chain of custody", which is not. The forensics query's absolute
+    cross-encoder scores simply ran higher, so a max-over-queries merge gave
+    it the entire final window and the answer moved off register material.
+
+    The two hypotheses' RANKINGS disagree, and it is the ranking that carries
+    the relevance judgement. Fused by reciprocal rank, the register chunks
+    the question and the right hypothesis BOTH place highly win, however
+    small their numbers are.
+    """
+    per_query = {
+        # The Urdu-script question — near-noise, as measured live, and only
+        # mildly favouring the register chunks.
+        "urdu question": {
+            "reg1": 0.0021, "for1": 0.0020, "reg2": 0.0019,
+            "for2": 0.0018, "reg3": 0.0017, "for3": 0.0016,
+        },
+        # Right book, modest scale.
+        "punjab police rules case property and malkhana register": {
+            "reg1": 0.30, "reg2": 0.22, "reg3": 0.18,
+            "for1": 0.12, "for2": 0.09, "for3": 0.05,
+        },
+        # Wrong book, and every one of its scores dwarfs every score above.
+        "forensics guidelines handling and chain of custody": {
+            "for1": 0.99, "for2": 0.97, "for3": 0.95,
+            "reg1": 0.93, "reg2": 0.91, "reg3": 0.90,
+        },
+    }
+    _stub_per_query_rerank(monkeypatch, per_query)
+
+    candidates = [_chunk(i) for i in ("reg1", "for1", "reg2", "for2", "reg3", "for3")]
+    merged = await cross_reranker.cross_rerank_multi(
+        list(per_query), candidates, top_k=3
+    )
+    fused_order = [c["id"] for c in merged]
+
+    # The wrong hypothesis no longer owns the window: the chunk the question
+    # AND the right hypothesis both rank first comes first, and the register
+    # material is the majority of what reaches the evaluator.
+    assert fused_order[0] == "reg1"
+    assert sum(1 for cid in fused_order if cid.startswith("reg")) >= 2
+
+    # Same data through the merge this replaced: the forensics query's scale
+    # takes every slot. Without this the test above could pass for the wrong
+    # reason on data that never distinguished the two merges.
+    assert _max_merge_order(per_query)[:3] == ["for1", "for2", "for3"]
+
+
+@pytest.mark.asyncio
+async def test_cross_rerank_multi_rescues_a_phrasings_rank_one_chunk(monkeypatch):
+    """KB8's cost of pure rank fusion, in one assertion (Module 38).
+
+    The CrPC s.173 proviso chunk carrying gold's "fourteen days" and "interim
+    report within three days" is **rank 1** for the statute hypothesis and
+    rank 25 of 32 for the Roman-Urdu question, whose cross-encoder scores are
+    noise. Consensus fusion alone put it at 10, outside a window of 5 — so a
+    fix for KB4 would have broken KB8. Each phrasing keeps a guaranteed voice
+    for its own rank-1 candidate, appended and capped.
+    """
+    # The measured shape: a pool of 32, the proviso 25th for the question and
+    # 1st for the hypothesis.
+    fillers = [f"c{i}" for i in range(31)]
+    question_order = fillers[:24] + ["s173"] + fillers[24:]
+    hypothesis_order = ["s173"] + fillers
+    per_query = {
+        # Noise, as measured live — the whole range was 0.0007–0.0022.
+        "roman urdu question": {
+            cid: 0.0022 - 0.00005 * i for i, cid in enumerate(question_order)
+        },
+        "statute hypothesis": {
+            cid: 0.94 - 0.02 * i for i, cid in enumerate(hypothesis_order)
+        },
+    }
+    _stub_per_query_rerank(monkeypatch, per_query)
+    candidates = [_chunk(cid) for cid in question_order]
+
+    merged = await cross_reranker.cross_rerank_multi(
+        list(per_query), candidates, top_k=5
+    )
+    merged_ids = [c["id"] for c in merged]
+    assert "s173" in merged_ids, "the proviso chunk only one phrasing recognises was lost"
+    # It is rescued, not promoted: consensus still owns the head of the window.
+    assert merged_ids[0] == "c0"
+    assert merged_ids[-1] == "s173"
+    assert len(merged) <= 5 + cross_reranker.MAX_RESCUED_TOP_HITS
+
+    # Pure fusion, with no rescue, would have cut it — the counterfactual this
+    # test exists for.
+    monkeypatch.setattr(cross_reranker, "MAX_RESCUED_TOP_HITS", 0)
+    unrescued = await cross_reranker.cross_rerank_multi(
+        list(per_query), candidates, top_k=5
+    )
+    assert "s173" not in [c["id"] for c in unrescued]
+
+
+@pytest.mark.asyncio
+async def test_cross_rerank_multi_rescue_is_capped(monkeypatch):
+    """The rescue must never become a second route by which the phrasings
+    flood the window — same cap, and the same reason, as reranker.py's
+    SEMANTIC_FLOOR_MAX_RESCUED."""
+    ids = [f"c{i}" for i in range(6)]
+    # Four phrasings, each certain about a different chunk the others bury.
+    per_query = {
+        f"q{k}": {cid: (1.0 if i == k else 0.1 - 0.001 * i) for i, cid in enumerate(ids)}
+        for k in range(4)
+    }
+    _stub_per_query_rerank(monkeypatch, per_query)
+    candidates = [_chunk(cid) for cid in ids]
+
+    merged = await cross_reranker.cross_rerank_multi(list(per_query), candidates, top_k=1)
+    assert len(merged) <= 1 + cross_reranker.MAX_RESCUED_TOP_HITS
+
+
+@pytest.mark.asyncio
+async def test_cross_rerank_multi_weights_the_original_question_first(monkeypatch):
+    """`queries[0]` is the user's own question and is weighted by
+    `ORIGINAL_QUERY_WEIGHT`. The default is deliberate and measured (see
+    MODULE38_RESULT.md §2): equal weighting, because for exactly the
+    questions this path exists for the question is in a language the corpus
+    is not, so its cross-encoder ranking is noise and up-weighting it would
+    up-weight noise. This test pins that the weight is wired to the FIRST
+    query, so a future change of the constant does what it says."""
+    per_query = {
+        "question": {"a": 0.5, "b": 0.4},
+        "hypothesis": {"b": 0.9, "a": 0.1},
+    }
+    _stub_per_query_rerank(monkeypatch, per_query)
+    candidates = [_chunk("a"), _chunk("b")]
+
+    monkeypatch.setattr(cross_reranker, "ORIGINAL_QUERY_WEIGHT", 5.0)
+    merged = await cross_reranker.cross_rerank_multi(
+        ["question", "hypothesis"], candidates, top_k=2
+    )
+    assert [c["id"] for c in merged] == ["a", "b"]
+
+    monkeypatch.setattr(cross_reranker, "ORIGINAL_QUERY_WEIGHT", 0.01)
+    merged = await cross_reranker.cross_rerank_multi(
+        ["question", "hypothesis"], candidates, top_k=2
+    )
+    assert [c["id"] for c in merged] == ["b", "a"]
+
+
+@pytest.mark.asyncio
+async def test_cross_rerank_multi_does_not_overwrite_the_pools_rrf_score(monkeypatch):
+    """The fused chunks still carry the semantic-vs-BM25 `rrf_score` the
+    candidate pool was built with — the cross-query fusion writes its own
+    key, so retrieval logging and provenance keep meaning what they meant."""
+    per_query = {"q1": {"a": 0.5, "b": 0.4}, "q2": {"a": 0.9, "b": 0.1}}
+    _stub_per_query_rerank(monkeypatch, per_query)
+
+    candidates = [_chunk("a", score=0.87), _chunk("b", score=0.61)]
+    merged = await cross_reranker.cross_rerank_multi(["q1", "q2"], candidates, top_k=2)
+
+    by_id = {c["id"]: c for c in merged}
+    assert by_id["a"]["rrf_score"] == pytest.approx(0.87)
+    assert by_id["b"]["rrf_score"] == pytest.approx(0.61)
+    assert cross_reranker.CROSS_RRF_SCORE_KEY in by_id["a"]
 
 
 @pytest.mark.asyncio

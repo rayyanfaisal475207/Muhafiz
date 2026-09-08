@@ -8,6 +8,12 @@
 # So the pipeline runs it as a second pass over RRF's already-fused,
 # still-wide candidate set, cutting down to the final top_k that goes to
 # the evaluator/response LLM.
+#
+# RRF comes back for a second, different job in `cross_rerank_multi()`
+# (Module 38): when the same candidates are cross-encoded against several
+# phrasings of one question, those per-query scores are NOT comparable with
+# each other, so the per-query lists are fused by rank — reusing
+# reranker.py's `reciprocal_rank_fusion()` rather than repeating it here.
 # ============================================================
 
 import logging
@@ -15,6 +21,7 @@ import re
 from collections import defaultdict, deque
 
 from src import config
+from src.retrieval.reranker import reciprocal_rank_fusion
 
 logger = logging.getLogger(__name__)
 
@@ -121,31 +128,81 @@ async def cross_rerank(query: str, candidates: list[dict], top_k: int = None) ->
     return reranked[:top_k]
 
 
+# [Module 38] How much the ORIGINAL question's ranked list counts for,
+# relative to each generated statute hypothesis, when the per-query lists are
+# fused. See `cross_rerank_multi()` — measured, not assumed.
+ORIGINAL_QUERY_WEIGHT = 1.0
+
+# The key the cross-query fusion score is written under. Deliberately NOT
+# "rrf_score": these chunks already carry the semantic-vs-BM25 fusion score
+# under that name, and that earlier number is what `pipeline_logger` and the
+# retrieval diagnostics mean by it.
+CROSS_RRF_SCORE_KEY = "cross_rerank_rrf"
+
+# [Module 38] How many phrasings may rescue their own rank-1 chunk past the
+# fused window. Same shape, and the same reasoning, as reranker.py's
+# SEMANTIC_FLOOR_MAX_RESCUED: rank-only fusion drops a candidate exactly one
+# source is certain about, and a small, capped rescue is the fix — capped so
+# it can never become a second route by which one phrasing floods the window.
+MAX_RESCUED_TOP_HITS = 2
+
+
 async def cross_rerank_multi(
     queries: list[str], candidates: list[dict], top_k: int = None
 ) -> list[dict]:
     """
-    Cross-rerank `candidates` against SEVERAL query phrasings and keep each
-    candidate's BEST score across them.
+    Cross-rerank `candidates` against SEVERAL query phrasings and fuse the
+    per-query ranked lists by RECIPROCAL RANK.
 
-    Why (Module 30): the cross-encoder is scored against one query string,
-    and for a Roman-Urdu question about an English statute book that string
-    carries almost no signal — measured live, every candidate came back
-    inside 0.0007–0.0022, i.e. noise, and the correct CrPC s.173 chunk (RRF
-    rank 1 going in) was cut. Scored against the same candidates with an
-    English statute-vocabulary phrasing of the same question, that chunk
-    ranked 2nd. Taking the max over both phrasings keeps the chunk that any
-    one phrasing recognises, which is exactly the property a multi-query
-    retrieval pool needs from its reranker — a candidate found by one query
-    variant should not be discarded because a different variant's wording
-    does not match it.
+    `queries[0]` is the original question; the rest are generated variants
+    (Module 30's statute hypotheses).
 
-    Single-query behaviour is unchanged: with one query this is
-    `cross_rerank()` plus a re-sort by the same score it already sorted by.
-    Cost is one reranker call per query, so callers pass a small list.
+    Why several phrasings at all (Module 30): the cross-encoder is scored
+    against one query string, and for a Roman-Urdu question about an English
+    statute book that string carries almost no signal — measured live, every
+    candidate came back inside 0.0007–0.0022, i.e. noise, and the correct
+    CrPC s.173 chunk (RRF rank 1 going in) was cut. Scored against the same
+    candidates with an English statute-vocabulary phrasing of the same
+    question, that chunk ranked 2nd.
 
-    Returns up to `top_k` candidates in descending best-score order, each
-    with the winning "rerank_score".
+    Why by RANK and not by best score (Module 38): this function used to keep
+    each candidate's MAXIMUM score across the phrasings. **Cross-encoder
+    scores are not comparable across queries** — they are a per-query
+    relevance judgement, not a calibrated absolute — so whichever phrasing
+    happened to produce the largest numbers took the entire final window.
+    Measured live on KB4: its two hypotheses were "Punjab Police Rules case
+    property and malkhana" (the governing book for that question) and
+    "Forensics guidelines handling and chain of custody" (not), the forensics
+    query's scores simply ran higher, and the answer moved off the register
+    material the question was about. The same mechanism is why Module 30
+    measured a THIRD statute hypothesis as actively harmful for KB8 and KB9.
+
+    Reciprocal rank fusion removes the scale entirely: each phrasing votes by
+    where it PUT a chunk, so a wrong hypothesis can promote its favourite
+    chunks only as far as one list's votes reach, and a chunk that several
+    phrasings rank well beats a chunk that exactly one of them loves. This is
+    the same fusion `src/retrieval/reranker.py` already performs for
+    semantic-vs-BM25, called directly rather than reimplemented — two
+    implementations of one idea in one retrieval stack would drift.
+
+    What fusion alone would cost, and the rescue that pays it: consensus
+    ranking drops the chunk exactly ONE phrasing is certain about, which is
+    the property Module 30 needed. Measured on KB8, so each phrasing keeps a
+    guaranteed voice for its own rank-1 candidate — capped at
+    `MAX_RESCUED_TOP_HITS`, appended rather than promoted, so a wrong
+    hypothesis gets one slot at the end instead of the whole window.
+
+    Single-query behaviour is unchanged: with one query the fusion is
+    monotonic in that query's own rank, so the order is `cross_rerank()`'s
+    and the rescue never fires. Cost is one reranker call per query, so
+    callers pass a small list.
+
+    Returns up to `top_k + MAX_RESCUED_TOP_HITS` candidates in fused order,
+    the rescued ones last. Each carries
+    `CROSS_RRF_SCORE_KEY` (the fused score that decided the order) and
+    "rerank_score" — the best cross-encoder score any phrasing gave it, kept
+    because it is the interpretable per-chunk relevance number that reaches
+    provenance and the UI. The order is the fusion's, not that score's.
     """
     if not candidates:
         return []
@@ -156,18 +213,60 @@ async def cross_rerank_multi(
         return candidates[:top_k]
 
     # Ask each pass for every candidate, not top_k: a candidate cut by one
-    # query's pass must still be able to win on another's score. Without
-    # this the merge could only ever see each query's own top_k.
-    best: dict[str, dict] = {}
+    # query's pass must still be able to place in another's ranking. Without
+    # this the fusion could only ever see each query's own top_k.
+    ranked_lists: list[list[dict]] = []
+    best_score: dict[str, float] = {}
     for query in usable:
-        for chunk in await cross_rerank(query, candidates, top_k=len(candidates)):
-            previous = best.get(chunk["id"])
-            if previous is None or chunk.get("rerank_score", 0.0) > previous.get(
-                "rerank_score", 0.0
-            ):
-                best[chunk["id"]] = chunk
+        ranked = await cross_rerank(query, candidates, top_k=len(candidates))
+        ranked_lists.append(ranked)
+        for chunk in ranked:
+            score = chunk.get("rerank_score", 0.0)
+            if score > best_score.get(chunk["id"], float("-inf")):
+                best_score[chunk["id"]] = score
 
-    merged = sorted(
-        best.values(), key=lambda c: c.get("rerank_score", 0.0), reverse=True
+    # queries[0] is the original question; everything after it is generated.
+    weights = [ORIGINAL_QUERY_WEIGHT] + [1.0] * (len(ranked_lists) - 1)
+
+    merged = reciprocal_rank_fusion(
+        ranked_lists,
+        top_k=top_k,
+        weights=weights,
+        score_key=CROSS_RRF_SCORE_KEY,
+        # A recency prior over the candidate POOL, already applied by the
+        # fusion that built it. Re-applying it here would let a filename's
+        # year outweigh several ranks of cross-encoder agreement.
+        apply_year_boost=False,
     )
-    return merged[:top_k]
+
+    # Rank fusion rewards agreement, and that is most of what we want — but it
+    # can drop the one chunk a single phrasing is certain about, which is the
+    # exact property Module 30 added this function for. Measured on KB8: the
+    # CrPC s.173 proviso chunk carrying "fourteen days ... interim report
+    # within three days" (gold's whole statutory half) is **rank 1** for the
+    # statute hypothesis and rank 25 of 32 for the Roman-Urdu question, and
+    # pure fusion put it at 10 — outside a window of 5. So each phrasing keeps
+    # a guaranteed voice for its single strongest candidate, appended and
+    # capped, exactly as reranker.py's semantic floor rescues a high-confidence
+    # semantic-only hit that RRF's rank-only math would have discarded.
+    fused_ids = {c["id"] for c in merged}
+    rescued: list[dict] = []
+    for ranked in ranked_lists:
+        if not ranked:
+            continue
+        top_hit = ranked[0]
+        if top_hit["id"] in fused_ids:
+            continue
+        fused_ids.add(top_hit["id"])
+        rescued.append(dict(top_hit))
+    rescued = rescued[:MAX_RESCUED_TOP_HITS]
+    if rescued:
+        logger.info(
+            "Cross-query fusion rescued %d rank-1 chunk(s) the fused window "
+            "dropped: %s", len(rescued), [c["id"] for c in rescued],
+        )
+        merged = merged + rescued
+
+    for chunk in merged:
+        chunk["rerank_score"] = best_score.get(chunk["id"], chunk.get("rerank_score", 0.0))
+    return merged
