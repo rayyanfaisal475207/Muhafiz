@@ -710,14 +710,16 @@ async def _run_retrieval_loop(
                 # same candidates against the statute phrasing as well
                 # retains it.
                 #
-                # [Module 38] The original question goes FIRST, and the
-                # per-query lists are fused by reciprocal rank rather than by
-                # best score: cross-encoder scores are not comparable across
-                # queries, and taking the max let whichever phrasing produced
-                # the largest numbers take the whole window (measured on KB4
-                # — a wrong "Forensics guidelines" hypothesis displaced the
-                # register material the question was actually about). See
-                # `cross_rerank_multi()`.
+                # [Module 38] The per-query lists are fused by reciprocal
+                # rank rather than by best score: cross-encoder scores are not
+                # comparable across queries, and taking the max let whichever
+                # phrasing produced the largest numbers take the whole window
+                # (measured on KB4 — a wrong "Forensics guidelines" hypothesis
+                # scored 0.86-0.97 where the question topped out at 0.16, and
+                # took all five slots from the register material the question
+                # was actually about). No phrasing is privileged, the user's
+                # question included; it is passed first only by convention.
+                # See `cross_rerank_multi()`.
                 reranked = await cross_rerank_multi(
                     [current_query, *statute_queries], fused, top_k=config.TOP_K_RERANK
                 )
