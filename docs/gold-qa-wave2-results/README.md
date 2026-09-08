@@ -23,6 +23,7 @@ excluding KB, **14/32** passing.
 | 32 | G1 — accused↔complainant relationship | `MODULE32_RESULT.md` | done — same; kills the person-recurrence fall-through |
 | 33 | G1 — seized-property disposition | `MODULE33_RESULT.md` | done — same; reproduces gold's 13 / 7 exactly |
 | 34 | G1 — incident time-of-day | `MODULE34_RESULT.md` | done — same; gold's "flat across the day" is a date-only artefact |
+| 41 | G2/G5 — Meta-Analysis over-decomposition (regression) | `MODULE41_RESULT.md` | done — guard generalised from one pattern list to "does XAGG resolve this?"; G2/G5 correct and deterministic on 3/3 live runs each |
 
 ## Required shape for each result file
 
