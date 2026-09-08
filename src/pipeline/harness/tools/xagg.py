@@ -70,6 +70,7 @@ from src.pipeline.xagg import (
     render_offender_age_profile,
     render_accused_relationship_breakdown,
     render_seized_property_disposition,
+    render_incident_time_of_day,
     _UNSUPPORTED_JURISDICTION,
 )
 from src.retrieval.graph_retriever import jurisdiction_unresolved
@@ -337,6 +338,9 @@ def _render_aggregate_text(agg_result: dict) -> str:
     # [Gold-QA fix — Module 33, G1] same, for the seized-property breakdown.
     elif kind == "seized_property_disposition":
         lines = render_seized_property_disposition(agg_result)
+    # [Gold-QA fix — Module 34, G1] same, for the time-of-day distribution.
+    elif kind == "incident_time_of_day":
+        lines = render_incident_time_of_day(agg_result)
     else:
         lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
         # [Legal-code semantic layer] Kept in sync with orchestrator.py's

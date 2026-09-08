@@ -252,6 +252,21 @@ _DISPOSITION_GLOSS = {
 # testing", none of which is a dispatch). Gold's 13 is the LITERAL reading;
 # both are returned, and the renderer says which is which, so the figure is
 # traceable to a rule instead of to a number that happened to match.
+_TIME_OF_DAY_KEYWORDS = (
+    "time of day", "times of day", "hour of the day", "hourly",
+    "day or night", "night or day", "at night", "during the day",
+    "din ke kis waqt", "raat ko", "kis waqt",
+    "دن کے کس وقت", "رات کے وقت", "شام کے وقت", "کس وقت ہوتے",
+)
+# Hour bands, half-open, local to the recorded timestamp. Ordered
+# chronologically for rendering; the labels are the ones gold G1's own
+# reading ("a mild evening lean") is stated in.
+_TIME_OF_DAY_BANDS: tuple[tuple[str, int, int], ...] = (
+    ("night (00:00-05:59)", 0, 6),
+    ("morning (06:00-11:59)", 6, 12),
+    ("afternoon (12:00-17:59)", 12, 18),
+    ("evening (18:00-23:59)", 18, 24),
+)
 _FORENSIC_DISPATCH_TOKEN = "فرانزک لیبارٹری"
 _FORENSIC_ANY_TOKEN = "فرانزک"
 _HEIRS_TOKEN = "ورثاء"
@@ -3191,6 +3206,168 @@ def _parse_iso_datetime(value) -> Optional[datetime]:
         return None
 
 
+async def _incident_time_of_day(jurisdiction_case_ids: Optional[list[str]] = None) -> dict:
+    """
+    [Gold-QA fix — Module 34, question G1] When during the day do incidents
+    happen — `Incident.incident_datetime` bucketed into four hour bands.
+
+    Reads the property Module 22 projects. Measured on this corpus
+    (2026-09-08): 64 of 73 Incidents carry it.
+
+    THE MIDNIGHT DECISION, made before the numbers were reported. 14 of
+    those 64 record exactly 00:00:00. A police FIR does not record a
+    quarter of its incidents at precisely midnight; that value is a
+    DATE-ONLY timestamp — a date with no clock time, widened to a datetime
+    by the projection. Counting it as "night" is what produces gold's
+    "fairly flat across the day": naively, night=15; with the date-only
+    rows removed, night=1 and the day is not flat at all, it is empty
+    overnight.
+
+    So this aggregate EXCLUDES exact-midnight rows from the distribution and
+    reports them as their own `date_only_count`, while also returning
+    `naive_bucket_counts` — the same buckets WITH them — so the difference
+    is auditable and gold's reading is traceable to the rule that produced
+    it rather than silently contradicted.
+
+    (The plan's Module 34 section states 9 such rows. The live count is 14;
+    9 is the number of Incidents carrying NO datetime at all. Corrected in
+    `docs/gold-qa-wave2-results/MODULE34_RESULT.md`.)
+    """
+    case_filter = "AND c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+    plain_filter = "WHERE c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+    params: dict = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+
+    total_rows = await age_client.execute_cypher(
+        f"MATCH (i:Incident)-[:BELONGS_TO_CASE]->(c:Case) {plain_filter}"
+        "RETURN count(DISTINCT i) AS n",
+        params=params, columns=["n"],
+    )
+    total_incidents = int((total_rows[0] or {}).get("n") or 0) if total_rows else 0
+
+    rows = await age_client.execute_cypher(
+        "MATCH (i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE i.incident_datetime IS NOT NULL {case_filter}"
+        "RETURN i.incident_datetime AS incident_datetime, c.case_id AS case_id",
+        params=params, columns=["incident_datetime", "case_id"],
+    )
+
+    counts: Counter = Counter()
+    naive_counts: Counter = Counter()
+    hour_histogram: Counter = Counter()
+    date_only = 0
+    unparsed = 0
+    with_datetime = 0
+    seen_cases: set = set()
+    for row in rows:
+        case_id = row.get("case_id")
+        if case_id is not None:
+            if case_id in seen_cases:
+                continue
+            seen_cases.add(case_id)
+        parsed = _parse_iso_datetime(row.get("incident_datetime"))
+        if parsed is None:
+            unparsed += 1
+            continue
+        with_datetime += 1
+        band = next(
+            (label for label, start, end in _TIME_OF_DAY_BANDS if start <= parsed.hour < end),
+            None,
+        )
+        if band is not None:
+            naive_counts[band] += 1
+        if parsed.hour == 0 and parsed.minute == 0 and parsed.second == 0:
+            date_only += 1
+            continue
+        hour_histogram[parsed.hour] += 1
+        if band is not None:
+            counts[band] += 1
+
+    with_clock_time = sum(counts.values())
+    buckets = [
+        {
+            "band": label,
+            "count": counts.get(label, 0),
+            "share": (counts.get(label, 0) / with_clock_time) if with_clock_time else None,
+        }
+        for label, _start, _end in _TIME_OF_DAY_BANDS
+    ]
+    peak = max(buckets, key=lambda b: b["count"]) if with_clock_time else None
+
+    # Observability — see `_offender_age_profile()`'s own note.
+    logger.info(
+        "XAGG incident_time_of_day: %d of %d incident(s) carry a datetime; "
+        "%d are date-only 00:00:00 and excluded; %d usable -> %s; peak=%r",
+        with_datetime, total_incidents, date_only, with_clock_time,
+        {b["band"]: b["count"] for b in buckets}, (peak or {}).get("band"),
+    )
+    return {
+        "kind": "incident_time_of_day",
+        "total_incidents": total_incidents,
+        "with_datetime_count": with_datetime,
+        "date_only_count": date_only,
+        "unparsed_count": unparsed,
+        "with_clock_time_count": with_clock_time,
+        "buckets": buckets,
+        "naive_bucket_counts": [
+            {"band": label, "count": naive_counts.get(label, 0)}
+            for label, _start, _end in _TIME_OF_DAY_BANDS
+        ],
+        "hour_histogram": [
+            {"hour": h, "count": hour_histogram[h]} for h in sorted(hour_histogram)
+        ],
+        "peak_band": peak,
+    }
+
+
+def render_incident_time_of_day(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — Module 34, G1] Shared renderer for all three XAGG
+    rendering sites, same reason as `render_statute_court_stage_join()`."""
+    usable = agg_result["with_clock_time_count"]
+    total = agg_result["total_incidents"]
+    if not usable:
+        return [
+            f"No incident in this corpus records a clock time — "
+            f"{agg_result['with_datetime_count']} of {total} carry an "
+            f"incident date/time and all of those are date-only values — so "
+            f"no time-of-day distribution can be produced."
+        ]
+    lines = [
+        f"When incidents happen, by time of day — {usable} incident(s) with "
+        f"a usable clock time:",
+    ]
+    for bucket in agg_result["buckets"]:
+        share = bucket["share"]
+        pct = f" (~{round(100 * share)}%)" if share is not None else ""
+        lines.append(f"  - {bucket['band']}: {bucket['count']}{pct}")
+    peak = agg_result.get("peak_band") or {}
+    if peak:
+        lines.append(f"The busiest band is {peak['band']}, with {peak['count']}.")
+    # The coverage and midnight caveats are load-bearing, not boilerplate:
+    # gold G1 reads this data as "fairly flat across the day", and that
+    # reading only holds if date-only rows are counted as real midnights.
+    lines.append(
+        f"Coverage: {agg_result['with_datetime_count']} of {total} incidents "
+        f"record an incident date/time at all."
+    )
+    if agg_result.get("date_only_count"):
+        naive = {b["band"]: b["count"] for b in agg_result.get("naive_bucket_counts") or []}
+        night_band = _TIME_OF_DAY_BANDS[0][0]
+        lines.append(
+            f"{agg_result['date_only_count']} of those record exactly "
+            f"00:00:00, which is a date with no clock time rather than a "
+            f"real midnight, and are excluded above. Counting them as "
+            f"overnight instead would put {naive.get(night_band, 0)} in the "
+            f"{night_band} band and make the day look evenly covered; on the "
+            f"recorded clock times it is not — overnight is close to empty."
+        )
+    if agg_result.get("unparsed_count"):
+        lines.append(
+            f"{agg_result['unparsed_count']} incident date/time value(s) "
+            f"could not be parsed and are excluded."
+        )
+    return lines
+
+
 async def _reporting_delay_rate_by_year(jurisdiction_case_ids: Optional[list[str]] = None) -> dict:
     where_parts = ["oe.event_type = 'incident'"]
     params: dict = {}
@@ -3740,6 +3917,23 @@ async def run_aggregate(
     #     accused, which answers nothing M4 asked.
     if _is_statute_court_stage_join(query_lower):
         return await _statute_court_stage_join(jurisdiction_case_ids=jurisdiction_case_ids)
+    # [Gold-QA fix — Module 34, question G1] "At what time of day do
+    # incidents happen, across all cases?" — G1's timing sub-question.
+    #
+    # Placement, in both directions:
+    #   - BELOW M7's `_is_reporting_speed_comparison()` and Module 23's
+    #     `_is_weapon_statute_cooccurrence()`. Both are about elapsed time
+    #     and change over time, not clock time, and neither carries a
+    #     time-of-day term — but they stay first for their own shapes.
+    #   - ABOVE `_TIME_COMPARISON_KEYWORDS` (M1), `_TREND_KEYWORDS`' refusal
+    #     and `_LIST_ALL_KEYWORDS`. That last one is what this sub-question
+    #     actually hit before this module: measured live 2026-09-08 it
+    #     returned `kind="case_listing"`, the unfiltered 73-row corpus dump,
+    #     because "across all cases" contains the literal "all cases".
+    #     `_TREND_KEYWORDS` matters too — "over time" is in it, and an
+    #     hour-of-day question is not a time SERIES.
+    if _matches_any(query_lower, _TIME_OF_DAY_KEYWORDS):
+        return await _incident_time_of_day(jurisdiction_case_ids=jurisdiction_case_ids)
     # [Gold-QA fix — Module 13, question M1] Checked before _TREND_KEYWORDS'
     # hard refusal — a year-over-year case-type/statute comparison now has a
     # real aggregate (_statute_mix_by_year(), powered by each Incident's own
