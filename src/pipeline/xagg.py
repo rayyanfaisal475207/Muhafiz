@@ -4352,6 +4352,220 @@ async def _total_count(
     return {"kind": "total_count", "total_cases": len(cases), "unsupported_filters": unsupported}
 
 
+# ══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 41, questions G2/G5] Resolution-only dispatch.
+#
+# `run_aggregate()` below used to carry its keyword chain inline, which
+# meant the only way to learn "which aggregate family would answer this
+# question?" was to RUN it — a graph traversal plus several gateway reads.
+# That is far too expensive for a routing-time question, and routing time
+# is exactly where the answer is needed: `harness/supervisor.py`'s
+# Meta-Analysis skip guard has to decide, BEFORE any tool runs, whether a
+# question XAGG can answer in one call is about to be decomposed into
+# undirected sub-queries instead (the G2/G5 regression — see that guard's
+# own comment block for the full trace).
+#
+# So the chain is extracted here, unchanged and in the same order, as a
+# PURE function: no await, no gateway, no RLS context, no audit event, no
+# I/O of any kind. `run_aggregate()` now calls this ONCE and dispatches on
+# the returned key, so there is exactly one copy of the ordering and its
+# hard-won precedence comments — a new aggregate family added to
+# `run_aggregate()` is automatically visible to the supervisor guard, which
+# is the whole point of doing it structurally rather than with a second
+# pattern list that would drift (Modules 31–36 would each have needed to
+# remember to extend it).
+#
+# Every branch returns a key; the function is total. The three keys in
+# `_GENERIC_AGGREGATE_KINDS` below are the chain's TRAILING FALL-THROUGHS —
+# "nothing specific matched, here is a generic listing/count/group-by" —
+# and callers that want to know whether a question has a purpose-built
+# aggregate must exclude them (`resolves_to_specific_aggregate()`).
+# ══════════════════════════════════════════════════════════════════════
+
+# The chain's trailing catch-alls. Reached by ANY query that names no
+# recognised family at all, so a match on one of these is NOT evidence
+# that XAGG has a purpose-built answer for the question — it is the
+# opposite. Kept as a named set rather than inlined at the call site so
+# the policy lives next to the chain it describes.
+_GENERIC_AGGREGATE_KINDS = frozenset({
+    "case_listing",
+    "total_count",
+    "station_or_category_counts",
+})
+
+# The bare entity-recurrence tier, and the second thing
+# `resolves_to_specific_aggregate()` excludes. These three sit immediately
+# above the catch-alls and fire on a bare NOUN — any mention of a person, a
+# vehicle or a weapon — with no signal at all about what is being ASKED
+# about it. They are the chain's "we recognised a noun" tier, not its "we
+# recognised the question" tier, and this file's own comments already name
+# falling into them as a wrong-answer bug twice: Module 32 measured a
+# relationship sub-question landing on `graph_recurrence`/Person ("4 people
+# appear in 2 cases each", confidently, with no caveat), and Module 24
+# recorded M4 doing the same because "لوگوں" contains "لوگ".
+#
+# They are still perfectly good aggregates for the questions they were
+# built for (S3, CR2) — this set is NOT a claim that they are broken. It
+# says only that a match here is too weak to be used as EVIDENCE that XAGG
+# answers a compound question in one call, which is the single narrow
+# purpose `resolves_to_specific_aggregate()` serves. Measured consequence:
+# a query like "aggregate the weapon types used across all cases and flag
+# any case where the weapon matches an unresolved case's weapon" matches
+# `_WEAPON_KEYWORDS` here, but the recurrence aggregate answers only the
+# first half of it — so it must keep its route to Meta-Analysis
+# (`tests/test_harness_supervisor.py` asserts exactly that).
+_ENTITY_RECURRENCE_AGGREGATE_KINDS = frozenset({
+    "graph_recurrence_person",
+    "graph_recurrence_vehicle",
+    "graph_recurrence_weapon",
+})
+
+# The chain's honest refusals. `_UNSUPPORTED_STATION_TYPE` (M2),
+# `_UNSUPPORTED_OFFICER` and `_UNSUPPORTED_TREND` are deliberate,
+# purpose-built outcomes — Module 1b added them precisely so a query with
+# no data path gets a stated limitation instead of an unrelated number —
+# so they COUNT as resolved for `resolves_to_specific_aggregate()`. That is
+# a deliberate call, not an oversight: the alternative is to let
+# Meta-Analysis decompose a question the data model provably cannot answer,
+# and the decomposer's sub-queries then drop the very vocabulary that
+# earned the honest refusal, so each half is re-classified by the LLM
+# router one level down and answered with a fabricated split. An honest
+# "we cannot compute this" is a better answer than a confident invented
+# one; see MODULE41_RESULT.md for the reasoning in full.
+_UNSUPPORTED_AGGREGATE_KINDS = frozenset({
+    "unsupported_station_type",
+    "unsupported_officer",
+    "unsupported_trend",
+})
+
+
+def resolve_aggregate_kind(query_text: str) -> str:
+    """Which aggregate family `run_aggregate()` would dispatch `query_text`
+    to — WITHOUT running it.
+
+    Pure and side-effect-free by contract: this is the single source of
+    truth for `run_aggregate()`'s dispatch order, and it is also called at
+    routing time by `harness/supervisor.py`, where executing an aggregate
+    would be wasteful and wrong. Never add an `await`, a gateway call or a
+    context-var write here; keep those in `run_aggregate()`'s dispatch
+    block, which consumes this function's return value.
+
+    Total — every query resolves to some key. See `_GENERIC_AGGREGATE_KINDS`
+    for the three that mean "nothing specific matched".
+    """
+    query_lower = query_text.lower()
+
+    if _matches_any(query_lower, _AGE_KEYWORDS):
+        return "offender_age_profile"
+    if _matches_any(query_lower, _STATION_TYPE_KEYWORDS):
+        return "unsupported_station_type"
+    if _matches_any(query_lower, _PLACEHOLDER_OFFICER_KEYWORDS):
+        return "placeholder_officer_count"
+    if _matches_any(query_lower, _CRIMINAL_RECORD_KEYWORDS):
+        return "criminal_record_court_crosscheck"
+    if _matches_any(query_lower, _DV_REPORT_KEYWORDS):
+        return "dv_report_fir_match"
+    if _matches_any(query_lower, _CMS_LINKAGE_KEYWORDS):
+        return "cms_fir_linkage"
+    if _matches_any(query_lower, _COURT_READINESS_KEYWORDS):
+        return "court_readiness_scan"
+    if _matches_any(query_lower, _COMPLETENESS_KEYWORDS):
+        return "case_completeness_scan"
+    if _matches_any(query_lower, _RELATIONSHIP_KEYWORDS):
+        return "accused_relationship_breakdown"
+    if _matches_any(query_lower, _WEAPON_TERMS) and _matches_any(query_lower, _COMPLIANCE_TERMS):
+        return "weapon_compliance_scan"
+    if _matches_any(query_lower, _WEAPON_TERMS) and _matches_any(
+        query_lower, _WEAPON_ATTRIBUTION_TERMS
+    ):
+        return "weapon_evidence_chain"
+    if _matches_any(query_lower, _SEIZED_PROPERTY_KEYWORDS):
+        return "seized_property_disposition"
+    # [Module 35, G6] Mirrors run_aggregate's placement: below CR7/G3/G2,
+    # decisively above _PERSON_KEYWORDS (an arrest-rate sub-question used to
+    # land on graph_recurrence/Person) and above _LIST_ALL/_TOTAL.
+    if _is_arrest_rate(query_lower):
+        return "arrest_rate"
+    if _matches_any(query_lower, _OFFICER_KEYWORDS):
+        return "unsupported_officer"
+    if _is_reporting_speed_comparison(query_lower):
+        return "incident_to_report_minutes_by_year"
+    if _matches_any(query_lower, _REPORTING_DELAY_COUNT_KEYWORDS) and not _matches_any(
+        query_lower, _TREND_KEYWORDS
+    ):
+        return "reporting_delay_count"
+    if _is_weapon_statute_cooccurrence(query_lower):
+        return "weapon_statute_cooccurrence_by_year"
+    if _is_statute_court_stage_join(query_lower):
+        return "statute_court_stage_join"
+    if _matches_any(query_lower, _TIME_OF_DAY_KEYWORDS):
+        return "incident_time_of_day"
+    if _matches_any(query_lower, _TIME_COMPARISON_KEYWORDS):
+        return "statute_mix_by_year"
+    if _matches_any(query_lower, _TREND_KEYWORDS):
+        return "unsupported_trend"
+    if _matches_any(query_lower, _GENDER_KEYWORDS):
+        return "gender_breakdown"
+    if _matches_any(query_lower, _STATION_TOTAL_KEYWORDS):
+        return "station_total_count"
+    # [Module 36, CR3] Mirrors run_aggregate: above _DISTRICT_KEYWORDS,
+    # _LIST_ALL_KEYWORDS, _TOTAL_KEYWORDS and the
+    # station_or_category_counts fallback, which is what a subject-filtered
+    # FIR listing used to hit (counts per station, no FIR numbers).
+    if _is_filtered_fir_listing(query_lower):
+        return "filtered_fir_listing"
+    if _matches_any(query_lower, _DISTRICT_KEYWORDS):
+        # The district family's own two-way split. Kept inside the chain
+        # (rather than resolved by the caller) so the ordering here stays
+        # a faithful mirror of `run_aggregate()`'s.
+        if _matches_any(query_lower, _WEAPON_KEYWORDS) and _matches_any(
+            query_lower, _RATE_SIGNAL_KEYWORDS
+        ):
+            return "weapon_recovery_rate_by_district"
+        return "top_districts_by"
+    if _matches_any(query_lower, _VEHICLE_KEYWORDS):
+        return "graph_recurrence_vehicle"
+    if _matches_any(query_lower, _PERSON_KEYWORDS) and _matches_any(
+        query_lower, _ACCUSED_TOTAL_KEYWORDS
+    ) and not _matches_any(query_lower, _RECURRENCE_SIGNAL_KEYWORDS):
+        return "total_accused_count"
+    if _matches_any(query_lower, _PERSON_KEYWORDS):
+        return "graph_recurrence_person"
+    if _matches_any(query_lower, _WEAPON_KEYWORDS):
+        return "graph_recurrence_weapon"
+    if _matches_any(query_lower, _LIST_ALL_KEYWORDS) and not _matches_any(
+        query_lower, _STATION_KEYWORDS + _STATUS_KEYWORDS + _CATEGORY_KEYWORDS
+    ) and not any(
+        _matches_any(query_lower, keywords) for keywords in _LEGAL_CODE_ACT_KEYWORDS.values()
+    ):
+        return "case_listing"
+    if _matches_any(query_lower, _TOTAL_KEYWORDS) and not _matches_any(
+        query_lower, _STATION_KEYWORDS + _CATEGORY_KEYWORDS
+    ):
+        return "total_count"
+    return "station_or_category_counts"
+
+
+def resolves_to_specific_aggregate(query_text: str) -> bool:
+    """True when XAGG has a purpose-built single-call answer for this query.
+
+    False for the three trailing catch-alls in `_GENERIC_AGGREGATE_KINDS`
+    (a query that matched no family at all, about to get a generic listing,
+    grand total or station/category group-by) and for the three bare
+    entity-recurrence families in `_ENTITY_RECURRENCE_AGGREGATE_KINDS` (a
+    query that matched only a noun). Both sets carry their own reasoning.
+    Pure; runs no aggregate.
+
+    This is the predicate `harness/supervisor.py`'s Meta-Analysis skip
+    guard consumes.
+    """
+    kind = resolve_aggregate_kind(query_text)
+    return (
+        kind not in _GENERIC_AGGREGATE_KINDS
+        and kind not in _ENTITY_RECURRENCE_AGGREGATE_KINDS
+    )
+
+
 async def run_aggregate(
     query_text: str,
     target_entity: Optional[str],
@@ -4411,6 +4625,13 @@ async def run_aggregate(
     current_cross_case.set(True)
 
     query_lower = query_text.lower()
+    # [Gold-QA fix — Module 41] The keyword chain that used to live
+    # inline here now lives in `resolve_aggregate_kind()` above, so the
+    # supervisor's Meta-Analysis skip guard can ask which family would
+    # answer a question WITHOUT paying for the aggregate. Every branch
+    # below is unchanged in order, body and rationale — only its test
+    # moved. Add a new family in BOTH places, or nowhere.
+    kind = resolve_aggregate_kind(query_text)
 
     # [Gold-QA fix — Module 1b] Topics with genuinely no data path yet,
     # checked FIRST — before any entity-recurrence keyword family below —
@@ -4431,42 +4652,42 @@ async def run_aggregate(
     # `_UNSUPPORTED_AGE` message was asserting something false about the
     # data model. The refusal survives INSIDE the aggregate, fired only
     # when the corpus actually carries no age.
-    if _matches_any(query_lower, _AGE_KEYWORDS):
+    if kind == "offender_age_profile":
         return await _offender_age_profile(jurisdiction_case_ids=jurisdiction_case_ids)
     # [Gold-QA fix — Module 13, question M2] Checked early, same precedence
     # as AGE just above — no station-type dimension exists in this data
     # model at all (see _STATION_TYPE_KEYWORDS' own comment), so this must
     # win before _STATION_KEYWORDS' plain per-station group-by further down
     # silently answers a different, easier question than the one asked.
-    if _matches_any(query_lower, _STATION_TYPE_KEYWORDS):
+    if kind == "unsupported_station_type":
         return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_STATION_TYPE}
     # [Gold-QA fix — Module 7, question CP6] Checked before _OFFICER_KEYWORDS's
     # hard refusal — a placeholder-officer COUNT has a real data path
     # (Officer.canonical_name + the ASSIGNED_TO supersession chain, both
     # already populated), unlike a general "which officer" identity question.
-    if _matches_any(query_lower, _PLACEHOLDER_OFFICER_KEYWORDS):
+    if kind == "placeholder_officer_count":
         return await _placeholder_officer_count(jurisdiction_case_ids=jurisdiction_case_ids)
     # [Gold-QA fix — CR7, Module 14] Criminal-record status + court-outcome
     # consistency, checked before the generic count/status paths so a
     # "criminal record" question isn't answered as a plain case count.
-    if _matches_any(query_lower, _CRIMINAL_RECORD_KEYWORDS):
+    if kind == "criminal_record_court_crosscheck":
         return await _criminal_record_court_crosscheck(jurisdiction_case_ids=jurisdiction_case_ids)
     # [Gold-QA fix — CR8, Module 15] DV report ↔ FIR confirmation. Checked
     # before the CMS linkage below since a DV question can also mention
     # "complaint" (شکایت) but is specifically about the women-violence report.
-    if _matches_any(query_lower, _DV_REPORT_KEYWORDS):
+    if kind == "dv_report_fir_match":
         return await _dv_report_fir_match(jurisdiction_case_ids=jurisdiction_case_ids)
     # [Gold-QA fix — CR6, Module 15] Walk-in CMS complaint ↔ FIR linkage.
-    if _matches_any(query_lower, _CMS_LINKAGE_KEYWORDS):
+    if kind == "cms_fir_linkage":
         return await _cms_fir_linkage(jurisdiction_case_ids=jurisdiction_case_ids)
     # [Gold-QA fix — G3, Module 15/16] Court-readiness completeness — checked
     # before G2's general scan since the court/handover framing is the more
     # specific intent (and its answer combines three court-relevant signals).
-    if _matches_any(query_lower, _COURT_READINESS_KEYWORDS):
+    if kind == "court_readiness_scan":
         return await _court_readiness_scan(gateway, jurisdiction_case_ids=jurisdiction_case_ids)
     # [Gold-QA fix — G2, Module 15] Case data-completeness scan (needs the
     # gateway case rows, not the graph — see the function's own docstring).
-    if _matches_any(query_lower, _COMPLETENESS_KEYWORDS):
+    if kind == "case_completeness_scan":
         return await _case_completeness_scan(gateway, jurisdiction_case_ids=jurisdiction_case_ids)
     # [Gold-QA fix — Module 32, question G1] "What relationship is recorded
     # between the accused and the complainant, across all cases?" — G1's
@@ -4483,14 +4704,14 @@ async def run_aggregate(
     #     sub-question actually hit before this module: measured live on
     #     2026-09-08, it returned `graph_recurrence`/Person — "4 people
     #     appear in 2 cases each" — confidently, wrongly, with no caveat.
-    if _matches_any(query_lower, _RELATIONSHIP_KEYWORDS):
+    if kind == "accused_relationship_breakdown":
         return await _accused_relationship_breakdown(
             jurisdiction_case_ids=jurisdiction_case_ids
         )
     # [Gold-QA fix — G5, Module 15] Weapon-register compliance — a weapon term
     # AND a licence/compliance term together (a bare "weapon" stays the
     # recurrence aggregate's job).
-    if _matches_any(query_lower, _WEAPON_TERMS) and _matches_any(query_lower, _COMPLIANCE_TERMS):
+    if kind == "weapon_compliance_scan":
         return await _weapon_compliance_scan(jurisdiction_case_ids=jurisdiction_case_ids)
     # [Gold-QA fix — CR4, Module 28] Weapon-evidence ATTRIBUTION: a weapon
     # term AND an attribution term ("taken off/from", "recovered from",
@@ -4500,9 +4721,7 @@ async def run_aggregate(
     # first means a hypothetical question carrying BOTH signals still gets
     # the compliance answer it had before this module. A bare weapon word
     # stays the recurrence aggregate's job, exactly as for G5.
-    if _matches_any(query_lower, _WEAPON_TERMS) and _matches_any(
-        query_lower, _WEAPON_ATTRIBUTION_TERMS
-    ):
+    if kind == "weapon_evidence_chain":
         return await _weapon_evidence_chain(jurisdiction_case_ids=jurisdiction_case_ids)
     # [Gold-QA fix — Module 33, question G1] "What happens to seized
     # property in these cases, and how many items were sent to a forensic
@@ -4520,7 +4739,7 @@ async def run_aggregate(
     #     — because "across all cases" contains the literal "all cases".
     #     (The plan predicted a person-recurrence fall-through; the measured
     #     one was the listing branch. Corrected in MODULE33_RESULT.md.)
-    if _matches_any(query_lower, _SEIZED_PROPERTY_KEYWORDS):
+    if kind == "seized_property_disposition":
         return await _seized_property_disposition(
             jurisdiction_case_ids=jurisdiction_case_ids
         )
@@ -4547,9 +4766,9 @@ async def run_aggregate(
     # ("کیا کسی شخص کو ایک سے زیادہ بار گرفتار کیا گیا ہے؟"), which contains
     # گرفتار outright and is a person-RECURRENCE question answered correctly
     # today. See that function's own docstring.
-    if _is_arrest_rate(query_lower):
+    if kind == "arrest_rate":
         return await _arrest_rate(jurisdiction_case_ids=jurisdiction_case_ids)
-    if _matches_any(query_lower, _OFFICER_KEYWORDS):
+    if kind == "unsupported_officer":
         return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_OFFICER}
     # [Gold-QA fix — Module 13, question M7] Checked before both the A7
     # count-shaped reporting-delay check just below and _TREND_KEYWORDS'
@@ -4564,7 +4783,7 @@ async def run_aggregate(
     # actually asks for is now computable. `_reporting_delay_rate_by_year()`
     # is deliberately KEPT — it answers the A7-family delay-reason question,
     # which is a different quantity with its own tests.
-    if _is_reporting_speed_comparison(query_lower):
+    if kind == "incident_to_report_minutes_by_year":
         return await _incident_to_report_minutes_by_year(
             jurisdiction_case_ids=jurisdiction_case_ids
         )
@@ -4576,9 +4795,7 @@ async def run_aggregate(
     # a prior attempt at this fix shipped — a genuine trend question ("...
     # trend over time") still falls through to the _TREND_KEYWORDS check
     # below, unaffected, because it guards against that SAME list.
-    if _matches_any(query_lower, _REPORTING_DELAY_COUNT_KEYWORDS) and not _matches_any(
-        query_lower, _TREND_KEYWORDS
-    ):
+    if kind == "reporting_delay_count":
         return await _reporting_delay_count(jurisdiction_case_ids=jurisdiction_case_ids)
     # [Gold-QA fix — Module 23, question M5] Weapon × statute co-occurrence,
     # checked BEFORE M1's `_TIME_COMPARISON_KEYWORDS` branch below (Module
@@ -4599,7 +4816,7 @@ async def run_aggregate(
     #     and a district+weapon question, still fall through untouched
     #     because `_is_weapon_statute_cooccurrence()` also requires a
     #     case-type/statute term AND a change-over-time term.
-    if _is_weapon_statute_cooccurrence(query_lower):
+    if kind == "weapon_statute_cooccurrence_by_year":
         return await _weapon_statute_cooccurrence_by_year(
             jurisdiction_case_ids=jurisdiction_case_ids
         )
@@ -4622,7 +4839,7 @@ async def run_aggregate(
     #     literal `_PERSON_KEYWORDS` entry "لوگ", so an unplaced M4 falls
     #     into the person-recurrence aggregate — a ranked list of repeat
     #     accused, which answers nothing M4 asked.
-    if _is_statute_court_stage_join(query_lower):
+    if kind == "statute_court_stage_join":
         return await _statute_court_stage_join(jurisdiction_case_ids=jurisdiction_case_ids)
     # [Gold-QA fix — Module 34, question G1] "At what time of day do
     # incidents happen, across all cases?" — G1's timing sub-question.
@@ -4639,7 +4856,7 @@ async def run_aggregate(
     #     because "across all cases" contains the literal "all cases".
     #     `_TREND_KEYWORDS` matters too — "over time" is in it, and an
     #     hour-of-day question is not a time SERIES.
-    if _matches_any(query_lower, _TIME_OF_DAY_KEYWORDS):
+    if kind == "incident_time_of_day":
         return await _incident_time_of_day(jurisdiction_case_ids=jurisdiction_case_ids)
     # [Gold-QA fix — Module 13, question M1] Checked before _TREND_KEYWORDS'
     # hard refusal — a year-over-year case-type/statute comparison now has a
@@ -4647,18 +4864,18 @@ async def run_aggregate(
     # OCCURRED_ON->Date edge, already-real data). M7's own reporting-speed
     # shape is checked above and wins first, so it doesn't fall into this
     # more generic family instead.
-    if _matches_any(query_lower, _TIME_COMPARISON_KEYWORDS):
+    if kind == "statute_mix_by_year":
         return await _statute_mix_by_year(gateway, jurisdiction_case_ids=jurisdiction_case_ids)
-    if _matches_any(query_lower, _TREND_KEYWORDS):
+    if kind == "unsupported_trend":
         return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_TREND}
-    if _matches_any(query_lower, _GENDER_KEYWORDS):
+    if kind == "gender_breakdown":
         return await _gender_breakdown(jurisdiction_case_ids=jurisdiction_case_ids)
 
     # [Gold-QA fix — Module 2a] A bare "how many police stations are
     # there" — checked before _STATION_KEYWORDS's own group-by dispatch
     # further below, since that path counts CASES per station, not
     # stations themselves (see _station_total_count()'s own docstring).
-    if _matches_any(query_lower, _STATION_TOTAL_KEYWORDS):
+    if kind == "station_total_count":
         return await _station_total_count()
 
     # [Gold-QA fix — Module 36, question CR3] "How many cases are registered
@@ -4680,7 +4897,7 @@ async def run_aggregate(
     #     `relational_aggregate` grouped by `police_station` — nine PECA
     #     cases counted per station, with NO FIR number anywhere in the
     #     result and the station filter never applied at all.
-    if _is_filtered_fir_listing(query_lower):
+    if kind == "filtered_fir_listing":
         return await _filtered_fir_listing(
             gateway, query_text, jurisdiction_case_ids=jurisdiction_case_ids
         )
@@ -4690,14 +4907,14 @@ async def run_aggregate(
     # recovers the most weapons" would otherwise be caught by
     # _WEAPON_KEYWORDS first and answer with a case-scoped weapon ranking
     # instead of the district breakdown actually asked for.
-    if _matches_any(query_lower, _DISTRICT_KEYWORDS):
+    if kind in ("weapon_recovery_rate_by_district", "top_districts_by"):
         # [Gold-QA fix — Module 13, question CP1] A district+weapon query
         # that ALSO carries a rate/relative-to-caseload signal wants the
         # weapon-recovery RATE per district, not the flat weapon count
         # `_top_districts_by()` returns for every other district+weapon
         # query — checked first so the existing flat-count behavior for a
         # plain "which district recovers the most weapons" is unchanged.
-        if _matches_any(query_lower, _WEAPON_KEYWORDS) and _matches_any(query_lower, _RATE_SIGNAL_KEYWORDS):
+        if kind == "weapon_recovery_rate_by_district":
             return await _weapon_recovery_rate_by_district(jurisdiction_case_ids=jurisdiction_case_ids)
         entity_label = None
         if _matches_any(query_lower, _WEAPON_KEYWORDS):
@@ -4706,7 +4923,7 @@ async def run_aggregate(
             entity_label = "Vehicle"
         return await _top_districts_by(entity_label, jurisdiction_case_ids=jurisdiction_case_ids)
 
-    if _matches_any(query_lower, _VEHICLE_KEYWORDS):
+    if kind == "graph_recurrence_vehicle":
         top = await _top_recurring_nodes("Vehicle", jurisdiction_case_ids=jurisdiction_case_ids)
         return {"kind": "graph_recurrence", "entity_type": "Vehicle", "results": top}
 
@@ -4721,19 +4938,17 @@ async def run_aggregate(
     # multiple cases") still means recurrence, so the check below is
     # deliberately AND NOT, matching _TOTAL_KEYWORDS/_LIST_ALL_KEYWORDS's
     # own precedence pattern elsewhere in this function.
-    if _matches_any(query_lower, _PERSON_KEYWORDS) and _matches_any(
-        query_lower, _ACCUSED_TOTAL_KEYWORDS
-    ) and not _matches_any(query_lower, _RECURRENCE_SIGNAL_KEYWORDS):
+    if kind == "total_accused_count":
         return await _total_accused_count(jurisdiction_case_ids=jurisdiction_case_ids)
 
-    if _matches_any(query_lower, _PERSON_KEYWORDS):
+    if kind == "graph_recurrence_person":
         top = await _top_recurring_nodes("Person", jurisdiction_case_ids=jurisdiction_case_ids)
         return {"kind": "graph_recurrence", "entity_type": "Person", "results": top}
 
     # [findings.md Module 4] Do NOT call _top_recurring_nodes("Weapon", ...)
     # here — see _top_recurring_weapon_types()'s own docstring for why that
     # would always return [] for real data.
-    if _matches_any(query_lower, _WEAPON_KEYWORDS):
+    if kind == "graph_recurrence_weapon":
         top = await _top_recurring_weapon_types(jurisdiction_case_ids=jurisdiction_case_ids)
         return {"kind": "graph_recurrence", "entity_type": "Weapon", "results": top}
 
@@ -4757,11 +4972,7 @@ async def run_aggregate(
     # A query naming a specific act is asking a filtered/counted question,
     # not "list every case" — same reasoning as the existing station/status/
     # category exclusions, just extended to cover this fourth filter family.
-    if _matches_any(query_lower, _LIST_ALL_KEYWORDS) and not _matches_any(
-        query_lower, _STATION_KEYWORDS + _STATUS_KEYWORDS + _CATEGORY_KEYWORDS
-    ) and not any(
-        _matches_any(query_lower, keywords) for keywords in _LEGAL_CODE_ACT_KEYWORDS.values()
-    ):
+    if kind == "case_listing":
         cases = await gateway.get_cases(user_id=None, user_role="platform-admin")
         if jurisdiction_case_ids is not None:
             allowed = set(jurisdiction_case_ids)
@@ -4786,9 +4997,7 @@ async def run_aggregate(
     # wants the breakdown, not a bare number, so this only fires when no
     # grouping keyword is also present, the same precedence _LIST_ALL_KEYWORDS
     # already uses above.
-    if _matches_any(query_lower, _TOTAL_KEYWORDS) and not _matches_any(
-        query_lower, _STATION_KEYWORDS + _CATEGORY_KEYWORDS
-    ):
+    if kind == "total_count":
         return await _total_count(gateway, query_text, jurisdiction_case_ids)
 
     result = await _station_or_category_counts(gateway, query_text, jurisdiction_case_ids)

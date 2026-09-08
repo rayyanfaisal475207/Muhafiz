@@ -83,7 +83,7 @@ several can run in parallel chats/worktrees without colliding.
 | 37 | Orphaned `chunk_fulltext` rows: 2,243 CrPC chunks in the BM25 index that no longer exist in Chroma | *(not yet branched)* | ⬜ New — found by Module 30 |
 | 38 | `cross_rerank_multi()` merges by max score across queries, and cross-encoder scores are not comparable across them | *(not yet branched)* | ⬜ New — found by Module 30 (this is what cost KB4) |
 | 39 | The "and does our data show it?" half of every gold KB answer is unreachable from the RAG sub-agent | *(not yet branched)* | ⬜ New — found by Module 30; the largest remaining gap in the KB bucket |
-| 41 | **G2/G5 REGRESSION** — Meta-Analysis over-decomposes questions XAGG answers in one call; the supervisor guard fires only for time-comparison shapes | *(not yet branched)* | 🔴 New — found by the 2026-09-08 post-fix eval; **a regression this wave caused**, highest priority |
+| 41 | **G2/G5 REGRESSION** — Meta-Analysis over-decomposes questions XAGG answers in one call; the supervisor guard fired only for time-comparison shapes | `fix/supervisor-skip-decomposition-for-resolvable-aggregates` | ✅ **Done — PR #31** — guard now asks `run_aggregate()`'s extracted, resolution-only chain; G2 and G5 correct on 3/3 live runs each. Result: `docs/gold-qa-wave2-results/MODULE41_RESULT.md` |
 | 42 | KB6 hard failure — `route=None`, FactualCorrectness 0.0 **and** AnswerRelevancy 0.0, did not recover on re-run | *(not yet branched)* | ⬜ New — found by the 2026-09-08 post-fix eval; the only question failing this way |
 | 43 | M7 answers with the wrong facts (FC 0.0 / AR 1.0) despite Module 22 verifying it live against gold | *(not yet branched)* | ⬜ New — found by the 2026-09-08 post-fix eval; contradicts a recorded module result |
 | 44 | M2 and CS4 reach XAGG and answer fluently but factually wrong (FC 0.0 / AR 1.0) | *(not yet branched)* | ⬜ New — found by the 2026-09-08 post-fix eval |
@@ -1791,6 +1791,69 @@ work in the shared directory.
 
 ---
 
+# Module 41 — G2/G5 regression: Meta-Analysis over-decomposition ✅ DONE
+
+**Branch:** `fix/supervisor-skip-decomposition-for-resolvable-aggregates`
+(off `main` @ `06de8ea`) · **Result:**
+`docs/gold-qa-wave2-results/MODULE41_RESULT.md`
+
+**Found by the 2026-09-08 post-fix evaluation** (`EVALUATION_REPORT_POST_FIXES.md`
+§4, `HOW_TO_REPRODUCE_THIS_EVALUATION.md` §4.2). G2 fell **0.4 → 0.0** and G5
+**0.6 → 0.0** — a regression this wave caused.
+
+**Root cause — the brief's diagnosis confirmed exactly.** The aggregates were
+never at fault (`_case_completeness_scan()` → 73 cases / 9 missing incident
+dates / 52 missing status; `_weapon_compliance_scan()` → 30 of 32 unlicensed),
+and `run_aggregate()` dispatched both correctly. The failure sat one layer up:
+`supervisor.py`'s Meta-Analysis skip guard fired only for
+`_TIME_COMPARISON_XAGG_PATTERNS`, so G2 and G5 — which satisfy every other
+condition — were handed to Meta-Analysis, decomposed by the **LLM decomposer
+fallback** (Module 29's deterministic plans return `None` for both), and their
+sub-queries re-classified by a fresh router call one level down. Measured live
+on `06de8ea`, four runs each: G5's own sub-query landed on **XGRAPH /
+Cross-Case Linkage** and returned `empty`; G2 abstained on one run with four
+timed-out sub-questions and answered a *different* question (the 2024→2026
+case-type shift) on another. Intermittent, exactly as the report warned:
+2 of 4 G5 runs and 2 of 4 G2 runs failed. Pre-fix latency 78–214 s.
+
+**Fix — the structural option, not a second pattern list.** `run_aggregate()`'s
+keyword chain was **extracted** (not duplicated) into the pure
+`xagg.resolve_aggregate_kind()`; `run_aggregate()` now dispatches on its
+return value, so there is one source of truth and every aggregate Modules
+31–36 add is automatically visible to the guard. The guard asks
+`xagg.resolves_to_specific_aggregate()`, which **runs no aggregate** — pure
+substring matching, no `await`, no gateway, no RLS arming, no audit event
+(pinned by an AST test).
+
+Three deliberate calls, each with its own test:
+- **Subordinate to Module 29's `_DECOMPOSITION_PLANS`.** G1 is the
+  load-bearing case — it *does* resolve to `case_completeness_scan`, so
+  without the veto this guard would have silently repealed Module 29 for it.
+  CR3, G1 and G6 still decompose.
+- **`unsupported_aggregate` counts as resolved.** M2's station-type refusal
+  is a purpose-built honest outcome; decomposing it yields two halves that
+  each invent a split — the "fluent, on-topic, confidently wrong" mode the
+  report names as worse than abstaining.
+- **The three trailing catch-alls and the three bare entity-recurrence
+  families do NOT count.** Reaching either tier means the chain recognised
+  nothing, or recognised only a noun.
+
+**Result.** G2 and G5 both dispatch to `Large-Scale Aggregate` on **3/3** live
+runs each, deterministic, 16–54 s. G2 returns 9 missing incident dates and 52
+missing status exactly; G5 returns 30 of 32 (94%) unlicensed exactly. Both are
+partial against gold — gold's other points need aggregates that do not exist
+(logged as new defects in the result file), so neither is a 1.0.
+
+**Nine of 32 gold questions change dispatch** (assuming an XAGG route, pinned
+by an all-32 negative control test): **CR6, CR7, CR8, M2, M4, M7, G2, G3, G5**.
+All were re-run live. Six of the nine previously scored 0.0; the other three
+(CR6, CR7, CR8) plus G3 already scored 1.0 and reach the *same* sub-agent as
+before — the LLM decomposer was already returning `decompose: false` for them
+and falling back to a single dispatch, so the guard removes two LLM round
+trips and the variance they carried, rather than changing the destination.
+
+---
+
 # Module 27 — Final Gold-32 rerun ⬜
 
 Blocked on everything above. Re-run `gold32_run.py` + `gold32_score.py`
@@ -1825,53 +1888,6 @@ AnswerRelevancy **1.0** with FactualCorrectness **0.0** — fluent, on-topic,
 confidently wrong, where before the fixes they abstained. That is arguably a
 *worse* failure mode for an evidence platform than refusing, and it is the
 thread connecting these modules.
-
----
-
-# Module 41 — G2/G5 regression: Meta-Analysis over-decomposition 🔴
-
-**Priority: highest. This wave caused it.** G2 fell **0.4 → 0.0** and G5
-**0.6 → 0.0**. Both were re-run with correct credentials and still failed, so
-this is not the environment problem above.
-
-**The aggregates are fine — verified in isolation by the evaluator:**
-`_case_completeness_scan()` returns 73 cases / 9 missing incident dates / 52
-missing status; `_weapon_compliance_scan()` returns 30 of 32 unlicensed. And
-`run_aggregate()` dispatches correctly: G2 → `case_completeness_scan`,
-G5 → `weapon_compliance_scan`.
-
-**The failure is one layer above, in sub-agent dispatch.** The live trace:
-
-```
-supervisor:dispatch: Classified query as route='XAGG' -> sub-agent='Meta-Analysis'
-```
-
-The question reaches XAGG, is handed to **Meta-Analysis**, decomposed into
-undirected sub-queries, one errors, and the synthesis is rejected with *"The
-synthesized answer could not be verified as grounded in the sub-answers;
-Could not answer sub-question (encountered an error)."*
-
-**Why.** `supervisor.py` already carries a guard for exactly this, and its own
-comment describes the mechanism — decomposition drops the language that made
-the pattern match, leaving re-classification to the flaky LLM router one level
-down. But the guard fires **only** for `_TIME_COMPARISON_XAGG_PATTERNS`. G2 and
-G5 satisfy every other condition and simply don't match those patterns.
-
-Ruled out by the evaluator: `_match_decomposition_plan()` returns `None` for
-both, so Module 29's deterministic plans are not the cause — it is the LLM
-decomposer fallback.
-
-**Fix — take the structural option.** Rather than a second pattern list that
-will drift out of date (and would need extending again for every aggregate
-Modules 31–36 added), have the guard **ask `run_aggregate()` whether it
-resolves the query to a real aggregate kind, and skip decomposition if it
-does.** Self-maintaining, and it closes the whole class rather than these two
-instances.
-
-**Verify:** G2 and G5 live, several runs each; confirm the dispatch line now
-shows the aggregate sub-agent. Regression-guard **M1** (whose time-comparison
-guard must keep working), **CR3/G1/G6** (Module 29's plans must still
-decompose), and **M2**. Plus a non-gold paraphrase.
 
 ---
 
