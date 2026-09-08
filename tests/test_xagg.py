@@ -6,6 +6,7 @@ the `no_network` guard, conftest, autouse).
 """
 import json
 import logging
+import re
 from pathlib import Path
 
 import pytest
@@ -4724,3 +4725,121 @@ async def test_s2_still_reaches_the_station_ranking_after_module_36():
 
     assert result["kind"] == "relational_aggregate"
     assert result["group_by"] == "police_station"
+
+
+# ══════════════════════════════════════════════════════════════════════
+# [Module 55] Every aggregate family must say which one it is, in the log.
+#
+# XAGG's SSE stream reports only `route='XAGG'`. The `XAGG <kind>:` line in
+# `backend.log` is therefore the ONLY evidence of WHICH aggregate answered a
+# live question — the fact every module in this wave is verified against.
+# Modules 31-36 each added one by hand; everything older emitted nothing, so
+# Module 43 had to identify M7's runs by matching numbers out of rendered
+# prose before it could tell a correct run from a wrong-metric one.
+#
+# The durable fix is not the 21 individual lines Module 55 added. It is this
+# test: it derives the set of aggregate kinds from the SOURCE, so the next
+# family added to `xagg.py` cannot silently skip its line.
+# ══════════════════════════════════════════════════════════════════════
+
+# The one family whose log line is labelled by its DIMENSION rather than its
+# kind. `time_bucketed_mean` is a generic container — M7's aggregate and any
+# future mean-by-bucket family would both carry it — so Module 43 labelled
+# the line `incident_to_report_minutes_by_year`, which is what actually
+# distinguishes M7's run from the neighbouring delay-reason one. Kept, and
+# recorded here explicitly, rather than relabelled: MODULE43_RESULT.md and
+# its own regression test are both pinned to the existing string.
+_LOG_LABEL_ALIASES = {"time_bucketed_mean": "incident_to_report_minutes_by_year"}
+
+
+def _xagg_source() -> str:
+    return (
+        Path(xagg.__file__).read_text(encoding="utf-8")
+    )
+
+
+def _declared_aggregate_kinds() -> set[str]:
+    """Every literal `{"kind": "..."}` value in xagg.py, read via AST so a
+    kind named only in a comment or a docstring cannot count."""
+    import ast
+
+    kinds = set()
+    for node in ast.walk(ast.parse(_xagg_source())):
+        if not isinstance(node, ast.Dict):
+            continue
+        for key, value in zip(node.keys, node.values):
+            if (
+                isinstance(key, ast.Constant) and key.value == "kind"
+                and isinstance(value, ast.Constant) and isinstance(value.value, str)
+            ):
+                kinds.add(value.value)
+    return kinds
+
+
+def _emitted_log_labels() -> set[str]:
+    return set(re.findall(r'"XAGG ([a-z0-9_]+):', _xagg_source()))
+
+
+def test_module55_every_aggregate_kind_emits_an_xagg_log_line():
+    """Measured starting point (2026-09-09, before this module): 32 distinct
+    aggregate kinds, 11 log labels — 21 families silent, including the whole
+    CR6/CR7/CR8/G2/G3 set, the entity-recurrence tier and the
+    `relational_aggregate` catch-all Module 44 measured M2 falling into."""
+    kinds = _declared_aggregate_kinds()
+    labels = _emitted_log_labels()
+
+    # Guards the guard: if the AST walk stops finding kinds (a refactor to a
+    # dataclass, say), the assertion below would pass vacuously.
+    assert len(kinds) >= 32, kinds
+
+    silent = sorted(
+        k for k in kinds
+        if k not in labels and _LOG_LABEL_ALIASES.get(k) not in labels
+    )
+    assert silent == [], (
+        "These XAGG aggregate kinds return a result but emit no "
+        f"`XAGG <kind>:` log line, so a live run of them cannot be "
+        f"identified from backend.log at all: {silent}. Add one "
+        "logger.info() carrying the FIGURES, not just the kind."
+    )
+
+
+def test_module55_log_format_strings_stay_ascii():
+    """PR #30 reconfigured the log stream to utf-8/backslashreplace, so Urdu
+    VALUES passed as `%s` arguments now survive. The format strings
+    themselves stay ASCII regardless: three of Module 36's live calls lost
+    their figures entirely to a cp1252 stream, and an ASCII template is what
+    guarantees the line is emitted at all even if a handler regresses."""
+    offenders = [
+        line for line in _xagg_source().splitlines()
+        if '"XAGG ' in line and not line.strip().startswith("#")
+        and not line.isascii()
+    ]
+    assert offenders == [], offenders
+
+
+async def test_module55_a_silent_family_now_names_itself_with_its_figures(caplog):
+    """One worked example end to end, on a family that was silent before this
+    module — G2's completeness scan. The kind alone would not be enough: a
+    wrong-metric run reports the same kind, so the counts are asserted too."""
+    cases = [
+        {"case_id": "fir-1-26", "incident_date": "2026-01-01",
+         "investigation_status": "under investigation"},
+        {"case_id": "fir-2-26", "incident_date": None,
+         "investigation_status": "under investigation"},
+        {"case_id": "fir-3-26", "incident_date": "2026-01-03",
+         "investigation_status": None},
+    ]
+
+    with caplog.at_level(logging.INFO, logger="src.pipeline.xagg"):
+        result = await xagg._case_completeness_scan(FakeGateway(cases))
+
+    logged = "\n".join(r.getMessage() for r in caplog.records)
+    assert "XAGG case_completeness_scan:" in logged
+    assert "3 case(s) scanned" in logged
+    assert "1 missing an incident date" in logged
+    assert "1 missing an investigation status" in logged
+    # No behaviour change — Module 55 is observability only.
+    assert result["total_cases"] == 3
+    assert result["missing_incident_date"] == ["fir-2-26"]
+    assert result["missing_status"] == ["fir-3-26"]

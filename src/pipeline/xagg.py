@@ -1106,6 +1106,22 @@ def _crime_type_filter_supported(cases: list[dict]) -> bool:
     )
 
 
+# Observability (Module 55) — `graph_recurrence` is returned from three
+# separate `run_aggregate()` branches (Vehicle/Person/Weapon), so the line is
+# factored out here rather than written three times. The entity type is the
+# whole point: a person-recurrence answer to a weapon question is exactly the
+# wrong-family failure Modules 33 and 35 had to diagnose from prose.
+def _log_graph_recurrence(entity_type: str, top: list[dict]) -> None:
+    logger.info(
+        "XAGG graph_recurrence: entity_type=%s, %d recurring node(s); %s",
+        entity_type, len(top),
+        # Names are Urdu; `%s` carries them safely now that `src/main.py`
+        # reconfigures the log stream to utf-8/backslashreplace (PR #30), and
+        # the format string itself stays ASCII.
+        ", ".join(f"{t.get('name')}={t.get('case_count')}" for t in top[:10]) or "none",
+    )
+
+
 async def _top_recurring_nodes(
     label: str, limit: int = 10, jurisdiction_case_ids: Optional[list[str]] = None,
 ) -> list[dict]:
@@ -1198,6 +1214,14 @@ async def _total_accused_count(jurisdiction_case_ids: Optional[list[str]] = None
             continue
         entity_id = canon(canonical_map, entity_id)
         per_entity_cases.setdefault(entity_id, set()).add(case_id)
+    # Observability (Module 55) — see `_offender_age_profile()`'s note:
+    # XAGG's SSE reports only `route='XAGG'`, so this line is the only
+    # evidence of WHICH aggregate answered a live question.
+    logger.info(
+        "XAGG total_accused_count: %d distinct accused person(s) across "
+        "%d case-scoped entr(ies)",
+        len(per_entity_cases), sum(len(v) for v in per_entity_cases.values()),
+    )
     return {
         "kind": "total_accused_count",
         "total_accused": len(per_entity_cases),
@@ -1253,9 +1277,24 @@ async def _gender_breakdown(jurisdiction_case_ids: Optional[list[str]] = None) -
         genders.append((p_props.get("gender") or "").strip() or None)
 
     if not any(genders):
+        # Observability (Module 55) — the honest-refusal path needs a line of
+        # its own, or a live run cannot be told from the family never firing.
+        logger.info(
+            "XAGG gender_breakdown: unsupported - 0 of %d accused edge(s) "
+            "carry a gender property",
+            len(genders),
+        )
         return {"kind": "gender_breakdown", "unsupported": True, "message": _GENDER_NOT_YET_POPULATED}
 
     counts = Counter((g or "unknown").lower() for g in genders)
+    # Observability (Module 55) — see `_offender_age_profile()`'s note:
+    # XAGG's SSE reports only `route='XAGG'`, so this line is the only
+    # evidence of WHICH aggregate answered a live question.
+    logger.info(
+        "XAGG gender_breakdown: %d accused edge(s), %d distinct value(s); %s",
+        len(genders), len(counts),
+        ", ".join(f"{k}={v}" for k, v in counts.most_common()),
+    )
     return {
         "kind": "gender_breakdown",
         "unsupported": False,
@@ -1339,6 +1378,13 @@ async def _offender_age_profile(jurisdiction_case_ids: Optional[list[str]] = Non
 
     ages = sorted(age_by_entity.values())
     if not ages:
+        # Observability (Module 55) — the refusal path, same reasoning as the
+        # populated one just below.
+        logger.info(
+            "XAGG offender_age_profile: unsupported - 0 of %d distinct "
+            "accused carry an age",
+            len(all_entities),
+        )
         return {"kind": "offender_age_profile", "unsupported": True, "message": _UNSUPPORTED_AGE}
 
     mean_age = sum(ages) / len(ages)
@@ -2230,12 +2276,27 @@ async def _reporting_delay_count(jurisdiction_case_ids: Optional[list[str]] = No
         )
         any_populated = int((probe[0] or {}).get("n") or 0) if probe else 0
         if any_populated == 0:
+            # Observability (Module 55) — the refusal path gets its own line.
+            logger.info(
+                "XAGG reporting_delay_count: unsupported - "
+                "reporting_delay_reason populated on 0 Incident(s); "
+                "%d FIR(s) in scope",
+                total,
+            )
             return {
                 "kind": "reporting_delay_count",
                 "unsupported": True,
                 "message": _REPORTING_DELAY_NOT_YET_POPULATED,
             }
 
+    # Observability (Module 55) — see `_offender_age_profile()`'s note:
+    # XAGG's SSE reports only `route='XAGG'`, so this line is the only
+    # evidence of WHICH aggregate answered a live question.
+    logger.info(
+        "XAGG reporting_delay_count: %d of %d FIR(s) record a "
+        "reporting-delay reason",
+        with_delay, total,
+    )
     return {
         "kind": "reporting_delay_count",
         "unsupported": False,
@@ -2296,6 +2357,14 @@ async def _placeholder_officer_count(jurisdiction_case_ids: Optional[list[str]] 
         if "SI" in (r.get("name") or "") and "ASI" not in (r.get("name") or "")
     )
 
+    # Observability (Module 55) — see `_offender_age_profile()`'s note:
+    # XAGG's SSE reports only `route='XAGG'`, so this line is the only
+    # evidence of WHICH aggregate answered a live question.
+    logger.info(
+        "XAGG placeholder_officer_count: %d case(s) still carry a "
+        "placeholder investigating officer (%d ever); ASI=%d SI=%d",
+        len(current_placeholder), len(ever_placeholder), asi_count, si_count,
+    )
     return {
         "kind": "placeholder_officer_count",
         "current_count": len(current_placeholder),
@@ -2406,6 +2475,16 @@ async def _criminal_record_court_crosscheck(
                 "consistent": cr_settled == court_settled,
             })
 
+    # Observability (Module 55) — see `_offender_age_profile()`'s note:
+    # XAGG's SSE reports only `route='XAGG'`, so this line is the only
+    # evidence of WHICH aggregate answered a live question.
+    logger.info(
+        "XAGG criminal_record_court_crosscheck: %d criminal record(s), "
+        "%d settled / %d in progress; %d cross-checked against a court "
+        "outcome, %d consistent",
+        total, len(settled), in_progress, len(crosschecks),
+        sum(1 for c in crosschecks if c["consistent"]),
+    )
     return {
         "kind": "criminal_record_court_crosscheck",
         "total_records": total,
@@ -2716,6 +2795,14 @@ async def _cms_fir_linkage(jurisdiction_case_ids: Optional[list[str]] = None) ->
         for r in link_rows
     ]
 
+    # Observability (Module 55) — see `_offender_age_profile()`'s note:
+    # XAGG's SSE reports only `route='XAGG'`, so this line is the only
+    # evidence of WHICH aggregate answered a live question.
+    logger.info(
+        "XAGG cms_fir_linkage: %d CMS complaint(s), %d linked to a case, "
+        "%d unlinked",
+        total, len(links), total - len(links),
+    )
     return {
         "kind": "cms_fir_linkage",
         "total_complaints": total,
@@ -2780,6 +2867,14 @@ async def _dv_report_fir_match(jurisdiction_case_ids: Optional[list[str]] = None
     )
     matches = [{"record_id": r.get("rid"), "case_id": r.get("case_id")} for r in match_rows]
 
+    # Observability (Module 55) — see `_offender_age_profile()`'s note:
+    # XAGG's SSE reports only `route='XAGG'`, so this line is the only
+    # evidence of WHICH aggregate answered a live question.
+    logger.info(
+        "XAGG dv_report_fir_match: %d women-violence report(s), %d matched "
+        "to an FIR, %d unconfirmed",
+        total, len(matches), total - len(matches),
+    )
     return {
         "kind": "dv_report_fir_match",
         "total_reports": total,
@@ -2852,6 +2947,14 @@ async def _case_completeness_scan(
         c.get("case_id") for c in cases if not c.get("investigation_status")
     ]
 
+    # Observability (Module 55) — see `_offender_age_profile()`'s note:
+    # XAGG's SSE reports only `route='XAGG'`, so this line is the only
+    # evidence of WHICH aggregate answered a live question.
+    logger.info(
+        "XAGG case_completeness_scan: %d case(s) scanned; %d missing an "
+        "incident date, %d missing an investigation status",
+        total, len(missing_incident_date), len(missing_status),
+    )
     return {
         "kind": "case_completeness_scan",
         "total_cases": total,
@@ -2906,6 +3009,14 @@ async def _weapon_compliance_scan(jurisdiction_case_ids: Optional[list[str]] = N
         elif any(t in s.lower() or t in s for t in _UNLICENSED_TOKENS):
             unlicensed += 1
 
+    # Observability (Module 55) — see `_offender_age_profile()`'s note:
+    # XAGG's SSE reports only `route='XAGG'`, so this line is the only
+    # evidence of WHICH aggregate answered a live question.
+    logger.info(
+        "XAGG weapon_compliance_scan: %d weapon(s); %d unlicensed, "
+        "%d with no licence status recorded",
+        total, unlicensed, no_status,
+    )
     return {
         "kind": "weapon_compliance_scan",
         "total_weapons": total,
@@ -3043,6 +3154,15 @@ async def _weapon_evidence_chain(
         c["case_id"] or "",
     ))
 
+    # Observability (Module 55) — see `_offender_age_profile()`'s note:
+    # XAGG's SSE reports only `route='XAGG'`, so this line is the only
+    # evidence of WHICH aggregate answered a live question.
+    logger.info(
+        "XAGG weapon_evidence_chain: %d weapon(s); %d traceable to a named "
+        "accused, %d unattributed; richest chain %s",
+        len(weapon_rows), len(chains), len(unattributed),
+        ascii(chains[0]["case_id"]) if chains else "(none)",
+    )
     return {
         "kind": "weapon_evidence_chain",
         "total_weapons": len(weapon_rows),
@@ -3169,6 +3289,17 @@ async def _court_readiness_scan(
         gateway, jurisdiction_case_ids=jurisdiction_case_ids
     )
 
+    # Observability (Module 55) — see `_offender_age_profile()`'s note:
+    # XAGG's SSE reports only `route='XAGG'`, so this line is the only
+    # evidence of WHICH aggregate answered a live question.
+    logger.info(
+        "XAGG court_readiness_scan: %d accused edge(s), %d with no recorded "
+        "relationship; %d of %d weapon(s) with no licence status; %d of %d "
+        "case(s) with no incident date",
+        total_accused, accused_no_rel,
+        weapon["no_status_count"], weapon["total_weapons"],
+        len(completeness["missing_incident_date"]), completeness["total_cases"],
+    )
     return {
         "kind": "court_readiness_scan",
         "total_accused": total_accused,
@@ -3288,6 +3419,14 @@ async def _top_districts_by(
         ({"district": r.get("district") or "unknown", "count": r.get("n_count") or 0} for r in rows),
         key=lambda r: r["count"], reverse=True,
     )
+    # Observability (Module 55) — see `_offender_age_profile()`'s note:
+    # XAGG's SSE reports only `route='XAGG'`, so this line is the only
+    # evidence of WHICH aggregate answered a live question.
+    logger.info(
+        "XAGG district_breakdown: entity=%s, %d district(s); %s",
+        entity_label or "Case", len(ranked),
+        ", ".join(f"{r['district']}={r['count']}" for r in ranked[:10]) or "none",
+    )
     return {"kind": "district_breakdown", "entity_label": entity_label, "counts": ranked}
 
 
@@ -3390,6 +3529,18 @@ async def _weapon_recovery_rate_by_district(jurisdiction_case_ids: Optional[list
     subset_counts = {r.get("district") or "unknown": r.get("n_count") or 0 for r in subset_rows}
 
     ranked = _rate_breakdown(subset_counts, total_counts)
+    # Observability (Module 55) — see `_offender_age_profile()`'s note:
+    # XAGG's SSE reports only `route='XAGG'`, so this line is the only
+    # evidence of WHICH aggregate answered a live question.
+    logger.info(
+        "XAGG rate_breakdown: dimension=weapon_recovery_rate_by_district, "
+        "%d district(s); %s",
+        len(ranked),
+        ", ".join(
+            f"{r['key']}={r['subset_count']}/{r['total_count']}={r['rate']}"
+            for r in ranked[:10]
+        ) or "none",
+    )
     return {
         "kind": "rate_breakdown",
         "dimension": "weapon_recovery_rate_by_district",
@@ -3463,6 +3614,15 @@ async def _statute_mix_by_year(gateway, jurisdiction_case_ids: Optional[list[str
         for act in split_crime_category(c.get("crime_category")) or []:
             bucket[act] += 1
     years = sorted(buckets.keys())
+    # Observability (Module 55) — see `_offender_age_profile()`'s note:
+    # XAGG's SSE reports only `route='XAGG'`, so this line is the only
+    # evidence of WHICH aggregate answered a live question.
+    logger.info(
+        "XAGG time_bucketed_breakdown: dimension=statute_by_year, "
+        "%d year bucket(s) [%s]",
+        len(years),
+        ", ".join(f"{y}:n={sum(buckets[y].values())}" for y in years) or "none",
+    )
     return {
         "kind": "time_bucketed_breakdown",
         "dimension": "statute_by_year",
@@ -4336,6 +4496,18 @@ async def _reporting_delay_rate_by_year(jurisdiction_case_ids: Optional[list[str
             delayed_by_year[year] += 1
 
     ranked = _rate_breakdown(dict(delayed_by_year), dict(total_by_year))
+    # Observability (Module 55) — see `_offender_age_profile()`'s note:
+    # XAGG's SSE reports only `route='XAGG'`, so this line is the only
+    # evidence of WHICH aggregate answered a live question.
+    logger.info(
+        "XAGG time_bucketed_rate: dimension=reporting_delay_rate_by_year, "
+        "%d year bucket(s) [%s]",
+        len(ranked),
+        ", ".join(
+            f"{r['key']}={r['subset_count']}/{r['total_count']}={r['rate']}"
+            for r in sorted(ranked, key=lambda r: r["key"])
+        ) or "none",
+    )
     return {
         "kind": "time_bucketed_rate",
         "dimension": "reporting_delay_rate_by_year",
@@ -4370,6 +4542,13 @@ async def _station_total_count() -> dict:
         columns=["station_id"],
     )
     station_ids = {r.get("station_id") for r in rows if r.get("station_id")}
+    # Observability (Module 55) — see `_offender_age_profile()`'s note:
+    # XAGG's SSE reports only `route='XAGG'`, so this line is the only
+    # evidence of WHICH aggregate answered a live question.
+    logger.info(
+        "XAGG station_total_count: %d distinct PoliceStation node(s)",
+        len(station_ids),
+    )
     return {"kind": "station_total_count", "total_stations": len(station_ids)}
 
 
@@ -4948,6 +5127,13 @@ async def _total_count(
     honors any status/category filter present (e.g. "how many closed
     cases in total"), it just skips the group-by breakdown entirely."""
     cases, unsupported = await _filtered_cases(gateway, query_text, jurisdiction_case_ids)
+    # Observability (Module 55) — see `_offender_age_profile()`'s note:
+    # XAGG's SSE reports only `route='XAGG'`, so this line is the only
+    # evidence of WHICH aggregate answered a live question.
+    logger.info(
+        "XAGG total_count: %d case(s) after filtering; unsupported_filters=%s",
+        len(cases), ascii(unsupported) if unsupported else "none",
+    )
     return {"kind": "total_count", "total_cases": len(cases), "unsupported_filters": unsupported}
 
 
@@ -5410,6 +5596,9 @@ async def run_aggregate(
     if kind == "arrest_rate":
         return await _arrest_rate(jurisdiction_case_ids=jurisdiction_case_ids)
     if kind == "unsupported_officer":
+        # Observability (Module 55) — a refusal is an answer too, and until
+        # now was indistinguishable in the log from XAGG never running.
+        logger.info("XAGG unsupported_aggregate: reason=unsupported_officer")
         return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_OFFICER}
     # [Gold-QA fix — Module 13, question M7] Checked before both the A7
     # count-shaped reporting-delay check just below and _TREND_KEYWORDS'
@@ -5508,6 +5697,7 @@ async def run_aggregate(
     if kind == "statute_mix_by_year":
         return await _statute_mix_by_year(gateway, jurisdiction_case_ids=jurisdiction_case_ids)
     if kind == "unsupported_trend":
+        logger.info("XAGG unsupported_aggregate: reason=unsupported_trend")
         return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_TREND}
     if kind == "gender_breakdown":
         return await _gender_breakdown(jurisdiction_case_ids=jurisdiction_case_ids)
@@ -5566,6 +5756,7 @@ async def run_aggregate(
 
     if kind == "graph_recurrence_vehicle":
         top = await _top_recurring_nodes("Vehicle", jurisdiction_case_ids=jurisdiction_case_ids)
+        _log_graph_recurrence("Vehicle", top)
         return {"kind": "graph_recurrence", "entity_type": "Vehicle", "results": top}
 
     # [Gold-QA fix — Module 1a] A bare total ("how many accused persons in
@@ -5584,6 +5775,7 @@ async def run_aggregate(
 
     if kind == "graph_recurrence_person":
         top = await _top_recurring_nodes("Person", jurisdiction_case_ids=jurisdiction_case_ids)
+        _log_graph_recurrence("Person", top)
         return {"kind": "graph_recurrence", "entity_type": "Person", "results": top}
 
     # [findings.md Module 4] Do NOT call _top_recurring_nodes("Weapon", ...)
@@ -5591,6 +5783,7 @@ async def run_aggregate(
     # would always return [] for real data.
     if kind == "graph_recurrence_weapon":
         top = await _top_recurring_weapon_types(jurisdiction_case_ids=jurisdiction_case_ids)
+        _log_graph_recurrence("Weapon", top)
         return {"kind": "graph_recurrence", "entity_type": "Weapon", "results": top}
 
     # A plain enumeration ("list of all cases") with no station/category/status
@@ -5618,6 +5811,14 @@ async def run_aggregate(
         if jurisdiction_case_ids is not None:
             allowed = set(jurisdiction_case_ids)
             cases = [c for c in cases if c.get("case_id") in allowed]
+        # Observability (Module 55) — this branch is the corpus dump several
+        # modules in this wave had to prove they were NOT hitting.
+        logger.info(
+            "XAGG case_listing: %d case(s) listed unfiltered (jurisdiction "
+            "scope %s)",
+            len(cases),
+            "applied" if jurisdiction_case_ids is not None else "none",
+        )
         return {
             "kind": "case_listing",
             "cases": [
@@ -5642,4 +5843,14 @@ async def run_aggregate(
         return await _total_count(gateway, query_text, jurisdiction_case_ids)
 
     result = await _station_or_category_counts(gateway, query_text, jurisdiction_case_ids)
+    # Observability (Module 55) — the catch-all. Module 44 measured M2 landing
+    # here instead of its own family; without this line that only showed up as
+    # a shape mismatch in the rendered prose.
+    logger.info(
+        "XAGG relational_aggregate: group_by=%s, %d case(s) considered, "
+        "%d bucket(s); %s",
+        result.get("group_by"), result.get("total_cases_considered"),
+        len(result.get("counts") or []),
+        ascii([(c["key"], c["count"]) for c in (result.get("counts") or [])[:10]]),
+    )
     return {"kind": "relational_aggregate", **result}
