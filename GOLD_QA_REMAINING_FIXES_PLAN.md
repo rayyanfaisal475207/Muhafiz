@@ -81,7 +81,7 @@ several can run in parallel chats/worktrees without colliding.
 | 35 | G6 — arrest rate: no XAGG aggregate | `feature/xagg-arrest-rate-and-fir-listing` | ✅ Done — aggregate live; published rule gives **1 in 6.6**, not gold's 1 in 9, see §35 |
 | 36 | CR3 — subject-filtered FIR listing: no aggregate returns FIR numbers filtered by statute/station/crime type | `feature/xagg-arrest-rate-and-fir-listing` | ✅ Done — returns `fir-64-26`/`fir-65-26` exactly; **wiring into `record_consistency` deferred behind Module 41**, see §36 |
 | 37 | Orphaned `chunk_fulltext` rows: 2,243 CrPC chunks in the BM25 index that no longer exist in Chroma | *(not yet branched)* | ⬜ New — found by Module 30 |
-| 38 | `cross_rerank_multi()` merges by max score across queries, and cross-encoder scores are not comparable across them | *(not yet branched)* | ⬜ New — found by Module 30 (this is what cost KB4) |
+| 38 | `cross_rerank_multi()` merges by max score across queries, and cross-encoder scores are not comparable across them | `fix/cross-rerank-rrf-fusion` | ✅ **Done — the per-query lists are fused by reciprocal rank**, reusing `reranker.py`'s own `reciprocal_rank_fusion()` rather than a second implementation. Measured on one shared KB4 candidate pool so only the merge differs: the wrong "Forensics guidelines" hypothesis scored 0.86–0.97 where the question topped out at 0.16, and took **all five slots**; fused by rank, ranks 1–4 are Punjab Police Rules register chunks carrying gold's **rule 27.16** and its **three-year** rule, verified in the chunk text by id. **KB4's retrieval went 0-of-3 → 3-of-3 runs, its `status` went 3-of-3 → 1-of-3** — reported, not tuned: all three `main` runs "answered" that the corpus does not contain this. KB6 and KB9 both went from abstaining to answering. KB bucket unchanged at 6/8 answering. Ran against a private copy of Chroma. Result: `docs/gold-qa-wave2-results/MODULE38_RESULT.md` |
 | 39 | The "and does our data show it?" half of every gold KB answer is unreachable from the RAG sub-agent | *(not yet branched)* | ⬜ New — found by Module 30; the largest remaining gap in the KB bucket |
 | 41 | **G2/G5 REGRESSION** — Meta-Analysis over-decomposes questions XAGG answers in one call; the supervisor guard fired only for time-comparison shapes | `fix/supervisor-skip-decomposition-for-resolvable-aggregates` | ✅ **Done — PR #31** — guard now asks `run_aggregate()`'s extracted, resolution-only chain; G2 and G5 correct on 3/3 live runs each. Result: `docs/gold-qa-wave2-results/MODULE41_RESULT.md` |
 | 42 | KB6 hard failure — `route=None`, FactualCorrectness 0.0 **and** AnswerRelevancy 0.0, did not recover on re-run | `fix/kb6-hard-failure-route-none` (PR #34) | ✅ Done — **not a pipeline defect.** `route=None` was the eval harness's own 300s client timeout; live KB6 is `route='RAG'` 5/5. Harness fixed so a timeout is unscored, not a 0.0. The real reason KB6 abstains is a new cross-language evaluator defect — split out as Module 52 |
@@ -477,27 +477,84 @@ silently.
 
 ---
 
-# Module 38 — `cross_rerank_multi()` merges by max score across queries ⬜ new, not yet branched
+# Module 38 — `cross_rerank_multi()` merged by max score across queries ✅ fixed
 
+**Branch:** `fix/cross-rerank-rrf-fusion`
+**Result:** `docs/gold-qa-wave2-results/MODULE38_RESULT.md`
 **Found while verifying Module 30.**
 
-`cross_rerank_multi()` (added by Module 30) scores candidates against
-several query phrasings and keeps each candidate's **best**. Cross-encoder
-scores are not comparable across queries, so whichever phrasing happens to
-produce the largest absolute scores takes the whole final window.
+`cross_rerank_multi()` (added by Module 30) scored candidates against several
+query phrasings and kept each candidate's **best**. Cross-encoder scores are
+not comparable across queries, so whichever phrasing happened to produce the
+largest absolute scores took the whole final window.
 
-Measured consequences: KB4's answer went from register material to
-Forensics-guidelines material because its two statute hypotheses were
-"Punjab Police Rules case property and malkhana" (right) and "Forensics
-guidelines handling and chain of custody" (wrong for that question), and
-the forensics query's scores ran higher. The same mechanism is why a third
-statute hypothesis was actively harmful for KB8 and KB9.
+**Confirmed, with the cleanest numbers this wave has produced.** One live KB4
+candidate pool of 32, the cross-encoder called once per phrasing, both merges
+computed from that one set of lists so nothing but the merge differs:
 
-**Likely fix:** fuse the per-query reranked lists by reciprocal rank —
-exactly what `src/retrieval/reranker.py` already does for semantic-vs-BM25
-— so each phrasing contributes proportionally instead of by scale. Not done
-inside Module 30 because it would invalidate that module's whole live
-before/after and needs its own.
+| phrasing | score range over the same 32 candidates |
+|---|---|
+| the Urdu-script question | 0.00002 – 0.16390 |
+| "Punjab Police Rules … case property and malkhana" (**right book**) | 0.00003 – 0.34222 |
+| "Forensics guidelines … chain of custody" (**wrong book**) | 0.00022 – **0.96709** |
+
+The wrong hypothesis's *worst* candidate scores about as high as the right
+one's *best* — and yet that same forensics query ranks the register chunks
+11th–24th while the other two rank them 1st–6th. Only the scale was wrong.
+
+**Fixed** by fusing the per-query reranked lists by reciprocal rank, calling
+`src/retrieval/reranker.py`'s existing `reciprocal_rank_fusion()` rather than
+growing a second implementation. It gained two keyword-only parameters, both
+defaulting to prior behaviour: `score_key` (so a second fusion pass does not
+overwrite the `rrf_score` the pool was built with) and `apply_year_boost` (the
+recency prior belongs to the fusion that builds the pool). Each phrasing also
+keeps a capped, appended voice for its own rank-1 chunk — same shape as the
+existing semantic floor; measured on KB8/KB9, the chunk it saves is the
+*original question's* rank 1.
+
+A per-list `weights` multiplier was built and then **removed**: swept over
+0.25/0.5/1.0/2.0/3.0 on live KB1/KB4/KB8/KB9 pools, the whole 0.5–3.0 range is
+flat, and 0.25 was the only value that made KB4 worse.
+
+## Live result — before/after, both re-derived this session
+
+Baseline re-derived by reverting the three retrieval files to `origin/main` and
+restarting the same backend against the same private Chroma.
+
+| Q | Before (`main`) | After |
+|---|---|---|
+| **KB4** | "answers" — *the corpus does not contain this*; **0 Punjab Police Rules chunks in 3 of 3 runs** | **rule 27.16 and the three-year rule in the window on 3 of 3 runs**; 1 of 3 runs clears the verifier and answers with Register No. 1 / rule 27.16(1) / s.512 |
+| **KB6** | abstains — 6 evaluator attempts, 290s | **answers** — 1 attempt, 93s |
+| **KB9** | abstains — 6 attempts | **answers** — s.174, Rule 25.31, s.174(3) post-mortem |
+| KB1, KB3, KB5, KB8 | answer | answer, same substance |
+| KB2 | done / error / done over 3 runs | error / done / done over 3 runs — **variance, not a regression** |
+
+**KB bucket unchanged at 6 of 8 answering**, with KB6 and KB9 gained and KB4
+traded from a confident miss to a correct retrieval the verifier rejects 2 of 3
+times. **Reported, not tuned** — see the result file's §5.
+
+**Correction to this plan's own numbers:** the 7-of-8 figure recorded for
+Module 30 does not reproduce on this machine today. At `origin/main`, before
+any change from this module, the bucket measures **6 of 8** (KB6 and KB9 both
+abstain). And the verdict is not reproducible from one run: of four
+(question, arm) pairs repeated three times, three gave a mixed verdict.
+
+## New defects found
+
+- **The third statute hypothesis is no longer harmful** (`--n-hyp 3`, live).
+  Module 30 rejected `DEFAULT_HYPOTHESES = 3` *because* the wrong book's chunks
+  "won the cross-encoder rerank" — that mechanism no longer exists. Raising it
+  now looks safe and possibly useful, but is unmeasured on answer quality, so
+  it needs its own module. `src/pipeline/statute_hypothesis.py` is untouched
+  here and its `n=2` comment now cites a dead rationale.
+- **`_is_legal_kb_intent()` misses a plain "which register / how long until
+  disposal" question.** A Roman-Urdu paraphrase of KB4 that omits the word
+  *qanoon* never narrows to the KB corpus, generates no statute hypotheses, and
+  abstains against the case-narrative pool — while the governing rule sits in
+  the KB corpus. Its own comment predicts this: the patterns were mined from
+  the gold questions' literal text.
+- **Module 37's orphaned `_0519abd8_` CrPC chunks still reach the evaluator**
+  on KB2/KB3/KB8/KB9 in both arms — fresh confirmation, already tracked.
 
 ---
 

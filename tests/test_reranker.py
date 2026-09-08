@@ -71,3 +71,48 @@ def test_record_date_is_preferred_over_filename_when_both_present():
     result = reciprocal_rank_fusion([[doc]], top_k=5)
     # 2026, not 2020 -> boost = (2026-2020)*0.0005 = 0.003
     assert result[0]["rrf_score"] == round(1.0 / 61 + 0.003, 6)
+
+
+# ── [Module 38] score_key / apply_year_boost ──────────────────────────────
+#
+# `cross_rerank_multi()` fuses per-query cross-encoder lists with this same
+# function rather than growing a second RRF implementation. These two
+# parameters are what that reuse needs; each defaults to the behaviour every
+# pre-Module-38 caller already had.
+#
+# Deliberately NOT added: a per-list `weights` multiplier, so the original
+# question could outvote a generated statute hypothesis. It was built, then
+# measured and removed — swept over 0.25/0.5/1.0/2.0/3.0 on live KB1, KB4,
+# KB8 and KB9 pools (MODULE38_RESULT.md §2), every value from 0.5 to 3.0
+# returned the same governing statute book in the same window, and 0.25 was
+# the only one that made KB4 worse. A knob whose whole measured range is flat
+# is a footgun on a function the main retrieval path also calls.
+
+from src.retrieval.reranker import RRF_K, reciprocal_rank_fusion
+
+
+def test_score_key_leaves_an_existing_rrf_score_untouched():
+    """The second fusion pass must not overwrite the score the candidate pool
+    was built with — that number is what retrieval logging and provenance
+    mean by `rrf_score`."""
+    doc = {"id": "a", "source": "x.pdf", "rrf_score": 0.87}
+    result = reciprocal_rank_fusion([[doc]], top_k=5, score_key="cross_rerank_rrf")
+    assert result[0]["rrf_score"] == 0.87
+    assert result[0]["cross_rerank_rrf"] == round(1.0 / (1 + RRF_K), 6)
+
+
+def test_year_boost_can_be_switched_off_for_a_second_fusion_pass():
+    """The boost is a recency prior over the CANDIDATE POOL and belongs to
+    the fusion that builds it. Up to +0.003 against a 0.00026 gap between
+    adjacent ranks, re-applying it would move chunks several places for
+    reasons unrelated to the question."""
+    case_doc = [_doc("case", "FIR-2026-ARMS-003.pdf")]
+    generic_doc = [_doc("generic", "REAL-004-copy-of-fir-procedure.pdf")]
+    boosted = reciprocal_rank_fusion([case_doc, generic_doc], top_k=5)
+    assert boosted[0]["id"] == "case"
+
+    plain = reciprocal_rank_fusion(
+        [case_doc, generic_doc], top_k=5, apply_year_boost=False
+    )
+    scores = {d["id"]: d["rrf_score"] for d in plain}
+    assert scores["case"] == scores["generic"] == round(1.0 / (1 + RRF_K), 6)
