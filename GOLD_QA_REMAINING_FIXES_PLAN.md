@@ -93,9 +93,9 @@ several can run in parallel chats/worktrees without colliding.
 | 40 | M4's Meta-Analysis synthesis rejected by the verifier — **superseded for M4 by Module 41; being re-scoped to CR3/G6** | `fix/meta-analysis-m4-synthesis-verifier-rejection` | 🟡 Branch pushed, unverified. **Module 41 made M4 skip Meta-Analysis entirely**, so this fix targets a path M4 no longer takes. Decision 2026-09-08: rebase after Module 50 and re-target at CR3/G6, the questions that still decompose. See its section below. |
 | 48 | KB2 and KB9 answer fluently but factually wrong (FC 0.0 / AR 1.0) after Module 30 fixed their retrieval | *(not yet branched)* | ⬜ New — the last two KB questions with no module of their own |
 | 49 | KB3 reaches Police Order Article 18 but still scores 0.1 — it quotes the article without drawing gold's conclusion | *(not yet branched)* | ⬜ New — Module 30 got the chunk in; the synthesis half is unaddressed |
-| 50 | G1/G6/CR3 consolidation: wire Modules 31–36's aggregates into their decomposition plans, and settle `_MAX_SUB_QUERIES` | `fix/meta-analysis-wire-g1-g6-aggregates` | ✅ **Done** — all six wired; every one now fires on **every** live run (`caseload_review` 7/7 × 4 kinds, `orientation_note` 6/6, `record_consistency` 3/3). G1 reproduces 3 of gold's 4 findings exactly and corrects the 4th per Module 34; CR3 now gets gold's exact `CMS-ISB-2026-0341`; G6 reports the arrest rate for the first time. **Cap settled at 5 with measurement** — N=9 loses 4 sub-queries to the 60 s timeout, N=6 fails 1 run in 3. New defects split out as Modules 51–52. Result: `docs/gold-qa-wave2-results/MODULE50_RESULT.md` |
-| 51 | Meta-Analysis' 60 s sub-query timeout is one shared wall-clock deadline, so it kills whichever sub-query is served LAST, not the slow one | *(not yet branched)* | ⬜ New — found by Module 50. The aggregate has already computed when the timeout fires; only its LLM paraphrase is discarded. **Prerequisite for reconsidering `_MAX_PLAN_SUB_QUERIES`** |
-| 52 | The wave's prescribed quota check (`grep -c "rate limit"`) matches none of the provider's actual quota errors | *(not yet branched)* | ⬜ New — found by Module 50. Live `429 RESOURCE_EXHAUSTED` and `503 UNAVAILABLE` both returned **0** for that grep, and both silently fell back from the harness to `orchestrator.py` |
+| 50 | G1/G6/CR3 consolidation: wire Modules 31–36's aggregates into their decomposition plans, and settle `_MAX_SUB_QUERIES` | `fix/meta-analysis-wire-g1-g6-aggregates` | ✅ **Done** — all six wired; every one now fires on **every** live run (`caseload_review` 7/7 × 4 kinds, `orientation_note` 6/6, `record_consistency` 3/3). G1 reproduces 3 of gold's 4 findings exactly and corrects the 4th per Module 34; CR3 now gets gold's exact `CMS-ISB-2026-0341`; G6 reports the arrest rate for the first time. **Cap settled at 5 with measurement** — N=9 loses 4 sub-queries to the 60 s timeout, N=6 fails 1 run in 3. New defects split out as Modules 53–54. Result: `docs/gold-qa-wave2-results/MODULE50_RESULT.md` |
+| 53 | Meta-Analysis' 60 s sub-query timeout is one shared wall-clock deadline, so it kills whichever sub-query is served LAST, not the slow one | *(not yet branched)* | ⬜ New — found by Module 50. The aggregate has already computed when the timeout fires; only its LLM paraphrase is discarded. **Prerequisite for reconsidering `_MAX_PLAN_SUB_QUERIES`** |
+| 54 | Two provider-failure gaps Module 46's quota fix did not close: `503 UNAVAILABLE` is not in its grep, and a failed cutover classification silently falls back to `orchestrator.py` | *(not yet branched)* | ⬜ New — found by Module 50, which hit both live. Module 46 (via Module 42) already fixed the `rate limit` → `RESOURCE_EXHAUSTED` half independently; this is the residual |
 | 51 | `backend.log` is written through a cp1252 stream, so any Urdu-carrying log record is **silently destroyed** inside `logging.emit()` | `fix/backend-log-utf8-encoding` | ✅ **Fixed** — handler-level UTF-8; the `XAGG <kind>` diagnostics every module is verified against were being deleted |
 | 52 | The relevance gate cannot judge a roman-Urdu question against English statute text (English 6/6 relevant, roman-Urdu 1/6, identical chunks) | *(not yet branched)* | ⬜ New — found by Module 42; this is what actually makes KB6 abstain, and it gates the whole roman-Urdu half of the KB bucket |
 | 27 | Final Gold-32 rerun (Module 18 redo) | *(docs only)* | ⬜ Blocked on all above — brief: `MODULE27_FINAL_GOLD32_RERUN_PROMPT.md` |
@@ -2243,7 +2243,7 @@ same model server concurrently, and two paraphrase runs died on provider
 
 ---
 
-# Module 51 — the sub-query timeout measures queue position, not cost ⬜
+# Module 53 — the sub-query timeout measures queue position, not cost ⬜
 
 **Found by Module 50**, and the single change that would most improve
 Meta-Analysis reliability.
@@ -2274,31 +2274,47 @@ elements that fit only if this is fixed first.
 
 ---
 
-# Module 52 — the wave's quota check does not match the provider's errors ⬜
+# Module 54 — the two provider-failure gaps Module 46 did not close ⬜
 
-**Found by Module 50.** `WAVE2_ORCHESTRATION_PROMPT.md` and every module
-brief prescribe `grep -c "rate limit" backend.log` as the credential/quota
-check, on the strength of a previous pass invalidated by a stale `.env`.
+**Found by Module 50, which hit both live.** Half of this was already found
+and fixed independently while Module 50 was running: **Module 46** (prompted
+by Module 42's transient Gemini 429) widened the eval preflight check to
+`grep -ciE "rate limit|RESOURCE_EXHAUSTED|429|quota"`, having established
+that *"Groq says `rate limit`; Gemini says `RESOURCE_EXHAUSTED`"*. Module 50
+reproduced exactly that failure independently, which is good corroboration
+that it is real and recurring, and **that half needs no further work.**
 
-Module 50 hit two real provider failures live and **that grep returned 0 for
-both**:
+Two residuals remain.
+
+**(1) `503 UNAVAILABLE` is in neither grep.** Module 50 captured:
 
 ```
 503 UNAVAILABLE ... 'This model is currently experiencing high demand.'
-429 RESOURCE_EXHAUSTED ... 'Quota exceeded for metric:
-    generativelanguage.googleapis.com/generate_content_free_tier_requests,
-    limit: 20, model: gemini-2.5-flash'
 ```
 
-Both silently fell back from the harness to `orchestrator.py`
-(`src/main.py`'s `Cutover classification failed` path), which changes which
-sub-agent answers — indistinguishable from a routing bug unless you read the
-warning.
+It is a transient capacity failure, not a quota failure, but it has the same
+consequence and the same invisibility. Module 46's pattern should gain
+`|UNAVAILABLE|503`, and `WAVE2_ORCHESTRATION_PROMPT.md` — which still
+prescribes the bare `grep -c "rate limit"` for *live module verification*,
+separately from the eval preflight Module 46 fixed — should adopt the
+widened pattern too.
 
-**Work:** widen the prescribed check to
-`RESOURCE_EXHAUSTED|429|quota|UNAVAILABLE|503`, in the runbook and in every
-brief that copies it. Consider whether a cutover-classification failure
-should be surfaced in the SSE stream rather than only in `backend.log`.
+**(2) A failed cutover classification is silently invisible in the SSE
+stream.** Both of Module 50's failures hit `src/main.py`'s
+`Cutover classification failed, falling back to orchestrator.py` path, which
+**changes which sub-agent answers the question** — the harness is skipped and
+the legacy orchestrator re-routes. Module 50's G1 paraphrase went from
+Meta-Analysis to Cross-Case Linkage's relevance-gate refusal purely because
+of this, and nothing in the SSE stream said so. It is indistinguishable from
+a routing regression unless you happen to read `backend.log`.
+
+**Work:** widen the pattern in both places; then decide whether the fallback
+should emit a visible SSE event (or at minimum whether module verification
+should treat a `Cutover classification failed` line as invalidating that run,
+the way a rate-limit line already does).
+
+**Verify:** re-run any decomposing question with the pattern in place;
+confirm a forced fallback is detectable without reading the log.
 
 ---
 

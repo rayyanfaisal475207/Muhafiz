@@ -422,7 +422,7 @@ sweep).
 
 ## 8. New defects found — left unfixed, tracked separately
 
-### 8.1 `META_ANALYSIS_SUBQUERY_TIMEOUT` measures queue position, not sub-query cost — **propose Module 51**
+### 8.1 `META_ANALYSIS_SUBQUERY_TIMEOUT` measures queue position, not sub-query cost — **proposed as Module 53**
 
 The defect behind every degraded run in §4, and the reason
 `_MAX_PLAN_SUB_QUERIES` cannot go above 5.
@@ -447,21 +447,39 @@ raw aggregate for a sub-query whose paraphrase times out, which
 **This is worth more than one more sub-query slot.** Fixing it would make the
 cap decision in §2c reconsiderable on its merits.
 
-### 8.2 The wave's own quota check does not detect the wave's actual quota failures — **propose Module 52**
+### 8.2 Two provider-failure gaps — **proposed as Module 54** (half already fixed by Module 46)
 
-`WAVE2_ORCHESTRATION_PROMPT.md` and every module brief prescribe
-`grep -c "rate limit" backend.log` as the credential/quota check. Both real
-provider failures in §6 returned **0** for that grep: the messages say
-`429 RESOURCE_EXHAUSTED` / `quota exceeded` and `503 UNAVAILABLE`. An
-evaluation pass was already invalidated once by a stale `.env`; the check
-meant to prevent a repeat does not match the strings the provider actually
-sends. The grep should cover `RESOURCE_EXHAUSTED|429|quota|UNAVAILABLE|503`.
+Both of §6's paraphrase failures were provider-side, and neither was caught
+by the check every module brief prescribes,
+`grep -c "rate limit" backend.log` — it returned **0** for both.
+
+**Half of this was already fixed while this module was running, and the
+credit belongs there.** Module 46 (prompted by Module 42 hitting the same
+transient Gemini 429) widened the eval preflight to
+`grep -ciE "rate limit|RESOURCE_EXHAUSTED|429|quota"`, having established
+that *"Groq says `rate limit`; Gemini says `RESOURCE_EXHAUSTED`"*. Module 50
+reproduced that failure independently and by a different route, which is
+useful corroboration — but **that half needs no further work.**
+
+The residuals:
+
+1. **`503 UNAVAILABLE` is in neither grep.** Different cause (capacity, not
+   quota), same consequence, same invisibility.
+2. **A failed cutover classification is invisible in the SSE stream.** Both
+   failures hit `src/main.py`'s `Cutover classification failed, falling back
+   to orchestrator.py` path, which **changes which sub-agent answers**. The
+   G1 paraphrase went from Meta-Analysis to a Cross-Case Linkage
+   relevance-gate refusal purely because of this, and nothing in the stream
+   said so — indistinguishable from a routing regression without reading
+   `backend.log`. `WAVE2_ORCHESTRATION_PROMPT.md` also still prescribes the
+   bare `grep -c "rate limit"` for *live module verification*, separately
+   from the eval preflight Module 46 fixed.
 
 ### 8.3 Three of gold's nine G6 elements have no aggregate reachable within the cap
 
 `_SQ_GENDER` (dropped, §2c), the accused age and relationship profile (wired
 into G1's plan, not G6's), and "most matters pending in court" (Module 24's
-court-stage join, never wired anywhere). All four fit only if 8.1 is fixed
+court-stage join, never wired anywhere). All four fit only if 8.1 (Module 53) is fixed
 first. **Not a reason to raise the cap now** — at N=6 the measured failure
 rate is 1 in 3, and a timed-out element scores the same as a missing one
 while also costing the run its groundedness.
