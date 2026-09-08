@@ -146,6 +146,21 @@ AggregateKind = Literal[
     # [Gold-QA fix - Module 24, M4] same additive convention - the
     # statute x court-stage join shape.
     "statute_court_stage_join",
+    # [Gold-QA fix — Modules 31-34, G1] same additive convention — the four
+    # caseload-profile shapes. Caught the hard way, and worth recording as
+    # the fourth repeat of this exact defect: Module 31's aggregate was
+    # unit-green and correct against the live graph, and still returned an
+    # EMPTY answer through `/api/chat` with `status=None` and no
+    # user-visible error, because `XAggToolResult` construction raised
+    # `pydantic_core.ValidationError: literal_error` on
+    # `aggregate_kind='offender_age_profile'`. That is precisely the silent
+    # crash this Literal's own comment block above warns about, and no unit
+    # test in `tests/test_xagg.py` can catch it — only a live run through
+    # the harness wrapper does.
+    "offender_age_profile",
+    "accused_relationship_breakdown",
+    "seized_property_disposition",
+    "incident_time_of_day",
 ]
 
 

@@ -2574,8 +2574,8 @@ class TestOffenderAgeProfileBoundary:
 # The literal G1 sub-question this family exists to answer, in the same
 # "..., across all cases?" shape as `meta_analysis.py`'s other sub-queries.
 _G1_SQ_RELATIONSHIP = (
-    "What relationship is recorded between the accused and the complainant, "
-    "across all cases?"
+    "How many cases record a relationship between the accused and the "
+    "complainant, and which relationship is it, across all cases?"
 )
 
 
@@ -2837,9 +2837,9 @@ class TestAccusedRelationshipBoundary:
 # The literal G1 sub-question this family exists to answer, in the same
 # "..., across all cases?" shape as `meta_analysis.py`'s other sub-queries.
 _G1_SQ_SEIZED_PROPERTY = (
-    "What happens to seized property in these cases, and how many items "
-    "were sent to a forensic laboratory or held for a deceased's heirs, "
-    "across all cases?"
+    "How many cases record seized property, and what happens to it — how "
+    "many items were sent to a forensic laboratory or held for a deceased's "
+    "heirs, across all cases?"
 )
 _MALKHANA_FORENSIC = "سیل بند، نمونہ فرانزک لیبارٹری بھجوایا گیا"
 _MALKHANA_HEIRS = "ورثاء کے حوالے کیا جائے گا"
@@ -3076,7 +3076,10 @@ class TestSeizedPropertyBoundary:
 #
 # The literal G1 sub-question this family exists to answer, in the same
 # "..., across all cases?" shape as `meta_analysis.py`'s other sub-queries.
-_G1_SQ_TIME_OF_DAY = "At what time of day do incidents happen, across all cases?"
+_G1_SQ_TIME_OF_DAY = (
+    "How many cases record an incident time, and at what time of day do "
+    "those incidents happen, across all cases?"
+)
 
 _NIGHT = "night (00:00-05:59)"
 _MORNING = "morning (06:00-11:59)"
@@ -3447,3 +3450,54 @@ def test_the_four_new_keyword_families_are_mutually_exclusive_on_their_own_sub_q
             if xagg._matches_any(text.lower(), keywords)
         ]
         assert matched == [owner], (text, matched)
+
+
+def test_each_new_g1_sub_query_deterministically_routes_to_xagg():
+    """[Gold-QA fix — Modules 31-34] The half a keyword family alone cannot
+    prove. A sub-query only reaches `run_aggregate()` at all if
+    `router.py::_deterministic_route_override()` sends it to XAGG first —
+    Module 29 phrased every one of its sub-queries for exactly that, and
+    said so in `meta_analysis.py`'s own comment ("verified live: all 9
+    return det=Y route=XAGG").
+
+    CAUGHT LIVE, not in review. The first drafts of these four strings began
+    "What relationship is recorded...", "What happens to seized
+    property...", "At what time of day...". Sent through `/api/chat` on
+    2026-09-08 all three came back `route='XGRAPH'` — `_XGRAPH_OVERRIDE_
+    PATTERNS`' `across.{0,15}cases` matched the "across all cases"
+    suffix and won, so the new aggregates were never reached and the answer
+    was a cross-case traversal that answered nothing. They were rephrased to
+    lead with "How many cases ...", which `_XAGG_OVERRIDE_PATTERNS` matches
+    outright, rather than by widening router.py (owned by another track).
+
+    This test is what stops a future reword from silently undoing that."""
+    from src.pipeline import router
+
+    for sub_query in (
+        _G1_SQ_ACCUSED_AGE, _G1_SQ_RELATIONSHIP,
+        _G1_SQ_SEIZED_PROPERTY, _G1_SQ_TIME_OF_DAY,
+    ):
+        override = router._deterministic_route_override(sub_query)
+        assert override is not None, sub_query
+        assert override["route"] == "XAGG", (sub_query, override["route"])
+
+
+def test_every_new_aggregate_kind_is_accepted_by_the_harness_tool_result():
+    """[Gold-QA fix — Modules 31-34] `XAggToolResult.aggregate_kind` is a
+    hand-maintained `Literal` in `harness/tools/xagg.py`, NOT derived from
+    `run_aggregate()`. A kind missing from it raises a Pydantic
+    `literal_error` the instant XAGG reaches the harness wrapper, and
+    main.py's top-level handler swallows it into an EMPTY answer with no
+    user-visible error — which is exactly how Module 31 first failed live
+    while every unit test passed. Four earlier modules hit this same trap;
+    this test closes it for good."""
+    from typing import get_args
+
+    from src.pipeline.harness.tools.xagg import AggregateKind
+
+    accepted = set(get_args(AggregateKind))
+    for kind in (
+        "offender_age_profile", "accused_relationship_breakdown",
+        "seized_property_disposition", "incident_time_of_day",
+    ):
+        assert kind in accepted, kind
