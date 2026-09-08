@@ -93,7 +93,9 @@ several can run in parallel chats/worktrees without colliding.
 | 40 | M4's Meta-Analysis synthesis rejected by the verifier — **superseded for M4 by Module 41; being re-scoped to CR3/G6** | `fix/meta-analysis-m4-synthesis-verifier-rejection` | 🟡 Branch pushed, unverified. **Module 41 made M4 skip Meta-Analysis entirely**, so this fix targets a path M4 no longer takes. Decision 2026-09-08: rebase after Module 50 and re-target at CR3/G6, the questions that still decompose. See its section below. |
 | 48 | KB2 and KB9 answer fluently but factually wrong (FC 0.0 / AR 1.0) after Module 30 fixed their retrieval | *(not yet branched)* | ⬜ New — the last two KB questions with no module of their own |
 | 49 | KB3 reaches Police Order Article 18 but still scores 0.1 — it quotes the article without drawing gold's conclusion | *(not yet branched)* | ⬜ New — Module 30 got the chunk in; the synthesis half is unaddressed |
-| 50 | G1/G6 consolidation: wire Modules 31–36's aggregates into their decomposition plans, and settle `_MAX_SUB_QUERIES` | *(not yet branched)* | ⬜ New — **the aggregates exist but nothing calls them**, which is why G1 sits at 0.1 and G6 at 0.3 |
+| 50 | G1/G6/CR3 consolidation: wire Modules 31–36's aggregates into their decomposition plans, and settle `_MAX_SUB_QUERIES` | `fix/meta-analysis-wire-g1-g6-aggregates` | ✅ **Done** — all six wired; every one now fires on **every** live run (`caseload_review` 7/7 × 4 kinds, `orientation_note` 6/6, `record_consistency` 3/3). G1 reproduces 3 of gold's 4 findings exactly and corrects the 4th per Module 34; CR3 now gets gold's exact `CMS-ISB-2026-0341`; G6 reports the arrest rate for the first time. **Cap settled at 5 with measurement** — N=9 loses 4 sub-queries to the 60 s timeout, N=6 fails 1 run in 3. New defects split out as Modules 53–54. Result: `docs/gold-qa-wave2-results/MODULE50_RESULT.md` |
+| 53 | Meta-Analysis' 60 s sub-query timeout is one shared wall-clock deadline, so it kills whichever sub-query is served LAST, not the slow one | *(not yet branched)* | ⬜ New — found by Module 50. The aggregate has already computed when the timeout fires; only its LLM paraphrase is discarded. **Prerequisite for reconsidering `_MAX_PLAN_SUB_QUERIES`** |
+| 54 | Two provider-failure gaps Module 46's quota fix did not close: `503 UNAVAILABLE` is not in its grep, and a failed cutover classification silently falls back to `orchestrator.py` | *(not yet branched)* | ⬜ New — found by Module 50, which hit both live. Module 46 (via Module 42) already fixed the `rate limit` → `RESOURCE_EXHAUSTED` half independently; this is the residual |
 | 51 | `backend.log` is written through a cp1252 stream, so any Urdu-carrying log record is **silently destroyed** inside `logging.emit()` | `fix/backend-log-utf8-encoding` | ✅ **Fixed** — handler-level UTF-8; the `XAGG <kind>` diagnostics every module is verified against were being deleted |
 | 52 | The relevance gate cannot judge a roman-Urdu question against English statute text (English 6/6 relevant, roman-Urdu 1/6, identical chunks) | *(not yet branched)* | ⬜ New — found by Module 42; this is what actually makes KB6 abstain, and it gates the whole roman-Urdu half of the KB bucket |
 | 55 | Every XAGG aggregate predating Modules 31–36 emits no `XAGG <kind>:` log line, so no live run of it can be identified from `backend.log` | *(not yet branched)* | ⬜ New — found by Module 43, which had to add M7's before it could tell a correct run from a wrong-metric one. XAGG's SSE reports only `route='XAGG'`, so this is the project's only proof of which aggregate answered. Mechanical: one `logger.info()` per family. **Worth doing before Module 27's rerun**, so that run is diagnosable. |
@@ -2348,45 +2350,145 @@ grounded in; the other seven KB questions as a regression guard.
 
 ---
 
-# Module 50 — G1/G6 consolidation: the aggregates exist but nothing calls them ⬜
+# Module 50 — G1/G6/CR3 consolidation: the aggregates existed but nothing called them ✅
 
-**This is the single highest-value unstarted module**, and the reason G1 sits
-at 0.1 and G6 at 0.3 despite six modules of work.
+**Done.** Branch `fix/meta-analysis-wire-g1-g6-aggregates`. Full write-up:
+`docs/gold-qa-wave2-results/MODULE50_RESULT.md`.
 
-Modules 31–34 built and live-verified four G1 aggregates — offender age
-(24–49, mean 31.5), accused↔complainant relationship (اجنبی 15 of 24),
-seized-property disposition (13 forensic-lab / 7 heirs, matching gold exactly),
-and incident time-of-day. **Module 31's own result file records that G1's
-answer is unchanged**, because wiring them needs
-`harness/agents/meta_analysis.py`, which was owned by another track throughout.
-Modules 35 and 36 are adding two more with the same deferral.
+**The brief's diagnosis was right in every particular** and nothing had to be
+re-derived. Confirmed on the base commit by dispatching each of the six
+pinned sub-query strings individually through `/api/chat`: all six reached
+their aggregate and returned gold's numbers, and all six were unreachable
+from G1/G6/CR3. The defect was an **absent call**, not a wrong answer.
 
-**Work:**
+**Wired** — the six strings copied byte-identical from where Modules 31–36
+pinned them in `tests/test_xagg.py`, with a test asserting both copies stay
+equal:
 
-1. Wire Modules 31–34's sub-queries into the `caseload_review` plan and
-   Module 36's filtered listing into `record_consistency`. **The canonical
-   sub-query strings are already pinned in tests** by each module precisely so
-   they can be copied across unchanged — use those, do not re-invent them.
-2. **Settle `_MAX_SUB_QUERIES = 5`.** G1's plan is already full at five and has
-   at least a sixth candidate; Module 24's court-stage aggregate is a seventh.
-   Raising it costs latency and model calls per question, and Module 29 already
-   measured a sub-query starving its siblings into the 60 s
-   `META_ANALYSIS_SUBQUERY_TIMEOUT`. Decide deliberately, measure the cost, and
-   record the reasoning.
-3. Coordinate with **Module 41**, which is changing when decomposition happens
-   at all. **Do 41 first** — a plan wired against the old dispatch behaviour
-   would need redoing.
+| Plan | Sub-queries now |
+|---|---|
+| `record_consistency` (CR3) | **M36 filtered FIR listing** (placed first, as `[Document 1]`), person recurrence, CMS linkage |
+| `orientation_note` (G6) | district spread, case mix by year, **M35 arrest rate**, reporting speed, weapon licence |
+| `caseload_review` (G1) | **M31 age**, **M32 relationship**, **M33 seized property**, **M34 time-of-day**, person recurrence |
 
-**Verify:** G1 and G6 live, several runs each, confirming from `backend.log`
-that each wired aggregate actually fires; compare against gold's four G1
-findings and nine G6 elements. Regression-guard CR3, M2 and every question
-Modules 31–36 touched.
+`caseload_review` was **re-composed, not extended**. Gold's G1 states its own
+method — *"profile the accused, the victims, the property and the timing"* —
+and its four findings are exactly Modules 31–34's four aggregates. Module
+29's five scans answered a legitimate but different question, as its own
+result file recorded.
 
-**Note for whoever takes this:** Module 34 established that gold's own G1 claim
-about incident times being "fairly flat across the day" is a date-only
-artefact — 14 rows sit at exactly 00:00:00. Do not tune toward gold's wording
-there; Module 34's corrected reading is better supported and both are in the
-answer.
+**`_MAX_SUB_QUERIES` settled at 5, and the brief's framing of the cost was
+wrong.** It is not primarily latency or model spend: `META_ANALYSIS_SUBQUERY_TIMEOUT`
+(60 s) is a **single wall-clock deadline shared by the whole fan-out**, and
+the shared model server serialises the sub-queries into a staircase, so the
+deadline measures **queue position**. Measured live:
+
+| N | Last sub-answer | Timeouts | Synthesis |
+|---|---|---|---|
+| 3 (CR3) | +25.0 s / +29.2 s | 0 / 0 | grounded |
+| 5 (G1 baseline) | +56.7 s / +53.5 s | 0 / 0 | grounded |
+| 6 (G6) | +41.1 / +57.7 / +58.1 s | 0 / 0 / **1** | last run **NOT grounded** |
+| 9 (G1) | +55.4 s for 5 of 9 | **4** | 4 findings missing |
+
+At N=9 two of the four killed sub-queries were the age and time-of-day
+aggregates the wiring exists to reach. Raising the cap buys timeouts, not
+coverage. The plan cap is now a separate constant (`_MAX_PLAN_SUB_QUERIES`)
+from the LLM-decomposer cap, because a plan was previously **silently
+truncated** by the LLM-path cap — a nine-entry `caseload_review` would have
+dispatched only its first five with nothing saying so.
+
+**Cost of holding the line, stated plainly:** G6 dropped `_SQ_GENDER` to fit
+the arrest rate, so gold's "mostly men" element is no longer computed.
+
+**Live:** every wired aggregate fires on **every** run — `caseload_review`
+7/7 for all four kinds, `orientation_note` 6/6, `record_consistency` 3/3.
+G1's clean run reports all four gold findings (24–49/mean 31.5; اجنبی 15 of
+24; 13 forensic-lab / 7 heirs; time-of-day). CR3 now quotes gold's exact
+`CMS-ISB-2026-0341` — Module 29 had `CMS-KHI-2026-0417`. G6 reports the
+arrest rate in 3 of 4 runs, having reported it in none before.
+
+**Honest caveats.** (a) On gold's G1 finding (4) the answer deliberately does
+**not** say "flat across the day": Module 34 established that is a date-only
+artefact (14 rows at 00:00:00) and the corrected reading is reported instead.
+(b) G6's measured arrest rate is **1 in 6.6**, not gold's 1 in 9. (c) Several
+runs degraded because three other backends (8012/8014/8015) were driving the
+same model server concurrently, and two paraphrase runs died on provider
+`503` / `429 quota exceeded` — reported, not worked around.
+
+---
+
+# Module 53 — the sub-query timeout measures queue position, not cost ⬜
+
+**Found by Module 50**, and the single change that would most improve
+Meta-Analysis reliability.
+
+`meta_analysis.py::_dispatch_one()` wraps each sub-query in
+`asyncio.wait_for(..., timeout=META_ANALYSIS_SUBQUERY_TIMEOUT)` and
+`asyncio.gather()`s all N at once — so every sub-query shares **one 60 s
+wall-clock deadline starting at fan-out**. The shared model server does not
+run them in parallel; it serialises them into a ~6–10 s staircase. A
+sub-query is therefore killed for being **served last**, not for being slow.
+Module 50 measured the last slot consuming 53–58 s of the budget at N=5 even
+on a quiet machine, and failing outright under contention.
+
+**The waste is specific and avoidable:** the `XAGG <kind>` log line is
+present for every timed-out sub-query, so the aggregate had **already
+computed**. What is discarded is only its LLM paraphrase.
+
+**Work:** either dispatch in bounded batches so each batch gets a fresh
+window, or — cheaper — serve the raw aggregate when a sub-query's paraphrase
+times out, exactly as `large_scale_aggregate.py` already does when the
+*verifier* rejects a paraphrase. `src/config.py`'s 60 s default was out of
+Module 50's scope and should be revisited here.
+
+**Verify:** G1/G6/CR3 several runs each with no other backend running;
+confirm zero dropped sub-answers at N=5. **This is the prerequisite for
+reconsidering `_MAX_PLAN_SUB_QUERIES`** — Module 50 measured three gold G6
+elements that fit only if this is fixed first.
+
+---
+
+# Module 54 — the two provider-failure gaps Module 46 did not close ⬜
+
+**Found by Module 50, which hit both live.** Half of this was already found
+and fixed independently while Module 50 was running: **Module 46** (prompted
+by Module 42's transient Gemini 429) widened the eval preflight check to
+`grep -ciE "rate limit|RESOURCE_EXHAUSTED|429|quota"`, having established
+that *"Groq says `rate limit`; Gemini says `RESOURCE_EXHAUSTED`"*. Module 50
+reproduced exactly that failure independently, which is good corroboration
+that it is real and recurring, and **that half needs no further work.**
+
+Two residuals remain.
+
+**(1) `503 UNAVAILABLE` is in neither grep.** Module 50 captured:
+
+```
+503 UNAVAILABLE ... 'This model is currently experiencing high demand.'
+```
+
+It is a transient capacity failure, not a quota failure, but it has the same
+consequence and the same invisibility. Module 46's pattern should gain
+`|UNAVAILABLE|503`, and `WAVE2_ORCHESTRATION_PROMPT.md` — which still
+prescribes the bare `grep -c "rate limit"` for *live module verification*,
+separately from the eval preflight Module 46 fixed — should adopt the
+widened pattern too.
+
+**(2) A failed cutover classification is silently invisible in the SSE
+stream.** Both of Module 50's failures hit `src/main.py`'s
+`Cutover classification failed, falling back to orchestrator.py` path, which
+**changes which sub-agent answers the question** — the harness is skipped and
+the legacy orchestrator re-routes. Module 50's G1 paraphrase went from
+Meta-Analysis to Cross-Case Linkage's relevance-gate refusal purely because
+of this, and nothing in the SSE stream said so. It is indistinguishable from
+a routing regression unless you happen to read `backend.log`.
+
+**Work:** widen the pattern in both places; then decide whether the fallback
+should emit a visible SSE event (or at minimum whether module verification
+should treat a `Cutover classification failed` line as invalidating that run,
+the way a rate-limit line already does).
+
+**Verify:** re-run any decomposing question with the pattern in place;
+confirm a forced fallback is detectable without reading the log.
 
 ---
 
