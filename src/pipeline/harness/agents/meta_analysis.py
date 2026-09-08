@@ -92,7 +92,10 @@ THREE STAGES:
    reaches stage 3, disclosed, never silently dropped. Bounded at
    `_MAX_SUB_QUERIES` (5, per findings.md's own suggested cap and the
    approved plan) — the decomposer prompt is instructed to stay within this,
-   and this module hard-truncates defensively if it doesn't.
+   and this module hard-truncates defensively if it doesn't. A
+   DETERMINISTIC plan is bounded by `_MAX_PLAN_SUB_QUERIES` instead
+   ([Gold-QA fix — Module 50]): same number, different justification, and
+   see that constant for the measurement that fixes it at 5.
 
 3. AGGREGATE / SYNTHESIZE. See `_bucket_outcomes()`/`meta_analysis()` for
    the full status-mapping bucket list. In short: a sub-query that produced
@@ -219,6 +222,43 @@ _DECOMPOSER_SYSTEM_PROMPT = _PROMPT_PATH.read_text(encoding="utf-8")
 # this; this module hard-truncates defensively if it doesn't, rather than
 # rejecting the whole decomposition outright over a prompt-compliance slip.
 _MAX_SUB_QUERIES = 5
+
+# [Gold-QA fix — Module 50] The SAME number, for a DIFFERENT reason, and
+# split out so the two reasons can move independently.
+#
+# `_MAX_SUB_QUERIES` above bounds an UNTRUSTED list — whatever the decomposer
+# LLM happened to emit. `_MAX_PLAN_SUB_QUERIES` bounds a hand-authored,
+# code-reviewed `_DecompositionPlan`. Before this split, a plan was silently
+# truncated by the LLM-path cap: appending Modules 31–34's four sub-queries
+# to `caseload_review` would have produced a 9-entry plan of which only the
+# first FIVE ever dispatched, with nothing anywhere saying so. That is the
+# worst available failure mode — a wiring module whose wiring is invisibly
+# discarded — so plans are now truncated against their own constant and a
+# unit test asserts no plan ever exceeds it (a plan that did would be a
+# code bug, not a runtime surprise).
+#
+# MEASURED, on this branch, port 8013, 2026-09-08 — see MODULE50_RESULT.md §2
+# for the full table. The binding constraint is NOT model cost, it is the
+# 60 s `META_ANALYSIS_SUBQUERY_TIMEOUT`, which every sub-query in a fan-out
+# shares as a single WALL-CLOCK deadline from the moment `asyncio.gather()`
+# starts:
+#
+#   - Dispatched ALONE, each of the six new sub-queries costs 12.1–26.1 s
+#     (mean 18.3 s) end to end.
+#   - Dispatched CONCURRENTLY they do NOT overlap. The shared model server
+#     serialises them: at N=5, G1's five sub-answers completed at +25.0,
+#     +33.4, +44.3, +50.9 and +56.7 s after the plan matched — a near-linear
+#     ~10 s per sub-query staircase, finishing 3.3 s inside the 60 s budget.
+#   - So the ceiling is arithmetic, not a matter of taste:
+#     60 s / ~10 s per sub-query ≈ 6, and the 6th lands ON the deadline.
+#     N=9 was then run live and behaved exactly as that predicts — see §2.
+#
+# Raising this number therefore does not buy more coverage; it buys TIMEOUTS,
+# and a timed-out sub-query contributes a caveat instead of its finding, so
+# the aggregate that was wired in is precisely the one that goes missing.
+# Five is kept, and `caseload_review` is RE-COMPOSED rather than extended —
+# see that plan's own comment for which five and why.
+_MAX_PLAN_SUB_QUERIES = 5
 
 # Self-contained, sub-agent-scoped synthesis prompt — inline template, NOT
 # an external prompts/*.txt file. See module docstring's stage-1 note for
@@ -432,7 +472,59 @@ _SQ_CMS_LINKAGE = (
 # and the whole answer degraded. The identification gap it was meant to
 # close is real; it needs a SUBJECT-FILTERED FIR listing aggregate (Module
 # 36 in the plan), not a whole-corpus dump inside a concurrent fan-out.
+# [Gold-QA fix — Module 50] Module 36 landed, and that filtered aggregate is
+# now wired into the record-consistency plan as `_SQ_FIR_LISTING_CYBER`
+# below. This constant stays unused, and the warning above stays true of
+# THIS string: the fix was to filter the listing, not to tolerate the dump.
 _SQ_CASE_LISTING = "Give me the list of all cases."
+
+# ── [Gold-QA fix — Module 50] The six aggregates Modules 31–36 built and
+#    live-verified, and which until this module NOTHING CALLED.
+#
+# Every string below is COPIED VERBATIM from the test that its own module
+# pinned it in (`tests/test_xagg.py`: `_G1_SQ_ACCUSED_AGE`,
+# `_G1_SQ_RELATIONSHIP`, `_G1_SQ_SEIZED_PROPERTY`, `_G1_SQ_TIME_OF_DAY`,
+# `_G6_SQ_ARREST_RATE`, `_CR3_SQ_FIR_LISTING`). They were pinned there
+# precisely so this module could copy them across unchanged, and
+# `test_module50_wired_sub_queries_are_byte_identical_to_the_pinned_strings`
+# asserts the two copies stay equal.
+#
+# DO NOT REWORD THEM. Each leads with "How many cases ..." for a reason
+# Modules 31–34 caught LIVE, not in review: `router.py`'s
+# `_XGRAPH_OVERRIDE_PATTERNS` carries `across.{0,15}cases`, which steals any
+# sub-query whose "..., across all cases?" suffix is the first override to
+# match. The first drafts ("What relationship is recorded...", "At what time
+# of day...") all came back `route='XGRAPH'`, never reached `run_aggregate()`
+# at all, and were answered by an unrelated cross-case traversal. Leading
+# with "How many cases" makes `_XAGG_OVERRIDE_PATTERNS` win outright, so
+# every one of these dispatches costs ZERO router LLM calls and cannot
+# drift. `test_module29_every_planned_sub_query_routes_deterministically_to_xagg`
+# already covers every plan member, these six included.
+_SQ_ACCUSED_AGE = (  # Module 31 -> `offender_age_profile`
+    "How many cases involve an accused person, and what is their age range "
+    "and average age, across all cases?"
+)
+_SQ_RELATIONSHIP = (  # Module 32 -> `accused_relationship_breakdown`
+    "How many cases record a relationship between the accused and the "
+    "complainant, and which relationship is it, across all cases?"
+)
+_SQ_SEIZED_PROPERTY = (  # Module 33 -> `seized_property_disposition`
+    "How many cases record seized property, and what happens to it — how "
+    "many items were sent to a forensic laboratory or held for a deceased's "
+    "heirs, across all cases?"
+)
+_SQ_TIME_OF_DAY = (  # Module 34 -> `incident_time_of_day`
+    "How many cases record an incident time, and at what time of day do "
+    "those incidents happen, across all cases?"
+)
+_SQ_ARREST_RATE = (  # Module 35 -> `arrest_rate`
+    "How many cases record an arrest of an accused person, and on how many "
+    "is no arrest recorded, across all cases?"
+)
+_SQ_FIR_LISTING_CYBER = (  # Module 36 -> `filtered_fir_listing`
+    "How many cases are registered under the cybercrime act at a cyber "
+    "crime circle station, and what are their FIR numbers and current status?"
+)
 
 _DECOMPOSITION_PLANS: tuple[_DecompositionPlan, ...] = (
     # (1) CROSS-RECORD CONSISTENCY — "were these two records processed and
@@ -441,6 +533,21 @@ _DECOMPOSITION_PLANS: tuple[_DecompositionPlan, ...] = (
     #     record-linkage cross-check applied to each. Checked first: it is
     #     the narrowest family, and a consistency question can also carry
     #     caseload vocabulary.
+    #
+    # [Gold-QA fix — Module 50] `_SQ_FIR_LISTING_CYBER` closes the
+    # IDENTIFICATION half, which Module 29 left open and named as CR3's
+    # single cause of instability: nothing in the two original sub-answers
+    # said which FIRs "the online banking fraud matter" refers to, so the
+    # synthesis model had to guess the pair, and across Module 29's runs it
+    # once refused outright and once paired `fir-64-26` with the wrong FIR.
+    # It is placed FIRST so it lands as [Document 1] and the synthesis goal
+    # can point at it by number.
+    #
+    # This is NOT `_SQ_CASE_LISTING` (see that constant's own comment for the
+    # 4.6 KB whole-corpus dump that starved its siblings). Module 36's
+    # `filtered_fir_listing` returns exactly the FIRs matching the statute
+    # and station filters — measured live on this branch at 2 rows, not 73 —
+    # so the cost that got the unfiltered listing removed does not apply.
     _DecompositionPlan(
         name="record_consistency",
         patterns=(
@@ -450,30 +557,45 @@ _DECOMPOSITION_PLANS: tuple[_DecompositionPlan, ...] = (
             re.compile(r"\bek\s*hi\s*tarah\s*(se)?\b", re.IGNORECASE),
             re.compile(r"ایک\s*ہی\s*طرح"),
         ),
-        sub_queries=(_SQ_PERSON_RECURRENCE, _SQ_CMS_LINKAGE),
+        sub_queries=(_SQ_FIR_LISTING_CYBER, _SQ_PERSON_RECURRENCE, _SQ_CMS_LINKAGE),
         synthesis_goal=(
             "Decide whether the records the user asked about were handled identically. "
-            "The sub-answers are dataset-wide lists, NOT pre-filtered to the records in "
-            "the question — locate the relevant FIR numbers inside them yourself: the "
-            "recurring-person answer names GROUPS of FIRs that share the same accused, "
-            "which is how two connected complaints show up in this data. Check each group "
-            "against the walk-in-complaint linkage list and work with the group that list "
-            "SPLITS — at least one of its FIRs present in the list, at least one absent. "
-            "A FIR that appears in that list has a matching complaint; one that does not "
-            "appear has none, and that difference IS the answer. If no group is split, the "
-            "records were handled the same way and you should say so. Never pair a FIR "
-            "from one group with a FIR from another. Say 'yes, identically' or 'no, not "
-            "identically' explicitly, name the FIR numbers, and name the specific record "
-            "(with its case tag) that exists for one and not the other. Do not reply that "
-            "the question cannot be answered merely because the sub-answers do not repeat "
+            "[Document 1] IDENTIFIES the pair: it is a filtered listing of exactly the "
+            "FIRs the question is about, so take the FIR numbers from there rather than "
+            "inferring them. Then check each of those FIRs against the walk-in-complaint "
+            "linkage list: a FIR that appears in that list has a matching complaint; one "
+            "that does not appear has none, and that difference IS the answer. The "
+            "recurring-person answer is corroboration — it shows the pair shares an "
+            "accused — not the identifier. If the linkage list contains all of the "
+            "identified FIRs, or none of them, the records were handled the same way and "
+            "you should say so. Say 'yes, identically' or 'no, not identically' "
+            "explicitly, name the FIR numbers, and name the specific record (with its "
+            "case tag) that exists for one and not the other. Do not reply that the "
+            "question cannot be answered merely because the sub-answers do not repeat "
             "its wording."
         ),
     ),
     # (2) ORIENTATION / WHAT-TO-EXPECT NOTE — "brief a newly posted officer
     #     on what this caseload is like" (G6). Decomposes into the standing
     #     shape of the caseload: how big and where, what it is made of and
-    #     how that changed, how fast things get reported, and the two
-    #     compliance/profile facts that most affect day-to-day work.
+    #     how that changed, how often an arrest actually happens, how fast
+    #     things get reported, and the compliance fact that most affects
+    #     day-to-day work.
+    #
+    # [Gold-QA fix — Module 50] `_SQ_ARREST_RATE` (Module 35) added.
+    # Module 35 confirmed live that G6 COMPLETED without it ever firing,
+    # for the simple reason that this plan did not ask for it — the
+    # aggregate existed and was correct and was unreachable.
+    #
+    # `_SQ_GENDER` was REMOVED to make room, and this is a real cost, stated
+    # plainly rather than glossed: gold's "zyada tar mulzim ... mard hain"
+    # is an element this plan no longer computes. It lost the slot on
+    # gradeable specificity — the arrest rate is a NUMBER gold states
+    # ("girftari sirf har no mein se taqreeban ek FIR par", vs this data's
+    # measured 1 in 6.6), where the gender split is a soft descriptor. Both
+    # cannot fit: N=6 was run live three times on this branch and the third
+    # run lost a sub-query to the 60 s timeout and produced an UNVERIFIABLE
+    # synthesis. See `_MAX_PLAN_SUB_QUERIES` for the full measurement.
     _DecompositionPlan(
         name="orientation_note",
         patterns=(
@@ -487,15 +609,16 @@ _DECOMPOSITION_PLANS: tuple[_DecompositionPlan, ...] = (
         sub_queries=(
             _SQ_DISTRICT_SPREAD,
             _SQ_CASE_MIX_BY_YEAR,
+            _SQ_ARREST_RATE,
             _SQ_REPORTING_SPEED,
             _SQ_WEAPON_LICENCE,
-            _SQ_GENDER,
         ),
         synthesis_goal=(
             "Write a short orientation note for an officer joining this caseload. Say "
             "which districts the cases are concentrated in, what the case mix is now and "
-            "how it has changed, how promptly crimes are reported now compared with "
-            "earlier, and what the accused profile and weapon-licensing picture look like. "
+            "how it has changed, how often an arrest is actually recorded, how promptly "
+            "crimes are reported now compared with earlier, and what the "
+            "weapon-licensing picture looks like. "
             "Quote the per-district and per-year figures exactly as the sub-answers give "
             "them — do not total them up — and state plainly anything the sub-answers say "
             "is not available rather than guessing at it."
@@ -504,8 +627,48 @@ _DECOMPOSITION_PLANS: tuple[_DecompositionPlan, ...] = (
     # (3) WHOLE-CASELOAD REVIEW — "review the caseload and flag anything
     #     unusual or worth monitoring" (G1, and its non-gold paraphrase
     #     "look over everything currently open ... worth a second look").
-    #     Decomposes into the four computable "is anything off here?"
-    #     scans plus the case-mix shift.
+    #
+    # [Gold-QA fix — Module 50] RE-COMPOSED, not extended. This is the
+    # substantive judgement of this module, so the reasoning is recorded
+    # here rather than in a commit message.
+    #
+    # Module 29 wired five "is anything off here?" scans and its own result
+    # file graded the outcome honestly: "a real analytical answer, but not
+    # gold's analytical answer" — every claim correctly computed, and
+    # near-zero overlap with what gold actually asked for. Gold's G1 states
+    # its method in its first line: "profile the accused, the victims, the
+    # property and the timing across the 73 FIRs". Its four findings are
+    # therefore EXACTLY Modules 31-34's four aggregates, in order:
+    #   (1) offender age 24-49, mean 31.5      -> `_SQ_ACCUSED_AGE`
+    #   (2) 'stranger' dominates relationships -> `_SQ_RELATIONSHIP`
+    #   (3) 13 forensic-lab / 7 heirs items    -> `_SQ_SEIZED_PROPERTY`
+    #   (4) incident time-of-day distribution  -> `_SQ_TIME_OF_DAY`
+    #
+    # Appending them to the existing five was measured, not assumed, and it
+    # does not work: at N=9 FOUR of the nine sub-queries hit the 60 s
+    # `META_ANALYSIS_SUBQUERY_TIMEOUT` live on this branch, and two of the
+    # four killed were `_SQ_ACCUSED_AGE` and `_SQ_TIME_OF_DAY` — i.e. the
+    # wiring silently destroyed the very aggregates it was added to reach.
+    # See `_MAX_PLAN_SUB_QUERIES` for the numbers.
+    #
+    # So the fifth slot is contested, and it goes to `_SQ_PERSON_RECURRENCE`
+    # on a single criterion: it is the only one of Module 29's five that no
+    # OTHER gold question already asks in its own right. `_SQ_COMPLETENESS`
+    # is G2's literal question and `_SQ_WEAPON_LICENCE` is G5's — both now
+    # answered directly and correctly by Module 41's supervisor guard, so
+    # re-deriving them inside G1 spends a scarce slot on a fact the system
+    # already reports elsewhere. `_SQ_CASE_MIX_BY_YEAR` is owned by the
+    # orientation plan below. `_SQ_CRIMINAL_RECORD_VS_COURT` is the weakest
+    # of the four dropped and the honest reason it lost is that something
+    # had to.
+    #
+    # NOTE — DELIBERATELY NOT TUNED TOWARD GOLD. Module 34 established that
+    # gold's own finding (4), "incident times are fairly flat across the day",
+    # is a DATE-ONLY ARTEFACT: 14 of the 64 incidents carrying a datetime sit
+    # at exactly 00:00:00, and excluding those the remaining 50 lean evening
+    # (19) over afternoon (16), morning (14), night (1). The sub-query asks
+    # what the data says; the synthesis goal does not ask for "flat", and no
+    # wording here should be changed to produce it.
     _DecompositionPlan(
         name="caseload_review",
         patterns=(
@@ -520,20 +683,25 @@ _DECOMPOSITION_PLANS: tuple[_DecompositionPlan, ...] = (
             re.compile(r"غیر\s*معمولی"),
         ),
         sub_queries=(
-            _SQ_COMPLETENESS,
+            _SQ_ACCUSED_AGE,
+            _SQ_RELATIONSHIP,
+            _SQ_SEIZED_PROPERTY,
+            _SQ_TIME_OF_DAY,
             _SQ_PERSON_RECURRENCE,
-            _SQ_WEAPON_LICENCE,
-            _SQ_CASE_MIX_BY_YEAR,
-            _SQ_CRIMINAL_RECORD_VS_COURT,
         ),
         synthesis_goal=(
             "Report what actually stands out in the current caseload and what is worth "
-            "monitoring. Lead with the findings that are genuinely unusual — repeat "
-            "offenders appearing across FIRs, weapons held without a licence, records that "
-            "are incomplete, criminal-record and court outcomes that do not agree, and how "
-            "the case mix has shifted — with the exact counts from the sub-answers. Do not "
-            "pad with routine observations, and do not assert anything the sub-answers do "
-            "not contain."
+            "monitoring. Profile the people, the property and the timing, and say what "
+            "does not look routine — the age range and average age of the accused, what "
+            "relationship (if any) they have to the complainant and which relationship "
+            "dominates, what the seized-property register shows was done with the items, "
+            "what time of day incidents actually happen, and any accused recurring across "
+            "more than one FIR — with the exact counts from the sub-answers. Where a "
+            "sub-answer states how much of the caseload its figure is based on, carry "
+            "that coverage across too: a profile drawn from a minority of records is a "
+            "finding about the records as much as about the crime. Do not pad with "
+            "routine observations, and do not assert anything the sub-answers do not "
+            "contain."
         ),
     ),
 )
@@ -567,7 +735,7 @@ async def _decompose(query_text: str) -> _DecomposerResult:
         logger.info("Meta-Analysis: deterministic decomposition plan %r matched.", plan.name)
         return _DecomposerResult(
             decompose=True,
-            sub_queries=list(plan.sub_queries[:_MAX_SUB_QUERIES]),
+            sub_queries=list(plan.sub_queries[:_MAX_PLAN_SUB_QUERIES]),
             synthesis_goal=plan.synthesis_goal,
             plan_name=plan.name,
         )
