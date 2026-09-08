@@ -3476,6 +3476,11 @@ def test_each_new_g1_sub_query_deterministically_routes_to_xagg():
     for sub_query in (
         _G1_SQ_ACCUSED_AGE, _G1_SQ_RELATIONSHIP,
         _G1_SQ_SEIZED_PROPERTY, _G1_SQ_TIME_OF_DAY,
+        # [Gold-QA fix — Module 35] G6's arrest-rate sub-query, phrased to
+        # the same "How many cases ..." rule for the same reason.
+        _G6_SQ_ARREST_RATE,
+        # [Gold-QA fix — Module 36] CR3's FIR-listing sub-query, same rule.
+        _CR3_SQ_FIR_LISTING,
     ):
         override = router._deterministic_route_override(sub_query)
         assert override is not None, sub_query
@@ -3499,5 +3504,703 @@ def test_every_new_aggregate_kind_is_accepted_by_the_harness_tool_result():
     for kind in (
         "offender_age_profile", "accused_relationship_breakdown",
         "seized_property_disposition", "incident_time_of_day",
+        # [Gold-QA fix — Module 35] fifth family to depend on this Literal.
+        "arrest_rate",
+        # [Gold-QA fix — Module 36] sixth.
+        "filtered_fir_listing",
     ):
         assert kind in accepted, kind
+
+
+# ── [Gold-QA fix — Module 35, question G6] arrest rate ──────────────────────
+#
+# The literal G6 sub-question this family exists to answer, in the same
+# "..., across all cases?" shape as `meta_analysis.py`'s other sub-queries,
+# and leading with "How many cases" for the reason
+# `test_each_new_g1_sub_query_deterministically_routes_to_xagg` records.
+_G6_SQ_ARREST_RATE = (
+    "How many cases record an arrest of an accused person, and on how many "
+    "is no arrest recorded, across all cases?"
+)
+_S3_GOLD_TEXT = "کیا کسی شخص کو ایک سے زیادہ بار گرفتار کیا گیا ہے؟"
+
+
+class _ArrestAgeClient:
+    """Routes the two reads `_arrest_rate()` issues: the accused roster and
+    the Case roster (the rate's denominator)."""
+
+    def __init__(self, accused_rows, case_rows):
+        self.accused_rows = accused_rows
+        self.case_rows = case_rows
+        self.queries = []
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        self.queries.append((cypher_query, params))
+        if "INVOLVED_IN" in cypher_query:
+            return self.accused_rows
+        return self.case_rows
+
+
+def _accused_arrest(status, case_id, p_id):
+    return {"arrest_status": status, "case_id": case_id, "p_id": p_id}
+
+
+def _cases(*case_ids):
+    return [{"case_id": c} for c in case_ids]
+
+
+# The four measured live status values (2026-09-08) that a naive substring
+# rule gets wrong, pinned individually so the classification rule cannot
+# drift silently.
+class TestArrestStatusClassification:
+    def test_bare_arrest_token_is_an_arrest(self):
+        assert xagg._classify_arrest_status("گرفتار") == "arrested"
+
+    @pytest.mark.parametrize("status", [
+        "موقع پر گرفتار",
+        "گرفتار، بعد ازاں سزا یافتہ",
+        "گرفتار، ڈی این اے مطابقت پر",
+    ])
+    def test_a_qualifier_does_not_stop_it_being_an_arrest(self, status):
+        assert xagg._classify_arrest_status(status) == "arrested"
+
+    @pytest.mark.parametrize("status", [
+        # BOTH of these CONTAIN گرفتار and mean the opposite of an arrest.
+        # This is the trap the whole module is about.
+        "تاحال مفرور، گرفتار نہیں ہوا",
+        "نامزد، گرفتاری کی نوبت نہ آئی",
+    ])
+    def test_a_negated_arrest_is_not_an_arrest(self, status):
+        assert xagg._classify_arrest_status(status) == "not_arrested_explicit"
+
+    def test_an_arrest_in_an_earlier_case_gets_its_own_bucket(self):
+        assert xagg._classify_arrest_status(
+            "پہلے سے کیس 10 میں گرفتار، اس مقدمے میں بھی نامزد"
+        ) == "arrested_in_another_case"
+
+    @pytest.mark.parametrize("status", [
+        "زیر تفتیش",
+        "مفرور، اشتہاری کارروائی جاری",
+        "مقام معلوم کرنے کی کارروائی جاری",
+        "نامزد، تفتیش جاری",
+        # "already in custody" carries no arrest token at all — custody is
+        # not an arrest record, and the rule does not infer one.
+        "پہلے سے زیر حراست، اس مقدمے میں بھی نامزد",
+        "",
+        None,
+    ])
+    def test_everything_else_records_no_arrest(self, status):
+        assert xagg._classify_arrest_status(status) == "no_arrest_recorded"
+
+
+async def test_arrest_rate_counts_firs_not_accused_entries(monkeypatch):
+    """Two accused arrested on the SAME FIR is one arrest FIR, not two.
+    Conflating the two denominators is the easiest way to report a wrong
+    rate here — the live corpus has 14 arrested ENTRIES across 11 FIRs."""
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[
+            _accused_arrest("گرفتار", "fir-1-26", 1),
+            _accused_arrest("موقع پر گرفتار", "fir-1-26", 2),
+            _accused_arrest("گرفتار", "fir-2-26", 3),
+            _accused_arrest("زیر تفتیش", "fir-3-26", 4),
+        ],
+        case_rows=_cases("fir-1-26", "fir-2-26", "fir-3-26", "fir-4-26"),
+    ))
+
+    result = await xagg._arrest_rate()
+
+    assert result["kind"] == "arrest_rate"
+    assert result["arrest_entry_count"] == 3
+    assert result["arrest_fir_count"] == 2
+    assert result["fir_count"] == 4
+    assert result["one_in"] == 2.0
+    assert result["no_arrest_fir_count"] == 2
+
+
+async def test_arrest_rate_denominator_includes_firs_with_no_accused(monkeypatch):
+    """5 of the live corpus's 73 Cases carry no accused entry at all. They
+    are FIRs on which no arrest is recorded, so they belong in the
+    denominator; both readings are returned so the choice is checkable."""
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[_accused_arrest("گرفتار", "fir-1-26", 1)],
+        case_rows=_cases("fir-1-26", "fir-2-26", "fir-3-26", "fir-4-26"),
+    ))
+
+    result = await xagg._arrest_rate()
+
+    assert result["fir_count"] == 4
+    assert result["fir_count_with_accused"] == 1
+    assert result["one_in"] == 4.0
+    assert result["one_in_accused_firs"] == 1.0
+
+
+async def test_arrest_rate_does_not_count_a_negated_status_as_an_arrest(monkeypatch):
+    """The module's headline trap: both negations CONTAIN گرفتار."""
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[
+            _accused_arrest("تاحال مفرور، گرفتار نہیں ہوا", "fir-1-26", 1),
+            _accused_arrest("نامزد، گرفتاری کی نوبت نہ آئی", "fir-2-26", 2),
+            _accused_arrest("گرفتار", "fir-3-26", 3),
+        ],
+        case_rows=_cases("fir-1-26", "fir-2-26", "fir-3-26"),
+    ))
+
+    result = await xagg._arrest_rate()
+
+    assert result["arrest_fir_count"] == 1
+    assert result["explicit_no_arrest_fir_count"] == 2
+    # What a naive substring rule would have reported instead.
+    assert result["naive_substring_fir_count"] == 3
+
+
+async def test_arrest_rate_publishes_the_bare_token_reading_for_comparison(monkeypatch):
+    """Gold G6's "1 in 9" is reproducible ONLY by an exact-string match on a
+    bare گرفتار, which discards three entries that record an arrest in as
+    many words. That reading is returned for comparison and is never the
+    headline — this test pins the distinction so it cannot be quietly
+    swapped in to make gold match."""
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[
+            _accused_arrest("گرفتار", "fir-1-26", 1),
+            _accused_arrest("موقع پر گرفتار", "fir-2-26", 2),
+        ],
+        case_rows=_cases("fir-1-26", "fir-2-26", "fir-3-26", "fir-4-26"),
+    ))
+
+    result = await xagg._arrest_rate()
+
+    assert result["arrest_fir_count"] == 2
+    assert result["bare_token_fir_count"] == 1
+    assert result["bare_token_one_in"] == 4.0
+    assert result["one_in"] == 2.0
+
+
+async def test_arrest_rate_renderer_states_the_counting_rule(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[
+            _accused_arrest("گرفتار", "fir-1-26", 1),
+            _accused_arrest("تاحال مفرور، گرفتار نہیں ہوا", "fir-2-26", 2),
+            _accused_arrest("زیر تفتیش", "fir-3-26", 3),
+        ],
+        case_rows=_cases("fir-1-26", "fir-2-26", "fir-3-26"),
+    ))
+
+    text = "\n".join(xagg.render_arrest_rate(await xagg._arrest_rate()))
+
+    assert "Counting rule:" in text
+    assert "گرفتار نہیں ہوا" in text
+    assert "mean the opposite" in text
+    assert "1 of 3 FIR(s)" in text
+
+
+async def test_arrest_rate_renderer_is_bounded(monkeypatch):
+    """Module 29 reverted an unfiltered 73-row listing because rendering it
+    starved its sibling sub-queries into the 60 s timeout. Every listing
+    this file renders is capped for that reason."""
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[
+            _accused_arrest(f"زیر تفتیش {i}", f"fir-{i}-26", i) for i in range(40)
+        ],
+        case_rows=_cases(*[f"fir-{i}-26" for i in range(40)]),
+    ))
+
+    lines = xagg.render_arrest_rate(await xagg._arrest_rate())
+
+    status_lines = [ln for ln in lines if ln.startswith("  - ") and "entries [" in ln]
+    assert len(status_lines) == xagg._ARREST_STATUS_RENDER_LIMIT
+    assert any("further status value(s)" in ln for ln in lines)
+
+
+async def test_arrest_rate_says_so_when_no_accused_is_recorded(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[], case_rows=_cases("fir-1-26"),
+    ))
+
+    text = "\n".join(xagg.render_arrest_rate(await xagg._arrest_rate()))
+
+    assert "No accused person is recorded" in text
+
+
+async def test_g6_arrest_sub_query_reaches_the_arrest_rate_not_person_recurrence(monkeypatch):
+    """[Gold-QA fix — Module 35] The regression pinned to the LITERAL
+    dispatched sub-query text.
+
+    Measured pre-fix on 2026-09-08 (`scratchpad/dispatch.py`, live stack):
+
+        arrest -> graph_recurrence / Person
+
+    i.e. a ranked list of repeat offenders — "فیصل and طارق both appear in
+    fir-202-26 and fir-401-26" — presented as the answer to a question about
+    arrests. The plan predicted exactly this fall-through and it reproduced.
+    """
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[_accused_arrest("گرفتار", "fir-1-26", 1)],
+        case_rows=_cases("fir-1-26", "fir-2-26"),
+    ))
+
+    result = await xagg.run_aggregate(
+        _G6_SQ_ARREST_RATE, None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "arrest_rate"
+    assert result["kind"] != "graph_recurrence"
+    assert result["kind"] != "case_listing"
+
+
+class TestArrestRateBoundary:
+    """
+    [Gold-QA fix — Module 35] `_is_arrest_rate()` sits ABOVE
+    `_PERSON_KEYWORDS` in `run_aggregate()`'s chain, and its bare vocabulary
+    collides with a gold question OUTRIGHT — S3 contains گرفتار. That is why
+    this family is a three-signal predicate rather than a keyword tuple, and
+    why the negative control below is an equality.
+    """
+
+    def test_the_g6_arrest_sub_query_matches(self):
+        assert xagg._is_arrest_rate(_G6_SQ_ARREST_RATE.lower())
+
+    @pytest.mark.parametrize("paraphrase", [
+        # The required non-gold paraphrases — no phrase shared with the
+        # dispatched sub-query above.
+        "What share of our FIRs actually end in someone being taken into custody?",
+        "How often do we actually arrest anyone?",
+        "Kitne FIRs mein mulzim giraftar hua?",
+        "کتنی ایف آئی آر میں ملزم گرفتار ہوا؟",
+    ])
+    def test_non_gold_paraphrases_match(self, paraphrase):
+        assert xagg._is_arrest_rate(paraphrase.lower())
+
+    def test_s3_the_repeat_arrest_gold_question_is_not_captured(self):
+        """S3 CONTAINS گرفتار and is a person-RECURRENCE question answered
+        correctly today by `_top_recurring_nodes("Person")`. Both guards are
+        asserted separately so a future edit that drops either one fails
+        here rather than live."""
+        lowered = _S3_GOLD_TEXT.lower()
+        assert xagg._matches_any(lowered, xagg._ARREST_TERMS), (
+            "S3 does contain the arrest vocabulary — that is the whole point"
+        )
+        assert xagg._matches_any(lowered, xagg._ARREST_RECURRENCE_EXCLUSIONS)
+        assert not xagg._matches_any(lowered, xagg._ARREST_RATE_SIGNALS)
+        assert not xagg._is_arrest_rate(lowered)
+
+    @pytest.mark.parametrize("other", [
+        # Neighbouring families this must not swallow, given where it sits.
+        "How many cases involve an accused person, and what is their age "
+        "range and average age, across all cases?",
+        "How many of the accused are men and how many are women, across all cases?",
+        "How many accused persons are there in total?",
+        "Has anyone been arrested more than once?",
+        "Kya koi shakhs ek se zyada baar giraftar hua hai?",
+    ])
+    def test_neighbouring_families_are_not_captured(self, other):
+        assert not xagg._is_arrest_rate(other.lower())
+
+    def test_matches_no_gold_question_at_all(self):
+        """The all-32 negative control, asserted as an EQUALITY.
+
+        Reads `evaluation/Gold_QA_Dataset_Final32_With_Answers.json` — the
+        bare `Gold_QA_Dataset_Final32.json` is NOT tracked in this repo, and
+        a test pinned to it silently skips (PR #21)."""
+        import json
+        from pathlib import Path
+
+        gold_path = (
+            Path(__file__).resolve().parent.parent
+            / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json"
+        )
+        assert gold_path.exists(), gold_path
+        items = json.loads(gold_path.read_text(encoding="utf-8"))
+        assert len(items) == 32
+        matched = [
+            (it.get("id") or "").upper()
+            for it in items
+            if xagg._is_arrest_rate(it["question"].lower())
+        ]
+        assert matched == [], f"expected no gold question to match, got {matched}"
+
+    def test_the_arrest_vocabulary_alone_would_have_matched_s3(self):
+        """The negative control above is only meaningful because the naive
+        version of this family FAILS it. Pinned so nobody 'simplifies'
+        `_is_arrest_rate()` back into a bare keyword tuple."""
+        import json
+        from pathlib import Path
+
+        gold_path = (
+            Path(__file__).resolve().parent.parent
+            / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json"
+        )
+        items = json.loads(gold_path.read_text(encoding="utf-8"))
+        matched = [
+            (it.get("id") or "").upper()
+            for it in items
+            if xagg._matches_any(it["question"].lower(), xagg._ARREST_TERMS)
+        ]
+        assert matched == ["S3"], matched
+
+
+async def test_s3_still_reaches_person_recurrence_after_module_35(monkeypatch):
+    """End to end with S3's LITERAL gold text, not at the predicate level —
+    the guard Module 33 used for G5, for the same reason: this family sits
+    above `_PERSON_KEYWORDS` and S3 is the question it could break."""
+    rows = [
+        {"n": _node("P-004", "Person", canonical_name="شہزیب"), "c": _case("fir-214-26")},
+        {"n": _node("P-004", "Person", canonical_name="شہزیب"), "c": _case("fir-891-24")},
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        _S3_GOLD_TEXT, None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "graph_recurrence"
+    assert result["entity_type"] == "Person"
+
+
+# ── [Gold-QA fix — Module 36, question CR3] subject-filtered FIR listing ────
+#
+# The literal sub-question this family exists to answer. Leads with "How
+# many cases ..." for exactly the reason
+# `test_each_new_g1_sub_query_deterministically_routes_to_xagg` records —
+# `_XGRAPH_OVERRIDE_PATTERNS`' `across.{0,15}cases` would otherwise steal it.
+_CR3_SQ_FIR_LISTING = (
+    "How many cases are registered under the cybercrime act at a cyber "
+    "crime circle station, and what are their FIR numbers and current status?"
+)
+# S2's literal gold text. It is the question this family is most at risk of
+# swallowing — "which" + "police station" — and it is answered correctly
+# today by the grouped station count, so it is asserted end to end below.
+_S2_GOLD_TEXT = "Which police station handles the most cases?"
+
+
+def _fir_row(case_id, fir_number, station, acts, status=None):
+    return {
+        "case_id": case_id,
+        "fir_number": fir_number,
+        "police_station": station,
+        "crime_category": acts,
+        "investigation_status": status,
+    }
+
+
+_CYBER_ISB = "سائبر کرائم سرکل، اسلام آباد"
+_CYBER_RWP = "سائبر کرائم سرکل، راولپنڈی"
+
+
+def _cr3_corpus():
+    """The shape of the live corpus this family was probed against on
+    2026-09-08 — 9 PECA 2016 cases, 9 cases at a سائبر کرائم سرکل station,
+    intersecting in exactly `fir-64-26` and `fir-65-26`. Real values, so a
+    change in the Urdu station strings breaks the test rather than passing
+    on a sanitised English stand-in."""
+    return [
+        # PECA 2016, elsewhere.
+        _fir_row("fir-208-26", "208/26", "تھانہ ماڈل ٹاؤن، لاہور", "PECA 2016, PPC"),
+        _fir_row("fir-417-26", "417/26", "تھانہ شاہ فیصل کالونی، کراچی", "PECA 2016, PPC"),
+        _fir_row("fir-418-26", "418/26", "تھانہ راجہ بازار، راولپنڈی", "PECA 2016, PPC"),
+        _fir_row("fir-427-26", "427/26", "موٹروے پولیس اسٹیشن ایم ٹو، لاہور", "PECA 2016, PPC"),
+        _fir_row("fir-428-26", "428/26", "تھانہ کوتوالی، فیصل آباد", "PECA 2016, PPC"),
+        _fir_row("fir-453-26", "453/26", "تھانہ جھنگ روڈ، فیصل آباد", "PECA 2016, PPC"),
+        _fir_row("fir-462-26", "462/26", "تھانہ نیو کراچی، کراچی", "PECA 2016, PPC"),
+        # The CR3 pair — PECA 2016 AND a cyber-crime circle.
+        _fir_row("fir-64-26", "64/26", _CYBER_ISB, "PECA 2016, PPC",
+                 "ملزم جسمانی ریمانڈ پر، مزید برآمدگی کے لیے"),
+        _fir_row("fir-65-26", "65/26", _CYBER_RWP, "PECA 2016, PPC",
+                 "ملزم جسمانی ریمانڈ پر، مقدمہ نمبر 10 کا وہی ملزم"),
+        # Cyber-crime circle, but NOT PECA.
+        _fir_row("fir-1001-26", "1001/26", _CYBER_ISB, "PPC, Arms Ordinance 1965"),
+        _fir_row("fir-204-26", "204/26", _CYBER_RWP, "PPC, Arms Ordinance 1965"),
+        _fir_row("fir-410-26", "410/26", _CYBER_RWP, "PPC, Arms Ordinance 1965"),
+        _fir_row("fir-421-26", "421/26", _CYBER_ISB, "PPC, Arms Ordinance 1965"),
+        _fir_row("fir-424-26", "424/26", _CYBER_ISB, "CNSA 1997"),
+        _fir_row("fir-435-26", "435/26", _CYBER_RWP, "PPC"),
+        _fir_row("fir-457-26", "457/26", _CYBER_ISB, "PPC"),
+        # Neither.
+        _fir_row("fir-301-26", "301/26", "تھانہ نیو کراچی، کراچی",
+                 "CNSA 1997, Arms Ordinance 1965", "دونوں ملزمان ریمانڈ پر"),
+        _fir_row("fir-118-26", "118/26", "تھانہ لطیف آباد، حیدر آباد", "CNSA 1997"),
+    ]
+
+
+async def test_cr3_sub_query_returns_exactly_the_two_ground_truth_firs():
+    """[Gold-QA fix — Module 36] The regression pinned to the LITERAL
+    dispatched sub-query text.
+
+    Ground truth, probed live 2026-09-08 before this aggregate was written:
+    PECA 2016 ∩ سائبر کرائم سرکل = `fir-64-26` (64/26, Islamabad) and
+    `fir-65-26` (65/26, Rawalpindi), and nothing else.
+
+    Measured pre-fix (`scratchpad/dispatch.py`, live stack): this sub-query
+    returned `relational_aggregate` grouped by `police_station` — nine PECA
+    cases counted per station, with NO FIR number anywhere in the result and
+    the station filter never applied at all."""
+    result = await xagg.run_aggregate(
+        _CR3_SQ_FIR_LISTING, None,
+        gateway=FakeGateway(_cr3_corpus()), user_role="supervisor",
+    )
+
+    assert result["kind"] == "filtered_fir_listing"
+    assert result["filtered"] is True
+    assert result["matched_count"] == 2
+    assert [r["fir_number"] for r in result["cases"]] == ["64/26", "65/26"]
+    assert [r["case_id"] for r in result["cases"]] == ["fir-64-26", "fir-65-26"]
+    assert any(f.startswith("statute: PECA 2016") for f in result["filters_applied"])
+    assert any(f.startswith("station: ") for f in result["filters_applied"])
+
+
+async def test_cr3_listing_renders_the_fir_number_and_the_status():
+    """The whole point of the module: Module 29's sub-answers carried the
+    facts but never said WHICH FIRs, so synthesis had to infer the pair —
+    and once paired `fir-64-26` with the wrong FIR entirely."""
+    result = await xagg.run_aggregate(
+        _CR3_SQ_FIR_LISTING, None,
+        gateway=FakeGateway(_cr3_corpus()), user_role="supervisor",
+    )
+
+    text = "\n".join(xagg.render_filtered_fir_listing(result))
+
+    assert "64/26" in text and "65/26" in text
+    assert "ملزم جسمانی ریمانڈ پر، مزید برآمدگی کے لیے" in text
+    assert "ملزم جسمانی ریمانڈ پر، مقدمہ نمبر 10 کا وہی ملزم" in text
+    # Nothing outside the intersection leaks in.
+    assert "208/26" not in text and "1001/26" not in text
+
+
+async def test_a_station_only_question_is_not_silently_narrowed_to_peca():
+    """[Gold-QA fix — Module 36] The substring collision this module paid
+    for, CAUGHT LIVE on 2026-09-08 against the real corpus, not in review.
+
+    PECA 2016's keyword tuple contains `"cyber crime"`; the station alias is
+    `"cyber crime circle"`. Before `_mask_station_aliases()`, this question —
+    which names NO statute — silently acquired a `statute: PECA 2016` filter
+    and answered 2 FIRs where the corpus holds 9 cyber-circle FIRs. Same
+    class as this module's four existing Urdu collisions."""
+    result = await xagg.run_aggregate(
+        "Which FIR numbers are registered at a cyber crime circle station?",
+        None, gateway=FakeGateway(_cr3_corpus()), user_role="supervisor",
+    )
+
+    assert result["kind"] == "filtered_fir_listing"
+    assert result["filters_applied"] == [
+        f"station: {_CYBER_ISB}, {_CYBER_RWP}"
+    ], result["filters_applied"]
+    assert result["matched_count"] == 9
+    assert "fir-64-26" in {r["case_id"] for r in result["cases"]}
+    assert "fir-1001-26" in {r["case_id"] for r in result["cases"]}
+
+
+def test_mask_station_aliases_keeps_a_statute_the_question_really_names():
+    """The mask must not swing the other way and disarm CR3's own statute
+    filter: the sub-query says "under the CYBERCRIME act at a CYBER CRIME
+    CIRCLE station", so the one-word form survives the phrase removal."""
+    masked = xagg._mask_station_aliases(_CR3_SQ_FIR_LISTING.lower())
+
+    assert "cyber crime circle" not in masked
+    assert "cybercrime" in masked
+    assert xagg._matches_any(masked, xagg._LEGAL_CODE_ACT_KEYWORDS["PECA 2016"])
+
+
+def test_mask_station_aliases_strips_every_occurrence():
+    masked = xagg._mask_station_aliases(
+        "cyber crime circle and another cyber crime circle"
+    )
+    assert "cyber crime circle" not in masked.lower()
+
+
+async def test_urdu_question_naming_the_circle_by_its_real_name_is_answered():
+    """Station names are Urdu-only in the data and neither of the two
+    families that matter carries "تھانہ" at all, so `_STATION_KEYWORDS`
+    alone missed this question entirely and it fell through to the
+    grouped-count default — measured against the live corpus while writing
+    this module."""
+    result = await xagg.run_aggregate(
+        "کون سی ایف آئی آر سائبر کرائم سرکل میں درج ہیں؟",
+        None, gateway=FakeGateway(_cr3_corpus()), user_role="supervisor",
+    )
+
+    assert result["kind"] == "filtered_fir_listing"
+    assert result["matched_count"] == 9
+
+
+async def test_a_recognised_station_word_naming_no_real_station_refuses_to_dump():
+    """Module 29 reverted the unfiltered 73-row listing because ~4.6 KB of
+    generation starved its two concurrent siblings into the 60 s
+    `META_ANALYSIS_SUBQUERY_TIMEOUT`. When the filter cannot be resolved this
+    family reports the corpus size and the filters available instead of
+    listing anything."""
+    result = await xagg.run_aggregate(
+        "Which FIR numbers are registered at the Chichawatni police station?",
+        None, gateway=FakeGateway(_cr3_corpus()), user_role="supervisor",
+    )
+
+    assert result["kind"] == "filtered_fir_listing"
+    assert result["filtered"] is False
+    assert result["cases"] == []
+    assert result["total_in_scope"] == len(_cr3_corpus())
+
+    text = "\n".join(xagg.render_filtered_fir_listing(result))
+    assert "needs a subject filter" in text
+    assert xagg._UNRECOGNIZED_STATION in text
+    assert "64/26" not in text
+
+
+async def test_the_rendered_listing_is_capped_for_the_module_29_budget():
+    corpus = _cr3_corpus() + [
+        _fir_row(f"fir-9{i:02d}-26", f"9{i:02d}/26", "تھانہ برکی، لاہور", "CNSA 1997")
+        for i in range(20)
+    ]
+    result = await xagg.run_aggregate(
+        "Give me the FIR numbers for the narcotics cases and their status.",
+        None, gateway=FakeGateway(corpus), user_role="supervisor",
+    )
+    lines = xagg.render_filtered_fir_listing(result)
+
+    assert result["matched_count"] == 23
+    listed = [ln for ln in lines if ln.startswith("  - FIR ")]
+    assert len(listed) == xagg._FIR_LISTING_RENDER_LIMIT
+    assert any("further matching FIR(s)" in ln for ln in lines)
+
+
+async def test_a_filter_that_matches_nothing_says_so_rather_than_listing():
+    result = await xagg.run_aggregate(
+        "Which FIR numbers are registered under the Illegal Dispossession Act?",
+        None, gateway=FakeGateway(_cr3_corpus()), user_role="supervisor",
+    )
+
+    assert result["matched_count"] == 0
+    assert "No FIR matches" in "\n".join(xagg.render_filtered_fir_listing(result))
+
+
+def test_station_matches_is_driven_by_the_stored_value_not_a_hardcoded_list():
+    assert xagg._station_matches(_CYBER_ISB, "cyber crime circle station")
+    assert xagg._station_matches(_CYBER_ISB, "سائبر کرائم سرکل کے مقدمات")
+    assert xagg._station_matches(_CYBER_ISB, "cases in اسلام آباد")
+    assert not xagg._station_matches(_CYBER_ISB, "cases at the women police station")
+    # The generic prefix is stripped, so a bare "thana" question cannot
+    # match every station in the corpus.
+    assert not xagg._station_matches("تھانہ برکی، لاہور", "how many cases per thana")
+    assert not xagg._station_matches(None, "anything")
+
+
+class TestFilteredFirListingBoundary:
+    """
+    [Gold-QA fix — Module 36] This family sits above `_DISTRICT_KEYWORDS`,
+    `_LIST_ALL_KEYWORDS`, `_TOTAL_KEYWORDS` and the
+    `_station_or_category_counts()` fallback, and its FILTER half alone
+    matches five gold questions. The IDENTIFICATION half is what keeps it
+    off them, so the negative control below is an equality.
+    """
+
+    def test_the_cr3_sub_query_matches(self):
+        assert xagg._is_filtered_fir_listing(_CR3_SQ_FIR_LISTING.lower())
+
+    @pytest.mark.parametrize("paraphrase", [
+        # The required non-gold paraphrases — no phrase shared with the
+        # dispatched sub-query above.
+        "Which FIRs are registered under the Arms Ordinance, and what are "
+        "their FIR numbers and status?",
+        "Give me the FIR numbers for the narcotics cases and where each one "
+        "has got to.",
+        "Name the FIRs booked at a cyber crime circle.",
+        "کون سی ایف آئی آر سائبر کرائم سرکل میں درج ہیں؟",
+        "منشیات کے مقدمات کے نمبر کیا ہیں؟",
+    ])
+    def test_non_gold_paraphrases_match(self, paraphrase):
+        assert xagg._is_filtered_fir_listing(paraphrase.lower())
+
+    def test_s2_the_station_ranking_gold_question_is_not_captured(self):
+        """S2 is "Which police station handles the most cases?" — "which" +
+        "police station", the exact shape this family would swallow if the
+        identification half were the bare "which cases". Both halves are
+        asserted separately so a future edit that drops either fails here
+        rather than live."""
+        lowered = _S2_GOLD_TEXT.lower()
+        assert xagg._matches_any(
+            lowered,
+            xagg._STATION_KEYWORDS + xagg._STATION_NAME_HINTS,
+        ), "S2 does carry the station filter signal — that is the point"
+        assert not xagg._matches_any(lowered, xagg._FIR_IDENTIFICATION_KEYWORDS)
+        assert not xagg._is_filtered_fir_listing(lowered)
+
+    @pytest.mark.parametrize("other", [
+        # Neighbouring families this must not swallow, given where it sits.
+        "How many cases are registered at each police station?",
+        "How many police stations are there in total?",
+        "Which district recovers the most weapons relative to its caseload?",
+        "List all cases",
+        "How many cases are there in total?",
+        "How many cases record an arrest of an accused person, and on how "
+        "many is no arrest recorded, across all cases?",
+    ])
+    def test_neighbouring_families_are_not_captured(self, other):
+        assert not xagg._is_filtered_fir_listing(other.lower())
+
+    def test_an_identification_question_with_no_filter_is_declined(self):
+        """Without a filter there is nothing to narrow to, and the answer
+        would be the 73-row dump Module 29 reverted. It is left to the
+        existing listing/count families instead."""
+        assert not xagg._is_filtered_fir_listing("which fir numbers do we have?")
+
+    def test_matches_no_gold_question_at_all(self):
+        """The all-32 negative control, asserted as an EQUALITY.
+
+        Reads `evaluation/Gold_QA_Dataset_Final32_With_Answers.json` — the
+        bare `Gold_QA_Dataset_Final32.json` is NOT tracked in this repo, and
+        a test pinned to it silently skips (PR #21)."""
+        import json
+        from pathlib import Path
+
+        gold_path = (
+            Path(__file__).resolve().parent.parent
+            / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json"
+        )
+        assert gold_path.exists(), gold_path
+        items = json.loads(gold_path.read_text(encoding="utf-8"))
+        assert len(items) == 32
+        matched = [
+            (it.get("id") or "").upper()
+            for it in items
+            if xagg._is_filtered_fir_listing(it["question"].lower())
+        ]
+        assert matched == [], f"expected no gold question to match, got {matched}"
+
+    def test_the_filter_half_alone_would_have_matched_five_gold_questions(self):
+        """The negative control above is only meaningful because the naive
+        version of this family FAILS it. Measured against the live gold set
+        on 2026-09-08. Pinned so nobody 'simplifies' the identification half
+        away."""
+        import json
+        from pathlib import Path
+
+        gold_path = (
+            Path(__file__).resolve().parent.parent
+            / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json"
+        )
+        items = json.loads(gold_path.read_text(encoding="utf-8"))
+        signal = (
+            xagg._STATION_KEYWORDS + xagg._DISTRICT_KEYWORDS
+            + xagg._CATEGORY_KEYWORDS + xagg._STATION_NAME_HINTS
+        )
+        matched = sorted(
+            (it.get("id") or "").upper()
+            for it in items
+            if xagg._matches_any(it["question"].lower(), signal)
+            or any(
+                xagg._matches_any(it["question"].lower(), kws)
+                for kws in xagg._LEGAL_CODE_ACT_KEYWORDS.values()
+            )
+        )
+        assert matched == ["CP1", "CR3", "CR8", "M2", "S2"], matched
+
+
+async def test_s2_still_reaches_the_station_ranking_after_module_36():
+    """End to end with S2's LITERAL gold text, not at the predicate level —
+    the guard Modules 33 and 35 used, for the same reason: this family sits
+    above the grouped-count fallback and S2 is the question it could
+    break."""
+    result = await xagg.run_aggregate(
+        _S2_GOLD_TEXT, None,
+        gateway=FakeGateway(_cr3_corpus()), user_role="supervisor",
+    )
+
+    assert result["kind"] == "relational_aggregate"
+    assert result["group_by"] == "police_station"
