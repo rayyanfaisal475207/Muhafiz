@@ -40,12 +40,14 @@ from src.retrieval.graph_retriever import (
 from src.pipeline.xagg import (
     run_aggregate,
     render_criminal_record_crosscheck,
+    render_criminal_record_local_match_gap,
     render_cms_fir_linkage,
     render_dv_report_fir_match,
     render_case_completeness_scan,
     render_weapon_compliance_scan,
     render_weapon_evidence_chain,
     render_court_readiness_scan,
+    render_station_caseload_by_specialisation,
     render_time_bucketed_mean,
     render_weapon_statute_cooccurrence,
     render_statute_court_stage_join,
@@ -565,6 +567,13 @@ async def _fetch_secondary_evidence(
                 # XAGG rendering site.
                 elif agg_result["kind"] == "time_bucketed_mean":
                     lines = render_time_bucketed_mean(agg_result)
+                # [Gold-QA fix — Module 44, M2/CS4] shared renderers, kept in
+                # sync with the harness xagg_tool() wrapper and this file's
+                # other XAGG rendering site.
+                elif agg_result["kind"] == "station_caseload_by_specialisation":
+                    lines = render_station_caseload_by_specialisation(agg_result)
+                elif agg_result["kind"] == "criminal_record_local_match_gap":
+                    lines = render_criminal_record_local_match_gap(agg_result)
                 # [Gold-QA fix — Module 23, M5] shared renderer, kept in sync
                 # with the harness xagg_tool() wrapper and this file's other
                 # XAGG rendering site.
@@ -2245,6 +2254,13 @@ async def process_query(
             # rendering site above.
             elif agg_result["kind"] == "time_bucketed_mean":
                 lines = render_time_bucketed_mean(agg_result)
+            # [Gold-QA fix — Module 44, M2/CS4] shared renderers, kept in sync
+            # with the harness xagg_tool() wrapper and this file's first XAGG
+            # rendering site above.
+            elif agg_result["kind"] == "station_caseload_by_specialisation":
+                lines = render_station_caseload_by_specialisation(agg_result)
+            elif agg_result["kind"] == "criminal_record_local_match_gap":
+                lines = render_criminal_record_local_match_gap(agg_result)
             # [Gold-QA fix — Module 23, M5] shared renderer, kept in sync with
             # the harness xagg_tool() wrapper and this file's first XAGG
             # rendering site above.

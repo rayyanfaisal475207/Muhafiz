@@ -86,7 +86,7 @@ several can run in parallel chats/worktrees without colliding.
 | 41 | **G2/G5 REGRESSION** — Meta-Analysis over-decomposes questions XAGG answers in one call; the supervisor guard fired only for time-comparison shapes | `fix/supervisor-skip-decomposition-for-resolvable-aggregates` | ✅ **Done — PR #31** — guard now asks `run_aggregate()`'s extracted, resolution-only chain; G2 and G5 correct on 3/3 live runs each. Result: `docs/gold-qa-wave2-results/MODULE41_RESULT.md` |
 | 42 | KB6 hard failure — `route=None`, FactualCorrectness 0.0 **and** AnswerRelevancy 0.0, did not recover on re-run | *(not yet branched)* | ⬜ New — found by the 2026-09-08 post-fix eval; the only question failing this way |
 | 43 | M7 answers with the wrong facts (FC 0.0 / AR 1.0) despite Module 22 verifying it live against gold | `fix/m7-m2-cs4-factual-accuracy` | ✅ **Done — the report is wrong, not Module 22.** M7 returns gold exactly (15.0 min / 13 FIRs; 1401.3 min / 51 FIRs) on **6 of 6** live runs. The only M7 answer in this repo is `_reporting_delay_rate_by_year()`'s output — a function with no dispatch entry since Module 22 — recorded 2026-09-06, two days *before* Module 22 landed. Independently confirms Module 47. Fixed: the missing `XAGG <kind>` log line. Result: `docs/gold-qa-wave2-results/MODULE43_RESULT.md` |
-| 44 | M2 and CS4 reach XAGG and answer fluently but factually wrong (FC 0.0 / AR 1.0) | *(not yet branched)* | ⬜ New — found by the 2026-09-08 post-fix eval |
+| 44 | M2 and CS4 reach XAGG and answer fluently but factually wrong (FC 0.0 / AR 1.0) | `fix/m7-m2-cs4-factual-accuracy` | ✅ **Done — both gold answers are computable and now computed.** CS4 had NO aggregate and was answered by the person-recurrence fall-through (third recorded time); it now returns gold exactly — وقاص / 00000-9000020-1 — on 3/3 live runs. M2's `unsupported_station_type` refusal was **asserting something false**: 2 of the 19 stations are named Cyber Crime Circles and carry 9 of 73 FIRs, which is gold's own claim. Reproduced 3/3. **Gold challenged** on the growth half — general-purpose stations grew 7→39, the specialised ones 3→5. Result: `docs/gold-qa-wave2-results/MODULE44_RESULT.md` |
 | 45 | Eval harness: a judge `null` FactualCorrectness is scored as 0 rather than re-run | `fix/eval-harness-null-scores-and-truncation` | ✅ Done — confirmed and fixed. `measure()` never retried the CR8 failure at all (its `tries` loop only ran for rate limits), and **no mean was computed in the repo at all** — every published figure was hand-derived. Nulls are now retried, then recorded as unscored and excluded by a new null-safe `summarize()`. 22 new tests. The 900-char cap was measured and is **not** behind any current 0.0 — split out as Module 46. Result: `docs/gold-qa-wave2-results/MODULE45_RESULT.md` |
 | 46 | Eval harness: the 900-char answer cap silences whole answers, and its stated (Faithfulness) justification no longer exists | *(not yet branched)* | ⬜ New — found by Module 45. Proven with a positive control: an answer whose gold facts sit past char 900 scores **0.0** instead of 1.0. Does not fire on the committed run (only 2 of 32 answers exceed 900) but the current build produces 1,000–2,500-char KB answers. Cost of removing it: **under 2 s per metric, no extra judge calls.** **Settle before Module 27 runs.** |
 | 47 | The 2026-09-08 post-fix evaluation's artefacts were never committed — `gold32_results.json` on `main` is the 2026-09-06 Module 9 run | *(not yet branched)* | ⬜ New — found by Module 45. The report names those files as its sources, but they were last written by `d313a60` and reproduce Module 9's numbers (0.394 / 13-of-32), not the report's (0.572 / 19-of-32). Modules 41–44 are specified against figures with no artefact behind them. |
@@ -95,6 +95,8 @@ several can run in parallel chats/worktrees without colliding.
 | 49 | KB3 reaches Police Order Article 18 but still scores 0.1 — it quotes the article without drawing gold's conclusion | *(not yet branched)* | ⬜ New — Module 30 got the chunk in; the synthesis half is unaddressed |
 | 50 | G1/G6 consolidation: wire Modules 31–36's aggregates into their decomposition plans, and settle `_MAX_SUB_QUERIES` | *(not yet branched)* | ⬜ New — **the aggregates exist but nothing calls them**, which is why G1 sits at 0.1 and G6 at 0.3 |
 | 52 | Every XAGG aggregate predating Modules 31–36 emits no `XAGG <kind>:` log line, so no live run of it can be identified from `backend.log` | *(not yet branched)* | ⬜ New — found by Module 43, which had to add M7's before it could tell a correct run from a wrong-metric one. XAGG's SSE reports only `route='XAGG'`, so this is the project's only proof of which aggregate answered. Mechanical: one `logger.info()` per family. **Worth doing before Module 27's rerun**, so that run is diagnosable. |
+| 53 | M2's dispatch vocabulary is narrower than the family it now serves — a station-type question that avoids `_STATION_TYPE_KEYWORDS`' exact wording falls to the per-station catch-all | *(not yet branched)* | ⬜ New — found by Module 44. Measured: *"Do the specialist units handle a bigger share of our cases than the ordinary police stations?"* resolves to `station_or_category_counts`, i.e. it gets the plain per-station count the original refusal existed to prevent. A narrow trigger list was the safe choice while M2 returned a refusal; it is not, now that the family computes a real answer. Needs its own all-32 equality control — `_STATION_KEYWORDS` sits a few rungs lower in the same chain. |
+| 54 | CR3 is non-deterministic across runs at three different layers | *(not yet branched)* | ⬜ New — found by Module 44's regression guard. Three consecutive runs of CR3's gold text failed three different ways: synthesis-verifier rejection; both Meta-Analysis sub-questions timing out; and `route=None` from the XNETWORK relevance gate (distance 0.156 vs cutoff 0.145). Module 36 deferred its aggregate wiring and Module 50 owns the consolidation, but neither is scoped to the **non-determinism**, which is what makes CR3 unverifiable rather than merely incomplete. |
 | 51 | `backend.log` is written through a cp1252 stream, so any Urdu-carrying log record is **silently destroyed** inside `logging.emit()` | `fix/backend-log-utf8-encoding` | ✅ **Fixed** — handler-level UTF-8; the `XAGG <kind>` diagnostics every module is verified against were being deleted |
 | 27 | Final Gold-32 rerun (Module 18 redo) | *(docs only)* | ⬜ Blocked on all above — brief: `MODULE27_FINAL_GOLD32_RERUN_PROMPT.md` |
 
@@ -1969,25 +1971,68 @@ predating Modules 31–36 still has no log line.
 
 ---
 
-# Module 44 — M2 and CS4: fluent but factually wrong ⬜
+# Module 44 — M2 and CS4: fluent but factually wrong ✅ DONE
 
-Both score **FC 0.0 / AR 1.0** on route **XAGG**.
+**Branch:** `fix/m7-m2-cs4-factual-accuracy` · **Result:**
+`docs/gold-qa-wave2-results/MODULE44_RESULT.md`
 
-**M2** also contradicts recorded results: Module 25 (PR #16) targeted it, and
-Module 29 re-ran it and found it completing cleanly with no verifier
-rejection. It now scores 0.0 on facts. Note M2's gold is a simple computable
-fact — 9 of 73 FIRs (~12%) from 2 of 19 stations — while `xagg.py`'s dispatch
-deliberately returns an **honest "unsupported" for station-type questions**,
-because no station-type dimension exists in the data model. Check whether the
-answer is wrongly *asserting* a station-type split rather than saying it
-cannot be computed; if the data genuinely cannot support gold, say so and
-challenge the gold answer rather than fabricating a split.
+**Both gold answers were computable. Both are now computed, 3 of 3 live runs
+each, on `route='XAGG' -> Large-Scale Aggregate`.**
 
-**CS4** has been 0.0 since before this wave and was in Module 21's original
-list; the relevance gate was cleared of blame, but nothing has since addressed
-it.
+**CS4 — no aggregate existed, and the fall-through did the damage.** Measured:
+`resolve_aggregate_kind()` returned `graph_recurrence_person`, so CS4 was
+answered with "4 people appear in 2 cases each" — the **third** time this file
+has recorded the person-recurrence tier silently swallowing a question
+(Modules 32 and 35 are the others). Two causes compounded: nothing in
+`_CRIMINAL_RECORD_KEYWORDS` matches "criminal-**history** records" (that tuple
+has "criminal record"/"criminal records", neither a substring), so CS4 never
+reached CR7's family either and fell to `_PERSON_KEYWORDS` on "shakhs"; and
+there was no aggregate for the question anyway. Because
+`graph_recurrence_person` is in `_ENTITY_RECURRENCE_AGGREGATE_KINDS`, CS4 also
+kept its route to Meta-Analysis, whose recorded decomposition **inverted the
+set difference** (asking which of *our* accused are missing from the
+criminal-records system). A purpose-built aggregate closes both at once —
+Module 41's guard does the second half for free. CS4 now returns gold exactly:
+**وقاص (Waqas), CNIC 00000-9000020-1**, matched on CNIC (his NAME appears
+among our accused on a different CNIC, so a name-keyed join answers "no"), with
+gold's "this is expected" caveat earned from 31 of 32 subjects matching rather
+than asserted.
 
-**Verify:** both live, three-layer check, plus non-gold paraphrases.
+**M2 — the refusal was asserting something false.** This section said no
+station-type dimension exists in the data model. There is no `station_type`
+FIELD, but the refusal's second clause — "caseload cannot be compared across
+that dimension" — does not follow. Hand-written Cypher: **2 of the 19
+PoliceStation nodes are named سائبر کرائم سرکل (Cyber Crime Circle) and carry
+9 of the 73 FIRs**, which is gold's claim exactly and needs only the names.
+Retired for the reason Module 31 retired `_UNSUPPORTED_AGE`. The
+classification is name-derived, says so in its own output, and lists every
+station with its bucket so the call can be checked; two further stations
+(Women's, Motorway) are specialised by complainant class / jurisdiction rather
+than by crime type and are held out in their own named bucket, because folding
+them in gives 4 stations / 19 FIRs and contradicts gold.
+
+**Gold challenged, on M2, with evidence.** M2 asks which group is growing
+FASTER; gold answers with a static share and never addresses growth. On the
+growth question the data points the other way — general-purpose stations went
+**7 → 39** FIRs between 2024 and 2026 while the crime-type units went **3 →
+5**. And "disproportionate" overstates it: 2 of 19 stations is 10.5% of the
+stations carrying 12.3% of the FIRs, barely above proportional on a base of 9.
+The system now states the growth finding first and still gives gold's
+concentration figures in the same sentence.
+
+**Two measured behaviours recorded in the result file rather than smoothed
+over:** the first rendering lost gold's numbers to the paraphrase on 3 of 3
+runs (fixed by putting both halves in one sentence), and the verifier now
+rejects M2's paraphrase on 3 of 3 runs because the model derives a **457%**
+growth rate that is in no computed result — the deterministic guard catching
+exactly the over-claim the rendering warns against, and serving the raw
+aggregate, which carries every gold fact.
+
+**Note on this section's own premise.** It said M2 "contradicts recorded
+results" because Modules 25 and 29 had found it completing cleanly. Module 43
+established that the post-fix evaluation's artefacts were never committed (see
+Module 47), so the per-question row that premise rests on cannot be read. The
+work here did not depend on resolving that.
 
 ---
 
@@ -2149,6 +2194,70 @@ run from a wrong-metric one). Mechanical, no behaviour change.
 choices cannot be read back from the log is a rerun whose failures have to be
 re-investigated from scratch, which is what this wave spent Modules 43 and 44
 doing.
+
+---
+
+# Module 53 — M2's dispatch vocabulary is narrower than its new family ⬜
+
+**Found by:** Module 44
+
+M2's dispatch still rests on `_STATION_TYPE_KEYWORDS`, which Module 44 did not
+widen — only the KIND it returns changed, from an honest refusal to
+`station_caseload_by_specialisation`. That asymmetry is the defect: a narrow
+trigger list is a safe default for a refusal (a missed match just means the
+question falls through to a generic answer), and a bad one for a real
+aggregate (a missed match means the question gets the plain per-station count
+that the refusal was written to prevent).
+
+Measured, with the failing phrasing:
+
+| Query | Resolves to |
+|---|---|
+| *"Do the specialist units handle a bigger share of our cases than the ordinary police stations?"* | `station_or_category_counts` ❌ |
+| *"Are our specialised station types taking on more cases than the general purpose stations?"* | `station_caseload_by_specialisation` ✅ |
+| *"Which is busier relative to its size: a station set up for one specific type of crime, or a normal thana?"* | `station_caseload_by_specialisation` ✅ |
+
+**Work:** widen the trigger vocabulary ("specialist unit", "specialised unit",
+"ordinary station", "normal thana", "dedicated unit", and their Urdu /
+roman-Urdu forms), with an all-32 equality control. Deliberately NOT done
+inside Module 44: `_STATION_KEYWORDS` sits a few rungs lower in the same
+chain, and every widening candidate risks pulling ordinary per-station
+questions into this family — the exact collision class this file has recorded
+five times.
+
+---
+
+# Module 54 — CR3 is non-deterministic across runs at three layers ⬜
+
+**Found by:** Module 44's regression guard
+
+Three consecutive live runs of CR3's literal gold text, on one backend, failed
+three different ways:
+
+1. `status=error` — "The synthesized answer could not be verified as grounded
+   in the sub-answers."
+2. `status=error` — "Could not answer sub-question (timed out)" for **both**
+   of `record_consistency`'s sub-queries.
+3. `route=None` — the XNETWORK relevance gate: "nearest cluster found was
+   distance 0.156 against a relevance cutoff of 0.145".
+
+Note the third: CR3 routed **XAGG** twice and **not at all** once, so its
+route is not stable either.
+
+**Ruled out as a Module 44 effect, by measurement.** Every `_SQ_*` sub-query
+constant in `meta_analysis.py` was resolved through the new dispatch chain and
+none changed family; `_SQ_CRIMINAL_RECORD_VS_COURT` still resolves to
+`criminal_record_court_crosscheck`, and CR3's own two sub-queries still
+resolve to `graph_recurrence_person` and `cms_fir_linkage` exactly as before.
+CR3's gold text itself still resolves to `station_or_category_counts`.
+
+**Why this needs its own module.** Module 36 deferred CR3's aggregate wiring
+and Module 50 owns the G1/G6/CR3 consolidation, but both are scoped to
+*completeness* — wiring the right aggregates into the right plans. Neither is
+scoped to the non-determinism, and that is the part that matters for Module
+27: a question whose route and failure mode change run to run cannot be scored
+once and believed. Whoever takes this should run CR3 at least five times
+before and after any change.
 
 ---
 

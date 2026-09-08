@@ -431,12 +431,20 @@ def test_time_comparison_guard_does_not_suppress_unrelated_xagg_meta_analysis_tr
     This test used to assert over M2's gold text ("Is caseload growing
     faster at our general-purpose stations, or at the handful set up for
     one specific type of crime?"), encoding Module 26's narrowness as an
-    invariant. Module 41 deliberately supersedes that: M2 resolves to
+    invariant. Module 41 deliberately supersedes that: M2 resolves to a
+    purpose-built outcome, which is a better answer than decomposing into
+    halves that each invent a split. M2's own new behaviour is asserted
+    separately in `test_module41_m2_station_type_question_skips_decomposition`
+    below.
+
+    [Gold-QA fix -- Module 44] At the time of writing that outcome was
     `unsupported_station_type`, XAGG's honest "this data model has no
-    station-type dimension" refusal, which is a purpose-built outcome and
-    a better answer than decomposing into halves that each invent a split.
-    M2's own new behaviour is asserted separately in
-    `test_module41_m2_station_type_refusal_skips_decomposition` below.
+    station-type dimension" refusal. Module 44 found the refusal's claim was
+    no longer true and replaced it with
+    `station_caseload_by_specialisation`, a real aggregate. The reason M2
+    skips decomposition is therefore stronger now, not weaker, and this
+    test's own subject (a query that resolves to NOTHING specific) is
+    untouched by that.
 
     The text here is instead a caseload-review shape that resolves to
     `station_or_category_counts` -- the chain's trailing catch-all, i.e.
@@ -1273,6 +1281,11 @@ _M2_GOLD = (
     "Is caseload growing faster at our general-purpose stations, or at the "
     "handful set up for one specific type of crime?"
 )
+# [Gold-QA fix — Module 44] CS4's gold text.
+_CS4_GOLD = (
+    "Kya wusee criminal-history records mein koi aisa shakhs hai jo hamare "
+    "apne darj kiye hue kisi case se match nahi karta?"
+)
 # [Gold-QA fix — Module 43] M7's gold text.
 _M7_GOLD = (
     "Kya log 2026 mein waqiaat ki police ko itni hi jaldi ittila de rahe hain "
@@ -1374,18 +1387,53 @@ def test_module41_g1_would_resolve_specifically_but_for_its_plan():
     assert resolve_aggregate_kind(_G1_GOLD) == "case_completeness_scan"
 
 
-def test_module41_m2_station_type_refusal_skips_decomposition():
-    """`unsupported_aggregate` counts as resolved — the deliberate call
-    documented on `xagg._UNSUPPORTED_AGGREGATE_KINDS`. M2 has no
-    station-type dimension in the data model at all, so XAGG's honest
-    refusal is the correct outcome and decomposing it produces two halves
-    that each invent a split instead."""
+def test_module41_m2_station_type_question_skips_decomposition():
+    """M2 must reach Large-Scale Aggregate in one call.
+
+    [Gold-QA fix — Module 44] The ASSERTION here is unchanged; its REASON
+    changed. Module 41 pinned this because M2 resolved to
+    `unsupported_station_type` and `unsupported_aggregate` counts as
+    resolved — decomposing an honest refusal produces two halves that each
+    invent a split. Module 44 found the refusal's claim was no longer true
+    (2 of the 19 stations are named Cyber Crime Circles and carry 9 of the
+    73 FIRs, which is M2's gold answer) and replaced it with a real
+    aggregate. M2 now skips decomposition because it resolves to a genuine
+    single-call family, which is a stronger reason for the same behaviour —
+    so the invariant Module 41 established is preserved, not weakened.
+
+    `_UNSUPPORTED_AGGREGATE_KINDS` is still load-bearing for the officer and
+    trend refusals; its own test below covers that."""
+    assert resolve_aggregate_kind(_M2_GOLD) == "station_caseload_by_specialisation"
+    assert resolves_to_specific_aggregate(_M2_GOLD)
+    assert classify_to_subagent(_XAGG_CROSS_CASE, _M2_GOLD) == LARGE_SCALE_AGGREGATE
+
+
+def test_module41_unsupported_refusals_still_count_as_resolved():
+    """The half of Module 41's `_UNSUPPORTED_AGGREGATE_KINDS` policy that
+    survives Module 44's removal of `unsupported_station_type`: an honest
+    refusal is a purpose-built outcome and must not be decomposed."""
     from src.pipeline.xagg import _UNSUPPORTED_AGGREGATE_KINDS
 
-    kind = resolve_aggregate_kind(_M2_GOLD)
-    assert kind == "unsupported_station_type"
+    officer_q = "Which investigating officer is assigned to the most cases?"
+    kind = resolve_aggregate_kind(officer_q)
+    assert kind == "unsupported_officer"
     assert kind in _UNSUPPORTED_AGGREGATE_KINDS
-    assert classify_to_subagent(_XAGG_CROSS_CASE, _M2_GOLD) == LARGE_SCALE_AGGREGATE
+    assert resolves_to_specific_aggregate(officer_q)
+
+
+def test_module44_cs4_gold_text_skips_decomposition_and_reaches_the_aggregate():
+    """CS4's literal gold text.
+
+    Before Module 44 this resolved to `graph_recurrence_person` — CS4
+    carries "shakhs", and nothing in `_CRIMINAL_RECORD_KEYWORDS` matches
+    "criminal-history records". Because that kind is in
+    `_ENTITY_RECURRENCE_AGGREGATE_KINDS`, `resolves_to_specific_aggregate()`
+    was False and the supervisor sent CS4 to Meta-Analysis, whose recorded
+    decomposition INVERTED the set difference. Giving CS4 a purpose-built
+    aggregate closes both halves at once."""
+    assert resolve_aggregate_kind(_CS4_GOLD) == "criminal_record_local_match_gap"
+    assert resolves_to_specific_aggregate(_CS4_GOLD)
+    assert classify_to_subagent(_XAGG_CROSS_CASE, _CS4_GOLD) == LARGE_SCALE_AGGREGATE
 
 
 def test_module41_generic_fallbacks_do_not_count_as_resolvable():
@@ -1471,12 +1519,23 @@ def test_module41_resolution_is_side_effect_free():
 
 def test_module41_all_32_gold_questions_dispatch_change_is_exactly_the_expected_set():
     """The all-32 negative control. Assuming an XAGG route for every
-    question (the guard's precondition), exactly these nine change from
+    question (the guard's precondition), exactly these ten change from
     Meta-Analysis to Large-Scale Aggregate and nothing else moves.
 
     Recorded in full in `docs/gold-qa-wave2-results/MODULE41_RESULT.md`.
     Anything added or removed here is a real behavioural change that needs
-    re-verifying live, not a test to update casually."""
+    re-verifying live, not a test to update casually.
+
+    [Gold-QA fix — Module 44] **CS4 was added, and it is exactly such a
+    change** — verified live over three runs, recorded in
+    `MODULE44_RESULT.md`. CS4 previously resolved to
+    `graph_recurrence_person`, one of the `_ENTITY_RECURRENCE_AGGREGATE_KINDS`
+    that deliberately do NOT count as resolved, so it kept its route to
+    Meta-Analysis and was decomposed into a sub-question that inverted its
+    set difference. Module 44 gives it a purpose-built aggregate, so it now
+    resolves specifically and skips decomposition. M2 stays in the set for
+    a changed reason (a real aggregate rather than an honest refusal), which
+    does not move it here."""
     import io as _io
     import json as _json
     from pathlib import Path as _Path
@@ -1506,4 +1565,4 @@ def test_module41_all_32_gold_questions_dispatch_change_is_exactly_the_expected_
             assert before == META_ANALYSIS and after == LARGE_SCALE_AGGREGATE
             changed.add(q["id"])
 
-    assert changed == {"CR6", "CR7", "CR8", "M2", "M4", "M7", "G2", "G3", "G5"}
+    assert changed == {"CR6", "CR7", "CR8", "CS4", "M2", "M4", "M7", "G2", "G3", "G5"}

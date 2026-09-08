@@ -1043,7 +1043,16 @@ _UNSUPPORTED_OFFICER = (
     "Officer-assignment aggregates are not available: investigating-officer "
     "identity is not currently modeled as a queryable field in this system."
 )
-# [Gold-QA fix — Module 13, question M2]
+# [Gold-QA fix — Module 13, question M2 — RETIRED BY MODULE 44]
+#
+# No longer reachable: M2 now resolves to
+# `station_caseload_by_specialisation`, a real aggregate. Kept as a named
+# constant rather than deleted so the claim stays readable next to the
+# measurement that retired it — its first clause is still true (there is no
+# `station_type` field) but its second does not follow and was false: 2 of
+# the 19 PoliceStation nodes are named Cyber Crime Circles and carry 9 of
+# the 73 FIRs, which is exactly the comparison this text said could not be
+# drawn.
 _UNSUPPORTED_STATION_TYPE = (
     "Station-type-normalized aggregates are not available: this system's "
     "data model does not currently classify a police station as "
@@ -2444,6 +2453,234 @@ def render_criminal_record_crosscheck(agg_result: dict) -> list[str]:
         lines.append(
             "No case currently has both a criminal record and a separate "
             "court-outcome record to cross-check."
+        )
+    return lines
+
+
+# ── [Gold-QA fix — Module 44, question CS4] ────────────────────────────────
+#
+# "Kya wusee criminal-history records mein koi aisa shakhs hai jo hamare apne
+# darj kiye hue kisi case se match nahi karta?" — is there anyone in the
+# broader criminal-history records who does not match any case we ourselves
+# registered? Gold: yes, exactly one — Waqas (00000-9000020-1).
+#
+# WHAT THIS QUESTION DID BEFORE THIS MODULE. Measured live on 2026-09-08:
+# `resolve_aggregate_kind()` returned `graph_recurrence_person`. CS4 carries
+# "shakhs" (person) and NOTHING in `_CRIMINAL_RECORD_KEYWORDS` matches
+# "criminal-history records" — that tuple has "criminal record",
+# "criminal-record" and "criminal records", none of which is a substring of
+# "criminal-history records" — so the question fell all the way down the
+# chain to `_PERSON_KEYWORDS` and was answered with a ranked list of four
+# people appearing in two cases each. Fluent, on-topic, and an answer to a
+# question nobody asked. That is the third time this file has recorded the
+# person-recurrence tier silently swallowing a question (Modules 32 and 35
+# are the other two), and it is why `_ENTITY_RECURRENCE_AGGREGATE_KINDS`
+# exists.
+#
+# It also explains the second half of CS4's live failure. Because
+# `graph_recurrence_person` is in that set, `resolves_to_specific_aggregate()`
+# was False, so the supervisor sent CS4 to Meta-Analysis, which decomposed it
+# — and the recorded sub-question INVERTED the set difference ("koi aisa
+# shakhs ... jo criminal-history records mein NAHI hai"), asking which of our
+# accused are absent from the criminal-records system rather than the
+# reverse. Giving CS4 a purpose-built aggregate fixes both: the dispatch, and
+# the decomposition that the missing dispatch was licensing.
+#
+# THE MATCH KEY IS CNIC, NOT NAME, and that is load-bearing rather than
+# incidental. The one unmatched subject's NAME (وقاص) does appear among the
+# accused — on a different CNIC. A name-based set difference returns zero
+# unmatched people and answers "no" to a question whose gold answer is
+# "yes, exactly one". Name collisions are reported alongside the result so
+# the distinction is visible rather than buried in the join.
+_CRIMINAL_HISTORY_TERMS = (
+    "criminal record", "criminal-record", "criminal records",
+    "criminal history", "criminal-history", "criminal history record",
+    "criminal-history record", "criminal history records",
+    "criminal-history records", "rap sheet", "prior record",
+    "کرمنل ریکارڈ", "مجرمانہ ریکارڈ", "سابقہ ریکارڈ",
+)
+# The MISMATCH half. Every token here means "does not correspond to
+# something of ours" — never a bare "match"/"مطابقت", which CR7's gold text
+# carries in the POSITIVE ("کیا دونوں ایک دوسرے سے مطابقت رکھتے ہیں؟" — do
+# the two agree?) and which would hand CR7's question to this family. The
+# all-32 equality control in tests/test_xagg.py is what enforces that.
+_LOCAL_MATCH_GAP_TERMS = (
+    "match nahi", "nahi karta", "nahi milta", "no match", "not match",
+    "doesn't match", "does not match", "no matching", "unmatched",
+    "mismatch", "missing from", "not in our", "no corresponding",
+    "not appear in", "مطابقت نہیں", "میل نہیں", "موجود نہیں",
+    "ریکارڈ نہیں",
+)
+
+
+def _is_criminal_record_local_gap(query_lower: str) -> bool:
+    """CS4's shape: a criminal-history term AND an explicit no-match term.
+
+    Two signals, not one, for the reason `_is_arrest_rate()` records: the
+    criminal-record vocabulary alone belongs to CR7, which scores 1.0 today
+    and asks a different question over the same records (how many are
+    settled, and do they agree with the court's own outcome). Only the
+    combination — those records, AND something in them that does not
+    correspond to anything of ours — is CS4."""
+    return _matches_any(query_lower, _CRIMINAL_HISTORY_TERMS) and _matches_any(
+        query_lower, _LOCAL_MATCH_GAP_TERMS
+    )
+
+
+async def _criminal_record_local_match_gap(
+    jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    """
+    [Gold-QA fix — Module 44, question CS4] Set difference: which subjects of
+    the criminal-records system have no matching accused record in our own
+    FIRs?
+
+    Direction matters and is fixed here deliberately. CS4 asks about people
+    in the EXTERNAL records with nothing local, not the reverse — the
+    reverse is a far larger and much less interesting set (most accused have
+    no criminal-history entry), and it is the direction Meta-Analysis's
+    decomposition drifted into when this aggregate did not exist.
+
+    Criminal records are never case-scoped (a person's history spans cases),
+    so the record side is always read whole; `jurisdiction_case_ids` narrows
+    only which local FIRs count as "ours", mirroring
+    `_criminal_record_court_crosscheck()` above.
+    """
+    cr_rows = await age_client.execute_cypher(
+        "MATCH (r:StructuredRecord) WHERE r.record_type = 'criminal_record' "
+        "RETURN r.subject_cnic AS cnic, r.subject_full_name AS name, "
+        "r.record_id AS record_id",
+        columns=["cnic", "name", "record_id"],
+    )
+
+    accused_filter = ""
+    params: dict = {}
+    if jurisdiction_case_ids is not None:
+        accused_filter = "AND c.case_id IN $case_ids"
+        params = {"case_ids": jurisdiction_case_ids}
+    accused_rows = await age_client.execute_cypher(
+        "MATCH (p:Person)-[r:INVOLVED_IN]->(i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE r.role = 'accused' {accused_filter} "
+        "RETURN p.cnic AS cnic, p.canonical_name AS name",
+        params=params, columns=["cnic", "name"],
+    )
+
+    def _clean(value) -> str:
+        return str(value or "").strip().strip('"')
+
+    accused_cnics = {_clean(r.get("cnic")) for r in accused_rows}
+    accused_cnics.discard("")
+    accused_names = {_clean(r.get("name")) for r in accused_rows}
+    accused_names.discard("")
+
+    # One entry per distinct SUBJECT, not per record — a person with two
+    # criminal records is one person, and gold counts people.
+    subjects: dict[str, dict] = {}
+    no_cnic_records = 0
+    for row in cr_rows:
+        cnic, name = _clean(row.get("cnic")), _clean(row.get("name"))
+        if not cnic:
+            # Without the join key this row can be neither matched nor
+            # declared unmatched. Counted and reported, never silently
+            # dropped into either bucket.
+            no_cnic_records += 1
+            continue
+        entry = subjects.setdefault(
+            cnic, {"cnic": cnic, "name": name, "record_ids": []}
+        )
+        entry["record_ids"].append(_clean(row.get("record_id")))
+
+    unmatched = [
+        {
+            **s,
+            # Reported, not used as a match: this is exactly the signal that
+            # makes a name-keyed join give the wrong answer here.
+            "name_also_appears_locally": s["name"] in accused_names,
+        }
+        for s in subjects.values()
+        if s["cnic"] not in accused_cnics
+    ]
+    unmatched.sort(key=lambda s: s["cnic"])
+
+    logger.info(
+        "XAGG criminal_record_local_match_gap: %d criminal record(s) over %d "
+        "distinct subject(s) vs %d local accused entr(ies) (%d distinct CNIC); "
+        "%d subject(s) with no local match%s; %d record(s) carry no CNIC",
+        len(cr_rows), len(subjects), len(accused_rows), len(accused_cnics),
+        len(unmatched),
+        " [" + ", ".join(s["cnic"] for s in unmatched) + "]" if unmatched else "",
+        no_cnic_records,
+    )
+    return {
+        "kind": "criminal_record_local_match_gap",
+        "total_criminal_records": len(cr_rows),
+        "distinct_subjects": len(subjects),
+        "records_without_cnic": no_cnic_records,
+        "local_accused_entries": len(accused_rows),
+        "local_distinct_accused_cnics": len(accused_cnics),
+        "matched_subject_count": len(subjects) - len(unmatched),
+        "unmatched_subjects": unmatched,
+    }
+
+
+def render_criminal_record_local_match_gap(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — Module 44, CS4] Defined here and imported by all three
+    rendering sites, same contract as `render_time_bucketed_mean()`."""
+    total = agg_result["total_criminal_records"]
+    subjects = agg_result["distinct_subjects"]
+    unmatched = agg_result.get("unmatched_subjects") or []
+    accused_entries = agg_result["local_accused_entries"]
+    accused_cnics = agg_result["local_distinct_accused_cnics"]
+
+    if not unmatched:
+        lines = [
+            f"No. Every one of the {subjects} distinct people in the "
+            f"criminal-records system ({total} records) also has an accused "
+            f"record in an FIR we registered, matched on CNIC."
+        ]
+    else:
+        count_word = "exactly one person" if len(unmatched) == 1 else f"{len(unmatched)} people"
+        lines = [
+            f"Yes — {count_word} in the criminal-records system has no "
+            f"matching accused record in any FIR we registered:"
+        ]
+        for s in unmatched:
+            note = (
+                "; the same NAME does appear among our accused, but on a "
+                "different CNIC, so this is not a spelling mismatch"
+                if s.get("name_also_appears_locally") else ""
+            )
+            lines.append(
+                f"  - {s['name']} (CNIC {s['cnic']}) — criminal record(s) "
+                f"{', '.join(s['record_ids'])}{note}."
+            )
+
+    lines.append("")
+    lines.append(
+        f"Basis: {total} criminal records covering {subjects} distinct people, "
+        f"compared against {accused_entries} accused entries across our FIRs "
+        f"({accused_cnics} distinct CNICs). Matched on CNIC, not on name."
+    )
+    missing_key = agg_result.get("records_without_cnic") or 0
+    if missing_key:
+        lines.append(
+            f"{missing_key} criminal record(s) carry no CNIC and could be "
+            f"neither matched nor declared unmatched."
+        )
+    if unmatched:
+        matched = agg_result["matched_subject_count"]
+        lines.append("")
+        # Gold's own caveat, and this aggregate earns it rather than
+        # asserting it: with 31 of 32 subjects matching, a lone outlier is
+        # what an overlapping external source looks like, not what a broken
+        # local linkage looks like.
+        lines.append(
+            f"This is expected rather than a data-quality defect. The "
+            f"criminal-records system is an external/federal record source, "
+            f"not a mirror of our FIRs, so it can legitimately hold someone "
+            f"we have never charged. {matched} of {subjects} subjects DO "
+            f"match a local accused record, so this is a single outlier, not "
+            f"a systematic linkage failure."
         )
     return lines
 
@@ -4136,6 +4373,346 @@ async def _station_total_count() -> dict:
     return {"kind": "station_total_count", "total_stations": len(station_ids)}
 
 
+# ── [Gold-QA fix — Module 44, question M2] ─────────────────────────────────
+#
+# "Is caseload growing faster at our general-purpose stations, or at the
+# handful set up for one specific type of crime?"
+#
+# THIS REPLACES AN HONEST REFUSAL THAT WAS ASSERTING SOMETHING FALSE, which
+# is the same call Module 31 made when it retired `_UNSUPPORTED_AGE`: the
+# refusal survives only while the thing it claims about the data model is
+# actually true. `_UNSUPPORTED_STATION_TYPE` said "this system's data model
+# does not currently classify a police station as general-purpose vs.
+# specialized for a particular crime type, so caseload cannot be compared
+# across that dimension". The first clause is narrowly true — there is no
+# `station_type` FIELD. The second does not follow, and is false: measured
+# on the live graph, 2 of the 19 PoliceStation nodes are named
+# "سائبر کرائم سرکل" (Cyber Crime Circle), which is not a thana but a
+# single-crime-type unit, and they carry 9 of the 73 FIRs. That is gold's
+# claim exactly — 9 of 73 (~12%) from 2 of 19 — and it needs no station-type
+# dimension, only a per-station count and the station's own name.
+#
+# THE CLASSIFICATION IS DERIVED FROM NAMES, AND SAYS SO IN ITS OWN OUTPUT.
+# That is a weaker basis than a modelled field and the answer must not
+# pretend otherwise; what makes it defensible rather than a guess is that
+# every station is listed by name alongside its bucket, so a reader can
+# check the call. A name this function does not recognise stays
+# general-purpose — it never invents a specialisation.
+#
+# THREE BUCKETS, NOT TWO, and the third is the honest part. Of the 19
+# stations, 15 are ordinary thanas, 2 are Cyber Crime Circles, and 2 more
+# are specialised by something that is NOT a crime type: خواتین تھانہ
+# (Women's Police Station — a class of complainant, across many crime types)
+# and موٹروے پولیس اسٹیشن (Motorway Police Station — a jurisdiction). M2
+# asks specifically about stations "set up for one specific type of crime",
+# so folding those two in would inflate the answer to 4 stations / 19 FIRs
+# and contradict gold; silently calling them general-purpose would hide a
+# judgement call the reader should see. They get their own bucket and are
+# named.
+_STATION_CRIME_TYPE_SPECIALISATION_TOKENS = (
+    "سائبر کرائم", "سائبر", "cyber crime", "cybercrime", "cyber-crime",
+    "انسداد دہشت گردی", "انسداد منشیات", "انسداد اسمگلنگ",
+    "anti-terrorism", "counter terrorism", "counter-terrorism",
+    "narcotics", "anti-narcotics",
+)
+# Specialised, but by complainant class or jurisdiction rather than by crime
+# type — deliberately NOT counted toward M2's "one specific type of crime".
+_STATION_OTHER_SPECIALISATION_TOKENS = (
+    "خواتین", "موٹروے", "ہائی وے", "ٹریفک", "ریلوے",
+    "women", "motorway", "highway", "traffic", "railway",
+)
+
+_STATION_GROUP_CRIME_TYPE = "crime_type_specialised"
+_STATION_GROUP_OTHER_SPECIALISED = "other_specialised"
+_STATION_GROUP_GENERAL = "general_purpose"
+
+_STATION_GROUP_GLOSS = {
+    _STATION_GROUP_CRIME_TYPE: "set up for one specific type of crime",
+    _STATION_GROUP_OTHER_SPECIALISED:
+        "specialised, but by complainant class or jurisdiction rather than by crime type",
+    _STATION_GROUP_GENERAL: "general-purpose",
+}
+
+
+def _classify_station_specialisation(name: Optional[str]) -> str:
+    """Which of the three buckets a station's NAME puts it in.
+
+    Order matters: "خواتین تھانہ" contains "تھانہ", so the specialisation
+    tokens must both be checked before anything falls through to
+    general-purpose. Pure, so the call for every real station name in this
+    corpus is unit-testable without a graph."""
+    text = (name or "").strip().lower()
+    if not text:
+        return _STATION_GROUP_GENERAL
+    if any(t in text for t in _STATION_CRIME_TYPE_SPECIALISATION_TOKENS):
+        return _STATION_GROUP_CRIME_TYPE
+    if any(t in text for t in _STATION_OTHER_SPECIALISATION_TOKENS):
+        return _STATION_GROUP_OTHER_SPECIALISED
+    return _STATION_GROUP_GENERAL
+
+
+async def _station_caseload_by_specialisation(
+    jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    """
+    [Gold-QA fix — Module 44, question M2] Per-station FIR counts, grouped by
+    a name-derived specialisation, with the incident-year split alongside.
+
+    Three reads rather than one join, deliberately: the station roster is
+    read on its own so a station with zero FIRs still counts toward the
+    denominator (the same reason `_station_total_count()` above does not
+    count distinct strings off case rows), and the incident-year split is
+    read separately so a Case whose Incident is missing a timestamp still
+    appears in the caseload counts instead of vanishing from both.
+    """
+    station_rows = await age_client.execute_cypher(
+        "MATCH (s:PoliceStation) RETURN s.station_id AS station_id, s.name AS name",
+        columns=["station_id", "name"],
+    )
+    case_filter = ""
+    params: dict = {}
+    if jurisdiction_case_ids is not None:
+        case_filter = "WHERE c.case_id IN $case_ids"
+        params = {"case_ids": jurisdiction_case_ids}
+    case_rows = await age_client.execute_cypher(
+        "MATCH (c:Case)-[:FILED_AT]->(s:PoliceStation) "
+        f"{case_filter} "
+        "RETURN s.station_id AS station_id, c.case_id AS case_id",
+        params=params, columns=["station_id", "case_id"],
+    )
+    year_rows = await age_client.execute_cypher(
+        "MATCH (i:Incident)-[:BELONGS_TO_CASE]->(c:Case)-[:FILED_AT]->(s:PoliceStation) "
+        f"{case_filter} "
+        "RETURN s.station_id AS station_id, i.incident_datetime AS incident_datetime",
+        params=params, columns=["station_id", "incident_datetime"],
+    )
+
+    stations: dict[str, dict] = {}
+    for row in station_rows:
+        sid = row.get("station_id")
+        if not sid:
+            continue
+        name = row.get("name")
+        stations[sid] = {
+            "station_id": sid,
+            "name": name,
+            "group": _classify_station_specialisation(name),
+            "fir_count": 0,
+            "by_year": {},
+        }
+
+    unknown_station_cases = 0
+    for row in case_rows:
+        sid = row.get("station_id")
+        if sid in stations:
+            stations[sid]["fir_count"] += 1
+        else:
+            unknown_station_cases += 1
+
+    undated = 0
+    for row in year_rows:
+        sid = row.get("station_id")
+        year = _extract_year(row.get("incident_datetime"))
+        if year is None or sid not in stations:
+            undated += 1
+            continue
+        stations[sid]["by_year"][year] = stations[sid]["by_year"].get(year, 0) + 1
+
+    total_firs = sum(s["fir_count"] for s in stations.values())
+    groups = []
+    for group in (
+        _STATION_GROUP_CRIME_TYPE,
+        _STATION_GROUP_OTHER_SPECIALISED,
+        _STATION_GROUP_GENERAL,
+    ):
+        members = sorted(
+            (s for s in stations.values() if s["group"] == group),
+            key=lambda s: (-s["fir_count"], s["station_id"]),
+        )
+        fir_count = sum(s["fir_count"] for s in members)
+        by_year: dict[int, int] = {}
+        for s in members:
+            for year, n in s["by_year"].items():
+                by_year[year] = by_year.get(year, 0) + n
+        groups.append({
+            "group": group,
+            "label": _STATION_GROUP_GLOSS[group],
+            "station_count": len(members),
+            "fir_count": fir_count,
+            "share": round(fir_count / total_firs, 3) if total_firs else 0.0,
+            "by_year": dict(sorted(by_year.items())),
+            "stations": [
+                {
+                    "station_id": s["station_id"],
+                    "name": s["name"],
+                    "fir_count": s["fir_count"],
+                    "by_year": dict(sorted(s["by_year"].items())),
+                }
+                for s in members
+            ],
+        })
+
+    logger.info(
+        "XAGG station_caseload_by_specialisation: %d station(s), %d FIR(s); %s; "
+        "%d FIR(s) with no resolvable incident year, %d case(s) at an unknown station",
+        len(stations), total_firs,
+        "; ".join(
+            f"{g['group']}={g['station_count']} station(s)/{g['fir_count']} FIR(s)"
+            for g in groups
+        ),
+        undated, unknown_station_cases,
+    )
+    return {
+        "kind": "station_caseload_by_specialisation",
+        "total_stations": len(stations),
+        "total_firs": total_firs,
+        "groups": groups,
+        "undated_firs": undated,
+        "cases_at_unknown_station": unknown_station_cases,
+    }
+
+
+def render_station_caseload_by_specialisation(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — Module 44, M2] Defined here and imported by all three
+    rendering sites, same contract as `render_time_bucketed_mean()`.
+
+    Leads with the concentration, states the derivation's basis, and then
+    answers the GROWTH half of M2 honestly — including when the counts are
+    too small to support a growth claim at all.
+    """
+    total_stations = agg_result["total_stations"]
+    total_firs = agg_result["total_firs"]
+    by_group = {g["group"]: g for g in agg_result["groups"]}
+    crime_type = by_group.get(_STATION_GROUP_CRIME_TYPE) or {}
+    other = by_group.get(_STATION_GROUP_OTHER_SPECIALISED) or {}
+    general = by_group.get(_STATION_GROUP_GENERAL) or {}
+
+    lines: list[str] = []
+
+    # A LEAD THAT CARRIES BOTH HALVES OF THE QUESTION, and it is here for a
+    # measured reason. M2 asks which group is growing faster; the corpus's
+    # most striking fact is a concentration. With the growth split further
+    # down the rendering, two of three live runs answered the growth half
+    # accurately and DROPPED the concentration entirely — a good answer to
+    # the question that omits the figures the question is scored against.
+    # Neither half is more true than the other, so neither gets to be the
+    # part a paraphrase can leave out: both are in the first sentence.
+    years = sorted({y for g in agg_result["groups"] for y in (g.get("by_year") or {})})
+    if len(years) >= 2 and total_firs:
+        first, last = years[0], years[-1]
+
+        def _delta(group: dict) -> int:
+            by_year = group.get("by_year") or {}
+            return by_year.get(last, 0) - by_year.get(first, 0)
+
+        ranked = sorted(
+            (g for g in agg_result["groups"] if g["station_count"]),
+            key=_delta, reverse=True,
+        )
+        if ranked:
+            top = ranked[0]
+            top_by_year = top.get("by_year") or {}
+            lead = (
+                f"Growth: caseload is rising fastest at the "
+                f"{top['station_count']} {top['label']} station(s) — "
+                f"{top_by_year.get(first, 0)} FIRs in {first} to "
+                f"{top_by_year.get(last, 0)} in {last}"
+            )
+            if crime_type.get("station_count") and top["group"] != _STATION_GROUP_CRIME_TYPE:
+                ct_by_year = crime_type.get("by_year") or {}
+                lead += (
+                    f", against {ct_by_year.get(first, 0)} to "
+                    f"{ct_by_year.get(last, 0)} at the "
+                    f"{crime_type['station_count']} single-crime-type station(s)"
+                )
+            if crime_type.get("station_count"):
+                lead_pct = round(100 * crime_type["fir_count"] / total_firs, 1)
+                # ONE sentence, not two. Split across two lines, a paraphrase
+                # kept the growth clause and dropped the share clause on 3 of
+                # 3 live runs; a single sentence gives it no seam to drop.
+                lead += (
+                    f" — though even so, {crime_type['fir_count']} of "
+                    f"{total_firs} FIRs (~{lead_pct}%) are carried by just "
+                    f"{crime_type['station_count']} of {total_stations} "
+                    f"stations, the ones set up for a single type of crime"
+                )
+            lines.append(lead + ".")
+            lines.append("")
+
+    if not crime_type.get("station_count"):
+        lines.append(
+            f"No station among the {total_stations} on record is named as a "
+            f"unit for one specific type of crime, so a general-purpose vs. "
+            f"single-crime-type comparison cannot be drawn on this corpus."
+        )
+    else:
+        pct = round(100 * crime_type["fir_count"] / total_firs, 1) if total_firs else 0.0
+        lines.append(
+            f"{crime_type['fir_count']} of {total_firs} FIRs (~{pct}%) are "
+            f"filed at the {crime_type['station_count']} of {total_stations} "
+            f"stations set up for one specific type of crime:"
+        )
+        for s in crime_type["stations"]:
+            lines.append(f"  - {s['name']} ({s['station_id']}): {s['fir_count']} FIRs")
+        lines.append(
+            f"Those {crime_type['station_count']} stations are "
+            f"{round(100 * crime_type['station_count'] / total_stations)}% of the "
+            f"stations and carry ~{pct}% of the caseload."
+        )
+
+    if other.get("station_count"):
+        lines.append("")
+        lines.append(
+            f"{other['station_count']} further station(s) are specialised, but "
+            f"by complainant class or jurisdiction rather than by crime type, "
+            f"so they are NOT counted above ({other['fir_count']} FIRs): "
+            + "; ".join(f"{s['name']} ({s['fir_count']})" for s in other["stations"])
+            + "."
+        )
+    if general.get("station_count"):
+        lines.append(
+            f"The remaining {general['station_count']} are general-purpose "
+            f"stations, carrying {general['fir_count']} FIRs."
+        )
+
+    # The GROWTH half again, now with its own denominators and every group
+    # broken out — the lead above states the comparison, this states the
+    # numbers behind it.
+    if len(years) >= 2:
+        first, last = years[0], years[-1]
+        lines.append("")
+        lines.append(f"Caseload by incident year ({first} vs {last}):")
+        for g in agg_result["groups"]:
+            if not g["station_count"]:
+                continue
+            a = (g.get("by_year") or {}).get(first, 0)
+            b = (g.get("by_year") or {}).get(last, 0)
+            lines.append(f"  - {g['label']}: {a} in {first}, {b} in {last}")
+        first_total = sum((g.get("by_year") or {}).get(first, 0) for g in agg_result["groups"])
+        lines.append(
+            f"The {first} baseline is {first_total} FIRs across all "
+            f"{total_stations} stations, so a per-station growth RATE is not "
+            f"a responsible figure to quote on this corpus — the counts "
+            f"behind each rate are single digits. The share of caseload above "
+            f"is the claim the data supports."
+        )
+
+    lines.append("")
+    lines.append(
+        "Basis: this system has no station-type field. The grouping is "
+        "derived from each station's own recorded name, and every station is "
+        "listed above so the classification can be checked. A name carrying "
+        "no specialisation marker is counted as general-purpose."
+    )
+    undated = agg_result.get("undated_firs") or 0
+    if undated:
+        lines.append(
+            f"{undated} FIR(s) carry no resolvable incident year and are "
+            f"counted in the caseload totals but not in the year split."
+        )
+    return lines
+
+
 # [findings.md Module 4] Strips a trailing ammunition-count clause shaped
 # "بمعہ N گولیاں" ("with N bullets") — e.g. "30 بور پستول بمعہ 3 گولیاں"
 # and "...بمعہ 6 گولیاں" are the SAME weapon type as bare "30 بور پستول",
@@ -4442,8 +5019,8 @@ _ENTITY_RECURRENCE_AGGREGATE_KINDS = frozenset({
     "graph_recurrence_weapon",
 })
 
-# The chain's honest refusals. `_UNSUPPORTED_STATION_TYPE` (M2),
-# `_UNSUPPORTED_OFFICER` and `_UNSUPPORTED_TREND` are deliberate,
+# The chain's honest refusals. `_UNSUPPORTED_OFFICER` and
+# `_UNSUPPORTED_TREND` are deliberate,
 # purpose-built outcomes — Module 1b added them precisely so a query with
 # no data path gets a stated limitation instead of an unrelated number —
 # so they COUNT as resolved for `resolves_to_specific_aggregate()`. That is
@@ -4454,8 +5031,16 @@ _ENTITY_RECURRENCE_AGGREGATE_KINDS = frozenset({
 # router one level down and answered with a fabricated split. An honest
 # "we cannot compute this" is a better answer than a confident invented
 # one; see MODULE41_RESULT.md for the reasoning in full.
+#
+# [Gold-QA fix — Module 44] `unsupported_station_type` was the third member
+# and has been REMOVED, because M2 no longer resolves to a refusal at all:
+# the specialisation it said could not be computed is derivable from the
+# station names (see `_station_caseload_by_specialisation()`). Nothing about
+# the policy above changes — the two remaining refusals still count as
+# resolved for `resolves_to_specific_aggregate()`, and M2 still skips
+# decomposition, now because it resolves to a real aggregate rather than to
+# an honest "we cannot".
 _UNSUPPORTED_AGGREGATE_KINDS = frozenset({
-    "unsupported_station_type",
     "unsupported_officer",
     "unsupported_trend",
 })
@@ -4479,10 +5064,22 @@ def resolve_aggregate_kind(query_text: str) -> str:
 
     if _matches_any(query_lower, _AGE_KEYWORDS):
         return "offender_age_profile"
+    # [Gold-QA fix — Module 44, M2] Same first-in-the-chain precedence the
+    # refusal held (a station-TYPE question must never be answered by the
+    # plain per-station group-by further down), but now a real aggregate:
+    # the specialisation is derivable from the station names. See
+    # `_station_caseload_by_specialisation()`.
     if _matches_any(query_lower, _STATION_TYPE_KEYWORDS):
-        return "unsupported_station_type"
+        return "station_caseload_by_specialisation"
     if _matches_any(query_lower, _PLACEHOLDER_OFFICER_KEYWORDS):
         return "placeholder_officer_count"
+    # [Gold-QA fix — Module 44, CS4] ABOVE `_CRIMINAL_RECORD_KEYWORDS`
+    # (CR7), which reads the same records for a different question and
+    # scores 1.0 today. A two-signal predicate, so CR7's own vocabulary
+    # cannot reach here on its own; the all-32 equality control enforces
+    # that CR7 keeps its family and only CS4 lands on this one.
+    if _is_criminal_record_local_gap(query_lower):
+        return "criminal_record_local_match_gap"
     if _matches_any(query_lower, _CRIMINAL_RECORD_KEYWORDS):
         return "criminal_record_court_crosscheck"
     if _matches_any(query_lower, _DV_REPORT_KEYWORDS):
@@ -4677,12 +5274,34 @@ async def run_aggregate(
     if kind == "offender_age_profile":
         return await _offender_age_profile(jurisdiction_case_ids=jurisdiction_case_ids)
     # [Gold-QA fix — Module 13, question M2] Checked early, same precedence
-    # as AGE just above — no station-type dimension exists in this data
-    # model at all (see _STATION_TYPE_KEYWORDS' own comment), so this must
-    # win before _STATION_KEYWORDS' plain per-station group-by further down
-    # silently answers a different, easier question than the one asked.
-    if kind == "unsupported_station_type":
-        return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_STATION_TYPE}
+    # as AGE just above, so this wins before _STATION_KEYWORDS' plain
+    # per-station group-by further down silently answers a different, easier
+    # question than the one asked.
+    #
+    # [Gold-QA fix — Module 44] Re-pointed from an `unsupported_aggregate`
+    # refusal to a real aggregate, the same call Module 31 made for
+    # `_UNSUPPORTED_AGE` immediately above and for the same reason: the
+    # refusal's second clause ("caseload cannot be compared across that
+    # dimension") had stopped being true. There is still no station-type
+    # FIELD, but 2 of the 19 PoliceStation nodes are named Cyber Crime
+    # Circles and carry 9 of the 73 FIRs — which is M2's gold answer, and
+    # needs only the names. The derivation's weaker basis is stated in the
+    # rendered output rather than hidden.
+    if kind == "station_caseload_by_specialisation":
+        return await _station_caseload_by_specialisation(
+            jurisdiction_case_ids=jurisdiction_case_ids
+        )
+    # [Gold-QA fix — Module 44, question CS4] Which subjects of the
+    # criminal-records system have no matching accused record in our own
+    # FIRs. Checked BEFORE CR7's crosscheck below (they read the same
+    # records) and, decisively, before _PERSON_KEYWORDS — which is what CS4
+    # actually hit before this module: measured live on 2026-09-08 it
+    # returned `graph_recurrence`/Person, a ranked list of four people in
+    # two cases each, answering nothing CS4 asked.
+    if kind == "criminal_record_local_match_gap":
+        return await _criminal_record_local_match_gap(
+            jurisdiction_case_ids=jurisdiction_case_ids
+        )
     # [Gold-QA fix — Module 7, question CP6] Checked before _OFFICER_KEYWORDS's
     # hard refusal — a placeholder-officer COUNT has a real data path
     # (Officer.canonical_name + the ASSIGNED_TO supersession chain, both
