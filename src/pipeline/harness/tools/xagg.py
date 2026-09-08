@@ -72,6 +72,7 @@ from src.pipeline.xagg import (
     render_seized_property_disposition,
     render_incident_time_of_day,
     render_arrest_rate,
+    render_filtered_fir_listing,
     _UNSUPPORTED_JURISDICTION,
 )
 from src.retrieval.graph_retriever import jurisdiction_unresolved
@@ -168,6 +169,9 @@ AggregateKind = Literal[
     # test_every_new_aggregate_kind_is_accepted_by_the_harness_tool_result`
     # is what now forces it to be updated.
     "arrest_rate",
+    # [Gold-QA fix — Module 36, CR3] same additive convention — the
+    # subject-filtered FIR listing shape.
+    "filtered_fir_listing",
 ]
 
 
@@ -366,6 +370,9 @@ def _render_aggregate_text(agg_result: dict) -> str:
     # [Gold-QA fix — Module 35, G6] same, for the arrest rate.
     elif kind == "arrest_rate":
         lines = render_arrest_rate(agg_result)
+    # [Gold-QA fix — Module 36, CR3] same, for the filtered FIR listing.
+    elif kind == "filtered_fir_listing":
+        lines = render_filtered_fir_listing(agg_result)
     else:
         lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
         # [Legal-code semantic layer] Kept in sync with orchestrator.py's
