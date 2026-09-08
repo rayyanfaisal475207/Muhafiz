@@ -50,7 +50,17 @@ except Exception:  # noqa: BLE001
     pass
 
 # How many chars of the answer the judge is shown. See `truncate_for_scoring`.
-MAX_ANSWER_CHARS = int(os.environ.get("GOLD32_MAX_ANSWER_CHARS", "900"))
+# [Module 46] Default is now 0 = NO TRUNCATION. The 900 it replaces was
+# introduced to bound *Faithfulness*, which made one judge call per atomic
+# claim; Faithfulness was dropped from _METRICS and the literal outlived its
+# reason. Module 45 measured both sides: removing the cap costs under 2s per
+# metric and NO extra judge calls, while leaving it on makes an answer whose
+# gold facts sit past char 900 score 0.0 instead of 1.0 -- total signal loss,
+# not degradation (proved with a positive control). The build now emits
+# 1,000-2,500-char KB answers, so the cap was about to start deleting real
+# results. Set GOLD32_MAX_ANSWER_CHARS to re-enable a cap if Faithfulness or
+# another per-claim metric ever returns.
+MAX_ANSWER_CHARS = int(os.environ.get("GOLD32_MAX_ANSWER_CHARS", "0"))
 TRUNCATION_MARKER = " …[truncated for scoring]"
 
 # A metric that produces no number is retried this many times before the row is
