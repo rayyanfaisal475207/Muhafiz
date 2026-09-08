@@ -1,0 +1,101 @@
+{
+ "answer": "For the officer joining this caseload, key considerations include:  \n\n- **District focus**: Cases are concentrated in **فیصل آباد** (Faisalabad: 19 cases), **لاہور** (Lahore: 18 cases), and **راولپنڈی** (Rawalpindi: 10 cases), with smaller numbers in other districts [Document 1].  \n- **Case mix**: Compared to 2024, **PPC cases have surged to 39** (up from 13), while **Arms Ordinance 1965 cases decreased to 16** (from 13). New categories include **CNSA 1997 (12)**, **PECA 2016 (9)**, and **Punjab Domestic Violence Act (4)**, reflecting diversification [Document 2].  \n- **Reporting delays**: The mean time from incident to report is **1401.3 minutes (~23.4 hours)** in 2026, significantly slower than **15.0 minutes** in 2024 [Document 4].  \n- **Arrest rates**: Only **11 FIRs** (out of 73) record arrests, while **62 FIRs** have no arrests, with many accused marked as \"under investigation\" or \"absconding\" [Document 3].  \n- **Weapon licensing**: **30 cases** involve recovered weapons with **no licence recorded**, and **2 cases** have **no licence status at all** [Document 5].  \n- **Accused profile**: **67 male** and **24 female** accused (total 94), with **3 cases** having unknown gender [Document 6].  \n\nPrioritize districts with high case volumes, prepare for delayed reporting and low arrest rates, and address unlicensed weapons and emerging legal issues like PECA 2016 and CNSA 1997.",
+ "routes": [
+  "XNETWORK -> Meta-Analysis",
+  "XAGG -> Large-Scale Aggregate",
+  "XAGG -> Large-Scale Aggregate",
+  "XAGG -> Large-Scale Aggregate",
+  "XAGG -> Large-Scale Aggregate",
+  "XAGG -> Large-Scale Aggregate",
+  "XAGG -> Large-Scale Aggregate"
+ ],
+ "status": "done",
+ "events": [
+  {
+   "step": "supervisor",
+   "detail": "Routing through the agent harness..."
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XNETWORK' -> sub-agent='Meta-Analysis'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Large-Scale Aggregate completed with status=ok"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Large-Scale Aggregate completed with status=ok"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Large-Scale Aggregate completed with status=ok"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Large-Scale Aggregate completed with status=ok"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Large-Scale Aggregate completed with status=ok"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Large-Scale Aggregate completed with status=ok"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Meta-Analysis completed with status=ok"
+  },
+  {
+   "step": "supervisor",
+   "detail": "Harness routing complete"
+  },
+  {
+   "step": "citations",
+   "detail": "6 citation(s)"
+  },
+  {
+   "step": "response",
+   "detail": "For the officer joining this caseload, key considerations include:  \n\n- **District focus**: Cases are concentrated in **فیصل آباد** (Faisalabad: 19 cases), **لاہور** (Lahore: 18 cases), and **راولپنڈی** (Rawalpindi: 10 cases), with smaller numbers in other districts [Document 1].  \n- **Case mix**: Compared to 2024, **PPC cases have surged to 39** (up from 13), while **Arms Ordinance 1965 cases dec"
+  },
+  {
+   "step": "response",
+   "detail": "Response generated (1400 chars)"
+  },
+  {
+   "step": "memory",
+   "detail": "Saved to session"
+  }
+ ],
+ "error": null,
+ "elapsed_s": 126.3,
+ "question": "Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation note likhein — unhein mojooda case load se kya tawaqqo rakhni chahiye?",
+ "label": "N6-G6",
+ "run": 1,
+ "raw_sse_len": 4462
+}

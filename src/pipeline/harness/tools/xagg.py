@@ -58,12 +58,14 @@ from src.pipeline.harness.types import (
 from src.pipeline.xagg import (
     run_aggregate,
     render_criminal_record_crosscheck,
+    render_criminal_record_local_match_gap,
     render_cms_fir_linkage,
     render_dv_report_fir_match,
     render_case_completeness_scan,
     render_weapon_compliance_scan,
     render_weapon_evidence_chain,
     render_court_readiness_scan,
+    render_station_caseload_by_specialisation,
     render_time_bucketed_mean,
     render_weapon_statute_cooccurrence,
     render_statute_court_stage_join,
@@ -172,6 +174,14 @@ AggregateKind = Literal[
     # [Gold-QA fix — Module 36, CR3] same additive convention — the
     # subject-filtered FIR listing shape.
     "filtered_fir_listing",
+    # [Gold-QA fix — Module 44, questions M2 and CS4] SEVENTH and EIGHTH
+    # families to depend on this hand-maintained Literal. Added in the same
+    # commit as the aggregates themselves, before any live run, precisely
+    # because Module 31 proved that a missing entry here is invisible to
+    # every unit test and surfaces only as an EMPTY answer with status=None
+    # through /api/chat.
+    "station_caseload_by_specialisation",
+    "criminal_record_local_match_gap",
 ]
 
 
@@ -348,6 +358,13 @@ def _render_aggregate_text(agg_result: dict) -> str:
     # identical XAGG-route rendering sites, per this function's own docstring.
     elif kind == "time_bucketed_mean":
         lines = render_time_bucketed_mean(agg_result)
+    # [Gold-QA fix — Module 44, M2] Kept in sync with orchestrator.py's two
+    # identical XAGG-route rendering sites, per this function's own docstring.
+    elif kind == "station_caseload_by_specialisation":
+        lines = render_station_caseload_by_specialisation(agg_result)
+    # [Gold-QA fix — Module 44, CS4] same.
+    elif kind == "criminal_record_local_match_gap":
+        lines = render_criminal_record_local_match_gap(agg_result)
     # [Gold-QA fix — Module 23, M5] Kept in sync with orchestrator.py's two
     # identical XAGG-route rendering sites, per this function's own docstring.
     elif kind == "weapon_statute_cooccurrence":

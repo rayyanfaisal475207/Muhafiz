@@ -1,0 +1,47 @@
+{
+ "answer": "According to [Document 1], **2 FIRs** are registered under the **PECA 2016** statute at **سائبر کرائم سرکل، اسلام آباد** and **سائبر کرائم سرکل، راولپنڈی**. The details are as follows:  \n\n1. **FIR 64/26** | Case ID: **fir-64-26** | Station: **سائبر کرائم سرکل، اسلام آباد** | Status: **ملزم جسمانی ریمانڈ پر، مزید برآمدگی کے لیے**  \n2. **FIR 65/26** | Case ID: **fir-65-26** | Station: **سائبر کرائم سرکل، راولپنڈی** | Status: **ملزم جسمانی ریمانڈ پر، مقدمہ نمبر 10 کا وہی ملزم**  \n\nBoth cases also involve the **PPC** statute.",
+ "routes": [
+  "XAGG -> Large-Scale Aggregate"
+ ],
+ "status": "done",
+ "events": [
+  {
+   "step": "supervisor",
+   "detail": "Routing through the agent harness..."
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Large-Scale Aggregate completed with status=ok"
+  },
+  {
+   "step": "supervisor",
+   "detail": "Harness routing complete"
+  },
+  {
+   "step": "citations",
+   "detail": "1 citation(s)"
+  },
+  {
+   "step": "response",
+   "detail": "According to [Document 1], **2 FIRs** are registered under the **PECA 2016** statute at **سائبر کرائم سرکل، اسلام آباد** and **سائبر کرائم سرکل، راولپنڈی**. The details are as follows:  \n\n1. **FIR 64/26** | Case ID: **fir-64-26** | Station: **سائبر کرائم سرکل، اسلام آباد** | Status: **ملزم جسمانی ریمانڈ پر، مزید برآمدگی کے لیے**  \n2. **FIR 65/26** | Case ID: **fir-65-26** | Station: **سائبر کرائم "
+  },
+  {
+   "step": "response",
+   "detail": "Response generated (527 chars)"
+  },
+  {
+   "step": "memory",
+   "detail": "Saved to session"
+  }
+ ],
+ "error": null,
+ "elapsed_s": 16.2,
+ "question": "How many cases are registered under the cybercrime act at a cyber crime circle station, and what are their FIR numbers and current status?",
+ "label": "sq-firlist",
+ "run": 1,
+ "raw_sse_len": 2260
+}

@@ -1,0 +1,16 @@
+data: {"step": "supervisor", "status": "active", "detail": "Routing through the agent harness..."}
+
+data: {"step": "supervisor:dispatch", "status": "active", "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"}
+
+data: {"step": "supervisor:dispatch", "status": "done", "detail": "Large-Scale Aggregate completed with status=ok"}
+
+data: {"step": "supervisor", "status": "done", "detail": "Harness routing complete"}
+
+data: {"step": "citations", "status": "done", "detail": "1 citation(s)", "citations": [{"document_index": 1, "source_tool": "XAGG", "case_id": null, "source_file": "cross-case aggregate", "confidence": null}]}
+
+data: {"step": "response", "status": "streaming", "detail": "According to [Document 1], **28 FIR(s)** record seized property, with **45 property-register entry/entries** in total. Of these:  \n- **13 item(s)** in **11 FIR(s)** were **literally dispatched to a forensic laboratory** (under the category \"sealed, sample sent to the forensic laboratory\").  \n- **7 item(s)** in **7 FIR(s)** are **held for return to the heirs of a deceased person** (under the category \"to be handed over to the heirs\").  \n\nThese figures are derived directly from the disposition records in the case database."}
+
+data: {"step": "response", "status": "done", "detail": "Response generated (526 chars)", "ms": 12051}
+
+data: {"step": "memory", "status": "done", "detail": "Saved to session"}
+

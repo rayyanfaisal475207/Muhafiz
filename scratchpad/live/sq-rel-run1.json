@@ -1,0 +1,47 @@
+{
+ "answer": "Across all cases, **24 relationships** between the accused and the complainant/victim are recorded in **10 FIR(s)**. The most common relationship is **اجنبی (stranger)**, which appears **15 times** across **6 FIR(s)**. Other recorded relationships include:  \n- ساس (mother-in-law): 2 times (1 FIR)  \n- سینئر ساتھی کار (senior co-worker): 2 times (1 FIR)  \n- شوہر (husband): 2 times (1 FIR)  \n- محلے دار (neighbour): 2 times (1 FIR)  \n- بھائی (brother): 1 time (1 FIR).  \n\nNote: **24 entries** cover **22 distinct accused↔other-party pairs**, as some FIRs include multiple relationship entries (e.g., for both complainant and victim if they are the same person) [Document 1].",
+ "routes": [
+  "XAGG -> Large-Scale Aggregate"
+ ],
+ "status": "done",
+ "events": [
+  {
+   "step": "supervisor",
+   "detail": "Routing through the agent harness..."
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Large-Scale Aggregate completed with status=ok"
+  },
+  {
+   "step": "supervisor",
+   "detail": "Harness routing complete"
+  },
+  {
+   "step": "citations",
+   "detail": "1 citation(s)"
+  },
+  {
+   "step": "response",
+   "detail": "Across all cases, **24 relationships** between the accused and the complainant/victim are recorded in **10 FIR(s)**. The most common relationship is **اجنبی (stranger)**, which appears **15 times** across **6 FIR(s)**. Other recorded relationships include:  \n- ساس (mother-in-law): 2 times (1 FIR)  \n- سینئر ساتھی کار (senior co-worker): 2 times (1 FIR)  \n- شوہر (husband): 2 times (1 FIR)  \n- محلے د"
+  },
+  {
+   "step": "response",
+   "detail": "Response generated (674 chars)"
+  },
+  {
+   "step": "memory",
+   "detail": "Saved to session"
+  }
+ ],
+ "error": null,
+ "elapsed_s": 26.1,
+ "question": "How many cases record a relationship between the accused and the complainant, and which relationship is it, across all cases?",
+ "label": "sq-rel",
+ "run": 1,
+ "raw_sse_len": 1769
+}

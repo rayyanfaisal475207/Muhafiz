@@ -1,0 +1,24 @@
+[FINAL-G6 run1] 286.8s status=done routes=6 err=None
+     XNETWORK -> Meta-Analysis
+     XAGG -> Large-Scale Aggregate
+     XAGG -> Large-Scale Aggregate
+     XAGG -> Large-Scale Aggregate
+     XAGG -> Large-Scale Aggregate
+     XAGG -> Large-Scale Aggregate
+    ANSWER: For the officer joining this caseload, here is a concise orientation summary:    **District Concentration**: Cases are concentrated in **فیصل آباد** (Faisalabad: 19 cases) and **لاہور** (Lahore: 18 cases), with **راولپنڈی** (Rawalpindi: 10 cases) as the next major hub. Smaller numbers are registered in **اسلام آباد** (Islamabad: 5), **چنیوٹ** (Chiniot: 5), **حیدر آباد** (Hyderabad: 5), **کراچی ایسٹ** (Karachi East: 5), **کراچی وسطی** (Karachi Central: 5), and **ملتان** (Multan: 1 case) [Document 1].    **Case Mix**: Current cases (2026) include **39 Pakistan Penal Code (PPC)** cases (up from 1
+[FINAL-G6 run2] 239.8s status=done routes=6 err=None
+     XNETWORK -> Meta-Analysis
+     XAGG -> Large-Scale Aggregate
+     XAGG -> Large-Scale Aggregate
+     XAGG -> Large-Scale Aggregate
+     XAGG -> Large-Scale Aggregate
+     XAGG -> Large-Scale Aggregate
+    ANSWER: For the officer joining this caseload, here is a concise orientation summary:    **District Concentration**: Cases are concentrated in **فیصل آباد** (Faisalabad: 19 cases), **لاہور** (Lahore: 18 cases), and **راولپنڈی** (Rawalpindi: 10 cases). Other districts, including **اسلام آباد** (Islamabad), **چنیوٹ** (Chiniot), **حیدر آباد** (Hyderabad), **کراچی ایسٹ** (Karachi East), and **کراچی وسطی** (Karachi Central), each have 5 cases, while **ملتان** (Multan) has 1 case [Document 1].    **Case Mix**: Current cases (2026) show a **surge in PPC (Preventive Detention and Security Act) cases** (39) co
+[FINAL-G6 run3] 312.0s status=done routes=6 err=None
+     XNETWORK -> Meta-Analysis
+     XAGG -> Large-Scale Aggregate
+     XAGG -> Large-Scale Aggregate
+     XAGG -> Large-Scale Aggregate
+     XAGG -> Large-Scale Aggregate
+     XAGG -> Large-Scale Aggregate
+    ANSWER: For the officer joining this caseload, here is a concise orientation summary:    **District Concentration**: Cases are concentrated in **فیصل آباد** (Faisalabad: 19 cases) and **لاہور** (Lahore: 18 cases), with **راولپنڈی** (Rawalpindi: 10 cases) as the next major hub. Smaller numbers are registered in **اسلام آباد** (Islamabad: 5), **چنیوٹ** (Chiniot: 5), **حیدر آباد** (Hyderabad: 5), **کراچی ایسٹ** (Karachi East: 5), **کراچی وسطی** (Karachi Central: 5), and **ملتان** (Multan: 1 case) [Document 1].    **Case Mix**: Current cases (2026) include **39 Pakistan Penal Code (PPC)** cases (up from 1

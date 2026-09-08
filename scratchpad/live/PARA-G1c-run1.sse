@@ -1,0 +1,22 @@
+data: {"step": "query_rewriter", "status": "active", "detail": ""}
+
+data: {"step": "title_generation", "status": "done", "detail": "Review Open Items for Followup"}
+
+data: {"step": "query_rewriter", "status": "done", "detail": "Rewritten: 'As the on-duty analyst, look over everything currently open and tell me what's worth a second look'", "ms": 61364}
+
+data: {"step": "router", "status": "active", "detail": ""}
+
+data: {"step": "router", "status": "done", "detail": "Route decided: XNETWORK", "ms": 36683, "confidence": "medium", "case_scope": "cross_case", "reason": "Open-ended request for synthesized analysis across all open cases \u2014 explicitly spans cases without naming specific entities, matching XNETWORK's pattern for cross-case network synthesis"}
+
+data: {"step": "cross_case_finding", "status": "active", "detail": "Retrieving relevant network clusters..."}
+
+data: {"step": "cross_case_finding", "status": "done", "detail": "No relevant community clusters found", "ms": 907, "case_scope": "cross_case"}
+
+data: {"step": "response", "status": "active", "detail": ""}
+
+data: {"step": "response", "status": "streaming", "detail": "No community cluster in the case corpus is closely related to this specific question (\"As the on-duty analyst, look over everything currently open and tell me what's worth a second look\") (nearest cluster found was distance 0.243 against a relevance cutoff of 0.145). Rather than describing an unrelated cluster, no cross-case network finding is being reported here."}
+
+data: {"step": "response", "status": "done", "detail": "Response generated (366 chars)", "ms": 0}
+
+data: {"step": "memory", "status": "done", "detail": "Saved to session"}
+

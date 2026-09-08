@@ -1,0 +1,20 @@
+data: {"step": "supervisor", "status": "active", "detail": "Routing through the agent harness..."}
+
+data: {"step": "supervisor:dispatch", "status": "active", "detail": "Classified query as route='XNETWORK' -> sub-agent='Meta-Analysis'"}
+
+data: {"step": "supervisor:dispatch", "status": "active", "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"}
+
+data: {"step": "supervisor:dispatch", "status": "active", "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"}
+
+data: {"step": "supervisor:dispatch", "status": "active", "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"}
+
+data: {"step": "supervisor:dispatch", "status": "active", "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"}
+
+data: {"step": "supervisor:dispatch", "status": "active", "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"}
+
+data: {"step": "supervisor:dispatch", "status": "done", "detail": "Meta-Analysis completed with status=abstained"}
+
+data: {"step": "supervisor", "status": "done", "detail": "Harness routing complete"}
+
+data: {"step": "response", "status": "error", "detail": "Could not answer sub-question (timed out): How many cases involve an accused person, and what is their age range and average age, across all cases?; Could not answer sub-question (timed out): How many cases record a relationship between the accused and the complainant, and which relationship is it, across all cases?; Could not answer sub-question (timed out): How many cases record seized property, and what happens to it \u2014 how many items were sent to a forensic laboratory or held for a deceased's heirs, across all cases?; Could not answer sub-question (timed out): How many cases record an incident time, and at what time of day do those incidents happen, across all cases?; Could not answer sub-question (timed out): How many cases does each accused person appear in, and which FIR numbers, across all cases?", "ms": 118205}
+

@@ -1,0 +1,57 @@
+{
+ "answer": "No community cluster in the case corpus is closely related to this specific question (\"As the on-duty analyst, look over everything currently open and tell me what's worth a second look\") (nearest cluster found was distance 0.243 against a relevance cutoff of 0.145). Rather than describing an unrelated cluster, no cross-case network finding is being reported here.",
+ "routes": [],
+ "status": "done",
+ "events": [
+  {
+   "step": "query_rewriter",
+   "detail": ""
+  },
+  {
+   "step": "title_generation",
+   "detail": "Review Open Items for Followup"
+  },
+  {
+   "step": "query_rewriter",
+   "detail": "Rewritten: 'As the on-duty analyst, look over everything currently open and tell me what's worth a second look'"
+  },
+  {
+   "step": "router",
+   "detail": ""
+  },
+  {
+   "step": "router",
+   "detail": "Route decided: XNETWORK"
+  },
+  {
+   "step": "cross_case_finding",
+   "detail": "Retrieving relevant network clusters..."
+  },
+  {
+   "step": "cross_case_finding",
+   "detail": "No relevant community clusters found"
+  },
+  {
+   "step": "response",
+   "detail": ""
+  },
+  {
+   "step": "response",
+   "detail": "No community cluster in the case corpus is closely related to this specific question (\"As the on-duty analyst, look over everything currently open and tell me what's worth a second look\") (nearest cluster found was distance 0.243 against a relevance cutoff of 0.145). Rather than describing an unrelated cluster, no cross-case network finding is being reported here."
+  },
+  {
+   "step": "response",
+   "detail": "Response generated (366 chars)"
+  },
+  {
+   "step": "memory",
+   "detail": "Saved to session"
+  }
+ ],
+ "error": null,
+ "elapsed_s": 160.6,
+ "question": "As the on-duty analyst, look over everything currently open and tell me what's worth a second look",
+ "label": "PARA-G1c",
+ "run": 1,
+ "raw_sse_len": 1690
+}

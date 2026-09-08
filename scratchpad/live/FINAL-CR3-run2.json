@@ -1,0 +1,74 @@
+{
+ "answer": "No, not identically. The two FIRs involved in the online banking fraud matter—**FIR 64/26** (linked to CMS-ISB-2026-0341) and **FIR 65/26** (unlinked to any CMS complaint)—were not processed identically. **FIR 64/26** has a matching walk-in complaint recorded in the CMS system ([Document 3]), while **FIR 65/26** does not appear in the linkage list, indicating no corresponding complaint was recorded ([Document 3]). This discrepancy in complaint linkage demonstrates differing handling of the two cases.\n\n_A cited claim ([Document 3]) could only be partially confirmed against its source: The source confirms FIR 64/26 is linked to a CMS complaint but does not mention FIR 65/26 at all, making the claim about FIR 65/26 unsupported._\n_A cited claim ([Document 3]) could only be partially confirmed against its source: The source confirms FIR 64/26 is linked to a CMS complaint but does not mention FIR 65/26 at all, making the claim about FIR 65/26 unsupported._",
+ "routes": [
+  "XNETWORK -> Meta-Analysis",
+  "XAGG -> Large-Scale Aggregate",
+  "XAGG -> Large-Scale Aggregate",
+  "XAGG -> Large-Scale Aggregate"
+ ],
+ "status": "done",
+ "events": [
+  {
+   "step": "supervisor",
+   "detail": "Routing through the agent harness..."
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XNETWORK' -> sub-agent='Meta-Analysis'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Large-Scale Aggregate completed with status=ok"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Large-Scale Aggregate completed with status=ok"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Large-Scale Aggregate completed with status=ok"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Meta-Analysis completed with status=ok"
+  },
+  {
+   "step": "supervisor",
+   "detail": "Harness routing complete"
+  },
+  {
+   "step": "citations",
+   "detail": "3 citation(s)"
+  },
+  {
+   "step": "response",
+   "detail": "No, not identically. The two FIRs involved in the online banking fraud matter—**FIR 64/26** (linked to CMS-ISB-2026-0341) and **FIR 65/26** (unlinked to any CMS complaint)—were not processed identically. **FIR 64/26** has a matching walk-in complaint recorded in the CMS system ([Document 3]), while **FIR 65/26** does not appear in the linkage list, indicating no corresponding complaint was recorde"
+  },
+  {
+   "step": "response",
+   "detail": "Response generated (964 chars)"
+  },
+  {
+   "step": "memory",
+   "detail": "Saved to session"
+  }
+ ],
+ "error": null,
+ "elapsed_s": 198.2,
+ "question": "In the online banking fraud matter involving two separate victims, was each victim's case processed and recorded the same way?",
+ "label": "FINAL-CR3",
+ "run": 2,
+ "raw_sse_len": 2831
+}

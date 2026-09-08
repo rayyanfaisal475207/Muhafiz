@@ -1,0 +1,28 @@
+data: {"step": "supervisor", "status": "active", "detail": "Routing through the agent harness..."}
+
+data: {"step": "supervisor:dispatch", "status": "active", "detail": "Classified query as route='XNETWORK' -> sub-agent='Meta-Analysis'"}
+
+data: {"step": "supervisor:dispatch", "status": "active", "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"}
+
+data: {"step": "supervisor:dispatch", "status": "active", "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"}
+
+data: {"step": "supervisor:dispatch", "status": "active", "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"}
+
+data: {"step": "supervisor:dispatch", "status": "done", "detail": "Large-Scale Aggregate completed with status=ok"}
+
+data: {"step": "supervisor:dispatch", "status": "done", "detail": "Large-Scale Aggregate completed with status=ok"}
+
+data: {"step": "supervisor:dispatch", "status": "done", "detail": "Large-Scale Aggregate completed with status=ok"}
+
+data: {"step": "supervisor:dispatch", "status": "done", "detail": "Meta-Analysis completed with status=ok"}
+
+data: {"step": "supervisor", "status": "done", "detail": "Harness routing complete"}
+
+data: {"step": "citations", "status": "done", "detail": "3 citation(s)", "citations": [{"document_index": 1, "source_tool": "XAGG", "case_id": null, "source_file": null, "confidence": null}, {"document_index": 2, "source_tool": "XAGG", "case_id": null, "source_file": null, "confidence": null}, {"document_index": 3, "source_tool": "XAGG", "case_id": null, "source_file": null, "confidence": null}]}
+
+data: {"step": "response", "status": "streaming", "detail": "No, not identically. The two FIRs related to the online banking fraud matter\u2014**FIR 64/26** and **FIR 65/26**\u2014were not processed and recorded the same way.  \n\n- **FIR 64/26** has a matching walk-in complaint recorded in the CMS system (case tag **CMS-ISB-2026-0341**) [Document 3].  \n- **FIR 65/26** does not appear in the CMS linkage list, indicating no corresponding walk-in complaint was recorded for this case [Document 3].  \n\nBoth FIRs are registered under the **PECA 2016** statute and involve accused individuals (e.g., **\u0639\u0627\u0635\u0645 \u0631\u0634\u06cc\u062f** appears in both) [Document 2], but the presence of a linked CMS complaint for **FIR 64/26** and its absence for **FIR 65/26** reflects a difference in how the cases were documented in the complaint management system.\n\n_A cited claim ([Document 2]) could only be partially confirmed against its source: The source confirms \u0639\u0627\u0635\u0645 \u0631\u0634\u06cc\u062f appears in both FIRs but does not mention PECA 2016 or the comparison of documentation practices._"}
+
+data: {"step": "response", "status": "done", "detail": "Response generated (970 chars)", "ms": 111138}
+
+data: {"step": "memory", "status": "done", "detail": "Saved to session"}
+

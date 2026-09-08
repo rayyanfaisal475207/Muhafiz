@@ -1,0 +1,30 @@
+data: {"step": "supervisor", "status": "active", "detail": "Routing through the agent harness..."}
+
+data: {"step": "supervisor:dispatch", "status": "active", "detail": "Classified query as route='XNETWORK' -> sub-agent='Meta-Analysis'"}
+
+data: {"step": "supervisor:dispatch", "status": "active", "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"}
+
+data: {"step": "supervisor:dispatch", "status": "active", "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"}
+
+data: {"step": "supervisor:dispatch", "status": "active", "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"}
+
+data: {"step": "supervisor:dispatch", "status": "active", "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"}
+
+data: {"step": "supervisor:dispatch", "status": "active", "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"}
+
+data: {"step": "supervisor:dispatch", "status": "done", "detail": "Large-Scale Aggregate completed with status=ok"}
+
+data: {"step": "supervisor:dispatch", "status": "done", "detail": "Large-Scale Aggregate completed with status=ok"}
+
+data: {"step": "supervisor:dispatch", "status": "done", "detail": "Meta-Analysis completed with status=partial"}
+
+data: {"step": "supervisor", "status": "done", "detail": "Harness routing complete"}
+
+data: {"step": "citations", "status": "done", "detail": "2 citation(s)", "citations": [{"document_index": 1, "source_tool": "XAGG", "case_id": null, "source_file": null, "confidence": null}, {"document_index": 2, "source_tool": "XAGG", "case_id": null, "source_file": null, "confidence": null}]}
+
+data: {"step": "response", "status": "streaming", "detail": "The current caseload shows two points that depart from what would be expected in a routine set of FIRs.\n\n**Seized\u2011property handling** \u2013 Only a minority of the records contain a seized\u2011property register (28 FIRs) and those 28 FIRs list 45 individual items\u202f[Document\u202f1]. Of the 45 items, **13 items** were actually **sent to a forensic laboratory**\u202f[Document\u202f1], while **7 items** are being **held for return to a deceased person\u2019s heirs**\u202f[Document\u202f1]. The fact that fewer than one\u2011third of the recorded items are forwarded to forensic analysis suggests that many seized items are not undergoing the standard evidentiary processing and may merit closer oversight.\n\n**Incident\u2011time coverage and distribution** \u2013 Incident date\u2011time is recorded in **64 of 73 incidents**, but **14 of those 64** have a placeholder time of\u202f00:00:00 and are excluded from the time\u2011of\u2011day breakdown\u202f[Document\u202f2]. The remaining **50 incidents with usable clock times** are spread as follows: **1 night** (00:00\u201305:59), **14 morning** (06:00\u201311:59), **16 afternoon** (12:00\u201317:59), and **19 evening** (18:00\u201323:59)\u202f[Document\u202f2]. The **evening band (18:00\u201323:59)** contains the highest count (19 incidents)\u202f[Document\u202f2], while the **night band is almost empty** (only 1 incident)\u202f[Document\u202f2]. Even if the 14 placeholder cases were counted as overnight, the night total would rise to 15, still far below the evening count, and the source explicitly notes that the night band is \u201cclose to empty\u201d\u202f[Document\u202f2].\n\n**What to monitor**\n\n* The low proportion of seized items sent to the forensic lab (13 of 45) versus those held for heirs (7 of 45) may indicate a bottleneck or a procedural deviation that could affect evidence integrity.  \n* The concentration of incidents in the evening (19 of the 50 timed cases) and the scarcity of night\u2011time incidents (1 of the 50) suggest a temporal pattern that deviates from a more even distribution; evening activity may warrant targeted patrols or preventive measures.  \n* Coverage gaps\u2014only 28 FIRs record seized property and only 64 of 73 incidents record a time\u2014mean that any trend analysis is based on a subset of the full caseload, and the missing data itself should be flagged for improvement in reporting.\n\n_Could not answer sub-question (timed out): How many cases involve an accused person, and what is their age range and average age, across all cases?_\n_Could not answer sub-question (timed out): How many cases record a relationship between the accused and the complainant, and which relationship is it, across all cases?_\n_Could not answer sub-question (timed out): How many cases does each accused person appear in, and which FIR numbers, across all cases?_"}
+
+data: {"step": "response", "status": "done", "detail": "Response generated (2681 chars)", "ms": 260561}
+
+data: {"step": "memory", "status": "done", "detail": "Saved to session"}
+

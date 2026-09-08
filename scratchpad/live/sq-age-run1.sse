@@ -1,0 +1,16 @@
+data: {"step": "supervisor", "status": "active", "detail": "Routing through the agent harness..."}
+
+data: {"step": "supervisor:dispatch", "status": "active", "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"}
+
+data: {"step": "supervisor:dispatch", "status": "done", "detail": "Large-Scale Aggregate completed with status=ok"}
+
+data: {"step": "supervisor", "status": "done", "detail": "Harness routing complete"}
+
+data: {"step": "citations", "status": "done", "detail": "1 citation(s)", "citations": [{"document_index": 1, "source_tool": "XAGG", "case_id": null, "source_file": "cross-case aggregate", "confidence": null}]}
+
+data: {"step": "response", "status": "streaming", "detail": "Across the caseload, there are **92 distinct accused** individuals. Of these, **17 have recorded ages**, which range from **24 to 49 years**, with a **mean age of 31.5**. This data applies only to the subset of accused with recorded ages; **75 of the 92 accused have no age documented**. The total number of cases involving accused persons is not specified in the data [Document 1]."}
+
+data: {"step": "response", "status": "done", "detail": "Response generated (382 chars)", "ms": 19560}
+
+data: {"step": "memory", "status": "done", "detail": "Saved to session"}
+

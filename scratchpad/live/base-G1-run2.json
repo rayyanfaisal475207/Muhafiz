@@ -1,0 +1,92 @@
+{
+ "answer": "The current caseload reveals several critical anomalies and trends warranting immediate attention:  \n\n1. **Repeat Offenders Across FIRs**: Four accused individuals appear in **2 cases each**, including **فیصل** and **طارق** (both in fir-202-26 and fir-401-26), and **شہزیب عرف شابی** (in fir-214-26 and fir-891-24). This overlap suggests potential ongoing criminal networks or unresolved prior cases [Document 2].  \n\n2. **Weapons Held Without Licence**: **30 recovered weapons** are explicitly recorded as having **no licence**, and **2 additional entries** lack licence status entirely, totaling **32 cases** where weapon compliance cannot be confirmed. This represents a **93.75% prevalence** of unlicensed weapons in reviewed entries [Document 3].  \n\n3. **Severe Record Incompleteness**: **9 FIRs** lack incident dates, undermining timeline analysis, while **52 FIRs** have no recorded investigation status, risking case stagnation. Combined, these issues affect **61 of 73 FIRs** (83.6%), creating significant gaps in case tracking and resolution [Document 1].  \n\n4. **Discrepancy in Court Outcomes**: Only **1 case** (fir-891-24, شہزیب عرف شابی) shows alignment between criminal-record status and court outcomes. The remaining **32 cases** have unverified or mismatched records, raising concerns about data integrity [Document 5].  \n\n5. **Shift in Case Types**: Compared to 2024, **PPC cases have tripled** (from 13 to 39), while **Arms Ordinance 1965 cases** have decreased slightly (to 16). New categories like **CNSA 1997** (12 cases) and the **Punjab Domestic Violence Act** (4 cases) now dominate, indicating a diversification toward domestic and economic crimes [Document 4].  \n\nThese findings highlight systemic gaps in record-keeping, a surge in PPC-related offenses, and persistent issues with unlicensed weapons—each requiring targeted monitoring and resource allocation.\n\n_The natural-language summary could not be verified as an accurate paraphrase; showing the raw computed aggregate instead._\n_A cited claim ([Document 2]) could not be confirmed against its source: The source only lists overlapping accused persons in multiple cases but does not mention criminal networks, unresolved cases, or any implications about ongoing activity._",
+ "routes": [
+  "XNETWORK -> Meta-Analysis",
+  "XAGG -> Large-Scale Aggregate",
+  "XAGG -> Large-Scale Aggregate",
+  "XAGG -> Large-Scale Aggregate",
+  "XAGG -> Large-Scale Aggregate",
+  "XAGG -> Large-Scale Aggregate"
+ ],
+ "status": "done",
+ "events": [
+  {
+   "step": "supervisor",
+   "detail": "Routing through the agent harness..."
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XNETWORK' -> sub-agent='Meta-Analysis'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Large-Scale Aggregate completed with status=ok"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Large-Scale Aggregate completed with status=ok"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Large-Scale Aggregate completed with status=ok"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Large-Scale Aggregate completed with status=ok"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Large-Scale Aggregate completed with status=ok"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Meta-Analysis completed with status=ok"
+  },
+  {
+   "step": "supervisor",
+   "detail": "Harness routing complete"
+  },
+  {
+   "step": "citations",
+   "detail": "5 citation(s)"
+  },
+  {
+   "step": "response",
+   "detail": "The current caseload reveals several critical anomalies and trends warranting immediate attention:  \n\n1. **Repeat Offenders Across FIRs**: Four accused individuals appear in **2 cases each**, including **فیصل** and **طارق** (both in fir-202-26 and fir-401-26), and **شہزیب عرف شابی** (in fir-214-26 and fir-891-24). This overlap suggests potential ongoing criminal networks or unresolved prior cases "
+  },
+  {
+   "step": "response",
+   "detail": "Response generated (2255 chars)"
+  },
+  {
+   "step": "memory",
+   "detail": "Saved to session"
+  }
+ ],
+ "error": null,
+ "elapsed_s": 136.8,
+ "question": "Acting as a crime analyst, review our current caseload and flag anything that looks unusual or worth monitoring.",
+ "label": "base-G1",
+ "run": 2,
+ "raw_sse_len": 5016
+}

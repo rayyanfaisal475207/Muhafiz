@@ -1,0 +1,16 @@
+data: {"step": "supervisor", "status": "active", "detail": "Routing through the agent harness..."}
+
+data: {"step": "supervisor:dispatch", "status": "active", "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"}
+
+data: {"step": "supervisor:dispatch", "status": "done", "detail": "Large-Scale Aggregate completed with status=ok"}
+
+data: {"step": "supervisor", "status": "done", "detail": "Harness routing complete"}
+
+data: {"step": "citations", "status": "done", "detail": "1 citation(s)", "citations": [{"document_index": 1, "source_tool": "XAGG", "case_id": null, "source_file": "cross-case aggregate", "confidence": null}]}
+
+data: {"step": "response", "status": "streaming", "detail": "When briefing an SHO about cases that may be stalled or overlooked, the following critical gaps in documentation should be highlighted, as identified in [Document 1]:  \n\n1. **Missing Incident Dates**:  \n   - 9 FIRs (fir-205-26, fir-211-26, fir-340-25, fir-406-26, fir-410-25, fir-422-26, fir-457-26, fir-467-26, fir-77-26) lack recorded incident dates, leaving their timelines unanchored and making it impossible to establish a clear sequence of events.  \n\n2. **Untracked Investigation Status**:  \n   - 52 FIRs have no recorded investigation status, meaning their progress cannot be monitored, and they risk silently stalling without accountability.  \n\nThese cases require immediate attention to prevent them from being lost in the system.\n\n_A cited claim ([Document 1]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 1._"}
+
+data: {"step": "response", "status": "done", "detail": "Response generated (883 chars)", "ms": 20165}
+
+data: {"step": "memory", "status": "done", "detail": "Saved to session"}
+

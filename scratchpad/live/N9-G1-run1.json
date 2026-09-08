@@ -1,0 +1,112 @@
+{
+ "answer": "**Unusual patterns and points that merit close monitoring**\n\n1. **Relationship information is sparse and uneven** – only **10 FIRs** record any relationship between the accused and the complainant/victim, yet those entries total **24 relationship records** across those FIRs. The dominant relationship is **اجنبی (stranger)**, noted **15 times** in **6 FIRs**; the remaining relationships (e.g., **ساس (mother‑in‑law)**, **سینئر ساتھی کار (senior co‑worker)**, **شوہر (husband)**, **محلے دار (neighbour)**, **بھائی (brother)**) appear only once or twice each. Moreover, relationships are recorded for just **12 of 92 distinct accused** [Document 1].\n\n2. **Seized property handling shows limited forensic follow‑up** – **28 FIRs** contain seized‑property entries, amounting to **45 property‑register entries**. Only **13 items** (in **11 FIRs**) were **DISPATCHED to a forensic laboratory**, while **7 items** (in **7 FIRs**) are slated **to be handed over to the heirs** of a deceased person [Document 2].\n\n3. **Significant gaps in basic case documentation** – among **73 FIRs**, **9 FIRs** lack an incident date, and **52 FIRs** have no recorded investigation status, meaning many cases cannot be placed on a timeline or tracked through their lifecycle [Document 3].\n\n4. **Recovered weapons are largely undocumented for licensing** – of the **32 weapon‑register entries**, **30 recovered weapons** are recorded **without a licence**, and an additional **2 entries** have **no licence status at all**. This suggests a high prevalence of unlicensed weapon recovery [Document 4].\n\n5. **Shift in case mix indicates emerging legal concerns** – compared with 2024, **PPC (Pakistan Penal Code) cases** have risen sharply from **13** to **39** in 2026, while **Arms Ordinance 1965** cases have slipped slightly from **13** to **16**. New categories appearing in 2026 include **CNSA 1997 (12 cases)**, **PECA 2016 (9 cases)**, **Punjab Domestic Violence Act (4 cases)**, and **Illegal Dispossession Act 2005 (2 cases)**, pointing to a diversification toward domestic‑violence, economic‑crime and land‑dispute legislation [Document 5].\n\nThese observations—limited relationship documentation, low forensic processing of seized items, extensive missing case fields, a high number of unlicensed weapons, and a notable shift toward PPC and newer statutes—should be flagged for further investigation and possible procedural reinforcement.\n\n_Could not answer sub-question (timed out): How many cases involve an accused person, and what is their age range and average age, across all cases?_\n_Could not answer sub-question (timed out): How many cases record an incident time, and at what time of day do those incidents happen, across all cases?_\n_Could not answer sub-question (timed out): How many cases does each accused person appear in, and which FIR numbers, across all cases?_\n_The natural-language summary could not be verified as an accurate paraphrase; showing the raw computed aggregate instead._\n_Could not answer sub-question (timed out): How many cases in the criminal record system have a court outcome that matches the recorded conviction status, across all cases?_",
+ "routes": [
+  "XNETWORK -> Meta-Analysis",
+  "XAGG -> Large-Scale Aggregate",
+  "XAGG -> Large-Scale Aggregate",
+  "XAGG -> Large-Scale Aggregate",
+  "XAGG -> Large-Scale Aggregate",
+  "XAGG -> Large-Scale Aggregate",
+  "XAGG -> Large-Scale Aggregate",
+  "XAGG -> Large-Scale Aggregate",
+  "XAGG -> Large-Scale Aggregate",
+  "XAGG -> Large-Scale Aggregate"
+ ],
+ "status": "done",
+ "events": [
+  {
+   "step": "supervisor",
+   "detail": "Routing through the agent harness..."
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XNETWORK' -> sub-agent='Meta-Analysis'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Large-Scale Aggregate completed with status=ok"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Large-Scale Aggregate completed with status=ok"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Large-Scale Aggregate completed with status=ok"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Large-Scale Aggregate completed with status=ok"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Large-Scale Aggregate completed with status=ok"
+  },
+  {
+   "step": "supervisor:dispatch",
+   "detail": "Meta-Analysis completed with status=partial"
+  },
+  {
+   "step": "supervisor",
+   "detail": "Harness routing complete"
+  },
+  {
+   "step": "citations",
+   "detail": "5 citation(s)"
+  },
+  {
+   "step": "response",
+   "detail": "**Unusual patterns and points that merit close monitoring**\n\n1. **Relationship information is sparse and uneven** – only **10 FIRs** record any relationship between the accused and the complainant/victim, yet those entries total **24 relationship records** across those FIRs. The dominant relationship is **اجنبی (stranger)**, noted **15 times** in **6 FIRs**; the remaining relationships (e.g., **سا"
+  },
+  {
+   "step": "response",
+   "detail": "Response generated (3164 chars)"
+  },
+  {
+   "step": "memory",
+   "detail": "Saved to session"
+  }
+ ],
+ "error": null,
+ "elapsed_s": 191.9,
+ "question": "Acting as a crime analyst, review our current caseload and flag anything that looks unusual or worth monitoring.",
+ "label": "N9-G1",
+ "run": 1,
+ "raw_sse_len": 6676
+}
