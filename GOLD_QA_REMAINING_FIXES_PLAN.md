@@ -83,6 +83,13 @@ several can run in parallel chats/worktrees without colliding.
 | 37 | Orphaned `chunk_fulltext` rows: 2,243 CrPC chunks in the BM25 index that no longer exist in Chroma | *(not yet branched)* | ⬜ New — found by Module 30 |
 | 38 | `cross_rerank_multi()` merges by max score across queries, and cross-encoder scores are not comparable across them | *(not yet branched)* | ⬜ New — found by Module 30 (this is what cost KB4) |
 | 39 | The "and does our data show it?" half of every gold KB answer is unreachable from the RAG sub-agent | *(not yet branched)* | ⬜ New — found by Module 30; the largest remaining gap in the KB bucket |
+| 41 | **G2/G5 REGRESSION** — Meta-Analysis over-decomposes questions XAGG answers in one call; the supervisor guard fires only for time-comparison shapes | *(not yet branched)* | 🔴 New — found by the 2026-09-08 post-fix eval; **a regression this wave caused**, highest priority |
+| 42 | KB6 hard failure — `route=None`, FactualCorrectness 0.0 **and** AnswerRelevancy 0.0, did not recover on re-run | *(not yet branched)* | ⬜ New — found by the 2026-09-08 post-fix eval; the only question failing this way |
+| 43 | M7 answers with the wrong facts (FC 0.0 / AR 1.0) despite Module 22 verifying it live against gold | *(not yet branched)* | ⬜ New — found by the 2026-09-08 post-fix eval; contradicts a recorded module result |
+| 44 | M2 and CS4 reach XAGG and answer fluently but factually wrong (FC 0.0 / AR 1.0) | *(not yet branched)* | ⬜ New — found by the 2026-09-08 post-fix eval |
+| 45 | Eval harness: a judge `null` FactualCorrectness is scored as 0 rather than re-run | `fix/eval-harness-null-scores-and-truncation` | ✅ Done — confirmed and fixed. `measure()` never retried the CR8 failure at all (its `tries` loop only ran for rate limits), and **no mean was computed in the repo at all** — every published figure was hand-derived. Nulls are now retried, then recorded as unscored and excluded by a new null-safe `summarize()`. 22 new tests. The 900-char cap was measured and is **not** behind any current 0.0 — split out as Module 46. Result: `docs/gold-qa-wave2-results/MODULE45_RESULT.md` |
+| 46 | Eval harness: the 900-char answer cap silences whole answers, and its stated (Faithfulness) justification no longer exists | *(not yet branched)* | ⬜ New — found by Module 45. Proven with a positive control: an answer whose gold facts sit past char 900 scores **0.0** instead of 1.0. Does not fire on the committed run (only 2 of 32 answers exceed 900) but the current build produces 1,000–2,500-char KB answers. Cost of removing it: **under 2 s per metric, no extra judge calls.** **Settle before Module 27 runs.** |
+| 47 | The 2026-09-08 post-fix evaluation's artefacts were never committed — `gold32_results.json` on `main` is the 2026-09-06 Module 9 run | *(not yet branched)* | ⬜ New — found by Module 45. The report names those files as its sources, but they were last written by `d313a60` and reproduce Module 9's numbers (0.394 / 13-of-32), not the report's (0.572 / 19-of-32). Modules 41–44 are specified against figures with no artefact behind them. |
 | 27 | Final Gold-32 rerun (Module 18 redo) | *(docs only)* | ⬜ Blocked on all above — brief: `MODULE27_FINAL_GOLD32_RERUN_PROMPT.md` |
 
 > **Wave 2 hand-off:** `WAVE2_ORCHESTRATION_PROMPT.md` (added in PR #17)
@@ -1759,6 +1766,275 @@ against the fully-merged build, on a **freshly restored, UTF-8-clean** dump
 (see §0's Environment note). Report per-bucket movement against Module 18's
 0.428 / 0.550-excl-KB baseline, and state for each module whether its
 non-gold paraphrase confirmed a real capability gain.
+
+---
+
+# Modules 41–47 — found by the 2026-09-08 post-fix evaluation (46–47 by Module 45)
+
+**Source:** `EVALUATION_REPORT_POST_FIXES.md` and
+`HOW_TO_REPRODUCE_THIS_EVALUATION.md`, an independent Gold-32 rerun against
+`main` @ `06de8ea` with the regenerated 2026-09-08 dump and Chroma, judged by
+`gemini-flash-lite-latest`.
+
+**Headline: the wave worked.** FactualCorrectness **0.425 → 0.572** all-32,
+pass rate **14/32 → 19/32**, KB bucket **0.062 → 0.350**, AnswerRelevancy
+**0.687 → 0.886**. Complex Reasoning 0.64 → 0.86. M5, CR4, CR3, KB8, KB5 and
+M1 were fixed outright; KB1, KB3, KB4, G1 and G6 improved.
+
+**Read this before trusting any earlier number in this plan.** The report's
+first pass was invalid because `SHARE/.env` was never copied into place, so a
+stale local `.env` carried 3 of 5 wrong Groq keys and produced **1,410
+rate-limit errors**; every KB question abstained and the bucket scored 0.000.
+That was an environment artefact, not a defect. Before any future run:
+`grep -c "rate limit" backend.log` must stay near zero.
+
+**A pattern worth naming across 41–44:** six questions now score
+AnswerRelevancy **1.0** with FactualCorrectness **0.0** — fluent, on-topic,
+confidently wrong, where before the fixes they abstained. That is arguably a
+*worse* failure mode for an evidence platform than refusing, and it is the
+thread connecting these modules.
+
+---
+
+# Module 41 — G2/G5 regression: Meta-Analysis over-decomposition 🔴
+
+**Priority: highest. This wave caused it.** G2 fell **0.4 → 0.0** and G5
+**0.6 → 0.0**. Both were re-run with correct credentials and still failed, so
+this is not the environment problem above.
+
+**The aggregates are fine — verified in isolation by the evaluator:**
+`_case_completeness_scan()` returns 73 cases / 9 missing incident dates / 52
+missing status; `_weapon_compliance_scan()` returns 30 of 32 unlicensed. And
+`run_aggregate()` dispatches correctly: G2 → `case_completeness_scan`,
+G5 → `weapon_compliance_scan`.
+
+**The failure is one layer above, in sub-agent dispatch.** The live trace:
+
+```
+supervisor:dispatch: Classified query as route='XAGG' -> sub-agent='Meta-Analysis'
+```
+
+The question reaches XAGG, is handed to **Meta-Analysis**, decomposed into
+undirected sub-queries, one errors, and the synthesis is rejected with *"The
+synthesized answer could not be verified as grounded in the sub-answers;
+Could not answer sub-question (encountered an error)."*
+
+**Why.** `supervisor.py` already carries a guard for exactly this, and its own
+comment describes the mechanism — decomposition drops the language that made
+the pattern match, leaving re-classification to the flaky LLM router one level
+down. But the guard fires **only** for `_TIME_COMPARISON_XAGG_PATTERNS`. G2 and
+G5 satisfy every other condition and simply don't match those patterns.
+
+Ruled out by the evaluator: `_match_decomposition_plan()` returns `None` for
+both, so Module 29's deterministic plans are not the cause — it is the LLM
+decomposer fallback.
+
+**Fix — take the structural option.** Rather than a second pattern list that
+will drift out of date (and would need extending again for every aggregate
+Modules 31–36 added), have the guard **ask `run_aggregate()` whether it
+resolves the query to a real aggregate kind, and skip decomposition if it
+does.** Self-maintaining, and it closes the whole class rather than these two
+instances.
+
+**Verify:** G2 and G5 live, several runs each; confirm the dispatch line now
+shows the aggregate sub-agent. Regression-guard **M1** (whose time-comparison
+guard must keep working), **CR3/G1/G6** (Module 29's plans must still
+decompose), and **M2**. Plus a non-gold paraphrase.
+
+---
+
+# Module 42 — KB6 hard failure ⬜
+
+KB6 is the **only** question scoring FactualCorrectness **0.0 AND
+AnswerRelevancy 0.0**, with **`route=None`**. The report calls it a *"genuine
+error, did not recover"* — it survived the credential fix that rescued 15 of
+the other 17 failures.
+
+`route=None` means it failed before or during classification, not in
+synthesis. Every other low scorer at least produces a fluent answer. **Start
+from the backend log for KB6's request**, not from the aggregate layer.
+
+**Verify:** KB6 live, repeatedly, plus the other seven KB questions to confirm
+no shared cause.
+
+---
+
+# Module 43 — M7 answers with the wrong facts ⬜
+
+M7 scores **FC 0.0 / AR 1.0**, route **XAGG** — it answers fluently and is
+wrong. Gold: mean minutes incident→report, **15.0 (2024) → 1401.3 (2026)**.
+
+**This contradicts a recorded module result.** Module 22's section in this
+plan states M7 *and* its non-gold paraphrase were both verified live and
+matched gold exactly. One of the two observations is wrong, and finding out
+which matters more than the score: either M7 regressed after Module 22 (the
+aggregates added since are the obvious suspects), or Module 22's verification
+did not measure what it reported.
+
+**Do not assume the report is right and the module wrong, or vice versa.**
+Re-derive from the data with a hand-written Cypher probe, then compare against
+both. Note the 2026-09-08 dump now carries `incident_datetime`/`report_datetime`
+on 64 of 73 Incidents — confirm the eval ran against that data.
+
+**Verify:** M7 live several times; the three-layer check from
+`HOW_TO_REPRODUCE_THIS_EVALUATION.md` §4.1 (aggregate → `run_aggregate`
+dispatch → live pipeline).
+
+---
+
+# Module 44 — M2 and CS4: fluent but factually wrong ⬜
+
+Both score **FC 0.0 / AR 1.0** on route **XAGG**.
+
+**M2** also contradicts recorded results: Module 25 (PR #16) targeted it, and
+Module 29 re-ran it and found it completing cleanly with no verifier
+rejection. It now scores 0.0 on facts. Note M2's gold is a simple computable
+fact — 9 of 73 FIRs (~12%) from 2 of 19 stations — while `xagg.py`'s dispatch
+deliberately returns an **honest "unsupported" for station-type questions**,
+because no station-type dimension exists in the data model. Check whether the
+answer is wrongly *asserting* a station-type split rather than saying it
+cannot be computed; if the data genuinely cannot support gold, say so and
+challenge the gold answer rather than fabricating a split.
+
+**CS4** has been 0.0 since before this wave and was in Module 21's original
+list; the relevance gate was cleared of blame, but nothing has since addressed
+it.
+
+**Verify:** both live, three-layer check, plus non-gold paraphrases.
+
+---
+
+# Module 45 — the eval harness scores a judge `null` as zero ✅
+
+**Branch:** `fix/eval-harness-null-scores-and-truncation` · **Result:**
+`docs/gold-qa-wave2-results/MODULE45_RESULT.md`
+
+**Confirmed, and worse than filed.** The brief assumed `measure()` "already
+returns `None` on timeout or error" so the danger was purely downstream. Two
+corrections, both from reading the code:
+
+1. **The retry loop never ran for this failure.** `measure(metric, tc, tries=8)`
+   looked like it retried eight times; it `continue`d only for rate limits. A
+   timeout returned `None` on attempt 1, and any other exception returned `None`
+   on attempt 1. The exact CR8 case — a judge call producing no parseable number
+   — was therefore **never retried**, despite the report showing that one re-run
+   recovers it to 1.0. Worse, a `null` did not even reach that path cleanly:
+   `round(float(metric.score), 3)` on `metric.score is None` raised `TypeError`,
+   so the recorded reason read `ERROR: float() ...` and said nothing about the
+   question being unscored rather than wrong.
+
+2. **There was no mean computation in the repository at all.** `gold32_score.py`
+   ended at `print(f"wrote {len(results)} ...")`. Every published figure — the
+   0.572 and 19/32 in `EVALUATION_REPORT_POST_FIXES.md`, the 0.39 and 13/32 in
+   `evaluation/MODULE_9_RERUN_REPORT.md` — was hand-derived, once per report,
+   with nothing to stop a `null` counting as 0.0 and nothing in the output to say
+   one was present. That absence *is* the defect.
+
+**Fixed.** `measure()` now retries null/timeout/error a bounded 3 times with
+backoff (rate-limit retries budgeted separately, so a quota wobble cannot eat
+the budget reserved for genuine judge failures), detects `metric.score is None`
+explicitly, and records an unretrievable score as `None` with the reason
+`UNSCORED after N attempt(s) — NOT a zero`. A new null-safe `summarize()` is the
+single authoritative aggregation — unscored rows are **excluded** from every
+mean and per-bucket figure, never zeroed — and `format_summary()` prints them
+first, in a banner, before any number. New `--summary` mode recomputes the
+published figures from an existing results file with zero judge calls.
+
+**Verified.** 22 new tests in `tests/test_gold32_score.py`, no network (the
+judge is a stub, backoff sleeps injected); 32 passed with
+`tests/test_eval_scripts.py`. The pinned regression builds the report's exact
+shape — 31 scored rows plus CR8 `null` — and asserts the mean is 1.0 and
+explicitly **not** the 0.969 that zeroing CR8 gives. Live: CR8 re-scored with
+the real Gemini judge returns **1.0/1.0**, matching
+`EVALUATION_REPORT_POST_FIXES.md` §5. Whole-file guard: `--summary` over the
+untouched committed results file reproduces `MODULE_9_RERUN_REPORT.md`'s
+published 0.39 / 0.65 / 13-of-32 on every bucket — the new aggregation agrees
+with the hand computation it replaces.
+
+**Also tested and NOT confirmed: the 900-char truncation hypothesis.** Split out
+as Module 46 below rather than folded in. Bottom line for prioritisation:
+**no currently-0.0 score is a scoring artefact** — Modules 41–44 keep their
+priority exactly as filed.
+
+---
+
+# Module 46 — the 900-char scoring cap will corrupt Module 27's rerun ⬜
+
+**Found by:** Module 45 · **Evidence:**
+`evaluation/gold32_truncation_experiment.json`,
+`docs/gold-qa-wave2-results/MODULE45_RESULT.md` §5
+
+`gold32_score.py` truncated every answer to 900 chars before scoring, justified
+in its own comment by **Faithfulness** — which makes one judge call per atomic
+claim. Faithfulness was later dropped from `_METRICS`. **The rationale no longer
+exists**, and both surviving metrics make an O(1) number of judge calls
+regardless of length.
+
+**Measured, same judge and prompt, cap on (900) vs off:**
+
+| Q | variant | FC @ 900 | FC @ no cap | AR @ 900 | AR @ no cap |
+|---|---|---|---|---|---|
+| M5 | natural, 1,318 ch | 0.0 | 0.0 | 1.0 | 1.0 |
+| M4 | natural, 1,582 ch | 0.1 | 0.1 | 1.0 | 0.909 |
+| CR8 | **padded**, 1,519 ch | **0.0** | **1.0** | 0.0 | 0.875 |
+| G3 | **padded**, 1,749 ch | **0.0** | **0.9** | 0.0 | 0.833 |
+
+*Padded* = 1,020 chars of filler prepended to a known-good answer, pushing its
+gold facts past char 900 and changing nothing else. Both collapse to exactly
+**0.0**; uncapped, both recover. The mechanism is total signal loss, not
+degradation.
+
+**It does not currently fire.** Only 2 of the 32 committed answers exceed 900
+chars, and both score identically capped or not — what the cap discards from
+them is verifier footnotes, not gold facts. M4/M5 were stable across 3 draws,
+so that is measurement, not luck.
+
+**But it will.** `EVALUATION_REPORT_POST_FIXES.md` §3 states the current build's
+KB answers are **1,000–2,500 chars** — routinely past the cap — where the
+2026-09-06 run produced only two such answers.
+
+**Work:** decide `GOLD32_MAX_ANSWER_CHARS` against the real 2026-09-08 answers
+(needs Module 47), then re-run. Recommended **3,000**. The named constant and
+its env override already exist, so this is one line plus a rerun. Measured cost
+of the raise: **under 2 s per metric, and no additional judge calls** — M4 at
+1,582 chars took the same 5 s as at 925.
+
+**Settle this before Module 27 runs.** A cap that silently zeroes a correct long
+answer would make the final rerun's numbers unusable in exactly the way Module
+45 exists to prevent.
+
+---
+
+# Module 47 — the 2026-09-08 evaluation's artefacts were never committed ⬜
+
+**Found by:** Module 45
+
+`EVALUATION_REPORT_POST_FIXES.md` names `evaluation/gold32_results.json` and
+`evaluation/gold32_pipeline_outputs.json` as its sources. Both files on `main`
+were last written by `d313a60` (*"Module 9 — first full Gold-32 rerun"*,
+2026-09-06) and have not been touched since. Running Module 45's new
+`--summary` over the committed file reproduces **Module 9's** headline
+(0.394 / 0.653 / 13-of-32), not the post-fix report's (0.572 / 0.886 /
+19-of-32). The files are byte-identical across the main checkout and the
+`muhafiz-m35`, `muhafiz-m40` and `muhafiz-m41` worktrees, so no track is
+holding a newer copy.
+
+**Consequences.** §4.1's per-question table cannot be reproduced from this
+repository. Nobody can read the judge's `reasons` for the six AR-1.0 /
+FC-0.0 questions — which `HOW_TO_REPRODUCE_THIS_EVALUATION.md` §Part 6 calls
+"the fastest way to check whether a given score is fair", and which Modules
+42–44 are scoped against. And Module 46 cannot pick a cap value against real
+answer lengths without them.
+
+**Work:** commit the 2026-09-08 `gold32_results.json` /
+`gold32_pipeline_outputs.json` pair, or re-run and commit. Note that both files
+are *resumed* in place by their scripts, so a rerun overwrites them — committing
+each run's pair, or writing per-run copies, is what makes any of these reports
+checkable.
+
+This does not invalidate the post-fix report. It makes it unverifiable — which,
+for a document written expressly to be independently reproduced, is its own
+defect.
 
 ---
 

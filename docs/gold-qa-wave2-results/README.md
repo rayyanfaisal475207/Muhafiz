@@ -25,6 +25,7 @@ excluding KB, **14/32** passing.
 | 34 | G1 — incident time-of-day | `MODULE34_RESULT.md` | done — same; gold's "flat across the day" is a date-only artefact |
 | 35 | G6 — arrest rate | `MODULE35_RESULT.md` | done — aggregate live with a published rule; **1 in 6.6**, not gold's 1 in 9 |
 | 36 | CR3 — subject-filtered FIR listing | `MODULE36_RESULT.md` | done — returns `fir-64-26`/`fir-65-26` exactly; wiring into `record_consistency` deferred behind Module 41 |
+| 45 | Eval harness — a judge `null` scored as zero | `MODULE45_RESULT.md` | done — nulls retried then excluded from the mean; the 900-char cap tested and cleared of every current 0.0; split out as Modules 46–47 |
 
 ## Required shape for each result file
 
