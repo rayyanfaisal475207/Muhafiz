@@ -1891,53 +1891,6 @@ thread connecting these modules.
 
 ---
 
-# Module 41 — G2/G5 regression: Meta-Analysis over-decomposition 🔴
-
-**Priority: highest. This wave caused it.** G2 fell **0.4 → 0.0** and G5
-**0.6 → 0.0**. Both were re-run with correct credentials and still failed, so
-this is not the environment problem above.
-
-**The aggregates are fine — verified in isolation by the evaluator:**
-`_case_completeness_scan()` returns 73 cases / 9 missing incident dates / 52
-missing status; `_weapon_compliance_scan()` returns 30 of 32 unlicensed. And
-`run_aggregate()` dispatches correctly: G2 → `case_completeness_scan`,
-G5 → `weapon_compliance_scan`.
-
-**The failure is one layer above, in sub-agent dispatch.** The live trace:
-
-```
-supervisor:dispatch: Classified query as route='XAGG' -> sub-agent='Meta-Analysis'
-```
-
-The question reaches XAGG, is handed to **Meta-Analysis**, decomposed into
-undirected sub-queries, one errors, and the synthesis is rejected with *"The
-synthesized answer could not be verified as grounded in the sub-answers;
-Could not answer sub-question (encountered an error)."*
-
-**Why.** `supervisor.py` already carries a guard for exactly this, and its own
-comment describes the mechanism — decomposition drops the language that made
-the pattern match, leaving re-classification to the flaky LLM router one level
-down. But the guard fires **only** for `_TIME_COMPARISON_XAGG_PATTERNS`. G2 and
-G5 satisfy every other condition and simply don't match those patterns.
-
-Ruled out by the evaluator: `_match_decomposition_plan()` returns `None` for
-both, so Module 29's deterministic plans are not the cause — it is the LLM
-decomposer fallback.
-
-**Fix — take the structural option.** Rather than a second pattern list that
-will drift out of date (and would need extending again for every aggregate
-Modules 31–36 added), have the guard **ask `run_aggregate()` whether it
-resolves the query to a real aggregate kind, and skip decomposition if it
-does.** Self-maintaining, and it closes the whole class rather than these two
-instances.
-
-**Verify:** G2 and G5 live, several runs each; confirm the dispatch line now
-shows the aggregate sub-agent. Regression-guard **M1** (whose time-comparison
-guard must keep working), **CR3/G1/G6** (Module 29's plans must still
-decompose), and **M2**. Plus a non-gold paraphrase.
-
----
-
 # Module 42 — KB6 hard failure ⬜
 
 KB6 is the **only** question scoring FactualCorrectness **0.0 AND
