@@ -73,13 +73,16 @@ several can run in parallel chats/worktrees without colliding.
 | 26 | M1 routing miss (XGRAPH instead of aggregate) | `fix/router-year-over-year-comparison-to-xagg` | ✅ **Merged (PR #13)** |
 | 28 | CR4 routing miss (weapon-recovery chain sent to cross-case entity linkage) | `fix/router-weapon-evidence-chain-to-xagg` | ✅ **PR #19 open** — routing fixed AND a new aggregate added (none existed); CR4 now returns gold's exact chain live; all-32 negative control clean; results: `docs/gold-qa-wave2-results/MODULE28_RESULT.md` |
 | 29 | Meta-Analysis decomposer doesn't split broad synthesis asks into XAGG-shaped sub-questions (CR3/G1/G6) | `fix/meta-analysis-decompose-broad-synthesis` | ✅ **PR #23 open** — deterministic decomposition plans added; G1, G6 and G1's paraphrase now return real synthesized answers built from computed aggregates, CR3 partially; gap analysis split out as Modules 31–36; results: `docs/gold-qa-wave2-results/MODULE29_RESULT.md` |
+| 30 | KB3/KB8/KB9 retrieval-completeness gap (correct statutory chunk never enters the candidate pool) | `fix/kb-retrieval-completeness-statutory-chunks` | ✅ **PR #24 open** — four causes found and fixed, plus a fifth (mid-sentence chunks) found only after the first four; KB3/KB8/KB9 all went from abstaining to answering live, KB8 matching gold's statutory half exactly. Evaluator NOT changed. Ran against a private copy of Chroma. Result: `docs/gold-qa-wave2-results/MODULE30_RESULT.md` |
 | 31 | G1 — offender age profile: no XAGG aggregate, and a now-stale hard refusal | *(not yet branched)* | ⬜ New — found by Module 29's gap analysis |
 | 32 | G1 — accused ↔ complainant relationship breakdown: no XAGG aggregate | *(not yet branched)* | ⬜ New — found by Module 29's gap analysis |
 | 33 | G1 — seized-property disposition counts: no XAGG aggregate | *(not yet branched)* | ⬜ New — found by Module 29's gap analysis |
 | 34 | G1 — incident time-of-day distribution: no XAGG aggregate | *(not yet branched)* | ⬜ New — found by Module 29's gap analysis |
 | 35 | G6 — arrest rate: no XAGG aggregate | *(not yet branched)* | ⬜ New — found by Module 29's gap analysis |
 | 36 | CR3 — subject-filtered FIR listing: no aggregate returns FIR numbers filtered by statute/station/crime type | *(not yet branched)* | ⬜ New — found by Module 29's live runs |
-| 30 | KB3/KB8/KB9 retrieval-completeness gap (correct statutory chunk never enters the candidate pool) | *(not yet branched)* | ⬜ New — split out of Module 19b; brief: `MODULE30_KB_RETRIEVAL_COMPLETENESS_PROMPT.md` |
+| 37 | Orphaned `chunk_fulltext` rows: 2,243 CrPC chunks in the BM25 index that no longer exist in Chroma | *(not yet branched)* | ⬜ New — found by Module 30 |
+| 38 | `cross_rerank_multi()` merges by max score across queries, and cross-encoder scores are not comparable across them | *(not yet branched)* | ⬜ New — found by Module 30 (this is what cost KB4) |
+| 39 | The "and does our data show it?" half of every gold KB answer is unreachable from the RAG sub-agent | *(not yet branched)* | ⬜ New — found by Module 30; the largest remaining gap in the KB bucket |
 | 27 | Final Gold-32 rerun (Module 18 redo) | *(docs only)* | ⬜ Blocked on all above — brief: `MODULE27_FINAL_GOLD32_RERUN_PROMPT.md` |
 
 > **Wave 2 hand-off:** `WAVE2_ORCHESTRATION_PROMPT.md` (added in PR #17)
@@ -297,59 +300,176 @@ the evaluator accept everything.
 
 ---
 
-# Module 30 — KB3/KB8/KB9 retrieval-completeness gap ⬜ new, not yet branched
+# Module 30 — KB3/KB8/KB9 retrieval-completeness gap ✅ done
 
-**Found while verifying Module 19b.** Not fixed there — deliberately kept
-out of that module's scope (`prompts/evaluator.txt` only), per its brief's
-own instruction to split out a newly-discovered defect rather than silently
-expand scope.
+**Branch:** `fix/kb-retrieval-completeness-statutory-chunks`
+**Brief:** `MODULE30_KB_RETRIEVAL_COMPLETENESS_PROMPT.md`
+**Full result, with every captured measurement:**
+`docs/gold-qa-wave2-results/MODULE30_RESULT.md`
 
-**What's happening:** for KB3, KB8 and KB9, the specific statutory
-provision the gold answer cites never enters the retrieval candidate pool —
-not in the top-5 after cross-rerank, not in the wider ~15-30 item semantic +
-BM25 pool before that cut, for the original question OR any of the 2
-expanded queries OR the cross-script variant OR the evaluator-feedback retry
-rewrite. Confirmed by manually querying the live vector store with better-
-targeted text (e.g. "Article 18 Police Order investigation staff head of
-investigation" for KB3) — **the correct chunk exists in the corpus and is
-findable**, it just isn't reached by any query text the actual pipeline
-generates from these questions' phrasing.
+**`prompts/evaluator.txt` was NOT changed.** Module 19b's fix stands.
+**Chroma:** run entirely against a **private copy** at
+`D:/Rapids AI/muhafiz-m30/data/chroma_db`; the shared store was never
+touched. Nothing was re-embedded or re-indexed in the end.
 
-- **KB3** — needs Police Order 2002 Article 18 (separate investigation
-  wing). Retrieved instead: CrPC sections on statements/bonds/imprisonment,
-  Police Order administrative forms.
-- **KB8** — needs the CrPC provision on interim court reporting during a
-  prolonged investigation. Retrieved instead: CrPC ss.170-171 ("case sent to
-  magistrate when evidence is sufficient"), a related but distinct
-  provision.
-- **KB9** — needs the CrPC s.174 inquest / cause-of-death investigation
-  text consistently in the retrieved set (it showed up in some attempts, not
-  reliably, and the evaluator's citation of "section 174" in an early
-  probe run turned out to be a model hallucination — the text wasn't
-  actually in the chunks it was judging that time).
+## What was probed, and what each attempt returned
 
-**This is a retrieval quality/coverage defect, not an evaluator defect** —
-confirmed by feeding the ACTUAL retrieved chunks (not idealized ones) through
-both the pre-fix and post-fix evaluator prompt: the post-fix prompt correctly
-recognizes when even a compound question's norm clause isn't addressed by
-what's on the page, and returns false. No prompt-only fix should make it
-return true here without also risking false-positive relevance elsewhere.
+The brief listed three candidate directions and said none had been
+investigated. All three were probed against the live corpus first.
 
-**Likely fix directions (not investigated yet):** widen `query_expander.py`
-or `cross_script_variant.py`'s prompting to specifically try naming
-candidate governing statutes when the question is legal-KB-intent; raise
-`TOP_K_RETRIEVAL`/`CROSS_CASE_RETRIEVAL_MULTIPLIER` for the KB-only scope
-specifically (cheap but blunt); or add a keyword/BM25-boost path that
-searches for statute-name-shaped tokens directly. Whoever picks this up
-should re-probe the corpus first (as this investigation did) to confirm
-which of these would actually surface the missing chunk before committing to
-one.
+| Probed | Result |
+|---|---|
+| **Query expansion naming the governing statute** | **This is the mechanism.** With `{"is_global": True}` scope, top-30 per query: the gold questions themselves put KB3's Article 18 chunks at rank 15/absent and KB8's and KB9's CrPC chunks nowhere at all; one English statute-vocabulary query put them at ranks 1, 1 and 6. |
+| **Statute NAME only** ("Police Order 2002 Article 18") | **Rejected.** Returned *none* of the Article 18 chunks in the top 30. The corpus's chunks mostly do not repeat their own section number — the CrPC s.173 interim-report chunk contains the string "section 154" and never "173". The provision's own wording is what retrieves it. |
+| **BM25 / statute-token boost** | **Rejected on evidence.** BM25 never returned any of the three target chunks for any query tried, before or after. There is no section-number token in the chunk text to boost. |
+| **Raising `TOP_K_RETRIEVAL` / `CROSS_CASE_RETRIEVAL_MULTIPLIER`** | **Insufficient alone, kept as one of four.** With the pool widened but the dedupe still keeping first-seen scores, KB3's key chunk sat at pool rank 55 and was still cut. Applied scoped to KB intent only, never globally. |
+| **Cross-script variant path** | **Confirmed as part of the cause, not a fix.** `cross_script_variant.py` sends a Latin-script query — English *or* Roman-Urdu — to **Urdu script**, never to English, and the whole legal corpus is English. |
+| **Three statute hypotheses instead of two** | **Rejected, measured.** The third slot pushed the model onto a book that does not govern the question (the Anti-Rape Act for KB8 and KB9); those chunks won the rerank and displaced the correct CrPC s.173 and s.174 chunks. |
 
-**Verify:** re-run KB3/KB8/KB9 live after any fix; confirm the evaluator
-then sees the right chunk and correctly returns true (no evaluator change
-should be needed if 19b's fix is present). Regression-guard against
-Module 19b's fix: rerun KB1/2/4/5/6 too, to confirm a retrieval change here
-doesn't regress what 19b just fixed.
+## The four causes, all of them load-bearing
+
+1. **No generated query ever contains the statute's vocabulary.** Every
+   variant paraphrases the *question*; the expander may not change
+   language and the cross-script variant goes to Urdu. Fixed by
+   `src/pipeline/statute_hypothesis.py` (+ `prompts/statute_hypothesis.txt`).
+2. **The multi-variant dedupe kept the FIRST score, not the best.** KB3's
+   "shall be investigated by the investigation staff" chunk was seen at
+   0.87 by the question and 0.91 by the statute query; locked to 0.87 it
+   sorted 54th and was cut.
+3. **`cap_case_diversity` truncated the case-less KB corpus to five.**
+   Every KB chunk buckets under `case_id=None`, so the per-case cap
+   applied to the whole corpus at once: pools of 71–85 candidates cut to 5
+   before RRF. Now skipped for a KB-only scope; a mixed pool is unchanged.
+4. **The cross-encoder cut the right chunk even at RRF rank 1.** Scored
+   against a Roman-Urdu question, every candidate came back inside
+   0.0007–0.0022 — noise. `cross_rerank_multi()` scores against the
+   statute phrasings too and keeps each chunk's best.
+
+**A fifth cause, found only after those four:** KB3's Article 18 chunk then
+came back at rank 1 on every attempt and the evaluator *still* returned
+`relevant=False` three times — correctly, because the chunk ends
+mid-sentence and the answering words are in the next one. This corpus is
+chunked at ~350 characters and Article 18 spans five chunks.
+`expand_with_neighbors()` widens each surviving chunk with its neighbours
+for the KB scope only — retrieve narrow, read wide.
+
+## Live result — before/after, both measured by this module
+
+Baseline was **re-derived**, not inherited: the worktree was detached to the
+branch's merge-base `6b86d9e` and the same eight questions re-sent.
+
+| Q | Before (merge-base) | After |
+|---|---|---|
+| **KB3** | abstained — "No sufficiently relevant documents were found…" | answers, quoting Article 18's investigation-staff language |
+| **KB8** | abstained | answers with **s.173**, **14 days**, **interim report within 3 days** — gold's statutory half exactly |
+| **KB9** | abstained | answers with **s.174** and the inquest duty, via Punjab Police Rules 25.31's verbatim cross-reference (verified in the chunk text, not from the citation) |
+
+**KB bucket: 3 of 8 answering at all → 7 of 8.** On gold match rather than
+abstention: KB8 is a clear pass, KB9 a substantive pass by a different
+citation route, KB3 improved but still not gold's conclusion.
+
+## Regression guard — KB1, KB2, KB4, KB5, KB6
+
+- **KB1** — no change (CrPC ss.154/155 before and after).
+- **KB2** — improved: the verifier refusal is gone. Still not gold (names
+  no statute).
+- **KB4** — changed for the worse, and **neither** version matches gold.
+  Baseline reached register material; after the change the answer is
+  dominated by the Forensics guidelines, because `cross_rerank_multi()`
+  merges by max score and cross-encoder scores are not comparable across
+  queries. Reported, not tuned away — see Module 38 below.
+- **KB5** — no change (verifier refusal before and after).
+- **KB6** — no meaningful change (forensic handling both times).
+
+No question that answered at baseline stopped answering.
+
+**Correction to this plan's own numbers:** Module 19b is recorded above as
+taking the KB bucket to 5/8. That does **not** reproduce on this machine
+today — at the merge-base, with the evaluator fix present, KB2 and KB5 both
+fail with the verifier's "could not be verified as grounded", before any
+change from this module. The 5/8 figure should be re-derived before reuse.
+
+## Non-gold paraphrase
+
+A Roman-Urdu case-diary question ("Tafteesh ke doran police ko roz-ba-roz
+kya likhna zaroori hota hai…"), which names no statute, went from the
+verifier's "could not be verified as grounded" at the merge-base to a
+correct answer citing **CrPC s.172** and **Police Rule 25.53**, grounded in
+chunk `…_f9908363_c748` (verified by id). Two further paraphrases on the
+24-hour production rule (Roman-Urdu and Urdu script) pass **both** before
+and after — a useful negative control, but honestly not evidence of new
+capability.
+
+
+---
+
+# Module 37 — `chunk_fulltext` holds an orphaned re-ingestion ⬜ new, not yet branched
+
+**Found while verifying Module 30.**
+
+BM25's candidate pool returns chunks whose ids **do not exist in Chroma**:
+
+```
+1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363 | 2577   <- current, in Chroma
+1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8 | 2243   <- orphan, not in Chroma
+```
+
+2,243 rows in Postgres `chunk_fulltext` from an earlier ingestion of the
+CrPC PDF that was replaced in Chroma but never deleted from the full-text
+index. `ChromaVectorStore.get_by_ids()` returns nothing for them. They
+carry real statute text, so answers are not wrong, but they duplicate the
+whole CrPC in BM25's pool, compete for RRF slots against the live copy, and
+resolve to nothing for provenance lookups. Several reached the evaluator in
+Module 30's live runs.
+
+**Likely fix:** call `fulltext_index.delete_by_source()` alongside the
+Chroma delete on re-ingest (the function exists), plus a one-off cleanup of
+the orphaned rows. Add a consistency check — `chunk_fulltext` row count per
+source vs. Chroma's — to the health/admin surface so this cannot recur
+silently.
+
+---
+
+# Module 38 — `cross_rerank_multi()` merges by max score across queries ⬜ new, not yet branched
+
+**Found while verifying Module 30.**
+
+`cross_rerank_multi()` (added by Module 30) scores candidates against
+several query phrasings and keeps each candidate's **best**. Cross-encoder
+scores are not comparable across queries, so whichever phrasing happens to
+produce the largest absolute scores takes the whole final window.
+
+Measured consequences: KB4's answer went from register material to
+Forensics-guidelines material because its two statute hypotheses were
+"Punjab Police Rules case property and malkhana" (right) and "Forensics
+guidelines handling and chain of custody" (wrong for that question), and
+the forensics query's scores ran higher. The same mechanism is why a third
+statute hypothesis was actively harmful for KB8 and KB9.
+
+**Likely fix:** fuse the per-query reranked lists by reciprocal rank —
+exactly what `src/retrieval/reranker.py` already does for semantic-vs-BM25
+— so each phrasing contributes proportionally instead of by scale. Not done
+inside Module 30 because it would invalidate that module's whole live
+before/after and needs its own.
+
+---
+
+# Module 39 — the KB questions' "and does our data show it?" half ⬜ new, not yet branched
+
+**Found while verifying Module 30.**
+
+Every gold KB answer is compound: a statutory norm **plus** a figure from
+the case database — 68 of 74 registering/investigating pairs (KB3), 26
+challans sent to court (KB8), 8 PPC-302 FIRs (KB9), 45 property entries
+(KB4), 8 violence-against-women reports (KB5), 32 weapons (KB6). The RAG
+sub-agent has no database access, so **no amount of retrieval work closes
+that half** — Module 30 fixed the statutory half of KB3/KB8/KB9 and the
+data half is still missing from all of them.
+
+This is a composition question, not a retrieval one: whether a legal-KB
+question that also asks about our own records should fan out to an
+aggregate alongside RAG, and how the two halves are then written into one
+answer. It is the single largest remaining gap in this bucket.
 
 ---
 
