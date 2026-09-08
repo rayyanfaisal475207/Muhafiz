@@ -319,8 +319,8 @@ in §8 below.
    has made yet — should the grounding judge accept "X is not in this list"
    when the chunk is an exhaustive listing? — and it reaches beyond
    Meta-Analysis, since the same reasoning applies to any XAGG listing served
-   as evidence. **Filed as its own module.** Whoever takes it should note
-   §5's observation that the *validation* gate already hedges this exact claim
+   as evidence. **Filed as Module 61.** Whoever takes it should note §5's
+   observation that the *validation* gate already hedges this exact claim
    rather than refusing it, so the two gates have inconsistent standards.
 
 2. **The XNETWORK `route=None` layer could not be reproduced and is therefore
@@ -344,7 +344,7 @@ in §8 below.
    2/2, while one asking whether the records are "equally complete" matches
    nothing and never reaches Meta-Analysis; the same boundary exists for G6's
    `orientation_note`. Generalises Module 41's M4 finding to CR3 and G6.
-   **Filed as a new module** — the fix is not "add more patterns", it is
+   **Filed as Module 62** — the fix is not "add more patterns", it is
    deciding whether a deterministic plan should be selected by pattern at all
    or by the same aggregate-resolution mechanism Module 41 used for the guard.
 
@@ -352,4 +352,4 @@ in §8 below.
    41's XAGG-conditional guard never fires; it answers "No information was
    found" every time). Found while regression-guarding this branch. Full
    evidence and the three candidate fixes are in `MODULE53_RESULT.md` §7–§8.
-   **Filed as a new module.**
+   **Filed as Module 60.**

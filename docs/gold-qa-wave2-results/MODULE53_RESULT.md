@@ -348,19 +348,23 @@ measured failure for a regression of a merged module. Filed for the user in §8.
 
 ## 8. New defects found, filed rather than folded in
 
-1. **Module 55 confirmed, with a measured list.** Module 43 filed Module 55
-   ("every XAGG aggregate predating Modules 31–36 emits no `XAGG <kind>:` log
-   line"). This module reproduced it and can now name which side of the line
-   each family falls on. Across every capture here, seven kinds logged —
-   `offender_age_profile`, `accused_relationship_breakdown`,
-   `seized_property_disposition`, `incident_time_of_day`, `arrest_rate`,
-   `incident_to_report_minutes_by_year`, `filtered_fir_listing` — while
+1. **Module 55 independently corroborated — and it has since landed.** This
+   module's live work ran on `main` @ `9942db9`, before Module 55 merged, and
+   reproduced exactly what Module 43 filed: across every capture here only
+   seven kinds logged an `XAGG <kind>` line (`offender_age_profile`,
+   `accused_relationship_breakdown`, `seized_property_disposition`,
+   `incident_time_of_day`, `arrest_rate`,
+   `incident_to_report_minutes_by_year`, `filtered_fir_listing`), while
    `graph_recurrence_person`, `cms_fir_linkage`, `station_or_category_counts`,
    `case_completeness_scan` and `weapon_licence_status` demonstrably ran and
    logged nothing. That is why counting `XAGG` log lines under-reports the
-   sub-queries actually dispatched, and why the tables in this file count
-   `route='XAGG'` SSE events instead. **Not folded in** — `xagg.py` is out of
-   this branch's scope; the evidence is added to Module 55.
+   sub-queries actually dispatched, and why **every table in this file counts
+   `route='XAGG'` SSE events instead of log lines** — a distinction worth
+   keeping even now the lines exist. Module 55 has since merged into `main`
+   (measured there as 32 kinds / 11 lines / 21 silent families, all now
+   logging), and this branch merged it in. **Nothing further needed;**
+   recorded because it independently confirms Module 55's count from a
+   different direction.
 
 2. **`_MAX_PLAN_SUB_QUERIES` is still 5, and the case for revisiting it is now
    open but unmeasured.** Module 50 made the cap conditional on this module
@@ -368,8 +372,8 @@ measured failure for a regression of a merged module. Filed for the user in §8.
    the prerequisite is now met — but the honest position is that the
    post-Module-53 staircase has not been measured at N=6..9, and salvage
    degrades prose rather than removing the serialisation. Gold's G6 "mostly
-   men" element is the concrete thing still missing. **Filed as its own
-   module** rather than raised on inference here.
+   men" element is the concrete thing still missing. **Filed as Module 59**
+   rather than raised on inference here.
 
 3. **M4 does not skip decomposition live, and answers "No information was
    found" on 4 runs of 4.** Its live route is XNETWORK, and Module 41's guard
@@ -380,7 +384,7 @@ measured failure for a regression of a merged module. Filed for the user in §8.
    why the router classifies M4 as XNETWORK. All three are outside this
    branch's scope (`router.py` and `supervisor.py` are explicitly off-limits
    to it), and (a) is rejected on its merits in `MODULE40_RESULT.md` §2.
-   **Filed as a new module.**
+   **Filed as Module 60**, which should start from Module 40's branch.
 
 4. **The synthesis verifier is now the dominant Meta-Analysis failure mode.**
    3 of 12 shipped-configuration runs and 2 of 6 baseline runs failed there,

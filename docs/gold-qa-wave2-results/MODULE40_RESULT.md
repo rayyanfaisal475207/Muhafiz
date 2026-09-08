@@ -323,12 +323,12 @@ and live.
    inherit Module 40's branch** — the decomposer-prompt and
    `statute_vs_court_stage` work is aimed squarely at it, and the only reason
    it was not taken here is the Module 41 interaction, which that module will
-   have to decide anyway. **Filed as a new module.**
+   have to decide anyway. **Filed as Module 60.**
 
 2. **CR3's rejection reason — negative inference over a complete listing — is
    unowned after this module closes.** Module 53 removed the timeouts,
    Module 57 identified the reason, Module 40 is measured incapable of fixing
-   it. Filed as its own module in `MODULE57_RESULT.md` §8, with the note that
+   it. Filed as Module 61, in `MODULE57_RESULT.md` §8, with the note that
    the *validation* gate already hedges the identical claim rather than
    refusing it, so the two gates hold inconsistent standards.
 
@@ -337,3 +337,4 @@ and live.
    to current `main`; it is being left unmerged because its *target* moved,
    not because it is wrong. Whoever takes defect 1 above should start from
    that branch rather than from scratch, exactly as this module was told to.
+   That is Module 60.
