@@ -95,7 +95,7 @@ several can run in parallel chats/worktrees without colliding.
 | 49 | KB3 reaches Police Order Article 18 but still scores 0.1 — it quotes the article without drawing gold's conclusion | *(not yet branched)* | ⬜ New — Module 30 got the chunk in; the synthesis half is unaddressed |
 | 50 | G1/G6/CR3 consolidation: wire Modules 31–36's aggregates into their decomposition plans, and settle `_MAX_SUB_QUERIES` | `fix/meta-analysis-wire-g1-g6-aggregates` | ✅ **Done** — all six wired; every one now fires on **every** live run (`caseload_review` 7/7 × 4 kinds, `orientation_note` 6/6, `record_consistency` 3/3). G1 reproduces 3 of gold's 4 findings exactly and corrects the 4th per Module 34; CR3 now gets gold's exact `CMS-ISB-2026-0341`; G6 reports the arrest rate for the first time. **Cap settled at 5 with measurement** — N=9 loses 4 sub-queries to the 60 s timeout, N=6 fails 1 run in 3. New defects split out as Modules 53–54. Result: `docs/gold-qa-wave2-results/MODULE50_RESULT.md` |
 | 53 | Meta-Analysis' 60 s sub-query timeout is one shared wall-clock deadline, so it kills whichever sub-query is served LAST, not the slow one | *(not yet branched)* | ⬜ New — found by Module 50. The aggregate has already computed when the timeout fires; only its LLM paraphrase is discarded. **Prerequisite for reconsidering `_MAX_PLAN_SUB_QUERIES`** |
-| 54 | Two provider-failure gaps Module 46's quota fix did not close: `503 UNAVAILABLE` is not in its grep, and a failed cutover classification silently falls back to `orchestrator.py` | *(not yet branched)* | ⬜ New — found by Module 50, which hit both live. Module 46 (via Module 42) already fixed the `rate limit` → `RESOURCE_EXHAUSTED` half independently; this is the residual |
+| 54 | Two provider-failure gaps Module 46's quota fix did not close: `503 UNAVAILABLE` is not in its grep, and a failed cutover classification silently falls back to `orchestrator.py` | `fix/provider-failure-visibility` | ✅ **Fixed** — pattern widened to `rate limit\|RESOURCE_EXHAUSTED\|429\|quota\|UNAVAILABLE\|503`, canonical in `gold32_score.py`'s `LOG_GREP_PATTERN`; the cutover fallback now emits a `cutover_classification_failed` SSE event, recorded per row in `gold32_pipeline_outputs.json`. 18 new tests, 197 passing. Live deferred (two backends mid-wave). Module 46 owns the `RESOURCE_EXHAUSTED` half. See `MODULE54_RESULT.md` |
 | 51 | `backend.log` is written through a cp1252 stream, so any Urdu-carrying log record is **silently destroyed** inside `logging.emit()` | `fix/backend-log-utf8-encoding` | ✅ **Fixed** — handler-level UTF-8; the `XAGG <kind>` diagnostics every module is verified against were being deleted |
 | 52 | The relevance gate cannot judge a roman-Urdu question against English statute text (English 6/6 relevant, roman-Urdu 1/6, identical chunks) | *(not yet branched)* | ⬜ New — found by Module 42; this is what actually makes KB6 abstain, and it gates the whole roman-Urdu half of the KB bucket |
 | 55 | Every XAGG aggregate predating Modules 31–36 emits no `XAGG <kind>:` log line, so no live run of it can be identified from `backend.log` | *(not yet branched)* | ⬜ New — found by Module 43, which had to add M7's before it could tell a correct run from a wrong-metric one. XAGG's SSE reports only `route='XAGG'`, so this is the project's only proof of which aggregate answered. Mechanical: one `logger.info()` per family. **Worth doing before Module 27's rerun**, so that run is diagnosable. |
@@ -1945,7 +1945,10 @@ first pass was invalid because `SHARE/.env` was never copied into place, so a
 stale local `.env` carried 3 of 5 wrong Groq keys and produced **1,410
 rate-limit errors**; every KB question abstained and the bucket scored 0.000.
 That was an environment artefact, not a defect. Before any future run:
-`grep -c "rate limit" backend.log` must stay near zero.
+`grep -ciE "rate limit|RESOURCE_EXHAUSTED|429|quota|UNAVAILABLE|503" backend.log` must stay near zero
+(widened by Modules 46 and 54 — the bare `grep -c "rate limit"` originally
+prescribed here returns 0 over a Gemini `429 RESOURCE_EXHAUSTED` and over a
+`503 UNAVAILABLE`).
 
 **A pattern worth naming across 41–44:** six questions now score
 AnswerRelevancy **1.0** with FactualCorrectness **0.0** — fluent, on-topic,
@@ -2505,7 +2508,7 @@ elements that fit only if this is fixed first.
 
 ---
 
-# Module 54 — the two provider-failure gaps Module 46 did not close ⬜
+# Module 54 — the two provider-failure gaps Module 46 did not close ✅
 
 **Found by Module 50, which hit both live.** Half of this was already found
 and fixed independently while Module 50 was running: **Module 46** (prompted
@@ -2546,6 +2549,48 @@ the way a rate-limit line already does).
 
 **Verify:** re-run any decomposing question with the pattern in place;
 confirm a forced fallback is detectable without reading the log.
+
+## Outcome — fixed on `fix/provider-failure-visibility` (`MODULE54_RESULT.md`)
+
+**The pattern is now canonical in one place:**
+`evaluation/gold32_score.py`'s `LOG_GREP_PATTERN` =
+`rate limit|RESOURCE_EXHAUSTED|429|quota|UNAVAILABLE|503`. Three prescriptive
+documents now cite exactly that string, and a test asserts they still do:
+`HOW_TO_REPRODUCE_THIS_EVALUATION.md`, `WAVE2_ORCHESTRATION_PROMPT.md` and
+`docs/gold-qa-wave2-results/MODULE27_PREFLIGHT.md`, plus this plan's own
+"before any future run" line. Result files under `docs/gold-qa-wave2-results/`
+were deliberately left alone — they record what was measured at the time.
+
+**This section's premise was wrong on one point.**
+`WAVE2_ORCHESTRATION_PROMPT.md` did **not** prescribe the bare
+`grep -c "rate limit"` for live module verification. It prescribed **no log
+check at all** — §4's five verification requirements never mentioned the
+backend log. The fix there is an addition, not an edit, and it explains how
+the bare form propagated: each module improvised it from
+`HOW_TO_REPRODUCE_THIS_EVALUATION.md`.
+
+**The fallback is now visible three ways:** an SSE event carrying
+`cutover_classification_failed: True` (emitted first, so a mid-stream timeout
+still shows it), a per-row field of the same name in
+`gold32_pipeline_outputs.json`, and the pre-existing log line. The fallback
+behaviour itself is unchanged.
+
+**A third gap was found in the same place and fixed:**
+`gold32_score.py`'s `_is_rate_limit()` matched `RateLimit`/`rate_limit`
+case-sensitively, and Groq's actual message is `due to rate limits` — so the
+code classifier missed the *most common* signature and charged a Groq throttle
+to the 3-attempt null budget instead of the 8-attempt quota budget. Now
+case-insensitive.
+
+**Not fixed, tracked:** `src/llm/client.py`'s own `_is_rate_limit()` — a
+different function, governing live retry and key rotation — still does not
+treat a 503 as retryable. That is a behaviour change rather than a visibility
+one and needs its own module with measured before/after retry counts.
+
+**Live verification deferred**, plainly: `8016` and `8018` were both mid-wave
+at 70.4% memory, and a forced fallback is exactly what the unit test already
+drives through the real `/api/chat` route. Module 27's rerun gets the
+end-to-end confirmation for free.
 
 ---
 

@@ -47,10 +47,31 @@ cited "Sections 154 and 155 of the Code of Criminal Procedure".
 **Sanity check before running anything:**
 
 ```bash
-grep -c "rate limit" <your backend log>   # should stay near 0 during a run
+grep -ciE "rate limit|RESOURCE_EXHAUSTED|429|quota|UNAVAILABLE|503" <your backend log>   # should stay near 0 during a run
 ```
 
 If that number climbs into the hundreds, stop — the run is not measuring the code.
+
+**Why the alternation and not the bare `grep -c "rate limit"` this file used to
+prescribe:** the providers do not agree on wording. Groq says `rate limit`,
+Gemini says `RESOURCE_EXHAUSTED`, both can surface a bare `429`, and Module 50
+also hit `503 UNAVAILABLE ... 'This model is currently experiencing high
+demand.'` — a transient capacity failure, not a quota one, but with the same
+consequence. The bare check returns **0** over every one of those, i.e. it
+certifies a clean run on top of a failed call. The canonical pattern lives in
+`evaluation/gold32_score.py`'s `LOG_GREP_PATTERN` (Modules 46 and 54).
+
+Check the second provider-failure mode in the same breath — a failed agent
+harness cutover classification, which silently hands the question to the legacy
+orchestrator so a *different* sub-agent answers it:
+
+```bash
+grep -c "Cutover classification failed" <your backend log>   # also 0
+```
+
+Since Module 54 that is visible without the log too: the SSE stream carries a
+`cutover_classification_failed` flag and `gold32_pipeline_outputs.json` records
+it per row.
 
 ### 1.2 Restore the data
 
