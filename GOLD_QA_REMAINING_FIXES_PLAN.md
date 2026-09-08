@@ -98,9 +98,10 @@ several can run in parallel chats/worktrees without colliding.
 | 54 | Two provider-failure gaps Module 46's quota fix did not close: `503 UNAVAILABLE` is not in its grep, and a failed cutover classification silently falls back to `orchestrator.py` | *(not yet branched)* | ⬜ New — found by Module 50, which hit both live. Module 46 (via Module 42) already fixed the `rate limit` → `RESOURCE_EXHAUSTED` half independently; this is the residual |
 | 51 | `backend.log` is written through a cp1252 stream, so any Urdu-carrying log record is **silently destroyed** inside `logging.emit()` | `fix/backend-log-utf8-encoding` | ✅ **Fixed** — handler-level UTF-8; the `XAGG <kind>` diagnostics every module is verified against were being deleted |
 | 52 | The relevance gate cannot judge a roman-Urdu question against English statute text (English 6/6 relevant, roman-Urdu 1/6, identical chunks) | *(not yet branched)* | ⬜ New — found by Module 42; this is what actually makes KB6 abstain, and it gates the whole roman-Urdu half of the KB bucket |
-| 55 | Every XAGG aggregate predating Modules 31–36 emits no `XAGG <kind>:` log line, so no live run of it can be identified from `backend.log` | *(not yet branched)* | ⬜ New — found by Module 43, which had to add M7's before it could tell a correct run from a wrong-metric one. XAGG's SSE reports only `route='XAGG'`, so this is the project's only proof of which aggregate answered. Mechanical: one `logger.info()` per family. **Worth doing before Module 27's rerun**, so that run is diagnosable. |
-| 56 | M2's dispatch vocabulary is narrower than the family it now serves — a station-type question that avoids `_STATION_TYPE_KEYWORDS`' exact wording falls to the per-station catch-all | *(not yet branched)* | ⬜ New — found by Module 44. Measured: *"Do the specialist units handle a bigger share of our cases than the ordinary police stations?"* resolves to `station_or_category_counts`, i.e. it gets the plain per-station count the original refusal existed to prevent. A narrow trigger list was the safe choice while M2 returned a refusal; it is not, now that the family computes a real answer. Needs its own all-32 equality control — `_STATION_KEYWORDS` sits a few rungs lower in the same chain. |
+| 55 | Every XAGG aggregate predating Modules 31–36 emits no `XAGG <kind>:` log line, so no live run of it can be identified from `backend.log` | `fix/xagg-log-lines-and-m2-vocabulary` | ✅ **Done** — measured **32 distinct aggregate kinds, 11 log lines, 21 families silent** (the brief's "~18" undercounted). All 21 now log, each carrying the **figures**, plus the three honest-refusal paths that were previously indistinguishable from XAGG never running. Confirmed live in-process against Postgres + AGE: 21 of 21 emit real figures, Urdu values intact post-PR #30. The durable fix is an **AST-derived enforcing test** — a new family with no log line fails the suite. Backend/SSE run **deferred for contention** (8015 and 8016 both mid-run). Result: `docs/gold-qa-wave2-results/MODULE55_RESULT.md` |
+| 56 | M2's dispatch vocabulary is narrower than the family it now serves — a station-type question that avoids `_STATION_TYPE_KEYWORDS`' exact wording falls to the per-station catch-all | `fix/xagg-log-lines-and-m2-vocabulary` | ✅ **Done** — tuple widened from 10 to **58** entries: specialist/specialised/dedicated unit and station forms, the ordinary/normal/regular general-purpose side, and their Roman-Urdu (`makhsoos`/`khaas`/`aam thana`) and Urdu (خصوصی/مخصوص/عام تھانہ) equivalents. Every entry binds the qualifier to a station word; no bare عام-class word. **All-32 EQUALITY control passes** — every gold question's resolved kind byte-identical to the pre-change map. The measured failing phrasing now reaches `station_caseload_by_specialisation`, as do 8 non-gold paraphrases across all three languages; M2 still reproduces gold's 9-of-73 from 2-of-19. New defect split out as **Module 58**. Result: `docs/gold-qa-wave2-results/MODULE56_RESULT.md` |
 | 57 | CR3 is non-deterministic across runs at three different layers | *(not yet branched)* | ⬜ New — found by Module 44's regression guard. Three consecutive runs of CR3's gold text failed three different ways: synthesis-verifier rejection; both Meta-Analysis sub-questions timing out; and `route=None` from the XNETWORK relevance gate (distance 0.156 vs cutoff 0.145). Module 36 deferred its aggregate wiring and Module 50 owns the consolidation, but neither is scoped to the **non-determinism**, which is what makes CR3 unverifiable rather than merely incomplete. |
+| 58 | `_STATION_TYPE_KEYWORDS` is a 58-entry substring list where the file's other hard dispatch calls use a multi-signal predicate | *(not yet branched)* | ⬜ New — found by Module 56, which widened it. Two of its entries (`single type of crime`, `one type of crime`) name no station at all; they are in because M2's gold text is phrased that way, and nothing but the all-32 control and reviewer judgment stops the next such entry from raiding `_STATION_KEYWORDS`. The structural fix is the shape `_is_arrest_rate()` / `_is_criminal_record_local_gap()` / `_is_weapon_statute_cooccurrence()` already use: station-or-unit signal **AND** specialisation-contrast signal. Deliberately out of scope for a "widen the vocabulary" module — it is a behaviour change with its own regression surface. |
 | 27 | Final Gold-32 rerun (Module 18 redo) | *(docs only)* | ⬜ Blocked on all above — brief: `MODULE27_FINAL_GOLD32_RERUN_PROMPT.md` |
 
 ### Coverage check — every failing question maps to a module
@@ -2263,7 +2264,7 @@ defect.
 
 ---
 
-# Module 55 — pre-Module-31 aggregates emit no `XAGG <kind>:` log line ⬜
+# Module 55 — pre-Module-31 aggregates emit no `XAGG <kind>:` log line ✅
 
 **Found by:** Module 43
 
@@ -2288,9 +2289,47 @@ choices cannot be read back from the log is a rerun whose failures have to be
 re-investigated from scratch, which is what this wave spent Modules 43 and 44
 doing.
 
+## Outcome — `fix/xagg-log-lines-and-m2-vocabulary` ✅
+
+**Measured, not estimated.** `xagg.py` returned **32 distinct aggregate
+kinds** (38 `"kind":` returns) behind **11** `XAGG <label>:` format strings.
+**21 families were silent**, not the ~18 the brief estimated — the brief's
+"20 log lines" counted every source line containing the string `XAGG `,
+comments included. The silent set was the whole CR6/CR7/CR8/G2/G3 group, the
+entire entity-recurrence tier, `case_listing` (the corpus dump several modules
+in this wave had to prove they were *not* hitting) and `relational_aggregate`
+(the catch-all Module 44 measured M2 falling into).
+
+All 21 now log, each carrying the **figures**. The three honest-refusal paths
+(`gender_breakdown`, `offender_age_profile`, `reporting_delay_count`) got
+their own lines too — a refusal was previously indistinguishable in the log
+from XAGG never running at all. 211 lines added, 0 removed: no dispatch, no
+computation and no returned key changed.
+
+**The durable fix is the enforcing test, not the 21 lines.** It walks the AST
+for every literal `{"kind": ...}` value in `xagg.py` and fails when one has no
+matching log format string, so the next family added cannot silently skip its
+line. A second test keeps every format string ASCII — it caught three
+em-dashes on its first run. One documented alias: `time_bucketed_mean` stays
+labelled by its dimension (`incident_to_report_minutes_by_year`), because
+MODULE43_RESULT.md and its regression test are pinned to that string.
+
+Confirmed live **in-process** against the real Postgres gateway and AGE graph:
+21 of 21 emit real figures on the first attempt, with Urdu values legible
+(`مرد=67, عورت=24`, Urdu district and station names) — PR #30's utf-8
+stream fix holding. Figures cross-check against Modules 7/10.1/13/15/2a and
+the wave's own graph census.
+
+**Backend/SSE verification deferred for contention** and stated as such: 8015
+and 8016 were both LISTENING and both mid-run against the shared model server,
+with 4.2 GB of 16 GB free. Module 27's rerun will confirm the SSE half for
+free — which is exactly why this landed before it.
+
+Result: `docs/gold-qa-wave2-results/MODULE55_RESULT.md`.
+
 ---
 
-# Module 56 — M2's dispatch vocabulary is narrower than its new family ⬜
+# Module 56 — M2's dispatch vocabulary is narrower than its new family ✅
 
 **Found by:** Module 44
 
@@ -2317,6 +2356,48 @@ inside Module 44: `_STATION_KEYWORDS` sits a few rungs lower in the same
 chain, and every widening candidate risks pulling ordinary per-station
 questions into this family — the exact collision class this file has recorded
 five times.
+
+## Outcome — `fix/xagg-log-lines-and-m2-vocabulary` ✅
+
+`_STATION_TYPE_KEYWORDS` widened from 10 entries to **58**: the specialised
+side (`specialist`/`specialised`/`specialized`/`dedicated` × unit / station /
+thana / police, `crime-specific station`), the general-purpose side
+(`ordinary`/`normal`/`regular` × station / police station / thana,
+`general-purpose thana`/`unit`), Roman Urdu (`makhsoos`/`khaas`/`aam` ×
+`thana`/`thanay`/`thane`, `aam police station`) and Urdu (`خصوصی تھانہ`,
+`مخصوص تھانے`, `عام تھانے`, `خصوصی یونٹ`, …).
+
+**One rule governs every entry: the qualifier and the station word travel
+together.** No bare station word (that is S2's question and CR6's opening
+clause) and no bare qualifier — `عام` alone appears in KB5 qualifying a *case*,
+which is the عام-class substring collision this file has recorded five times.
+
+**The all-32 control is EQUALITY, not absence.** The full id → resolved-kind
+map was captured from `resolve_aggregate_kind()` before a single keyword was
+added, is pinned in `tests/test_xagg.py`, and is byte-identical after. An
+absence-only control would have passed even if a new keyword pushed CR3 or KB4
+sideways into a third family.
+
+Nothing needed mirroring into `resolve_aggregate_kind()` — Module 41 already
+made it the sole reader of this tuple. A new AST test pins that, so a second
+inline check in `run_aggregate()` fails the suite rather than drifting.
+
+The measured failure — *"Do the specialist units handle a bigger share of our
+cases than the ordinary police stations?"* — now reaches
+`station_caseload_by_specialisation`, as do 8 non-gold paraphrases across
+English, Roman Urdu and Urdu. M2's literal gold text still reproduces gold's
+**9 of 73 FIRs from 2 of 19 stations**, and Module 44's honest dissent from
+gold's *growth* framing stands unchanged.
+
+Live SSE verification **deferred for contention** (same conditions as Module
+55). Module 44 had already recorded three consecutive live SSE runs of M2's
+gold text on this family, and nothing between the router and the aggregate
+changed here — only the keyword tuple.
+
+**New defect raised as Module 58:** the tuple is now a 58-entry substring
+list where this file's other hard dispatch calls use a multi-signal predicate.
+
+Result: `docs/gold-qa-wave2-results/MODULE56_RESULT.md`.
 
 ---
 
@@ -2665,6 +2746,37 @@ not just the one it was found on.
 
 **Artefact:** `evaluation/kb6_evaluator_language_experiment.json` — all five
 experiments, every verdict and reason, including the negative results.
+
+---
+
+# Module 58 — `_STATION_TYPE_KEYWORDS` should be a predicate, not a 58-entry list ⬜
+
+**Found by:** Module 56, which is the module that made it 58 entries.
+
+Module 56 widened M2's trigger vocabulary from 10 entries to 58 and proved,
+with an all-32 equality control, that nothing else moved. That control is the
+only thing protecting the widening — and it is only as broad as the 32
+questions in it.
+
+The soft spot is already visible in the tuple: `single type of crime` and
+`one type of crime` are the two entries that **name no station at all**. They
+are there because M2's own gold text is phrased that way ("set up for one
+specific type of crime"), and none of the 32 collides with them. A question
+like *"how many cases involve one type of crime only?"* would be pulled into
+the station-specialisation family wrongly, and no test in the repository would
+notice.
+
+**Work:** replace the flat tuple with a **multi-signal predicate** — a
+station-or-unit signal AND a specialisation-contrast signal — the shape
+`_is_arrest_rate()`, `_is_criminal_record_local_gap()` and
+`_is_weapon_statute_cooccurrence()` already use in this same file for exactly
+this reason: so no single phrase can carry the dispatch alone.
+
+**Deliberately out of scope for Module 56.** That module's brief was "widen
+the vocabulary"; this is a behaviour change to the dispatch shape, with its
+own regression surface, and it needs the all-32 equality control re-run plus
+a set of adversarial non-gold phrasings that the current control does not
+contain.
 
 ---
 

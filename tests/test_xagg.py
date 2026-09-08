@@ -6,6 +6,7 @@ the `no_network` guard, conftest, autouse).
 """
 import json
 import logging
+import re
 from pathlib import Path
 
 import pytest
@@ -4724,3 +4725,279 @@ async def test_s2_still_reaches_the_station_ranking_after_module_36():
 
     assert result["kind"] == "relational_aggregate"
     assert result["group_by"] == "police_station"
+
+
+# ══════════════════════════════════════════════════════════════════════
+# [Module 55] Every aggregate family must say which one it is, in the log.
+#
+# XAGG's SSE stream reports only `route='XAGG'`. The `XAGG <kind>:` line in
+# `backend.log` is therefore the ONLY evidence of WHICH aggregate answered a
+# live question — the fact every module in this wave is verified against.
+# Modules 31-36 each added one by hand; everything older emitted nothing, so
+# Module 43 had to identify M7's runs by matching numbers out of rendered
+# prose before it could tell a correct run from a wrong-metric one.
+#
+# The durable fix is not the 21 individual lines Module 55 added. It is this
+# test: it derives the set of aggregate kinds from the SOURCE, so the next
+# family added to `xagg.py` cannot silently skip its line.
+# ══════════════════════════════════════════════════════════════════════
+
+# The one family whose log line is labelled by its DIMENSION rather than its
+# kind. `time_bucketed_mean` is a generic container — M7's aggregate and any
+# future mean-by-bucket family would both carry it — so Module 43 labelled
+# the line `incident_to_report_minutes_by_year`, which is what actually
+# distinguishes M7's run from the neighbouring delay-reason one. Kept, and
+# recorded here explicitly, rather than relabelled: MODULE43_RESULT.md and
+# its own regression test are both pinned to the existing string.
+_LOG_LABEL_ALIASES = {"time_bucketed_mean": "incident_to_report_minutes_by_year"}
+
+
+def _xagg_source() -> str:
+    return (
+        Path(xagg.__file__).read_text(encoding="utf-8")
+    )
+
+
+def _declared_aggregate_kinds() -> set[str]:
+    """Every literal `{"kind": "..."}` value in xagg.py, read via AST so a
+    kind named only in a comment or a docstring cannot count."""
+    import ast
+
+    kinds = set()
+    for node in ast.walk(ast.parse(_xagg_source())):
+        if not isinstance(node, ast.Dict):
+            continue
+        for key, value in zip(node.keys, node.values):
+            if (
+                isinstance(key, ast.Constant) and key.value == "kind"
+                and isinstance(value, ast.Constant) and isinstance(value.value, str)
+            ):
+                kinds.add(value.value)
+    return kinds
+
+
+def _emitted_log_labels() -> set[str]:
+    return set(re.findall(r'"XAGG ([a-z0-9_]+):', _xagg_source()))
+
+
+def test_module55_every_aggregate_kind_emits_an_xagg_log_line():
+    """Measured starting point (2026-09-09, before this module): 32 distinct
+    aggregate kinds, 11 log labels — 21 families silent, including the whole
+    CR6/CR7/CR8/G2/G3 set, the entity-recurrence tier and the
+    `relational_aggregate` catch-all Module 44 measured M2 falling into."""
+    kinds = _declared_aggregate_kinds()
+    labels = _emitted_log_labels()
+
+    # Guards the guard: if the AST walk stops finding kinds (a refactor to a
+    # dataclass, say), the assertion below would pass vacuously.
+    assert len(kinds) >= 32, kinds
+
+    silent = sorted(
+        k for k in kinds
+        if k not in labels and _LOG_LABEL_ALIASES.get(k) not in labels
+    )
+    assert silent == [], (
+        "These XAGG aggregate kinds return a result but emit no "
+        f"`XAGG <kind>:` log line, so a live run of them cannot be "
+        f"identified from backend.log at all: {silent}. Add one "
+        "logger.info() carrying the FIGURES, not just the kind."
+    )
+
+
+def test_module55_log_format_strings_stay_ascii():
+    """PR #30 reconfigured the log stream to utf-8/backslashreplace, so Urdu
+    VALUES passed as `%s` arguments now survive. The format strings
+    themselves stay ASCII regardless: three of Module 36's live calls lost
+    their figures entirely to a cp1252 stream, and an ASCII template is what
+    guarantees the line is emitted at all even if a handler regresses."""
+    offenders = [
+        line for line in _xagg_source().splitlines()
+        if '"XAGG ' in line and not line.strip().startswith("#")
+        and not line.isascii()
+    ]
+    assert offenders == [], offenders
+
+
+async def test_module55_a_silent_family_now_names_itself_with_its_figures(caplog):
+    """One worked example end to end, on a family that was silent before this
+    module — G2's completeness scan. The kind alone would not be enough: a
+    wrong-metric run reports the same kind, so the counts are asserted too."""
+    cases = [
+        {"case_id": "fir-1-26", "incident_date": "2026-01-01",
+         "investigation_status": "under investigation"},
+        {"case_id": "fir-2-26", "incident_date": None,
+         "investigation_status": "under investigation"},
+        {"case_id": "fir-3-26", "incident_date": "2026-01-03",
+         "investigation_status": None},
+    ]
+
+    with caplog.at_level(logging.INFO, logger="src.pipeline.xagg"):
+        result = await xagg._case_completeness_scan(FakeGateway(cases))
+
+    logged = "\n".join(r.getMessage() for r in caplog.records)
+    assert "XAGG case_completeness_scan:" in logged
+    assert "3 case(s) scanned" in logged
+    assert "1 missing an incident date" in logged
+    assert "1 missing an investigation status" in logged
+    # No behaviour change — Module 55 is observability only.
+    assert result["total_cases"] == 3
+    assert result["missing_incident_date"] == ["fir-2-26"]
+    assert result["missing_status"] == ["fir-3-26"]
+
+
+# ══════════════════════════════════════════════════════════════════════
+# [Module 56] M2's dispatch vocabulary vs. the family it now serves.
+#
+# Module 44 changed only the KIND `_STATION_TYPE_KEYWORDS` returns — from an
+# honest refusal to `station_caseload_by_specialisation` — without widening
+# the vocabulary. A narrow trigger list is the safe default for a refusal and
+# the wrong one for a real aggregate: a missed match no longer means "generic
+# answer", it means the plain per-station count the refusal existed to
+# prevent. Measured, before this module:
+#
+#   "Do the specialist units handle a bigger share of our cases than the
+#    ordinary police stations?"          -> station_or_category_counts  ❌
+#
+# `_STATION_KEYWORDS` sits a few rungs lower in the same chain, so the
+# control below asserts EQUALITY over all 32 gold questions' resolved kinds,
+# not merely that M2 still lands right.
+# ══════════════════════════════════════════════════════════════════════
+
+# Captured from `resolve_aggregate_kind()` on the pre-Module-56 tree
+# (2026-09-09, commit 9942db9 + Module 55), before a single keyword was
+# added. This is the control: widening M2's vocabulary must move NOTHING
+# else. A diff here is a regression, not a test to update.
+_GOLD32_RESOLVED_KINDS_BEFORE_MODULE56 = {
+    "D1": "total_count",
+    "S2": "station_or_category_counts",
+    "S3": "graph_recurrence_person",
+    "A1": "gender_breakdown",
+    "A7": "reporting_delay_count",
+    "CP6": "placeholder_officer_count",
+    "CR2": "graph_recurrence_person",
+    "CR3": "station_or_category_counts",
+    "CR4": "weapon_evidence_chain",
+    "CR6": "cms_fir_linkage",
+    "CR7": "criminal_record_court_crosscheck",
+    "CR8": "dv_report_fir_match",
+    "CS4": "criminal_record_local_match_gap",
+    "CP1": "weapon_recovery_rate_by_district",
+    "M1": "statute_mix_by_year",
+    "M2": "station_caseload_by_specialisation",
+    "M4": "statute_court_stage_join",
+    "M5": "weapon_statute_cooccurrence_by_year",
+    "M7": "incident_to_report_minutes_by_year",
+    "G1": "case_completeness_scan",
+    "G2": "case_completeness_scan",
+    "G3": "court_readiness_scan",
+    "G5": "weapon_compliance_scan",
+    "G6": "station_or_category_counts",
+    "KB1": "station_or_category_counts",
+    "KB2": "graph_recurrence_person",
+    "KB3": "station_or_category_counts",
+    "KB4": "station_or_category_counts",
+    "KB5": "gender_breakdown",
+    "KB6": "graph_recurrence_weapon",
+    "KB8": "station_or_category_counts",
+    "KB9": "graph_recurrence_person",
+}
+
+
+def test_module56_all_32_gold_questions_resolve_exactly_as_before():
+    """EQUALITY, not absence. Asserting only "no extra question reaches M2's
+    family" would pass if a widened keyword pushed CR3 or KB4 sideways into
+    some third family instead. A MISSING dataset is a failure, never a skip."""
+    items = json.loads(_GOLD32_PATH.read_text(encoding="utf-8"))
+    assert len(items) == 32, len(items)
+
+    resolved = {
+        (it.get("id") or "").upper(): xagg.resolve_aggregate_kind(it["question"])
+        for it in items
+    }
+    assert resolved == _GOLD32_RESOLVED_KINDS_BEFORE_MODULE56
+
+
+def test_module56_only_m2_reaches_the_station_type_vocabulary():
+    """The narrower half of the same control, stated directly against the
+    keyword tuple: exactly one of the 32 gold questions may match it. S2
+    ("Which police station handles the most cases?") and CR6 ("...تھانے آ کر
+    شکایت درج کراتا ہے...") both carry the bare station word and must not."""
+    items = json.loads(_GOLD32_PATH.read_text(encoding="utf-8"))
+    matched = sorted(
+        (it.get("id") or "").upper()
+        for it in items
+        if xagg._matches_any(it["question"].lower(), xagg._STATION_TYPE_KEYWORDS)
+    )
+    assert matched == ["M2"], matched
+
+
+def test_module56_m2_literal_gold_text_still_reaches_its_own_family(monkeypatch):
+    """Pinned to M2's literal gold text — the question the widening exists to
+    serve must not be broken by the widening."""
+    assert xagg.resolve_aggregate_kind(_M2_GOLD) == "station_caseload_by_specialisation"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        # The measured failure. MODULE44_RESULT.md recorded this resolving to
+        # `station_or_category_counts` — the plain per-station count.
+        "Do the specialist units handle a bigger share of our cases than the "
+        "ordinary police stations?",
+        # Neighbouring English phrasings of the same question.
+        "Do dedicated units carry more caseload than regular police stations?",
+        "Is a normal thana busier than a station set up for one type of crime?",
+        "How does the caseload at our specialist police stations compare with "
+        "the ordinary ones?",
+        # Roman Urdu, the house style half this gold set is written in.
+        "Kya makhsoos thanay aam thanay se zyada cases handle kar rahe hain?",
+        "Khaas thane ka caseload aam police station se kitna mukhtalif hai?",
+        # Urdu script.
+        "کیا خصوصی تھانے عام تھانے سے زیادہ مقدمات سنبھال رہے ہیں؟",
+        "کیا مخصوص تھانے پر کیس لوڈ عام تھانے کے مقابلے میں زیادہ ہے؟",
+    ],
+)
+def test_module56_widened_vocabulary_reaches_the_specialisation_family(query):
+    assert xagg.resolve_aggregate_kind(query) == "station_caseload_by_specialisation"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        # S2's literal gold text — the bare per-station ranking. This is the
+        # question the whole widening had to avoid swallowing.
+        "Which police station handles the most cases?",
+        "Kaunsa thana sab se zyada cases handle karta hai?",
+        "کون سا تھانہ سب سے زیادہ مقدمات دیکھتا ہے؟",
+        # CR6's opening clause: تھانے with no station-type qualifier at all.
+        "جب کوئی شخص تھانے آ کر شکایت درج کراتا ہے، تو کیا وہ کسی باقاعدہ ایف "
+        "آئی آر سے منسلک ہو جاتی ہے؟",
+        # KB5 carries عام, but qualifying a CASE, not a station — the
+        # عام-class substring collision this tuple was widened around.
+        "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے "
+        "مختلف طریقۂ کار کا تقاضا کرتا ہے؟",
+        # A plain per-station breakdown in each of the two other languages.
+        "How many cases per police station?",
+        "Har thane mein kitne cases hain?",
+    ],
+)
+def test_module56_widened_vocabulary_does_not_swallow_plain_station_questions(query):
+    assert xagg.resolve_aggregate_kind(query) != "station_caseload_by_specialisation"
+
+
+def test_module56_dispatch_change_lives_only_in_resolve_aggregate_kind():
+    """Module 41 made `resolve_aggregate_kind()` the single source of dispatch
+    truth, and the supervisor guard reads it. `_STATION_TYPE_KEYWORDS` must
+    therefore be consulted there and nowhere else — a second inline check in
+    `run_aggregate()` would let the two drift apart silently."""
+    import ast
+
+    tree = ast.parse(Path(xagg.__file__).read_text(encoding="utf-8"))
+    users = set()
+    for func in ast.walk(tree):
+        if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for node in ast.walk(func):
+            if isinstance(node, ast.Name) and node.id == "_STATION_TYPE_KEYWORDS":
+                users.add(func.name)
+    assert users == {"resolve_aggregate_kind"}, users
