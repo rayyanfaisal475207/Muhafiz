@@ -78,7 +78,10 @@ from src.pipeline.harness.types import (
 )
 from src.pipeline.query_expander import expand_query
 from src.pipeline.query_rewriter import rewrite_for_retry
-from src.pipeline.statute_hypothesis import generate_statute_queries
+from src.pipeline.statute_hypothesis import (
+    generate_statute_queries,
+    render_question_in_english,
+)
 from src.retrieval.bm25_retriever import retrieve_bm25
 from src.retrieval.cross_reranker import cross_rerank, cross_rerank_multi
 from src.retrieval.embedder import embed_text
@@ -414,6 +417,7 @@ async def _retrieve_candidates(
     final_top_k: int,
     is_cross_case: bool,
     statute_queries: Optional[list[str]] = None,
+    english_query: Optional[str] = None,
 ) -> tuple[list[dict], list[dict]]:
     """
     The retrieval half of the RAG primitive — query expansion + cross-script
@@ -432,12 +436,28 @@ async def _retrieve_candidates(
     `statute_queries`, when given (see `generate_statute_queries()` and its
     call site in `rag_tool()`), are folded in as further retrieval queries —
     the only ones that carry a governing statute's own English vocabulary.
+
+    `english_query` (Module 52), when given, is the QUESTION itself restated
+    in English. It is folded in as one more retrieval query, and is not the
+    same thing as a statute hypothesis: the hypotheses paraphrase the
+    PROVISION and can name the wrong book, while this one is the user's own
+    question with nothing added, in the corpus's language. Measured on KB6,
+    the chunk carrying gold's statutory half
+    (`5_Forensics_guidelines_pdf_62ee00b3_c19`) is missed for exactly the
+    lexical reason a Roman-Urdu question is missed everywhere else. Omitted
+    (None) for every non-legal-KB query, which keeps their variant list
+    byte-for-byte what it was.
     """
     expanded_queries = await expand_query(query_text, n=2)
     cross_script_query = await generate_cross_script_variant(query_text)
     all_queries = [query_text] + expanded_queries + (
         [cross_script_query] if cross_script_query else []
     ) + list(statute_queries or [])
+    # Deduped by value: for an already-English question the rendering is the
+    # question verbatim (the prompt requires it), and embedding the same
+    # string twice buys nothing.
+    if english_query and english_query not in all_queries:
+        all_queries.append(english_query)
 
     embeddings = [await embed_text(q) for q in all_queries]
 
@@ -588,11 +608,25 @@ async def rag_tool(
     # question is rephrased. None when the model finds no plausible
     # provision, or on any failure — retrieval then behaves exactly as it
     # did before this existed.
+    # [Module 52] And, on the same legal-KB path only, restate the QUESTION
+    # itself in English — see `render_question_in_english()` for the 2x2 that
+    # measured this. Module 30 gave retrieval and the cross-encoder an English
+    # phrasing; the relevance gate was left reading the raw Roman-Urdu
+    # question, and on identical chunks containing gold's own statutory text
+    # it judged the English phrasing relevant 6/6 and the Roman-Urdu one 1/6.
+    # Generated from the ORIGINAL question, not a retry rewrite, for the same
+    # reason the statute hypotheses are: what the user asked does not change
+    # when the retrieval query is rephrased. None on any failure — the
+    # evaluator then sees exactly what it saw before this existed.
     statute_queries: list[str] = []
+    english_query: Optional[str] = None
     if _is_legal_kb_intent(tool_input.query_text):
         statute_queries = await generate_statute_queries(tool_input.query_text)
         for hypothesis in statute_queries:
             logger.info("RAG tool: statute-hypothesis query: %s", hypothesis[:200])
+        english_query = await render_question_in_english(tool_input.query_text)
+        if english_query:
+            logger.info("RAG tool: English rendering of the question: %s", english_query[:300])
 
     last_empty_result: Optional[RagToolResult] = None
     for scope_index, where in enumerate(where_scopes):
@@ -602,6 +636,7 @@ async def rag_tool(
         result = await _run_retrieval_loop(
             tool_input, where, fetch_top_k, top_k, is_cross_case, _emit,
             statute_queries=statute_queries,
+            english_query=english_query,
         )
         if result.status == ToolStatus.OK:
             return result
@@ -618,6 +653,7 @@ async def _run_retrieval_loop(
     is_cross_case: bool,
     _emit,
     statute_queries: Optional[list[str]] = None,
+    english_query: Optional[str] = None,
 ) -> RagToolResult:
     """
     One full retrieve→rerank→evaluate retry loop against a SINGLE `where`
@@ -628,7 +664,9 @@ async def _run_retrieval_loop(
     `statute_queries` (Module 30) are the caller's English statute-vocabulary
     phrasings of the question, or empty. They are generated once in
     `rag_tool()` rather than here so the KB-only-then-mixed scope retry does
-    not pay for a second identical LLM call.
+    not pay for a second identical LLM call. `english_query` (Module 52) is
+    the question itself restated in English, generated once in the same
+    place and for the same reason, or None.
     """
     current_query = tool_input.query_text
     evaluator_feedback: Optional[str] = None
@@ -682,6 +720,7 @@ async def _run_retrieval_loop(
             semantic_results, bm25_results = await _retrieve_candidates(
                 current_query, where, fetch_top_k, effective_top_k, is_cross_case,
                 statute_queries=statute_queries,
+                english_query=english_query,
             )
         except Exception as retr_exc:
             logger.error("RAG tool: retrieval infrastructure failed: %s", retr_exc)
@@ -785,7 +824,36 @@ async def _run_retrieval_loop(
         evaluator_unavailable = False
         _emit("evaluator", "active", "Checking relevance…")
         try:
-            evaluation = await evaluate_relevance(tool_input.query_text, current_query, reranked)
+            # [Module 52] On the legal-KB path, the gate judges the ENGLISH
+            # rendering of the question rather than the raw Roman-Urdu or
+            # Urdu-script one. Both arguments, deliberately: the 2x2 in
+            # `render_question_in_english()` reaches 3/3 only when the field
+            # the gate reads holds a genuine English question and nothing
+            # else. Mixing languages across the two arguments was measured
+            # and does not work — an English statute phrasing in
+            # `rewritten_query` alone is 1/3, appending an English rendering
+            # to the original is 0/3.
+            #
+            # On a RETRY the search query has genuinely moved on, so
+            # `rewritten_query` carries `current_query` (the retry rewriter's
+            # own output, which is already English) and only the question
+            # field is substituted. Attempt 1 has no rewrite to report:
+            # `current_query` is the raw question there, and passing it would
+            # put the Roman-Urdu text straight back into the prompt.
+            #
+            # `english_query` is None for every non-legal-KB query and on any
+            # rendering failure, and this line is then byte-for-byte what it
+            # was before Module 52.
+            if english_query:
+                evaluation = await evaluate_relevance(
+                    english_query,
+                    current_query if retry_count > 0 else english_query,
+                    reranked,
+                )
+            else:
+                evaluation = await evaluate_relevance(
+                    tool_input.query_text, current_query, reranked
+                )
         except Exception as exc:
             logger.error("RAG tool: evaluator failed: %s", exc)
             evaluation = {"relevant": True, "reason": "Evaluator failed, proceeding"}
