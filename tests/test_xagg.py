@@ -2567,3 +2567,266 @@ class TestOffenderAgeProfileBoundary:
             if xagg._matches_any(it["question"].lower(), xagg._AGE_KEYWORDS)
         ]
         assert matched == [], f"expected no gold question to match, got {matched}"
+
+
+# ── [Gold-QA fix — Module 32, question G1] accused↔complainant relationship ─
+#
+# The literal G1 sub-question this family exists to answer, in the same
+# "..., across all cases?" shape as `meta_analysis.py`'s other sub-queries.
+_G1_SQ_RELATIONSHIP = (
+    "What relationship is recorded between the accused and the complainant, "
+    "across all cases?"
+)
+
+
+class _RelationshipAgeClient:
+    """Routes the two reads `_accused_relationship_breakdown()` issues."""
+
+    def __init__(self, rel_rows, accused_rows):
+        self.rel_rows = rel_rows
+        self.accused_rows = accused_rows
+        self.queries = []
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        self.queries.append((cypher_query, params))
+        if "RELATED_TO" in cypher_query:
+            return self.rel_rows
+        return self.accused_rows
+
+
+def _rel(role, case, a_id, b_id):
+    return {
+        "role": role,
+        "source_doc_id": f"psrms/fir/{case}#structured",
+        "a_id": a_id,
+        "b_id": b_id,
+    }
+
+
+def _accused(*p_ids):
+    return [{"p_id": p} for p in p_ids]
+
+
+async def test_relationship_breakdown_ranks_values_and_names_the_dominant_one(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _RelationshipAgeClient(
+        rel_rows=[
+            _rel("اجنبی", "fir-1-26", 1, 90),
+            _rel("اجنبی", "fir-2-26", 2, 91),
+            _rel("اجنبی", "fir-2-26", 3, 91),
+            _rel("بھائی", "fir-3-26", 4, 92),
+        ],
+        accused_rows=_accused(1, 2, 3, 4, 5, 5, 6),
+    ))
+
+    r = await xagg._accused_relationship_breakdown()
+
+    assert r["kind"] == "accused_relationship_breakdown"
+    assert r["total_relationships"] == 4
+    assert r["distinct_value_count"] == 2
+    assert r["case_count"] == 3
+    assert r["dominant"]["role"] == "اجنبی"
+    assert r["dominant"]["count"] == 3
+    assert r["dominant"]["gloss"] == "stranger"
+    # Per-value FIR counts: اجنبی spans two FIRs, not three edges' worth.
+    assert r["counts"][0]["case_count"] == 2
+    # Coverage: 4 of the 6 distinct accused carry a relationship.
+    assert r["distinct_accused_count"] == 6
+    assert r["accused_entry_count"] == 7
+    assert r["accused_with_relationship"] == 4
+
+
+async def test_relationship_breakdown_reports_the_duplicate_pair_double_count(monkeypatch):
+    """One accused row writes TWO edges when the victim and the complainant
+    are the same person. The raw edge count stays the headline (gold's own
+    denominator), but the duplication must be visible."""
+    monkeypatch.setattr(xagg, "age_client", _RelationshipAgeClient(
+        rel_rows=[
+            _rel("اجنبی", "fir-1-26", 1, 90),
+            _rel("اجنبی", "fir-1-26", 1, 90),   # same pair, same role
+            _rel("شوہر", "fir-2-26", 2, 91),
+        ],
+        accused_rows=_accused(1, 2),
+    ))
+
+    r = await xagg._accused_relationship_breakdown()
+
+    assert r["total_relationships"] == 3
+    assert r["distinct_pair_count"] == 2
+    rendered = "\n".join(xagg.render_accused_relationship_breakdown(r))
+    assert "3 entries cover 2 distinct" in rendered
+
+
+async def test_relationship_breakdown_scopes_by_the_edges_own_source_document(monkeypatch):
+    """The jurisdiction allow-list is applied to the FIR the relationship was
+    RECORDED on, not to every case its accused happens to touch — walking
+    `(a)-[:BELONGS_TO_CASE]->(:Case)` multiplies an edge by that person's
+    case count (measured live: 24 edges became 27 rows)."""
+    monkeypatch.setattr(xagg, "age_client", _RelationshipAgeClient(
+        rel_rows=[
+            _rel("اجنبی", "fir-1-26", 1, 90),
+            _rel("بھائی", "fir-2-26", 2, 91),
+        ],
+        accused_rows=_accused(1),
+    ))
+
+    r = await xagg._accused_relationship_breakdown(jurisdiction_case_ids=["fir-1-26"])
+
+    assert r["total_relationships"] == 1
+    assert r["counts"][0]["role"] == "اجنبی"
+
+
+async def test_relationship_breakdown_drops_unresolvable_edges_only_when_scoped(monkeypatch):
+    """An edge whose source document names no case cannot be shown to be in
+    scope, so it is dropped under an allow-list and kept without one."""
+    rows = [{"role": "اجنبی", "source_doc_id": None, "a_id": 1, "b_id": 90}]
+    monkeypatch.setattr(xagg, "age_client", _RelationshipAgeClient(rows, _accused(1)))
+    assert (await xagg._accused_relationship_breakdown())["total_relationships"] == 1
+
+    monkeypatch.setattr(xagg, "age_client", _RelationshipAgeClient(rows, _accused(1)))
+    scoped = await xagg._accused_relationship_breakdown(jurisdiction_case_ids=["fir-1-26"])
+    assert scoped["total_relationships"] == 0
+
+
+async def test_relationship_breakdown_on_an_empty_corpus_says_so(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _RelationshipAgeClient([], _accused(1, 2)))
+
+    r = await xagg._accused_relationship_breakdown()
+
+    assert r["total_relationships"] == 0
+    rendered = "\n".join(xagg.render_accused_relationship_breakdown(r))
+    assert "no accused↔complainant relationship is recorded" in rendered.lower()
+
+
+def test_render_relationship_breakdown_glosses_urdu_and_states_coverage():
+    rendered = "\n".join(xagg.render_accused_relationship_breakdown({
+        "kind": "accused_relationship_breakdown",
+        "total_relationships": 24, "distinct_pair_count": 24,
+        "distinct_value_count": 6, "case_count": 10,
+        "counts": [
+            {"role": "اجنبی", "gloss": "stranger", "count": 15, "case_count": 6},
+            {"role": "بھائی", "gloss": "brother", "count": 1, "case_count": 1},
+        ],
+        "dominant": {"role": "اجنبی", "gloss": "stranger", "count": 15, "case_count": 6},
+        "accused_entry_count": 94, "distinct_accused_count": 92,
+        "accused_with_relationship": 12,
+    }))
+
+    assert "اجنبی (stranger): 15 of 24" in rendered
+    assert "10 FIR(s)" in rendered
+    assert "dominant recorded relationship is اجنبی (stranger)" in rendered
+    # The coverage caveat that stops "stranger dominates" being read as a
+    # statement about the whole caseload — it describes 12 of 92 accused.
+    assert "12 of 92 distinct accused" in rendered
+    assert "not a profile of the whole caseload" in rendered
+
+
+def test_render_relationship_breakdown_passes_unmapped_values_through_verbatim():
+    """The gloss never substitutes a guess for a value it does not know."""
+    rendered = "\n".join(xagg.render_accused_relationship_breakdown({
+        "kind": "accused_relationship_breakdown",
+        "total_relationships": 1, "distinct_pair_count": 1,
+        "distinct_value_count": 1, "case_count": 1,
+        "counts": [{"role": "کوئی نیا رشتہ", "gloss": None, "count": 1, "case_count": 1}],
+        "dominant": {"role": "کوئی نیا رشتہ", "gloss": None, "count": 1, "case_count": 1},
+        "accused_entry_count": 1, "distinct_accused_count": 1,
+        "accused_with_relationship": 1,
+    }))
+
+    assert "کوئی نیا رشتہ: 1 of 1" in rendered
+    # No gloss parenthetical is attached to the raw value anywhere.
+    assert "کوئی نیا رشتہ (" not in rendered
+
+
+async def test_g1_relationship_sub_query_no_longer_falls_through_to_person_recurrence(monkeypatch):
+    """THE REGRESSION PINNED TO G1's LITERAL RELATIONSHIP SUB-QUERY.
+    Measured before this module (2026-09-08): this exact string returned
+    `{"kind": "graph_recurrence", "entity_type": "Person"}` — a ranked list
+    of repeat accused, confidently answering a question nobody asked. The
+    fall-through happened because "accused" is in `_PERSON_KEYWORDS`."""
+    monkeypatch.setattr(xagg, "age_client", _RelationshipAgeClient(
+        [_rel("اجنبی", "fir-1-26", 1, 90)], _accused(1),
+    ))
+
+    result = await xagg.run_aggregate(
+        _G1_SQ_RELATIONSHIP, None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "accused_relationship_breakdown"
+    assert result["kind"] != "graph_recurrence"
+
+
+async def test_g3_still_reaches_the_court_readiness_scan_after_module_32(monkeypatch):
+    """The single most likely thing Module 32 breaks: G3's gold answer is
+    about this SAME `RELATED_TO` data read as a completeness gap, and G3
+    scores 1.0 today. Its branch is checked first, structurally."""
+    class _AC:
+        async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+            return []
+
+    monkeypatch.setattr(xagg, "age_client", _AC())
+
+    result = await xagg.run_aggregate(
+        _G3_GOLD_TEXT, None,
+        gateway=FakeGateway([{"case_id": "fir-1-26", "incident_date": None}]),
+        user_role="supervisor",
+    )
+
+    assert result["kind"] == "court_readiness_scan"
+
+
+class TestAccusedRelationshipBoundary:
+    """[Gold-QA fix — Module 32] The keyword family at its edges."""
+
+    def test_the_g1_relationship_sub_query_matches(self):
+        assert xagg._matches_any(_G1_SQ_RELATIONSHIP.lower(), xagg._RELATIONSHIP_KEYWORDS)
+
+    @pytest.mark.parametrize("paraphrase", [
+        # The required non-gold paraphrases — no phrase shared with the
+        # dispatched sub-query above.
+        "Do our accused usually know the people they offend against, or are "
+        "they strangers?",
+        "Kya mulzim aur mudai ek doosre ko jaante hain ya ajnabi hote hain?",
+        "ملزم اور مدعی کا آپس میں کیا تعلق ہوتا ہے؟",
+    ])
+    def test_non_gold_paraphrases_match(self, paraphrase):
+        assert xagg._matches_any(paraphrase.lower(), xagg._RELATIONSHIP_KEYWORDS)
+
+    @pytest.mark.parametrize("other", [
+        # The bare Urdu "تعلق" was deliberately excluded: it is a substring
+        # of "متعلق" ("regarding"), which KB4 uses. This is that collision,
+        # pinned.
+        "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا "
+        "اِس بارے میں کوئی باقاعدہ معیار موجود ہے؟",
+        # Neighbouring XAGG families that carry person vocabulary.
+        "How many cases does each accused person appear in, and which FIR "
+        "numbers, across all cases?",
+        "How many of the accused are men and how many are women, across all cases?",
+        "How many accused persons are there in total?",
+    ])
+    def test_neighbouring_families_are_not_captured(self, other):
+        assert not xagg._matches_any(other.lower(), xagg._RELATIONSHIP_KEYWORDS)
+
+    def test_matches_no_gold_question_at_all(self):
+        """The all-32 negative control, same discipline as
+        `TestOffenderAgeProfileBoundary`'s: G1 reaches XAGG only through
+        Meta-Analysis decomposition, so a direct match on any gold text
+        would mean this family had grown too wide. Reads
+        `evaluation/Gold_QA_Dataset_Final32_With_Answers.json` — the bare
+        `Gold_QA_Dataset_Final32.json` is NOT tracked in this repo, and a
+        test pinned to it silently skips (PR #21)."""
+        import json
+        from pathlib import Path
+
+        gold_path = (
+            Path(__file__).resolve().parent.parent
+            / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json"
+        )
+        assert gold_path.exists(), gold_path
+        items = json.loads(gold_path.read_text(encoding="utf-8"))
+        assert len(items) == 32
+        matched = [
+            (it.get("id") or "").upper()
+            for it in items
+            if xagg._matches_any(it["question"].lower(), xagg._RELATIONSHIP_KEYWORDS)
+        ]
+        assert matched == [], f"expected no gold question to match, got {matched}"

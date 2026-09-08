@@ -185,6 +185,46 @@ _COMPLETENESS_KEYWORDS = (
     "dab kar", "nazar se ojhal", "adhoora record",
     "دب کر", "نظر سے اوجھل", "نامکمل", "دبے", "بریفنگ", "مقدمے دب",
 )
+# [Gold-QA fix — Module 32, question G1] Accused ↔ complainant/victim
+# RELATIONSHIP breakdown — "where an accused–complainant relationship is
+# recorded at all, is it a stranger or someone they knew?".
+#
+# This family did not exist. Measured live before this module (2026-09-08):
+# the sub-question "What relationship is recorded between the accused and
+# the complainant, across all cases?" fell all the way through
+# `run_aggregate()`'s chain to `_PERSON_KEYWORDS` and was answered by the
+# person-RECURRENCE aggregate — a ranked list of repeat accused, which
+# answers nothing the question asked, with no caveat. That silent
+# fall-through is as much the defect as the missing aggregate.
+#
+# Deliberate exclusions, each from a measured collision:
+#   - NOT the bare Urdu "تعلق": it is a substring of "متعلق" ("regarding"),
+#     which KB4 uses ("مقدمے سے متعلق اشیاء"). Only the bound forms below.
+#   - The dispatch sits BELOW `_COURT_READINESS_KEYWORDS` (G3) and
+#     `_COMPLETENESS_KEYWORDS` (G2). G3's gold answer is literally about
+#     this same RELATED_TO data read as a COMPLETENESS gap ("relationship
+#     blank in 81 of 94 accused entries") and it scores 1.0 today, so it
+#     keeps first claim structurally, not by keyword luck.
+_RELATIONSHIP_KEYWORDS = (
+    "relationship", "related to the complainant", "related to the victim",
+    "know each other", "knew each other", "stranger", "strangers",
+    "rishta", "ajnabi", "aapas mein",
+    "کیا تعلق", "کا تعلق", "رشتہ", "اجنبی", "ایک دوسرے کو جانتے",
+)
+# Display-only. The `role` values are raw Urdu copied verbatim from
+# `fir_accused.relationship_to_victim` / `.relationship_to_complainant`
+# (`structured_projection._write_related_to()`), and the synthesis model and
+# the evaluator both read English. An unmapped value passes through
+# UNCHANGED — this never substitutes a guess for a value it does not know,
+# and the Urdu original is always rendered alongside the gloss.
+_RELATIONSHIP_GLOSS = {
+    "اجنبی": "stranger",
+    "بھائی": "brother",
+    "شوہر": "husband",
+    "ساس": "mother-in-law",
+    "محلے دار": "neighbour",
+    "سینئر ساتھی کار": "senior co-worker",
+}
 # [Gold-QA fix — G5, Module 15] Weapon-register COMPLIANCE questions. G5
 # (Roman-Urdu): given recovered weapons, is anything flag-worthy for
 # compliance? Deliberately requires a licence/compliance signal (not a bare
@@ -1045,6 +1085,190 @@ def render_offender_age_profile(agg_result: dict) -> list[str]:
         f"that no accused is younger or older.",
         f"  - {agg_result['nationality_note']}",
     ]
+    return lines
+
+
+_SOURCE_DOC_CASE_RE = re.compile(r"/([^/#?]+)(?:#|$)")
+
+
+def _case_id_from_source_doc(source_doc_id: Optional[str]) -> Optional[str]:
+    """
+    "psrms/fir/fir-312-26#structured" -> "fir-312-26".
+
+    Used instead of walking `(a)-[:BELONGS_TO_CASE]->(:Case)` from the
+    relationship's own endpoint: an accused who appears in two FIRs belongs
+    to two Cases, so that walk multiplies each RELATED_TO edge by that
+    person's case count (measured: 24 edges became 27 rows). The edge's own
+    `source_doc_id` names the ONE FIR the relationship was recorded on, 1:1.
+    """
+    if not source_doc_id:
+        return None
+    match = _SOURCE_DOC_CASE_RE.search(str(source_doc_id))
+    return match.group(1) if match else None
+
+
+async def _accused_relationship_breakdown(
+    jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    """
+    [Gold-QA fix — Module 32, question G1] What relationship is recorded
+    between an accused and the complainant/victim, and which value dominates.
+
+    Reads `Person-[:RELATED_TO {role}]->Person`, written by
+    `structured_projection._write_related_to()` straight from
+    `fir_accused.relationship_to_victim` / `.relationship_to_complainant`.
+    Direction is always accused -> other party, so the `role` is the
+    ACCUSED's relationship to the complainant/victim, which is the direction
+    gold G1's claim is stated in.
+
+    Counting rule — EDGES, published as such. One accused row can produce
+    TWO edges with the same role when the complainant and the victim are the
+    same person (measured: 5 of the 24 edges on this corpus are such a
+    duplicate pair). The raw edge count is still the headline because it is
+    the denominator gold's own "stranger dominates" reading uses, but
+    `distinct_pair_count` is returned alongside it so the double-count is
+    visible rather than hidden.
+
+    The coverage caveat is the point of the answer as much as the
+    breakdown: a relationship is recorded for only a small minority of
+    accused, so "stranger dominates" is a statement about that minority.
+    """
+    rows = await age_client.execute_cypher(
+        "MATCH (a:Person)-[r:RELATED_TO]->(b:Person) "
+        "RETURN r.role AS role, r.source_doc_id AS source_doc_id, "
+        "id(a) AS a_id, id(b) AS b_id",
+        columns=["role", "source_doc_id", "a_id", "b_id"],
+    )
+
+    allowed = set(jurisdiction_case_ids) if jurisdiction_case_ids is not None else None
+    counts: Counter = Counter()
+    cases_by_role: dict[str, set] = {}
+    pairs: set = set()
+    case_ids: set = set()
+    total_edges = 0
+    for row in rows:
+        role = (row.get("role") or "").strip()
+        if not role:
+            continue
+        case_id = _case_id_from_source_doc(row.get("source_doc_id"))
+        # Jurisdiction scoping happens here rather than in Cypher — see
+        # `_case_id_from_source_doc()`'s docstring for why the graph walk
+        # that would allow an `IN $case_ids` filter over-counts. An edge
+        # whose source document cannot be resolved to a case is DROPPED
+        # when an allow-list is in force (it cannot be shown to be in
+        # scope) and kept when there is none.
+        if allowed is not None and (case_id is None or case_id not in allowed):
+            continue
+        total_edges += 1
+        counts[role] += 1
+        if case_id:
+            case_ids.add(case_id)
+            cases_by_role.setdefault(role, set()).add(case_id)
+        pairs.add((role, row.get("a_id"), row.get("b_id")))
+
+    # Coverage denominators, from the accused roster this breakdown is a
+    # statement about. Scoped the same way the rest of the file scopes an
+    # accused read.
+    case_filter = "AND c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+    params: dict = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+    accused_rows = await age_client.execute_cypher(
+        "MATCH (p:Person)-[r:INVOLVED_IN]->(i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE r.role = 'accused' {case_filter}"
+        "RETURN id(p) AS p_id",
+        params=params, columns=["p_id"],
+    )
+    accused_entry_count = len(accused_rows)
+    distinct_accused_count = len({r.get("p_id") for r in accused_rows if r.get("p_id") is not None})
+    accused_with_relationship = len(
+        {a for _role, a, _b in pairs}
+        & {r.get("p_id") for r in accused_rows if r.get("p_id") is not None}
+    )
+
+    ranked = [
+        {
+            "role": role,
+            "gloss": _RELATIONSHIP_GLOSS.get(role),
+            "count": count,
+            "case_count": len(cases_by_role.get(role, set())),
+        }
+        for role, count in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    ]
+    dominant = ranked[0] if ranked else None
+
+    # Observability — see `_offender_age_profile()`'s own note.
+    logger.info(
+        "XAGG accused_relationship_breakdown: %d relationship edge(s) across "
+        "%d FIR(s), %d distinct value(s); dominant=%r %s; coverage %d of %d "
+        "distinct accused",
+        total_edges, len(case_ids), len(counts),
+        (dominant or {}).get("role"), (dominant or {}).get("count"),
+        accused_with_relationship, distinct_accused_count,
+    )
+    return {
+        "kind": "accused_relationship_breakdown",
+        "total_relationships": total_edges,
+        "distinct_pair_count": len(pairs),
+        "distinct_value_count": len(counts),
+        "case_count": len(case_ids),
+        "counts": ranked,
+        "dominant": dominant,
+        "accused_entry_count": accused_entry_count,
+        "distinct_accused_count": distinct_accused_count,
+        "accused_with_relationship": accused_with_relationship,
+    }
+
+
+def render_accused_relationship_breakdown(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — Module 32, G1] Shared renderer for all three XAGG
+    rendering sites, same reason as `render_statute_court_stage_join()`."""
+    total = agg_result["total_relationships"]
+    if not total:
+        return [
+            "No accused↔complainant relationship is recorded anywhere in "
+            "this corpus, so no breakdown can be produced."
+        ]
+    lines = [
+        f"Relationship recorded between the accused and the complainant or "
+        f"victim — {total} recorded relationship(s) across "
+        f"{agg_result['case_count']} FIR(s):",
+    ]
+    for entry in agg_result["counts"]:
+        label = entry["role"]
+        if entry.get("gloss"):
+            label = f"{entry['role']} ({entry['gloss']})"
+        lines.append(
+            f"  - {label}: {entry['count']} of {total}, in "
+            f"{entry['case_count']} FIR(s)"
+        )
+    dominant = agg_result.get("dominant") or {}
+    if dominant:
+        label = dominant["role"]
+        if dominant.get("gloss"):
+            label = f"{dominant['role']} ({dominant['gloss']})"
+        lines.append(
+            f"The dominant recorded relationship is {label} — "
+            f"{dominant['count']} of {total}."
+        )
+    # Load-bearing, not boilerplate: the breakdown describes a small
+    # minority of the accused roster, and read without this it looks like a
+    # statement about the whole caseload.
+    lines.append(
+        f"Coverage: a relationship is recorded for only "
+        f"{agg_result['accused_with_relationship']} of "
+        f"{agg_result['distinct_accused_count']} distinct accused "
+        f"({total} relationship entries against "
+        f"{agg_result['accused_entry_count']} accused entries), so this "
+        f"describes only the cases where one was recorded at all — it is "
+        f"not a profile of the whole caseload."
+    )
+    if agg_result.get("distinct_pair_count") not in (None, total):
+        lines.append(
+            f"Note: {total} entries cover "
+            f"{agg_result['distinct_pair_count']} distinct accused↔other-party "
+            f"pairs — a relationship recorded against both the victim and "
+            f"the complainant, where those are the same person, is stored "
+            f"twice."
+        )
     return lines
 
 
@@ -3184,6 +3408,25 @@ async def run_aggregate(
     # gateway case rows, not the graph — see the function's own docstring).
     if _matches_any(query_lower, _COMPLETENESS_KEYWORDS):
         return await _case_completeness_scan(gateway, jurisdiction_case_ids=jurisdiction_case_ids)
+    # [Gold-QA fix — Module 32, question G1] "What relationship is recorded
+    # between the accused and the complainant, across all cases?" — G1's
+    # stranger-vs-known sub-question.
+    #
+    # Placement, in both directions:
+    #   - BELOW `_COURT_READINESS_KEYWORDS` (G3) and `_COMPLETENESS_KEYWORDS`
+    #     (G2) immediately above. G3 reads this SAME `RELATED_TO` data, but
+    #     as a completeness gap ("the relationship is blank in 81 of 94
+    #     accused entries"), and it scores 1.0 today — so it keeps first
+    #     claim structurally, not merely because the predicates happen not
+    #     to overlap.
+    #   - ABOVE, decisively, `_PERSON_KEYWORDS`. That is what a relationship
+    #     sub-question actually hit before this module: measured live on
+    #     2026-09-08, it returned `graph_recurrence`/Person — "4 people
+    #     appear in 2 cases each" — confidently, wrongly, with no caveat.
+    if _matches_any(query_lower, _RELATIONSHIP_KEYWORDS):
+        return await _accused_relationship_breakdown(
+            jurisdiction_case_ids=jurisdiction_case_ids
+        )
     # [Gold-QA fix — G5, Module 15] Weapon-register compliance — a weapon term
     # AND a licence/compliance term together (a bare "weapon" stays the
     # recurrence aggregate's job).
