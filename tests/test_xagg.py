@@ -3476,6 +3476,9 @@ def test_each_new_g1_sub_query_deterministically_routes_to_xagg():
     for sub_query in (
         _G1_SQ_ACCUSED_AGE, _G1_SQ_RELATIONSHIP,
         _G1_SQ_SEIZED_PROPERTY, _G1_SQ_TIME_OF_DAY,
+        # [Gold-QA fix — Module 35] G6's arrest-rate sub-query, phrased to
+        # the same "How many cases ..." rule for the same reason.
+        _G6_SQ_ARREST_RATE,
     ):
         override = router._deterministic_route_override(sub_query)
         assert override is not None, sub_query
@@ -3499,5 +3502,351 @@ def test_every_new_aggregate_kind_is_accepted_by_the_harness_tool_result():
     for kind in (
         "offender_age_profile", "accused_relationship_breakdown",
         "seized_property_disposition", "incident_time_of_day",
+        # [Gold-QA fix — Module 35] fifth family to depend on this Literal.
+        "arrest_rate",
     ):
         assert kind in accepted, kind
+
+
+# ── [Gold-QA fix — Module 35, question G6] arrest rate ──────────────────────
+#
+# The literal G6 sub-question this family exists to answer, in the same
+# "..., across all cases?" shape as `meta_analysis.py`'s other sub-queries,
+# and leading with "How many cases" for the reason
+# `test_each_new_g1_sub_query_deterministically_routes_to_xagg` records.
+_G6_SQ_ARREST_RATE = (
+    "How many cases record an arrest of an accused person, and on how many "
+    "is no arrest recorded, across all cases?"
+)
+_S3_GOLD_TEXT = "کیا کسی شخص کو ایک سے زیادہ بار گرفتار کیا گیا ہے؟"
+
+
+class _ArrestAgeClient:
+    """Routes the two reads `_arrest_rate()` issues: the accused roster and
+    the Case roster (the rate's denominator)."""
+
+    def __init__(self, accused_rows, case_rows):
+        self.accused_rows = accused_rows
+        self.case_rows = case_rows
+        self.queries = []
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        self.queries.append((cypher_query, params))
+        if "INVOLVED_IN" in cypher_query:
+            return self.accused_rows
+        return self.case_rows
+
+
+def _accused_arrest(status, case_id, p_id):
+    return {"arrest_status": status, "case_id": case_id, "p_id": p_id}
+
+
+def _cases(*case_ids):
+    return [{"case_id": c} for c in case_ids]
+
+
+# The four measured live status values (2026-09-08) that a naive substring
+# rule gets wrong, pinned individually so the classification rule cannot
+# drift silently.
+class TestArrestStatusClassification:
+    def test_bare_arrest_token_is_an_arrest(self):
+        assert xagg._classify_arrest_status("گرفتار") == "arrested"
+
+    @pytest.mark.parametrize("status", [
+        "موقع پر گرفتار",
+        "گرفتار، بعد ازاں سزا یافتہ",
+        "گرفتار، ڈی این اے مطابقت پر",
+    ])
+    def test_a_qualifier_does_not_stop_it_being_an_arrest(self, status):
+        assert xagg._classify_arrest_status(status) == "arrested"
+
+    @pytest.mark.parametrize("status", [
+        # BOTH of these CONTAIN گرفتار and mean the opposite of an arrest.
+        # This is the trap the whole module is about.
+        "تاحال مفرور، گرفتار نہیں ہوا",
+        "نامزد، گرفتاری کی نوبت نہ آئی",
+    ])
+    def test_a_negated_arrest_is_not_an_arrest(self, status):
+        assert xagg._classify_arrest_status(status) == "not_arrested_explicit"
+
+    def test_an_arrest_in_an_earlier_case_gets_its_own_bucket(self):
+        assert xagg._classify_arrest_status(
+            "پہلے سے کیس 10 میں گرفتار، اس مقدمے میں بھی نامزد"
+        ) == "arrested_in_another_case"
+
+    @pytest.mark.parametrize("status", [
+        "زیر تفتیش",
+        "مفرور، اشتہاری کارروائی جاری",
+        "مقام معلوم کرنے کی کارروائی جاری",
+        "نامزد، تفتیش جاری",
+        # "already in custody" carries no arrest token at all — custody is
+        # not an arrest record, and the rule does not infer one.
+        "پہلے سے زیر حراست، اس مقدمے میں بھی نامزد",
+        "",
+        None,
+    ])
+    def test_everything_else_records_no_arrest(self, status):
+        assert xagg._classify_arrest_status(status) == "no_arrest_recorded"
+
+
+async def test_arrest_rate_counts_firs_not_accused_entries(monkeypatch):
+    """Two accused arrested on the SAME FIR is one arrest FIR, not two.
+    Conflating the two denominators is the easiest way to report a wrong
+    rate here — the live corpus has 14 arrested ENTRIES across 11 FIRs."""
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[
+            _accused_arrest("گرفتار", "fir-1-26", 1),
+            _accused_arrest("موقع پر گرفتار", "fir-1-26", 2),
+            _accused_arrest("گرفتار", "fir-2-26", 3),
+            _accused_arrest("زیر تفتیش", "fir-3-26", 4),
+        ],
+        case_rows=_cases("fir-1-26", "fir-2-26", "fir-3-26", "fir-4-26"),
+    ))
+
+    result = await xagg._arrest_rate()
+
+    assert result["kind"] == "arrest_rate"
+    assert result["arrest_entry_count"] == 3
+    assert result["arrest_fir_count"] == 2
+    assert result["fir_count"] == 4
+    assert result["one_in"] == 2.0
+    assert result["no_arrest_fir_count"] == 2
+
+
+async def test_arrest_rate_denominator_includes_firs_with_no_accused(monkeypatch):
+    """5 of the live corpus's 73 Cases carry no accused entry at all. They
+    are FIRs on which no arrest is recorded, so they belong in the
+    denominator; both readings are returned so the choice is checkable."""
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[_accused_arrest("گرفتار", "fir-1-26", 1)],
+        case_rows=_cases("fir-1-26", "fir-2-26", "fir-3-26", "fir-4-26"),
+    ))
+
+    result = await xagg._arrest_rate()
+
+    assert result["fir_count"] == 4
+    assert result["fir_count_with_accused"] == 1
+    assert result["one_in"] == 4.0
+    assert result["one_in_accused_firs"] == 1.0
+
+
+async def test_arrest_rate_does_not_count_a_negated_status_as_an_arrest(monkeypatch):
+    """The module's headline trap: both negations CONTAIN گرفتار."""
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[
+            _accused_arrest("تاحال مفرور، گرفتار نہیں ہوا", "fir-1-26", 1),
+            _accused_arrest("نامزد، گرفتاری کی نوبت نہ آئی", "fir-2-26", 2),
+            _accused_arrest("گرفتار", "fir-3-26", 3),
+        ],
+        case_rows=_cases("fir-1-26", "fir-2-26", "fir-3-26"),
+    ))
+
+    result = await xagg._arrest_rate()
+
+    assert result["arrest_fir_count"] == 1
+    assert result["explicit_no_arrest_fir_count"] == 2
+    # What a naive substring rule would have reported instead.
+    assert result["naive_substring_fir_count"] == 3
+
+
+async def test_arrest_rate_publishes_the_bare_token_reading_for_comparison(monkeypatch):
+    """Gold G6's "1 in 9" is reproducible ONLY by an exact-string match on a
+    bare گرفتار, which discards three entries that record an arrest in as
+    many words. That reading is returned for comparison and is never the
+    headline — this test pins the distinction so it cannot be quietly
+    swapped in to make gold match."""
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[
+            _accused_arrest("گرفتار", "fir-1-26", 1),
+            _accused_arrest("موقع پر گرفتار", "fir-2-26", 2),
+        ],
+        case_rows=_cases("fir-1-26", "fir-2-26", "fir-3-26", "fir-4-26"),
+    ))
+
+    result = await xagg._arrest_rate()
+
+    assert result["arrest_fir_count"] == 2
+    assert result["bare_token_fir_count"] == 1
+    assert result["bare_token_one_in"] == 4.0
+    assert result["one_in"] == 2.0
+
+
+async def test_arrest_rate_renderer_states_the_counting_rule(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[
+            _accused_arrest("گرفتار", "fir-1-26", 1),
+            _accused_arrest("تاحال مفرور، گرفتار نہیں ہوا", "fir-2-26", 2),
+            _accused_arrest("زیر تفتیش", "fir-3-26", 3),
+        ],
+        case_rows=_cases("fir-1-26", "fir-2-26", "fir-3-26"),
+    ))
+
+    text = "\n".join(xagg.render_arrest_rate(await xagg._arrest_rate()))
+
+    assert "Counting rule:" in text
+    assert "گرفتار نہیں ہوا" in text
+    assert "mean the opposite" in text
+    assert "1 of 3 FIR(s)" in text
+
+
+async def test_arrest_rate_renderer_is_bounded(monkeypatch):
+    """Module 29 reverted an unfiltered 73-row listing because rendering it
+    starved its sibling sub-queries into the 60 s timeout. Every listing
+    this file renders is capped for that reason."""
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[
+            _accused_arrest(f"زیر تفتیش {i}", f"fir-{i}-26", i) for i in range(40)
+        ],
+        case_rows=_cases(*[f"fir-{i}-26" for i in range(40)]),
+    ))
+
+    lines = xagg.render_arrest_rate(await xagg._arrest_rate())
+
+    status_lines = [ln for ln in lines if ln.startswith("  - ") and "entries [" in ln]
+    assert len(status_lines) == xagg._ARREST_STATUS_RENDER_LIMIT
+    assert any("further status value(s)" in ln for ln in lines)
+
+
+async def test_arrest_rate_says_so_when_no_accused_is_recorded(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[], case_rows=_cases("fir-1-26"),
+    ))
+
+    text = "\n".join(xagg.render_arrest_rate(await xagg._arrest_rate()))
+
+    assert "No accused person is recorded" in text
+
+
+async def test_g6_arrest_sub_query_reaches_the_arrest_rate_not_person_recurrence(monkeypatch):
+    """[Gold-QA fix — Module 35] The regression pinned to the LITERAL
+    dispatched sub-query text.
+
+    Measured pre-fix on 2026-09-08 (`scratchpad/dispatch.py`, live stack):
+
+        arrest -> graph_recurrence / Person
+
+    i.e. a ranked list of repeat offenders — "فیصل and طارق both appear in
+    fir-202-26 and fir-401-26" — presented as the answer to a question about
+    arrests. The plan predicted exactly this fall-through and it reproduced.
+    """
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[_accused_arrest("گرفتار", "fir-1-26", 1)],
+        case_rows=_cases("fir-1-26", "fir-2-26"),
+    ))
+
+    result = await xagg.run_aggregate(
+        _G6_SQ_ARREST_RATE, None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "arrest_rate"
+    assert result["kind"] != "graph_recurrence"
+    assert result["kind"] != "case_listing"
+
+
+class TestArrestRateBoundary:
+    """
+    [Gold-QA fix — Module 35] `_is_arrest_rate()` sits ABOVE
+    `_PERSON_KEYWORDS` in `run_aggregate()`'s chain, and its bare vocabulary
+    collides with a gold question OUTRIGHT — S3 contains گرفتار. That is why
+    this family is a three-signal predicate rather than a keyword tuple, and
+    why the negative control below is an equality.
+    """
+
+    def test_the_g6_arrest_sub_query_matches(self):
+        assert xagg._is_arrest_rate(_G6_SQ_ARREST_RATE.lower())
+
+    @pytest.mark.parametrize("paraphrase", [
+        # The required non-gold paraphrases — no phrase shared with the
+        # dispatched sub-query above.
+        "What share of our FIRs actually end in someone being taken into custody?",
+        "How often do we actually arrest anyone?",
+        "Kitne FIRs mein mulzim giraftar hua?",
+        "کتنی ایف آئی آر میں ملزم گرفتار ہوا؟",
+    ])
+    def test_non_gold_paraphrases_match(self, paraphrase):
+        assert xagg._is_arrest_rate(paraphrase.lower())
+
+    def test_s3_the_repeat_arrest_gold_question_is_not_captured(self):
+        """S3 CONTAINS گرفتار and is a person-RECURRENCE question answered
+        correctly today by `_top_recurring_nodes("Person")`. Both guards are
+        asserted separately so a future edit that drops either one fails
+        here rather than live."""
+        lowered = _S3_GOLD_TEXT.lower()
+        assert xagg._matches_any(lowered, xagg._ARREST_TERMS), (
+            "S3 does contain the arrest vocabulary — that is the whole point"
+        )
+        assert xagg._matches_any(lowered, xagg._ARREST_RECURRENCE_EXCLUSIONS)
+        assert not xagg._matches_any(lowered, xagg._ARREST_RATE_SIGNALS)
+        assert not xagg._is_arrest_rate(lowered)
+
+    @pytest.mark.parametrize("other", [
+        # Neighbouring families this must not swallow, given where it sits.
+        "How many cases involve an accused person, and what is their age "
+        "range and average age, across all cases?",
+        "How many of the accused are men and how many are women, across all cases?",
+        "How many accused persons are there in total?",
+        "Has anyone been arrested more than once?",
+        "Kya koi shakhs ek se zyada baar giraftar hua hai?",
+    ])
+    def test_neighbouring_families_are_not_captured(self, other):
+        assert not xagg._is_arrest_rate(other.lower())
+
+    def test_matches_no_gold_question_at_all(self):
+        """The all-32 negative control, asserted as an EQUALITY.
+
+        Reads `evaluation/Gold_QA_Dataset_Final32_With_Answers.json` — the
+        bare `Gold_QA_Dataset_Final32.json` is NOT tracked in this repo, and
+        a test pinned to it silently skips (PR #21)."""
+        import json
+        from pathlib import Path
+
+        gold_path = (
+            Path(__file__).resolve().parent.parent
+            / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json"
+        )
+        assert gold_path.exists(), gold_path
+        items = json.loads(gold_path.read_text(encoding="utf-8"))
+        assert len(items) == 32
+        matched = [
+            (it.get("id") or "").upper()
+            for it in items
+            if xagg._is_arrest_rate(it["question"].lower())
+        ]
+        assert matched == [], f"expected no gold question to match, got {matched}"
+
+    def test_the_arrest_vocabulary_alone_would_have_matched_s3(self):
+        """The negative control above is only meaningful because the naive
+        version of this family FAILS it. Pinned so nobody 'simplifies'
+        `_is_arrest_rate()` back into a bare keyword tuple."""
+        import json
+        from pathlib import Path
+
+        gold_path = (
+            Path(__file__).resolve().parent.parent
+            / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json"
+        )
+        items = json.loads(gold_path.read_text(encoding="utf-8"))
+        matched = [
+            (it.get("id") or "").upper()
+            for it in items
+            if xagg._matches_any(it["question"].lower(), xagg._ARREST_TERMS)
+        ]
+        assert matched == ["S3"], matched
+
+
+async def test_s3_still_reaches_person_recurrence_after_module_35(monkeypatch):
+    """End to end with S3's LITERAL gold text, not at the predicate level —
+    the guard Module 33 used for G5, for the same reason: this family sits
+    above `_PERSON_KEYWORDS` and S3 is the question it could break."""
+    rows = [
+        {"n": _node("P-004", "Person", canonical_name="شہزیب"), "c": _case("fir-214-26")},
+        {"n": _node("P-004", "Person", canonical_name="شہزیب"), "c": _case("fir-891-24")},
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        _S3_GOLD_TEXT, None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "graph_recurrence"
+    assert result["entity_type"] == "Person"

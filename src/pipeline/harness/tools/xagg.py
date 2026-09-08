@@ -71,6 +71,7 @@ from src.pipeline.xagg import (
     render_accused_relationship_breakdown,
     render_seized_property_disposition,
     render_incident_time_of_day,
+    render_arrest_rate,
     _UNSUPPORTED_JURISDICTION,
 )
 from src.retrieval.graph_retriever import jurisdiction_unresolved
@@ -161,6 +162,12 @@ AggregateKind = Literal[
     "accused_relationship_breakdown",
     "seized_property_disposition",
     "incident_time_of_day",
+    # [Gold-QA fix — Module 35, G6] same additive convention — the
+    # arrest-rate shape. FIFTH module family to depend on this
+    # hand-maintained Literal; `tests/test_xagg.py::
+    # test_every_new_aggregate_kind_is_accepted_by_the_harness_tool_result`
+    # is what now forces it to be updated.
+    "arrest_rate",
 ]
 
 
@@ -356,6 +363,9 @@ def _render_aggregate_text(agg_result: dict) -> str:
     # [Gold-QA fix — Module 34, G1] same, for the time-of-day distribution.
     elif kind == "incident_time_of_day":
         lines = render_incident_time_of_day(agg_result)
+    # [Gold-QA fix — Module 35, G6] same, for the arrest rate.
+    elif kind == "arrest_rate":
+        lines = render_arrest_rate(agg_result)
     else:
         lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
         # [Legal-code semantic layer] Kept in sync with orchestrator.py's

@@ -53,6 +53,7 @@ from src.pipeline.xagg import (
     render_accused_relationship_breakdown,
     render_seized_property_disposition,
     render_incident_time_of_day,
+    render_arrest_rate,
 )
 from src.pipeline.xagg import _UNSUPPORTED_JURISDICTION as _UNRESOLVED_JURISDICTION_NOTE
 from src.pipeline.xnetwork import run_network_query
@@ -593,6 +594,11 @@ async def _fetch_secondary_evidence(
                 # XAGG rendering site.
                 elif agg_result["kind"] == "incident_time_of_day":
                     lines = render_incident_time_of_day(agg_result)
+                # [Gold-QA fix — Module 35, G6] shared renderer, kept in
+                # sync with the harness xagg_tool() wrapper and this file's
+                # other XAGG rendering site.
+                elif agg_result["kind"] == "arrest_rate":
+                    lines = render_arrest_rate(agg_result)
                 else:
                     lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result.get("counts", [])]
                 aggregate_text = "\n".join(lines)
@@ -2263,6 +2269,11 @@ async def process_query(
             # rendering site above.
             elif agg_result["kind"] == "incident_time_of_day":
                 lines = render_incident_time_of_day(agg_result)
+            # [Gold-QA fix — Module 35, G6] shared renderer, kept in sync
+            # with the harness xagg_tool() wrapper and this file's first
+            # XAGG rendering site above.
+            elif agg_result["kind"] == "arrest_rate":
+                lines = render_arrest_rate(agg_result)
             else:
                 lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
                 # [Legal-code semantic layer] crime_category can combine

@@ -270,6 +270,86 @@ _TIME_OF_DAY_BANDS: tuple[tuple[str, int, int], ...] = (
 _FORENSIC_DISPATCH_TOKEN = "فرانزک لیبارٹری"
 _FORENSIC_ANY_TOKEN = "فرانزک"
 _HEIRS_TOKEN = "ورثاء"
+# [Gold-QA fix — Module 35, question G6] Arrest-rate family. G6's gold
+# answer states an arrest is recorded on "roughly 1 in 9" FIRs, and the
+# arrest evidence lives in `INVOLVED_IN {role:'accused'}.arrest_status` —
+# FREE URDU TEXT, not a boolean. See `_arrest_rate()` for the published
+# classification rule; the constants it uses are here so the rule is
+# readable in one place.
+#
+# `_ARREST_TOKEN` is a PREFIX of "گرفتاری" (the verbal noun) as well, so a
+# bare containment test also catches "گرفتاری کی نوبت نہ آئی" — which is a
+# NEGATION. Containment alone is therefore not a classifier; the two token
+# lists below are what make it one.
+_ARREST_TOKEN = "گرفتار"
+# A status that carries `_ARREST_TOKEN` AND one of these means the OPPOSITE
+# of an arrest. Measured on this corpus: "تاحال مفرور، گرفتار نہیں ہوا"
+# (still absconding, has not been arrested) and "نامزد، گرفتاری کی نوبت نہ
+# آئی" (nominated, no occasion for arrest arose). A naive substring rule
+# counts both as arrests, which is exactly how the 1-in-5.2 figure in the
+# plan's own probe arises.
+_ARREST_NEGATION_TOKENS = ("نہیں", "نہ آئی", "نہ ہو", "نہ آ")
+# A status that carries `_ARREST_TOKEN` AND one of these records an arrest
+# made in a DIFFERENT, earlier case, with this FIR only naming the person.
+# Measured: "پہلے سے کیس 10 میں گرفتار، اس مقدمے میں بھی نامزد" (already
+# arrested in case 10, also nominated in this one). Counted in its own
+# bucket rather than as an arrest ON THIS FIR — reported, never silently
+# folded either way.
+_ARREST_PRIOR_TOKENS = ("پہلے سے",)
+# Arrest vocabulary, in all three scripts the corpus's questions use.
+_ARREST_TERMS = (
+    "arrest", "arrested", "arrests", "arrest rate", "custody",
+    "giraftar", "giraftari", "girftari", "hirasat",
+    "گرفتار", "گرفتاری", "حراست",
+)
+# The arrest family only fires on a question shaped as a COUNT or a RATE.
+# Without this second signal the family would swallow S3 ("کیا کسی شخص کو
+# ایک سے زیادہ بار گرفتار کیا گیا ہے؟"), a person-RECURRENCE question that
+# contains گرفتار outright and is answered correctly today by
+# `_top_recurring_nodes("Person")`.
+_ARREST_RATE_SIGNALS = (
+    "how many", "how often", "what share", "what proportion", "what fraction",
+    "rate", "proportion", "share of", "percentage", "one in", "1 in",
+    "kitne", "kitni", "kitna",
+    "کتنے", "کتنی", "کتنا", "شرح", "تناسب", "فیصد",
+)
+# Second, independent guard against S3 and its paraphrases. Deliberately NOT
+# `_RECURRENCE_SIGNAL_KEYWORDS`: that tuple contains "across all cases",
+# which every Meta-Analysis sub-query in this codebase ends with, so reusing
+# it would disable the family on exactly the strings it exists for.
+_ARREST_RECURRENCE_EXCLUSIONS = (
+    "more than once", "more than one time", "multiple times", "repeatedly",
+    "twice", "again and again",
+    "ek se zyada", "baar baar", "bar bar",
+    "ایک سے زیادہ", "بار بار", "دوبارہ",
+)
+
+
+def _is_arrest_rate(query_lower: str) -> bool:
+    """[Gold-QA fix — Module 35, question G6] True for "on how many FIRs is
+    an arrest recorded" and its paraphrases; false for S3's "has anyone been
+    arrested more than once", which is a recurrence question.
+
+    Three signals, all required, because the bare arrest vocabulary collides
+    with a gold question outright:
+
+      1. an arrest term (`_ARREST_TERMS`),
+      2. a count/rate shape (`_ARREST_RATE_SIGNALS`) — S3 has none, it asks
+         "کیا کسی شخص کو..." ("has any person..."),
+      3. NOT a repeat-arrest shape (`_ARREST_RECURRENCE_EXCLUSIONS`) — S3
+         says "ایک سے زیادہ بار" ("more than once").
+
+    Either of (2) or (3) alone excludes S3; both are kept because this
+    family sits ABOVE `_PERSON_KEYWORDS` in `run_aggregate()`'s chain and a
+    false positive there silently replaces a working answer.
+    """
+    if not _matches_any(query_lower, _ARREST_TERMS):
+        return False
+    if _matches_any(query_lower, _ARREST_RECURRENCE_EXCLUSIONS):
+        return False
+    return _matches_any(query_lower, _ARREST_RATE_SIGNALS)
+
+
 _RELATIONSHIP_GLOSS = {
     "اجنبی": "stranger",
     "بھائی": "brother",
@@ -1485,6 +1565,270 @@ def render_seized_property_disposition(agg_result: dict) -> list[str]:
             f"entr(ies) record no disposition at all and are excluded from "
             f"the breakdown above."
         )
+    return lines
+
+
+def _classify_arrest_status(status: Optional[str]) -> str:
+    """
+    [Gold-QA fix — Module 35, question G6] THE published classification
+    rule. `arrest_status` is free Urdu text written by an investigating
+    officer, so "does this record an arrest?" is a judgement, and the
+    judgement has to be stated rather than buried in a substring test.
+
+    Returns exactly one of four buckets:
+
+    ``arrested``
+        The status contains گرفتار and neither negates it nor attributes it
+        to a different case. Measured on this corpus: "گرفتار" (11 entries),
+        "موقع پر گرفتار" (arrested at the scene), "گرفتار، بعد ازاں سزا
+        یافتہ" (arrested, later convicted), "گرفتار، ڈی این اے مطابقت پر"
+        (arrested on a DNA match).
+    ``not_arrested_explicit``
+        Contains گرفتار but NEGATES it — "تاحال مفرور، گرفتار نہیں ہوا",
+        "نامزد، گرفتاری کی نوبت نہ آئی". A naive containment rule counts
+        these as arrests. They are the opposite.
+    ``arrested_in_another_case``
+        Contains گرفتار but attributes the arrest to an earlier, different
+        case — "پہلے سے کیس 10 میں گرفتار، اس مقدمے میں بھی نامزد". No
+        arrest was made ON THIS FIR, so it is not counted as one; it is
+        also not a clean "no arrest", so it gets its own bucket instead of
+        being pushed silently into either.
+    ``no_arrest_recorded``
+        Everything else — "زیر تفتیش" (under investigation, 73 of 94
+        entries), "مفرور، اشتہاری کارروائی جاری" (absconding, proclamation
+        under way), "مقام معلوم کرنے کی کارروائی جاری", "نامزد، تفتیش
+        جاری", and any blank status.
+
+    The rule deliberately does NOT try to reproduce gold's "1 in 9". See
+    `_arrest_rate()`'s docstring for what it does produce and why the two
+    differ.
+    """
+    text = (status or "").strip()
+    if not text or _ARREST_TOKEN not in text:
+        return "no_arrest_recorded"
+    if any(token in text for token in _ARREST_NEGATION_TOKENS):
+        return "not_arrested_explicit"
+    if any(token in text for token in _ARREST_PRIOR_TOKENS):
+        return "arrested_in_another_case"
+    return "arrested"
+
+
+async def _arrest_rate(jurisdiction_case_ids: Optional[list[str]] = None) -> dict:
+    """
+    [Gold-QA fix — Module 35, question G6] On how many FIRs is an arrest
+    actually recorded?
+
+    Reads `Person-[:INVOLVED_IN {role:'accused', arrest_status}]->Incident
+    -[:BELONGS_TO_CASE]->Case`, classifies every accused entry with
+    `_classify_arrest_status()` above, and rolls the entries up to FIRs: an
+    FIR counts as an arrest FIR if AT LEAST ONE of its accused entries is
+    classified ``arrested``.
+
+    Denominator: every `Case` node in scope, not just those carrying an
+    accused entry. Measured on this corpus, 73 Cases, of which 68 have at
+    least one accused entry — so the second denominator is returned as well
+    (`fir_count_with_accused`) and both readings are rendered, because a
+    rate quoted without its denominator is not checkable.
+
+    **The number this produces, and why it is not gold's.** Gold G6 says an
+    arrest is recorded on "roughly 1 in 9" FIRs. Measured live 2026-09-08:
+
+    | Reading | Arrest FIRs | Rate |
+    |---|---|---|
+    | this rule (arrest recorded on this FIR) | 11 of 73 | 1 in 6.6 |
+    | + arrests made in an earlier case | 12 of 73 | 1 in 6.1 |
+    | naive "contains گرفتار", negations included | 14 of 73 | 1 in 5.2 |
+    | EXACT string equality with the bare "گرفتار" | 8 of 73 | **1 in 9.1** |
+
+    Only the last row reproduces gold, and it does so by discarding three
+    entries that record an arrest in as many words ("arrested at the scene",
+    "arrested, later convicted", "arrested on a DNA match") purely because
+    each carries a qualifier. That is not a defensible rule, so it is not
+    the rule used — but `bare_token_fir_count` is returned so the
+    discrepancy is attributable rather than mysterious, and the renderer
+    states it.
+    """
+    case_filter = "AND c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+    params: dict = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+
+    rows = await age_client.execute_cypher(
+        "MATCH (p:Person)-[r:INVOLVED_IN]->(i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE r.role = 'accused' {case_filter}"
+        "RETURN r.arrest_status AS arrest_status, c.case_id AS case_id, "
+        "id(p) AS p_id",
+        params=params, columns=["arrest_status", "case_id", "p_id"],
+    )
+
+    # The denominator is FIRs, not accused entries, so it has to come from
+    # the Case roster itself — 5 of this corpus's 73 Cases carry no accused
+    # entry at all and would otherwise vanish from the rate entirely.
+    all_case_rows = await age_client.execute_cypher(
+        "MATCH (c:Case) "
+        + ("WHERE c.case_id IN $case_ids " if jurisdiction_case_ids is not None else "")
+        + "RETURN c.case_id AS case_id",
+        params=params, columns=["case_id"],
+    )
+    all_case_ids = {r.get("case_id") for r in all_case_rows if r.get("case_id")}
+
+    entry_counts: Counter = Counter()
+    firs_by_bucket: dict[str, set] = {}
+    status_counts: Counter = Counter()
+    bare_token_firs: set = set()
+    accused_entry_count = 0
+    accused_ids: set = set()
+    firs_with_accused: set = set()
+    for row in rows:
+        case_id = row.get("case_id")
+        status = (row.get("arrest_status") or "").strip()
+        bucket = _classify_arrest_status(status)
+        accused_entry_count += 1
+        if row.get("p_id") is not None:
+            accused_ids.add(row.get("p_id"))
+        if case_id:
+            firs_with_accused.add(case_id)
+            firs_by_bucket.setdefault(bucket, set()).add(case_id)
+            if status == _ARREST_TOKEN:
+                bare_token_firs.add(case_id)
+        entry_counts[bucket] += 1
+        status_counts[status or "(blank)"] += 1
+
+    arrest_firs = firs_by_bucket.get("arrested", set())
+    prior_firs = firs_by_bucket.get("arrested_in_another_case", set()) - arrest_firs
+    negated_firs = firs_by_bucket.get("not_arrested_explicit", set()) - arrest_firs
+    fir_count = len(all_case_ids)
+    arrest_fir_count = len(arrest_firs)
+
+    def _one_in(numerator: int) -> Optional[float]:
+        if not numerator or not fir_count:
+            return None
+        return round(fir_count / numerator, 1)
+
+    result = {
+        "kind": "arrest_rate",
+        "fir_count": fir_count,
+        "fir_count_with_accused": len(firs_with_accused),
+        "accused_entry_count": accused_entry_count,
+        "distinct_accused_count": len(accused_ids),
+        "arrest_fir_count": arrest_fir_count,
+        "arrest_entry_count": entry_counts.get("arrested", 0),
+        "one_in": _one_in(arrest_fir_count),
+        "one_in_accused_firs": (
+            round(len(firs_with_accused) / arrest_fir_count, 1)
+            if arrest_fir_count and firs_with_accused else None
+        ),
+        "explicit_no_arrest_fir_count": len(negated_firs),
+        "prior_case_arrest_fir_count": len(prior_firs),
+        "no_arrest_fir_count": fir_count - arrest_fir_count,
+        # The alternative readings, published so the headline is traceable.
+        "bare_token_fir_count": len(bare_token_firs),
+        "bare_token_one_in": _one_in(len(bare_token_firs)),
+        "naive_substring_fir_count": len(
+            arrest_firs | prior_firs | negated_firs
+        ),
+        "entry_counts": [
+            {"bucket": b, "count": n} for b, n in entry_counts.most_common()
+        ],
+        "distinct_status_count": len(status_counts),
+        "statuses": [
+            {"status": st, "count": n, "bucket": _classify_arrest_status(
+                None if st == "(blank)" else st)}
+            for st, n in status_counts.most_common()
+        ],
+    }
+
+    # Observability — XAGG's SSE says only `route='XAGG'` and never which
+    # aggregate ran, so this line is the only proof the right one did. Same
+    # convention as Modules 23/24 and 31-34.
+    logger.info(
+        "XAGG arrest_rate: %d of %d FIR(s) record an arrest (1 in %s); "
+        "%d accused entr(y/ies) classified arrested, %d explicitly not "
+        "arrested, %d arrested in an earlier case; bare-token reading "
+        "%d FIR(s) (1 in %s)",
+        arrest_fir_count, fir_count, result["one_in"],
+        result["arrest_entry_count"], entry_counts.get("not_arrested_explicit", 0),
+        entry_counts.get("arrested_in_another_case", 0),
+        result["bare_token_fir_count"], result["bare_token_one_in"],
+    )
+    return result
+
+
+_ARREST_STATUS_RENDER_LIMIT = 8
+_ARREST_BUCKET_GLOSS = {
+    "arrested": "an arrest recorded on this FIR",
+    "not_arrested_explicit": "explicitly NOT arrested (absconding / no arrest made)",
+    "arrested_in_another_case": "arrested in an earlier, different case",
+    "no_arrest_recorded": "no arrest recorded (under investigation, absconding, being traced)",
+}
+
+
+def render_arrest_rate(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — Module 35, G6] Shared renderer for all three XAGG
+    rendering sites, same reason as `render_statute_court_stage_join()`."""
+    fir_count = agg_result["fir_count"]
+    if not fir_count:
+        return ["No FIR is in scope, so no arrest rate can be computed."]
+    if not agg_result["accused_entry_count"]:
+        return [
+            "No accused person is recorded against any FIR in scope, so "
+            "there is no arrest status to count. The arrest rate cannot be "
+            "computed from this corpus."
+        ]
+    lines = [
+        f"Arrest rate — an arrest is recorded on "
+        f"{agg_result['arrest_fir_count']} of {fir_count} FIR(s), i.e. "
+        f"roughly 1 in {agg_result['one_in']}. The remaining "
+        f"{agg_result['no_arrest_fir_count']} FIR(s) record no arrest.",
+        f"Denominators: {fir_count} FIR(s) in total, of which "
+        f"{agg_result['fir_count_with_accused']} name at least one accused "
+        f"({agg_result['accused_entry_count']} accused entries, "
+        f"{agg_result['distinct_accused_count']} distinct people). Against "
+        f"the FIRs that name an accused the rate is 1 in "
+        f"{agg_result['one_in_accused_firs']}.",
+    ]
+    for entry in agg_result["entry_counts"]:
+        gloss = _ARREST_BUCKET_GLOSS.get(entry["bucket"], entry["bucket"])
+        lines.append(f"  - {gloss}: {entry['count']} accused entries")
+    # The classification rule, published in the answer itself, so the
+    # headline is traceable to a rule rather than merely plausible.
+    lines.append(
+        "Counting rule: arrest_status is free Urdu text, so an entry counts "
+        "as an arrest only when it contains گرفتار AND does not negate it "
+        "(تاحال مفرور، گرفتار نہیں ہوا and نامزد، گرفتاری کی نوبت نہ آئی "
+        "both CONTAIN گرفتار and mean the opposite) AND does not attribute "
+        "the arrest to an earlier, different case (پہلے سے ... میں گرفتار). "
+        "An FIR counts once if any of its accused entries qualifies."
+    )
+    if agg_result["explicit_no_arrest_fir_count"] or agg_result["prior_case_arrest_fir_count"]:
+        lines.append(
+            f"{agg_result['explicit_no_arrest_fir_count']} FIR(s) record an "
+            f"accused as explicitly NOT arrested, and "
+            f"{agg_result['prior_case_arrest_fir_count']} record an accused "
+            f"arrested in an earlier case. A naive 'the status mentions "
+            f"گرفتار' rule would count all of those as arrests and report "
+            f"{agg_result['naive_substring_fir_count']} FIR(s) instead."
+        )
+    if agg_result["bare_token_fir_count"] != agg_result["arrest_fir_count"]:
+        lines.append(
+            f"For comparison only: matching the status string EXACTLY "
+            f"against a bare گرفتار, with no qualifier, gives "
+            f"{agg_result['bare_token_fir_count']} FIR(s) — 1 in "
+            f"{agg_result['bare_token_one_in']}. That reading discards "
+            f"entries such as موقع پر گرفتار (arrested at the scene), which "
+            f"do record an arrest, so it is not the figure above."
+        )
+    shown = agg_result["statuses"][:_ARREST_STATUS_RENDER_LIMIT]
+    lines.append(
+        f"Recorded arrest_status values ({agg_result['distinct_status_count']} "
+        f"distinct), most frequent first:"
+    )
+    for entry in shown:
+        lines.append(
+            f"  - {entry['status']}: {entry['count']} entries "
+            f"[{entry['bucket']}]"
+        )
+    remaining = len(agg_result["statuses"]) - len(shown)
+    if remaining > 0:
+        lines.append(f"  - (+{remaining} further status value(s), 1 entry each)")
     return lines
 
 
@@ -3842,6 +4186,31 @@ async def run_aggregate(
         return await _seized_property_disposition(
             jurisdiction_case_ids=jurisdiction_case_ids
         )
+    # [Gold-QA fix — Module 35, question G6] "How many cases record an
+    # arrest of an accused person, and on how many is no arrest recorded,
+    # across all cases?" — G6's arrest-rate sub-question.
+    #
+    # Placement, in both directions:
+    #   - BELOW `_CRIMINAL_RECORD_KEYWORDS` (CR7), `_COURT_READINESS_KEYWORDS`
+    #     (G3) and `_COMPLETENESS_KEYWORDS` (G2). CR7 is the closest
+    #     neighbour — it reads conviction/court outcome, adjacent to custody
+    #     vocabulary — and it scores 1.0 today, so it keeps first claim
+    #     structurally rather than by keyword luck.
+    #   - ABOVE `_PERSON_KEYWORDS`, decisively. That is what an arrest-rate
+    #     sub-question actually hit before this module: measured live on
+    #     2026-09-08 (`scratchpad/dispatch.py`) it returned
+    #     `graph_recurrence`/Person — a ranked list of repeat offenders —
+    #     which answers nothing about arrests. Also above
+    #     `_LIST_ALL_KEYWORDS` and `_TOTAL_KEYWORDS`, both of which the
+    #     "across all cases" house style would otherwise reach.
+    #
+    # `_is_arrest_rate()` is a THREE-signal predicate, not a keyword tuple,
+    # because the bare arrest vocabulary collides with gold question S3
+    # ("کیا کسی شخص کو ایک سے زیادہ بار گرفتار کیا گیا ہے؟"), which contains
+    # گرفتار outright and is a person-RECURRENCE question answered correctly
+    # today. See that function's own docstring.
+    if _is_arrest_rate(query_lower):
+        return await _arrest_rate(jurisdiction_case_ids=jurisdiction_case_ids)
     if _matches_any(query_lower, _OFFICER_KEYWORDS):
         return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_OFFICER}
     # [Gold-QA fix — Module 13, question M7] Checked before both the A7
