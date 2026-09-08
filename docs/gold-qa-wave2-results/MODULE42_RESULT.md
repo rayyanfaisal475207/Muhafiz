@@ -1,6 +1,6 @@
 # Module 42 — KB6's `route=None` is an evaluation-harness timeout, not a pipeline failure
 
-**Branch:** `fix/kb6-hard-failure-route-none`
+**Branch:** `fix/kb6-hard-failure-route-none` · **PR:** #34
 **Brief:** Module 42 in `GOLD_QA_REMAINING_FIXES_PLAN.md`
 **Date of every measurement below:** 2026-09-08, worktree `D:/Rapids AI/muhafiz-m42`,
 backend on `:8011`, `muhafiz-postgres` healthy (73 cases), model-server tunnel
