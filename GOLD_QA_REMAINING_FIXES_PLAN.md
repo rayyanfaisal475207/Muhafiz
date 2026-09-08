@@ -65,15 +65,15 @@ several can run in parallel chats/worktrees without colliding.
 | 20b | M4/G3 bare-Urdu-keyword collision | `fix/xagg-court-readiness-bare-urdu-keyword-collision` | ✅ **Merged (PR #8)** |
 | 19a | KB-intent coverage for all 8 KB questions | `fix/kb-intent-coverage-all-gold-questions` | ✅ **Merged (PR #9)** |
 | 19b | Evaluator compound-question relaxation not firing | `fix/evaluator-compound-relaxation-not-firing` | ✅ **Merged (PR #15)** — 5/8 KB questions now pass (was 1/8); see below |
-| 21 | XNETWORK/XGRAPH relevance-gate over-refusal | `fix/xnetwork-relevance-gate-over-refusal` | ✅ **PR #12 open** — investigated, no fix belongs in this module's files, split into Modules 28/29 |
+| 21 | XNETWORK/XGRAPH relevance-gate over-refusal | `fix/xnetwork-relevance-gate-over-refusal` | ✅ **Merged (PR #12)** — investigated, no fix belongs in this module's files, split into Modules 28/29 |
 | 22 | M7 reporting-delay: wrong metric | `feature/xagg-incident-to-report-delta` | ✅ **Merged (PR #14)** — M7 AND its non-gold paraphrase both verified live, matching gold exactly |
-| 23 | M5 weapon × statute co-occurrence join | `feature/xagg-weapon-statute-cooccurrence` | ✅ **PR #20 open** — new `_weapon_statute_cooccurrence_by_year()` aggregate; M5 AND its non-gold paraphrase both verified live, **matching gold's per-year pairings exactly**; G5 and M1 negative-controlled live. Result: `docs/gold-qa-wave2-results/MODULE23_RESULT.md` |
-| 24 | M4 statute × court-stage join | `feature/xagg-statute-court-stage-join` | ✅ **PR #22 open** — new `_statute_court_stage_join()` aggregate reusing Module 14's reader; **gold's 33 / 1 / 30 matched exactly** and the non-gold paraphrase passes; G3, CR7 and M5 negative-controlled live. M4 end to end is now blocked **above** XAGG, in Meta-Analysis (Module 25's `[Document N]` defect) — see §8. Result: `docs/gold-qa-wave2-results/MODULE24_RESULT.md` |
-| 25 | M2 Meta-Analysis → verifier rejection | `fix/meta-analysis-synthesis-verifier-rejection` | ✅ **PR #16 open** |
+| 23 | M5 weapon × statute co-occurrence join | `feature/xagg-weapon-statute-cooccurrence` | ✅ **Merged (PR #20)** — new `_weapon_statute_cooccurrence_by_year()` aggregate; M5 AND its non-gold paraphrase both verified live, **matching gold's per-year pairings exactly**; G5 and M1 negative-controlled live. Result: `docs/gold-qa-wave2-results/MODULE23_RESULT.md` |
+| 24 | M4 statute × court-stage join | `feature/xagg-statute-court-stage-join` | ✅ **Merged (PR #22)** — new `_statute_court_stage_join()` aggregate reusing Module 14's reader; **gold's 33 / 1 / 30 matched exactly** and the non-gold paraphrase passes; G3, CR7 and M5 negative-controlled live. M4 end to end is now blocked **above** XAGG, in Meta-Analysis (Module 25's `[Document N]` defect) — see §8. Result: `docs/gold-qa-wave2-results/MODULE24_RESULT.md` |
+| 25 | M2 Meta-Analysis → verifier rejection | `fix/meta-analysis-synthesis-verifier-rejection` | ✅ **Merged (PR #16)** |
 | 26 | M1 routing miss (XGRAPH instead of aggregate) | `fix/router-year-over-year-comparison-to-xagg` | ✅ **Merged (PR #13)** |
-| 28 | CR4 routing miss (weapon-recovery chain sent to cross-case entity linkage) | `fix/router-weapon-evidence-chain-to-xagg` | ✅ **PR #19 open** — routing fixed AND a new aggregate added (none existed); CR4 now returns gold's exact chain live; all-32 negative control clean; results: `docs/gold-qa-wave2-results/MODULE28_RESULT.md` |
-| 29 | Meta-Analysis decomposer doesn't split broad synthesis asks into XAGG-shaped sub-questions (CR3/G1/G6) | `fix/meta-analysis-decompose-broad-synthesis` | ✅ **PR #23 open** — deterministic decomposition plans added; G1, G6 and G1's paraphrase now return real synthesized answers built from computed aggregates, CR3 partially; gap analysis split out as Modules 31–36; results: `docs/gold-qa-wave2-results/MODULE29_RESULT.md` |
-| 30 | KB3/KB8/KB9 retrieval-completeness gap (correct statutory chunk never enters the candidate pool) | `fix/kb-retrieval-completeness-statutory-chunks` | ✅ **PR #24 open** — four causes found and fixed, plus a fifth (mid-sentence chunks) found only after the first four; KB3/KB8/KB9 all went from abstaining to answering live, KB8 matching gold's statutory half exactly. Evaluator NOT changed. Ran against a private copy of Chroma. Result: `docs/gold-qa-wave2-results/MODULE30_RESULT.md` |
+| 28 | CR4 routing miss (weapon-recovery chain sent to cross-case entity linkage) | `fix/router-weapon-evidence-chain-to-xagg` | ✅ **Merged (PR #19)** — routing fixed AND a new aggregate added (none existed); CR4 now returns gold's exact chain live; all-32 negative control clean; results: `docs/gold-qa-wave2-results/MODULE28_RESULT.md` |
+| 29 | Meta-Analysis decomposer doesn't split broad synthesis asks into XAGG-shaped sub-questions (CR3/G1/G6) | `fix/meta-analysis-decompose-broad-synthesis` | ✅ **Merged (PR #23)** — deterministic decomposition plans added; G1, G6 and G1's paraphrase now return real synthesized answers built from computed aggregates, CR3 partially; gap analysis split out as Modules 31–36; results: `docs/gold-qa-wave2-results/MODULE29_RESULT.md` |
+| 30 | KB3/KB8/KB9 retrieval-completeness gap (correct statutory chunk never enters the candidate pool) | `fix/kb-retrieval-completeness-statutory-chunks` | ✅ **Merged (PR #24)** — four causes found and fixed, plus a fifth (mid-sentence chunks) found only after the first four; KB3/KB8/KB9 all went from abstaining to answering live, KB8 matching gold's statutory half exactly. Evaluator NOT changed. Ran against a private copy of Chroma. Result: `docs/gold-qa-wave2-results/MODULE30_RESULT.md` |
 | 31 | G1 — offender age profile: no XAGG aggregate, and a now-stale hard refusal | `feature/xagg-g1-caseload-profile-aggregates` | ✅ Done — aggregate live (24–49, mean 31.5); G1 itself unchanged, see §31 |
 | 32 | G1 — accused ↔ complainant relationship breakdown: no XAGG aggregate | `feature/xagg-g1-caseload-profile-aggregates` | ✅ Done — اجنبی 15 of 24; person-recurrence fall-through killed |
 | 33 | G1 — seized-property disposition counts: no XAGG aggregate | `feature/xagg-g1-caseload-profile-aggregates` | ✅ Done — 13 forensic-lab / 7 heirs, matches gold exactly |
@@ -647,7 +647,7 @@ beyond the new test.
 
 # Module 28 — CR4: weapon-evidence chain routed to cross-case linkage instead of XAGG ✅ fixed
 
-**Branch:** `fix/router-weapon-evidence-chain-to-xagg` — **PR #19 open.**
+**Branch:** `fix/router-weapon-evidence-chain-to-xagg` — **merged (PR #19).**
 **Split out of:** Module 21 (see its writeup above for the original live
 evidence — CR2 control, `_recover_target_entity()` read, distance capture).
 **Full results:** `docs/gold-qa-wave2-results/MODULE28_RESULT.md`.
@@ -806,7 +806,7 @@ weapons belong to exactly one case each); `xagg.py`'s weapon family is Module
 
 # Module 29 — Meta-Analysis decomposer doesn't split broad synthesis into XAGG-shaped sub-questions ✅
 
-**Branch:** `fix/meta-analysis-decompose-broad-synthesis` — **PR #23 open.**
+**Branch:** `fix/meta-analysis-decompose-broad-synthesis` — **merged (PR #23).**
 **Split out of:** Module 21 (CR3, G1, G6).
 **Full results, every number traced to a live capture:**
 `docs/gold-qa-wave2-results/MODULE29_RESULT.md`.
@@ -1539,7 +1539,7 @@ on only **1 of 5** post-change runs. The aggregate ran on all five (proved by
 its own log line). Three runs were rejected by Meta-Analysis's synthesis
 verifier with *"A claim is attributed to Document 1 but is absent from its
 text and instead appears in Document 2"* — **Module 25's defect exactly**
-(PR #16 open). One timed out on the model-server tunnel. Module 26's
+(PR #16, since merged). One timed out on the model-server tunnel. Module 26's
 supervisor guard ("XAGG already answers this in one call, do not decompose")
 would cover M4's shape but is gated on `route == "XAGG"`, which M4 usually
 is not. A deterministic router override for the statute×court-stage shape
