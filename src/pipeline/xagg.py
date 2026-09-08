@@ -20,6 +20,7 @@ from __future__ import annotations
 import logging
 import re
 from collections import Counter
+from datetime import datetime
 from typing import Optional
 
 from src.graph import age_client
@@ -77,7 +78,28 @@ _ACCUSED_TOTAL_KEYWORDS = (
 # Gender is handled separately (see _GENDER_KEYWORDS below) since it has a
 # real, if not-yet-backfilled, data path; age/officer/trend genuinely have
 # none today.
-_AGE_KEYWORDS = ("age of", "how old", "average age", "عمر", "اوسط عمر")
+#
+# [Gold-QA fix — Module 31, question G1] "age/officer/trend genuinely have
+# none today" is no longer true of AGE, and had not been true since Module
+# 1d: `structured_projection._write_accused()` resolves each accused
+# mention through `resolve_structured_person()`, which projects `age` onto
+# the Person node. Probed live on this corpus (2026-09-08): 19 Person nodes
+# carry an age, min 24 / max 49 / mean 31.8, and 19 of the 94 accused
+# INVOLVED_IN edges reach one of them. The `_UNSUPPORTED_AGE` refusal this
+# family used to return therefore asserted something FALSE about the data
+# model. It is kept below, reworded, but now only fires when the corpus
+# genuinely carries no age at all — the same data-driven "can this even be
+# answered on THIS corpus" test `_gender_breakdown()` uses.
+#
+# The tuple itself is unchanged apart from Roman-Urdu/plain-English
+# additions: it is checked FIRST in `run_aggregate()`, ahead of every
+# entity family, so anything added here inherits absolute precedence.
+# `tests/test_xagg.py::TestOffenderAgeProfileBoundary` negative-controls it
+# against all 32 gold questions for exactly that reason.
+_AGE_KEYWORDS = (
+    "age of", "how old", "average age", "age range", "age profile",
+    "ages of", "umar", "عمر", "اوسط عمر",
+)
 _OFFICER_KEYWORDS = (
     "investigating officer", "officer assignment", "assigned officer",
     "which officer", "تفتیشی افسر", "افسر تفتیش",
@@ -163,6 +185,99 @@ _COMPLETENESS_KEYWORDS = (
     "dab kar", "nazar se ojhal", "adhoora record",
     "دب کر", "نظر سے اوجھل", "نامکمل", "دبے", "بریفنگ", "مقدمے دب",
 )
+# [Gold-QA fix — Module 32, question G1] Accused ↔ complainant/victim
+# RELATIONSHIP breakdown — "where an accused–complainant relationship is
+# recorded at all, is it a stranger or someone they knew?".
+#
+# This family did not exist. Measured live before this module (2026-09-08):
+# the sub-question "What relationship is recorded between the accused and
+# the complainant, across all cases?" fell all the way through
+# `run_aggregate()`'s chain to `_PERSON_KEYWORDS` and was answered by the
+# person-RECURRENCE aggregate — a ranked list of repeat accused, which
+# answers nothing the question asked, with no caveat. That silent
+# fall-through is as much the defect as the missing aggregate.
+#
+# Deliberate exclusions, each from a measured collision:
+#   - NOT the bare Urdu "تعلق": it is a substring of "متعلق" ("regarding"),
+#     which KB4 uses ("مقدمے سے متعلق اشیاء"). Only the bound forms below.
+#   - The dispatch sits BELOW `_COURT_READINESS_KEYWORDS` (G3) and
+#     `_COMPLETENESS_KEYWORDS` (G2). G3's gold answer is literally about
+#     this same RELATED_TO data read as a COMPLETENESS gap ("relationship
+#     blank in 81 of 94 accused entries") and it scores 1.0 today, so it
+#     keeps first claim structurally, not by keyword luck.
+_RELATIONSHIP_KEYWORDS = (
+    "relationship", "related to the complainant", "related to the victim",
+    "know each other", "knew each other", "stranger", "strangers",
+    "rishta", "ajnabi", "aapas mein",
+    "کیا تعلق", "کا تعلق", "رشتہ", "اجنبی", "ایک دوسرے کو جانتے",
+)
+# Display-only. The `role` values are raw Urdu copied verbatim from
+# `fir_accused.relationship_to_victim` / `.relationship_to_complainant`
+# (`structured_projection._write_related_to()`), and the synthesis model and
+# the evaluator both read English. An unmapped value passes through
+# UNCHANGED — this never substitutes a guess for a value it does not know,
+# and the Urdu original is always rendered alongside the gloss.
+_SEIZED_PROPERTY_KEYWORDS = (
+    "seized property", "seized item", "seized items", "property register",
+    "case property", "recovered property", "malkhana", "mal khana",
+    "forensic lab", "forensic laboratory", "disposition of",
+    "مالخانہ", "مال مقدمہ", "ضبط شدہ اشیا", "برآمد شدہ اشیا",
+    "فرانزک لیبارٹری", "ورثاء",
+)
+# Display-only, same contract as `_RELATIONSHIP_GLOSS` below: raw Urdu
+# `condition` values glossed for a synthesis model and an evaluator that
+# both read English, with the Urdu original always rendered alongside and
+# an unmapped value passed through UNCHANGED.
+_DISPOSITION_GLOSS = {
+    "سیل بند، نمونہ فرانزک لیبارٹری بھجوایا گیا":
+        "sealed, sample sent to the forensic laboratory",
+    "ورثاء کے حوالے کیا جائے گا": "to be handed over to the heirs",
+    "ضبط شدہ": "confiscated",
+    "مدعی کے حوالے کے لیے محفوظ": "held for return to the complainant",
+    "مالخانہ میں مہر بند": "sealed in the property store",
+    "محفوظ": "held",
+    "فرانزک شواہد کے طور پر محفوظ": "held as forensic evidence",
+    "مالخانہ میں مہر بند، فرانزک معائنہ مطلوب":
+        "sealed in the property store, forensic examination required",
+    "ضبط شدہ، فرانزک جانچ کے بعد محفوظ":
+        "confiscated, held after forensic testing",
+}
+# The two classification rules Module 33 publishes rather than tunes.
+#
+# Gold G1 cites "13 items sent to a forensic lab". Measured on this corpus:
+# 13 malkhana entries carry the condition
+# "سیل بند، نمونہ فرانزک لیبارٹری بھجوایا گیا" — literally DISPATCHED to the
+# lab — while 16 mention فرانزک in ANY wording (the other three are "held as
+# forensic evidence", "forensic examination required", "held after forensic
+# testing", none of which is a dispatch). Gold's 13 is the LITERAL reading;
+# both are returned, and the renderer says which is which, so the figure is
+# traceable to a rule instead of to a number that happened to match.
+_TIME_OF_DAY_KEYWORDS = (
+    "time of day", "times of day", "hour of the day", "hourly",
+    "day or night", "night or day", "at night", "during the day",
+    "din ke kis waqt", "raat ko", "kis waqt",
+    "دن کے کس وقت", "رات کے وقت", "شام کے وقت", "کس وقت ہوتے",
+)
+# Hour bands, half-open, local to the recorded timestamp. Ordered
+# chronologically for rendering; the labels are the ones gold G1's own
+# reading ("a mild evening lean") is stated in.
+_TIME_OF_DAY_BANDS: tuple[tuple[str, int, int], ...] = (
+    ("night (00:00-05:59)", 0, 6),
+    ("morning (06:00-11:59)", 6, 12),
+    ("afternoon (12:00-17:59)", 12, 18),
+    ("evening (18:00-23:59)", 18, 24),
+)
+_FORENSIC_DISPATCH_TOKEN = "فرانزک لیبارٹری"
+_FORENSIC_ANY_TOKEN = "فرانزک"
+_HEIRS_TOKEN = "ورثاء"
+_RELATIONSHIP_GLOSS = {
+    "اجنبی": "stranger",
+    "بھائی": "brother",
+    "شوہر": "husband",
+    "ساس": "mother-in-law",
+    "محلے دار": "neighbour",
+    "سینئر ساتھی کار": "senior co-worker",
+}
 # [Gold-QA fix — G5, Module 15] Weapon-register COMPLIANCE questions. G5
 # (Roman-Urdu): given recovered weapons, is anything flag-worthy for
 # compliance? Deliberately requires a licence/compliance signal (not a bare
@@ -174,6 +289,28 @@ _COMPLIANCE_TERMS = (
     "record keeping", "record-keeping",
     "لائسنس", "بغیر لائسنس", "کمپلائنس",
 )
+# [Gold-QA fix — CR4, Module 28] Weapon-evidence ATTRIBUTION questions:
+# "we have a weapon logged as evidence — who was it taken off, and what
+# happened to them?" Same house technique as G5 immediately above: the
+# dispatch gates on a weapon term AND one of these attribution terms
+# co-occurring, never on a bare weapon word.
+#
+# The attribution family is deliberately narrow — it is what separates CR4
+# from every other weapon question in the gold set, all of which currently
+# work and must not move: G5 (compliance scan), CP1 ("which district
+# recovers the most weapons" — a per-district rate), M5 ("what kinds of
+# cases do weapons show up in") and KB6 (forensics handling guidelines).
+# None of those asks WHOSE weapon it was, so none of them carries a term
+# below. It also cannot fire on CR2, which contains no weapon vocabulary at
+# all — the specific collision Module 21 warned about.
+_WEAPON_ATTRIBUTION_TERMS = (
+    "taken off", "taken from", "took it off", "recovered from",
+    "seized from", "trace them back", "trace it back", "traced back",
+    "trace back", "belonged to", "belongs to", "whose weapon",
+    "who it was taken", "who they were taken",
+    "kis se baramad", "kis ke qabze", "kis se barami", "kis ka tha",
+    "کس سے برآمد", "کس کے قبضے", "کس سے لیا", "کس کا تھا",
+)
 # [Gold-QA fix — G3, Module 15/16] Court-readiness completeness questions.
 # G3 (Urdu): preparing a case file for handover to court — which fields are
 # most likely incomplete? Distinct from G2's general "buried cases" scan by
@@ -182,15 +319,13 @@ _COURT_READINESS_KEYWORDS = (
     "case file for court", "court file", "handover to court", "prosecutor",
     "before accepting", "court accept", "ready for court", "case file ready",
     "adalat ko hawalgi", "court file tayyar", "case file tayyar",
-    # [Gold-QA fix — M4 false positive] The bare Urdu word "عدالت" (= "court")
-    # was in this list and matched ANY question merely mentioning a court —
-    # live-confirmed hijacking M4 ("...وہ مقدمے عدالت میں کہاں تک پہنچے" = how
-    # far cases progressed IN COURT, a statute-vs-court-stage severity
-    # comparison) into this court-READINESS scan, which answers an unrelated
-    # question about missing case-file fields. Same false-positive class as the
-    # CR8 pattern that over-matched KB1. The court-readiness intent is always
-    # carried by a handover/preparation phrase, never by "عدالت" alone, so the
-    # specific phrases below are sufficient and safe.
+    # NOTE: deliberately NOT the bare "عدالت" ("court") on its own — live
+    # collision found (Module 18 rerun): M4 asks how far cases have
+    # progressed "عدالت میں" (in court), an unrelated statute×court-stage
+    # comparison question, and the bare word alone was enough to hijack it
+    # into this court-file-readiness scan. Keep only the actual handover/
+    # readiness-framing phrases below, same discipline as the CR8/KB1
+    # false-positive already fixed in router.py.
     "عدالت کو حوالگی", "کیس فائل تیار", "پراسیکیوٹر", "حوالگی کے لیے",
     "قبول کرنے سے پہلے",
 )
@@ -375,6 +510,193 @@ _REPORTING_SPEED_COMPARISON_KEYWORDS = (
     "report as quickly", "reporting speed", "reporting promptly",
     "اتنی ہی جلدی", "جتنی جلدی",
 )
+# [Gold-QA fix — Module 22] The literal list above is pinned to M7's own
+# phrasing and matches essentially nothing else. Live-caught: the required
+# non-gold paraphrase "How long does it typically take someone to report a
+# crime to us these days versus a couple of years ago?" matched none of
+# them, so the capability was curve-fit to one gold string rather than
+# actually answering reporting-speed questions.
+#
+# Widened as a two-signal AND rather than more literal phrases, because a
+# one-signal widening WOULD COLLIDE WITH A7 — "Kitne cases mein mudai ne
+# ... waqe ke kuch arse baad aane ki koi wajah batai" is a COUNT-of-reasons
+# question that naturally contains reporting/delay vocabulary, and it is
+# checked AFTER this one in run_aggregate(), so any over-broad match here
+# silently hijacks it. That is the same false-positive class already fixed
+# three times on this plan (Module 8c's KB patterns, Module 15's CR8
+# pattern hijacking KB1, Module 16's bare Urdu "court" hijacking M4).
+#
+# What actually separates M7's family from A7's is a TIME-PERIOD
+# COMPARISON, which A7 has none of. So: a reporting/speed signal AND a
+# comparison signal, both required.
+_REPORTING_SPEED_SIGNALS = (
+    "report", "reported", "reporting", "ittila", "ittala", "inform",
+    "jaldi", "quickly", "promptly", "how long", "how fast", "how quick",
+    "take to", "time to", "اطلاع", "رپورٹ", "جلدی", "دیر",
+)
+# NOTE on what is deliberately NOT here: a bare "pehle"/"پہلے" ("before").
+# Live-caught during this module's own negative control — KB8 ("...iske
+# mukammal hone se PEHLE adaalat ko kuch REPORT karna zaroori karta hai...")
+# carries both a reporting signal and that word, but its "before" means
+# "before the investigation completes", not "a few years before". Matching
+# it would have pulled a Knowledge-Base question into this aggregate and
+# regressed the KB-corpus routing PR #9 had just fixed. Only time-PERIOD
+# comparison forms are listed.
+_SPEED_COMPARISON_SIGNALS = (
+    "versus", " vs ", "compared", "compare", "these days",
+    "years ago", "year ago", "years back", "year back", "back then",
+    "used to", "muqable", "muqabla", "saal pehle", "sal pehle",
+    "مقابلے", "سال پہلے",
+    "2024", "2025", "2026",
+)
+
+
+def _is_reporting_speed_comparison(query_lower: str) -> bool:
+    """
+    True for a reporting-SPEED-over-time question (M7's family).
+
+    Kept as a named predicate rather than inlined so the A7 boundary it
+    protects is testable directly — see this module's
+    `_REPORTING_SPEED_COMPARISON_KEYWORDS` comment for why that boundary
+    matters and what breaks without it.
+    """
+    if _matches_any(query_lower, _REPORTING_SPEED_COMPARISON_KEYWORDS):
+        return True
+    return (
+        _matches_any(query_lower, _REPORTING_SPEED_SIGNALS)
+        and _matches_any(query_lower, _SPEED_COMPARISON_SIGNALS)
+    )
+
+
+# [Gold-QA fix — Module 23, question M5] "ہتھیار عام طور پر کس نوعیت کے
+# مقدمات میں سامنے آتے ہیں، اور کیا 2024 کے مقابلے میں اب یہ نوعیت بدل گئی
+# ہے؟" — in what KINDS OF CASES do weapons show up, and has that changed
+# since 2024? A weapon × statute CO-OCCURRENCE question, and the one shape
+# no aggregate in this module could express before: `_statute_mix_by_year()`
+# (M1's) has no weapon dimension at all, and `_top_recurring_weapon_types()`
+# has no statute or year dimension, so M5 fell through
+# `_TIME_COMPARISON_KEYWORDS` into the former and came back with a flat
+# per-year statute ranking over ALL cases — a valid answer to a different
+# question.
+#
+# Deliberately a THREE-signal AND (weapon + case-type/statute + change-over-
+# time), for the same reason `_is_reporting_speed_comparison()` above is a
+# two-signal AND: every one- or two-signal widening collides with a
+# neighbouring family this chain already serves.
+#   - weapon alone           -> the bare weapon-recurrence aggregate
+#                               (`_top_recurring_weapon_types()`), and CP1's
+#                               district+weapon rate path
+#   - weapon + compliance    -> G5's `_weapon_compliance_scan()`, which
+#                               scores 1.0 today and is checked ABOVE this
+#                               one in `run_aggregate()` regardless
+#   - case-type + change     -> M1's `_statute_mix_by_year()`, which is
+#                               exactly right for M1 and must keep it
+# Requiring all three is what leaves each of those untouched.
+_CASE_TYPE_TERMS = (
+    "kind of case", "kinds of case", "type of case", "types of case",
+    "case type", "case types", "nature of the case", "sort of case",
+    "sorts of case", "offence", "offense", "charge", "charged", "statute",
+    "section", "crime type", "kind of crime", "kinds of crime",
+    "type of crime", "types of crime",
+    "kis nau", "nauiyat", "qisam", "muqadmat", "mukadmat", "dafaat",
+    "نوعیت", "مقدمات", "مقدمے", "مقدموں", "دفعات", "جرائم",
+)
+# NOTE on what is deliberately NOT here: a bare "پہلے"/"pehle" ("before").
+# `_REPORTING_SPEED_SIGNALS` above records the live-caught reason — KB8's
+# "before" means "before the investigation completes", not "a few years
+# before" — and the same caution applies to any list this file uses as a
+# change-over-time signal. Only time-PERIOD forms are listed.
+_CHANGE_OVER_TIME_TERMS = (
+    "used to", "changed", "changing", "has changed", "any different",
+    "different than", "different from", "shifted", "shifting", "shift",
+    "these days", "nowadays", "now compared", "still the same",
+    "compared to", "compared with", "year over year", "years back",
+    "years ago", "over time", "trend",
+    "2024", "2025", "2026",
+    "badal", "badla", "tabdeel", "tabdeeli", "ke muqable", "kay muqable",
+    "بدل", "تبدیل", "کے مقابلے میں", "رجحان",
+)
+
+
+def _is_weapon_statute_cooccurrence(query_lower: str) -> bool:
+    """
+    True for M5's family: weapons + what kind of case they turn up in +
+    whether that changed over time.
+
+    A named predicate rather than an inlined three-way `and`, for the same
+    reason `_is_reporting_speed_comparison()` is one — the boundaries it
+    protects (G5, M1, CP1, the bare weapon recurrence path) are then
+    testable directly, without standing up a gateway and a fake graph.
+    """
+    return (
+        _matches_any(query_lower, _WEAPON_KEYWORDS + _WEAPON_TERMS)
+        and _matches_any(query_lower, _CASE_TYPE_TERMS)
+        and _matches_any(query_lower, _CHANGE_OVER_TIME_TERMS)
+    )
+
+
+# [Gold-QA fix — Module 24, question M4] "ایک طرف یہ دیکھیں کہ لوگوں پر کن
+# دفعات میں مقدمے بن رہے ہیں، اور دوسری طرف یہ کہ وہ مقدمے عدالت میں کہاں
+# تک پہنچے — کیا دونوں سے کیس لوڈ کی سنگینی کا ایک ہی اندازہ ہوتا ہے؟" —
+# what sections are people charged under, HOW FAR did those cases get in
+# court, and do the two give the same impression of caseload severity?
+#
+# The signal that actually separates M4 from every neighbour is COURT
+# PROGRESSION — how far along, at what stage — not the word "court" itself.
+# That distinction is load-bearing and was learned the hard way twice:
+#
+#   - G3 ("preparing a case file for handover to court") is a court
+#     question with no progression signal. `_COURT_READINESS_KEYWORDS`'
+#     own comment records the live collision where a bare Urdu "عدالت" was
+#     enough to hijack M4 into G3's readiness scan; matching on "court"
+#     alone here would simply run that collision in the other direction.
+#   - CR7 ("how many criminal-record cases are done vs. in progress, and
+#     does the separate court record agree?") names court RECORDS, not a
+#     stage. It is also checked EARLIER in `run_aggregate()`, so it is
+#     structurally protected regardless of what this predicate says — but
+#     the two-signal AND means it would not match even if it were not.
+#
+# So: a court term AND a progression/stage term, both required. Same
+# two-signal house technique as `_is_reporting_speed_comparison()` (M7) and
+# the three-signal `_is_weapon_statute_cooccurrence()` (M5) above.
+_COURT_TERMS = (
+    "court", "courts", "adalat", "adaalat", "judicial",
+    "عدالت", "عدالتی", "عدالتوں",
+)
+# NOTE on what is deliberately NOT here: a bare "case"/"مقدمہ", and a bare
+# "status". Both would turn this into "any question that mentions a court",
+# which is exactly the G3 collision above. Every entry below names a POINT
+# ALONG A PROCESS — how far, which stage, reached, decided — or a specific
+# terminal court stage (verdict/conviction/acquittal/under-trial).
+_CASE_PROGRESS_TERMS = (
+    "how far", "how far along", "what stage", "which stage", "what point",
+    "at what stage", "progressed", "progress of", "reached", "reach",
+    "got to", "under trial", "trial stage", "still pending in",
+    "conviction", "convictions", "convicted", "acquitted", "verdict",
+    "sentenced", "disposed of", "concluded",
+    "kahan tak", "kis marhale", "kis darje", "zer e samaat", "zer-e-samaat",
+    "کہاں تک", "کس درجے", "کس مرحلے", "تک پہنچے", "کہاں پہنچ",
+    "زیرِ سماعت", "زیر سماعت", "فیصلہ ہو", "سزا سنائی",
+)
+
+
+def _is_statute_court_stage_join(query_lower: str) -> bool:
+    """
+    True for M4's family: the sections cases are charged under set against
+    how far those same cases have got in court.
+
+    A named predicate rather than an inlined `and`, for the same reason
+    `_is_reporting_speed_comparison()` and `_is_weapon_statute_cooccurrence()`
+    are ones — the boundaries it protects (G3's court-readiness scan, CR7's
+    criminal-record cross-check) are then testable directly, without
+    standing up a gateway and a fake graph.
+    """
+    return (
+        _matches_any(query_lower, _COURT_TERMS)
+        and _matches_any(query_lower, _CASE_PROGRESS_TERMS)
+    )
+
+
 # A bare "how many total" request — distinct from _LIST_ALL_KEYWORDS (which
 # wants the raw records) and from the grouped-count default below (which
 # always breaks the answer down by station/category). Live-observed gap
@@ -445,9 +767,33 @@ _STATUTE_GROUPING_NOTE = (
 # through to _station_or_category_counts's generic default, which would
 # answer a question it was never asked (the report's worst finding: e.g. a
 # gender question silently returning a crime-category breakdown).
+# [Gold-QA fix — Module 31, question G1] Reworded and DEMOTED. This used to
+# be returned unconditionally for every age question and claimed age "is not
+# currently extracted into this system's data model" — untrue since Module
+# 1d projected `Person.age`. It is now the data-driven fallback for a corpus
+# that genuinely carries no age anywhere, mirroring
+# `_GENDER_NOT_YET_POPULATED`'s shape: a corpus that later gains ages
+# self-heals with no code change; one that never had them says so honestly
+# instead of returning an empty or fabricated profile.
 _UNSUPPORTED_AGE = (
-    "Age-based aggregates are not available: accused/witness age is not "
-    "currently extracted into this system's data model."
+    "An age profile cannot be produced: no accused record in this corpus "
+    "carries a recorded age. The source system does have an age field and "
+    "this system does project it, so this reflects the data currently "
+    "synced, not a missing capability."
+)
+# [Gold-QA fix — Module 31, question G1] Gold's G1 answer asserts the
+# accused are "all Pakistani nationals". There is NO nationality field
+# anywhere in this data model — `Person` carries
+# name/cnic/gender/age/father_name/address_text/entity_id and nothing else
+# (`structured_projection._person_mention()`), and no Postgres column
+# supplies one either. Rather than let a synthesis model infer nationality
+# from Urdu names, the age profile states the absence outright, so the gap
+# travels WITH the figures it sits next to. Recorded as a data-model gap by
+# Module 29 and not fixed here — inventing the field is the one thing this
+# module must not do.
+_NATIONALITY_NOT_MODELED = (
+    "Nationality is not recorded anywhere in this data model, so no claim "
+    "about the accused's nationality can be made from this data."
 )
 _UNSUPPORTED_OFFICER = (
     "Officer-assignment aggregates are not available: investigating-officer "
@@ -663,6 +1009,483 @@ async def _gender_breakdown(jurisdiction_case_ids: Optional[list[str]] = None) -
         "counts": [{"key": k, "count": v} for k, v in counts.most_common()],
         "total_accused": len(genders),
     }
+
+
+def _coerce_age(value) -> Optional[int]:
+    """
+    `Person.age` arrives from AGE as an agtype integer on the real corpus,
+    but the source field is free-form and a re-sync could just as easily
+    write "31" or "31 سال". Tolerate both, and refuse anything outside a
+    plausible human range rather than let a stray 0 or 900 drag the mean —
+    an out-of-range value is treated exactly like a missing one, and shows
+    up in the coverage caveat rather than in the statistics.
+    """
+    if value is None:
+        return None
+    try:
+        age = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    return age if 1 <= age <= 120 else None
+
+
+async def _offender_age_profile(jurisdiction_case_ids: Optional[list[str]] = None) -> dict:
+    """
+    [Gold-QA fix — Module 31, question G1] The accused age profile: range,
+    mean, and — the part that decides whether the answer is honest — how
+    many accused carry no age at all.
+
+    Replaces the `_UNSUPPORTED_AGE` hard refusal this family used to return
+    unconditionally. That refusal predated Module 1d's `Person.age`
+    projection and asserted, wrongly, that age is not in the data model.
+
+    TWO denominators, both reported, because they answer different
+    questions and gold's "~31" is compatible with either:
+      - DISTINCT accused persons (canonicalised through the confirmed
+        SAME_AS map, exactly as `_total_accused_count()` does) — "what do
+        the offenders in this caseload look like". This is the headline.
+      - accused INVOLVED_IN ENTRIES — one per `fir_accused` mention, the
+        row-level denominator `_gender_breakdown()` uses and the one the
+        A1/G3 gold answers are expressed in ("94 accused entries"). A
+        recidivist accused therefore appears twice here and once above.
+    Reporting only one would make the coverage caveat unreadable against
+    the other gold answers in this file, which use both.
+
+    Scoped to role='accused' deliberately: gold G1's claim is about
+    OFFENDERS, and Person nodes with an age also include a small number of
+    non-accused parties. `_UNSUPPORTED_AGE` is returned only when no
+    accused in scope carries an age at all.
+    """
+    case_filter = "AND c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+    params: dict = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+
+    rows = await age_client.execute_cypher(
+        "MATCH (p:Person)-[r:INVOLVED_IN]->(i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE r.role = 'accused' {case_filter}"
+        "RETURN p AS p, c.case_id AS case_id",
+        params=params, columns=["p", "case_id"],
+    )
+
+    canonical_map = build_canonical_map(await fetch_confirmed_same_as())
+    entry_ages: list[int] = []          # one per accused edge
+    entry_count = 0
+    age_by_entity: dict[str, int] = {}  # canonical entity -> age
+    all_entities: set[str] = set()
+    for row in rows:
+        props = (row.get("p") or {}).get("properties", {}) or {}
+        entity_id = props.get("entity_id")
+        if not entity_id:
+            continue
+        entry_count += 1
+        entity_id = canon(canonical_map, entity_id)
+        all_entities.add(entity_id)
+        age = _coerce_age(props.get("age"))
+        if age is not None:
+            entry_ages.append(age)
+            age_by_entity.setdefault(entity_id, age)
+
+    ages = sorted(age_by_entity.values())
+    if not ages:
+        return {"kind": "offender_age_profile", "unsupported": True, "message": _UNSUPPORTED_AGE}
+
+    mean_age = sum(ages) / len(ages)
+    # Observability, not decoration: the SSE stream only ever exposes
+    # `route='XAGG'` and never which aggregate inside XAGG ran — one line
+    # per aggregate is the difference between a demonstrated route and an
+    # inferred one, the convention Modules 23 and 24 established here.
+    logger.info(
+        "XAGG offender_age_profile: %d of %d distinct accused carry an age "
+        "(%d of %d accused entries); range %d-%d, mean %.1f",
+        len(ages), len(all_entities), len(entry_ages), entry_count,
+        ages[0], ages[-1], mean_age,
+    )
+    return {
+        "kind": "offender_age_profile",
+        "unsupported": False,
+        "min_age": ages[0],
+        "max_age": ages[-1],
+        "mean_age": mean_age,
+        "with_age_count": len(ages),
+        "distinct_accused_count": len(all_entities),
+        "entries_with_age_count": len(entry_ages),
+        "accused_entry_count": entry_count,
+        "ages": ages,
+        "nationality_note": _NATIONALITY_NOT_MODELED,
+    }
+
+
+def render_offender_age_profile(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — Module 31, G1] Shared renderer for all three XAGG
+    rendering sites, same reason as `render_statute_court_stage_join()`."""
+    if agg_result.get("unsupported"):
+        return [agg_result.get("message") or _UNSUPPORTED_AGE]
+    with_age = agg_result["with_age_count"]
+    distinct = agg_result["distinct_accused_count"]
+    missing = max(0, distinct - with_age)
+    lines = [
+        "Age profile of the accused across the caseload:",
+        f"  - Recorded ages run from {agg_result['min_age']} to "
+        f"{agg_result['max_age']}, mean {agg_result['mean_age']:.1f}.",
+        f"  - That is derived from the {with_age} of {distinct} distinct "
+        f"accused who carry a recorded age "
+        f"({agg_result['entries_with_age_count']} of "
+        f"{agg_result['accused_entry_count']} accused entries).",
+        # The caveat is load-bearing, not boilerplate: with ~18% coverage,
+        # "every accused is between 24 and 49" is NOT a claim this data
+        # supports, and the range must not be read as one.
+        f"  - {missing} of {distinct} accused record no age at all, so this "
+        f"range describes only the minority that do — it is not evidence "
+        f"that no accused is younger or older.",
+        f"  - {agg_result['nationality_note']}",
+    ]
+    return lines
+
+
+_SOURCE_DOC_CASE_RE = re.compile(r"/([^/#?]+)(?:#|$)")
+
+
+def _case_id_from_source_doc(source_doc_id: Optional[str]) -> Optional[str]:
+    """
+    "psrms/fir/fir-312-26#structured" -> "fir-312-26".
+
+    Used instead of walking `(a)-[:BELONGS_TO_CASE]->(:Case)` from the
+    relationship's own endpoint: an accused who appears in two FIRs belongs
+    to two Cases, so that walk multiplies each RELATED_TO edge by that
+    person's case count (measured: 24 edges became 27 rows). The edge's own
+    `source_doc_id` names the ONE FIR the relationship was recorded on, 1:1.
+    """
+    if not source_doc_id:
+        return None
+    match = _SOURCE_DOC_CASE_RE.search(str(source_doc_id))
+    return match.group(1) if match else None
+
+
+async def _accused_relationship_breakdown(
+    jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    """
+    [Gold-QA fix — Module 32, question G1] What relationship is recorded
+    between an accused and the complainant/victim, and which value dominates.
+
+    Reads `Person-[:RELATED_TO {role}]->Person`, written by
+    `structured_projection._write_related_to()` straight from
+    `fir_accused.relationship_to_victim` / `.relationship_to_complainant`.
+    Direction is always accused -> other party, so the `role` is the
+    ACCUSED's relationship to the complainant/victim, which is the direction
+    gold G1's claim is stated in.
+
+    Counting rule — EDGES, published as such. One accused row can produce
+    TWO edges with the same role when the complainant and the victim are the
+    same person (measured: 5 of the 24 edges on this corpus are such a
+    duplicate pair). The raw edge count is still the headline because it is
+    the denominator gold's own "stranger dominates" reading uses, but
+    `distinct_pair_count` is returned alongside it so the double-count is
+    visible rather than hidden.
+
+    The coverage caveat is the point of the answer as much as the
+    breakdown: a relationship is recorded for only a small minority of
+    accused, so "stranger dominates" is a statement about that minority.
+    """
+    rows = await age_client.execute_cypher(
+        "MATCH (a:Person)-[r:RELATED_TO]->(b:Person) "
+        "RETURN r.role AS role, r.source_doc_id AS source_doc_id, "
+        "id(a) AS a_id, id(b) AS b_id",
+        columns=["role", "source_doc_id", "a_id", "b_id"],
+    )
+
+    allowed = set(jurisdiction_case_ids) if jurisdiction_case_ids is not None else None
+    counts: Counter = Counter()
+    cases_by_role: dict[str, set] = {}
+    pairs: set = set()
+    case_ids: set = set()
+    total_edges = 0
+    for row in rows:
+        role = (row.get("role") or "").strip()
+        if not role:
+            continue
+        case_id = _case_id_from_source_doc(row.get("source_doc_id"))
+        # Jurisdiction scoping happens here rather than in Cypher — see
+        # `_case_id_from_source_doc()`'s docstring for why the graph walk
+        # that would allow an `IN $case_ids` filter over-counts. An edge
+        # whose source document cannot be resolved to a case is DROPPED
+        # when an allow-list is in force (it cannot be shown to be in
+        # scope) and kept when there is none.
+        if allowed is not None and (case_id is None or case_id not in allowed):
+            continue
+        total_edges += 1
+        counts[role] += 1
+        if case_id:
+            case_ids.add(case_id)
+            cases_by_role.setdefault(role, set()).add(case_id)
+        pairs.add((role, row.get("a_id"), row.get("b_id")))
+
+    # Coverage denominators, from the accused roster this breakdown is a
+    # statement about. Scoped the same way the rest of the file scopes an
+    # accused read.
+    case_filter = "AND c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+    params: dict = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+    accused_rows = await age_client.execute_cypher(
+        "MATCH (p:Person)-[r:INVOLVED_IN]->(i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE r.role = 'accused' {case_filter}"
+        "RETURN id(p) AS p_id",
+        params=params, columns=["p_id"],
+    )
+    accused_entry_count = len(accused_rows)
+    distinct_accused_count = len({r.get("p_id") for r in accused_rows if r.get("p_id") is not None})
+    accused_with_relationship = len(
+        {a for _role, a, _b in pairs}
+        & {r.get("p_id") for r in accused_rows if r.get("p_id") is not None}
+    )
+
+    ranked = [
+        {
+            "role": role,
+            "gloss": _RELATIONSHIP_GLOSS.get(role),
+            "count": count,
+            "case_count": len(cases_by_role.get(role, set())),
+        }
+        for role, count in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    ]
+    dominant = ranked[0] if ranked else None
+
+    # Observability — see `_offender_age_profile()`'s own note.
+    logger.info(
+        "XAGG accused_relationship_breakdown: %d relationship edge(s) across "
+        "%d FIR(s), %d distinct value(s); dominant=%r %s; coverage %d of %d "
+        "distinct accused",
+        total_edges, len(case_ids), len(counts),
+        (dominant or {}).get("role"), (dominant or {}).get("count"),
+        accused_with_relationship, distinct_accused_count,
+    )
+    return {
+        "kind": "accused_relationship_breakdown",
+        "total_relationships": total_edges,
+        "distinct_pair_count": len(pairs),
+        "distinct_value_count": len(counts),
+        "case_count": len(case_ids),
+        "counts": ranked,
+        "dominant": dominant,
+        "accused_entry_count": accused_entry_count,
+        "distinct_accused_count": distinct_accused_count,
+        "accused_with_relationship": accused_with_relationship,
+    }
+
+
+def render_accused_relationship_breakdown(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — Module 32, G1] Shared renderer for all three XAGG
+    rendering sites, same reason as `render_statute_court_stage_join()`."""
+    total = agg_result["total_relationships"]
+    if not total:
+        return [
+            "No accused↔complainant relationship is recorded anywhere in "
+            "this corpus, so no breakdown can be produced."
+        ]
+    lines = [
+        f"Relationship recorded between the accused and the complainant or "
+        f"victim — {total} recorded relationship(s) across "
+        f"{agg_result['case_count']} FIR(s):",
+    ]
+    for entry in agg_result["counts"]:
+        label = entry["role"]
+        if entry.get("gloss"):
+            label = f"{entry['role']} ({entry['gloss']})"
+        lines.append(
+            f"  - {label}: {entry['count']} of {total}, in "
+            f"{entry['case_count']} FIR(s)"
+        )
+    dominant = agg_result.get("dominant") or {}
+    if dominant:
+        label = dominant["role"]
+        if dominant.get("gloss"):
+            label = f"{dominant['role']} ({dominant['gloss']})"
+        lines.append(
+            f"The dominant recorded relationship is {label} — "
+            f"{dominant['count']} of {total}."
+        )
+    # Load-bearing, not boilerplate: the breakdown describes a small
+    # minority of the accused roster, and read without this it looks like a
+    # statement about the whole caseload.
+    lines.append(
+        f"Coverage: a relationship is recorded for only "
+        f"{agg_result['accused_with_relationship']} of "
+        f"{agg_result['distinct_accused_count']} distinct accused "
+        f"({total} relationship entries against "
+        f"{agg_result['accused_entry_count']} accused entries), so this "
+        f"describes only the cases where one was recorded at all — it is "
+        f"not a profile of the whole caseload."
+    )
+    if agg_result.get("distinct_pair_count") not in (None, total):
+        lines.append(
+            f"Note: {total} entries cover "
+            f"{agg_result['distinct_pair_count']} distinct accused↔other-party "
+            f"pairs — a relationship recorded against both the victim and "
+            f"the complainant, where those are the same person, is stored "
+            f"twice."
+        )
+    return lines
+
+
+async def _seized_property_disposition(
+    jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    """
+    [Gold-QA fix — Module 33, question G1] What happens to seized property:
+    the malkhana (property-store) register grouped by disposition, with the
+    number of FIRs each disposition touches.
+
+    Reads `StructuredRecord {record_type: 'malkhana_register'}`, whose
+    `condition` field IS the disposition — free Urdu text copied from the
+    source register. Grouped verbatim; the two figures gold G1 cites are
+    then derived from that grouping by a published token rule
+    (`_FORENSIC_DISPATCH_TOKEN` / `_HEIRS_TOKEN`) rather than hard-coded.
+
+    Item count and FIR count are BOTH returned per disposition and they
+    differ: measured on this corpus, 13 items were dispatched to a forensic
+    lab across 11 FIRs, because two FIRs sent two items each. Gold's "13
+    items" is the ITEM count, and conflating the two is the easiest way to
+    report a wrong number here.
+
+    Before this module a seized-property sub-question matched
+    `_LIST_ALL_KEYWORDS` on the "across all cases" suffix and returned the
+    unfiltered 73-row case listing — not the person-recurrence branch the
+    plan predicted. Measured live 2026-09-08; the plan is corrected in
+    `docs/gold-qa-wave2-results/MODULE33_RESULT.md`.
+    """
+    case_filter = "AND c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+    params: dict = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+
+    rows = await age_client.execute_cypher(
+        "MATCH (s:StructuredRecord)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE s.record_type = 'malkhana_register' {case_filter}"
+        "RETURN s.condition AS condition, s.item_detail AS item_detail, "
+        "c.case_id AS case_id",
+        params=params, columns=["condition", "item_detail", "case_id"],
+    )
+
+    counts: Counter = Counter()
+    cases_by_condition: dict[str, set] = {}
+    all_cases: set = set()
+    unrecorded = 0
+    forensic_dispatch_items = 0
+    forensic_any_items = 0
+    heirs_items = 0
+    forensic_dispatch_cases: set = set()
+    heirs_cases: set = set()
+    for row in rows:
+        case_id = row.get("case_id")
+        if case_id:
+            all_cases.add(case_id)
+        condition = (row.get("condition") or "").strip()
+        if not condition:
+            # A register entry with no recorded disposition is a real
+            # state, and lumping it into a bucket would inflate whichever
+            # bucket it landed in — reported separately instead.
+            unrecorded += 1
+            continue
+        counts[condition] += 1
+        if case_id:
+            cases_by_condition.setdefault(condition, set()).add(case_id)
+        if _FORENSIC_DISPATCH_TOKEN in condition:
+            forensic_dispatch_items += 1
+            if case_id:
+                forensic_dispatch_cases.add(case_id)
+        if _FORENSIC_ANY_TOKEN in condition:
+            forensic_any_items += 1
+        if _HEIRS_TOKEN in condition:
+            heirs_items += 1
+            if case_id:
+                heirs_cases.add(case_id)
+
+    ranked = [
+        {
+            "condition": condition,
+            "gloss": _DISPOSITION_GLOSS.get(condition),
+            "item_count": count,
+            "case_count": len(cases_by_condition.get(condition, set())),
+        }
+        for condition, count in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    ]
+
+    # Observability — see `_offender_age_profile()`'s own note.
+    logger.info(
+        "XAGG seized_property_disposition: %d register entr(ies) across %d "
+        "FIR(s), %d distinct disposition(s); forensic-lab dispatch %d item(s) "
+        "in %d FIR(s) (%d mention forensic in any wording); heirs %d item(s) "
+        "in %d FIR(s); %d entr(ies) record no disposition",
+        len(rows), len(all_cases), len(counts), forensic_dispatch_items,
+        len(forensic_dispatch_cases), forensic_any_items, heirs_items,
+        len(heirs_cases), unrecorded,
+    )
+    return {
+        "kind": "seized_property_disposition",
+        "total_items": len(rows),
+        "case_count": len(all_cases),
+        "distinct_disposition_count": len(counts),
+        "counts": ranked,
+        "unrecorded_disposition_count": unrecorded,
+        "forensic_dispatch_items": forensic_dispatch_items,
+        "forensic_dispatch_cases": len(forensic_dispatch_cases),
+        "forensic_any_items": forensic_any_items,
+        "heirs_items": heirs_items,
+        "heirs_cases": len(heirs_cases),
+    }
+
+
+_DISPOSITION_RENDER_LIMIT = 12
+
+
+def render_seized_property_disposition(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — Module 33, G1] Shared renderer for all three XAGG
+    rendering sites, same reason as `render_statute_court_stage_join()`."""
+    total = agg_result["total_items"]
+    if not total:
+        return [
+            "No seized-property (malkhana) register entry is recorded "
+            "anywhere in this corpus, so no disposition breakdown can be "
+            "produced."
+        ]
+    lines = [
+        f"What happens to seized property — {total} property-register "
+        f"entr(ies) across {agg_result['case_count']} FIR(s), grouped by the "
+        f"disposition recorded against each item:",
+    ]
+    for entry in agg_result["counts"][:_DISPOSITION_RENDER_LIMIT]:
+        label = entry["condition"]
+        if entry.get("gloss"):
+            label = f"{entry['condition']} ({entry['gloss']})"
+        lines.append(
+            f"  - {label}: {entry['item_count']} item(s), in "
+            f"{entry['case_count']} FIR(s)"
+        )
+    remaining = len(agg_result["counts"]) - _DISPOSITION_RENDER_LIMIT
+    if remaining > 0:
+        lines.append(f"  - (+{remaining} further disposition(s), 1 item each)")
+    lines.append(
+        f"Of those, {agg_result['forensic_dispatch_items']} item(s) in "
+        f"{agg_result['forensic_dispatch_cases']} FIR(s) were literally "
+        f"DISPATCHED to a forensic laboratory, and "
+        f"{agg_result['heirs_items']} item(s) in {agg_result['heirs_cases']} "
+        f"FIR(s) are held for return to a deceased person's heirs."
+    )
+    # The rule, published, so the headline number is traceable rather than
+    # merely plausible: a broader "mentions forensic at all" reading gives a
+    # different figure, and the answer must not let the two be confused.
+    if agg_result["forensic_any_items"] != agg_result["forensic_dispatch_items"]:
+        lines.append(
+            f"Counting rule: {agg_result['forensic_any_items']} entries "
+            f"mention a forensic process in some wording (held as forensic "
+            f"evidence, examination required, tested and returned to store), "
+            f"but only {agg_result['forensic_dispatch_items']} record the "
+            f"item as actually sent to the laboratory. The figure above uses "
+            f"the literal 'sent to the lab' reading."
+        )
+    if agg_result.get("unrecorded_disposition_count"):
+        lines.append(
+            f"{agg_result['unrecorded_disposition_count']} register "
+            f"entr(ies) record no disposition at all and are excluded from "
+            f"the breakdown above."
+        )
+    return lines
 
 
 # [Gold-QA fix — Module 2, A7] Count FIRs that recorded a reporting-delay
@@ -1194,6 +2017,199 @@ def render_weapon_compliance_scan(agg_result: dict) -> list[str]:
     return lines
 
 
+async def _weapon_evidence_chain(
+    jurisdiction_case_ids: Optional[list[str]] = None, example_limit: int = 12,
+) -> dict:
+    """
+    [Gold-QA fix — CR4, Module 28] For every weapon logged in the weapon
+    register, reconstruct the evidence chain the question asks for:
+
+        weapon -> the FIR it is logged under -> the accused it was
+        recovered from -> that accused's recorded status on that case
+
+    Read entirely off the projected graph, which already holds every link:
+    `Weapon-[:BELONGS_TO_CASE]->Case`, `Person-[:OWNS]->Weapon` (written by
+    structured_projection._write_weapons from `weapon_register.recovered_from`)
+    and `Person-[:INVOLVED_IN {role:'accused', arrest_status}]->Incident`.
+
+    THE HEDGE IS PART OF THE ANSWER, NOT A DEFECT TO HIDE (CR4's gold answer
+    states it explicitly): the weapon->accused link is NOT an enforced
+    database key. `weapon_register.recovered_from` is a bare NAME, so
+    structured_projection matches it against the accused named in the SAME
+    FIR only — i.e. the trail runs weapon -> FIR number -> accused. The
+    downstream criminal-record lookup added below is the same kind of link:
+    `StructuredRecord.source_case_ref` is free text ("FIR 891/24, PS Jhang
+    Road Faisalabad"), matched on the normalized FIR number via `_fir_key`,
+    exactly as CR7's own cross-check already does. The renderer says so.
+
+    Weapons with no `recovered_from` match (crime-scene finds — a spent
+    casing, a wooden stick) are reported as a separate, honest count rather
+    than silently dropped.
+    """
+    weapon_filter = ""
+    params: dict = {}
+    if jurisdiction_case_ids is not None:
+        weapon_filter = "WHERE c.case_id IN $case_ids"
+        params = {"case_ids": jurisdiction_case_ids}
+    weapon_rows = await age_client.execute_cypher(
+        f"MATCH (w:Weapon)-[:BELONGS_TO_CASE]->(c:Case) {weapon_filter} "
+        "OPTIONAL MATCH (p:Person)-[:OWNS]->(w) "
+        "RETURN w.entity_id AS weapon_id, w.canonical_name AS weapon, "
+        "w.license_status AS license_status, c.case_id AS case_id, "
+        "p.canonical_name AS person, p.entity_id AS person_id",
+        params=params,
+        columns=["weapon_id", "weapon", "license_status", "case_id", "person", "person_id"],
+    )
+
+    # The accused's recorded status on that same case — the "what happened
+    # to them" half of the question.
+    status_rows = await age_client.execute_cypher(
+        "MATCH (p:Person)-[e:INVOLVED_IN]->(i:Incident)-[:PART_OF]->(c:Case) "
+        "WHERE e.role = 'accused' "
+        "RETURN p.entity_id AS person_id, c.case_id AS case_id, "
+        "e.arrest_status AS arrest_status",
+        columns=["person_id", "case_id", "arrest_status"],
+    )
+    status_by_person_case = {
+        (r.get("person_id"), r.get("case_id")): r.get("arrest_status")
+        for r in status_rows
+    }
+
+    # Optional downstream: the criminal-record system's own conviction
+    # status, joined on the FIR number (free text on both sides — see the
+    # docstring's hedge note).
+    cr_rows = await age_client.execute_cypher(
+        "MATCH (r:StructuredRecord) WHERE r.record_type = 'criminal_record' "
+        "RETURN r.subject_full_name AS subject, r.source_case_ref AS case_ref, "
+        "r.conviction_status AS conviction_status",
+        columns=["subject", "case_ref", "conviction_status"],
+    )
+    conviction_by_fir = {}
+    for r in cr_rows:
+        k = _fir_key(r.get("case_ref"))
+        if k:
+            conviction_by_fir[k] = {
+                "subject": r.get("subject"),
+                "conviction_status": r.get("conviction_status"),
+            }
+
+    chains = []
+    unattributed = []
+    for r in weapon_rows:
+        case_id = r.get("case_id")
+        person_id = r.get("person_id")
+        if not person_id:
+            unattributed.append({"weapon": r.get("weapon"), "case_id": case_id})
+            continue
+        fir = _fir_key(case_id)
+        cr = conviction_by_fir.get(fir) if fir else None
+        chains.append({
+            "weapon": r.get("weapon"),
+            "license_status": r.get("license_status"),
+            "case_id": case_id,
+            "fir": fir,
+            "recovered_from": r.get("person"),
+            "status": status_by_person_case.get((person_id, case_id)),
+            "conviction_status": cr.get("conviction_status") if cr else None,
+        })
+
+    # Richest chain first — the fullest worked example of the trail the
+    # question asks about is one whose accused status runs all the way to a
+    # decided outcome (`_conviction_is_settled`, reused from CR7's own
+    # cross-check) AND which also carries a criminal-record outcome, rather
+    # than one still sitting at "under investigation".
+    chains.sort(key=lambda c: (
+        not _conviction_is_settled(c["status"]),
+        c["conviction_status"] is None,
+        c["case_id"] or "",
+    ))
+
+    return {
+        "kind": "weapon_evidence_chain",
+        "total_weapons": len(weapon_rows),
+        "traceable_count": len(chains),
+        "untraceable_count": len(unattributed),
+        "untraceable": unattributed,
+        "example": chains[0] if chains else None,
+        "chains": chains[:example_limit],
+        "chains_shown": min(len(chains), example_limit),
+    }
+
+
+def render_weapon_evidence_chain(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — CR4, Module 28] shared renderer for all three XAGG
+    rendering sites (harness xagg tool + orchestrator's two branches)."""
+    total = agg_result["total_weapons"]
+    traceable = agg_result["traceable_count"]
+    untraceable = agg_result["untraceable_count"]
+    if total == 0:
+        return ["No weapons are logged in the weapon register."]
+    if traceable == 0:
+        return [
+            f"Of the {total} weapons logged as evidence, none records who it "
+            f"was recovered from, so no weapon can currently be traced back "
+            f"to a person."
+        ]
+
+    def _chain_line(c: dict) -> str:
+        # Render the FIR the way the source records themselves write it
+        # ("FIR 891/24"), not `_fir_key`'s internal 'NNN-YY' normal form.
+        fir = (
+            f"FIR {c['fir'].replace('-', '/')}"
+            if c.get("fir") else (c.get("case_id") or "unknown case")
+        )
+        lic = f", {c['license_status']}" if c.get("license_status") else ""
+        status = c.get("status") or "no status recorded on this case"
+        line = (
+            f"  - {c['weapon']}{lic} — logged in {fir}; recovered from "
+            f"{c['recovered_from']}; recorded status on that case: {status}."
+        )
+        if c.get("conviction_status"):
+            line += (
+                " The criminal-record system additionally records "
+                f"\"{c['conviction_status']}\" for that person on the same FIR."
+            )
+        return line
+
+    lines = [
+        f"Yes — for {traceable} of the {total} weapons logged as evidence, the "
+        f"register records who the weapon was recovered from, and that person's "
+        f"status on the same case can be read straight off the record.",
+        "",
+        "Worked example:",
+        _chain_line(agg_result["example"]),
+        "",
+        f"The same chain holds for the other traceable weapons — "
+        f"{max(agg_result['chains_shown'] - 1, 0)} more of the {traceable - 1} "
+        f"shown here:",
+    ]
+    lines.extend(
+        _chain_line(c) for c in agg_result["chains"] if c is not agg_result["example"]
+    )
+    if untraceable:
+        detail = "; ".join(
+            f"{u['weapon']} ({u['case_id']})" for u in agg_result.get("untraceable", [])[:5]
+        )
+        lines.append("")
+        lines.append(
+            f"{untraceable} of the {total} record no person at all — they are "
+            f"crime-scene recoveries rather than items taken off an accused"
+            + (f": {detail}." if detail else ".")
+        )
+    lines.append("")
+    lines.append(
+        "Caveat on how solid this trail is: the weapon -> person link is NOT "
+        "an enforced database key. The weapon register stores `recovered_from` "
+        "as a bare name, so it is matched to the accused named in the SAME FIR "
+        "— i.e. the trail runs weapon -> FIR number -> accused. The "
+        "criminal-record outcome above is joined the same way, on the FIR "
+        "number parsed out of a free-text case reference. It holds for this "
+        "data, but a name repeated across two FIRs would not be distinguished "
+        "by it."
+    )
+    return lines
+
+
 async def _court_readiness_scan(
     gateway, jurisdiction_case_ids: Optional[list[str]] = None,
 ) -> dict:
@@ -1263,6 +2279,66 @@ def render_court_readiness_scan(agg_result: dict) -> list[str]:
         "Each is a likely round-trip to fix, not a hard blocker.",
     ]
     return lines
+
+
+def render_time_bucketed_mean(agg_result: dict) -> list[str]:
+    """
+    [Gold-QA fix — Module 22, M7] Shared renderer for all three XAGG
+    rendering sites (the harness `xagg_tool()` wrapper and orchestrator.py's
+    two legacy XAGG blocks), for the same reason
+    `render_court_readiness_scan()` above is shared: this file has a
+    documented history of a new aggregate being wired into one rendering
+    site and silently missed at another.
+
+    Renders minutes at whatever scale reads naturally — a 1401.3-minute mean
+    is far easier to judge as "~23.4 hours" — while always keeping the raw
+    minutes, since that is the unit the comparison is computed in.
+    """
+    buckets = agg_result.get("buckets") or []
+    if not buckets:
+        return [
+            "No FIR in scope records both an incident time and a report "
+            "time, so reporting speed cannot be computed."
+        ]
+
+    lines = [
+        "Mean time from incident to report, by incident year:",
+    ]
+    for b in buckets:
+        minutes = b["mean_minutes"]
+        readable = _humanize_minutes(minutes)
+        suffix = f" (~{readable})" if readable else ""
+        lines.append(
+            f"  - {b['year']}: {minutes} minutes{suffix} "
+            f"across {b['case_count']} FIRs"
+        )
+
+    if len(buckets) >= 2:
+        first, last = buckets[0], buckets[-1]
+        direction = "slower" if last["mean_minutes"] > first["mean_minutes"] else "faster"
+        lines.append(
+            f"Reporting is {direction} in {last['year']} than in {first['year']}."
+        )
+
+    # Coverage stated explicitly rather than left implicit — a mean over an
+    # unstated subset is the kind of number this project's own discipline
+    # says not to present without its denominator.
+    missing = agg_result.get("missing_timestamp_count") or 0
+    if missing:
+        lines.append(
+            f"({missing} FIR(s) excluded — incident or report time not "
+            f"recorded, or recorded out of order.)"
+        )
+    return lines
+
+
+def _humanize_minutes(minutes: float) -> Optional[str]:
+    """A friendlier scale for a large minute count; None when minutes already read fine."""
+    if minutes >= 1440:
+        return f"{round(minutes / 1440, 1)} days"
+    if minutes >= 60:
+        return f"{round(minutes / 60, 1)} hours"
+    return None
 
 
 # [Gold-QA fix — Module 1c] District-level rollup — District/PoliceStation
@@ -1478,6 +2554,524 @@ async def _statute_mix_by_year(gateway, jurisdiction_case_ids: Optional[list[str
     }
 
 
+# [Gold-QA fix — Module 23, question M5] Weapon × statute co-occurrence, by
+# incident year — "in what kinds of cases do weapons show up, and has that
+# changed since 2024?"
+#
+# The MISSING PRIMITIVE this closes: nothing in this module joined a Weapon
+# to its case's statutes. `_statute_mix_by_year()` directly above has the
+# year and statute dimensions but no weapon one; `_top_recurring_weapon_types()`
+# has the weapon dimension but neither of the others. M5 therefore fell into
+# the former and got a per-year statute ranking over ALL cases — the right
+# shape for M1, and unable in principle to say what a weapon charge pairs
+# with.
+#
+# Three graph reads, joined on case_id in Python rather than one four-label
+# Cypher MATCH chain, because each of the three is the SAME query an existing
+# aggregate here already issues, so their semantics stay pinned to those
+# aggregates':
+#   1. year per case      — identical to `_statute_mix_by_year()`'s own
+#                           query, so the two can never disagree about which
+#                           year a case falls in (the failure mode this
+#                           module's brief calls out explicitly).
+#   2. weapons per case   — `_top_recurring_weapon_types()`'s query, and
+#                           normalized through the same
+#                           `_normalize_weapon_type()`, so "30 بور پستول" and
+#                           "30 بور پستول بمعہ 3 گولیاں" stay one type.
+#   3. statutes per case  — `StructuredRecord{record_type: 'fir_section'}`,
+#                           projected by structured_projection.py from
+#                           psrms.fir_section and linked BELONGS_TO_CASE.
+#                           This is SECTION-level (`act` + `section_code`,
+#                           e.g. "PPC" + "392"), strictly finer than
+#                           `cases.crime_category`, which
+#                           `muhafiz_cases._crime_category()` reduces to the
+#                           ACT list alone ("PPC, Arms Ordinance 1965") and
+#                           which therefore cannot tell robbery (392) from
+#                           murder (302) — the exact distinction M5's answer
+#                           turns on. Verified live against the graph (218
+#                           fir_section records, every one carrying a
+#                           BELONGS_TO_CASE edge), not inferred.
+_WEAPONS_ACT_TOKENS = ("arms ordinance", "arms act", "آرمز آرڈیننس")
+
+
+def _statute_label(act: Optional[str], section_code: Optional[str]) -> Optional[str]:
+    """
+    "PPC" + "392" -> "PPC §392"; an act with no section code -> the bare act.
+    Section-first would read closer to how an FIR header writes it
+    ("392 PPC"), but act-first keeps one act's sections together once the
+    labels are sorted, which is what the renderer below relies on.
+    """
+    act = (act or "").strip()
+    section = (section_code or "").strip()
+    if not act:
+        return f"§{section}" if section else None
+    return f"{act} §{section}" if section else act
+
+
+def _is_weapons_act(statute_key: str) -> bool:
+    """True for a weapons-law statute (the 'weapon charge' itself) — matched
+    on the ACT name, never a hardcoded section number, so a different section
+    of the same ordinance still counts."""
+    lowered = (statute_key or "").lower()
+    return any(t in lowered for t in _WEAPONS_ACT_TOKENS)
+
+
+async def _weapon_statute_cooccurrence_by_year(
+    jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    """
+    [Gold-QA fix — Module 23, question M5] For every case with a recovered
+    Weapon, that case's statute set, bucketed by incident year.
+
+    Reports two views per year, because M5 asks two things at once:
+      - `statutes`: what every weapon-bearing case that year was charged
+        under — "in what kinds of cases do weapons show up".
+      - `cooccurring`: among the weapon-bearing cases that also carry a
+        WEAPONS-LAW charge, which OTHER statutes appear alongside it — the
+        narrower "what does a weapon charge pair with" view, and the one
+        whose change over time is M5's actual point.
+    `pairs` keeps the weapon-type × statute cross-tab underneath both, so a
+    corpus with a genuinely mixed weapon register can be read per type rather
+    than only in aggregate.
+
+    A weapon-bearing case with no resolvable incident year is counted in
+    `undated_weapon_cases` rather than folded into any year — the same
+    discipline as `_extract_year()`'s own contract.
+    """
+    case_filter = "AND c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+    plain_filter = "WHERE c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+    params: dict = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+
+    year_rows = await age_client.execute_cypher(
+        "MATCH (i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+        "MATCH (i)-[oe:OCCURRED_ON]->(d:Date) "
+        f"WHERE oe.event_type = 'incident' {case_filter}"
+        "RETURN d.date AS incident_date, c.case_id AS case_id",
+        params=params, columns=["incident_date", "case_id"],
+    )
+    year_by_case: dict[str, int] = {}
+    for row in year_rows:
+        case_id = row.get("case_id")
+        year = _extract_year(row.get("incident_date"))
+        if case_id and year is not None:
+            year_by_case[case_id] = year
+
+    weapon_rows = await age_client.execute_cypher(
+        "MATCH (w:Weapon)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"{plain_filter}"
+        "RETURN w.canonical_name AS weapon_name, c.case_id AS case_id",
+        params=params, columns=["weapon_name", "case_id"],
+    )
+    weapons_by_case: dict[str, set[str]] = {}
+    for row in weapon_rows:
+        case_id = row.get("case_id")
+        wtype = _normalize_weapon_type(row.get("weapon_name") or "")
+        if case_id and wtype:
+            weapons_by_case.setdefault(case_id, set()).add(wtype)
+
+    statute_rows = await age_client.execute_cypher(
+        "MATCH (s:StructuredRecord)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE s.record_type = 'fir_section' {case_filter}"
+        "RETURN s.act AS act, s.section_code AS section_code, c.case_id AS case_id",
+        params=params, columns=["act", "section_code", "case_id"],
+    )
+    statutes_by_case: dict[str, set[str]] = {}
+    for row in statute_rows:
+        case_id = row.get("case_id")
+        label = _statute_label(row.get("act"), row.get("section_code"))
+        if case_id and label:
+            statutes_by_case.setdefault(case_id, set()).add(label)
+
+    per_year: dict[int, dict] = {}
+    undated = 0
+    for case_id, wtypes in weapons_by_case.items():
+        year = year_by_case.get(case_id)
+        if year is None:
+            undated += 1
+            continue
+        statutes = statutes_by_case.get(case_id, set())
+        bucket = per_year.setdefault(year, {
+            "cases": set(), "statutes": Counter(), "weapon_types": Counter(),
+            "pairs": Counter(), "weapon_charge_cases": set(), "cooccurring": Counter(),
+        })
+        bucket["cases"].add(case_id)
+        for wtype in wtypes:
+            bucket["weapon_types"][wtype] += 1
+        for statute in statutes:
+            bucket["statutes"][statute] += 1
+            for wtype in wtypes:
+                bucket["pairs"][(wtype, statute)] += 1
+        # The co-occurrence view: only cases that actually carry a
+        # weapons-law charge, and only the OTHER statutes on them.
+        if any(_is_weapons_act(s) for s in statutes):
+            bucket["weapon_charge_cases"].add(case_id)
+            for statute in statutes:
+                if not _is_weapons_act(statute):
+                    bucket["cooccurring"][statute] += 1
+
+    def _counts(counter: Counter) -> list[dict]:
+        # Ties broken alphabetically so the rendered order is stable across
+        # runs — Counter.most_common() alone leaves equal counts in insertion
+        # order, which for a set-derived input is not deterministic.
+        return [
+            {"key": k, "count": v}
+            for k, v in sorted(counter.items(), key=lambda kv: (-kv[1], kv[0]))
+        ]
+
+    # Observability, not decoration: this module's verification standard
+    # requires PROVING which aggregate a live question reached, and the SSE
+    # stream only ever exposes `route='XAGG'` — one line per aggregate is the
+    # difference between a demonstrated route and an inferred one.
+    logger.info(
+        "XAGG weapon_statute_cooccurrence: %d weapon case(s), %d year bucket(s), "
+        "%d with no resolvable incident date",
+        len(weapons_by_case), len(per_year), undated,
+    )
+    return {
+        "kind": "weapon_statute_cooccurrence",
+        "total_weapon_cases": len(weapons_by_case),
+        "undated_weapon_cases": undated,
+        "buckets": [
+            {
+                "year": year,
+                "case_count": len(b["cases"]),
+                "statutes": _counts(b["statutes"]),
+                "weapon_types": _counts(b["weapon_types"]),
+                "weapon_charge_case_count": len(b["weapon_charge_cases"]),
+                "cooccurring": _counts(b["cooccurring"]),
+                "pairs": [
+                    {"weapon_type": wt, "statute": st, "count": n}
+                    for (wt, st), n in sorted(
+                        b["pairs"].items(), key=lambda kv: (-kv[1], kv[0][0], kv[0][1])
+                    )
+                ],
+            }
+            for year, b in sorted(per_year.items())
+        ],
+    }
+
+
+def render_weapon_statute_cooccurrence(agg_result: dict) -> list[str]:
+    """
+    [Gold-QA fix — Module 23, M5] Shared renderer for all three XAGG
+    rendering sites, same reason as `render_time_bucketed_mean()` above.
+
+    The closing "what changed" line is DERIVED from the buckets (a set
+    difference between the earliest and latest year's co-occurring statutes),
+    never a narrative pinned to the years or sections the gold answer happens
+    to name — if the corpus stops showing the widening, the line stops
+    claiming it.
+    """
+    buckets = agg_result.get("buckets") or []
+    if not buckets:
+        return [
+            "No case with a recovered weapon has a resolvable incident date, "
+            "so weapon charges cannot be broken down by year."
+        ]
+
+    total = agg_result.get("total_weapon_cases", 0)
+    lines = [
+        f"{total} case(s) recorded a recovered weapon. What those cases were "
+        f"charged under, by incident year:",
+    ]
+    for b in buckets:
+        lines.append("")
+        lines.append(f"**{b['year']}** — {b['case_count']} case(s) with a recovered weapon:")
+        for s in b["statutes"]:
+            lines.append(f"  - {s['key']}: {s['count']}")
+        wtypes = ", ".join(f"{w['key']} ({w['count']})" for w in b["weapon_types"])
+        if wtypes:
+            lines.append(f"  Weapon types recovered: {wtypes}.")
+        if b["weapon_charge_case_count"]:
+            paired = ", ".join(f"{c['key']} ({c['count']})" for c in b["cooccurring"])
+            lines.append(
+                f"  Of these, {b['weapon_charge_case_count']} carry a weapons-law "
+                f"charge; the sections it appears alongside: {paired or 'none'}."
+            )
+
+    if len(buckets) >= 2:
+        first, last = buckets[0], buckets[-1]
+        before = {c["key"] for c in first["cooccurring"]}
+        after = {c["key"] for c in last["cooccurring"]}
+        added = sorted(after - before)
+        dropped = sorted(before - after)
+        lines.append("")
+        if added:
+            lines.append(
+                f"Change {first['year']} to {last['year']}: the weapons charge now "
+                f"also appears with {', '.join(added)}, which it did not in "
+                f"{first['year']}."
+            )
+        if dropped:
+            lines.append(f"No longer paired with: {', '.join(dropped)}.")
+        if not added and not dropped:
+            lines.append(
+                f"The set of statutes a weapons charge appears alongside is "
+                f"unchanged between {first['year']} and {last['year']}."
+            )
+
+    undated = agg_result.get("undated_weapon_cases") or 0
+    if undated:
+        lines.append("")
+        lines.append(
+            f"({undated} case(s) with a recovered weapon are excluded — no "
+            f"incident date recorded.)"
+        )
+    return lines
+
+
+
+# [Gold-QA fix - Module 24, question M4] Statute x court-stage JOIN - "what
+# sections are people charged under, how far did those cases get in court,
+# and do the two give the same impression of how serious the caseload is?"
+#
+# Two halves, deliberately from the two DIFFERENT systems that hold them,
+# and one derived agreement verdict:
+#
+#   Half A - the charging side. `StructuredRecord{record_type: "fir_section"}`
+#     nodes (`act` + `section_code`, linked BELONGS_TO_CASE), the same
+#     SECTION-level source `_weapon_statute_cooccurrence_by_year()` reads and
+#     through the same `_statute_label()`. NOT `cases.crime_category`, which
+#     `muhafiz_cases._crime_category()` reduces to the comma-joined ACT list
+#     ("PPC, Arms Ordinance 1965"): M4 asks about "دفعات" (sections), and the
+#     act view cannot tell murder (PPC 302) from a bounced cheque. The live
+#     act-level answer M4 used to give ("PPC 61, Arms Ordinance 1965 29") is
+#     exactly that limitation showing through.
+#
+#   Half B - the court side. `_criminal_record_court_crosscheck()` (CR7,
+#     Module 14) called AS-IS, and rendered through its own
+#     `render_criminal_record_crosscheck()`. Deliberately NOT a second query
+#     path over the same criminal-record table: two readers over one table
+#     drift apart, and `_conviction_is_settled()` already encodes what
+#     counts as a reached verdict. Nothing about that rule is re-derived
+#     here.
+#
+#   The join itself - a criminal record names its case as free text
+#     (`source_case_ref`, e.g. "FIR 891/24, PS Jhang Road Faisalabad"), so
+#     `_fir_key()` (CR7's own normalizer, reused) is what links a record to
+#     a Case and therefore to that case's sections. Live-measured coverage
+#     is thin (4 of 33 records name any FIR at all) and the result reports
+#     that number rather than hiding it - the thinness is itself part of
+#     why the two halves cannot be reconciled case by case.
+#
+# THE AGREEMENT RULE IS A MAJORITY TEST, stated here so it is not mistaken
+# for a threshold tuned to this corpus: the two views agree only when most
+# criminal records have actually reached a verdict, because only then does a
+# conviction count describe the same caseload the section counts describe.
+# On a corpus where the courts had caught up, the same rule returns "agree"
+# - nothing in it names a year, a section, or an expected ratio.
+async def _statute_court_stage_join(
+    jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    case_filter = "AND c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+    plain_filter = "WHERE c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+    params: dict = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+
+    # Half A - section-level charges, counted in CASES per section (a case
+    # charged twice under one section must not count twice), which is the
+    # denominator the court half is also expressed in.
+    statute_rows = await age_client.execute_cypher(
+        "MATCH (s:StructuredRecord)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE s.record_type = 'fir_section' {case_filter}"
+        "RETURN s.act AS act, s.section_code AS section_code, c.case_id AS case_id",
+        params=params, columns=["act", "section_code", "case_id"],
+    )
+    statutes_by_case: dict[str, set[str]] = {}
+    for row in statute_rows:
+        case_id = row.get("case_id")
+        label = _statute_label(row.get("act"), row.get("section_code"))
+        if case_id and label:
+            statutes_by_case.setdefault(case_id, set()).add(label)
+    statute_counts: Counter = Counter()
+    for labels in statutes_by_case.values():
+        for label in labels:
+            statute_counts[label] += 1
+
+    # Half B - reuse CR7's reader whole. See this function's comment above.
+    court = await _criminal_record_court_crosscheck(
+        jurisdiction_case_ids=jurisdiction_case_ids
+    )
+
+    # The join - which criminal records name a case this corpus actually
+    # holds, and what that case was charged under.
+    case_rows = await age_client.execute_cypher(
+        "MATCH (c:Case) "
+        f"{plain_filter}"
+        "RETURN c.case_id AS case_id, c.fir_number AS fir_number",
+        params=params, columns=["case_id", "fir_number"],
+    )
+    case_by_fir: dict[str, str] = {}
+    for row in case_rows:
+        # `fir_number` is not always projected onto the Case node, but the
+        # `case_id` itself carries the FIR reference ("fir-891-24") - try the
+        # explicit field first, fall back to the id, the same tolerance
+        # `_fir_key()` was written for.
+        key = _fir_key(row.get("fir_number")) or _fir_key(row.get("case_id"))
+        if key:
+            case_by_fir[key] = row.get("case_id")
+
+    cr_rows = await age_client.execute_cypher(
+        "MATCH (r:StructuredRecord) WHERE r.record_type = 'criminal_record' "
+        "RETURN r.conviction_status AS status, r.source_case_ref AS case_ref, "
+        "r.subject_full_name AS subject",
+        columns=["status", "case_ref", "subject"],
+    )
+    joined = []
+    for row in cr_rows:
+        key = _fir_key(row.get("case_ref"))
+        if not key or key not in case_by_fir:
+            continue
+        case_id = case_by_fir[key]
+        joined.append({
+            "fir": key,
+            "case_id": case_id,
+            "subject": row.get("subject"),
+            "court_stage": row.get("status"),
+            "settled": _conviction_is_settled(row.get("status")),
+            "statutes": sorted(statutes_by_case.get(case_id, set())),
+        })
+    joined.sort(key=lambda j: j["fir"])
+
+    total_records = court.get("total_records") or 0
+    settled = court.get("settled_count") or 0
+    settled_share = (settled / total_records) if total_records else None
+    # The majority test. See this function's comment block.
+    agree = bool(total_records) and settled * 2 >= total_records
+
+    # Observability, not decoration: the SSE stream only ever exposes
+    # `route='XAGG'` and never which aggregate inside XAGG ran, so one line
+    # per aggregate is the difference between a demonstrated route and an
+    # inferred one - the convention Module 23 established in this file.
+    logger.info(
+        "XAGG statute_court_stage_join: %d case(s) carry a recorded section "
+        "across %d distinct statute(s); %d criminal record(s), %d settled / "
+        "%d in progress; %d record(s) join to a case in this corpus; agree=%s",
+        len(statutes_by_case), len(statute_counts), total_records, settled,
+        court.get("in_progress_count") or 0, len(joined), agree,
+    )
+    return {
+        "kind": "statute_court_stage_join",
+        "charged_case_count": len(statutes_by_case),
+        "section_entry_count": len(statute_rows),
+        "distinct_statute_count": len(statute_counts),
+        "statutes": [
+            {"key": k, "case_count": v}
+            for k, v in sorted(statute_counts.items(), key=lambda kv: (-kv[1], kv[0]))
+        ],
+        "court": court,
+        "joined_records": joined,
+        "joinable_record_count": len(joined),
+        "settled_share": settled_share,
+        "agree": agree,
+    }
+
+
+_STATUTE_RENDER_LIMIT = 15
+
+
+def render_statute_court_stage_join(agg_result: dict) -> list[str]:
+    """
+    [Gold-QA fix - Module 24, M4] Shared renderer for all three XAGG
+    rendering sites, same reason as `render_weapon_statute_cooccurrence()`.
+
+    M4's whole value is the COMPARISON, so this renderer states the verdict
+    itself rather than emitting two number lists and leaving the synthesis
+    to the generation model - an answer that reports one half accurately and
+    stops is still a wrong answer to this question. The verdict sentence is
+    derived from the counts (see `_statute_court_stage_join()`'s majority
+    rule); it is not a narrative pinned to what this corpus happens to show.
+
+    Half B is rendered by `render_criminal_record_crosscheck()` rather than
+    re-formatted here, so the court-side wording can never drift from CR7's.
+    """
+    lines = [
+        "Two views of the same caseload, side by side: what people are "
+        "being charged under, and how far those cases have got in court.",
+        "",
+        "**1. What people are being charged under (FIR sections).**",
+    ]
+    charged = agg_result.get("charged_case_count") or 0
+    if not charged:
+        lines.append(
+            "  No case in scope has a recorded FIR section, so the charging "
+            "side cannot be described."
+        )
+    else:
+        lines.append(
+            f"  {charged} case(s) carry at least one FIR section - "
+            f"{agg_result.get('section_entry_count') or 0} section entries "
+            f"across {agg_result.get('distinct_statute_count') or 0} distinct "
+            f"statutes. Cases charged under each, most-charged first:"
+        )
+        statutes = agg_result.get("statutes") or []
+        # Capped for the same reason `_statute_mix_by_year()` caps its own
+        # per-year lists at 15: this corpus's tail is ~20 sections charged in
+        # a single case each, and a 36-line list dilutes the comparison this
+        # question is actually about. The remainder is stated, never dropped
+        # silently, and the full list stays in the result dict.
+        for s in statutes[:_STATUTE_RENDER_LIMIT]:
+            lines.append(f"  - {s['key']}: {s['case_count']} case(s)")
+        remaining = len(statutes) - _STATUTE_RENDER_LIMIT
+        if remaining > 0:
+            lines.append(
+                f"  ... and {remaining} further section(s), each charged in "
+                f"{statutes[_STATUTE_RENDER_LIMIT]['case_count']} case(s) or fewer."
+            )
+
+    lines.append("")
+    lines.append("**2. How far those cases have got in court.**")
+    for line in render_criminal_record_crosscheck(agg_result["court"]):
+        lines.append(f"  {line}" if line else "")
+
+    joined = agg_result.get("joined_records") or []
+    total_records = (agg_result.get("court") or {}).get("total_records") or 0
+    lines.append("")
+    lines.append("**3. The overlap between the two.**")
+    if joined:
+        lines.append(
+            f"  {len(joined)} of {total_records} criminal records name an FIR "
+            f"that is also a case in this corpus, so only those can be read on "
+            f"both sides at once:"
+        )
+        for j in joined:
+            statutes = ", ".join(j["statutes"]) or "no recorded section"
+            subject = f" ({j['subject']})" if j.get("subject") else ""
+            lines.append(
+                f"  - FIR {j['fir']}{subject} - charged under {statutes}; "
+                f"court stage: \"{j['court_stage']}\"."
+            )
+    else:
+        lines.append(
+            f"  None of the {total_records} criminal records names an FIR that "
+            f"is also a case in this corpus, so no single case can be read on "
+            f"both sides at once."
+        )
+
+    lines.append("")
+    settled = (agg_result.get("court") or {}).get("settled_count") or 0
+    share = agg_result.get("settled_share")
+    pct = f"{share * 100:.0f}%" if share is not None else "n/a"
+    if agg_result.get("agree"):
+        lines.append(
+            f"**Do the two agree? Yes.** {settled} of {total_records} criminal "
+            f"records ({pct}) have reached a verdict, so the court-stage view "
+            f"covers most of the recorded caseload and describes it at the "
+            f"same point the section counts do."
+        )
+    else:
+        lines.append(
+            f"**Do the two agree? No.** Every one of the {charged} charged "
+            f"case(s) is counted on the charging side, but only {settled} of "
+            f"{total_records} criminal records ({pct}) has reached a verdict - "
+            f"the rest are still in progress. A conviction count therefore "
+            f"describes {pct} of the recorded court caseload while the section "
+            f"counts describe all of it, so the two do NOT give the same "
+            f"impression of severity. Current caseload severity should be read "
+            f"off the FIR/section counts; the conviction counts lag behind them."
+        )
+    return lines
+
+
 # [Module 13, RC-2, question M7] Year-partitioned reporting-delay picture —
 # "are people reporting incidents to police as quickly in 2026 as in 2024".
 #
@@ -1501,6 +3095,279 @@ async def _statute_mix_by_year(gateway, jurisdiction_case_ids: Optional[list[str
 # on the same two primitives as CP1/M1 above, not a fabricated day-count.
 # Self-heals to a true mean-days aggregate with no code change here once
 # `report_datetime` is projected.
+async def _incident_to_report_minutes_by_year(
+    jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    """
+    [Gold-QA fix — Module 22, question M7] Mean minutes from incident to
+    report, bucketed by incident year — the metric M7 actually asks for
+    ("are people reporting as quickly in 2026 as in 2024?").
+
+    This is what `_reporting_delay_rate_by_year()` below could not compute,
+    and said so in its own `note`: the delay-REASON rate is a different
+    quantity, and no finer-than-a-day timestamp reached a queryable field.
+    Module 22 projects `Incident.incident_datetime` / `.report_datetime`
+    (structured_projection.py), so the real delta is now computable — the
+    "self-heals once report_datetime is projected" case that function's own
+    comment anticipated.
+
+    Both timestamps are optional by the projection's own convention, so a
+    FIR missing either is EXCLUDED from the mean rather than counted as a
+    zero delay (which would silently drag every average toward 0). The
+    per-bucket `n` and the corpus-level `missing_timestamp_count` are
+    reported so the answer can state its own coverage honestly instead of
+    presenting a mean over an unstated subset.
+    """
+    where_parts = ["i.incident_datetime IS NOT NULL", "i.report_datetime IS NOT NULL"]
+    params: dict = {}
+    if jurisdiction_case_ids is not None:
+        where_parts.append("c.case_id IN $case_ids")
+        params["case_ids"] = jurisdiction_case_ids
+    query = (
+        "MATCH (i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE {' AND '.join(where_parts)} "
+        "RETURN i.incident_datetime AS incident_datetime, "
+        "i.report_datetime AS report_datetime"
+    )
+    rows = await age_client.execute_cypher(
+        query, params=params, columns=["incident_datetime", "report_datetime"],
+    )
+
+    minutes_by_year: dict[int, list[float]] = {}
+    skipped = 0
+    for row in rows:
+        delta = _minutes_between(row.get("incident_datetime"), row.get("report_datetime"))
+        year = _extract_year(row.get("incident_datetime"))
+        if delta is None or year is None:
+            skipped += 1
+            continue
+        minutes_by_year.setdefault(year, []).append(delta)
+
+    buckets = [
+        {
+            "year": year,
+            "mean_minutes": round(sum(values) / len(values), 1),
+            "case_count": len(values),
+        }
+        for year, values in sorted(minutes_by_year.items())
+    ]
+    return {
+        "kind": "time_bucketed_mean",
+        "dimension": "incident_to_report_minutes_by_year",
+        "unit": "minutes",
+        "buckets": buckets,
+        "missing_timestamp_count": skipped,
+    }
+
+
+# [Gold-QA fix — Module 22] Shared by the aggregate above; kept module-level
+# and pure so the parsing rules (which tolerate the `Z` suffix AGE returns,
+# and reject a negative delta rather than averaging it in) are unit-testable
+# without a live graph.
+def _minutes_between(start_value, end_value) -> Optional[float]:
+    """
+    Whole minutes from `start_value` to `end_value`, or None if either is
+    unparseable or the pair is out of order.
+
+    A report timestamp EARLIER than its incident timestamp is a data defect,
+    not a negative delay — averaging it in would silently pull the mean
+    down and hide the bad row. Returning None routes it to the caller's
+    skipped/missing count instead, where it stays visible.
+    """
+    start = _parse_iso_datetime(start_value)
+    end = _parse_iso_datetime(end_value)
+    if start is None or end is None:
+        return None
+    delta_minutes = (end - start).total_seconds() / 60
+    if delta_minutes < 0:
+        return None
+    return delta_minutes
+
+
+def _parse_iso_datetime(value) -> Optional[datetime]:
+    """
+    Parse an ISO-8601 timestamp as projected onto the graph.
+
+    AGE returns the property as a quoted agtype string; the API's own values
+    carry a `Z` suffix (`2024-09-25T17:10:00Z`), which `fromisoformat()`
+    only accepts from Python 3.11 — normalized here rather than relying on
+    the runtime's version.
+    """
+    if not value:
+        return None
+    text = str(value).strip().strip('"')
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        return datetime.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+async def _incident_time_of_day(jurisdiction_case_ids: Optional[list[str]] = None) -> dict:
+    """
+    [Gold-QA fix — Module 34, question G1] When during the day do incidents
+    happen — `Incident.incident_datetime` bucketed into four hour bands.
+
+    Reads the property Module 22 projects. Measured on this corpus
+    (2026-09-08): 64 of 73 Incidents carry it.
+
+    THE MIDNIGHT DECISION, made before the numbers were reported. 14 of
+    those 64 record exactly 00:00:00. A police FIR does not record a
+    quarter of its incidents at precisely midnight; that value is a
+    DATE-ONLY timestamp — a date with no clock time, widened to a datetime
+    by the projection. Counting it as "night" is what produces gold's
+    "fairly flat across the day": naively, night=15; with the date-only
+    rows removed, night=1 and the day is not flat at all, it is empty
+    overnight.
+
+    So this aggregate EXCLUDES exact-midnight rows from the distribution and
+    reports them as their own `date_only_count`, while also returning
+    `naive_bucket_counts` — the same buckets WITH them — so the difference
+    is auditable and gold's reading is traceable to the rule that produced
+    it rather than silently contradicted.
+
+    (The plan's Module 34 section states 9 such rows. The live count is 14;
+    9 is the number of Incidents carrying NO datetime at all. Corrected in
+    `docs/gold-qa-wave2-results/MODULE34_RESULT.md`.)
+    """
+    case_filter = "AND c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+    plain_filter = "WHERE c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+    params: dict = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+
+    total_rows = await age_client.execute_cypher(
+        f"MATCH (i:Incident)-[:BELONGS_TO_CASE]->(c:Case) {plain_filter}"
+        "RETURN count(DISTINCT i) AS n",
+        params=params, columns=["n"],
+    )
+    total_incidents = int((total_rows[0] or {}).get("n") or 0) if total_rows else 0
+
+    rows = await age_client.execute_cypher(
+        "MATCH (i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE i.incident_datetime IS NOT NULL {case_filter}"
+        "RETURN i.incident_datetime AS incident_datetime, c.case_id AS case_id",
+        params=params, columns=["incident_datetime", "case_id"],
+    )
+
+    counts: Counter = Counter()
+    naive_counts: Counter = Counter()
+    hour_histogram: Counter = Counter()
+    date_only = 0
+    unparsed = 0
+    with_datetime = 0
+    seen_cases: set = set()
+    for row in rows:
+        case_id = row.get("case_id")
+        if case_id is not None:
+            if case_id in seen_cases:
+                continue
+            seen_cases.add(case_id)
+        parsed = _parse_iso_datetime(row.get("incident_datetime"))
+        if parsed is None:
+            unparsed += 1
+            continue
+        with_datetime += 1
+        band = next(
+            (label for label, start, end in _TIME_OF_DAY_BANDS if start <= parsed.hour < end),
+            None,
+        )
+        if band is not None:
+            naive_counts[band] += 1
+        if parsed.hour == 0 and parsed.minute == 0 and parsed.second == 0:
+            date_only += 1
+            continue
+        hour_histogram[parsed.hour] += 1
+        if band is not None:
+            counts[band] += 1
+
+    with_clock_time = sum(counts.values())
+    buckets = [
+        {
+            "band": label,
+            "count": counts.get(label, 0),
+            "share": (counts.get(label, 0) / with_clock_time) if with_clock_time else None,
+        }
+        for label, _start, _end in _TIME_OF_DAY_BANDS
+    ]
+    peak = max(buckets, key=lambda b: b["count"]) if with_clock_time else None
+
+    # Observability — see `_offender_age_profile()`'s own note.
+    logger.info(
+        "XAGG incident_time_of_day: %d of %d incident(s) carry a datetime; "
+        "%d are date-only 00:00:00 and excluded; %d usable -> %s; peak=%r",
+        with_datetime, total_incidents, date_only, with_clock_time,
+        {b["band"]: b["count"] for b in buckets}, (peak or {}).get("band"),
+    )
+    return {
+        "kind": "incident_time_of_day",
+        "total_incidents": total_incidents,
+        "with_datetime_count": with_datetime,
+        "date_only_count": date_only,
+        "unparsed_count": unparsed,
+        "with_clock_time_count": with_clock_time,
+        "buckets": buckets,
+        "naive_bucket_counts": [
+            {"band": label, "count": naive_counts.get(label, 0)}
+            for label, _start, _end in _TIME_OF_DAY_BANDS
+        ],
+        "hour_histogram": [
+            {"hour": h, "count": hour_histogram[h]} for h in sorted(hour_histogram)
+        ],
+        "peak_band": peak,
+    }
+
+
+def render_incident_time_of_day(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — Module 34, G1] Shared renderer for all three XAGG
+    rendering sites, same reason as `render_statute_court_stage_join()`."""
+    usable = agg_result["with_clock_time_count"]
+    total = agg_result["total_incidents"]
+    if not usable:
+        return [
+            f"No incident in this corpus records a clock time — "
+            f"{agg_result['with_datetime_count']} of {total} carry an "
+            f"incident date/time and all of those are date-only values — so "
+            f"no time-of-day distribution can be produced."
+        ]
+    lines = [
+        f"When incidents happen, by time of day — {usable} incident(s) with "
+        f"a usable clock time:",
+    ]
+    for bucket in agg_result["buckets"]:
+        share = bucket["share"]
+        pct = f" (~{round(100 * share)}%)" if share is not None else ""
+        lines.append(f"  - {bucket['band']}: {bucket['count']}{pct}")
+    peak = agg_result.get("peak_band") or {}
+    if peak:
+        lines.append(f"The busiest band is {peak['band']}, with {peak['count']}.")
+    # The coverage and midnight caveats are load-bearing, not boilerplate:
+    # gold G1 reads this data as "fairly flat across the day", and that
+    # reading only holds if date-only rows are counted as real midnights.
+    lines.append(
+        f"Coverage: {agg_result['with_datetime_count']} of {total} incidents "
+        f"record an incident date/time at all."
+    )
+    if agg_result.get("date_only_count"):
+        naive = {b["band"]: b["count"] for b in agg_result.get("naive_bucket_counts") or []}
+        night_band = _TIME_OF_DAY_BANDS[0][0]
+        lines.append(
+            f"{agg_result['date_only_count']} of those record exactly "
+            f"00:00:00, which is a date with no clock time rather than a "
+            f"real midnight, and are excluded above. Counting them as "
+            f"overnight instead would put {naive.get(night_band, 0)} in the "
+            f"{night_band} band and make the day look evenly covered; on the "
+            f"recorded clock times it is not — overnight is close to empty."
+        )
+    if agg_result.get("unparsed_count"):
+        lines.append(
+            f"{agg_result['unparsed_count']} incident date/time value(s) "
+            f"could not be parsed and are excluded."
+        )
+    return lines
+
+
 async def _reporting_delay_rate_by_year(jurisdiction_case_ids: Optional[list[str]] = None) -> dict:
     where_parts = ["oe.event_type = 'incident'"]
     params: dict = {}
@@ -1872,8 +3739,18 @@ async def run_aggregate(
     # have no data path at all; gender has a real one but is checked
     # separately below since it degrades to an honest "not synced yet"
     # rather than a hard refusal.
+    # [Gold-QA fix — Module 31, question G1] "How many cases involve an
+    # accused person, and what is their age range and average age, across
+    # all cases?" — G1's offender-profile sub-question. This branch KEEPS
+    # `_AGE_KEYWORDS`' original first-in-the-chain precedence (an age
+    # question must never be answered by the person-recurrence family that
+    # "accused" would otherwise match) but no longer returns a refusal:
+    # `Person.age` has been projected since Module 1d, so the old
+    # `_UNSUPPORTED_AGE` message was asserting something false about the
+    # data model. The refusal survives INSIDE the aggregate, fired only
+    # when the corpus actually carries no age.
     if _matches_any(query_lower, _AGE_KEYWORDS):
-        return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_AGE}
+        return await _offender_age_profile(jurisdiction_case_ids=jurisdiction_case_ids)
     # [Gold-QA fix — Module 13, question M2] Checked early, same precedence
     # as AGE just above — no station-type dimension exists in this data
     # model at all (see _STATION_TYPE_KEYWORDS' own comment), so this must
@@ -1909,20 +3786,81 @@ async def run_aggregate(
     # gateway case rows, not the graph — see the function's own docstring).
     if _matches_any(query_lower, _COMPLETENESS_KEYWORDS):
         return await _case_completeness_scan(gateway, jurisdiction_case_ids=jurisdiction_case_ids)
+    # [Gold-QA fix — Module 32, question G1] "What relationship is recorded
+    # between the accused and the complainant, across all cases?" — G1's
+    # stranger-vs-known sub-question.
+    #
+    # Placement, in both directions:
+    #   - BELOW `_COURT_READINESS_KEYWORDS` (G3) and `_COMPLETENESS_KEYWORDS`
+    #     (G2) immediately above. G3 reads this SAME `RELATED_TO` data, but
+    #     as a completeness gap ("the relationship is blank in 81 of 94
+    #     accused entries"), and it scores 1.0 today — so it keeps first
+    #     claim structurally, not merely because the predicates happen not
+    #     to overlap.
+    #   - ABOVE, decisively, `_PERSON_KEYWORDS`. That is what a relationship
+    #     sub-question actually hit before this module: measured live on
+    #     2026-09-08, it returned `graph_recurrence`/Person — "4 people
+    #     appear in 2 cases each" — confidently, wrongly, with no caveat.
+    if _matches_any(query_lower, _RELATIONSHIP_KEYWORDS):
+        return await _accused_relationship_breakdown(
+            jurisdiction_case_ids=jurisdiction_case_ids
+        )
     # [Gold-QA fix — G5, Module 15] Weapon-register compliance — a weapon term
     # AND a licence/compliance term together (a bare "weapon" stays the
     # recurrence aggregate's job).
     if _matches_any(query_lower, _WEAPON_TERMS) and _matches_any(query_lower, _COMPLIANCE_TERMS):
         return await _weapon_compliance_scan(jurisdiction_case_ids=jurisdiction_case_ids)
+    # [Gold-QA fix — CR4, Module 28] Weapon-evidence ATTRIBUTION: a weapon
+    # term AND an attribution term ("taken off/from", "recovered from",
+    # "trace ... back", "کس سے برآمد") together. Checked AFTER G5's
+    # compliance scan on purpose — G5 currently scores 1.0 and carries no
+    # attribution term, so the order cannot move it, but keeping compliance
+    # first means a hypothetical question carrying BOTH signals still gets
+    # the compliance answer it had before this module. A bare weapon word
+    # stays the recurrence aggregate's job, exactly as for G5.
+    if _matches_any(query_lower, _WEAPON_TERMS) and _matches_any(
+        query_lower, _WEAPON_ATTRIBUTION_TERMS
+    ):
+        return await _weapon_evidence_chain(jurisdiction_case_ids=jurisdiction_case_ids)
+    # [Gold-QA fix — Module 33, question G1] "What happens to seized
+    # property in these cases, and how many items were sent to a forensic
+    # laboratory or held for a deceased's heirs, across all cases?" — G1's
+    # seized-property sub-question.
+    #
+    # Placement, in both directions:
+    #   - BELOW G5's weapon+compliance scan and CR4's weapon-attribution
+    #     chain immediately above. Seized property and recovered weapons are
+    #     adjacent subjects and a question can carry both vocabularies;
+    #     G5 scores 1.0 today and must not move.
+    #   - ABOVE `_LIST_ALL_KEYWORDS`, which is what this sub-question
+    #     actually hit before this module: measured live on 2026-09-08 it
+    #     returned `kind="case_listing"` — the unfiltered 73-row corpus dump
+    #     — because "across all cases" contains the literal "all cases".
+    #     (The plan predicted a person-recurrence fall-through; the measured
+    #     one was the listing branch. Corrected in MODULE33_RESULT.md.)
+    if _matches_any(query_lower, _SEIZED_PROPERTY_KEYWORDS):
+        return await _seized_property_disposition(
+            jurisdiction_case_ids=jurisdiction_case_ids
+        )
     if _matches_any(query_lower, _OFFICER_KEYWORDS):
         return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_OFFICER}
     # [Gold-QA fix — Module 13, question M7] Checked before both the A7
     # count-shaped reporting-delay check just below and _TREND_KEYWORDS'
-    # hard refusal — a reporting-SPEED-over-time comparison now has a real,
-    # honestly-labeled aggregate (_reporting_delay_rate_by_year(), see its
-    # own docstring for the exact scope of what it can and can't answer).
-    if _matches_any(query_lower, _REPORTING_SPEED_COMPARISON_KEYWORDS):
-        return await _reporting_delay_rate_by_year(jurisdiction_case_ids=jurisdiction_case_ids)
+    # hard refusal — a reporting-SPEED-over-time comparison has a real
+    # aggregate rather than a refusal.
+    #
+    # [Gold-QA fix — Module 22] Re-pointed from
+    # `_reporting_delay_rate_by_year()` to the true mean-minutes aggregate.
+    # Module 13 could only offer the delay-REASON rate as an honest proxy
+    # because no sub-day timestamp was projected; Module 22 projects
+    # `Incident.incident_datetime`/`.report_datetime`, so the metric M7
+    # actually asks for is now computable. `_reporting_delay_rate_by_year()`
+    # is deliberately KEPT — it answers the A7-family delay-reason question,
+    # which is a different quantity with its own tests.
+    if _is_reporting_speed_comparison(query_lower):
+        return await _incident_to_report_minutes_by_year(
+            jurisdiction_case_ids=jurisdiction_case_ids
+        )
     # [Gold-QA fix — Module 2, A7] Checked before the trend fallback: a
     # count-shaped reporting-delay question has a real data path now
     # (Incident.reporting_delay_reason), degrading to an honest "not synced
@@ -1935,6 +3873,67 @@ async def run_aggregate(
         query_lower, _TREND_KEYWORDS
     ):
         return await _reporting_delay_count(jurisdiction_case_ids=jurisdiction_case_ids)
+    # [Gold-QA fix — Module 23, question M5] Weapon × statute co-occurrence,
+    # checked BEFORE M1's `_TIME_COMPARISON_KEYWORDS` branch below (Module
+    # 24's statute × court-stage join now sits between the two, and matches
+    # neither shape), which is exactly what used to swallow M5 ("...کے مقابلے میں..."
+    # is a literal entry in that tuple) and answer it with a per-year statute
+    # ranking that has no weapon dimension at all.
+    #
+    # Placement, in both directions:
+    #   - BELOW G5's weapon+compliance check and M7's
+    #     `_is_reporting_speed_comparison()`, both of which stay first for
+    #     their own shapes — neither carries all three of this predicate's
+    #     signals anyway, so this is belt-and-braces, not load-bearing.
+    #   - ABOVE `_TIME_COMPARISON_KEYWORDS` (M1), `_TREND_KEYWORDS`' refusal,
+    #     `_DISTRICT_KEYWORDS` (Module 1c's district+weapon path) and the bare
+    #     `_WEAPON_KEYWORDS` recurrence branch — the three prior collision
+    #     sites this chain's comments already name. A bare weapon question,
+    #     and a district+weapon question, still fall through untouched
+    #     because `_is_weapon_statute_cooccurrence()` also requires a
+    #     case-type/statute term AND a change-over-time term.
+    if _is_weapon_statute_cooccurrence(query_lower):
+        return await _weapon_statute_cooccurrence_by_year(
+            jurisdiction_case_ids=jurisdiction_case_ids
+        )
+    # [Gold-QA fix — Module 24, question M4] Statute × court-stage join —
+    # the sections cases are charged under set against how far those cases
+    # have got in court, plus a derived verdict on whether the two agree.
+    #
+    # Placement, in both directions:
+    #   - BELOW `_CRIMINAL_RECORD_KEYWORDS` (CR7) and
+    #     `_COURT_READINESS_KEYWORDS` (G3), the two families this one shares
+    #     court vocabulary with. Both keep first claim structurally, not by
+    #     keyword luck: G3 currently scores 1.0, and CR7's own reader is the
+    #     one this aggregate's court half calls, so neither may move.
+    #     `_is_statute_court_stage_join()` additionally does not match
+    #     either question's text — verified against all 32 gold questions in
+    #     `tests/test_xagg.py` — but the ordering is what guarantees it.
+    #   - ABOVE `_TIME_COMPARISON_KEYWORDS` (M1), `_TREND_KEYWORDS`' refusal
+    #     and, decisively, `_PERSON_KEYWORDS`. That last one is what M4
+    #     actually hit before this module: "لوگوں" ("people") contains the
+    #     literal `_PERSON_KEYWORDS` entry "لوگ", so an unplaced M4 falls
+    #     into the person-recurrence aggregate — a ranked list of repeat
+    #     accused, which answers nothing M4 asked.
+    if _is_statute_court_stage_join(query_lower):
+        return await _statute_court_stage_join(jurisdiction_case_ids=jurisdiction_case_ids)
+    # [Gold-QA fix — Module 34, question G1] "At what time of day do
+    # incidents happen, across all cases?" — G1's timing sub-question.
+    #
+    # Placement, in both directions:
+    #   - BELOW M7's `_is_reporting_speed_comparison()` and Module 23's
+    #     `_is_weapon_statute_cooccurrence()`. Both are about elapsed time
+    #     and change over time, not clock time, and neither carries a
+    #     time-of-day term — but they stay first for their own shapes.
+    #   - ABOVE `_TIME_COMPARISON_KEYWORDS` (M1), `_TREND_KEYWORDS`' refusal
+    #     and `_LIST_ALL_KEYWORDS`. That last one is what this sub-question
+    #     actually hit before this module: measured live 2026-09-08 it
+    #     returned `kind="case_listing"`, the unfiltered 73-row corpus dump,
+    #     because "across all cases" contains the literal "all cases".
+    #     `_TREND_KEYWORDS` matters too — "over time" is in it, and an
+    #     hour-of-day question is not a time SERIES.
+    if _matches_any(query_lower, _TIME_OF_DAY_KEYWORDS):
+        return await _incident_time_of_day(jurisdiction_case_ids=jurisdiction_case_ids)
     # [Gold-QA fix — Module 13, question M1] Checked before _TREND_KEYWORDS'
     # hard refusal — a year-over-year case-type/statute comparison now has a
     # real aggregate (_statute_mix_by_year(), powered by each Incident's own

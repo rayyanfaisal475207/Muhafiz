@@ -62,7 +62,15 @@ from src.pipeline.xagg import (
     render_dv_report_fir_match,
     render_case_completeness_scan,
     render_weapon_compliance_scan,
+    render_weapon_evidence_chain,
     render_court_readiness_scan,
+    render_time_bucketed_mean,
+    render_weapon_statute_cooccurrence,
+    render_statute_court_stage_join,
+    render_offender_age_profile,
+    render_accused_relationship_breakdown,
+    render_seized_property_disposition,
+    render_incident_time_of_day,
     _UNSUPPORTED_JURISDICTION,
 )
 from src.retrieval.graph_retriever import jurisdiction_unresolved
@@ -111,6 +119,11 @@ AggregateKind = Literal[
     "rate_breakdown",
     "time_bucketed_breakdown",
     "time_bucketed_rate",
+    # [Gold-QA fix — Module 22, M7] same additive convention — the true
+    # mean-incident-to-report-minutes shape that replaces the delay-REASON
+    # rate proxy for M7. Omitting this entry reproduces exactly the silent
+    # `literal_error` crash the comment block above documents.
+    "time_bucketed_mean",
     # [Gold-QA fix — Module 14, CR7] same additive convention.
     "criminal_record_court_crosscheck",
     # [Gold-QA fix — Module 15, CR6] same additive convention.
@@ -121,8 +134,33 @@ AggregateKind = Literal[
     "case_completeness_scan",
     # [Gold-QA fix — Module 15, G5] same additive convention.
     "weapon_compliance_scan",
+    # [Gold-QA fix — Module 28, CR4] same additive convention.
+    "weapon_evidence_chain",
     # [Gold-QA fix — Module 15/16, G3] same additive convention.
     "court_readiness_scan",
+    # [Gold-QA fix — Module 23, M5] same additive convention — the
+    # weapon × statute co-occurrence shape. Omitting this entry reproduces
+    # exactly the silent `literal_error` crash the comment block above
+    # documents.
+    "weapon_statute_cooccurrence",
+    # [Gold-QA fix - Module 24, M4] same additive convention - the
+    # statute x court-stage join shape.
+    "statute_court_stage_join",
+    # [Gold-QA fix — Modules 31-34, G1] same additive convention — the four
+    # caseload-profile shapes. Caught the hard way, and worth recording as
+    # the fourth repeat of this exact defect: Module 31's aggregate was
+    # unit-green and correct against the live graph, and still returned an
+    # EMPTY answer through `/api/chat` with `status=None` and no
+    # user-visible error, because `XAggToolResult` construction raised
+    # `pydantic_core.ValidationError: literal_error` on
+    # `aggregate_kind='offender_age_profile'`. That is precisely the silent
+    # crash this Literal's own comment block above warns about, and no unit
+    # test in `tests/test_xagg.py` can catch it — only a live run through
+    # the harness wrapper does.
+    "offender_age_profile",
+    "accused_relationship_breakdown",
+    "seized_property_disposition",
+    "incident_time_of_day",
 ]
 
 
@@ -263,6 +301,10 @@ def _render_aggregate_text(agg_result: dict) -> str:
         lines = render_case_completeness_scan(agg_result)
     elif kind == "weapon_compliance_scan":
         lines = render_weapon_compliance_scan(agg_result)
+    # [Gold-QA fix — CR4, Module 28] Kept in sync with orchestrator.py's two
+    # identical XAGG-route rendering sites, per this function's own docstring.
+    elif kind == "weapon_evidence_chain":
+        lines = render_weapon_evidence_chain(agg_result)
     elif kind == "court_readiness_scan":
         lines = render_court_readiness_scan(agg_result)
     elif kind == "station_total_count":
@@ -291,6 +333,29 @@ def _render_aggregate_text(agg_result: dict) -> str:
             f"reason (~{round(100 * b['rate'])}%)"
             for b in agg_result["buckets"]
         )
+    # [Gold-QA fix — Module 22, M7] Kept in sync with orchestrator.py's two
+    # identical XAGG-route rendering sites, per this function's own docstring.
+    elif kind == "time_bucketed_mean":
+        lines = render_time_bucketed_mean(agg_result)
+    # [Gold-QA fix — Module 23, M5] Kept in sync with orchestrator.py's two
+    # identical XAGG-route rendering sites, per this function's own docstring.
+    elif kind == "weapon_statute_cooccurrence":
+        lines = render_weapon_statute_cooccurrence(agg_result)
+    # [Gold-QA fix - Module 24, M4] same, for the statute x court-stage join.
+    elif kind == "statute_court_stage_join":
+        lines = render_statute_court_stage_join(agg_result)
+    # [Gold-QA fix — Module 31, G1] same, for the offender age profile.
+    elif kind == "offender_age_profile":
+        lines = render_offender_age_profile(agg_result)
+    # [Gold-QA fix — Module 32, G1] same, for the relationship breakdown.
+    elif kind == "accused_relationship_breakdown":
+        lines = render_accused_relationship_breakdown(agg_result)
+    # [Gold-QA fix — Module 33, G1] same, for the seized-property breakdown.
+    elif kind == "seized_property_disposition":
+        lines = render_seized_property_disposition(agg_result)
+    # [Gold-QA fix — Module 34, G1] same, for the time-of-day distribution.
+    elif kind == "incident_time_of_day":
+        lines = render_incident_time_of_day(agg_result)
     else:
         lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
         # [Legal-code semantic layer] Kept in sync with orchestrator.py's

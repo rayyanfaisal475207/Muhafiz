@@ -118,7 +118,7 @@ from src.pipeline.harness.types import (
     SubAgentStatus,
     ToolError,
 )
-from src.pipeline.router import route_query
+from src.pipeline.router import _TIME_COMPARISON_XAGG_PATTERNS, route_query
 
 logger = logging.getLogger(__name__)
 
@@ -510,6 +510,42 @@ _META_ANALYSIS_TRIGGER_PATTERNS = [
     re.compile(r"\bflag\s*karne\s*layak\b", re.IGNORECASE),  # G5
     re.compile(r"\btawaqqo\b.{0,30}\brakhni\s*chahiye\b", re.IGNORECASE),  # G6
 
+    # [Gold-QA fix — Module 29] Paraphrase reach for the three shapes
+    # `meta_analysis.py::_DECOMPOSITION_PLANS` now decomposes
+    # deterministically. The gold text of CR3/G1/G6 already matched the
+    # patterns above, but their PARAPHRASES did not, and this list is the
+    # gate that decides whether a question reaches Meta-Analysis at all:
+    # G1's own non-gold paraphrase — "As the on-duty analyst, look over
+    # everything currently open and tell me what's worth a second look"
+    # (captured in Module 21's writeup) — matched NOTHING here, so it went
+    # to XNETWORK/Cross-Case Linkage and was correctly refused, and no
+    # decomposition fix in `meta_analysis.py` could ever have reached it.
+    # Same class of "the capability was curve-fit to one gold string" gap
+    # Module 22 caught in its own reporting-speed keywords.
+    #
+    # Negative-controlled across all 32 gold questions
+    # (tests/test_harness_agent_meta_analysis.py): these patterns add NO
+    # new gold question to this list — the 15 that matched before still
+    # match, and nothing else does. In particular nothing here uses a bare
+    # "flag" or "briefing", which would have swallowed G5 and G2 (both
+    # already reach this module and already answer correctly through the
+    # `decompose: false` single-dispatch fallback).
+    re.compile(r"\bworth\s+watching\b", re.IGNORECASE),
+    re.compile(r"\bworth\s+a\s+(second|closer)\s+look\b", re.IGNORECASE),
+    re.compile(r"\blook\s+over\s+everything\b", re.IGNORECASE),
+    re.compile(r"\banything\b.{0,40}\b(unusual|out\s+of\s+the\s+ordinary)\b", re.IGNORECASE),
+    re.compile(r"\blooks?\s+unusual\b", re.IGNORECASE),
+    re.compile(r"\bghair\s*[- ]?\s*mamooli\b", re.IGNORECASE),
+    re.compile(r"غیر\s*معمولی"),
+    re.compile(r"\bnewly\s+(posted|assigned|transferred|joined|appointed)\b", re.IGNORECASE),
+    re.compile(r"\bnew(ly)?\b.{0,30}\bofficer\b.{0,60}\bexpect\b", re.IGNORECASE),
+    re.compile(r"\bnaye?\s*(tainaat|tayinaat)\b", re.IGNORECASE),
+    re.compile(r"نئے\s*تعینات"),
+    re.compile(r"\bprocessed\s+and\s+recorded\b", re.IGNORECASE),
+    re.compile(r"\b(handled|recorded|processed)\s+(the\s+)?same\b", re.IGNORECASE),
+    re.compile(r"\bek\s*hi\s*tarah\s*(se)?\b", re.IGNORECASE),
+    re.compile(r"ایک\s*ہی\s*طرح"),
+
     # (B) comparative-over-time / branching comparison — M1, M2, M5, M7.
     re.compile(r"\bcompared\s+(to|with)\b", re.IGNORECASE),
     re.compile(r"\bgrowing\s+faster\b", re.IGNORECASE),
@@ -585,11 +621,43 @@ def classify_to_subagent(
     if output_format in _FILE_OUTPUT_FORMATS:
         return REPORT_DRAFTING
 
+    # [Gold-QA fix — Module 26, question M1] Checked before the general
+    # Meta-Analysis trigger check below, for the one shape where firing it
+    # would be actively counter-productive rather than merely unnecessary:
+    # a year-over-year/period comparison whose route is XAGG already has a
+    # real, working SINGLE-CALL aggregate for the whole comparison
+    # (`_statute_mix_by_year()`/`_reporting_delay_rate_by_year()`, Module
+    # 13's time-bucket primitive — see `_TIME_COMPARISON_XAGG_PATTERNS`'s
+    # own docstring in router.py, shared with this file for exactly this
+    # check). Live-confirmed regression this guard exists to prevent (this
+    # module's own writeup in GOLD_QA_REMAINING_FIXES_PLAN.md has the full
+    # trace): without it, M1's gold text ALSO matches
+    # `_META_ANALYSIS_TRIGGER_PATTERNS`' own comparison group below, so
+    # Meta-Analysis decomposes a question XAGG already answers in one call
+    # into two independently-dispatched, undirected sub-queries (the
+    # decomposer LLM invents ungrounded framing like "this station" /
+    # "last 6 months" that appears nowhere in the original question) —
+    # each sub-query then DROPS the "compared to ... years" language that
+    # made this pattern list match in the first place, so its own
+    # re-classification is left to the flaky LLM router call one level
+    # down, live-observed to land on XGRAPH/Cross-Case Linkage (wrong
+    # sub-agent for a count-shaped comparison) or to simply time out
+    # waiting on the shared local model for two extra serial LLM round
+    # trips that were never needed. Narrow and conditional on `route ==
+    # "XAGG"` specifically (not a bare text-pattern skip) so it can never
+    # suppress a genuine Meta-Analysis decomposition for a DIFFERENT
+    # cross-case route (e.g. an XGRAPH- or XNETWORK-classified comparison
+    # question, which has no equivalent one-call aggregate to fall back
+    # to and still needs decomposition).
+    if route == "XAGG" and any(
+        pat.search(query_text) for pat in _TIME_COMPARISON_XAGG_PATTERNS
+    ):
+        sub_agent = _ROUTE_TO_SUBAGENT.get(route, SEMANTIC_SEARCH)
     # [AMENDMENT — findings.md Module 10] Checked before every route-specific
     # override below — see _META_ANALYSIS_TRIGGER_PATTERNS' own comment
     # block for why this must win over TIMELINE/INVESTIGATIVE_ANALYSIS/
     # LOCAL_SEARCH/GLOBAL_SEARCH rather than being folded alongside them.
-    if allow_meta_analysis and any(
+    elif allow_meta_analysis and any(
         pat.search(query_text) for pat in _META_ANALYSIS_TRIGGER_PATTERNS
     ):
         sub_agent = META_ANALYSIS

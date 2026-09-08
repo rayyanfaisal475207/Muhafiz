@@ -412,6 +412,14 @@ async def test_person_recurrence_override_does_not_swallow_named_xgraph_query(mo
 # route instead of GRAPH/GRAPH_HYBRID (which would find nothing to
 # summarize). None of these queries match any deterministic override
 # pattern, so they all reach the LLM call this test captures.
+#
+# [Module 28] The first test's sample query used to be CR4's own text ("if
+# we have a weapon logged as evidence, can we tell who it was taken off?").
+# That is now intercepted by `_WEAPON_EVIDENCE_CHAIN_XAGG_PATTERNS` before
+# the LLM call, so it no longer exercises what this test is about — and its
+# old stub returning XGRAPH is itself a record of the misroute Module 28
+# fixes. Swapped for another within-case-SHAPED weapon question that still
+# matches no override; the ACTIVE_CASE assertion is unchanged.
 # ═══════════════════════════════════════════════════════════════════════
 
 async def test_no_case_id_prefixes_the_llm_call_with_active_case_none(monkeypatch):
@@ -422,7 +430,7 @@ async def test_no_case_id_prefixes_the_llm_call_with_active_case_none(monkeypatc
         return json.dumps({"route": "XGRAPH", "case_scope": "cross_case"})
 
     monkeypatch.setattr(router, "call_llm", fake_call_llm)
-    query = "If we have a weapon logged as evidence, can we tell who it was taken off?"
+    query = "What is the condition of this weapon and where is it being stored?"
     await router.route_query(query, case_id=None)
 
     assert captured["user_message"].startswith("ACTIVE_CASE: none")
@@ -678,3 +686,214 @@ async def test_cr8_forwarded_fir_number_override_fires_to_xagg(monkeypatch):
         "Does the forwarded report's FIR number match a real, active FIR?"
     )
     assert result["route"] == "XAGG"
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 26, question M1] Year-over-year / period comparison
+# override. See `_TIME_COMPARISON_XAGG_PATTERNS`'s own module-level comment
+# in router.py for the full rationale (shared with supervisor.py's
+# Meta-Analysis-skip guard).
+# ═══════════════════════════════════════════════════════════════════════
+
+async def test_m1_year_over_year_comparison_fires_to_xagg(monkeypatch):
+    """M1's exact gold-dataset text must route deterministically to XAGG —
+    the live-confirmed defect this module fixes: without this override the
+    classification depended on the flaky local LLM, which historically
+    (per GOLD32_RESULTS_FOR_TEAMMATE.md) sent this exact text to XGRAPH."""
+    monkeypatch.setattr(router, "call_llm", _no_llm_call)
+    result = await router.route_query(
+        "What kinds of cases are we dealing with now compared to a couple of years back?"
+    )
+    assert result["route"] == "XAGG"
+    assert result["case_scope"] == "cross_case"
+
+
+@pytest.mark.parametrize("query", [
+    # Non-gold paraphrases — the pattern must not be pinned to M1's one
+    # literal string.
+    "Has the mix of crimes we handle shifted since 2024?",
+    "How does this year's caseload compare with last year?",
+    "What's changed in our case types versus two years ago?",
+    "Crime type breakdown this year vs 2024?",
+    "Year over year, how has our caseload composition changed?",
+    # Urdu / Roman-Urdu paraphrases, matching M5's own comparison idiom.
+    "موجودہ کیسز کی نوعیت 2024 کے مقابلے میں کیا بدل گئی ہے؟",
+    "case types ab 2024 ke muqable mein kaise badal gaye hain?",
+])
+async def test_m1_paraphrases_fire_to_xagg(monkeypatch, query):
+    monkeypatch.setattr(router, "call_llm", _no_llm_call)
+    result = await router.route_query(query)
+    assert result["route"] == "XAGG"
+
+
+def test_m1_pattern_negative_control_against_all_other_gold_questions():
+    """
+    Mandatory negative control (per this module's brief, and the lesson
+    from the three historical collisions it names: Module 8c's 0/7 KB
+    pattern gap, CR8->KB1, and M4->G3 — a pattern that looks reasonable in
+    isolation is not evidence it matches only the intended question).
+
+    Asserts the new `_TIME_COMPARISON_XAGG_PATTERNS` family matches M1 and
+    matches NONE of the other 31 gold questions in the dataset.
+
+    M5 (a different question, itself already reaching XAGG's
+    `_statute_mix_by_year` today via its own Urdu "کے مقابلے میں" wording)
+    is the one EXPECTED co-match — both are genuine year-over-year
+    comparison questions that this same aggregate answers, so a shared
+    match here is correct, not a collision. Every other gold question must
+    match zero patterns in this family.
+    """
+    import json
+    import os
+
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "evaluation",
+        "Gold_QA_Dataset_Final32_With_Answers.json",
+    )
+    gold = json.load(open(path, encoding="utf-8"))
+    assert len(gold) == 32
+
+    matched_ids = [
+        item["id"]
+        for item in gold
+        if any(pat.search(item["question"]) for pat in router._TIME_COMPARISON_XAGG_PATTERNS)
+    ]
+
+    assert "M1" in matched_ids
+    # M5 is the one legitimate co-match (see docstring); every other ID
+    # matching would be a genuine false-positive collision.
+    unexpected = set(matched_ids) - {"M1", "M5"}
+    assert unexpected == set(), (
+        f"Year-over-year comparison pattern unexpectedly matched: {sorted(unexpected)} "
+        f"(full match list: {sorted(matched_ids)})"
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 28, question CR4] Weapon-evidence attribution chain
+# override. See `_WEAPON_EVIDENCE_CHAIN_XAGG_PATTERNS`'s own module-level
+# comment in router.py for the full rationale and the CR2/G5/CP1/M5/KB6
+# discriminator.
+# ═══════════════════════════════════════════════════════════════════════
+
+def _gold32() -> list[dict]:
+    import json
+    import os
+
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "evaluation",
+        "Gold_QA_Dataset_Final32_With_Answers.json",
+    )
+    gold = json.load(open(path, encoding="utf-8"))
+    assert len(gold) == 32
+    return gold
+
+
+async def test_cr4_weapon_evidence_chain_fires_to_xagg(monkeypatch):
+    """CR4's exact gold-dataset text must route deterministically to XAGG.
+
+    The live-confirmed defect this module fixes (Module 21's investigation,
+    GOLD_QA_REMAINING_FIXES_PLAN.md): this text routed to XGRAPH and was
+    dispatched to Cross-Case Linkage alone, which — with no named entity to
+    seed a traversal — runs a recurring-entity-across-cases search instead
+    of the single weapon -> FIR -> accused -> status chain gold asks for,
+    and came back empty every time.
+    """
+    monkeypatch.setattr(router, "call_llm", _no_llm_call)
+    result = await router.route_query(
+        "If we've got a weapon logged as evidence, can we tell who it was "
+        "taken off and what happened to them?"
+    )
+    assert result["route"] == "XAGG"
+    assert result["case_scope"] == "cross_case"
+
+
+@pytest.mark.parametrize("query", [
+    # The brief's required non-gold paraphrase, plus others that share no
+    # distinctive keyword with CR4's literal text — the pattern must not be
+    # pinned to one string.
+    "For weapons we've seized as evidence, can we trace them back to whoever they were taken from?",
+    "Who was this pistol recovered from, and what happened to him?",
+    "Can we tell whose firearm each seized gun was?",
+    "For a gun in the evidence register, do we know who it was taken off?",
+    # Urdu / Roman-Urdu paraphrases.
+    "برآمد شدہ ہتھیار کس سے لیا گیا اور اس شخص کا کیا بنا؟",
+    "Evidence mein darj hathiyar kis se baramad hua tha?",
+])
+async def test_cr4_paraphrases_fire_to_xagg(monkeypatch, query):
+    monkeypatch.setattr(router, "call_llm", _no_llm_call)
+    result = await router.route_query(query)
+    assert result["route"] == "XAGG"
+
+
+def test_cr4_pattern_negative_control_against_all_other_gold_questions():
+    """
+    Mandatory negative control for a ROUTING module (Module 28's brief §4,
+    and the M4/G3 collision of PR #8 that shipped without one).
+
+    Asserts the new `_WEAPON_EVIDENCE_CHAIN_XAGG_PATTERNS` family matches
+    CR4 and NONE of the other 31 gold questions. Zero co-matches are
+    expected here — unlike Module 26's M1/M5 pair, there is no second gold
+    question asking whose weapon it was. The four gold questions that DO
+    share weapon vocabulary (G5, CP1, M5, KB6) all currently work and must
+    not move; CR2, the cross-case recurrence question Module 21 warned a
+    weapon keyword would misroute, carries no weapon vocabulary at all.
+    """
+    matched_ids = [
+        item["id"]
+        for item in _gold32()
+        if any(
+            pat.search(item["question"])
+            for pat in router._WEAPON_EVIDENCE_CHAIN_XAGG_PATTERNS
+        )
+    ]
+    assert matched_ids == ["CR4"], (
+        f"Weapon-evidence-chain pattern matched {sorted(matched_ids)}; "
+        f"expected exactly ['CR4']"
+    )
+
+
+def test_module28_changes_no_other_gold_question_route():
+    """
+    The stronger form of the negative control the brief actually asks for:
+    not just "the new patterns don't match", but "no other gold question's
+    deterministic ROUTE changes".
+
+    Computes `_deterministic_route_override()` for all 32 gold questions
+    with the new pattern family in place, then again with it removed, and
+    asserts CR4 is the only question whose outcome differs. This is the
+    check that would have caught the M4/G3 collision (PR #8) — a pattern
+    can be "narrow" and still steal a question from an EARLIER override
+    block by changing which one matches first.
+    """
+    gold = _gold32()
+
+    def routes() -> dict:
+        return {
+            item["id"]: (router._deterministic_route_override(item["question"]) or {}).get("route")
+            for item in gold
+        }
+
+    after = routes()
+
+    original_xagg = list(router._XAGG_OVERRIDE_PATTERNS)
+    try:
+        router._XAGG_OVERRIDE_PATTERNS[:] = [
+            p for p in original_xagg
+            if p not in router._WEAPON_EVIDENCE_CHAIN_XAGG_PATTERNS
+        ]
+        before = routes()
+    finally:
+        router._XAGG_OVERRIDE_PATTERNS[:] = original_xagg
+
+    changed = {qid: (before[qid], after[qid]) for qid in before if before[qid] != after[qid]}
+    assert changed == {"CR4": (None, "XAGG")}, (
+        f"Module 28's override changed the deterministic route of: {changed}. "
+        f"Only CR4 may change (from 'no deterministic override' to XAGG)."
+    )
+    # Named explicitly because Module 21's investigation called this exact
+    # collision out as the hazard for this module.
+    assert after["CR2"] == before["CR2"]
+    assert after["G5"] == before["G5"]

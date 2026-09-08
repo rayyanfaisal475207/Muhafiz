@@ -18,6 +18,16 @@ Make the reason specific about what's missing, not just "insufficient informatio
 IMPORTANT — partial matches that still answer the question:
 If the retrieved documents contain the procedure, FIR content, or reference material that governs the question, return true even if the document uses different terminology than the user did. Police procedures and offense categories cover broad situations; a document that legally/procedurally applies to the user's scenario is sufficient.
 
+A "formal standard/procedure" does not have to appear as one single sentence
+that announces itself as such. Several chunks that together describe
+concrete, specific procedural steps (e.g. "this register shall be destroyed
+three years after completion," "property shall be transferred to the
+sheriff," "shall be examined by officers on receiving and handing over
+charge") ARE a formal standard/procedure for the practice they describe, even
+with no chunk containing the words "standard" or "policy." Do not withhold
+TRUE waiting for a single explicit policy-statement sentence when the
+retrieved rules, read together, already constitute one.
+
 IMPORTANT — enumeration / "list every X" questions:
 [Module 3 fix, findings.md] When the question asks to enumerate or list every instance of a category (e.g. "list every person mentioned," "list all weapons recovered"), the documents are SUFFICIENT if they directly name multiple distinct instances of that category — even if a separate, unrelated sentence elsewhere in the documents also mentions an unresolved generic role or category term (e.g. a case-status line referring to "the accused" or "the affected child" without naming them). Do not require every generic role reference to be individually resolved to a name before returning true: the named instances already present are themselves a complete, citable answer to the enumeration question, and rejecting them over an unrelated unnamed mention elsewhere is treating "the list has every name" and "every generic role-word in the file is also individually name-resolved" as the same requirement when they are not. Confirmed live: this exact shape caused a real case's evidence — five distinct named individuals, correctly present — to be rejected as "incomplete" because a case-status field elsewhere also said "the affected child" and "the two accused" without naming them, even though those role-terms describe people already named elsewhere in the same evidence, not additional undiscovered ones. Only return false for an enumeration question if the documents name NONE of the requested category, or so few relative to what the question's own phrasing implies that a list built from them would be misleadingly incomplete on its face.
 
@@ -34,23 +44,48 @@ FIR registration) to be rejected repeatedly as insufficient on the stated ground
 missing data point for a which-provision-applies question; it is the answer itself.
 
 IMPORTANT — compound / multi-part questions:
-Many real questions ask TWO OR MORE things at once, often combining a
-reference/legal part with a data part — e.g. "What law governs how a report
-becomes an FIR, AND does our recordkeeping follow it?" or "What section
-covers X, and how many of our cases comply?". For these, return TRUE if the
-retrieved documents sufficiently answer AT LEAST the primary/answerable part
-of the question (typically the law/procedure/reference part). Do NOT return
-false merely because the documents don't also cover the SECONDARY part (e.g.
-the "does our recordkeeping follow it" compliance check, which lives in case
-data, not the legal corpus). A partial-but-substantive answer to a compound
-question is far more useful than a total abstention, and the generation step
-can answer the part it has evidence for and note what it cannot. Only return
-false for a compound question if the documents fail to answer ANY part of it.
+Many real questions ask TWO OR MORE things at once, typically combining a
+NORM CLAUSE (what does the law/rule/standard require, permit, expect, or
+prohibit) with an OUR-DATA CLAUSE (does our system/records/data/register
+actually do that, or reflect that). e.g. "What law governs how a report
+becomes an FIR, AND does our recordkeeping follow it?" or "Why doesn't our
+system record X — is that a data gap?" or "What section covers X, and how
+many of our cases comply?".
+
+A question is COMPOUND whenever it contains BOTH a norm clause and an
+our-data clause — regardless of which one the sentence leads with, and
+regardless of which one you'd instinctively call "primary." Sentence order
+is not evidence of which part is primary: "Why doesn't our system record X —
+is that a data gap?" is exactly as compound as "What law requires X, and do
+our records follow it?", even though the data clause comes first. Do NOT
+reason about which part is "the primary/answerable part" — that framing is
+what causes a data-clause-first question to be misjudged as a pure data
+question with no legal part to answer. Instead: check independently whether
+the documents answer the norm clause. If they do, that is enough.
+
+For a compound question, return TRUE if the retrieved documents sufficiently
+answer the NORM CLAUSE (the law/procedure/rule/standard part) — regardless of
+where that clause sits in the sentence. Do NOT return false merely because
+the documents don't also cover the OUR-DATA clause (e.g. "does our
+recordkeeping follow it," "is that a data gap," "does our data show it was
+done") — that half lives in case data, not the legal/reference corpus, and
+is the generation step's job to answer separately (including honestly saying
+it cannot determine the data half from these documents). A partial-but-
+substantive answer to a compound question is far more useful than a total
+abstention. Only return false for a compound question if the documents fail
+to answer the norm clause too.
+
 Confirmed live: "What legal requirement governs how a report of a crime
 becomes a formal FIR, and does our recordkeeping actually follow it?" was
 rejected because the legal documents (correctly retrieved) did not also
 address recordkeeping compliance — even though they DID answer the governing-
-law part, which is a complete, citable answer to the primary question.
+law part, which is a complete, citable answer to the norm clause. The same
+defect also blocked data-clause-first questions such as "Why doesn't our
+system keep a record of what a witness or accused actually said in a police
+interview — is that a data gap?": documents describing the legal procedures
+that govern recording/using such statements answer the norm clause here just
+as much as they would if the sentence led with "what does the law say," and
+must be judged the same way.
 
 Examples of correct "true" decisions:
 - User asks "What law governs FIR registration and section 154?" — Document identifies
@@ -61,6 +96,8 @@ Examples of correct "true" decisions:
 - User asks "What happened in the Kohsar cyber harassment case?" — Document is the case diary for FIR-2026-HAR-001 with investigation progress notes: return TRUE because it directly answers the case-status question.
 - User asks "What documents do I need for tenant registration?" — Document lists required documents for tenant registration at Police Khidmat Markaz: return TRUE even if the exact phrasing differs.
 - User asks "List every person mentioned in this case file." — Documents directly name five distinct individuals (each in its own "X appears in fir_structured record..." chunk), and a separate case-status chunk also mentions "the affected child" and "the two accused" without naming them: return TRUE — the five named individuals are a complete answer; the unresolved status-sentence role terms don't make the evidence insufficient.
+- User asks "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?" (the our-data clause leads the sentence) — Documents describe the legal procedures and restrictions governing how such statements are recorded and used: return TRUE — this is a compound question, the norm clause is answered, and it does not matter that the data-clause-first phrasing makes the legal part look "secondary."
+- User asks "Does the law expect the officer who registers a case to be the one who investigates it, or are those separate roles — and does that match our data?" — Documents describe the organizational/procedural structure for registration vs. investigation roles: return TRUE for the norm clause, even without any document on actual role assignment in the case data.
 
 Examples of correct "false" decisions:
 - "Documents discuss the character certificate procedure but do not mention processing time or fee"
@@ -77,10 +114,21 @@ Examples of bad "false" reasons (compound-question over-rejection):
 - "Documents identify the governing law for FIR registration but do not address
   whether our recordkeeping follows it" — the governing-law part IS answered;
   return TRUE and let generation handle the compliance part separately.
+- "Documents discuss legal procedures for recording witness/accused statements,
+  but do not address whether the system currently records verbatim statements" —
+  the question is compound (data-clause-first: "why doesn't our system... is
+  that a data gap?"); the documents answer the norm clause, so this is a
+  correct-shaped TRUE, not a false. Don't let the fact that the sentence opens
+  with the data clause make you treat the norm clause as unaddressed or
+  secondary.
 
 Only return false when the retrieved chunks genuinely cannot answer the question — not merely because they use different words than the user did.
 
-Evaluate strictly for a SINGLE-topic question: if documents are on topic but
-missing the specific data point asked, return false. But for a COMPOUND
-question (see above), answering the primary part is sufficient — do not
-require every sub-part to be covered before returning true.
+FIRST check whether the question is COMPOUND (see above — both a norm clause
+and an our-data clause present, in either order). If it is compound, apply
+the compound rule: answering the norm clause is sufficient, full stop — the
+single-topic strictness below does NOT apply to it and cannot override this.
+
+Only once a question is confirmed SINGLE-topic (no norm-clause-plus-our-data-
+clause structure) does this stricter default apply: if documents are on
+topic but missing the specific data point asked, return false.

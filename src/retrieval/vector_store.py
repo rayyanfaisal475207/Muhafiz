@@ -282,6 +282,27 @@ class ChromaVectorStore:
             self._collection.delete(ids=ids)
         return len(ids)
 
+    def get_by_metadata(self, metadata_filter: dict) -> list[dict]:
+        """
+        Fetch chunks by a RAW Chroma `where` filter, bypassing
+        `_build_where`'s project/case/global translation.
+
+        Used only for neighbour lookups by (doc_id, chunk_index) — see
+        `expand_with_neighbors()` — which are not an access-control scope
+        but a within-document positional lookup, and whose access control
+        was already enforced by the retrieval that produced the chunk being
+        widened. Never call this with a user-supplied filter.
+        """
+        result = self._collection.get(
+            where=metadata_filter, include=["documents", "metadatas"]
+        )
+        out: list[dict] = []
+        for chunk_id, text, meta in zip(
+            result.get("ids") or [], result.get("documents") or [], result.get("metadatas") or []
+        ):
+            out.append({"id": chunk_id, "text": text, "metadata": dict(meta or {})})
+        return out
+
     def count(self) -> int:
         return self._collection.count()
 
@@ -602,3 +623,99 @@ async def get_chunks_by_ids(ids: list[str]) -> list[dict]:
     if not ids:
         return []
     return await asyncio.to_thread(_get_store().get_by_ids, ids)
+
+
+def _neighbor_ids(chunks: list[dict], window: int) -> dict[str, list[int]]:
+    """Group the chunk indices to fetch, per doc_id, for `expand_with_neighbors`."""
+    wanted: dict[str, set[int]] = {}
+    for chunk in chunks:
+        meta = chunk.get("metadata") or {}
+        doc_id = meta.get("doc_id")
+        index = meta.get("chunk_index")
+        if not doc_id or not isinstance(index, int):
+            continue
+        for offset in range(-window, window + 1):
+            if offset == 0:
+                continue
+            if index + offset >= 0:
+                wanted.setdefault(doc_id, set()).add(index + offset)
+    return {doc_id: sorted(indices) for doc_id, indices in wanted.items()}
+
+
+async def expand_with_neighbors(chunks: list[dict], window: int = 1) -> list[dict]:
+    """
+    Return copies of `chunks` whose `text` is widened with the immediately
+    preceding and following chunks of the SAME document.
+
+    [Module 30] The legal KB corpus is chunked at roughly 350 characters,
+    which splits statutory sentences mid-clause and splits a single
+    provision across consecutive chunks. Measured: Police Order 2002
+    Article 18 spans five of them, and the one carrying the operative
+    words ends "All registered cases shall be investigated by the
+    investigation staff in the district under" — mid-sentence, without the
+    following chunk's "under the supervision of the head of investigation"
+    or "(5) The District Police Officer shall not interfere with the
+    process of investigation". Retrieval was reaching the right passage and
+    the evaluator was still, correctly, judging the question unaddressed,
+    because what reached it was a fragment.
+
+    This is the sentence-window/parent-document pattern: retrieve on the
+    small chunk (precise embeddings), read on the widened one. Ids,
+    metadata and scores are untouched, so citations and provenance still
+    point at the chunk that was actually retrieved.
+
+    Chunks with no `doc_id`/`chunk_index` metadata (e.g. synthetic chunks)
+    pass through unchanged, and any Chroma failure degrades to returning
+    `chunks` as they were — a narrower read, never a missing one.
+    """
+    if not chunks or window < 1:
+        return chunks
+
+    wanted = _neighbor_ids(chunks, window)
+    if not wanted:
+        return chunks
+
+    store = _get_store()
+    # (doc_id, chunk_index) -> text
+    neighbors: dict[tuple[str, int], str] = {}
+    try:
+        for doc_id, indices in wanted.items():
+            result = await asyncio.to_thread(
+                store.get_by_metadata,
+                {"$and": [
+                    {"doc_id": {"$eq": doc_id}},
+                    {"chunk_index": {"$in": indices}},
+                ]},
+            )
+            for row in result:
+                meta = row.get("metadata") or {}
+                index = meta.get("chunk_index")
+                if isinstance(index, int):
+                    neighbors[(doc_id, index)] = row.get("text", "")
+    except Exception as exc:
+        logger.warning(
+            "expand_with_neighbors: neighbour lookup failed (%s) — "
+            "returning the retrieved chunks unwidened", exc,
+        )
+        return chunks
+
+    expanded: list[dict] = []
+    for chunk in chunks:
+        meta = chunk.get("metadata") or {}
+        doc_id = meta.get("doc_id")
+        index = meta.get("chunk_index")
+        if not doc_id or not isinstance(index, int):
+            expanded.append(chunk)
+            continue
+        parts: list[str] = []
+        for offset in range(-window, window + 1):
+            text = (
+                chunk.get("text", "") if offset == 0
+                else neighbors.get((doc_id, index + offset), "")
+            )
+            if text:
+                parts.append(text.strip())
+        widened = dict(chunk)
+        widened["text"] = " ".join(parts) if parts else chunk.get("text", "")
+        expanded.append(widened)
+    return expanded

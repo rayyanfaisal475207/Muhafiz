@@ -78,12 +78,17 @@ from src.pipeline.harness.types import (
 )
 from src.pipeline.query_expander import expand_query
 from src.pipeline.query_rewriter import rewrite_for_retry
+from src.pipeline.statute_hypothesis import generate_statute_queries
 from src.retrieval.bm25_retriever import retrieve_bm25
-from src.retrieval.cross_reranker import cross_rerank
+from src.retrieval.cross_reranker import cross_rerank, cross_rerank_multi
 from src.retrieval.embedder import embed_text
 from src.retrieval.fulltext_index import candidate_pool as bm25_candidate_pool
 from src.retrieval.reranker import rerank_results
-from src.retrieval.vector_store import cap_case_diversity, query_similar
+from src.retrieval.vector_store import (
+    cap_case_diversity,
+    expand_with_neighbors,
+    query_similar,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -240,7 +245,94 @@ _LEGAL_KB_INTENT_PATTERNS = [
     re.compile(r"\b(kaun\s*si|kis)\b.{0,15}\b(dafa|qanoon|qanun|shq|act)\b", re.IGNORECASE),
     re.compile(r"\bkis\s+qanoon\s+ke\s+tehat\b", re.IGNORECASE),
     re.compile(r"\bqanoon[iy]\s+taqaz", re.IGNORECASE),
+    # ── Module 18 follow-up: patterns mined from the ACTUAL text of the 7
+    # KB questions that were still abstaining (KB2/3/4/5/6/8/9) ───────────
+    #
+    # The patterns above were mined from KB1's shape alone ("which law
+    # GOVERNS X"). Checked directly against the other seven KB questions'
+    # literal gold text: they matched 0 of 7 — the same "patterns written
+    # against hypothetical phrasing" failure Module 11 found for
+    # Meta-Analysis's triggers. Live-confirmed consequence: KB2/KB3
+    # retrieved from the MIXED case pool, the evaluator correctly rejected
+    # the case narratives as irrelevant three times, and the question
+    # abstained ("No sufficiently relevant documents were found") even
+    # though the governing statute was sitting in the KB corpus.
+    #
+    # Widening is low-risk BY CONSTRUCTION here (unlike a router override):
+    # KB-only is only ever tried FIRST, with the original mixed pool kept
+    # as an automatic fallback (see `where_scopes` in `rag_tool()`), so a
+    # false positive costs one extra retrieval pass, never an answer.
+    #
+    # (a) "does/do the law require|expect|say|allow ..." — a normative
+    #     question about the law with no "which/what" interrogative, so
+    #     the first pattern above can't see it (KB3).
+    re.compile(
+        r"\b(does|do|is|are|must|should)\b.{0,25}\blaws?\b"
+        r".{0,40}\b(require|expect|mandate|say|allow|permit|oblige|treat|define|distinguish)",
+        re.IGNORECASE,
+    ),
+    # (b) "statutory/legal standard|obligation|duty|procedure|framework"
+    re.compile(
+        r"\b(statutory|legal)\s+(standard|obligation|duty|procedure|framework|threshold)s?\b",
+        re.IGNORECASE,
+    ),
+    # (c) Witness/accused STATEMENT-recording questions (KB2) — squarely
+    #     evidence-law territory (CrPC 161/162 statements, Qanun-e-Shahadat),
+    #     even when the question never says the word "law" at all.
+    re.compile(
+        r"\b(witness|accused|suspect|complainant)\b.{0,50}"
+        r"\b(statement|said|say|interview|interrogat|deposition|testimony)",
+        re.IGNORECASE,
+    ),
+    # (d) Named KB corpora the original list missed — the Forensics
+    #     guidelines and Punjab Police Rules are two of the seven PDFs
+    #     actually in this corpus (KB6, KB4).
+    re.compile(
+        r"\b(forensics?\s+guidelines?|punjab\s+police\s+rules|police\s+rules)\b",
+        re.IGNORECASE,
+    ),
+    # (e) Urdu: "قانون ... تقاضا/ضروری/لازم" (the law requires ...) — the
+    #     noun form, where the existing pattern only caught the adjective
+    #     "قانونی تقاضا" (KB5).
+    re.compile(r"قانون.{0,40}(تقاض|ضروری|لازم|پابند)"),
+    # (f) Urdu: "کوئی باقاعدہ معیار/ضابطہ/طریقۂ کار موجود ہے" (is there a
+    #     formal standard/procedure for this) — a norm question that never
+    #     uses the word "قانون" (KB4).
+    re.compile(r"(باقاعدہ|مقرر[ہہ]?)\s*(معیار|ضابط|اصول|طریق)"),
+    re.compile(r"کوئی\s*(باقاعدہ|قانونی|مقررہ)\s*(معیار|ضابط|اصول|طریق)"),
+    # (g) Roman-Urdu: "qanoon ... zaroori/lazmi karta hai" (KB8), and
+    #     "police ko ... karni hoti hai" (police are required to ..., KB9)
+    #     — normative duty phrasing with no interrogative law word.
+    re.compile(r"\bqanoo?n\b.{0,50}\b(zaroori|zaruri|lazmi|laazmi|paband|taqaza)", re.IGNORECASE),
+    re.compile(
+        r"\b(police|tafteesh|tehqeeqat|tehqiqat)\b.{0,50}"
+        r"\b(karni\s+hoti\s+hai|karna\s+hota\s+hai|zaroori|lazmi|laazmi)\b",
+        re.IGNORECASE,
+    ),
 ]
+
+# Module 18 follow-up, second half: the compound "[legal/procedural norm]
+# — and does OUR data actually reflect it?" shape that every one of these
+# KB questions takes (KB1 included). Neither half alone is a reliable KB
+# signal — "our weapon register" alone is a plain data question, and a
+# norm word alone can appear in any narrative — but their CO-OCCURRENCE is
+# distinctive to exactly this compound legal-vs-practice question type.
+# Kept as a two-signal AND rather than one long regex so each side stays
+# readable and independently testable.
+_NORM_SIGNAL_RE = re.compile(
+    r"\b(law|legal|statut\w+|rule|regulation|guideline|standard|procedure|"
+    r"required?|requirement|mandat\w+|oblig\w+|must|supposed to|meant to|expects?)\b"
+    r"|قانون|ضابط|معیار|لازم|ضروری|تقاض"
+    r"|\b(qanoo?n|zaroori|zaruri|lazmi|laazmi|usool|zabta)\b",
+    re.IGNORECASE,
+)
+_OUR_DATA_SIGNAL_RE = re.compile(
+    r"\b(our|we|us)\b.{0,30}\b(system|data|record|records|recordkeeping|register|"
+    r"database|file|files|tracking)\b"
+    r"|\bhamara|hamari|hamare\b"
+    r"|ہمار[اےی]",
+    re.IGNORECASE,
+)
 
 # A case/FIR anchor in the query text means the question genuinely needs
 # case data too — keep the mixed scope rather than narrowing to KB-only.
@@ -263,7 +355,14 @@ def _is_legal_kb_intent(query_text: str) -> bool:
         return False
     if _CASE_ANCHOR_RE.search(query_text):
         return False  # names a specific case — needs the mixed pool
-    return any(pat.search(query_text) for pat in _LEGAL_KB_INTENT_PATTERNS)
+    if any(pat.search(query_text) for pat in _LEGAL_KB_INTENT_PATTERNS):
+        return True
+    # Module 18 follow-up: the compound "does the law require X — and does
+    # OUR data reflect it?" shape, caught by the co-occurrence of a
+    # norm signal and an our-data signal (see those patterns' own comment).
+    return bool(
+        _NORM_SIGNAL_RE.search(query_text) and _OUR_DATA_SIGNAL_RE.search(query_text)
+    )
 
 
 def _build_where(
@@ -309,7 +408,12 @@ def _build_where(
 
 
 async def _retrieve_candidates(
-    query_text: str, where: dict, fetch_top_k: int, final_top_k: int, is_cross_case: bool
+    query_text: str,
+    where: dict,
+    fetch_top_k: int,
+    final_top_k: int,
+    is_cross_case: bool,
+    statute_queries: Optional[list[str]] = None,
 ) -> tuple[list[dict], list[dict]]:
     """
     The retrieval half of the RAG primitive — query expansion + cross-script
@@ -324,30 +428,69 @@ async def _retrieve_candidates(
     BM25-pool-fetch inline rather than sharing RAG's version)." Returns
     (semantic_results, bm25_results) — the caller RRF-fuses them, possibly
     together with graph chunks.
+
+    `statute_queries`, when given (see `generate_statute_queries()` and its
+    call site in `rag_tool()`), are folded in as further retrieval queries —
+    the only ones that carry a governing statute's own English vocabulary.
     """
     expanded_queries = await expand_query(query_text, n=2)
     cross_script_query = await generate_cross_script_variant(query_text)
     all_queries = [query_text] + expanded_queries + (
         [cross_script_query] if cross_script_query else []
-    )
+    ) + list(statute_queries or [])
 
     embeddings = [await embed_text(q) for q in all_queries]
 
+    # Dedupe across the query variants keeping each chunk's BEST similarity,
+    # not the first one seen.
+    #
+    # [Module 30] This used to keep whichever score the FIRST query variant
+    # to surface a chunk gave it, and that is not a tie-break detail — it is
+    # the score `cap_case_diversity()` (and, for a case-less KB corpus, the
+    # whole pool's ordering) sorts on next. Measured live on KB3: the
+    # Police Order 2002 Article 18 chunk carrying "shall be investigated by
+    # the investigation staff" was surfaced weakly by the original question
+    # (0.87, rank 15 of that query's own 30) and strongly by the statute
+    # variant (0.91, rank 1) — and, locked to 0.87, it sorted 54th in the
+    # merged pool and was cut, while its weaker neighbouring chunks
+    # survived. A chunk's place in the pool should reflect the best any
+    # variant matched it, which is the entire point of running variants.
     semantic_results: list[dict] = []
-    seen_ids: set[str] = set()
+    by_id: dict[str, dict] = {}
     for q, emb in zip(all_queries, embeddings):
         for chunk in await query_similar(q, emb, top_k=fetch_top_k, where=where):
             chunk_id = chunk.get("id")
-            if chunk_id not in seen_ids:
-                seen_ids.add(chunk_id)
+            existing = by_id.get(chunk_id)
+            if existing is None:
+                by_id[chunk_id] = chunk
                 semantic_results.append(chunk)
+            elif chunk.get("rrf_score", 0.0) > existing.get("rrf_score", 0.0):
+                existing["rrf_score"] = chunk["rrf_score"]
 
-    if is_cross_case:
+    # [Module 30] The diversity cap exists to stop any ONE CASE's chunks
+    # filling the candidate window. A KB-only scope (`{"is_global": True}`,
+    # which is exactly the scope Module 8c narrows a legal question to)
+    # holds no case-linked chunks at all — every one of them buckets under
+    # `case_id=None`, so `per_case_cap` applies to the whole corpus at once
+    # and the cap diversifies nothing. It just truncates. Measured on the
+    # three KB questions this module fixes: a deduped pool of 71–94
+    # statutory chunks cut to 5 before RRF ever saw it, which is what left
+    # only one of Article 18's five chunks in the final set. Same reasoning
+    # `cap_case_diversity()`'s own docstring gives for a case-scoped query:
+    # "nothing to diversify across and must not call this function at all."
+    # Sort-and-trim instead, so the pool RRF ranks is still `final_top_k`
+    # and still ordered by similarity.
+    scope_spans_cases = set(where.keys()) != {"is_global"}
+    if is_cross_case and scope_spans_cases:
         semantic_results = cap_case_diversity(
             semantic_results,
             per_case_cap=config.CROSS_CASE_PER_CASE_CAP,
             total_cap=final_top_k,
         )
+    elif is_cross_case:
+        semantic_results = sorted(
+            semantic_results, key=lambda c: c.get("rrf_score", 0.0), reverse=True
+        )[:final_top_k]
 
     combined_query = " ".join(all_queries)
     try:
@@ -435,13 +578,30 @@ async def rag_tool(
             "KB-only corpus first, mixed pool as fallback."
         )
 
+    # [Module 30] For a legal-KB-intent question, generate ONE English query
+    # that names the likely governing statute and carries that provision's
+    # own vocabulary — see src/pipeline/statute_hypothesis.py for the
+    # measured gap it closes (every other query variant is a paraphrase of
+    # the QUESTION, and for a Roman-Urdu question none of them is even in
+    # the corpus's language). Generated from the ORIGINAL user question, not
+    # a retry rewrite: the governing statute does not change when the
+    # question is rephrased. None when the model finds no plausible
+    # provision, or on any failure — retrieval then behaves exactly as it
+    # did before this existed.
+    statute_queries: list[str] = []
+    if _is_legal_kb_intent(tool_input.query_text):
+        statute_queries = await generate_statute_queries(tool_input.query_text)
+        for hypothesis in statute_queries:
+            logger.info("RAG tool: statute-hypothesis query: %s", hypothesis[:200])
+
     last_empty_result: Optional[RagToolResult] = None
     for scope_index, where in enumerate(where_scopes):
         if scope_index > 0:
             _emit("retrieval", "active",
                   "No legal-corpus match — widening to all case documents…")
         result = await _run_retrieval_loop(
-            tool_input, where, fetch_top_k, top_k, is_cross_case, _emit
+            tool_input, where, fetch_top_k, top_k, is_cross_case, _emit,
+            statute_queries=statute_queries,
         )
         if result.status == ToolStatus.OK:
             return result
@@ -457,12 +617,18 @@ async def _run_retrieval_loop(
     top_k: int,
     is_cross_case: bool,
     _emit,
+    statute_queries: Optional[list[str]] = None,
 ) -> RagToolResult:
     """
     One full retrieve→rerank→evaluate retry loop against a SINGLE `where`
     scope. Extracted from `rag_tool()` so Module 8c can run it once per
     candidate scope (KB-only, then mixed) without duplicating the loop —
     behavior for a single scope is byte-for-byte the original loop.
+
+    `statute_queries` (Module 30) are the caller's English statute-vocabulary
+    phrasings of the question, or empty. They are generated once in
+    `rag_tool()` rather than here so the KB-only-then-mixed scope retry does
+    not pay for a second identical LLM call.
     """
     current_query = tool_input.query_text
     evaluator_feedback: Optional[str] = None
@@ -471,6 +637,30 @@ async def _run_retrieval_loop(
     # case, no project, no all_cases — global reference material only.
     is_global_only_scope = set(where.keys()) == {"is_global"}
     every_attempt_found_nothing = True
+
+    # [Module 30] Widen the candidate pool for a legal question searching the
+    # KB corpus alone — and ONLY there, never globally.
+    #
+    # This route runs the question through five or six query strings (the
+    # question, two paraphrases, a cross-script variant, and Module 30's
+    # statute hypotheses), then merges them into one pool of
+    # `TOP_K_RETRIEVAL` = 10. That is roughly one and a half slots per
+    # variant, which is what makes the merge lossy exactly where it matters:
+    # measured on KB3, Article 18's provision spans five consecutive chunks
+    # and only ONE of them fitted, so the evaluator saw "shall be
+    # investigated by the investigation staff" cut off mid-sentence, without
+    # the neighbouring chunk barring the District Police Officer from
+    # interfering, and correctly judged the question unaddressed.
+    #
+    # Scoped deliberately: the KB corpus has no case chunks to crowd out and
+    # its documents are small statutory fragments, so a wider pool costs one
+    # larger reranker payload and nothing else. A case-scoped or mixed
+    # all-cases query keeps `TOP_K_RETRIEVAL` exactly as before. The
+    # cross-encoder still cuts to `config.TOP_K_RERANK` either way, so the
+    # evaluator's and the answer's input size is unchanged.
+    effective_top_k = top_k
+    if is_global_only_scope and statute_queries:
+        effective_top_k = top_k * config.CROSS_CASE_RETRIEVAL_MULTIPLIER
 
     while retry_count <= config.MAX_RETRIES:
         if retry_count > 0 and evaluator_feedback:
@@ -490,7 +680,8 @@ async def _run_retrieval_loop(
               else f"Re-searching (attempt {retry_count + 1})…")
         try:
             semantic_results, bm25_results = await _retrieve_candidates(
-                current_query, where, fetch_top_k, top_k, is_cross_case
+                current_query, where, fetch_top_k, effective_top_k, is_cross_case,
+                statute_queries=statute_queries,
             )
         except Exception as retr_exc:
             logger.error("RAG tool: retrieval infrastructure failed: %s", retr_exc)
@@ -505,15 +696,71 @@ async def _run_retrieval_loop(
         if semantic_results or bm25_results:
             every_attempt_found_nothing = False
 
-        fused = rerank_results(semantic_results, bm25_results, top_k=top_k)
+        fused = rerank_results(semantic_results, bm25_results, top_k=effective_top_k)
 
         _emit("reranker", "active", "Re-ranking candidates…")
         try:
-            reranked = await cross_rerank(current_query, fused, top_k=config.TOP_K_RERANK)
+            if statute_queries:
+                # [Module 30] Getting the provision INTO the fused pool is
+                # only half the job — the cross-encoder then scores it
+                # against `current_query`, and for a Roman-Urdu question
+                # about an English statute that score is noise (measured:
+                # every candidate inside 0.0007–0.0022, and the correct
+                # CrPC s.173 chunk — RRF rank 1 going in — cut). Scoring the
+                # same candidates against the statute phrasing as well, and
+                # keeping each chunk's best, retains it. See
+                # `cross_rerank_multi()`.
+                reranked = await cross_rerank_multi(
+                    [current_query, *statute_queries], fused, top_k=config.TOP_K_RERANK
+                )
+            else:
+                reranked = await cross_rerank(current_query, fused, top_k=config.TOP_K_RERANK)
         except Exception as exc:
             logger.error("RAG tool: cross-encoder rerank failed: %s. Falling back to RRF order.", exc)
             reranked = fused[: config.TOP_K_RERANK]
         _emit("reranker", "done", f"Top {len(reranked)} selected")
+
+        # [Module 30] Widen each surviving chunk with its immediate
+        # neighbours from the same document, for the KB corpus only.
+        #
+        # Retrieval can be right and the answer still absent: measured on
+        # KB3 after the fixes above, the Police Order Article 18 chunk
+        # carrying "All registered cases shall be investigated by the
+        # investigation staff in the district under" came back at rank 1 on
+        # every attempt, and the evaluator still returned relevant=False
+        # three times in a row — correctly, because that chunk ends
+        # mid-sentence and the words that answer the question ("under the
+        # supervision of the head of investigation", "(5) The District
+        # Police Officer shall not interfere with the process of
+        # investigation") are in the NEXT chunk. This corpus is chunked at
+        # roughly 350 characters and a provision routinely spans five of
+        # them.
+        #
+        # Retrieve narrow, read wide — ids, scores and metadata are
+        # untouched, so citations still name the chunk actually retrieved.
+        # Scoped to the KB-only corpus: case narratives are not split
+        # mid-clause the way statute text is, and this must not quietly
+        # change what every other route reads.
+        if is_global_only_scope and reranked:
+            reranked = await expand_with_neighbors(reranked, window=1)
+
+        # [Module 30] Which chunks actually reached the evaluator, by id and
+        # source file. The evaluator's own `relevant=…` reason is the most
+        # useful diagnostic for the KB bucket, but on its own it cannot tell
+        # "the right provision was retrieved and misjudged" from "the right
+        # provision never arrived" — and Module 19b recorded a probe where an
+        # answer cited "section 174" that was not in the chunks being judged
+        # at all. Ids + sources only, never chunk text: enough to look the
+        # exact passage up in the store, without copying document content
+        # into the log.
+        logger.info(
+            "RAG tool: %d chunk(s) to evaluator (attempt %d): %s",
+            len(reranked), retry_count + 1,
+            ", ".join(
+                f"{c.get('id')}[{(c.get('metadata') or {}).get('source', '?')}]"
+                for c in reranked
+            ) or "none",
+        )
 
         # [Reconciliation fix — harness-reconciliation Unit 3] Track whether
         # the evaluator itself raised, distinct from it returning a genuine

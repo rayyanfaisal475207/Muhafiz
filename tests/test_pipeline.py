@@ -264,7 +264,7 @@ async def test_rewrite_skips_the_llm_when_there_is_no_history(monkeypatch):
 
 
 async def test_rewrite_resolves_followups_using_history(monkeypatch):
-    async def _fake_llm(system_prompt, user_message, **kwargs):
+    async def _fake_llm(*, system_prompt, user_message, **kwargs):
         assert "mobile theft" in user_message, "history was not passed to the rewriter"
         return "What PPC section covers mobile theft committed at night?"
 
@@ -369,6 +369,145 @@ async def test_evaluator_defaults_to_not_relevant_on_bad_json(monkeypatch):
     monkeypatch.setattr("src.pipeline.evaluator.call_llm", _fake_llm)
 
     result = await evaluate_relevance("q", "q", [{"text": "x", "metadata": {}}])
+
+    assert result["relevant"] is False
+
+
+# ── Module 19b: compound-question relaxation (order-independent) ──────────────
+#
+# Module 5 added the compound-question rule ("answer the primary part") but
+# it assumed the LEGAL half is always "primary" and a closing single-topic
+# strictness line could still override it — so a data-clause-first question
+# (KB2/KB3's actual shape) was misjudged. These tests pin to KB2/KB3/KB4's
+# literal gold text (Gold_QA_Dataset_Final32.json) and mock the LLM, so they
+# assert the evaluate_relevance()/prompt contract, not live model behavior —
+# the live verification (backend log capture) is what actually proves the
+# prompt change works.
+
+KB2_QUESTION = (
+    "Why doesn't our system keep a record of what a witness or an accused "
+    "person actually said in a police interview — is that a data gap?"
+)
+KB3_QUESTION = (
+    "Does the law expect the officer who first registers a case to be the "
+    "same one who investigates it, or are those meant to be separate roles "
+    "— and does that match what actually happens in our data?"
+)
+KB4_QUESTION = (
+    "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس "
+    "بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر "
+    "کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟"
+)
+
+
+def test_evaluator_prompt_states_compound_detection_is_order_independent():
+    """
+    The prompt must no longer frame compound handling around "the primary
+    part" (which invited the KB2 primary/secondary inversion) — it must say
+    explicitly that leading with the data clause doesn't change the verdict.
+    """
+    from src.pipeline.evaluator import _SYSTEM_PROMPT
+
+    assert "regardless of which" in _SYSTEM_PROMPT
+    assert "norm clause" in _SYSTEM_PROMPT.lower()
+    assert "our-data clause" in _SYSTEM_PROMPT.lower() or "our data clause" in _SYSTEM_PROMPT.lower()
+
+
+def test_evaluator_prompt_compound_rule_is_not_overridden_by_single_topic_default():
+    """
+    Hypothesis B: the prompt's closing "evaluate strictly for a SINGLE-topic
+    question" line was the last instruction the model read, and for any
+    question not confidently classified as compound, it won. The fix must
+    make the compound check happen first and say explicitly that the
+    single-topic default does not apply once a question is compound.
+    """
+    from src.pipeline.evaluator import _SYSTEM_PROMPT
+
+    assert "does NOT apply to it" in _SYSTEM_PROMPT or "cannot override" in _SYSTEM_PROMPT
+
+
+async def test_evaluator_accepts_data_clause_first_compound_question(monkeypatch):
+    """
+    KB2's literal shape: the sentence leads with "why doesn't our system…"
+    (the our-data clause) before ever mentioning law. A compliant evaluator
+    call still returns relevant=True when the documents answer the norm
+    clause — this pins the mocked LLM's own reasoning to KB2's exact text so
+    a regression here fails this test rather than only being caught live.
+    """
+    async def _fake_llm(*, system_prompt, user_message, **kwargs):
+        assert KB2_QUESTION in user_message
+        return (
+            '{"relevant": true, "reason": "Documents describe the legal '
+            'restrictions on recording and using police-interview statements '
+            '— compound question, norm clause answered even though it is not '
+            'the sentence\'s lead clause."}'
+        )
+
+    monkeypatch.setattr("src.pipeline.evaluator.call_llm", _fake_llm)
+
+    result = await evaluate_relevance(
+        KB2_QUESTION,
+        KB2_QUESTION,
+        [{"text": "Qanun-e-Shahadat Article 38/39...", "metadata": {"source": "qanun-e-shahadat.pdf"}}],
+    )
+
+    assert result["relevant"] is True
+
+
+async def test_evaluator_accepts_kb3_role_separation_question(monkeypatch):
+    async def _fake_llm(*, system_prompt, user_message, **kwargs):
+        assert KB3_QUESTION in user_message
+        return '{"relevant": true, "reason": "Police Order Article 18 establishes a separate investigation wing — norm clause answered."}'
+
+    monkeypatch.setattr("src.pipeline.evaluator.call_llm", _fake_llm)
+
+    result = await evaluate_relevance(
+        KB3_QUESTION,
+        KB3_QUESTION,
+        [{"text": "Article 18. Posting of head of investigation...", "metadata": {"source": "PoliceOrder2002.pdf"}}],
+    )
+
+    assert result["relevant"] is True
+
+
+async def test_evaluator_accepts_kb4_urdu_compound_question(monkeypatch):
+    """Urdu-phrased compound question (norm clause first here) — order-independence must hold across scripts too."""
+    async def _fake_llm(*, system_prompt, user_message, **kwargs):
+        assert KB4_QUESTION in user_message
+        return '{"relevant": true, "reason": "Punjab Police Rules describe property register destruction and handover procedure — norm clause answered."}'
+
+    monkeypatch.setattr("src.pipeline.evaluator.call_llm", _fake_llm)
+
+    result = await evaluate_relevance(
+        KB4_QUESTION,
+        KB4_QUESTION,
+        [{"text": "This register may be destroyed three years after being completed...", "metadata": {"source": "Punjab-Police-Rules-III.pdf"}}],
+    )
+
+    assert result["relevant"] is True
+
+
+async def test_evaluator_still_rejects_genuinely_off_topic_documents(monkeypatch):
+    """
+    Regression guard (required by the module brief): the prompt's own
+    "Examples of correct false decisions" list must still produce false —
+    a fix that makes the evaluator return true for everything is a
+    regression, not a fix.
+    """
+    async def _fake_llm(*args, **kwargs):
+        return (
+            '{"relevant": false, "reason": "Retrieved chunks are about the '
+            'foreigner registration procedure, not tenant registration as '
+            'the user asked"}'
+        )
+
+    monkeypatch.setattr("src.pipeline.evaluator.call_llm", _fake_llm)
+
+    result = await evaluate_relevance(
+        "What documents do I need for tenant registration?",
+        "What documents do I need for tenant registration?",
+        [{"text": "Foreigner registration requires...", "metadata": {"source": "foreigner_reg.pdf"}}],
+    )
 
     assert result["relevant"] is False
 

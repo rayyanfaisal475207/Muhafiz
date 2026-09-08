@@ -119,3 +119,55 @@ async def cross_rerank(query: str, candidates: list[dict], top_k: int = None) ->
         reranked.append(matched)
 
     return reranked[:top_k]
+
+
+async def cross_rerank_multi(
+    queries: list[str], candidates: list[dict], top_k: int = None
+) -> list[dict]:
+    """
+    Cross-rerank `candidates` against SEVERAL query phrasings and keep each
+    candidate's BEST score across them.
+
+    Why (Module 30): the cross-encoder is scored against one query string,
+    and for a Roman-Urdu question about an English statute book that string
+    carries almost no signal — measured live, every candidate came back
+    inside 0.0007–0.0022, i.e. noise, and the correct CrPC s.173 chunk (RRF
+    rank 1 going in) was cut. Scored against the same candidates with an
+    English statute-vocabulary phrasing of the same question, that chunk
+    ranked 2nd. Taking the max over both phrasings keeps the chunk that any
+    one phrasing recognises, which is exactly the property a multi-query
+    retrieval pool needs from its reranker — a candidate found by one query
+    variant should not be discarded because a different variant's wording
+    does not match it.
+
+    Single-query behaviour is unchanged: with one query this is
+    `cross_rerank()` plus a re-sort by the same score it already sorted by.
+    Cost is one reranker call per query, so callers pass a small list.
+
+    Returns up to `top_k` candidates in descending best-score order, each
+    with the winning "rerank_score".
+    """
+    if not candidates:
+        return []
+
+    top_k = top_k or config.TOP_K_RERANK
+    usable = [q for q in queries if q and q.strip()]
+    if not usable:
+        return candidates[:top_k]
+
+    # Ask each pass for every candidate, not top_k: a candidate cut by one
+    # query's pass must still be able to win on another's score. Without
+    # this the merge could only ever see each query's own top_k.
+    best: dict[str, dict] = {}
+    for query in usable:
+        for chunk in await cross_rerank(query, candidates, top_k=len(candidates)):
+            previous = best.get(chunk["id"])
+            if previous is None or chunk.get("rerank_score", 0.0) > previous.get(
+                "rerank_score", 0.0
+            ):
+                best[chunk["id"]] = chunk
+
+    merged = sorted(
+        best.values(), key=lambda c: c.get("rerank_score", 0.0), reverse=True
+    )
+    return merged[:top_k]

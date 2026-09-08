@@ -60,6 +60,108 @@ _VALID_ROUTES = ["DIRECT", "RAG", "WEB", "SQL", "GRAPH", "GRAPH_HYBRID", "XGRAPH
 # query (see router.txt), not a cross-case XAGG one.
 _ACTIVE_CASE_RE = re.compile(r"\b(CASE|FIR)[-\s]?\d", re.IGNORECASE)
 
+# [Gold-QA fix — Module 26, question M1] Year-over-year / period comparison
+# ("what kinds of cases are we dealing with now compared to a couple of
+# years back"). xagg.py's own `_TIME_COMPARISON_KEYWORDS` family (Module 13)
+# already has a real, working single-call aggregate for this shape
+# (`_statute_mix_by_year()`) — the gap this override closes is purely at the
+# ROUTE-classification layer: without a deterministic entry here, this
+# phrasing depended entirely on the local LLM classifier, which — per the
+# same local-model unreliability already documented at the top of this file
+# for other query shapes — is confirmed flaky for it (a live run during this
+# module's own verification classified it correctly as XAGG; the router.py
+# history this module's brief was written against recorded the same
+# phrasing landing on XGRAPH instead, which cannot answer a countable
+# comparison at all). Mined from M1's own literal gold text, then widened
+# only to the same paraphrase shapes `_TIME_COMPARISON_KEYWORDS` itself
+# already trusts, so the two layers stay in lockstep.
+#
+# A NAMED, MODULE-LEVEL constant (not inlined into `_XAGG_OVERRIDE_PATTERNS`
+# below) because `supervisor.py::classify_to_subagent()` also needs it: a
+# second, independently-discovered live defect (this module's own writeup
+# in GOLD_QA_REMAINING_FIXES_PLAN.md has the full trace) is that this exact
+# comparison shape ALSO matches `_META_ANALYSIS_TRIGGER_PATTERNS`' own
+# comparison group (both files' patterns were written by different modules
+# against the same M1 gold text), so the Meta-Analysis sub-agent
+# unnecessarily DECOMPOSES a question XAGG's single time-bucketed aggregate
+# call already answers whole into two independently-classified, undirected
+# sub-queries — each of which drops the "compared to" language that made
+# THIS pattern list match in the first place, so its own re-classification
+# is left to the flaky LLM call again, one level down. Sharing this exact
+# pattern list lets supervisor.py recognize "XAGG already has a one-call
+# answer for this" and skip decomposition instead of guessing at it with a
+# second, drifting copy.
+_TIME_COMPARISON_XAGG_PATTERNS = [
+    re.compile(r"\bcompared?\s+(to|with)\b.{0,60}\b(years?|year|couple|20\d\d)\b", re.IGNORECASE),
+    re.compile(r"\b(couple|few|two|three)\s+of\s+years?\s+(back|ago)\b", re.IGNORECASE),
+    re.compile(r"\bversus\b.{0,25}\byears?\s+ago\b", re.IGNORECASE),
+    re.compile(r"\bvs\.?\s*20\d\d\b", re.IGNORECASE),
+    re.compile(r"\byear[\s-]over[\s-]year\b", re.IGNORECASE),
+    re.compile(r"\b(shifted|changed)\b.{0,20}\bsince\s+20\d\d\b", re.IGNORECASE),
+    re.compile(r"کے\s*مقابلے\s*میں"),
+    re.compile(r"\bke\s*muqabl?[ae]\s*mein\b", re.IGNORECASE),
+]
+
+# [Gold-QA fix — Module 28, question CR4] Weapon-evidence ATTRIBUTION chain
+# ("if we've got a weapon logged as evidence, can we tell who it was taken
+# off and what happened to them?"). Module 21's live investigation
+# (GOLD_QA_REMAINING_FIXES_PLAN.md) captured this question routing to
+# **XGRAPH**, dispatched to Cross-Case Linkage alone, `status=empty`: it
+# names no entity, so `_recover_target_entity()` correctly returns None and
+# xgraph_tool falls back to its recurring-entity-ACROSS-CASES traversal —
+# architecturally the wrong shape, because CR4 asks for ONE example chain
+# (weapon -> FIR -> accused -> status), not a recurrence pattern. The
+# relevance gate then refuses (nearest community distance 0.184 vs. the
+# 0.145 cutoff), which Module 21 confirmed is the gate behaving correctly.
+# The defect is here, at the route-classification layer.
+#
+# DISCRIMINATOR — the part that must not go wrong. Every pattern below is a
+# CONJUNCTION of a weapon term AND an attribution term, the same house
+# technique xagg.py's own weapon entries use (G5 gates on weapon AND
+# compliance). A bare weapon keyword would collide with FOUR gold questions
+# that already work — G5 (weapon-register compliance, 1.0), CP1 (weapon
+# recoveries per district), M5 (which case types weapons show up in) and KB6
+# (forensics handling guidelines) — and the attribution half is what none of
+# them has: none asks WHOSE weapon it was. It equally cannot fire on CR2
+# ("is there anyone with an earlier case ... who has since resurfaced as a
+# suspect?"), the genuine cross-case recurrence question Module 21
+# explicitly warned a weapon-vocabulary keyword would misroute — CR2
+# contains no weapon vocabulary at all. Negative-controlled against all 32
+# gold questions in tests/test_router.py.
+#
+# A NAMED constant rather than an inline block, following Module 26's own
+# M1 precedent, so the negative-control test can assert over exactly this
+# family. Unlike M1's, it needs no `supervisor.py` counterpart: CR4 and its
+# paraphrase match none of `_META_ANALYSIS_TRIGGER_PATTERNS` (verified), so
+# nothing decomposes this question away from XAGG's single-call aggregate.
+_WEAPON_EVIDENCE_CHAIN_XAGG_PATTERNS = [
+    # (a) weapon term, then the attribution ask.
+    re.compile(
+        r"\b(weapons?|firearms?|pistols?|guns?|hathiyar\w*|aslah\w*)\b"
+        r".{0,140}?"
+        r"(\btaken\s+(off|from)\b|\btook\s+.{0,20}\boff\b|\brecovered\s+from\b|"
+        r"\bseized\s+from\b|\btrace\w*\b.{0,30}\bback\b|\bbelonged?\s+to\b|"
+        r"\bwhose\b|کس\s*سے\s*برآمد|کس\s*کے\s*قبضے|"
+        r"\bkis\s*se\s*baramad\b|\bkis\s*ke\s*qabze\b)",
+        re.IGNORECASE,
+    ),
+    # (b) the attribution ask first ("who was this pistol taken off?" reads
+    #     the other way round in several natural phrasings).
+    re.compile(
+        r"(\btaken\s+(off|from)\b|\brecovered\s+from\b|\bseized\s+from\b|"
+        r"\btrace\w*\b.{0,30}\bback\b|\bwhose\b)"
+        r".{0,140}?"
+        r"\b(weapons?|firearms?|pistols?|guns?|hathiyar\w*|aslah\w*)\b",
+        re.IGNORECASE,
+    ),
+    # (c) Urdu script: ہتھیار/اسلحہ + "کس سے" / "کس کے قبضے" (from whom /
+    #     from whose possession). Deliberately NOT the bare "کس" — M5 asks
+    #     "کس نوعیت کے مقدمات" (what KIND of cases), an unrelated question
+    #     that must keep its current route.
+    re.compile(r"(ہتھیار|اسلحہ|پستول).{0,140}(کس\s*سے|کس\s*کے\s*قبضے|کس\s*کا\s*تھا)"),
+    re.compile(r"(کس\s*سے\s*برآمد|کس\s*کے\s*قبضے\s*سے).{0,140}(ہتھیار|اسلحہ|پستول)"),
+]
+
 _XAGG_OVERRIDE_PATTERNS = [
     # Case status/category count aggregates:
     # "how many closed cases", "بند کیسز کی تعداد بتائیں", "band cases kitne hain"
@@ -246,7 +348,16 @@ _XAGG_OVERRIDE_PATTERNS = [
     re.compile(r"عدالت\s*کو\s*حوالگی"),
     re.compile(r"کیس\s*فائل\s*تیار.{0,60}(نامکمل|عدالت|حوالگی)"),
     re.compile(r"(نامکمل\s*قرار|قبول\s*کرنے\s*سے\s*پہلے)"),
-]
+    # (f) [Gold-QA fix — Module 26, question M1] Year-over-year / period
+    # comparison — see `_TIME_COMPARISON_XAGG_PATTERNS`'s own module-level
+    # comment (defined above, shared with supervisor.py) for the full
+    # rationale and why this is a NAMED shared constant rather than an
+    # inline list here.
+    # (g) [Gold-QA fix — Module 28, question CR4] Weapon-evidence
+    # attribution chain — see `_WEAPON_EVIDENCE_CHAIN_XAGG_PATTERNS`'s own
+    # module-level comment (defined above) for the full rationale and the
+    # CR2/G5/CP1/M5/KB6 discriminator.
+] + list(_TIME_COMPARISON_XAGG_PATTERNS) + list(_WEAPON_EVIDENCE_CHAIN_XAGG_PATTERNS)
 
 _XGRAPH_OVERRIDE_PATTERNS = [
     re.compile(r"\bacross\b.{0,15}\b(multiple |other )?cases\b", re.IGNORECASE),

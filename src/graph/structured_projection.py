@@ -662,6 +662,34 @@ async def project_fir(fir: FirRecord, *, graph: str = age_client.GRAPH_NAME) -> 
         _delay_reason = (fir.raw.get("reporting_delay_reason") or "").strip()
         if _delay_reason:
             incident_properties["reporting_delay_reason"] = _delay_reason
+        # [Gold-QA fix — Module 22, question M7] The FIR record carries typed
+        # `incident_datetime` and `report_datetime` (full ISO timestamps,
+        # e.g. "2024-09-25T17:10:00Z" -> "2024-09-25T17:25:00Z"), but until
+        # now NEITHER reached a queryable structured field:
+        #   - `_write_occurred_on()` below does use `incident_datetime`, but
+        #     `_write_occurred_on_edge()` truncates it to `[:10]` for the
+        #     Date node key — correct for a day-granular timeline, and not
+        #     something to change, but it discards the time entirely.
+        #   - `report_datetime` was never projected at all; it survived only
+        #     inside the free-text narrative ("بوقت 16:20 بمورخہ 20.03.2026").
+        # So a reporting-SPEED question could not be answered from the graph
+        # at any precision finer than a day, which is why
+        # xagg._reporting_delay_rate_by_year() had to fall back to counting
+        # FIRs that recorded a delay REASON (a different quantity) and said
+        # so in its own `note`.
+        #
+        # Projecting the two raw timestamps rather than a precomputed delta:
+        # a stored delta answers strictly fewer questions than the pair it
+        # came from, and goes stale independently of them.
+        #
+        # Same optional convention as `description`/`reporting_delay_reason`
+        # above — an absent timestamp writes no property at all, so "not
+        # recorded" stays distinguishable from "recorded as blank", and the
+        # aggregate can report its own coverage honestly.
+        for _ts_field in ("incident_datetime", "report_datetime"):
+            _ts_value = (fir.raw.get(_ts_field) or "").strip()
+            if _ts_value:
+                incident_properties[_ts_field] = _ts_value
         await versioning.write_node(
             "Incident", {"entity_id": incident_id}, incident_properties,
             source_doc_id=doc_id, graph=graph,

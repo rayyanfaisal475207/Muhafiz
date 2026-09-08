@@ -391,6 +391,43 @@ def test_allow_meta_analysis_false_suppresses_the_trigger():
     )
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 26, question M1] Skip Meta-Analysis decomposition
+# for a year-over-year/period comparison already routed to XAGG — see
+# `_TIME_COMPARISON_XAGG_PATTERNS`'s own module-level comment in router.py
+# (shared with this file) for the full rationale.
+# ═══════════════════════════════════════════════════════════════════════
+
+def test_time_comparison_xagg_query_skips_meta_analysis():
+    """M1's exact gold-dataset text matches _META_ANALYSIS_TRIGGER_PATTERNS'
+    own comparison group ("compared to") -- without this guard it would
+    decompose into two independently-classified sub-queries instead of
+    reaching Large-Scale Aggregate directly, which is the live-confirmed
+    defect this guard exists to prevent (see GOLD_QA_REMAINING_FIXES_PLAN.md)."""
+    route_result = {"route": "XAGG", "case_scope": "cross_case", "output_format": "chat"}
+    query_text = "What kinds of cases are we dealing with now compared to a couple of years back?"
+    assert classify_to_subagent(route_result, query_text) == LARGE_SCALE_AGGREGATE
+
+
+def test_time_comparison_guard_is_scoped_to_xagg_route_only():
+    """The guard must not suppress a genuine Meta-Analysis decomposition for
+    a DIFFERENT cross-case route that has no equivalent one-call aggregate
+    to fall back to -- only route == XAGG skips decomposition."""
+    route_result = {"route": "XNETWORK", "case_scope": "cross_case", "output_format": "chat"}
+    query_text = "How has this network changed compared to what it looked like a couple of years back?"
+    assert classify_to_subagent(route_result, query_text) == META_ANALYSIS
+
+
+def test_time_comparison_guard_does_not_suppress_unrelated_xagg_meta_analysis_triggers():
+    """An XAGG-routed query matching a DIFFERENT Meta-Analysis trigger (not
+    the year-over-year comparison shape) must still decompose normally --
+    this guard is narrow to the shared time-comparison pattern family, not
+    a blanket "XAGG never decomposes" rule."""
+    route_result = {"route": "XAGG", "case_scope": "cross_case", "output_format": "chat"}
+    query_text = "Is caseload growing faster at our general-purpose stations, or at the handful set up for one specific type of crime?"
+    assert classify_to_subagent(route_result, query_text) == META_ANALYSIS
+
+
 def test_file_output_still_overrides_meta_analysis_trigger():
     route_result = {"route": "RAG", "output_format": "file_pdf"}
     query_text = "Summarize the recurring patterns across all cases and flag any repeats."

@@ -44,7 +44,15 @@ from src.pipeline.xagg import (
     render_dv_report_fir_match,
     render_case_completeness_scan,
     render_weapon_compliance_scan,
+    render_weapon_evidence_chain,
     render_court_readiness_scan,
+    render_time_bucketed_mean,
+    render_weapon_statute_cooccurrence,
+    render_statute_court_stage_join,
+    render_offender_age_profile,
+    render_accused_relationship_breakdown,
+    render_seized_property_disposition,
+    render_incident_time_of_day,
 )
 from src.pipeline.xagg import _UNSUPPORTED_JURISDICTION as _UNRESOLVED_JURISDICTION_NOTE
 from src.pipeline.xnetwork import run_network_query
@@ -518,6 +526,8 @@ async def _fetch_secondary_evidence(
                     lines = render_case_completeness_scan(agg_result)
                 elif agg_result["kind"] == "weapon_compliance_scan":
                     lines = render_weapon_compliance_scan(agg_result)
+                elif agg_result["kind"] == "weapon_evidence_chain":
+                    lines = render_weapon_evidence_chain(agg_result)
                 elif agg_result["kind"] == "court_readiness_scan":
                     lines = render_court_readiness_scan(agg_result)
                 elif agg_result["kind"] == "district_breakdown":
@@ -548,6 +558,41 @@ async def _fetch_secondary_evidence(
                         f"delay reason (~{round(100 * b['rate'])}%)"
                         for b in agg_result["buckets"]
                     )
+                # [Gold-QA fix — Module 22, M7] shared renderer, kept in sync
+                # with the harness xagg_tool() wrapper and this file's second
+                # XAGG rendering site.
+                elif agg_result["kind"] == "time_bucketed_mean":
+                    lines = render_time_bucketed_mean(agg_result)
+                # [Gold-QA fix — Module 23, M5] shared renderer, kept in sync
+                # with the harness xagg_tool() wrapper and this file's other
+                # XAGG rendering site.
+                elif agg_result["kind"] == "weapon_statute_cooccurrence":
+                    lines = render_weapon_statute_cooccurrence(agg_result)
+                # [Gold-QA fix - Module 24, M4] shared renderer, kept in sync
+                # with the harness xagg_tool() wrapper and this file's other
+                # XAGG rendering site.
+                elif agg_result["kind"] == "statute_court_stage_join":
+                    lines = render_statute_court_stage_join(agg_result)
+                # [Gold-QA fix — Module 31, G1] shared renderer, kept in sync
+                # with the harness xagg_tool() wrapper and this file's other
+                # XAGG rendering site.
+                elif agg_result["kind"] == "offender_age_profile":
+                    lines = render_offender_age_profile(agg_result)
+                # [Gold-QA fix — Module 32, G1] shared renderer, kept in sync
+                # with the harness xagg_tool() wrapper and this file's other
+                # XAGG rendering site.
+                elif agg_result["kind"] == "accused_relationship_breakdown":
+                    lines = render_accused_relationship_breakdown(agg_result)
+                # [Gold-QA fix — Module 33, G1] shared renderer, kept in sync
+                # with the harness xagg_tool() wrapper and this file's other
+                # XAGG rendering site.
+                elif agg_result["kind"] == "seized_property_disposition":
+                    lines = render_seized_property_disposition(agg_result)
+                # [Gold-QA fix — Module 34, G1] shared renderer, kept in sync
+                # with the harness xagg_tool() wrapper and this file's other
+                # XAGG rendering site.
+                elif agg_result["kind"] == "incident_time_of_day":
+                    lines = render_incident_time_of_day(agg_result)
                 else:
                     lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result.get("counts", [])]
                 aggregate_text = "\n".join(lines)
@@ -2147,6 +2192,8 @@ async def process_query(
                 lines = render_case_completeness_scan(agg_result)
             elif agg_result["kind"] == "weapon_compliance_scan":
                 lines = render_weapon_compliance_scan(agg_result)
+            elif agg_result["kind"] == "weapon_evidence_chain":
+                lines = render_weapon_evidence_chain(agg_result)
             elif agg_result["kind"] == "court_readiness_scan":
                 lines = render_court_readiness_scan(agg_result)
             elif agg_result["kind"] == "district_breakdown":
@@ -2181,6 +2228,41 @@ async def process_query(
                     f"reason (~{round(100 * b['rate'])}%)"
                     for b in agg_result["buckets"]
                 )
+            # [Gold-QA fix — Module 22, M7] shared renderer, kept in sync with
+            # the harness xagg_tool() wrapper and this file's first XAGG
+            # rendering site above.
+            elif agg_result["kind"] == "time_bucketed_mean":
+                lines = render_time_bucketed_mean(agg_result)
+            # [Gold-QA fix — Module 23, M5] shared renderer, kept in sync with
+            # the harness xagg_tool() wrapper and this file's first XAGG
+            # rendering site above.
+            elif agg_result["kind"] == "weapon_statute_cooccurrence":
+                lines = render_weapon_statute_cooccurrence(agg_result)
+            # [Gold-QA fix - Module 24, M4] shared renderer, kept in sync with
+            # the harness xagg_tool() wrapper and this file's first XAGG
+            # rendering site above.
+            elif agg_result["kind"] == "statute_court_stage_join":
+                lines = render_statute_court_stage_join(agg_result)
+            # [Gold-QA fix — Module 31, G1] shared renderer, kept in sync with
+            # the harness xagg_tool() wrapper and this file's first XAGG
+            # rendering site above.
+            elif agg_result["kind"] == "offender_age_profile":
+                lines = render_offender_age_profile(agg_result)
+            # [Gold-QA fix — Module 32, G1] shared renderer, kept in sync with
+            # the harness xagg_tool() wrapper and this file's first XAGG
+            # rendering site above.
+            elif agg_result["kind"] == "accused_relationship_breakdown":
+                lines = render_accused_relationship_breakdown(agg_result)
+            # [Gold-QA fix — Module 33, G1] shared renderer, kept in sync with
+            # the harness xagg_tool() wrapper and this file's first XAGG
+            # rendering site above.
+            elif agg_result["kind"] == "seized_property_disposition":
+                lines = render_seized_property_disposition(agg_result)
+            # [Gold-QA fix — Module 34, G1] shared renderer, kept in sync with
+            # the harness xagg_tool() wrapper and this file's first XAGG
+            # rendering site above.
+            elif agg_result["kind"] == "incident_time_of_day":
+                lines = render_incident_time_of_day(agg_result)
             else:
                 lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
                 # [Legal-code semantic layer] crime_category can combine
