@@ -695,13 +695,27 @@ async def test_recurrence_language_still_routes_to_recurring_persons_path(monkey
     assert result["entity_type"] == "Person"
 
 
-async def test_age_question_returns_unsupported_aggregate_not_a_wrong_number(monkeypatch):
+async def test_age_question_on_an_ageless_corpus_says_so_instead_of_a_wrong_number(monkeypatch):
+    """[Gold-QA fix — Module 31] REWRITTEN, deliberately. This used to assert
+    the hard `_UNSUPPORTED_AGE` refusal for EVERY age question. Module 31
+    demoted that refusal: `Person.age` has been projected since Module 1d,
+    so refusing unconditionally asserted something false about the data
+    model. The property this test still has to protect is the one it was
+    written for — an age question must never be answered by an unrelated
+    family — so it now pins the honest empty-corpus message instead."""
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient([]))
+
     result = await xagg.run_aggregate(
-        "what is the average age of the accused", None, gateway=None, user_role="supervisor"
+        "what is the average age of the accused", None,
+        gateway=FakeGateway([]), user_role="supervisor",
     )
 
-    assert result["kind"] == "unsupported_aggregate"
+    assert result["kind"] == "offender_age_profile"
+    assert result["unsupported"] is True
     assert "age" in result["message"].lower()
+    # The specific regression: NOT the person-recurrence family, which
+    # "accused" would otherwise match.
+    assert result["kind"] != "graph_recurrence"
 
 
 async def test_officer_question_returns_unsupported_aggregate(monkeypatch):
@@ -2325,3 +2339,1165 @@ async def test_m5_still_reaches_the_cooccurrence_aggregate_after_module_24(monke
     )
 
     assert result["kind"] == "weapon_statute_cooccurrence"
+
+
+# ── [Gold-QA fix — Module 31, question G1] offender age profile ────────────
+#
+# G1 is a broad "review the caseload" question that reaches XAGG only after
+# Meta-Analysis decomposes it (Module 29). The literal text below is the
+# sub-question that carries G1's offender-profile element, written in the
+# same "..., across all cases?" shape as every other sub-query in
+# `meta_analysis.py`'s `_DECOMPOSITION_PLANS`. Pinning it here is what stops
+# a later edit to `_AGE_KEYWORDS` from silently re-breaking the dispatch.
+_G1_SQ_ACCUSED_AGE = (
+    "How many cases involve an accused person, and what is their age range "
+    "and average age, across all cases?"
+)
+_G1_GOLD_TEXT = (
+    "Acting as a crime analyst, review our current caseload and flag "
+    "anything that looks unusual or worth monitoring."
+)
+
+
+def _age_rows(pairs):
+    """(entity_id, age, case_id) triples -> the shape `_offender_age_profile()`
+    reads. `age=None` is an accused with no age recorded."""
+    rows = []
+    for entity_id, age, case_id in pairs:
+        props = {"entity_id": entity_id}
+        if age is not None:
+            props["age"] = age
+        rows.append({"p": {"id": entity_id, "label": "Person", "properties": props},
+                     "case_id": case_id})
+    return rows
+
+
+async def test_offender_age_profile_reports_range_mean_and_both_denominators(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(_age_rows([
+        ("P-1", 24, "fir-1-26"),
+        ("P-2", 30, "fir-1-26"),
+        ("P-3", 49, "fir-2-26"),
+        # A recidivist: two accused ENTRIES, one distinct person. The two
+        # denominators must diverge here or the caveat is meaningless.
+        ("P-3", 49, "fir-3-26"),
+        ("P-4", None, "fir-4-26"),
+        ("P-5", None, "fir-5-26"),
+    ])))
+
+    r = await xagg._offender_age_profile()
+
+    assert r["kind"] == "offender_age_profile"
+    assert r["unsupported"] is False
+    assert (r["min_age"], r["max_age"]) == (24, 49)
+    assert r["mean_age"] == pytest.approx((24 + 30 + 49) / 3)
+    assert r["with_age_count"] == 3
+    assert r["distinct_accused_count"] == 5
+    assert r["entries_with_age_count"] == 4      # P-3 counted twice
+    assert r["accused_entry_count"] == 6
+
+
+async def test_offender_age_profile_ignores_unusable_ages(monkeypatch):
+    """A free-text or out-of-range age must be treated exactly like a
+    missing one — counted in the coverage gap, never in the mean."""
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(_age_rows([
+        ("P-1", 30, "fir-1-26"),
+        ("P-2", "32", "fir-2-26"),      # numeric string — usable
+        ("P-3", "اکتیس", "fir-3-26"),    # words — not usable
+        ("P-4", 0, "fir-4-26"),          # out of range
+        ("P-5", 900, "fir-5-26"),        # out of range
+    ])))
+
+    r = await xagg._offender_age_profile()
+
+    assert r["with_age_count"] == 2
+    assert (r["min_age"], r["max_age"]) == (30, 32)
+    assert r["distinct_accused_count"] == 5
+
+
+async def test_offender_age_profile_canonicalises_confirmed_duplicates(monkeypatch):
+    """Two entity ids confirmed to be the same person are one accused, the
+    same rule `_total_accused_count()` applies."""
+    async def _pairs():
+        return [("P-1", "P-1-DUP")]
+
+    monkeypatch.setattr(xagg, "fetch_confirmed_same_as", _pairs)
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(_age_rows([
+        ("P-1", 30, "fir-1-26"),
+        ("P-1-DUP", 30, "fir-2-26"),
+    ])))
+
+    r = await xagg._offender_age_profile()
+
+    assert r["distinct_accused_count"] == 1
+    assert r["with_age_count"] == 1
+    assert r["accused_entry_count"] == 2
+
+
+async def test_offender_age_profile_says_so_when_no_accused_carries_an_age(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(_age_rows([
+        ("P-1", None, "fir-1-26"), ("P-2", None, "fir-2-26"),
+    ])))
+
+    r = await xagg._offender_age_profile()
+
+    assert r["unsupported"] is True
+    assert "no accused record in this corpus carries a recorded age" in r["message"].lower()
+
+
+async def test_offender_age_profile_honours_the_jurisdiction_allow_list(monkeypatch):
+    rows = _age_rows([("P-1", 30, "fir-1-26")])
+    seen = {}
+
+    async def _exec(cypher_query, params=None, columns=("result",), graph=None):
+        seen["q"], seen["p"] = cypher_query, params
+        return rows
+
+    monkeypatch.setattr(
+        xagg, "age_client", type("_A", (), {"execute_cypher": staticmethod(_exec)}),
+    )
+
+    await xagg._offender_age_profile(jurisdiction_case_ids=["fir-1-26"])
+
+    assert "$case_ids" in seen["q"]
+    assert seen["p"]["case_ids"] == ["fir-1-26"]
+
+
+def test_render_offender_age_profile_states_coverage_and_the_nationality_gap():
+    rendered = "\n".join(xagg.render_offender_age_profile({
+        "kind": "offender_age_profile", "unsupported": False,
+        "min_age": 24, "max_age": 49, "mean_age": 31.470588,
+        "with_age_count": 17, "distinct_accused_count": 92,
+        "entries_with_age_count": 19, "accused_entry_count": 94,
+        "ages": [], "nationality_note": xagg._NATIONALITY_NOT_MODELED,
+    }))
+
+    assert "24 to 49" in rendered
+    assert "31.5" in rendered
+    assert "17 of 92" in rendered
+    assert "19 of 94" in rendered
+    # The caveat that stops "every accused is 24-49" being read out of an
+    # 18%-coverage sample — gold G1 makes exactly that overclaim.
+    assert "75 of 92" in rendered
+    assert "not evidence that no accused is younger or older" in rendered
+    # Gold G1 also claims "all are Pakistani nationals". The field does not
+    # exist; the answer must say so rather than let it be inferred.
+    assert "nationality is not recorded" in rendered.lower()
+
+
+def test_render_offender_age_profile_passes_the_empty_corpus_message_through():
+    rendered = "\n".join(xagg.render_offender_age_profile(
+        {"kind": "offender_age_profile", "unsupported": True, "message": xagg._UNSUPPORTED_AGE}
+    ))
+    assert rendered == xagg._UNSUPPORTED_AGE
+
+
+async def test_g1_age_sub_query_reaches_the_age_profile_not_person_recurrence(monkeypatch):
+    """THE REGRESSION PINNED TO G1's LITERAL AGE SUB-QUERY. Measured before
+    this module (2026-09-08): this exact string returned
+    `{"kind": "unsupported_aggregate"}` carrying the stale claim that age is
+    "not currently extracted into this system's data model" — false since
+    Module 1d."""
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(_age_rows([("P-1", 31, "fir-1-26")])))
+
+    result = await xagg.run_aggregate(
+        _G1_SQ_ACCUSED_AGE, None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "offender_age_profile"
+    assert result["unsupported"] is False
+    assert result["kind"] != "graph_recurrence"
+    assert result["kind"] != "unsupported_aggregate"
+
+
+class TestOffenderAgeProfileBoundary:
+    """
+    [Gold-QA fix — Module 31] `_AGE_KEYWORDS` is checked FIRST in
+    `run_aggregate()`, ahead of every entity family, so anything it matches
+    it takes outright. That precedence is why this family gets the strictest
+    negative control in the file.
+    """
+
+    def test_the_g1_age_sub_query_matches(self):
+        assert xagg._matches_any(_G1_SQ_ACCUSED_AGE.lower(), xagg._AGE_KEYWORDS)
+
+    @pytest.mark.parametrize("paraphrase", [
+        # The required non-gold paraphrases — no phrase shared with the
+        # dispatched sub-query above.
+        "How old are the people we are charging?",
+        "Give me the age profile of our offenders.",
+        "Mulzimon ki umar kya hai?",
+        "ملزمان کی اوسط عمر کیا ہے؟",
+    ])
+    def test_non_gold_paraphrases_match(self, paraphrase):
+        assert xagg._matches_any(paraphrase.lower(), xagg._AGE_KEYWORDS)
+
+    @pytest.mark.parametrize("other", [
+        # Neighbouring families this must not swallow, given it wins first.
+        "How many cases does each accused person appear in, and which FIR "
+        "numbers, across all cases?",
+        "How many of the accused are men and how many are women, across all cases?",
+        "How many accused persons are there in total?",
+        "Which district recovers the most weapons?",
+    ])
+    def test_neighbouring_families_are_not_captured(self, other):
+        assert not xagg._matches_any(other.lower(), xagg._AGE_KEYWORDS)
+
+    def test_matches_no_gold_question_at_all(self):
+        """The all-32 negative control. `_AGE_KEYWORDS` must match NONE of
+        the 32 gold questions: G1 itself is a broad review that only reaches
+        XAGG through Meta-Analysis decomposition, so a direct match on any
+        gold text would mean this family had grown too wide.
+
+        Reads `evaluation/Gold_QA_Dataset_Final32_With_Answers.json` — the
+        bare `Gold_QA_Dataset_Final32.json` is NOT tracked in this repo, and
+        a test pinned to it silently skips (PR #21)."""
+        import json
+        from pathlib import Path
+
+        gold_path = (
+            Path(__file__).resolve().parent.parent
+            / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json"
+        )
+        assert gold_path.exists(), gold_path
+        items = json.loads(gold_path.read_text(encoding="utf-8"))
+        assert len(items) == 32
+        matched = [
+            (it.get("id") or "").upper()
+            for it in items
+            if xagg._matches_any(it["question"].lower(), xagg._AGE_KEYWORDS)
+        ]
+        assert matched == [], f"expected no gold question to match, got {matched}"
+
+
+# ── [Gold-QA fix — Module 32, question G1] accused↔complainant relationship ─
+#
+# The literal G1 sub-question this family exists to answer, in the same
+# "..., across all cases?" shape as `meta_analysis.py`'s other sub-queries.
+_G1_SQ_RELATIONSHIP = (
+    "How many cases record a relationship between the accused and the "
+    "complainant, and which relationship is it, across all cases?"
+)
+
+
+class _RelationshipAgeClient:
+    """Routes the two reads `_accused_relationship_breakdown()` issues."""
+
+    def __init__(self, rel_rows, accused_rows):
+        self.rel_rows = rel_rows
+        self.accused_rows = accused_rows
+        self.queries = []
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        self.queries.append((cypher_query, params))
+        if "RELATED_TO" in cypher_query:
+            return self.rel_rows
+        return self.accused_rows
+
+
+def _rel(role, case, a_id, b_id):
+    return {
+        "role": role,
+        "source_doc_id": f"psrms/fir/{case}#structured",
+        "a_id": a_id,
+        "b_id": b_id,
+    }
+
+
+def _accused(*p_ids):
+    return [{"p_id": p} for p in p_ids]
+
+
+async def test_relationship_breakdown_ranks_values_and_names_the_dominant_one(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _RelationshipAgeClient(
+        rel_rows=[
+            _rel("اجنبی", "fir-1-26", 1, 90),
+            _rel("اجنبی", "fir-2-26", 2, 91),
+            _rel("اجنبی", "fir-2-26", 3, 91),
+            _rel("بھائی", "fir-3-26", 4, 92),
+        ],
+        accused_rows=_accused(1, 2, 3, 4, 5, 5, 6),
+    ))
+
+    r = await xagg._accused_relationship_breakdown()
+
+    assert r["kind"] == "accused_relationship_breakdown"
+    assert r["total_relationships"] == 4
+    assert r["distinct_value_count"] == 2
+    assert r["case_count"] == 3
+    assert r["dominant"]["role"] == "اجنبی"
+    assert r["dominant"]["count"] == 3
+    assert r["dominant"]["gloss"] == "stranger"
+    # Per-value FIR counts: اجنبی spans two FIRs, not three edges' worth.
+    assert r["counts"][0]["case_count"] == 2
+    # Coverage: 4 of the 6 distinct accused carry a relationship.
+    assert r["distinct_accused_count"] == 6
+    assert r["accused_entry_count"] == 7
+    assert r["accused_with_relationship"] == 4
+
+
+async def test_relationship_breakdown_reports_the_duplicate_pair_double_count(monkeypatch):
+    """One accused row writes TWO edges when the victim and the complainant
+    are the same person. The raw edge count stays the headline (gold's own
+    denominator), but the duplication must be visible."""
+    monkeypatch.setattr(xagg, "age_client", _RelationshipAgeClient(
+        rel_rows=[
+            _rel("اجنبی", "fir-1-26", 1, 90),
+            _rel("اجنبی", "fir-1-26", 1, 90),   # same pair, same role
+            _rel("شوہر", "fir-2-26", 2, 91),
+        ],
+        accused_rows=_accused(1, 2),
+    ))
+
+    r = await xagg._accused_relationship_breakdown()
+
+    assert r["total_relationships"] == 3
+    assert r["distinct_pair_count"] == 2
+    rendered = "\n".join(xagg.render_accused_relationship_breakdown(r))
+    assert "3 entries cover 2 distinct" in rendered
+
+
+async def test_relationship_breakdown_scopes_by_the_edges_own_source_document(monkeypatch):
+    """The jurisdiction allow-list is applied to the FIR the relationship was
+    RECORDED on, not to every case its accused happens to touch — walking
+    `(a)-[:BELONGS_TO_CASE]->(:Case)` multiplies an edge by that person's
+    case count (measured live: 24 edges became 27 rows)."""
+    monkeypatch.setattr(xagg, "age_client", _RelationshipAgeClient(
+        rel_rows=[
+            _rel("اجنبی", "fir-1-26", 1, 90),
+            _rel("بھائی", "fir-2-26", 2, 91),
+        ],
+        accused_rows=_accused(1),
+    ))
+
+    r = await xagg._accused_relationship_breakdown(jurisdiction_case_ids=["fir-1-26"])
+
+    assert r["total_relationships"] == 1
+    assert r["counts"][0]["role"] == "اجنبی"
+
+
+async def test_relationship_breakdown_drops_unresolvable_edges_only_when_scoped(monkeypatch):
+    """An edge whose source document names no case cannot be shown to be in
+    scope, so it is dropped under an allow-list and kept without one."""
+    rows = [{"role": "اجنبی", "source_doc_id": None, "a_id": 1, "b_id": 90}]
+    monkeypatch.setattr(xagg, "age_client", _RelationshipAgeClient(rows, _accused(1)))
+    assert (await xagg._accused_relationship_breakdown())["total_relationships"] == 1
+
+    monkeypatch.setattr(xagg, "age_client", _RelationshipAgeClient(rows, _accused(1)))
+    scoped = await xagg._accused_relationship_breakdown(jurisdiction_case_ids=["fir-1-26"])
+    assert scoped["total_relationships"] == 0
+
+
+async def test_relationship_breakdown_on_an_empty_corpus_says_so(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _RelationshipAgeClient([], _accused(1, 2)))
+
+    r = await xagg._accused_relationship_breakdown()
+
+    assert r["total_relationships"] == 0
+    rendered = "\n".join(xagg.render_accused_relationship_breakdown(r))
+    assert "no accused↔complainant relationship is recorded" in rendered.lower()
+
+
+def test_render_relationship_breakdown_glosses_urdu_and_states_coverage():
+    rendered = "\n".join(xagg.render_accused_relationship_breakdown({
+        "kind": "accused_relationship_breakdown",
+        "total_relationships": 24, "distinct_pair_count": 24,
+        "distinct_value_count": 6, "case_count": 10,
+        "counts": [
+            {"role": "اجنبی", "gloss": "stranger", "count": 15, "case_count": 6},
+            {"role": "بھائی", "gloss": "brother", "count": 1, "case_count": 1},
+        ],
+        "dominant": {"role": "اجنبی", "gloss": "stranger", "count": 15, "case_count": 6},
+        "accused_entry_count": 94, "distinct_accused_count": 92,
+        "accused_with_relationship": 12,
+    }))
+
+    assert "اجنبی (stranger): 15 of 24" in rendered
+    assert "10 FIR(s)" in rendered
+    assert "dominant recorded relationship is اجنبی (stranger)" in rendered
+    # The coverage caveat that stops "stranger dominates" being read as a
+    # statement about the whole caseload — it describes 12 of 92 accused.
+    assert "12 of 92 distinct accused" in rendered
+    assert "not a profile of the whole caseload" in rendered
+
+
+def test_render_relationship_breakdown_passes_unmapped_values_through_verbatim():
+    """The gloss never substitutes a guess for a value it does not know."""
+    rendered = "\n".join(xagg.render_accused_relationship_breakdown({
+        "kind": "accused_relationship_breakdown",
+        "total_relationships": 1, "distinct_pair_count": 1,
+        "distinct_value_count": 1, "case_count": 1,
+        "counts": [{"role": "کوئی نیا رشتہ", "gloss": None, "count": 1, "case_count": 1}],
+        "dominant": {"role": "کوئی نیا رشتہ", "gloss": None, "count": 1, "case_count": 1},
+        "accused_entry_count": 1, "distinct_accused_count": 1,
+        "accused_with_relationship": 1,
+    }))
+
+    assert "کوئی نیا رشتہ: 1 of 1" in rendered
+    # No gloss parenthetical is attached to the raw value anywhere.
+    assert "کوئی نیا رشتہ (" not in rendered
+
+
+async def test_g1_relationship_sub_query_no_longer_falls_through_to_person_recurrence(monkeypatch):
+    """THE REGRESSION PINNED TO G1's LITERAL RELATIONSHIP SUB-QUERY.
+    Measured before this module (2026-09-08): this exact string returned
+    `{"kind": "graph_recurrence", "entity_type": "Person"}` — a ranked list
+    of repeat accused, confidently answering a question nobody asked. The
+    fall-through happened because "accused" is in `_PERSON_KEYWORDS`."""
+    monkeypatch.setattr(xagg, "age_client", _RelationshipAgeClient(
+        [_rel("اجنبی", "fir-1-26", 1, 90)], _accused(1),
+    ))
+
+    result = await xagg.run_aggregate(
+        _G1_SQ_RELATIONSHIP, None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "accused_relationship_breakdown"
+    assert result["kind"] != "graph_recurrence"
+
+
+async def test_g3_still_reaches_the_court_readiness_scan_after_module_32(monkeypatch):
+    """The single most likely thing Module 32 breaks: G3's gold answer is
+    about this SAME `RELATED_TO` data read as a completeness gap, and G3
+    scores 1.0 today. Its branch is checked first, structurally."""
+    class _AC:
+        async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+            return []
+
+    monkeypatch.setattr(xagg, "age_client", _AC())
+
+    result = await xagg.run_aggregate(
+        _G3_GOLD_TEXT, None,
+        gateway=FakeGateway([{"case_id": "fir-1-26", "incident_date": None}]),
+        user_role="supervisor",
+    )
+
+    assert result["kind"] == "court_readiness_scan"
+
+
+class TestAccusedRelationshipBoundary:
+    """[Gold-QA fix — Module 32] The keyword family at its edges."""
+
+    def test_the_g1_relationship_sub_query_matches(self):
+        assert xagg._matches_any(_G1_SQ_RELATIONSHIP.lower(), xagg._RELATIONSHIP_KEYWORDS)
+
+    @pytest.mark.parametrize("paraphrase", [
+        # The required non-gold paraphrases — no phrase shared with the
+        # dispatched sub-query above.
+        "Do our accused usually know the people they offend against, or are "
+        "they strangers?",
+        "Kya mulzim aur mudai ek doosre ko jaante hain ya ajnabi hote hain?",
+        "ملزم اور مدعی کا آپس میں کیا تعلق ہوتا ہے؟",
+    ])
+    def test_non_gold_paraphrases_match(self, paraphrase):
+        assert xagg._matches_any(paraphrase.lower(), xagg._RELATIONSHIP_KEYWORDS)
+
+    @pytest.mark.parametrize("other", [
+        # The bare Urdu "تعلق" was deliberately excluded: it is a substring
+        # of "متعلق" ("regarding"), which KB4 uses. This is that collision,
+        # pinned.
+        "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا "
+        "اِس بارے میں کوئی باقاعدہ معیار موجود ہے؟",
+        # Neighbouring XAGG families that carry person vocabulary.
+        "How many cases does each accused person appear in, and which FIR "
+        "numbers, across all cases?",
+        "How many of the accused are men and how many are women, across all cases?",
+        "How many accused persons are there in total?",
+    ])
+    def test_neighbouring_families_are_not_captured(self, other):
+        assert not xagg._matches_any(other.lower(), xagg._RELATIONSHIP_KEYWORDS)
+
+    def test_matches_no_gold_question_at_all(self):
+        """The all-32 negative control, same discipline as
+        `TestOffenderAgeProfileBoundary`'s: G1 reaches XAGG only through
+        Meta-Analysis decomposition, so a direct match on any gold text
+        would mean this family had grown too wide. Reads
+        `evaluation/Gold_QA_Dataset_Final32_With_Answers.json` — the bare
+        `Gold_QA_Dataset_Final32.json` is NOT tracked in this repo, and a
+        test pinned to it silently skips (PR #21)."""
+        import json
+        from pathlib import Path
+
+        gold_path = (
+            Path(__file__).resolve().parent.parent
+            / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json"
+        )
+        assert gold_path.exists(), gold_path
+        items = json.loads(gold_path.read_text(encoding="utf-8"))
+        assert len(items) == 32
+        matched = [
+            (it.get("id") or "").upper()
+            for it in items
+            if xagg._matches_any(it["question"].lower(), xagg._RELATIONSHIP_KEYWORDS)
+        ]
+        assert matched == [], f"expected no gold question to match, got {matched}"
+
+
+# ── [Gold-QA fix — Module 33, question G1] seized-property disposition ─────
+#
+# The literal G1 sub-question this family exists to answer, in the same
+# "..., across all cases?" shape as `meta_analysis.py`'s other sub-queries.
+_G1_SQ_SEIZED_PROPERTY = (
+    "How many cases record seized property, and what happens to it — how "
+    "many items were sent to a forensic laboratory or held for a deceased's "
+    "heirs, across all cases?"
+)
+_MALKHANA_FORENSIC = "سیل بند، نمونہ فرانزک لیبارٹری بھجوایا گیا"
+_MALKHANA_HEIRS = "ورثاء کے حوالے کیا جائے گا"
+_MALKHANA_FORENSIC_EVIDENCE = "فرانزک شواہد کے طور پر محفوظ"
+
+
+def _malkhana(condition, case_id, item_detail="چیز"):
+    return {"condition": condition, "item_detail": item_detail, "case_id": case_id}
+
+
+async def test_seized_property_groups_by_disposition_with_item_and_fir_counts(monkeypatch):
+    """Item count and FIR count differ whenever one FIR seizes two items —
+    conflating them is the easiest way to report a wrong number here."""
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient([
+        _malkhana(_MALKHANA_FORENSIC, "fir-1-26"),
+        _malkhana(_MALKHANA_FORENSIC, "fir-1-26"),   # same FIR, second item
+        _malkhana(_MALKHANA_FORENSIC, "fir-2-26"),
+        _malkhana(_MALKHANA_HEIRS, "fir-3-26"),
+        _malkhana("ضبط شدہ", "fir-4-26"),
+    ]))
+
+    r = await xagg._seized_property_disposition()
+
+    assert r["kind"] == "seized_property_disposition"
+    assert r["total_items"] == 5
+    assert r["case_count"] == 4
+    assert r["distinct_disposition_count"] == 3
+    top = r["counts"][0]
+    assert top["condition"] == _MALKHANA_FORENSIC
+    assert top["item_count"] == 3
+    assert top["case_count"] == 2          # NOT 3
+    assert top["gloss"] == "sealed, sample sent to the forensic laboratory"
+    assert r["forensic_dispatch_items"] == 3
+    assert r["forensic_dispatch_cases"] == 2
+    assert r["heirs_items"] == 1
+    assert r["heirs_cases"] == 1
+
+
+async def test_seized_property_separates_dispatched_from_merely_forensic(monkeypatch):
+    """The classification rule Module 33 publishes: gold's "13 sent to a
+    forensic lab" is the LITERAL dispatch reading. Entries that mention a
+    forensic process in some other wording are counted separately, never
+    folded into the headline."""
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient([
+        _malkhana(_MALKHANA_FORENSIC, "fir-1-26"),
+        _malkhana(_MALKHANA_FORENSIC_EVIDENCE, "fir-2-26"),
+        _malkhana("مالخانہ میں مہر بند، فرانزک معائنہ مطلوب", "fir-3-26"),
+    ]))
+
+    r = await xagg._seized_property_disposition()
+
+    assert r["forensic_dispatch_items"] == 1
+    assert r["forensic_any_items"] == 3
+    rendered = "\n".join(xagg.render_seized_property_disposition(r))
+    assert "3 entries mention a forensic process" in rendered
+    assert "only 1 record the item as actually sent to the laboratory" in rendered
+    assert "literal 'sent to the lab' reading" in rendered
+
+
+async def test_seized_property_reports_entries_with_no_disposition_separately(monkeypatch):
+    """A register entry with a blank disposition is a real state; putting it
+    in any bucket would inflate that bucket."""
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient([
+        _malkhana(_MALKHANA_FORENSIC, "fir-1-26"),
+        _malkhana("", "fir-2-26"),
+        _malkhana(None, "fir-3-26"),
+    ]))
+
+    r = await xagg._seized_property_disposition()
+
+    assert r["total_items"] == 3
+    assert r["unrecorded_disposition_count"] == 2
+    assert r["distinct_disposition_count"] == 1
+    rendered = "\n".join(xagg.render_seized_property_disposition(r))
+    assert "2 register entr(ies) record no disposition" in rendered
+
+
+async def test_seized_property_honours_the_jurisdiction_allow_list(monkeypatch):
+    seen = {}
+
+    async def _exec(cypher_query, params=None, columns=("result",), graph=None):
+        seen["q"], seen["p"] = cypher_query, params
+        return [_malkhana(_MALKHANA_FORENSIC, "fir-1-26")]
+
+    monkeypatch.setattr(
+        xagg, "age_client", type("_A", (), {"execute_cypher": staticmethod(_exec)}),
+    )
+
+    await xagg._seized_property_disposition(jurisdiction_case_ids=["fir-1-26"])
+
+    assert "$case_ids" in seen["q"]
+    assert seen["p"]["case_ids"] == ["fir-1-26"]
+    assert "malkhana_register" in seen["q"]
+
+
+async def test_seized_property_on_an_empty_corpus_says_so(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient([]))
+
+    r = await xagg._seized_property_disposition()
+
+    assert r["total_items"] == 0
+    rendered = "\n".join(xagg.render_seized_property_disposition(r))
+    assert "no seized-property (malkhana) register entry is recorded" in rendered.lower()
+
+
+def test_render_seized_property_passes_unmapped_conditions_through_verbatim():
+    rendered = "\n".join(xagg.render_seized_property_disposition({
+        "kind": "seized_property_disposition", "total_items": 1, "case_count": 1,
+        "distinct_disposition_count": 1,
+        "counts": [{"condition": "کوئی نئی حالت", "gloss": None,
+                    "item_count": 1, "case_count": 1}],
+        "unrecorded_disposition_count": 0,
+        "forensic_dispatch_items": 0, "forensic_dispatch_cases": 0,
+        "forensic_any_items": 0, "heirs_items": 0, "heirs_cases": 0,
+    }))
+
+    assert "کوئی نئی حالت: 1 item(s)" in rendered
+    assert "کوئی نئی حالت (" not in rendered
+
+
+def test_render_seized_property_truncates_a_long_tail():
+    counts = [
+        {"condition": f"c{i}", "gloss": None, "item_count": 1, "case_count": 1}
+        for i in range(xagg._DISPOSITION_RENDER_LIMIT + 3)
+    ]
+    rendered = "\n".join(xagg.render_seized_property_disposition({
+        "kind": "seized_property_disposition", "total_items": len(counts),
+        "case_count": 5, "distinct_disposition_count": len(counts),
+        "counts": counts, "unrecorded_disposition_count": 0,
+        "forensic_dispatch_items": 0, "forensic_dispatch_cases": 0,
+        "forensic_any_items": 0, "heirs_items": 0, "heirs_cases": 0,
+    }))
+
+    assert "(+3 further disposition(s), 1 item each)" in rendered
+
+
+async def test_g1_seized_property_sub_query_no_longer_dumps_the_whole_corpus(monkeypatch):
+    """THE REGRESSION PINNED TO G1's LITERAL SEIZED-PROPERTY SUB-QUERY.
+    Measured before this module (2026-09-08): this exact string returned
+    `kind="case_listing"` — every case in the corpus, unfiltered — because
+    "across all cases" contains the literal `_LIST_ALL_KEYWORDS` entry "all
+    cases"."""
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient([
+        _malkhana(_MALKHANA_FORENSIC, "fir-1-26"),
+    ]))
+
+    result = await xagg.run_aggregate(
+        _G1_SQ_SEIZED_PROPERTY, None,
+        gateway=FakeGateway([{"case_id": "fir-9-26"}]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "seized_property_disposition"
+    assert result["kind"] != "case_listing"
+    assert result["kind"] != "graph_recurrence"
+
+
+async def test_g5_still_reaches_the_weapon_compliance_scan_after_module_33(monkeypatch):
+    """G5 scores 1.0 today and shares the seized/recovered vocabulary this
+    module adds. Its branch is checked first, structurally."""
+    class _AC:
+        async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+            return []
+
+    monkeypatch.setattr(xagg, "age_client", _AC())
+
+    result = await xagg.run_aggregate(
+        "Baramad shuda hathiyaron ki record keeping ko dekhte hue, kya koi "
+        "aisi baat hai jo compliance ke lihaz se flag karne layak ho?",
+        None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "weapon_compliance_scan"
+
+
+class TestSeizedPropertyBoundary:
+    """[Gold-QA fix — Module 33] The keyword family at its edges."""
+
+    def test_the_g1_seized_property_sub_query_matches(self):
+        assert xagg._matches_any(
+            _G1_SQ_SEIZED_PROPERTY.lower(), xagg._SEIZED_PROPERTY_KEYWORDS
+        )
+
+    @pytest.mark.parametrize("paraphrase", [
+        # The required non-gold paraphrases — no phrase shared with the
+        # dispatched sub-query above.
+        "Where does the stuff we take into the malkhana end up?",
+        "Give me a breakdown of the case property register by disposition.",
+        "مالخانہ میں رکھی اشیاء کا آخر کیا بنتا ہے؟",
+    ])
+    def test_non_gold_paraphrases_match(self, paraphrase):
+        assert xagg._matches_any(paraphrase.lower(), xagg._SEIZED_PROPERTY_KEYWORDS)
+
+    @pytest.mark.parametrize("other", [
+        # KB6 uses "forensics guidelines" — the family deliberately matches
+        # only "forensic lab"/"forensic laboratory", never a bare "forensic".
+        "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai "
+        "ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye?",
+        # G5 — the weapon register, an adjacent but different subject.
+        "Baramad shuda hathiyaron ki record keeping ko dekhte hue, kya koi "
+        "aisi baat hai jo compliance ke lihaz se flag karne layak ho?",
+        # Neighbouring XAGG families.
+        "How many cases involve a recovered weapon with no licence recorded, "
+        "across all cases?",
+        "Give me the list of all cases.",
+    ])
+    def test_neighbouring_families_are_not_captured(self, other):
+        assert not xagg._matches_any(other.lower(), xagg._SEIZED_PROPERTY_KEYWORDS)
+
+    def test_matches_no_gold_question_at_all(self):
+        """The all-32 negative control, same discipline as
+        `TestOffenderAgeProfileBoundary`'s. Reads
+        `evaluation/Gold_QA_Dataset_Final32_With_Answers.json` — the bare
+        `Gold_QA_Dataset_Final32.json` is NOT tracked in this repo, and a
+        test pinned to it silently skips (PR #21)."""
+        import json
+        from pathlib import Path
+
+        gold_path = (
+            Path(__file__).resolve().parent.parent
+            / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json"
+        )
+        assert gold_path.exists(), gold_path
+        items = json.loads(gold_path.read_text(encoding="utf-8"))
+        assert len(items) == 32
+        matched = [
+            (it.get("id") or "").upper()
+            for it in items
+            if xagg._matches_any(it["question"].lower(), xagg._SEIZED_PROPERTY_KEYWORDS)
+        ]
+        assert matched == [], f"expected no gold question to match, got {matched}"
+
+
+# ── [Gold-QA fix — Module 34, question G1] incident time-of-day ────────────
+#
+# The literal G1 sub-question this family exists to answer, in the same
+# "..., across all cases?" shape as `meta_analysis.py`'s other sub-queries.
+_G1_SQ_TIME_OF_DAY = (
+    "How many cases record an incident time, and at what time of day do "
+    "those incidents happen, across all cases?"
+)
+
+_NIGHT = "night (00:00-05:59)"
+_MORNING = "morning (06:00-11:59)"
+_AFTERNOON = "afternoon (12:00-17:59)"
+_EVENING = "evening (18:00-23:59)"
+
+
+class _TimeOfDayAgeClient:
+    """Routes the two reads `_incident_time_of_day()` issues."""
+
+    def __init__(self, total, rows):
+        self.total = total
+        self.rows = rows
+        self.queries = []
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        self.queries.append((cypher_query, params))
+        if "count(DISTINCT i)" in cypher_query:
+            return [{"n": self.total}]
+        return self.rows
+
+
+def _incident(dt, case_id):
+    return {"incident_datetime": dt, "case_id": case_id}
+
+
+async def test_incident_time_of_day_buckets_by_hour_band_and_names_the_peak(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _TimeOfDayAgeClient(6, [
+        _incident("2026-01-01T01:00:00Z", "fir-1-26"),   # night
+        _incident("2026-01-02T09:30:00Z", "fir-2-26"),   # morning
+        _incident("2026-01-03T14:00:00Z", "fir-3-26"),   # afternoon
+        _incident("2026-01-04T19:00:00Z", "fir-4-26"),   # evening
+        _incident("2026-01-05T21:15:00Z", "fir-5-26"),   # evening
+    ]))
+
+    r = await xagg._incident_time_of_day()
+
+    assert r["kind"] == "incident_time_of_day"
+    assert r["total_incidents"] == 6
+    assert r["with_datetime_count"] == 5
+    assert r["with_clock_time_count"] == 5
+    counts = {b["band"]: b["count"] for b in r["buckets"]}
+    assert counts == {_NIGHT: 1, _MORNING: 1, _AFTERNOON: 1, _EVENING: 2}
+    assert r["peak_band"]["band"] == _EVENING
+    assert r["buckets"][3]["share"] == pytest.approx(2 / 5)
+    # Bands are rendered chronologically, not by size.
+    assert [b["band"] for b in r["buckets"]] == [_NIGHT, _MORNING, _AFTERNOON, _EVENING]
+
+
+async def test_incident_time_of_day_excludes_exact_midnight_as_date_only(monkeypatch):
+    """THE DECISION THIS MODULE HAD TO MAKE, pinned. A 00:00:00 value is a
+    date with no clock time, not a real midnight. Counting it as "night" is
+    what makes the day look evenly covered."""
+    monkeypatch.setattr(xagg, "age_client", _TimeOfDayAgeClient(5, [
+        _incident("2026-01-01T00:00:00Z", "fir-1-26"),
+        _incident("2026-01-02T00:00:00Z", "fir-2-26"),
+        _incident("2026-01-03T00:00:00Z", "fir-3-26"),
+        _incident("2026-01-04T19:00:00Z", "fir-4-26"),
+    ]))
+
+    r = await xagg._incident_time_of_day()
+
+    assert r["with_datetime_count"] == 4
+    assert r["date_only_count"] == 3
+    assert r["with_clock_time_count"] == 1
+    assert {b["band"]: b["count"] for b in r["buckets"]}[_NIGHT] == 0
+    # The naive reading is still returned, so the difference is auditable.
+    naive = {b["band"]: b["count"] for b in r["naive_bucket_counts"]}
+    assert naive[_NIGHT] == 3
+
+    rendered = "\n".join(xagg.render_incident_time_of_day(r))
+    assert "3 of those record exactly 00:00:00" in rendered
+    assert f"would put 3 in the {_NIGHT} band" in rendered
+
+
+async def test_incident_time_of_day_keeps_a_real_00_30_incident(monkeypatch):
+    """Only EXACT midnight is treated as date-only. 00:30 is a real
+    overnight incident and must stay in the night band."""
+    monkeypatch.setattr(xagg, "age_client", _TimeOfDayAgeClient(1, [
+        _incident("2026-01-01T00:30:00Z", "fir-1-26"),
+    ]))
+
+    r = await xagg._incident_time_of_day()
+
+    assert r["date_only_count"] == 0
+    assert {b["band"]: b["count"] for b in r["buckets"]}[_NIGHT] == 1
+
+
+async def test_incident_time_of_day_counts_each_case_once(monkeypatch):
+    """A FIR whose Incident is reachable twice must not be double-counted."""
+    monkeypatch.setattr(xagg, "age_client", _TimeOfDayAgeClient(2, [
+        _incident("2026-01-01T19:00:00Z", "fir-1-26"),
+        _incident("2026-01-01T19:00:00Z", "fir-1-26"),
+        _incident("2026-01-02T09:00:00Z", "fir-2-26"),
+    ]))
+
+    r = await xagg._incident_time_of_day()
+
+    assert r["with_datetime_count"] == 2
+    assert r["with_clock_time_count"] == 2
+
+
+async def test_incident_time_of_day_reports_unparsed_values_rather_than_dropping_them(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _TimeOfDayAgeClient(3, [
+        _incident("2026-01-01T19:00:00Z", "fir-1-26"),
+        _incident("not-a-timestamp", "fir-2-26"),
+    ]))
+
+    r = await xagg._incident_time_of_day()
+
+    assert r["unparsed_count"] == 1
+    assert r["with_clock_time_count"] == 1
+    rendered = "\n".join(xagg.render_incident_time_of_day(r))
+    assert "1 incident date/time value(s) could not be parsed" in rendered
+
+
+async def test_incident_time_of_day_honours_the_jurisdiction_allow_list(monkeypatch):
+    fake = _TimeOfDayAgeClient(1, [_incident("2026-01-01T19:00:00Z", "fir-1-26")])
+    monkeypatch.setattr(xagg, "age_client", fake)
+
+    await xagg._incident_time_of_day(jurisdiction_case_ids=["fir-1-26"])
+
+    assert len(fake.queries) == 2
+    for query, params in fake.queries:
+        assert "$case_ids" in query
+        assert params["case_ids"] == ["fir-1-26"]
+
+
+async def test_incident_time_of_day_with_only_date_only_rows_says_so(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _TimeOfDayAgeClient(2, [
+        _incident("2026-01-01T00:00:00Z", "fir-1-26"),
+    ]))
+
+    r = await xagg._incident_time_of_day()
+
+    assert r["with_clock_time_count"] == 0
+    rendered = "\n".join(xagg.render_incident_time_of_day(r))
+    assert "no incident in this corpus records a clock time" in rendered.lower()
+
+
+def test_render_incident_time_of_day_states_coverage_and_the_midnight_rule():
+    rendered = "\n".join(xagg.render_incident_time_of_day({
+        "kind": "incident_time_of_day", "total_incidents": 73,
+        "with_datetime_count": 64, "date_only_count": 14, "unparsed_count": 0,
+        "with_clock_time_count": 50,
+        "buckets": [
+            {"band": _NIGHT, "count": 1, "share": 1 / 50},
+            {"band": _MORNING, "count": 14, "share": 14 / 50},
+            {"band": _AFTERNOON, "count": 16, "share": 16 / 50},
+            {"band": _EVENING, "count": 19, "share": 19 / 50},
+        ],
+        "naive_bucket_counts": [
+            {"band": _NIGHT, "count": 15}, {"band": _MORNING, "count": 14},
+            {"band": _AFTERNOON, "count": 16}, {"band": _EVENING, "count": 19},
+        ],
+        "hour_histogram": [],
+        "peak_band": {"band": _EVENING, "count": 19, "share": 19 / 50},
+    }))
+
+    assert "evening (18:00-23:59): 19 (~38%)" in rendered
+    assert "busiest band is evening" in rendered
+    assert "64 of 73 incidents record an incident date/time" in rendered
+    # Gold G1 reads this data as "fairly flat across the day". That reading
+    # only holds if the date-only rows are counted as real midnights, and
+    # the answer has to say so rather than quietly agree or quietly differ.
+    assert "14 of those record exactly 00:00:00" in rendered
+    assert "overnight is close to empty" in rendered
+
+
+async def test_g1_time_of_day_sub_query_no_longer_dumps_the_whole_corpus(monkeypatch):
+    """THE REGRESSION PINNED TO G1's LITERAL TIMING SUB-QUERY. Measured
+    before this module (2026-09-08): this exact string returned
+    `kind="case_listing"` — every case in the corpus, unfiltered — because
+    "across all cases" contains the literal `_LIST_ALL_KEYWORDS` entry "all
+    cases"."""
+    monkeypatch.setattr(xagg, "age_client", _TimeOfDayAgeClient(1, [
+        _incident("2026-01-01T19:00:00Z", "fir-1-26"),
+    ]))
+
+    result = await xagg.run_aggregate(
+        _G1_SQ_TIME_OF_DAY, None,
+        gateway=FakeGateway([{"case_id": "fir-9-26"}]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "incident_time_of_day"
+    assert result["kind"] != "case_listing"
+    assert result["kind"] != "graph_recurrence"
+
+
+async def test_m7_still_reaches_the_reporting_speed_aggregate_after_module_34(monkeypatch):
+    """M7 is the other time-shaped question in this chain — elapsed time,
+    not clock time. Its branch is checked first, structurally."""
+    class _AC:
+        async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+            return []
+
+    monkeypatch.setattr(xagg, "age_client", _AC())
+
+    result = await xagg.run_aggregate(
+        "kya log 2026 mein waqiaat ki police ko itni hi jaldi ittila de "
+        "rahe hain jitni 2024 mein dete the?",
+        None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "time_bucketed_mean"
+
+
+class TestIncidentTimeOfDayBoundary:
+    """[Gold-QA fix — Module 34] The keyword family at its edges."""
+
+    def test_the_g1_time_of_day_sub_query_matches(self):
+        assert xagg._matches_any(_G1_SQ_TIME_OF_DAY.lower(), xagg._TIME_OF_DAY_KEYWORDS)
+
+    @pytest.mark.parametrize("paraphrase", [
+        # The required non-gold paraphrases — no phrase shared with the
+        # dispatched sub-query above.
+        "Do most of our crimes happen at night or during the day?",
+        "Give me the hourly spread of incidents.",
+        "واقعات دن کے کس وقت زیادہ ہوتے ہیں؟",
+    ])
+    def test_non_gold_paraphrases_match(self, paraphrase):
+        assert xagg._matches_any(paraphrase.lower(), xagg._TIME_OF_DAY_KEYWORDS)
+
+    @pytest.mark.parametrize("other", [
+        # M7 — elapsed time between incident and report, not clock time.
+        "How long does it typically take someone to report a crime to us "
+        "these days versus a couple of years ago?",
+        # M1 — a year-over-year case-mix comparison.
+        "What kinds of cases are we dealing with now compared to a couple of "
+        "years back?",
+        # A7 — reporting-delay REASONS.
+        "How many FIRs recorded a reason for a reporting delay?",
+        "Give me the list of all cases.",
+    ])
+    def test_neighbouring_families_are_not_captured(self, other):
+        assert not xagg._matches_any(other.lower(), xagg._TIME_OF_DAY_KEYWORDS)
+
+    def test_matches_no_gold_question_at_all(self):
+        """The all-32 negative control, same discipline as
+        `TestOffenderAgeProfileBoundary`'s. This family needed the most
+        tuning to pass it: the bare Urdu "رات" is a substring of "کراتا"
+        (CR6) and the bare "شام" of "شامل" (KB5), so only the bound forms
+        are matched. Reads
+        `evaluation/Gold_QA_Dataset_Final32_With_Answers.json` — the bare
+        `Gold_QA_Dataset_Final32.json` is NOT tracked in this repo, and a
+        test pinned to it silently skips (PR #21)."""
+        import json
+        from pathlib import Path
+
+        gold_path = (
+            Path(__file__).resolve().parent.parent
+            / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json"
+        )
+        assert gold_path.exists(), gold_path
+        items = json.loads(gold_path.read_text(encoding="utf-8"))
+        assert len(items) == 32
+        matched = [
+            (it.get("id") or "").upper()
+            for it in items
+            if xagg._matches_any(it["question"].lower(), xagg._TIME_OF_DAY_KEYWORDS)
+        ]
+        assert matched == [], f"expected no gold question to match, got {matched}"
+
+    @pytest.mark.parametrize("bare, gold_word", [("رات", "کراتا"), ("شام", "شامل")])
+    def test_the_two_urdu_substring_collisions_stay_excluded(self, bare, gold_word):
+        """Pinned so a later widening cannot silently reintroduce them."""
+        assert bare in gold_word
+        assert bare not in xagg._TIME_OF_DAY_KEYWORDS
+
+
+# ── [Gold-QA fix — Modules 31-34] the whole G1 plan, end to end ────────────
+
+async def test_every_current_g1_plan_sub_query_still_reaches_its_own_aggregate(monkeypatch):
+    """REGRESSION GUARD for the five sub-queries `meta_analysis.py`'s
+    `caseload_review` plan emits TODAY. Four new keyword families were
+    inserted into `run_aggregate()`'s ordered, first-match-wins chain; this
+    is the test that proves none of them stole an existing dispatch.
+
+    Pinned to the literal strings, copied from
+    `harness/agents/meta_analysis.py`'s `_SQ_*` constants — that file is
+    owned by another track this wave and is deliberately NOT imported, so
+    a drift between the two is a test failure here rather than a silent
+    live regression."""
+    class _AC:
+        async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+            if "count(" in cypher_query:
+                return [{"n": 0}]
+            return []
+
+    monkeypatch.setattr(xagg, "age_client", _AC())
+    gateway = FakeGateway([{"case_id": "fir-1-26", "incident_date": None}])
+
+    expected = {
+        "How many cases have incomplete or missing record fields, across all "
+        "cases?": "case_completeness_scan",
+        "How many cases does each accused person appear in, and which FIR "
+        "numbers, across all cases?": "graph_recurrence",
+        "How many cases involve a recovered weapon with no licence recorded, "
+        "across all cases?": "weapon_compliance_scan",
+        "What kinds of cases are we dealing with now compared to a couple of "
+        "years back?": "time_bucketed_breakdown",
+        "How many cases in the criminal record system have a court outcome "
+        "that matches the recorded conviction status, across all cases?":
+            "criminal_record_court_crosscheck",
+    }
+    for sub_query, kind in expected.items():
+        result = await xagg.run_aggregate(
+            sub_query, None, gateway=gateway, user_role="supervisor",
+        )
+        assert result["kind"] == kind, (sub_query, result["kind"])
+
+
+async def test_the_four_new_g1_sub_queries_each_reach_their_own_aggregate(monkeypatch):
+    """The mirror of the test above: each of Modules 31-34's sub-queries
+    reaches ITS aggregate and no other. Together the two tests are the
+    proof that the ordered chain still partitions correctly."""
+    class _AC:
+        async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+            if "count(" in cypher_query:
+                return [{"n": 0}]
+            if "RELATED_TO" in cypher_query:
+                return [_rel("اجنبی", "fir-1-26", 1, 90)]
+            if "malkhana_register" in cypher_query:
+                return [_malkhana(_MALKHANA_FORENSIC, "fir-1-26")]
+            if "incident_datetime" in cypher_query:
+                return [_incident("2026-01-01T19:00:00Z", "fir-1-26")]
+            if "r.role = 'accused'" in cypher_query:
+                return _age_rows([("P-1", 31, "fir-1-26")])
+            return []
+
+    monkeypatch.setattr(xagg, "age_client", _AC())
+    gateway = FakeGateway([{"case_id": "fir-1-26"}])
+
+    expected = {
+        _G1_SQ_ACCUSED_AGE: "offender_age_profile",
+        _G1_SQ_RELATIONSHIP: "accused_relationship_breakdown",
+        _G1_SQ_SEIZED_PROPERTY: "seized_property_disposition",
+        _G1_SQ_TIME_OF_DAY: "incident_time_of_day",
+    }
+    for sub_query, kind in expected.items():
+        result = await xagg.run_aggregate(
+            sub_query, None, gateway=gateway, user_role="supervisor",
+        )
+        assert result["kind"] == kind, (sub_query, result["kind"])
+        # The specific bug Modules 31-34 exist to kill.
+        assert result["kind"] != "graph_recurrence"
+        assert result["kind"] != "case_listing"
+
+
+def test_the_four_new_keyword_families_are_mutually_exclusive_on_their_own_sub_queries():
+    """No sub-query may match more than one of the four new families —
+    otherwise the answer it gets would depend on chain order alone."""
+    families = {
+        "age": xagg._AGE_KEYWORDS,
+        "relationship": xagg._RELATIONSHIP_KEYWORDS,
+        "seized_property": xagg._SEIZED_PROPERTY_KEYWORDS,
+        "time_of_day": xagg._TIME_OF_DAY_KEYWORDS,
+    }
+    sub_queries = {
+        "age": _G1_SQ_ACCUSED_AGE,
+        "relationship": _G1_SQ_RELATIONSHIP,
+        "seized_property": _G1_SQ_SEIZED_PROPERTY,
+        "time_of_day": _G1_SQ_TIME_OF_DAY,
+    }
+    for owner, text in sub_queries.items():
+        matched = [
+            name for name, keywords in families.items()
+            if xagg._matches_any(text.lower(), keywords)
+        ]
+        assert matched == [owner], (text, matched)
+
+
+def test_each_new_g1_sub_query_deterministically_routes_to_xagg():
+    """[Gold-QA fix — Modules 31-34] The half a keyword family alone cannot
+    prove. A sub-query only reaches `run_aggregate()` at all if
+    `router.py::_deterministic_route_override()` sends it to XAGG first —
+    Module 29 phrased every one of its sub-queries for exactly that, and
+    said so in `meta_analysis.py`'s own comment ("verified live: all 9
+    return det=Y route=XAGG").
+
+    CAUGHT LIVE, not in review. The first drafts of these four strings began
+    "What relationship is recorded...", "What happens to seized
+    property...", "At what time of day...". Sent through `/api/chat` on
+    2026-09-08 all three came back `route='XGRAPH'` — `_XGRAPH_OVERRIDE_
+    PATTERNS`' `across.{0,15}cases` matched the "across all cases"
+    suffix and won, so the new aggregates were never reached and the answer
+    was a cross-case traversal that answered nothing. They were rephrased to
+    lead with "How many cases ...", which `_XAGG_OVERRIDE_PATTERNS` matches
+    outright, rather than by widening router.py (owned by another track).
+
+    This test is what stops a future reword from silently undoing that."""
+    from src.pipeline import router
+
+    for sub_query in (
+        _G1_SQ_ACCUSED_AGE, _G1_SQ_RELATIONSHIP,
+        _G1_SQ_SEIZED_PROPERTY, _G1_SQ_TIME_OF_DAY,
+    ):
+        override = router._deterministic_route_override(sub_query)
+        assert override is not None, sub_query
+        assert override["route"] == "XAGG", (sub_query, override["route"])
+
+
+def test_every_new_aggregate_kind_is_accepted_by_the_harness_tool_result():
+    """[Gold-QA fix — Modules 31-34] `XAggToolResult.aggregate_kind` is a
+    hand-maintained `Literal` in `harness/tools/xagg.py`, NOT derived from
+    `run_aggregate()`. A kind missing from it raises a Pydantic
+    `literal_error` the instant XAGG reaches the harness wrapper, and
+    main.py's top-level handler swallows it into an EMPTY answer with no
+    user-visible error — which is exactly how Module 31 first failed live
+    while every unit test passed. Four earlier modules hit this same trap;
+    this test closes it for good."""
+    from typing import get_args
+
+    from src.pipeline.harness.tools.xagg import AggregateKind
+
+    accepted = set(get_args(AggregateKind))
+    for kind in (
+        "offender_age_profile", "accused_relationship_breakdown",
+        "seized_property_disposition", "incident_time_of_day",
+    ):
+        assert kind in accepted, kind
