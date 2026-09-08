@@ -72,8 +72,17 @@ several can run in parallel chats/worktrees without colliding.
 | 25 | M2 Meta-Analysis → verifier rejection | `fix/meta-analysis-synthesis-verifier-rejection` | ✅ **PR #16 open** |
 | 26 | M1 routing miss (XGRAPH instead of aggregate) | `fix/router-year-over-year-comparison-to-xagg` | ✅ **Merged (PR #13)** |
 | 28 | CR4 routing miss (weapon-recovery chain sent to cross-case entity linkage) | `fix/router-weapon-evidence-chain-to-xagg` | ✅ **PR #19 open** — routing fixed AND a new aggregate added (none existed); CR4 now returns gold's exact chain live; all-32 negative control clean; results: `docs/gold-qa-wave2-results/MODULE28_RESULT.md` |
-| 29 | Meta-Analysis decomposer doesn't split broad synthesis asks into XAGG-shaped sub-questions (CR3/G1/G6) | *(not yet branched)* | ⬜ New — split out of Module 21; blocked on PR #16 (same file); brief: `MODULE29_META_ANALYSIS_DECOMPOSER_PROMPT.md` |
+| 29 | Meta-Analysis decomposer doesn't split broad synthesis asks into XAGG-shaped sub-questions (CR3/G1/G6) | `fix/meta-analysis-decompose-broad-synthesis` | ✅ **PR #23 open** — deterministic decomposition plans added; G1, G6 and G1's paraphrase now return real synthesized answers built from computed aggregates, CR3 partially; gap analysis split out as Modules 31–36; results: `docs/gold-qa-wave2-results/MODULE29_RESULT.md` |
 | 30 | KB3/KB8/KB9 retrieval-completeness gap (correct statutory chunk never enters the candidate pool) | `fix/kb-retrieval-completeness-statutory-chunks` | ✅ **PR #24 open** — four causes found and fixed, plus a fifth (mid-sentence chunks) found only after the first four; KB3/KB8/KB9 all went from abstaining to answering live, KB8 matching gold's statutory half exactly. Evaluator NOT changed. Ran against a private copy of Chroma. Result: `docs/gold-qa-wave2-results/MODULE30_RESULT.md` |
+| 31 | G1 — offender age profile: no XAGG aggregate, and a now-stale hard refusal | *(not yet branched)* | ⬜ New — found by Module 29's gap analysis |
+| 32 | G1 — accused ↔ complainant relationship breakdown: no XAGG aggregate | *(not yet branched)* | ⬜ New — found by Module 29's gap analysis |
+| 33 | G1 — seized-property disposition counts: no XAGG aggregate | *(not yet branched)* | ⬜ New — found by Module 29's gap analysis |
+| 34 | G1 — incident time-of-day distribution: no XAGG aggregate | *(not yet branched)* | ⬜ New — found by Module 29's gap analysis |
+| 35 | G6 — arrest rate: no XAGG aggregate | *(not yet branched)* | ⬜ New — found by Module 29's gap analysis |
+| 36 | CR3 — subject-filtered FIR listing: no aggregate returns FIR numbers filtered by statute/station/crime type | *(not yet branched)* | ⬜ New — found by Module 29's live runs |
+| 37 | Orphaned `chunk_fulltext` rows: 2,243 CrPC chunks in the BM25 index that no longer exist in Chroma | *(not yet branched)* | ⬜ New — found by Module 30 |
+| 38 | `cross_rerank_multi()` merges by max score across queries, and cross-encoder scores are not comparable across them | *(not yet branched)* | ⬜ New — found by Module 30 (this is what cost KB4) |
+| 39 | The "and does our data show it?" half of every gold KB answer is unreachable from the RAG sub-agent | *(not yet branched)* | ⬜ New — found by Module 30; the largest remaining gap in the KB bucket |
 | 27 | Final Gold-32 rerun (Module 18 redo) | *(docs only)* | ⬜ Blocked on all above — brief: `MODULE27_FINAL_GOLD32_RERUN_PROMPT.md` |
 
 > **Wave 2 hand-off:** `WAVE2_ORCHESTRATION_PROMPT.md` (added in PR #17)
@@ -99,7 +108,9 @@ several can run in parallel chats/worktrees without colliding.
 | 25 | `src/pipeline/harness/agents/meta_analysis.py`, `src/pipeline/verifier.py` |
 | 26 | `src/pipeline/router.py`, **and `src/pipeline/harness/supervisor.py`** (scope grew — see Module 26's own section below for why) |
 | 28 *(new, split from 21)* | `src/pipeline/router.py` — **same file as 26; serialize after it** |
-| 29 *(new, split from 21)* | `src/pipeline/harness/agents/meta_analysis.py` — **same file as 25; serialize after it** |
+| 29 *(new, split from 21)* | `src/pipeline/harness/agents/meta_analysis.py` **+ `src/pipeline/harness/supervisor.py` + `prompts/meta_analysis_decomposer.txt`** — scope grew into `supervisor.py` for the same reason Module 26's did; done, after 25 |
+| 31–35 *(new, from 29's gap analysis)* | `src/pipeline/xagg.py` — **same file as 22/23/24; serialize inside that track** (each also adds one sub-query line to `meta_analysis.py`'s `_DECOMPOSITION_PLANS`) |
+| 36 *(new, from 29)* | `src/pipeline/xagg.py` — same track as 31–35 |
 
 ### ✅ Safe to run fully in parallel, right now, in separate worktrees
 
@@ -366,7 +377,7 @@ citation route, KB3 improved but still not gold's conclusion.
   Baseline reached register material; after the change the answer is
   dominated by the Forensics guidelines, because `cross_rerank_multi()`
   merges by max score and cross-encoder scores are not comparable across
-  queries. Reported, not tuned away — see the new module below.
+  queries. Reported, not tuned away — see Module 38 below.
 - **KB5** — no change (verifier refusal before and after).
 - **KB6** — no meaningful change (forensic handling both times).
 
@@ -392,7 +403,7 @@ capability.
 
 ---
 
-# Module 31 — `chunk_fulltext` holds an orphaned re-ingestion ⬜ new, not yet branched
+# Module 37 — `chunk_fulltext` holds an orphaned re-ingestion ⬜ new, not yet branched
 
 **Found while verifying Module 30.**
 
@@ -419,7 +430,7 @@ silently.
 
 ---
 
-# Module 32 — `cross_rerank_multi()` merges by max score across queries ⬜ new, not yet branched
+# Module 38 — `cross_rerank_multi()` merges by max score across queries ⬜ new, not yet branched
 
 **Found while verifying Module 30.**
 
@@ -443,7 +454,7 @@ before/after and needs its own.
 
 ---
 
-# Module 33 — the KB questions' "and does our data show it?" half ⬜ new, not yet branched
+# Module 39 — the KB questions' "and does our data show it?" half ⬜ new, not yet branched
 
 **Found while verifying Module 30.**
 
@@ -752,51 +763,289 @@ weapons belong to exactly one case each); `xagg.py`'s weapon family is Module
 
 ---
 
-# Module 29 — Meta-Analysis decomposer doesn't split broad synthesis into XAGG-shaped sub-questions ⬜
+# Module 29 — Meta-Analysis decomposer doesn't split broad synthesis into XAGG-shaped sub-questions ✅
 
-**Branch:** not yet created.
+**Branch:** `fix/meta-analysis-decompose-broad-synthesis` — **PR #23 open.**
 **Split out of:** Module 21 (CR3, G1, G6).
-**Primary file:** `src/pipeline/harness/agents/meta_analysis.py` — **shared
-with Module 25**, which already owns this file for its verifier-interaction
-fix. Per this plan's own caution on Module 25's row, coordinate rather than
-both editing it concurrently; doing 25 then 29 sequentially in one chat is
-the safer order since 29 depends on understanding whatever the decomposer
-looks like after 25's changes.
+**Full results, every number traced to a live capture:**
+`docs/gold-qa-wave2-results/MODULE29_RESULT.md`.
+**Files:** `src/pipeline/harness/agents/meta_analysis.py`,
+`src/pipeline/harness/supervisor.py`,
+`prompts/meta_analysis_decomposer.txt`.
 
-**What's happening:** CR3, G1 and G6 all route to XNETWORK, and Meta-
-Analysis's `_decompose()` evidently returns `decompose: false` for all
-three (only one sub-agent dispatch shows up per query in the live SSE trace,
-not several) — so Meta-Analysis falls back to re-dispatching the original,
-un-split query, which lands right back on the same XNETWORK/Cross-Case-
-Linkage path and correctly finds no relevant community cluster. Every one
-of these three questions' gold answer is actually built from several
-independently-computable XAGG facts:
+**The brief's framing was right, and is now confirmed first-hand.** Calling
+`_decompose()` directly against each question's literal gold text on this
+branch's base commit (`main` @ `c2a6ac6`) returned `decompose=False` for
+CR3, G1 and G6, and `decompose=True` (2 sub-queries) for M2 — so
+Meta-Analysis re-dispatched the original, un-split question, which landed
+back on XNETWORK/Cross-Case Linkage and was correctly refused there.
+**`xnetwork.py` and `RELEVANCE_DISTANCE_THRESHOLD` were not touched.**
 
-- **CR3**: two per-FIR field-consistency checks (does 64/26 have a matching
-  walk-in complaint? does 65/26?) — Module 15's cross-check territory.
-- **G1**: offender age range/average, accused–complainant relationship
-  breakdown, seized-property/forensic-lab counts, incident-time-of-day
-  distribution.
-- **G6**: case-mix-by-year trend, arrest rate, reporting-delay trend,
-  weapon-licensing rate.
+**Two things the brief did not anticipate, both measured:**
 
-**Work:** extend the decomposer's prompt/logic so a broad, open-ended
-analytical or "orientation note" question triggers `decompose: true` with
-sub-queries shaped like the countable facts above, each of which should
-independently route to XAGG once decomposed and re-dispatched through
-`Supervisor().handle()`. Confirm which of the needed XAGG primitives already
-exist (several likely do, per Modules 13-15) vs. need adding — that gap
-analysis, not this module, is what determines whether new `xagg.py`
-aggregates are also required (if so, track them as Module 22/23/24-style
-additions rather than silently expanding this module's scope).
+1. Decomposing alone would not have been enough. Nine naturally-phrased
+   candidate sub-questions were run through `route_query()` +
+   `classify_to_subagent()`: **6 of 9 landed on `XGRAPH → Cross-Case
+   Linkage`**, the same dead end. Sub-query *phrasing* is load-bearing.
+2. **G1's own paraphrase never reached this module at all** — *"As the
+   on-duty analyst, look over everything currently open and tell me what's
+   worth a second look"* matched no `_META_ANALYSIS_TRIGGER_PATTERNS` entry,
+   so no `meta_analysis.py` change could have affected it. That list was
+   curve-fit to the gold strings, the same gap Module 22 caught in its own
+   reporting-speed keywords. Scope therefore grew into `supervisor.py`, as
+   Module 26's did.
 
-**Verify:** live CR3/G1/G6 return real, gold-comparable synthesized answers;
-Meta-Analysis's own tests plus new cases pinned to these three questions'
-literal decomposition; a non-gold paraphrase for at least one (e.g. G1's own
-"look over everything currently open" paraphrase, already captured in
-Module 21's writeup, still correctly abstaining is the *before* state to
-improve on); confirm a genuinely non-decomposable single-topic question
-still returns `decompose: false` (regression guard).
+**The fix.** `_DECOMPOSITION_PLANS` in `meta_analysis.py`: three
+deterministic question-SHAPE families, checked before the decomposer LLM
+call and skipping it entirely on a match.
+
+| Plan | Sub-queries it dispatches | Each routes to |
+|---|---|---|
+| `record_consistency` (CR3) | person recurrence; CMS↔FIR linkage | XAGG ×2 |
+| `orientation_note` (G6) | district spread; case mix by year; reporting speed; weapon licence; gender | XAGG ×5 |
+| `caseload_review` (G1) | completeness; person recurrence; weapon licence; case mix by year; criminal-record vs court | XAGG ×5 |
+
+Deterministic rather than prompt-only because the brief requires tests
+pinned to the *literal* decomposition across model drift, because every
+sub-query is re-routed by another LLM call unless a deterministic router
+override catches it first, and because `xagg.py` is itself a family of
+canned aggregates selected by keyword — a canned plan per question shape is
+the same paradigm one layer up. **Every planned sub-query is worded to
+match `router.py::_deterministic_route_override()`** (verified live: all 9
+return `det=Y route=XAGG`), so decomposition adds no extra router LLM call.
+The decomposer prompt is extended as well, for paraphrases outside these
+families, including the correction that the phrasing it previously
+recommended ("What is the breakdown of…") is **not** one the deterministic
+router recognizes — "How many cases … across all cases" is.
+
+Two synthesis-prompt rules were added after the sub-answers, both
+live-caught rejecting otherwise-correct decomposed answers: cite
+`[Document N]` (CR3 was rejected `off_topic=True` for citing nothing), and
+never state a number that appears in no sub-answer (G6 was rejected for
+summing the per-district counts into a 73 no sub-answer states). Same
+Module 25 verifier-interaction family; M2 was re-run against the new
+wording.
+
+**Live results** (`/api/chat`, platform-admin, All Cases, whole SSE stream
+parsed — Meta-Analysis's second route event per sub-query is the evidence):
+
+| Q | Before | After |
+|---|---|---|
+| **CR3** | 1 dispatch, XNETWORK → Cross-Case Linkage, refused (0.2) | **2** XAGG dispatches, `status=done`, *"No, not identically … fir-64-26 has a matching walk-in complaint … fir-65-26 does not appear in the linkage list"* — gold's verdict and both FIRs, but the **wrong case tag** (`CMS-KHI-2026-0417`, not `CMS-ISB-2026-0341`) |
+| **G1** | 1 dispatch, XNETWORK, refused (0.0) | **5** XAGG dispatches, `status=done`, a real analytical answer from computed facts |
+| **G6** | 1 dispatch, XNETWORK, refused (0.0) | **5** XAGG dispatches, `status=done`, an orientation note matching **6 of gold's 9 elements** |
+
+**Honest mismatches, reported not tuned.** G1's live answer is a legitimate
+"flag anything unusual" answer built entirely from computed facts, but it
+shares almost none of gold's *specific* findings — because **all four** of
+gold's headline facts need aggregates that do not exist (Modules 31–34), and
+gold's "all Pakistani nationals" is not in the data model at all. CR3 is the
+least stable of the three: across this module's runs it produced one
+refusal, one correct verdict with the wrong companion FIR, one run where two
+sub-queries hit the 60 s `META_ANALYSIS_SUBQUERY_TIMEOUT`, and the good run
+above. The cause is not the decomposition — nothing in the sub-answers says
+*which* FIRs "the online banking fraud matter" refers to, so the synthesis
+has to infer the pair. That is Module 36.
+
+**Gap analysis, as the brief required — published in full in the result
+file.** Nine of the needed primitives already existed and are used by the
+plans above (`_cms_fir_linkage`, `_statute_mix_by_year`,
+`_incident_to_report_minutes_by_year`, `_weapon_compliance_scan`,
+`_top_districts_by`, `_gender_breakdown`, `_case_completeness_scan`,
+`_top_recurring_nodes("Person")`, `_criminal_record_court_crosscheck`). Six
+were missing and became Modules 31–36 below rather than being built here.
+For four of the six the **underlying graph data is already present** — the
+gap is purely the aggregate — and dispatching their sub-questions today
+would be actively harmful, because `run_aggregate()`'s keyword chain falls
+through to the unrelated person-recurrence family and answers confidently
+and wrongly with no caveat.
+
+**Follow-up created by the merge, recorded not acted on.** Module 24's
+`_statute_court_stage_join()` (33 / 1 / 30 under trial) landed while this
+module was in live verification, and it answers gold G6's "most matters are
+still pending in court" element that this module scores as a miss. It is a
+natural sixth sub-query for the `orientation_note` plan, but
+`_MAX_SUB_QUERIES` is 5 and that plan is full — the same cap decision
+Modules 31-34 need.
+
+**Negative control (the "too broad" half of the risk).** Across all 32 gold
+questions, exactly `{CR3: record_consistency, G1: caseload_review,
+G6: orientation_note}` match a plan — asserted as an equality, not a
+containment. The `supervisor.py` widening captures the **same 15** gold
+questions it did before. **G5** deserves separate mention: it already
+reaches Meta-Analysis via its own `flag karne layak` trigger and already
+answers correctly through the `decompose: false` fallback, so no pattern
+here uses a bare "flag" or "briefing"; re-run live, it is unchanged (30 of
+32 unlicensed, 2 no status).
+
+**Regression guard.** **M2** (Module 25's own question, same file): 85.5 s,
+`status=done`, still LLM-decomposed into 2 XAGG sub-queries, **no verifier
+rejection** — exactly the "honest no-classification-data shape" Module 25
+recorded as its own post-fix result. **G5**: unchanged. **D1**: one
+dispatch, not decomposed, 73. **Paraphrases:** G1's passes (5 XAGG
+dispatches, real answer — it previously never reached the module); G6's
+passes; CR3's decomposes correctly but its synthesis was rejected, matching
+CR3's own instability.
+
+**Unit:** `tests/test_harness_agent_meta_analysis.py` 44 passed (28 before).
+Combined with the supervisor / router / xagg / xnetwork / cross-case-linkage
+/ large-scale-aggregate / harness-xnetwork / verifier / orchestrator suites:
+**611 passed, 1 skipped, 1 xpassed**, no new failures. New tests pin each of
+CR3/G1/G6's literal sub-query tuple, prove the decomposer LLM is not called
+on a plan match, assert every planned sub-query hits the deterministic XAGG
+router override, and carry both negative controls above. Module 25's own
+three tests still pass. The full `pytest -q` suite was deliberately not run
+(it empties `muhafiz_entity_descriptions`).
+
+**No quota limit was hit** in any live run — no 429s in any backend log. The
+one failure that looked like a decomposition bug was a sub-query timeout
+caused by an experimental sub-query that rendered all 73 cases (~4.6 KB) and
+starved its two concurrent siblings; it was reverted and the reason is
+recorded in `_SQ_CASE_LISTING`'s own comment.
+
+---
+
+# Module 31 — G1: offender age profile has no aggregate (and a stale refusal) ⬜
+
+**Found by:** Module 29's gap analysis. **File:** `src/pipeline/xagg.py`
+(plus one sub-query line in `meta_analysis.py`'s `caseload_review` plan).
+
+Gold G1 states the accused are "between 24 and 49 (average ~31)". Probed
+live: `Person.age` **is populated** — 19 nodes, min **24**, max **49**, mean
+**31.8** — projected by `structured_projection.py` since Module 1d. But
+`run_aggregate()` still answers any age question with the hard refusal
+`_UNSUPPORTED_AGE` ("accused/witness age is not currently extracted into
+this system's data model"), which was written *before* that projection
+existed. **The refusal is stale and now says something untrue.**
+
+**Work:** an `_offender_age_profile()` aggregate (min/max/mean, and the
+count of accused with no age recorded — 19 of 94 accused edges carry one, so
+the coverage caveat is essential), replacing `_AGE_KEYWORDS`' refusal
+branch. Watch the ordering: `_AGE_KEYWORDS` is checked FIRST in
+`run_aggregate()`, ahead of every entity family, so the replacement inherits
+that precedence and must not swallow other questions.
+
+**Verify:** the literal G1 sub-question "How many cases involve an accused
+person, and what is their age range and average age, across all cases?"
+returns 24/49/31.8 with an explicit coverage caveat; negative-control the
+keyword family against all 32 gold questions.
+
+---
+
+# Module 32 — G1: accused ↔ complainant relationship breakdown has no aggregate ⬜
+
+**Found by:** Module 29's gap analysis. **File:** `src/pipeline/xagg.py`.
+
+Gold G1: "where an accused–complainant relationship is recorded at all,
+'stranger' dominates". Probed live: the edges **exist** —
+`Person-[:RELATED_TO {role}]->Person`, 24 of them, written by
+`structured_projection._write_relationships()` from
+`fir_accused.relationship_to_victim`/`relationship_to_complainant`:
+**اجنبی (stranger) 15**, محلے دار 2, ساس 2, سینئر ساتھی کار 2, شوہر 2,
+بھائی 1.
+
+There is **no keyword family and no aggregate** for this. A relationship
+sub-question today falls through `run_aggregate()`'s chain to
+`_PERSON_KEYWORDS` and is answered by the person-RECURRENCE path — "4 people
+appear in 2 cases each" — confidently, wrongly, with no caveat. That silent
+fall-through is the defect, as much as the missing aggregate.
+
+**Work:** `_accused_relationship_breakdown()` over the `RELATED_TO` edges,
+with the coverage caveat (24 relationships recorded against 94 accused
+edges). **Verify:** the sub-question returns اجنبی as the dominant value
+with its count; negative-control against G5/CR2/CP1, which contain person
+vocabulary and must keep their current answers.
+
+---
+
+# Module 33 — G1: seized-property disposition counts have no aggregate ⬜
+
+**Found by:** Module 29's gap analysis. **File:** `src/pipeline/xagg.py`.
+
+Gold G1: "13 items sent to a forensic lab and 7 held for return to a
+deceased's heirs". Probed live: **exactly reproducible** from the graph —
+45 `StructuredRecord {record_type:'malkhana_register'}` nodes, grouped by
+`condition`: **13** `سیل بند، نمونہ فرانزک لیبارٹری بھجوایا گیا`, **7**
+`ورثاء کے حوالے کیا جائے گا`, 14 ضبط شدہ, 6 مدعی کے حوالے کے لیے محفوظ,
+plus 5 singletons (three of which also mention فرانزک in other wordings —
+whether the headline count is 13 or 16 depends on whether "sent to the lab"
+means literally dispatched; gold's 13 is the literal reading, and the
+module should say which it used).
+
+No aggregate exists; the sub-question falls through to person-recurrence.
+
+**Work:** `_seized_property_disposition()` grouping malkhana entries by
+disposition, with the FIR count each disposition touches.
+
+---
+
+# Module 34 — G1: incident time-of-day distribution has no aggregate ⬜
+
+**Found by:** Module 29's gap analysis. **File:** `src/pipeline/xagg.py`.
+
+Gold G1: "incident times are fairly flat across the day with only a mild
+evening lean". Probed live from `Incident.incident_datetime` (Module 22's
+own projection, present on **64 of 73**): evening 18–24 **19**, afternoon
+12–18 **16**, night 00–06 **15**, morning 06–12 **14**. Gold's reading is
+correct and computable today.
+
+No aggregate exists; the sub-question falls through to the `_LIST_ALL_KEYWORDS`
+branch and returns a raw 73-case listing.
+
+**Work:** `_incident_time_of_day()` bucketing `incident_datetime` by hour
+band, over the same 64/73 coverage Module 22 documents, with that coverage
+stated. Note that 9 incidents record 00:00:00 exactly, which is a
+date-only value rather than a real midnight — decide and document how those
+are treated before reporting a "night" count.
+
+---
+
+# Module 35 — G6: arrest rate has no aggregate ⬜
+
+**Found by:** Module 29's gap analysis. **File:** `src/pipeline/xagg.py`.
+
+Gold G6: "girftari sirf har no mein se taqreeban ek FIR par darj hai" —
+an arrest is recorded on roughly 1 in 9 FIRs. Probed live: the data
+**exists** — `Person-[:INVOLVED_IN {role:'accused', arrest_status}]->Incident`,
+94 accused edges, and 13 distinct FIRs carry a status containing گرفتار.
+73/13 ≈ 1 in 5.6, **not** gold's 1 in 9, so the definition matters: the
+statuses are free Urdu text (گرفتار 11, موقع پر گرفتار, گرفتار بعد ازاں سزا
+یافتہ, گرفتار ڈی این اے مطابقت پر, and negations such as
+تاحال مفرور، گرفتار نہیں ہوا and نامزد، گرفتاری کی نوبت نہ آئی). **Deriving
+the rate is the module's real work, and it must publish the classification
+rule it used** rather than matching gold's number.
+
+No aggregate exists; the sub-question falls through to person-recurrence.
+
+---
+
+# Module 36 — CR3: no subject-filtered FIR listing ⬜
+
+**Found by:** Module 29's live runs. **File:** `src/pipeline/xagg.py`.
+
+CR3 asks about "the online banking fraud matter involving two separate
+victims". After Module 29 the question decomposes correctly and both
+sub-answers carry the facts gold needs, but **nothing in them says which
+FIRs the question is about** — so the synthesis model has to infer the pair,
+and across Module 29's runs it sometimes refused, and once paired
+`fir-64-26` with the wrong FIR entirely.
+
+The reason is a real capability gap: **no aggregate returns FIR numbers
+filtered by statute, station or crime type.** `_station_or_category_counts()`
+returns counts only; `_filtered_cases()` can filter by act but the
+`case_listing` branch that returns per-FIR rows is deliberately guarded
+*against* act keywords; and the unfiltered listing is the whole 73-row
+corpus. Module 29 tried adding that unfiltered listing as a sub-query and
+**reverted it**: rendering 73 cases takes ~4.6 KB of generation and starved
+its two concurrent siblings into the 60 s `META_ANALYSIS_SUBQUERY_TIMEOUT`.
+
+**Work:** an aggregate that answers "which FIRs are registered under <act> /
+at <station> / of <type>, with their FIR number and status". Ground truth
+for CR3: `fir-64-26` and `fir-65-26` are the only PECA 2016 cases at a
+سائبر کرائم سرکل station that share an accused (عاصم رشید). **Verify** by
+adding it to `meta_analysis.py`'s `record_consistency` plan and re-running
+CR3 and its paraphrase several times — the instability, not a single good
+run, is what this module has to fix.
 
 ---
 

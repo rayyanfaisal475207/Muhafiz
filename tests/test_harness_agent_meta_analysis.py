@@ -603,3 +603,273 @@ async def test_hallucinated_synthesis_is_still_rejected(monkeypatch):
 def test_meta_analysis_is_registered():
     assert get_registered(META_ANALYSIS) is meta_analysis
     assert meta_analysis.name == META_ANALYSIS
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# (k) [Gold-QA fix — Module 29, questions CR3 / G1 / G6] Deterministic
+#     decomposition of broad synthesis questions.
+#
+# The defect these pin, measured live on this branch's base commit by
+# calling `_decompose()` directly against each question's literal gold
+# text: CR3, G1 and G6 all came back `decompose=False`, so Meta-Analysis
+# re-dispatched the ORIGINAL question, which landed back on
+# XNETWORK/Cross-Case Linkage and was correctly refused there (Module 21
+# measured those distances; `xnetwork.py` is not touched by this module).
+#
+# Both directions are pinned, because the risk is symmetrical:
+#   - the three literal gold texts MUST decompose, into exactly the
+#     sub-questions the plan declares;
+#   - NO other gold question may match a plan, and a simple single-fact
+#     question must still return `decompose: false`.
+# ═══════════════════════════════════════════════════════════════════════
+
+_CR3_GOLD = (
+    "In the online banking fraud matter involving two separate victims, was each "
+    "victim's case processed and recorded the same way?"
+)
+_G1_GOLD = (
+    "Acting as a crime analyst, review our current caseload and flag anything that "
+    "looks unusual or worth monitoring."
+)
+_G6_GOLD = (
+    "Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation note likhein "
+    "— unhein mojooda case load se kya tawaqqo rakhni chahiye?"
+)
+# Module 21 captured this one live as the "before" state: it matched no
+# Meta-Analysis trigger at all, so it never even reached this module.
+_G1_PARAPHRASE = (
+    "As the on-duty analyst, look over everything currently open and tell me what's "
+    "worth a second look"
+)
+
+
+def _load_gold32():
+    import json
+    import os
+
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "evaluation",
+        "Gold_QA_Dataset_Final32_With_Answers.json",
+    )
+    gold = json.load(open(path, encoding="utf-8"))
+    assert len(gold) == 32
+    return gold
+
+
+def _forbid_llm_json(monkeypatch):
+    """A deterministic plan must skip the decomposer LLM call entirely."""
+
+    async def _boom(*a, **kw):  # pragma: no cover - only fires on regression
+        raise AssertionError("the decomposer LLM was called for a deterministic plan")
+
+    monkeypatch.setattr(ma_mod, "call_llm_json", _boom)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "query, plan_name",
+    [
+        (_CR3_GOLD, "record_consistency"),
+        (_G1_GOLD, "caseload_review"),
+        (_G6_GOLD, "orientation_note"),
+        (_G1_PARAPHRASE, "caseload_review"),
+    ],
+    ids=["CR3", "G1", "G6", "G1-paraphrase"],
+)
+async def test_module29_broad_synthesis_questions_decompose_deterministically(
+    monkeypatch, query, plan_name
+):
+    _forbid_llm_json(monkeypatch)
+
+    result = await ma_mod._decompose(query)
+
+    assert result.decompose is True
+    assert result.parse_failed is False
+    assert result.plan_name == plan_name
+    assert 2 <= len(result.sub_queries) <= ma_mod._MAX_SUB_QUERIES
+    assert result.synthesis_goal.strip()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "query, expected",
+    [
+        (
+            _CR3_GOLD,
+            (
+                ma_mod._SQ_PERSON_RECURRENCE,
+                ma_mod._SQ_CMS_LINKAGE,
+            ),
+        ),
+        (
+            _G1_GOLD,
+            (
+                ma_mod._SQ_COMPLETENESS,
+                ma_mod._SQ_PERSON_RECURRENCE,
+                ma_mod._SQ_WEAPON_LICENCE,
+                ma_mod._SQ_CASE_MIX_BY_YEAR,
+                ma_mod._SQ_CRIMINAL_RECORD_VS_COURT,
+            ),
+        ),
+        (
+            _G6_GOLD,
+            (
+                ma_mod._SQ_DISTRICT_SPREAD,
+                ma_mod._SQ_CASE_MIX_BY_YEAR,
+                ma_mod._SQ_REPORTING_SPEED,
+                ma_mod._SQ_WEAPON_LICENCE,
+                ma_mod._SQ_GENDER,
+            ),
+        ),
+    ],
+    ids=["CR3", "G1", "G6"],
+)
+async def test_module29_literal_sub_query_decomposition_is_pinned(monkeypatch, query, expected):
+    """The literal decomposition, not just `decompose: true`.
+
+    Each of these sub-questions was probed live against `run_aggregate()`
+    before being put in a plan, and each reaches a real aggregate family
+    (case completeness, person recurrence, weapon compliance, statute mix by
+    year, criminal-record/court cross-check, district breakdown,
+    incident->report minutes by year, gender breakdown, CMS-FIR linkage).
+    A future edit that changes one silently is a behavioural change, not a
+    wording change.
+    """
+    _forbid_llm_json(monkeypatch)
+
+    result = await ma_mod._decompose(query)
+
+    assert tuple(result.sub_queries) == expected
+
+
+def test_module29_every_planned_sub_query_routes_deterministically_to_xagg():
+    """The reason the sub-questions are worded the way they are.
+
+    Measured on this module's base commit: the LLM router sent 6 of 9
+    naturally-phrased sub-questions to XGRAPH/Cross-Case Linkage — the exact
+    dead end decomposition exists to route away from. Every planned
+    sub-query is therefore phrased to match `router.py`'s own deterministic
+    XAGG override, so a decomposed dispatch costs no extra router LLM call
+    and cannot drift onto the entity-linkage path.
+    """
+    from src.pipeline import router
+
+    for plan in ma_mod._DECOMPOSITION_PLANS:
+        for sub_query in plan.sub_queries:
+            override = router._deterministic_route_override(sub_query, case_id=None)
+            assert override is not None, f"{plan.name}: no deterministic route for {sub_query!r}"
+            assert override["route"] == "XAGG", f"{plan.name}: {sub_query!r} -> {override['route']}"
+
+
+def test_module29_no_other_gold_question_matches_a_decomposition_plan():
+    """Negative control — the "too broad" half of the risk.
+
+    A plan that also caught a currently-correct single-fact question would
+    turn its answer into a muddled five-way synthesis at five times the
+    model cost. Exactly three of the 32 gold questions may match.
+    """
+    matched = {}
+    for item in _load_gold32():
+        plan = ma_mod._match_decomposition_plan(item["question"])
+        if plan is not None:
+            matched[item["id"]] = plan.name
+
+    assert matched == {
+        "CR3": "record_consistency",
+        "G1": "caseload_review",
+        "G6": "orientation_note",
+    }
+
+
+def test_module29_supervisor_trigger_widening_adds_no_gold_question():
+    """The paraphrase-reach patterns added to `_META_ANALYSIS_TRIGGER_PATTERNS`.
+
+    G1's own non-gold paraphrase matched nothing in that list, so it never
+    reached this module at all and no decomposition fix could have helped
+    it. Widening that gate is the other half of Module 29 — and the gate
+    decides routing for every query, so the set of gold questions it
+    captures must not change. This is the pre-Module-29 set, pinned.
+    """
+    from src.pipeline.harness import supervisor as sup
+
+    matched = {
+        item["id"]
+        for item in _load_gold32()
+        if any(pat.search(item["question"]) for pat in sup._META_ANALYSIS_TRIGGER_PATTERNS)
+    }
+
+    assert matched == {
+        "CR3", "CR6", "CR7", "CR8", "CS4",
+        "M1", "M2", "M4", "M5", "M7",
+        "G1", "G2", "G3", "G5", "G6",
+    }
+    # ...and the paraphrases the widening exists for now do reach it.
+    assert any(pat.search(_G1_PARAPHRASE) for pat in sup._META_ANALYSIS_TRIGGER_PATTERNS)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "query",
+    [
+        "How many FIRs are currently registered?",
+        "Summarize case CASE-021.",
+        "What is the FIR number for case CASE-014?",
+        "Which district recovers the most weapons?",
+        # G5 and G2 already reach Meta-Analysis via their own supervisor
+        # triggers and already answer correctly through the decompose:false
+        # single-dispatch fallback — a plan must never claim them.
+        "Recovered weapons ke record ko dekhtay hue, compliance ke lihaz se koi cheez flag karne layak hai?",
+    ],
+    ids=["D1", "A1-summary", "FIR-lookup", "CP1-shape", "G5"],
+)
+async def test_module29_single_fact_questions_still_return_decompose_false(monkeypatch, query):
+    """Negative control at the `_decompose()` boundary, not just the regex.
+
+    No deterministic plan may claim these, and with the LLM decomposer
+    answering "not compound" (its real, live behaviour for all of them),
+    `_decompose()` must still report `decompose=False` so the module falls
+    back to exactly one non-decomposed dispatch.
+    """
+    assert ma_mod._match_decomposition_plan(query) is None
+
+    _stub_decompose(monkeypatch, decompose=False)
+    result = await ma_mod._decompose(query)
+
+    assert result.decompose is False
+    assert result.parse_failed is False
+    assert result.plan_name is None
+
+
+@pytest.mark.asyncio
+async def test_module29_g1_dispatches_five_sub_queries_not_one(monkeypatch):
+    """The observable this module is graded on.
+
+    Before: one sub-agent dispatch per query in the live SSE trace, of the
+    original un-split question. After: one dispatch per planned
+    sub-question, each independently routed and each contributing a
+    pseudo-chunk to the synthesis.
+    """
+    _forbid_llm_json(monkeypatch)
+    call_log = []
+    _stub_supervisor_handle(
+        monkeypatch,
+        by_query={},
+        default=SubAgentResult(
+            status=SubAgentStatus.OK, answer_text="A computed fact.", tools_used=["XAGG"]
+        ),
+        calls=call_log,
+    )
+    _stub_call_llm(monkeypatch, answer="Synthesized review. [Document 1]")
+    _stub_verify_grounding(monkeypatch, grounded=True)
+    _stub_validate_answer(monkeypatch)
+
+    result = await meta_analysis(_agent_input(query_text=_G1_GOLD))
+
+    assert result.status == SubAgentStatus.OK
+    dispatched = [c["query_text"] for c in call_log]
+    assert len(dispatched) == 5
+    assert dispatched != [_G1_GOLD]
+    caseload_plan = next(p for p in ma_mod._DECOMPOSITION_PLANS if p.name == "caseload_review")
+    assert set(dispatched) == set(caseload_plan.sub_queries)
+    assert len(result.citations) == 5

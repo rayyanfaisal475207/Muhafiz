@@ -398,7 +398,7 @@ No question that answered at baseline stopped answering.
 
 ## 8. New defects found, deliberately left unfixed
 
-**(a) `chunk_fulltext` holds an orphaned re-ingestion of the CrPC PDF.** The
+**(a) Module 37 — `chunk_fulltext` holds an orphaned re-ingestion of the CrPC PDF.** The
 BM25 candidate pool returned chunks with ids like
 `1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c570` that **do not
 exist in Chroma** (`get_by_ids` returns nothing for them). Postgres:
@@ -416,8 +416,8 @@ reached the evaluator in the runs above. This is an index-hygiene fix
 (`fulltext_index.delete_by_source` on re-ingest, plus a one-off cleanup), not a
 retrieval-logic one — **it belongs in its own module.**
 
-**(b) `cross_rerank_multi()` merges by max score across queries, and
-cross-encoder scores are not comparable across queries.** This is what cost KB4
+**(b) Module 38 — `cross_rerank_multi()` merges by max score across queries,
+and cross-encoder scores are not comparable across queries.** This is what cost KB4
 (§7) and what made a third statute hypothesis actively harmful (§2). A
 rank-based fusion across the per-query reranked lists (RRF, as
 `src/retrieval/reranker.py` already does for semantic-vs-BM25) would let each
@@ -432,8 +432,8 @@ page, the generator still declines to draw gold's conclusion. Any further work
 on KB3 is a response-generation or evaluator question and is explicitly out of
 this module's scope.
 
-**(d) The KB questions' "and does our data show it?" half is unreachable from
-the RAG sub-agent.** Every gold KB answer is compound: a statutory norm plus a
+**(d) Module 39 — the KB questions' "and does our data show it?" half is
+unreachable from the RAG sub-agent.** Every gold KB answer is compound: a statutory norm plus a
 figure from the case database (68 of 74 pairs, 26 challans, 45 property entries,
 8 PPC-302 FIRs). The RAG tool has no database access, so no amount of retrieval
 work closes that half. It is a composition question — whether a KB-intent
