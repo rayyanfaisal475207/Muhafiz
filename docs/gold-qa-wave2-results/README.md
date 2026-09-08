@@ -24,7 +24,7 @@ excluding KB, **14/32** passing.
 | 33 | G1 — seized-property disposition | `MODULE33_RESULT.md` | done — same; reproduces gold's 13 / 7 exactly |
 | 34 | G1 — incident time-of-day | `MODULE34_RESULT.md` | done — same; gold's "flat across the day" is a date-only artefact |
 | 45 | Eval harness — a judge `null` scored as zero | `MODULE45_RESULT.md` | done — nulls retried then excluded from the mean; the 900-char cap tested and cleared of every current 0.0; split out as Modules 46–47 |
-| 42 | KB6 — `route=None`, FC 0.0 **and** AR 0.0 | `MODULE42_RESULT.md` | done — **not a pipeline defect**: `route=None` was the harness's own 300s client timeout, live KB6 is `route='RAG'` 5/5. A timeout is now unscored, not a 0.0. The real cause of the abstention (a cross-language relevance gate) split out as Module 48 |
+| 42 | KB6 — `route=None`, FC 0.0 **and** AR 0.0 | `MODULE42_RESULT.md` | done — **not a pipeline defect**: `route=None` was the harness's own 300s client timeout, live KB6 is `route='RAG'` 5/5. A timeout is now unscored, not a 0.0. The real cause of the abstention (a cross-language relevance gate) split out as Module 52 |
 
 ## Required shape for each result file
 

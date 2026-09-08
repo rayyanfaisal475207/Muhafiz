@@ -163,7 +163,7 @@ against English statutory text**. Module 30 fixed precisely this asymmetry for
 (`cross_rerank_multi`) — it was never fixed for the *evaluator*, which is the
 one remaining component still reading the raw roman-Urdu question.
 
-This is a distinct, unfiled defect. It is **not** Module 39 (which is about
+This is a distinct defect, filed as **Module 52**. It is **not** Module 39 (which is about
 composing the data half into the answer — a problem KB6 never reaches), and it
 is not the credential problem.
 
@@ -362,19 +362,135 @@ barely move; what moves is whether the number can be trusted.
 
 ## 6. Non-gold paraphrase
 
-*(filled in below from the live run)*
+Deliberately re-worded throughout — different noun for the weapon, different
+word for the guidelines, different verb for the recording step — while keeping
+KB6's norm + our-data shape:
+
+> Kya koi rehnuma usool mojood hain ke **zabt shuda pistol** ko register mein
+> likhne se pehle kis tarah mehfooz kiya jaye, aur kya hamare record se pata
+> chalta hai ke us par amal hua?
+
+**Two runs. Both answered. `route='RAG'`, 97.9s and 103.8s** — no abstention,
+and roughly a sixth of KB6's abstaining runtime, because the relevance gate
+passes on the first attempt instead of refusing six times.
+
+Verbatim, run 1 (excerpt):
+
+> "Firearms must be **packaged separately**, **unloaded with the safety on**,
+> and **without live rounds** in the chamber, magazine, or parcel [Document 1].
+> … All evidence (including firearms) must be **marked, inventoried, and
+> packaged** before leaving the crime scene … A **safe chain of custody** must
+> be maintained …"
+
+**This is the single most important measurement in this module, and it was not
+the expected result.** The paraphrase returns **gold's statutory half in full**
+— packaged separately, unloaded, safety on, no live round in chamber/magazine/
+parcel, marked, documented, chain of custody — including the three specifics
+that KB6's *own gold wording* never produces on any of its five runs.
+
+So the corpus contains the answer, retrieval can reach it, the reranker can
+keep it, the gate can pass it and the generator can write it. **Nothing in the
+pipeline is missing.** What fails is specifically KB6's phrasing.
+
+And the paraphrase shows why, which sharpens Module 52's diagnosis
+considerably: the paraphrase says **"pistol"** — a word spelled identically in
+English — where KB6 says **"baramad shuda aslaha"**, which shares no surface
+form with "firearm" at all. The defect is not "roman-Urdu questions fail"
+generically; it is that a roman-Urdu term with **no lexical overlap with the
+English corpus** fails both retrieval and the relevance gate, while a loanword
+sails through both.
+
+This is the check that separates a capability fix from curve-fitting, and it
+cuts the other way from usual here: it proves this module did **not** fix KB6,
+and it proves the capability was there all along.
 
 ---
 
 ## 7. Regression guard
 
-*(filled in below from the live run)*
+**`src/` is untouched by this module, so no pipeline regression is possible by
+construction.** The seven other KB questions were nevertheless re-run live, as
+the brief required, to check for a shared cause — and the sweep turned up
+something more useful than a regression check.
+
+All eight, `admin@example.com`, All Cases, `:8011`, one run each (KB6 five):
+
+| Q | `route` | Elapsed | Outcome | Over the old **300s** ceiling? |
+|---|---|---|---|---|
+| KB1 | `RAG` | 268.0s · **403.0s** (2 runs) | answers (1,092 / 1,830 ch) | **YES on 1 of 2** |
+| KB2 | `RAG` | **383.3s** | answers (1,148 ch) | **YES** |
+| KB3 | `RAG` | **481.2s** | verifier refusal (82 ch) | **YES** |
+| KB4 | `RAG` | 219.8s | answers (1,045 ch) | no |
+| KB5 | `RAG` | 247.0s | answers (1,382 ch) | no |
+| **KB6** | `RAG` | **428.8-628.2s** (4/5) · 247.1s (1/5) | abstains 4/5, answers 1/5 | **YES on 4 of 5** |
+| KB8 | `RAG` | 184.4s | verifier refusal (82 ch) | no |
+| KB9 | `RAG` | **341.0s** | abstains (102 ch) | **YES** |
+
+**`route='RAG'` on all eight.** Not one `None` anywhere, on any run. Whatever
+produced `route=None` in the reference run, it is not something the router or
+the supervisor does to KB questions.
+
+**Nothing got worse.** KB1, KB2, KB4 and KB5 answer, as Module 30 left them.
+**KB4 answers (1,045 ch)** — its known open regression (Module 38) is a
+*content* regression, and this module did not touch it either way. KB3 and KB8
+return the verifier refusal *"The generated answer could not be verified as
+grounded in the retrieved documents"* rather than Module 30's recorded answers;
+that is a change from Module 30's run, but this module changed no `src/` file,
+so it cannot be its cause — Module 30 also ran against a **private** Chroma copy
+while this ran against the shared store, which is the more likely difference.
+Recorded as an observation, not claimed as a finding.
+
+### The generalisation — this is not a KB6-only problem
+
+**Five of the eight KB questions exceed the old 300s ceiling on this machine:
+KB1, KB2, KB3, KB9, and KB6.** Every one of them would have been recorded by the
+old harness as `route=None` with an empty answer and published as
+FactualCorrectness 0.0 **and** AnswerRelevancy 0.0.
+
+KB1 is the plainest demonstration that this is a coin flip rather than a
+property of the question: run 1 took **268.0s** and run 2 took **403.0s**. The
+*same question* lands on either side of the ceiling from one run to the next,
+and KB1 is a question the report scores as **working**.
+
+**KB2 is the one that should worry a reader most.** It takes 383.3s and returns
+a perfectly serviceable 1,148-character answer — which the old harness would
+have thrown away and scored 0.0/0.0. The report lists KB2 at FC 0.0 / AR **1.0**,
+so it evidently finished inside 300s in the reference run; on this machine it
+does not. That is the whole hazard in one row: **the same question, the same
+code, scored two completely different ways depending on how loaded the box was.**
+
+This is why the fix is a `transport_ok` flag and an unscored row rather than
+just a bigger number. A slower machine will still cross whatever ceiling is set;
+what matters is that it then says so, instead of publishing a 0.0.
+
+### One environment failure, reported rather than smoothed over
+
+KB1's **first** attempt failed at 72.4s with no answer and no route:
+
+```
+google.genai.errors.ClientError: 429 RESOURCE_EXHAUSTED ...
+Quota exceeded for metric: generativelanguage.googleapis.com/
+generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash
+```
+
+The Gemini free-tier **daily** quota (20 requests) was exhausted by the cloud
+escalation path partway through the session. Retried, KB1 answers normally in
+268.0s, so the row above is the retry and the failure was transient.
+
+Two things follow. First, this is the credential/quota class of failure the
+brief warned about, in a **different provider from the one the brief names** —
+and `grep -c "rate limit"`, the check the brief specifies, **does not match it**
+(0 hits while it was happening). Future runs should grep for
+`RESOURCE_EXHAUSTED` and `429` as well. Second, the first `429` in the session is
+timestamped 17:20:16, **after** all five KB6 runs completed at 17:19, and the
+16:37-17:20 window contains zero `ERROR` and zero `WARNING` lines — so KB6's
+measurements are unaffected by it.
 
 ---
 
 ## 8. New defects found
 
-### 8.1 The relevance gate cannot judge a roman-Urdu question against English statute text — **new module proposed**
+### 8.1 The relevance gate cannot judge a roman-Urdu question against English statute text — **filed as Module 52**
 
 §1.2's measurement, restated as the defect: with gold's own statutory text in
 the chunk set, `evaluate_relevance()` returns `relevant=True` **6/6** for an
@@ -403,6 +519,8 @@ roman-Urdu half of the KB bucket, not just KB6.
 **Proposed fix, evidence-backed:** on the legal-KB path only, give the evaluator
 an English rendering of the *question* (not a statute hypothesis and not a
 keyword rewrite), mirroring exactly what Module 30 did for the cross-encoder.
+§6's paraphrase is the existence proof that this works: change one noun to a
+word English shares, and the same pipeline returns gold's rule verbatim.
 Expected side benefit: if the gate passes on attempt 1, KB6 stops paying six
 retrieve/rerank/evaluate rounds and its runtime collapses from ~600s to ~100s,
 which removes the timeout pressure at its source.
@@ -418,13 +536,30 @@ Lower priority than 8.1, and **fixing it alone would not fix KB6**: §1.2's
 IDEAL-set experiment put `_c19` in the pool explicitly and the roman-Urdu
 verdict was still `relevant=False`. Recording it so it is not re-discovered.
 
-### 8.3 Other questions may sit near the old 300s ceiling
+§6 shows both halves are the same underlying cause. The non-gold paraphrase —
+which says **"pistol"**, a word identical in English — retrieves `_c19` *and*
+passes the gate *and* quotes gold's rule in full, in ~100s. KB6's
+**"baramad shuda aslaha"** shares no surface form with "firearm" and fails at
+both stages. So 8.2 is not a separate retrieval bug to fix on its own; it is
+Module 52 seen one stage earlier, and an English rendering of the question
+would address both.
 
-Module 30 measured KB3 at 237.2s and KB8 at 254.1s. Those are inside 300s but
-not by much, on a machine whose timings vary with concurrent worktree load —
-KB6 itself ranged 428.8-628.2s across five runs on this branch. Any question
-that crossed 300s in the reference run would have been published as
-`route=None` / 0.0 / 0.0 with no indication it was a transport failure. With
-`transport_ok` recorded, a future run says so out loud instead. **The
-2026-09-08 numbers cannot be re-checked for this** — the artefacts are not on
-this machine (Module 47).
+### 8.3 Half the KB bucket crosses the old 300s ceiling — measured, not feared
+
+This was filed as a suspicion and the §7 sweep turned it into a measurement.
+**Five of the eight KB questions exceed 300s on this machine** — KB1 (403.0s on
+the second of two runs), KB2 (383.3s), KB3 (481.2s), KB9 (341.0s) and KB6 (4
+runs of 5). Under the old harness all
+four would have been published as `route=None` / FC 0.0 / AR 0.0, including
+**KB2, which returns a good 1,148-character answer**.
+
+The report lists KB2 at FC 0.0 / AR **1.0**, so it finished inside 300s in the
+reference run and does not here. Same question, same code, two different
+scores, decided by machine load. That is the defect generalised: KB6 is simply
+the question that lost the coin flip on 2026-09-08.
+
+**The 2026-09-08 numbers cannot be re-checked against this** — the artefacts
+are not on this machine (Module 47). What can be said is that any row in that
+report showing `route=None` should now be treated as *unmeasured* rather than
+as a pipeline finding, and that with `transport_ok` recorded a future run says
+so out loud instead of publishing a zero.
