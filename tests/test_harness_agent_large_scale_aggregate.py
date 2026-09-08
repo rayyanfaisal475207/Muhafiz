@@ -30,6 +30,7 @@ from __future__ import annotations
 import pytest
 
 import src.pipeline.harness.agents.large_scale_aggregate as lsa_mod
+from src.pipeline.harness.agents import _salvage
 from src.pipeline.harness.agents.large_scale_aggregate import large_scale_aggregate
 from src.pipeline.harness.supervisor import (
     LARGE_SCALE_AGGREGATE,
@@ -332,3 +333,71 @@ async def test_supervisor_dispatches_to_real_large_scale_aggregate_and_real_xagg
     assert result.tools_used == ["XAGG"]
     assert len(result.citations) == 1
     assert result.citations[0].source_tool == "XAGG"
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 53] This sub-agent is the one that HOLDS a
+# deterministic, correct-by-construction result while it waits on an LLM
+# paraphrase, so it is the one that offers that result for salvage when a
+# Meta-Analysis fan-out's shared wall-clock deadline cancels it mid-call.
+# See src/pipeline/harness/agents/_salvage.py for the measurement.
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.asyncio
+async def test_module53_raw_aggregate_is_offered_for_salvage_before_the_paraphrase(monkeypatch):
+    """The offer must land BEFORE `call_llm` — that call is the one that
+    gets cancelled, so an offer made after it would never happen on the
+    path this exists for."""
+    raw = "PPC 61; Arms Ordinance 1965 29; CNSA 1997 12"
+    _stub_xagg_tool(
+        monkeypatch,
+        XAggToolResult(
+            status=ToolStatus.OK,
+            chunks=[_agg_chunk()],
+            raw_summary_text=raw,
+            case_ids_touched=["CASE-001"],
+            aggregate_kind="statute_court_stage_join",
+        ),
+    )
+    box = _salvage.open_slot()
+    order = []
+
+    async def _fake_llm(system_prompt, user_message, **kwargs):
+        order.append(("llm", _salvage.take(box)))
+        return "Paraphrased [Document 1]."
+
+    monkeypatch.setattr(lsa_mod, "call_llm", _fake_llm)
+    _stub_verify_grounding(monkeypatch, grounded=True)
+
+    result = await large_scale_aggregate(_agent_input())
+
+    assert result.status == SubAgentStatus.OK
+    # Already offered by the time the paraphrase call ran.
+    assert order and order[0][1] is not None and order[0][1].text == raw
+    salvaged = _salvage.take(box)
+    assert salvaged.text == raw
+    assert salvaged.tool == "XAGG"
+    assert salvaged.kind == "statute_court_stage_join"
+
+
+@pytest.mark.asyncio
+async def test_module53_offer_is_a_no_op_when_no_slot_is_open(monkeypatch):
+    """Every direct (non-Meta-Analysis) route runs with no slot open. The
+    offer must cost nothing and change nothing there."""
+    _stub_xagg_tool(
+        monkeypatch,
+        XAggToolResult(
+            status=ToolStatus.OK,
+            chunks=[_agg_chunk()],
+            raw_summary_text="anything",
+            case_ids_touched=[],
+        ),
+    )
+    _stub_call_llm(monkeypatch)
+    _stub_verify_grounding(monkeypatch, grounded=True)
+
+    result = await large_scale_aggregate(_agent_input())
+
+    assert result.status == SubAgentStatus.OK
+    assert _salvage._SLOT.get() is None
