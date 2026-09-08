@@ -50,7 +50,17 @@ except Exception:  # noqa: BLE001
     pass
 
 # How many chars of the answer the judge is shown. See `truncate_for_scoring`.
-MAX_ANSWER_CHARS = int(os.environ.get("GOLD32_MAX_ANSWER_CHARS", "900"))
+# [Module 46] Default is now 0 = NO TRUNCATION. The 900 it replaces was
+# introduced to bound *Faithfulness*, which made one judge call per atomic
+# claim; Faithfulness was dropped from _METRICS and the literal outlived its
+# reason. Module 45 measured both sides: removing the cap costs under 2s per
+# metric and NO extra judge calls, while leaving it on makes an answer whose
+# gold facts sit past char 900 score 0.0 instead of 1.0 -- total signal loss,
+# not degradation (proved with a positive control). The build now emits
+# 1,000-2,500-char KB answers, so the cap was about to start deleting real
+# results. Set GOLD32_MAX_ANSWER_CHARS to re-enable a cap if Faithfulness or
+# another per-claim metric ever returns.
+MAX_ANSWER_CHARS = int(os.environ.get("GOLD32_MAX_ANSWER_CHARS", "0"))
 TRUNCATION_MARKER = " …[truncated for scoring]"
 
 # A metric that produces no number is retried this many times before the row is
@@ -189,6 +199,40 @@ def truncate_for_scoring(actual, max_chars=None):
     if max_chars and len(actual) > max_chars:
         return actual[:max_chars] + TRUNCATION_MARKER
     return actual
+
+
+def no_answer_captured(output_row):
+    """True when the runner never got an answer back for this question.
+
+    [Module 42] `gold32_run.py` sets ``transport_ok: False`` when the
+    ``/api/chat`` request itself failed — a client-side read timeout or a
+    dropped connection — which leaves ``actual_answer`` empty and ``route``
+    None because the SSE stream was never read at all.
+
+    That is the ABSENCE of a measurement, not a bad answer, and it is exactly
+    what produced KB6's row in the 2026-09-08 report: FactualCorrectness 0.0
+    AND AnswerRelevancy 0.0 with ``route=None``, written up there as a
+    *"genuine error, did not recover"*. Live on this branch KB6 returns
+    ``route='RAG'`` on 5 of 5 runs and takes 513-628s — it was simply still
+    running when the old hard-coded 300s ceiling gave up.
+
+    Deliberately ``is False``, not falsy: an outputs file written before this
+    key existed has no ``transport_ok`` at all, and those rows were genuinely
+    measured. They must keep being scored, so a missing key means "fine".
+
+    A row that DID come back is always scored, including a deliberate
+    abstention — "No sufficiently relevant documents were found" is a real
+    answer, and a real failure, which must go on counting as one.
+    """
+    return output_row.get("transport_ok") is False
+
+
+def no_answer_reason(output_row):
+    """The `reasons` text stored against an unscored transport failure."""
+    return ("NO ANSWER CAPTURED — the /api/chat request itself failed (%s). "
+            "Not a zero: the pipeline never returned, so there is nothing to "
+            "judge. See GOLD32_TIMEOUT_S in gold32_run.py."
+            % (output_row.get("error") or "no error recorded"))
 
 
 def _measure_once(metric, tc, box):
@@ -371,13 +415,46 @@ def main(argv=None):
     for o in outs:
         if o["id"] in done:
             continue
+        row = {"id": o["id"], "type": o["type"], "language": o["language"],
+               "route": o.get("route"), "scores": {}, "reasons": {}}
+
+        # [Module 42] A row the runner never got an answer for is the ABSENCE
+        # of a measurement, and must not be judged.
+        #
+        # gold32_run.py records `transport_ok: False` when the /api/chat call
+        # itself failed — a client timeout or a dropped connection — leaving
+        # `actual_answer` empty and `route` None because the SSE stream was
+        # never read. Judging that empty string (as `or "(no answer produced)"`
+        # did) asks the judge to score a string the pipeline never produced,
+        # and it duly returns 0.0 on every metric. That is what put KB6 in the
+        # 2026-09-08 report as FactualCorrectness 0.0 AND AnswerRelevancy 0.0
+        # with route=None, described as a "genuine error, did not recover",
+        # when live it returns route='RAG' on 5 runs of 5 and simply takes
+        # longer than the runner's old 300s ceiling on the 4 of those 5 that
+        # abstain (428.8-628.2s; the run that answers takes 247.1s).
+        #
+        # Same principle as Module 45's null handling, one layer earlier: an
+        # unscored row is EXCLUDED from every mean by summarize(), so a
+        # transport failure now visibly costs coverage instead of silently
+        # costing score. Older outputs files have no `transport_ok` key at all;
+        # those are treated as fine (`is False`, not falsy) so this cannot
+        # retroactively unscore anything that was genuinely measured.
+        if no_answer_captured(o):
+            for mn in metrics:
+                row["scores"][mn] = None
+                row["reasons"][mn] = no_answer_reason(o)
+                print("  %-5s %-18s = None   <-- UNSCORED (no answer captured)"
+                      % (o["id"], mn), flush=True)
+            results.append(row)
+            json.dump(results, open(RESULTS, "w", encoding="utf-8"),
+                      ensure_ascii=False, indent=2)
+            continue
+
         actual = truncate_for_scoring(o.get("actual_answer") or "(no answer produced)")
         ctx = [o.get("expected_answer", "")]
         tc = LLMTestCase(input=o["question"], actual_output=actual,
                          expected_output=o.get("expected_answer", ""),
                          retrieval_context=ctx, context=ctx)
-        row = {"id": o["id"], "type": o["type"], "language": o["language"],
-               "route": o.get("route"), "scores": {}, "reasons": {}}
         for mn, m in metrics.items():
             sc, rs = measure(m, tc)
             row["scores"][mn] = sc; row["reasons"][mn] = rs

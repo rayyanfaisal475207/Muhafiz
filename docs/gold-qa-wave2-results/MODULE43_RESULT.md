@@ -285,7 +285,7 @@ harness tool and the supervisor guard) is green.
    blind spot remains for the CR6/CR7/CR8/G2/G3 families and the
    entity-recurrence tier, and it is what makes any future "which aggregate
    answered?" question require a code change before it can be answered.
-   **Filed as Module 52** — one line per remaining aggregate, mechanical, and
+   **Filed as Module 55** — one line per remaining aggregate, mechanical, and
    worth doing before Module 27's rerun so that run is diagnosable.
 
 Not folded into this module.

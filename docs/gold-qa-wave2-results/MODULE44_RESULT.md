@@ -444,7 +444,7 @@ share of our cases than the ordinary police stations?"* resolves to
 deliberately not done in this module: `_STATION_KEYWORDS` sits a few rungs
 lower in the same chain and every widening candidate ("units", "ordinary
 stations") risks pulling plain per-station questions into this family. Filed
-as Module 53 in §8 with the measurement attached.
+as Module 56 in §8 with the measurement attached.
 
 ---
 
@@ -502,7 +502,7 @@ Filed in §8.
 
 Split out rather than folded in:
 
-1. **Module 53 — M2's dispatch vocabulary is narrower than the family it now
+1. **Module 56 — M2's dispatch vocabulary is narrower than the family it now
    serves.** While M2 returned an honest refusal, a narrow trigger list was
    the safe choice. Now that the family computes a real answer, a question
    that avoids its exact vocabulary ("specialist units", "ordinary police
@@ -513,7 +513,7 @@ Split out rather than folded in:
    candidate token risks pulling ordinary per-station questions in; it needs
    its own all-32 control and its own live check.
 
-2. **Module 54 — CR3 is unstable across runs at three different layers.**
+2. **Module 57 — CR3 is unstable across runs at three different layers.**
    Router (XAGG vs `None`), Meta-Analysis sub-question timeouts, and synthesis
    verification, on three consecutive runs of the same text. Module 36
    deferred its aggregate wiring and Module 50 owns the consolidation, but
