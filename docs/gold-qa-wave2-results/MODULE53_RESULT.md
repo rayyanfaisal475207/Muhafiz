@@ -348,17 +348,19 @@ measured failure for a regression of a merged module. Filed for the user in §8.
 
 ## 8. New defects found, filed rather than folded in
 
-1. **Not every XAGG family emits its `XAGG <kind>` log line.** Module 43 fixed
-   one instance; the gap is wider. Across every capture in this module only
-   seven kinds ever logged (`offender_age_profile`,
-   `accused_relationship_breakdown`, `seized_property_disposition`,
-   `incident_time_of_day`, `arrest_rate`, `incident_to_report_minutes_by_year`,
-   `filtered_fir_listing`), while `graph_recurrence_person`, `cms_fir_linkage`,
-   `station_or_category_counts`, `case_completeness_scan` and
-   `weapon_licence_status` demonstrably ran and logged nothing. This is why
-   "count the `XAGG` lines" under-reports the sub-queries actually dispatched.
-   Observability only — `xagg.py` was out of scope for this module and was not
-   touched. **Filed as a new module.**
+1. **Module 55 confirmed, with a measured list.** Module 43 filed Module 55
+   ("every XAGG aggregate predating Modules 31–36 emits no `XAGG <kind>:` log
+   line"). This module reproduced it and can now name which side of the line
+   each family falls on. Across every capture here, seven kinds logged —
+   `offender_age_profile`, `accused_relationship_breakdown`,
+   `seized_property_disposition`, `incident_time_of_day`, `arrest_rate`,
+   `incident_to_report_minutes_by_year`, `filtered_fir_listing` — while
+   `graph_recurrence_person`, `cms_fir_linkage`, `station_or_category_counts`,
+   `case_completeness_scan` and `weapon_licence_status` demonstrably ran and
+   logged nothing. That is why counting `XAGG` log lines under-reports the
+   sub-queries actually dispatched, and why the tables in this file count
+   `route='XAGG'` SSE events instead. **Not folded in** — `xagg.py` is out of
+   this branch's scope; the evidence is added to Module 55.
 
 2. **`_MAX_PLAN_SUB_QUERIES` is still 5, and the case for revisiting it is now
    open but unmeasured.** Module 50 made the cap conditional on this module

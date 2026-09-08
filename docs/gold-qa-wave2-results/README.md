@@ -31,6 +31,9 @@ excluding KB, **14/32** passing.
 | 43 | M7 — incident-to-report mean, filed as factually wrong | `MODULE43_RESULT.md` | done — **the report is wrong, not Module 22**; M7 returns gold on 6/6 live runs. Fixed the missing `XAGG <kind>` log line; independently confirms Module 47 |
 | 44 | M2, CS4 — station specialisation, and criminal-record vs local-FIR gap | `MODULE44_RESULT.md` | done — both gold answers computable and now computed, 3/3 live each. CS4 returns وقاص / 00000-9000020-1 exactly; M2 reproduces 9-of-73 from 2-of-19 and **challenges gold's growth claim** |
 | 50 | G1/G6/CR3 — wiring Modules 31–36's aggregates into their plans | `MODULE50_RESULT.md` | done — six aggregates wired and firing on every live run; `_MAX_SUB_QUERIES` settled at **5** with the measured timeout data; G6 trades `_SQ_GENDER` for the arrest rate; defects split out as Modules 53–54 |
+| 53 | G1/G6/CR3 — the shared sub-query deadline that measures queue position | `MODULE53_RESULT.md` | done — raw aggregate now served when a paraphrase is cancelled; **8 of 10 dropped sub-answers → 0** in a forced-deadline control, and **zero dropped at N=5 over 12 live runs**; timeout 60 → 150 s; split out as Modules 58/59 |
+| 57 | CR3 — non-determinism at three layers | `MODULE57_RESULT.md` | done, **no code change** — 20 runs: timeouts 0/20 (fixed by 53), `route=None` 0/20 (did not reproduce), synthesis-verifier rejection 7/14 and now the only failure left. Its reason measured **not** to be citation attribution; split out as Modules 60/61 |
+| 40 | M4 → CR3/G6 — the synthesis verifier's attribution-blind second opinion | `MODULE40_RESULT.md` | **closed as superseded** — merged in and judged: 8 live runs, the second opinion **never fired**; measured directly, it works as designed but cannot rescue CR3's negative-inference rejection (3/3). Hallucination still rejected 3/3. Branch left unmerged on origin for Module 59 |
 
 ## Required shape for each result file
 

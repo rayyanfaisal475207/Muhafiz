@@ -90,17 +90,21 @@ several can run in parallel chats/worktrees without colliding.
 | 45 | Eval harness: a judge `null` FactualCorrectness is scored as 0 rather than re-run | `fix/eval-harness-null-scores-and-truncation` | ✅ Done — confirmed and fixed. `measure()` never retried the CR8 failure at all (its `tries` loop only ran for rate limits), and **no mean was computed in the repo at all** — every published figure was hand-derived. Nulls are now retried, then recorded as unscored and excluded by a new null-safe `summarize()`. 22 new tests. The 900-char cap was measured and is **not** behind any current 0.0 — split out as Module 46. Result: `docs/gold-qa-wave2-results/MODULE45_RESULT.md` |
 | 46 | Eval harness: the 900-char answer cap silences whole answers, and its stated (Faithfulness) justification no longer exists | `fix/eval-answer-cap-and-quota-check` | ✅ **Fixed** — default is now **0 (no cap)**. Behaviour-preserving on the committed run (only M4/M5 exceeded 900, and Module 45 measured both unchanged); protective from here, since the build now emits 1,000–2,500-char KB answers. Also fixes the quota check: `grep "rate limit"` misses Gemini's `RESOURCE_EXHAUSTED`. |
 | 47 | The 2026-09-08 post-fix evaluation's artefacts were never committed — `gold32_results.json` on `main` is the 2026-09-06 Module 9 run | *(not yet branched)* | ⬜ New — found by Module 45. The report names those files as its sources, but they were last written by `d313a60` and reproduce Module 9's numbers (0.394 / 13-of-32), not the report's (0.572 / 19-of-32). Modules 41–44 are specified against figures with no artefact behind them. |
-| 40 | M4's Meta-Analysis synthesis rejected by the verifier — **superseded for M4 by Module 41; being re-scoped to CR3/G6** | `fix/meta-analysis-m4-synthesis-verifier-rejection` | 🟡 Branch pushed, unverified. **Module 41 made M4 skip Meta-Analysis entirely**, so this fix targets a path M4 no longer takes. Decision 2026-09-08: rebase after Module 50 and re-target at CR3/G6, the questions that still decompose. See its section below. |
+| 40 | M4's Meta-Analysis synthesis rejected by the verifier — **closed as superseded** | `fix/meta-analysis-reliability-53-57-40` (branch `fix/meta-analysis-m4-synthesis-verifier-rejection` left unmerged on origin) | ✅ **Closed as superseded.** Merged in and judged on its merits against CR3/G6: 8 live runs with the change applied, and the attribution-blind second opinion **never fired once** — the first verifier pass passed every time. Measured directly instead: it does what it claims (on a swapped-citation input its objection moves off attribution) but **cannot rescue CR3's actual rejection**, which is a *negative inference over a complete listing*, not a citation mis-numbering — still `grounded=False` with the flag on, 3 of 3. Ablation showed the synthesis prompt rule made no difference either (4/4 with and without), and reverting the whole module gave CR3 3/4. A hallucinated synthesis is still rejected, 3 of 3, live. Its `statute_vs_court_stage` plan was **not** taken because a matched plan vetoes Module 41's guard. Result: `docs/gold-qa-wave2-results/MODULE40_RESULT.md` |
 | 48 | KB2 and KB9 answer fluently but factually wrong (FC 0.0 / AR 1.0) after Module 30 fixed their retrieval | *(not yet branched)* | ⬜ New — the last two KB questions with no module of their own |
 | 49 | KB3 reaches Police Order Article 18 but still scores 0.1 — it quotes the article without drawing gold's conclusion | *(not yet branched)* | ⬜ New — Module 30 got the chunk in; the synthesis half is unaddressed |
 | 50 | G1/G6/CR3 consolidation: wire Modules 31–36's aggregates into their decomposition plans, and settle `_MAX_SUB_QUERIES` | `fix/meta-analysis-wire-g1-g6-aggregates` | ✅ **Done** — all six wired; every one now fires on **every** live run (`caseload_review` 7/7 × 4 kinds, `orientation_note` 6/6, `record_consistency` 3/3). G1 reproduces 3 of gold's 4 findings exactly and corrects the 4th per Module 34; CR3 now gets gold's exact `CMS-ISB-2026-0341`; G6 reports the arrest rate for the first time. **Cap settled at 5 with measurement** — N=9 loses 4 sub-queries to the 60 s timeout, N=6 fails 1 run in 3. New defects split out as Modules 53–54. Result: `docs/gold-qa-wave2-results/MODULE50_RESULT.md` |
-| 53 | Meta-Analysis' 60 s sub-query timeout is one shared wall-clock deadline, so it kills whichever sub-query is served LAST, not the slow one | *(not yet branched)* | ⬜ New — found by Module 50. The aggregate has already computed when the timeout fires; only its LLM paraphrase is discarded. **Prerequisite for reconsidering `_MAX_PLAN_SUB_QUERIES`** |
+| 53 | Meta-Analysis' 60 s sub-query timeout is one shared wall-clock deadline, so it kills whichever sub-query is served LAST, not the slow one | `fix/meta-analysis-reliability-53-57-40` | ✅ **Done.** Reproduced by controlled experiment (deadline forced to 25 s, G1 at N=5): **8 of 10 sub-answers dropped before, 0 of 10 after**, with all five aggregates reaching the answer on both after-runs. Fix reuses `large_scale_aggregate.py`'s existing verifier-rejection fallback — a `ContextVar` salvage box (`agents/_salvage.py`) survives `wait_for()`'s cancellation, so the already-computed aggregate is served raw and disclosed. `META_ANALYSIS_SUBQUERY_TIMEOUT` 60 → 150, derived from the measured staircase. At the shipped config, **zero dropped sub-answers at N=5 across 12 runs** of G1/G6/CR3. `_MAX_PLAN_SUB_QUERIES` deliberately left at 5 — see Module 58. Result: `docs/gold-qa-wave2-results/MODULE53_RESULT.md` |
 | 54 | Two provider-failure gaps Module 46's quota fix did not close: `503 UNAVAILABLE` is not in its grep, and a failed cutover classification silently falls back to `orchestrator.py` | *(not yet branched)* | ⬜ New — found by Module 50, which hit both live. Module 46 (via Module 42) already fixed the `rate limit` → `RESOURCE_EXHAUSTED` half independently; this is the residual |
 | 51 | `backend.log` is written through a cp1252 stream, so any Urdu-carrying log record is **silently destroyed** inside `logging.emit()` | `fix/backend-log-utf8-encoding` | ✅ **Fixed** — handler-level UTF-8; the `XAGG <kind>` diagnostics every module is verified against were being deleted |
 | 52 | The relevance gate cannot judge a roman-Urdu question against English statute text (English 6/6 relevant, roman-Urdu 1/6, identical chunks) | *(not yet branched)* | ⬜ New — found by Module 42; this is what actually makes KB6 abstain, and it gates the whole roman-Urdu half of the KB bucket |
 | 55 | Every XAGG aggregate predating Modules 31–36 emits no `XAGG <kind>:` log line, so no live run of it can be identified from `backend.log` | *(not yet branched)* | ⬜ New — found by Module 43, which had to add M7's before it could tell a correct run from a wrong-metric one. XAGG's SSE reports only `route='XAGG'`, so this is the project's only proof of which aggregate answered. Mechanical: one `logger.info()` per family. **Worth doing before Module 27's rerun**, so that run is diagnosable. |
 | 56 | M2's dispatch vocabulary is narrower than the family it now serves — a station-type question that avoids `_STATION_TYPE_KEYWORDS`' exact wording falls to the per-station catch-all | *(not yet branched)* | ⬜ New — found by Module 44. Measured: *"Do the specialist units handle a bigger share of our cases than the ordinary police stations?"* resolves to `station_or_category_counts`, i.e. it gets the plain per-station count the original refusal existed to prevent. A narrow trigger list was the safe choice while M2 returned a refusal; it is not, now that the family computes a real answer. Needs its own all-32 equality control — `_STATION_KEYWORDS` sits a few rungs lower in the same chain. |
-| 57 | CR3 is non-deterministic across runs at three different layers | *(not yet branched)* | ⬜ New — found by Module 44's regression guard. Three consecutive runs of CR3's gold text failed three different ways: synthesis-verifier rejection; both Meta-Analysis sub-questions timing out; and `route=None` from the XNETWORK relevance gate (distance 0.156 vs cutoff 0.145). Module 36 deferred its aggregate wiring and Module 50 owns the consolidation, but neither is scoped to the **non-determinism**, which is what makes CR3 unverifiable rather than merely incomplete. |
+| 57 | CR3 is non-deterministic across runs at three different layers | `fix/meta-analysis-reliability-53-57-40` | ✅ **Diagnosis closed; CR3 still unstable. No code change of its own.** Re-measured over 20 consecutive runs of CR3's gold text after Module 53: sub-query timeouts **0 of 20** (removed by Module 53); `route=None` **0 of 20** (did not reproduce — not fixed, *not observed*; `xnetwork.py` correctly untouched); synthesis-verifier rejection **7 of 14 on the shipped code** and now the only failure left. Its reason is singular and verbatim-identical every time — the claim that FIR 65/26 is *absent* from the CMS linkage list, which is exactly what gold asserts. Measured **not** to be citation attribution, so Module 40 cannot fix it either. CR3's dispatch is fully stable (same route, plan and 3 sub-queries, 20/20). Result: `docs/gold-qa-wave2-results/MODULE57_RESULT.md` |
+| 58 | `_MAX_PLAN_SUB_QUERIES` is still 5, and the case for raising it is now open but unmeasured | *(not yet branched)* | ⬜ New — found by Module 53, which met Module 50's stated prerequisite for revisiting the cap and then deliberately did not revisit it. Salvage degrades an answer's *prose*; it does not remove the model server's serialisation, and model spend and the user's wall-clock wait are unchanged. The post-Module-53 staircase at N=6..9 has never been measured. Concretely at stake: gold's G6 "mostly men" element, dropped by Module 50 to fit the arrest rate. |
+| 59 | M4 does **not** skip decomposition live — its route is XNETWORK, and Module 41's guard only fires on XAGG | *(start from `fix/meta-analysis-m4-synthesis-verifier-rejection`)* | ⬜ New — found by Modules 53/40's regression guard. Live 4 of 4, byte-identical: `route=XNETWORK` → Meta-Analysis → two XGRAPH sub-queries → *"No information was found for any part of this question."* Module 41 recorded `skips_decomposition=True` from a **static** `resolve_aggregate_kind()` call and its own §8 says M4 was *"not re-run live here"*; both statements are true, because the guard at `supervisor.py:745` is conditional on `route == "XAGG"`. Three candidate fixes, all needing `router.py`/`supervisor.py`: take Module 40's `statute_vs_court_stage` plan and accept that it vetoes the Module 41 guard; widen the guard beyond `route == "XAGG"`, against that guard's own explicit reasoning; or fix why the router says XNETWORK. |
+| 60 | The grounding verifier refuses a **negative inference over a complete listing**, which is exactly what CR3's gold answer asserts | *(not yet branched)* | ⬜ New — found by Module 57, and the whole of CR3's remaining instability. Verbatim on every rejection: the claim that FIR 65/26 is absent from the CMS linkage list is *"inferred but not directly supported"*. Measured **not** to be citation attribution, so Module 40's second opinion cannot fix it (still `grounded=False` with the flag on, 3 of 3). Note the inconsistency to resolve: the **validation** gate already *hedges* the identical claim ("could only be partially confirmed") rather than refusing it, so the two gates hold different standards for the same evidence. Reaches beyond Meta-Analysis — any XAGG listing served as evidence has this shape. |
+| 61 | The deterministic decomposition plans have a narrow lexical reach | *(not yet branched)* | ⬜ New — found by Modules 57/40's non-gold paraphrase check, generalising Module 41's M4 finding to CR3 and G6. A CR3 paraphrase keeping "online banking fraud" and "handled the same way" matches `record_consistency` and answers correctly 2/2; one asking whether the records are "equally complete" matches nothing and never reaches Meta-Analysis. Same boundary for G6's `orientation_note`. The capability is **not** tied to the gold string, but it is tied to a small neighbourhood around it. The fix is probably not "add more patterns" — it is deciding whether a plan should be selected by regex at all, or by the same aggregate-resolution mechanism Module 41 used for its guard. |
 | 27 | Final Gold-32 rerun (Module 18 redo) | *(docs only)* | ⬜ Blocked on all above — brief: `MODULE27_FINAL_GOLD32_RERUN_PROMPT.md` |
 
 ### Coverage check — every failing question maps to a module
@@ -2263,7 +2267,50 @@ five times.
 
 ---
 
-# Module 57 — CR3 is non-deterministic across runs at three layers ⬜
+# Module 57 — CR3 is non-deterministic across runs at three layers ✅ diagnosis closed; CR3 still unstable
+
+**Done, with no code change of its own.** Branch
+`fix/meta-analysis-reliability-53-57-40`. Full write-up:
+`docs/gold-qa-wave2-results/MODULE57_RESULT.md`.
+
+Re-measured over **20 consecutive runs** of CR3's literal gold text after
+Module 53 landed, exactly as the brief instructed:
+
+| Layer | Module 44 saw | Measured over 20 runs |
+|---|---|---|
+| both sub-queries timing out | 1 of 3 | **0 of 20** — removed by Module 53 |
+| `route=None`, XNETWORK relevance gate | 1 of 3 | **0 of 20** — did **not** reproduce. Not fixed, *not observed*. `xnetwork.py` and its 0.145 cutoff correctly untouched. |
+| synthesis not grounded | 1 of 3 | **7 of 14 on the shipped code** — the whole residue |
+
+**CR3's route is stable after all.** Module 44 read "XAGG twice, `None` once"
+as route instability; 20 runs give the same top-level route, the same
+`record_consistency` plan match, the same three sub-queries and the same
+`filtered_fir_listing` aggregate every time. The instability is entirely at
+the last step.
+
+**The residue has one reason, verbatim-identical on every rejection:** the
+claim that FIR 65/26 is *absent* from the CMS linkage list is "inferred but
+not directly supported". That is the verifier refusing **exactly what gold
+asserts** — a negative inference over a complete listing. Measured, not
+assumed, **not** to be citation attribution, so Module 40 does not fix it
+either. Split out as **Module 60**.
+
+**When CR3 answers it is right** — four of gold's five elements including
+gold's exact `CMS-ISB-2026-0341`. The problem is the rate, not the content:
+the rejections cluster in time (six consecutive at a uniform 64–66 s against
+94–219 s everywhere else), so a four-run sample can land anywhere between 0/4
+and 4/4 on unchanged code. That is the property this module was filed to name,
+and it is still true.
+
+**New defect:** the deterministic plans have a narrow lexical reach — a CR3
+paraphrase saying "handled the same way" matches and answers 2/2, one saying
+"equally complete" matches nothing and never reaches Meta-Analysis. Same
+boundary for G6. Generalises Module 41's M4 finding; split out as
+**Module 61**.
+
+<details>
+<summary>Original brief, kept for the record</summary>
+
 
 **Found by:** Module 44's regression guard
 
@@ -2294,6 +2341,8 @@ scoped to the non-determinism, and that is the part that matters for Module
 27: a question whose route and failure mode change run to run cannot be scored
 once and believed. Whoever takes this should run CR3 at least five times
 before and after any change.
+
+</details>
 
 ---
 
@@ -2417,7 +2466,55 @@ same model server concurrently, and two paraphrase runs died on provider
 
 ---
 
-# Module 53 — the sub-query timeout measures queue position, not cost ⬜
+# Module 53 — the sub-query timeout measures queue position, not cost ✅
+
+**Done.** Branch `fix/meta-analysis-reliability-53-57-40`. Full write-up:
+`docs/gold-qa-wave2-results/MODULE53_RESULT.md`.
+
+**The brief's diagnosis was right in every particular**, and was re-derived by
+controlled experiment rather than inherited. With the deadline forced to 25 s
+to make the latent pathology fire, G1 at N=5 on the base commit dropped **8 of
+10 sub-answers across two runs** — and every one of them had its `XAGG <kind>`
+line already in the log, so the aggregate had finished and only the paraphrase
+was thrown away. The four lost sub-questions were exactly Modules 31–34's
+aggregates. With the fix, the same experiment drops **0 of 10** and all five
+aggregates reach the answer on both runs.
+
+**The fix reuses `large_scale_aggregate.py`'s existing verifier-rejection
+fallback rather than inventing a second one.** New `agents/_salvage.py`: a
+`ContextVar` holding a mutable box, opened by `_dispatch_one()` *before* the
+awaited task exists, so the task's copied context shares the same object and
+anything written into it survives `wait_for()`'s cancellation.
+`large_scale_aggregate.py` deposits `raw_summary_text` the moment
+`xagg_tool()` returns OK, before the paraphrase call. On timeout the aggregate
+is served raw, disclosed by caveat, and the fan-out is marked `PARTIAL`.
+Deliberately narrow: a RAG/GRAPH timeout still fails, pinned by a test.
+
+`META_ANALYSIS_SUBQUERY_TIMEOUT` **60 → 150** — derived from
+`_MAX_PLAN_SUB_QUERIES` (5) × the measured ~12 s worst-case slot × 2.5 for
+measured contention, not chosen by taste.
+
+**At the shipped configuration: zero dropped sub-answers at N=5, 12 runs of
+12** (G1/G6/CR3 ×4), routes stable on all 12. The only failures were the
+synthesis verifier — Modules 57/40.
+
+**Honest caveat: the machine was not fully quiet.** A sibling worktree's
+backend held port 8015 throughout. And at the shipped 60 s default the timeout
+never fired on this machine at all (0 of 6 baseline runs), so the defect is
+real and reproducible on demand but **latent** here rather than continuous.
+
+**`_MAX_PLAN_SUB_QUERIES` deliberately left at 5.** Module 50 made revisiting
+it conditional on this module, and the prerequisite is now met — but salvage
+degrades an answer's prose rather than removing the serialisation, and the
+post-fix staircase at N=6..9 has not been measured. Split out as **Module 58**.
+
+**New defects:** **Module 55** confirmed, with a measured list of which
+aggregate families do and do not log; **Module 58** (the cap); **Module 59**
+(M4 does not skip decomposition live).
+
+<details>
+<summary>Original brief, kept for the record</summary>
+
 
 **Found by Module 50**, and the single change that would most improve
 Meta-Analysis reliability.
@@ -2445,6 +2542,8 @@ Module 50's scope and should be revisited here.
 confirm zero dropped sub-answers at N=5. **This is the prerequisite for
 reconsidering `_MAX_PLAN_SUB_QUERIES`** — Module 50 measured three gold G6
 elements that fit only if this is fixed first.
+
+</details>
 
 ---
 
@@ -2492,7 +2591,44 @@ confirm a forced fallback is detectable without reading the log.
 
 ---
 
-# Module 40 — M4's verifier rejection: superseded for M4, re-scoped to CR3/G6 🟡
+# Module 40 — M4's verifier rejection: **closed as superseded** ✅
+
+**Closed as superseded**, which the brief named in advance as a legitimate
+outcome. Branch `fix/meta-analysis-reliability-53-57-40`; the original branch
+`fix/meta-analysis-m4-synthesis-verifier-rejection` is **left unmerged on
+origin and should not be deleted**. Full write-up:
+`docs/gold-qa-wave2-results/MODULE40_RESULT.md`.
+
+Its source changes were merged in cleanly (`git apply --3way`, no conflicts),
+judged on their merits, and verified against CR3 and G6:
+
+- **8 live runs with the change applied (CR3 ×4, G6 ×4), all answered — and
+  the attribution-blind second opinion never fired once.** It only runs after
+  a first-pass rejection, and the first pass passed every time.
+- **Measured directly instead**, off the live path, against the exact
+  rejection CR3 produced six times, 3 repetitions each: the flag **does what
+  it claims** (on a swapped-citation input the strict pass objects to the
+  citation index, and the blind pass's objection moves off attribution
+  entirely) but it **cannot rescue CR3**, whose rejection is a *negative
+  inference over a complete listing*, not a mis-numbering — still
+  `grounded=False` with the flag on, 3 of 3.
+- **A hallucinated synthesis is still rejected**, with and without the flag,
+  3 of 3, live — the brief's explicit requirement.
+- **Ablation:** removing the synthesis prompt rule changed nothing (CR3 4/4
+  either way); reverting the whole module gave CR3 3/4. The 2/8 block that
+  made Module 40 look effective was a **temporal** cluster, not a causal one.
+
+**Its `statute_vs_court_stage` plan was deliberately NOT taken**, even though
+M4 turns out to still need something: a matched deterministic plan *vetoes*
+Module 41's guard (`_xagg_answers_in_one_call()` returns False the moment
+`_match_decomposition_plan()` matches), so taking it would force M4 to
+decompose even on the runs where the router says XAGG — trading a measured
+failure for a regression of a merged module. Split out as **Module 59**, which
+should start from Module 40's branch rather than from scratch.
+
+<details>
+<summary>Original brief, kept for the record</summary>
+
 
 **Branch:** `fix/meta-analysis-m4-synthesis-verifier-rejection` — pushed, two
 commits, **never live-verified**. Real work: `meta_analysis.py` (+113),
@@ -2537,6 +2673,8 @@ which must keep skipping decomposition.
 
 **If CR3 and G6 turn out not to need it,** close this module as superseded and
 say so — that is a legitimate outcome, as Module 21 established.
+
+</details>
 
 ---
 
@@ -2620,3 +2758,194 @@ experiments, every verdict and reason, including the negative results.
 - PRs #7 (KB1 router/verifier false positives), #8 (M4/G3 keyword collision),
   #9 (KB-intent coverage) — the three fixes already landed or open from this
   round.
+
+---
+
+# Module 58 — `_MAX_PLAN_SUB_QUERIES` is still 5, and revisiting it is now unblocked but unmeasured ⬜
+
+**Found by:** Module 53.
+
+Module 50 fixed the plan cap at 5 from measured timeout data and wrote that
+Module 53 was *"the prerequisite for reconsidering `_MAX_PLAN_SUB_QUERIES`"*.
+That prerequisite is met: at N=5 the shipped code drops **zero** sub-answers
+over 12 live runs, and a sub-query cancelled mid-paraphrase now serves its
+computed aggregate raw instead of nothing.
+
+**Module 53 deliberately did not raise the cap**, and the reasons are worth
+keeping rather than re-deriving:
+
+- The deadline was only **one** of Module 50's three arguments. Model spend
+  and the user's wall-clock wait are entirely unchanged by Module 53.
+- Salvage degrades an answer's **prose**, not the serialisation. At N=9 the
+  ninth sub-query would still queue behind eight others; it would now return a
+  raw aggregate rather than nothing, which is better, but a synthesis over
+  nine raw renderings is a different and worse artefact than one over five
+  paraphrases.
+- **The post-fix staircase has not been measured at N=6..9.** Module 50's
+  numbers were taken at the 60 s deadline; Module 53 moved it to 150 s and
+  changed what a cancellation costs. Raising the cap on Module 50's old
+  measurements would be exactly the inherited-claim mistake this wave keeps
+  finding.
+
+**Concretely at stake.** Module 50 dropped `_SQ_GENDER` from
+`orientation_note` to fit Module 35's arrest rate inside the cap, so gold's
+G6 element *"zyada tar mulzim aisay mard hain"* ("mostly men") is not computed
+today. Module 50 also recorded three G6 elements that fit only if the cap
+rises.
+
+**Work:** measure G6 and G1 live at N=6, 7 and 9 on the post-Module-53 code —
+last sub-answer arrival time, salvage count, synthesis quality — then decide.
+If the cap rises, `_SQ_GENDER` goes back into `orientation_note` first.
+
+**Verify:** G1/G6/CR3 several runs each at whatever N is chosen; the answer
+quality at the new N compared against the current one, not just the timeout
+count. A synthesis that reaches all nine findings but reads as a list of raw
+aggregate dumps is not an improvement.
+
+---
+
+# Module 59 — M4 does not skip decomposition live; Module 41's guard never fires for it ⬜
+
+**Found by:** Modules 53/40's regression guard, on the branch
+`fix/meta-analysis-reliability-53-57-40`.
+
+The tracker records M4 as skipping decomposition since Module 41. **Live, it
+does not.** Four runs on `main` @ `9942db9`, byte-identical every time:
+
+```
+routes = ['XNETWORK', 'XGRAPH', 'XGRAPH']
+answer = "No information was found for any part of this question. Checked:
+          What is the breakdown of cases by legal section (e.g., Section 325,
+          354, etc.) across all cases?; What is the breakdown of case
+          progression stages (e.g., filed, investigation, trial, dismissed)
+          in court across all cases?."
+```
+
+**Both statements are true, and the reconciliation is the finding.** Module 41's
+guard at `supervisor.py:745` is deliberately conditional on `route == "XAGG"`
+— its own comment says so, so that it "can never suppress a genuine
+Meta-Analysis decomposition for a DIFFERENT cross-case route (e.g. an XGRAPH-
+or XNETWORK-classified comparison question)". Module 41 measured M4's
+*aggregate resolution* statically (`resolve_aggregate_kind` →
+`statute_court_stage_join`) and recorded `skips_decomposition=True` from it.
+That resolution still holds, re-derived on this branch. But the live router
+classifies M4 as **XNETWORK**, so the guard is never consulted. Module 41's
+own §8 is explicit that this was an assumption: *"pinned by the all-32
+negative control, **assuming an XAGG route**"*, and *"CR6, CR8, M4 and M7 were
+**not re-run live here**"*.
+
+**Start from Module 40's branch, not from scratch.**
+`fix/meta-analysis-m4-synthesis-verifier-rejection` already contains a
+deterministic `statute_vs_court_stage` plan whose two sub-queries were probed
+live to reach XAGG, plus the `prompts/meta_analysis_decomposer.txt` fix that
+removes the self-contradiction which produced the exact useless sub-queries
+quoted above. It applies cleanly to current `main`. Module 40 was closed as
+superseded for CR3/G6 only — its M4 work was never disproved, and this is the
+module it belongs to.
+
+**The trap that stopped Module 40's branch being taken wholesale.** A matched
+deterministic plan **vetoes** the Module 41 guard:
+`_xagg_answers_in_one_call()` returns `False` the moment
+`_match_decomposition_plan()` matches. So adding `statute_vs_court_stage`
+makes M4 decompose on **every** run, including the runs where the router does
+say XAGG and Module 41's one-call aggregate is the better answer. Three
+options, and this module must pick one explicitly rather than drift into it:
+
+1. Take the plan and accept the veto — M4 always decomposes.
+2. Widen the guard beyond `route == "XAGG"`, against that guard's own stated
+   reasoning. Requires re-running Module 41's all-32 negative control.
+3. Fix the routing: establish why `route_query()` classifies M4 as XNETWORK
+   when `resolve_aggregate_kind()` has a purpose-built aggregate for it.
+
+**Verify:** M4 live, several runs, in Urdu gold text; **M1, G2, G5, CR7 and G3
+as the Module 41 regression guard** — option 2 in particular must negative-
+control against all 32. Confirm from `backend.log` which aggregate answered,
+noting Module 55 (`statute_court_stage_join` may not log a line).
+
+---
+
+# Module 60 — the grounding verifier refuses a negative inference over a complete listing ⬜
+
+**Found by:** Module 57. This is the whole of CR3's remaining instability, and
+it is not confined to CR3.
+
+CR3's gold answer asserts a negative: *"64/26 has a matching walk-in complaint
+… 65/26 has **none**."* The evidence is a CMS linkage listing that contains
+64/26 and does not contain 65/26. Every rejection carries one verbatim reason:
+
+> The claim about FIR 65/26's absence from the linkage list is inferred but
+> not directly supported by Document 3, which only lists linked cases without…
+
+**Measured to be a distinct problem from citation attribution.** Module 40's
+`interchangeable_chunks` second opinion — which exists to forgive a claim
+credited to the wrong `[Document N]` — leaves this verdict unchanged, 3 runs
+of 3, because its own rule correctly says *"a claim that appears in NO chunk
+at all is still unsupported"*. The judge is behaving exactly as designed. The
+question is whether the design is right for an **exhaustive** listing.
+
+**The inconsistency that makes this urgent.** On the runs where the verifier
+*accepts*, the **validation** gate attaches a caveat for the identical claim:
+
+> _A cited claim ([Document 3]) could only be partially confirmed against its
+> source: The source confirms the CMS linkage for FIR 64/26 but does not
+> mention FIR 65/26 or its absence from the CMS list._
+
+So the two gates already disagree about the same evidence: one hedges it, the
+other refuses to serve the answer at all. Serving-with-a-caveat and refusing
+are very different user outcomes.
+
+**Reaches beyond Meta-Analysis.** Any XAGG listing served as evidence has this
+shape, so a fix belongs at the verifier, not in one sub-agent. The likely
+shape is a way for a caller to declare a chunk **exhaustive over its stated
+scope** — which XAGG renderings are, by construction — so that "X is not in
+this list" becomes supported rather than inferred. That declaration must be
+narrow: a RAG chunk is never exhaustive, and treating it as such would license
+real hallucination.
+
+**Verify:** CR3 live, at least 8 runs (Module 57 measured a four-run sample
+landing anywhere between 0/4 and 4/4 on unchanged code, so fewer proves
+nothing). **A fabricated negative must still be rejected** — e.g. an answer
+claiming an FIR is absent from a listing that in fact contains it. Regression-
+guard every RAG-route question, since the verifier is shared.
+
+---
+
+# Module 61 — the deterministic decomposition plans have a narrow lexical reach ⬜
+
+**Found by:** Modules 57/40's non-gold paraphrase check. Generalises
+Module 41's M4 finding ("reachable only from the literal gold phrasing") to
+CR3 and G6.
+
+Measured live on the shipped code:
+
+| Question | Paraphrase | Plan matched | Result |
+|---|---|---|---|
+| CR3 | "Were the two online banking fraud FIRs **handled the same way** in the records, or was one processed differently?" | `record_consistency` | ✅ answered 2/2, gold's verdict |
+| CR3 | "Take the two online banking fraud FIRs with different complainants — are their records **equally complete**, or does one have supporting paperwork the other lacks?" | **none** | `route='XAGG'`, one dispatch, honest refusal — never reaches Meta-Analysis |
+| G6 | "Write a brief **orientation note** for an **officer newly posted** here — what should they expect from the current case load?" | `orientation_note` | ✅ answered 1/1 |
+| G6 | "A constable has just transferred in. Give them a short briefing on what the current pile of open cases actually looks like." | **none** | `route='XAGG'`, one dispatch |
+
+**The good news is real and should not be lost:** the capability is **not**
+tied to the gold string. Not one content word of CR3's gold phrasing survives
+in the passing paraphrase and the answer is still right, so Modules 29/50's
+wiring is not curve-fitted to the scorer.
+
+**The bad news bounds what every pass rate in this wave means.** A plan is
+selected by a regex pattern list, so the set of questions that reach the
+wired-up aggregates is a small neighbourhood around the gold text. A real user
+asking CR3's question in their own words has a meaningful chance of getting a
+single-aggregate answer instead.
+
+**Work — and the trap.** The fix is probably **not** "add more patterns": a
+module that widens a pattern list until the paraphrases *it chose* pass has
+measured nothing. The more promising direction is the one Module 41 already
+took for the supervisor guard — replace "does this text match a pattern?" with
+"does this question resolve to something specific?" — i.e. select a
+decomposition plan by the same aggregate-resolution mechanism rather than by
+regex.
+
+**Verify:** for each of CR3, G1 and G6, **paraphrases written before the fix
+and not adjusted afterwards**, several each; plus the full 32-question
+negative control, since a broader plan selector can newly capture questions
+that currently answer correctly in one call (that is exactly the regression
+Module 41 was filed for).
