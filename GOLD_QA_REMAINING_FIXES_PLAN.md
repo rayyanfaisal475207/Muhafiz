@@ -87,7 +87,9 @@ several can run in parallel chats/worktrees without colliding.
 | 42 | KB6 hard failure — `route=None`, FactualCorrectness 0.0 **and** AnswerRelevancy 0.0, did not recover on re-run | *(not yet branched)* | ⬜ New — found by the 2026-09-08 post-fix eval; the only question failing this way |
 | 43 | M7 answers with the wrong facts (FC 0.0 / AR 1.0) despite Module 22 verifying it live against gold | *(not yet branched)* | ⬜ New — found by the 2026-09-08 post-fix eval; contradicts a recorded module result |
 | 44 | M2 and CS4 reach XAGG and answer fluently but factually wrong (FC 0.0 / AR 1.0) | *(not yet branched)* | ⬜ New — found by the 2026-09-08 post-fix eval |
-| 45 | Eval harness: a judge `null` FactualCorrectness is scored as 0 rather than re-run | *(not yet branched)* | ⬜ New — found by the 2026-09-08 post-fix eval; CR8 scored null then 1.0 on re-run |
+| 45 | Eval harness: a judge `null` FactualCorrectness is scored as 0 rather than re-run | `fix/eval-harness-null-scores-and-truncation` | ✅ Done — confirmed and fixed. `measure()` never retried the CR8 failure at all (its `tries` loop only ran for rate limits), and **no mean was computed in the repo at all** — every published figure was hand-derived. Nulls are now retried, then recorded as unscored and excluded by a new null-safe `summarize()`. 22 new tests. The 900-char cap was measured and is **not** behind any current 0.0 — split out as Module 46. Result: `docs/gold-qa-wave2-results/MODULE45_RESULT.md` |
+| 46 | Eval harness: the 900-char answer cap silences whole answers, and its stated (Faithfulness) justification no longer exists | *(not yet branched)* | ⬜ New — found by Module 45. Proven with a positive control: an answer whose gold facts sit past char 900 scores **0.0** instead of 1.0. Does not fire on the committed run (only 2 of 32 answers exceed 900) but the current build produces 1,000–2,500-char KB answers. Cost of removing it: **under 2 s per metric, no extra judge calls.** **Settle before Module 27 runs.** |
+| 47 | The 2026-09-08 post-fix evaluation's artefacts were never committed — `gold32_results.json` on `main` is the 2026-09-06 Module 9 run | *(not yet branched)* | ⬜ New — found by Module 45. The report names those files as its sources, but they were last written by `d313a60` and reproduce Module 9's numbers (0.394 / 13-of-32), not the report's (0.572 / 19-of-32). Modules 41–44 are specified against figures with no artefact behind them. |
 | 27 | Final Gold-32 rerun (Module 18 redo) | *(docs only)* | ⬜ Blocked on all above — brief: `MODULE27_FINAL_GOLD32_RERUN_PROMPT.md` |
 
 > **Wave 2 hand-off:** `WAVE2_ORCHESTRATION_PROMPT.md` (added in PR #17)
@@ -1711,7 +1713,7 @@ non-gold paraphrase confirmed a real capability gain.
 
 ---
 
-# Modules 41–45 — found by the 2026-09-08 post-fix evaluation
+# Modules 41–47 — found by the 2026-09-08 post-fix evaluation (46–47 by Module 45)
 
 **Source:** `EVALUATION_REPORT_POST_FIXES.md` and
 `HOW_TO_REPRODUCE_THIS_EVALUATION.md`, an independent Gold-32 rerun against
@@ -1846,24 +1848,137 @@ it.
 
 ---
 
-# Module 45 — the eval harness scores a judge `null` as zero ⬜
+# Module 45 — the eval harness scores a judge `null` as zero ✅
 
-**CR8 returned no FactualCorrectness at all (`null`), not a number** — a
-judge-side failure. Re-scoring that single question returned **1.0/1.0**.
+**Branch:** `fix/eval-harness-null-scores-and-truncation` · **Result:**
+`docs/gold-qa-wave2-results/MODULE45_RESULT.md`
 
-If a `null` is read as 0 anywhere in `evaluation/gold32_score.py` or the
-reporting, then **every published aggregate score is understated by an unknown
-amount**, and a flaky judge call is indistinguishable from a real failure. This
-is small but it undermines confidence in all the other numbers, including
-Module 27's forthcoming rerun.
+**Confirmed, and worse than filed.** The brief assumed `measure()` "already
+returns `None` on timeout or error" so the danger was purely downstream. Two
+corrections, both from reading the code:
 
-**Work:** make `gold32_score.py` detect a `null`/missing metric, retry it a
-bounded number of times, and — if it still cannot score — record it as
-**unscored and excluded from the mean**, never as zero. Print unscored
-questions loudly in the summary.
+1. **The retry loop never ran for this failure.** `measure(metric, tc, tries=8)`
+   looked like it retried eight times; it `continue`d only for rate limits. A
+   timeout returned `None` on attempt 1, and any other exception returned `None`
+   on attempt 1. The exact CR8 case — a judge call producing no parseable number
+   — was therefore **never retried**, despite the report showing that one re-run
+   recovers it to 1.0. Worse, a `null` did not even reach that path cleanly:
+   `round(float(metric.score), 3)` on `metric.score is None` raised `TypeError`,
+   so the recorded reason read `ERROR: float() ...` and said nothing about the
+   question being unscored rather than wrong.
 
-**Verify:** unit-test the null path; re-score CR8 and confirm it lands at 1.0;
-confirm the all-32 mean is computed over scored questions only.
+2. **There was no mean computation in the repository at all.** `gold32_score.py`
+   ended at `print(f"wrote {len(results)} ...")`. Every published figure — the
+   0.572 and 19/32 in `EVALUATION_REPORT_POST_FIXES.md`, the 0.39 and 13/32 in
+   `evaluation/MODULE_9_RERUN_REPORT.md` — was hand-derived, once per report,
+   with nothing to stop a `null` counting as 0.0 and nothing in the output to say
+   one was present. That absence *is* the defect.
+
+**Fixed.** `measure()` now retries null/timeout/error a bounded 3 times with
+backoff (rate-limit retries budgeted separately, so a quota wobble cannot eat
+the budget reserved for genuine judge failures), detects `metric.score is None`
+explicitly, and records an unretrievable score as `None` with the reason
+`UNSCORED after N attempt(s) — NOT a zero`. A new null-safe `summarize()` is the
+single authoritative aggregation — unscored rows are **excluded** from every
+mean and per-bucket figure, never zeroed — and `format_summary()` prints them
+first, in a banner, before any number. New `--summary` mode recomputes the
+published figures from an existing results file with zero judge calls.
+
+**Verified.** 22 new tests in `tests/test_gold32_score.py`, no network (the
+judge is a stub, backoff sleeps injected); 32 passed with
+`tests/test_eval_scripts.py`. The pinned regression builds the report's exact
+shape — 31 scored rows plus CR8 `null` — and asserts the mean is 1.0 and
+explicitly **not** the 0.969 that zeroing CR8 gives. Live: CR8 re-scored with
+the real Gemini judge returns **1.0/1.0**, matching
+`EVALUATION_REPORT_POST_FIXES.md` §5. Whole-file guard: `--summary` over the
+untouched committed results file reproduces `MODULE_9_RERUN_REPORT.md`'s
+published 0.39 / 0.65 / 13-of-32 on every bucket — the new aggregation agrees
+with the hand computation it replaces.
+
+**Also tested and NOT confirmed: the 900-char truncation hypothesis.** Split out
+as Module 46 below rather than folded in. Bottom line for prioritisation:
+**no currently-0.0 score is a scoring artefact** — Modules 41–44 keep their
+priority exactly as filed.
+
+---
+
+# Module 46 — the 900-char scoring cap will corrupt Module 27's rerun ⬜
+
+**Found by:** Module 45 · **Evidence:**
+`evaluation/gold32_truncation_experiment.json`,
+`docs/gold-qa-wave2-results/MODULE45_RESULT.md` §5
+
+`gold32_score.py` truncated every answer to 900 chars before scoring, justified
+in its own comment by **Faithfulness** — which makes one judge call per atomic
+claim. Faithfulness was later dropped from `_METRICS`. **The rationale no longer
+exists**, and both surviving metrics make an O(1) number of judge calls
+regardless of length.
+
+**Measured, same judge and prompt, cap on (900) vs off:**
+
+| Q | variant | FC @ 900 | FC @ no cap | AR @ 900 | AR @ no cap |
+|---|---|---|---|---|---|
+| M5 | natural, 1,318 ch | 0.0 | 0.0 | 1.0 | 1.0 |
+| M4 | natural, 1,582 ch | 0.1 | 0.1 | 1.0 | 0.909 |
+| CR8 | **padded**, 1,519 ch | **0.0** | **1.0** | 0.0 | 0.875 |
+| G3 | **padded**, 1,749 ch | **0.0** | **0.9** | 0.0 | 0.833 |
+
+*Padded* = 1,020 chars of filler prepended to a known-good answer, pushing its
+gold facts past char 900 and changing nothing else. Both collapse to exactly
+**0.0**; uncapped, both recover. The mechanism is total signal loss, not
+degradation.
+
+**It does not currently fire.** Only 2 of the 32 committed answers exceed 900
+chars, and both score identically capped or not — what the cap discards from
+them is verifier footnotes, not gold facts. M4/M5 were stable across 3 draws,
+so that is measurement, not luck.
+
+**But it will.** `EVALUATION_REPORT_POST_FIXES.md` §3 states the current build's
+KB answers are **1,000–2,500 chars** — routinely past the cap — where the
+2026-09-06 run produced only two such answers.
+
+**Work:** decide `GOLD32_MAX_ANSWER_CHARS` against the real 2026-09-08 answers
+(needs Module 47), then re-run. Recommended **3,000**. The named constant and
+its env override already exist, so this is one line plus a rerun. Measured cost
+of the raise: **under 2 s per metric, and no additional judge calls** — M4 at
+1,582 chars took the same 5 s as at 925.
+
+**Settle this before Module 27 runs.** A cap that silently zeroes a correct long
+answer would make the final rerun's numbers unusable in exactly the way Module
+45 exists to prevent.
+
+---
+
+# Module 47 — the 2026-09-08 evaluation's artefacts were never committed ⬜
+
+**Found by:** Module 45
+
+`EVALUATION_REPORT_POST_FIXES.md` names `evaluation/gold32_results.json` and
+`evaluation/gold32_pipeline_outputs.json` as its sources. Both files on `main`
+were last written by `d313a60` (*"Module 9 — first full Gold-32 rerun"*,
+2026-09-06) and have not been touched since. Running Module 45's new
+`--summary` over the committed file reproduces **Module 9's** headline
+(0.394 / 0.653 / 13-of-32), not the post-fix report's (0.572 / 0.886 /
+19-of-32). The files are byte-identical across the main checkout and the
+`muhafiz-m35`, `muhafiz-m40` and `muhafiz-m41` worktrees, so no track is
+holding a newer copy.
+
+**Consequences.** §4.1's per-question table cannot be reproduced from this
+repository. Nobody can read the judge's `reasons` for the six AR-1.0 /
+FC-0.0 questions — which `HOW_TO_REPRODUCE_THIS_EVALUATION.md` §Part 6 calls
+"the fastest way to check whether a given score is fair", and which Modules
+42–44 are scoped against. And Module 46 cannot pick a cap value against real
+answer lengths without them.
+
+**Work:** commit the 2026-09-08 `gold32_results.json` /
+`gold32_pipeline_outputs.json` pair, or re-run and commit. Note that both files
+are *resumed* in place by their scripts, so a rerun overwrites them — committing
+each run's pair, or writing per-run copies, is what makes any of these reports
+checkable.
+
+This does not invalidate the post-fix report. It makes it unverifiable — which,
+for a document written expressly to be independently reproduced, is its own
+defect.
 
 ---
 
