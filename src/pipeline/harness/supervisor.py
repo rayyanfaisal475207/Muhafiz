@@ -119,6 +119,7 @@ from src.pipeline.harness.types import (
     ToolError,
 )
 from src.pipeline.router import _TIME_COMPARISON_XAGG_PATTERNS, route_query
+from src.pipeline.xagg import resolves_to_specific_aggregate
 
 logger = logging.getLogger(__name__)
 
@@ -572,6 +573,88 @@ _META_ANALYSIS_TRIGGER_PATTERNS = [
 ]
 
 
+# ══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 41, questions G2/G5] The generalisation of Module
+# 26's time-comparison skip guard below.
+#
+# Module 26 established the mechanism: an XAGG question that XAGG already
+# answers in ONE call must not be handed to Meta-Analysis, because
+# decomposition splits it into undirected sub-queries that DROP the very
+# language that classified the original, leaving each half to the flaky LLM
+# router one level down. Module 26 implemented that for exactly one shape
+# (`_TIME_COMPARISON_XAGG_PATTERNS`, question M1) — and the 2026-09-08
+# post-fix evaluation then caught the same failure hitting G2 and G5, which
+# satisfy every condition of that guard except membership of its pattern
+# list. G2 fell 0.4 → 0.0 and G5 0.6 → 0.0; both were decomposed, a
+# sub-question errored, and synthesis was rejected with "The synthesized
+# answer could not be verified as grounded in the sub-answers".
+#
+# A second pattern list was the obvious fix and is the wrong one: it would
+# have needed extending for every aggregate Modules 31–36 added, and would
+# drift out of date the moment someone forgot. So the question is asked
+# structurally instead — `xagg.resolves_to_specific_aggregate()` answers
+# "does XAGG have a purpose-built single-call aggregate for this text?"
+# straight from `run_aggregate()`'s own dispatch chain, which is now
+# extracted as the pure `resolve_aggregate_kind()` and is the one source of
+# truth for both. Adding an aggregate family automatically extends this
+# guard.
+#
+# COST: nothing is executed. `resolve_aggregate_kind()` is pure keyword
+# matching — no await, no gateway, no graph traversal, no audit event, no
+# RLS arming. Running the aggregate at guard time (twice per query, once to
+# ask and once to answer) would have been unacceptable; this is a handful of
+# substring tests.
+#
+# SUBORDINATE TO MODULE 29'S DETERMINISTIC PLANS, deliberately and by
+# construction. `meta_analysis.py::_DECOMPOSITION_PLANS` exists for the
+# questions XAGG genuinely CANNOT answer in one call (CR3's record
+# consistency, G1's caseload review, G6's orientation note), and G1 in
+# particular DOES resolve to a specific aggregate here
+# (`case_completeness_scan`) — so without the plan check below this guard
+# would silently repeal Module 29 for it. A matched plan therefore wins
+# outright and the question keeps its route to Meta-Analysis.
+#
+# `unsupported_aggregate` COUNTS AS RESOLVED. The three honest refusals in
+# `run_aggregate()` (station-type — M2's shape, officer identity, trend) are
+# purpose-built outcomes, not failures to match: Module 1b added them so a
+# query with no data path gets a stated limitation instead of an unrelated
+# number. Decomposing one of them is strictly worse than the refusal, since
+# the sub-queries drop the vocabulary that earned it and each half is then
+# answered with an invented split — exactly the "fluent, on-topic,
+# confidently wrong" failure mode the 2026-09-08 report names as worse than
+# abstaining. See `xagg._UNSUPPORTED_AGGREGATE_KINDS`.
+#
+# The three TRAILING catch-alls of `run_aggregate()`'s chain (case listing,
+# grand total, station/category group-by) do NOT count — reaching one means
+# nothing matched at all, which is the opposite of evidence that XAGG has a
+# single-call answer. See `xagg._GENERIC_AGGREGATE_KINDS`.
+# ══════════════════════════════════════════════════════════════════════
+def _xagg_answers_in_one_call(query_text: str) -> bool:
+    """True when an XAGG-routed `query_text` should skip Meta-Analysis.
+
+    Pure and cheap — runs no aggregate. See the comment block above for the
+    full rationale, the cost argument, and why a matched Module 29
+    decomposition plan vetoes this outright.
+    """
+    # Module 29's deterministic plans win. Imported lazily: meta_analysis.py
+    # imports THIS module at module scope (for `Supervisor`/`register`), so a
+    # module-level import here would be circular. By the time this runs the
+    # import is a dict lookup in `sys.modules`.
+    try:
+        from src.pipeline.harness.agents.meta_analysis import _match_decomposition_plan
+    except ImportError:  # pragma: no cover - defensive
+        # Cannot confirm the question is not one Module 29 owns, so leave
+        # dispatch exactly as it was rather than guess.
+        logger.warning(
+            "supervisor: could not import _match_decomposition_plan; "
+            "leaving Meta-Analysis dispatch unchanged."
+        )
+        return False
+    if _match_decomposition_plan(query_text) is not None:
+        return False
+    return resolves_to_specific_aggregate(query_text)
+
+
 def classify_to_subagent(
     route_result: dict, query_text: str = "", *, allow_meta_analysis: bool = True
 ) -> str:
@@ -649,8 +732,18 @@ def classify_to_subagent(
     # cross-case route (e.g. an XGRAPH- or XNETWORK-classified comparison
     # question, which has no equivalent one-call aggregate to fall back
     # to and still needs decomposition).
-    if route == "XAGG" and any(
-        pat.search(query_text) for pat in _TIME_COMPARISON_XAGG_PATTERNS
+    #
+    # [Gold-QA fix — Module 41, questions G2/G5] The second disjunct
+    # generalises the first from "this one comparison shape" to "any shape
+    # XAGG resolves to a purpose-built aggregate", which is what the shape
+    # list was always a proxy for. Kept as an OR rather than replacing the
+    # pattern check: `_TIME_COMPARISON_XAGG_PATTERNS` is M1's live-verified
+    # guard and stays load-bearing on its own terms, so M1 cannot regress
+    # even if the aggregate chain is later reordered underneath it. See
+    # `_xagg_answers_in_one_call()`'s comment block above.
+    if route == "XAGG" and (
+        any(pat.search(query_text) for pat in _TIME_COMPARISON_XAGG_PATTERNS)
+        or _xagg_answers_in_one_call(query_text)
     ):
         sub_agent = _ROUTE_TO_SUBAGENT.get(route, SEMANTIC_SEARCH)
     # [AMENDMENT — findings.md Module 10] Checked before every route-specific
