@@ -128,11 +128,6 @@ async def cross_rerank(query: str, candidates: list[dict], top_k: int = None) ->
     return reranked[:top_k]
 
 
-# [Module 38] How much the ORIGINAL question's ranked list counts for,
-# relative to each generated statute hypothesis, when the per-query lists are
-# fused. See `cross_rerank_multi()` — measured, not assumed.
-ORIGINAL_QUERY_WEIGHT = 1.0
-
 # The key the cross-query fusion score is written under. Deliberately NOT
 # "rrf_score": these chunks already carry the semantic-vs-BM25 fusion score
 # under that name, and that earlier number is what `pipeline_logger` and the
@@ -144,6 +139,12 @@ CROSS_RRF_SCORE_KEY = "cross_rerank_rrf"
 # SEMANTIC_FLOOR_MAX_RESCUED: rank-only fusion drops a candidate exactly one
 # source is certain about, and a small, capped rescue is the fix — capped so
 # it can never become a second route by which one phrasing floods the window.
+#
+# Every phrasing gets a voice, INCLUDING queries[0]. That is not symmetry for
+# its own sake: measured live on KB8 and KB9 (MODULE38_RESULT.md §4), the
+# chunk consensus dropped was the ORIGINAL question's own rank 1 — Punjab
+# Police Rules chunks …_c1662 and …_c1561 respectively, each rank 1 for the
+# Roman-Urdu question and ranks 18-25 for both statute hypotheses.
 MAX_RESCUED_TOP_HITS = 2
 
 
@@ -154,8 +155,11 @@ async def cross_rerank_multi(
     Cross-rerank `candidates` against SEVERAL query phrasings and fuse the
     per-query ranked lists by RECIPROCAL RANK.
 
-    `queries[0]` is the original question; the rest are generated variants
-    (Module 30's statute hypotheses).
+    By convention `queries[0]` is the original question and the rest are
+    generated variants (Module 30's statute hypotheses), but no phrasing is
+    privileged: the fusion depends only on the ranks, not on position. A
+    per-list weight was built for this and measured away — see
+    MODULE38_RESULT.md §2.
 
     Why several phrasings at all (Module 30): the cross-encoder is scored
     against one query string, and for a Roman-Urdu question about an English
@@ -175,7 +179,9 @@ async def cross_rerank_multi(
     "Forensics guidelines handling and chain of custody" (not), the forensics
     query's scores simply ran higher, and the answer moved off the register
     material the question was about. The same mechanism is why Module 30
-    measured a THIRD statute hypothesis as actively harmful for KB8 and KB9.
+    measured a THIRD statute hypothesis as actively harmful for KB8 and KB9
+    — re-measured under this fusion it no longer is (MODULE38_RESULT.md §8),
+    but raising `DEFAULT_HYPOTHESES` is deliberately left to its own module.
 
     Reciprocal rank fusion removes the scale entirely: each phrasing votes by
     where it PUT a chunk, so a wrong hypothesis can promote its favourite
@@ -187,10 +193,12 @@ async def cross_rerank_multi(
 
     What fusion alone would cost, and the rescue that pays it: consensus
     ranking drops the chunk exactly ONE phrasing is certain about, which is
-    the property Module 30 needed. Measured on KB8, so each phrasing keeps a
-    guaranteed voice for its own rank-1 candidate — capped at
-    `MAX_RESCUED_TOP_HITS`, appended rather than promoted, so a wrong
-    hypothesis gets one slot at the end instead of the whole window.
+    the property Module 30 needed — and measured live on KB8 and KB9 the
+    chunk it dropped was the ORIGINAL question's own rank 1, not a
+    hypothesis's. So each phrasing keeps a guaranteed voice for its own rank-1
+    candidate — capped at `MAX_RESCUED_TOP_HITS`, appended rather than
+    promoted, so a wrong hypothesis gets one slot at the end instead of the
+    whole window.
 
     Single-query behaviour is unchanged: with one query the fusion is
     monotonic in that query's own rank, so the order is `cross_rerank()`'s
@@ -225,13 +233,9 @@ async def cross_rerank_multi(
             if score > best_score.get(chunk["id"], float("-inf")):
                 best_score[chunk["id"]] = score
 
-    # queries[0] is the original question; everything after it is generated.
-    weights = [ORIGINAL_QUERY_WEIGHT] + [1.0] * (len(ranked_lists) - 1)
-
     merged = reciprocal_rank_fusion(
         ranked_lists,
         top_k=top_k,
-        weights=weights,
         score_key=CROSS_RRF_SCORE_KEY,
         # A recency prior over the candidate POOL, already applied by the
         # fusion that built it. Re-applying it here would let a filename's
@@ -241,14 +245,17 @@ async def cross_rerank_multi(
 
     # Rank fusion rewards agreement, and that is most of what we want — but it
     # can drop the one chunk a single phrasing is certain about, which is the
-    # exact property Module 30 added this function for. Measured on KB8: the
-    # CrPC s.173 proviso chunk carrying "fourteen days ... interim report
-    # within three days" (gold's whole statutory half) is **rank 1** for the
-    # statute hypothesis and rank 25 of 32 for the Roman-Urdu question, and
-    # pure fusion put it at 10 — outside a window of 5. So each phrasing keeps
-    # a guaranteed voice for its single strongest candidate, appended and
-    # capped, exactly as reranker.py's semantic floor rescues a high-confidence
-    # semantic-only hit that RRF's rank-only math would have discarded.
+    # exact property Module 30 added this function for. Measured live on this
+    # branch (MODULE38_RESULT.md §4), on the same candidate pools as the
+    # before/after above: on KB8 and KB9 the chunk consensus dropped was the
+    # ORIGINAL question's own rank 1 — Punjab Police Rules …_c1662 (rank 1 for
+    # the Roman-Urdu question, 19 and 25 of 32 for the two hypotheses) and
+    # …_c1561 (rank 1 for the question, 18 and 15). Neither survived pure
+    # fusion; both are register/case-diary material the question is directly
+    # about. So each phrasing keeps a guaranteed voice for its single
+    # strongest candidate, appended and capped, exactly as reranker.py's
+    # semantic floor rescues a high-confidence semantic-only hit that RRF's
+    # rank-only math would have discarded.
     fused_ids = {c["id"] for c in merged}
     rescued: list[dict] = []
     for ranked in ranked_lists:

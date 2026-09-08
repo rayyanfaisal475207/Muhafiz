@@ -67,7 +67,6 @@ def reciprocal_rank_fusion(
     ranked_lists: list[list[dict]],
     top_k: int = 5,
     id_key: str = "id",
-    weights: Optional[list[float]] = None,
     score_key: str = "rrf_score",
     apply_year_boost: bool = True,
 ) -> list[dict]:
@@ -82,13 +81,6 @@ def reciprocal_rank_fusion(
         top_k:         How many top documents to return after fusion.
         id_key:        The key in each document dict that holds the unique ID.
                        Used to match the same document across different lists.
-        weights:       Optional per-list multiplier, same length and order as
-                       `ranked_lists`. A list with weight w contributes
-                       w/(rank + RRF_K) instead of 1/(rank + RRF_K), so one
-                       source can be trusted more than another without any
-                       of them contributing on an absolute score SCALE.
-                       Default (None) weights every list equally, which is
-                       what semantic-vs-BM25 fusion has always done.
         score_key:     Which key the fused score is written to. Defaults to
                        "rrf_score". [Module 38] `cross_rerank_multi()` fuses
                        a SECOND time, after the cross-encoder, over lists
@@ -114,28 +106,21 @@ def reciprocal_rank_fusion(
     if not ranked_lists:
         return []
 
-    if weights is not None and len(weights) != len(ranked_lists):
-        raise ValueError(
-            f"weights has {len(weights)} entries for {len(ranked_lists)} ranked "
-            "lists — they must correspond one-to-one."
-        )
-
     # ── Step 1: Compute RRF scores ────────────────────────────────────────
     # rrf_scores maps doc_id → cumulative RRF score
     rrf_scores: dict[str, float] = {}
     # doc_lookup maps doc_id → the full document dict (so we can return it)
     doc_lookup: dict[str, dict] = {}
 
-    for list_index, ranked_list in enumerate(ranked_lists):
-        weight = 1.0 if weights is None else weights[list_index]
+    for ranked_list in ranked_lists:
         for rank, doc in enumerate(ranked_list, start=1):  # rank is 1-indexed
             doc_id = doc.get(id_key)
             if doc_id is None:
                 logger.warning("Document missing '%s' key — skipping in RRF", id_key)
                 continue
 
-            # Add weight/(rank + k) to this document's cumulative score
-            rrf_scores[doc_id] = rrf_scores.get(doc_id, 0.0) + (weight / (rank + RRF_K))
+            # Add 1/(rank + k) to this document's cumulative score
+            rrf_scores[doc_id] = rrf_scores.get(doc_id, 0.0) + (1.0 / (rank + RRF_K))
 
             # Store the full document dict for later retrieval
             if doc_id not in doc_lookup:

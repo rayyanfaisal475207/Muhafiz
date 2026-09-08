@@ -530,32 +530,33 @@ async def test_cross_rerank_multi_rescue_is_capped(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_cross_rerank_multi_weights_the_original_question_first(monkeypatch):
-    """`queries[0]` is the user's own question and is weighted by
-    `ORIGINAL_QUERY_WEIGHT`. The default is deliberate and measured (see
-    MODULE38_RESULT.md §2): equal weighting, because for exactly the
-    questions this path exists for the question is in a language the corpus
-    is not, so its cross-encoder ranking is noise and up-weighting it would
-    up-weight noise. This test pins that the weight is wired to the FIRST
-    query, so a future change of the constant does what it says."""
+async def test_cross_rerank_multi_gives_every_phrasing_an_equal_vote(monkeypatch):
+    """No phrasing outvotes another, the original question included.
+
+    A per-list weight multiplier was built for this and then removed: swept
+    over 0.25/0.5/1.0/2.0/3.0 on live KB1/KB4/KB8/KB9 pools
+    (MODULE38_RESULT.md §2), every value from 0.5 to 3.0 returned the same
+    governing statute book in the same window, and 0.25 was the only one that
+    made KB4 worse. This pins the consequence: the fused order depends only
+    on the ranks, not on which position in `queries` a phrasing occupies, so
+    the fusion cannot quietly regrow a scale of its own."""
     per_query = {
-        "question": {"a": 0.5, "b": 0.4},
-        "hypothesis": {"b": 0.9, "a": 0.1},
+        "question": {"a": 0.5, "b": 0.4, "c": 0.3},
+        "hypothesis": {"b": 0.9, "c": 0.5, "a": 0.1},
     }
     _stub_per_query_rerank(monkeypatch, per_query)
-    candidates = [_chunk("a"), _chunk("b")]
+    candidates = [_chunk("a"), _chunk("b"), _chunk("c")]
 
-    monkeypatch.setattr(cross_reranker, "ORIGINAL_QUERY_WEIGHT", 5.0)
-    merged = await cross_reranker.cross_rerank_multi(
-        ["question", "hypothesis"], candidates, top_k=2
+    question_first = await cross_reranker.cross_rerank_multi(
+        ["question", "hypothesis"], candidates, top_k=3
     )
-    assert [c["id"] for c in merged] == ["a", "b"]
-
-    monkeypatch.setattr(cross_reranker, "ORIGINAL_QUERY_WEIGHT", 0.01)
-    merged = await cross_reranker.cross_rerank_multi(
-        ["question", "hypothesis"], candidates, top_k=2
+    hypothesis_first = await cross_reranker.cross_rerank_multi(
+        ["hypothesis", "question"], candidates, top_k=3
     )
-    assert [c["id"] for c in merged] == ["b", "a"]
+    assert [c["id"] for c in question_first] == [c["id"] for c in hypothesis_first]
+    # …and the tie between "a" (ranks 1, 3) and "b" (ranks 2, 1) is broken by
+    # rank alone: b's 1/61 + 1/62 beats a's 1/61 + 1/63.
+    assert [c["id"] for c in question_first] == ["b", "a", "c"]
 
 
 @pytest.mark.asyncio

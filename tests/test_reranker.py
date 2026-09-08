@@ -73,43 +73,22 @@ def test_record_date_is_preferred_over_filename_when_both_present():
     assert result[0]["rrf_score"] == round(1.0 / 61 + 0.003, 6)
 
 
-# ── [Module 38] weights / score_key / apply_year_boost ────────────────────
+# ── [Module 38] score_key / apply_year_boost ──────────────────────────────
 #
 # `cross_rerank_multi()` fuses per-query cross-encoder lists with this same
-# function rather than growing a second RRF implementation. These three
+# function rather than growing a second RRF implementation. These two
 # parameters are what that reuse needs; each defaults to the behaviour every
 # pre-Module-38 caller already had.
-
-import pytest
+#
+# Deliberately NOT added: a per-list `weights` multiplier, so the original
+# question could outvote a generated statute hypothesis. It was built, then
+# measured and removed — swept over 0.25/0.5/1.0/2.0/3.0 on live KB1, KB4,
+# KB8 and KB9 pools (MODULE38_RESULT.md §2), every value from 0.5 to 3.0
+# returned the same governing statute book in the same window, and 0.25 was
+# the only one that made KB4 worse. A knob whose whole measured range is flat
+# is a footgun on a function the main retrieval path also calls.
 
 from src.retrieval.reranker import RRF_K, reciprocal_rank_fusion
-
-
-def test_weights_scale_a_lists_contribution_without_touching_rank_math():
-    """A weighted list contributes w/(rank+k). With one list at weight 3 the
-    doc it ranks first beats the doc the other two rank first."""
-    only_a = [_doc("a", "x.pdf")]
-    only_b = [_doc("b", "x.pdf")]
-    b_then_a = [_doc("b", "x.pdf"), _doc("a", "x.pdf")]
-    lists = [only_a, only_b, b_then_a]
-
-    equal = reciprocal_rank_fusion(lists, top_k=5)
-    assert [d["id"] for d in equal] == ["b", "a"]
-
-    weighted = reciprocal_rank_fusion(lists, top_k=5, weights=[3.0, 1.0, 1.0])
-    assert [d["id"] for d in weighted] == ["a", "b"]
-
-
-def test_weights_default_to_equal_and_reproduce_the_unweighted_score():
-    docs = [[_doc("a", "x.pdf"), _doc("b", "x.pdf")], [_doc("b", "x.pdf")]]
-    assert reciprocal_rank_fusion(docs, top_k=5) == reciprocal_rank_fusion(
-        docs, top_k=5, weights=[1.0, 1.0]
-    )
-
-
-def test_weights_must_correspond_one_to_one_with_the_ranked_lists():
-    with pytest.raises(ValueError):
-        reciprocal_rank_fusion([[_doc("a", "x.pdf")]], top_k=5, weights=[1.0, 1.0])
 
 
 def test_score_key_leaves_an_existing_rrf_score_untouched():
