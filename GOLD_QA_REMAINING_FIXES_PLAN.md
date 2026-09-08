@@ -78,8 +78,8 @@ several can run in parallel chats/worktrees without colliding.
 | 32 | G1 — accused ↔ complainant relationship breakdown: no XAGG aggregate | `feature/xagg-g1-caseload-profile-aggregates` | ✅ Done — اجنبی 15 of 24; person-recurrence fall-through killed |
 | 33 | G1 — seized-property disposition counts: no XAGG aggregate | `feature/xagg-g1-caseload-profile-aggregates` | ✅ Done — 13 forensic-lab / 7 heirs, matches gold exactly |
 | 34 | G1 — incident time-of-day distribution: no XAGG aggregate | `feature/xagg-g1-caseload-profile-aggregates` | ✅ Done — gold's "flat across the day" is a date-only artefact |
-| 35 | G6 — arrest rate: no XAGG aggregate | *(not yet branched)* | ⬜ New — found by Module 29's gap analysis |
-| 36 | CR3 — subject-filtered FIR listing: no aggregate returns FIR numbers filtered by statute/station/crime type | *(not yet branched)* | ⬜ New — found by Module 29's live runs |
+| 35 | G6 — arrest rate: no XAGG aggregate | `feature/xagg-arrest-rate-and-fir-listing` | ✅ Done — aggregate live; published rule gives **1 in 6.6**, not gold's 1 in 9, see §35 |
+| 36 | CR3 — subject-filtered FIR listing: no aggregate returns FIR numbers filtered by statute/station/crime type | `feature/xagg-arrest-rate-and-fir-listing` | ✅ Done — returns `fir-64-26`/`fir-65-26` exactly; **wiring into `record_consistency` deferred behind Module 41**, see §36 |
 | 37 | Orphaned `chunk_fulltext` rows: 2,243 CrPC chunks in the BM25 index that no longer exist in Chroma | *(not yet branched)* | ⬜ New — found by Module 30 |
 | 38 | `cross_rerank_multi()` merges by max score across queries, and cross-encoder scores are not comparable across them | *(not yet branched)* | ⬜ New — found by Module 30 (this is what cost KB4) |
 | 39 | The "and does our data show it?" half of every gold KB answer is unreachable from the RAG sub-agent | *(not yet branched)* | ⬜ New — found by Module 30; the largest remaining gap in the KB bucket |
@@ -1110,7 +1110,35 @@ branch — so no other aggregate changed.
 
 ---
 
-# Module 35 — G6: arrest rate has no aggregate ⬜
+# Module 35 — G6: arrest rate has no aggregate ✅ DONE
+
+**Branch:** `feature/xagg-arrest-rate-and-fir-listing`
+**Result file:** `docs/gold-qa-wave2-results/MODULE35_RESULT.md`
+
+**Outcome.** `_arrest_rate()` ships with its classification rule **published**
+in `_classify_arrest_status()` and restated in the rendered answer:
+
+> **arrested** = the status contains **گرفتار**, does **not** negate it, and
+> does **not** attribute it to an earlier different case.
+
+Live (73 FIRs, 94 accused entries, 92 distinct accused): **11 FIRs record an
+arrest — 1 in 6.6**, *not* gold's 1 in 9. The alternatives are reported
+alongside: +earlier-case 12 (1 in 6.1), naive containment 14 (1 in 5.2), and
+**exact equality with the bare token `گرفتار` 8 (1 in 9.1)**. Only the last
+reproduces gold, and only by discarding three entries that record an arrest
+in as many words (`موقع پر گرفتار`, `گرفتار، بعد ازاں سزا یافتہ`,
+`گرفتار، ڈی این اے مطابقت پر`). **It was not tuned to gold**; the bare-token
+figure is returned as `bare_token_fir_count` so the gap stays attributable.
+
+Correction to the survey below: the naive containment count is **14** FIRs,
+not 13 — re-derived live 2026-09-08.
+
+`_is_arrest_rate()` is a three-signal predicate, not a keyword tuple, because
+the bare arrest vocabulary collides with gold **S3** outright
+(`کیا کسی شخص کو ایک سے زیادہ بار گرفتار کیا گیا ہے؟`); S3 is asserted to
+still reach `graph_recurrence` end to end with its literal gold text.
+
+---
 
 **Found by:** Module 29's gap analysis. **File:** `src/pipeline/xagg.py`.
 
@@ -1129,7 +1157,35 @@ No aggregate exists; the sub-question falls through to person-recurrence.
 
 ---
 
-# Module 36 — CR3: no subject-filtered FIR listing ⬜
+# Module 36 — CR3: no subject-filtered FIR listing ✅ DONE (wiring deferred)
+
+**Branch:** `feature/xagg-arrest-rate-and-fir-listing`
+**Result file:** `docs/gold-qa-wave2-results/MODULE36_RESULT.md`
+
+**Outcome.** `_filtered_fir_listing()` answers "which FIRs are registered
+under `<act>` / at `<station>` / of `<type>`, with FIR number and status".
+Live, it returns **exactly `fir-64-26` (64/26) and `fir-65-26` (65/26)** with
+both Urdu statuses — the stated ground truth. Bounded by construction for the
+reason Module 29 measured: it **refuses to list anything** when no filter is
+recognised, and caps rendered rows at `_FIR_LISTING_RENDER_LIMIT = 15`.
+
+Two substring collisions were found live and fixed before commit:
+`"cyber crime circle"` (station) contains PECA 2016's `"cyber crime"`, so a
+pure station question silently answered 2 FIRs instead of 9 —
+`_mask_station_aliases()`; and an Urdu question naming the circle by its real
+name matched no station signal at all, since neither `سائبر کرائم سرکل` nor
+`موٹروے پولیس اسٹیشن` contains `تھانہ` — `_STATION_NAME_HINTS`.
+
+**Verification differs from the instruction below, deliberately.** The
+`meta_analysis.py` `record_consistency` wiring was **not** done: Module 41 is
+editing that dispatch path concurrently. The aggregate was verified
+**standalone** through `/api/chat` instead, and the literal sub-query string
+is pinned in `tests/test_xagg.py` as `_CR3_SQ_FIR_LISTING` for whichever
+module consolidates the plan after Module 41 lands. **CR3's own end-to-end
+instability is therefore not yet fixed** — the capability it needs now exists
+and is live-correct, but is not connected to CR3's decomposition.
+
+---
 
 **Found by:** Module 29's live runs. **File:** `src/pipeline/xagg.py`.
 
