@@ -3213,7 +3213,7 @@ async def _weapon_evidence_chain(
         "XAGG weapon_evidence_chain: %d weapon(s); %d traceable to a named "
         "accused, %d unattributed; richest chain %s",
         len(weapon_rows), len(chains), len(unattributed),
-        ascii(chains[0]["case_id"]) if chains else "(none)",
+        chains[0]["case_id"] if chains else "(none)",
     )
     return {
         "kind": "weapon_evidence_chain",
@@ -3589,7 +3589,8 @@ async def _weapon_recovery_rate_by_district(jurisdiction_case_ids: Optional[list
         "%d district(s); %s",
         len(ranked),
         ", ".join(
-            f"{r['key']}={r['subset_count']}/{r['total_count']}={r['rate']}"
+            f"{r['key']}={r['subset_count']}/{r['total_count']}"
+            f"={round(r['rate'], 3) if r['rate'] is not None else None}"
             for r in ranked[:10]
         ) or "none",
     )
@@ -4556,7 +4557,8 @@ async def _reporting_delay_rate_by_year(jurisdiction_case_ids: Optional[list[str
         "%d year bucket(s) [%s]",
         len(ranked),
         ", ".join(
-            f"{r['key']}={r['subset_count']}/{r['total_count']}={r['rate']}"
+            f"{r['key']}={r['subset_count']}/{r['total_count']}"
+            f"={round(r['rate'], 3) if r['rate'] is not None else None}"
             for r in sorted(ranked, key=lambda r: r["key"])
         ) or "none",
     )
@@ -5184,7 +5186,7 @@ async def _total_count(
     # evidence of WHICH aggregate answered a live question.
     logger.info(
         "XAGG total_count: %d case(s) after filtering; unsupported_filters=%s",
-        len(cases), ascii(unsupported) if unsupported else "none",
+        len(cases), "; ".join(unsupported) if unsupported else "none",
     )
     return {"kind": "total_count", "total_cases": len(cases), "unsupported_filters": unsupported}
 
@@ -5903,6 +5905,11 @@ async def run_aggregate(
         "%d bucket(s); %s",
         result.get("group_by"), result.get("total_cases_considered"),
         len(result.get("counts") or []),
-        ascii([(c["key"], c["count"]) for c in (result.get("counts") or [])[:10]]),
+        # Urdu station names, passed as a `%s` argument: PR #30 reconfigured
+        # the log stream to utf-8/backslashreplace, so these now survive
+        # legibly. The format string above stays ASCII regardless.
+        ", ".join(
+            f"{c['key']}={c['count']}" for c in (result.get("counts") or [])[:10]
+        ) or "none",
     )
     return {"kind": "relational_aggregate", **result}
