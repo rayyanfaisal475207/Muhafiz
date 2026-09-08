@@ -4843,3 +4843,161 @@ async def test_module55_a_silent_family_now_names_itself_with_its_figures(caplog
     assert result["total_cases"] == 3
     assert result["missing_incident_date"] == ["fir-2-26"]
     assert result["missing_status"] == ["fir-3-26"]
+
+
+# ══════════════════════════════════════════════════════════════════════
+# [Module 56] M2's dispatch vocabulary vs. the family it now serves.
+#
+# Module 44 changed only the KIND `_STATION_TYPE_KEYWORDS` returns — from an
+# honest refusal to `station_caseload_by_specialisation` — without widening
+# the vocabulary. A narrow trigger list is the safe default for a refusal and
+# the wrong one for a real aggregate: a missed match no longer means "generic
+# answer", it means the plain per-station count the refusal existed to
+# prevent. Measured, before this module:
+#
+#   "Do the specialist units handle a bigger share of our cases than the
+#    ordinary police stations?"          -> station_or_category_counts  ❌
+#
+# `_STATION_KEYWORDS` sits a few rungs lower in the same chain, so the
+# control below asserts EQUALITY over all 32 gold questions' resolved kinds,
+# not merely that M2 still lands right.
+# ══════════════════════════════════════════════════════════════════════
+
+# Captured from `resolve_aggregate_kind()` on the pre-Module-56 tree
+# (2026-09-09, commit 9942db9 + Module 55), before a single keyword was
+# added. This is the control: widening M2's vocabulary must move NOTHING
+# else. A diff here is a regression, not a test to update.
+_GOLD32_RESOLVED_KINDS_BEFORE_MODULE56 = {
+    "D1": "total_count",
+    "S2": "station_or_category_counts",
+    "S3": "graph_recurrence_person",
+    "A1": "gender_breakdown",
+    "A7": "reporting_delay_count",
+    "CP6": "placeholder_officer_count",
+    "CR2": "graph_recurrence_person",
+    "CR3": "station_or_category_counts",
+    "CR4": "weapon_evidence_chain",
+    "CR6": "cms_fir_linkage",
+    "CR7": "criminal_record_court_crosscheck",
+    "CR8": "dv_report_fir_match",
+    "CS4": "criminal_record_local_match_gap",
+    "CP1": "weapon_recovery_rate_by_district",
+    "M1": "statute_mix_by_year",
+    "M2": "station_caseload_by_specialisation",
+    "M4": "statute_court_stage_join",
+    "M5": "weapon_statute_cooccurrence_by_year",
+    "M7": "incident_to_report_minutes_by_year",
+    "G1": "case_completeness_scan",
+    "G2": "case_completeness_scan",
+    "G3": "court_readiness_scan",
+    "G5": "weapon_compliance_scan",
+    "G6": "station_or_category_counts",
+    "KB1": "station_or_category_counts",
+    "KB2": "graph_recurrence_person",
+    "KB3": "station_or_category_counts",
+    "KB4": "station_or_category_counts",
+    "KB5": "gender_breakdown",
+    "KB6": "graph_recurrence_weapon",
+    "KB8": "station_or_category_counts",
+    "KB9": "graph_recurrence_person",
+}
+
+
+def test_module56_all_32_gold_questions_resolve_exactly_as_before():
+    """EQUALITY, not absence. Asserting only "no extra question reaches M2's
+    family" would pass if a widened keyword pushed CR3 or KB4 sideways into
+    some third family instead. A MISSING dataset is a failure, never a skip."""
+    items = json.loads(_GOLD32_PATH.read_text(encoding="utf-8"))
+    assert len(items) == 32, len(items)
+
+    resolved = {
+        (it.get("id") or "").upper(): xagg.resolve_aggregate_kind(it["question"])
+        for it in items
+    }
+    assert resolved == _GOLD32_RESOLVED_KINDS_BEFORE_MODULE56
+
+
+def test_module56_only_m2_reaches_the_station_type_vocabulary():
+    """The narrower half of the same control, stated directly against the
+    keyword tuple: exactly one of the 32 gold questions may match it. S2
+    ("Which police station handles the most cases?") and CR6 ("...تھانے آ کر
+    شکایت درج کراتا ہے...") both carry the bare station word and must not."""
+    items = json.loads(_GOLD32_PATH.read_text(encoding="utf-8"))
+    matched = sorted(
+        (it.get("id") or "").upper()
+        for it in items
+        if xagg._matches_any(it["question"].lower(), xagg._STATION_TYPE_KEYWORDS)
+    )
+    assert matched == ["M2"], matched
+
+
+def test_module56_m2_literal_gold_text_still_reaches_its_own_family(monkeypatch):
+    """Pinned to M2's literal gold text — the question the widening exists to
+    serve must not be broken by the widening."""
+    assert xagg.resolve_aggregate_kind(_M2_GOLD) == "station_caseload_by_specialisation"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        # The measured failure. MODULE44_RESULT.md recorded this resolving to
+        # `station_or_category_counts` — the plain per-station count.
+        "Do the specialist units handle a bigger share of our cases than the "
+        "ordinary police stations?",
+        # Neighbouring English phrasings of the same question.
+        "Do dedicated units carry more caseload than regular police stations?",
+        "Is a normal thana busier than a station set up for one type of crime?",
+        "How does the caseload at our specialist police stations compare with "
+        "the ordinary ones?",
+        # Roman Urdu, the house style half this gold set is written in.
+        "Kya makhsoos thanay aam thanay se zyada cases handle kar rahe hain?",
+        "Khaas thane ka caseload aam police station se kitna mukhtalif hai?",
+        # Urdu script.
+        "کیا خصوصی تھانے عام تھانے سے زیادہ مقدمات سنبھال رہے ہیں؟",
+        "کیا مخصوص تھانے پر کیس لوڈ عام تھانے کے مقابلے میں زیادہ ہے؟",
+    ],
+)
+def test_module56_widened_vocabulary_reaches_the_specialisation_family(query):
+    assert xagg.resolve_aggregate_kind(query) == "station_caseload_by_specialisation"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        # S2's literal gold text — the bare per-station ranking. This is the
+        # question the whole widening had to avoid swallowing.
+        "Which police station handles the most cases?",
+        "Kaunsa thana sab se zyada cases handle karta hai?",
+        "کون سا تھانہ سب سے زیادہ مقدمات دیکھتا ہے؟",
+        # CR6's opening clause: تھانے with no station-type qualifier at all.
+        "جب کوئی شخص تھانے آ کر شکایت درج کراتا ہے، تو کیا وہ کسی باقاعدہ ایف "
+        "آئی آر سے منسلک ہو جاتی ہے؟",
+        # KB5 carries عام, but qualifying a CASE, not a station — the
+        # عام-class substring collision this tuple was widened around.
+        "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے "
+        "مختلف طریقۂ کار کا تقاضا کرتا ہے؟",
+        # A plain per-station breakdown in each of the two other languages.
+        "How many cases per police station?",
+        "Har thane mein kitne cases hain?",
+    ],
+)
+def test_module56_widened_vocabulary_does_not_swallow_plain_station_questions(query):
+    assert xagg.resolve_aggregate_kind(query) != "station_caseload_by_specialisation"
+
+
+def test_module56_dispatch_change_lives_only_in_resolve_aggregate_kind():
+    """Module 41 made `resolve_aggregate_kind()` the single source of dispatch
+    truth, and the supervisor guard reads it. `_STATION_TYPE_KEYWORDS` must
+    therefore be consulted there and nowhere else — a second inline check in
+    `run_aggregate()` would let the two drift apart silently."""
+    import ast
+
+    tree = ast.parse(Path(xagg.__file__).read_text(encoding="utf-8"))
+    users = set()
+    for func in ast.walk(tree):
+        if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for node in ast.walk(func):
+            if isinstance(node, ast.Name) and node.id == "_STATION_TYPE_KEYWORDS":
+                users.add(func.name)
+    assert users == {"resolve_aggregate_kind"}, users

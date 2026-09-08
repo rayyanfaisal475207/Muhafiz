@@ -115,11 +115,63 @@ _OFFICER_KEYWORDS = (
 # that" beats silently falling through to a plain per-station case count
 # (which answers "which station has the most cases", not the type-
 # normalized question actually asked).
+#
+# [Gold-QA fix — Module 56] WIDENED. Module 44 changed only the KIND this
+# tuple returns — from the honest refusal above to
+# `station_caseload_by_specialisation`, a real aggregate — without touching
+# the vocabulary. That asymmetry was the defect: a narrow trigger list is the
+# SAFE default for a refusal (a missed match just means a generic answer) and
+# the WRONG default for a real aggregate (a missed match means the question
+# silently gets the plain per-station count the refusal existed to prevent).
+#
+# Measured before this widening: *"Do the specialist units handle a bigger
+# share of our cases than the ordinary police stations?"* — the same question
+# M2 asks, in ordinary words — resolved to `station_or_category_counts`.
+#
+# Every entry names a station/unit KIND, never a bare station word. That is
+# the whole safety argument: S2 ("Which police station handles the most
+# cases?") and CR6 ("جب کوئی شخص تھانے آ کر...") both carry the bare station
+# word and must keep their own families. `_STATION_KEYWORDS` sits a few rungs
+# lower in this same chain, so the all-32 EQUALITY control in
+# tests/test_xagg.py pins every one of the 32 gold questions' resolved kind,
+# not merely M2's — five Urdu substring collisions (تعلق inside متعلق,
+# رات inside کراتا, شام inside شامل, لوگ inside لوگوں, and "cyber crime
+# circle" containing "cyber crime") have already cost this project real bugs.
 _STATION_TYPE_KEYWORDS = (
+    # Module 13's original refusal vocabulary, unchanged.
     "station type", "type of station", "general-purpose station",
     "general purpose station", "specialized station", "specialised station",
     "specific type of crime", "one specific type of crime",
     "تھانے کی قسم", "مخصوص نوعیت کے تھانے",
+    # The specialised side, in ordinary English. "specialist police" /
+    # "specialised police" are deliberately the shorter stems so they also
+    # catch "... police station(s)" and "... police units" without a
+    # separate entry each.
+    "specialist unit", "specialist station", "specialist thana",
+    "specialist police",
+    "specialised unit", "specialized unit",
+    "specialised thana", "specialized thana",
+    "specialised police", "specialized police",
+    "dedicated unit", "dedicated station", "dedicated thana",
+    "crime-specific station", "crime specific station",
+    "single type of crime", "one type of crime",
+    # The general-purpose side. Each needs the qualifier IN the entry —
+    # "station" on its own is S2's question, not this family's.
+    "ordinary station", "ordinary police", "ordinary thana",
+    "normal station", "normal police station", "normal thana",
+    "regular station", "regular police station", "regular thana",
+    "general-purpose thana", "general purpose thana",
+    "general-purpose unit", "general purpose unit",
+    # Roman Urdu. "aam"/"khaas"/"makhsoos" are never entered bare — عام-class
+    # words are exactly the substring-collision family this file has been
+    # bitten by — so each is bound to a station word.
+    "makhsoos thana", "makhsoos thanay", "makhsoos thane",
+    "khaas thana", "khaas thanay", "khaas thane",
+    "aam thana", "aam thanay", "aam thane", "aam police station",
+    # Urdu. Same rule: the qualifier and the station word travel together.
+    "خصوصی تھانہ", "خصوصی تھانے", "خصوصی یونٹ",
+    "مخصوص تھانہ", "مخصوص تھانے",
+    "عام تھانہ", "عام تھانے", "عام پولیس اسٹیشن",
 )
 # [Gold-QA fix — Module 7, question CP6] "How many cases are still assigned
 # only a PLACEHOLDER investigating officer, not a real one?" is a COUNT
