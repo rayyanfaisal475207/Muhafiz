@@ -296,7 +296,7 @@ for the full post-Module-40 table; these are the Module 53 readings.
 
 ### M4 does not skip decomposition — a correction to the tracker, not a regression
 
-Run live 4 times on this branch (base `main` @ `9942db9`, fix in place),
+Run live 4 times on this branch's base (`main` @ `9942db9`, fix in place),
 byte-identical every time:
 
 ```
@@ -325,6 +325,70 @@ so the guard is never consulted. Module 41's own §8 is explicit that this was
 an assumption rather than a measurement: *"pinned by the all-32 negative
 control, **assuming an XAGG route**"* and *"CR6, CR8, M4 and M7 were **not
 re-run live here**"*. This module ran it.
+
+**Re-measured after merging `origin/main` (Modules 38/55/56) into this branch
+— M4's behaviour CHANGED, and it is now non-deterministic.** 3 further runs:
+
+| Run | Route events | XAGG kind | Outcome |
+|---|---|---|---|
+| 1 | `XNETWORK` → `XAGG`, `RAG` | `relational_aggregate` | **answers**, 257.6 s — statute counts PPC 61 / Arms 29 / CNSA 12 / PECA 9, and states the court-stage data is absent |
+| 2 | `XNETWORK` → `XAGG`, `RAG` | `relational_aggregate` | **answers**, 235.7 s — same shape |
+| 3 | `XNETWORK` → `XGRAPH`, `XGRAPH` | none | "No information was found", 33.4 s — the pre-merge behaviour |
+
+So on current `main` the **LLM decomposer** is what varies: two of three runs
+produced Urdu sub-queries that reach XAGG and RAG, one produced the English
+"breakdown of cases by legal section" pair that reaches XGRAPH and returns
+nothing. **What does not vary, before or after the merge, is that M4 never
+skips decomposition** — 7 runs of 7 across both code states. That is the
+finding Module 60 is filed on, and it is unaffected.
+
+**Two things worth reading off the answering runs.** First, they cover gold's
+statute half and explicitly say the court-stage data is missing, which under
+this wave's judging standard is a partial pass rather than a wrong answer —
+so M4 is better on current `main` than the tracker or this branch's base
+suggests. Second, **the reason the court-stage half is missing is a live
+sub-query timeout at the new 150 s deadline, with no salvage** — verbatim:
+
+> _Could not answer sub-question (timed out): کیسز کی عدالتی پیشی کی کیا حیثیت ہے (مثلاً پیشی کے مراحل، نتائج)، سب کیسز کے لیے؟_
+
+That sub-query routes to **RAG**, which holds no deterministic,
+correct-by-construction rendering, so `_salvage.offer()` was never called and
+the timeout correctly stayed a disclosed failure. It is the first live
+occurrence of Module 53's deliberately narrow scope, and it behaved exactly as
+the unit test
+`test_module53_timeout_with_nothing_computed_still_reports_a_failure` pins it.
+
+**Re-measured after merging `origin/main` (Modules 38/55/56) into this branch
+— M4's behaviour CHANGED, and it is now non-deterministic.** 3 further runs:
+
+| Run | Route events | XAGG kind | Outcome |
+|---|---|---|---|
+| 1 | `XNETWORK` → `XAGG`, `RAG` | `relational_aggregate` | **answers**, 257.6 s — statute counts PPC 61 / Arms 29 / CNSA 12 / PECA 9, and states the court-stage data is absent |
+| 2 | `XNETWORK` → `XAGG`, `RAG` | `relational_aggregate` | **answers**, 235.7 s — same shape |
+| 3 | `XNETWORK` → `XGRAPH`, `XGRAPH` | none | "No information was found", 33.4 s — the pre-merge behaviour |
+
+So on current `main` the **LLM decomposer** is what varies: two of three runs
+produced Urdu sub-queries that reach XAGG and RAG, one produced the English
+"breakdown of cases by legal section" pair that reaches XGRAPH and returns
+nothing. **What does not vary, before or after the merge, is that M4 never
+skips decomposition** — 7 runs of 7 across both code states. That is the
+finding Module 60 is filed on, and it is unaffected.
+
+**Two things worth reading off the answering runs.** First, they cover gold's
+statute half and explicitly say the court-stage data is missing, which under
+this wave's judging standard is a partial pass rather than a wrong answer —
+so M4 is better on current `main` than the tracker or this branch's base
+suggests. Second, **the reason the court-stage half is missing is a live
+sub-query timeout at the new 150 s deadline, with no salvage** — verbatim:
+
+> _Could not answer sub-question (timed out): کیسز کی عدالتی پیشی کی کیا حیثیت ہے (مثلاً پیشی کے مراحل، نتائج)، سب کیسز کے لیے؟_
+
+That sub-query routes to **RAG**, which holds no deterministic,
+correct-by-construction rendering, so `_salvage.offer()` was never called and
+the timeout correctly stayed a disclosed failure. It is the first live
+occurrence of Module 53's deliberately narrow scope, and it behaved exactly as
+the unit test
+`test_module53_timeout_with_nothing_computed_still_reports_a_failure` pins it.
 
 **Not caused by this change.** Nothing in Module 53 reads query text, touches
 `router.py`/`supervisor.py`, or alters classification; `_salvage.offer()` is a
@@ -375,9 +439,12 @@ measured failure for a regression of a merged module. Filed for the user in §8.
    men" element is the concrete thing still missing. **Filed as Module 59**
    rather than raised on inference here.
 
-3. **M4 does not skip decomposition live, and answers "No information was
-   found" on 4 runs of 4.** Its live route is XNETWORK, and Module 41's guard
-   only fires on XAGG. Full evidence in §7. This needs its own module: the
+3. **M4 does not skip decomposition live — 7 runs of 7, across two code
+   states.** Its live route is XNETWORK, and Module 41's guard only fires on
+   XAGG. On this branch's base it answered "No information was found" 4 of 4;
+   after merging Modules 38/55/56 it answers on 2 of 3 runs with gold's
+   statute half and loses the court-stage half to a RAG sub-query timeout.
+   Full evidence in §7. This needs its own module: the
    available fixes are (a) take Module 40's `statute_vs_court_stage` plan and
    accept that it vetoes the Module 41 guard, (b) widen the guard beyond
    `route == "XAGG"`, against that guard's own explicit reasoning, or (c) fix

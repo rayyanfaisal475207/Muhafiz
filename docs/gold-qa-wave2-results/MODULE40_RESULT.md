@@ -42,7 +42,11 @@ answer = "No information was found for any part of this question. Checked:
 
 Module 41's guard is deliberately conditional on `route == "XAGG"`
 (`supervisor.py:745`); the live router classifies M4 as **XNETWORK**, so the
-guard is never consulted. Module 41's own §8 says as much — *"pinned by the
+guard is never consulted. Re-measured after merging Modules 38/55/56 in, M4
+now varies — 2 of 3 runs decompose into Urdu sub-queries that reach XAGG and
+RAG and produce a partial answer, 1 of 3 reproduces the empty result above —
+but **it never skips decomposition, 7 runs of 7 across both code states.** See
+`MODULE53_RESULT.md` §7 for the full table. Module 41's own §8 says as much — *"pinned by the
 all-32 negative control, **assuming an XAGG route**"*, and *"M4 was **not
 re-run live here**"*. Full evidence in `MODULE53_RESULT.md` §7.
 
@@ -302,7 +306,7 @@ re-run live and reported in `MODULE53_RESULT.md` §7:
 | **M2** | ✅ unchanged — `route='XAGG'`, `station_caseload_by_specialisation` |
 | **G2** | ✅ unchanged — `route='XAGG'`, single dispatch |
 | **G5** | ✅ unchanged — `route='XAGG'`, single dispatch |
-| **M4** | ⚠️ still does **not** skip decomposition — pre-existing, unchanged by this branch, and the direct reason `statute_vs_court_stage` was not taken. §1. |
+| **M4** | ⚠️ still does **not** skip decomposition, 7 runs of 7 across this branch's base and current `main` — pre-existing, unchanged by this branch, and the direct reason `statute_vs_court_stage` was not taken. §1. |
 | **G1** | 3 of 4 answered, 5 of 5 aggregates on every run |
 | **G6** | 4 of 4 answered |
 | **CR3** | 7 of 14 answered on the shipped code |
@@ -316,8 +320,11 @@ and live.
 
 ## 8. New defects found
 
-1. **M4 reaches Meta-Analysis live and answers "No information was found",
-   4 runs of 4.** Its route is XNETWORK; Module 41's guard only fires on XAGG.
+1. **M4 reaches Meta-Analysis live on 7 runs of 7**, across this branch's
+   base and current `main`. Its route is XNETWORK; Module 41's guard only
+   fires on XAGG. On the base it answered "No information was found" every
+   time; on current `main` it answers on 2 of 3 runs with gold's statute half,
+   losing the court-stage half to a RAG sub-query timeout.
    Three candidate fixes, all needing files outside this branch's scope, are
    set out in `MODULE53_RESULT.md` §8. **This is the module that should
    inherit Module 40's branch** — the decomposer-prompt and

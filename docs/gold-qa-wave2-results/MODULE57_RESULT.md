@@ -348,8 +348,10 @@ in §8 below.
    deciding whether a deterministic plan should be selected by pattern at all
    or by the same aggregate-resolution mechanism Module 41 used for the guard.
 
-5. **M4 does not skip decomposition live** (route `XNETWORK` 4/4, so Module
-   41's XAGG-conditional guard never fires; it answers "No information was
-   found" every time). Found while regression-guarding this branch. Full
+5. **M4 does not skip decomposition live** — route `XNETWORK` on **7 runs of
+   7**, across this branch's base and current `main`, so Module 41's
+   XAGG-conditional guard never fires. On the base it answered "No information
+   was found" 4 of 4; after Modules 38/55/56 merged it answers on 2 of 3 runs
+   with gold's statute half. Found while regression-guarding this branch. Full
    evidence and the three candidate fixes are in `MODULE53_RESULT.md` §7–§8.
    **Filed as Module 60.**
