@@ -84,8 +84,9 @@ several can run in parallel chats/worktrees without colliding.
 | 38 | `cross_rerank_multi()` merges by max score across queries, and cross-encoder scores are not comparable across them | *(not yet branched)* | ⬜ New — found by Module 30 (this is what cost KB4) |
 | 39 | The "and does our data show it?" half of every gold KB answer is unreachable from the RAG sub-agent | *(not yet branched)* | ⬜ New — found by Module 30; the largest remaining gap in the KB bucket |
 | 41 | **G2/G5 REGRESSION** — Meta-Analysis over-decomposes questions XAGG answers in one call; the supervisor guard fires only for time-comparison shapes | *(not yet branched)* | 🔴 New — found by the 2026-09-08 post-fix eval; **a regression this wave caused**, highest priority |
-| 42 | KB6 hard failure — `route=None`, FactualCorrectness 0.0 **and** AnswerRelevancy 0.0, did not recover on re-run | *(not yet branched)* | ⬜ New — found by the 2026-09-08 post-fix eval; the only question failing this way |
+| 42 | KB6 hard failure — `route=None`, FactualCorrectness 0.0 **and** AnswerRelevancy 0.0, did not recover on re-run | `fix/kb6-hard-failure-route-none` | ✅ Done — **not a pipeline defect.** `route=None` was the eval harness's own 300s client timeout; live KB6 is `route='RAG'` 5/5. Harness fixed so a timeout is unscored, not a 0.0. The real reason KB6 abstains is a new cross-language evaluator defect — split out as Module 48 |
 | 43 | M7 answers with the wrong facts (FC 0.0 / AR 1.0) despite Module 22 verifying it live against gold | *(not yet branched)* | ⬜ New — found by the 2026-09-08 post-fix eval; contradicts a recorded module result |
+| 48 | The relevance gate cannot judge a roman-Urdu question against English statute text (English 6/6 relevant, roman-Urdu 1/6, identical chunks) | *(not yet branched)* | ⬜ New — found by Module 42; this is what actually makes KB6 abstain, and it gates the whole roman-Urdu half of the KB bucket |
 | 44 | M2 and CS4 reach XAGG and answer fluently but factually wrong (FC 0.0 / AR 1.0) | *(not yet branched)* | ⬜ New — found by the 2026-09-08 post-fix eval |
 | 45 | Eval harness: a judge `null` FactualCorrectness is scored as 0 rather than re-run | `fix/eval-harness-null-scores-and-truncation` | ✅ Done — confirmed and fixed. `measure()` never retried the CR8 failure at all (its `tries` loop only ran for rate limits), and **no mean was computed in the repo at all** — every published figure was hand-derived. Nulls are now retried, then recorded as unscored and excluded by a new null-safe `summarize()`. 22 new tests. The 900-char cap was measured and is **not** behind any current 0.0 — split out as Module 46. Result: `docs/gold-qa-wave2-results/MODULE45_RESULT.md` |
 | 46 | Eval harness: the 900-char answer cap silences whole answers, and its stated (Faithfulness) justification no longer exists | *(not yet branched)* | ⬜ New — found by Module 45. Proven with a positive control: an answer whose gold facts sit past char 900 scores **0.0** instead of 1.0. Does not fire on the committed run (only 2 of 32 answers exceed 900) but the current build produces 1,000–2,500-char KB answers. Cost of removing it: **under 2 s per metric, no extra judge calls.** **Settle before Module 27 runs.** |
@@ -1787,19 +1788,46 @@ decompose), and **M2**. Plus a non-gold paraphrase.
 
 ---
 
-# Module 42 — KB6 hard failure ⬜
+# Module 42 — KB6 hard failure ✅ investigated; the defect was in the harness
 
-KB6 is the **only** question scoring FactualCorrectness **0.0 AND
-AnswerRelevancy 0.0**, with **`route=None`**. The report calls it a *"genuine
-error, did not recover"* — it survived the credential fix that rescued 15 of
-the other 17 failures.
+**Branch:** `fix/kb6-hard-failure-route-none`
+**Result:** `docs/gold-qa-wave2-results/MODULE42_RESULT.md`
 
-`route=None` means it failed before or during classification, not in
-synthesis. Every other low scorer at least produces a fluent answer. **Start
-from the backend log for KB6's request**, not from the aggregate layer.
+**Finding, stated up front: `route=None` was never a pipeline state.** It was
+`evaluation/gold32_run.py`'s own **300s `urlopen` timeout**. KB6 takes
+428.8-628.2s on the runs that abstain, so the request was still in flight when
+the client gave up; the exception handler then recorded `route=None` with an
+empty answer, and `gold32_score.py` handed `"(no answer produced)"` to the
+judge, which scored it 0.0 on both metrics.
 
-**Verify:** KB6 live, repeatedly, plus the other seven KB questions to confirm
-no shared cause.
+Live, five runs, `admin@example.com`, All Cases: **`route='RAG'` on 5 of 5**,
+never `None`. That also explains the detail this plan flagged as most
+diagnostic — KB6 "did not recover" from the credential fix because correct API
+keys do not make a request finish inside 300 seconds.
+
+**KB6 is intermittent**, which the old harness hid: 4 of 5 runs abstain (and
+exceed 300s), 1 answers in 247.1s. Because passing the relevance gate early is
+what makes a run *fast*, the 300s ceiling did not sample KB6 randomly — it
+decided the published row by a coin flip.
+
+**Fixed here (harness only, `src/` untouched):** `GOLD32_TIMEOUT_S` (default
+900) replaces the hard-coded 300; a failed request records `transport_ok:
+False`; and such a row is left **unscored** rather than judged, so
+`summarize()` excludes it. Same principle as Module 45's "a judge `null` is not
+a zero", one layer earlier. 16 new tests in
+`tests/test_gold32_transport_failure.py`, pinned to KB6's literal gold text,
+with negative controls so a genuine abstention is still scored.
+
+**Not Module 39's gap, measured rather than argued.** Holding the chunk set
+constant *and containing gold's own statutory text*, `evaluate_relevance()`
+returns `relevant=True` **6/6** for an English phrasing and **1/6** for the
+roman-Urdu one; deleting the "and does our data show it?" clause makes it
+**worse** (0/3), not better. The gate cannot judge roman-Urdu against English
+statute text. Split out as **Module 48**; artefact in
+`evaluation/kb6_evaluator_language_experiment.json`.
+
+**Not fixed:** KB6 still does not reach gold. This module corrected the
+measurement, not the score, and says so.
 
 ---
 
@@ -1979,6 +2007,58 @@ checkable.
 This does not invalidate the post-fix report. It makes it unverifiable — which,
 for a document written expressly to be independently reproduced, is its own
 defect.
+
+---
+
+# Module 48 — the relevance gate cannot judge a roman-Urdu question against English statute text ⬜ new, not yet branched
+
+**Found while investigating Module 42.** This is what actually makes KB6
+abstain, once its `route=None` is understood to have been a harness timeout.
+
+The legal KB corpus is seven **English** statute books. Module 30 fixed the
+cross-language asymmetry for *retrieval* (English statute hypotheses) and for
+the *cross-encoder* (`cross_rerank_multi`). It was never fixed for the
+**evaluator**, which is now the only component in that path still reading the
+raw roman-Urdu question.
+
+Measured at Layer 1 (`evaluate_relevance()` called directly, temperature 0.0,
+`prompts/evaluator.txt` unmodified), **holding the chunk set constant and
+containing gold's own statutory text in every cell**:
+
+| | roman-Urdu | English |
+|---|---|---|
+| **compound** (gold KB6 shape) | **1/3 relevant** | **3/3 relevant** |
+| **norm-clause only** | **0/3 relevant** | **3/3 relevant** |
+
+English 6/6, roman-Urdu 1/6, on identical evidence. The live abstention rate
+(4 of 5 runs) matches the 1/3 cell independently.
+
+**This is not Module 39.** Deleting the "and does our data show it?" clause —
+Module 39's whole subject — makes the verdict *worse* (0/3, the weakest cell).
+It is also not Module 19b's compound rule, which is present in the prompt and
+whose absence is not what fails.
+
+**No cheap wiring change works**, all measured: the Module 30 statute
+hypothesis passed as `rewritten_query` **1/3**, as both arguments **2/3**, the
+live retry rewrite **0/3**, an English rendering appended to the original
+**0/3**. Only a genuine English *question* reaches 3/3.
+
+**Work:** on the legal-KB path only, give the evaluator an English rendering of
+the question, mirroring what Module 30 did for the cross-encoder. Note
+`prompts/evaluator.txt` is **not** the place — the compound rule there is
+correct and the 2×2 shows it is not the failing part.
+
+**Expected side benefit:** a gate that passes on attempt 1 stops KB6 paying six
+retrieve/rerank/evaluate rounds, collapsing its runtime from ~600s to ~250s and
+removing the timeout pressure Module 42 had to work around at its source.
+
+**Scope:** this gates the whole roman-Urdu half of the KB bucket, not just KB6.
+Blast radius is the shared RAG path, which already carries an open regression
+(Module 38, KB4), so this needs live re-verification of all eight KB questions,
+not just the one it was found on.
+
+**Artefact:** `evaluation/kb6_evaluator_language_experiment.json` — all five
+experiments, every verdict and reason, including the negative results.
 
 ---
 

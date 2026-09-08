@@ -23,7 +23,8 @@ PW = os.environ.get("EVAL_ADMIN_PASSWORD", "")
 # what produced KB6's uniquely bad row in the 2026-09-08 report:
 # FactualCorrectness 0.0 AND AnswerRelevancy 0.0 with route=None, reported
 # there as a "genuine error, did not recover". Measured live on this branch,
-# KB6 takes 513-628s: it is a legal-KB question in All-Cases scope, so it pays
+# KB6 takes 428-628s on the 4 runs in 5 that abstain (the 1 that answers takes
+# 247.1s): it is a legal-KB question in All-Cases scope, so it pays
 # a KB-only retrieval pass AND a mixed-pool fallback pass, three evaluator
 # attempts each — six rounds of retrieve/rerank/evaluate. The request was
 # therefore still in flight when urlopen() gave up; the exception handler in

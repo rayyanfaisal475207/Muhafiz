@@ -419,8 +419,9 @@ def main(argv=None):
         # and it duly returns 0.0 on every metric. That is what put KB6 in the
         # 2026-09-08 report as FactualCorrectness 0.0 AND AnswerRelevancy 0.0
         # with route=None, described as a "genuine error, did not recover",
-        # when live it returns route='RAG' every time and simply takes longer
-        # than the runner's old 300s ceiling.
+        # when live it returns route='RAG' on 5 runs of 5 and simply takes
+        # longer than the runner's old 300s ceiling on the 4 of those 5 that
+        # abstain (428.8-628.2s; the run that answers takes 247.1s).
         #
         # Same principle as Module 45's null handling, one layer earlier: an
         # unscored row is EXCLUDED from every mean by summarize(), so a

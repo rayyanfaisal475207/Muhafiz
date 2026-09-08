@@ -12,13 +12,17 @@ did not recover"* — the one failure that survived the credential fix which
 rescued 15 of the other 17.
 
 Measured live on this branch, five runs, `admin@example.com`, All Cases:
-KB6 returns **`route='RAG'` 5 times out of 5** and takes **513-628 seconds**.
-It is a legal-KB question in All-Cases scope, so it pays a KB-only retrieval
-pass *and* a mixed-pool fallback pass at three evaluator attempts each — six
-rounds of retrieve/rerank/evaluate. The old hard-coded 300s ceiling expired
-mid-request; `main()`'s exception handler wrote `route=None` with an empty
-answer; and the scorer fed `"(no answer produced)"` to the judge, which
-scored it 0.0 on both metrics.
+KB6 returns **`route='RAG'` 5 times out of 5**. Four of those five abstain and
+take **428.8-628.2 seconds**; the fifth answers in **247.1s**. Passing the
+relevance gate early is what makes a run fast, so the 300s ceiling did not
+sample KB6 randomly -- it decided the published row by a coin flip.
+
+KB6 is slow because it is a legal-KB question in All-Cases scope: it pays a
+KB-only retrieval pass *and* a mixed-pool fallback pass at three evaluator
+attempts each — six rounds of retrieve/rerank/evaluate. The old hard-coded
+300s ceiling expired mid-request; `main()`'s exception handler wrote
+`route=None` with an empty answer; and the scorer fed `"(no answer produced)"`
+to the judge, which scored it 0.0 on both metrics.
 
 Nothing in that row described the pipeline. `route=None` meant "the SSE stream
 was never read", not "classification failed".
@@ -104,7 +108,7 @@ class TestRunnerTimeout:
         )
 
     def test_timeout_clears_the_slowest_question_measured_live(self):
-        # KB6 measured at 513.5, 599.0, 628.2, and two more runs, on this
+        # KB6 measured at 628.2, 599.0, 513.5, 428.8 and 247.1s, on this
         # machine with two sibling worktrees running concurrently.
         assert gr.TIMEOUT_S >= 700, (
             "KB6 takes up to 628s live; a ceiling below that reintroduces the "
