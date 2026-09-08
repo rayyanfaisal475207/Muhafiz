@@ -72,8 +72,34 @@ RATE_LIMIT_RETRIES = 8
 # it yields no number, so it is retried and then recorded as unscored.
 ATTEMPT_TIMEOUT_S = 120
 
+# Provider signatures for "the call failed for a reason that is the provider's,
+# not the answer's" — retried on the separate budget above rather than the null
+# budget. Groq says "rate limit"; Gemini says `RESOURCE_EXHAUSTED`; both can
+# also surface a bare `429` (Module 42, Module 46).
+#
+# [Module 54] `503 UNAVAILABLE ... 'This model is currently experiencing high
+# demand.'` was in NEITHER of the earlier patterns. It is a transient CAPACITY
+# failure rather than a quota failure, but it has exactly the same consequence
+# (the call did not happen) and exactly the same invisibility — Module 50 hit it
+# live and the quota check reported a clean run over a failed call. Kept in one
+# tuple deliberately: every consumer of this list cares about "transient
+# provider failure", not about which of the two it was.
 _RATE_LIMIT_MARKERS = ("RateLimit", "rate_limit", "429", "RESOURCE_EXHAUSTED",
-                       "ResourceExhausted", "quota")
+                       "ResourceExhausted", "quota", "UNAVAILABLE", "503",
+                       "rate limit")
+
+# The same four provider signatures as a grep -E alternation, kept HERE so the
+# docs that prescribe the log check and the code that classifies a judge error
+# cannot drift apart. Every file that tells a reader how to certify a live run
+# must prescribe exactly:
+#
+#     grep -ciE "rate limit|RESOURCE_EXHAUSTED|429|quota|UNAVAILABLE|503" backend.log
+#
+# A bare `grep -c "rate limit"` reports 0 over a Gemini 429 and over a 503, i.e.
+# it certifies a clean run on top of a failed call. tests/
+# test_provider_failure_visibility.py asserts the prescriptive docs match this
+# constant and that no bare form survives.
+LOG_GREP_PATTERN = "rate limit|RESOURCE_EXHAUSTED|429|quota|UNAVAILABLE|503"
 
 # "Pass" in the project's reports means FactualCorrectness >= 0.5 — deliberately
 # more lenient than the metric's own 0.6 threshold. Kept here so the pass rate
@@ -253,7 +279,14 @@ def _measure_once(metric, tc, box):
 
 
 def _is_rate_limit(exc):
-    return exc is not None and any(x in str(exc) for x in _RATE_LIMIT_MARKERS)
+    # [Module 54] Case-insensitive. Groq's own message is "due to rate limits"
+    # (a space, lower case) which the CamelCase/underscore markers above did
+    # not match at all -- the code classifier and the prescribed log grep
+    # disagreed about the most common signature of the two.
+    if exc is None:
+        return False
+    err = str(exc).lower()
+    return any(x.lower() in err for x in _RATE_LIMIT_MARKERS)
 
 
 def measure(metric, tc, tries=NULL_RETRIES, rate_limit_tries=RATE_LIMIT_RETRIES,
