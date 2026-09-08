@@ -90,7 +90,7 @@ several can run in parallel chats/worktrees without colliding.
 | 45 | Eval harness: a judge `null` FactualCorrectness is scored as 0 rather than re-run | `fix/eval-harness-null-scores-and-truncation` | ✅ Done — confirmed and fixed. `measure()` never retried the CR8 failure at all (its `tries` loop only ran for rate limits), and **no mean was computed in the repo at all** — every published figure was hand-derived. Nulls are now retried, then recorded as unscored and excluded by a new null-safe `summarize()`. 22 new tests. The 900-char cap was measured and is **not** behind any current 0.0 — split out as Module 46. Result: `docs/gold-qa-wave2-results/MODULE45_RESULT.md` |
 | 46 | Eval harness: the 900-char answer cap silences whole answers, and its stated (Faithfulness) justification no longer exists | *(not yet branched)* | ⬜ New — found by Module 45. Proven with a positive control: an answer whose gold facts sit past char 900 scores **0.0** instead of 1.0. Does not fire on the committed run (only 2 of 32 answers exceed 900) but the current build produces 1,000–2,500-char KB answers. Cost of removing it: **under 2 s per metric, no extra judge calls.** **Settle before Module 27 runs.** |
 | 47 | The 2026-09-08 post-fix evaluation's artefacts were never committed — `gold32_results.json` on `main` is the 2026-09-06 Module 9 run | *(not yet branched)* | ⬜ New — found by Module 45. The report names those files as its sources, but they were last written by `d313a60` and reproduce Module 9's numbers (0.394 / 13-of-32), not the report's (0.572 / 19-of-32). Modules 41–44 are specified against figures with no artefact behind them. |
-| 40 | M4's Meta-Analysis synthesis rejected by the verifier — completes 1 run in 5 | `fix/meta-analysis-m4-synthesis-verifier-rejection` | 🟡 Branch pushed, **unverified** — an interrupted agent committed a fix; no live measurement, no result file, no PR |
+| 40 | M4's Meta-Analysis synthesis rejected by the verifier — **superseded for M4 by Module 41; being re-scoped to CR3/G6** | `fix/meta-analysis-m4-synthesis-verifier-rejection` | 🟡 Branch pushed, unverified. **Module 41 made M4 skip Meta-Analysis entirely**, so this fix targets a path M4 no longer takes. Decision 2026-09-08: rebase after Module 50 and re-target at CR3/G6, the questions that still decompose. See its section below. |
 | 48 | KB2 and KB9 answer fluently but factually wrong (FC 0.0 / AR 1.0) after Module 30 fixed their retrieval | *(not yet branched)* | ⬜ New — the last two KB questions with no module of their own |
 | 49 | KB3 reaches Police Order Article 18 but still scores 0.1 — it quotes the article without drawing gold's conclusion | *(not yet branched)* | ⬜ New — Module 30 got the chunk in; the synthesis half is unaddressed |
 | 50 | G1/G6 consolidation: wire Modules 31–36's aggregates into their decomposition plans, and settle `_MAX_SUB_QUERIES` | *(not yet branched)* | ⬜ New — **the aggregates exist but nothing calls them**, which is why G1 sits at 0.1 and G6 at 0.3 |
@@ -2179,6 +2179,54 @@ about incident times being "fairly flat across the day" is a date-only
 artefact — 14 rows sit at exactly 00:00:00. Do not tune toward gold's wording
 there; Module 34's corrected reading is better supported and both are in the
 answer.
+
+---
+
+# Module 40 — M4's verifier rejection: superseded for M4, re-scoped to CR3/G6 🟡
+
+**Branch:** `fix/meta-analysis-m4-synthesis-verifier-rejection` — pushed, two
+commits, **never live-verified**. Real work: `meta_analysis.py` (+113),
+`verifier.py` (+111), the decomposer prompt, 410 lines of tests, and a 530-line
+result file.
+
+**Why it was filed.** Module 24 measured M4 completing end to end on only **1
+run in 5**, with three failures rejected by the Meta-Analysis synthesis
+verifier — on a branch that already contained Module 25's merged fix. So PR #16
+did not cover this case.
+
+**Why its premise no longer holds.** Module 41 (PR #31) generalised the
+supervisor guard: any query XAGG resolves to a specific aggregate now skips
+decomposition. Measured on `main` @ `687c87a`:
+
+```
+M4  resolve=statute_court_stage_join   skips_decomposition=True
+```
+
+**M4 no longer reaches Meta-Analysis at all.** The code path this module fixes
+is one its own question no longer takes. Module 41 solved M4 structurally, and
+by routing rather than by hardening the verifier.
+
+**Why the work is not discarded.** CR3 and G6 still genuinely decompose
+(`skips_decomposition=False`, and their deterministic plans win ahead of the
+guard at `supervisor.py:653`). **CR3 is measurably unstable** — across Module
+29's runs it produced one refusal, one wrong companion FIR, one sub-query
+timeout and one good answer. That is the same synthesis-verification territory
+this module hardened, so the changes may well pay off there. Nobody has tested
+that, because the module was never live-verified.
+
+**Decision, 2026-09-08:** rebase onto `main` **after Module 50 lands** (Module
+50 is editing `meta_analysis.py` now, and merging into a live dispatch path is
+what caused a real worktree incident earlier today), then **re-target the
+verification at CR3 and G6** rather than M4.
+
+**Verify, when resumed:** CR3 and G6 live, several runs each — the instability,
+not a single good run, is the thing to fix. Confirm a genuinely hallucinated
+synthesis is still rejected; a verifier that passes everything is worse than
+one that is too strict. Regression-guard M2, G2/G5 (Module 41) and M4 itself,
+which must keep skipping decomposition.
+
+**If CR3 and G6 turn out not to need it,** close this module as superseded and
+say so — that is a legitimate outcome, as Module 21 established.
 
 ---
 
