@@ -19,6 +19,10 @@ excluding KB, **14/32** passing.
 | 29 | CR3/G1/G6 — Meta-Analysis decomposition | `MODULE29_RESULT.md` | done — G1/G6 pass, CR3 partial; gap analysis split out as Modules 31–36 |
 | 30 | KB3/KB8/KB9 — retrieval completeness | `MODULE30_RESULT.md` | done — KB3/KB8/KB9 stopped abstaining; new defects split out as Modules 37–39 |
 | 27 | Final Gold-32 rerun | `MODULE27_RESULT.md` | queued (last) |
+| 31 | G1 — offender age profile | `MODULE31_RESULT.md` | done — aggregate live and correct; G1 unchanged (not yet wired into its plan) |
+| 32 | G1 — accused↔complainant relationship | `MODULE32_RESULT.md` | done — same; kills the person-recurrence fall-through |
+| 33 | G1 — seized-property disposition | `MODULE33_RESULT.md` | done — same; reproduces gold's 13 / 7 exactly |
+| 34 | G1 — incident time-of-day | `MODULE34_RESULT.md` | done — same; gold's "flat across the day" is a date-only artefact |
 
 ## Required shape for each result file
 

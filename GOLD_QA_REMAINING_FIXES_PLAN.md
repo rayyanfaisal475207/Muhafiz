@@ -74,10 +74,10 @@ several can run in parallel chats/worktrees without colliding.
 | 28 | CR4 routing miss (weapon-recovery chain sent to cross-case entity linkage) | `fix/router-weapon-evidence-chain-to-xagg` | ✅ **PR #19 open** — routing fixed AND a new aggregate added (none existed); CR4 now returns gold's exact chain live; all-32 negative control clean; results: `docs/gold-qa-wave2-results/MODULE28_RESULT.md` |
 | 29 | Meta-Analysis decomposer doesn't split broad synthesis asks into XAGG-shaped sub-questions (CR3/G1/G6) | `fix/meta-analysis-decompose-broad-synthesis` | ✅ **PR #23 open** — deterministic decomposition plans added; G1, G6 and G1's paraphrase now return real synthesized answers built from computed aggregates, CR3 partially; gap analysis split out as Modules 31–36; results: `docs/gold-qa-wave2-results/MODULE29_RESULT.md` |
 | 30 | KB3/KB8/KB9 retrieval-completeness gap (correct statutory chunk never enters the candidate pool) | `fix/kb-retrieval-completeness-statutory-chunks` | ✅ **PR #24 open** — four causes found and fixed, plus a fifth (mid-sentence chunks) found only after the first four; KB3/KB8/KB9 all went from abstaining to answering live, KB8 matching gold's statutory half exactly. Evaluator NOT changed. Ran against a private copy of Chroma. Result: `docs/gold-qa-wave2-results/MODULE30_RESULT.md` |
-| 31 | G1 — offender age profile: no XAGG aggregate, and a now-stale hard refusal | *(not yet branched)* | ⬜ New — found by Module 29's gap analysis |
-| 32 | G1 — accused ↔ complainant relationship breakdown: no XAGG aggregate | *(not yet branched)* | ⬜ New — found by Module 29's gap analysis |
-| 33 | G1 — seized-property disposition counts: no XAGG aggregate | *(not yet branched)* | ⬜ New — found by Module 29's gap analysis |
-| 34 | G1 — incident time-of-day distribution: no XAGG aggregate | *(not yet branched)* | ⬜ New — found by Module 29's gap analysis |
+| 31 | G1 — offender age profile: no XAGG aggregate, and a now-stale hard refusal | `feature/xagg-g1-caseload-profile-aggregates` | ✅ Done — aggregate live (24–49, mean 31.5); G1 itself unchanged, see §31 |
+| 32 | G1 — accused ↔ complainant relationship breakdown: no XAGG aggregate | `feature/xagg-g1-caseload-profile-aggregates` | ✅ Done — اجنبی 15 of 24; person-recurrence fall-through killed |
+| 33 | G1 — seized-property disposition counts: no XAGG aggregate | `feature/xagg-g1-caseload-profile-aggregates` | ✅ Done — 13 forensic-lab / 7 heirs, matches gold exactly |
+| 34 | G1 — incident time-of-day distribution: no XAGG aggregate | `feature/xagg-g1-caseload-profile-aggregates` | ✅ Done — gold's "flat across the day" is a date-only artefact |
 | 35 | G6 — arrest rate: no XAGG aggregate | *(not yet branched)* | ⬜ New — found by Module 29's gap analysis |
 | 36 | CR3 — subject-filtered FIR listing: no aggregate returns FIR numbers filtered by statute/station/crime type | *(not yet branched)* | ⬜ New — found by Module 29's live runs |
 | 37 | Orphaned `chunk_fulltext` rows: 2,243 CrPC chunks in the BM25 index that no longer exist in Chroma | *(not yet branched)* | ⬜ New — found by Module 30 |
@@ -905,98 +905,208 @@ recorded in `_SQ_CASE_LISTING`'s own comment.
 
 ---
 
-# Module 31 — G1: offender age profile has no aggregate (and a stale refusal) ⬜
+# Module 31 — G1: offender age profile ✅
 
-**Found by:** Module 29's gap analysis. **File:** `src/pipeline/xagg.py`
-(plus one sub-query line in `meta_analysis.py`'s `caseload_review` plan).
+**Branch:** `feature/xagg-g1-caseload-profile-aggregates` (Modules 31–34,
+one commit each). **File:** `src/pipeline/xagg.py` + the harness wrapper and
+the two orchestrator rendering sites. **Full writeup:**
+`docs/gold-qa-wave2-results/MODULE31_RESULT.md`, which also carries the
+**shared** live G1 run and the shared new-defect list for Modules 31–34.
 
-Gold G1 states the accused are "between 24 and 49 (average ~31)". Probed
-live: `Person.age` **is populated** — 19 nodes, min **24**, max **49**, mean
-**31.8** — projected by `structured_projection.py` since Module 1d. But
-`run_aggregate()` still answers any age question with the hard refusal
-`_UNSUPPORTED_AGE` ("accused/witness age is not currently extracted into
-this system's data model"), which was written *before* that projection
-existed. **The refusal is stale and now says something untrue.**
+**The hypothesis was right.** `_UNSUPPORTED_AGE` ("accused/witness age is
+not currently extracted into this system's data model") was false and had
+been since Module 1d. Probed live before writing anything: 19 `Person` nodes
+carry an age, 19 of 94 accused edges reach one, **17 of 92 distinct accused**,
+range **24–49**, mean **31.5** accused-scoped (31.8 corpus-wide — the plan
+quoted the corpus-wide figure; both round to gold's "~31").
 
-**Work:** an `_offender_age_profile()` aggregate (min/max/mean, and the
-count of accused with no age recorded — 19 of 94 accused edges carry one, so
-the coverage caveat is essential), replacing `_AGE_KEYWORDS`' refusal
-branch. Watch the ordering: `_AGE_KEYWORDS` is checked FIRST in
-`run_aggregate()`, ahead of every entity family, so the replacement inherits
-that precedence and must not swallow other questions.
+**Built:** `_offender_age_profile()` — range, mean, and BOTH denominators
+(distinct accused and accused entries, because A1/G3's gold answers use the
+latter). `_UNSUPPORTED_AGE` kept but demoted to the data-driven
+empty-corpus fallback. `_AGE_KEYWORDS` keeps its first-in-the-chain
+precedence; the all-32 negative control asserts it matches **no** gold
+question directly (equality, not containment).
 
-**Verify:** the literal G1 sub-question "How many cases involve an accused
-person, and what is their age range and average age, across all cases?"
-returns 24/49/31.8 with an explicit coverage caveat; negative-control the
-keyword family against all 32 gold questions.
+**Nationality: not fixed, stated.** Gold's "all Pakistani nationals" is not
+derivable — no nationality field exists anywhere in the data model. The
+answer says so outright rather than letting it be inferred from Urdu names.
 
----
+**Live** (`route='XAGG'`, 23.4 s, `status=done`, proved by
+`XAGG offender_age_profile:` in `backend.log`): *"92 distinct accused … 17
+have recorded ages … 24 to 49 … mean 31.5 … 75 of the 92 accused have no age
+recorded … Nationality data is entirely absent."*
 
-# Module 32 — G1: accused ↔ complainant relationship breakdown has no aggregate ⬜
-
-**Found by:** Module 29's gap analysis. **File:** `src/pipeline/xagg.py`.
-
-Gold G1: "where an accused–complainant relationship is recorded at all,
-'stranger' dominates". Probed live: the edges **exist** —
-`Person-[:RELATED_TO {role}]->Person`, 24 of them, written by
-`structured_projection._write_relationships()` from
-`fir_accused.relationship_to_victim`/`relationship_to_complainant`:
-**اجنبی (stranger) 15**, محلے دار 2, ساس 2, سینئر ساتھی کار 2, شوہر 2,
-بھائی 1.
-
-There is **no keyword family and no aggregate** for this. A relationship
-sub-question today falls through `run_aggregate()`'s chain to
-`_PERSON_KEYWORDS` and is answered by the person-RECURRENCE path — "4 people
-appear in 2 cases each" — confidently, wrongly, with no caveat. That silent
-fall-through is the defect, as much as the missing aggregate.
-
-**Work:** `_accused_relationship_breakdown()` over the `RELATED_TO` edges,
-with the coverage caveat (24 relationships recorded against 94 accused
-edges). **Verify:** the sub-question returns اجنبی as the dominant value
-with its count; negative-control against G5/CR2/CP1, which contain person
-vocabulary and must keep their current answers.
+**Gold comparison: 2 of 4.** Range and mean match exactly. Gold's "every
+accused … none younger or older" is an overclaim on 18% coverage and the
+answer says so; nationality is not derivable. Reported, not tuned.
 
 ---
 
-# Module 33 — G1: seized-property disposition counts have no aggregate ⬜
+# Module 32 — G1: accused ↔ complainant relationship breakdown ✅
 
-**Found by:** Module 29's gap analysis. **File:** `src/pipeline/xagg.py`.
+**Full writeup:** `docs/gold-qa-wave2-results/MODULE32_RESULT.md`.
 
-Gold G1: "13 items sent to a forensic lab and 7 held for return to a
-deceased's heirs". Probed live: **exactly reproducible** from the graph —
-45 `StructuredRecord {record_type:'malkhana_register'}` nodes, grouped by
-`condition`: **13** `سیل بند، نمونہ فرانزک لیبارٹری بھجوایا گیا`, **7**
-`ورثاء کے حوالے کیا جائے گا`, 14 ضبط شدہ, 6 مدعی کے حوالے کے لیے محفوظ,
-plus 5 singletons (three of which also mention فرانزک in other wordings —
-whether the headline count is 13 or 16 depends on whether "sent to the lab"
-means literally dispatched; gold's 13 is the literal reading, and the
-module should say which it used).
+**The hypothesis was right, including that the silent fall-through is as
+much the defect as the missing aggregate.** Measured pre-fix, in process:
+the relationship sub-question returned `graph_recurrence`/Person — a ranked
+list of repeat offenders — because "accused" is in `_PERSON_KEYWORDS`.
 
-No aggregate exists; the sub-question falls through to person-recurrence.
+**Probed live:** 24 `RELATED_TO` edges across **10 FIRs** — اجنبی 15,
+محلے دار 2, ساس 2, سینئر ساتھی کار 2, شوہر 2, بھائی 1 — and only **12 of 92**
+distinct accused carry any relationship. Reproduces the plan exactly.
 
-**Work:** `_seized_property_disposition()` grouping malkhana entries by
-disposition, with the FIR count each disposition touches.
+**Built:** `_accused_relationship_breakdown()`, ranked with a per-value FIR
+count, the dominant value named, an English gloss (display-only; unmapped
+values pass through verbatim), and the coverage caveat. Two counting
+decisions published rather than hidden: the raw edge count is the headline
+(gold's denominator) with `distinct_pair_count` (**22**) alongside it, and
+jurisdiction scoping uses the edge's own `source_doc_id` — walking to `Case`
+turns 24 edges into 27 rows.
+
+**Ordering:** below G3/G2 (G3 reads this same data as a completeness gap and
+scores 1.0 — asserted end to end), decisively above `_PERSON_KEYWORDS`.
+The bare Urdu "تعلق" is excluded: it is a substring of "متعلق" in KB4.
+
+**Live** (`route='XAGG'`, 22.1 s, `status=done`): اجنبی (stranger) 15 of 24
+across 10 FIRs, with the 12-of-92 coverage caveat. No recurrence ranking
+anywhere in the answer.
+
+**Gold comparison: 3 of 4**, with the fourth qualified rather than agreed
+with — gold's "largely stranger-perpetrated crime" is an inference over the
+12 accused who have a record, not the 92 who exist.
 
 ---
 
-# Module 34 — G1: incident time-of-day distribution has no aggregate ⬜
+# Module 33 — G1: seized-property disposition counts ✅
 
-**Found by:** Module 29's gap analysis. **File:** `src/pipeline/xagg.py`.
+**Full writeup:** `docs/gold-qa-wave2-results/MODULE33_RESULT.md`.
 
-Gold G1: "incident times are fairly flat across the day with only a mild
-evening lean". Probed live from `Incident.incident_datetime` (Module 22's
-own projection, present on **64 of 73**): evening 18–24 **19**, afternoon
-12–18 **16**, night 00–06 **15**, morning 06–12 **14**. Gold's reading is
-correct and computable today.
+**The plan's stated root cause was wrong about the branch.** It predicted a
+person-recurrence fall-through; the measured pre-fix result was
+`kind="case_listing"` — the unfiltered **73-row corpus dump** — because the
+sub-query ends "…, across all cases?" and that contains the literal
+`_LIST_ALL_KEYWORDS` entry "all cases". Same class of defect, different
+branch.
 
-No aggregate exists; the sub-question falls through to the `_LIST_ALL_KEYWORDS`
-branch and returns a raw 73-case listing.
+**Probed live:** 45 `malkhana_register` entries across **28 FIRs** —
+ضبط شدہ 14 (13 FIRs), forensic-lab dispatch **13** (11 FIRs), ورثاء **7**
+(7 FIRs), مدعی کے حوالے 6 (6 FIRs), plus 5 singletons. Gold's 13 and 7
+reproduce exactly. Note `source_case_ref` is **empty on every malkhana row**,
+so FIR attribution comes from the `BELONGS_TO_CASE` edge.
 
-**Work:** `_incident_time_of_day()` bucketing `incident_datetime` by hour
-band, over the same 64/73 coverage Module 22 documents, with that coverage
-stated. Note that 9 incidents record 00:00:00 exactly, which is a
-date-only value rather than a real midnight — decide and document how those
-are treated before reporting a "night" count.
+**Built:** `_seized_property_disposition()`, grouped verbatim by
+disposition, with BOTH an item count and a FIR count per group (13 lab items
+span 11 FIRs — conflating them is the easiest way to report a wrong number).
+The 13-vs-16 question the plan raised is answered by a **published rule**:
+16 entries mention a forensic process in some wording, only 13 record an
+actual dispatch; the headline uses the literal reading — gold's — and the
+answer says so.
+
+**Ordering:** below G5's compliance scan and CR4's attribution chain
+(adjacent subjects, G5 scores 1.0 — asserted end to end), above
+`_LIST_ALL_KEYWORDS`. Matches "forensic lab"/"forensic laboratory", never a
+bare "forensic" — KB6 says "forensics guidelines".
+
+**Live** (`route='XAGG'`, 21.0 s, `status=done`): 45 items across 28 FIRs,
+13 in 11 FIRs sent to a forensic laboratory, 7 in 7 FIRs held for heirs,
+counting rule intact. **Gold comparison: both countable claims exact.**
+
+---
+
+# Module 34 — G1: incident time-of-day distribution ✅
+
+**Full writeup:** `docs/gold-qa-wave2-results/MODULE34_RESULT.md`.
+
+**The plan's branch prediction was right** (`case_listing`, same "all cases"
+substring as Module 33) **and its midnight figure was wrong, in a way that
+reverses one of gold's claims.**
+
+The plan states 9 incidents record 00:00:00 exactly. The live count is
+**14**; **9** is the number of Incidents carrying no datetime at all. And 14
+of the 15 naive "night" incidents ARE those date-only rows — the only
+genuine overnight incident in the corpus is one at 01:00.
+
+**Built:** `_incident_time_of_day()`, excluding exact-midnight rows as
+date-only and reporting them as `date_only_count`, while also returning
+`naive_bucket_counts` so the difference is auditable. Only exact midnight is
+excluded; a real 00:30 incident stays in the night band.
+
+| Band | Naive (64) | With clock time (50) |
+|---|---|---|
+| evening 18–24 | 19 | **19 (~38%)** |
+| afternoon 12–18 | 16 | 16 (~32%) |
+| morning 06–12 | 14 | 14 (~28%) |
+| night 00–06 | 15 | **1 (~2%)** |
+
+**Ordering:** above `_TIME_COMPARISON_KEYWORDS` (M1), `_TREND_KEYWORDS`
+("over time" — an hour-of-day question is not a time series) and
+`_LIST_ALL_KEYWORDS`; below M7's reporting-speed comparison (asserted end to
+end). The bare Urdu "رات" is a substring of "کراتا" (CR6) and "شام" of
+"شامل" (KB5); only bound forms are matched, both collisions pinned.
+
+**Live** (`route='XAGG'`, 27.2 s, `status=done`): both readings and the rule
+separating them survived generation intact.
+
+**Gold comparison: gold's conclusion is right, its stated reason is an
+artefact.** "A mild evening lean" holds and is stronger than gold says
+(38%). "Fairly flat across the day" holds only if 14 date-only timestamps
+are read as real midnights — on recorded clock times, overnight is close to
+empty. Gold's operational conclusion (no night-crime patrol case) survives,
+better supported by the corrected reading than by gold's own.
+
+---
+
+# Modules 31–34 — what is NOT done, and why ⬜
+
+**G1's answer is unchanged by these four modules.** The aggregates exist,
+are correct against the live graph, and are reachable — each verified live
+with `route='XAGG'` and its own `backend.log` line — but `caseload_review`
+in `harness/agents/meta_analysis.py` still emits its original five
+sub-queries, so none of the four fires during G1. The live G1 run confirms
+this: `['XNETWORK','XAGG','XAGG','XAGG','XAGG','XAGG']`, plan
+`'caseload_review'` matched, and **no** new aggregate log line anywhere in
+its section of the log.
+
+Wiring them needs `meta_analysis.py`, **owned by another track this wave**,
+plus a decision on `_MAX_SUB_QUERIES = 5`: that plan is already full, and
+Module 29 recorded a sixth candidate (Module 24's statute×court-stage join)
+waiting on the same cap. Module 29's own report names this cap decision as
+something "Modules 31-34 need". It is a decomposition change, not an
+aggregate change, and belongs in its own module.
+
+The four canonical sub-query strings are pinned in `tests/test_xagg.py`
+(`_G1_SQ_ACCUSED_AGE`, `_G1_SQ_RELATIONSHIP`, `_G1_SQ_SEIZED_PROPERTY`,
+`_G1_SQ_TIME_OF_DAY`) and each is asserted to route deterministically to
+XAGG, so whoever wires them can copy them across unchanged.
+
+**Three further defects found and deliberately left unfixed** — detail in
+`MODULE31_RESULT.md` §8:
+
+1. `XAggToolResult.aggregate_kind` is a hand-maintained `Literal` that no
+   test forced anyone to update. All four new kinds were missing, which
+   produced an **empty answer with `status=None` and no user-visible error**
+   while every unit test stayed green. Fixed here plus a membership test,
+   but this is the **fourth** module family to hit it (13, 22, 23/24, 31–34)
+   — deriving it from `run_aggregate()` deserves its own module.
+2. `_XGRAPH_OVERRIDE_PATTERNS`' `\bacross\b.{0,15}\bcases\b` swallows any
+   sub-query written in `meta_analysis.py`'s natural "…, across all cases?"
+   house style. Three of the four first drafts came back `route='XGRAPH'`
+   live. Worked around by leading each with "How many cases …" rather than
+   widening `router.py` (another track's file).
+3. Generation can silently re-filter a rendered aggregate: Module 33's
+   paraphrase computed the correct 45 items / 28 FIRs but reported "2
+   FIR(s)", having keyword-filtered the rendering on "مالخانہ" from the
+   question. The claim verifier caught it, so it did not ship silently.
+
+**Regression guard, all re-run live after the four modules landed:** M5 ✅,
+G5 ✅, G3 ✅ (82 of 94 — the figure `MODULE24_RESULT.md` already recorded;
+gold says 81), CR7 ✅, G6 ✅. **M4** returned the statute half only across
+three runs — the pre-existing instability Module 24 already documented
+("completed end to end on only 1 of 5 runs"; its route is LLM-decided and
+usually not XAGG). `git diff c797e70..HEAD` touches only `xagg.py`,
+`orchestrator.py`, `harness/tools/xagg.py` and `tests/test_xagg.py`, and
+removes exactly **four** lines from `xagg.py` — all in the old AGE refusal
+branch — so no other aggregate changed.
 
 ---
 
