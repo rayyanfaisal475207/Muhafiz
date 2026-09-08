@@ -23,7 +23,10 @@ excluding KB, **14/32** passing.
 | 32 | G1 — accused↔complainant relationship | `MODULE32_RESULT.md` | done — same; kills the person-recurrence fall-through |
 | 33 | G1 — seized-property disposition | `MODULE33_RESULT.md` | done — same; reproduces gold's 13 / 7 exactly |
 | 34 | G1 — incident time-of-day | `MODULE34_RESULT.md` | done — same; gold's "flat across the day" is a date-only artefact |
+| 35 | G6 — arrest rate | `MODULE35_RESULT.md` | done — aggregate live with a published rule; **1 in 6.6**, not gold's 1 in 9 |
+| 36 | CR3 — subject-filtered FIR listing | `MODULE36_RESULT.md` | done — returns `fir-64-26`/`fir-65-26` exactly; wiring into `record_consistency` deferred behind Module 41 |
 | 45 | Eval harness — a judge `null` scored as zero | `MODULE45_RESULT.md` | done — nulls retried then excluded from the mean; the 900-char cap tested and cleared of every current 0.0; split out as Modules 46–47 |
+| 41 | G2/G5 — Meta-Analysis over-decomposition (regression) | `MODULE41_RESULT.md` | done — guard generalised from one pattern list to "does XAGG resolve this?"; G2/G5 correct and deterministic on 3/3 live runs each |
 | 42 | KB6 — `route=None`, FC 0.0 **and** AR 0.0 | `MODULE42_RESULT.md` | done — **not a pipeline defect**: `route=None` was the harness's own 300s client timeout, live KB6 is `route='RAG'` 5/5. A timeout is now unscored, not a 0.0. The real cause of the abstention (a cross-language relevance gate) split out as Module 52 |
 
 ## Required shape for each result file
