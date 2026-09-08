@@ -8,20 +8,68 @@ Scoring philosophy (per the testing team's explicit guidance):
 
 So the primary metric is a custom G-Eval 'FactualCorrectness' that rewards
 semantic coverage of the key facts and penalizes contradiction/omission, NOT
-lexical overlap. We also compute Answer Relevancy and Faithfulness, and derive
-a pass/fail classification for precision/recall/F1.
+lexical overlap. Answer Relevancy is computed alongside it. (Faithfulness was
+dropped — see the _METRICS comment.)
 
-Judge: Qwen via Groq (3-key rotation), fully local orchestration.
+Judge: Gemini `gemini-flash-lite-latest` (see `_judge()`).
 
-Run: .venv/Scripts/python.exe evaluation/gold32_score.py
+Two integrity rules this script enforces (Module 45) — both exist because a
+number that is quietly wrong is worse than no number at all:
+
+  1. A judge that returns NO score is UNSCORED, never zero. `measure()` retries
+     a bounded number of times with backoff; if the judge still will not
+     produce a number, the row records `None` and `summarize()` EXCLUDES it
+     from every mean. CR8 in the 2026-09-08 run returned a bare `null` for
+     FactualCorrectness and re-scored to 1.0 — read as a zero it would have
+     dragged the published all-32 mean down by 0.031 on its own.
+  2. The mean is computed HERE, by `summarize()`, not by hand in a report.
+     One authoritative null-safe calculation, so no report can re-derive a
+     different number from the same file.
+
+Run:
+  .venv/Scripts/python.exe evaluation/gold32_score.py          # score + summary
+  .venv/Scripts/python.exe evaluation/gold32_score.py --summary  # summary only,
+                                                    # no judge calls, no writes
 """
 from __future__ import annotations
-import json, os, sys, time
+import json, os, sys, threading, time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUTPUTS = os.path.join(HERE, "gold32_pipeline_outputs.json")
 RESULTS = os.path.join(HERE, "gold32_results.json")
+
+# Best-effort .env load so GEMINI_API_KEY is present when this script is run
+# directly. Without it the judge is silently constructed with api_key=None and
+# every question fails identically — which looks like a model outage.
+try:  # pragma: no cover - convenience only
+    from dotenv import load_dotenv
+
+    load_dotenv(os.path.join(os.path.dirname(HERE), ".env"))
+except Exception:  # noqa: BLE001
+    pass
+
+# How many chars of the answer the judge is shown. See `truncate_for_scoring`.
+MAX_ANSWER_CHARS = int(os.environ.get("GOLD32_MAX_ANSWER_CHARS", "900"))
+TRUNCATION_MARKER = " …[truncated for scoring]"
+
+# A metric that produces no number is retried this many times before the row is
+# recorded as UNSCORED. Rate-limit retries are counted separately (below) so a
+# quota wobble cannot burn the budget reserved for genuine judge failures.
+NULL_RETRIES = 3
+RATE_LIMIT_RETRIES = 8
+# Hard per-attempt cap. A hung metric call is a judge failure like any other:
+# it yields no number, so it is retried and then recorded as unscored.
+ATTEMPT_TIMEOUT_S = 120
+
+_RATE_LIMIT_MARKERS = ("RateLimit", "rate_limit", "429", "RESOURCE_EXHAUSTED",
+                       "ResourceExhausted", "quota")
+
+# "Pass" in the project's reports means FactualCorrectness >= 0.5 — deliberately
+# more lenient than the metric's own 0.6 threshold. Kept here so the pass rate
+# and the mean come from the same place.
+PASS_METRIC = "FactualCorrectness"
+PASS_THRESHOLD = 0.5
 
 # Faithfulness dropped from the live metric set: it decomposes the answer into
 # atomic claims and makes one judge call per claim, which hangs indefinitely on
@@ -118,7 +166,194 @@ def build_metrics(judge):
     }
 
 
-def main():
+# ── scoring primitives ────────────────────────────────────────────────────
+
+def truncate_for_scoring(actual, max_chars=None):
+    """Cap the answer text the judge is shown.
+
+    History, because the number looks arbitrary and was: the original cap was
+    900 chars and its stated reason was **Faithfulness**, which splits an
+    answer into atomic claims and makes one judge call PER claim — a 5,000-char
+    analytical answer exploded into dozens of serial calls and hung the run.
+    Faithfulness was then dropped from `_METRICS`, and the 900 survived as an
+    unexamined literal while KB answers grew to 1,000–2,500 chars.
+
+    Module 45 measured what the cap costs — see
+    `docs/gold-qa-wave2-results/MODULE45_RESULT.md` for the before/after table.
+    It is a named, env-overridable constant now (`GOLD32_MAX_ANSWER_CHARS`;
+    `0` disables capping entirely) instead of a literal buried in a loop, so
+    every report can state the value its numbers were produced under.
+    """
+    if max_chars is None:
+        max_chars = MAX_ANSWER_CHARS
+    if max_chars and len(actual) > max_chars:
+        return actual[:max_chars] + TRUNCATION_MARKER
+    return actual
+
+
+def _measure_once(metric, tc, box):
+    try:
+        metric.measure(tc)
+        raw = getattr(metric, "score", None)
+        if raw is None:
+            # THE Module 45 defect at its source: DeepEval leaves `score` as
+            # None when the judge's reply cannot be parsed into a number. That
+            # is a judge failure, not a score of zero, so it is raised here and
+            # retried like any other error rather than silently becoming 0.0.
+            box["exc"] = RuntimeError("judge returned no score (null)")
+            return
+        box["score"] = round(float(raw), 3)
+        box["reason"] = (metric.reason or "")[:300]
+    except Exception as e:  # noqa: BLE001
+        box["exc"] = e
+
+
+def _is_rate_limit(exc):
+    return exc is not None and any(x in str(exc) for x in _RATE_LIMIT_MARKERS)
+
+
+def measure(metric, tc, tries=NULL_RETRIES, rate_limit_tries=RATE_LIMIT_RETRIES,
+            attempt_timeout=ATTEMPT_TIMEOUT_S, sleeper=time.sleep):
+    """Score one metric on one test case. Returns ``(score, reason)``.
+
+    ``score`` is ``None`` only when EVERY attempt failed to produce a number.
+    A ``None`` here means **UNSCORED** and must never be read as 0.0 —
+    :func:`summarize` excludes it from the mean and reports it loudly.
+
+    Three failure modes, deliberately handled differently:
+
+    * **rate limit** — retried up to ``rate_limit_tries`` times with linear
+      backoff, and does NOT consume a null-retry: a quota wobble says nothing
+      about the question being scored.
+    * **timeout** — the metric call exceeded ``attempt_timeout``. Retried.
+    * **null / error** — the judge answered but produced no parseable number
+      (the CR8 case). Retried.
+
+    Before Module 45 the last two returned after a single attempt, so one flaky
+    judge call was indistinguishable from a genuine failure downstream.
+    """
+    attempts, rl, a = [], 0, 0
+    while a < tries:
+        box = {}
+        t = threading.Thread(target=_measure_once, args=(metric, tc, box), daemon=True)
+        t.start()
+        t.join(timeout=attempt_timeout)
+        if t.is_alive():
+            attempts.append("TIMEOUT (>%ss)" % attempt_timeout)
+        elif "score" in box:
+            sleeper(2)
+            return box["score"], box["reason"]
+        else:
+            e = box.get("exc")
+            if _is_rate_limit(e):
+                rl += 1
+                if rl > rate_limit_tries:
+                    attempts.append("RATE-LIMITED (retries exhausted)")
+                    break
+                sleeper(min(90, 15 * rl))
+                continue  # a quota wobble does not consume a null-retry
+            attempts.append(("%s: %s" % (type(e).__name__, e))[:160])
+        a += 1
+        if a < tries:
+            sleeper(min(30, 5 * (2 ** (a - 1))))
+    return None, ("UNSCORED after %d attempt(s) — NOT a zero: %s"
+                  % (len(attempts), " | ".join(attempts)))[:400]
+
+
+# ── the one authoritative, null-safe aggregation ─────────────────────────
+
+def summarize(rows, metrics=None):
+    """Aggregate scored rows. Unscored (``None``) rows are EXCLUDED, never
+    zeroed.
+
+    Every published mean should come from here. A mean computed by hand over a
+    results file that contains a ``null`` silently understates the system by an
+    unknown amount, and nothing in the file says so.
+    """
+    metrics = metrics or _METRICS
+    out = {"n_rows": len(rows), "metrics": {}, "unscored": [], "by_type": {}}
+    for m in metrics:
+        vals, missing = [], []
+        for r in rows:
+            v = (r.get("scores") or {}).get(m)
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                vals.append(float(v))
+            else:
+                missing.append(r.get("id"))
+        out["metrics"][m] = {
+            "mean": round(sum(vals) / len(vals), 3) if vals else None,
+            "scored": len(vals),
+            "unscored": len(missing),
+            "unscored_ids": missing,
+        }
+        for qid in missing:
+            reason = next((((r.get("reasons") or {}).get(m) or "")
+                           for r in rows if r.get("id") == qid), "")
+            out["unscored"].append({"id": qid, "metric": m, "reason": reason})
+
+    scored_rows = [r for r in rows
+                   if isinstance((r.get("scores") or {}).get(PASS_METRIC), (int, float))
+                   and not isinstance(r["scores"][PASS_METRIC], bool)]
+    passed = [r for r in scored_rows if r["scores"][PASS_METRIC] >= PASS_THRESHOLD]
+    out["pass"] = {"metric": PASS_METRIC, "threshold": PASS_THRESHOLD,
+                   "passed": len(passed), "of_scored": len(scored_rows),
+                   "rate": round(len(passed) / len(scored_rows), 3) if scored_rows else None}
+
+    for r in rows:
+        b = out["by_type"].setdefault(r.get("type") or "(unknown)",
+                                     {"scored": 0, "unscored": 0, "sum": 0.0, "passed": 0})
+        v = (r.get("scores") or {}).get(PASS_METRIC)
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            b["scored"] += 1
+            b["sum"] += float(v)
+            b["passed"] += int(v >= PASS_THRESHOLD)
+        else:
+            b["unscored"] += 1
+    for b in out["by_type"].values():
+        b["mean"] = round(b["sum"] / b["scored"], 3) if b["scored"] else None
+        b.pop("sum")
+    return out
+
+
+def format_summary(sm):
+    """Render :func:`summarize` as text. Unscored questions print FIRST and in
+    full — they are the thing a reader must not miss."""
+    L = ["", "=" * 66]
+    if sm["unscored"]:
+        L.append("!!  %d UNSCORED METRIC RESULT(S) — the judge returned no number."
+                 % len(sm["unscored"]))
+        L.append("!!  They are EXCLUDED from every mean below. An unscored question")
+        L.append("!!  is NOT a zero — re-run it before publishing any figure.")
+        for u in sm["unscored"]:
+            L.append("!!    %-6s %-20s %s" % (u["id"], u["metric"], u["reason"][:110]))
+    else:
+        L.append("all metric results scored — no nulls, nothing excluded")
+    L.append("=" * 66)
+    for m, d in sm["metrics"].items():
+        excl = ("  (excluded %d: %s)" % (d["unscored"], ", ".join(map(str, d["unscored_ids"]))
+                                         )) if d["unscored"] else ""
+        L.append("%-20s mean = %-6s over %d/%d scored%s"
+                 % (m, d["mean"], d["scored"], sm["n_rows"], excl))
+    p = sm["pass"]
+    L.append("%-20s        %s/%s scored  (%s >= %s)"
+             % ("pass rate", p["passed"], p["of_scored"], p["metric"], p["threshold"]))
+    L.append("-" * 66)
+    for t, b in sorted(sm["by_type"].items()):
+        L.append("  %-30s mean=%-6s pass=%d/%d%s"
+                 % (t[:30], b["mean"], b["passed"], b["scored"],
+                    ("  UNSCORED=%d" % b["unscored"]) if b["unscored"] else ""))
+    L.append("=" * 66)
+    return "\n".join(L)
+
+
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if "--summary" in argv:
+        # Recompute the published numbers from an existing results file without
+        # spending a single judge call, and without writing anything.
+        print(format_summary(summarize(json.load(open(RESULTS, encoding="utf-8")))))
+        return
+
     outs = json.load(open(OUTPUTS, encoding="utf-8"))
     from deepeval.test_case import LLMTestCase
     judge = _judge()
@@ -127,51 +362,16 @@ def main():
     results, done = [], set()
     if os.path.exists(RESULTS):
         for r in json.load(open(RESULTS, encoding="utf-8")):
+            # A row holding a None score is deliberately NOT "done": resuming
+            # re-runs it, which is exactly the CR8 remedy.
             if all(r["scores"].get(m) is not None for m in _METRICS):
                 results.append(r); done.add(r["id"])
-        if done: print(f"resuming — {len(done)} scored")
-
-    import threading
-
-    def _measure_once(metric, tc, box):
-        try:
-            metric.measure(tc)
-            box["score"] = round(float(metric.score), 3)
-            box["reason"] = (metric.reason or "")[:300]
-        except Exception as e:  # noqa: BLE001
-            box["exc"] = e
-
-    def measure(metric, tc, tries=8):
-        for a in range(tries):
-            box = {}
-            # Run each metric in a thread with a hard 120s cap. Faithfulness on
-            # long analytical answers can hang indefinitely (claim-by-claim
-            # explosion) — a timeout records None for THAT metric and moves on,
-            # keeping the rest of the row intact rather than stalling the run.
-            t = threading.Thread(target=_measure_once, args=(metric, tc, box), daemon=True)
-            t.start(); t.join(timeout=120)
-            if t.is_alive():
-                return None, "TIMEOUT (metric exceeded 120s — likely long-answer claim explosion)"
-            if "score" in box:
-                time.sleep(2)
-                return box["score"], box["reason"]
-            e = box.get("exc")
-            if e and any(x in str(e) for x in ("RateLimit", "rate_limit", "429")):
-                time.sleep(min(90, 15 * (a + 1))); continue
-            return None, f"ERROR: {e}"[:200]
-        return None, "rate-limited"
+        if done: print("resuming — %d scored" % len(done))
 
     for o in outs:
         if o["id"] in done:
             continue
-        actual = o.get("actual_answer") or "(no answer produced)"
-        # Tight cap: Faithfulness splits the output into atomic claims and makes
-        # ONE judge call PER claim — a 3,500–5,000-char analytical answer
-        # explodes into dozens of serial calls and hangs the run (observed
-        # stalling on M4/G6). The facts we score against appear early, so 900
-        # chars preserves what matters while bounding the claim count.
-        if len(actual) > 900:
-            actual = actual[:900] + " …[truncated for scoring]"
+        actual = truncate_for_scoring(o.get("actual_answer") or "(no answer produced)")
         ctx = [o.get("expected_answer", "")]
         tc = LLMTestCase(input=o["question"], actual_output=actual,
                          expected_output=o.get("expected_answer", ""),
@@ -181,11 +381,16 @@ def main():
         for mn, m in metrics.items():
             sc, rs = measure(m, tc)
             row["scores"][mn] = sc; row["reasons"][mn] = rs
-            print(f"  {o['id']:5} {mn:18} = {sc}", flush=True)
-            json.dump(results + [row], open(RESULTS, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            flag = "" if sc is not None else "   <-- UNSCORED (not a zero)"
+            print("  %-5s %-18s = %s%s" % (o["id"], mn, sc, flag), flush=True)
+            json.dump(results + [row], open(RESULTS, "w", encoding="utf-8"),
+                      ensure_ascii=False, indent=2)
         results.append(row)
-        json.dump(results, open(RESULTS, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-    print(f"\nwrote {len(results)} to {RESULTS}")
+        json.dump(results, open(RESULTS, "w", encoding="utf-8"),
+                  ensure_ascii=False, indent=2)
+    print("\nwrote %d to %s" % (len(results), RESULTS))
+    print("answer cap in force for this run: %s chars" % (MAX_ANSWER_CHARS or "none"))
+    print(format_summary(summarize(results)))
 
 
 if __name__ == "__main__":
