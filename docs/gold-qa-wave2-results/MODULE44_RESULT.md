@@ -1,6 +1,6 @@
 # Module 44 — M2 and CS4: fluent but factually wrong
 
-**Branch:** `fix/m7-m2-cs4-factual-accuracy` · **Questions:** M2 (English),
+**Branch:** `fix/m7-m2-cs4-factual-accuracy` (PR #38) · **Questions:** M2 (English),
 CS4 (roman-Urdu)
 
 ## Verdict, stated first

@@ -1,6 +1,6 @@
 # Module 43 — M7 answers with the wrong facts
 
-**Branch:** `fix/m7-m2-cs4-factual-accuracy` · **Question:** M7 (roman-Urdu)
+**Branch:** `fix/m7-m2-cs4-factual-accuracy` (PR #38) · **Question:** M7 (roman-Urdu)
 · **Gold:** mean minutes incident→report, **15.0 (2024) → 1401.3 (2026,
 ~23.4 hours)**
 
