@@ -55,8 +55,21 @@ These are **not** covered above and must be confirmed at run time:
 
 1. **`SHARE/.env` copied into place**, per `SETUP.md` step 1. This is the exact
    omission that invalidated the last pass.
-2. **`grep -c "rate limit" backend.log` stays near zero** *during* the run. If
-   it climbs into the hundreds, stop — the run is not measuring the code.
+2. **Quota errors stay near zero** *during* the run. If they climb into the
+   hundreds, stop — the run is not measuring the code.
+
+   **`grep -c "rate limit"` is NOT sufficient, and this file said it was.**
+   Module 42 hit a transient Gemini **`429 RESOURCE_EXHAUSTED`** that the
+   phrase "rate limit" does not match at all, so the prescribed check reported
+   a clean run while a judge call had in fact failed. Both providers, and the
+   generic 429, must be covered:
+
+   ```bash
+   grep -ciE "rate limit|RESOURCE_EXHAUSTED|429|quota" backend.log
+   ```
+
+   Groq says "rate limit"; Gemini says `RESOURCE_EXHAUSTED`. Checking only the
+   first is how a quota failure gets published as a model failure.
 3. **Module 46 settled first.** The judge truncates answers at 900 characters,
    and the current build produces 1,000–2,500-character KB answers. Module 45
    proved with a positive control that a gold fact past that cut scores **0.0

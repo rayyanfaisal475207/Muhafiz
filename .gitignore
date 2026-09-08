@@ -98,3 +98,6 @@ scripts/batch1_*.py
 # MCP and custom lock files
 skills-lock.json
 .mcp.json
+
+# Agent working files -- never part of a PR
+scratchpad/
