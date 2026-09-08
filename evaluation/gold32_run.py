@@ -64,6 +64,14 @@ def ask(q, ac, cs):
 
 def parse(sse):
     ans, route, status = [], None, None
+    # [Module 54] src/main.py emits this flag when the agent-harness cutover
+    # classification raised and the request fell back to orchestrator.py. The
+    # fallback is correct behaviour, but it means a DIFFERENT sub-agent
+    # answered than the harness would have chosen — Module 50 lost G1 from
+    # Meta-Analysis to Cross-Case Linkage's refusal purely this way, and the
+    # only trace was a line in backend.log. Recorded per row so
+    # gold32_pipeline_outputs.json can be read on its own and still show it.
+    cutover_classification_failed = False
     for line in sse.splitlines():
         if not line.startswith("data:"):
             continue
@@ -72,6 +80,8 @@ def parse(sse):
         except Exception:
             continue
         det = d.get("detail", "")
+        if d.get("cutover_classification_failed"):
+            cutover_classification_failed = True
         if "route='" in str(det):
             m = re.search(r"route='([^']*)'", det)
             if m: route = m.group(1)
@@ -82,7 +92,8 @@ def parse(sse):
     a = " ".join(ans).strip()
     a = re.sub(r"^Writing the answer…\s*", "", a)
     a = re.sub(r"\s*Response generated.*$", "", a)
-    return {"actual_answer": a, "route": route, "status": status}
+    return {"actual_answer": a, "route": route, "status": status,
+            "cutover_classification_failed": cutover_classification_failed}
 
 
 def main():
@@ -113,7 +124,9 @@ def main():
             # unscored instead of scoring the emptiness as a genuine 0.0 —
             # the same principle as Module 45's "a judge null is not a zero".
             p = {"actual_answer": "", "route": None, "status": "error",
-                 "error": f"{type(e).__name__}: {e}", "transport_ok": False}
+                 "error": f"{type(e).__name__}: {e}", "transport_ok": False,
+                 # [Module 54] Unknown, not False: the stream was never read.
+                 "cutover_classification_failed": None}
         p["elapsed_s"] = round(time.time() - t0, 1)
         rec = {"id": item["id"], "type": item["question_type"], "language": item["language"],
                "question": item["question"], "expected_answer": item["answer"], **p}
@@ -121,7 +134,9 @@ def main():
         print(f"[{i}/32] {item['id']:5} {item['language']:8} route={str(p.get('route')):>10} "
               f"len={len(p['actual_answer']):5} {p['elapsed_s']}s"
               + ("" if p.get("transport_ok") else
-                 f"   <-- NO ANSWER CAPTURED ({p.get('error')}) — will be left UNSCORED"))
+                 f"   <-- NO ANSWER CAPTURED ({p.get('error')}) — will be left UNSCORED")
+              + ("   <-- CUTOVER CLASSIFICATION FAILED: answered by orchestrator.py,"
+                 " not the harness" if p.get("cutover_classification_failed") else ""))
         json.dump(outputs, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
     print(f"\nwrote {len(outputs)} to {OUT}")
 
