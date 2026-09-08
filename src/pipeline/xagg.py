@@ -217,6 +217,44 @@ _RELATIONSHIP_KEYWORDS = (
 # the evaluator both read English. An unmapped value passes through
 # UNCHANGED — this never substitutes a guess for a value it does not know,
 # and the Urdu original is always rendered alongside the gloss.
+_SEIZED_PROPERTY_KEYWORDS = (
+    "seized property", "seized item", "seized items", "property register",
+    "case property", "recovered property", "malkhana", "mal khana",
+    "forensic lab", "forensic laboratory", "disposition of",
+    "مالخانہ", "مال مقدمہ", "ضبط شدہ اشیا", "برآمد شدہ اشیا",
+    "فرانزک لیبارٹری", "ورثاء",
+)
+# Display-only, same contract as `_RELATIONSHIP_GLOSS` below: raw Urdu
+# `condition` values glossed for a synthesis model and an evaluator that
+# both read English, with the Urdu original always rendered alongside and
+# an unmapped value passed through UNCHANGED.
+_DISPOSITION_GLOSS = {
+    "سیل بند، نمونہ فرانزک لیبارٹری بھجوایا گیا":
+        "sealed, sample sent to the forensic laboratory",
+    "ورثاء کے حوالے کیا جائے گا": "to be handed over to the heirs",
+    "ضبط شدہ": "confiscated",
+    "مدعی کے حوالے کے لیے محفوظ": "held for return to the complainant",
+    "مالخانہ میں مہر بند": "sealed in the property store",
+    "محفوظ": "held",
+    "فرانزک شواہد کے طور پر محفوظ": "held as forensic evidence",
+    "مالخانہ میں مہر بند، فرانزک معائنہ مطلوب":
+        "sealed in the property store, forensic examination required",
+    "ضبط شدہ، فرانزک جانچ کے بعد محفوظ":
+        "confiscated, held after forensic testing",
+}
+# The two classification rules Module 33 publishes rather than tunes.
+#
+# Gold G1 cites "13 items sent to a forensic lab". Measured on this corpus:
+# 13 malkhana entries carry the condition
+# "سیل بند، نمونہ فرانزک لیبارٹری بھجوایا گیا" — literally DISPATCHED to the
+# lab — while 16 mention فرانزک in ANY wording (the other three are "held as
+# forensic evidence", "forensic examination required", "held after forensic
+# testing", none of which is a dispatch). Gold's 13 is the LITERAL reading;
+# both are returned, and the renderer says which is which, so the figure is
+# traceable to a rule instead of to a number that happened to match.
+_FORENSIC_DISPATCH_TOKEN = "فرانزک لیبارٹری"
+_FORENSIC_ANY_TOKEN = "فرانزک"
+_HEIRS_TOKEN = "ورثاء"
 _RELATIONSHIP_GLOSS = {
     "اجنبی": "stranger",
     "بھائی": "brother",
@@ -1268,6 +1306,169 @@ def render_accused_relationship_breakdown(agg_result: dict) -> list[str]:
             f"pairs — a relationship recorded against both the victim and "
             f"the complainant, where those are the same person, is stored "
             f"twice."
+        )
+    return lines
+
+
+async def _seized_property_disposition(
+    jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    """
+    [Gold-QA fix — Module 33, question G1] What happens to seized property:
+    the malkhana (property-store) register grouped by disposition, with the
+    number of FIRs each disposition touches.
+
+    Reads `StructuredRecord {record_type: 'malkhana_register'}`, whose
+    `condition` field IS the disposition — free Urdu text copied from the
+    source register. Grouped verbatim; the two figures gold G1 cites are
+    then derived from that grouping by a published token rule
+    (`_FORENSIC_DISPATCH_TOKEN` / `_HEIRS_TOKEN`) rather than hard-coded.
+
+    Item count and FIR count are BOTH returned per disposition and they
+    differ: measured on this corpus, 13 items were dispatched to a forensic
+    lab across 11 FIRs, because two FIRs sent two items each. Gold's "13
+    items" is the ITEM count, and conflating the two is the easiest way to
+    report a wrong number here.
+
+    Before this module a seized-property sub-question matched
+    `_LIST_ALL_KEYWORDS` on the "across all cases" suffix and returned the
+    unfiltered 73-row case listing — not the person-recurrence branch the
+    plan predicted. Measured live 2026-09-08; the plan is corrected in
+    `docs/gold-qa-wave2-results/MODULE33_RESULT.md`.
+    """
+    case_filter = "AND c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+    params: dict = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+
+    rows = await age_client.execute_cypher(
+        "MATCH (s:StructuredRecord)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE s.record_type = 'malkhana_register' {case_filter}"
+        "RETURN s.condition AS condition, s.item_detail AS item_detail, "
+        "c.case_id AS case_id",
+        params=params, columns=["condition", "item_detail", "case_id"],
+    )
+
+    counts: Counter = Counter()
+    cases_by_condition: dict[str, set] = {}
+    all_cases: set = set()
+    unrecorded = 0
+    forensic_dispatch_items = 0
+    forensic_any_items = 0
+    heirs_items = 0
+    forensic_dispatch_cases: set = set()
+    heirs_cases: set = set()
+    for row in rows:
+        case_id = row.get("case_id")
+        if case_id:
+            all_cases.add(case_id)
+        condition = (row.get("condition") or "").strip()
+        if not condition:
+            # A register entry with no recorded disposition is a real
+            # state, and lumping it into a bucket would inflate whichever
+            # bucket it landed in — reported separately instead.
+            unrecorded += 1
+            continue
+        counts[condition] += 1
+        if case_id:
+            cases_by_condition.setdefault(condition, set()).add(case_id)
+        if _FORENSIC_DISPATCH_TOKEN in condition:
+            forensic_dispatch_items += 1
+            if case_id:
+                forensic_dispatch_cases.add(case_id)
+        if _FORENSIC_ANY_TOKEN in condition:
+            forensic_any_items += 1
+        if _HEIRS_TOKEN in condition:
+            heirs_items += 1
+            if case_id:
+                heirs_cases.add(case_id)
+
+    ranked = [
+        {
+            "condition": condition,
+            "gloss": _DISPOSITION_GLOSS.get(condition),
+            "item_count": count,
+            "case_count": len(cases_by_condition.get(condition, set())),
+        }
+        for condition, count in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    ]
+
+    # Observability — see `_offender_age_profile()`'s own note.
+    logger.info(
+        "XAGG seized_property_disposition: %d register entr(ies) across %d "
+        "FIR(s), %d distinct disposition(s); forensic-lab dispatch %d item(s) "
+        "in %d FIR(s) (%d mention forensic in any wording); heirs %d item(s) "
+        "in %d FIR(s); %d entr(ies) record no disposition",
+        len(rows), len(all_cases), len(counts), forensic_dispatch_items,
+        len(forensic_dispatch_cases), forensic_any_items, heirs_items,
+        len(heirs_cases), unrecorded,
+    )
+    return {
+        "kind": "seized_property_disposition",
+        "total_items": len(rows),
+        "case_count": len(all_cases),
+        "distinct_disposition_count": len(counts),
+        "counts": ranked,
+        "unrecorded_disposition_count": unrecorded,
+        "forensic_dispatch_items": forensic_dispatch_items,
+        "forensic_dispatch_cases": len(forensic_dispatch_cases),
+        "forensic_any_items": forensic_any_items,
+        "heirs_items": heirs_items,
+        "heirs_cases": len(heirs_cases),
+    }
+
+
+_DISPOSITION_RENDER_LIMIT = 12
+
+
+def render_seized_property_disposition(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — Module 33, G1] Shared renderer for all three XAGG
+    rendering sites, same reason as `render_statute_court_stage_join()`."""
+    total = agg_result["total_items"]
+    if not total:
+        return [
+            "No seized-property (malkhana) register entry is recorded "
+            "anywhere in this corpus, so no disposition breakdown can be "
+            "produced."
+        ]
+    lines = [
+        f"What happens to seized property — {total} property-register "
+        f"entr(ies) across {agg_result['case_count']} FIR(s), grouped by the "
+        f"disposition recorded against each item:",
+    ]
+    for entry in agg_result["counts"][:_DISPOSITION_RENDER_LIMIT]:
+        label = entry["condition"]
+        if entry.get("gloss"):
+            label = f"{entry['condition']} ({entry['gloss']})"
+        lines.append(
+            f"  - {label}: {entry['item_count']} item(s), in "
+            f"{entry['case_count']} FIR(s)"
+        )
+    remaining = len(agg_result["counts"]) - _DISPOSITION_RENDER_LIMIT
+    if remaining > 0:
+        lines.append(f"  - (+{remaining} further disposition(s), 1 item each)")
+    lines.append(
+        f"Of those, {agg_result['forensic_dispatch_items']} item(s) in "
+        f"{agg_result['forensic_dispatch_cases']} FIR(s) were literally "
+        f"DISPATCHED to a forensic laboratory, and "
+        f"{agg_result['heirs_items']} item(s) in {agg_result['heirs_cases']} "
+        f"FIR(s) are held for return to a deceased person's heirs."
+    )
+    # The rule, published, so the headline number is traceable rather than
+    # merely plausible: a broader "mentions forensic at all" reading gives a
+    # different figure, and the answer must not let the two be confused.
+    if agg_result["forensic_any_items"] != agg_result["forensic_dispatch_items"]:
+        lines.append(
+            f"Counting rule: {agg_result['forensic_any_items']} entries "
+            f"mention a forensic process in some wording (held as forensic "
+            f"evidence, examination required, tested and returned to store), "
+            f"but only {agg_result['forensic_dispatch_items']} record the "
+            f"item as actually sent to the laboratory. The figure above uses "
+            f"the literal 'sent to the lab' reading."
+        )
+    if agg_result.get("unrecorded_disposition_count"):
+        lines.append(
+            f"{agg_result['unrecorded_disposition_count']} register "
+            f"entr(ies) record no disposition at all and are excluded from "
+            f"the breakdown above."
         )
     return lines
 
@@ -3444,6 +3645,26 @@ async def run_aggregate(
         query_lower, _WEAPON_ATTRIBUTION_TERMS
     ):
         return await _weapon_evidence_chain(jurisdiction_case_ids=jurisdiction_case_ids)
+    # [Gold-QA fix — Module 33, question G1] "What happens to seized
+    # property in these cases, and how many items were sent to a forensic
+    # laboratory or held for a deceased's heirs, across all cases?" — G1's
+    # seized-property sub-question.
+    #
+    # Placement, in both directions:
+    #   - BELOW G5's weapon+compliance scan and CR4's weapon-attribution
+    #     chain immediately above. Seized property and recovered weapons are
+    #     adjacent subjects and a question can carry both vocabularies;
+    #     G5 scores 1.0 today and must not move.
+    #   - ABOVE `_LIST_ALL_KEYWORDS`, which is what this sub-question
+    #     actually hit before this module: measured live on 2026-09-08 it
+    #     returned `kind="case_listing"` — the unfiltered 73-row corpus dump
+    #     — because "across all cases" contains the literal "all cases".
+    #     (The plan predicted a person-recurrence fall-through; the measured
+    #     one was the listing branch. Corrected in MODULE33_RESULT.md.)
+    if _matches_any(query_lower, _SEIZED_PROPERTY_KEYWORDS):
+        return await _seized_property_disposition(
+            jurisdiction_case_ids=jurisdiction_case_ids
+        )
     if _matches_any(query_lower, _OFFICER_KEYWORDS):
         return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_OFFICER}
     # [Gold-QA fix — Module 13, question M7] Checked before both the A7

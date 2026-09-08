@@ -2830,3 +2830,243 @@ class TestAccusedRelationshipBoundary:
             if xagg._matches_any(it["question"].lower(), xagg._RELATIONSHIP_KEYWORDS)
         ]
         assert matched == [], f"expected no gold question to match, got {matched}"
+
+
+# ── [Gold-QA fix — Module 33, question G1] seized-property disposition ─────
+#
+# The literal G1 sub-question this family exists to answer, in the same
+# "..., across all cases?" shape as `meta_analysis.py`'s other sub-queries.
+_G1_SQ_SEIZED_PROPERTY = (
+    "What happens to seized property in these cases, and how many items "
+    "were sent to a forensic laboratory or held for a deceased's heirs, "
+    "across all cases?"
+)
+_MALKHANA_FORENSIC = "سیل بند، نمونہ فرانزک لیبارٹری بھجوایا گیا"
+_MALKHANA_HEIRS = "ورثاء کے حوالے کیا جائے گا"
+_MALKHANA_FORENSIC_EVIDENCE = "فرانزک شواہد کے طور پر محفوظ"
+
+
+def _malkhana(condition, case_id, item_detail="چیز"):
+    return {"condition": condition, "item_detail": item_detail, "case_id": case_id}
+
+
+async def test_seized_property_groups_by_disposition_with_item_and_fir_counts(monkeypatch):
+    """Item count and FIR count differ whenever one FIR seizes two items —
+    conflating them is the easiest way to report a wrong number here."""
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient([
+        _malkhana(_MALKHANA_FORENSIC, "fir-1-26"),
+        _malkhana(_MALKHANA_FORENSIC, "fir-1-26"),   # same FIR, second item
+        _malkhana(_MALKHANA_FORENSIC, "fir-2-26"),
+        _malkhana(_MALKHANA_HEIRS, "fir-3-26"),
+        _malkhana("ضبط شدہ", "fir-4-26"),
+    ]))
+
+    r = await xagg._seized_property_disposition()
+
+    assert r["kind"] == "seized_property_disposition"
+    assert r["total_items"] == 5
+    assert r["case_count"] == 4
+    assert r["distinct_disposition_count"] == 3
+    top = r["counts"][0]
+    assert top["condition"] == _MALKHANA_FORENSIC
+    assert top["item_count"] == 3
+    assert top["case_count"] == 2          # NOT 3
+    assert top["gloss"] == "sealed, sample sent to the forensic laboratory"
+    assert r["forensic_dispatch_items"] == 3
+    assert r["forensic_dispatch_cases"] == 2
+    assert r["heirs_items"] == 1
+    assert r["heirs_cases"] == 1
+
+
+async def test_seized_property_separates_dispatched_from_merely_forensic(monkeypatch):
+    """The classification rule Module 33 publishes: gold's "13 sent to a
+    forensic lab" is the LITERAL dispatch reading. Entries that mention a
+    forensic process in some other wording are counted separately, never
+    folded into the headline."""
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient([
+        _malkhana(_MALKHANA_FORENSIC, "fir-1-26"),
+        _malkhana(_MALKHANA_FORENSIC_EVIDENCE, "fir-2-26"),
+        _malkhana("مالخانہ میں مہر بند، فرانزک معائنہ مطلوب", "fir-3-26"),
+    ]))
+
+    r = await xagg._seized_property_disposition()
+
+    assert r["forensic_dispatch_items"] == 1
+    assert r["forensic_any_items"] == 3
+    rendered = "\n".join(xagg.render_seized_property_disposition(r))
+    assert "3 entries mention a forensic process" in rendered
+    assert "only 1 record the item as actually sent to the laboratory" in rendered
+    assert "literal 'sent to the lab' reading" in rendered
+
+
+async def test_seized_property_reports_entries_with_no_disposition_separately(monkeypatch):
+    """A register entry with a blank disposition is a real state; putting it
+    in any bucket would inflate that bucket."""
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient([
+        _malkhana(_MALKHANA_FORENSIC, "fir-1-26"),
+        _malkhana("", "fir-2-26"),
+        _malkhana(None, "fir-3-26"),
+    ]))
+
+    r = await xagg._seized_property_disposition()
+
+    assert r["total_items"] == 3
+    assert r["unrecorded_disposition_count"] == 2
+    assert r["distinct_disposition_count"] == 1
+    rendered = "\n".join(xagg.render_seized_property_disposition(r))
+    assert "2 register entr(ies) record no disposition" in rendered
+
+
+async def test_seized_property_honours_the_jurisdiction_allow_list(monkeypatch):
+    seen = {}
+
+    async def _exec(cypher_query, params=None, columns=("result",), graph=None):
+        seen["q"], seen["p"] = cypher_query, params
+        return [_malkhana(_MALKHANA_FORENSIC, "fir-1-26")]
+
+    monkeypatch.setattr(
+        xagg, "age_client", type("_A", (), {"execute_cypher": staticmethod(_exec)}),
+    )
+
+    await xagg._seized_property_disposition(jurisdiction_case_ids=["fir-1-26"])
+
+    assert "$case_ids" in seen["q"]
+    assert seen["p"]["case_ids"] == ["fir-1-26"]
+    assert "malkhana_register" in seen["q"]
+
+
+async def test_seized_property_on_an_empty_corpus_says_so(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient([]))
+
+    r = await xagg._seized_property_disposition()
+
+    assert r["total_items"] == 0
+    rendered = "\n".join(xagg.render_seized_property_disposition(r))
+    assert "no seized-property (malkhana) register entry is recorded" in rendered.lower()
+
+
+def test_render_seized_property_passes_unmapped_conditions_through_verbatim():
+    rendered = "\n".join(xagg.render_seized_property_disposition({
+        "kind": "seized_property_disposition", "total_items": 1, "case_count": 1,
+        "distinct_disposition_count": 1,
+        "counts": [{"condition": "کوئی نئی حالت", "gloss": None,
+                    "item_count": 1, "case_count": 1}],
+        "unrecorded_disposition_count": 0,
+        "forensic_dispatch_items": 0, "forensic_dispatch_cases": 0,
+        "forensic_any_items": 0, "heirs_items": 0, "heirs_cases": 0,
+    }))
+
+    assert "کوئی نئی حالت: 1 item(s)" in rendered
+    assert "کوئی نئی حالت (" not in rendered
+
+
+def test_render_seized_property_truncates_a_long_tail():
+    counts = [
+        {"condition": f"c{i}", "gloss": None, "item_count": 1, "case_count": 1}
+        for i in range(xagg._DISPOSITION_RENDER_LIMIT + 3)
+    ]
+    rendered = "\n".join(xagg.render_seized_property_disposition({
+        "kind": "seized_property_disposition", "total_items": len(counts),
+        "case_count": 5, "distinct_disposition_count": len(counts),
+        "counts": counts, "unrecorded_disposition_count": 0,
+        "forensic_dispatch_items": 0, "forensic_dispatch_cases": 0,
+        "forensic_any_items": 0, "heirs_items": 0, "heirs_cases": 0,
+    }))
+
+    assert "(+3 further disposition(s), 1 item each)" in rendered
+
+
+async def test_g1_seized_property_sub_query_no_longer_dumps_the_whole_corpus(monkeypatch):
+    """THE REGRESSION PINNED TO G1's LITERAL SEIZED-PROPERTY SUB-QUERY.
+    Measured before this module (2026-09-08): this exact string returned
+    `kind="case_listing"` — every case in the corpus, unfiltered — because
+    "across all cases" contains the literal `_LIST_ALL_KEYWORDS` entry "all
+    cases"."""
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient([
+        _malkhana(_MALKHANA_FORENSIC, "fir-1-26"),
+    ]))
+
+    result = await xagg.run_aggregate(
+        _G1_SQ_SEIZED_PROPERTY, None,
+        gateway=FakeGateway([{"case_id": "fir-9-26"}]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "seized_property_disposition"
+    assert result["kind"] != "case_listing"
+    assert result["kind"] != "graph_recurrence"
+
+
+async def test_g5_still_reaches_the_weapon_compliance_scan_after_module_33(monkeypatch):
+    """G5 scores 1.0 today and shares the seized/recovered vocabulary this
+    module adds. Its branch is checked first, structurally."""
+    class _AC:
+        async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+            return []
+
+    monkeypatch.setattr(xagg, "age_client", _AC())
+
+    result = await xagg.run_aggregate(
+        "Baramad shuda hathiyaron ki record keeping ko dekhte hue, kya koi "
+        "aisi baat hai jo compliance ke lihaz se flag karne layak ho?",
+        None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "weapon_compliance_scan"
+
+
+class TestSeizedPropertyBoundary:
+    """[Gold-QA fix — Module 33] The keyword family at its edges."""
+
+    def test_the_g1_seized_property_sub_query_matches(self):
+        assert xagg._matches_any(
+            _G1_SQ_SEIZED_PROPERTY.lower(), xagg._SEIZED_PROPERTY_KEYWORDS
+        )
+
+    @pytest.mark.parametrize("paraphrase", [
+        # The required non-gold paraphrases — no phrase shared with the
+        # dispatched sub-query above.
+        "Where does the stuff we take into the malkhana end up?",
+        "Give me a breakdown of the case property register by disposition.",
+        "مالخانہ میں رکھی اشیاء کا آخر کیا بنتا ہے؟",
+    ])
+    def test_non_gold_paraphrases_match(self, paraphrase):
+        assert xagg._matches_any(paraphrase.lower(), xagg._SEIZED_PROPERTY_KEYWORDS)
+
+    @pytest.mark.parametrize("other", [
+        # KB6 uses "forensics guidelines" — the family deliberately matches
+        # only "forensic lab"/"forensic laboratory", never a bare "forensic".
+        "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai "
+        "ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye?",
+        # G5 — the weapon register, an adjacent but different subject.
+        "Baramad shuda hathiyaron ki record keeping ko dekhte hue, kya koi "
+        "aisi baat hai jo compliance ke lihaz se flag karne layak ho?",
+        # Neighbouring XAGG families.
+        "How many cases involve a recovered weapon with no licence recorded, "
+        "across all cases?",
+        "Give me the list of all cases.",
+    ])
+    def test_neighbouring_families_are_not_captured(self, other):
+        assert not xagg._matches_any(other.lower(), xagg._SEIZED_PROPERTY_KEYWORDS)
+
+    def test_matches_no_gold_question_at_all(self):
+        """The all-32 negative control, same discipline as
+        `TestOffenderAgeProfileBoundary`'s. Reads
+        `evaluation/Gold_QA_Dataset_Final32_With_Answers.json` — the bare
+        `Gold_QA_Dataset_Final32.json` is NOT tracked in this repo, and a
+        test pinned to it silently skips (PR #21)."""
+        import json
+        from pathlib import Path
+
+        gold_path = (
+            Path(__file__).resolve().parent.parent
+            / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json"
+        )
+        assert gold_path.exists(), gold_path
+        items = json.loads(gold_path.read_text(encoding="utf-8"))
+        assert len(items) == 32
+        matched = [
+            (it.get("id") or "").upper()
+            for it in items
+            if xagg._matches_any(it["question"].lower(), xagg._SEIZED_PROPERTY_KEYWORDS)
+        ]
+        assert matched == [], f"expected no gold question to match, got {matched}"
