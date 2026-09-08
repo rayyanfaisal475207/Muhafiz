@@ -695,13 +695,27 @@ async def test_recurrence_language_still_routes_to_recurring_persons_path(monkey
     assert result["entity_type"] == "Person"
 
 
-async def test_age_question_returns_unsupported_aggregate_not_a_wrong_number(monkeypatch):
+async def test_age_question_on_an_ageless_corpus_says_so_instead_of_a_wrong_number(monkeypatch):
+    """[Gold-QA fix — Module 31] REWRITTEN, deliberately. This used to assert
+    the hard `_UNSUPPORTED_AGE` refusal for EVERY age question. Module 31
+    demoted that refusal: `Person.age` has been projected since Module 1d,
+    so refusing unconditionally asserted something false about the data
+    model. The property this test still has to protect is the one it was
+    written for — an age question must never be answered by an unrelated
+    family — so it now pins the honest empty-corpus message instead."""
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient([]))
+
     result = await xagg.run_aggregate(
-        "what is the average age of the accused", None, gateway=None, user_role="supervisor"
+        "what is the average age of the accused", None,
+        gateway=FakeGateway([]), user_role="supervisor",
     )
 
-    assert result["kind"] == "unsupported_aggregate"
+    assert result["kind"] == "offender_age_profile"
+    assert result["unsupported"] is True
     assert "age" in result["message"].lower()
+    # The specific regression: NOT the person-recurrence family, which
+    # "accused" would otherwise match.
+    assert result["kind"] != "graph_recurrence"
 
 
 async def test_officer_question_returns_unsupported_aggregate(monkeypatch):
@@ -2325,3 +2339,231 @@ async def test_m5_still_reaches_the_cooccurrence_aggregate_after_module_24(monke
     )
 
     assert result["kind"] == "weapon_statute_cooccurrence"
+
+
+# ── [Gold-QA fix — Module 31, question G1] offender age profile ────────────
+#
+# G1 is a broad "review the caseload" question that reaches XAGG only after
+# Meta-Analysis decomposes it (Module 29). The literal text below is the
+# sub-question that carries G1's offender-profile element, written in the
+# same "..., across all cases?" shape as every other sub-query in
+# `meta_analysis.py`'s `_DECOMPOSITION_PLANS`. Pinning it here is what stops
+# a later edit to `_AGE_KEYWORDS` from silently re-breaking the dispatch.
+_G1_SQ_ACCUSED_AGE = (
+    "How many cases involve an accused person, and what is their age range "
+    "and average age, across all cases?"
+)
+_G1_GOLD_TEXT = (
+    "Acting as a crime analyst, review our current caseload and flag "
+    "anything that looks unusual or worth monitoring."
+)
+
+
+def _age_rows(pairs):
+    """(entity_id, age, case_id) triples -> the shape `_offender_age_profile()`
+    reads. `age=None` is an accused with no age recorded."""
+    rows = []
+    for entity_id, age, case_id in pairs:
+        props = {"entity_id": entity_id}
+        if age is not None:
+            props["age"] = age
+        rows.append({"p": {"id": entity_id, "label": "Person", "properties": props},
+                     "case_id": case_id})
+    return rows
+
+
+async def test_offender_age_profile_reports_range_mean_and_both_denominators(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(_age_rows([
+        ("P-1", 24, "fir-1-26"),
+        ("P-2", 30, "fir-1-26"),
+        ("P-3", 49, "fir-2-26"),
+        # A recidivist: two accused ENTRIES, one distinct person. The two
+        # denominators must diverge here or the caveat is meaningless.
+        ("P-3", 49, "fir-3-26"),
+        ("P-4", None, "fir-4-26"),
+        ("P-5", None, "fir-5-26"),
+    ])))
+
+    r = await xagg._offender_age_profile()
+
+    assert r["kind"] == "offender_age_profile"
+    assert r["unsupported"] is False
+    assert (r["min_age"], r["max_age"]) == (24, 49)
+    assert r["mean_age"] == pytest.approx((24 + 30 + 49) / 3)
+    assert r["with_age_count"] == 3
+    assert r["distinct_accused_count"] == 5
+    assert r["entries_with_age_count"] == 4      # P-3 counted twice
+    assert r["accused_entry_count"] == 6
+
+
+async def test_offender_age_profile_ignores_unusable_ages(monkeypatch):
+    """A free-text or out-of-range age must be treated exactly like a
+    missing one — counted in the coverage gap, never in the mean."""
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(_age_rows([
+        ("P-1", 30, "fir-1-26"),
+        ("P-2", "32", "fir-2-26"),      # numeric string — usable
+        ("P-3", "اکتیس", "fir-3-26"),    # words — not usable
+        ("P-4", 0, "fir-4-26"),          # out of range
+        ("P-5", 900, "fir-5-26"),        # out of range
+    ])))
+
+    r = await xagg._offender_age_profile()
+
+    assert r["with_age_count"] == 2
+    assert (r["min_age"], r["max_age"]) == (30, 32)
+    assert r["distinct_accused_count"] == 5
+
+
+async def test_offender_age_profile_canonicalises_confirmed_duplicates(monkeypatch):
+    """Two entity ids confirmed to be the same person are one accused, the
+    same rule `_total_accused_count()` applies."""
+    async def _pairs():
+        return [("P-1", "P-1-DUP")]
+
+    monkeypatch.setattr(xagg, "fetch_confirmed_same_as", _pairs)
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(_age_rows([
+        ("P-1", 30, "fir-1-26"),
+        ("P-1-DUP", 30, "fir-2-26"),
+    ])))
+
+    r = await xagg._offender_age_profile()
+
+    assert r["distinct_accused_count"] == 1
+    assert r["with_age_count"] == 1
+    assert r["accused_entry_count"] == 2
+
+
+async def test_offender_age_profile_says_so_when_no_accused_carries_an_age(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(_age_rows([
+        ("P-1", None, "fir-1-26"), ("P-2", None, "fir-2-26"),
+    ])))
+
+    r = await xagg._offender_age_profile()
+
+    assert r["unsupported"] is True
+    assert "no accused record in this corpus carries a recorded age" in r["message"].lower()
+
+
+async def test_offender_age_profile_honours_the_jurisdiction_allow_list(monkeypatch):
+    rows = _age_rows([("P-1", 30, "fir-1-26")])
+    seen = {}
+
+    async def _exec(cypher_query, params=None, columns=("result",), graph=None):
+        seen["q"], seen["p"] = cypher_query, params
+        return rows
+
+    monkeypatch.setattr(
+        xagg, "age_client", type("_A", (), {"execute_cypher": staticmethod(_exec)}),
+    )
+
+    await xagg._offender_age_profile(jurisdiction_case_ids=["fir-1-26"])
+
+    assert "$case_ids" in seen["q"]
+    assert seen["p"]["case_ids"] == ["fir-1-26"]
+
+
+def test_render_offender_age_profile_states_coverage_and_the_nationality_gap():
+    rendered = "\n".join(xagg.render_offender_age_profile({
+        "kind": "offender_age_profile", "unsupported": False,
+        "min_age": 24, "max_age": 49, "mean_age": 31.470588,
+        "with_age_count": 17, "distinct_accused_count": 92,
+        "entries_with_age_count": 19, "accused_entry_count": 94,
+        "ages": [], "nationality_note": xagg._NATIONALITY_NOT_MODELED,
+    }))
+
+    assert "24 to 49" in rendered
+    assert "31.5" in rendered
+    assert "17 of 92" in rendered
+    assert "19 of 94" in rendered
+    # The caveat that stops "every accused is 24-49" being read out of an
+    # 18%-coverage sample — gold G1 makes exactly that overclaim.
+    assert "75 of 92" in rendered
+    assert "not evidence that no accused is younger or older" in rendered
+    # Gold G1 also claims "all are Pakistani nationals". The field does not
+    # exist; the answer must say so rather than let it be inferred.
+    assert "nationality is not recorded" in rendered.lower()
+
+
+def test_render_offender_age_profile_passes_the_empty_corpus_message_through():
+    rendered = "\n".join(xagg.render_offender_age_profile(
+        {"kind": "offender_age_profile", "unsupported": True, "message": xagg._UNSUPPORTED_AGE}
+    ))
+    assert rendered == xagg._UNSUPPORTED_AGE
+
+
+async def test_g1_age_sub_query_reaches_the_age_profile_not_person_recurrence(monkeypatch):
+    """THE REGRESSION PINNED TO G1's LITERAL AGE SUB-QUERY. Measured before
+    this module (2026-09-08): this exact string returned
+    `{"kind": "unsupported_aggregate"}` carrying the stale claim that age is
+    "not currently extracted into this system's data model" — false since
+    Module 1d."""
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(_age_rows([("P-1", 31, "fir-1-26")])))
+
+    result = await xagg.run_aggregate(
+        _G1_SQ_ACCUSED_AGE, None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "offender_age_profile"
+    assert result["unsupported"] is False
+    assert result["kind"] != "graph_recurrence"
+    assert result["kind"] != "unsupported_aggregate"
+
+
+class TestOffenderAgeProfileBoundary:
+    """
+    [Gold-QA fix — Module 31] `_AGE_KEYWORDS` is checked FIRST in
+    `run_aggregate()`, ahead of every entity family, so anything it matches
+    it takes outright. That precedence is why this family gets the strictest
+    negative control in the file.
+    """
+
+    def test_the_g1_age_sub_query_matches(self):
+        assert xagg._matches_any(_G1_SQ_ACCUSED_AGE.lower(), xagg._AGE_KEYWORDS)
+
+    @pytest.mark.parametrize("paraphrase", [
+        # The required non-gold paraphrases — no phrase shared with the
+        # dispatched sub-query above.
+        "How old are the people we are charging?",
+        "Give me the age profile of our offenders.",
+        "Mulzimon ki umar kya hai?",
+        "ملزمان کی اوسط عمر کیا ہے؟",
+    ])
+    def test_non_gold_paraphrases_match(self, paraphrase):
+        assert xagg._matches_any(paraphrase.lower(), xagg._AGE_KEYWORDS)
+
+    @pytest.mark.parametrize("other", [
+        # Neighbouring families this must not swallow, given it wins first.
+        "How many cases does each accused person appear in, and which FIR "
+        "numbers, across all cases?",
+        "How many of the accused are men and how many are women, across all cases?",
+        "How many accused persons are there in total?",
+        "Which district recovers the most weapons?",
+    ])
+    def test_neighbouring_families_are_not_captured(self, other):
+        assert not xagg._matches_any(other.lower(), xagg._AGE_KEYWORDS)
+
+    def test_matches_no_gold_question_at_all(self):
+        """The all-32 negative control. `_AGE_KEYWORDS` must match NONE of
+        the 32 gold questions: G1 itself is a broad review that only reaches
+        XAGG through Meta-Analysis decomposition, so a direct match on any
+        gold text would mean this family had grown too wide.
+
+        Reads `evaluation/Gold_QA_Dataset_Final32_With_Answers.json` — the
+        bare `Gold_QA_Dataset_Final32.json` is NOT tracked in this repo, and
+        a test pinned to it silently skips (PR #21)."""
+        import json
+        from pathlib import Path
+
+        gold_path = (
+            Path(__file__).resolve().parent.parent
+            / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json"
+        )
+        assert gold_path.exists(), gold_path
+        items = json.loads(gold_path.read_text(encoding="utf-8"))
+        assert len(items) == 32
+        matched = [
+            (it.get("id") or "").upper()
+            for it in items
+            if xagg._matches_any(it["question"].lower(), xagg._AGE_KEYWORDS)
+        ]
+        assert matched == [], f"expected no gold question to match, got {matched}"

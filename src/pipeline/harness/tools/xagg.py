@@ -67,6 +67,7 @@ from src.pipeline.xagg import (
     render_time_bucketed_mean,
     render_weapon_statute_cooccurrence,
     render_statute_court_stage_join,
+    render_offender_age_profile,
     _UNSUPPORTED_JURISDICTION,
 )
 from src.retrieval.graph_retriever import jurisdiction_unresolved
@@ -325,6 +326,9 @@ def _render_aggregate_text(agg_result: dict) -> str:
     # [Gold-QA fix - Module 24, M4] same, for the statute x court-stage join.
     elif kind == "statute_court_stage_join":
         lines = render_statute_court_stage_join(agg_result)
+    # [Gold-QA fix — Module 31, G1] same, for the offender age profile.
+    elif kind == "offender_age_profile":
+        lines = render_offender_age_profile(agg_result)
     else:
         lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
         # [Legal-code semantic layer] Kept in sync with orchestrator.py's

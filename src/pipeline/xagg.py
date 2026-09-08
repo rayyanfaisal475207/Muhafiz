@@ -78,7 +78,28 @@ _ACCUSED_TOTAL_KEYWORDS = (
 # Gender is handled separately (see _GENDER_KEYWORDS below) since it has a
 # real, if not-yet-backfilled, data path; age/officer/trend genuinely have
 # none today.
-_AGE_KEYWORDS = ("age of", "how old", "average age", "عمر", "اوسط عمر")
+#
+# [Gold-QA fix — Module 31, question G1] "age/officer/trend genuinely have
+# none today" is no longer true of AGE, and had not been true since Module
+# 1d: `structured_projection._write_accused()` resolves each accused
+# mention through `resolve_structured_person()`, which projects `age` onto
+# the Person node. Probed live on this corpus (2026-09-08): 19 Person nodes
+# carry an age, min 24 / max 49 / mean 31.8, and 19 of the 94 accused
+# INVOLVED_IN edges reach one of them. The `_UNSUPPORTED_AGE` refusal this
+# family used to return therefore asserted something FALSE about the data
+# model. It is kept below, reworded, but now only fires when the corpus
+# genuinely carries no age at all — the same data-driven "can this even be
+# answered on THIS corpus" test `_gender_breakdown()` uses.
+#
+# The tuple itself is unchanged apart from Roman-Urdu/plain-English
+# additions: it is checked FIRST in `run_aggregate()`, ahead of every
+# entity family, so anything added here inherits absolute precedence.
+# `tests/test_xagg.py::TestOffenderAgeProfileBoundary` negative-controls it
+# against all 32 gold questions for exactly that reason.
+_AGE_KEYWORDS = (
+    "age of", "how old", "average age", "age range", "age profile",
+    "ages of", "umar", "عمر", "اوسط عمر",
+)
 _OFFICER_KEYWORDS = (
     "investigating officer", "officer assignment", "assigned officer",
     "which officer", "تفتیشی افسر", "افسر تفتیش",
@@ -653,9 +674,33 @@ _STATUTE_GROUPING_NOTE = (
 # through to _station_or_category_counts's generic default, which would
 # answer a question it was never asked (the report's worst finding: e.g. a
 # gender question silently returning a crime-category breakdown).
+# [Gold-QA fix — Module 31, question G1] Reworded and DEMOTED. This used to
+# be returned unconditionally for every age question and claimed age "is not
+# currently extracted into this system's data model" — untrue since Module
+# 1d projected `Person.age`. It is now the data-driven fallback for a corpus
+# that genuinely carries no age anywhere, mirroring
+# `_GENDER_NOT_YET_POPULATED`'s shape: a corpus that later gains ages
+# self-heals with no code change; one that never had them says so honestly
+# instead of returning an empty or fabricated profile.
 _UNSUPPORTED_AGE = (
-    "Age-based aggregates are not available: accused/witness age is not "
-    "currently extracted into this system's data model."
+    "An age profile cannot be produced: no accused record in this corpus "
+    "carries a recorded age. The source system does have an age field and "
+    "this system does project it, so this reflects the data currently "
+    "synced, not a missing capability."
+)
+# [Gold-QA fix — Module 31, question G1] Gold's G1 answer asserts the
+# accused are "all Pakistani nationals". There is NO nationality field
+# anywhere in this data model — `Person` carries
+# name/cnic/gender/age/father_name/address_text/entity_id and nothing else
+# (`structured_projection._person_mention()`), and no Postgres column
+# supplies one either. Rather than let a synthesis model infer nationality
+# from Urdu names, the age profile states the absence outright, so the gap
+# travels WITH the figures it sits next to. Recorded as a data-model gap by
+# Module 29 and not fixed here — inventing the field is the one thing this
+# module must not do.
+_NATIONALITY_NOT_MODELED = (
+    "Nationality is not recorded anywhere in this data model, so no claim "
+    "about the accused's nationality can be made from this data."
 )
 _UNSUPPORTED_OFFICER = (
     "Officer-assignment aggregates are not available: investigating-officer "
@@ -871,6 +916,136 @@ async def _gender_breakdown(jurisdiction_case_ids: Optional[list[str]] = None) -
         "counts": [{"key": k, "count": v} for k, v in counts.most_common()],
         "total_accused": len(genders),
     }
+
+
+def _coerce_age(value) -> Optional[int]:
+    """
+    `Person.age` arrives from AGE as an agtype integer on the real corpus,
+    but the source field is free-form and a re-sync could just as easily
+    write "31" or "31 سال". Tolerate both, and refuse anything outside a
+    plausible human range rather than let a stray 0 or 900 drag the mean —
+    an out-of-range value is treated exactly like a missing one, and shows
+    up in the coverage caveat rather than in the statistics.
+    """
+    if value is None:
+        return None
+    try:
+        age = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    return age if 1 <= age <= 120 else None
+
+
+async def _offender_age_profile(jurisdiction_case_ids: Optional[list[str]] = None) -> dict:
+    """
+    [Gold-QA fix — Module 31, question G1] The accused age profile: range,
+    mean, and — the part that decides whether the answer is honest — how
+    many accused carry no age at all.
+
+    Replaces the `_UNSUPPORTED_AGE` hard refusal this family used to return
+    unconditionally. That refusal predated Module 1d's `Person.age`
+    projection and asserted, wrongly, that age is not in the data model.
+
+    TWO denominators, both reported, because they answer different
+    questions and gold's "~31" is compatible with either:
+      - DISTINCT accused persons (canonicalised through the confirmed
+        SAME_AS map, exactly as `_total_accused_count()` does) — "what do
+        the offenders in this caseload look like". This is the headline.
+      - accused INVOLVED_IN ENTRIES — one per `fir_accused` mention, the
+        row-level denominator `_gender_breakdown()` uses and the one the
+        A1/G3 gold answers are expressed in ("94 accused entries"). A
+        recidivist accused therefore appears twice here and once above.
+    Reporting only one would make the coverage caveat unreadable against
+    the other gold answers in this file, which use both.
+
+    Scoped to role='accused' deliberately: gold G1's claim is about
+    OFFENDERS, and Person nodes with an age also include a small number of
+    non-accused parties. `_UNSUPPORTED_AGE` is returned only when no
+    accused in scope carries an age at all.
+    """
+    case_filter = "AND c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+    params: dict = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+
+    rows = await age_client.execute_cypher(
+        "MATCH (p:Person)-[r:INVOLVED_IN]->(i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE r.role = 'accused' {case_filter}"
+        "RETURN p AS p, c.case_id AS case_id",
+        params=params, columns=["p", "case_id"],
+    )
+
+    canonical_map = build_canonical_map(await fetch_confirmed_same_as())
+    entry_ages: list[int] = []          # one per accused edge
+    entry_count = 0
+    age_by_entity: dict[str, int] = {}  # canonical entity -> age
+    all_entities: set[str] = set()
+    for row in rows:
+        props = (row.get("p") or {}).get("properties", {}) or {}
+        entity_id = props.get("entity_id")
+        if not entity_id:
+            continue
+        entry_count += 1
+        entity_id = canon(canonical_map, entity_id)
+        all_entities.add(entity_id)
+        age = _coerce_age(props.get("age"))
+        if age is not None:
+            entry_ages.append(age)
+            age_by_entity.setdefault(entity_id, age)
+
+    ages = sorted(age_by_entity.values())
+    if not ages:
+        return {"kind": "offender_age_profile", "unsupported": True, "message": _UNSUPPORTED_AGE}
+
+    mean_age = sum(ages) / len(ages)
+    # Observability, not decoration: the SSE stream only ever exposes
+    # `route='XAGG'` and never which aggregate inside XAGG ran — one line
+    # per aggregate is the difference between a demonstrated route and an
+    # inferred one, the convention Modules 23 and 24 established here.
+    logger.info(
+        "XAGG offender_age_profile: %d of %d distinct accused carry an age "
+        "(%d of %d accused entries); range %d-%d, mean %.1f",
+        len(ages), len(all_entities), len(entry_ages), entry_count,
+        ages[0], ages[-1], mean_age,
+    )
+    return {
+        "kind": "offender_age_profile",
+        "unsupported": False,
+        "min_age": ages[0],
+        "max_age": ages[-1],
+        "mean_age": mean_age,
+        "with_age_count": len(ages),
+        "distinct_accused_count": len(all_entities),
+        "entries_with_age_count": len(entry_ages),
+        "accused_entry_count": entry_count,
+        "ages": ages,
+        "nationality_note": _NATIONALITY_NOT_MODELED,
+    }
+
+
+def render_offender_age_profile(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — Module 31, G1] Shared renderer for all three XAGG
+    rendering sites, same reason as `render_statute_court_stage_join()`."""
+    if agg_result.get("unsupported"):
+        return [agg_result.get("message") or _UNSUPPORTED_AGE]
+    with_age = agg_result["with_age_count"]
+    distinct = agg_result["distinct_accused_count"]
+    missing = max(0, distinct - with_age)
+    lines = [
+        "Age profile of the accused across the caseload:",
+        f"  - Recorded ages run from {agg_result['min_age']} to "
+        f"{agg_result['max_age']}, mean {agg_result['mean_age']:.1f}.",
+        f"  - That is derived from the {with_age} of {distinct} distinct "
+        f"accused who carry a recorded age "
+        f"({agg_result['entries_with_age_count']} of "
+        f"{agg_result['accused_entry_count']} accused entries).",
+        # The caveat is load-bearing, not boilerplate: with ~18% coverage,
+        # "every accused is between 24 and 49" is NOT a claim this data
+        # supports, and the range must not be read as one.
+        f"  - {missing} of {distinct} accused record no age at all, so this "
+        f"range describes only the minority that do — it is not evidence "
+        f"that no accused is younger or older.",
+        f"  - {agg_result['nationality_note']}",
+    ]
+    return lines
 
 
 # [Gold-QA fix — Module 2, A7] Count FIRs that recorded a reporting-delay
@@ -2962,8 +3137,18 @@ async def run_aggregate(
     # have no data path at all; gender has a real one but is checked
     # separately below since it degrades to an honest "not synced yet"
     # rather than a hard refusal.
+    # [Gold-QA fix — Module 31, question G1] "How many cases involve an
+    # accused person, and what is their age range and average age, across
+    # all cases?" — G1's offender-profile sub-question. This branch KEEPS
+    # `_AGE_KEYWORDS`' original first-in-the-chain precedence (an age
+    # question must never be answered by the person-recurrence family that
+    # "accused" would otherwise match) but no longer returns a refusal:
+    # `Person.age` has been projected since Module 1d, so the old
+    # `_UNSUPPORTED_AGE` message was asserting something false about the
+    # data model. The refusal survives INSIDE the aggregate, fired only
+    # when the corpus actually carries no age.
     if _matches_any(query_lower, _AGE_KEYWORDS):
-        return {"kind": "unsupported_aggregate", "message": _UNSUPPORTED_AGE}
+        return await _offender_age_profile(jurisdiction_case_ids=jurisdiction_case_ids)
     # [Gold-QA fix — Module 13, question M2] Checked early, same precedence
     # as AGE just above — no station-type dimension exists in this data
     # model at all (see _STATION_TYPE_KEYWORDS' own comment), so this must
