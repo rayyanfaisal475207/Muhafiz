@@ -87,14 +87,40 @@ _MAX_QUERY_CHARS = 600
 #         not govern the question at all (the Anti-Rape Act for both KB8
 #         and KB9), and those chunks then WON the cross-encoder rerank,
 #         pushing the correct CrPC s.173 and s.174 chunks out of the final
-#         five. A third hypothesis buys recall on one question and spends
-#         precision on the rest.
+#         five.
 #   n=2 — one query per book on the seam the question actually sits on,
 #         which is what the prompt's book map now asks for directly rather
 #         than leaving to a wider guess budget.
-# The cost of a wrong hypothesis is not merely a wasted embedding: its
-# chunks compete for the same reranked top-5, so the guess budget has to
-# stay tight.
+#
+# [Module 38] The "won the rerank" half of the n=3 rejection above no
+# longer describes the code: `cross_rerank_multi()` fuses by reciprocal
+# rank now, not by max score across queries, so a wrong hypothesis buys
+# one appended slot instead of the whole window. Module 38 re-measured
+# that on live pools with --n-hyp 3 and found the third slot no longer
+# harmful to KB4 or KB9's retrieval composition, and asked its successor
+# to revisit this constant rather than leave it resting on a mechanism
+# that had been removed.
+#
+# [Module 65] Revisited, on the question with the most to gain from a
+# third slot — KB2 needs TWO books at once (the Qanun-e-Shahadat's
+# confession bar AND the CrPC's own bar on using a police-recorded
+# statement at trial), with a third reading of the question (the Punjab
+# Police Rules' case diary) that is entirely reasonable and wrong. n=3
+# was measured against n=2 on the live store, `{"is_global": True}`,
+# top-30 per query, with the fixed prompt:
+#   n=2 — hypothesis 1 (Qanun-e-Shahadat) returns Art. 38 at rank 3 and
+#         Art. 39 at rank 6; hypothesis 2 (CrPC) returns s.162(1) at rank
+#         1 and the s.162 heading at rank 12. All of gold, both books.
+#   n=3 — byte-identical first two hypotheses, and the third was a THIRD
+#         phrasing of the material already covered, retrieving none of
+#         gold's chunks at any rank.
+# So the extra slot is affordable now and still buys nothing measured. It
+# stays at 2, on evidence rather than on Module 30's obsolete reason.
+#
+# The cost of a wrong hypothesis is no longer that it takes the whole
+# reranked window, but its chunks still occupy a slot in the final five,
+# so the guess budget stays tight until some question is measured to need
+# a third book.
 DEFAULT_HYPOTHESES = 2
 
 
