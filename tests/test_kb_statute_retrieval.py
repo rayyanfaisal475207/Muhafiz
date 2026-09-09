@@ -40,6 +40,7 @@ import src.retrieval.cross_reranker as cross_reranker
 from src.pipeline.harness.tools.rag import (
     RagToolInput,
     _is_legal_kb_intent,
+    _match_kb_data_half_plan,
     _retrieve_candidates,
     rag_tool,
 )
@@ -932,6 +933,439 @@ async def test_expand_with_neighbors_degrades_to_the_unwidened_chunks():
         assert await vs.expand_with_neighbors(chunks, window=1) == chunks
     finally:
         vs._get_store = original
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Module 39 — the "and does our data show it?" half.
+#
+# Every gold KB answer is compound (a statutory norm PLUS a figure from our
+# own case database) and Module 52 measured 0 of 48 live runs producing the
+# second half. These pin the composition that closes it: the gate that
+# decides which questions get a data half, the sub-queries that reach a
+# real aggregate, and the degradation contract that says a failed aggregate
+# can never make a KB answer worse than it was before this module.
+# ═══════════════════════════════════════════════════════════════════════
+
+# The complete expected gate over all 32 gold questions. An EQUALITY
+# assertion, not a subset one: the brief's own negative control, because
+# too broad a gate is as bad as too narrow — a non-KB question that
+# suddenly picked up a cross-case aggregate would change an answer that is
+# already correct today.
+_EXPECTED_DATA_HALF_GATE = {
+    "KB4": "property_register",
+    "KB5": "violence_against_women",
+    "KB6": "weapon_register",
+    "KB9": "death_investigation_charging",
+}
+
+
+def _all_gold_rows() -> list:
+    assert _GOLD_PATH.exists(), f"Gold dataset missing at {_GOLD_PATH}"
+    return json.loads(_GOLD_PATH.read_text(encoding="utf-8"))
+
+
+def _gate(question: str):
+    """The live three-way gate, minus the scope clause (which is a property
+    of the caller, not of the question) — exactly what `rag_tool()` composes."""
+    if not _is_legal_kb_intent(question):
+        return None
+    plan = _match_kb_data_half_plan(question)
+    return plan.name if plan is not None else None
+
+
+def test_module39_all32_data_half_gate_is_exactly_the_four_compound_questions():
+    """All-32 EQUALITY control. Exactly KB4/KB5/KB6/KB9 get a data half;
+    the other 28 — including the five questions most likely to be caught by
+    a widened gate (G2, G5, G3, CR7, M2) and the three that live in the
+    decomposition machinery (CR3, G1, G6) — get None."""
+    rows = _all_gold_rows()
+    assert len(rows) == 32
+    actual = {r["id"]: _gate(r["question"]) for r in rows}
+    assert {k: v for k, v in actual.items() if v is not None} == _EXPECTED_DATA_HALF_GATE
+    for qid in ("G2", "G5", "G3", "CR7", "M2", "CR3", "G1", "G6"):
+        assert actual[qid] is None, f"{qid} must not acquire a data half"
+
+
+def test_module39_gate_needs_both_clauses_not_just_the_subject_match():
+    """CR8 is the reason the gate is an AND, and this is the live proof.
+
+    CR8 ("کیا واقعی گھریلو تشدد کی رپورٹیں...") matches the
+    violence-against-women plan on subject alone — but it is a plain
+    case-data question, not a legal-KB one, `_is_legal_kb_intent()` returns
+    False for it, and it already reaches the SAME aggregate on its own XAGG
+    route today. A subject-only gate would have added a second, redundant
+    dispatch to a question scoring correctly."""
+    cr8 = _gold("CR8")["question"]
+    assert _match_kb_data_half_plan(cr8) is not None
+    assert _is_legal_kb_intent(cr8) is False
+    assert _gate(cr8) is None
+
+
+@pytest.mark.parametrize("qid,expected", sorted(_EXPECTED_DATA_HALF_GATE.items()))
+def test_module39_each_compound_question_matches_its_own_plan(qid, expected):
+    """Pinned to the LITERAL gold text — Urdu script (KB4, KB5) and
+    Roman-Urdu (KB6, KB9) included, since three of the four are not asked
+    in English."""
+    assert _gate(_gold(qid)["question"]) == expected
+
+
+def test_module39_every_sub_query_resolves_to_the_aggregate_its_plan_names():
+    """The plans dispatch straight to `xagg_tool()`, so `xagg.py`'s keyword
+    chain — not a router — decides which family answers. Every sub-query was
+    checked against `resolve_aggregate_kind()` before being written into the
+    plan; this keeps it true as that chain grows. `_run_kb_data_half()` also
+    re-checks it at runtime and drops a mismatch rather than citing an
+    unrelated figure, so a drift here is a test failure, never a wrong
+    number in a user's answer."""
+    from src.pipeline.xagg import resolve_aggregate_kind
+
+    for plan in rag_mod._KB_DATA_HALF_PLANS:
+        assert resolve_aggregate_kind(plan.sub_query) == plan.expected_kind, plan.name
+
+
+def test_module39_property_sub_query_is_byte_identical_to_module_33s_pinned_string():
+    """Module 33 pinned its seized-property sub-query in `tests/test_xagg.py`
+    precisely so later modules could copy it across unchanged; Module 50
+    already holds one copy. This is the third, and the three must not
+    drift."""
+    from src.pipeline.harness.agents.meta_analysis import _SQ_SEIZED_PROPERTY
+
+    plan = next(p for p in rag_mod._KB_DATA_HALF_PLANS if p.name == "property_register")
+    assert plan.sub_query == _SQ_SEIZED_PROPERTY
+
+
+def test_module39_plan_names_and_expected_kinds_are_unique():
+    """A duplicated name would make the log line ambiguous and a duplicated
+    aggregate would mean two question shapes silently share one figure."""
+    names = [p.name for p in rag_mod._KB_DATA_HALF_PLANS]
+    kinds = [p.expected_kind for p in rag_mod._KB_DATA_HALF_PLANS]
+    assert len(set(names)) == len(names)
+    assert len(set(kinds)) == len(kinds)
+
+
+# ── The wiring: a compound KB question produces BOTH halves ──────────────
+
+class _FakeXAggResult:
+    def __init__(self, status, kind=None, text=None):
+        self.status = status
+        self.aggregate_kind = kind
+        self.raw_summary_text = text
+
+
+def _stub_xagg(monkeypatch, result, calls=None):
+    """Stub `xagg_tool` at its own module, which is where `_run_kb_data_half`
+    imports it from (lazily, inside the function)."""
+    import src.pipeline.harness.tools.xagg as xagg_mod
+
+    async def _xagg_tool(tool_input):
+        if calls is not None:
+            calls.append(tool_input.query_text)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    monkeypatch.setattr(xagg_mod, "xagg_tool", _xagg_tool)
+
+
+_AGG_TEXT = (
+    "What happens to seized property — 45 property-register entr(ies) across "
+    "28 FIR(s), grouped by the disposition recorded against each item: ..."
+)
+
+
+@pytest.mark.asyncio
+async def test_module39_compound_kb_question_returns_a_norm_half_and_a_data_half(
+    monkeypatch, stub_retrieval
+):
+    """THE MODULE'S CENTRAL PIN. KB4's literal gold question, asked in the
+    All-Cases scope it is asked in live, must come back with BOTH halves:
+    the retrieved statutory chunk(s) that answer "is there a standard?", and
+    one machine-computed chunk that answers "does our property record follow
+    it?". Before this module the second chunk did not exist and the answer
+    said the documents could not confirm it."""
+    calls = []
+    _stub_xagg(
+        monkeypatch,
+        _FakeXAggResult(ToolStatus.OK, "seized_property_disposition", _AGG_TEXT),
+        calls,
+    )
+
+    async def _statute(q):
+        return []
+
+    monkeypatch.setattr(rag_mod, "generate_statute_queries", _statute)
+
+    result = await rag_tool(
+        RagToolInput(query_text=_gold("KB4")["question"], execution=_kb_execution())
+    )
+
+    assert result.status is ToolStatus.OK
+    data_halves = [c for c in result.chunks if c.metadata.source_tool == "XAGG"]
+    norm_halves = [c for c in result.chunks if c.metadata.source_tool != "XAGG"]
+    assert len(data_halves) == 1, "exactly one data half"
+    assert norm_halves, "the statutory half must still be there"
+    assert data_halves[0].text == _AGG_TEXT
+    assert data_halves[0].id == "kb-data-half:property_register"
+    # Appended LAST, so every legal chunk keeps the [Document N] position it
+    # had before Module 39 — `verify_grounding()`'s citation check is
+    # positional.
+    assert result.chunks[-1] is data_halves[0]
+    # One aggregate, and it is the one the plan names.
+    assert len(calls) == 1
+    plan = next(p for p in rag_mod._KB_DATA_HALF_PLANS if p.name == "property_register")
+    assert calls[0] == plan.sub_query
+
+
+@pytest.mark.asyncio
+async def test_module39_non_compound_kb_question_dispatches_no_aggregate(
+    monkeypatch, stub_retrieval
+):
+    """KB1 and KB2 are legal-KB questions whose data half is a SCHEMA claim,
+    not a count, and KB3/KB8's figures have no aggregate to reach (Modules
+    67/68). All four must behave byte-for-byte as they did before Module 39
+    — no aggregate call, no extra chunk."""
+    for qid in ("KB1", "KB2", "KB3", "KB8"):
+        calls = []
+        _stub_xagg(
+            monkeypatch,
+            _FakeXAggResult(ToolStatus.OK, "seized_property_disposition", _AGG_TEXT),
+            calls,
+        )
+
+        async def _statute(q):
+            return []
+
+        monkeypatch.setattr(rag_mod, "generate_statute_queries", _statute)
+        result = await rag_tool(
+            RagToolInput(query_text=_gold(qid)["question"], execution=_kb_execution())
+        )
+        assert calls == [], f"{qid} must dispatch no aggregate"
+        assert all(c.metadata.source_tool != "XAGG" for c in result.chunks), qid
+
+
+@pytest.mark.asyncio
+async def test_module39_case_narrative_question_dispatches_no_aggregate(
+    monkeypatch, stub_retrieval
+):
+    """The negative control at the tool boundary rather than the pattern
+    boundary: a plain case-data question never reaches the legal-KB path, so
+    it never reaches this either."""
+    calls = []
+    _stub_xagg(
+        monkeypatch,
+        _FakeXAggResult(ToolStatus.OK, "seized_property_disposition", _AGG_TEXT),
+        calls,
+    )
+
+    async def _statute(q):
+        return []
+
+    monkeypatch.setattr(rag_mod, "generate_statute_queries", _statute)
+    result = await rag_tool(
+        RagToolInput(
+            query_text="What property was seized in FIR 214/26 and who recovered it?",
+            execution=_kb_execution(),
+        )
+    )
+    assert calls == []
+    assert all(c.metadata.source_tool != "XAGG" for c in result.chunks)
+
+
+@pytest.mark.asyncio
+async def test_module39_case_scoped_caller_never_gets_a_data_half(
+    monkeypatch, stub_retrieval
+):
+    """The scope clause of the gate. A caller with an active case is not in
+    the `all_cases` pool the KB-only retry is offered on, so the compound
+    dispatch is not offered either — a within-case question must not pull a
+    whole-corpus figure into its answer."""
+    calls = []
+    _stub_xagg(
+        monkeypatch,
+        _FakeXAggResult(ToolStatus.OK, "seized_property_disposition", _AGG_TEXT),
+        calls,
+    )
+
+    async def _statute(q):
+        return []
+
+    monkeypatch.setattr(rag_mod, "generate_statute_queries", _statute)
+    scoped = ExecutionContext(
+        caller=CallerContext(user_id="u1", role="platform-admin", active_case_id="fir-214-26")
+    )
+    result = await rag_tool(
+        RagToolInput(query_text=_gold("KB4")["question"], execution=scoped)
+    )
+    assert calls == []
+    assert all(c.metadata.source_tool != "XAGG" for c in result.chunks)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "outcome",
+    [
+        _FakeXAggResult(ToolStatus.DENIED, None, None),
+        _FakeXAggResult(ToolStatus.FAILED, None, None),
+        _FakeXAggResult(ToolStatus.OK, "seized_property_disposition", ""),
+        # The drift guard: the right status, real text, WRONG family.
+        _FakeXAggResult(ToolStatus.OK, "case_listing", "73 cases ..."),
+        RuntimeError("age_client is down"),
+    ],
+)
+async def test_module39_a_failed_aggregate_degrades_to_the_statutory_half_alone(
+    monkeypatch, stub_retrieval, outcome
+):
+    """The degradation contract, which is the whole safety argument: a
+    denial, an upstream failure, an empty rendering, a drifted aggregate
+    family and a raised exception all return the pre-Module-39 answer rather
+    than an error or a wrong figure."""
+    _stub_xagg(monkeypatch, outcome)
+
+    async def _statute(q):
+        return []
+
+    monkeypatch.setattr(rag_mod, "generate_statute_queries", _statute)
+    result = await rag_tool(
+        RagToolInput(query_text=_gold("KB4")["question"], execution=_kb_execution())
+    )
+    assert result.status is ToolStatus.OK
+    assert result.chunks, "the statutory half survives every aggregate failure"
+    assert all(c.metadata.source_tool != "XAGG" for c in result.chunks)
+
+
+@pytest.mark.asyncio
+async def test_module39_an_abstaining_retrieval_is_not_rescued_by_the_data_half(
+    monkeypatch, stub_retrieval
+):
+    """A run where retrieval abstained has NO statutory half, and answering
+    such a question with a bare corpus figure would be a new failure mode —
+    a confident half-answer replacing an honest abstention. The abstention
+    stands."""
+    _stub_xagg(
+        monkeypatch,
+        _FakeXAggResult(ToolStatus.OK, "seized_property_disposition", _AGG_TEXT),
+    )
+
+    async def _statute(q):
+        return []
+
+    async def _evaluate_reject(orig, cur, reranked):
+        return {"relevant": False, "reason": "not statutory"}
+
+    async def _rewrite(*args, **kwargs):
+        return "rewritten"
+
+    monkeypatch.setattr(rag_mod, "generate_statute_queries", _statute)
+    monkeypatch.setattr(rag_mod, "evaluate_relevance", _evaluate_reject)
+    monkeypatch.setattr(rag_mod, "rewrite_for_retry", _rewrite)
+
+    result = await rag_tool(
+        RagToolInput(query_text=_gold("KB4")["question"], execution=_kb_execution())
+    )
+    assert result.status is ToolStatus.EMPTY
+    assert not result.chunks
+
+
+@pytest.mark.asyncio
+async def test_module39_the_data_half_is_shown_to_the_relevance_gate(
+    monkeypatch, stub_retrieval
+):
+    """The correction the first live sweep forced, pinned so it cannot be
+    undone by accident.
+
+    Wired only into the RESULT, the data half arrived after the gate — and
+    KB9 abstained 3 of 3 with the gate saying, verbatim on all 18 refusals,
+    that the documents describe inquest procedure and do not say whether OUR
+    system records one. That verdict is correct on a compound question judged
+    against statute-only evidence. The chunk that answers the second half now
+    goes in front of the gate, last, so the legal chunks keep their
+    `[Document N]` positions."""
+    seen = {}
+
+    async def _evaluate(orig, cur, reranked):
+        seen["ids"] = [c.get("id") for c in reranked]
+        return {"relevant": True, "reason": "ok"}
+
+    async def _statute(q):
+        return []
+
+    monkeypatch.setattr(rag_mod, "evaluate_relevance", _evaluate)
+    monkeypatch.setattr(rag_mod, "generate_statute_queries", _statute)
+    _stub_xagg(
+        monkeypatch,
+        _FakeXAggResult(ToolStatus.OK, "seized_property_disposition", _AGG_TEXT),
+    )
+
+    result = await rag_tool(
+        RagToolInput(query_text=_gold("KB4")["question"], execution=_kb_execution())
+    )
+    assert seen["ids"][-1] == "kb-data-half:property_register"
+    assert len(seen["ids"]) > 1, "the statutory chunks are still there, and first"
+    assert [c.id for c in result.chunks] == seen["ids"]
+
+
+@pytest.mark.asyncio
+async def test_module39_the_aggregate_runs_once_across_scope_retries(
+    monkeypatch, stub_retrieval
+):
+    """The KB path can run its retrieve→evaluate loop several times (up to
+    `MAX_RETRIES` per scope, over two scopes). The aggregate is dispatched
+    ONCE and memoised — re-running it per round would turn a 0.6 s overlap
+    into a serial cost paid six times."""
+    calls = []
+    _stub_xagg(
+        monkeypatch,
+        _FakeXAggResult(ToolStatus.OK, "seized_property_disposition", _AGG_TEXT),
+        calls,
+    )
+
+    async def _statute(q):
+        return []
+
+    verdicts = iter([False, False, True])
+
+    async def _evaluate(orig, cur, reranked):
+        return {"relevant": next(verdicts, True), "reason": "…"}
+
+    async def _rewrite(*args, **kwargs):
+        return "rewritten"
+
+    monkeypatch.setattr(rag_mod, "generate_statute_queries", _statute)
+    monkeypatch.setattr(rag_mod, "evaluate_relevance", _evaluate)
+    monkeypatch.setattr(rag_mod, "rewrite_for_retry", _rewrite)
+
+    await rag_tool(
+        RagToolInput(query_text=_gold("KB4")["question"], execution=_kb_execution())
+    )
+    assert len(calls) == 1
+
+
+# ── The prompt half: Semantic Search must be TOLD the question is compound ─
+
+def test_module39_semantic_search_adds_the_compound_rule_only_for_a_data_half():
+    """`rag_tool()` supplies the figure; this is what makes the answer spend
+    a sentence on it. Gated on the data-half chunk alone, so the prompt every
+    other question sees is byte-for-byte the pre-Module-39 one."""
+    from src.pipeline.harness.agents.semantic_search import (
+        _COMPOUND_ANSWER_RULE,
+        _compound_block,
+    )
+    from src.pipeline.harness.types import ChunkMetadata, EvidenceChunk
+
+    legal = EvidenceChunk(
+        id="c1", text="s.154 ...", metadata=ChunkMetadata(source_tool="RAG", source_file="crpc.pdf")
+    )
+    data = EvidenceChunk(
+        id="kb-data-half:property_register",
+        text=_AGG_TEXT,
+        metadata=ChunkMetadata(source_tool="XAGG", source_file="our own case records"),
+    )
+    assert _compound_block([legal]) == ""
+    assert _compound_block([]) == ""
+    assert _compound_block([legal, data]) == _COMPOUND_ANSWER_RULE
+    # It must not smuggle gold's own figures into the prompt.
+    for forbidden in ("45", "32", "8 ", "26", "68", "302", "27.16"):
+        assert forbidden not in _COMPOUND_ANSWER_RULE
 
 
 # ── 9. Module 65: the evidence-book branch of the statute-hypothesis prompt ──

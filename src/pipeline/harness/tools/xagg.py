@@ -69,6 +69,9 @@ from src.pipeline.xagg import (
     render_time_bucketed_mean,
     render_weapon_statute_cooccurrence,
     render_statute_court_stage_join,
+    render_officer_role_pair_overlap,
+    render_chalaan_dispatch_count,
+    render_fir_section_case_count,
     render_offender_age_profile,
     render_accused_relationship_breakdown,
     render_seized_property_disposition,
@@ -182,6 +185,19 @@ AggregateKind = Literal[
     # through /api/chat.
     "station_caseload_by_specialisation",
     "criminal_record_local_match_gap",
+    # [Gold-QA fix — Module 74, KB3] NINTH family to depend on this
+    # hand-maintained Literal. Added in the same commit as the
+    # aggregate itself, before any live run — the trap this comment
+    # block describes has now bitten four times, and every one of them
+    # surfaced only as an EMPTY answer with status=None through
+    # /api/chat, invisible to every unit test in tests/test_xagg.py.
+    "officer_role_pair_overlap",
+    # [Gold-QA fix — Module 75, KB8] TENTH family. Same additive
+    # convention, same commit as the aggregate.
+    "chalaan_dispatch_count",
+    # [Gold-QA fix — Module 76, KB9] ELEVENTH family. Same additive
+    # convention, same commit as the aggregate.
+    "fir_section_case_count",
 ]
 
 
@@ -328,6 +344,19 @@ def _render_aggregate_text(agg_result: dict) -> str:
         lines = render_weapon_evidence_chain(agg_result)
     elif kind == "court_readiness_scan":
         lines = render_court_readiness_scan(agg_result)
+    # [Gold-QA fix — Module 74, KB3] Kept in sync with orchestrator.py's
+    # two identical XAGG-route rendering sites, per this function's own
+    # docstring.
+    elif kind == "officer_role_pair_overlap":
+        lines = render_officer_role_pair_overlap(agg_result)
+    # [Gold-QA fix — Module 75, KB8] Kept in sync with orchestrator.py's
+    # two identical XAGG-route rendering sites.
+    elif kind == "chalaan_dispatch_count":
+        lines = render_chalaan_dispatch_count(agg_result)
+    # [Gold-QA fix — Module 76, KB9] Kept in sync with orchestrator.py's
+    # two identical XAGG-route rendering sites.
+    elif kind == "fir_section_case_count":
+        lines = render_fir_section_case_count(agg_result)
     elif kind == "station_total_count":
         lines = [f"Total police stations: {agg_result['total_stations']}"]
     # [Gold-QA fix — Module 13, RC-2] Three new kinds from the rate/ratio

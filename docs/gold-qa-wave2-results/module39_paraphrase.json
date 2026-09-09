@@ -1,0 +1,369 @@
+[
+  {
+    "id": "KB4P",
+    "run": 1,
+    "arm": "paraphrase",
+    "language": "ur",
+    "question": "Kya koi qanooni zabta maujood hai ke police jo maal apni tehveel mein le, usay kaise register kiya jaye aur baad mein kaise tehleel kiya jaye — aur kya hamara maal khana record us par amal karta hai?",
+    "expected_answer": "جی ہاں۔ پنجاب پولیس رولز، 1934 (جلد 3) کا رول 27.16 پولیس کو پابند کرتا ہے کہ وہ مقررہ فارم میں کیس پراپرٹی اور لاوارث پراپرٹی کا رجسٹر برقرار رکھے، جسے مکمل ہونے کے تین سال بعد ہی تلف کیا جا سکتا ہے۔ ہمارا مال خانہ رجسٹر اِسی ساخت کی عکاسی کرتا ہے: ریکارڈ میں موجود 45 اندراجات میں سے ہر ایک میں سیریل نمبر، رجسٹریشن نمبر، اندراج کی تاریخ، شے کی تفصیل، مقدار اور حالت درج ہے — وہی خانے جن کا اِس رول کا مقررہ رجسٹر فارم تقاضا کرتا ہے۔",
+    "actual_answer": "### Part 1: Governing Legal Requirements  \n**Legal provisions** require the police to:  \n- Maintain specific registers for seized property, including **Register No. 1** (for property in custody) and other specialized registers (e.g., for property over three years in custody, or for cases with absconding accused) [Document 1].  \n- Forward property exceeding Rs. 500 to district/tahsil treasuries for secure storage in store-rooms, under the charge of tahsildars [Document 5].  \n- Report seized property to a magistrate, who decides its disposal (e.g., return to rightful owners, custody by prosecuting agencies, or disposal by the sheriff) [Document 7].  \n- For unclaimed property or cases with absconding accused, retain it in secure storage (e.g., strong boxes) until legal proceedings conclude or the case is resolved [Document 3].  \n\n---\n\n### Part 2: Our Case Records  \n**Our records** (Document 8) show:  \n- **14 items** were marked as **confiscated** (ضبط شدہ) across 13 FIRs.  \n- **13 items** were **sent to forensic laboratories** (سیل بند، نمونہ فرانزک لیبارٹری بھجوایا گیا) across 11 FIRs.  \n- **7 items** were **held for return to heirs** (ورثاء کے حوالے کیا جائے گا) in 7 FIRs.  \n- **6 items** were **held for return to complainants** (مدعی کے حوالے کے لیے محفوظ) in 6 FIRs.  \n- **1 item** was **sealed in the property store** (مالخانہ میں مہر بند) in 1 FIR.  \n\n**Notably absent**:  \n- No entries mention use of **Register No. 1** or other mandated registers [Document 1].  \n- No records indicate **forwarding to treasuries** or **secure storage under tahsildars** as required by Rule 22.18 [Document 5].  \n- No entries reference **magistrate orders** for disposal of seized property, as mandated by Section 523 [Document 7].  \n\n**Conclusion**: Our records do not reflect compliance with the legal requirements for registration, secure storage, or magistrate oversight.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 135.3,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c1531",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1766",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c348",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c477",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1662",
+          "kb-data-half:property_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "Documents identify legal provisions governing property registration and disposal"
+      }
+    ],
+    "english_rendering": [
+      "Is there a legal provision governing how the police register property they seize and how it is later disposed of — and does our property records comply with it?"
+    ],
+    "statute_hypotheses": [
+      "Punjab Police Rules 1934 case property and malkhana: entry of seized property in station register, custody of property by malkhana, records maintained for all seized items",
+      "Code of Criminal Procedure 1898 sections 136 and 137 seizure and preservation of property: police officer shall seize property relevant to offence, keep it in safe custody, and produce it before court"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [
+      {
+        "plan": "property_register",
+        "expected_kind": "seized_property_disposition"
+      }
+    ],
+    "data_half_answered": [
+      {
+        "plan": "property_register",
+        "kind": "seized_property_disposition",
+        "chars": 1369
+      }
+    ],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB6P",
+    "run": 1,
+    "arm": "paraphrase",
+    "language": "roman_ur",
+    "question": "Do the forensics guidelines set any rule for how a recovered firearm must be packed before it is entered in the record, and does our own weapon register show whether that was done?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "**Part 1: Governing Rule**  \nThe *Forensics guidelines* (Document 1 and Document 4) require that recovered firearms be:  \n- Packaged separately (Document 1).  \n- Unloaded with the safety on, and without live rounds in the chamber, magazine, or parcel (Document 1).  \n- For Gun Shot Residue (GSR) analysis, packaged in a hard box with layers of clothes separated by white paper sheets (Document 1 and Document 4).  \n- Seals must be intact and tamper-evident, displaying initials and the date of sealing (Document 5).  \n\n**Part 2: Case Records**  \nOur *weapon register* (Document 6) does **not** record whether firearms were packed in compliance with these rules. The document only notes:  \n- 30 of 32 recovered weapons (~94%) are recorded \"WITHOUT a licence.\"  \n- 2 entries carry \"no licence status at all.\"  \nThere is no mention of packaging details, adherence to forensic guidelines, or documentation of chain-of-custody procedures related to packing.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 151.6,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c19",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "5_Forensics_guidelines_pdf_62ee00b3_c5",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the norm clause by specifying packaging"
+      }
+    ],
+    "english_rendering": [
+      "Do the forensics guidelines set any rule for how a recovered firearm must be packed before it is entered in the record, and does our own weapon register show whether that was done?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling and packaging of recovered evidence: firearm must be packaged in a secure, tamper-evident container labeled with case number, seized by, and chain of custody details",
+      "Punjab Police Rules 1934 weapon register entries: requirement to document compliance with evidence-packaging protocols in the weapon register under case-specific entries"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [
+      {
+        "plan": "weapon_register",
+        "expected_kind": "weapon_compliance_scan"
+      }
+    ],
+    "data_half_answered": [
+      {
+        "plan": "weapon_register",
+        "kind": "weapon_compliance_scan",
+        "chars": 300
+      }
+    ],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB4P",
+    "run": 2,
+    "arm": "paraphrase",
+    "language": "ur",
+    "question": "Kya koi qanooni zabta maujood hai ke police jo maal apni tehveel mein le, usay kaise register kiya jaye aur baad mein kaise tehleel kiya jaye — aur kya hamara maal khana record us par amal karta hai?",
+    "expected_answer": "جی ہاں۔ پنجاب پولیس رولز، 1934 (جلد 3) کا رول 27.16 پولیس کو پابند کرتا ہے کہ وہ مقررہ فارم میں کیس پراپرٹی اور لاوارث پراپرٹی کا رجسٹر برقرار رکھے، جسے مکمل ہونے کے تین سال بعد ہی تلف کیا جا سکتا ہے۔ ہمارا مال خانہ رجسٹر اِسی ساخت کی عکاسی کرتا ہے: ریکارڈ میں موجود 45 اندراجات میں سے ہر ایک میں سیریل نمبر، رجسٹریشن نمبر، اندراج کی تاریخ، شے کی تفصیل، مقدار اور حالت درج ہے — وہی خانے جن کا اِس رول کا مقررہ رجسٹر فارم تقاضا کرتا ہے۔",
+    "actual_answer": "### Part 1: Governing Legal Requirements  \nThe **Punjab Police Rules** (Documents 1, 2, 4, and 5) mandate specific procedures for registering and disposing of seized property:  \n- **Register No. 1** must record all case property and unclaimed property, including entries for items in police custody for over three years (Document 1, 2).  \n- Property must be stored in the prosecuting agency’s store-room or police station (Document 3, 5).  \n- Unclaimed property must be handed over to the sheriff, with receipts recorded in **Register No. 1** (Document 4).  \n- Valuable property (over Rs. 500) must be forwarded to district headquarters or tahsil treasury for secure storage (Document 5).  \n\n### Part 2: Case Records Summary  \nOur case records (Document 8) show the following dispositions of seized property across 28 FIRs:  \n- **14 items** marked as *confiscated* (ضبط شدہ).  \n- **13 items** sent to *forensic laboratories* (سیل بند، نمونہ فرانزک لیبارٹری بھجوایا گیا).  \n- **7 items** to be *handed over to heirs* (ورثاء کے حوالے کیا جائے گا).  \n- **6 items** *held for return to complainants* (محفوظ، مدعی کے حوالے کے لیے).  \n- **1 item** *sealed in the property store* (مالخانہ میں مہر بند).  \n\n**Key discrepancies**:  \n- The rules require formal registers (e.g., **Register No. 1**) and specific storage procedures (e.g., treasury or tahsil store-rooms), but the case records do not explicitly reference these registers or procedures.  \n- While **13 items** were *sent to forensic labs*, the rules (Document 7) emphasize packaging and documentation integrity for forensic evidence, which is not detailed in the case records.  \n- No entries mention **Register No. V** (Document 6) for correspondence or **Register No. X** (Document 6) for proclaimed offenders, though these are unrelated to property disposal.  \n\nIn summary, the legal framework requires formal registration and storage procedures, but the case records do not fully align with these requirements in terms of documentation or terminology.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 218.7,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2196",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2217",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c348",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c477",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "kb-data-half:property_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents from Punjab Police Rules (Rules 27.16, 27.18, etc.) dire"
+      }
+    ],
+    "english_rendering": [
+      "Is there a legal provision governing how property that the police take into custody is registered and later disposed of — and does our property store record comply with this?"
+    ],
+    "statute_hypotheses": [
+      "Punjab Police Rules 1934 case property and malkhana: entry of seized property in station register, custody of property by police, memorandum of seized property, and record-keeping in malkhana",
+      "Forensics guidelines handling of recovered evidence: chain of custody, packaging, labeling, and transport of seized property, documentation of evidence handling procedures"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [
+      {
+        "plan": "property_register",
+        "expected_kind": "seized_property_disposition"
+      }
+    ],
+    "data_half_answered": [
+      {
+        "plan": "property_register",
+        "kind": "seized_property_disposition",
+        "chars": 1369
+      }
+    ],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB6P",
+    "run": 2,
+    "arm": "paraphrase",
+    "language": "roman_ur",
+    "question": "Do the forensics guidelines set any rule for how a recovered firearm must be packed before it is entered in the record, and does our own weapon register show whether that was done?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 198.7,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c19",
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1326",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1669",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the norm clause by specifying packaging"
+      }
+    ],
+    "english_rendering": [
+      "Do the forensics guidelines set any rule for how a recovered firearm must be packed before it is entered in the record, and does our own weapon register show whether that was done?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling and packaging of recovered evidence: firearm must be packaged in a secure, tamper-evident container, labelled with case number and chain-of-custody details before entry i",
+      "Punjab Police Rules 1934 weapon register and case diary entries: weapon register must show whether recovered firearm was properly packaged per forensics guidelines, with details logged in the case dia"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [
+      {
+        "plan": "weapon_register",
+        "expected_kind": "weapon_compliance_scan"
+      }
+    ],
+    "data_half_answered": [
+      {
+        "plan": "weapon_register",
+        "kind": "weapon_compliance_scan",
+        "chars": 300
+      }
+    ],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB4P",
+    "run": 3,
+    "arm": "paraphrase",
+    "language": "ur",
+    "question": "Kya koi qanooni zabta maujood hai ke police jo maal apni tehveel mein le, usay kaise register kiya jaye aur baad mein kaise tehleel kiya jaye — aur kya hamara maal khana record us par amal karta hai?",
+    "expected_answer": "جی ہاں۔ پنجاب پولیس رولز، 1934 (جلد 3) کا رول 27.16 پولیس کو پابند کرتا ہے کہ وہ مقررہ فارم میں کیس پراپرٹی اور لاوارث پراپرٹی کا رجسٹر برقرار رکھے، جسے مکمل ہونے کے تین سال بعد ہی تلف کیا جا سکتا ہے۔ ہمارا مال خانہ رجسٹر اِسی ساخت کی عکاسی کرتا ہے: ریکارڈ میں موجود 45 اندراجات میں سے ہر ایک میں سیریل نمبر، رجسٹریشن نمبر، اندراج کی تاریخ، شے کی تفصیل، مقدار اور حالت درج ہے — وہی خانے جن کا اِس رول کا مقررہ رجسٹر فارم تقاضا کرتا ہے۔",
+    "actual_answer": "**Part 1: Governing Legal Requirements**  \nThe **Punjab Police Rules** (Rule 22.16) require that:  \n- Police must seize property in criminal cases and take charge of unclaimed property under specific legal provisions (e.g., Code of Criminal Procedure Sections 170, 51, 165, 166, 153).  \n- Property must be examined by police station officers and station clerks upon receipt and handover, with damages/shortages noted and reported to the Superintendent of Police.  \n- Property must be disposed of \"expeditiously according to magisterial orders on the conclusion of the case.\"  \n\nThe **Code of Criminal Procedure** (Section 523) mandates that:  \n- Seized property must be reported to a Magistrate, who decides its disposal (e.g., delivery to the rightful owner, custody, or production).  \n- If the owner is unknown, the Magistrate orders custody and production of the property.  \n\n**Part 2: Case Records Summary**  \nOur case records (Document 6) show:  \n- **Dispositions of seized property** across 28 FIRs:  \n  - Confiscated: 14 items (13 FIRs).  \n  - Sealed, sample sent to forensic lab: 13 items (11 FIRs).  \n  - To be handed over to heirs: 7 items (7 FIRs).  \n  - Held for return to complainant: 6 items (6 FIRs).  \n  - Other dispositions (e.g., forensic evidence, sealed in property store): 7 items (7 FIRs).  \n- **No explicit mention** of registration in a formal \"case property register\" as required by Rule 22.16 (e.g., Document 4 mentions such registers but the case records do not detail compliance).  \n- The records focus on **final dispositions** (e.g., forensic testing, delivery to heirs) but do not specify whether property was documented in registers upon seizure or during custody.  \n\n**Conclusion**:  \nThe law requires registration and detailed documentation of seized property (Rule 22.16, Code of Criminal Procedure Section 523). However, our case records do not confirm compliance with these registration requirements, as they omit details about formal property registers or procedural adherence to Rule 22.16’s mandates.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 330.0,
+    "evaluator_rounds": 2,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c334",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c1531",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2196",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1766",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c477",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1662",
+          "kb-data-half:property_register"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c334",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1662",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c1441",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c1531",
+          "kb-data-half:property_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The documents identify legal provisions governing property seizure and disposal "
+      },
+      {
+        "relevant": true,
+        "reason": "Documents directly address the legal provisions governing seized property regist"
+      }
+    ],
+    "english_rendering": [
+      "Is there a legal provision governing how property that the police take into custody is registered and later disposed of — and does our property store record comply with this?"
+    ],
+    "statute_hypotheses": [
+      "Punjab Police Rules 1934 case property and malkhana: entry of seized property in the station register, custody of property by the officer in charge, memorandum of seized property kept in the malkhana",
+      "Code of Criminal Procedure 1898 sections 136 and 137 seizure and custody of property: police officer shall seize property found in the course of investigation, produce it before the Magistrate and tak"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [
+      {
+        "plan": "property_register",
+        "expected_kind": "seized_property_disposition"
+      }
+    ],
+    "data_half_answered": [
+      {
+        "plan": "property_register",
+        "kind": "seized_property_disposition",
+        "chars": 1369
+      }
+    ],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB6P",
+    "run": 3,
+    "arm": "paraphrase",
+    "language": "roman_ur",
+    "question": "Do the forensics guidelines set any rule for how a recovered firearm must be packed before it is entered in the record, and does our own weapon register show whether that was done?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "**Part 1: Governing Rule**  \nThe *Forensics guidelines* (Document 1 and Document 4) require that recovered firearms be:  \n- Packaged separately (Document 1).  \n- Unloaded with the safety on, and without live rounds in the chamber, magazine, or parcel (Document 1).  \n- For Gun Shot Residue (GSR) analysis, packaged in a hard box with layers of clothes separated by white paper sheets (Document 1 and Document 4).  \n- Seals must be intact and tamper-evident, displaying initials and the date of sealing (Document 5).  \n\n**Part 2: Case Records**  \nOur *weapon register* (Document 6) does **not** record whether firearms were packed in compliance with these rules. The document only notes:  \n- 30 of 32 recovered weapons (~94%) are recorded \"WITHOUT a licence.\"  \n- 2 entries carry \"no licence status at all.\"  \nThere is no mention of packaging details, adherence to forensic guidelines, or documentation of chain-of-custody procedures related to packing.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 194.9,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c19",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "5_Forensics_guidelines_pdf_62ee00b3_c5",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the norm clause by specifying packaging"
+      }
+    ],
+    "english_rendering": [
+      "Do the forensics guidelines set any rule for how a recovered firearm must be packed before it is entered in the record, and does our own weapon register show whether that was done?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling and packaging of recovered evidence: firearm must be packaged in a secure, tamper-evident container labeled with case number, seized by, and chain of custody details",
+      "Punjab Police Rules 1934 weapon register entries: requirement to document compliance with evidence-packaging protocols in the weapon register under case-specific entries"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [
+      {
+        "plan": "weapon_register",
+        "expected_kind": "weapon_compliance_scan"
+      }
+    ],
+    "data_half_answered": [
+      {
+        "plan": "weapon_register",
+        "kind": "weapon_compliance_scan",
+        "chars": 300
+      }
+    ],
+    "data_half_dropped": []
+  }
+]

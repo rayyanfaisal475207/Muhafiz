@@ -4030,6 +4030,12 @@ def test_every_new_aggregate_kind_is_accepted_by_the_harness_tool_result():
         # [Gold-QA fix — Module 44] seventh and eighth.
         "station_caseload_by_specialisation",
         "criminal_record_local_match_gap",
+        # [Gold-QA fix — Module 74] ninth.
+        "officer_role_pair_overlap",
+        # [Gold-QA fix — Module 75] tenth.
+        "chalaan_dispatch_count",
+        # [Gold-QA fix — Module 76] eleventh.
+        "fir_section_case_count",
     ):
         assert kind in accepted, kind
 
@@ -4904,6 +4910,22 @@ _GOLD32_RESOLVED_KINDS_BEFORE_MODULE56 = {
 }
 
 
+# [Gold-QA fix — Modules 74/75/76] The ONLY deliberate departures from the
+# Module 56 baseline above, each one a question whose data half previously
+# had no aggregate at all. Every other one of the 32 must still resolve
+# byte-identically, which is what the equality below enforces — a new entry
+# in this dict is a decision, not a test update.
+#
+#   KB3  station_or_category_counts -> officer_role_pair_overlap  (Module 74)
+#        Also passes THROUGH `unsupported_officer`, which is what KB3's
+#        canned data-half sub-query used to get.
+#   KB8  station_or_category_counts -> chalaan_dispatch_count     (Module 75)
+#   KB9  graph_recurrence_person    -> fir_section_case_count      (Module 76)
+_GOLD32_KINDS_MOVED_BY_MODULES_74_TO_76 = {
+    "KB3": "officer_role_pair_overlap",
+}
+
+
 def test_module56_all_32_gold_questions_resolve_exactly_as_before():
     """EQUALITY, not absence. Asserting only "no extra question reaches M2's
     family" would pass if a widened keyword pushed CR3 or KB4 sideways into
@@ -4911,11 +4933,13 @@ def test_module56_all_32_gold_questions_resolve_exactly_as_before():
     items = json.loads(_GOLD32_PATH.read_text(encoding="utf-8"))
     assert len(items) == 32, len(items)
 
+    expected = dict(_GOLD32_RESOLVED_KINDS_BEFORE_MODULE56)
+    expected.update(_GOLD32_KINDS_MOVED_BY_MODULES_74_TO_76)
     resolved = {
         (it.get("id") or "").upper(): xagg.resolve_aggregate_kind(it["question"])
         for it in items
     }
-    assert resolved == _GOLD32_RESOLVED_KINDS_BEFORE_MODULE56
+    assert resolved == expected
 
 
 def test_module56_only_m2_reaches_the_station_type_vocabulary():
@@ -5128,3 +5152,736 @@ def test_module58_unit_is_word_bounded():
     assert not xagg._STATION_UNIT_NOUN_RE.search(
         "was there an opportunity to act with impunity?"
     )
+
+
+# ══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 74, question KB3] registering officer vs.
+# investigating officer.
+#
+# KB3's data half — "the officer who records the FIR and the officer who
+# ends up investigating it are the same person in 68 of 74 pairs (92%);
+# role-splitting happens in only 6 cases" — had no aggregate. The question
+# reached `_OFFICER_KEYWORDS` and got `unsupported_officer`, an honest
+# refusal whose text asserts investigating-officer identity "is not
+# currently modeled as a queryable field in this system". Module 74 probed
+# the live graph before writing a line of this: 144
+# `(:Officer)-[:ASSIGNED_TO {role}]->(:Case)` edges, 74 `investigating` and
+# 70 `recording`, 68 of the 74 investigating assignments naming the same
+# person as that case's recording officer — 91.9%, gold exactly. So the
+# refusal's premise was false for THIS shape.
+#
+# It is still true, and must stay, for a general "which officer" identity
+# question — which is why `_is_officer_role_pair_comparison()` needs three
+# signals rather than one keyword tuple, and why the boundary class below
+# asserts both directions.
+# ══════════════════════════════════════════════════════════════════════
+
+# KB3's literal gold question text, copied verbatim from the dataset.
+_KB3_GOLD = (
+    "Does the law expect the officer who first registers a case to be the "
+    "same one who investigates it, or are those meant to be separate roles "
+    "— and does that match what actually happens in our data?"
+)
+
+# The canned aggregate sub-query for KB3's data half, in the same
+# "..., across all cases?" shape as `meta_analysis.py`'s other sub-queries
+# and Module 39's `_KB_DATA_HALF_PLANS` strings. Checked against
+# `resolve_aggregate_kind()` here so a future one-entry addition to
+# `rag.py::_KB_DATA_HALF_PLANS` can copy it without re-deriving it.
+_KB3_SQ_OFFICER_ROLE_PAIR = (
+    "How many cases record the same person as both the recording officer "
+    "and the investigating officer, and how many split those roles, across "
+    "all cases?"
+)
+
+
+def _assign(case_id, name, role):
+    return {"case_id": case_id, "name": name, "role": role}
+
+
+async def test_module74_officer_role_pair_overlap_counts_at_the_pair_grain(monkeypatch):
+    """The unit is the investigating ASSIGNMENT, not the case — gold's "68 of
+    74 pairs" is the edge count, and `fir-205-26` carries two investigating
+    edges (a superseded placeholder plus its successor) live. A per-case
+    count would be a true statement about a different denominator."""
+    rows = [
+        # 2 cases where the same officer holds both roles.
+        _assign("fir-1-26", "طارق", "recording"),
+        _assign("fir-1-26", "طارق", "investigating"),
+        _assign("fir-2-26", "سلمان", "recording"),
+        _assign("fir-2-26", "سلمان", "investigating"),
+        # A genuine role split.
+        _assign("fir-3-26", "شہزاد احمد", "recording"),
+        _assign("fir-3-26", "راحیل شہزاد", "investigating"),
+        # An investigating assignment with no recording counterpart at all.
+        _assign("fir-4-26", "مریم طاہر", "investigating"),
+        # The two-investigating-edges case: one matches the recorder, one
+        # does not. Two PAIRS, one case.
+        _assign("fir-5-26", "(نامزد ASI)", "recording"),
+        _assign("fir-5-26", "(نامزد ASI)", "investigating"),
+        _assign("fir-5-26", "وقاص علی", "investigating"),
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        _KB3_SQ_OFFICER_ROLE_PAIR, None, gateway=None, user_role="supervisor",
+    )
+
+    assert result["kind"] == "officer_role_pair_overlap"
+    assert result["assignment_edge_count"] == 10
+    assert result["pair_count"] == 6           # investigating edges
+    assert result["recording_edge_count"] == 4
+    assert result["same_officer_count"] == 3
+    assert result["split_count"] == 3
+    assert result["split_case_count"] == 3
+    assert result["no_recording_counterpart_count"] == 1
+    assert result["same_share"] == pytest.approx(0.5)
+
+
+async def test_module74_reproduces_golds_68_of_74(monkeypatch):
+    """The measured live shape, as a fixture: 68 same-person pairs, 3 genuine
+    splits and 3 investigating assignments with no recording counterpart,
+    over 74 investigating and 71 recording edges. 68/74 = 91.9% — gold's
+    "68 of 74 pairs (92%)" and "only 6 cases"."""
+    rows = []
+    for i in range(68):
+        rows.append(_assign(f"fir-{i}-26", f"officer-{i}", "recording"))
+        rows.append(_assign(f"fir-{i}-26", f"officer-{i}", "investigating"))
+    for i in range(68, 71):                       # genuine role splits
+        rows.append(_assign(f"fir-{i}-26", f"recorder-{i}", "recording"))
+        rows.append(_assign(f"fir-{i}-26", f"investigator-{i}", "investigating"))
+    for i in range(71, 74):                       # no recording counterpart
+        rows.append(_assign(f"fir-{i}-26", f"investigator-{i}", "investigating"))
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg._officer_role_pair_overlap()
+
+    assert (result["same_officer_count"], result["pair_count"]) == (68, 74)
+    assert result["split_count"] == 6
+    assert result["recording_edge_count"] == 71
+    assert round(result["same_share"] * 100, 1) == 91.9
+    rendered = "\n".join(xagg.render_officer_role_pair_overlap(result))
+    assert "68 of 74" in rendered
+    assert "(92%)" in rendered
+
+
+async def test_module74_empty_graph_says_so_rather_than_dividing_by_zero(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient([]))
+    result = await xagg._officer_role_pair_overlap()
+    assert result["pair_count"] == 0
+    assert result["same_share"] is None
+    assert "cannot be compared" in "\n".join(
+        xagg.render_officer_role_pair_overlap(result)
+    )
+
+
+async def test_module74_emits_its_xagg_log_line_with_the_figures(monkeypatch, caplog):
+    """Module 55's convention: the kind alone is not enough — a wrong-metric
+    run reports the same kind, so the counts have to be in the line."""
+    rows = [
+        _assign("fir-1-26", "طارق", "recording"),
+        _assign("fir-1-26", "طارق", "investigating"),
+        _assign("fir-2-26", "شہزاد", "recording"),
+        _assign("fir-2-26", "راحیل", "investigating"),
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+    with caplog.at_level(logging.INFO, logger="src.pipeline.xagg"):
+        await xagg._officer_role_pair_overlap()
+    logged = caplog.text
+    assert "XAGG officer_role_pair_overlap:" in logged
+    assert "same officer on 1 of 2 pair(s)" in logged
+
+
+class TestOfficerRolePairBoundary:
+    """Both directions of the carve-out the brief insists on."""
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            _KB3_GOLD,
+            _KB3_SQ_OFFICER_ROLE_PAIR,
+            "Is the registering officer the same person as the investigating "
+            "officer in our cases?",
+            "Are the recording officer and the investigating officer "
+            "different people, or one and the same?",
+            "Kya FIR darj karne wala aur tafteesh karne wala ek hi shakhs "
+            "hota hai?",
+            "کیا مقدمہ درج کرنے والا اور تفتیشی افسر ایک ہی شخص ہوتا ہے؟",
+        ],
+    )
+    def test_the_pair_comparison_shape_reaches_the_new_family(self, query):
+        assert xagg.resolve_aggregate_kind(query) == "officer_role_pair_overlap"
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            # The general officer-IDENTITY question the refusal exists for,
+            # and which the brief requires be left alone. One role named, no
+            # sameness test.
+            "Which officer is assigned to case fir-117-26?",
+            "Who is the investigating officer on FIR 245/26?",
+            "Show me the officer assignment for every case.",
+            "تفتیشی افسر کون ہے؟",
+            # Names both roles but asks nothing about sameness.
+            "List the recording officer and the investigating officer for "
+            "each case.",
+        ],
+    )
+    def test_the_identity_question_still_gets_the_honest_refusal(self, query):
+        assert xagg.resolve_aggregate_kind(query) == "unsupported_officer"
+
+    async def test_the_refusal_still_actually_fires(self):
+        """Resolver agreement is not enough — `run_aggregate()` must still
+        return the refusal body for an identity question."""
+        result = await xagg.run_aggregate(
+            "Which officer is assigned to case fir-117-26?",
+            None, gateway=FakeGateway([]), user_role="supervisor",
+        )
+        assert result["kind"] == "unsupported_aggregate"
+        assert result["message"] == xagg._UNSUPPORTED_OFFICER
+
+    def test_cp6s_placeholder_family_keeps_first_claim(self):
+        """CP6 reads the SAME ASSIGNED_TO edges for a different question and
+        is checked far earlier in the chain. It must not move."""
+        assert xagg.resolve_aggregate_kind(
+            "Kitne cases abhi tak bina kisi tafteeshi afsar ke asal tor par "
+            "muqarrar kiye pade hue hain?"
+        ) == "placeholder_officer_count"
+
+
+def test_module74_only_kb3_reaches_the_officer_pair_predicate():
+    """The narrower half of the all-32 control, stated directly against the
+    predicate: exactly one of the 32 gold questions may match it."""
+    items = json.loads(_GOLD32_PATH.read_text(encoding="utf-8"))
+    matched = sorted(
+        (it.get("id") or "").upper()
+        for it in items
+        if xagg._is_officer_role_pair_comparison(it["question"].lower())
+    )
+    assert matched == ["KB3"], matched
+
+
+# ══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 75, question KB8] challans sent to court.
+#
+# KB8's data half — "adaalat bheja gaya challan (26 cases)" — had no
+# aggregate. Its canned sub-query reached `_CRIMINAL_RECORD_KEYWORDS` and
+# got `criminal_record_court_crosscheck`, which counts the 33
+# `criminal_record` rows: a confident, plausible, WRONG number in exactly
+# the slot gold fills with 26.
+#
+# The cause was confirmed by probe before any code was written, and it is
+# the one the brief named: `xagg.py` read `chalaan_outcome` (20 rows) and
+# never `chalaan_dispatch` (26 rows across 26 distinct cases). Three record
+# types, three different quantities — 33 / 26 / 20 — and only one of them
+# is what KB8 asks for.
+# ══════════════════════════════════════════════════════════════════════
+
+# KB8's literal gold question text, copied verbatim from the dataset.
+_KB8_GOLD = (
+    "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske "
+    "mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — "
+    "aur kya hamara case-tracking data batayega ke aisa hua ya nahi?"
+)
+
+# The canned aggregate sub-query for KB8's data half. Same "..., across all
+# cases?" shape as Module 39's `_KB_DATA_HALF_PLANS` strings, and checked
+# against `resolve_aggregate_kind()` here so the future one-entry addition
+# to that tuple can copy it without re-deriving it.
+_KB8_SQ_CHALAAN_DISPATCH = (
+    "How many challans have been sent to court, and how many cases do they "
+    "cover, across all cases?"
+)
+
+
+class _ChalaanAgeClient:
+    """Routes the three reads `_chalaan_dispatch_count()` issues: the
+    dispatch records, the outcome records, and the DISTINCT record-type list
+    the schema-gap claim is derived from."""
+
+    def __init__(self, dispatch_rows, outcome_rows, record_types):
+        self.dispatch_rows = dispatch_rows
+        self.outcome_rows = outcome_rows
+        self.record_types = [{"record_type": t} for t in record_types]
+        self.queries = []
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        self.queries.append(cypher_query)
+        if "DISTINCT" in cypher_query:
+            return self.record_types
+        if "chalaan_dispatch" in cypher_query:
+            return self.dispatch_rows
+        return self.outcome_rows
+
+
+def _dispatch(case_id, record_id, dispatch_datetime=None):
+    return {
+        "case_id": case_id, "record_id": record_id,
+        "dispatch_datetime": dispatch_datetime,
+    }
+
+
+_LIVE_RECORD_TYPES = [
+    "fir_zimni_index", "fir_section", "fir_position", "malkhana_register",
+    "criminal_record", "chalaan_dispatch", "chalaan_outcome",
+    "pkm_application", "cms_complaint",
+]
+
+
+async def test_module75_counts_chalaan_dispatch_not_chalaan_outcome(monkeypatch):
+    """The literal defect, as a fixture: 26 dispatch records and 20 outcome
+    records in the same graph. The answer is 26."""
+    dispatch_rows = [
+        _dispatch(f"fir-{i}-26", f"chalaan_dispatch:CD-{i}-1",
+                  "2024-10-20T08:40:00Z" if i < 15 else None)
+        for i in range(26)
+    ]
+    outcome_rows = [
+        {"case_id": f"fir-{i}-26", "court_date": "2024-10-25" if i < 15 else None}
+        for i in range(20)
+    ]
+    client = _ChalaanAgeClient(dispatch_rows, outcome_rows, _LIVE_RECORD_TYPES)
+    monkeypatch.setattr(xagg, "age_client", client)
+
+    result = await xagg.run_aggregate(
+        _KB8_SQ_CHALAAN_DISPATCH, None, gateway=None, user_role="supervisor",
+    )
+
+    assert result["kind"] == "chalaan_dispatch_count"
+    assert result["dispatched_count"] == 26
+    assert result["dispatched_case_count"] == 26
+    assert result["dispatched_with_timestamp"] == 15
+    # The neighbouring type is reported, never substituted.
+    assert result["outcome_count"] == 20
+    assert result["outcome_with_court_date"] == 15
+    rendered = "\n".join(xagg.render_chalaan_dispatch_count(result))
+    assert "26 challan(s) sent to court" in rendered
+    assert "the 26 above is the dispatch figure" in rendered
+
+
+async def test_module75_reads_the_dispatch_record_type_by_name(monkeypatch):
+    """Pins the one-word difference the whole defect was. If a later edit
+    points this aggregate at `chalaan_outcome`, the count silently becomes
+    20 and every unit assertion about "26" would have to be edited too —
+    this one fails on the query text itself."""
+    client = _ChalaanAgeClient([], [], _LIVE_RECORD_TYPES)
+    monkeypatch.setattr(xagg, "age_client", client)
+    await xagg._chalaan_dispatch_count()
+    assert any("chalaan_dispatch" in q for q in client.queries)
+    assert xagg._CHALAAN_DISPATCH_RECORD_TYPE == "chalaan_dispatch"
+    assert xagg._CHALAAN_OUTCOME_RECORD_TYPE == "chalaan_outcome"
+
+
+async def test_module75_cases_are_distinct_not_row_counts(monkeypatch):
+    """Two dispatch records on one case is 2 challans across 1 case."""
+    client = _ChalaanAgeClient(
+        [_dispatch("fir-1-26", "a"), _dispatch("fir-1-26", "b"),
+         _dispatch("fir-2-26", "c")],
+        [], _LIVE_RECORD_TYPES,
+    )
+    monkeypatch.setattr(xagg, "age_client", client)
+    result = await xagg._chalaan_dispatch_count()
+    assert result["dispatched_count"] == 3
+    assert result["dispatched_case_count"] == 2
+
+
+async def test_module75_the_schema_gap_is_derived_not_declared(monkeypatch):
+    """Gold's KB8 asserts an ABSENCE ("schema mein kahin interim report ka
+    koi tasavvur nahi"), and the brief counts correctly stating a gap where
+    gold agrees as a pass. It must stop being claimed the moment such a
+    record type exists."""
+    rows = [_dispatch("fir-1-26", "a")]
+    absent = _ChalaanAgeClient(rows, [], _LIVE_RECORD_TYPES)
+    monkeypatch.setattr(xagg, "age_client", absent)
+    result = await xagg._chalaan_dispatch_count()
+    assert result["has_interim_report_record"] is False
+    assert "no interim-report record type" in "\n".join(
+        xagg.render_chalaan_dispatch_count(result)
+    )
+
+    present = _ChalaanAgeClient(
+        rows, [], _LIVE_RECORD_TYPES + ["interim_report"],
+    )
+    monkeypatch.setattr(xagg, "age_client", present)
+    result = await xagg._chalaan_dispatch_count()
+    assert result["has_interim_report_record"] is True
+    assert "no interim-report record type" not in "\n".join(
+        xagg.render_chalaan_dispatch_count(result)
+    )
+
+
+async def test_module75_empty_graph_says_so(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _ChalaanAgeClient([], [], _LIVE_RECORD_TYPES))
+    result = await xagg._chalaan_dispatch_count()
+    assert result["dispatched_count"] == 0
+    assert "No challan dispatch records" in "\n".join(
+        xagg.render_chalaan_dispatch_count(result)
+    )
+
+
+async def test_module75_emits_its_xagg_log_line_with_both_figures(monkeypatch, caplog):
+    """Module 55's convention, and here the SECOND figure is load-bearing:
+    a run that silently read `chalaan_outcome` would report the same kind,
+    so the line has to name both counts."""
+    client = _ChalaanAgeClient(
+        [_dispatch(f"fir-{i}-26", str(i)) for i in range(26)],
+        [{"case_id": f"fir-{i}-26", "court_date": None} for i in range(20)],
+        _LIVE_RECORD_TYPES,
+    )
+    monkeypatch.setattr(xagg, "age_client", client)
+    with caplog.at_level(logging.INFO, logger="src.pipeline.xagg"):
+        await xagg._chalaan_dispatch_count()
+    logged = caplog.text
+    assert "XAGG chalaan_dispatch_count:" in logged
+    assert "26 challan dispatch record(s) across 26 case(s)" in logged
+    assert "20 chalaan_outcome record(s)" in logged
+
+
+class TestChalaanDispatchBoundary:
+    """CR7 must not move. It reads a different record type for a different
+    question and scores today."""
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            _KB8_SQ_CHALAAN_DISPATCH,
+            "How many challans were sent to court?",
+            "Kitne chalaan adaalat bheja gaya?",
+            "کتنے چالان عدالت بھیجے گئے؟",
+        ],
+    )
+    def test_the_challan_shape_reaches_the_new_family(self, query):
+        assert xagg.resolve_aggregate_kind(query) == "chalaan_dispatch_count"
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            # CR7's literal gold text.
+            _CR7_GOLD_TEXT,
+            # A challan word with no court-dispatch signal at all.
+            "What property is listed on the challan?",
+            # A court-dispatch signal with no challan word.
+            "How many cases have reached court?",
+        ],
+    )
+    def test_the_neighbours_do_not_reach_it(self, query):
+        assert xagg.resolve_aggregate_kind(query) != "chalaan_dispatch_count"
+
+    async def test_cr7_still_gets_its_own_crosscheck(self):
+        assert xagg.resolve_aggregate_kind(_CR7_GOLD_TEXT) == (
+            "criminal_record_court_crosscheck"
+        )
+
+
+def test_module75_no_gold_question_reaches_the_challan_predicate():
+    """The all-32 control's narrow half. NONE of the 32 gold question texts
+    may match — KB8's own gold text never says "challan"; the word is in its
+    gold ANSWER. KB8 reaches this family through the canned sub-query that
+    `rag.py::_KB_DATA_HALF_PLANS` dispatches, exactly as KB4/KB5/KB6 reach
+    theirs. So this predicate's blast radius over the gold set is zero, and
+    that is the point."""
+    items = json.loads(_GOLD32_PATH.read_text(encoding="utf-8"))
+    matched = sorted(
+        (it.get("id") or "").upper()
+        for it in items
+        if xagg._is_chalaan_dispatch_count(it["question"].lower())
+    )
+    assert matched == [], matched
+
+
+# ══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 76, question KB9] per-section FIR counts.
+#
+# KB9's data half needs ONE number at ONE grain — how many FIRs cite a
+# given section. The only aggregate publishing anything like it was
+# `statute_court_stage_join`, whose statute list is capped at 15 rows and
+# carries `PPC §302: 10 case(s)` as row six. Module 39 wired it anyway and
+# measured the cost: one live run named the section without its count, and
+# another read past the row and asserted that no listed section pertains to
+# death — factually wrong, from a chunk holding the right row. A grain
+# failure, not a data one.
+#
+# GOLD DIVERGENCE, RE-DERIVED INDEPENDENTLY AND NOT TUNED AWAY. Gold says
+# "8 FIRs qatl ki dafa (PPC 302) ka hawala dete hain". A fresh probe for
+# this module returns **10** distinct FIRs, exactly one `fir_section` row
+# per case, with "302" the only section code in the corpus containing
+# "302". 10 vs 8 is a 25 % gap — outside the brief's 5-10 % tolerance, and
+# reported as a divergence rather than smoothed. Modules 34, 35 and 43 each
+# did the same and two gold answers have already been corrected as a
+# result.
+# ══════════════════════════════════════════════════════════════════════
+
+# KB9's literal gold question text, copied verbatim from the dataset.
+_KB9_GOLD = (
+    "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki "
+    "wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh "
+    "kahin darj karta hai, khaas tor par jab hamare itne cases mein maut "
+    "shamil hai?"
+)
+
+# The canned aggregate sub-query for KB9's data half at the RIGHT grain.
+_KB9_SQ_FIR_SECTION_COUNT = (
+    "How many FIRs cite PPC section 302, across all cases?"
+)
+
+# Module 39's already-shipped KB9 plan sub-query, copied verbatim from
+# `rag.py::_KB_DATA_HALF_PLANS`. It must KEEP resolving to
+# `statute_court_stage_join`: that plan names the family, and
+# `_run_kb_data_half()` DROPS the data half when the aggregate that
+# answered is not the one named. Moving this string would have silently
+# regressed KB9 from Module 39's measured 2-of-3 to 0-of-3.
+_MODULE39_KB9_SUB_QUERY = (
+    "How many cases are charged under each FIR section, and how far "
+    "have those cases got in court?"
+)
+
+
+def _fir_section(case_id, act, section_code):
+    return {"case_id": case_id, "act": act, "section_code": section_code}
+
+
+async def test_module76_counts_firs_per_section_and_focuses_on_the_named_one(monkeypatch):
+    rows = (
+        [_fir_section(f"fir-{i}-26", "PPC", "302") for i in range(10)]
+        + [_fir_section(f"fir-{i}-26", "PPC", "34") for i in range(40)]
+        + [_fir_section(f"fir-{i}-26", "Arms Ordinance 1965", "13") for i in range(29)]
+    )
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        _KB9_SQ_FIR_SECTION_COUNT, None, gateway=None, user_role="supervisor",
+    )
+
+    assert result["kind"] == "fir_section_case_count"
+    assert result["focus_section_code"] == "302"
+    assert result["focus"]["fir_count"] == 10
+    assert result["focus"]["key"] == "PPC §302"
+    assert len(result["focus"]["case_ids"]) == 10
+    assert result["charged_fir_count"] == 40
+    assert result["distinct_section_count"] == 3
+    rendered = "\n".join(xagg.render_fir_section_case_count(result))
+    assert "10 of the 40 FIR(s)" in rendered
+    assert "cite PPC §302" in rendered
+
+
+async def test_module76_counts_per_fir_not_per_row(monkeypatch):
+    """A case charged twice under one section counts once — the same
+    denominator rule `_statute_court_stage_join()` uses, and the one gold's
+    "8 FIRs" is expressed in."""
+    rows = [
+        _fir_section("fir-1-26", "PPC", "302"),
+        _fir_section("fir-1-26", "PPC", "302"),
+        _fir_section("fir-2-26", "PPC", "302"),
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+    result = await xagg._fir_section_case_count(_KB9_SQ_FIR_SECTION_COUNT)
+    assert result["section_entry_count"] == 3
+    assert result["focus"]["fir_count"] == 2
+    assert result["charged_fir_count"] == 2
+
+
+async def test_module76_a_named_but_absent_section_is_said_so_not_hidden(monkeypatch):
+    rows = [_fir_section("fir-1-26", "PPC", "34")]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+    result = await xagg._fir_section_case_count(
+        "How many FIRs cite PPC section 999, across all cases?"
+    )
+    assert result["focus"]["fir_count"] == 0
+    assert "No FIR in this corpus cites section 999" in "\n".join(
+        xagg.render_fir_section_case_count(result)
+    )
+
+
+async def test_module76_with_no_section_named_it_reports_the_whole_table(monkeypatch):
+    rows = [
+        _fir_section("fir-1-26", "PPC", "34"),
+        _fir_section("fir-2-26", "PPC", "392"),
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+    result = await xagg._fir_section_case_count(
+        "How many FIRs cite each PPC section, across all cases?"
+    )
+    assert result["focus"] is None
+    rendered = "\n".join(xagg.render_fir_section_case_count(result))
+    assert "2 FIR(s) carry a recorded section" in rendered
+    assert "PPC §34: 1 FIR(s)" in rendered
+
+
+async def test_module76_empty_corpus_says_so(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient([]))
+    result = await xagg._fir_section_case_count(_KB9_SQ_FIR_SECTION_COUNT)
+    assert result["charged_fir_count"] == 0
+    assert "No FIR in this corpus carries a recorded section." in "\n".join(
+        xagg.render_fir_section_case_count(result)
+    )
+
+
+async def test_module76_emits_its_xagg_log_line_with_the_focused_figure(monkeypatch, caplog):
+    """Module 55's convention, and here the FOCUS is the load-bearing part:
+    the difference between this family and M4's is the grain, so a live run
+    has to be identifiable by the focused figure, not just the kind."""
+    rows = [_fir_section(f"fir-{i}-26", "PPC", "302") for i in range(10)]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+    with caplog.at_level(logging.INFO, logger="src.pipeline.xagg"):
+        await xagg._fir_section_case_count(_KB9_SQ_FIR_SECTION_COUNT)
+    logged = caplog.text
+    assert "XAGG fir_section_case_count:" in logged
+    assert "focus=302 -> 10 FIR(s)" in logged
+
+
+@pytest.mark.parametrize(
+    "query,expected",
+    [
+        ("How many FIRs cite PPC section 302, across all cases?", "302"),
+        ("How many FIRs cite PPC 302?", "302"),
+        ("how many firs cite section 337-A(i)?", "337-A(I)"),
+        ("kitni firs dafa 302 ka hawala deti hain?", "302"),
+        ("کتنی ایف آئی آر دفعہ 302 کا حوالہ دیتی ہیں؟", "302"),
+        ("How many FIRs cite each PPC section, across all cases?", None),
+    ],
+)
+def test_module76_section_extraction(query, expected):
+    """Generic by construction — nothing is special-cased to 302, which is
+    only the section gold's KB9 happens to name."""
+    assert xagg._section_code_in_query(query) == expected
+
+
+class TestFirSectionCountBoundary:
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            _KB9_SQ_FIR_SECTION_COUNT,
+            "How many FIRs cite each PPC section, across all cases?",
+            "kitni firs dafa 302 ka hawala deti hain?",
+            "کتنی ایف آئی آر دفعہ 302 کا حوالہ دیتی ہیں؟",
+        ],
+    )
+    def test_the_per_section_count_shape_reaches_the_new_family(self, query):
+        assert xagg.resolve_aggregate_kind(query) == "fir_section_case_count"
+
+    def test_module39s_shipped_kb9_sub_query_keeps_m4s_family(self):
+        """The regression this module would otherwise have shipped
+        invisibly. `rag.py::_run_kb_data_half()` DROPS a data half whose
+        aggregate family is not the one its plan named, so moving this
+        string would have taken KB9 from Module 39's measured 2-of-3 to
+        0-of-3 with every unit test still green."""
+        assert xagg.resolve_aggregate_kind(_MODULE39_KB9_SUB_QUERY) == (
+            "statute_court_stage_join"
+        )
+
+    def test_m4_keeps_its_own_family(self):
+        assert xagg.resolve_aggregate_kind(_M4_GOLD_TEXT) == (
+            "statute_court_stage_join"
+        )
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            # A section term with no FIR-count term: M4's territory or a
+            # listing, never this family.
+            "Which sections have reached the trial stage?",
+            # An FIR-count term with no section term.
+            "How many FIRs were registered last year?",
+        ],
+    )
+    def test_a_single_signal_is_not_enough(self, query):
+        assert xagg.resolve_aggregate_kind(query) != "fir_section_case_count"
+
+
+def test_module76_no_gold_question_reaches_the_section_count_predicate():
+    """The all-32 control's narrow half. NONE of the 32 may match — KB9's
+    own gold text names no section and asks no count; the "8 FIRs ... PPC
+    302" is in its gold ANSWER. KB9 reaches this family through a canned
+    sub-query, exactly as KB4/KB5/KB6 reach theirs, so this predicate's
+    blast radius over the gold set is zero. M4 in particular must not move:
+    it carries statute vocabulary and is the nearest neighbour."""
+    items = json.loads(_GOLD32_PATH.read_text(encoding="utf-8"))
+    matched = sorted(
+        (it.get("id") or "").upper()
+        for it in items
+        if xagg._is_fir_section_case_count(it["question"].lower())
+    )
+    assert matched == [], matched
+
+
+# ── [Gold-QA fix — Module 74] the widening, and what forced it ─────────────
+#
+# The vocabulary this family shipped with was mined from KB3's own gold
+# wording, and BOTH non-gold paraphrases written for the module missed it.
+# That is Module 56's finding a second time: a narrow trigger list is the
+# SAFE default for a refusal and the WRONG one for a real aggregate, because
+# a missed match no longer means "a generic answer", it means the
+# `unsupported_officer` refusal this family exists to replace.
+#
+# Measured, before the widening:
+#
+#   "Kya thane mein FIR likhne wala officer hi baad mein us case ki
+#    tafteesh bhi karta hai, ya ye do alag alag log hote hain?"
+#                                       -> station_or_category_counts  ❌
+#   "Is the person who writes up the FIR usually the same officer who
+#    later investigates it, or are they different people?"
+#                                       -> graph_recurrence_person     ❌
+#
+# The all-32 equality control and `TestOfficerRolePairBoundary` are what
+# bound the widening: exactly one gold question still moves, and every
+# officer-IDENTITY question still gets the refusal.
+_MODULE74_PARAPHRASES = (
+    # The two that failed before the widening (Roman-Urdu, English).
+    "Kya thane mein FIR likhne wala officer hi baad mein us case ki tafteesh "
+    "bhi karta hai, ya ye do alag alag log hote hain?",
+    "Is the person who writes up the FIR usually the same officer who later "
+    "investigates it, or are they different people?",
+    # Written AFTER the widening and not tuned to it. One of the four fresh
+    # paraphrases written at that point still misses — see
+    # `test_module74_a_known_paraphrase_miss_is_recorded_not_hidden`.
+    "کیا ایف آئی آر لکھنے والا افسر ہی تفتیش بھی کرتا ہے یا الگ الگ افسر ہوتے ہیں؟",
+)
+
+
+@pytest.mark.parametrize("query", _MODULE74_PARAPHRASES)
+def test_module74_paraphrases_reach_the_family(query):
+    assert xagg.resolve_aggregate_kind(query) == "officer_role_pair_overlap"
+
+
+def test_module74_a_known_paraphrase_miss_is_recorded_not_hidden():
+    """Reported, not tuned away. This phrasing names the registering side
+    ("who lodges the FIR") and the investigating side ("run the
+    investigation") but tests sameness only by implication ("or is that
+    handled by someone else?"), which the third signal does not read. It is
+    a real boundary of the predicate and it is pinned here so that a later
+    module widening it has to change this test deliberately rather than
+    discover the gap again."""
+    assert xagg.resolve_aggregate_kind(
+        "In our records, does the officer who lodges the FIR usually run the "
+        "investigation too, or is that handled by someone else?"
+    ) != "officer_role_pair_overlap"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Of our cases, how many have had their challan forwarded to court "
+        "already?",
+        "Hamare kitne cases ka chalaan adaalat tak pohanch chuka hai?",
+    ],
+)
+def test_module75_paraphrases_reach_the_family(query):
+    """Written before the live sweeps and not adjusted afterwards — English
+    and Roman-Urdu, where KB8's canned sub-query is English."""
+    assert xagg.resolve_aggregate_kind(query) == "chalaan_dispatch_count"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Across the caseload, how many FIRs cite dafa 302?",
+        "کتنے ایف آئی آر میں قتل کی دفعہ 302 درج ہے؟",
+    ],
+)
+def test_module76_paraphrases_reach_the_family(query):
+    """Roman-Urdu and Urdu script, where KB9's canned sub-query is English —
+    and neither says "PPC", so the section extractor's non-act branches are
+    exercised too."""
+    assert xagg.resolve_aggregate_kind(query) == "fir_section_case_count"
+    assert xagg._section_code_in_query(query) == "302"

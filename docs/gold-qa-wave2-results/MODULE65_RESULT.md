@@ -254,7 +254,7 @@ every KB2 run in both arms, and they are what the generator reasons from. So
 KB2's residue is **generation over a pool that now contains the right provision**,
 with a live index-hygiene defect feeding it the wrong one. That is Module 48's
 original hypothesis, now standing on evidence rather than on nothing — filed as
-**Module 77** (§8b).
+**Module 82** (§8b).
 
 **Art. 39 is not retrieved for gold's own wording** (0/3), though it is for the
 paraphrase (§6). Reported, not tuned: gold's phrasing gives the model nothing
@@ -397,7 +397,7 @@ still buys *nothing measured*. It stays at 2, and
 instead of citing a mechanism that no longer exists. **No follow-up module
 needed.**
 
-### 8b. Module 77 — KB2's answer contradicts the provision it was given
+### 8b. Module 82 — KB2's answer contradicts the provision it was given
 
 **The defect this module creates the conditions to see.** With Art. 38 and s.162
 both in the window, 3 runs of 3, the generator states s.162's bar correctly and
