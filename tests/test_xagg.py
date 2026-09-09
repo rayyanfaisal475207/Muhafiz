@@ -6384,3 +6384,284 @@ def test_module88_prior_conviction_requires_a_LATER_appearance():
         [{"sequence": 1, "conviction_status": "Under trial"},
          {"sequence": 2, "conviction_status": "Under trial"}]
     ) is False
+
+# ══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 89, question KB1] s.154 register completeness.
+#
+# KB1 asks what makes a report of a crime a formal FIR AND whether our
+# recordkeeping follows it. The norm half has scored since Module 30; the
+# data half had no aggregate at all, so all three of Module 27's passes
+# scored 0.30 with the judge's reason naming it exactly — the answer "fails
+# to address whether the recordkeeping follows it, instead stating that the
+# documents do not provide specific information."
+#
+# Module 39 excluded KB1 (and KB2) from `_KB_DATA_HALF_PLANS` as "schema
+# claims, not counts". Right for KB2, whose gold is "no, by design"; wrong
+# for KB1, whose gold asserts three checkable coverage figures.
+#
+# THE FIGURES, RE-DERIVED AGAINST `evidence_graph` BEFORE THIS WAS WRITTEN
+# (`MODULE89_RESULT.md` §1), not inherited from the brief:
+#   73 cases; 73 with a complainant; 70 with a recording officer (missing on
+#   fir-117-26, fir-954-26, fir-955-26); 64 with a report timestamp (9
+#   missing). Reproduces the corrected gold (PR #57) exactly.
+# ══════════════════════════════════════════════════════════════════════
+
+# The canned data-half sub-query, pinned here so
+# `rag.py::_KB_DATA_HALF_PLANS` can copy it rather than re-derive it — the
+# same convention Modules 74/75/76 used for theirs. The wording is
+# load-bearing: `xagg.py`'s keyword chain, not a router, decides which
+# family answers, and `_run_kb_data_half()` DROPS a data half whose
+# aggregate is not the one its plan named.
+_KB1_SQ_FIR_REGISTER_COMPLETENESS = (
+    "How many cases in the FIR register record complainant details, "
+    "a recording officer, and a report time, across all cases?"
+)
+
+# KB1's literal gold question text, copied verbatim from the dataset.
+_KB1_GOLD = (
+    "What legal requirement governs how a report of a crime becomes a "
+    "formal FIR, and does our recordkeeping actually follow it?"
+)
+
+
+def _m89_client(cases, complainants, recorders, report_times):
+    """The live shape, reduced: four Cypher statements, four row sets.
+
+    `report_times` maps case_id -> the value stored on `Incident`, so a test
+    can distinguish "no incident row" from "a row whose timestamp is empty".
+    """
+    return FakeAgeClientByQuery({
+        "INVOLVED_IN": [
+            {"case_id": cid, "role": role} for cid, role in complainants
+        ],
+        "ASSIGNED_TO": [
+            {"case_id": cid, "role": role} for cid, role in recorders
+        ],
+        "report_datetime": [
+            {"case_id": cid, "report_datetime": val}
+            for cid, val in report_times.items()
+        ],
+        "MATCH (c:Case) ": [{"case_id": cid} for cid in cases],
+    })
+
+
+def _m89_shaped_client():
+    """Ten cases in the live proportions: every case has a complainant, two
+    lack a recording officer, three lack a report time (one of those because
+    the field is projected but blank)."""
+    cases = [f"fir-{i}-26" for i in range(1, 11)]
+    return _m89_client(
+        cases,
+        complainants=[(c, "complainant") for c in cases],
+        recorders=(
+            [(c, "recording") for c in cases[:8]]
+            + [(c, "investigating") for c in cases]
+        ),
+        report_times={
+            **{c: "2026-06-19T09:10:00Z" for c in cases[:7]},
+            cases[7]: "",
+            cases[8]: None,
+        },
+    )
+
+
+async def test_module89_counts_the_three_s154_elements_over_one_case_denominator(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _m89_shaped_client())
+
+    result = await xagg.run_aggregate(
+        _KB1_SQ_FIR_REGISTER_COMPLETENESS, None, gateway=None, user_role="supervisor",
+    )
+
+    assert result["kind"] == "fir_register_completeness"
+    assert result["total_case_count"] == 10
+    by_key = {e["key"]: e for e in result["elements"]}
+    assert by_key["complainant"]["present_count"] == 10
+    assert by_key["recording_officer"]["present_count"] == 8
+    assert by_key["report_datetime"]["present_count"] == 7
+    assert by_key["recording_officer"]["missing_case_ids"] == ["fir-10-26", "fir-9-26"]
+    assert by_key["report_datetime"]["missing_count"] == 3
+    # All three together, which is a fourth number gold's "present for most
+    # cases" sentence rests on and which is NOT the min of the three.
+    assert result["fully_complete_count"] == 7
+
+
+async def test_module89_a_blank_report_timestamp_counts_as_missing(monkeypatch):
+    """The graph carries both an absent `report_datetime` and a projected-but-
+    empty one; 9 of the live 73 are missing and the aggregate must not
+    silently credit the empty ones."""
+    monkeypatch.setattr(xagg, "age_client", _m89_shaped_client())
+    result = await xagg._fir_register_completeness()
+    by_key = {e["key"]: e for e in result["elements"]}
+    assert sorted(by_key["report_datetime"]["missing_case_ids"]) == [
+        "fir-10-26", "fir-8-26", "fir-9-26",
+    ]
+
+
+async def test_module89_a_cms_complaint_is_not_a_register_complainant(monkeypatch):
+    """`complainant_cms` is CR6's walk-in complaint record, a different record
+    type on the same edge. Counting it here would inflate the numerator with
+    something s.154 says nothing about — and the live graph has exactly 4 of
+    them alongside the 73."""
+    cases = ["fir-1-26", "fir-2-26"]
+    monkeypatch.setattr(xagg, "age_client", _m89_client(
+        cases,
+        complainants=[("fir-1-26", "complainant"), ("fir-2-26", "complainant_cms")],
+        recorders=[(c, "recording") for c in cases],
+        report_times={c: "2026-01-01T00:00:00Z" for c in cases},
+    ))
+    result = await xagg._fir_register_completeness()
+    by_key = {e["key"]: e for e in result["elements"]}
+    assert by_key["complainant"]["present_count"] == 1
+    assert by_key["complainant"]["missing_case_ids"] == ["fir-2-26"]
+
+
+async def test_module89_an_edge_outside_the_case_set_cannot_inflate_a_count(monkeypatch):
+    """Every element is intersected with the case set the denominator comes
+    from, so a complainant edge on a case outside scope (a jurisdiction
+    filter, say) can never push a numerator above its denominator."""
+    monkeypatch.setattr(xagg, "age_client", _m89_client(
+        ["fir-1-26"],
+        complainants=[("fir-1-26", "complainant"), ("fir-99-26", "complainant")],
+        recorders=[("fir-1-26", "recording")],
+        report_times={"fir-1-26": "2026-01-01T00:00:00Z"},
+    ))
+    result = await xagg._fir_register_completeness()
+    by_key = {e["key"]: e for e in result["elements"]}
+    assert result["total_case_count"] == 1
+    assert by_key["complainant"]["present_count"] == 1
+
+
+async def test_module89_renderer_states_the_verdict_and_names_both_gaps(monkeypatch):
+    """Gold's value is the honest "mostly, with these gaps", not a pass/fail:
+    it says the structure is followed "in outline but not completely" and
+    then names both shortfalls. A renderer that emitted three bare numbers
+    would leave the verdict to the generation model, which is the failure
+    Module 24 recorded for M4."""
+    monkeypatch.setattr(xagg, "age_client", _m89_shaped_client())
+    result = await xagg._fir_register_completeness()
+    rendered = "\n".join(xagg.render_fir_register_completeness(result))
+
+    assert "in outline but not completely" in rendered
+    assert "complainant details: recorded on 10 of 10 case(s)." in rendered
+    assert "recorded on 8 of 10 case(s); missing on 2" in rendered
+    assert "fir-9-26" in rendered
+    assert "recorded on 7 of 10 case(s); missing on 3" in rendered
+    assert "present together on 7 of 10 case(s)" in rendered
+    # The two s.154 steps the schema cannot speak to are reported as
+    # UNMODELLED, not as missing — an unrecorded step is not a skipped one,
+    # and gold does not claim it is.
+    assert "read back to the informant" in rendered
+    assert "unmodelled step, not a skipped one" in rendered
+
+
+async def test_module89_renderer_does_not_manufacture_a_gap_when_there_is_none(monkeypatch):
+    cases = ["fir-1-26", "fir-2-26"]
+    monkeypatch.setattr(xagg, "age_client", _m89_client(
+        cases,
+        complainants=[(c, "complainant") for c in cases],
+        recorders=[(c, "recording") for c in cases],
+        report_times={c: "2026-01-01T00:00:00Z" for c in cases},
+    ))
+    result = await xagg._fir_register_completeness()
+    rendered = "\n".join(xagg.render_fir_register_completeness(result))
+    assert "in outline but not completely" not in rendered
+    assert "follow that structure across all 2 case(s)" in rendered
+    # The unmodelled steps are still disclosed: "complete" here means
+    # complete in what this schema models, and saying otherwise would be the
+    # overclaim Module 71 exists to prevent.
+    assert "no field anywhere in this schema" in rendered
+
+
+async def test_module89_empty_corpus_says_so(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _m89_client([], [], [], {}))
+    result = await xagg._fir_register_completeness()
+    assert result["total_case_count"] == 0
+    assert "cannot be assessed" in "\n".join(
+        xagg.render_fir_register_completeness(result)
+    )
+
+
+async def test_module89_emits_its_xagg_log_line_with_the_figures(monkeypatch, caplog):
+    """Module 55's convention. XAGG's SSE reports only `route='XAGG'`, so
+    this line is the only evidence of WHICH aggregate answered a live
+    question — and it has to carry the coverage figures, because the whole
+    defect was an answer with no figures in it."""
+    monkeypatch.setattr(xagg, "age_client", _m89_shaped_client())
+    with caplog.at_level(logging.INFO, logger="src.pipeline.xagg"):
+        await xagg._fir_register_completeness()
+    logged = caplog.text
+    assert "XAGG fir_register_completeness:" in logged
+    assert "complainant 10/10" in logged
+    assert "recording_officer 8/10" in logged
+    assert "report_datetime 7/10" in logged
+
+
+class TestModule89Dispatch:
+    """`resolve_aggregate_kind()` is the single source of dispatch truth
+    (Module 41) and its chain is ordered and first-match-wins, so WHERE this
+    family sits is the whole test surface. It is checked immediately above
+    `_COMPLETENESS_KEYWORDS` (G1/G2), the nearest neighbour in meaning."""
+
+    def test_the_canned_sub_query_reaches_this_family(self):
+        assert xagg.resolve_aggregate_kind(
+            _KB1_SQ_FIR_REGISTER_COMPLETENESS
+        ) == "fir_register_completeness"
+
+    @pytest.mark.parametrize("query", [
+        "How many FIR register entries record complainant details, across all cases?",
+        "Does our FIR recordkeeping record the recording officer and the report time?",
+        "kitne cases ke fir record mein mudai darj hai?",
+        "کیا ہماری ایف آئی آر ریکارڈ کیپنگ میں مدعی درج ہوتا ہے؟",
+    ])
+    def test_ordinary_rewordings_reach_it_too(self, query):
+        """Module 56 has found FOUR times that a route is right while the
+        vocabulary is too narrow. Measured, not asserted in prose."""
+        assert xagg.resolve_aggregate_kind(query) == "fir_register_completeness"
+
+    @pytest.mark.parametrize("query,expected", [
+        # G1/G2's family, checked IMMEDIATELY below this one, keeps every
+        # question about weak records in general.
+        ("Which cases might be incomplete or overlooked?", "case_completeness_scan"),
+        # A bare register question with no s.154 field named is not this.
+        ("How many FIR records are there?", "total_count"),
+        # A bare field question with no register framing is not this
+        # either: it keeps the honest officer refusal it had before.
+        ("Which officer is the recording officer on this case?",
+         "unsupported_officer"),
+        # A two-role comparison is not this family either. It reaches
+        # `unsupported_officer` rather than KB3's `officer_role_pair_overlap`
+        # both before and after this module (a pre-existing Module 74
+        # vocabulary gap, filed as Module 100 in
+        # GOLD_QA_REMAINING_FIXES_PLAN.md); pinned at the value it actually
+        # has so this test measures THIS module and not that one.
+        ("Is the registering officer usually the investigating officer?",
+         "unsupported_officer"),
+    ])
+    def test_it_does_not_steal_its_neighbours(self, query, expected):
+        assert xagg.resolve_aggregate_kind(query) == expected
+
+    def test_the_predicate_matches_none_of_the_32_gold_questions(self):
+        """The all-32 control's narrow half, stated directly against the
+        predicate. KB1's own gold text is a NORM question — it names no
+        count — and reaches this family only through the canned sub-query
+        `rag.py` dispatches, exactly as KB4/KB8/KB9 do. A MISSING dataset is
+        a failure, never a skip."""
+        items = json.loads(_GOLD32_PATH.read_text(encoding="utf-8"))
+        assert len(items) == 32
+        matched = sorted(
+            (it.get("id") or "").upper()
+            for it in items
+            if xagg._is_fir_register_completeness(it["question"].lower())
+        )
+        assert matched == [], matched
+
+    def test_both_signals_are_required(self):
+        """A one-signal predicate over "fir register" alone would claim half
+        this corpus; over "complainant" alone it would claim CR6's walk-in
+        complaint family. Pinned so a later widening cannot quietly drop the
+        AND."""
+        assert not xagg._is_fir_register_completeness("how many fir register entries are there?")
+        assert not xagg._is_fir_register_completeness("who is the complainant?")
+        assert xagg._is_fir_register_completeness(
+            "how many fir register entries name a complainant?"
+        )

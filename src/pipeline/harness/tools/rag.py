@@ -751,6 +751,119 @@ _KB_DATA_HALF_PLANS: tuple[_KbDataHalfPlan, ...] = (
         ),
         expected_kind="chalaan_dispatch_count",
     ),
+    # (7) KB1 — "what legal requirement governs how a report of a crime
+    #     becomes a formal FIR, and does our recordkeeping actually follow
+    #     it?" Gold's data half, as CORRECTED in PR #57: the structure is
+    #     followed "in outline but not completely" — 73/73 cases carry
+    #     complainant details, 70/73 a recording officer, 64/73 a report
+    #     timestamp, so 3 cases miss the officer and 9 miss the time.
+    #
+    #     WHY KB1 IS HERE AT ALL, AFTER MODULE 39 EXCLUDED IT. Module 39
+    #     left KB1 and KB2 out of this structure as "schema claims, not
+    #     counts". That call was right for KB2 — whose gold is "no, by
+    #     design" — and wrong for KB1, whose gold asserts three checkable
+    #     coverage figures. There was no aggregate producing them, so
+    #     Module 89 built `fir_register_completeness` first; this entry is
+    #     the one-line landing step, exactly as Modules 74/75/76 were for
+    #     entries (4), (5) and (6). All three figures were re-derived
+    #     against `evidence_graph` before the aggregate was written and
+    #     reproduce gold exactly (`MODULE89_RESULT.md` §1).
+    #
+    #     CHECKED LAST, DELIBERATELY. FIR / register / record vocabulary is
+    #     the broadest in this tuple — half the corpus' questions are about
+    #     FIRs — while entries (1)-(6) are each pinned to a narrow subject
+    #     (women, property, weapons, death, officer roles, challans).
+    #     Putting this one last means no earlier entry's claim can change,
+    #     which the all-32 control confirms: the same 26 questions still
+    #     resolve to None and (1)-(6) keep their plans.
+    #
+    #     VOCABULARY IS WIDER THAN KB1'S OWN WORDING, ON PURPOSE. Module 56
+    #     has now found FOUR times — most recently as Module 94 — that a
+    #     plan routes correctly and then fires no plan because its patterns
+    #     only spell the gold question. So these read the SHAPE (a report
+    #     becoming an FIR / how an FIR is registered / s.154 / our
+    #     recordkeeping) rather than KB1's sentence, and the paraphrases in
+    #     `MODULE89_RESULT.md` §6 were written down before being run.
+    _KbDataHalfPlan(
+        name="fir_register_completeness",
+        patterns=(
+            # The "X becomes an FIR" shape. The verb list is an alternation
+            # and not a bare `becomes?` because a paraphrase written down
+            # before this was measured — "does a complaint made at a police
+            # station have to be TURNED INTO a written FIR..." — missed the
+            # bare form outright (`MODULE89_RESULT.md` §6). Widened after
+            # that measurement, not before it, and recorded here for the
+            # same reason entry (5) records its own late widening: this is
+            # Module 56's finding for the fifth time.
+            re.compile(
+                r"\b(report|complaint|information|rapat|shikayat)\b"
+                r"[\s\S]{0,100}"
+                r"\b(becomes?|turn(?:s|ed)?\s+into|convert(?:s|ed)?\s+in?to|"
+                r"treated\s+as|registered\s+as|recorded\s+as|counts?\s+as|"
+                r"amounts?\s+to)\b"
+                r"[\s\S]{0,60}\bf\.?\s*i\.?\s*r\.?s?\b",
+                re.IGNORECASE,
+            ),
+            # "recordkeeping" alone is NOT enough, and that is a measured
+            # boundary rather than a cautious one: G5's Roman-Urdu gold
+            # ("Baramad shuda hathiyaron ki record keeping...") is a WEAPON
+            # register question that says the word, and a bare
+            # `\brecord[\s-]?keeping\b` claimed it off entry (3) in the
+            # all-32 control. Both orders are spelled out so KB1's own
+            # "...formal FIR, and does our recordkeeping..." matches
+            # whichever way a paraphrase puts the two.
+            re.compile(
+                r"\brecord[\s-]?keeping\b[\s\S]{0,120}"
+                r"\b(f\.?\s*i\.?\s*r\.?s?|first\s+information|register|report)\b",
+                re.IGNORECASE,
+            ),
+            re.compile(
+                r"\b(f\.?\s*i\.?\s*r\.?s?|first\s+information|register|report)\b"
+                r"[\s\S]{0,120}\brecord[\s-]?keeping\b",
+                re.IGNORECASE,
+            ),
+            re.compile(
+                r"\b(register|registering|registration|recording|recorded|"
+                r"logged|entered)\b[\s\S]{0,80}\bf\.?\s*i\.?\s*r\.?s?\b",
+                re.IGNORECASE,
+            ),
+            # The FIR-first order needs an interrogative that is NOT "how
+            # many"/"how much": D1's gold ("How many FIRs are currently
+            # registered?") is a plain count and matched the unguarded form
+            # in the all-32 control. The lookahead is the whole guard.
+            re.compile(
+                r"\b(how|when|what)\s+(?!many\b|much\b)[\s\S]{0,40}"
+                r"\bf\.?\s*i\.?\s*r\.?s?\b[\s\S]{0,80}"
+                r"\b(register|registered|recorded|logged|entered)\b",
+                re.IGNORECASE,
+            ),
+            re.compile(
+                r"\b(cr\.?p\.?c\.?|criminal\s+procedure)?\s*"
+                r"(section|s\.|dafa)\s*154\b",
+                re.IGNORECASE,
+            ),
+            re.compile(r"\bfirst\s+information\s+report\b", re.IGNORECASE),
+            re.compile(
+                r"\bf\.?\s*i\.?\s*r\.?s?\b[\s\S]{0,60}\bdarj\b",
+                re.IGNORECASE,
+            ),
+            re.compile(r"\brecord\s*rakhne\b|\brikaard\b", re.IGNORECASE),
+            re.compile(r"دفعہ\s*154|سیکشن\s*154"),
+            # Only the FIR-first order. The reverse ("...درج... ایف آئی آر")
+            # claimed CR6's gold — a walk-in CMS complaint question whose
+            # first clause is "شکایت درج کراتا ہے" and whose second names an
+            # FIR — in the all-32 control. Module 93 already records that
+            # CR6 and KB1 crowd each other in the other direction; this
+            # module does not take that on, it just refuses to make it worse.
+            re.compile(r"ایف\s*آئی\s*آر[\s\S]{0,60}(درج|اندراج)"),
+            re.compile(r"ریکارڈ\s*(کیپنگ|رکھنے|رکھتے)"),
+        ),
+        sub_query=(
+            "How many cases in the FIR register record complainant details, "
+            "a recording officer, and a report time, across all cases?"
+        ),
+        expected_kind="fir_register_completeness",
+    ),
 )
 
 
