@@ -93,7 +93,7 @@ is not now.
 both measurements). There are **four** distinct Groq keys, so the headroom is
 ~4,000 requests/day, not ~5,000. `key_manager.py` loads the numbered keys only
 and so rotates exactly those four — correct here, by luck rather than design
-(new defect **110**).
+(new defect **117**).
 
 Measured from response headers:
 
@@ -199,7 +199,7 @@ reason is not the one usually given.
 ## 5. The held-out controls — every candidate passes
 
 Module 87's three controls, reconstructed from `MODULE87_RESULT.md` §6 (their
-input text was never committed — new defect **111**) and **validated**: on
+input text was never committed — new defect **118**) and **validated**: on
 Module 87's own judge the reconstruction reproduces Module 87's published numbers
 exactly, so the texts are equivalent to the ones it used. Three draws each.
 
@@ -367,7 +367,7 @@ module changes no evaluation prompt and no published score.**
 
 ## 10. New defects found — left unfixed, tracked as their own modules
 
-**Module 110 — `key_manager.py` rotates only the numbered keys, and `.env`
+**Module 117 — `key_manager.py` rotates only the numbered keys, and `.env`
 advertises one more key per provider than it has.** `_load_keys()` reads
 `GEMINI_API_KEY_*` / `GROQ_API_KEY_*` and falls back to the bare
 `GEMINI_API_KEY` / `GROQ_API_KEY` *only when no numbered key exists*. Today that
@@ -379,7 +379,7 @@ requests/day). The real figures are 20% lower. Either de-duplicate on load and
 log the distinct count, or make the bare key participate; do not leave the
 arithmetic depending on a coincidence.
 
-**Module 111 — Module 87's held-out controls are described in prose but their
+**Module 118 — Module 87's held-out controls are described in prose but their
 input text is not committed.** `MODULE87_RESULT.md` §6 is the only record of what
 A, B and C actually said, so verifying the strongest integrity claim in the judge
 upgrade required reconstructing three test cases from a table and checking the
@@ -389,7 +389,7 @@ regression guard. Module 109 commits its own controls in
 `evaluation/module109_judge_probe.py`; the fix is to make that the home for
 Module 87's too, and to add a test that pins each control's expected band.
 
-**Module 112 — a per-model output-token cap is retried as a quota failure and
+**Module 119 — a per-model output-token cap is retried as a quota failure and
 hangs the run silently.** `qwen/qwen3.6-27b` returns `429 Request too large … on
 output tokens per minute (OTPM): Limit 1000, Requested 2048` on every call.
 `_is_rate_limit()` matches `429`, so `measure()` spends eight retries with

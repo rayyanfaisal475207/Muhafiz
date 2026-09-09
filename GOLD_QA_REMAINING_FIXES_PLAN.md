@@ -4675,7 +4675,7 @@ machine. A slow call is not a failed call (Module 45's rule, one layer out).
 rules as the prompt has steps, so the two cannot drift apart silently again.
 
 **New defects: 98** (three dead Gemini keys; `GEMINI_MODEL`'s model capped at
-20/day) and **99** (KB6's residual spread is the pipeline's, not the judge's).
+20/day) and **108** (KB6's residual spread is the pipeline's, not the judge's).
 
 
 ---
@@ -4744,7 +4744,7 @@ shipped.
 **`llama-3.3-70b-versatile` and `moonshotai/kimi-k2-instruct` do not exist on
 this account** — the model list was queried before the set was fixed. `qwen/
 qwen3.6-27b` is unusable: a **1,000-token OTPM cap** 429s every call, which the
-harness retries as a quota wobble and so **hangs silently** (new defect 112).
+harness retries as a quota wobble and so **hangs silently** (new defect 119).
 
 **M7 does not discriminate — all five score it 1.0 on 5/5 draws.** What separates
 them is variance and the rest of the checklist. **G1 collapses 0.9 → 0.2 on every
@@ -4776,9 +4776,9 @@ held-out controls **in code**. Temperature pinned identically on both paths; an
 unknown provider raises instead of falling through to Gemini. **45 unit tests
 pass** (38 pre-existing); the evaluation prompt is byte-identical to Module 87's.
 
-**New defects: 110** (`key_manager` rotates numbered keys only, and five env
+**New defects: 117** (`key_manager` rotates numbered keys only, and five env
 names carry four distinct keys per provider — two modules have computed headroom
-by counting env names), **111** (Module 87's held-out controls exist only as
+by counting env names), **118** (Module 87's held-out controls exist only as
 prose; Module 109 had to reconstruct them, validated against its published
-scores), **112** (a per-model OTPM cap is retried as a quota failure and hangs
+scores), **119** (a per-model OTPM cap is retried as a quota failure and hangs
 the run with nothing in the log).
