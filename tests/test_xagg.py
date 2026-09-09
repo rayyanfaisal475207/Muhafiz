@@ -5885,3 +5885,304 @@ def test_module76_paraphrases_reach_the_family(query):
     exercised too."""
     assert xagg.resolve_aggregate_kind(query) == "fir_section_case_count"
     assert xagg._section_code_in_query(query) == "302"
+
+
+# ── Module 88 — CR2: person recurrence carries no temporal or status axis ──
+#
+# CR2's gold answer is made of three facts the pre-fix aggregate could not
+# express: which of the two cases came FIRST, that the earlier one ended in a
+# CONVICTION, and that the person is CURRENTLY accused in the newer one. The
+# aggregate already found gold's exact pair; the rendered evidence carried
+# bare case ids, so the model refused, byte-identically, on all three of
+# Module 27's passes. These tests pin the enrichment, not the refusal.
+
+# Literal gold text, copied verbatim from the dataset.
+_CR2_GOLD_QUESTION = (
+    "Is there anyone with an earlier case already on record who has since "
+    "resurfaced as a suspect in a newer, separate case?"
+)
+_CR2_GOLD_ANSWER = (
+    "Yes — this identity has a prior conviction (from FIR 891/24) and is "
+    "separately, currently accused in FIR 214/26."
+)
+_S3_GOLD_QUESTION = "کیا کسی شخص کو ایک سے زیادہ بار گرفتار کیا گیا ہے؟"
+
+
+def test_module88_gold_fixture_texts_are_the_real_dataset_texts():
+    """Same rule as `test_gold32_fixture_texts_are_the_real_dataset_texts`:
+    a gold text edited upstream must break here rather than quietly turn the
+    regression below into a tautology."""
+    by_id = {(it.get("id") or "").upper(): it for it in _gold32_items()}
+    assert by_id["CR2"]["question"] == _CR2_GOLD_QUESTION
+    assert by_id["CR2"]["answer"] == _CR2_GOLD_ANSWER
+    assert by_id["S3"]["question"] == _S3_GOLD_QUESTION
+
+
+class FakeAgeClientByQuery:
+    """`FakeAgeClient` returns one row set for every query, which is fine
+    while an aggregate runs a single Cypher statement. Module 88's
+    recurrence runs four (nodes, incident dates, INVOLVED_IN edges, criminal
+    records), so this fake dispatches on a substring of the query text."""
+
+    def __init__(self, by_marker: dict, default=None):
+        self.by_marker = by_marker
+        self.default = default if default is not None else []
+        self.seen: list[str] = []
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        self.seen.append(cypher_query)
+        for marker, rows in self.by_marker.items():
+            if marker in cypher_query:
+                return rows
+        return self.default
+
+
+def _cr2_shaped_age_client():
+    """The live shape, reduced: one person in two cases two years apart, the
+    earlier one carrying a conviction. Sampled from the Cypher probe in
+    docs/gold-qa-wave2-results/MODULE88_RESULT.md §1."""
+    return FakeAgeClientByQuery({
+        "RETURN n, c": [
+            {"n": _node("PERSON-685fc54914", "Person", canonical_name="شہزیب عرف شابی"),
+             "c": _case("fir-891-24")},
+            {"n": _node("PERSON-685fc54914", "Person", canonical_name="شہزیب عرف شابی"),
+             "c": _case("fir-214-26")},
+        ],
+        "OCCURRED_ON": [
+            {"incident_date": "2024-09-14", "case_id": "fir-891-24"},
+            {"incident_date": "2026-03-03", "case_id": "fir-214-26"},
+        ],
+        "INVOLVED_IN": [
+            {"person_id": "PERSON-685fc54914", "case_id": "fir-891-24",
+             "role": "accused", "arrest_status": "گرفتار، بعد ازاں سزا یافتہ"},
+            {"person_id": "PERSON-685fc54914", "case_id": "fir-214-26",
+             "role": "accused", "arrest_status": "گرفتار"},
+        ],
+        "criminal_record": [
+            {"subject": "شہزیب عرف شابی", "case_ref": "FIR 891/24, PS Jhang Road Faisalabad",
+             "conviction_status": "Convicted, on bail pending appeal"},
+            {"subject": "شہزیب عرف شابی", "case_ref": "FIR 214/26, PS Civil Lines Faisalabad",
+             "conviction_status": "Under trial"},
+        ],
+    })
+
+
+async def test_module88_person_recurrence_carries_per_case_ordering_and_status(monkeypatch):
+    """The structural assertion: every recurrence entry now carries a
+    date-ORDERED `cases` timeline, each entry naming its own position, role,
+    arrest status and (where the FIR join finds one) conviction status. Bare
+    `case_ids` is preserved unchanged — `_case_ids_touched()` reads it."""
+    monkeypatch.setattr(xagg, "age_client", _cr2_shaped_age_client())
+
+    result = await xagg.run_aggregate(
+        _CR2_GOLD_QUESTION, None, gateway=None, user_role="supervisor"
+    )
+
+    assert result["kind"] == "graph_recurrence"
+    assert result["entity_type"] == "Person"
+    entry = result["results"][0]
+    assert entry["case_ids"] == ["fir-214-26", "fir-891-24"]  # unchanged, sorted by id
+
+    timeline = entry["cases"]
+    assert [c["case_id"] for c in timeline] == ["fir-891-24", "fir-214-26"], (
+        "the timeline must be ordered by INCIDENT DATE, not by case id — "
+        "sorting by id would put fir-214-26 first and invert gold's sequence"
+    )
+    assert [c["sequence"] for c in timeline] == [1, 2]
+    assert [c["year"] for c in timeline] == [2024, 2026]
+    assert timeline[0]["roles"] == ["accused"]
+    assert timeline[0]["arrest_status"] == "گرفتار، بعد ازاں سزا یافتہ"
+    assert timeline[0]["conviction_status"] == "Convicted, on bail pending appeal"
+    assert timeline[1]["conviction_status"] == "Under trial"
+
+
+async def test_module88_cr2_gold_facts_are_present_in_the_rendered_evidence(monkeypatch):
+    """The regression pinned to CR2's literal gold text. Gold asserts three
+    things; the rendered evidence handed to the model must contain all three,
+    stated rather than inferable. This is the exact check that was failing:
+    pre-fix the renderer emitted only
+    `- شہزیب عرف شابی (Person): appears in 2 cases — fir-214-26, fir-891-24`."""
+    monkeypatch.setattr(xagg, "age_client", _cr2_shaped_age_client())
+
+    result = await xagg.run_aggregate(
+        _CR2_GOLD_QUESTION, None, gateway=None, user_role="supervisor"
+    )
+    text = "\n".join(xagg.render_graph_recurrence(result))
+
+    # (1) the ordering — which case is the EARLIER one, said explicitly
+    assert "earliest case FIR 891/24 (2024-09-14)" in text
+    assert "then FIR 214/26 (2026-03-03)" in text
+    assert "[case 1 of 2 in time order]" in text and "[case 2 of 2 in time order]" in text
+    # (2) gold's "prior conviction (from FIR 891/24)"
+    assert "Convicted, on bail pending appeal" in text
+    assert "گرفتار، بعد ازاں سزا یافتہ" in text
+    # (3) gold's "separately, currently accused in FIR 214/26"
+    assert "FIR 214/26" in text and "role on that case: accused" in text
+    assert "Under trial" in text
+
+    # And the pre-fix headline is still there verbatim, so nothing that read
+    # it lost its string.
+    assert (
+        "- شہزیب عرف شابی (Person): appears in 2 cases — fir-214-26, fir-891-24"
+        in text
+    )
+
+
+async def test_module88_s3_keeps_the_multiple_arrest_evidence_it_passes_on(monkeypatch):
+    """S3 (*"has anyone been arrested more than once"*) shares this exact
+    aggregate and passes 3/3 on the baseline. The enrichment must not narrow
+    what it sees: the same four-person listing, plus the arrest status per
+    case that S3's own gold answer is about."""
+    monkeypatch.setattr(xagg, "age_client", _cr2_shaped_age_client())
+
+    result = await xagg.run_aggregate(
+        _S3_GOLD_QUESTION, None, gateway=None, user_role="supervisor"
+    )
+
+    assert result["kind"] == "graph_recurrence"
+    assert result["entity_type"] == "Person"
+    text = "\n".join(xagg.render_graph_recurrence(result))
+    assert "appears in 2 cases" in text
+    assert text.count("recorded status: گرفتار") >= 1
+
+
+async def test_module88_undated_case_is_not_guessed_into_the_sequence(monkeypatch):
+    """9 of 73 live cases carry no incident date. Such a case must sort last
+    and carry `sequence: None` — placing it in the order would be inventing
+    the very fact CR2 asks about."""
+    client = _cr2_shaped_age_client()
+    client.by_marker["OCCURRED_ON"] = [
+        {"incident_date": "2024-09-14", "case_id": "fir-891-24"},
+    ]
+    monkeypatch.setattr(xagg, "age_client", client)
+
+    result = await xagg.run_aggregate(
+        _CR2_GOLD_QUESTION, None, gateway=None, user_role="supervisor"
+    )
+    timeline = result["results"][0]["cases"]
+    assert [c["case_id"] for c in timeline] == ["fir-891-24", "fir-214-26"]
+    assert [c["sequence"] for c in timeline] == [1, None]
+    text = "\n".join(xagg.render_graph_recurrence(result))
+    assert "Sequence:" not in text, "one dated case is not a sequence"
+    assert "no incident date recorded" in text
+
+
+async def test_module88_conviction_is_never_attributed_across_subjects_on_one_fir(monkeypatch):
+    """`StructuredRecord.source_case_ref` is free text and the join is on the
+    FIR number, not an enforced key (the same hedge `_weapon_evidence_chain()`
+    carries). When one FIR holds records for several subjects and none is the
+    person in hand, no conviction is attributed at all."""
+    client = _cr2_shaped_age_client()
+    client.by_marker["criminal_record"] = [
+        {"subject": "کوئی اور", "case_ref": "FIR 891/24",
+         "conviction_status": "Convicted, on bail pending appeal"},
+        {"subject": "تیسرا شخص", "case_ref": "FIR 891/24",
+         "conviction_status": "Under trial"},
+    ]
+    monkeypatch.setattr(xagg, "age_client", client)
+
+    result = await xagg.run_aggregate(
+        _CR2_GOLD_QUESTION, None, gateway=None, user_role="supervisor"
+    )
+    assert all(c["conviction_status"] is None for c in result["results"][0]["cases"])
+    assert "Convicted" not in "\n".join(xagg.render_graph_recurrence(result))
+
+
+async def test_module88_vehicle_recurrence_headline_is_byte_identical(monkeypatch):
+    """A Vehicle has no INVOLVED_IN edge and (live) no dated recurrence at
+    all, so its rendering must be exactly the string this family emitted
+    before Module 88 — no trailing sequence clause, no indented block."""
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClientByQuery({
+        "RETURN n, c": [
+            {"n": _node("V-001", "Vehicle", plate="ICT-LE-309"), "c": _case("CASE-007")},
+            {"n": _node("V-001", "Vehicle", plate="ICT-LE-309"), "c": _case("CASE-008")},
+        ],
+    }))
+
+    result = await xagg.run_aggregate(
+        "what are the top recurring vehicles across cases", None, gateway=None,
+        user_role="supervisor",
+    )
+    assert xagg.render_graph_recurrence(result) == [
+        "- ICT-LE-309 (Vehicle): appears in 2 cases — CASE-007, CASE-008"
+    ]
+
+
+async def test_module88_log_line_carries_the_new_figures(monkeypatch, caplog):
+    """Module 55's rule: the `XAGG <kind>:` line is the only live evidence of
+    which aggregate answered, and a kind alone cannot separate a correct run
+    from an under-evidenced one — which is how CR2 stayed 0.00 for three
+    passes while this family fired every time. The line now carries the
+    ordering and conviction counts too."""
+    monkeypatch.setattr(xagg, "age_client", _cr2_shaped_age_client())
+    with caplog.at_level(logging.INFO, logger="src.pipeline.xagg"):
+        await xagg.run_aggregate(
+            _CR2_GOLD_QUESTION, None, gateway=None, user_role="supervisor"
+        )
+    line = next(
+        r.getMessage() for r in caplog.records
+        if r.getMessage().startswith("XAGG graph_recurrence:")
+    )
+    assert "entity_type=Person" in line
+    assert "1 with a date-ordered timeline" in line
+    assert "1 with a criminal-record outcome" in line
+    assert "[2024-09-14..2026-03-03]" in line
+
+
+async def test_module88_result_leads_with_its_own_temporal_summary(monkeypatch):
+    """The recurrence family's own summary statistic over the temporal axis,
+    computed over whatever is in the result rather than filtered toward one
+    question. It exists because a live paraphrase run reproduced a 2024 case
+    and a 2026 case for the same person in its own body and still concluded
+    "none of these are years apart" — see MODULE88_RESULT.md §6."""
+    monkeypatch.setattr(xagg, "age_client", _cr2_shaped_age_client())
+    result = await xagg.run_aggregate(
+        _CR2_GOLD_QUESTION, None, gateway=None, user_role="supervisor"
+    )
+    lines = xagg.render_graph_recurrence(result)
+    assert lines[0] == (
+        "Of the 1 recurring Person(s) below, 1 appears in cases from more than "
+        "one calendar year, and 1 carries a decided criminal-record outcome on "
+        "an EARLIER case than one they are also named in later."
+    )
+
+
+async def test_module88_two_firs_days_apart_are_not_counted_as_cross_year(monkeypatch):
+    """عاصم رشید's two FIRs are four days apart on live data. That is a real
+    recurrence and must still be listed, but it is NOT the "earlier case
+    already on record" shape, so it must not be counted into the cross-year
+    summary — and with no cross-year entity at all, no summary is emitted."""
+    client = _cr2_shaped_age_client()
+    client.by_marker["OCCURRED_ON"] = [
+        {"incident_date": "2026-03-19", "case_id": "fir-891-24"},
+        {"incident_date": "2026-03-23", "case_id": "fir-214-26"},
+    ]
+    monkeypatch.setattr(xagg, "age_client", client)
+    result = await xagg.run_aggregate(
+        _CR2_GOLD_QUESTION, None, gateway=None, user_role="supervisor"
+    )
+    assert not xagg._spans_calendar_years(result["results"][0]["cases"])
+    lines = xagg.render_graph_recurrence(result)
+    assert lines[0].startswith("- شہزیب"), "no cross-year entity, so no summary line"
+    assert "both fall in the same calendar year" in lines[0]
+
+
+def test_module88_prior_conviction_requires_a_LATER_appearance():
+    """A decided outcome on the person's MOST RECENT case is not a "prior"
+    conviction — nothing came after it. Pinned so the summary statistic can
+    never be satisfied by a single settled case."""
+    settled_last = [
+        {"sequence": 1, "conviction_status": None},
+        {"sequence": 2, "conviction_status": "Convicted, on bail pending appeal"},
+    ]
+    settled_first = [
+        {"sequence": 1, "conviction_status": "Convicted, on bail pending appeal"},
+        {"sequence": 2, "conviction_status": "Under trial"},
+    ]
+    assert xagg._has_prior_settled_conviction(settled_last) is False
+    assert xagg._has_prior_settled_conviction(settled_first) is True
+    # "Under trial" is not a decided outcome — CR7's own published rule.
+    assert xagg._has_prior_settled_conviction(
+        [{"sequence": 1, "conviction_status": "Under trial"},
+         {"sequence": 2, "conviction_status": "Under trial"}]
+    ) is False

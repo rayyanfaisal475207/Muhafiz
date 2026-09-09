@@ -1396,19 +1396,377 @@ def _crime_type_filter_supported(cases: list[dict]) -> bool:
     )
 
 
+# [Gold-QA fix — CR2, Module 88] Per-case TEMPORAL and STATUS context for a
+# recurrence result.
+#
+# The defect: `_top_recurring_nodes()` returned bare `case_ids`, so the
+# rendered evidence for CR2 ("is there anyone with an earlier case on record
+# who has since resurfaced as a suspect in a newer, separate case?") read
+#
+#     - شہزیب عرف شابی (Person): appears in 2 cases — fir-214-26, fir-891-24
+#
+# and nothing more. Which of the two is EARLIER, what the person's role was
+# in each, and whether either ended in a conviction were all absent, so the
+# model's refusal ("the cases are not explicitly described as being
+# sequential") was correct given the evidence it was handed. This is an
+# evidence-rendering gap, not a reasoning failure — which is why the answer
+# was byte-identical on all three of Module 27's passes.
+#
+# NOTHING HERE IS CR2-SHAPED. The three dimensions added are the ones the
+# recurrence family was always missing, and every one of them is read with a
+# query this module already runs somewhere else:
+#
+#   - year/date  — `Incident-[:OCCURRED_ON {event_type:'incident'}]->Date`,
+#                  the exact edge `_statute_mix_by_year()` resolves a year
+#                  from. Deliberately NOT parsed out of the FIR id: the live
+#                  graph disproves that shortcut — `fir-401-26` carries an
+#                  incident date of 2024-09-25, so the id's year and the
+#                  incident's year genuinely disagree on this data.
+#   - role/arrest_status — `Person-[:INVOLVED_IN {role, arrest_status}]->
+#                  Incident`, the same edge `_weapon_evidence_chain()` reads
+#                  its "what happened to them" half off.
+#   - conviction_status — the `criminal_record` StructuredRecord joined on
+#                  the normalized FIR number via `_fir_key()`, exactly as
+#                  `_weapon_evidence_chain()` and CR7's cross-check do. Same
+#                  hedge as there: `source_case_ref` is free text, so this is
+#                  a FIR-number match, not an enforced key. Only 4 of the 33
+#                  criminal records carry a parseable FIR reference at all
+#                  (live-probed), so the join is sparse by construction and a
+#                  person with no matched record is reported without one
+#                  rather than guessed at by bare name.
+
+
+async def _incident_date_by_case(
+    case_ids: Optional[list[str]] = None,
+) -> dict[str, dict]:
+    """
+    `case_id -> {"date": 'YYYY-MM-DD', "year": int}` for every case whose
+    Incident has an `OCCURRED_ON {event_type: 'incident'}` edge to a Date.
+
+    Same query shape as `_statute_mix_by_year()`; the year is resolved with
+    the same `_extract_year()` primitive, so a case with no incident date
+    (9 of 73 live — see `_case_completeness_scan()`) is absent here rather
+    than folded into a wrong bucket.
+    """
+    where_parts = ["oe.event_type = 'incident'"]
+    params: dict = {}
+    if case_ids is not None:
+        where_parts.append("c.case_id IN $case_ids")
+        params["case_ids"] = list(case_ids)
+    rows = await age_client.execute_cypher(
+        "MATCH (i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+        "MATCH (i)-[oe:OCCURRED_ON]->(d:Date) "
+        f"WHERE {' AND '.join(where_parts)} "
+        "RETURN d.date AS incident_date, c.case_id AS case_id",
+        params=params, columns=["incident_date", "case_id"],
+    )
+    out: dict[str, dict] = {}
+    for r in rows:
+        case_id = r.get("case_id")
+        if not case_id:
+            continue
+        date = r.get("incident_date")
+        year = _extract_year(date)
+        if year is None:
+            continue
+        out[str(case_id)] = {"date": str(date), "year": year}
+    return out
+
+
+async def _person_role_by_case(canonical_map: Optional[dict] = None) -> dict:
+    """
+    `(person_entity_id, case_id) -> {"roles": [...], "arrest_status": ...}`
+    off `Person-[:INVOLVED_IN {role, arrest_status}]->Incident`.
+
+    Person ids are folded through the SAME `canonical_map` the recurrence
+    count itself uses, otherwise a confirmed duplicate's status would be
+    filed under an id no recurrence bucket carries.
+
+    A person can hold more than one INVOLVED_IN edge on one case (the graph
+    records role per mention), so roles accumulate into a list; the first
+    non-empty `arrest_status` wins, which is the only one this data ever
+    populates on that shape.
+    """
+    rows = await age_client.execute_cypher(
+        "MATCH (p:Person)-[e:INVOLVED_IN]->(i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+        "RETURN p.entity_id AS person_id, c.case_id AS case_id, "
+        "e.role AS role, e.arrest_status AS arrest_status",
+        columns=["person_id", "case_id", "role", "arrest_status"],
+    )
+    out: dict = {}
+    for r in rows:
+        pid, case_id = r.get("person_id"), r.get("case_id")
+        if not pid or not case_id:
+            continue
+        pid = canon(canonical_map or {}, pid)
+        entry = out.setdefault((pid, str(case_id)), {"roles": [], "arrest_status": None})
+        role = r.get("role")
+        if role and role not in entry["roles"]:
+            entry["roles"].append(role)
+        if entry["arrest_status"] is None and r.get("arrest_status"):
+            entry["arrest_status"] = r.get("arrest_status")
+    return out
+
+
+async def _criminal_record_by_fir() -> dict:
+    """
+    `fir_key -> [{"subject", "conviction_status"}, ...]` for every
+    `criminal_record` StructuredRecord carrying a parseable FIR reference.
+
+    Identical query and identical `_fir_key()` join to
+    `_weapon_evidence_chain()`'s own downstream lookup — the list (rather
+    than that function's last-write-wins dict) is so a FIR carrying more
+    than one subject can be disambiguated by name instead of silently
+    attributing one person's conviction to another.
+    """
+    rows = await age_client.execute_cypher(
+        "MATCH (r:StructuredRecord) WHERE r.record_type = 'criminal_record' "
+        "RETURN r.subject_full_name AS subject, r.source_case_ref AS case_ref, "
+        "r.conviction_status AS conviction_status",
+        columns=["subject", "case_ref", "conviction_status"],
+    )
+    out: dict = {}
+    for r in rows:
+        key = _fir_key(r.get("case_ref"))
+        if not key:
+            continue
+        out.setdefault(key, []).append({
+            "subject": r.get("subject"),
+            "conviction_status": r.get("conviction_status"),
+        })
+    return out
+
+
+def _match_criminal_record(records: list[dict], person_name: Optional[str]) -> Optional[dict]:
+    """Pick the record for `person_name` when a FIR carries several, and fall
+    back to the single record when a FIR carries exactly one. Several records
+    and no name match yields None — an unattributed conviction is worse than
+    no conviction."""
+    if not records:
+        return None
+    if len(records) == 1:
+        return records[0]
+    name = (person_name or "").strip()
+    for r in records:
+        if name and (r.get("subject") or "").strip() == name:
+            return r
+    return None
+
+
+async def _recurrence_case_context(
+    ranked: list[tuple], display: dict, label: str, canonical_map: Optional[dict] = None,
+) -> dict[str, list[dict]]:
+    """
+    Build the ordered per-case timeline for each recurring entity:
+    `entity_id -> [{"case_id", "fir", "date", "year", "sequence", "roles",
+    "arrest_status", "conviction_status"}, ...]`, EARLIEST FIRST.
+
+    Ordering key is the incident date; cases with no incident date sort last
+    (they cannot be placed in the sequence and must not be guessed into one).
+    `sequence` is 1-based over the DATED cases only, so the renderer can say
+    "earlier"/"later" without re-deriving it.
+    """
+    all_case_ids = sorted({cid for _, cases in ranked for cid in cases})
+    if not all_case_ids:
+        return {}
+    date_by_case = await _incident_date_by_case(all_case_ids)
+    role_by_person_case: dict = {}
+    records_by_fir: dict = {}
+    if label == "Person":
+        role_by_person_case = await _person_role_by_case(canonical_map)
+        records_by_fir = await _criminal_record_by_fir()
+
+    out: dict[str, list[dict]] = {}
+    for entity_id, cases in ranked:
+        timeline = []
+        for case_id in sorted(cases):
+            dated = date_by_case.get(case_id) or {}
+            fir = _fir_key(case_id)
+            involvement = role_by_person_case.get((entity_id, case_id)) or {}
+            record = _match_criminal_record(
+                records_by_fir.get(fir) or [], display.get(entity_id)
+            ) if fir else None
+            timeline.append({
+                "case_id": case_id,
+                "fir": fir,
+                "date": dated.get("date"),
+                "year": dated.get("year"),
+                "sequence": None,
+                "roles": involvement.get("roles") or [],
+                "arrest_status": involvement.get("arrest_status"),
+                "conviction_status": (record or {}).get("conviction_status"),
+            })
+        timeline.sort(key=lambda t: (t["date"] is None, t["date"] or "", t["case_id"]))
+        n = 0
+        for t in timeline:
+            if t["date"] is not None:
+                n += 1
+                t["sequence"] = n
+        out[entity_id] = timeline
+    return out
+
+
+def _fir_label(entry: dict) -> str:
+    """Render the FIR the way the source records write it ("FIR 891/24"), not
+    `_fir_key`'s internal 'NNN-YY' normal form — the same rule
+    `render_weapon_evidence_chain()` already applies."""
+    fir = entry.get("fir")
+    return f"FIR {fir.replace('-', '/')}" if fir else (entry.get("case_id") or "unknown case")
+
+
+def _sequence_summary(timeline: list[dict]) -> Optional[str]:
+    """One sentence naming the ORDER explicitly, so the model is HANDED the
+    sequence instead of being left to infer it from two opaque ids — the
+    whole of CR2's defect. None when fewer than two cases carry a date."""
+    dated = [t for t in timeline if t.get("sequence")]
+    if len(dated) < 2:
+        return None
+    first, last = dated[0], dated[-1]
+    gap = (last.get("year") or 0) - (first.get("year") or 0)
+    # "0 year(s) apart" reads as a claim about time when it is really "same
+    # calendar year" — say that instead. عاصم رشید's two FIRs are four days
+    # apart on live data, which is precisely the case gold does NOT mean by
+    # "an earlier case already on record".
+    span = (
+        f"the two are {gap} calendar year(s) apart"
+        if gap else "both fall in the same calendar year"
+    )
+    return (
+        f"earliest case {_fir_label(first)} ({first['date']}), then "
+        f"{_fir_label(last)} ({last['date']}) — {span}"
+    )
+
+
+def _spans_calendar_years(timeline: list[dict]) -> bool:
+    """True when this entity's dated cases fall in more than one calendar
+    year — the difference between a genuine "earlier case already on record"
+    and two FIRs registered four days apart."""
+    years = {t.get("year") for t in timeline if t.get("year") is not None}
+    return len(years) > 1
+
+
+def _has_prior_settled_conviction(timeline: list[dict]) -> bool:
+    """True when a DECIDED criminal-record outcome sits on a case that is not
+    the last one in the timeline — i.e. the outcome is prior to a later
+    appearance. `_conviction_is_settled()` is CR7's own published rule,
+    reused rather than re-expressed here."""
+    dated = [t for t in timeline if t.get("sequence")]
+    if len(dated) < 2:
+        return False
+    return any(_conviction_is_settled(t.get("conviction_status")) for t in dated[:-1])
+
+
+def render_graph_recurrence(agg_result: dict) -> list[str]:
+    """
+    [Gold-QA fix — CR2, Module 88] Shared renderer for all three XAGG
+    rendering sites (the harness xagg tool + orchestrator's two branches),
+    same shape as `render_weapon_evidence_chain()`.
+
+    The headline line is byte-for-byte the one this family has always
+    emitted, so every existing consumer keeps the string it had. The per-case
+    timeline is APPENDED beneath it and only for entities that actually carry
+    one, so a Vehicle or Weapon recurrence — no INVOLVED_IN edge, and on live
+    data no dated recurrence at all — renders exactly as before.
+    """
+    entity_type = agg_result.get("entity_type")
+    results = agg_result.get("results") or []
+    lines: list[str] = []
+    # The recurrence family's own temporal summary statistic, computed over
+    # whatever is in the result — not a filter, not a question-specific
+    # branch. It exists because the per-entity detail below reads as a flat
+    # list: a live paraphrase run reproduced a 2024 case and a 2026 case for
+    # the same person in its own body and still concluded "none of these are
+    # years apart". Stating the cross-year count and the prior-conviction
+    # count up front hands the model the two facts it was deriving wrongly.
+    # Suppressed entirely when nothing carries a timeline, so Vehicle/Weapon
+    # recurrence renders byte-identically to pre-Module-88.
+    spanning = [r for r in results if _spans_calendar_years(r.get("cases") or [])]
+    prior_convictions = [r for r in results if _has_prior_settled_conviction(r.get("cases") or [])]
+    if any((r.get("cases") or []) for r in results) and spanning:
+        summary = (
+            f"Of the {len(results)} recurring {entity_type}(s) below, "
+            f"{len(spanning)} {'appears' if len(spanning) == 1 else 'appear'} "
+            f"in cases from more than one calendar year"
+        )
+        if prior_convictions:
+            n = len(prior_convictions)
+            summary += (
+                f", and {n} {'carries' if n == 1 else 'carry'} a decided "
+                f"criminal-record outcome on an EARLIER case than one they are "
+                f"also named in later"
+            )
+        lines.append(summary + ".")
+        lines.append("")
+    for r in results:
+        head = (
+            f"- {r['name']} ({entity_type}): appears in {r['case_count']} cases "
+            f"— {', '.join(r['case_ids'])}"
+        )
+        timeline = r.get("cases") or []
+        summary = _sequence_summary(timeline)
+        if summary:
+            head += f". Sequence: {summary}"
+        lines.append(head)
+        dated_total = len([x for x in timeline if x.get("sequence")])
+        for t in timeline:
+            if not t.get("sequence") and not t.get("roles") and not t.get("arrest_status"):
+                continue
+            position = (
+                f" [case {t['sequence']} of {dated_total} in time order]"
+                if t.get("sequence") else ""
+            )
+            when = (
+                f", incident dated {t['date']}" if t.get("date")
+                else ", no incident date recorded"
+            )
+            role = ", ".join(t.get("roles") or []) or "role not recorded"
+            detail = f"    - {_fir_label(t)}{when}{position}; role on that case: {role}"
+            if t.get("arrest_status"):
+                detail += f"; recorded status: {t['arrest_status']}"
+            if t.get("conviction_status"):
+                detail += (
+                    "; the criminal-record system records "
+                    + '"' + str(t["conviction_status"]) + '"'
+                    + " for this person on that FIR"
+                )
+            lines.append(detail + ".")
+    return lines
+
+
 # Observability (Module 55) — `graph_recurrence` is returned from three
 # separate `run_aggregate()` branches (Vehicle/Person/Weapon), so the line is
 # factored out here rather than written three times. The entity type is the
 # whole point: a person-recurrence answer to a weapon question is exactly the
 # wrong-family failure Modules 33 and 35 had to diagnose from prose.
 def _log_graph_recurrence(entity_type: str, top: list[dict]) -> None:
+    # [Module 88] The line now also carries the two dimensions CR2 turned on:
+    # how many recurring entities have a date-ORDERED timeline, and how many
+    # of those carry a conviction on their earlier case. A kind alone cannot
+    # tell a correct run from an under-evidenced one — which is exactly how
+    # CR2 stayed 0.00 for three passes with this family firing every time.
+    ordered = sum(1 for t in top if len([c for c in (t.get("cases") or []) if c.get("sequence")]) > 1)
+    convicted = sum(
+        1 for t in top
+        if any(c.get("conviction_status") for c in (t.get("cases") or []))
+    )
     logger.info(
-        "XAGG graph_recurrence: entity_type=%s, %d recurring node(s); %s",
-        entity_type, len(top),
+        "XAGG graph_recurrence: entity_type=%s, %d recurring node(s); "
+        "%d with a date-ordered timeline, %d with a criminal-record outcome; %s",
+        entity_type, len(top), ordered, convicted,
         # Names are Urdu; `%s` carries them safely now that `src/main.py`
         # reconfigures the log stream to utf-8/backslashreplace (PR #30), and
         # the format string itself stays ASCII.
-        ", ".join(f"{t.get('name')}={t.get('case_count')}" for t in top[:10]) or "none",
+        ", ".join(
+            f"{t.get('name')}={t.get('case_count')}"
+            + (
+                "[{}..{}]".format(
+                    ((t.get("cases") or [{}])[0] or {}).get("date") or "?",
+                    ((t.get("cases") or [{}])[-1] or {}).get("date") or "?",
+                )
+                if t.get("cases") else ""
+            )
+            for t in top[:10]
+        ) or "none",
     )
 
 
@@ -1460,10 +1818,28 @@ async def _top_recurring_nodes(
         display[entity_id] = n_props.get("canonical_name") or n_props.get("plate") or n_props.get("name") or entity_id
 
     ranked = sorted(per_entity_cases.items(), key=lambda kv: len(kv[1]), reverse=True)
-    return [
-        {"entity_id": eid, "name": display.get(eid, eid), "case_count": len(cases), "case_ids": sorted(cases)}
+    recurring = [
+        (eid, cases)
         for eid, cases in ranked[:limit]
         if len(cases) > 1  # "recurring" — appearing in only one case isn't a cross-case pattern
+    ]
+    # [Gold-QA fix — CR2, Module 88] The bare case_ids below answer "who
+    # recurs"; they cannot answer "which case came FIRST and what happened on
+    # it", which is the half CR2's gold answer is made of. `cases` carries the
+    # date-ordered timeline with per-case role/status/conviction — see
+    # `_recurrence_case_context()` for why each dimension is read the way it
+    # is. `case_ids` itself is untouched: `_case_ids_touched()` and several
+    # pinned tests read it.
+    context = await _recurrence_case_context(recurring, display, label, canonical_map)
+    return [
+        {
+            "entity_id": eid,
+            "name": display.get(eid, eid),
+            "case_count": len(cases),
+            "case_ids": sorted(cases),
+            "cases": context.get(eid) or [],
+        }
+        for eid, cases in recurring
     ]
 
 
