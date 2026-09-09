@@ -1,6 +1,6 @@
 # Module 95 — G2 and G5 name findings their gold answers do not
 
-**Branch:** `fix/g2-g5-finding-coverage` · **Merge-base:** `origin/main` @ `730b4dc`
+**Branch:** `fix/g2-g5-finding-coverage` · **Merge-base:** `origin/main` @ `730b4dc`, then merged with `origin/main` @ `d9bf286` (Module 89, which also touches `xagg.py`) and the all-32 control in §7 **re-run against that newer base with the same result**.
 
 Both questions are open-ended *"what would you flag?"* briefings whose gold
 answer is a method line plus three numbered, specifically-evidenced
@@ -327,6 +327,8 @@ new capability:
 `resolve_aggregate_kind()` **and** `run_aggregate()` **and** the shared
 renderer — the exact text the orchestrator puts in front of the model —
 and dumps JSON. Run on the merge-base, then on the branch, then diffed.
+
+Run twice: against `730b4dc` (this branch's original base) and again after merging Module 89, against `d9bf286`. **Both times: all 32 kinds identical, and exactly G1 / G2 / G5 differ in rendered text.** Module 89 added an aggregate to the same file and moved none of the 32.
 
 **Dispatch equality control: all 32 kinds identical.** Module 95 adds no
 aggregate kind and touches no line of the chain, so this holds by
