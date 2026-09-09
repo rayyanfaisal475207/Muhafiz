@@ -65,8 +65,14 @@ These are **not** covered above and must be confirmed at run time:
    generic 429, must be covered:
 
    ```bash
-   grep -ciE "rate limit|RESOURCE_EXHAUSTED|429|quota|UNAVAILABLE|503" backend.log
+   grep -ciE "rate limit|RESOURCE_EXHAUSTED|quota|UNAVAILABLE|(^|[^0-9.,:])(429|503)([^0-9]|$)" backend.log
    ```
+
+   **[Module 81] The numeric codes are boundary-guarded.** The bare form
+   matched a **timestamp**: a line stamped `16:19:29,503` scored as a 503
+   UNAVAILABLE, so every run certified clean with the old pattern was
+   reading its own milliseconds as a provider failure. Ephemeral ports
+   (`127.0.0.1:62503`) and latencies (`0.429s`) matched too.
 
    Groq says "rate limit"; Gemini says `RESOURCE_EXHAUSTED`. Checking only the
    first is how a quota failure gets published as a model failure.

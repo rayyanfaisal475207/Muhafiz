@@ -47,8 +47,14 @@ cited "Sections 154 and 155 of the Code of Criminal Procedure".
 **Sanity check before running anything:**
 
 ```bash
-grep -ciE "rate limit|RESOURCE_EXHAUSTED|429|quota|UNAVAILABLE|503" <your backend log>   # should stay near 0 during a run
+grep -ciE "rate limit|RESOURCE_EXHAUSTED|quota|UNAVAILABLE|(^|[^0-9.,:])(429|503)([^0-9]|$)" <your backend log>   # should stay near 0 during a run
 ```
+
+   **[Module 81] The numeric codes are boundary-guarded.** The bare form
+   matched a **timestamp**: a line stamped `16:19:29,503` scored as a 503
+   UNAVAILABLE, so every run certified clean with the old pattern was
+   reading its own milliseconds as a provider failure. Ephemeral ports
+   (`127.0.0.1:62503`) and latencies (`0.429s`) matched too.
 
 If that number climbs into the hundreds, stop — the run is not measuring the code.
 
