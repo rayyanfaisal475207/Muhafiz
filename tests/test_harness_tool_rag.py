@@ -489,3 +489,141 @@ async def test_legal_intent_respects_include_global_false(monkeypatch):
     ))
     assert result.status == ToolStatus.OK
     assert {"is_global": True} not in seen      # never injected KB-only
+
+
+# ════════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 63] `_is_legal_kb_intent()` missed ordinary
+# Roman-Urdu paraphrases.
+#
+# Module 52 measured the consequence on KB6 directly: a rewording that says
+# "forensics ke usoolon" instead of "forensics guidelines" returns False, so
+# the query is searched against the mixed FIR-narrative pool and EVERY KB fix
+# downstream is skipped — Module 8c's KB-only scope, Module 30's statute
+# hypotheses, Module 38's RRF fusion, Module 52's own English rendering, and
+# (since Module 39/77) the `_KB_DATA_HALF_PLANS` entry. Every chunk the
+# evaluator judged was a `psrms_fir_…#narrative` chunk.
+#
+# Module 78 makes this gate load-bearing for a second reason: `router.py`
+# now routes on it, so a False here is a whole wrong route, not just a wrong
+# corpus. Fixed here rather than in the router, because the defect is the
+# gate's vocabulary and a router-side copy would be a second thing to drift.
+#
+# The miss reproduces on FOUR of the eight KB questions, not one: KB2, KB4,
+# KB5 and KB6's Roman-Urdu rewordings were all False before this change.
+# ════════════════════════════════════════════════════════════════════════
+
+_MODULE63_KB_PARAPHRASES = {
+    # Module 52's own measured example — the oblique plural "usoolon" that
+    # `\busool\b` could not see.
+    "P-KB6": "Kya forensics ke usoolon mein likha hai ke baramad shuda aslaha "
+             "kaise sambhala jaye, aur kya hamara weapon register is par amal "
+             "darj karta hai?",
+    "P-KB2": "Kya police ke interview mein mulzim ya gawah ne jo kaha wo "
+             "hamare system mein kahin mehfooz hota hai?",
+    "P-KB4": "Seized items ko rakhne aur baad mein tabah karne ka koi "
+             "muqarrara tareeqa hai kya, aur hamara property register us par "
+             "chalta hai?",
+    "P-KB5": "Agar mutasira aurat ho to kya tafteesh ka tareeqa alag hota "
+             "hai, aur kya hamare record mein wo extra qadam nazar aate hain?",
+    "P-KB1": "What rule decides when a written complaint has to be turned "
+             "into a formal FIR, and do our own records follow it?",
+    "P-KB3": "Under police law, is the person who records an FIR supposed to "
+             "be a different officer from the one who investigates it — and "
+             "what does our own data actually show about that?",
+    "P-KB8": "If an investigation drags on, does the law make the police "
+             "report something to the court before it is finished, and does "
+             "our own tracking data show whether that happened?",
+    "P-KB9": "When a death looks suspicious the police must formally "
+             "investigate the cause of death — does our system record that "
+             "anywhere?",
+}
+
+# Questions that are NOT legal-KB questions, in the vocabulary that most
+# nearly overlaps the widened norm words. The widening's whole risk is here:
+# "tareeqa" and "usool" are ordinary words, and the gate must still need a
+# co-occurring our-data signal or a named-corpus pattern before it fires.
+_MODULE63_NON_KB_PARAPHRASES = {
+    "G5": "Looking at how recovered weapons are logged, is anything worth "
+          "flagging for compliance?",
+    "CR7": "How many criminal-record cases are complete and how many are "
+           "still pending?",
+    "CP6": "How many cases are still sitting without a properly assigned "
+           "investigating officer?",
+    "D1": "What is the total number of FIRs on the books?",
+    "G3": "I am putting a case file together for court — which fields are "
+          "most likely to be incomplete?",
+    "M4": "Which sections are people being charged under, and how far have "
+          "those cases got in court?",
+    "CS4": "Is there anyone in the wider criminal-history records who does "
+           "not match any of our own registered cases?",
+    "G1": "Review our current caseload and flag anything unusual worth "
+          "monitoring.",
+    "S2": "Which of our police stations handles the most cases?",
+    # The two that matter most: ordinary Roman-Urdu DATA questions that use a
+    # widened word without asking about any norm at all.
+    "data-tareeqa": "Hamare record mein cases kis tareeqe se station ke "
+                    "hisaab se bante hain, kitne kis station mein hain?",
+    "data-usool": "Kitne mulzimon ko ek se zyada bar giraftar kiya gaya hai?",
+}
+
+
+def test_module63_roman_urdu_kb_paraphrases_pass_the_gate():
+    """All eight, gold-language-independent. Four of these were False before
+    this module and are named in its comment block above."""
+    for name, text in _MODULE63_KB_PARAPHRASES.items():
+        assert rag_mod._is_legal_kb_intent(text), name
+
+
+def test_module63_forensics_ke_usoolon_is_module52s_measured_miss():
+    """The single string Module 52 measured, pinned on its own so a later
+    widening of the surrounding patterns cannot make this pass vacuously."""
+    assert rag_mod._is_legal_kb_intent(
+        "Kya forensics ke usoolon mein aslaha handle karne ka koi tareeqa "
+        "likha hai?"
+    )
+    # The corpus-name pattern must carry it WITHOUT any our-data signal —
+    # that is what makes it a KB question rather than a compound one.
+    assert not rag_mod._OUR_DATA_SIGNAL_RE.search(
+        "Kya forensics ke usoolon mein aslaha handle karne ka koi tareeqa "
+        "likha hai?"
+    )
+
+
+def test_module63_widening_does_not_pull_data_questions_into_the_kb_scope():
+    """The regression guard the brief asked for, both halves: no non-KB gold
+    question and no non-KB paraphrase may newly pass."""
+    for name, text in _MODULE63_NON_KB_PARAPHRASES.items():
+        assert not rag_mod._is_legal_kb_intent(text), name
+
+
+def test_module63_all_32_gold_questions_gate_exactly_as_before():
+    """The all-32 equality control for the GATE, the same shape
+    `tests/test_router.py` runs for the route. Exactly the eight KB questions
+    pass and the other 24 do not — identical before and after this widening,
+    which is why Module 78's route control is also identical."""
+    import json
+    import os
+
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "evaluation",
+        "Gold_QA_Dataset_Final32_With_Answers.json",
+    )
+    gold = json.load(open(path, encoding="utf-8"))
+    assert len(gold) == 32
+    passing = sorted(
+        (it.get("id") or "").upper()
+        for it in gold
+        if rag_mod._is_legal_kb_intent(it["question"])
+    )
+    assert passing == ["KB1", "KB2", "KB3", "KB4", "KB5", "KB6", "KB8", "KB9"]
+
+
+def test_module63_a_case_anchored_question_is_still_refused():
+    """Unchanged property, re-asserted because the widened vocabulary makes
+    it easier to trip: a query naming a specific case still needs the mixed
+    pool, whatever norm words it carries."""
+    assert not rag_mod._is_legal_kb_intent(
+        "Is case mein qanoon ke mutabiq tareeqa kya tha — CASE-009 ka hamara "
+        "record kya kehta hai?"
+    )

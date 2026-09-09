@@ -12,11 +12,14 @@ re-scorings of the answers Module 27 already captured
 (`gold32_pass{1,2,3}_outputs.json`), so the system under test is frozen and the
 only variable is the judge.
 
-> **Where the inputs live.** Module 27's artefacts are on the unmerged branch
-> `eval/module27-final` (commit `0113c47`), not on `main`. They were read from
-> that commit and **not** copied into this branch, so nothing here overwrites
-> `gold32_pass*_results.json` or `gold32_results.json`. This module's own
-> measurements are committed as `module87_*.json` beside this file.
+> **Where the inputs live.** Module 27's artefacts were on the then-unmerged
+> branch `eval/module27-final` (`0113c47`) when this work started and were read
+> from that commit; they have since landed on `main`, and the
+> `evaluation/gold32_pass{1,2,3}_{outputs,results}.json` now in the tree are
+> **content-identical** to what was scored here (verified per row: no answer,
+> gold or score differs; the files differ only in line endings). Nothing here
+> overwrites them, or `gold32_results.json`. This module's own measurements are
+> committed as `module87_*.json` beside this file.
 
 ---
 
@@ -263,6 +266,15 @@ judge dropped the qualifier, the new one keeps it: *"a count of 10, which is
 within the acceptable margin of error (11 expected) according to the evaluation
 rules."* **0.30 was not fair. Justified — and note no rule was added for it.**
 
+**Corroborated independently, and more strongly than expected.** While this
+module was running, **Module 91** (PR #60) re-derived CP6 from the data and found
+that **gold's 11 was wrong**: the aggregate returns *10 current* / 11 ever, and
+gold was corrected to 10 by PR #57 because `fir-205-26` has since been assigned a
+real officer. So the answer the retired judge scored 0.30 was not merely *within
+tolerance* — it was **exactly right**, and the tolerance rule was doing the work
+that a stale gold made necessary. The re-score here still uses gold **as
+captured** (11), which makes 0.90 a conservative figure.
+
 **G1 +0.43 (0.53 → 0.97).** A second false negative, found by this module rather
 than the brief. G1's captured answer carries **all four** of gold's flagged
 findings, with gold's own figures: ages **24–49, average 31.5** (gold: 24–49,
@@ -311,7 +323,7 @@ goes 4 → 1 and the mean spread 0.106 → 0.025.
 across the three passes — but KB6's three *captured answers differ* (1,840 /
 1,929 / 1,943 chars). Held fixed, it is 0.4 five times out of five with zero
 spread. Its remaining variance belongs to the pipeline, and no module owns it
-(filed as **Module 89**).
+(filed as **Module 99**).
 
 ---
 
@@ -394,7 +406,7 @@ defensible.
 
 ## 8. New defects found — left unfixed, tracked as their own modules
 
-**Module 88 — three of the five Gemini keys in `.env` are dead, and the model
+**Module 98 — three of the five Gemini keys in `.env` are dead, and the model
 `GEMINI_MODEL` names cannot serve one evaluation run.** Measured directly:
 `GEMINI_API_KEY_2/_3/_4` return **401 UNAUTHENTICATED** on the models-list
 endpoint; only `GEMINI_API_KEY` and `_1` work. On both of those,
@@ -410,7 +422,7 @@ errors and an invalid KB bucket. **Verify:** hit `/v1beta/models` with each key
 and record the code; then hit each candidate model once and record `limit:` and
 `PerDay`/`PerMinute` from the 429 body.
 
-**Module 89 — KB6 is the last question whose score spread is ≥0.3, and it is the
+**Module 99 — KB6 is the last question whose score spread is ≥0.3, and it is the
 pipeline's, not the judge's.** Its three captured Module 27 answers differ (1,840
 / 1,929 / 1,943 chars) and score 0.4 / 0.4 / 0.9; the *same* answer judged five
 times scores 0.4 every time, spread 0.0. Module 27's variance section attributes

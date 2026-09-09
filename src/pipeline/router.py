@@ -579,6 +579,97 @@ def _resolves_to_statute_court_stage_join(query: str) -> bool:
     return _resolved_xagg_override_kind(query) == "statute_court_stage_join"
 
 
+# [Gold-QA fix — Module 78, questions KB3 and KB9] The compound legal-KB
+# question — "what does the law/rule require, AND does our own record match
+# it?" — asked of `rag.py`'s OWN gate rather than of a new regex in this file.
+#
+# THE DEFECT, bisected rather than assumed. Module 27 measured KB3 -> XNETWORK
+# and KB9 -> XAGG on three passes, and Module 77 proved the questions are
+# answerable by paraphrasing them: an ordinary English rewording of each
+# reaches RAG and fires its `_KB_DATA_HALF_PLANS` entry 2/2, P-KB3 answering
+# with gold's own "68 out of 74 recorded assignment pairs (92%)". Module 78
+# closed the remaining gap in the causal chain by measuring the two candidate
+# variables separately, 3 runs each:
+#
+#   * The QUERY REWRITER is not the variable. `rewrite_query()` returns KB3's
+#     and KB9's gold text BYTE-IDENTICAL on 3 of 3 runs, and the route is the
+#     same whether `route_query()` is given the gold string or the rewriter's
+#     output. The rewriter had to be excluded explicitly: `orchestrator.py`
+#     routes on `rewritten_query`, not on what the user typed, so "the router
+#     discriminates on the gold wording" was not yet established.
+#   * The LLM CLASSIFIER is the variable, and its own `reason` field says why.
+#     For KB3 it returns *"an open-ended synthesis of cross-case data"*; for
+#     KB9, *"a cross-case aggregate question ... specifically mentions that
+#     there are many such cases"*. Both questions carry a trailing clause that
+#     scopes their DATA half across the whole caseload ("does that match what
+#     actually happens in our data", "khaas tor par jab hamare itne cases mein
+#     maut shamil hai"), and the classifier weighs that scope cue above the
+#     legal-norm half — so it classifies the second clause of the question and
+#     drops the first. Module 77's paraphrases route RAG 3/3 precisely because
+#     they carry no such whole-caseload cue. This is not day-to-day
+#     instability: 3/3 XNETWORK, 3/3 XAGG, 3/3 RAG, 3/3 RAG, temperature 0.
+#
+# WHY THE ROUTE AND NOT THE PROMPT. The instinct is to add a router.txt
+# few-shot. This file's own opening comment records that being tried and
+# failing for other shapes — the local Qwen3-14B defaults past prompt
+# instructions "including the router prompt's OWN literal few-shot example
+# verbatim". A prompt edit is also unmeasurable in the equality control the
+# brief requires, because every one of the 32 routes would then depend on an
+# LLM call. The deterministic layer is where a confirmed, reproducible
+# misclassification class belongs; that is the whole justification for the
+# four override lists above.
+#
+# WHY `_is_legal_kb_intent()` AND NOT A NEW REGEX. This is Module 60/67's
+# resolver-gated pattern, one route over. Module 60 routes to XAGG by asking
+# XAGG's own dispatch chain "would you answer this?"; this asks `rag.py`'s own
+# KB gate "would you treat this as a legal-KB question?" — the SAME predicate
+# that decides whether the RAG tool searches the legal-KB corpus (Module 8c),
+# generates statute hypotheses (Module 30), renders the query into English
+# (Module 52) and runs a `_KB_DATA_HALF_PLANS` entry (Modules 39/77). Routing
+# to RAG exactly when that gate is True cannot drift from what RAG will
+# actually do with the question, and it needs no vocabulary of its own — the
+# failure mode Modules 41, 56, 62, 74 and 77 have now each independently
+# recorded, where a pattern list written from one gold string reaches that
+# string and very little else.
+#
+# MEASURED BLAST RADIUS over all 32 gold questions: `_is_legal_kb_intent()` is
+# True for exactly the eight KB questions and False for the other 24. Two
+# routes CHANGE — KB3 (XNETWORK -> RAG) and KB9 (XAGG -> RAG), the two this
+# module exists to fix. Six become DETERMINISTIC at the route they already
+# reached through the LLM (KB1, KB2, KB4, KB5, KB6, KB8) — the same route,
+# now not a coin flip: Module 68 measured this classifier returning 6 RAG / 2
+# XAGG over eight calls on one such string. Pinned by
+# `test_module78_all_32_gold_questions_route_exactly_as_measured`.
+#
+# PLACED LAST, after every other override loop, and that placement is
+# load-bearing rather than stylistic. It means this override can only ever
+# fire where `_deterministic_route_override()` currently has NO opinion at
+# all — so it is structurally incapable of moving a question that any existing
+# override already decides, whatever a future widening of the KB gate does.
+# G5's weapon-compliance scan, G3's court-readiness scan, CR7's cross-check
+# and M4's statute/court join all keep their own entries above by
+# construction, not by the KB gate happening to say False for them today.
+# It also sits below the `case_id or _ACTIVE_CASE_RE` short-circuit, so a
+# question asked inside a case-scoped chat is still GRAPH's.
+def _is_legal_kb_question(query: str) -> bool:
+    """
+    True when `rag.py`'s own `_is_legal_kb_intent()` would treat this query as
+    a legal-KB question. Imported lazily for the same two reasons Module 60's
+    `_resolved_xagg_override_kind()` gives: `router.py` is imported very early
+    and `rag.py` pulls in the retrieval stack, and a broken or absent import
+    must leave routing exactly as it was rather than take the router down.
+    """
+    try:
+        from src.pipeline.harness.tools.rag import _is_legal_kb_intent
+    except Exception:  # pragma: no cover - defensive
+        logger.warning(
+            "router: could not import _is_legal_kb_intent; "
+            "leaving deterministic routing unchanged."
+        )
+        return False
+    return bool(_is_legal_kb_intent(query))
+
+
 def _deterministic_route_override(query: str, case_id: str | None = None) -> dict | None:
     """
     Return a route dict for an unambiguous cross-case pattern, or None.
@@ -770,6 +861,42 @@ def _deterministic_route_override(query: str, case_id: str | None = None) -> dic
                 "reason": "Deterministic override: unambiguous cross-case recurrence trigger language detected before the LLM call",
                 "station": None, "district": None,
             }
+
+    # [Gold-QA fix — Module 78, questions KB3/KB9] LAST, deliberately — see
+    # `_is_legal_kb_question()`'s own comment block above for the bisect that
+    # established the LLM classifier (not the rewriter) as the variable, why
+    # this asks `rag.py`'s gate instead of adding a sixth pattern list, and
+    # why "after every other override" is the property that bounds the blast
+    # radius rather than a measurement that happens to come out clean today.
+    #
+    # THE `this X` GUARD IS NOT DECORATION — it is a regression this module
+    # caused and the existing suite caught. `rag.py`'s `_CASE_ANCHOR_RE`
+    # recognises `CASE-009`, a bare `891/24`, "this case" and "in case", but
+    # not "this WEAPON" / "this accused" — it never had to, because that gate
+    # runs inside a tool that already knows its own scope. Used as a ROUTING
+    # signal it does: findings.md Module 7's own live-tested compound example,
+    # "What is this weapon's condition, and what PPC section covers illegal
+    # possession of an unlicensed firearm?", trips `_LEGAL_KB_INTENT_PATTERNS`
+    # on the bare token "PPC" and was pulled to RAG, silently dropping the
+    # `secondary_methods` half only the LLM call can populate
+    # (`test_sql_override_skips_for_a_compound_question_naming_this_x_first`).
+    # `_SQL_OVERRIDE_COMPOUND_THIS_X_RE` is the router's own, stricter notion
+    # of "this names a case-specific instance", already written for exactly
+    # this purpose one override up; reusing it keeps the two in lockstep
+    # rather than adding a second, drifting copy. None of the eight gold KB
+    # questions names a "this X", so the guard costs nothing measured — it
+    # bounds the paraphrase space, which is the bar this module is held to.
+    if _is_legal_kb_question(query) and not _SQL_OVERRIDE_COMPOUND_THIS_X_RE.search(query):
+        return {
+            "route": "RAG", "case_scope": "within_case", "target_entity": None,
+            "output_format": "chat", "target_year": None, "confidence": "high",
+            "reason": (
+                "Deterministic override: rag.py's own legal-KB gate claims this "
+                "question, so the KB corpus/statute-hypothesis/data-half path is "
+                "the one that can answer it (Module 78)"
+            ),
+            "station": None, "district": None,
+        }
     return None
 
 
