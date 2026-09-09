@@ -133,7 +133,7 @@ several can run in parallel chats/worktrees without colliding.
 | 89 | **KB1 (0.30 ×3)** — a compound KB question with no data-half plan: it answers the law and says the documents cannot say whether our recordkeeping follows it | *(not yet branched)* | ⬜ New — diagnosed from Module 27's captured run. Module 39 deliberately excluded KB1/KB2 as "schema claims, not counts", but gold's KB1 second half IS checkable |
 | 90 | **M1 (0.40/0.70/0.40, 1-of-3)** — answers ACT-level counts where gold asserts SECTION-level, and reports only 2026 rather than the 2024→2026 comparison the question asks for | *(not yet branched)* | ⬜ New — diagnosed from Module 27's captured run. Module 24 flagged the act/section split and explicitly did not take it; the data exists |
 | 91 | **CP6 (0.30 ×3)** — reports 10 placeholder FIRs against gold's 11, and omits gold's 8-ASI / 3-SI breakdown entirely | *(not yet branched)* | ⬜ New — diagnosed from Module 27's captured run; the graph carries the breakdown exactly |
-| 92 | CR2's Roman-Urdu and Urdu-script paraphrases route to **XGRAPH**, so Module 88's enriched recurrence evidence never reaches them | *(not yet branched)* | ⬜ New — measured by Module 88 on `:8032`, 2 runs each, both `route='XGRAPH'` 2/2 while the English gold wording is `route='XAGG'` 7/7. XGRAPH answers *"the same entity recurs across 6 case(s) … chain confidence 50%"* and names **no person**; the Urdu-script run goes further and asserts *"there is no indication that any individual … has a prior case record"*, which the graph contradicts. Third independent instance of the same finding this wave (Module 62 for CR3/G6, Module 78 for KB3/KB9): the capability is real and reachable only from a narrow neighbourhood of the gold text. `router.py`, adjacent to Modules 60/67. Has a clean bisectable control — one question, three languages, two routes |
+| 92 | **Non-English paraphrases lose their route.** A capability is reachable only from a narrow neighbourhood of the gold wording — fourth independent sighting (62 CR3/G6, 78 KB3/KB9, 88 CR2, and now measured across the board) | *(not yet branched)* | ⬜ **Scoped, with evidence.** Measured offline by `docs/gold-qa-wave2-results/module92_override_survival_probe.py` (no backend needed): over 8 questions that all take a deterministic `XAGG` override at their gold wording, an English paraphrase keeps it **5 of 8** and a Roman-Urdu paraphrase keeps it **0 of 8**. Every one of those 8 falls through to the local Qwen3-14B classifier that `router.py`'s own module comment (~line 42) records as unreliable. **The fix is NOT a fourth round of gold-specific regexes** — three waves of those are exactly how the debt accumulated |
 | 27 | Final Gold-32 rerun (Module 18 redo) | `eval/module27-final` | ✅ **Done — 3 passes, 96 question-runs.** FactualCorrectness **0.428 → 0.572 → 0.666**; AnswerRelevancy **0.931**; **19 of 32 pass on all three runs** (20 counting M7, which is correct and mis-scored); **routes stable 32/32**; 0 nulls, 0 timeouts, 0 quota, 0 cutover fallbacks. Result: `docs/gold-qa-wave2-results/MODULE27_RESULT.md` |
 
 ### Coverage check — every failing question maps to a module
@@ -3538,6 +3538,66 @@ missing breakdown, which is the correct call under the stated standard.
 **Work:** `_placeholder_officer_count()` should return and render the
 per-placeholder-class breakdown, and its count must be reconciled with the 8+3.
 Keep the busiest-named-officer comparison gold also makes.
+
+---
+
+# Module 92 — the router generalises in English and not at all in Roman-Urdu ⬜
+
+Three modules have now each found the same thing on their own question and
+filed it as a one-off: **Module 62** (CR3/G6), **Module 78** (KB3/KB9),
+**Module 88** (CR2). It is not a one-off. It is the router's design working as
+built.
+
+## How the router decides
+
+`route_query()` runs a **deterministic regex pre-classification**
+(`_deterministic_route_override()`) and short-circuits to XAGG/XGRAPH/XNETWORK
+on a match. Anything that does not match falls through to a **local Qwen3-14B
+classifier**, which the file's own comment at ~line 42 records as unreliable on
+novel phrasings — that unreliability is *why* the regex layer exists.
+
+Each Gold-QA module that hit a misroute added patterns for its own question's
+wording. That is why gold itself looks healthy: **20 of 32** gold questions take
+a deterministic override today, spread evenly across languages (en 6/11,
+roman-ur 6/10, ur 8/11) — the Urdu ones matching Urdu regexes added for those
+exact strings.
+
+## The measurement
+
+`docs/gold-qa-wave2-results/module92_override_survival_probe.py`, offline, no
+backend or model server. Eight questions that all take a deterministic `XAGG`
+override at their gold wording, each given one English and one Roman-Urdu
+paraphrase (written before the run, not adjusted after):
+
+| | keeps gold's route |
+|---|---|
+| English paraphrase | **5 / 8** |
+| Roman-Urdu paraphrase | **0 / 8** |
+
+The English regexes carry *some* generality. The non-English coverage is
+literally per-gold-string, so **every** reworded Urdu or Roman-Urdu question
+lands on the classifier the regex layer was built to avoid. Module 88 saw the
+consequence live: CR2's Urdu paraphrase routes to XGRAPH and asserts *"there is
+no indication that any individual has a prior case record"* — which the graph
+flatly contradicts.
+
+## The anti-goal
+
+**Do not add a fourth round of gold-specific patterns.** Three rounds of those
+are how this debt accumulated, and each one buys exactly one wording. Candidate
+directions, to be measured rather than assumed:
+
+1. **A reliable classifier.** Replace or backstop the local Qwen3-14B with a
+   cloud model, the same lever the judge upgrade uses. Simplest; costs a
+   round-trip on the miss path only.
+2. **Normalise before classifying.** Transliterate/translate to English first,
+   so the English patterns and English-competent classification both apply.
+3. **Embedding nearest-neighbour over route exemplars.** The stack already runs
+   multilingual `e5` embeddings, which is what would make this language-agnostic
+   by construction.
+
+Whatever lands must be measured on **paraphrases in all three languages**, not
+on gold — gold is exactly the set the current design already fits.
 
 ---
 
