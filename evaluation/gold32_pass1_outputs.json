@@ -5,13 +5,13 @@
     "language": "en",
     "question": "How many FIRs are currently registered?",
     "expected_answer": "73",
-    "actual_answer": "According to the document, there are a total of 73 cases registered [Document 1].",
+    "actual_answer": "According to the provided document, there are a total of 73 cases registered [Document 1].",
     "route": "XAGG",
     "status": "done",
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 1.6
+    "elapsed_s": 1.9
   },
   {
     "id": "S2",
@@ -25,7 +25,7 @@
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 1.5
+    "elapsed_s": 1.4
   },
   {
     "id": "S3",
@@ -47,13 +47,13 @@
     "language": "ur",
     "question": "نامزد ملزمان میں مرد اور عورت کا تناسب کیا ہے؟",
     "expected_answer": "مرد 67، عورت 24، غیر واضح 3 — کل 94 ملزم اندراجات میں سے۔",
-    "actual_answer": "In the list of accused individuals, there are 67 men (\"مرد\"), 24 women (\"عورت\"), and 3 cases where the gender is unknown (\"unknown\"), according to [Document 1]. This means that out of a total of 94 accused individuals, the ratio of men to women is 67:24.",
+    "actual_answer": "In the list of accused individuals, there are 67 men (\"مرد\"), 24 women (\"عورت\"), and 3 cases where the gender is unknown (\"unknown\"), according to [Document 1]. This means that the ratio of men to women among the accused is 67 to 24.",
     "route": "XAGG",
     "status": "done",
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 8.3
+    "elapsed_s": 7.7
   },
   {
     "id": "A7",
@@ -67,7 +67,7 @@
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 1.7
+    "elapsed_s": 1.9
   },
   {
     "id": "CP6",
@@ -95,7 +95,7 @@
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 2.1
+    "elapsed_s": 1.9
   },
   {
     "id": "CR3",
@@ -103,13 +103,13 @@
     "language": "en",
     "question": "In the online banking fraud matter involving two separate victims, was each victim's case processed and recorded the same way?",
     "expected_answer": "No — not identically. 64/26 has a matching walk-in complaint (linked via matching case tag CMS-ISB-2026-0341, complainant سعد الرحمن); 65/26 has none.",
-    "actual_answer": "No, not identically. The FIR numbers for the two cases are **fir-64-26** and **fir-65-26** [Document 1]. According to the walk-in-complaint linkage list, **fir-64-26** has a matching walk-in complaint, while **fir-65-26** does not appear in that list, indicating that it does not have a matching complaint [Document 3]. Therefore, the two cases were not processed and recorded in the same way.",
+    "actual_answer": "No, not identically. The FIR numbers for the cases involving the two victims are **fir-64-26** and **fir-65-26** [Document 1]. According to the walk-in-complaint linkage list, **fir-64-26** has a matching walk-in complaint recorded in the complaint management system, while **fir-65-26** does not appear to have a matching walk-in complaint [Document 3]. This difference in processing — one case having a matching complaint and the other not — indicates that the two cases were not handled identically.",
     "route": "XAGG",
     "status": "done",
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 22.9
+    "elapsed_s": 23.7
   },
   {
     "id": "CR4",
@@ -123,7 +123,7 @@
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 14.7
+    "elapsed_s": 15.9
   },
   {
     "id": "CR6",
@@ -137,7 +137,7 @@
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 3.7
+    "elapsed_s": 3.8
   },
   {
     "id": "CR7",
@@ -151,7 +151,7 @@
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 3.7
+    "elapsed_s": 3.6
   },
   {
     "id": "CR8",
@@ -179,7 +179,7 @@
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 4.0
+    "elapsed_s": 4.1
   },
   {
     "id": "CP1",
@@ -193,7 +193,7 @@
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 2.1
+    "elapsed_s": 2.2
   },
   {
     "id": "M1",
@@ -207,7 +207,7 @@
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 4.6
+    "elapsed_s": 4.9
   },
   {
     "id": "M2",
@@ -221,7 +221,7 @@
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 2.6
+    "elapsed_s": 2.7
   },
   {
     "id": "M4",
@@ -235,7 +235,7 @@
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 5.5
+    "elapsed_s": 5.4
   },
   {
     "id": "M5",
@@ -249,7 +249,7 @@
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 4.6
+    "elapsed_s": 4.8
   },
   {
     "id": "M7",
@@ -271,13 +271,13 @@
     "language": "en",
     "question": "Acting as a crime analyst, review our current caseload and flag anything that looks unusual or worth monitoring.",
     "expected_answer": "Approach: profile the accused, the victims, the property and the timing across the 73 FIRs, and flag what doesn't look routine. What stands out: (1) the offender profile is unusually uniform — every accused is between 24 and 49 (average ~31), none younger or older; (2) where an accused–complainant relationship is recorded at all, 'stranger' dominates, so this is largely stranger-perpetrated crime rather than disputes between people who know each other, apart from the domestic-violence cases; (3) seized-property records point to more fatalities than the charge sheet alone — 13 items sent to a forensic lab and 7 held for return to a deceased's heirs, alongside 8 murder-section FIRs; (4) incident times are fairly flat across the day with only a mild evening lean, so there's no strong night-crime pattern to build a patrol case around. The uniform offender profile and the stranger-perpetrated skew are the most useful things to keep watching.",
-    "actual_answer": "Based on the current caseload, several patterns and anomalies stand out that warrant further monitoring and analysis:\n\n1. **Age Profile of the Accused**: Among the 92 distinct accused individuals, only 17 have recorded ages, with these individuals ranging from 24 to 49 years old and an average age of 31.5. However, 75 of the accused have no recorded age, which limits the reliability of this profile to only a minority of the cases [Document 1].\n\n2. **Relationship Between Accused and Complainant**: In 10 FIRs, a relationship between the accused and the complainant is recorded, involving 24 relationship entries. The most frequently recorded relationship is \"اجنبی (stranger),\" which appears in 15 of the 24 entries and is documented in 6 FIRs. Other relationships, such as \"ساس (mother-in-law),\" \"سینئر ساتھی کار (senior co-worker),\" \"شوہر (husband),\" \"محلے دار (neighbour),\" and \"بھائی (brother),\" are less common [Document 2].\n\n3. **Seized Property and Its Disposition**: In 28 FIRs, seized property is recorded, with a total of 45 items across these cases. Of these, 13 items were sent to a forensic laboratory, and 7 items were held for return to the deceased person's heirs. This indicates that a significant portion of the seized items are being processed for forensic analysis or returned to the deceased's family [Document 3].\n\n4. **Time of Day for Incidents**: Of the 64 incidents that record an incident date/time, the distribution by time of day is as follows:\n   - Night (00:00-05:59): 1 (~2%)\n   - Morning (06:00-11:59): 14 (~28%)\n   - Afternoon (12:00-17:59): 16 (~32%)\n   - Evening (18:00-23:59): 19 (~38%)\n\n   The busiest time of day is evening (18:00-23:59), with 19 incidents. It is also noted that 14 of the 64 incidents record exactly 00:00:00, which represents a date with no clock time rather than a real midnight [Document 4].\n\n5. **Accused Appearing in Multiple Cases**: Certain accused individuals appear in more than one FIR:\n   - **فیصل** appears in **2 cases** — **fir-202-26**, **fir-401-26**\n   - **طارق** appears in **2 cases** — **fir-202-26**, **fir-401-26**\n   - **شہزیب عرف شابی** appears in **2 cases** — **fir-214-26**, **fir-891-24**\n   - **عاصم رشید** appears in **2 cases** — **fir-64-26**, **fir-65-26**\n\nThese findings highlight the need for further investigation into the patterns of criminal behavior, particularly the involvement of certain individuals across multiple cases and the timing of incidents, which predominantly occur in the evening. The limited age data and the high frequency of \"stranger\" as a relationship type also suggest areas where data collection and analysis could be improved.",
+    "actual_answer": "Based on the current caseload, several patterns and anomalies stand out that warrant further monitoring:\n\n- The age range and average age of the accused are only documented for a minority of the accused individuals. Specifically, out of 92 distinct accused individuals, only 17 have recorded ages, ranging from 24 to 49, with an average age of 31.5. This limited data coverage suggests a significant portion of the accused's demographic information is missing, which could impact the ability to fully understand the profile of those involved [Document 1].\n\n- The most frequently recorded relationship between the accused and the complainant is \"اجنبی (stranger),\" which appears in 15 of the 24 relationship entries and is documented in 6 FIRs. This suggests that a majority of incidents involve individuals who are not personally known to the complainant, which may indicate a pattern of random or opportunistic crimes [Document 2].\n\n- Seized property is recorded in 28 FIRs, with a total of 45 items across these cases. Of these, 13 items were sent to a forensic laboratory, and 7 items were held for return to the deceased person's heirs. This indicates that a significant number of items are being processed for forensic analysis, which may be relevant to ongoing investigations [Document 3].\n\n- The time of day distribution for incidents shows that the busiest time is the evening (18:00-23:59), with 19 incidents recorded during this period. This is followed by the afternoon (12:00-17:59) with 16 incidents, the morning (06:00-11:59) with 14 incidents, and the night (00:00-05:59) with only 1 incident. This pattern suggests that incidents are more likely to occur during daylight hours, with a peak in the evening [Document 4].\n\n- Certain accused individuals appear in more than one FIR. Specifically, **فیصل** appears in **2 cases** — **fir-202-26**, **fir-401-26**; **طارق** appears in **2 cases** — **fir-202-26**, **fir-401-26**; **شہزیب عرف شابی** appears in **2 cases** — **fir-214-26**, **fir-891-24**; and **عاصم رشید** appears in **2 cases** — **fir-64-26**, **fir-65-26**. This recurrence across multiple FIRs may indicate a pattern of involvement in multiple incidents or potential links between these individuals and the crimes [Document 5].\n\nThese findings highlight areas that may require further investigation and monitoring, particularly the lack of demographic data on the majority of accused individuals, the prevalence of incidents involving strangers, the significant number of items sent for forensic analysis, the timing of incidents, and the recurrence of certain individuals across multiple cases.\n\n_A cited claim ([Document 1]) could only be partially confirmed against its source: The source confirms that a significant portion of the accused's demographic information (specifically age) is missing, but it does not explicitly mention that this impacts the ability to fully understand the profile of those involved._",
     "route": "XAGG",
     "status": "done",
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 36.2
+    "elapsed_s": 34.8
   },
   {
     "id": "G2",
@@ -305,7 +305,7 @@
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 3.2
+    "elapsed_s": 3.0
   },
   {
     "id": "G5",
@@ -319,7 +319,7 @@
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 2.6
+    "elapsed_s": 2.4
   },
   {
     "id": "G6",
@@ -333,7 +333,7 @@
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 63.8
+    "elapsed_s": 63.3
   },
   {
     "id": "KB1",
@@ -347,7 +347,7 @@
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 38.9
+    "elapsed_s": 36.5
   },
   {
     "id": "KB2",
@@ -355,13 +355,13 @@
     "language": "en",
     "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
     "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
-    "actual_answer": "The system does keep a record of what a witness or an accused person says during a police interview. According to the rules, the police officer may reduce any statement made to him into writing and make a separate record of the statement [Document 3]. These records are important and can be used as evidence at a later stage [Document 2]. Therefore, it is not a data gap; the system does maintain such records.",
+    "actual_answer": "The system does keep a record of what a witness or an accused person says during a police interview. According to the rules, the police officer may reduce any statement made to him into writing and make a separate record of the statement [Document 3]. These records can be used as evidence at a later stage, and they are part of the investigation process [Document 2]. Therefore, it is not a data gap; the system does maintain such records.",
     "route": "RAG",
     "status": "done",
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 31.5
+    "elapsed_s": 32.2
   },
   {
     "id": "KB3",
@@ -375,7 +375,7 @@
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 6.7
+    "elapsed_s": 7.2
   },
   {
     "id": "KB4",
@@ -389,7 +389,7 @@
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 41.9
+    "elapsed_s": 45.7
   },
   {
     "id": "KB5",
@@ -403,7 +403,7 @@
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 42.0
+    "elapsed_s": 42.2
   },
   {
     "id": "KB6",
@@ -411,13 +411,13 @@
     "language": "roman_ur",
     "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
     "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
-    "actual_answer": "### Part 1: What the Law, Rule or Guideline Requires\n\nAccording to the **forensics guidelines** (Document 1), there are specific instructions on how to handle and package evidence, particularly weapons. For example:\n\n- **Paragraph 12** states that sharp weapons such as knives, daggers, etc., should be packaged in appropriate-sized cardboard boxes or cartons. The submitting individual must seal the box and indicate on the exterior that it contains a **SHARP weapon** and may contain biological material.\n- **Paragraph 13** emphasizes the importance of maintaining the integrity of the item through package documentation, including all markings, seals, tags, and labels used by all involved agencies. It also states that all packaging and labels received by or returned to the agency must be preserved and documented, as this information is critical.\n\nThese guidelines are part of the **Guideline for the Collection, Packaging and Transport of Evidence in Sexual Assault Cases** (Document 1), which outlines the proper handling and documentation of evidence.\n\n### Part 2: What Our Own Case Records Actually Show\n\nAccording to the **summary of our own case records** (Document 7):\n\n- **Reviewing the 32 weapon-register entries for compliance**:\n  - **30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence** — a pattern too broad to treat case-by-case; it warrants a standing compliance check.\n  - **2 carry no licence status at all**, so their compliance can't be confirmed either way.\n\nThis summary does **not** indicate whether the weapons were handled in accordance with the **forensics guidelines** (e.g., whether they were properly sealed, marked, or documented). It only provides information about the **licence status** of the recovered weapons, not about how they were handled or packaged.\n\nTherefore, the **weapon register does not record whether the weapons were handled in accordance with the guidelines**.",
+    "actual_answer": "### Part 1: What the Law, Rule or Guideline Requires\n\nAccording to the **forensics guidelines** (Document 2), there are specific instructions for handling and packaging evidence, particularly in sexual assault cases. For example:\n\n- **Paragraph 12** states that **sharp weapons** such as knives, daggers, and similar items should be **packaged in appropriate-sized cardboard boxes or cartons**, and the **submitting individual must seal the box** and **indicate on the exterior** that it contains a **sharp weapon** and may contain **biological material**.\n- **Paragraph 13** emphasizes the importance of **maintaining the integrity of the item** through **package documentation**, including **markings, seals, tags, and labels** used by all involved agencies. It also states that **all packaging and labels** received by or returned to the agency must be **preserved and documented**, as this information is **critical**.\n\nThese guidelines ensure that evidence is **handled, packaged, and transported** in a **secure and documented manner** to **preserve its integrity** and **prevent contamination**.\n\n### Part 2: What Our Own Case Records Actually Show\n\nAccording to **our own case records** (Document 7):\n\n- **30 out of 32 recovered weapons (~94%) are recorded without a licence**.\n- **2 weapons carry no licence status at all**, so their compliance can't be confirmed either way.\n\nThis indicates that **our weapon register does not record whether a weapon has been handled or processed in accordance with the forensic guidelines**. It only records **whether a licence is present or not**, and **does not provide any information about how the weapon was handled or processed** before being recorded in the register.\n\nTherefore, **our weapon register does not track whether the forensic guidelines were followed** in handling the weapon.",
     "route": "RAG",
     "status": "done",
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 43.1
+    "elapsed_s": 43.3
   },
   {
     "id": "KB8",
@@ -425,13 +425,13 @@
     "language": "roman_ur",
     "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
     "expected_answer": "Haan. Code of Criminal Procedure, 1898 ki dafa 173 ke tehat har tafteesh bila-zaroori takheer ke mukammal honi chahiye, aur agar FIR darj hone ke chaudah din ke andar mukammal na ho, to officer in charge us muddat ke khatam hone ke teen din ke andar magistrate ko (public prosecutor ke zariye) ek interim report bhejne ka paband hai, jisme ab tak ki tafteesh ka natija darj ho. Hamara data us pipeline ke aakhri hisse ko darj karta hai — adaalat bheja gaya challan (26 cases) aur, hal shuda cases ke liye, darj shuda natija — magar schema mein kahin interim report ka koi tasavvur nahi aur challan ko uski tafteesh ke aaghaaz se jorne wala koi field nahi. Is liye data yeh tasdeeq kar sakta hai ke case adaalat tak pohcha, magar yeh nahi ke raaste mein 14-din ki interim-report ki zimma-daari poori hui ya nahi.",
-    "actual_answer": "### Part 1: What the Law Requires\n\nAccording to the **Code of Criminal Procedure (Pakistan)**, specifically **Section 172**, every police officer conducting an investigation must maintain a **case diary** and record the proceedings day by day. This diary must include details such as the time the information was received, the time the investigation began and ended, the places visited, and the circumstances ascertained during the investigation. This is a mandatory requirement under the law, and failure to maintain such a diary may be considered a procedural violation.\n\nAdditionally, **Section 173** of the Code of Criminal Procedure mandates that once an investigation is completed, the officer in charge of the police station must submit a **final report** to the appropriate authority, typically through the Public Prosecutor.\n\n### Part 2: What Our Case-Tracking Data Shows\n\nOur **case-tracking data** (as summarized in [Document 8]) records **26 challans** sent to court, covering **26 cases**. Of these, **15 carry a dispatch timestamp**, while the remaining **11 do not have a date**. A separate set of **20 challan-outcome records** also exists, with **15 of them** having a date indicating when the challan reached court.\n\nHowever, the data **does not include any interim-report record type**, and there is **no field linking a challan back to the start of its own investigation**. As a result, the data **cannot confirm** whether any **interim reporting duties** (such as submitting a case diary or interim reports during the investigation) were fulfilled.\n\nIn summary, while the data confirms that **cases reached court**, it **does not confirm** whether **interim reporting duties** were met during the investigation.\n\n_A cited claim ([Document 8]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 2._",
+    "actual_answer": "### Part 1: What the Law Requires\n\nAccording to the **Code of Criminal Procedure (Pakistan)**, specifically **Section 172(i)**, a police officer is required to maintain a **case diary** during an investigation and submit it daily. This diary must record the steps taken by the police, the circumstances ascertained through the investigation, and other information required by the law. This is a mandatory requirement under the law, and failure to maintain such a diary may be considered a breach of duty [Document 7].\n\nAdditionally, **Section 173** of the Code of Criminal Procedure mandates that **a final report** be submitted by the officer in charge of the police station once the investigation is completed. This report must be submitted through the Public Prosecutor and must include details such as the names and addresses of the accused, the nature of the charge, the property found, and other relevant information [Document 3].\n\n### Part 2: What Our Case-Tracking Data Shows\n\nOur case-tracking data **does not** show whether any **interim reporting** (such as the daily case diary or any other interim report) was completed during the investigation. The data only confirms that **26 challans** were sent to court, with **15 of them having a dispatch timestamp**. However, there is **no field in the schema** that links a challan back to the start of its own investigation or that records whether any interim reporting duties were fulfilled [Document 8].\n\nIn summary, while the law requires interim reporting (such as the case diary), our case-tracking data **does not confirm** whether such reporting was done or not.",
     "route": "RAG",
     "status": "done",
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 43.8
+    "elapsed_s": 43.5
   },
   {
     "id": "KB9",
@@ -445,6 +445,6 @@
     "cutover_classification_failed": false,
     "error": null,
     "transport_ok": true,
-    "elapsed_s": 9.7
+    "elapsed_s": 10.5
   }
 ]
