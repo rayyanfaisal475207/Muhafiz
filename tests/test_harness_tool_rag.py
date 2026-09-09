@@ -627,3 +627,199 @@ def test_module63_a_case_anchored_question_is_still_refused():
         "Is case mein qanoon ke mutabiq tareeqa kya tha — CASE-009 ka hamara "
         "record kya kehta hai?"
     )
+
+
+# ══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 89, question KB1] the data-half plan entry.
+#
+# KB1 scores 0.30 on all three of Module 27's passes with the judge naming
+# the failure exactly: the answer gives CrPC s.154 correctly and then says
+# the documents "do not provide specific information" about whether our
+# recordkeeping follows it. Module 39 excluded KB1 from
+# `_KB_DATA_HALF_PLANS` as "a schema claim, not a count" — right for KB2,
+# wrong for KB1, whose corrected gold (PR #57) asserts three coverage
+# figures. Module 89 built `xagg.py::_fir_register_completeness` and this
+# entry is the landing step.
+#
+# TWO DIFFERENT THINGS ARE TESTED BELOW AND MODULE 94 EXISTS BECAUSE THEY
+# WERE CONFLATED: whether a question ROUTES to RAG at all (a `router.py`
+# property, not tested here), and whether — once on RAG — it FIRES a plan.
+# Everything here is the second.
+# ══════════════════════════════════════════════════════════════════════
+
+_M89_KB1_GOLD = (
+    "What legal requirement governs how a report of a crime becomes a "
+    "formal FIR, and does our recordkeeping actually follow it?"
+)
+
+# Written down BEFORE the first run and not edited afterwards; the
+# committed copy is `docs/gold-qa-wave2-results/module89_paraphrases.json`
+# and these must stay byte-identical to it (asserted below). P1 is the one
+# that MISSED a first draft of the plan's patterns — see §6 of the result
+# file — and is kept exactly as written rather than softened.
+_M89_PARAPHRASES = {
+    "P1": (
+        "Under what law does a complaint made at a police station have to be "
+        "turned into a written FIR, and do our own case records actually meet "
+        "that standard?"
+    ),
+    "P2": (
+        "What does the law require before a crime report counts as a properly "
+        "registered First Information Report, and does our recordkeeping live "
+        "up to it?"
+    ),
+    "P3": (
+        "Qanoon ke mutabiq ek jurm ki ittila ko FIR mein darj karne ke liye "
+        "kya zaroori hai, aur kya hamara record us par pura utarta hai?"
+    ),
+    "P4": (
+        "\u0642\u0627\u0646\u0648\u0646 \u06a9\u06d2 \u0645\u0637\u0627\u0628\u0642 \u06a9\u0633\u06cc \u062c\u0631\u0645 \u06a9\u06cc \u0627\u0637\u0644\u0627\u0639 \u06a9\u0648 "
+        "\u0628\u0627\u0642\u0627\u0639\u062f\u06c1 \u0627\u06cc\u0641 \u0622\u0626\u06cc \u0622\u0631 \u0645\u06cc\u06ba \u062f\u0631\u062c \u06a9\u0631\u0646\u06d2 \u06a9\u06d2 \u0644\u06cc\u06d2 \u06a9\u06cc\u0627 "
+        "\u0636\u0631\u0648\u0631\u06cc \u06c1\u06d2\u060c \u0627\u0648\u0631 \u06a9\u06cc\u0627 \u06c1\u0645\u0627\u0631\u0627 \u0631\u06cc\u06a9\u0627\u0631\u0688 \u0627\u0633 \u067e\u0631 \u067e\u0648\u0631\u0627 \u0627\u062a\u0631\u062a\u0627 \u06c1\u06d2\u061f"
+    ),
+}
+
+
+def _m89_plan():
+    return next(
+        p for p in rag_mod._KB_DATA_HALF_PLANS
+        if p.name == "fir_register_completeness"
+    )
+
+
+def test_module89_kb1_gold_question_fires_the_plan():
+    """THE MODULE'S CENTRAL PIN. Before this module `_match_kb_data_half_plan`
+    returned None for KB1 and the answer had no data half to compose."""
+    plan = rag_mod._match_kb_data_half_plan(_M89_KB1_GOLD)
+    assert plan is not None
+    assert plan.name == "fir_register_completeness"
+
+
+def test_module89_sub_query_is_pinned_against_resolve_aggregate_kind():
+    """The plan's sub-query is an INTERNAL dispatch string handed straight to
+    `xagg_tool()`, never through `router.py`, so `xagg.py`'s ordered
+    first-match-wins chain decides which family answers it. It was checked
+    against `resolve_aggregate_kind()` BEFORE being written into the plan;
+    this keeps it true as that chain grows. `_run_kb_data_half()` also
+    re-checks at runtime and DROPS a mismatch rather than citing an
+    unrelated figure, so drift here is a silent 0-of-N in a live run — which
+    is exactly why it is a loud test failure instead."""
+    from src.pipeline.xagg import resolve_aggregate_kind
+
+    plan = _m89_plan()
+    assert plan.expected_kind == "fir_register_completeness"
+    assert resolve_aggregate_kind(plan.sub_query) == plan.expected_kind
+
+
+def test_module89_sub_query_is_byte_identical_to_the_pinned_string_in_test_xagg():
+    """Same convention Modules 74/75/76 used: the aggregate's own test file
+    pins the string, and this entry is a COPY. A restatement would drift
+    independently, which is the failure the pin exists to prevent."""
+    from tests.test_xagg import _KB1_SQ_FIR_REGISTER_COMPLETENESS
+
+    assert _m89_plan().sub_query == _KB1_SQ_FIR_REGISTER_COMPLETENESS
+
+
+@pytest.mark.parametrize("pid", sorted(_M89_PARAPHRASES))
+def test_module89_ordinary_rewordings_fire_the_plan(pid):
+    """Module 56 has now found FOUR times — most recently as Module 94 —
+    that a plan's ROUTE is right while its pattern vocabulary is too narrow,
+    so a paraphrase routes correctly and then fires nothing. Measured here
+    rather than asserted in prose. Two English, one Roman-Urdu, one
+    Urdu-script."""
+    plan = rag_mod._match_kb_data_half_plan(_M89_PARAPHRASES[pid])
+    assert plan is not None, f"{pid} routed but fired no plan"
+    assert plan.name == "fir_register_completeness"
+
+
+def test_module89_paraphrases_match_the_committed_pre_registered_copy():
+    """The paraphrases were written down before the first run. This asserts
+    the copies here are the same ones, so neither can be quietly softened
+    after a miss."""
+    import json
+    import os
+
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "docs", "gold-qa-wave2-results", "module89_paraphrases.json",
+    )
+    committed = json.load(open(path, encoding="utf-8"))
+    assert committed["written_before_any_run"] is True
+    assert {p["id"]: p["text"] for p in committed["paraphrases"]} == _M89_PARAPHRASES
+
+
+@pytest.mark.parametrize("question,why", [
+    (
+        "How many FIRs are currently registered?",
+        "D1's gold: a plain count, and it claimed the plan on a first draft "
+        "of the FIR-first pattern. The `(?!many|much)` lookahead is the guard.",
+    ),
+    (
+        "Baramad shuda hathiyaron ki record keeping ko dekhte hue, kya koi "
+        "aisi baat hai jo compliance ke lihaz se flag karne layak ho?",
+        "G5's gold: a WEAPON register question that says 'record keeping'. A "
+        "bare `record[\\s-]?keeping` pattern claimed it.",
+    ),
+    (
+        "\u062c\u0628 \u06a9\u0648\u0626\u06cc \u0634\u062e\u0635 \u062a\u06be\u0627\u0646\u06d2 \u0622 \u06a9\u0631 \u0634\u06a9\u0627\u06cc\u062a \u062f\u0631\u062c \u06a9\u0631\u0627\u062a\u0627 \u06c1\u06d2\u060c \u062a\u0648 \u06a9\u06cc\u0627 \u0648\u06c1 \u06a9\u0633\u06cc "
+        "\u0628\u0627\u0642\u0627\u0639\u062f\u06c1 \u0627\u06cc\u0641 \u0622\u0626\u06cc \u0622\u0631 \u0633\u06d2 \u0645\u0646\u0633\u0644\u06a9 \u06c1\u0648 \u062c\u0627\u062a\u06cc \u06c1\u06d2\u060c \u06cc\u0627 \u062f\u0648\u0646\u0648\u06ba \u0627\u0644\u06af \u0627\u0644\u06af \u06c1\u06cc \u0631\u06c1\u062a\u06d2 \u06c1\u06cc\u06ba\u061f",
+        "CR6's gold: a walk-in CMS complaint question whose first clause is "
+        "'\u0634\u06a9\u0627\u06cc\u062a \u062f\u0631\u062c' and whose second names an FIR. The reverse-order "
+        "Urdu pattern claimed it and was removed.",
+    ),
+])
+def test_module89_the_three_measured_over_matches_stay_fixed(question, why):
+    """Each of these claimed the new plan on a first draft and was found by
+    the all-32 equality control, not by inspection. Pinned individually so a
+    later widening cannot re-introduce one without a named failure."""
+    plan = rag_mod._match_kb_data_half_plan(question)
+    assert plan is None or plan.name != "fir_register_completeness", why
+
+
+def test_module89_kb2_is_still_excluded():
+    """Module 39 excluded KB1 AND KB2. Only KB1 moves: KB2's gold is "no, by
+    design" — a genuine schema claim with no count behind it — and it is
+    Module 96's problem, not this one."""
+    import json
+    import os
+
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "evaluation", "Gold_QA_Dataset_Final32_With_Answers.json",
+    )
+    gold = json.load(open(path, encoding="utf-8"))
+    kb2 = next(it for it in gold if (it.get("id") or "").upper() == "KB2")
+    assert rag_mod._match_kb_data_half_plan(kb2["question"]) is None
+
+
+def test_module89_all_32_gold_questions_keep_their_plan():
+    """The all-32 EQUALITY control for the plan table. `_match_kb_data_half_plan`
+    is an ordered first-match-wins loop, so a new entry is a silent, broad
+    regression risk even when it is appended last. A MISSING dataset is a
+    failure, never a skip."""
+    import json
+    import os
+
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "evaluation", "Gold_QA_Dataset_Final32_With_Answers.json",
+    )
+    gold = json.load(open(path, encoding="utf-8"))
+    assert len(gold) == 32
+    resolved = {
+        (it.get("id") or "").upper(): (
+            lambda p: p.name if p else None
+        )(rag_mod._match_kb_data_half_plan(it["question"]))
+        for it in gold
+    }
+    assert {k: v for k, v in resolved.items() if v is not None} == {
+        "CR8": "violence_against_women",
+        "KB3": "officer_role_pair",
+        "KB4": "property_register",
+        "KB5": "violence_against_women",
+        "KB6": "weapon_register",
+        "KB8": "chalaan_dispatch",
+        "KB9": "death_investigation_charging",
+        # The only entry Module 89 adds.
+        "KB1": "fir_register_completeness",
+    }

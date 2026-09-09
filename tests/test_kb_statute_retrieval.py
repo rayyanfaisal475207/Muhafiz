@@ -965,6 +965,13 @@ _EXPECTED_DATA_HALF_GATE = {
     "KB6": "weapon_register",
     "KB8": "chalaan_dispatch",
     "KB9": "death_investigation_charging",
+    # [Gold-QA fix — Module 89] SEVENTH entry. Module 39 excluded KB1 from
+    # this table as "a schema claim, not a count"; its gold asserts three
+    # coverage figures (73/73 complainant, 70/73 recording officer, 64/73
+    # report time), so it is a count and now has an aggregate,
+    # `fir_register_completeness`, to reach for. KB2 stays out: its gold is
+    # "no, by design" and it is Module 96's problem.
+    "KB1": "fir_register_completeness",
 }
 
 
@@ -983,8 +990,8 @@ def _gate(question: str):
 
 
 def test_module39_all32_data_half_gate_is_exactly_the_six_compound_questions():
-    """All-32 EQUALITY control. Exactly KB3/KB4/KB5/KB6/KB8/KB9 get a data
-    half; the other 26 — including the five questions most likely to be
+    """All-32 EQUALITY control. Exactly KB1/KB3/KB4/KB5/KB6/KB8/KB9 get a
+    data half (Module 89 added KB1); the other 25 — including the five questions most likely to be
     caught by a widened gate (G2, G5, G3, CR7, M2) and the three that live
     in the decomposition machinery (CR3, G1, G6) — get None.
 
@@ -994,7 +1001,13 @@ def test_module39_all32_data_half_gate_is_exactly_the_six_compound_questions():
     never an investigation reported to a court, and it keeps its own
     `criminal_record_court_crosscheck` on the XAGG route. CP6 is the
     boundary for KB3 — it names an investigating officer and no registering
-    one, so a general officer question keeps its honest refusal."""
+    one, so a general officer question keeps its honest refusal.
+
+    Module 89 moved exactly one more question in (KB1) and its patterns had
+    to be narrowed THREE times to keep this control at equality: D1 ("How
+    many FIRs are currently registered?"), CR6 (Urdu, "شکایت درج ... ایف آئی
+    آر") and G5 (Roman-Urdu, "... ki record keeping ...") each claimed the
+    new plan on a first draft. All three are pinned individually below."""
     rows = _all_gold_rows()
     assert len(rows) == 32
     actual = {r["id"]: _gate(r["question"]) for r in rows}
@@ -1279,16 +1292,19 @@ async def test_module39_compound_kb_question_returns_a_norm_half_and_a_data_half
 async def test_module39_non_compound_kb_question_dispatches_no_aggregate(
     monkeypatch, stub_retrieval
 ):
-    """KB1 and KB2 are legal-KB questions whose data half is a SCHEMA claim,
-    not a count. Both must behave byte-for-byte as they did before Module
-    39 — no aggregate call, no extra chunk.
+    """KB2 is the one legal-KB question whose data half is a SCHEMA claim
+    and not a count — its gold answer is "no, by design". It must behave
+    byte-for-byte as it did before Module 39: no aggregate call, no extra
+    chunk.
 
     KB3 and KB8 USED to be in this list, because their figures had no
     aggregate to reach (filed then as Modules 67/68). Modules 74/75 built
     those aggregates and Module 77 wired them, so they now belong to the
     positive control above; they were removed from here rather than left
-    passing vacuously."""
-    for qid in ("KB1", "KB2"):
+    passing vacuously. KB1 left this list the same way in Module 89: its
+    gold asserts three coverage figures, which is a count, and
+    `fir_register_completeness` now produces them."""
+    for qid in ("KB2",):
         calls = []
         _stub_xagg(
             monkeypatch,

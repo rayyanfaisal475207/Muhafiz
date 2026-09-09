@@ -55,6 +55,7 @@ from src.pipeline.xagg import (
     render_officer_role_pair_overlap,
     render_chalaan_dispatch_count,
     render_fir_section_case_count,
+    render_fir_register_completeness,
     render_offender_age_profile,
     render_accused_relationship_breakdown,
     render_seized_property_disposition,
@@ -542,6 +543,10 @@ async def _fetch_secondary_evidence(
                 # other two XAGG-route rendering sites.
                 elif agg_result["kind"] == "fir_section_case_count":
                     lines = render_fir_section_case_count(agg_result)
+                # [Gold-QA fix — Module 89, KB1] Kept in sync with the
+                # other two XAGG rendering sites.
+                elif agg_result["kind"] == "fir_register_completeness":
+                    lines = render_fir_register_completeness(agg_result)
                 elif agg_result["kind"] == "district_breakdown":
                     label = agg_result.get("entity_label")
                     lines = [
@@ -2224,6 +2229,10 @@ async def process_query(
             # two XAGG-route rendering sites.
             elif agg_result["kind"] == "fir_section_case_count":
                 lines = render_fir_section_case_count(agg_result)
+            # [Gold-QA fix — Module 89, KB1] Kept in sync with the other
+            # two XAGG rendering sites.
+            elif agg_result["kind"] == "fir_register_completeness":
+                lines = render_fir_register_completeness(agg_result)
             elif agg_result["kind"] == "district_breakdown":
                 label = agg_result.get("entity_label")
                 lines = [
