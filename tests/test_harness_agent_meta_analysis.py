@@ -41,6 +41,8 @@ import asyncio
 import pytest
 
 import src.pipeline.harness.agents.meta_analysis as ma_mod
+from src import config
+from src.pipeline.harness.agents import _salvage
 from src.pipeline.harness.agents.meta_analysis import meta_analysis
 from src.pipeline.harness.supervisor import META_ANALYSIS, Supervisor, get_registered
 from src.pipeline.harness.types import (
@@ -1146,3 +1148,141 @@ async def test_module50_each_question_dispatches_its_whole_plan(monkeypatch, que
     assert len(dispatched) == expected_n
     assert set(dispatched) == set(plan.sub_queries)
     assert len(result.citations) == expected_n
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 53] The sub-query timeout measures QUEUE POSITION,
+# not cost: `META_ANALYSIS_SUBQUERY_TIMEOUT` is one wall-clock deadline
+# shared by the whole fan-out, and the model server serialises the
+# sub-queries, so the last slot is killed for being served last. Module 50
+# measured that the `XAGG <kind>` line is present for every timed-out
+# sub-query — the aggregate had already computed, and only its LLM
+# paraphrase was discarded. These tests pin the salvage path that now
+# serves that computed aggregate instead of dropping the sub-answer.
+# ═══════════════════════════════════════════════════════════════════════
+
+_SALVAGED_TEXT = "Weapons: 30 of 32 recovered weapons (94%) are recorded unlicensed."
+
+
+def _stub_supervisor_handle_offering_then_hanging(monkeypatch, hanging_query: str, offer_text: str):
+    """The real shape of the defect: the sub-agent computes its deterministic
+    aggregate, offers it, and is then cancelled mid-paraphrase by the shared
+    deadline. Exercises the genuine `asyncio.wait_for` + ContextVar path —
+    nothing about the salvage mechanism itself is stubbed."""
+
+    async def _fake(self, agent_input, *, on_event=None, gateway=None, allow_meta_analysis=True):
+        if agent_input.query_text == hanging_query:
+            _salvage.offer(offer_text, tool="XAGG", kind="weapon_licence_status")
+            await asyncio.sleep(9999)
+        return SubAgentResult(
+            status=SubAgentStatus.OK, answer_text="Pattern found [Document 1].", tools_used=["XAGG"]
+        )
+
+    monkeypatch.setattr(Supervisor, "handle", _fake)
+
+
+@pytest.mark.asyncio
+async def test_module53_timed_out_paraphrase_still_yields_the_raw_aggregate(monkeypatch):
+    """THE Module 53 regression test. Before this fix the second sub-answer
+    was dropped entirely and reported as 'Could not answer sub-question
+    (timed out)'. It must now reach synthesis carrying the computed
+    aggregate's own text."""
+    _stub_decompose(
+        monkeypatch, decompose=True, sub_queries=[_SUB_Q1, _SUB_Q2], synthesis_goal="combine findings"
+    )
+    _stub_supervisor_handle_offering_then_hanging(monkeypatch, _SUB_Q2, _SALVAGED_TEXT)
+    monkeypatch.setattr(ma_mod.config, "META_ANALYSIS_SUBQUERY_TIMEOUT", 0.05)
+
+    seen = {}
+
+    async def _capture_llm(system_prompt, user_message, **kwargs):
+        seen["prompt"] = system_prompt
+        return "Synthesis over both findings. [Document 1] [Document 2]"
+
+    monkeypatch.setattr(ma_mod, "call_llm", _capture_llm)
+    _stub_verify_grounding(monkeypatch, grounded=True)
+    _stub_validate_answer(monkeypatch)
+
+    result = await meta_analysis(_agent_input())
+
+    # The salvaged sub-answer reached the synthesis prompt verbatim...
+    assert _SALVAGED_TEXT in seen["prompt"]
+    # ...and got its own pseudo-chunk / citation slot, i.e. it CONTRIBUTED
+    # rather than being dropped.
+    assert len(result.citations) == 2
+    # ...but the run is still disclosed as degraded and raw, never as clean.
+    assert result.status == SubAgentStatus.PARTIAL
+    assert any("raw computed aggregate" in c for c in result.caveats)
+    assert not any("Could not answer sub-question" in c for c in result.caveats)
+
+
+@pytest.mark.asyncio
+async def test_module53_timeout_with_nothing_computed_still_reports_a_failure(monkeypatch):
+    """The narrow scope of the fix, pinned. A sub-agent with no
+    deterministic result to offer (RAG/GRAPH) has nothing correct-by-
+    construction to serve, so its timeout must still be a disclosed failure
+    — the salvage path must not become 'always answer something'."""
+    _stub_decompose(
+        monkeypatch, decompose=True, sub_queries=[_SUB_Q1, _SUB_Q2], synthesis_goal="combine findings"
+    )
+    _stub_supervisor_handle(
+        monkeypatch,
+        {
+            _SUB_Q1: SubAgentResult(status=SubAgentStatus.OK, answer_text="Pattern found."),
+            _SUB_Q2: "timeout",
+        },
+    )
+    monkeypatch.setattr(ma_mod.config, "META_ANALYSIS_SUBQUERY_TIMEOUT", 0.05)
+    _stub_call_llm(monkeypatch, "Synthesis using only the pattern finding. [Document 1]")
+    _stub_verify_grounding(monkeypatch, grounded=True)
+    _stub_validate_answer(monkeypatch)
+
+    result = await meta_analysis(_agent_input())
+
+    assert result.status == SubAgentStatus.PARTIAL
+    assert any("timed out" in c for c in result.caveats)
+    assert len(result.citations) == 1
+
+
+@pytest.mark.asyncio
+async def test_module53_salvage_boxes_do_not_leak_between_sibling_sub_queries(monkeypatch):
+    """Each `asyncio.gather` child opens its own box in its own Task context.
+    If they shared one, a sub-query that timed out with nothing computed
+    would be rescued by a SIBLING's aggregate — attributing one
+    sub-question's numbers to another. Pinned because the whole mechanism
+    rests on that isolation."""
+    _stub_decompose(
+        monkeypatch, decompose=True, sub_queries=[_SUB_Q1, _SUB_Q2], synthesis_goal="combine findings"
+    )
+
+    async def _fake(self, agent_input, *, on_event=None, gateway=None, allow_meta_analysis=True):
+        if agent_input.query_text == _SUB_Q1:
+            # Computes and offers, but RETURNS normally — its offer must
+            # never be visible to _SUB_Q2's box.
+            _salvage.offer(_SALVAGED_TEXT, tool="XAGG", kind="weapon_licence_status")
+            return SubAgentResult(status=SubAgentStatus.OK, answer_text="Paraphrased fine.")
+        await asyncio.sleep(9999)
+
+    monkeypatch.setattr(Supervisor, "handle", _fake)
+    monkeypatch.setattr(ma_mod.config, "META_ANALYSIS_SUBQUERY_TIMEOUT", 0.05)
+    _stub_call_llm(monkeypatch, "Synthesis. [Document 1]")
+    _stub_verify_grounding(monkeypatch, grounded=True)
+    _stub_validate_answer(monkeypatch)
+
+    result = await meta_analysis(_agent_input())
+
+    assert any("timed out" in c for c in result.caveats)
+    assert not any("raw computed aggregate" in c for c in result.caveats)
+    assert len(result.citations) == 1
+
+
+def test_module53_subquery_timeout_leaves_headroom_over_the_measured_staircase():
+    """`config.META_ANALYSIS_SUBQUERY_TIMEOUT` is not a taste setting. It is
+    a SHARED deadline over a serialised staircase Module 50 measured at
+    ~10 s per sub-query, and `_MAX_PLAN_SUB_QUERIES` sub-queries must fit
+    inside it with room to spare — at the old 60 s the fifth slot landed at
+    +56.7 s, i.e. 3.3 s of headroom, which is what Module 53 was filed for.
+    """
+    measured_seconds_per_sub_query = 12.0  # Module 50's staircase, rounded up.
+    needed = ma_mod._MAX_PLAN_SUB_QUERIES * measured_seconds_per_sub_query
+    assert config.META_ANALYSIS_SUBQUERY_TIMEOUT >= needed * 1.5
