@@ -1266,6 +1266,80 @@ async def test_module39_an_abstaining_retrieval_is_not_rescued_by_the_data_half(
     assert not result.chunks
 
 
+@pytest.mark.asyncio
+async def test_module39_the_data_half_is_shown_to_the_relevance_gate(
+    monkeypatch, stub_retrieval
+):
+    """The correction the first live sweep forced, pinned so it cannot be
+    undone by accident.
+
+    Wired only into the RESULT, the data half arrived after the gate — and
+    KB9 abstained 3 of 3 with the gate saying, verbatim on all 18 refusals,
+    that the documents describe inquest procedure and do not say whether OUR
+    system records one. That verdict is correct on a compound question judged
+    against statute-only evidence. The chunk that answers the second half now
+    goes in front of the gate, last, so the legal chunks keep their
+    `[Document N]` positions."""
+    seen = {}
+
+    async def _evaluate(orig, cur, reranked):
+        seen["ids"] = [c.get("id") for c in reranked]
+        return {"relevant": True, "reason": "ok"}
+
+    async def _statute(q):
+        return []
+
+    monkeypatch.setattr(rag_mod, "evaluate_relevance", _evaluate)
+    monkeypatch.setattr(rag_mod, "generate_statute_queries", _statute)
+    _stub_xagg(
+        monkeypatch,
+        _FakeXAggResult(ToolStatus.OK, "seized_property_disposition", _AGG_TEXT),
+    )
+
+    result = await rag_tool(
+        RagToolInput(query_text=_gold("KB4")["question"], execution=_kb_execution())
+    )
+    assert seen["ids"][-1] == "kb-data-half:property_register"
+    assert len(seen["ids"]) > 1, "the statutory chunks are still there, and first"
+    assert [c.id for c in result.chunks] == seen["ids"]
+
+
+@pytest.mark.asyncio
+async def test_module39_the_aggregate_runs_once_across_scope_retries(
+    monkeypatch, stub_retrieval
+):
+    """The KB path can run its retrieve→evaluate loop several times (up to
+    `MAX_RETRIES` per scope, over two scopes). The aggregate is dispatched
+    ONCE and memoised — re-running it per round would turn a 0.6 s overlap
+    into a serial cost paid six times."""
+    calls = []
+    _stub_xagg(
+        monkeypatch,
+        _FakeXAggResult(ToolStatus.OK, "seized_property_disposition", _AGG_TEXT),
+        calls,
+    )
+
+    async def _statute(q):
+        return []
+
+    verdicts = iter([False, False, True])
+
+    async def _evaluate(orig, cur, reranked):
+        return {"relevant": next(verdicts, True), "reason": "…"}
+
+    async def _rewrite(*args, **kwargs):
+        return "rewritten"
+
+    monkeypatch.setattr(rag_mod, "generate_statute_queries", _statute)
+    monkeypatch.setattr(rag_mod, "evaluate_relevance", _evaluate)
+    monkeypatch.setattr(rag_mod, "rewrite_for_retry", _rewrite)
+
+    await rag_tool(
+        RagToolInput(query_text=_gold("KB4")["question"], execution=_kb_execution())
+    )
+    assert len(calls) == 1
+
+
 # ── The prompt half: Semantic Search must be TOLD the question is compound ─
 
 def test_module39_semantic_search_adds_the_compound_rule_only_for_a_data_half():

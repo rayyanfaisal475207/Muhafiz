@@ -597,7 +597,7 @@ def _match_kb_data_half_plan(query_text: str) -> Optional[_KbDataHalfPlan]:
     return None
 
 
-async def _run_kb_data_half(plan: _KbDataHalfPlan, execution) -> Optional[EvidenceChunk]:
+async def _run_kb_data_half(plan: _KbDataHalfPlan, execution) -> Optional[dict]:
     """Run one plan's aggregate and return its deterministic rendering as a
     citable chunk, or None on ANY failure.
 
@@ -652,14 +652,20 @@ async def _run_kb_data_half(plan: _KbDataHalfPlan, execution) -> Optional[Eviden
         "RAG tool: KB data-half plan %r answered by aggregate %r (%d chars).",
         plan.name, result.aggregate_kind, len(result.raw_summary_text),
     )
-    return EvidenceChunk(
-        id=f"kb-data-half:{plan.name}",
-        text=result.raw_summary_text,
-        metadata=ChunkMetadata(
-            source_tool="XAGG",
-            source_file="our own case records (cross-case aggregate)",
-        ),
-    )
+    # Returned in the RAW RETRIEVAL CHUNK SHAPE, not as an `EvidenceChunk`,
+    # because it is folded into `reranked` — the same list the relevance gate
+    # judges and `_to_evidence_chunk()` converts. `source_tool` in the
+    # metadata is what carries the "this one is not a statute" marker through
+    # that conversion (see `_to_evidence_chunk()`).
+    return {
+        "id": f"kb-data-half:{plan.name}",
+        "text": result.raw_summary_text,
+        "metadata": {
+            "source": "our own case records (cross-case aggregate)",
+            "source_tool": "XAGG",
+            "is_global": True,
+        },
+    }
 
 
 def _build_where(
@@ -825,12 +831,18 @@ async def _retrieve_candidates(
 
 def _to_evidence_chunk(raw: dict) -> EvidenceChunk:
     meta = dict(raw.get("metadata") or {})
+    # [Gold-QA fix — Module 39] Every chunk this tool retrieves is a RAG
+    # chunk and says so; the ONE exception is the data-half aggregate folded
+    # in below, which carries its own `source_tool` because it was computed,
+    # not retrieved. Semantic Search keys its compound-answer instruction off
+    # exactly this field, so the marker has to survive the conversion.
+    source_tool = meta.pop("source_tool", None) or "RAG"
     return EvidenceChunk(
         id=raw["id"],
         text=raw.get("text", ""),
         score=raw.get("rerank_score", raw.get("rrf_score")),
         metadata=ChunkMetadata(
-            source_tool="RAG",
+            source_tool=source_tool,
             case_id=meta.get("case_id"),
             source_file=meta.get("source"),
             **{k: v for k, v in meta.items() if k not in ("case_id", "source")},
@@ -950,6 +962,18 @@ async def rag_tool(
                 _run_kb_data_half(data_half_plan, tool_input.execution)
             )
 
+    # Awaited ONCE, lazily, at the point the gate needs it — memoised so the
+    # KB-only→mixed scope retry and every evaluator round reuse the one
+    # dispatch rather than re-running the aggregate.
+    _data_half_cache: list = []
+
+    async def _get_data_half() -> Optional[dict]:
+        if data_half_task is None:
+            return None
+        if not _data_half_cache:
+            _data_half_cache.append(await data_half_task)
+        return _data_half_cache[0]
+
     try:
         last_empty_result: Optional[RagToolResult] = None
         for scope_index, where in enumerate(where_scopes):
@@ -960,41 +984,24 @@ async def rag_tool(
                 tool_input, where, fetch_top_k, top_k, is_cross_case, _emit,
                 statute_queries=statute_queries,
                 english_query=english_query,
+                get_data_half=_get_data_half if data_half_task is not None else None,
             )
             if result.status == ToolStatus.OK:
-                return await _append_kb_data_half(result, data_half_task)
+                return result
             last_empty_result = result
         # Every scope tried; return the last (EMPTY/FAILED) outcome unchanged.
         #
-        # DELIBERATELY NOT rescued by the data half. A run where retrieval
-        # abstained has no statutory half at all, and answering such a
-        # question with a bare corpus figure and no norm would be a NEW
-        # failure mode — a confident half-answer replacing an honest
-        # abstention — not the compound answer gold asks for. The task is
-        # still awaited (below) so it is never left pending.
+        # DELIBERATELY NOT rescued by the data half. The gate below sees the
+        # data half and still said no; a run that abstains has therefore
+        # rejected BOTH halves, and answering it with a bare corpus figure
+        # and no norm would be a NEW failure mode — a confident half-answer
+        # replacing an honest abstention — not the compound answer gold asks
+        # for.
         return last_empty_result if last_empty_result is not None else RagToolResult(status=ToolStatus.EMPTY)
     finally:
         if data_half_task is not None and not data_half_task.done():
             data_half_task.cancel()
 
-
-async def _append_kb_data_half(
-    result: "RagToolResult", data_half_task
-) -> "RagToolResult":
-    """Fold the data-half chunk, if any, onto an OK retrieval result.
-
-    Appended LAST so the statutory chunks keep the positions — and therefore
-    the `[Document N]` numbers — they had before Module 39; the citation
-    contract `verify_grounding()` checks is positional
-    (`semantic_search.py::_format_documents_for_prompt`), so inserting
-    anywhere else would renumber every legal citation in the answer.
-    """
-    if data_half_task is None:
-        return result
-    chunk = await data_half_task
-    if chunk is None:
-        return result
-    return result.model_copy(update={"chunks": list(result.chunks) + [chunk]})
 
 
 async def _run_retrieval_loop(
@@ -1006,6 +1013,7 @@ async def _run_retrieval_loop(
     _emit,
     statute_queries: Optional[list[str]] = None,
     english_query: Optional[str] = None,
+    get_data_half=None,
 ) -> RagToolResult:
     """
     One full retrieve→rerank→evaluate retry loop against a SINGLE `where`
@@ -1144,6 +1152,38 @@ async def _run_retrieval_loop(
         # change what every other route reads.
         if is_global_only_scope and reranked:
             reranked = await expand_with_neighbors(reranked, window=1)
+
+        # [Gold-QA fix — Module 39] Fold the data half in HERE — before the
+        # relevance gate, not after it — and append it LAST so every
+        # statutory chunk keeps the position, and therefore the
+        # `[Document N]` number, it had before this module (the citation
+        # contract `verify_grounding()` checks is positional).
+        #
+        # MEASURED, NOT ASSUMED. The first wiring of this module added the
+        # chunk only to the RESULT, after the gate. KB4/KB5/KB6 answered with
+        # both halves, and KB9 abstained 3 of 3 — and the gate's own reason,
+        # verbatim on all 18 of its refusals, was that the retrieved
+        # documents "describe procedural requirements for conducting
+        # inquests" and do not say whether OUR system records one. That is a
+        # correct verdict on a compound question judged against statute-only
+        # evidence: half of what was asked genuinely was not in front of it.
+        # The chunk that answers that half existed, 0.6 s away, on the other
+        # side of the gate. Showing it to the gate is the whole point.
+        #
+        # This is the same reasoning `orchestrator.py` already applies with
+        # its `_case_record_chunk()` injection (see this module's own SCOPE
+        # NOTE): a synthetic, machine-computed chunk placed BEFORE the
+        # evaluator so a question is not judged unanswerable merely because
+        # the ingested documents do not restate structured data. It does not
+        # make the gate say yes — an abstention with the data half present is
+        # still an abstention, and `_run_kb_data_half()` returning None
+        # leaves this line a no-op.
+        if get_data_half is not None:
+            data_half = await get_data_half()
+            if data_half is not None and not any(
+                c.get("id") == data_half["id"] for c in reranked
+            ):
+                reranked = list(reranked) + [data_half]
 
         # [Module 30] Which chunks actually reached the evaluator, by id and
         # source file. The evaluator's own `relevant=…` reason is the most
