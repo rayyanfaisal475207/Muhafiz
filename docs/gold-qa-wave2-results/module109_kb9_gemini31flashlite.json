@@ -1,0 +1,62 @@
+[
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 0,
+  "metric": "FactualCorrectness",
+  "model": "gemini-3.1-flash-lite",
+  "provider": "gemini",
+  "prompt": "new",
+  "score": 0.4,
+  "elapsed_s": 9.8,
+  "reason": "The actual output correctly identifies that the system records cases involving deaths but fails to provide the specific legal context requested, namely Section 174 of the Code of Criminal Procedure, 1898. While it acknowledges the limitation of the data, it misses the key fact that the FIRs themselv"
+ },
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 1,
+  "metric": "FactualCorrectness",
+  "model": "gemini-3.1-flash-lite",
+  "provider": "gemini",
+  "prompt": "new",
+  "score": 0.4,
+  "elapsed_s": 9.1,
+  "reason": "The actual output correctly identifies that the system records cases involving deaths but fails to provide the specific legal context requested, namely Section 174 of the Code of Criminal Procedure, 1898. While it acknowledges the limitation of the data, it misses the key fact that the FIRs themselv"
+ },
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 2,
+  "metric": "FactualCorrectness",
+  "model": "gemini-3.1-flash-lite",
+  "provider": "gemini",
+  "prompt": "new",
+  "score": 0.4,
+  "elapsed_s": 8.0,
+  "reason": "The actual output correctly identifies that the system records cases involving deaths but fails to provide the specific legal context requested, namely Section 174 of the Code of Criminal Procedure, 1898. While it acknowledges the limitation of the data, it misses the key fact that the FIRs themselv"
+ },
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 3,
+  "metric": "FactualCorrectness",
+  "model": "gemini-3.1-flash-lite",
+  "provider": "gemini",
+  "prompt": "new",
+  "score": 0.4,
+  "elapsed_s": 7.4,
+  "reason": "The actual output correctly identifies that the system records cases involving deaths but fails to provide the specific legal context requested, namely Section 174 of the Code of Criminal Procedure, 1898. While it acknowledges the limitation of the data, it misses the key fact that the FIRs themselv"
+ },
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 4,
+  "metric": "FactualCorrectness",
+  "model": "gemini-3.1-flash-lite",
+  "provider": "gemini",
+  "prompt": "new",
+  "score": 0.4,
+  "elapsed_s": 8.2,
+  "reason": "The actual output correctly identifies that the system records cases involving deaths but fails to provide the specific legal context requested, namely Section 174 of the Code of Criminal Procedure, 1898. While it acknowledges the limitation of the data, it misses the key fact that the FIRs themselv"
+ }
+]

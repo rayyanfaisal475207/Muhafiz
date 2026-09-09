@@ -1,0 +1,62 @@
+[
+ {
+  "id": "M7",
+  "pass": 1,
+  "draw": 0,
+  "metric": "FactualCorrectness",
+  "model": "qwen/qwen3.8-27b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 7.4,
+  "reason": "The actual output correctly identifies the key facts: the mean reporting time in 2024 was 15.0 minutes and in 2026 was 1401.3 minutes. Although the expected output starts with 'Yes' (answering the implied question of whether there is a difference) and the actual output starts with 'No' (answering th"
+ },
+ {
+  "id": "M7",
+  "pass": 1,
+  "draw": 1,
+  "metric": "FactualCorrectness",
+  "model": "qwen/qwen3.8-27b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 25.1,
+  "reason": "The actual output correctly identifies the key facts: the mean reporting time in 2024 was 15.0 minutes and in 2026 was 1401.3 minutes. Although the expected output starts with 'Yes' (answering the implied question of whether there is a difference) and the actual output starts with 'No' (answering th"
+ },
+ {
+  "id": "M7",
+  "pass": 1,
+  "draw": 2,
+  "metric": "FactualCorrectness",
+  "model": "qwen/qwen3.8-27b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 3.7,
+  "reason": "The actual output correctly identifies the key facts: the mean reporting time in 2024 was 15.0 minutes and in 2026 was 1401.3 minutes. Although the expected output starts with 'Yes' (answering the implied question of whether there is a difference) and the actual output starts with 'No' (answering th"
+ },
+ {
+  "id": "M7",
+  "pass": 1,
+  "draw": 3,
+  "metric": "FactualCorrectness",
+  "model": "qwen/qwen3.8-27b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 3.7,
+  "reason": "The actual output correctly identifies the key facts: the mean reporting time in 2024 was 15.0 minutes and in 2026 was 1401.3 minutes. Although the expected output starts with 'Yes' (answering the implied question of whether there is a difference) and the actual output starts with 'No' (answering th"
+ },
+ {
+  "id": "M7",
+  "pass": 1,
+  "draw": 4,
+  "metric": "FactualCorrectness",
+  "model": "qwen/qwen3.8-27b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 3.5,
+  "reason": "The actual output correctly identifies the key facts: the mean reporting time in 2024 was 15.0 minutes and in 2026 was 1401.3 minutes. Although the expected output starts with 'Yes' (answering the implied question of whether there is a difference) and the actual output starts with 'No' (answering th"
+ }
+]
