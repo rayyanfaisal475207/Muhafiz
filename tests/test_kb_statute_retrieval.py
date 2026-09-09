@@ -932,3 +932,145 @@ async def test_expand_with_neighbors_degrades_to_the_unwidened_chunks():
         assert await vs.expand_with_neighbors(chunks, window=1) == chunks
     finally:
         vs._get_store = original
+
+
+# ── 9. Module 65: the evidence-book branch of the statute-hypothesis prompt ──
+#
+# KB2's gold rests on Qanun-e-Shahadat Order 1984 Arts 38/39 and CrPC s.162,
+# and Module 52 measured 0 of 6 live runs retrieving any of them. Module 65's
+# probe (scripts/module65_probe.py) established, by chunk id, that all three
+# ARE in the corpus —
+#     2_qanun-e-shahadat-order-1984_pdf_3e604153_c176   (Art. 38)
+#     2_qanun-e-shahadat-order-1984_pdf_3e604153_c177   (Art. 39)
+#     1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675  (s.162(1))
+# — and that no query the pipeline generated reached ANY of them, because the
+# model read "why is this not recorded?" as a record-keeping question and spent
+# both hypotheses on the Punjab Police Rules' case diary and CrPC s.161.
+#
+# The fix is entirely in `prompts/statute_hypothesis.txt`: an evidence-book
+# selection branch, plus the corpus's own verb for it. Measured on the live
+# store, `{"is_global": True}`, top-30 per query:
+#     before — every target ABSENT from every generated query
+#     after  — Art. 38 rank 3, Art. 39 rank 6 (hypothesis 1, Qanun-e-Shahadat)
+#              s.162(1) rank 1, s.162 heading rank 12 (hypothesis 2, CrPC)
+#
+# A prompt is the mechanism, so the prompt is what these tests pin: the rule
+# must survive in the template AND reach the model in the built system prompt.
+# `generate_statute_queries()` stubs the LLM everywhere else in this file, so
+# nothing here would notice the rule being deleted.
+
+_STATUTE_PROMPT = (
+    Path(__file__).resolve().parent.parent / "prompts" / "statute_hypothesis.txt"
+).read_text(encoding="utf-8")
+
+
+def test_statute_prompt_has_an_evidence_book_selection_branch():
+    """Module 65. Before this rule the model had three book-selection branches
+    — a STEP (CrPC), WHO in the force (Police Order), WHAT IS WRITTEN DOWN
+    (Punjab Police Rules) — and a question about whether material may be USED
+    fell into the third. That is what sent KB2 to the case diary."""
+    assert "WHETHER SOMETHING MAY BE USED" in _STATUTE_PROMPT
+    lowered = _STATUTE_PROMPT.lower()
+    assert "qanun-e-shahadat order, 1984, and" in lowered, (
+        "the evidence branch must name the book it routes to"
+    )
+    # The measured lexical point: "may not be used as evidence" retrieved
+    # Art. 38 at rank 88; the book's own "shall be proved" put it at rank 3.
+    assert '"shall be proved"' in _STATUTE_PROMPT
+    assert '"admissible"' in _STATUTE_PROMPT
+
+
+def test_statute_prompt_routes_an_absent_record_to_admissibility():
+    """Rule 4c. Gold's shape is that an apparent data gap is legally REQUIRED,
+    so 'why is this not kept?' has to reach the provision that bars the use of
+    the material, not only the one that says what may be written down."""
+    assert "4c." in _STATUTE_PROMPT
+    rule = _STATUTE_PROMPT.split("4c.", 1)[1].split("\n", 1)[0].lower()
+    assert "admissibility" in rule
+    assert "not written down" in rule or "not kept" in rule
+    # Measured live, and this is the part that had to be PROHIBITIVE rather
+    # than advisory: "spend at least one query on..." left the model spending
+    # its second slot on the Punjab Police Rules' case diary anyway, and that
+    # one query pulled the whole reranked window back to case-diary material —
+    # KB2 retrieved 0 of 2 gold chunks live even with Art. 38 at rank 3 of its
+    # own query. Forbidding the record-keeping book for THIS question shape is
+    # what puts the CrPC bar in the second slot and gold's chunks in the pool.
+    assert "spend no query on the recording or register provision" in rule
+
+
+def test_statute_prompt_corpus_map_describes_the_qso_confession_bar():
+    """The Qanun-e-Shahadat's map entry had to say what it actually covers.
+    "confessions" alone did not distinguish it from the recording books, and
+    the model routed KB2 to the case diary.
+
+    Deliberately asserted on the map line ONLY, not on the CrPC's. Enlarging
+    the CrPC map entry with s.162's subject was measured and REVERTED: it
+    hijacked KB5's first hypothesis away from the Anti-Rape Act (§7), and the
+    same material sits in the WHETHER-SOMETHING-MAY-BE-USED branch instead,
+    where it fires on the question shape rather than on the book."""
+    qso = next(l for l in _STATUTE_PROMPT.splitlines() if l.startswith("- Qanun-e-Shahadat"))
+    crpc = next(l for l in _STATUTE_PROMPT.splitlines() if l.startswith("- Code of Criminal"))
+    assert "confession made to a police officer" in qso.lower()
+    assert "police custody" in qso.lower()
+    assert "inquiry or trial" not in crpc.lower(), (
+        "the CrPC map entry must stay as Module 30 left it — see this test's docstring"
+    )
+    branch = _STATUTE_PROMPT.split("WHETHER SOMETHING MAY BE USED", 1)[1].split(chr(10), 1)[0]
+    assert "inquiry or trial" in branch.lower()
+
+
+def test_statute_prompt_names_the_evidence_books_own_noun():
+    """Measured, top-30 on the live store: a hypothesis phrased "statements
+    made to police ... shall not be proved" put Art. 38 at rank 17 and lost
+    Art. 39 entirely; the same hypothesis phrased "confession made to a police
+    officer" put them at ranks 3 and 7."""
+    rule = _STATUTE_PROMPT.split("4c.", 1)[1].split(chr(10), 1)[0]
+    assert '"confession"' in rule
+    assert '"statement"' in rule
+
+
+def test_module_30_selection_rules_survive_the_module_65_edit():
+    """Module 65 added a fourth branch to a map Module 30 measured. Its three
+    existing branches, and rules 3/4/4b, are load-bearing for KB3/KB8/KB9 and
+    must not be collateral damage."""
+    for marker in (
+        "A STEP in a criminal case",
+        "WHO inside the police force may do something",
+        "WHAT IS WRITTEN DOWN",
+        "the words the provision ITSELF would use",
+        "Each query must target a DIFFERENT statute book",
+        "4b. Match the ACTOR",
+    ):
+        assert marker in _STATUTE_PROMPT, marker
+
+
+@pytest.mark.asyncio
+async def test_kb2_gold_text_reaches_the_llm_with_the_evidence_branch(monkeypatch):
+    """End of the chain that matters: the rule has to survive `{n}`/`{query}`
+    substitution and actually be in the system prompt sent for KB2's LITERAL
+    gold text. A template edit that broke substitution would pass every test
+    above and change nothing live."""
+    seen = {}
+
+    async def _call_llm_json(**kwargs):
+        seen.update(kwargs)
+        return ["Qanun-e-Shahadat Order 1984 confession to a police officer not to be proved"], ""
+
+    monkeypatch.setattr(statute_mod, "call_llm_json", _call_llm_json)
+    question = _gold("KB2")["question"]
+    await generate_statute_queries(question, n=2)
+
+    system_prompt = seen["system_prompt"]
+    assert "WHETHER SOMETHING MAY BE USED" in system_prompt
+    assert "4c." in system_prompt
+    assert question in system_prompt
+    assert "{n}" not in system_prompt and "{query}" not in system_prompt
+
+
+def test_default_hypotheses_stays_at_two():
+    """Module 65 measured a third hypothesis on KB2 with the fixed prompt: the
+    model spent it on a third Qanun-e-Shahadat phrasing that retrieved none of
+    gold's chunks, while hypotheses 1 and 2 already returned all three. Module
+    38 showed a wrong third slot is no longer *harmful* under RRF fusion; it is
+    still not useful here, so the budget is unchanged and the reason recorded."""
+    assert statute_mod.DEFAULT_HYPOTHESES == 2
