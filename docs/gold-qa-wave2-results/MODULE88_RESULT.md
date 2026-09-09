@@ -480,7 +480,7 @@ short of gold, and it is not a regression.
 
 ## 8. New defects found
 
-**Module 89 — CR2's Roman-Urdu and Urdu paraphrases route to XGRAPH, so this
+**Module 92 — CR2's Roman-Urdu and Urdu paraphrases route to XGRAPH, so this
 fix never reaches them.** Measured on :8032, 2 runs each, both
 `route='XGRAPH'` 2/2. XGRAPH answers with *"the same entity recurs across 6
 case(s) … chain confidence 50%"* and names no person; the Urdu-script one
