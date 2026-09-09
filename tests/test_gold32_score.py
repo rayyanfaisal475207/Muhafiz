@@ -24,6 +24,9 @@ No network: the judge is a stub. `measure`'s backoff sleeps are injected.
 import importlib.util
 import json
 import os
+import re
+
+from deepeval.models.base_model import DeepEvalBaseLLM
 
 import pytest
 
@@ -255,3 +258,164 @@ class TestRealResultsFile:
                  if r.get("scores", {}).get(m) is None}
         reported = {(u["id"], u["metric"]) for u in sm["unscored"]}
         assert nulls == reported
+
+
+# ── 5. the judge itself: model and prompt (Module 87) ────────────────────
+
+class _FakeLLM(DeepEvalBaseLLM):
+    """A DeepEval-shaped judge that never reaches the network. `build_metrics`
+    only has to accept it — these tests read the metric's configuration, they
+    do not run it."""
+
+    def __init__(self):
+        super().__init__(model_name="fake-judge")
+
+    def load_model(self):
+        return None
+
+    def generate(self, *a, **k):
+        raise AssertionError("no judge call should happen in a unit test")
+
+    async def a_generate(self, *a, **k):
+        raise AssertionError("no judge call should happen in a unit test")
+
+    def get_model_name(self):
+        return "fake-judge"
+
+
+class TestJudgeModelIsNamedAndOverridable:
+    """The judge model was the literal `"gemini-flash-lite-latest"` inside
+    `_judge()` for the whole of wave 2 — the weakest tier Google offers, and
+    the model that produced every score in the Module 27 three-pass run. Like
+    the answer cap before it (Module 46), a value that shapes every published
+    number must have a name a report can quote and an env var an experiment
+    can move."""
+
+    def test_default_model_is_a_named_constant(self):
+        assert isinstance(gs.DEFAULT_JUDGE_MODEL, str)
+        assert gs.DEFAULT_JUDGE_MODEL.startswith("gemini-")
+
+    def test_the_retired_judge_is_no_longer_the_default(self):
+        """`gemini-flash-lite-latest` graded the whole of wave 2, including the
+        three-pass Module 27 run in which M7 was scored 0.1/0.3/0.2 on a
+        correct answer."""
+        assert gs.DEFAULT_JUDGE_MODEL != "gemini-flash-lite-latest"
+
+    def test_the_default_is_a_pinned_version_not_a_moving_alias(self):
+        """A `-latest` alias silently changes the judge under the reports that
+        cite it, which is how wave 2 ended up unable to say which model
+        produced its numbers. Module 87 pins a version instead."""
+        assert not gs.DEFAULT_JUDGE_MODEL.endswith("-latest")
+
+    def test_model_is_env_overridable(self, monkeypatch):
+        monkeypatch.setenv("GOLD32_JUDGE_MODEL", "some-other-model")
+        spec = importlib.util.spec_from_file_location("gold32_score_reload", _SCRIPT)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        assert mod.JUDGE_MODEL == "some-other-model"
+
+    def test_temperature_is_pinned_not_inherited(self):
+        assert gs.JUDGE_TEMPERATURE == 0.0
+
+
+class TestFactualPromptRules:
+    """The FactualCorrectness prompt is the whole of the grading standard, so
+    each rule it encodes is pinned to a real case that proved it was needed."""
+
+    STEPS = property(lambda self: gs.FACTUAL_EVALUATION_STEPS)
+
+    def test_the_prompt_is_a_module_level_constant(self):
+        """So a test can pin one rule and an experiment can diff two prompts
+        without re-declaring the metric."""
+        assert isinstance(gs.FACTUAL_EVALUATION_STEPS, list)
+        assert all(isinstance(s, str) for s in gs.FACTUAL_EVALUATION_STEPS)
+
+    def test_the_close_numbers_rule_still_carries_its_worked_example(self):
+        """Module 20's rule. Regression guard: it was an abstract sentence
+        first and the judge ignored it until the real A1 case was attached."""
+        joined = " ".join(gs.FACTUAL_EVALUATION_STEPS)
+        assert "5-10%" in joined
+        assert "67 males" in joined and "65 males" in joined
+
+    def test_a_polarity_rule_is_present(self):
+        """Module 87's rule, and the defect it exists for: M7 was scored
+        0.1 / 0.3 / 0.2 across three passes on an answer carrying gold's
+        figures EXACTLY, because gold opens 'Haan' (yes) and the answer opens
+        'No'. Both say reporting became dramatically slower."""
+        polarity = [s for s in gs.FACTUAL_EVALUATION_STEPS
+                    if "SUBSTANTIVE CLAIM" in s]
+        assert len(polarity) == 1, (
+            "no polarity step in the FactualCorrectness prompt — a 'no' "
+            "answering the literal question and a 'yes' answering an implied "
+            "one are equivalent when the supporting facts agree"
+        )
+        step = polarity[0]
+        assert "yes/no" in step
+        assert "not a contradiction" in step.lower() or "NOT an error" in step
+
+    def test_the_polarity_rule_carries_its_own_worked_example(self):
+        """Module 20 proved an abstract rule alone is not honoured. The
+        example is M7's real figures, in the house style of the close-numbers
+        rule above it."""
+        step = next(s for s in gs.FACTUAL_EVALUATION_STEPS
+                    if "SUBSTANTIVE CLAIM" in s)
+        assert "15.0 minutes" in step and "1401.3" in step
+        assert "score HIGH" in step
+
+    def test_the_polarity_rule_is_fenced_so_it_cannot_excuse_an_omission(self):
+        """Measured regression, and the reason this fence exists. The first
+        version of the polarity rule took KB9 from 0.27 (retired judge) to
+        **1.0 on all three passes** on an answer that never reaches gold's
+        CrPC s.174 or its 10 PPC-302 FIRs — the judge settled polarity and
+        stopped checking facts. The same model with the rule removed scored
+        KB9 0.3, so the rule caused it. Fenced, KB9 scores 0.4."""
+        step = next(s for s in gs.FACTUAL_EVALUATION_STEPS
+                    if "SUBSTANTIVE CLAIM" in s)
+        assert "OPENING WORD AND NOTHING ELSE" in step
+        assert "materially INCOMPLETE" in step
+
+    def test_build_metrics_uses_the_constant_by_default(self):
+        m = gs.build_metrics(judge=_FakeLLM())["FactualCorrectness"]
+        assert m.evaluation_steps == gs.FACTUAL_EVALUATION_STEPS
+
+    def test_build_metrics_accepts_an_override_for_experiments(self):
+        m = gs.build_metrics(judge=_FakeLLM(),
+                             evaluation_steps=["only step"])["FactualCorrectness"]
+        assert m.evaluation_steps == ["only step"]
+
+
+class TestDocsMatchTheJudgeContract:
+    """`HOW_TO_REPRODUCE_THIS_EVALUATION.md` §3 is the judge contract as
+    published to the testing team. It has to name the model that actually
+    grades and list the rules that actually apply, or the team reproduces a
+    different evaluation than the one reported."""
+
+    def _doc(self):
+        return open(os.path.join(_ROOT, "HOW_TO_REPRODUCE_THIS_EVALUATION.md"),
+                    encoding="utf-8").read()
+
+    def test_the_doc_names_the_default_judge_model(self):
+        assert gs.DEFAULT_JUDGE_MODEL in self._doc()
+
+    def test_the_doc_does_not_still_prescribe_the_retired_judge(self):
+        doc = self._doc()
+        for line in doc.splitlines():
+            if "gemini-flash-lite-latest" in line and "GeminiModel(" in line:
+                pytest.fail("§3.1 still prescribes the retired judge: " + line)
+
+    def test_the_doc_lists_the_polarity_rule(self):
+        doc = self._doc().lower()
+        assert "polarity" in doc
+        assert "1401.3" in self._doc()
+
+    def test_the_doc_lists_as_many_rules_as_the_prompt_has_steps(self):
+        """A numbered list in §3.3 that is shorter than the prompt is how the
+        two drift apart."""
+        doc = self._doc()
+        section = doc.split("### 3.3")[1].split("### 3.4")[0]
+        numbered = [l for l in section.splitlines()
+                    if re.match(r"^\d+\. ", l)]
+        assert len(numbered) == len(gs.FACTUAL_EVALUATION_STEPS), (
+            "§3.3 lists %d rules but the prompt has %d steps"
+            % (len(numbered), len(gs.FACTUAL_EVALUATION_STEPS))
+        )

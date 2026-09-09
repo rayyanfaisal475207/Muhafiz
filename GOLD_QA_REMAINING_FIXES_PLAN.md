@@ -129,6 +129,9 @@ several can run in parallel chats/worktrees without colliding.
 | 80 | `"How many FIRs cite PPC section 302, across all cases?"` and two rewordings are all classified **SQL** by the router, 2 of 3 ending `status=error` after 77–93 s | *(not yet branched)* | ⬜ New — found by Module 76 while looking for live evidence. **Harmless to the composition path and fatal to a user typing the question**: a `_KB_DATA_HALF_PLANS` sub-query is handed straight to `xagg_tool()` and never sees the router (Module 39 §2.1, and Module 76 exercised that path 3/3 successfully), so the new aggregate lands correctly where it is meant to. But no phrasing of a per-section FIR count reaches XAGG on its own. `router.py`, adjacent to Modules 60/67 |
 | 81 | The canonical quota grep matched a **timestamp** — `16:19:29,503` scored as a 503 UNAVAILABLE | `fix/quota-grep-timestamp-false-positive` | ✅ **Fixed** — numeric codes boundary-guarded; every module that certified a clean run with the bare pattern was reading its own milliseconds as a provider failure |
 | 83 | Meta-Analysis' synthesis intermittently cites nothing at all, and the rate is **prompt-length-sensitive** | *(not yet branched)* | ⬜ New — found by Module 71 in its own work, by accident and then deliberately. G6's *"Answer is substantial (long, or a multi-item list) but cites no `[Document N]` source at all"* refusal is Module 29's, still live: **0 of 4** on pre-fix code, but **10 of 12** once five short deterministic lines were interleaved into `_format_subanswers_for_prompt`'s output, and back to **0 of 8** the moment they were removed. Rewording them to avoid the `[Document N]` marker (Module 25's finding) did not help, so the cost is the interleaving, not the wording. The citation rule is therefore held only by its proximity to the end of the synthesis prompt, which makes every future addition to that section a coin flip nobody will think to re-measure. The durable fix is structural — put the citation requirement where length cannot dilute it, or carry provenance out of band so `[Document N]` markers are not the mechanism — not another restatement. Module 71 recovered G6 by deleting its own change, which is a workaround. **Verify on G6 and CR3, several runs each, with a deliberately lengthened sub-answers section as the control.** |
+| 87 | The Gold-32 **judge**: weakest-tier model pinned as a literal, no polarity rule, and 0.5 score spread on identical answers | `fix/eval-judge-upgrade-and-prompt` | ✅ **Fixed** — judge model is a named, env-overridable constant (`GOLD32_JUDGE_MODEL`) defaulting to **`gemini-3.1-flash-lite`**, chosen on measurement not size: `gemini-2.5-flash`, `3.5-flash` and `3.7-flash` are all capped at **20 requests/DAY** on both working keys and cannot produce one 96-call re-score. A **polarity rule with M7's own worked example** lands the measured false negative: **M7 0.20 → 1.00, 3/3**. Two more false negatives found and justified individually — **CP6 0.30 → 0.90** (the tolerance rule was applied and then overridden by an omission the question never asked for) and **G1 0.53 → 0.97** (its answer carries all four gold findings with gold's figures). **Variance: spread ≥0.3 on 4 of 32 → 1 of 32, mean spread 0.106 → 0.025**, and on a FIXED answer × 5 draws it is **0.0 on 9 of 9** — the model did that, not the prompt. Genuinely wrong answers still fail (CR2 **0.00** 3/3, KB2 0.17, KB3 0.00, G6 0.10) and **seven questions fell**, Creative Generation 0.580 → **0.553**. All-32 mean 0.666 → **0.702**. The rule's first version broke KB9 (0.27 → **1.0**) and is now **fenced** and pinned by a test. Result: `docs/gold-qa-wave2-results/MODULE87_RESULT.md` |
+| 88 | **Three of the five Gemini keys in `.env` are dead, and `GEMINI_MODEL`'s model cannot serve one evaluation run** | *(not yet branched)* | ⬜ New — found by Module 87 while choosing a judge. `GEMINI_API_KEY_2/_3/_4` return **401 UNAUTHENTICATED**; only `GEMINI_API_KEY` and `_1` work. On both, **`gemini-2.5-flash` — the value of `GEMINI_MODEL` — is capped at 20 requests per DAY** (so are `3.5-flash` and `3.7-flash`), and the judge's own 500/day tier was exhausted on **both** keys mid-session with other tracks running. Every Gemini caller in the project is therefore on two keys, not five, and can exhaust a model's daily quota part-way through a run — which surfaces as slow calls and `UNSCORED` rows, not as a credential error. Same class as the `SHARE/.env` incident that produced 1,410 rate-limit errors and an invalid KB bucket. **Verify:** hit `/v1beta/models` with each key and record the code; then hit each candidate model once and record `limit:` and `PerDay`/`PerMinute` from the 429 body |
+| 89 | **KB6's score spread is the pipeline's, not the judge's — and Module 27 attributes it to the judge** | *(not yet branched)* | ⬜ New — found by Module 87. Of the four questions Module 27 lists with spread ≥0.3 "on identical answers", only **CP1 and M2** have byte-identical captured answers across the three passes; **KB6 (1,840 / 1,929 / 1,943 chars) and G1 (2,949 / 2,649 / 2,371) do not**. Judged five times on ONE fixed answer, KB6 scores 0.4 every time, spread **0.0**; across the three passes it is 0.4 / 0.4 / 0.9. With the judge's variance removed it is the only question left above 0.3 spread, and the remaining movement belongs to the RAG path. **Verify:** several live KB6 runs, diffing the answers, before attributing any KB6 movement to a code change |
 | 27 | Final Gold-32 rerun (Module 18 redo) | *(docs only)* | ⬜ Blocked on all above — brief: `MODULE27_FINAL_GOLD32_RERUN_PROMPT.md` |
 
 ### Coverage check — every failing question maps to a module
@@ -3797,3 +3800,78 @@ and not adjusted afterwards**, several each; plus the full 32-question
 negative control, since a broader plan selector can newly capture questions
 that currently answer correctly in one call (that is exactly the regression
 Module 41 was filed for).
+
+---
+
+# Module 87 — the Gold-32 judge: a stronger model, and a prompt that stops it making the mistake we measured ✅
+
+**Branch `fix/eval-judge-upgrade-and-prompt`. Full result:
+`docs/gold-qa-wave2-results/MODULE87_RESULT.md`.** Nothing here changes the
+platform; it changes the **instrument**. All 96 question-runs are re-scorings of
+the answers Module 27 already captured, so the system under test is frozen and
+the only variable is the judge. No backend, no Docker.
+
+**The model was chosen on quota, not on size, because quota is what binds here.**
+
+| candidate | free-tier cap, both working keys | M7 | s/call |
+|---|---|---|---|
+| `gemini-flash-lite-latest` *(retired)* | 500 / **day** | 0.22, spread **0.4** | 5–6 |
+| `gemini-2.5-flash` | **20 / day** | 0.92 *(old prompt)* | 16–68 |
+| `gemini-3.5-flash` | **20 / day** | 1.0 | 20–90 |
+| `gemini-3.7-flash` | **20 / day** | 1.0 | 7–354 |
+| **`gemini-3.1-flash-lite`** ← default | **15 / minute** | **1.0, spread 0.0** | **8.1** |
+
+One three-pass re-score is **96 judge calls**, so a 20-per-day model cannot
+produce one however many times it is retried. `gemini-2.5-flash` would have
+fixed M7 on the *old* prompt and still cannot be the default — that is the whole
+of "measure, do not assume". `GOLD32_JUDGE_MODEL` moves it the moment there is a
+paid key.
+
+**The polarity rule** carries M7's own worked example, because Module 20 already
+proved an abstract rule is not honoured on its own. **M7 0.20 → 1.00 (3/3)**, and
+the judge's own reason now names the rule.
+
+**Two more false negatives, found here rather than in the brief, each justified
+separately:** **CP6 0.30 → 0.90** — the retired judge applied the tolerance rule
+and then overrode it (*"the number is very close and within an acceptable
+tolerance, [but] … omits the specific details about the placeholders"*) for a
+breakdown the question never asked for; **no rule was added for CP6**. **G1
+0.53 → 0.97** — its answer carries all four of gold's findings with gold's own
+figures (24–49 / avg 31.5, stranger 15-of-24, 13 forensic + 7 to heirs, the
+time-of-day split).
+
+**Variance.** Measured the only way that isolates the judge — one fixed answer,
+five draws: **spread 0.0 on 9 of 9 probe questions**, from 0.5 (CP1, M2), 0.4
+(M7) and 0.3 (KB6, G1). The middle arm shows the **model** did that, not the
+prompt. Across all 32 × 3 passes, spread ≥0.3 goes **4 → 1** and mean spread
+**0.106 → 0.025**; the one survivor is KB6, whose captured answers differ across
+passes (**Module 89**).
+
+**Proof it is not a leniency shift.** All-32 mean 0.666 → **0.702**, but **seven
+questions FELL** (M1 −0.30, M2 −0.27, G2/G6 −0.20, G5 −0.17, KB6 −0.13, CR8
+−0.10), Creative Generation goes **down** 0.580 → 0.553, and the pass rate barely
+moves (20/22/21 → 20/20/21). CR2 stays **0.00** on all three passes; KB2's hedge
+stays at 0.17; KB3 stays 0.00. Held-out controls: a polarity flip on a question
+the prompt has never seen scores **1.0 3/3**, while M7's facts *reversed* score
+**0.2 3/3** and M7 with 2026 given as 18.0 minutes instead of 1401.3 scores
+**0.2 3/3** — tolerance is for phrasing, not magnitude, at a 78× error.
+
+**The regression this module caused, and fixed.** The first version of the
+polarity rule took **KB9 from 0.27 to 1.0 on all three passes** on an answer that
+never reaches gold's CrPC s.174 or its 10 PPC-302 FIRs: the judge settled
+polarity and stopped checking facts. Attributed, not guessed — the same model
+with the rule *removed* scores KB9 0.3. The rule is now fenced (*"excuses the
+OPENING WORD AND NOTHING ELSE"*), KB9 returns to 0.4, M7 stays 1.0, and a test
+pins the fence. Both arms are committed so the claim is checkable.
+
+**Also fixed:** `ATTEMPT_TIMEOUT_S` was 120 — *lower* than the DeepEval
+per-attempt override beside it — so under contention S3 and A7 lost all three
+attempts to it and were recorded `UNSCORED` while scoring 1.0 in 6 s on a quiet
+machine. A slow call is not a failed call (Module 45's rule, one layer out).
+
+**Verification:** 56 unit tests pass, including the docs-match tests — §3.3 of
+`HOW_TO_REPRODUCE_THIS_EVALUATION.md` is now asserted to list as many numbered
+rules as the prompt has steps, so the two cannot drift apart silently again.
+
+**New defects: 88** (three dead Gemini keys; `GEMINI_MODEL`'s model capped at
+20/day) and **89** (KB6's residual spread is the pipeline's, not the judge's).
