@@ -1564,3 +1564,327 @@ async def test_module71_nothing_changes_on_a_synthesis_the_verifier_accepts(monk
 
     assert result.status == SubAgentStatus.OK
     assert result.answer_text == "45 entries were seized [Document 1]; 64 of 73 are dated [Document 2]."
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 83] Deterministic provenance recovery.
+#
+# The defect Module 71 measured: the citation rule survives only because it
+# sits near the end of the synthesis prompt, so five short lines interleaved
+# into the sub-answers section took G6 from 0 rejections in 4 runs to 7 of
+# 8, all of them verifier.py's "cites no [Document N] source at all". These
+# tests pin the MECHANISM that replaces the reliance on prompt position —
+# they fail on pre-change code because `_attach_provenance` does not exist
+# there, and the end-to-end one fails because the uncited answer is served
+# (and would be refused live) unchanged.
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def test_module83_an_uncited_sentence_gets_the_document_that_uniquely_states_it():
+    """The whole fix in one assertion: prose with no marker at all comes back
+    carrying the marker of the sub-answer that actually states its figures.
+    `45`/`28` are the property sub-answer's and nobody else's; `64`/`73`
+    are the time sub-answer's."""
+    answer = (
+        "Seized property runs to 45 register entries across 28 FIRs. "
+        "64 of 73 incidents carry a usable datetime."
+    )
+    out, attached = ma_mod._attach_provenance(answer, _M71_ENTRIES)
+    assert attached == [(1, 3), (2, 4)]
+    assert out == (
+        "Seized property runs to 45 register entries across 28 FIRs [Document 3]. "
+        "64 of 73 incidents carry a usable datetime [Document 4]."
+    )
+
+
+def test_module83_a_figure_two_sub_answers_state_is_left_uncited():
+    """Ambiguity is left alone rather than guessed. `73` alone appears in the
+    time sub-answer here, but a sentence whose figures are supported by more
+    than one document must get nothing — the point of the rule is UNIQUE
+    support, which is what makes the attached marker true rather than
+    plausible."""
+    entries = [("a", "There are 73 cases."), ("b", "There are 73 cases and 19 stations.")]
+    out, attached = ma_mod._attach_provenance("The corpus holds 73 cases.", entries)
+    assert attached == []
+    assert out == "The corpus holds 73 cases."
+
+
+def test_module83_a_fabricated_figure_is_never_given_a_citation():
+    """The guard against trading a visible failure for an invisible one
+    (Module 29's and Module 25's findings). A number no sub-answer states is
+    an invention; attaching a marker to it would make it LOOK grounded to
+    the very gate that exists to catch it. It stays uncited, and the
+    Verifier keeps its job."""
+    out, attached = ma_mod._attach_provenance("There were 999 arrests.", _M71_ENTRIES)
+    assert attached == []
+    assert "[Document" not in out
+
+
+def test_module83_a_sentence_stating_no_figure_is_left_alone():
+    out, attached = ma_mod._attach_provenance(
+        "The picture is consistent across the corpus.", _M71_ENTRIES
+    )
+    assert attached == []
+    assert "[Document" not in out
+
+
+def test_module83_an_answer_that_already_cites_is_never_rewritten():
+    """Never renumber, move or add to a marker the model produced itself —
+    that is `citation_consistency.py`'s failure mode, and this pass must not
+    become a second source of it."""
+    answer = "45 entries were seized [Document 1]; 64 of 73 are dated."
+    out, attached = ma_mod._attach_provenance(answer, _M71_ENTRIES)
+    assert attached == []
+    assert out == answer
+
+
+def test_module83_urdu_digits_and_the_urdu_full_stop_are_handled():
+    """A synthesis answered in Urdu renders its counts in Extended
+    Arabic-Indic digits and ends its sentences with `۔`. If either is
+    missed the recovery silently does nothing on exactly the questions this
+    system is for."""
+    entries = [("age", "کل ۷۳ مقدمات ہیں۔"), ("other", "انیس تھانے۔")]
+    out, attached = ma_mod._attach_provenance("مجموعی طور پر ۷۳ مقدمات ہیں۔", entries)
+    assert attached == [(1, 1)]
+    assert out == "مجموعی طور پر ۷۳ مقدمات ہیں [Document 1]۔"
+
+
+def test_module83_multi_line_layout_survives_the_rewrite():
+    """The sentence splitter also splits on newlines, so a naive re-join
+    would flatten a bulleted synthesis into one paragraph. The served text
+    must differ from the model's only by the markers."""
+    answer = "- 45 entries across 28 FIRs\n- 64 of 73 incidents are dated\n- nothing else"
+    out, _attached = ma_mod._attach_provenance(answer, _M71_ENTRIES)
+    assert out == (
+        "- 45 entries across 28 FIRs [Document 3]\n"
+        "- 64 of 73 incidents are dated [Document 4]\n"
+        "- nothing else"
+    )
+
+
+@pytest.mark.asyncio
+async def test_module83_an_uncited_synthesis_reaches_the_verifier_with_provenance(monkeypatch):
+    """End to end, and the direction that matters: the text handed to
+    `verify_grounding` — and then served — carries provenance, so
+    `verifier.py::_check_no_citation`'s "substantial but cites no [Document
+    N] source at all" refusal no longer depends on where the citation rule
+    happens to sit in the prompt."""
+    seen: dict = {}
+
+    async def _fake_verify(**kwargs):
+        seen["answer"] = kwargs["answer"]
+        return {"grounded": True, "off_topic": False, "reason": ""}
+
+    _stub_decompose(monkeypatch, decompose=True, sub_queries=[_SUB_Q1, _SUB_Q2], synthesis_goal="g")
+    _stub_supervisor_handle(
+        monkeypatch,
+        {
+            _SUB_Q1: SubAgentResult(status=SubAgentStatus.OK, answer_text=_M71_PROPERTY, tools_used=["XAGG"]),
+            _SUB_Q2: SubAgentResult(status=SubAgentStatus.OK, answer_text=_M71_TIME, tools_used=["XAGG"]),
+        },
+    )
+    _stub_call_llm(
+        monkeypatch,
+        "Seized property runs to 45 register entries across 28 FIRs. "
+        "64 of 73 incidents carry a usable datetime.",
+    )
+    monkeypatch.setattr(ma_mod, "verify_grounding", _fake_verify)
+    _stub_validate_answer(monkeypatch)
+
+    result = await meta_analysis(_agent_input())
+
+    assert "[Document 1]" in seen["answer"]
+    assert "[Document 2]" in seen["answer"]
+    assert result.status == SubAgentStatus.OK
+    assert result.answer_text == seen["answer"]
+
+
+@pytest.mark.asyncio
+async def test_module83_an_unrecoverable_uncited_synthesis_is_still_refused(monkeypatch):
+    """The refusal is NOT relaxed. When nothing can be attributed with
+    unique support, the answer reaches the Verifier exactly as the model
+    wrote it — uncited — and a rejection still falls back to Module 71's
+    sub-answer composition rather than serving ungrounded prose."""
+    seen: dict = {}
+
+    async def _fake_verify(**kwargs):
+        seen["answer"] = kwargs["answer"]
+        return {
+            "grounded": False,
+            "off_topic": True,
+            "reason": "Answer is substantial (long, or a multi-item list) but cites no [Document N] source at all",
+        }
+
+    _stub_decompose(monkeypatch, decompose=True, sub_queries=[_SUB_Q1, _SUB_Q2], synthesis_goal="g")
+    _stub_supervisor_handle(
+        monkeypatch,
+        {
+            _SUB_Q1: SubAgentResult(status=SubAgentStatus.OK, answer_text=_M71_PROPERTY, tools_used=["XAGG"]),
+            _SUB_Q2: SubAgentResult(status=SubAgentStatus.OK, answer_text=_M71_TIME, tools_used=["XAGG"]),
+        },
+    )
+    _stub_call_llm(monkeypatch, "The overall picture is broadly consistent across the corpus.")
+    monkeypatch.setattr(ma_mod, "verify_grounding", _fake_verify)
+    _stub_validate_answer(monkeypatch)
+
+    result = await meta_analysis(_agent_input())
+
+    assert "[Document" not in seen["answer"]
+    assert result.status == SubAgentStatus.PARTIAL
+    assert "broadly consistent" not in (result.answer_text or "")
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 83] The synthesis collapse.
+#
+# Pinned to the LIVE capture, not an invented shape: 20 G6 runs on this
+# branch logged the synthesis before the Verifier saw it, and every refused
+# one was the same degenerate repetition loop — 758 tokens, 18 unique
+# (ratio 0.024), one 4-gram repeated 370 times, byte-identical across six
+# runs because `call_llm` decodes at `temperature=0.0`. The passing runs
+# measured 0.57-0.69 with a top 4-gram count of 2.
+# ═══════════════════════════════════════════════════════════════════════
+
+# The live loop, reproduced at its real shape (the phrase and the ratio are
+# the captured ones; the length is trimmed to keep the test readable).
+_M83_COLLAPSE = (
+    "Naye tainaat hone wale afsar ko mojooda case load se yeh tawaqqo rakhna chahiye ke "
+    + "kismat-e-murad ki " * 200
+)
+_M83_HEALTHY = (
+    "Naye tainaat hone wale afsar ko yeh pata hona chahiye ke 19 case(s) Faisalabad, "
+    "18 case(s) Lahore aur 10 case(s) Rawalpindi mein daal di gayi hain. Case mix main "
+    "ab 2026 mein 51 FIRs hain, jo 2024 mein 13 FIRs se ziyada hain, aur legal acts "
+    "jaise PPC section 34 bhi shamil hain. Arrest ki soorat main 11 FIRs mein arrest "
+    "record ki gayi hai, jabke 62 FIRs mein koi arrest record nahi hai. Reporting delay "
+    "2026 mein barh kar 23.4 hours tak pahunch gayi hai. Weapon licensing ki taraf se "
+    "30 weapons ka licence record nahi hai."
+)
+
+
+def test_module83_the_live_collapse_is_detected_and_a_healthy_answer_is_not():
+    """Both directions on the captured data. A detector that fires on the
+    healthy answer would send every G6 run into the fallback."""
+    assert ma_mod._is_degenerate(_M83_COLLAPSE)
+    assert not ma_mod._is_degenerate(_M83_HEALTHY)
+
+    _tokens, ratio, repeats = ma_mod._repetition_profile(_M83_COLLAPSE)
+    assert ratio < 0.05 and repeats > 100
+    _tokens, ratio, repeats = ma_mod._repetition_profile(_M83_HEALTHY)
+    assert ratio > 0.5 and repeats < 5
+
+
+def test_module83_a_long_legitimate_list_is_not_degenerate():
+    """The threshold's real risk. A multi-item listing repeats its
+    STRUCTURE, not its words — and `verifier.py`'s own `_LIST_ITEM_RE`
+    comment is there because these answers are common. 19 stations, one line
+    each, is a shape this system produces constantly."""
+    listing = "\n".join(
+        f"- Station {n}: {n * 3} FIRs recorded, {n} with an arrest" for n in range(4, 40)
+    )
+    assert not ma_mod._is_degenerate(listing)
+
+
+def test_module83_a_short_answer_is_never_called_degenerate():
+    """Below `_DEGENERATE_MIN_TOKENS` the ratio is meaningless — a two-line
+    "no information found" is not a collapse."""
+    assert not ma_mod._is_degenerate("Koi maloomat nahi mili. " * 5)
+    assert not ma_mod._is_degenerate("")
+
+
+@pytest.mark.asyncio
+async def test_module83_a_collapsed_synthesis_is_regenerated_once(monkeypatch):
+    """The recovery. `temperature=0.0` makes the loop deterministic, so the
+    regeneration must decode differently — the assertion on `temperature` is
+    the whole point of the retry, not decoration."""
+    calls: list[dict] = []
+
+    async def _fake_call_llm(system_prompt, user_message, **kwargs):
+        calls.append(kwargs)
+        return _M83_COLLAPSE if len(calls) == 1 else _M83_HEALTHY
+
+    _stub_decompose(monkeypatch, decompose=True, sub_queries=[_SUB_Q1, _SUB_Q2], synthesis_goal="g")
+    _stub_supervisor_handle(
+        monkeypatch,
+        {
+            _SUB_Q1: SubAgentResult(status=SubAgentStatus.OK, answer_text=_M71_PROPERTY, tools_used=["XAGG"]),
+            _SUB_Q2: SubAgentResult(status=SubAgentStatus.OK, answer_text=_M71_TIME, tools_used=["XAGG"]),
+        },
+    )
+    monkeypatch.setattr(ma_mod, "call_llm", _fake_call_llm)
+    _stub_verify_grounding(monkeypatch, grounded=True)
+    _stub_validate_answer(monkeypatch)
+
+    result = await meta_analysis(_agent_input())
+
+    assert len(calls) == 2
+    assert calls[0].get("temperature") in (None, 0.0)
+    assert calls[1]["temperature"] == ma_mod._DEGENERATE_RETRY_TEMPERATURE
+    assert result.status == SubAgentStatus.OK
+    assert "kismat-e-murad" not in (result.answer_text or "")
+
+
+@pytest.mark.asyncio
+async def test_module83_a_twice_collapsed_synthesis_is_never_served_or_verified(monkeypatch):
+    """Exactly two generations, no Verifier call at all, and not one
+    character of the loop in the served answer. Spending an LLM grounding
+    call on 6,764 characters of one repeated phrase buys latency and quota
+    and nothing else."""
+    calls: list[dict] = []
+    verified: list = []
+
+    async def _fake_call_llm(system_prompt, user_message, **kwargs):
+        calls.append(kwargs)
+        return _M83_COLLAPSE
+
+    async def _fake_verify(**kwargs):
+        verified.append(kwargs)
+        return {"grounded": True, "off_topic": False, "reason": ""}
+
+    _stub_decompose(monkeypatch, decompose=True, sub_queries=[_SUB_Q1, _SUB_Q2], synthesis_goal="g")
+    _stub_supervisor_handle(
+        monkeypatch,
+        {
+            _SUB_Q1: SubAgentResult(status=SubAgentStatus.OK, answer_text=_M71_PROPERTY, tools_used=["XAGG"]),
+            _SUB_Q2: SubAgentResult(status=SubAgentStatus.OK, answer_text=_M71_TIME, tools_used=["XAGG"]),
+        },
+    )
+    monkeypatch.setattr(ma_mod, "call_llm", _fake_call_llm)
+    monkeypatch.setattr(ma_mod, "verify_grounding", _fake_verify)
+    _stub_validate_answer(monkeypatch)
+
+    result = await meta_analysis(_agent_input())
+
+    assert len(calls) == 2, "one regeneration, never a loop"
+    assert verified == [], "a collapsed synthesis must not cost a grounding call"
+    assert result.status == SubAgentStatus.PARTIAL
+    assert "kismat-e-murad" not in (result.answer_text or "")
+    assert _M71_PROPERTY in result.answer_text and _M71_TIME in result.answer_text
+    assert any("did not generate cleanly" in c for c in result.caveats)
+
+
+@pytest.mark.asyncio
+async def test_module83_a_healthy_synthesis_is_never_regenerated(monkeypatch):
+    """The guard on the common path. Module 71 pinned "no retry loop" closed
+    for a reason — this retry fires ONLY on a deterministically detected
+    collapse, never on a verifier rejection, and never on a good answer."""
+    calls: list[dict] = []
+
+    async def _fake_call_llm(system_prompt, user_message, **kwargs):
+        calls.append(kwargs)
+        return _M83_HEALTHY
+
+    _stub_decompose(monkeypatch, decompose=True, sub_queries=[_SUB_Q1], synthesis_goal="g")
+    _stub_supervisor_handle(
+        monkeypatch,
+        {_SUB_Q1: SubAgentResult(status=SubAgentStatus.OK, answer_text=_M71_TIME, tools_used=["XAGG"])},
+    )
+    monkeypatch.setattr(ma_mod, "call_llm", _fake_call_llm)
+    _stub_verify_grounding(monkeypatch, grounded=False, reason="unsupported")
+    _stub_validate_answer(monkeypatch)
+
+    result = await meta_analysis(_agent_input())
+
+    assert len(calls) == 1
+    assert result.status == SubAgentStatus.PARTIAL
+    assert any("could not be verified as grounded" in c for c in result.caveats)

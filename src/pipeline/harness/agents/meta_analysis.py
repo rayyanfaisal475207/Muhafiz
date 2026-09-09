@@ -1163,6 +1163,193 @@ def _misattributed_figures(answer: str, entries: list[tuple[str, str]]) -> list[
     return found
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 83] THE SYNTHESIS SOMETIMES COLLAPSES INTO A
+# REPETITION LOOP, AND THAT — NOT A FORGOTTEN CITATION RULE — IS WHY G6
+# FAILS.
+#
+# WHAT WAS FILED, AND WHY IT IS WRONG. Module 83 was filed as "the citation
+# rule is held only by its position in the prompt": G6's
+# `verifier.py::_check_no_citation` refusal ("substantial … but cites no
+# [Document N] source at all") appears and disappears with the LENGTH of the
+# sub-answers section, so the model was assumed to be writing a good answer
+# and forgetting to cite it. Captured live on this branch (20 G6 runs, the
+# synthesis text logged before the Verifier sees it), that is not what
+# happens. EVERY refused synthesis is a degenerate repetition loop:
+#
+#     tokens 758, unique tokens 18 (ratio 0.024), one 4-gram repeated 370
+#     times, zero digits, byte-identical across six separate runs
+#
+# against 235-267 tokens at a 0.57-0.69 unique ratio, correctly citing
+# [Document 1]-[Document 5], on the runs that pass. The refusal is not a
+# false positive — it is the only gate catching a broken generation, and
+# `_check_no_citation` is doing exactly its job.
+#
+# WHY A PLAIN RETRY CANNOT WORK. `call_llm` defaults to `temperature=0.0`,
+# so the collapse is deterministic: six runs whose sub-answers rendered
+# identically produced the SAME 6764 characters. Re-asking the same model
+# for the same prompt at the same temperature reproduces the loop exactly.
+# What breaks a greedy-decoding repetition loop is decoding differently, so
+# the one regeneration below raises the temperature; if that also collapses,
+# the answer is never served — Module 71's deterministic sub-answer
+# composition is, with a caveat naming the reason.
+#
+# The prompt-length sensitivity Module 71 measured is REAL and reproduces
+# (G6 no-citation refusals: 3 of 4 at current length, 4 of 4 with the
+# sub-answers section lengthened) — but what length changes is the
+# probability of the generation collapsing, not the model's memory of a
+# rule. Restating the rule a third time, or moving it, could not have
+# helped: the collapsed text contains no prose to cite.
+_DEGENERATE_MIN_TOKENS = 60
+_DEGENERATE_UNIQUE_RATIO = 0.15
+_DEGENERATE_NGRAM = 4
+_DEGENERATE_NGRAM_REPEATS = 10
+# Not 0.0, and not 1.0. The point is only to leave the greedy path that led
+# into the loop; a large temperature would trade a repetition loop for an
+# invention, and the Verifier — which still runs on the regenerated text —
+# is the wrong place to discover that.
+_DEGENERATE_RETRY_TEMPERATURE = 0.4
+
+
+def _repetition_profile(text: str) -> tuple[int, float, int]:
+    """`(token_count, unique_token_ratio, most_repeated_ngram_count)`.
+
+    Deterministic and cheap; no model call. Whitespace tokens, because the
+    loops observed live repeat whole words, and because this must behave the
+    same on Urdu, Roman-Urdu and English text."""
+    tokens = (text or "").split()
+    if not tokens:
+        return 0, 1.0, 0
+    ratio = len(set(tokens)) / len(tokens)
+    if len(tokens) < _DEGENERATE_NGRAM:
+        return len(tokens), ratio, 0
+    counts: dict[tuple[str, ...], int] = {}
+    for i in range(len(tokens) - _DEGENERATE_NGRAM + 1):
+        gram = tuple(tokens[i : i + _DEGENERATE_NGRAM])
+        counts[gram] = counts.get(gram, 0) + 1
+    return len(tokens), ratio, max(counts.values())
+
+
+def _is_degenerate(text: str) -> bool:
+    """A generation that has collapsed into a repetition loop rather than an
+    answer. BOTH signals are required, and both thresholds sit in the gap the
+    live captures leave: the collapses measured 0.024 / 370, the healthy
+    answers 0.57-0.69 / 2. A long legitimate list repeats its STRUCTURE, not
+    its words, and stays far above 0.15."""
+    tokens, ratio, repeats = _repetition_profile(text)
+    if tokens < _DEGENERATE_MIN_TOKENS:
+        return False
+    return ratio < _DEGENERATE_UNIQUE_RATIO and repeats >= _DEGENERATE_NGRAM_REPEATS
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 83] PROVENANCE IS RECOVERED DETERMINISTICALLY, NOT
+# ASKED FOR A THIRD TIME.
+#
+# SECONDARY, and honestly reported as such: in 20 live G6 runs this pass
+# never fired, because the failure there is the collapse above, not an
+# uncited good answer. It covers the case Module 83 was FILED for — a
+# substantial, correct, marker-free synthesis — which remains possible and
+# which no amount of restating the rule in the prompt can guarantee away.
+#
+# THE DEFECT, as Module 71 measured it. `verifier.py::_check_no_citation()`
+# refuses any substantial answer carrying no `[Document N]` marker at all.
+# Module 29 fixed that refusal for G6 by restating the citation rule AFTER
+# the sub-answers section. Module 71 then interleaved five short
+# deterministic lines INTO that section and G6 went from 0 rejections in 4
+# runs to 3 of 4 and then 7 of 8, every one of them this refusal; rewording
+# the lines so they no longer named `[Document N]` did not recover it (7 of
+# 8 again), and deleting them recovered it completely (0 of 8). So the cost
+# is the INTERLEAVING — the section's length and shape — not the wording,
+# and the citation rule is held only by its proximity to the end of the
+# prompt. Every future addition to that section is therefore a coin flip
+# that nobody will think to re-measure.
+#
+# WHY NOT A FOURTH RESTATEMENT. The rule is already stated twice (top of
+# the template, and again as checklist item 1 after the sub-answers). A
+# third statement would be the same mechanism — a token in a prompt whose
+# weight falls as the prompt grows — and would be defeated by the next
+# person who adds a line here, silently, exactly as this one was.
+#
+# WHAT THIS DOES INSTEAD. The `[Document N]` marker is a rendering of a
+# fact the caller ALREADY KNOWS deterministically: which sub-answer states
+# a given figure. `figures_in()` is already computed for every entry (it is
+# what `_misattributed_figures()` runs on). So when the model returns prose
+# with NO marker at all, provenance is re-attached from that roster instead
+# of being requested again:
+#
+#   * a sentence is attributed to document `i` only when EVERY figure the
+#     sentence states is stated by document `i`, AND `i` is the ONLY
+#     document for which that is true. Unique support, over the same text
+#     the Verifier will receive as chunk `i`.
+#   * a sentence stating no figure, or one whose figures are supported by
+#     more than one document, or by none, gets NOTHING. Ambiguity is left
+#     uncited rather than guessed.
+#   * if that yields no attribution at all, the answer is returned
+#     UNCHANGED and the Verifier refuses it exactly as it does today.
+#
+# WHAT THIS IS NOT. It does not touch, relax or bypass
+# `_check_no_citation()` — see Module 29's and Module 25's findings: that
+# refusal exists to stop ungrounded prose being served as evidence, and
+# deleting it would trade a visible failure for an invisible one. It adds
+# no marker to a sentence the roster does not support, so it cannot make an
+# ungrounded sentence LOOK grounded; the LLM grounding judge still runs
+# afterwards on the same text, unchanged. It never rewrites, renumbers or
+# removes a marker the model produced itself — the whole pass is skipped
+# the moment `answer` already contains one.
+def _attach_provenance(
+    answer: str, entries: list[tuple[str, str]]
+) -> tuple[str, list[tuple[int, int]]]:
+    """Re-attach `[Document N]` provenance to an uncited synthesis, from the
+    same per-sub-answer figure roster `_misattributed_figures()` uses.
+
+    Returns `(text, attached)` where `attached` is
+    `[(sentence_ordinal, document_index), ...]` for the log. `text` is
+    `answer` verbatim when nothing could be attributed with unique support,
+    or when the answer already cites something.
+    """
+    if not answer or not entries:
+        return answer, []
+    if _DOC_MARKER_RE.search(answer):
+        return answer, []  # The model cited something — never touch it.
+
+    rosters = {i: set(figures_in(text)) for i, (_sq, text) in enumerate(entries, start=1)}
+
+    pieces = _SENTENCE_SPLIT_RE.split(answer)
+    attached: list[tuple[int, int]] = []
+    out: list[str] = []
+    for ordinal, sentence in enumerate(pieces, start=1):
+        stripped = sentence.strip()
+        figures = set(figures_in(stripped)) if stripped else set()
+        if figures:
+            supporting = [i for i, roster in rosters.items() if figures <= roster]
+            if len(supporting) == 1:
+                idx = supporting[0]
+                attached.append((ordinal, idx))
+                # Before a trailing sentence terminator, so the marker reads
+                # as part of the sentence rather than orphaned after it.
+                trailing = ""
+                while stripped and stripped[-1] in ".!?۔":
+                    trailing = stripped[-1] + trailing
+                    stripped = stripped[:-1]
+                sentence = sentence.replace(
+                    stripped + trailing, f"{stripped} [Document {idx}]{trailing}", 1
+                )
+        out.append(sentence)
+
+    if not attached:
+        return answer, []
+
+    # `_SENTENCE_SPLIT_RE` splits on the whitespace AFTER a terminator, so
+    # re-joining on a single space is lossy for newlines. Rebuild from the
+    # original by substituting each changed piece in order instead.
+    rebuilt = answer
+    for original, replacement in zip(pieces, out):
+        if original != replacement:
+            rebuilt = rebuilt.replace(original, replacement, 1)
+    return rebuilt, attached
+
+
 def _format_subanswers_for_prompt(entries: list[tuple[str, str]]) -> str:
     """`entries` is `[(sub_query, sub_answer_text), ...]`, same order as the
     pseudo-chunks handed to the Verifier — [PRESERVE — design §5] positional
@@ -1344,6 +1531,46 @@ async def meta_analysis(
             caveats=["Synthesizing the sub-answers into a final answer failed.", *caveats],
         )
 
+    # [Gold-QA fix — Module 83] The synthesis collapsed into a repetition
+    # loop. Deterministic at `temperature=0.0` — see `_is_degenerate()` for
+    # the live captures — so the single regeneration decodes differently
+    # rather than re-asking the same question the same way.
+    synthesis_collapsed = False
+    if _is_degenerate(answer):
+        tokens, ratio, repeats = _repetition_profile(answer)
+        logger.warning(
+            "Meta-Analysis [Module 83]: synthesis collapsed into a repetition "
+            "loop (%d tokens, unique-token ratio %.3f, one %d-gram repeated %d "
+            "times). Regenerating once at temperature %.1f.",
+            tokens, ratio, _DEGENERATE_NGRAM, repeats, _DEGENERATE_RETRY_TEMPERATURE,
+        )
+        try:
+            retried = await call_llm(
+                system_prompt,
+                agent_input.query_text,
+                role=_generation_role(caller.preferred_language),
+                max_tokens=ANSWER_MAX_TOKENS,
+                temperature=_DEGENERATE_RETRY_TEMPERATURE,
+            )
+        except Exception as exc:  # noqa: BLE001 — the fallback below still applies.
+            logger.warning("Meta-Analysis [Module 83]: regeneration failed: %s", exc)
+            retried = None
+        if retried and not _is_degenerate(retried):
+            logger.info("Meta-Analysis [Module 83]: regeneration recovered a usable synthesis.")
+            answer = retried
+        else:
+            # NEVER SERVED, and never sent to the Verifier either: an LLM
+            # grounding call on 6,764 characters of one repeated phrase buys
+            # nothing but latency and quota. This routes into Module 71's
+            # existing deterministic sub-answer composition — the same
+            # outcome the Verifier's refusal produces today, reached by
+            # naming the actual defect instead of a missing citation.
+            synthesis_collapsed = True
+            logger.warning(
+                "Meta-Analysis [Module 83]: regeneration also collapsed; serving the "
+                "verified sub-answers instead of the synthesis."
+            )
+
     pseudo_chunks = [
         _pseudo_chunk(i, sq, text, exhaustive=exhaustive_flags[i - 1])
         for i, (sq, text) in enumerate(entries, start=1)
@@ -1369,7 +1596,44 @@ async def meta_analysis(
             "; ".join(f"{fig} -> [Document {idx}]" for fig, idx in misattributed),
         )
 
-    verification = await verify_grounding(answer=answer, cited_chunks=pseudo_chunks, case_id="cross_case")
+    # [Gold-QA fix — Module 83] Deterministic provenance recovery, AFTER the
+    # Module 71 measurement above so that detector still sees the model's own
+    # text. See `_attach_provenance()` for why this is not a fourth
+    # restatement of the citation rule.
+    uncited = not _DOC_MARKER_RE.search(answer or "")
+    answer, attached = _attach_provenance(answer, entries)
+    if attached:
+        logger.info(
+            "Meta-Analysis [Module 83]: synthesis cited nothing; re-attached "
+            "provenance deterministically to %d sentence(s): %s",
+            len(attached),
+            "; ".join(f"sentence {n} -> [Document {idx}]" for n, idx in attached),
+        )
+    elif uncited:
+        # The one outcome this fix does not recover, and the one worth seeing
+        # in a log: prose with no marker whose figures no single sub-answer
+        # uniquely supports. The Verifier will refuse it exactly as before —
+        # deliberate, not a gap being papered over — and this line says WHY
+        # recovery could not run, so a recurrence is diagnosable without a
+        # re-instrumented build.
+        logger.warning(
+            "Meta-Analysis [Module 83]: synthesis cited nothing and no sentence "
+            "had unique support; provenance NOT recovered. Answer figures: %s; "
+            "per-sub-answer figures: %s",
+            figures_in(answer),
+            {i: figures_in(t) for i, (_sq, t) in enumerate(entries, start=1)},
+        )
+
+    if synthesis_collapsed:
+        # [Module 83] No Verifier call: the text is a repetition loop, and
+        # the outcome (Module 71's composition, below) is already decided.
+        verification = {
+            "grounded": False,
+            "off_topic": False,
+            "reason": "Synthesis collapsed into a repetition loop; not verified, not served.",
+        }
+    else:
+        verification = await verify_grounding(answer=answer, cited_chunks=pseudo_chunks, case_id="cross_case")
     verifier_passed = bool(verification.get("grounded", False)) and not verification.get("off_topic", False)
 
     if not verifier_passed:
@@ -1412,9 +1676,17 @@ async def meta_analysis(
             f"**{sub_query}**\n{text}" for sub_query, text in entries
         )
         fallback_caveats = [
-            "The combined answer could not be verified as grounded in the "
-            "sub-answers, so each verified sub-answer is shown as computed, "
-            "without a synthesis across them.",
+            # [Module 83] The two reasons are genuinely different and the
+            # user is told which one applies: a synthesis the Verifier could
+            # not ground, versus one that never became prose at all.
+            (
+                "The combined answer did not generate cleanly, so each verified "
+                "sub-answer is shown as computed, without a synthesis across them."
+                if synthesis_collapsed
+                else "The combined answer could not be verified as grounded in the "
+                "sub-answers, so each verified sub-answer is shown as computed, "
+                "without a synthesis across them."
+            ),
             *caveats,
         ]
         return SubAgentResult(
