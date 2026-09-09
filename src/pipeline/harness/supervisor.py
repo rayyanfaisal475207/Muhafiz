@@ -104,8 +104,11 @@ silently pick one.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 import re
+import time
 from typing import Callable, Optional
 
 from src.data_gateway.base import DataGateway
@@ -216,6 +219,54 @@ SUB_AGENT_NAMES: tuple[str, ...] = (
 NO_SUB_AGENT = "__direct__"
 
 _FILE_OUTPUT_FORMATS = frozenset({"file_pdf", "file_xlsx", "file_docx"})
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 67, the second half] A wall-clock ceiling on the
+# Semantic Search dispatch.
+#
+# THE DEFECT THIS BOUNDS. Module 60's before-arm caught M4's gold text
+# classified as plain `RAG` on 2 of 6 runs. Each of those runs spent
+# **456 s and 487 s** inside Semantic Search and then returned
+# `status=error` — "No sufficiently relevant documents were found for this
+# question after retrying with query refinements." Nothing was wrong with
+# the abstention; what was wrong is that it cost eight minutes to reach.
+# A misroute that answers wrongly in 20 s is recoverable — the user rephrases
+# — and one that hangs for eight minutes is not: at a 32-question evaluation
+# it presents as a TIMEOUT, not as a misroute, which is exactly the artefact
+# class that made the KB bucket look broken in Module 42 (a 300 s client
+# ceiling recorded as `route=None`).
+#
+# WHY HERE, AND NOT IN THE RETRY LOOP. The actual budget is
+# `config.MAX_RETRIES` inside `tools/rag.py`'s retrieve/rerank/evaluate loop,
+# and that file is owned by another live track. It is also the wrong lever:
+# lowering `MAX_RETRIES` would take a retry away from the runs that legitimately
+# need it (Module 30/38/52 built the KB path's later attempts deliberately),
+# where a wall-clock ceiling only ever fires on a run that is already far
+# outside the distribution. The Supervisor is where an unbounded sub-agent
+# becomes an unbounded REQUEST, so it is where the bound belongs.
+#
+# WHY ONLY SEMANTIC SEARCH. It is the one sub-agent whose cost is an
+# open-ended retry loop over the whole corpus with no internal deadline of
+# its own. Meta-Analysis already has `config.META_ANALYSIS_SUBQUERY_TIMEOUT`
+# (Module 53); Large-Scale Aggregate is a single deterministic call and
+# finishes in tens of seconds. Applying this to every sub-agent would be a
+# blanket request timeout, which is the Module 42 mistake, not the fix for it.
+#
+# THE NUMBER IS MEASURED, NOT CHOSEN. It must sit ABOVE the slowest RAG run
+# that legitimately SUCCEEDS and below the doomed ones. On this corpus and
+# machine the two populations are separated: Module 42 measured KB6 —
+# the slowest RAG question in the gold set — answering in 247.1 s, and
+# Module 67 re-measured the eleven override-less questions on this branch
+# (see MODULE67_RESULT.md §4 for the full table). The doomed population is
+# 456-487 s. 360 s sits between them with ~45% headroom over the slowest
+# measured success. It is an upper bound on a pathology, not a latency
+# target: a healthy run never reaches it.
+#
+# Raise it via SEMANTIC_SEARCH_DEADLINE_S on a slower box rather than editing
+# this line; set it to 0 to disable the ceiling entirely.
+SEMANTIC_SEARCH_DEADLINE_S: float = float(
+    os.getenv("SEMANTIC_SEARCH_DEADLINE_S", "360")
+)
 
 # See the module docstring's "CLASSIFICATION" section for the full
 # rationale. Deliberately a flat, inspectable table — not logic — so the
@@ -1291,7 +1342,63 @@ class Supervisor:
         # sub-agent's `__call__` now accepts `on_event` (see
         # `types.SubAgent`'s own amendment note) — sub-agents with nothing
         # granular to report simply ignore it.
-        result = await handler(agent_input, on_event=on_event, gateway=gateway)
+        # [Gold-QA fix — Module 67] Bounded for Semantic Search only; every
+        # other sub-agent is awaited exactly as before. See
+        # `SEMANTIC_SEARCH_DEADLINE_S`'s own comment for why the ceiling sits
+        # here rather than in the retry loop, and how the number was measured.
+        deadline = (
+            SEMANTIC_SEARCH_DEADLINE_S
+            if sub_agent_name == SEMANTIC_SEARCH and SEMANTIC_SEARCH_DEADLINE_S > 0
+            else None
+        )
+        if deadline is None:
+            result = await handler(agent_input, on_event=on_event, gateway=gateway)
+        else:
+            started = time.monotonic()
+            try:
+                result = await asyncio.wait_for(
+                    handler(agent_input, on_event=on_event, gateway=gateway),
+                    timeout=deadline,
+                )
+            except asyncio.TimeoutError:
+                spent = round(time.monotonic() - started, 1)
+                logger.warning(
+                    "Supervisor: %s exceeded its %.0fs deadline (%.1fs spent) — "
+                    "abstaining rather than letting the request hang.",
+                    sub_agent_name, deadline, spent,
+                )
+                emit(
+                    PipelineEvent(
+                        step="supervisor:dispatch",
+                        # An explicit, greppable trace event. The whole point
+                        # of bounding this is that a bounded failure must be
+                        # DISTINGUISHABLE from a misroute and from a client
+                        # timeout — Module 42's `route=None` row was neither.
+                        status="error",
+                        detail=(
+                            f"{sub_agent_name} exceeded its {deadline:.0f}s deadline "
+                            f"after {spent}s — dispatch abandoned (Module 67)"
+                        ),
+                    )
+                )
+                return SubAgentResult(
+                    status=SubAgentStatus.ABSTAINED,
+                    answer_text=None,
+                    error=ToolError(
+                        kind="timeout",
+                        message=(
+                            f"{sub_agent_name} exceeded its {deadline:.0f}s "
+                            f"deadline for this question."
+                        ),
+                    ),
+                    caveats=[
+                        "Document search was still retrying after "
+                        f"{deadline:.0f} seconds and was stopped, so this "
+                        "question could not be answered from the documents. "
+                        "It may be better answered as a cross-case question "
+                        "(e.g. \"...across cases\", \"...in total\")."
+                    ],
+                )
 
         emit(
             PipelineEvent(
