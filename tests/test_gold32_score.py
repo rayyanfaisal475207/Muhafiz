@@ -26,8 +26,6 @@ import json
 import os
 import re
 
-from deepeval.models.base_model import DeepEvalBaseLLM
-
 import pytest
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -262,25 +260,35 @@ class TestRealResultsFile:
 
 # ── 5. the judge itself: model and prompt (Module 87) ────────────────────
 
-class _FakeLLM(DeepEvalBaseLLM):
-    """A DeepEval-shaped judge that never reaches the network. `build_metrics`
-    only has to accept it — these tests read the metric's configuration, they
-    do not run it."""
+def _fake_llm():
+    """A DeepEval-shaped judge that never reaches the network.
 
-    def __init__(self):
-        super().__init__(model_name="fake-judge")
+    Built lazily and behind `importorskip` because DeepEval is an evaluation-only
+    dependency and **CI does not install it** — the rest of this file is
+    deliberately import-free of it, and a module-level `from deepeval...` here
+    took the whole suite down with `ModuleNotFoundError`. `build_metrics` only
+    has to accept this object; these tests read the metric's configuration, they
+    never run it.
+    """
+    base = pytest.importorskip("deepeval.models.base_model")
 
-    def load_model(self):
-        return None
+    class _FakeLLM(base.DeepEvalBaseLLM):
+        def __init__(self):
+            super().__init__(model_name="fake-judge")
 
-    def generate(self, *a, **k):
-        raise AssertionError("no judge call should happen in a unit test")
+        def load_model(self):
+            return None
 
-    async def a_generate(self, *a, **k):
-        raise AssertionError("no judge call should happen in a unit test")
+        def generate(self, *a, **k):
+            raise AssertionError("no judge call should happen in a unit test")
 
-    def get_model_name(self):
-        return "fake-judge"
+        async def a_generate(self, *a, **k):
+            raise AssertionError("no judge call should happen in a unit test")
+
+        def get_model_name(self):
+            return "fake-judge"
+
+    return _FakeLLM()
 
 
 class TestJudgeModelIsNamedAndOverridable:
@@ -375,11 +383,11 @@ class TestFactualPromptRules:
         assert "materially INCOMPLETE" in step
 
     def test_build_metrics_uses_the_constant_by_default(self):
-        m = gs.build_metrics(judge=_FakeLLM())["FactualCorrectness"]
+        m = gs.build_metrics(judge=_fake_llm())["FactualCorrectness"]
         assert m.evaluation_steps == gs.FACTUAL_EVALUATION_STEPS
 
     def test_build_metrics_accepts_an_override_for_experiments(self):
-        m = gs.build_metrics(judge=_FakeLLM(),
+        m = gs.build_metrics(judge=_fake_llm(),
                              evaluation_steps=["only step"])["FactualCorrectness"]
         assert m.evaluation_steps == ["only step"]
 
