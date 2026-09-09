@@ -2019,7 +2019,21 @@ class _GatewayCases:
     async def get_cases(self, user_id=None, user_role=None): return self._cases
 
 
+class _NoGraphRows:
+    """[Module 95] `_case_completeness_scan` grew three graph reads (zimni
+    typing coverage, departure-vs-report chronology, CMS<->FIR linkage), so
+    the two tests below — which exercise the gateway half — now need the
+    graph half stubbed. Every read returns no rows, which is exactly the
+    "graph projected before Module 95" case: the aggregate reports zeros and
+    the renderer omits those lines, leaving the pre-Module-95 output these
+    tests were written against."""
+
+    async def execute_cypher(self, q, params=None, columns=("result",), graph=None):
+        return []
+
+
 async def test_g2_completeness_excludes_test_rows(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _NoGraphRows())
     cases = [
         {"case_id": "fir-1-26", "incident_date": None, "investigation_status": "open", "fir_number": "1/26"},
         {"case_id": "fir-2-26", "incident_date": "2026-01-01", "investigation_status": None, "fir_number": "2/26"},
@@ -4825,7 +4839,7 @@ def test_module55_log_format_strings_stay_ascii():
     assert offenders == [], offenders
 
 
-async def test_module55_a_silent_family_now_names_itself_with_its_figures(caplog):
+async def test_module55_a_silent_family_now_names_itself_with_its_figures(caplog, monkeypatch):
     """One worked example end to end, on a family that was silent before this
     module — G2's completeness scan. The kind alone would not be enough: a
     wrong-metric run reports the same kind, so the counts are asserted too."""
@@ -4838,6 +4852,7 @@ async def test_module55_a_silent_family_now_names_itself_with_its_figures(caplog
          "investigation_status": None},
     ]
 
+    monkeypatch.setattr(xagg, "age_client", _NoGraphRows())  # [Module 95] see _NoGraphRows
     with caplog.at_level(logging.INFO, logger="src.pipeline.xagg"):
         result = await xagg._case_completeness_scan(FakeGateway(cases))
 

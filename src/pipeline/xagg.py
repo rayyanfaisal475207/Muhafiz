@@ -21,7 +21,7 @@ import logging
 import re
 from collections import Counter
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Sequence
 
 from src.graph import age_client
 from src.database.postgres import current_cross_case, current_rls_active
@@ -3974,20 +3974,134 @@ async def _case_completeness_scan(
         c.get("case_id") for c in cases if not c.get("investigation_status")
     ]
 
+    # [Gold-QA fix — Module 95, question G2] The three gaps below are the
+    # ones G2's gold answer actually names, and none of them was computable
+    # before this module. Module 87's re-judge of Module 27's FROZEN answers
+    # dropped G2 from 0.5/0.5/0.5 to 0.3/0.3/0.3 with a coverage reason, not
+    # a strictness one: "fails to address ... the chronological
+    # contradictions in departure times and the systemic issue of
+    # disconnected walk-in complaint and FIR systems. It focuses on
+    # different metrics (missing investigation status)." The scan was not
+    # wrong; it was selecting other true gaps. `missing_status` is KEPT
+    # (it is a real gap and G1 shares this aggregate) but is no longer the
+    # only thing after the incident-date line.
+    zimni_total, zimni_typed = await _zimni_typing_coverage(jurisdiction_case_ids)
+    departure_before_report, departure_recorded = await _departure_chronology_conflicts(
+        jurisdiction_case_ids
+    )
+    linkage = await _cms_fir_linkage(jurisdiction_case_ids=jurisdiction_case_ids)
+
     # Observability (Module 55) — see `_offender_age_profile()`'s note:
     # XAGG's SSE reports only `route='XAGG'`, so this line is the only
     # evidence of WHICH aggregate answered a live question.
     logger.info(
         "XAGG case_completeness_scan: %d case(s) scanned; %d missing an "
-        "incident date, %d missing an investigation status",
+        "incident date, %d missing an investigation status, %d of %d zimni "
+        "entries carry no type, %d of %d recorded departures precede their "
+        "own report time, %d of %d walk-in complaints unlinked",
         total, len(missing_incident_date), len(missing_status),
+        zimni_total - zimni_typed, zimni_total,
+        len(departure_before_report), departure_recorded,
+        linkage["unlinked_count"], linkage["total_complaints"],
     )
     return {
         "kind": "case_completeness_scan",
         "total_cases": total,
         "missing_incident_date": missing_incident_date,
         "missing_status": missing_status,
+        # [Module 95, G2] finding (1), second half
+        "zimni_entry_total": zimni_total,
+        "zimni_entry_typed": zimni_typed,
+        # [Module 95, G2] finding (2)
+        "departure_before_report": departure_before_report,
+        "departure_recorded_count": departure_recorded,
+        # [Module 95, G2] finding (3)
+        "complaint_total": linkage["total_complaints"],
+        "complaint_linked": linkage["linked_count"],
+        "complaint_unlinked": linkage["unlinked_count"],
     }
+
+
+async def _zimni_typing_coverage(
+    jurisdiction_case_ids: Optional[list[str]] = None,
+) -> tuple[int, int]:
+    """
+    [Gold-QA fix — Module 95, question G2] (total zimni entries, how many
+    carry an `entry_type`) across the scanned cases.
+
+    G2's gold: "most zimni entries record no type, so it is not possible to
+    order what happened when". `psrms.fir_zimni.entry_type` is null on 188
+    of 259 live rows — the API's own model wrapper records that ratio in its
+    module docstring — but `fir_zimni` is the one child table
+    structured_projection.py does NOT write as StructuredRecords, so there
+    is no per-entry node to count. Module 95 projects the two COUNTS onto
+    the Incident instead; see that projection's own comment for why a
+    259-node family was not added to a graph four other tracks are querying
+    live. A graph projected before Module 95 simply reports (0, 0) here and
+    the renderer omits the line rather than asserting a ratio it cannot see.
+    """
+    where = ["i.zimni_entry_count IS NOT NULL"]
+    params: dict = {}
+    if jurisdiction_case_ids is not None:
+        where.append("c.case_id IN $case_ids")
+        params["case_ids"] = jurisdiction_case_ids
+    rows = await age_client.execute_cypher(
+        "MATCH (i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE {' AND '.join(where)} "
+        "RETURN i.zimni_entry_count AS total, i.zimni_typed_count AS typed",
+        params=params, columns=["total", "typed"],
+    )
+    total = sum(int(r.get("total") or 0) for r in rows)
+    typed = sum(int(r.get("typed") or 0) for r in rows)
+    return total, typed
+
+
+async def _departure_chronology_conflicts(
+    jurisdiction_case_ids: Optional[list[str]] = None,
+) -> tuple[list[str], int]:
+    """
+    [Gold-QA fix — Module 95, question G2] (the case_ids whose recorded
+    station-departure time PRECEDES their own report time, how many cases
+    record a departure at all).
+
+    G2's gold: "13 of 73 FIRs record the officer's departure for the scene
+    as earlier than the report time — a chronology contradiction that will
+    not survive scrutiny." `psrms.fir.station_departure_datetime` (FIR form
+    field 6) is a CONFIRMED column returned populated on 44 of the 73 live
+    FIRs, and until Module 95 NOTHING in this codebase read it — which is
+    why the scan above could only ever report other gaps.
+
+    An officer cannot leave for the scene before the report that sends him
+    there exists, so departure < report is a contradiction in the record
+    itself, not a slow-reporting signal. Equality is NOT counted (a clerk
+    entering one timestamp twice is sloppy, not contradictory), and a FIR
+    missing either stamp is excluded rather than assumed either way — the
+    `departure_recorded_count` denominator lets the renderer state its own
+    coverage.
+    """
+    where = ["i.station_departure_datetime IS NOT NULL", "i.report_datetime IS NOT NULL"]
+    params: dict = {}
+    if jurisdiction_case_ids is not None:
+        where.append("c.case_id IN $case_ids")
+        params["case_ids"] = jurisdiction_case_ids
+    rows = await age_client.execute_cypher(
+        "MATCH (i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE {' AND '.join(where)} "
+        "RETURN c.case_id AS case_id, "
+        "i.station_departure_datetime AS departure, i.report_datetime AS report",
+        params=params, columns=["case_id", "departure", "report"],
+    )
+    conflicts: list[str] = []
+    recorded = 0
+    for row in rows:
+        departure = _parse_iso_datetime(row.get("departure"))
+        report = _parse_iso_datetime(row.get("report"))
+        if departure is None or report is None:
+            continue
+        recorded += 1
+        if departure < report:
+            conflicts.append(str(row.get("case_id")))
+    return sorted(conflicts), recorded
 
 
 def render_case_completeness_scan(agg_result: dict) -> list[str]:
@@ -4005,6 +4119,44 @@ def render_case_completeness_scan(agg_result: dict) -> list[str]:
         f"status, so they can't be tracked through their lifecycle and may "
         f"silently stall.",
     ]
+    # [Gold-QA fix — Module 95, question G2] The three gaps G2's gold names
+    # and Module 87's judge said the answer never reached. Each line is
+    # emitted ONLY when the aggregate actually measured it, so a graph
+    # projected before Module 95's backfill degrades to exactly the output
+    # this renderer produced before it, rather than asserting a zero.
+    zimni_total = agg_result.get("zimni_entry_total") or 0
+    if zimni_total:
+        untyped = zimni_total - (agg_result.get("zimni_entry_typed") or 0)
+        pct = round(100 * untyped / zimni_total)
+        lines.append(
+            f"  - {untyped} of {zimni_total} roznamcha/zimni diary entries "
+            f"(~{pct}%) record no entry TYPE, so within a case there is no "
+            f"reliable way to order what happened when — the investigation "
+            f"steps are there, but not what each one was."
+        )
+    departure_recorded = agg_result.get("departure_recorded_count") or 0
+    conflicts = agg_result.get("departure_before_report") or []
+    if departure_recorded:
+        lines.append(
+            f"  - {len(conflicts)} of {total} FIRs record the officer's "
+            f"departure from the station for the scene as EARLIER than the "
+            f"report time itself"
+            + (f" ({', '.join(conflicts[:12])}{'…' if len(conflicts) > 12 else ''})" if conflicts else "")
+            + f" — a chronology contradiction on the face of the record that "
+            f"will not survive scrutiny in court. ({departure_recorded} of "
+            f"{total} record a departure time at all.)"
+        )
+    complaint_total = agg_result.get("complaint_total")
+    if complaint_total:
+        lines.append(
+            f"  - Walk-in complaints and FIRs live in SEPARATE systems, "
+            f"joined only by an OPTIONAL shared tag (CMS.case_tag_number = "
+            f"FIR.e_tag_number) that no database key enforces — "
+            f"{agg_result.get('complaint_linked')} of {complaint_total} "
+            f"complaints resolve to a real FIR today, but a mistyped or "
+            f"missing tag makes a complaint look unactioned even when the "
+            f"FIR exists, and nothing flags that."
+        )
     return lines
 
 
@@ -4012,6 +4164,55 @@ def render_case_completeness_scan(agg_result: dict) -> list[str]:
 # for "no licence" (بغیر لائسنس = "without licence"). Matched as a substring
 # so minor spacing/vocabulary variants still bucket together.
 _UNLICENSED_TOKENS = ("بغیر لائسنس", "بلا لائسنس", "unlicensed", "no licence", "no license")
+
+
+# [Gold-QA fix — Module 95, question G5] The COLUMN INVENTORY of
+# psrms.weapon_register, as the platform actually receives it.
+#
+# G5's gold finding (2) is a statement about the register's SHAPE, not a
+# count: "the register records what was recovered and its condition, but
+# there is no field for packaging, photographs or chain of custody, so
+# procedural compliance cannot be verified for any entry." No aggregate on
+# this platform expressed a claim about a schema's shape before this
+# module, and a count cannot express one.
+#
+# WHY A DECLARED CONSTANT AND NOT `keys(w)` OFF THE GRAPH: the Weapon node
+# is a PROJECTION of the register, and it drops columns the register does
+# carry (`condition` and `date_entered` among them). Deriving the finding
+# from the projected node's keys would therefore report "no condition
+# field" — which is true of our graph and FALSE of the register, i.e. the
+# opposite of what gold asserts and of what an SHO would act on. The
+# authority for the register's shape is the register, so this list is the
+# register's own columns, and
+# `tests/test_module95_weapon_register_inventory.py` fails the build if
+# the live API snapshot ever stops matching it.
+_WEAPON_REGISTER_FIELDS = (
+    "id", "fir_display_code", "sr_no", "item_detail", "caliber_or_bore",
+    "quantity", "license_status", "recovered_from", "date_entered",
+    "condition", "updated_at",
+)
+
+# The custody controls a compliance review looks for, each with the
+# substrings that would identify a register column serving it. Checked
+# against `_WEAPON_REGISTER_FIELDS` at call time, so ADDING such a column
+# upstream retires the finding automatically instead of leaving a stale
+# assertion in the answer.
+_CUSTODY_CONTROLS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("packaging or sealing", ("packag", "seal", "parcel")),
+    ("photographs", ("photo", "image", "picture")),
+    ("chain of custody / handover", ("custody", "handover", "handed_over", "transfer", "malkhana_entry")),
+)
+
+
+def _missing_custody_controls(
+    fields: Sequence[str] = _WEAPON_REGISTER_FIELDS,
+) -> list[str]:
+    """[Gold-QA fix — Module 95, G5] Which custody controls have NO column."""
+    lowered = [f.lower() for f in fields]
+    return [
+        label for label, tokens in _CUSTODY_CONTROLS
+        if not any(tok in field for tok in tokens for field in lowered)
+    ]
 
 
 async def _weapon_compliance_scan(jurisdiction_case_ids: Optional[list[str]] = None) -> dict:
@@ -4036,19 +4237,43 @@ async def _weapon_compliance_scan(jurisdiction_case_ids: Optional[list[str]] = N
         elif any(t in s.lower() or t in s for t in _UNLICENSED_TOKENS):
             unlicensed += 1
 
+    # [Gold-QA fix — Module 95, question G5] Findings (2) and (3) of G5's
+    # gold, neither of which this scan expressed before. Module 87's
+    # re-judge of Module 27's FROZEN answers dropped G5 from 0.5/0.6/0.6 to
+    # 0.4/0.4/0.4 and said why: "correctly identifies the primary compliance
+    # issue regarding ... unlicensed weapons. However, it is materially
+    # incomplete" — the licence rate alone, three times over.
+    missing_controls = _missing_custody_controls()
+    # Counted as "total minus linked" rather than with a negated pattern
+    # predicate: AGE rejects `WHERE NOT (w)-[:R]->(:Label)` outright
+    # (PostgresSyntaxError at the anonymous node), which is how this was
+    # first written and how it was caught.
+    linked_rows = await age_client.execute_cypher(
+        "MATCH (w:Weapon)-[:BELONGS_TO_CASE]->(c:Case) "
+        "RETURN count(DISTINCT w) AS n",
+        columns=["n"],
+    )
+    linked = int((linked_rows[0] or {}).get("n") or 0) if linked_rows else 0
+    orphaned = max(0, total - linked)
+
     # Observability (Module 55) — see `_offender_age_profile()`'s note:
     # XAGG's SSE reports only `route='XAGG'`, so this line is the only
     # evidence of WHICH aggregate answered a live question.
     logger.info(
         "XAGG weapon_compliance_scan: %d weapon(s); %d unlicensed, "
-        "%d with no licence status recorded",
-        total, unlicensed, no_status,
+        "%d with no licence status recorded; %d custody control(s) with no "
+        "register column; %d weapon(s) resolving to no case",
+        total, unlicensed, no_status, len(missing_controls), orphaned,
     )
     return {
         "kind": "weapon_compliance_scan",
         "total_weapons": total,
         "unlicensed_count": unlicensed,
         "no_status_count": no_status,
+        # [Module 95, G5] finding (2)
+        "missing_custody_controls": missing_controls,
+        # [Module 95, G5] finding (3)
+        "orphaned_weapon_count": orphaned,
     }
 
 
@@ -4070,6 +4295,34 @@ def render_weapon_compliance_scan(agg_result: dict) -> list[str]:
         lines.append(
             f"  - {no_status} carry no licence status at all, so their "
             f"compliance can't be confirmed either way."
+        )
+    # [Gold-QA fix — Module 95, question G5] Gold's findings (2) and (3).
+    # Both are statements about the register's SHAPE rather than counts, and
+    # both are emitted only when the aggregate actually established them —
+    # an older result dict simply renders what it rendered before.
+    missing_controls = agg_result.get("missing_custody_controls")
+    if missing_controls:
+        lines.append(
+            "  - The register records WHAT was recovered and its condition, "
+            "but has no field for "
+            + ", ".join(missing_controls)
+            + " — so for any entry, whether the item was handled to "
+            "procedure cannot be verified from the record at all. This is a "
+            "gap in the form, not in one officer's paperwork."
+        )
+    if "orphaned_weapon_count" in agg_result:
+        orphaned = agg_result["orphaned_weapon_count"] or 0
+        lines.append(
+            f"  - Weapons attach to a case only by a SOFT match on the FIR "
+            f"code written into the register — plain text, no enforced key. "
+            + (
+                f"All {total} resolve to a real case today, but a single "
+                f"mistyped code would silently orphan an item with nothing "
+                f"raising an error."
+                if orphaned == 0 else
+                f"{orphaned} of {total} already resolve to no case at all, "
+                f"and nothing raised an error when that happened."
+            )
         )
     return lines
 
