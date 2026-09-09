@@ -134,6 +134,8 @@ several can run in parallel chats/worktrees without colliding.
 | 90 | **M1 (0.40/0.70/0.40, 1-of-3)** — answered ACT-level counts where gold asserts SECTION-level | `fix/m1-cp6-detail-loss` | ✅ **Done (PR #60).** `_statute_mix_by_year()` now also reads `StructuredRecord{record_type:'fir_section'}` — the identical query Modules 23/24/76 issue — de-duplicated per case, adding `section_counts` and `case_count` alongside the unchanged act grain; it reproduces **every figure gold names, both years**. The *"reports only 2026"* half of this row was **wrong**: all three captured passes contain an explicit 2024 block. The *"PPC (Preventive Detention and Control Act)"* gloss is a **model invention** — that phrase exists nowhere in the repo — closed by spelling the acts out in the evidence. Regression: all 32 through `run_aggregate()` + renderers, main vs branch, **exactly one output differs and it is M1**. Corpus holds **218** `fir_section` rows in total (an earlier note citing 273/979 was wrong). Result: `docs/gold-qa-wave2-results/MODULE90_91_RESULT.md` |
 | 91 | **CP6 (0.30 ×3)** — the code defect did NOT reproduce; **gold was wrong and was corrected instead** | `fix/m1-cp6-detail-loss` | ✅ **Done (PR #60), with no behavioural change.** The three-way measurement came back clean: aggregate right (10 current / 11 ever / 7 ASI / 3 SI), renderer emits the split, and re-run live the answer **keeps** it 5/5 local and 3/3 cloud on code byte-identical to the evaluation commit — the drop was model behaviour on the day. The real defect was gold asserting 11, fixed by PR #57 (one case, `fir-205-26`, has since been assigned a real officer). The obvious hardening was implemented, measured at **0/5 local and 0/3 cloud** — a headline bullet gives the model something to answer *"kitne"* with and stop — and **reverted**. Ships a de-duplication of three hand-copied renderings with byte-identical output, plus two regression pins |
 | 92 | **Non-English paraphrases lose their route.** A capability is reachable only from a narrow neighbourhood of the gold wording — fourth independent sighting (62 CR3/G6, 78 KB3/KB9, 88 CR2, and now measured across the board) | *(not yet branched)* | ⬜ **Scoped, with evidence.** Measured offline by `docs/gold-qa-wave2-results/module92_override_survival_probe.py` (no backend needed): over 8 questions that all take a deterministic `XAGG` override at their gold wording, an English paraphrase keeps it **5 of 8** and a Roman-Urdu paraphrase keeps it **0 of 8**. Every one of those 8 falls through to the local Qwen3-14B classifier that `router.py`'s own module comment (~line 42) records as unreliable. **The fix is NOT a fourth round of gold-specific regexes** — three waves of those are exactly how the debt accumulated |
+| 95 | **Three questions pass by a hair and no module owns them** — G2 scores 0.5/0.5/0.5, *exactly* at the threshold; G5 0.5/0.6/0.6; CP1 1.0/**0.5**/0.9 | *(not yet branched)* | ⬜ New — the judge was measured moving **0.3 on D1 across five identical draws** (Module 45), so at these margins one bad draw drops any of the three. Every count of "how many pass" that includes them is a coin flip nobody re-measures. This is the difference between reaching 30 and *holding* 30 |
+| 96 | **KB2 is the last gold question with no module** — 0.00 on all three passes, AnswerRelevancy 1.00 | *(not yet branched)* | ⬜ New — diagnosis first, fix second. Gold is *"no, that's by design"*: an assertion about what the schema deliberately does NOT hold (Qanun-e-Shahadat Arts. 38/39, CrPC s.162 make police-recorded statements unusable, so only witness identity is stored). Module 39 excluded it from `_KB_DATA_HALF_PLANS` as a "schema claim, not a count" — correct for KB2, unlike KB1. FC 0.00 with AR 1.00 usually means fluent and wrong. **Decide which of three it is before writing code**: our answer is wrong, gold is wrong, or the judge cannot score a correct negative |
 | 27 | Final Gold-32 rerun (Module 18 redo) | `eval/module27-final` | ✅ **Done — 3 passes, 96 question-runs.** FactualCorrectness **0.428 → 0.572 → 0.666**; AnswerRelevancy **0.931**; **19 of 32 pass on all three runs** (20 counting M7, which is correct and mis-scored); **routes stable 32/32**; 0 nulls, 0 timeouts, 0 quota, 0 cutover fallbacks. Result: `docs/gold-qa-wave2-results/MODULE27_RESULT.md` |
 
 ### Coverage check — every failing question maps to a module
@@ -3632,6 +3634,73 @@ directions, to be measured rather than assumed:
 
 Whatever lands must be measured on **paraphrases in all three languages**, not
 on gold — gold is exactly the set the current design already fits.
+
+---
+
+# Modules 95–96 — what stands between 30 and a *reliable* 30 ⬜
+
+Waves A and B (the in-flight tracks plus Modules 89 and 64) project to about
+**30 of 32**. These two are what decides whether that number holds on a rerun
+or was a good afternoon.
+
+---
+
+# Module 95 — the three questions that pass by a hair ⬜
+
+| Q | FC across Module 27's three passes |
+|---|---|
+| **G2** | 0.5 / 0.5 / 0.5 — *exactly* at the 0.5 pass threshold |
+| **G5** | 0.5 / 0.6 / 0.6 |
+| **CP1** | 1.0 / **0.5** / 0.9 |
+
+All three currently count as 3-of-3 passes. **Module 45 measured the judge
+moving 0.3 on D1 across five identical draws**, so a single unlucky draw drops
+any of them below the line without a line of code changing.
+
+They have never had a module because nothing about them looks broken — they
+pass. That is exactly why they are the risk: the pass-rate headline treats them
+as safe, and they are not.
+
+**Work:** find why three substantively-correct answers score at the pass line
+rather than clear of it, and raise them. Read the judge's `reason` field on each
+of the six sub-0.6 draws first — the answer may be missing one gold element, or
+carrying a hedge the judge reads as uncertainty. **Do not** fix this by moving
+the threshold. Coordinate with Module 87 (the judge upgrade): if the new judge
+scores these three clear of the line on its own, this module closes as measured
+rather than fixed — record that outcome, it is a real result.
+
+---
+
+# Module 96 — KB2, the last question with no module ⬜
+
+**KB2 scores 0.00 on all three passes with AnswerRelevancy 1.00** — the
+signature of a fluent, confident, wrong answer.
+
+Gold: *"No, that's by design, not a gap."* Under Qanun-e-Shahadat Order 1984
+Arts. 38–39 a confession to police is not evidence, and CrPC s.162 bars a
+police-recorded statement at trial, so the system stores only witness identity
+— name, CNIC, address, relationship — and has no field for interview text
+anywhere.
+
+Module 39 excluded KB2 from `_KB_DATA_HALF_PLANS` as a *"schema claim, not a
+count"*. That call was **right** for KB2, unlike for KB1 (Module 89), whose
+gold asserted something checkable.
+
+**This module is a diagnosis before it is a fix.** Establish which of three
+things is true, with evidence, and only then decide what to change:
+
+1. **Our answer is wrong** — it calls the absence a data gap, or invents a
+   field, or cites the wrong law. Then fix the answer.
+2. **Gold is wrong** — a fifth gold correction, after G1, G6, KB9, CP6 and KB1.
+   Check the claim about witness fields against the live schema before
+   asserting this.
+3. **The judge cannot score a correct negative.** A gold answer whose content is
+   *"this absence is deliberate and here is the law that makes it so"* may be
+   structurally hard to score against a hedged paraphrase. If so this belongs
+   with Module 87, not here.
+
+Plan for **31, not 32**: KB2 is the one that may not come, and saying so now is
+better than discovering it in the final rerun.
 
 ---
 
