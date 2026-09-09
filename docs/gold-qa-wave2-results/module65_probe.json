@@ -1,0 +1,213 @@
+{
+  "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+  "existence": {
+    "QSO Art.38 (confession to police not proved)": {
+      "chunk_id": "2_qanun-e-shahadat-order-1984_pdf_3e604153_c176",
+      "present": true,
+      "text": "the accused person grounds which would appear to him reasonable, for supposing that by making it he would gain any advantage or avoid any evil of a temporal nature in reference to the proceedings against him.\n\n38.  Confession  to  police  officer  not  to  be  proved: No  confession  made  to  a  police officer shall be proved as against a person accused of any offence."
+    },
+    "QSO Art.39 (custody, unless before a Magistrate)": {
+      "chunk_id": "2_qanun-e-shahadat-order-1984_pdf_3e604153_c177",
+      "present": true,
+      "text": "icer shall be proved as against a person accused of any offence.\n\n39. Confession by accused while in custody of police not to be proved against him: Subject to Article 10, no confession made by any person whilst he is in the custody of a police  officer,  unless  it  be  made  in  the  immediate  presence  of  a  Magistrate,  shall  be proved as against person."
+    },
+    "QSO Art.39 Explanation": {
+      "chunk_id": "2_qanun-e-shahadat-order-1984_pdf_3e604153_c178",
+      "present": true,
+      "text": "resence  of  a  Magistrate,  shall  be proved as against person.\n\nExplanation: In this Article, \"Magistrate\" does not include the head of a village discharging magisterial  function  unless  such  headman  is  a  Magistrate  exercising  the  powers  of  a Magistrate under the Code of Criminal Procedure, 1898 (Act V of 1898)."
+    },
+    "CrPC s.162 heading": {
+      "chunk_id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c673",
+      "present": true,
+      "text": "ed  to  be committed, of his right to legal representation. \\_\\_\n\n(2) If the victim under sub­section (1) requires free legal aid the police officer shall provide him the list of lawyers maintained by the Provincial Bar Councils for this purpose.].\n\n162. Statements to police not to be signed; use of such statements in evidence."
+    },
+    "CrPC s.162(1) operative": {
+      "chunk_id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+      "present": true,
+      "text": "\\_\\_6 [(1) No statement made by any person to a police­officer in the course of an investigation under this Chapter shall, if reduced into writing, be signed by the person making it; nor shall any such statement or any record thereof, whether in a police­diary or otherwise, or any part of such statement or record, be used for any purpose (save as hereinafter provided) at any inquiry or trial in respect of any offence under investigation at the time when such statement was made:"
+    },
+    "CrPC s.162 proviso": {
+      "chunk_id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c677",
+      "present": true,
+      "text": "Provided that, when any witness is called for the prosecution in such inquiry or trial whose statement has  been  reduced  into  writing  as  aforesaid,  the  Court  shall  on  the  request  of  the  accused,  refer  to  such writing  and  direct  that  the  accused  be  furnished  with  a  copy  thereof,  in  order  that  any  part  of  such statement, if duly proved, may be used to contradict such witness in the manner provided by section 145 of the Evidence Act, 1872 (I of 1872).\n\n1 Ins."
+    }
+  },
+  "retrieval": [
+    {
+      "label": "the gold question itself",
+      "query": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+      "ranks": {
+        "QSO Art.38 (confession to police not proved)": null,
+        "QSO Art.39 (custody, unless before a Magistrate)": null,
+        "QSO Art.39 Explanation": null,
+        "CrPC s.162 heading": null,
+        "CrPC s.162(1) operative": 2,
+        "CrPC s.162 proviso": null
+      },
+      "top5": [
+        "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1521",
+        "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+        "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1696",
+        "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c151",
+        "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c751"
+      ]
+    },
+    {
+      "label": "English rendering (Module 52)",
+      "query": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+      "ranks": {
+        "QSO Art.38 (confession to police not proved)": null,
+        "QSO Art.39 (custody, unless before a Magistrate)": null,
+        "QSO Art.39 Explanation": null,
+        "CrPC s.162 heading": null,
+        "CrPC s.162(1) operative": 2,
+        "CrPC s.162 proviso": null
+      },
+      "top5": [
+        "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1521",
+        "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+        "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1696",
+        "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c151",
+        "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c751"
+      ]
+    },
+    {
+      "label": "statute hypothesis 1 (live, n=2)",
+      "query": "Qanun-e-Shahadat Order 1984 section 14 confession or admission made to police officer: shall not be proved as against the accused",
+      "ranks": {
+        "QSO Art.38 (confession to police not proved)": 3,
+        "QSO Art.39 (custody, unless before a Magistrate)": 6,
+        "QSO Art.39 Explanation": null,
+        "CrPC s.162 heading": null,
+        "CrPC s.162(1) operative": null,
+        "CrPC s.162 proviso": null
+      },
+      "top5": [
+        "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c128",
+        "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c133",
+        "2_qanun-e-shahadat-order-1984_pdf_3e604153_c176",
+        "2_qanun-e-shahadat-order-1984_pdf_3e604153_c183",
+        "2_qanun-e-shahadat-order-1984_pdf_3e604153_c0"
+      ]
+    },
+    {
+      "label": "statute hypothesis 2 (live, n=2)",
+      "query": "Code of Criminal Procedure 1898 section 161 statement by accused or witness during investigation: shall not be signed by the person making it and shall not be used for any purpose at any inquiry or trial",
+      "ranks": {
+        "QSO Art.38 (confession to police not proved)": null,
+        "QSO Art.39 (custody, unless before a Magistrate)": null,
+        "QSO Art.39 Explanation": null,
+        "CrPC s.162 heading": 6,
+        "CrPC s.162(1) operative": 1,
+        "CrPC s.162 proviso": 7
+      },
+      "top5": [
+        "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+        "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1075",
+        "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1010",
+        "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1011",
+        "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c681"
+      ]
+    },
+    {
+      "label": "CONTROL",
+      "query": "Qanun-e-Shahadat Order 1984 Article 38 confession to police officer not to be proved: no confession made to a police officer shall be proved as against a person accused of any offence",
+      "ranks": {
+        "QSO Art.38 (confession to police not proved)": 1,
+        "QSO Art.39 (custody, unless before a Magistrate)": 3,
+        "QSO Art.39 Explanation": null,
+        "CrPC s.162 heading": null,
+        "CrPC s.162(1) operative": null,
+        "CrPC s.162 proviso": null
+      },
+      "top5": [
+        "2_qanun-e-shahadat-order-1984_pdf_3e604153_c176",
+        "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c128",
+        "2_qanun-e-shahadat-order-1984_pdf_3e604153_c177",
+        "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c133",
+        "2_qanun-e-shahadat-order-1984_pdf_3e604153_c183"
+      ]
+    },
+    {
+      "label": "CONTROL",
+      "query": "Qanun-e-Shahadat Order 1984 Article 39 confession by accused while in custody of police not to be proved against him unless made in the immediate presence of a Magistrate",
+      "ranks": {
+        "QSO Art.38 (confession to police not proved)": 18,
+        "QSO Art.39 (custody, unless before a Magistrate)": 5,
+        "QSO Art.39 Explanation": null,
+        "CrPC s.162 heading": null,
+        "CrPC s.162(1) operative": null,
+        "CrPC s.162 proviso": null
+      },
+      "top5": [
+        "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c133",
+        "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c128",
+        "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c730",
+        "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1533",
+        "2_qanun-e-shahadat-order-1984_pdf_3e604153_c177"
+      ]
+    },
+    {
+      "label": "CONTROL",
+      "query": "Code of Criminal Procedure 1898 section 162 statements to police not to be signed; use of such statements in evidence: no statement made by any person to a police-officer in the course of an investigation shall, if reduced into writing, be signed by the person making it, nor be used for any purpose at any inquiry or trial",
+      "ranks": {
+        "QSO Art.38 (confession to police not proved)": 23,
+        "QSO Art.39 (custody, unless before a Magistrate)": null,
+        "QSO Art.39 Explanation": null,
+        "CrPC s.162 heading": 2,
+        "CrPC s.162(1) operative": 1,
+        "CrPC s.162 proviso": 16
+      },
+      "top5": [
+        "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+        "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c673",
+        "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1521",
+        "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c683",
+        "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c751"
+      ]
+    },
+    {
+      "label": "CONTROL",
+      "query": "Qanun-e-Shahadat Order 1984 Article 38",
+      "ranks": {
+        "QSO Art.38 (confession to police not proved)": null,
+        "QSO Art.39 (custody, unless before a Magistrate)": null,
+        "QSO Art.39 Explanation": null,
+        "CrPC s.162 heading": null,
+        "CrPC s.162(1) operative": null,
+        "CrPC s.162 proviso": null
+      },
+      "top5": [
+        "2_qanun-e-shahadat-order-1984_pdf_3e604153_c0",
+        "2_qanun-e-shahadat-order-1984_pdf_3e604153_c45",
+        "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c27",
+        "2_qanun-e-shahadat-order-1984_pdf_3e604153_c44",
+        "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c128"
+      ]
+    },
+    {
+      "label": "CONTROL",
+      "query": "Code of Criminal Procedure 1898 section 162",
+      "ranks": {
+        "QSO Art.38 (confession to police not proved)": null,
+        "QSO Art.39 (custody, unless before a Magistrate)": null,
+        "QSO Art.39 Explanation": null,
+        "CrPC s.162 heading": 20,
+        "CrPC s.162(1) operative": null,
+        "CrPC s.162 proviso": null
+      },
+      "top5": [
+        "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1170",
+        "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1322",
+        "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1908",
+        "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c226",
+        "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c34"
+      ]
+    }
+  ],
+  "english_rendering": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+  "statute_hypotheses": [
+    "Qanun-e-Shahadat Order 1984 section 14 confession or admission made to police officer: shall not be proved as against the accused",
+    "Code of Criminal Procedure 1898 section 161 statement by accused or witness during investigation: shall not be signed by the person making it and shall not be used for any purpose at any inquiry or trial"
+  ]
+}

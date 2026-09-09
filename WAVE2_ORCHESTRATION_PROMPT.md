@@ -259,9 +259,15 @@ Every module, both halves. A module that skips either is not done.
    every live run:
 
    ```bash
-   grep -ciE "rate limit|RESOURCE_EXHAUSTED|429|quota|UNAVAILABLE|503" backend.log   # near 0
+   grep -ciE "rate limit|RESOURCE_EXHAUSTED|quota|UNAVAILABLE|(^|[^0-9.,:])(429|503)([^0-9]|$)" backend.log   # near 0
    grep -c "Cutover classification failed"                          backend.log   # 0
    ```
+
+   **[Module 81] The numeric codes are boundary-guarded.** The bare form
+   matched a **timestamp**: a line stamped `16:19:29,503` scored as a 503
+   UNAVAILABLE, so every run certified clean with the old pattern was
+   reading its own milliseconds as a provider failure. Ephemeral ports
+   (`127.0.0.1:62503`) and latencies (`0.429s`) matched too.
 
    The first is Module 46's widened quota check plus Module 54's capacity
    signatures; the canonical pattern lives in `evaluation/gold32_score.py`'s
