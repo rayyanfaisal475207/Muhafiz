@@ -99,7 +99,16 @@ _RATE_LIMIT_MARKERS = ("RateLimit", "rate_limit", "429", "RESOURCE_EXHAUSTED",
 # it certifies a clean run on top of a failed call. tests/
 # test_provider_failure_visibility.py asserts the prescriptive docs match this
 # constant and that no bare form survives.
-LOG_GREP_PATTERN = "rate limit|RESOURCE_EXHAUSTED|429|quota|UNAVAILABLE|503"
+# [Module 81] The bare numeric codes previously matched a TIMESTAMP: a log
+# line stamped `16:19:29,503` scored as a 503 UNAVAILABLE. Every module that
+# certified a clean run with this pattern was therefore reading its own
+# milliseconds as a provider failure. The codes now require a non-numeric,
+# non-timestamp boundary on each side, so `,503` and `:429` no longer count
+# while a real `503 UNAVAILABLE` or `HTTP 429` still does.
+LOG_GREP_PATTERN = (
+    "rate limit|RESOURCE_EXHAUSTED|quota|UNAVAILABLE"
+    "|(^|[^0-9.,:])(429|503)([^0-9]|$)"
+)
 
 # "Pass" in the project's reports means FactualCorrectness >= 0.5 — deliberately
 # more lenient than the metric's own 0.6 threshold. Kept here so the pass rate
