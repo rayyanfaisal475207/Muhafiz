@@ -1,0 +1,969 @@
+[
+  {
+    "id": "KB1",
+    "run": 1,
+    "arm": "before",
+    "language": "en",
+    "question": "What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?",
+    "expected_answer": "Section 154 of the Code of Criminal Procedure, 1898 requires that oral information about a cognizable offence given to the officer-in-charge of a police station be reduced to writing, read back to the informant, signed by them, and entered in a register in the prescribed form — that's the actual legal basis for what we call an FIR. Our FIR records follow that structure: every entry carries a recording officer, a report timestamp, and complainant details, which is the database's structural equivalent of the Section 154 register entry.",
+    "actual_answer": "The legal requirement governing how a report of a crime becomes a formal FIR is outlined in Section 154 of the Code of Criminal Procedure, which mandates that every information relating to an offence, whether cognizable or non-cognizable, shall be recorded in writing by the officer in charge of a police station [Document 2]. \n\nRegarding whether the recordkeeping follows this requirement, the documents do not provide sufficient information to determine if the actual practice aligns with the legal requirement.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 55.2,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1236",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c647",
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c219",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c150"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the legal requirements governing how a "
+      }
+    ],
+    "statute_hypotheses": [
+      "Code of Criminal Procedure 1898 section 158 registration of FIR: police officer in charge of the station shall record the information given by the complainant in the FIR book and shall proceed to inve",
+      "Punjab Police Rules 1934 registration of FIR and maintenance of records: FIR shall be entered in the FIR register with the date, time, and details of the information given, and shall be kept in the st"
+    ],
+    "verifier_rejections": [],
+    "data_half": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB5",
+    "run": 1,
+    "arm": "before",
+    "language": "ur",
+    "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+    "expected_answer": "جی ہاں۔ اینٹی ریپ (انویسٹی گیشن) رولز، 2022 کا رول 3(2) تفتیشی افسر کو پابند کرتا ہے کہ وہ یقینی بنائے کہ ایک خاتون پولیس افسر شامل ہو، متاثرہ کا بیان اینٹی ریپ کرائسز سیل (اے آر سی سی) میں تنہائی میں ریکارڈ کیا جائے، اور شواہد کی چین آف کسٹڈی پورے عمل کے دوران برقرار رکھی جائے — یہ واضح فرائض ہیں، تھانے کی صوابدید پر نہیں چھوڑے گئے۔ ہماری خواتین سے تشدد کی رپورٹوں کے ریکارڈ اس کا کچھ حصہ ظاہر کرتے ہیں: ریکارڈ میں موجود 8 میں سے ہر رپورٹ میں مقررہ خواتین پولیس اسٹیشن اور بیج نمبر کے ساتھ نامزد تفتیشی افسر کا خانہ موجود ہے، جو کیس کے باقاعدہ ایف آئی آر میں تبدیل ہونے سے پہلے ہی درج کیا جاتا ہے۔ جو چیز درج نہیں ہوتی وہ یہ ہے کہ چین آف کسٹڈی واقعی برقرار رکھی گئی یا نہیں — تقاضے کے اُس حصے کے لیے کوئی متعلقہ خانہ موجود نہیں۔",
+    "actual_answer": "### Part 1: What the Law Requires\n\nYes, the law requires a different procedure when a case involves violence against a woman. According to the **Anti-Rape (Investigation and Trial) Act, 2021**, specifically **Section 3(2)(d)**, it mandates that a **female police officer must be present during the statements taken from the victim**, at the **ARCC for medico-legal examination (MLE)**, and at the **forensic laboratory for DNA reference sample submission**. This provision ensures that the victim is treated with sensitivity and that the investigation is conducted in a manner that respects the rights and dignity of the victim.\n\n### Part 2: What Our Case Records Show\n\nAccording to **our own case records** (Document 7), out of **8 domestic-violence reports**, **4 carry a forwarded FIR number that matches a real, active FIR**, and the remaining **4 record no forwarded number**. However, the records do **not explicitly indicate** whether the **presence of a female police officer** was ensured during the **statements, MLE, or DNA sample submission** as required by the law. Therefore, while the records show that **some cases have been forwarded with FIR numbers**, they **do not confirm** whether the **additional measures required by the law** (such as the presence of a female police officer) were actually implemented.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 56.3,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c146",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c21",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c34",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c668",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c32",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c575",
+          "kb-data-half:violence_against_women"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal procedures for handling cases involvin"
+      }
+    ],
+    "statute_hypotheses": [
+      "Anti-Rape (Investigation and Trial) Act 2021 special investigation procedures in cases of sexual violence and domestic violence: investigation to be conducted by a female police officer, separate reco",
+      "Code of Criminal Procedure 1898 sections 176 and 177 investigation of offences against women: investigation to be conducted with due regard to the special needs of the woman, and in a manner that avoi"
+    ],
+    "verifier_rejections": [],
+    "data_half": [
+      {
+        "plan": "violence_against_women",
+        "aggregate": "dv_report_fir_match"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6",
+    "run": 1,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule or Guideline Requires\n\nAccording to the **forensics guidelines** (Document 1), there are specific instructions on how to handle and package evidence, including weapons. For example:\n\n- **Paragraph 12** states that sharp weapons such as knives, daggers, etc., should be packaged in appropriate-sized cardboard boxes or cartons. The submitting individual must seal the box and indicate on the exterior that it contains a **SHARP weapon** and may contain biological material.\n- **Paragraph 13** emphasizes the importance of maintaining the integrity of the item through package documentation, including all markings, seals, tags, and labels used by all involved agencies. It also states that all packaging and labels received by or returned to the agency must be preserved and documented, as this information is critical.\n\nThese guidelines ensure that evidence is handled in a way that preserves its integrity and prevents contamination or damage.\n\n### Part 2: What Our Own Case Records Actually Show\n\nAccording to the **summary of our own case records** (Document 7):\n\n- **Reviewing the 32 weapon-register entries for compliance**:\n  - **30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence** — a pattern too broad to treat case-by-case; it warrants a standing compliance check.\n  - **2 carry no licence status at all**, so their compliance can't be confirmed either way.\n\nThis summary does **not** indicate whether the weapons were handled in accordance with the **forensics guidelines** (e.g., whether they were sealed, marked, or packaged properly). It only provides information about the **licensing status** of the recovered weapons, not about how they were handled or documented during the collection and packaging process. Therefore, the summary does **not** show whether the **forensics guidelines** were followed in the handling of the weapons.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 56.4,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c158",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1279",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain specific instructions on how recovered weapons s"
+      }
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be handled in accordance with specific procedures to maintain chain of custody",
+      "Punjab Police Rules 1934 weapon register: entries in the weapon register shall include details of actions taken with respect to the weapon"
+    ],
+    "verifier_rejections": [],
+    "data_half": [
+      {
+        "plan": "weapon_register",
+        "aggregate": "weapon_compliance_scan"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB8",
+    "run": 1,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+    "expected_answer": "Haan. Code of Criminal Procedure, 1898 ki dafa 173 ke tehat har tafteesh bila-zaroori takheer ke mukammal honi chahiye, aur agar FIR darj hone ke chaudah din ke andar mukammal na ho, to officer in charge us muddat ke khatam hone ke teen din ke andar magistrate ko (public prosecutor ke zariye) ek interim report bhejne ka paband hai, jisme ab tak ki tafteesh ka natija darj ho. Hamara data us pipeline ke aakhri hisse ko darj karta hai — adaalat bheja gaya challan (26 cases) aur, hal shuda cases ke liye, darj shuda natija — magar schema mein kahin interim report ka koi tasavvur nahi aur challan ko uski tafteesh ke aaghaaz se jorne wala koi field nahi. Is liye data yeh tasdeeq kar sakta hai ke case adaalat tak pohcha, magar yeh nahi ke raaste mein 14-din ki interim-report ki zimma-daari poori hui ya nahi.",
+    "actual_answer": "### Part 1: What the Law Requires\n\nAccording to the **Code of Criminal Procedure (Pakistan)**, specifically **Section 172(i)**, a police officer is required to maintain a **case diary** during an investigation and submit it daily. This diary must record the steps taken by the police, the circumstances ascertained through the investigation, and other information required by the law. This is a mandatory requirement under the law, and failure to maintain such a diary may be considered a breach of duty [Document 7].\n\nAdditionally, **Section 173** of the Code of Criminal Procedure mandates that **a final report** be submitted by the officer in charge of the police station once the investigation is completed. This report must be submitted through the Public Prosecutor and must include details such as the names and addresses of the accused, the nature of the charge, the property found, and other relevant information [Document 3].\n\n### Part 2: What Our Case-Tracking Data Shows\n\nOur case-tracking data **does not** show whether any **interim reporting** (such as the daily case diary or any other interim report) was completed during the investigation. The data only confirms that **26 challans** were sent to court, with **15 of them having a dispatch timestamp**. However, there is **no field in the schema** that links a challan back to the start of its own investigation or that records whether any interim reporting duties were fulfilled [Document 8].\n\nIn summary, while the law requires interim reporting (such as the case diary), our case-tracking data **does not confirm** whether such reporting was done or not.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 66.1,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c752",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c652",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1863",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c660",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c662",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1662",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1643",
+          "kb-data-half:chalaan_dispatch"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal requirement for police to report to th"
+      }
+    ],
+    "statute_hypotheses": [
+      "Code of Criminal Procedure 1898 section 173 investigation report by police officer in charge: investigation shall be completed within a reasonable time, and if not completed, the officer in charge sha",
+      "Punjab Police Rules 1934 case diaries and records: case diary shall contain details of the investigation, including the progress and any delays, and shall be maintained for reference and tracking purp"
+    ],
+    "verifier_rejections": [],
+    "data_half": [
+      {
+        "plan": "chalaan_dispatch",
+        "aggregate": "chalaan_dispatch_count"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB9",
+    "run": 1,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+    "expected_answer": "Code of Criminal Procedure, 1898 ki dafa 174 officer in charge ko paband karti hai ke jab use maloom ho ke koi shakhs khudkushi se, qatl se, ya aise halaat mein mara gaya jo shak paida karte hain, to woh tehqeeqaat kare aur maut ki zaahiri wajah par ek report tayyar kare — jism par mojood zakhmon ya nishaanaat ki tafseel ke saath — aur ise qareeb tareen magistrate ko bheje. Hamara data zahir karta hai ke aise cases mojood hain: 10 FIRs qatl ki dafa (PPC 302) ka hawala dete hain, aur kai zabt shuda property entries meyyat ke warisaan ko wapas karne ke liye nishaanzad hain. Magar schema mein kahin koi inquest, post-mortem ya cause-of-death record nahi. FIR aur uski dafaat yeh darj karti hain ke maut ka daawa kiya gaya hai; woh alag qanooni maut ki tehqeeqaat ko darj nahi kartin.",
+    "actual_answer": "The system does record information about deaths in cases, including investigations into the cause of death. Based on the provided data [Document 1], four individuals are linked to multiple cases, some of which may involve deaths. However, the specific details about investigations into the cause of death are not included in this aggregate report. For detailed information on investigations related to deaths, you would need to refer to the full case files.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 13.0,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "quota_lines": []
+  },
+  {
+    "id": "CR3",
+    "run": 1,
+    "arm": "before",
+    "language": "en",
+    "question": "In the online banking fraud matter involving two separate victims, was each victim's case processed and recorded the same way?",
+    "expected_answer": "No — not identically. 64/26 has a matching walk-in complaint (linked via matching case tag CMS-ISB-2026-0341, complainant سعد الرحمن); 65/26 has none.",
+    "actual_answer": "No, not identically. The FIR numbers for the two cases are **fir-64-26** and **fir-65-26** [Document 1]. According to the walk-in-complaint linkage list, **fir-64-26** has a matching walk-in complaint recorded in the CMS (CMS‑ISB‑2026‑0341), while **fir-65-26** does not appear in the linkage list, indicating that no matching walk-in complaint was recorded for this case [Document 3]. Therefore, the two cases were not processed and recorded in the same way.\n\n_A cited claim ([Document 3]) could only be partially confirmed against its source: The source confirms that CMS‑ISB‑2026‑0341 matches a FIR, but it does not specify which FIR it matches, nor does it mention fir-64-26 or fir-65-26 in the context of the linkage list._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 30.0,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "quota_lines": []
+  },
+  {
+    "id": "G1",
+    "run": 1,
+    "arm": "before",
+    "language": "en",
+    "question": "Acting as a crime analyst, review our current caseload and flag anything that looks unusual or worth monitoring.",
+    "expected_answer": "Approach: profile the accused, the victims, the property and the timing across the 73 FIRs, and flag what doesn't look routine. What stands out: (1) the offender profile is unusually uniform — every accused is between 24 and 49 (average ~31), none younger or older; (2) where an accused–complainant relationship is recorded at all, 'stranger' dominates, so this is largely stranger-perpetrated crime rather than disputes between people who know each other, apart from the domestic-violence cases; (3) seized-property records point to more fatalities than the charge sheet alone — 13 items sent to a forensic lab and 7 held for return to a deceased's heirs, alongside 8 murder-section FIRs; (4) incident times are fairly flat across the day with only a mild evening lean, so there's no strong night-crime pattern to build a patrol case around. The uniform offender profile and the stranger-perpetrated skew are the most useful things to keep watching.",
+    "actual_answer": "Based on the current caseload, several patterns and anomalies stand out that warrant further monitoring and analysis:\n\n- **Accused Profile**: Of the 92 distinct accused individuals, only 17 have recorded ages, with those individuals ranging from 24 to 49 years old, and an average age of 31.5. This suggests that a significant portion of the accused (75 individuals) have no age recorded, which may indicate incomplete data or a lack of demographic profiling in many cases [Document 1].\n\n- **Relationship Between Accused and Complainant**: In 10 FIRs, a relationship between the accused and the complainant is recorded, with 24 entries in total. The most frequently recorded relationship is \"اجنبی (stranger),\" appearing in 15 of the 24 entries and documented in 6 FIRs. This suggests that a majority of incidents involve strangers, which may be unusual depending on the nature of the crimes and local context [Document 2].\n\n- **Seized Property**: In 28 FIRs, seized property is recorded, with a total of 45 items. Of these, 13 items were sent to a forensic laboratory, and 7 items were held for return to the deceased person's heirs. This indicates that a significant portion of the seized items are being processed for forensic analysis, which may be relevant for further investigation or evidence collection [Document 3].\n\n- **Time of Day for Incidents**: Of the 64 incidents with recorded time, 50 have a usable clock time. The distribution by time of day shows that the busiest time is in the evening (18:00-23:59), with 19 incidents. This suggests that a significant number of incidents occur during the evening hours, which may be worth monitoring for patterns or potential hotspots [Document 4].\n\n- **Recurring Accused Across FIRs**: Certain accused individuals appear in more than one FIR. Specifically:\n  - **فیصل** appears in 2 cases — **fir-202-26**, **fir-401-26**\n  - **طارق** appears in 2 cases — **fir-202-26**, **fir-401-26**\n  - **شہزیب عرف شابی** appears in 2 cases — **fir-214-26**, **fir-891-24**\n  - **عاصم رشید** appears in 2 cases — **fir-64-26**, **fir-65-26**\n\nThese recurring appearances may indicate ongoing criminal activity or involvement in multiple incidents, which could be a focus for further investigation [Document 5].\n\nIn summary, the caseload reveals a mix of routine and potentially unusual patterns, particularly in the areas of demographic data completeness, relationships between accused and complainants, timing of incidents, and the recurrence of certain individuals across multiple cases. These findings suggest areas where further investigation, data collection, and monitoring could be beneficial.\n\n_A cited claim ([Document 3]) could not be confirmed against its source: The source does not mention anything about forensic analysis or its relevance for further investigation or evidence collection._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 44.1,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "quota_lines": []
+  },
+  {
+    "id": "G6",
+    "run": 1,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation note likhein — unhein mojooda case load se kya tawaqqo rakhni chahiye?",
+    "expected_answer": "Aap 9 zilon mein phaili 73 khuli FIRs sambhaal rahe hain, zyada bojh Faisalabad aur Lahore mein. Case load haal hi mein badla hai: do saal pehle taqreeban sab kuch armed robbery tha; ab manshiyat, cyber fraud aur online haraasgi, mali fraud, aghwa aur qatal ka mishra hai, jisme armed robbery ab bhi sab se bara silsila hai. Zyada tar mulzim aisay mard hain jo apni pachees se chalees baras ki umar mein hain, aam tor par mudai ke liye ajnabi. Tawaqqo rakhein ke cases sust raftari se chalenge — girftari sirf har chhe mein se taqreeban ek FIR par darj hai aur zyada tar maamlaat abhi adaalaton mein zeir-e-samaat hain. Fraud aur cyber cases ab waqe ke kaafi baad report hote hain, purani dakaityon ke bar-aks jo minton mein aa jati thein. Hathiyar ki baramadgi aam hai aur taqreeban hamesha bila-license.",
+    "actual_answer": "**How many cases are registered in each district, across all cases?**\nAccording to the cross-case aggregate data, the number of cases registered in each district is as follows:\n\n- فیصل آباد (Faisalabad): 19 case(s)\n- لاہور (Lahore): 18 case(s)\n- راولپنڈی (Rawalpindi): 10 case(s)\n- اسلام آباد (Islamabad): 5 case(s)\n- چنیوٹ (Chiniot): 5 case(s)\n- حیدر آباد (Hyderabad): 5 case(s)\n- کراچی ایسٹ (Karachi East): 5 case(s)\n- کراچی وسطی (Karachi Central): 5 case(s)\n- ملتان (Multan): 1 case(s)\n\n**What kinds of cases are we dealing with now compared to a couple of years back?**\nCurrently, in 2026, the types of cases being dealt with include:\n\n- **PPC (Preventive Detention and Control Act):** 39 cases\n- **Arms Ordinance 1965:** 16 cases\n- **CNSA 1997 (Control of Narcotic Substances Act):** 12 cases\n- **PECA 2016 (Prevention of Electronic Crimes Act):** 9 cases\n- **Punjab Domestic Violence Act:** 4 cases\n- **Illegal Dispossession Act 2005:** 2 cases\n\nIn comparison, in 2024, the cases included:\n\n- **PPC:** 13 cases\n- **Arms Ordinance 1965:** 13 cases\n\nThis indicates an increase in the number of cases under PPC, CNSA 1997, PECA 2016, Punjab Domestic Violence Act, and Illegal Dispossession Act 2005 in 2026 compared to 2024. Additionally, new types of cases such as those under the Punjab Domestic Violence Act and Illegal Dispossession Act 2005 are now being addressed.\n\n**How many cases record an arrest of an accused person, and on how many is no arrest recorded, across all cases?**\nAccording to, across all 73 FIRs:\n\n- An arrest of an accused person is recorded in **11 FIRs**.\n- No arrest is recorded in **62 FIRs**.\n\n**How long does it typically take someone to report a crime to us these days versus a couple of years ago?**\nCurrently, in 2026, it typically takes about 1401.3 minutes (approximately 23.4 hours) for someone to report a crime, based on data from 51 FIRs. A few years ago, in 2024, the average time from incident to report was much shorter, at 15.0 minutes across 13 FIRs.\n\n**How many cases involve a recovered weapon with no licence recorded, across all cases?**\nAcross all cases, 30 recovered weapons are recorded without a licence. Additionally, 2 cases carry no licence status at all, making their compliance uncertain. In total, this involves 32 cases where a recovered weapon has no licence recorded or lacks licence status.\n\n_The combined answer could not be verified as grounded in the sub-answers, so each verified sub-answer is shown as computed, without a synthesis across them._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 75.5,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [
+      "Answer is substantial (long, or a multi-item list) but cites no [Document N] source at all, despite the evaluator already confirming relevant chunks e"
+    ],
+    "data_half": [],
+    "quota_lines": []
+  },
+  {
+    "id": "M2",
+    "run": 1,
+    "arm": "before",
+    "language": "en",
+    "question": "Is caseload growing faster at our general-purpose stations, or at the handful set up for one specific type of crime?",
+    "expected_answer": "Specialized cybercrime units already carry real load: 9 of 73 FIRs (~12%) from just 2 of 19 stations — disproportionate given they're single-purpose.",
+    "actual_answer": "The caseload is growing faster at the general-purpose stations. Specifically, the 15 general-purpose stations saw an increase from 7 FIRs in 2024 to 39 FIRs in 2026. In contrast, the 2 stations set up for one specific type of crime saw a much slower increase, from 3 FIRs in 2024 to 5 FIRs in 2026 [Document 1].",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 4.7,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB1",
+    "run": 2,
+    "arm": "before",
+    "language": "en",
+    "question": "What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?",
+    "expected_answer": "Section 154 of the Code of Criminal Procedure, 1898 requires that oral information about a cognizable offence given to the officer-in-charge of a police station be reduced to writing, read back to the informant, signed by them, and entered in a register in the prescribed form — that's the actual legal basis for what we call an FIR. Our FIR records follow that structure: every entry carries a recording officer, a report timestamp, and complainant details, which is the database's structural equivalent of the Section 154 register entry.",
+    "actual_answer": "The legal requirement governing how a report of a crime becomes a formal FIR is outlined in Sections 154 and 155 of the Code of Criminal Procedure, as mentioned in [Document 2]. These sections state that every information relating to an offence, whether cognizable or non-cognizable, must be recorded in writing by the officer in charge of a police station.\n\nRegarding whether the recordkeeping actually follows this requirement, the documents do not provide specific information on whether the recordkeeping practices are compliant with the legal requirements. Therefore, it cannot be determined from the provided documents whether the recordkeeping actually follows the legal requirements.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 43.6,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1236",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c647",
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c219",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c150"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the legal requirements governing how a "
+      }
+    ],
+    "statute_hypotheses": [
+      "Code of Criminal Procedure 1898 section 158 registration of FIR: police officer in charge of the station shall record the information given by the complainant in the FIR book and shall proceed to inve",
+      "Punjab Police Rules 1934 registration of FIR and maintenance of records: FIR shall be entered in the FIR register with the date, time, and details of the information given, and shall be kept in the st"
+    ],
+    "verifier_rejections": [],
+    "data_half": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB5",
+    "run": 2,
+    "arm": "before",
+    "language": "ur",
+    "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+    "expected_answer": "جی ہاں۔ اینٹی ریپ (انویسٹی گیشن) رولز، 2022 کا رول 3(2) تفتیشی افسر کو پابند کرتا ہے کہ وہ یقینی بنائے کہ ایک خاتون پولیس افسر شامل ہو، متاثرہ کا بیان اینٹی ریپ کرائسز سیل (اے آر سی سی) میں تنہائی میں ریکارڈ کیا جائے، اور شواہد کی چین آف کسٹڈی پورے عمل کے دوران برقرار رکھی جائے — یہ واضح فرائض ہیں، تھانے کی صوابدید پر نہیں چھوڑے گئے۔ ہماری خواتین سے تشدد کی رپورٹوں کے ریکارڈ اس کا کچھ حصہ ظاہر کرتے ہیں: ریکارڈ میں موجود 8 میں سے ہر رپورٹ میں مقررہ خواتین پولیس اسٹیشن اور بیج نمبر کے ساتھ نامزد تفتیشی افسر کا خانہ موجود ہے، جو کیس کے باقاعدہ ایف آئی آر میں تبدیل ہونے سے پہلے ہی درج کیا جاتا ہے۔ جو چیز درج نہیں ہوتی وہ یہ ہے کہ چین آف کسٹڈی واقعی برقرار رکھی گئی یا نہیں — تقاضے کے اُس حصے کے لیے کوئی متعلقہ خانہ موجود نہیں۔",
+    "actual_answer": "### Part 1: What the Law Requires\n\nYes, the law requires a different procedure when a case involves violence against a woman. According to the **Anti-Rape (Investigation and Trial) Act, 2021**, specifically **Section 3(2)(d)**, it mandates that a **female police officer must be present during the statements taken from the victim**, at the **ARCC for medico-legal examination (MLE)**, and at the **forensic laboratory for DNA reference sample submission**. This provision ensures that the victim is treated with sensitivity and that the investigation is conducted in a manner that respects the rights and dignity of the victim.\n\n### Part 2: What Our Case Records Show\n\nAccording to **our own case records** (Document 7), out of **8 domestic-violence reports**, **4 carry a forwarded FIR number that matches a real, active FIR**, and the remaining **4 record no forwarded number**. However, the records do **not explicitly indicate** whether the **presence of a female police officer** was ensured during the **statements, MLE, or DNA sample submission** as required by the law. Therefore, while the records show that **some cases have been forwarded with FIR numbers**, they **do not confirm** whether the **additional measures required by the law** (such as the presence of a female police officer) were actually implemented.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 51.8,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c146",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c21",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c34",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c668",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c32",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c575",
+          "kb-data-half:violence_against_women"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal procedures for handling cases involvin"
+      }
+    ],
+    "statute_hypotheses": [
+      "Anti-Rape (Investigation and Trial) Act 2021 special investigation procedures in cases of sexual violence and domestic violence: investigation to be conducted by a female police officer, separate reco",
+      "Code of Criminal Procedure 1898 sections 176 and 177 investigation of offences against women: investigation to be conducted with due regard to the special needs of the woman, and in a manner that avoi"
+    ],
+    "verifier_rejections": [],
+    "data_half": [
+      {
+        "plan": "violence_against_women",
+        "aggregate": "dv_report_fir_match"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6",
+    "run": 2,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule or Guideline Requires\n\nAccording to the **forensics guidelines** (Document 1), there are specific instructions on how to handle and package evidence, particularly weapons. For example:\n\n- **Paragraph 12** states that sharp weapons such as knives, daggers, etc., should be packaged in appropriate-sized cardboard boxes or cartons. The submitting individual must seal the box and indicate on the exterior that it contains a **SHARP weapon** and may contain biological material.\n- **Paragraph 13** emphasizes the importance of maintaining the integrity of the item through package documentation, including all markings, seals, tags, and labels used by all involved agencies. It also states that all packaging and labels received by or returned to the agency must be preserved and documented, as this information is critical.\n\nThese guidelines are part of the **Guideline for the Collection, Packaging and Transport of Evidence in Sexual Assault Cases** (Document 1), which outlines the proper handling and documentation of evidence.\n\n### Part 2: What Our Own Case Records Actually Show\n\nAccording to the **summary of our own case records** (Document 7):\n\n- **Reviewing the 32 weapon-register entries for compliance**:\n  - **30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence** — a pattern too broad to treat case-by-case; it warrants a standing compliance check.\n  - **2 carry no licence status at all**, so their compliance can't be confirmed either way.\n\nThis summary does **not** indicate whether the weapons were handled in accordance with the **forensics guidelines** (e.g., whether they were properly sealed, marked, or documented). It only provides information about the **licence status** of the recovered weapons, not about how they were handled or packaged.\n\nTherefore, the **weapon register does not record whether the weapons were handled in accordance with the guidelines**.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 62.1,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c158",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1279",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain specific instructions on how recovered weapons s"
+      }
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be handled in accordance with specific procedures to maintain chain of custody",
+      "Punjab Police Rules 1934 weapon register: entries in the weapon register shall include details of actions taken with respect to the weapon"
+    ],
+    "verifier_rejections": [],
+    "data_half": [
+      {
+        "plan": "weapon_register",
+        "aggregate": "weapon_compliance_scan"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB8",
+    "run": 2,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+    "expected_answer": "Haan. Code of Criminal Procedure, 1898 ki dafa 173 ke tehat har tafteesh bila-zaroori takheer ke mukammal honi chahiye, aur agar FIR darj hone ke chaudah din ke andar mukammal na ho, to officer in charge us muddat ke khatam hone ke teen din ke andar magistrate ko (public prosecutor ke zariye) ek interim report bhejne ka paband hai, jisme ab tak ki tafteesh ka natija darj ho. Hamara data us pipeline ke aakhri hisse ko darj karta hai — adaalat bheja gaya challan (26 cases) aur, hal shuda cases ke liye, darj shuda natija — magar schema mein kahin interim report ka koi tasavvur nahi aur challan ko uski tafteesh ke aaghaaz se jorne wala koi field nahi. Is liye data yeh tasdeeq kar sakta hai ke case adaalat tak pohcha, magar yeh nahi ke raaste mein 14-din ki interim-report ki zimma-daari poori hui ya nahi.",
+    "actual_answer": "### Part 1: What the law requires  \nAccording to the **Code of Criminal Procedure (Pakistan)**, specifically **Section 172(1)**, every police-officer making an investigation under this Chapter shall day by day enter his proceedings in the investigation in a diary, setting forth the time at which the information reached him, the time at which he began and closed his investigation, the place or places visited by him, and a statement of the circumstances ascertained through his investigation [Document 5].  \n\nAdditionally, **Section 173(1)** mandates that every investigation under this Chapter shall be completed without unnecessary delay, and as soon as it is completed, the officer in charge of the police-station shall submit a final report [Document 1].  \n\nIf the investigation is not completed due to certain reasons, the officer in charge must state his reasons for not fully complying with the requirements of Section 173(1) in his report [Document 4].  \n\n### Part 2: What our case-tracking data shows  \nOur case-tracking data records **26 challan(s) sent to court**, covering **26 case(s)**. Of these, **15 carry a dispatch timestamp**, while the rest record the dispatch without a date. A separate, smaller set of **20 challan-outcome records** across **20 case(s)** records what happened next, with **15 of them** having a date the challan reached court.  \n\nHowever, the data **cannot show** whether any **interim reporting duty** along the way was met, as there is **no interim-report record type** anywhere in the schema, and **no field linking a challan back to the start of its own investigation** [Document 8].  \n\nThus, while our data confirms that a case reached court, it does **not confirm** whether any interim reporting duties were fulfilled during the investigation.\n\n_A cited claim ([Document 4]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 173._",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 77.1,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c752",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c652",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1863",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c662",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c649",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1662",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1643",
+          "kb-data-half:chalaan_dispatch"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal requirement for police to complete inv"
+      }
+    ],
+    "statute_hypotheses": [
+      "Code of Criminal Procedure 1898 section 173 investigation report by police officer in charge: investigation shall be completed within a reasonable time, and if not completed, the officer in charge sha",
+      "Punjab Police Rules 1934 case diaries and records: case diary shall contain details of the investigation, including the progress and any delays, and shall be maintained for reference and tracking purp"
+    ],
+    "verifier_rejections": [],
+    "data_half": [
+      {
+        "plan": "chalaan_dispatch",
+        "aggregate": "chalaan_dispatch_count"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "CR3",
+    "run": 2,
+    "arm": "before",
+    "language": "en",
+    "question": "In the online banking fraud matter involving two separate victims, was each victim's case processed and recorded the same way?",
+    "expected_answer": "No — not identically. 64/26 has a matching walk-in complaint (linked via matching case tag CMS-ISB-2026-0341, complainant سعد الرحمن); 65/26 has none.",
+    "actual_answer": "**How many cases are registered under the cybercrime act at a cyber crime circle station, and what are their FIR numbers and current status?**\nAccording to, there are 2 FIRs registered under the PECA 2016 at the cybercrime circle stations in Islamabad and Rawalpindi. The details are as follows:\n\n1. FIR 64/26 | case id fir-64-26 | سائبر کرائم سرکل، اسلام آباد | PECA 2016, PPC | status: ملزم جسمانی ریمانڈ پر، مزید برآمدگی کے لیے\n2. FIR 65/26 | case id fir-65-26 | سائبر کرائم سرکل، راولپنڈی | PECA 2016, PPC | status: ملزم جسمانی ریمانڈ پر، مقدمہ نمبر 10 کا وہی ملزم\n\n**How many cases does each accused person appear in, and which FIR numbers, across all cases?**\nAccording to, the following is the count of cases and FIR numbers for each accused person:\n\n- **فیصل** appears in **2 cases** — **fir-202-26**, **fir-401-26**\n- **طارق** appears in **2 cases** — **fir-202-26**, **fir-401-26**\n- **شہزیب عرف شابی** appears in **2 cases** — **fir-214-26**, **fir-891-24**\n- **عاصم رشید** appears in **2 cases** — **fir-64-26**, **fir-65-26**\n\n**How many cases have a matching walk-in complaint recorded in the complaint management system, across all cases?**\nAccording to, there are 4 current CMS complaints that have a matching FIR recorded in the system, as each of these complaints is linked to a real FIR via a shared case tag.\n\n_The combined answer could not be verified as grounded in the sub-answers, so each verified sub-answer is shown as computed, without a synthesis across them._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 33.2,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [
+      "The claim that fir-64-26 does not appear in the walk-in-complaint linkage list is unsupported, as Document 3 does not mention fir-64-26."
+    ],
+    "data_half": [],
+    "quota_lines": []
+  },
+  {
+    "id": "G1",
+    "run": 2,
+    "arm": "before",
+    "language": "en",
+    "question": "Acting as a crime analyst, review our current caseload and flag anything that looks unusual or worth monitoring.",
+    "expected_answer": "Approach: profile the accused, the victims, the property and the timing across the 73 FIRs, and flag what doesn't look routine. What stands out: (1) the offender profile is unusually uniform — every accused is between 24 and 49 (average ~31), none younger or older; (2) where an accused–complainant relationship is recorded at all, 'stranger' dominates, so this is largely stranger-perpetrated crime rather than disputes between people who know each other, apart from the domestic-violence cases; (3) seized-property records point to more fatalities than the charge sheet alone — 13 items sent to a forensic lab and 7 held for return to a deceased's heirs, alongside 8 murder-section FIRs; (4) incident times are fairly flat across the day with only a mild evening lean, so there's no strong night-crime pattern to build a patrol case around. The uniform offender profile and the stranger-perpetrated skew are the most useful things to keep watching.",
+    "actual_answer": "Based on the current caseload, several patterns and anomalies stand out that warrant further monitoring:\n\n- The age range and average age of the accused are only documented for a minority of the accused individuals. Specifically, out of 92 distinct accused individuals, only 17 have recorded ages, ranging from 24 to 49, with an average age of 31.5. This limited data coverage suggests a significant portion of the accused's demographic information is missing, which could impact the ability to fully understand the profile of those involved [Document 1].\n\n- The most frequently recorded relationship between the accused and the complainant is \"اجنبی (stranger),\" which appears in 15 of the 24 relationship entries and is documented in 6 FIRs. This suggests that a majority of incidents involve individuals who are not personally connected to the complainant, which may indicate a pattern of random or opportunistic crimes [Document 2].\n\n- Regarding seized property, 28 FIRs record seized items, totaling 45 items. Of these, 13 items were sent to a forensic laboratory, and 7 items were held for return to the deceased person's heirs. This indicates that a portion of the seized property is being processed for forensic analysis, while another portion is being managed for legal or familial return, which may be relevant for further investigation or legal proceedings [Document 3].\n\n- The time of day when incidents occur is most frequently in the evening (18:00-23:59), with 19 incidents recorded during this period. This accounts for approximately 38% of the incidents with recorded times, suggesting that a significant number of incidents occur during late hours, which may be worth monitoring for patterns or potential hotspots [Document 4].\n\n- Certain accused individuals appear in more than one FIR, indicating potential recurring involvement in multiple cases. Specifically:\n\n  - **فیصل** appears in 2 cases — **fir-202-26**, **fir-401-26**\n  - **طارق** appears in 2 cases — **fir-202-26**, **fir-401-26**\n  - **شہزیب عرف شابی** appears in 2 cases — **fir-214-26**, **fir-891-24**\n  - **عاصم رشید** appears in 2 cases — **fir-64-26**, **fir-65-26**\n\nThese individuals may be of particular interest for further investigation due to their involvement in multiple cases [Document 5].\n\n_A cited claim ([Document 1]) could only be partially confirmed against its source: The source confirms that a significant portion of the accused's demographic information is missing (75 out of 92 have no recorded age), but it does not explicitly mention 'limited data coverage' or 'impact the ability to fully understand the profile of those involved.'_",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 42.1,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "quota_lines": []
+  },
+  {
+    "id": "G6",
+    "run": 2,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation note likhein — unhein mojooda case load se kya tawaqqo rakhni chahiye?",
+    "expected_answer": "Aap 9 zilon mein phaili 73 khuli FIRs sambhaal rahe hain, zyada bojh Faisalabad aur Lahore mein. Case load haal hi mein badla hai: do saal pehle taqreeban sab kuch armed robbery tha; ab manshiyat, cyber fraud aur online haraasgi, mali fraud, aghwa aur qatal ka mishra hai, jisme armed robbery ab bhi sab se bara silsila hai. Zyada tar mulzim aisay mard hain jo apni pachees se chalees baras ki umar mein hain, aam tor par mudai ke liye ajnabi. Tawaqqo rakhein ke cases sust raftari se chalenge — girftari sirf har chhe mein se taqreeban ek FIR par darj hai aur zyada tar maamlaat abhi adaalaton mein zeir-e-samaat hain. Fraud aur cyber cases ab waqe ke kaafi baad report hote hain, purani dakaityon ke bar-aks jo minton mein aa jati thein. Hathiyar ki baramadgi aam hai aur taqreeban hamesha bila-license.",
+    "actual_answer": "For a new officer joining this caseload, it is important to be aware of the current situation and trends in the cases being handled. The cases are concentrated in several districts, with **فیصل آباد (Faisalabad)** having the highest number at **19 cases**, followed by **لاہور (Lahore)** with **18 cases**, **راولپنڈی (Rawalpindi)** with **10 cases**, and **اسلام آباد (Islamabad)**, **چنیوٹ (Chiniot)**, **حیدر آباد (Hyderabad)**, **کراچی ایسٹ (Karachi East)**, and **کراچی وسطی (Karachi Central)** each having **5 cases**. **ملتان (Multan)** has the fewest with **1 case** [Document 1].\n\nThe case mix has evolved over the years. In 2024, only **PPC** and **Arms Ordinance 1965** were recorded, but by 2026, the portfolio has expanded to include **PPC** (39 cases), **Arms Ordinance 1965** (16 cases), **CNSA 1997** (12 cases), **PECA 2016** (9 cases), **Punjab Domestic Violence Act** (4 cases), and **Illegal Dispossession Act 2005** (2 cases) [Document 2].\n\nIn terms of arrests, out of the **73 FIRs** in the database, only **11 cases** record an arrest, while **62 cases** have no arrest recorded [Document 3].\n\nThe reporting of crimes has also changed significantly. In 2024, the average time between an incident and reporting was **15.0 minutes** (based on 13 FIRs), but by 2026, this had increased to **1401.3 minutes**, or approximately **23.4 hours** (based on 51 FIRs) [Document 4].\n\nRegarding weapon licensing, **30 recovered weapons** are recorded without a licence, and **2 cases** have no licence status at all, making their compliance uncertain. In total, **32 cases** involve a recovered weapon with no licence recorded or lacking licence status [Document 5].\n\nThis information provides a clear overview of the current case load and trends, which will help the officer understand the challenges and priorities in handling these cases.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 38.2,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "quota_lines": []
+  },
+  {
+    "id": "M2",
+    "run": 2,
+    "arm": "before",
+    "language": "en",
+    "question": "Is caseload growing faster at our general-purpose stations, or at the handful set up for one specific type of crime?",
+    "expected_answer": "Specialized cybercrime units already carry real load: 9 of 73 FIRs (~12%) from just 2 of 19 stations — disproportionate given they're single-purpose.",
+    "actual_answer": "The caseload is growing faster at the general-purpose stations. Specifically, the 15 general-purpose stations saw an increase from 7 FIRs in 2024 to 39 in 2026. In contrast, the 2 stations set up for one specific type of crime saw a much slower increase, from 3 FIRs in 2024 to 5 in 2026 [Document 1].",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 3.7,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB1",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?",
+    "expected_answer": "Section 154 of the Code of Criminal Procedure, 1898 requires that oral information about a cognizable offence given to the officer-in-charge of a police station be reduced to writing, read back to the informant, signed by them, and entered in a register in the prescribed form — that's the actual legal basis for what we call an FIR. Our FIR records follow that structure: every entry carries a recording officer, a report timestamp, and complainant details, which is the database's structural equivalent of the Section 154 register entry.",
+    "actual_answer": "",
+    "route": null,
+    "status": "error",
+    "transport_ok": false,
+    "error": "ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host",
+    "elapsed_s": 43.3,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1236",
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c219",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c647",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c150"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [
+      "Code of Criminal Procedure 1898 section 158 registration of FIR: police officer in charge of the station shall record the information given by the complainant in the FIR book and shall proceed to inve",
+      "Punjab Police Rules 1934 registration of FIR and maintenance of records: FIR shall be entered in the FIR register with the date, time, and details of the information given, and shall be kept in the st"
+    ],
+    "verifier_rejections": [],
+    "data_half": [],
+    "cutover_fallbacks": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB5",
+    "run": 1,
+    "arm": "after",
+    "language": "ur",
+    "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+    "expected_answer": "جی ہاں۔ اینٹی ریپ (انویسٹی گیشن) رولز، 2022 کا رول 3(2) تفتیشی افسر کو پابند کرتا ہے کہ وہ یقینی بنائے کہ ایک خاتون پولیس افسر شامل ہو، متاثرہ کا بیان اینٹی ریپ کرائسز سیل (اے آر سی سی) میں تنہائی میں ریکارڈ کیا جائے، اور شواہد کی چین آف کسٹڈی پورے عمل کے دوران برقرار رکھی جائے — یہ واضح فرائض ہیں، تھانے کی صوابدید پر نہیں چھوڑے گئے۔ ہماری خواتین سے تشدد کی رپورٹوں کے ریکارڈ اس کا کچھ حصہ ظاہر کرتے ہیں: ریکارڈ میں موجود 8 میں سے ہر رپورٹ میں مقررہ خواتین پولیس اسٹیشن اور بیج نمبر کے ساتھ نامزد تفتیشی افسر کا خانہ موجود ہے، جو کیس کے باقاعدہ ایف آئی آر میں تبدیل ہونے سے پہلے ہی درج کیا جاتا ہے۔ جو چیز درج نہیں ہوتی وہ یہ ہے کہ چین آف کسٹڈی واقعی برقرار رکھی گئی یا نہیں — تقاضے کے اُس حصے کے لیے کوئی متعلقہ خانہ موجود نہیں۔",
+    "actual_answer": "",
+    "route": null,
+    "status": "error",
+    "transport_ok": false,
+    "error": "URLError: <urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>",
+    "elapsed_s": 2.0,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "cutover_fallbacks": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6",
+    "run": 1,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "",
+    "route": null,
+    "status": "error",
+    "transport_ok": false,
+    "error": "URLError: <urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>",
+    "elapsed_s": 2.0,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "cutover_fallbacks": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB8",
+    "run": 1,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+    "expected_answer": "Haan. Code of Criminal Procedure, 1898 ki dafa 173 ke tehat har tafteesh bila-zaroori takheer ke mukammal honi chahiye, aur agar FIR darj hone ke chaudah din ke andar mukammal na ho, to officer in charge us muddat ke khatam hone ke teen din ke andar magistrate ko (public prosecutor ke zariye) ek interim report bhejne ka paband hai, jisme ab tak ki tafteesh ka natija darj ho. Hamara data us pipeline ke aakhri hisse ko darj karta hai — adaalat bheja gaya challan (26 cases) aur, hal shuda cases ke liye, darj shuda natija — magar schema mein kahin interim report ka koi tasavvur nahi aur challan ko uski tafteesh ke aaghaaz se jorne wala koi field nahi. Is liye data yeh tasdeeq kar sakta hai ke case adaalat tak pohcha, magar yeh nahi ke raaste mein 14-din ki interim-report ki zimma-daari poori hui ya nahi.",
+    "actual_answer": "",
+    "route": null,
+    "status": "error",
+    "transport_ok": false,
+    "error": "URLError: <urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>",
+    "elapsed_s": 2.0,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "cutover_fallbacks": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB9",
+    "run": 1,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+    "expected_answer": "Code of Criminal Procedure, 1898 ki dafa 174 officer in charge ko paband karti hai ke jab use maloom ho ke koi shakhs khudkushi se, qatl se, ya aise halaat mein mara gaya jo shak paida karte hain, to woh tehqeeqaat kare aur maut ki zaahiri wajah par ek report tayyar kare — jism par mojood zakhmon ya nishaanaat ki tafseel ke saath — aur ise qareeb tareen magistrate ko bheje. Hamara data zahir karta hai ke aise cases mojood hain: 10 FIRs qatl ki dafa (PPC 302) ka hawala dete hain, aur kai zabt shuda property entries meyyat ke warisaan ko wapas karne ke liye nishaanzad hain. Magar schema mein kahin koi inquest, post-mortem ya cause-of-death record nahi. FIR aur uski dafaat yeh darj karti hain ke maut ka daawa kiya gaya hai; woh alag qanooni maut ki tehqeeqaat ko darj nahi kartin.",
+    "actual_answer": "",
+    "route": null,
+    "status": "error",
+    "transport_ok": false,
+    "error": "URLError: <urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>",
+    "elapsed_s": 2.0,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "cutover_fallbacks": [],
+    "quota_lines": []
+  },
+  {
+    "id": "CR3",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "In the online banking fraud matter involving two separate victims, was each victim's case processed and recorded the same way?",
+    "expected_answer": "No — not identically. 64/26 has a matching walk-in complaint (linked via matching case tag CMS-ISB-2026-0341, complainant سعد الرحمن); 65/26 has none.",
+    "actual_answer": "No, not identically. The FIR numbers for the cases involving the two victims are **fir-64-26** and **fir-65-26** [Document 1]. According to the walk-in-complaint linkage list, **fir-64-26** has a matching walk-in complaint (CMS‑ISB‑2026‑0341), while **fir-65-26** does not appear to be linked to any walk-in complaint in the Complaint Management System [Document 3]. This difference in processing — one case having a matching complaint and the other not — indicates that the two cases were not handled identically.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 32.8,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "cutover_fallbacks": [],
+    "quota_lines": []
+  },
+  {
+    "id": "G1",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "Acting as a crime analyst, review our current caseload and flag anything that looks unusual or worth monitoring.",
+    "expected_answer": "Approach: profile the accused, the victims, the property and the timing across the 73 FIRs, and flag what doesn't look routine. What stands out: (1) the offender profile is unusually uniform — every accused is between 24 and 49 (average ~31), none younger or older; (2) where an accused–complainant relationship is recorded at all, 'stranger' dominates, so this is largely stranger-perpetrated crime rather than disputes between people who know each other, apart from the domestic-violence cases; (3) seized-property records point to more fatalities than the charge sheet alone — 13 items sent to a forensic lab and 7 held for return to a deceased's heirs, alongside 8 murder-section FIRs; (4) incident times are fairly flat across the day with only a mild evening lean, so there's no strong night-crime pattern to build a patrol case around. The uniform offender profile and the stranger-perpetrated skew are the most useful things to keep watching.",
+    "actual_answer": "Based on the current caseload, several patterns and anomalies stand out that warrant further monitoring:\n\n- The age range and average age of the accused are based on a minority of the total accused individuals. Specifically, only 17 of the 92 accused have recorded ages, with those aged between 24 and 49, and an average age of 31.5 [Document 1]. This limited data coverage suggests that the age profile of the majority of accused individuals remains unknown, which could be significant for understanding the demographics of the perpetrators.\n\n- The most frequently recorded relationship between the accused and the complainant is \"اجنبی (stranger),\" which appears in 15 of the 24 relationship entries and is documented in 6 FIRs [Document 2]. This suggests that a significant portion of the incidents involve individuals who are not personally known to the complainant, which may indicate a pattern of random or opportunistic crimes.\n\n- In cases involving seized property, 45 items were recorded across 28 FIRs. Of these, 13 items were sent to a forensic laboratory, and 7 items were held for return to the deceased person's heirs [Document 3]. This indicates that a portion of the seized property is being processed for forensic analysis, which may be relevant for ongoing investigations.\n\n- The time of day when incidents occur shows that the busiest time is in the evening (18:00-23:59), with 19 incidents recorded [Document 4]. This suggests that a significant number of incidents occur during the evening hours, which may be worth monitoring for patterns or trends.\n\n- Certain accused individuals appear in more than one FIR. Specifically, **فیصل** and **طارق** each appear in 2 cases — **fir-202-26**, **fir-401-26**. Similarly, **شہزیب عرف شابی** appears in **fir-214-26**, **fir-891-24**, and **عاصم رشید** appears in **fir-64-26**, **fir-65-26** [Document 5]. This recurrence across multiple FIRs may indicate a pattern of involvement by certain individuals in multiple incidents, which could be significant for further investigation.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 50.6,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "cutover_fallbacks": [],
+    "quota_lines": []
+  },
+  {
+    "id": "G6",
+    "run": 1,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation note likhein — unhein mojooda case load se kya tawaqqo rakhni chahiye?",
+    "expected_answer": "Aap 9 zilon mein phaili 73 khuli FIRs sambhaal rahe hain, zyada bojh Faisalabad aur Lahore mein. Case load haal hi mein badla hai: do saal pehle taqreeban sab kuch armed robbery tha; ab manshiyat, cyber fraud aur online haraasgi, mali fraud, aghwa aur qatal ka mishra hai, jisme armed robbery ab bhi sab se bara silsila hai. Zyada tar mulzim aisay mard hain jo apni pachees se chalees baras ki umar mein hain, aam tor par mudai ke liye ajnabi. Tawaqqo rakhein ke cases sust raftari se chalenge — girftari sirf har chhe mein se taqreeban ek FIR par darj hai aur zyada tar maamlaat abhi adaalaton mein zeir-e-samaat hain. Fraud aur cyber cases ab waqe ke kaafi baad report hote hain, purani dakaityon ke bar-aks jo minton mein aa jati thein. Hathiyar ki baramadgi aam hai aur taqreeban hamesha bila-license.",
+    "actual_answer": "No community cluster in the case corpus is closely related to this specific question (\"Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation note likhein — unhein mojooda case load se kya tawaqqo rakhni chahiye?\") (nearest cluster found was distance 0.181 against a relevance cutoff of 0.145). Rather than describing an unrelated cluster, no cross-case network finding is being reported here.",
+    "route": null,
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 21.1,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "cutover_fallbacks": [],
+    "quota_lines": []
+  },
+  {
+    "id": "M2",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "Is caseload growing faster at our general-purpose stations, or at the handful set up for one specific type of crime?",
+    "expected_answer": "Specialized cybercrime units already carry real load: 9 of 73 FIRs (~12%) from just 2 of 19 stations — disproportionate given they're single-purpose.",
+    "actual_answer": "The caseload is growing faster at the general-purpose stations. Specifically, the 15 general-purpose stations saw an increase from 7 FIRs in 2024 to 39 FIRs in 2026. In contrast, the 2 stations set up for one specific type of crime saw a much slower increase, from 3 FIRs in 2024 to 5 FIRs in 2026 [Document 1].",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 7.1,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "cutover_fallbacks": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB1",
+    "run": 2,
+    "arm": "after",
+    "language": "en",
+    "question": "What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?",
+    "expected_answer": "Section 154 of the Code of Criminal Procedure, 1898 requires that oral information about a cognizable offence given to the officer-in-charge of a police station be reduced to writing, read back to the informant, signed by them, and entered in a register in the prescribed form — that's the actual legal basis for what we call an FIR. Our FIR records follow that structure: every entry carries a recording officer, a report timestamp, and complainant details, which is the database's structural equivalent of the Section 154 register entry.",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 53.8,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "cutover_fallbacks": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB5",
+    "run": 2,
+    "arm": "after",
+    "language": "ur",
+    "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+    "expected_answer": "جی ہاں۔ اینٹی ریپ (انویسٹی گیشن) رولز، 2022 کا رول 3(2) تفتیشی افسر کو پابند کرتا ہے کہ وہ یقینی بنائے کہ ایک خاتون پولیس افسر شامل ہو، متاثرہ کا بیان اینٹی ریپ کرائسز سیل (اے آر سی سی) میں تنہائی میں ریکارڈ کیا جائے، اور شواہد کی چین آف کسٹڈی پورے عمل کے دوران برقرار رکھی جائے — یہ واضح فرائض ہیں، تھانے کی صوابدید پر نہیں چھوڑے گئے۔ ہماری خواتین سے تشدد کی رپورٹوں کے ریکارڈ اس کا کچھ حصہ ظاہر کرتے ہیں: ریکارڈ میں موجود 8 میں سے ہر رپورٹ میں مقررہ خواتین پولیس اسٹیشن اور بیج نمبر کے ساتھ نامزد تفتیشی افسر کا خانہ موجود ہے، جو کیس کے باقاعدہ ایف آئی آر میں تبدیل ہونے سے پہلے ہی درج کیا جاتا ہے۔ جو چیز درج نہیں ہوتی وہ یہ ہے کہ چین آف کسٹڈی واقعی برقرار رکھی گئی یا نہیں — تقاضے کے اُس حصے کے لیے کوئی متعلقہ خانہ موجود نہیں۔",
+    "actual_answer": "Generating grounded response... Based on the available evidence, I cannot provide a confident answer to this question — the cited sources do not sufficiently support a specific claim. Please consult the original case documents directly.",
+    "route": null,
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 71.5,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "cutover_fallbacks": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6",
+    "run": 2,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 117.2,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "cutover_fallbacks": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB8",
+    "run": 2,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+    "expected_answer": "Haan. Code of Criminal Procedure, 1898 ki dafa 173 ke tehat har tafteesh bila-zaroori takheer ke mukammal honi chahiye, aur agar FIR darj hone ke chaudah din ke andar mukammal na ho, to officer in charge us muddat ke khatam hone ke teen din ke andar magistrate ko (public prosecutor ke zariye) ek interim report bhejne ka paband hai, jisme ab tak ki tafteesh ka natija darj ho. Hamara data us pipeline ke aakhri hisse ko darj karta hai — adaalat bheja gaya challan (26 cases) aur, hal shuda cases ke liye, darj shuda natija — magar schema mein kahin interim report ka koi tasavvur nahi aur challan ko uski tafteesh ke aaghaaz se jorne wala koi field nahi. Is liye data yeh tasdeeq kar sakta hai ke case adaalat tak pohcha, magar yeh nahi ke raaste mein 14-din ki interim-report ki zimma-daari poori hui ya nahi.",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 83.0,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "cutover_fallbacks": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB9",
+    "run": 2,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+    "expected_answer": "Code of Criminal Procedure, 1898 ki dafa 174 officer in charge ko paband karti hai ke jab use maloom ho ke koi shakhs khudkushi se, qatl se, ya aise halaat mein mara gaya jo shak paida karte hain, to woh tehqeeqaat kare aur maut ki zaahiri wajah par ek report tayyar kare — jism par mojood zakhmon ya nishaanaat ki tafseel ke saath — aur ise qareeb tareen magistrate ko bheje. Hamara data zahir karta hai ke aise cases mojood hain: 10 FIRs qatl ki dafa (PPC 302) ka hawala dete hain, aur kai zabt shuda property entries meyyat ke warisaan ko wapas karne ke liye nishaanzad hain. Magar schema mein kahin koi inquest, post-mortem ya cause-of-death record nahi. FIR aur uski dafaat yeh darj karti hain ke maut ka daawa kiya gaya hai; woh alag qanooni maut ki tehqeeqaat ko darj nahi kartin.",
+    "actual_answer": "The system does record information about deaths in cases, including the investigation of the cause of death when a person is found in suspicious circumstances. Based on the data provided in [Document 1], four individuals are linked to multiple cases, some of which may involve deaths. However, the specific details about the cause of death or the investigation process are not included in the given document. For detailed information on how the system handles death investigations, you would need to consult the full case records or the relevant police procedures.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 15.1,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "cutover_fallbacks": [],
+    "quota_lines": []
+  },
+  {
+    "id": "CR3",
+    "run": 2,
+    "arm": "after",
+    "language": "en",
+    "question": "In the online banking fraud matter involving two separate victims, was each victim's case processed and recorded the same way?",
+    "expected_answer": "No — not identically. 64/26 has a matching walk-in complaint (linked via matching case tag CMS-ISB-2026-0341, complainant سعد الرحمن); 65/26 has none.",
+    "actual_answer": "No, not identically. The FIRs related to the online banking fraud matter involving two separate victims are **fir-64-26** and **fir-65-26** [Document 1]. According to the walk-in-complaint linkage list, **fir-64-26** has a matching complaint recorded in the complaint management system, as it is linked to a real FIR via a shared case tag [Document 3]. However, **fir-65-26** does not appear in the linkage list, indicating that no matching walk-in complaint was recorded for this FIR. Therefore, the two cases were not processed and recorded in the same way.\n\n_A cited claim ([Document 3]) could only be partially confirmed against its source: The source confirms that there are CMS complaints linked to real FIRs via a shared case tag, but it does not specifically mention fir-64-26._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 43.2,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "cutover_fallbacks": [],
+    "quota_lines": []
+  },
+  {
+    "id": "G1",
+    "run": 2,
+    "arm": "after",
+    "language": "en",
+    "question": "Acting as a crime analyst, review our current caseload and flag anything that looks unusual or worth monitoring.",
+    "expected_answer": "Approach: profile the accused, the victims, the property and the timing across the 73 FIRs, and flag what doesn't look routine. What stands out: (1) the offender profile is unusually uniform — every accused is between 24 and 49 (average ~31), none younger or older; (2) where an accused–complainant relationship is recorded at all, 'stranger' dominates, so this is largely stranger-perpetrated crime rather than disputes between people who know each other, apart from the domestic-violence cases; (3) seized-property records point to more fatalities than the charge sheet alone — 13 items sent to a forensic lab and 7 held for return to a deceased's heirs, alongside 8 murder-section FIRs; (4) incident times are fairly flat across the day with only a mild evening lean, so there's no strong night-crime pattern to build a patrol case around. The uniform offender profile and the stranger-perpetrated skew are the most useful things to keep watching.",
+    "actual_answer": "Based on the current caseload, several patterns and anomalies stand out that warrant further monitoring:\n\n- The age range and average age of accused individuals with recorded ages is between 24 and 49, with an average of 31.5 [Document 1]. However, it is important to note that 75 of the 92 accused individuals have no recorded age, which limits the reliability of this profile to only a minority of the accused.\n\n- The most common relationship between the accused and the complainant is \"اجنبی (stranger),\" which appears in 15 of the 24 recorded relationships and is found in 6 FIRs [Document 2]. This suggests that a significant portion of incidents involve individuals who are not known to the complainant, which may indicate a pattern of random or opportunistic crimes.\n\n- In 28 FIRs, seized property was recorded, with a total of 45 items across these cases. Of these, 13 items were sent to a forensic laboratory, and 7 items were held for return to the deceased person's heirs [Document 3]. This indicates that a portion of the cases involve property that is being analyzed or returned to heirs, which may be relevant to ongoing investigations or inheritance-related matters.\n\n- Of the 64 incidents with recorded time, the busiest time of day is evening (18:00-23:59), with 19 incidents [Document 4]. This suggests that a significant number of incidents occur during the evening hours, which may be worth monitoring for patterns or potential hotspots.\n\n- Certain accused individuals appear in more than one FIR. Specifically:\n\n  - **فیصل** appears in **2 cases** — **fir-202-26**, **fir-401-26**\n  - **طارق** appears in **2 cases** — **fir-202-26**, **fir-401-26**\n  - **شہزیب عرف شابی** appears in **2 cases** — **fir-214-26**, **fir-891-24**\n  - **عاصم رشید** appears in **2 cases** — **fir-64-26**, **fir-65-26** [Document 5]\n\nThese findings highlight the need for further investigation into the individuals who appear in multiple FIRs, as well as the timing and relationships associated with the incidents.\n\n_A cited claim ([Document 1]) could only be partially confirmed against its source: The source confirms the age range and average age of accused individuals with recorded ages but clarifies that this applies only to the minority with recorded ages, not the entire caseload._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 57.4,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "cutover_fallbacks": [],
+    "quota_lines": []
+  },
+  {
+    "id": "G6",
+    "run": 2,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation note likhein — unhein mojooda case load se kya tawaqqo rakhni chahiye?",
+    "expected_answer": "Aap 9 zilon mein phaili 73 khuli FIRs sambhaal rahe hain, zyada bojh Faisalabad aur Lahore mein. Case load haal hi mein badla hai: do saal pehle taqreeban sab kuch armed robbery tha; ab manshiyat, cyber fraud aur online haraasgi, mali fraud, aghwa aur qatal ka mishra hai, jisme armed robbery ab bhi sab se bara silsila hai. Zyada tar mulzim aisay mard hain jo apni pachees se chalees baras ki umar mein hain, aam tor par mudai ke liye ajnabi. Tawaqqo rakhein ke cases sust raftari se chalenge — girftari sirf har chhe mein se taqreeban ek FIR par darj hai aur zyada tar maamlaat abhi adaalaton mein zeir-e-samaat hain. Fraud aur cyber cases ab waqe ke kaafi baad report hote hain, purani dakaityon ke bar-aks jo minton mein aa jati thein. Hathiyar ki baramadgi aam hai aur taqreeban hamesha bila-license.",
+    "actual_answer": "Naye tainaat hone wale afsar ko yeh samajhna zaruri hai ke mojooda case load kuch specific tehsilon aur shahr mein kon kon se tareen par hai. Faisalabad mein 19 case, Lahore mein 18 case, Rawalpindi mein 10 case, Islamabad mein 5 case, Chiniot mein 5 case, Hyderabad mein 5 case, Karachi East mein 5 case, Karachi Central mein 5 case, aur Multan mein 1 case zayda talaq mein hai [Document 1]. \n\nMujooda case mix mein 2026 mein Preventive Detention and Control Act (PPC) ke 39 case, Arms Ordinance 1965 ke 16 case, Control of Narcotic Substances Act (CNSA) 1997 ke 12 case, Prevention of Electronic Crimes Act (PECA) 2016 ke 9 case, Punjab Domestic Violence Act ke 4 case, aur Illegal Dispossession Act 2005 ke 2 case zayda talaq mein hai. Yeh 2024 se zayda talaq mein hai, jis mein PPC aur Arms Ordinance 1965 ke case kam zayda talaq mein the [Document 2].\n\n73 FIRs mein se 11 FIRs mein aazmayish ki gai hai, jabke 62 FIRs mein koi aazmayish ki gai hai [Document 3]. Aaj ke samay, 2026 mein, ek zayda talaq ke crime ko report karne mein 1401.3 minutes (lakhon 23.4 ghante) lage, jabke 2024 mein yeh samay 15.0 minutes tak tha [Document 4].\n\nAakhir mein, 30 recovered weapons ke case mein koi licence record nahi hai, aur 2 case mein licence status ki koi jaydah nahi hai, jo 32 case mein total talaq hai [Document 5]. \n\nYeh jankari afsar ko mojooda case load ke muqabali aur tawajoh ki zaroorat par guzarish karega.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 53.8,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "cutover_fallbacks": [],
+    "quota_lines": []
+  },
+  {
+    "id": "M2",
+    "run": 2,
+    "arm": "after",
+    "language": "en",
+    "question": "Is caseload growing faster at our general-purpose stations, or at the handful set up for one specific type of crime?",
+    "expected_answer": "Specialized cybercrime units already carry real load: 9 of 73 FIRs (~12%) from just 2 of 19 stations — disproportionate given they're single-purpose.",
+    "actual_answer": "The caseload is growing faster at the general-purpose stations. Specifically, the 15 general-purpose stations saw an increase from 7 FIRs in 2024 to 39 FIRs in 2026. In contrast, the 2 stations set up for one specific type of crime saw a much slower increase, from 3 FIRs in 2024 to 5 FIRs in 2026 [Document 1].",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 5.1,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "statute_hypotheses": [],
+    "verifier_rejections": [],
+    "data_half": [],
+    "cutover_fallbacks": [],
+    "quota_lines": []
+  }
+]
