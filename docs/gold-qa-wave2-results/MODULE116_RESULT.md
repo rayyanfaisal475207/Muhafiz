@@ -222,7 +222,7 @@ measurement artefacts under `docs/gold-qa-wave2-results/`.
   `router.txt`'s own worked examples; a few-shot addition is not a mechanism.
   And there is no misclassification here to correct.
 * **`meta_analysis.py`'s concurrent dispatch — left alone.** The race it creates
-  in event *ordering* is real (filed as defect 120) but the fix here does not
+  in event *ordering* is real (filed as defect 124) but the fix here does not
   depend on ordering: `nested` is on the event.
 * **`deepeval_results.json`** — a different gold set (`gold_set.py`) with
   *expected* routes declared per row, not scraped. Not affected, not touched.
@@ -296,7 +296,7 @@ tokens, unique-token ratio 0.024, one 4-gram repeated 370 times"*). Runs 2 and 3
 recovered on the temperature-0.4 regeneration and answered in Roman-Urdu with
 gold's figures. Run 1's regeneration **also** collapsed, provenance recovery
 failed, and the fallback served the five raw sub-answers — **in English, to a
-Roman-Urdu question**. Filed as defect 122; it is downstream of everything this
+Roman-Urdu question**. Filed as defect 126; it is downstream of everything this
 module touches, and it happens identically before and after the change.
 
 ---
@@ -382,7 +382,7 @@ correctly refuses a question it was never meant to answer.
 This is **Module 111's finding, generalised**: Module 111 recorded it for G6 and
 read it as a G6-specific literal-phrase brittleness. Measured here, **CR3 and G1
 have the identical failure**, and the split is by trigger-pattern match, not by
-question and not by language. Filed as defect 119, not fixed — it is
+question and not by language. Filed as defect 123, not fixed — it is
 `supervisor.py`'s dispatch gate, a different layer from this module's scope, and
 Module 111 already owns G6's half.
 
@@ -459,7 +459,7 @@ recorder, not "the layer every query passes through".
 
 ## 8. New defects found
 
-Highest number in use before this module: **118**. Starting at **119** as
+Highest number in use before this module: **118**. Starting at **123** as
 instructed. All four are **filed, not fixed**.
 
 ### 119 — Meta-Analysis is gated on a literal trigger list, and it costs CR3 and G1 too, not just G6
