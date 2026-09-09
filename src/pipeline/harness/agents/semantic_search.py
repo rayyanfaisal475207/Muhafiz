@@ -142,9 +142,46 @@ _SYSTEM_PROMPT_TEMPLATE = (
     "contain enough information to answer, say so plainly instead of "
     "guessing or answering from general knowledge.\n\n"
     "Respond in {preferred_language}.\n\n"
+    "{compound_block}"
     "{conversation_block}"
     "--- DOCUMENTS ---\n{documents}\n--- END OF DOCUMENTS ---"
 ) + NAME_FIDELITY_RULE
+
+# [Gold-QA fix — Module 39] Injected ONLY when `rag_tool()` attached a
+# data-half chunk (`metadata.source_tool == "XAGG"`, see
+# `rag.py::_KB_DATA_HALF_PLANS`), and empty for every other query — so the
+# prompt every non-compound question sees is byte-for-byte the one it saw
+# before this module.
+#
+# Why it is needed at all: the base template's "answer using ONLY the
+# documents" instruction is satisfied by answering the FIRST clause of a
+# compound question and stopping, and that is exactly what the 48 runs
+# Module 52 measured did — every one of them answered the norm and told the
+# user the documents could not confirm the data half. The chunk alone
+# supplies the figure; this sentence is what makes the answer spend a
+# sentence on it. It names no number, no statute and no expected finding —
+# gold's own figures are never shown to this model — so it cannot tune the
+# answer toward gold, only toward answering both clauses that were asked.
+_COMPOUND_ANSWER_RULE = (
+    "This question has TWO parts: what the law, rule or guideline requires, "
+    "and what our own case records actually show. One of the documents below "
+    "is a computed summary of our own case records rather than a legal text. "
+    "Answer BOTH parts explicitly and cite each from its own document: state "
+    "the governing provision and its substance, then state what our records "
+    "do — and do not — hold, with the figures exactly as that summary gives "
+    "them. If the summary shows our records have no field for something the "
+    "rule requires, say so plainly; that is a finding, not a failure to "
+    "answer.\n\n"
+)
+
+
+def _compound_block(chunks: list[EvidenceChunk]) -> str:
+    """`_COMPOUND_ANSWER_RULE` when a Module 39 data-half chunk is present,
+    else the empty string. Read off `ChunkMetadata.source_tool`, which
+    `rag.py` sets to "XAGG" on that chunk and never on a retrieved one."""
+    if any((c.metadata.source_tool or "") == "XAGG" for c in chunks):
+        return _COMPOUND_ANSWER_RULE
+    return ""
 
 
 def _generation_role(preferred_language: Optional[str]) -> str:
@@ -307,6 +344,7 @@ async def semantic_search(
     )
     system_prompt = _SYSTEM_PROMPT_TEMPLATE.format(
         preferred_language=resolved_language,
+        compound_block=_compound_block(chunks),
         conversation_block=conversation_block,
         documents=_format_documents_for_prompt(chunks),
     )
