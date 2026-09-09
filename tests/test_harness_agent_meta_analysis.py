@@ -584,16 +584,25 @@ async def test_hallucinated_synthesis_is_still_rejected(monkeypatch):
             _SUB_Q2: SubAgentResult(status=SubAgentStatus.OK, answer_text="CASE-014 shares a suspect."),
         },
     )
-    _stub_call_llm(monkeypatch, "CASE-014's suspect was previously convicted twice [Document 2].")
+    hallucination = "CASE-014's suspect was previously convicted twice [Document 2]."
+    _stub_call_llm(monkeypatch, hallucination)
     _stub_verify_grounding(
         monkeypatch,
         grounded=False,
         reason="The prior-convictions claim is not stated in any sub-answer.",
     )
+    _stub_validate_answer(monkeypatch)
 
     result = await meta_analysis(_agent_input())
 
-    assert result.status == SubAgentStatus.ABSTAINED
+    # [Module 71] The status changed (ABSTAINED -> PARTIAL, so the verified
+    # sub-answers are served instead of `status=error`), and the contract
+    # this test exists for did NOT: the rejected text is never served.
+    assert result.status == SubAgentStatus.PARTIAL
+    assert "previously convicted" not in (result.answer_text or "")
+    assert hallucination not in (result.answer_text or "")
+    assert "Pattern: nighttime robberies." in result.answer_text
+    assert "CASE-014 shares a suspect." in result.answer_text
     assert any("could not be verified as grounded" in c for c in result.caveats)
 
 
@@ -1286,3 +1295,272 @@ def test_module53_subquery_timeout_leaves_headroom_over_the_measured_staircase()
     measured_seconds_per_sub_query = 12.0  # Module 50's staircase, rounded up.
     needed = ma_mod._MAX_PLAN_SUB_QUERIES * measured_seconds_per_sub_query
     assert config.META_ANALYSIS_SUBQUERY_TIMEOUT >= needed * 1.5
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Module 71 — a synthesis that blends denominators across sub-answers
+#
+# Pinned to the LIVE-CAPTURED shape, not an invented one. G1's five
+# aggregates render, on this machine, as:
+#
+#   offender_age_profile:            17 of 92 distinct accused carry an age
+#                                    (19 of 94 accused entries); range 24-49,
+#                                    mean 31.5
+#   accused_relationship_breakdown:  24 relationship edge(s) across 10 FIR(s);
+#                                    dominant='اجنبی' 15; coverage 12 of 92
+#   seized_property_disposition:     45 register entr(ies) across 28 FIR(s);
+#                                    forensic-lab 13; heirs 7
+#   incident_time_of_day:            64 of 73 incident(s) carry a datetime …
+#   graph_recurrence:                4 recurring node(s)
+#
+# **73 appears in exactly one of them — the time-of-day sub-answer** — and
+# the live rejection Module 61 recorded was
+# *"the 73-case total for seized property"*. That is the number crossing
+# from [Document 4] to [Document 3], and it is what these tests pin.
+# ═══════════════════════════════════════════════════════════════════════
+
+_M71_AGE = "17 of 92 distinct accused carry an age (19 of 94 accused entries); range 24-49, mean 31.5."
+_M71_RELATIONSHIP = "24 relationship edges across 10 FIRs; the dominant value is اجنبی with 15; coverage 12 of 92."
+_M71_PROPERTY = "45 register entries across 28 FIRs; 13 items went to a forensic laboratory and 7 were held for heirs."
+_M71_TIME = "64 of 73 incidents carry a datetime; 50 usable; evening 19, afternoon 16, morning 14, night 1."
+_M71_RECURRENCE = "4 accused recur across more than one FIR."
+
+_M71_ENTRIES = [
+    ("age", _M71_AGE),
+    ("relationship", _M71_RELATIONSHIP),
+    ("property", _M71_PROPERTY),
+    ("time", _M71_TIME),
+    ("recurrence", _M71_RECURRENCE),
+]
+
+
+def test_module71_figures_in_reads_ascii_and_urdu_digits():
+    assert ma_mod.figures_in(_M71_PROPERTY) == ["45", "28", "13", "7"]
+    # Urdu-rendered sub-answers carry Extended Arabic-Indic digits; the same
+    # figures must be recognised, or the roster silently empties on an Urdu
+    # run and rule 2 has nothing to point at.
+    assert ma_mod.figures_in("۴۵ اندراجات، ۲۸ ایف آئی آر") == ["45", "28"]
+    assert ma_mod.figures_in("٤٥ اندراجات") == ["45"]
+    assert ma_mod.figures_in("mean 31.5 across 1,234 records") == ["31.5", "1,234", "1234"]
+    # Structural noise below the floor is not a "figure".
+    assert ma_mod.figures_in("the 2 records and 1 listing") == []
+    assert ma_mod.figures_in("") == []
+
+
+def test_module71_an_identifier_is_not_a_figure():
+    """Measured, not assumed. Run offline against the eleven pre-fix live G1
+    answers this module captured, the first draft of the rule flagged `24`
+    and `64` on three of them — both pulled out of `fir-891-24` /
+    `fir-64-26` in the recurring-accused sub-answer, where they are case
+    numbers. Without this the detector would cry wolf on a correct answer,
+    which is the fastest way to make a signal worthless."""
+    assert ma_mod.figures_in("عاصم رشید appears in fir-64-26 and fir-65-26") == []
+    assert ma_mod.figures_in("linked to CMS-ISB-2026-0341 on 2026-09-09") == []
+    assert ma_mod.figures_in("evening (18:00-23:59) 19 incidents") == ["19"]
+    # A genuine two-ended range is NOT an identifier and keeps both ends.
+    assert ma_mod.figures_in("range 24-49, mean 31.5") == ["24", "49", "31.5"]
+    # Nor is a hyphenated compound. The first draft of the identifier rule
+    # read "73-case" as an identifier and threw away the exact number the
+    # live rejection names — the rule must not be symmetric.
+    assert ma_mod.figures_in("a 73-case total") == ["73"]
+    assert ma_mod.figures_in("a 24-year-old accused") == ["24"]
+
+
+def test_module71_the_recurring_accused_sub_answer_does_not_trip_the_detector():
+    """The live shape of the false positive, end to end."""
+    answer = (
+        "شہزیب عرف شابی appears in fir-214-26 and fir-891-24, and عاصم رشید "
+        "appears in fir-64-26 and fir-65-26 [Document 5]."
+    )
+    assert ma_mod._misattributed_figures(answer, _M71_ENTRIES) == []
+
+
+def test_module71_the_live_rejection_number_belongs_to_exactly_one_sub_answer():
+    """The root-cause claim, asserted rather than narrated: 73 is stated by
+    the time-of-day sub-answer and by no other, so a 73-case total for
+    seized property is a cross-document borrow by construction."""
+    holders = [name for name, text in _M71_ENTRIES if "73" in ma_mod.figures_in(text)]
+    assert holders == ["time"]
+
+
+def test_module71_a_cross_denominator_total_is_detected():
+    """The live shape verbatim: the corpus case count from [Document 4]
+    attached to [Document 3]'s seized property."""
+    answer = (
+        "The accused are aged 24-49, mean 31.5 [Document 1]. "
+        "Seized property covers a 73-case total [Document 3]. "
+        "Incidents peak in the evening [Document 4]."
+    )
+    assert ma_mod._misattributed_figures(answer, _M71_ENTRIES) == [("73", 3)]
+
+
+def test_module71_a_correctly_attributed_answer_is_not_flagged():
+    answer = (
+        "Accused ages run 24-49 with a mean of 31.5, from 17 of 92 [Document 1]. "
+        "اجنبی dominates at 15 of 24 relationship edges [Document 2]. "
+        "45 register entries across 28 FIRs: 13 to a forensic laboratory, 7 to "
+        "heirs [Document 3]. "
+        "64 of 73 incidents carry a datetime, peaking in the evening [Document 4]."
+    )
+    assert ma_mod._misattributed_figures(answer, _M71_ENTRIES) == []
+
+
+def test_module71_an_outright_invention_is_left_to_the_verifier():
+    """A figure NO sub-answer states is not this module's business — the
+    detector is deliberately narrow, so a firing means "cross-document
+    borrow" and nothing else. The verifier still owns the invention."""
+    answer = "Seized property covers 999 cases [Document 3]."
+    assert ma_mod._misattributed_figures(answer, _M71_ENTRIES) == []
+
+
+def test_module71_a_sentence_citing_the_owning_document_too_is_not_flagged():
+    """Citing both documents is a legitimate cross-reference, not a borrow."""
+    answer = "64 of 73 incidents are dated [Document 4], and 45 entries were seized [Document 3][Document 4]."
+    assert ma_mod._misattributed_figures(answer, _M71_ENTRIES) == []
+
+
+def test_module71_the_sub_answers_section_carries_no_extra_document_marker():
+    """The roster this module built and then deleted lived here. It cost G6
+    a live regression (0 of 4 pre-fix rejections -> 7 of 8 with it in, every
+    one the "cites no [Document N] source at all" refusal Module 29 filed),
+    and bought no measured benefit, so the section is back to one line per
+    sub-answer. This test is the guard: exactly one `[Document N]` marker
+    per document, and nothing interleaved between the sub-answers.
+    `_format_subanswers_for_prompt`'s docstring carries the measurement."""
+    rendered = ma_mod._format_subanswers_for_prompt(_M71_ENTRIES)
+    assert rendered.count("[Document 3]") == 1
+    assert rendered.count("[Document ") == len(_M71_ENTRIES)
+    assert "Figures stated by this sub-answer" not in rendered
+    # One block per sub-answer, header line + text, nothing else.
+    blocks = rendered.split("\n\n")
+    assert len(blocks) == len(_M71_ENTRIES)
+    assert blocks[2] == "[Document 3] Sub-question: property\n" + _M71_PROPERTY
+
+
+def test_module71_the_synthesis_rules_scope_a_number_to_its_own_document():
+    """A wording lock. The old rule 2 ("appears literally in a sub-answer
+    above") is the rule the fabricated 73 SATISFIED, so its return would
+    silently reopen the defect."""
+    template = ma_mod._SYNTHESIS_SYSTEM_PROMPT_TEMPLATE
+    assert "THE SUB-ANSWER YOU CITE FOR IT" in template
+    assert "not merely somewhere above" in template
+    assert "Never carry a total, a denominator or a coverage figure from one" in template
+    # The derived-number half of the old rule survives, as its own rule 3.
+    assert "Do not add up, average, or convert figures into percentages" in template
+
+
+def test_module71_g1s_synthesis_goal_forbids_lending_a_denominator():
+    plan = next(p for p in ma_mod._DECOMPOSITION_PLANS if p.name == "caseload_review")
+    assert "ITS OWN figure" in plan.synthesis_goal
+    assert "never give one finding another's total" in plan.synthesis_goal
+
+
+@pytest.mark.asyncio
+async def test_module71_a_rejected_synthesis_serves_the_sub_answers_not_an_error(monkeypatch):
+    """The user-visible half. `cutover.py` turns ABSTAINED-with-no-text into
+    `status=error`; five correctly computed aggregates must not be thrown
+    away because the paragraph joining them over-reached."""
+    _stub_decompose(
+        monkeypatch,
+        decompose=True,
+        sub_queries=[_SUB_Q1, _SUB_Q2],
+        synthesis_goal="Profile the caseload.",
+    )
+    _stub_supervisor_handle(
+        monkeypatch,
+        {
+            _SUB_Q1: SubAgentResult(status=SubAgentStatus.OK, answer_text=_M71_PROPERTY, tools_used=["XAGG"]),
+            _SUB_Q2: SubAgentResult(status=SubAgentStatus.OK, answer_text=_M71_TIME, tools_used=["XAGG"]),
+        },
+    )
+    _stub_call_llm(monkeypatch, "Seized property covers a 73-case total [Document 1].")
+    _stub_verify_grounding(
+        monkeypatch,
+        grounded=False,
+        reason="Two claims lack explicit support in the cited chunks: the alleged data "
+        "discrepancy and the 73-case total for seized property.",
+    )
+    _stub_validate_answer(monkeypatch)
+
+    result = await meta_analysis(_agent_input())
+
+    assert result.status == SubAgentStatus.PARTIAL
+    # Served: every verified sub-answer, with its own sub-question as a heading.
+    assert _M71_PROPERTY in result.answer_text
+    assert _M71_TIME in result.answer_text
+    assert _SUB_Q1 in result.answer_text
+    # NOT served: the rejected synthesis, in whole or in the offending part.
+    assert "73-case total" not in result.answer_text
+    assert any("shown as computed" in c for c in result.caveats)
+    # Citations still line up 1:1 with the documents.
+    assert [c.document_index for c in result.citations] == [1, 2]
+    assert result.tools_used == ["XAGG"]
+
+
+@pytest.mark.asyncio
+async def test_module71_the_fallback_makes_no_second_llm_call(monkeypatch):
+    """The fallback is deterministic — it composes the sub-answers, it does
+    not ask a model to try again. A retry loop here would hide exactly the
+    non-determinism this module exists to measure (Module 61's own posture
+    on its deterministic post-pass)."""
+    _stub_decompose(monkeypatch, decompose=True, sub_queries=[_SUB_Q1, _SUB_Q2], synthesis_goal="g")
+    _stub_supervisor_handle(
+        monkeypatch,
+        {
+            _SUB_Q1: SubAgentResult(status=SubAgentStatus.OK, answer_text=_M71_PROPERTY, tools_used=["XAGG"]),
+            _SUB_Q2: SubAgentResult(status=SubAgentStatus.OK, answer_text=_M71_TIME, tools_used=["XAGG"]),
+        },
+    )
+    calls = []
+
+    async def _counting_call_llm(system_prompt, user_message, **kwargs):
+        calls.append(system_prompt)
+        return "Seized property covers a 73-case total [Document 1]."
+
+    monkeypatch.setattr(ma_mod, "call_llm", _counting_call_llm)
+    _stub_verify_grounding(monkeypatch, grounded=False, reason="unsupported")
+    _stub_validate_answer(monkeypatch)
+
+    await meta_analysis(_agent_input())
+
+    assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_module71_an_off_topic_synthesis_also_falls_back_rather_than_erroring(monkeypatch):
+    _stub_decompose(monkeypatch, decompose=True, sub_queries=[_SUB_Q1], synthesis_goal="g")
+    _stub_supervisor_handle(
+        monkeypatch,
+        {_SUB_Q1: SubAgentResult(status=SubAgentStatus.OK, answer_text=_M71_PROPERTY, tools_used=["XAGG"])},
+    )
+    _stub_call_llm(monkeypatch, "Unrelated prose about the weather.")
+    _stub_verify_grounding(monkeypatch, grounded=True, off_topic=True, reason="off topic")
+    _stub_validate_answer(monkeypatch)
+
+    result = await meta_analysis(_agent_input())
+
+    assert result.status == SubAgentStatus.PARTIAL
+    assert "weather" not in result.answer_text
+    assert _M71_PROPERTY in result.answer_text
+
+
+@pytest.mark.asyncio
+async def test_module71_nothing_changes_on_a_synthesis_the_verifier_accepts(monkeypatch):
+    """The fallback must not become the normal path. A passing synthesis is
+    still served verbatim, as OK, with its validation gate run."""
+    _stub_decompose(monkeypatch, decompose=True, sub_queries=[_SUB_Q1, _SUB_Q2], synthesis_goal="g")
+    _stub_supervisor_handle(
+        monkeypatch,
+        {
+            _SUB_Q1: SubAgentResult(status=SubAgentStatus.OK, answer_text=_M71_PROPERTY, tools_used=["XAGG"]),
+            _SUB_Q2: SubAgentResult(status=SubAgentStatus.OK, answer_text=_M71_TIME, tools_used=["XAGG"]),
+        },
+    )
+    _stub_call_llm(monkeypatch, "45 entries were seized [Document 1]; 64 of 73 are dated [Document 2].")
+    _stub_verify_grounding(monkeypatch, grounded=True)
+    _stub_validate_answer(monkeypatch)
+
+    result = await meta_analysis(_agent_input())
+
+    assert result.status == SubAgentStatus.OK
+    assert result.answer_text == "45 entries were seized [Document 1]; 64 of 73 are dated [Document 2]."
