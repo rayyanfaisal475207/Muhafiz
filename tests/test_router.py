@@ -1041,7 +1041,17 @@ def test_module60_broad_form_was_rejected_for_a_measured_reason():
     one of them, KB5, is wrong" — is preserved here as the seven-question
     union of what has since been taken and what is still, correctly,
     refused. The load-bearing half is the residue: KB5, G1 and A1 must
-    still be refused."""
+    still be refused.
+
+    [AMENDED — Module 74] KB3 joins the residue. Module 74 gave KB3's data
+    half a real aggregate (`officer_role_pair_overlap`), so
+    `resolves_to_specific_aggregate(KB3)` flipped True — but the kind is
+    deliberately NOT in `_XAGG_ROUTE_OVERRIDE_KINDS`, so KB3's route is
+    unchanged and it keeps reaching RAG for the statutory half its gold
+    answer is mostly made of. That is the same call Module 67 made for KB5,
+    for the same reason, and it is why this residue is the load-bearing
+    assertion: a legal-KB question resolving to a real aggregate must not,
+    on its own, become a routing decision."""
     from src.pipeline.xagg import resolves_to_specific_aggregate
 
     still_refused = sorted(
@@ -1050,14 +1060,16 @@ def test_module60_broad_form_was_rejected_for_a_measured_reason():
         if router._deterministic_route_override(it["question"]) is None
         and resolves_to_specific_aggregate(it["question"])
     )
-    assert still_refused == ["A1", "G1", "KB5"], still_refused
-    # The broad form's real blast radius, unchanged as a measurement: the
-    # four Module 67 took, plus M4, plus the three still refused above.
-    # Module 60's prose says "seven" and then names eight (A1, CS4, CP1, M2,
-    # M4, M7, G1, KB5) — the count was the typo, not the list; it is EIGHT.
+    assert still_refused == ["A1", "G1", "KB3", "KB5"], still_refused
+    # The broad form's real blast radius, re-measured: the four Module 67
+    # took, plus M4, plus the four still refused above. Module 60's prose
+    # says "seven" and then names eight (A1, CS4, CP1, M2, M4, M7, G1, KB5)
+    # — the count was the typo, not the list; it was EIGHT, and Module 74's
+    # KB3 makes it NINE.
     broad_form_would_move = sorted(set(still_refused) | {"M4"} | set(_MODULE67_INTENDED_MOVES))
-    assert len(broad_form_would_move) == 8, broad_form_would_move
+    assert len(broad_form_would_move) == 9, broad_form_would_move
     assert "KB5" in broad_form_would_move
+    assert "KB3" in broad_form_would_move
 
 
 # ═══════════════════════════════════════════════════════════════════════

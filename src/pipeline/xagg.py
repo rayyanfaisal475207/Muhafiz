@@ -247,6 +247,141 @@ _PLACEHOLDER_OFFICER_KEYWORDS = (
     "asal tor par", "asal tafteeshi afsar", "asal afsar",
     "اصل تفتیشی افسر", "حقیقی تفتیشی افسر", "اصل افسر",
 )
+
+# ── [Gold-QA fix — Module 74, question KB3] registering vs. investigating ──
+#
+# KB3 asks whether the officer who REGISTERS a case is the same one who
+# INVESTIGATES it — the Police Order 2002 Article 18 separation-of-roles
+# question — and then whether our own data matches. Before this module that
+# question reached `_OFFICER_KEYWORDS` and got `unsupported_officer`, whose
+# text asserts that "investigating-officer identity is not currently modeled
+# as a queryable field". That claim stopped being true: the graph carries
+# 144 `(:Officer)-[:ASSIGNED_TO {role}]->(:Case)` edges, 74 `investigating`
+# and 70 `recording`, and the comparison is a straight per-case pairing.
+#
+# THREE signals, all required, for the reason the brief insists on: the
+# refusal is CORRECT for a general "which officer" identity question and
+# must keep answering those. A pair-comparison names BOTH sides of the pair
+# AND asks whether they are the same or separate; a "which officer is on
+# fir-117-26?" question names neither the other role nor a sameness test, so
+# it still falls through to the refusal. `TestOfficerRolePairBoundary` in
+# `tests/test_xagg.py` pins both directions.
+# WIDENED after the first paraphrase sweep, and the widening is reported
+# rather than hidden: the tuples this family shipped with were mined from
+# KB3's own gold wording, and BOTH of the non-gold paraphrases written for
+# this module missed. That is Module 56's finding again — a narrow trigger
+# list is the safe default for a REFUSAL and the wrong one for a real
+# aggregate, because a missed match no longer means "generic answer", it
+# means the `unsupported_officer` refusal this family exists to replace.
+# The all-32 equality control still moves exactly one question (KB3), and
+# `TestOfficerRolePairBoundary` still holds the refusal for every
+# officer-IDENTITY question.
+_OFFICER_REGISTERING_TERMS = (
+    "registering officer", "recording officer", "registers a case",
+    "registers the case", "register a case", "registered the case",
+    "first registers", "who registers", "records the fir", "record the fir",
+    "recording the fir", "records a case", "who first registers",
+    "writes up the fir", "writes the fir", "who writes", "logs the case",
+    "lodges the fir", "who lodges", "files the fir",
+    "darj karne wala", "darj karnay wala", "muharrir",
+    "likhne wala", "likhnay wala", "fir likhne", "fir darj karne",
+    "اندراج کرنے والا", "محرر", "مقدمہ درج کرنے والا",
+    "ایف آئی آر لکھنے والا", "لکھنے والا", "درج کرنے والا",
+)
+_OFFICER_INVESTIGATING_TERMS = (
+    "investigating officer", "investigation officer", "investigates it",
+    "investigates the case", "who investigates", "ends up investigating",
+    "investigating it", "carries out the investigation",
+    "later investigates", "then investigates", "does the investigation",
+    "runs the investigation", "handles the investigation",
+    "tafteesh karne wala", "tafteeshi afsar", "tafteesh bhi karta",
+    "tafteesh karta", "tafteesh bhi", "tafteesh karne",
+    "تفتیشی افسر", "افسر تفتیش", "تفتیش کرنے والا", "تفتیش بھی",
+    "تفتیش کرتا", "تفتیش کرنے",
+)
+_OFFICER_ROLE_SAMENESS_TERMS = (
+    "same person", "same one", "same officer", "same individual",
+    "separate role", "separate roles", "separate function",
+    "different person", "different people", "different officer",
+    "two different", "split", "role separation",
+    "one and the same", "both roles", "usually the same",
+    "ek hi shakhs", "ek hi afsar", "ek hi", "alag alag", "do alag",
+    "ایک ہی شخص", "ایک ہی افسر", "ایک ہی", "الگ الگ", "الگ کردار",
+    "دو الگ",
+)
+
+
+def _is_officer_role_pair_comparison(query_lower: str) -> bool:
+    """True for KB3's family: is the registering officer the same person as
+    the investigating officer?
+
+    A named predicate rather than an inlined `and`, for the same reason
+    `_is_statute_court_stage_join()` is one — the boundary it protects (the
+    `unsupported_officer` refusal, which is the RIGHT answer for a general
+    officer-identity question) is then testable directly.
+    """
+    return (
+        _matches_any(query_lower, _OFFICER_REGISTERING_TERMS)
+        and _matches_any(query_lower, _OFFICER_INVESTIGATING_TERMS)
+        and _matches_any(query_lower, _OFFICER_ROLE_SAMENESS_TERMS)
+    )
+
+
+# ── [Gold-QA fix — Module 75, question KB8] challans sent to court ────────
+#
+# KB8 asks whether the law makes the police report to the court before an
+# investigation is complete, and then whether our own case-tracking data
+# shows the case reached court. Gold's data half is "adaalat bheja gaya
+# challan (26 cases)". Before this module that reached
+# `_CRIMINAL_RECORD_KEYWORDS` and got `criminal_record_court_crosscheck`,
+# which counts the 33 `criminal_record` rows — a plausible-looking WRONG
+# number in exactly the slot gold puts 26 in.
+#
+# The cause, confirmed by probe before any code (`MODULE75_RESULT.md` §1):
+# `xagg.py` read `chalaan_outcome` (20 rows) and never `chalaan_dispatch`
+# (26 rows / 26 distinct cases, which IS gold's figure). Two record types,
+# two different quantities, and the one the file already touched is not the
+# one the question asks for.
+#
+# TWO signals, and the second is what keeps CR7 whole: a challan term AND a
+# sent-to-court term. CR7's own vocabulary ("کرمنل ریکارڈ", "عدالتی نتیجے")
+# carries no challan word, and this predicate is checked ABOVE
+# `_CRIMINAL_RECORD_KEYWORDS` — so a question naming a challan explicitly
+# gets the challan count, and everything CR7 answers today is untouched.
+# The all-32 equality control enforces both halves.
+_CHALAAN_TERMS = (
+    "challan", "chalaan", "chalan", "challaan",
+    "چالان", "چلان",
+)
+_SENT_TO_COURT_TERMS = (
+    "sent to court", "sent to the court", "submitted to court",
+    "submitted to the court", "dispatched to court", "dispatch to court",
+    "forwarded to court", "reached court", "reach court",
+    "reached the court", "filed in court", "put up in court",
+    "adaalat bheja", "adalat bheja", "adaalat mein bheja",
+    "adalat mein bheja", "adaalat tak", "adalat tak",
+    # Urdu verb stems, not full forms: بھیجا / بھیجے / بھیجنے all follow
+    # the same stem, and the full-form-only tuple this started as missed
+    # "عدالت بھیجے گئے" outright.
+    "عدالت بھیج", "عدالت میں بھیج", "عدالت روانہ", "عدالت تک",
+    "عدالت کو بھیج", "چالان عدالت",
+)
+
+
+def _is_chalaan_dispatch_count(query_lower: str) -> bool:
+    """True for KB8's family: how many challans have actually gone to court?
+
+    A named predicate rather than an inlined `and`, for the same reason
+    `_is_statute_court_stage_join()` is one — the boundary it protects
+    (CR7's `criminal_record_court_crosscheck`, which scores today and reads
+    a completely different record type) is then testable directly.
+    """
+    return (
+        _matches_any(query_lower, _CHALAAN_TERMS)
+        and _matches_any(query_lower, _SENT_TO_COURT_TERMS)
+    )
+
+
 # [Gold-QA fix — CR7, Module 14] Criminal-record status + court-outcome
 # consistency questions. CR7 (Urdu) asks how many criminal-record cases are
 # completed vs. in progress, AND whether, where a separate court record
@@ -1019,6 +1154,57 @@ _CASE_PROGRESS_TERMS = (
     "کہاں تک", "کس درجے", "کس مرحلے", "تک پہنچے", "کہاں پہنچ",
     "زیرِ سماعت", "زیر سماعت", "فیصلہ ہو", "سزا سنائی",
 )
+
+
+
+# ── [Gold-QA fix — Module 76, question KB9] per-section FIR counts ────────
+#
+# KB9's data half needs ONE number at ONE grain: how many FIRs cite a given
+# section. The only aggregate publishing anything like it was
+# `statute_court_stage_join`, a whole-caseload two-view report whose statute
+# list is capped at 15 rows and which carries `PPC §302: 10 case(s)` as row
+# six. Module 39 wired it anyway and measured what that costs: one live run
+# named the section without its count, and another read past the row and
+# asserted that no listed section pertains to death — factually wrong, from
+# a chunk holding the right row. That is a GRAIN failure, not a data one.
+#
+# TWO signals: an FIR-count term AND a section term. Deliberately NOT a bare
+# "section" — `_CASE_PROGRESS_TERMS` and the court families already own
+# every question about how far a charged case has got, and M4's whole shape
+# is "sections × court stage". This predicate is checked immediately BELOW
+# `_is_statute_court_stage_join()` for exactly that reason: a question that
+# asks for sections AND court progress is still M4's, and the canned KB9
+# sub-query Module 39 already ships ("...and how far have those cases got in
+# court?") keeps the family its plan names, so nothing it wired is dropped
+# by the runtime family check in `rag.py::_run_kb_data_half()`.
+_FIR_SECTION_COUNT_TERMS = (
+    "how many firs", "how many fir ", "how many f.i.r", "number of firs",
+    "count of firs", "how many firs cite", "how many first information",
+    "kitni firs", "kitni fir ", "kitne fir ",
+    "کتنی ایف آئی آر", "کتنے ایف آئی آر", "کتنی رپورٹس",
+)
+_FIR_SECTION_TERMS = (
+    "ppc section", "penal code section", "section of the ppc",
+    "fir section", "fir sections", "each section", "per section",
+    "under section", "cite section", "cited section", "cite each",
+    "which sections", "section 302", "ppc 302",
+    "dafa ", "dafaat",
+    "دفعہ", "دفعات",
+)
+
+
+def _is_fir_section_case_count(query_lower: str) -> bool:
+    """True for KB9's family: how many FIRs cite a given (or each) section?
+
+    A named predicate rather than an inlined `and`, for the same reason
+    `_is_statute_court_stage_join()` is one — the boundary it protects (M4's
+    statute x court-stage join, which is checked immediately above it and
+    scores today) is then testable directly.
+    """
+    return (
+        _matches_any(query_lower, _FIR_SECTION_COUNT_TERMS)
+        and _matches_any(query_lower, _FIR_SECTION_TERMS)
+    )
 
 
 def _is_statute_court_stage_join(query_lower: str) -> bool:
@@ -2478,6 +2664,164 @@ async def _placeholder_officer_count(jurisdiction_case_ids: Optional[list[str]] 
     }
 
 
+async def _officer_role_pair_overlap(
+    jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    """
+    [Gold-QA fix — Module 74, question KB3] Is the officer who REGISTERS a
+    case the same one who INVESTIGATES it?
+
+    Police Order 2002 Article 18 sets up an Investigation Wing and says a
+    registered case "shall be investigated by the investigation staff" — the
+    law expects the two functions to be separate. This aggregate answers the
+    other half of KB3: whether our own data shows that separation.
+
+    GRAIN, and why it is the EDGE and not the case. Gold says "the same
+    person in 68 of 74 pairs (92%)" and "role-splitting happens in only 6
+    cases". 74 is the number of `role='investigating'` ASSIGNED_TO edges, not
+    the number of cases (73 cases carry one, and `fir-205-26` carries two —
+    a superseded placeholder ASI plus the real successor). Counting per CASE
+    gives 68 same / 5 split, which is a true statement about a different
+    denominator and does NOT reproduce gold's pair count. So the unit here is
+    the investigating ASSIGNMENT, and each one is asked: does the officer
+    holding it also hold this case's `recording` edge? Both denominators are
+    returned; the renderer leads with the pair one.
+
+    Derived independently before this aggregate was written
+    (`MODULE74_RESULT.md` §1): 144 edges, 74 investigating / 70 recording,
+    68 of the 74 investigating assignments name the same person as that
+    case's recording officer = 91.9%, and 6 do not. That reproduces gold
+    exactly.
+    """
+    params: dict = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+    case_filter = "WHERE c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+
+    rows = await age_client.execute_cypher(
+        "MATCH (o:Officer)-[r:ASSIGNED_TO]->(c:Case) "
+        f"{case_filter}"
+        "RETURN c.case_id AS case_id, o.canonical_name AS name, r.role AS role",
+        params=params, columns=["case_id", "name", "role"],
+    )
+
+    # role -> {case_id -> set(officer names)}. Names are compared as-is:
+    # `Officer.canonical_name` is already the canonicalised form both edges
+    # are projected against, so a same-person pair is a string equality.
+    by_case: dict[str, dict[str, set]] = {}
+    investigating_edges: list[tuple] = []
+    for row in rows:
+        case_id = row.get("case_id")
+        name = row.get("name")
+        role = (row.get("role") or "").strip().lower()
+        if not case_id or not name or not role:
+            continue
+        by_case.setdefault(case_id, {}).setdefault(role, set()).add(name)
+        if role == "investigating":
+            investigating_edges.append((case_id, name))
+
+    same_pairs: list[dict] = []
+    split_pairs: list[dict] = []
+    for case_id, name in investigating_edges:
+        recorders = by_case.get(case_id, {}).get("recording", set())
+        entry = {
+            "case_id": case_id,
+            "investigating_officer": name,
+            "recording_officer": sorted(recorders)[0] if recorders else None,
+            "has_recording_counterpart": bool(recorders),
+        }
+        if name in recorders:
+            same_pairs.append(entry)
+        else:
+            split_pairs.append(entry)
+
+    total_pairs = len(investigating_edges)
+    same_share = (len(same_pairs) / total_pairs) if total_pairs else None
+
+    # The case-grain view, kept alongside rather than instead of the pair
+    # one — a reader who checks the split list against the corpus counts
+    # cases, and the two denominators differ by exactly the one case with a
+    # superseded investigating assignment.
+    split_cases = sorted({p["case_id"] for p in split_pairs})
+    no_counterpart = [p for p in split_pairs if not p["has_recording_counterpart"]]
+
+    # Observability (Module 55) — XAGG's SSE reports only `route='XAGG'`, so
+    # this line is the only evidence of WHICH aggregate answered a live
+    # question. It carries the FIGURES, not just the kind.
+    logger.info(
+        "XAGG officer_role_pair_overlap: %d assignment edge(s), %d "
+        "investigating / %d recording; same officer on %d of %d pair(s) "
+        "(%s), %d split across %d case(s), %d investigating assignment(s) "
+        "with no recording counterpart",
+        len(rows),
+        total_pairs,
+        sum(len(v.get("recording", ())) for v in by_case.values()),
+        len(same_pairs), total_pairs,
+        f"{same_share * 100:.1f}%" if same_share is not None else "n/a",
+        len(split_pairs), len(split_cases), len(no_counterpart),
+    )
+    return {
+        "kind": "officer_role_pair_overlap",
+        "assignment_edge_count": len(rows),
+        "pair_count": total_pairs,
+        "recording_edge_count": sum(
+            len(v.get("recording", ())) for v in by_case.values()
+        ),
+        "same_officer_count": len(same_pairs),
+        "split_count": len(split_pairs),
+        "split_case_count": len(split_cases),
+        "no_recording_counterpart_count": len(no_counterpart),
+        "same_share": same_share,
+        "split_pairs": split_pairs,
+    }
+
+
+_OFFICER_PAIR_RENDER_LIMIT = 10
+
+
+def render_officer_role_pair_overlap(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — Module 74, KB3] shared renderer, imported by all three
+    XAGG rendering sites — same reason as `render_statute_court_stage_join()`.
+    """
+    total = agg_result.get("pair_count") or 0
+    same = agg_result.get("same_officer_count") or 0
+    split = agg_result.get("split_count") or 0
+    if not total:
+        return [
+            "No officer assignments are recorded, so the registering officer "
+            "and the investigating officer cannot be compared."
+        ]
+    share = agg_result.get("same_share")
+    pct = f"{share * 100:.0f}%" if share is not None else "n/a"
+    lines = [
+        f"In this corpus the two roles are mostly NOT separated: the officer "
+        f"who recorded the FIR and the officer who investigated it are the "
+        f"same person in {same} of {total} recorded assignment pairs ({pct}). "
+        f"Roles are split in only {split} pair(s), across "
+        f"{agg_result.get('split_case_count') or 0} case(s)."
+    ]
+    no_counterpart = agg_result.get("no_recording_counterpart_count") or 0
+    if no_counterpart:
+        lines.append(
+            f"  - {no_counterpart} of those {split} carry an investigating "
+            f"officer with no recording officer on the same case at all, so "
+            f"the pair is unresolvable rather than genuinely split."
+        )
+    for pair in (agg_result.get("split_pairs") or [])[:_OFFICER_PAIR_RENDER_LIMIT]:
+        recorder = pair.get("recording_officer") or "no recording officer"
+        lines.append(
+            f"  - {pair['case_id']}: investigated by "
+            f"{pair['investigating_officer']}, recorded by {recorder}"
+        )
+    remaining = split - min(split, _OFFICER_PAIR_RENDER_LIMIT)
+    if remaining > 0:
+        lines.append(f"  - ... and {remaining} more split pair(s).")
+    lines.append(
+        f"Basis: {agg_result.get('assignment_edge_count') or 0} officer-to-case "
+        f"assignment records, {total} of them investigating and "
+        f"{agg_result.get('recording_edge_count') or 0} recording."
+    )
+    return lines
+
+
 # [Gold-QA fix — CR7, Module 14] FIR number pulled out of a free-text case
 # reference so a criminal record's `source_case_ref` ("FIR 891/24, PS Jhang
 # Road Faisalabad") and a court outcome's `source_doc_id`
@@ -2505,6 +2849,160 @@ def _conviction_is_settled(status: Optional[str]) -> bool:
     match on both the English tokens the data uses and their Urdu forms."""
     s = (status or "").lower()
     return any(t in s for t in ("convicted", "acquitted", "سزا", "بری", "نمٹ"))
+
+
+# [Gold-QA fix — Module 75, KB8] The record type that actually holds a
+# challan dispatch, and the neighbouring one this file used to read
+# instead. Named constants rather than inline literals precisely because
+# the whole defect was a one-word difference between them.
+_CHALAAN_DISPATCH_RECORD_TYPE = "chalaan_dispatch"
+_CHALAAN_OUTCOME_RECORD_TYPE = "chalaan_outcome"
+
+# Gold's KB8 answer asserts a schema ABSENCE — "schema mein kahin interim
+# report ka koi tasavvur nahi" — and the brief's judging standard counts
+# correctly stating a gap, where gold agrees, as a pass. So the absence is
+# DERIVED from the record types actually present rather than hard-coded as
+# prose: if an interim-report record type is ever ingested, this aggregate
+# stops claiming the gap on its own.
+_INTERIM_REPORT_TOKENS = ("interim", "zimni_report", "progress_report")
+
+
+async def _chalaan_dispatch_count(
+    jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    """
+    [Gold-QA fix — Module 75, question KB8] How many challans have been sent
+    to court, and how many cases do they cover?
+
+    CrPC s.173 makes the officer in charge forward a report to the
+    magistrate, and an interim report within three days of the fourteenth
+    day if the investigation is not finished. KB8 asks whether our data can
+    show that happened. It can show the END of that pipeline and not the
+    middle, and this aggregate says both things.
+
+    WHY A NEW FAMILY AND NOT CR7's. `criminal_record_court_crosscheck`
+    counts `criminal_record` rows (33 live) and is a good answer to CR7's
+    question. It is a WRONG answer to KB8's, in the specific way that is
+    hardest to catch: a confident, plausible number in the slot gold fills
+    with 26. The 26 are `chalaan_dispatch` StructuredRecords, a record type
+    nothing in this file read before this module — `chalaan_outcome` (20
+    rows) is the one it did, and it is a different quantity again.
+    """
+    params: dict = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+    case_filter = "AND c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+
+    dispatch_rows = await age_client.execute_cypher(
+        "MATCH (s:StructuredRecord)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE s.record_type = '{_CHALAAN_DISPATCH_RECORD_TYPE}' {case_filter}"
+        "RETURN c.case_id AS case_id, s.record_id AS record_id, "
+        "s.dispatch_datetime AS dispatch_datetime",
+        params=params, columns=["case_id", "record_id", "dispatch_datetime"],
+    )
+    dispatched = [
+        {
+            "case_id": r.get("case_id"),
+            "record_id": r.get("record_id"),
+            "dispatch_datetime": r.get("dispatch_datetime"),
+        }
+        for r in dispatch_rows if r.get("case_id")
+    ]
+    dispatch_cases = sorted({d["case_id"] for d in dispatched})
+    dated = [d for d in dispatched if d["dispatch_datetime"]]
+
+    # The neighbouring record type, reported alongside rather than instead
+    # of — the two are routinely confused (this module exists because they
+    # were), and naming both figures is what makes a live run's log line
+    # self-evidently the right metric.
+    outcome_rows = await age_client.execute_cypher(
+        "MATCH (s:StructuredRecord)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE s.record_type = '{_CHALAAN_OUTCOME_RECORD_TYPE}' {case_filter}"
+        "RETURN c.case_id AS case_id, s.challan_reached_court_date AS court_date",
+        params=params, columns=["case_id", "court_date"],
+    )
+    outcome_cases = sorted({r.get("case_id") for r in outcome_rows if r.get("case_id")})
+    outcome_dated = [r for r in outcome_rows if r.get("court_date")]
+
+    # The schema gap gold asserts, derived rather than declared.
+    type_rows = await age_client.execute_cypher(
+        "MATCH (s:StructuredRecord) RETURN DISTINCT s.record_type AS record_type",
+        columns=["record_type"],
+    )
+    record_types = sorted(
+        str(r.get("record_type")) for r in type_rows if r.get("record_type")
+    )
+    interim_types = [
+        t for t in record_types
+        if any(tok in t.lower() for tok in _INTERIM_REPORT_TOKENS)
+    ]
+
+    # Observability (Module 55) — XAGG's SSE reports only `route='XAGG'`, so
+    # this line is the only evidence of WHICH aggregate answered a live
+    # question. Both record-type counts are in it on purpose: this module's
+    # whole defect was the wrong one of the two.
+    logger.info(
+        "XAGG chalaan_dispatch_count: %d challan dispatch record(s) across "
+        "%d case(s), %d carrying a dispatch timestamp; %d chalaan_outcome "
+        "record(s) across %d case(s), %d with a court-reached date; "
+        "interim-report record type present=%s",
+        len(dispatched), len(dispatch_cases), len(dated),
+        len(outcome_rows), len(outcome_cases), len(outcome_dated),
+        bool(interim_types),
+    )
+    return {
+        "kind": "chalaan_dispatch_count",
+        "dispatched_count": len(dispatched),
+        "dispatched_case_count": len(dispatch_cases),
+        "dispatched_with_timestamp": len(dated),
+        "dispatched_cases": dispatch_cases,
+        "outcome_count": len(outcome_rows),
+        "outcome_case_count": len(outcome_cases),
+        "outcome_with_court_date": len(outcome_dated),
+        "record_types": record_types,
+        "has_interim_report_record": bool(interim_types),
+    }
+
+
+_CHALAAN_CASE_RENDER_LIMIT = 12
+
+
+def render_chalaan_dispatch_count(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — Module 75, KB8] shared renderer, imported by all three
+    XAGG rendering sites — same reason as `render_statute_court_stage_join()`.
+    """
+    total = agg_result.get("dispatched_count") or 0
+    cases = agg_result.get("dispatched_case_count") or 0
+    if not total:
+        return ["No challan dispatch records are held, so no case can be shown to have reached court."]
+    lines = [
+        f"Our case-tracking data records {total} challan(s) sent to court, "
+        f"covering {cases} case(s). "
+        f"{agg_result.get('dispatched_with_timestamp') or 0} of those carry a "
+        f"dispatch timestamp; the rest record the dispatch without a date."
+    ]
+    outcome = agg_result.get("outcome_count") or 0
+    if outcome:
+        lines.append(
+            f"A separate, smaller set of {outcome} challan-outcome record(s) "
+            f"across {agg_result.get('outcome_case_count') or 0} case(s) "
+            f"records what happened next, "
+            f"{agg_result.get('outcome_with_court_date') or 0} of them with a "
+            f"date the challan reached court. The two are different records "
+            f"and different counts; the {total} above is the dispatch figure."
+        )
+    if not agg_result.get("has_interim_report_record"):
+        lines.append(
+            "What the data cannot show: there is no interim-report record "
+            "type anywhere in the schema, and no field linking a challan back "
+            "to the start of its own investigation. So the data confirms that "
+            "a case reached court, but not whether any interim reporting duty "
+            "along the way was met."
+        )
+    for case_id in (agg_result.get("dispatched_cases") or [])[:_CHALAAN_CASE_RENDER_LIMIT]:
+        lines.append(f"  - {case_id}")
+    remaining = cases - min(cases, _CHALAAN_CASE_RENDER_LIMIT)
+    if remaining > 0:
+        lines.append(f"  - ... and {remaining} more case(s) with a challan sent to court.")
+    return lines
 
 
 async def _criminal_record_court_crosscheck(
@@ -4150,6 +4648,198 @@ async def _statute_court_stage_join(
     }
 
 
+# [Gold-QA fix — Module 76, KB9] A section named IN the question, so the
+# answer can be given at that grain instead of as row six of a 15-row
+# table. Deliberately generic: any act, any section code, extracted from
+# the query text — nothing here is special-cased to PPC 302, which is the
+# only section gold's KB9 happens to name.
+_QUERY_SECTION_RES = (
+    # "PPC 302", "PPC section 302", "PPC §302", "PPC s.302"
+    re.compile(
+        r"\b(ppc|pakistan penal code|crpc|cnsa|peca)\b[^0-9a-z]{0,12}"
+        r"(?:section|sec\.?|s\.?|§)?\s*([0-9]{2,4}(?:-[a-z]\([a-z]+\)|-[a-z])?)",
+        re.IGNORECASE,
+    ),
+    # "section 302 of the Pakistan Penal Code", "section 302"
+    re.compile(
+        r"\bsection\s+([0-9]{2,4}(?:-[a-z]\([a-z]+\)|-[a-z])?)",
+        re.IGNORECASE,
+    ),
+    # Urdu / Roman-Urdu: "دفعہ 302", "dafa 302"
+    re.compile(r"(?:دفعہ|dafa)\s*([0-9]{2,4})", re.IGNORECASE),
+)
+
+
+def _section_code_in_query(query_text: str) -> Optional[str]:
+    """The section code named in the query, or None.
+
+    Returns only the CODE, never the act: the act spelling in a question
+    ("PPC", "Pakistan Penal Code") and in the data ("PPC") do not have to
+    agree, and the corpus carries each section code exactly once per act.
+    """
+    for pattern in _QUERY_SECTION_RES:
+        match = pattern.search(query_text or "")
+        if match:
+            return match.group(match.lastindex).strip().upper()
+    return None
+
+
+_FIR_SECTION_RENDER_LIMIT = 20
+
+
+async def _fir_section_case_count(
+    query_text: str,
+    jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    """
+    [Gold-QA fix — Module 76, question KB9] How many FIRs cite each section,
+    and — when the question names one — how many cite THAT section.
+
+    GRAIN is the whole point of this family. `statute_court_stage_join`
+    already computes per-section case counts, correctly, as one half of a
+    two-view report capped at 15 rows; Module 39 measured a live run reading
+    past the row it needed inside that report. This aggregate answers the
+    per-section question and nothing else, and when the query names a
+    section it LEADS with that section's count.
+
+    DIVERGENCE FROM GOLD, RECORDED RATHER THAN TUNED. Gold's KB9 says "8
+    FIRs qatl ki dafa (PPC 302) ka hawala dete hain". Re-derived
+    independently for this module (`MODULE76_RESULT.md` §1), off a fresh
+    probe rather than by inheriting Module 39's: **10** distinct FIRs carry
+    a `fir_section` row with act `PPC` and section `302`, exactly one row
+    per case (so no double counting), and the only section code in the
+    corpus containing "302" is "302" itself. That is 10 vs 8, a 25 % gap,
+    outside the brief's 5-10 % tolerance. Nothing in this function is
+    shaped to produce an 8.
+    """
+    params: dict = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+    case_filter = "AND c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+
+    rows = await age_client.execute_cypher(
+        "MATCH (s:StructuredRecord)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE s.record_type = 'fir_section' {case_filter}"
+        "RETURN s.act AS act, s.section_code AS section_code, "
+        "c.case_id AS case_id",
+        params=params, columns=["act", "section_code", "case_id"],
+    )
+
+    # key -> set(case_id). A case charged twice under one section must count
+    # once - the same denominator rule `_statute_court_stage_join()` uses,
+    # and the one gold's "8 FIRs" is expressed in.
+    cases_by_section: dict[str, set] = {}
+    meta: dict[str, tuple] = {}
+    all_cases: set = set()
+    for row in rows:
+        case_id = row.get("case_id")
+        act = row.get("act")
+        section_code = row.get("section_code")
+        label = _statute_label(act, section_code)
+        if not case_id or not label:
+            continue
+        all_cases.add(case_id)
+        cases_by_section.setdefault(label, set()).add(case_id)
+        meta.setdefault(label, (act, section_code))
+
+    sections = [
+        {
+            "key": key,
+            "act": meta[key][0],
+            "section_code": meta[key][1],
+            "fir_count": len(case_ids),
+        }
+        for key, case_ids in cases_by_section.items()
+    ]
+    sections.sort(key=lambda s: (-s["fir_count"], s["key"]))
+
+    focus_code = _section_code_in_query(query_text)
+    focus = None
+    if focus_code:
+        matched = [
+            s for s in sections
+            if (s["section_code"] or "").strip().upper() == focus_code
+        ]
+        if matched:
+            best = max(matched, key=lambda s: s["fir_count"])
+            focus = {
+                **best,
+                "case_ids": sorted(cases_by_section[best["key"]]),
+            }
+        else:
+            # Named but absent - an honest "no FIR cites it", which is a
+            # real answer and must not be silently dropped into the table.
+            focus = {
+                "key": focus_code, "act": None, "section_code": focus_code,
+                "fir_count": 0, "case_ids": [],
+            }
+
+    # Observability (Module 55) - XAGG's SSE reports only `route='XAGG'`, so
+    # this line is the only evidence of WHICH aggregate answered a live
+    # question, and the difference between this family and M4's is precisely
+    # the grain, so the focused figure has to be in the line.
+    logger.info(
+        "XAGG fir_section_case_count: %d section entr(ies) over %d FIR(s) "
+        "and %d distinct section(s); focus=%s -> %s FIR(s); top=%s",
+        len(rows), len(all_cases), len(sections),
+        focus_code or "none",
+        focus["fir_count"] if focus else "n/a",
+        ", ".join(
+            f"{s['key']}={s['fir_count']}" for s in sections[:5]
+        ) or "none",
+    )
+    return {
+        "kind": "fir_section_case_count",
+        "section_entry_count": len(rows),
+        "charged_fir_count": len(all_cases),
+        "distinct_section_count": len(sections),
+        "sections": sections,
+        "focus_section_code": focus_code,
+        "focus": focus,
+    }
+
+
+def render_fir_section_case_count(agg_result: dict) -> list[str]:
+    """[Gold-QA fix - Module 76, KB9] shared renderer, imported by all three
+    XAGG rendering sites - same reason as `render_statute_court_stage_join()`.
+    """
+    total_firs = agg_result.get("charged_fir_count") or 0
+    if not total_firs:
+        return ["No FIR in this corpus carries a recorded section."]
+
+    lines: list[str] = []
+    focus = agg_result.get("focus")
+    if focus:
+        label = focus.get("key") or focus.get("section_code")
+        count = focus.get("fir_count") or 0
+        if count:
+            lines.append(
+                f"{count} of the {total_firs} FIR(s) that carry a recorded "
+                f"section cite {label}."
+            )
+            case_ids = focus.get("case_ids") or []
+            if case_ids:
+                lines.append("  - " + ", ".join(case_ids[:_FIR_SECTION_RENDER_LIMIT]))
+        else:
+            lines.append(
+                f"No FIR in this corpus cites section {label}; "
+                f"{total_firs} FIR(s) carry a recorded section."
+            )
+        lines.append("For context, the sections most often cited:")
+    else:
+        lines.append(
+            f"{total_firs} FIR(s) carry a recorded section, "
+            f"{agg_result.get('section_entry_count') or 0} section entr(ies) "
+            f"across {agg_result.get('distinct_section_count') or 0} distinct "
+            f"section(s). Counted per FIR, so a case charged twice under one "
+            f"section counts once:"
+        )
+    for section in (agg_result.get("sections") or [])[:_FIR_SECTION_RENDER_LIMIT]:
+        lines.append(f"  - {section['key']}: {section['fir_count']} FIR(s)")
+    remaining = (agg_result.get("distinct_section_count") or 0) - _FIR_SECTION_RENDER_LIMIT
+    if remaining > 0:
+        lines.append(f"  - ... and {remaining} more section(s).")
+    return lines
+
+
 _STATUTE_RENDER_LIMIT = 15
 
 
@@ -5372,6 +6062,11 @@ def resolve_aggregate_kind(query_text: str) -> str:
     # that CR7 keeps its family and only CS4 lands on this one.
     if _is_criminal_record_local_gap(query_lower):
         return "criminal_record_local_match_gap"
+    # [Gold-QA fix — Module 75, KB8] Mirrors run_aggregate's placement:
+    # ABOVE `_CRIMINAL_RECORD_KEYWORDS` (CR7), which is what KB8's data
+    # half used to get — 33 criminal records where gold says 26 challans.
+    if _is_chalaan_dispatch_count(query_lower):
+        return "chalaan_dispatch_count"
     if _matches_any(query_lower, _CRIMINAL_RECORD_KEYWORDS):
         return "criminal_record_court_crosscheck"
     if _matches_any(query_lower, _DV_REPORT_KEYWORDS):
@@ -5397,6 +6092,12 @@ def resolve_aggregate_kind(query_text: str) -> str:
     # land on graph_recurrence/Person) and above _LIST_ALL/_TOTAL.
     if _is_arrest_rate(query_lower):
         return "arrest_rate"
+    # [Gold-QA fix — Module 74, KB3] Mirrors run_aggregate's placement:
+    # IMMEDIATELY above `_OFFICER_KEYWORDS`' honest refusal, which is what
+    # KB3's data half used to get, and which stays the right answer for a
+    # general "which officer" identity question.
+    if _is_officer_role_pair_comparison(query_lower):
+        return "officer_role_pair_overlap"
     if _matches_any(query_lower, _OFFICER_KEYWORDS):
         return "unsupported_officer"
     if _is_reporting_speed_comparison(query_lower):
@@ -5409,6 +6110,12 @@ def resolve_aggregate_kind(query_text: str) -> str:
         return "weapon_statute_cooccurrence_by_year"
     if _is_statute_court_stage_join(query_lower):
         return "statute_court_stage_join"
+    # [Gold-QA fix — Module 76, KB9] Mirrors run_aggregate's placement:
+    # IMMEDIATELY below M4's join, which owns any question pairing
+    # sections with court progress, and above the time/trend/person
+    # families KB9's own sub-query would otherwise fall into.
+    if _is_fir_section_case_count(query_lower):
+        return "fir_section_case_count"
     if _matches_any(query_lower, _TIME_OF_DAY_KEYWORDS):
         return "incident_time_of_day"
     if _matches_any(query_lower, _TIME_COMPARISON_KEYWORDS):
@@ -5603,6 +6310,26 @@ async def run_aggregate(
     # [Gold-QA fix — CR7, Module 14] Criminal-record status + court-outcome
     # consistency, checked before the generic count/status paths so a
     # "criminal record" question isn't answered as a plain case count.
+    # [Gold-QA fix — Module 75, question KB8] "How many challans have
+    # been sent to court, and how many cases do they cover, across all
+    # cases?"
+    #
+    # Placement, in both directions:
+    #   - BELOW CS4's `criminal_record_local_match_gap`, which is a
+    #     two-signal predicate over the criminal-records system and
+    #     carries no challan vocabulary at all.
+    #   - ABOVE, decisively, `_CRIMINAL_RECORD_KEYWORDS` (CR7). That is
+    #     what KB8's data half actually got before this module: CR7's
+    #     crosscheck, which counts the 33 `criminal_record` rows. It is a
+    #     correct answer to CR7 and a confidently wrong one to KB8, in
+    #     the same slot gold fills with 26. CR7 keeps first claim on its
+    #     own vocabulary because this predicate additionally requires a
+    #     challan term, which CR7's gold text does not contain — verified
+    #     against all 32 gold questions in `tests/test_xagg.py`.
+    if kind == "chalaan_dispatch_count":
+        return await _chalaan_dispatch_count(
+            jurisdiction_case_ids=jurisdiction_case_ids
+        )
     if kind == "criminal_record_court_crosscheck":
         return await _criminal_record_court_crosscheck(jurisdiction_case_ids=jurisdiction_case_ids)
     # [Gold-QA fix — CR8, Module 15] DV report ↔ FIR confirmation. Checked
@@ -5701,6 +6428,29 @@ async def run_aggregate(
     # today. See that function's own docstring.
     if kind == "arrest_rate":
         return await _arrest_rate(jurisdiction_case_ids=jurisdiction_case_ids)
+    # [Gold-QA fix — Module 74, question KB3] "Is the officer who registers
+    # a case the same one who investigates it, and does our data show the
+    # separation the law expects?"
+    #
+    # Placement, in both directions:
+    #   - BELOW every subject-specific family above, none of which carries
+    #     all three of this predicate's signals. CP6's
+    #     `placeholder_officer_count` is the closest neighbour — it reads the
+    #     SAME `ASSIGNED_TO` edges for a different question and scores today
+    #     — and it is checked far earlier in the chain, so it keeps first
+    #     claim structurally rather than by keyword luck.
+    #   - IMMEDIATELY ABOVE `unsupported_officer`, which is what KB3's data
+    #     half actually got before this module: an honest refusal whose text
+    #     asserts investigating-officer identity "is not currently modeled as
+    #     a queryable field". Module 74 measured 144 ASSIGNED_TO edges
+    #     carrying exactly that, so the refusal's premise was false for THIS
+    #     shape. It is still true, and still returned, for a general
+    #     officer-identity question — which is why the predicate above needs
+    #     three signals rather than one keyword tuple.
+    if kind == "officer_role_pair_overlap":
+        return await _officer_role_pair_overlap(
+            jurisdiction_case_ids=jurisdiction_case_ids
+        )
     if kind == "unsupported_officer":
         # Observability (Module 55) — a refusal is an answer too, and until
         # now was indistinguishable in the log from XAGG never running.
@@ -5777,6 +6527,26 @@ async def run_aggregate(
     #     accused, which answers nothing M4 asked.
     if kind == "statute_court_stage_join":
         return await _statute_court_stage_join(jurisdiction_case_ids=jurisdiction_case_ids)
+    # [Gold-QA fix — Module 76, question KB9] "How many FIRs cite PPC
+    # section 302, across all cases?" — a per-section FIR count at the
+    # grain the question asks it in.
+    #
+    # Placement, in both directions:
+    #   - IMMEDIATELY BELOW M4's `statute_court_stage_join`. M4 owns any
+    #     question pairing sections with court progress, and Module 39's
+    #     already-shipped KB9 data-half plan dispatches a sub-query of
+    #     exactly that shape. Keeping M4 first means that plan still gets
+    #     the family it names, so `rag.py::_run_kb_data_half()`'s runtime
+    #     family check does not start dropping it — a regression this
+    #     module would otherwise have shipped invisibly.
+    #   - ABOVE `_TIME_COMPARISON_KEYWORDS` (M1), `_TREND_KEYWORDS`'
+    #     refusal, `_PERSON_KEYWORDS` and `_LIST_ALL_KEYWORDS`. KB9's own
+    #     gold text lands on `graph_recurrence_person` today — a ranked
+    #     list of repeat accused, which answers nothing it asked.
+    if kind == "fir_section_case_count":
+        return await _fir_section_case_count(
+            query_text, jurisdiction_case_ids=jurisdiction_case_ids
+        )
     # [Gold-QA fix — Module 34, question G1] "At what time of day do
     # incidents happen, across all cases?" — G1's timing sub-question.
     #
