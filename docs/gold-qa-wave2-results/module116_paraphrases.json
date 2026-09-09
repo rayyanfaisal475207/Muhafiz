@@ -1,0 +1,35 @@
+{
+  "_note": "Module 116 §6. WRITTEN BEFORE ANY OF THEM WAS RUN, and not edited afterwards. Two rewordings per question, at least one non-English each. These are NEW — evaluation/gold32_paraphrases.json already carries Module 92's CR3/G6 paraphrases and none of these reuses one.",
+  "paraphrases": [
+    {
+      "gold_id": "CR3",
+      "language": "en",
+      "text": "We had two people cheated through internet banking — did the force deal with both of their complaints in the same way on paper?"
+    },
+    {
+      "gold_id": "CR3",
+      "language": "ur",
+      "text": "آن لائن بینکنگ فراڈ کے دو متاثرین کے معاملات کیا کاغذی کارروائی میں یکساں طور پر نمٹائے گئے؟"
+    },
+    {
+      "gold_id": "G1",
+      "language": "en",
+      "text": "Put your crime-analyst hat on and tell me what in the pile of cases we have right now looks off or deserves a closer eye."
+    },
+    {
+      "gold_id": "G1",
+      "language": "roman_ur",
+      "text": "Aik crime analyst ki hesiyat se hamare mojooda cases ka jaiza lein aur bataen ke kya cheez ghair mamooli lagti hai ya nazar rakhne ke qabil hai."
+    },
+    {
+      "gold_id": "G6",
+      "language": "en",
+      "text": "Write a brief starter note for an officer who has just been posted here — what should they expect from the caseload as it stands?"
+    },
+    {
+      "gold_id": "G6",
+      "language": "ur",
+      "text": "یہاں نئے تعینات ہونے والے افسر کے لیے ایک مختصر تعارفی نوٹ لکھیں — انہیں موجودہ کیس لوڈ سے کیا توقع رکھنی چاہیے؟"
+    }
+  ]
+}

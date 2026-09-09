@@ -97,7 +97,7 @@ KB8 lead with a `NOTE:` caveat whose only digits are statute years inside
 and an omission check that demanded them would push statute years into
 answers as if they were findings. CR6 is worse: its Urdu answer **does** state
 the figure — as the word **چار** — and no digit-based check in `verifier.py`
-can see that. (Filed as **Defect 125**.)
+can see that. (Filed as **Defect 133**.)
 
 **(c) The distinguishing property is that a proportion is destroyed by
 dropping either half.** S3/CR2/KB2/KB9 omit a headline **total** (`4`) and M5
@@ -166,7 +166,7 @@ restatable fact.
 
 Module 83 proposed serving `raw_summary_text` on omission. **That was not
 built, and the measurement in §1.2 is why.** A rule that cannot be perfect —
-and this one cannot; §8's Defect 125 shows a figure stated in Urdu words is
+and this one cannot; §8's Defect 133 shows a figure stated in Urdu words is
 invisible to it — must not be able to turn a good prose answer into a computed
 dump. Rejecting is also what `[PRESERVE]` did to KB9 and what Module 101 had
 to undo.
@@ -441,7 +441,7 @@ and under this wording the finding is never computed.
 "the ordinary ones that take everything" / "only handle one kind of offence"
 without dragging in the neighbours Module 69's window note already flags.
 
-### Defect 123 — a legal **section number** in an XAGG paraphrase is read as an invented figure
+### Defect 131 — a legal **section number** in an XAGG paraphrase is read as an invented figure
 
 KB1's paraphrase correctly cites *"Section 158"*, *"Section 159"* and *"the
 Criminal Procedure Code, 1898"*. `verify_structured_aggregate_paraphrase()`
@@ -457,7 +457,7 @@ statute citation is provenance, not a claimed figure, exactly as a
 Code,?\s+(19|20)\d\d` exemption can be added to `_numbers_in()`'s answer side
 without letting a fabricated *count* through disguised as a section.
 
-### Defect 124 — Module 104's list-ordinal defect reproduces on the XAGG gate
+### Defect 132 — Module 104's list-ordinal defect reproduces on the XAGG gate
 
 G5's Roman-Urdu paraphrase is a numbered list; the gate rejects it with
 *"number(s) not present in the computed result: **4**"* — the ordinal of the
@@ -473,7 +473,7 @@ check push answers into list shape.
 `_numbers_in()`, in both verifiers, negative-controlled against an answer whose
 *first* real figure is line-initial.
 
-### Defect 125 — every numeric check in `verifier.py` is blind to a number written as a word
+### Defect 133 — every numeric check in `verifier.py` is blind to a number written as a word
 
 CR6's Urdu answer states the aggregate's *"all 4 current CMS complaint(s)"* as
 **چار**. `_numbers_in()` is a digit-run regex, so **both** directions of the

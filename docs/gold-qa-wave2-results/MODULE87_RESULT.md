@@ -99,6 +99,13 @@ than assumed:
 | `gemini-3.7-flash` | **20 / day** | **1.0**, 3/3 (CP1 also 1.0 3/3) | 7–354 s |
 | **`gemini-3.1-flash-lite`** ← chosen | **15 / minute** | **1.0**, 5/5, spread **0.0** | **8.1 s mean over 96 calls** |
 
+**The 20/day cap is not a spec sheet reading — it stopped a probe mid-run.**
+The `gemini-3.7-flash` arm above was a 27-call probe (9 questions × 3 draws). It
+returned **6 scored rows and 21 `UNSCORED`**, every one of them
+*"RATE-LIMITED (retries exhausted)"* after the harness's 8 rate-limit retries
+(`module87_probe_gemini37flash.json`). M7 and CP1 scored 1.0 on all three draws
+before the allowance ran out; nothing else was ever measured on that model.
+
 A single three-pass FactualCorrectness re-score is **96 judge calls**. A
 20-per-day model cannot produce one, on any number of retries — `gemini-2.5-flash`
 would have fixed M7 on the *old* prompt (0.92 over five draws) and it still
