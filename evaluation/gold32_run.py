@@ -64,6 +64,26 @@ def ask(q, ac, cs):
 
 def parse(sse):
     ans, route, status = [], None, None
+    # [Module 116] `route` above used to be "the LAST `route='...'` anywhere in
+    # the stream". src/pipeline/harness/supervisor.py emits that event once for
+    # the question asked AND once per sub-query meta_analysis.py decomposes it
+    # into, so for every Meta-Analysis question this recorded a DECOMPOSED
+    # SUB-QUERY's route — and since those sub-queries are dispatched
+    # concurrently, which one landed last was a race. That is the whole of the
+    # "CR3/G1/G6 are recorded XAGG but reach XNETWORK" defect: their real
+    # top-level route is XNETWORK 8/8 at temperature 0, and the XAGG in
+    # gold32_pass{1,2,3}_outputs.json is Meta-Analysis's own aggregate-shaped
+    # sub-queries. Nothing about the router moved.
+    #
+    # The dispatch event now carries machine-readable `route`/`sub_agent`/
+    # `nested` fields (`nested` False == the question the user asked), so
+    # `route` below is the TOP-LEVEL route and the sub-query routes are kept
+    # separately instead of overwriting it. The `detail` regex is retained
+    # only as a fallback for a stream produced by a backend older than this
+    # change — and it now takes the FIRST match, which is the top-level
+    # dispatch, rather than the last.
+    subquery_routes, sub_agent = [], None
+    _legacy_route = None
     # [Module 54] src/main.py emits this flag when the agent-harness cutover
     # classification raised and the request fell back to orchestrator.py. The
     # fallback is correct behaviour, but it means a DIFFERENT sub-agent
@@ -82,9 +102,15 @@ def parse(sse):
         det = d.get("detail", "")
         if d.get("cutover_classification_failed"):
             cutover_classification_failed = True
-        if "route='" in str(det):
+        if d.get("step") == "supervisor:dispatch" and d.get("route"):
+            if d.get("nested"):
+                subquery_routes.append(d["route"])
+            elif route is None:  # first non-nested dispatch == the question asked
+                route, sub_agent = d["route"], d.get("sub_agent")
+        elif "route='" in str(det):
             m = re.search(r"route='([^']*)'", det)
-            if m: route = m.group(1)
+            if m and _legacy_route is None:
+                _legacy_route = m.group(1)
         if d.get("step") == "response":
             t = d.get("answer") or det
             if t and len(t) > 10: ans.append(t)
@@ -92,7 +118,14 @@ def parse(sse):
     a = " ".join(ans).strip()
     a = re.sub(r"^Writing the answer…\s*", "", a)
     a = re.sub(r"\s*Response generated.*$", "", a)
-    return {"actual_answer": a, "route": route, "status": status,
+    if route is None:
+        route = _legacy_route
+    return {"actual_answer": a, "route": route, "sub_agent": sub_agent,
+            # [Module 116] Recorded, not discarded: the sub-query routes are
+            # genuinely useful (they are what Module 27's `route` column
+            # actually held), they just are not the question's route.
+            "subquery_routes": subquery_routes,
+            "status": status,
             "cutover_classification_failed": cutover_classification_failed}
 
 
@@ -123,7 +156,8 @@ def main():
             # gold32_score.py keys off `transport_ok` to leave the row
             # unscored instead of scoring the emptiness as a genuine 0.0 —
             # the same principle as Module 45's "a judge null is not a zero".
-            p = {"actual_answer": "", "route": None, "status": "error",
+            p = {"actual_answer": "", "route": None, "sub_agent": None,
+                 "subquery_routes": [], "status": "error",
                  "error": f"{type(e).__name__}: {e}", "transport_ok": False,
                  # [Module 54] Unknown, not False: the stream was never read.
                  "cutover_classification_failed": None}
