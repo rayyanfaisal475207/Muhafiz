@@ -145,8 +145,11 @@ several can run in parallel chats/worktrees without colliding.
 | 98 | **Three of the five Gemini keys in `.env` are dead, and `GEMINI_MODEL`'s model cannot serve one evaluation run** | *(not yet branched)* | ⬜ New — found by Module 87 while choosing a judge. `GEMINI_API_KEY_2/_3/_4` return **401 UNAUTHENTICATED**; only `GEMINI_API_KEY` and `_1` work. On both, **`gemini-2.5-flash` — the value of `GEMINI_MODEL` — is capped at 20 requests per DAY** (so are `3.5-flash` and `3.7-flash`), and the judge's own 500/day tier was exhausted on **both** keys mid-session with other tracks running. Every Gemini caller in the project is therefore on two keys, not five, and can exhaust a model's daily quota part-way through a run — which surfaces as slow calls and `UNSCORED` rows, not as a credential error. Same class as the `SHARE/.env` incident that produced 1,410 rate-limit errors and an invalid KB bucket. **Verify:** hit `/v1beta/models` with each key and record the code; then hit each candidate model once and record `limit:` and `PerDay`/`PerMinute` from the 429 body |
 | 99 | **790 Chroma chunks are unreachable by keyword search** — present in `muhafiz_kb`, absent from `chunk_fulltext` | *(not yet branched)* | ⬜ New — found while measuring Module 37 on 2026-09-10. The two indexes disagree in **both** directions; Module 37 covers the half that serves dead ids, this covers the half that silently drops live ones from BM25. **Non-destructive**, unlike 37 — nothing is served wrongly, some chunks are simply invisible to the keyword arm of hybrid retrieval. Cost unmeasured: establish which documents the 790 belong to and whether any gold question needs them before deciding whether to re-index |
 | 100 | `xagg.py::_is_officer_role_pair_comparison()` (KB3's family) rejects ordinary rewordings — the capability is reachable only from a narrow neighbourhood of KB3's gold wording | *(not yet branched)* | ⬜ New — found by Module 89 while probing its own dispatch boundaries; measured offline against `resolve_aggregate_kind()` and **identical on `origin/main` and on `fix/kb1-data-half-plan`**, so it is pre-existing and not caused here. KB3's own gold text resolves to `officer_role_pair_overlap`. Three ordinary rewordings do not: *"Is the officer who registers a case normally the one who investigates it?"* → `station_or_category_counts` (a generic station/category group-by), *"Is the registering officer usually the investigating officer?"* → `unsupported_officer`, *"Does the same officer both register and investigate our cases?"* → `station_or_category_counts` **and fires no RAG plan either**. The first two fail on the THIRD signal alone (`_OFFICER_ROLE_SAMENESS_TERMS`): both name both roles, and both express sameness with *"the one who"* / *"usually the"*, which is not a listed token. **This is the XAGG-side twin of the widening Modules 74 and 77 each applied to the RAG-side plan patterns** — `rag.py`'s `officer_role_pair` entry matches the first two of these; `xagg.py`'s predicate does not. It matters because Modules 65/74/78 all measured KB3's ACTUAL route as XNETWORK/XAGG rather than RAG, so the predicate that never got widened is the one that actually runs. Same family as Module 92 (a capability reachable only near the gold wording), one layer down. Not fixed by Module 89: `_OFFICER_ROLE_SAMENESS_TERMS` is Module 74's and widening it needs that module's all-32 control re-run |
-| 101 | **KB9's composed answer is rejected by the grounding verifier 2 runs in 3, AFTER its aggregate has already returned gold's figure** | *(not yet branched)* | ⬜ New — filed 2026-09-10 from Module 78's committed `module78_runs.json`. This is Module 85's defect, **reproducing on the question Module 85 did not test**: 85 measured KB4, found zero rejections, and closed. On KB9 the run record shows `status=error`, `route=RAG`, `transport_ok=True`, `error=None`, `quota_lines=[]`, the plan fired (`death_investigation_charging` / `fir_section_case_count`, 829 chars), the aggregate logged `focus=302 -> 10 FIR(s)` — **corrected gold's exact figure** — the relevance evaluator returned `relevant=True`, and the served answer is the verifier's refusal string: *"The generated answer could not be verified as grounded in the retrieved documents."* Nothing failed except the check |
+| 101 | **KB9's answer is discarded by a deterministic `[Document N]` check, not by the grounding judge — and the composed-evidence diagnosis was wrong** | `fix/verifier-composed-evidence` | ✅ **Done.** The filed mechanism did **not** reproduce and is corrected here: the composed data-half chunk is already first-class evidence (captured live, chunk 7 of 7, 829 chars, untruncated), so Phase 2's preferred fix had nothing to do. The real rejection is `verifier.py::_check_no_citation()` — a substantial answer carrying no `[Document N]` token is merged as `refusal_issue`, sets `off_topic=True`, and Semantic Search's `[PRESERVE]` contract discards the whole answer. On the captured KB9 rejection `unsupported_claims` is **empty**: the judge found nothing wrong. The discarded answer states CrPC s.174/s.176, PPR 25.31, gold's *10 of the 73 FIRs cite PPC §302* and the schema gap — attributing by **name** (*"the Code of Criminal Procedure (Pakistan)"*, *"our own case records (cross-case aggregate)"*), and both strings are `source` labels of chunks in that very window. **The intermittency is not the judge**: replayed on a fixed (answer, window) pair the verdict is deterministic — rejected 8 of 8 before, served 8 of 8 after — what varies is whether Qwen3-14B emits the markers. Same defect as Module 71 §8's G6 finding (10 of 12, *"prompt-length-sensitive"*), whose own prescription was *"carry provenance out of band"*. **Exposure is wider than the data-half class**, not narrower. Fix: `_check_no_citation()` unchanged and not loosened; its finding is dropped only when the answer names a cited source **verbatim** AND the judge independently cleared every claim, and the served answer carries a caveat. **KB9 2 of 6 rejected → 0 of 6**; forced-hallucination control **6 of 6 rejected, 0 markers served** across two arms (Module 82's verbatim, plus a harder uncited arm that satisfies the exemption's source-name condition); exhaustive old-vs-new equality control **144 cells, 3 move, 0 regressions**. Heirs element remains Module 79's. Result: `docs/gold-qa-wave2-results/MODULE101_RESULT.md` |
 | 108 | **KB6's score spread is the pipeline's, not the judge's — and Module 27 attributes it to the judge** | *(not yet branched)* | ⬜ New — found by Module 87. Of the four questions Module 27 lists with spread ≥0.3 "on identical answers", only **CP1 and M2** have byte-identical captured answers across the three passes; **KB6 (1,840 / 1,929 / 1,943 chars) and G1 (2,949 / 2,649 / 2,371) do not**. Judged five times on ONE fixed answer, KB6 scores 0.4 every time, spread **0.0**; across the three passes it is 0.4 / 0.4 / 0.9. With the judge's variance removed it is the only question left above 0.3 spread, and the remaining movement belongs to the RAG path. **Verify:** several live KB6 runs, diffing the answers, before attributing any KB6 movement to a code change |
+| 119 | **An OCR-mangled ingest source label, and an Urdu answer, both defeat attribution-by-name — so KB5's identical defect is not rescued** | *(not yet branched)* | ⬜ New — found by Module 101 in its own class arm, live, KB5 run 2. Same shape as KB9's: a substantial, citation-less answer carrying gold's own figure (*8 domestic-violence reports, 4 matched to an FIR*), discarded whole. Module 101's exemption correctly declines it on two counts. (1) The window's statute chunks carry the label `7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf` — note **`lnvestigation`**, a lowercase L for a capital I, an OCR artefact in the ingest filename; the answer writes *"Anti-Rape (Investigation and Trial) Act, 2021"*, not a substring of it. (2) The answer is in **Urdu** and renders the composed chunk's English `source` as *"ہمارے ڈیٹا کے مطابق"* — a translation, not the label. **Loosening the verbatim string test is the wrong fix** — it is the half that keeps an evasive answer out. The fixes are upstream and separable: repair the OCR artefact in the ingest label, and give the composed chunk a `source` a generator can carry across languages. Evidence: `docs/gold-qa-wave2-results/module101_class_and_paraphrases.json`, KB5 run 2, with all seven source labels captured |
+| 120 | **Meta-Analysis serves a citation-format-exempted answer with no caveat** | *(not yet branched)* | ⬜ New — filed by Module 101 against its own change. `verify_grounding()` is called by eleven agents; only Semantic Search was wired to surface `citation_format_degraded`. Meta-Analysis is the agent Module 71 measured this same `_check_no_citation()` rejecting **10 of 12** times on G6, so the exemption now fires there too — and the answer is served without the caveat saying its claims are not individually traceable. `CITATION_FORMAT_DEGRADED_CAVEAT` is exported from `verifier.py` for exactly this. Not done in Module 101 because `meta_analysis.py`'s synthesis path belongs to a live parallel track. Low severity (the answer is judge-cleared either way) but it is a silent difference |
+| 121 | **`_check_fabricated_case_ids()` is blind on any answer that carries no `[Document N]` marker** | *(not yet branched)* | ⬜ New — found by Module 101 while writing its pre-check guard test. That check only inspects `[Document N, CASE-ID]`-shaped citations, so on a citation-less answer it can **never** fire: an invented FIR number in prose is invisible to it. Before Module 101 that did not matter — such answers were discarded by `_check_no_citation()` anyway — but some are now served, so the blind spot is reachable. Module 101's exemption is gated on the LLM judge precisely because of this, and its Arm-B control shows the judge holding 3 of 3 against exactly this shape, but a deterministic check should not depend on a sampled one. Fix: teach `_check_fabricated_case_ids()` to scan bare identifiers in prose, not only inside citation brackets. Evidence: `tests/test_verifier.py::test_module101_a_deterministic_pre_check_still_overrules_the_exemption`, whose docstring records why it had to use a temporal pre-check instead |
 | 110 | **G6's `orientation_note` plan computes five of gold's SEVEN findings**, and the two it misses are unreachable from above | *(not yet branched)* | ⬜ New — Module 83 §8B. Gold also asserts an accused profile (mostly men 25–40, usually strangers to the complainant) and that most matters are still pending in court. **No synthesis, however good, can carry them** — no sub-query computes them. This is a decomposition-coverage gap, not a synthesis loss, and it **caps G6's achievable score** now that Module 83 has fixed the collapse. Both figures demonstrably exist: **G1's own plan computes the age profile and the stranger relationship from the same data** |
 | 111 | **G6 answers its gold wording and essentially nothing else** — all three rewordings refuse at XNETWORK, 6 of 6 | *(not yet branched)* | ⬜ New — Module 83 §8A. A Roman-Urdu, a plain **English** and an **Urdu-script** rewording all fail `supervisor.py`'s Meta-Analysis trigger patterns, go whole to XNETWORK and are refused (nearest cluster 0.164 / 0.206 / 0.187 against a 0.145 cutoff). **The sharpest evidence of literal-phrase brittleness in the codebase**: the `orientation_note` plan already carries a `نئے تعینات` pattern matching the Urdu rewording *exactly*, and it is never consulted, because the supervisor gate above it keeps its own different literal list. Same disease as Modules 92 / 106, a **fourth** layer down |
 | 112 | **The Roman-Urdu synthesis is fluent-sounding but partly non-words** | *(not yet branched)* | ⬜ New — Module 83 §8C. Recovered G6 syntheses carry invented Urdu-ish tokens — *"kismatiyadari"*, *"mohtajr"*, *"tawarruq"*, *"qanuniyadari"* — with no meaning, mixed into otherwise correct, correctly-cited prose. Figures and citations are right; the connective language is not. Plausibly the same generation slot whose greedy decode collapses into a repetition loop, at a lower severity — **a hypothesis, not a measurement** |
@@ -4142,64 +4145,80 @@ mode that has already cost this programme two full evaluation runs.
 
 ---
 
-# Module 101 — the verifier rejects an answer built from a figure it was handed ⬜
+# Module 101 — the verifier rejects an answer built from a figure it was handed ✅
 
-**KB9 scores 0.40 under Module 87's judge and fails 2 live runs in 3** — not
-because anything was wrong, but because the grounding verifier refused an
-answer whose second half was **computed** rather than retrieved.
+**Done (branch `fix/verifier-composed-evidence`).** Result:
+`docs/gold-qa-wave2-results/MODULE101_RESULT.md`.
 
-## The run record, from Module 78's committed artefacts
+## The filed diagnosis was wrong, and the row above is corrected rather than closed quietly
 
-`docs/gold-qa-wave2-results/module78_runs.json`, KB9, arm `after`:
+This section previously said the mechanism to establish was *"a KB data-half
+answer's second half cites a chunk that `xagg_tool()` composed in memory … if
+`verify_grounding()` only trusts chunks that came from the retriever, then any
+composed answer is unverifiable by construction."* **Measured, it is not.**
+`rag.py::_run_kb_data_half()` folds the aggregate into `reranked`,
+`_to_evidence_chunk()` converts it like any other chunk, and `semantic_search()`
+passes **every** chunk to `verify_grounding()`. On a live KB9 run the verifier's
+own captured input carries seven chunks and chunk 7 is
+`kb-data-half:death_investigation_charging`, 829 chars, full text, untruncated.
+Phase 2's preferred fix — *"make the composed chunk first-class evidence"* — had
+nothing to do; it already was.
 
-| field | value |
-|---|---|
-| `route` | `RAG` |
-| `status` | **`error`** |
-| `transport_ok` | `True` |
-| `error` | `None` |
-| `quota_lines` | `[]` |
-| `data_half_answered` | `death_investigation_charging` / `fir_section_case_count`, 829 chars |
-| `xagg_log_lines` | `fir_section_case_count: 218 section entr(ies) over 73 FIR(s) … focus=302 -> 10 FIR(s)` |
-| `evaluator_verdicts` | `relevant=True` |
-| `actual_answer` | *"The generated answer could not be verified as grounded in the retrieved documents."* |
+## What it actually is
 
-Every stage worked. Routing reached RAG (Module 78), the plan fired, the
-aggregate returned **10 FIRs citing PPC §302** — exactly the figure KB9's gold
-was corrected to — and the relevance evaluator passed it. The only thing that
-failed is the check at the end, and it replaced the whole answer with its own
-refusal string.
+A **deterministic pre-check**, not the LLM judge. `_check_no_citation()`
+rejects any substantial answer carrying no `[Document N]` token; it merges as
+`refusal_issue`, sets `off_topic=True`, and Semantic Search's `[PRESERVE]`
+contract discards the whole answer. On the captured KB9 rejection
+`unsupported_claims` is **empty** — the judge found nothing wrong. The answer
+states CrPC s.174/s.176, PPR 25.31, gold's *10 of the 73 FIRs cite PPC §302*,
+and the schema gap honestly. Its only fault is attributing by **name** —
+*"According to the Code of Criminal Procedure (Pakistan)"*, *"According to our
+own case records (cross-case aggregate)"* — and both of those strings are the
+`source` labels of chunks in that very window.
 
-## Why Module 85 closed without finding this
+**The intermittency is not the judge.** Replayed on a fixed (answer, window)
+pair the verdict is deterministic: rejected 8 of 8 before, served 8 of 8 after.
+What varies run to run is whether Qwen3-14B emits the markers at all — across
+six live KB9 runs the correlation with the rejections is exact. This is Module
+71 §8's *"cites no `[Document N]` source at all"* finding (10 of 12 on G6, and
+*"prompt-length-sensitive"*) on the Semantic Search route, and Module 71's own
+prescription was *"carry provenance out of band"*.
 
-Module 85 was scoped to *"the grounding verifier rejects a composed KB answer
-that has already been handed its figure"* and measured it on **KB4**, where the
-whole shipped-code arm carried **zero** rejections across 12 primary and 17
-regression runs. It closed as not-reproducing, and its result file said so
-honestly. **It never ran KB9.** Module 61's warning that the 1-of-3 figure
-should not be treated as fixed was right.
+**Exposure is wider than the data-half class**, not narrower: the check is on
+the path of every substantial RAG answer, and the composed chunk is irrelevant
+to it. The seven gold questions with a `_KB_DATA_HALF_PLANS` entry (KB1, KB3,
+KB4, KB5, KB6, KB8, KB9; CR8 matches a pattern but fails the legal-KB gate) are
+merely *more* exposed, because `_COMPOUND_ANSWER_RULE` puts ~90 more words
+between the citation instruction and the documents.
 
-## The mechanism to establish first
+## The fix
 
-A KB data-half answer's second half cites a chunk that `xagg_tool()` composed in
-memory. If `verify_grounding()` only trusts chunks that came from the retriever,
-then **any** composed answer is unverifiable by construction, and every KB
-question with a data-half plan is exposed — the failure just shows up
-intermittently because the verifier is an LLM call.
+`_check_no_citation()` is **unchanged and not loosened**. Its finding is now
+dropped only when **both** hold: (a) the answer contains, verbatim, the
+normalised `source` label of a chunk it was actually given, and (b) the LLM
+judge independently cleared every claim, with no leakage, no `_check_refusal()`
+finding and no other deterministic pre-check outstanding. An exempted answer is
+served with a caveat saying its claims are not individually traceable.
 
-Establish that before changing anything. Then, in order of preference:
+## Measured
 
-1. **Make the composed chunk first-class evidence**, so the verifier can ground
-   against it — the aggregate's own rendered text is at least as trustworthy as
-   a retrieved chunk, being machine-derived from the graph.
-2. If that is not possible, scope the verifier so it does not adjudicate the
-   composed half.
+- **KB9 live, 6 runs each arm, local generation recorded per run: 2 of 6
+  rejected before, 0 of 6 after.** Gold's figure, s.174 and the schema gap on
+  6 of 6 after (4 of 6 before; the other 2 served nothing at all).
+- **Forced-hallucination control, 6 of 6 rejected, 0 fabricated markers
+  served**, across two arms — Module 82's verbatim fabrication, and a second
+  arm that strips its `[Document N]` markers and names a real source so it
+  satisfies condition (a) and only the judge stands in the way.
+- **Exhaustive old-vs-new equality control, 144 cells: 3 move, all three the
+  intended case, 0 regressions.**
+- Ten new tests in `tests/test_verifier.py`, before/after direction checked.
 
-**Do NOT simply disable the verifier or downgrade its refusal to a warning.**
-Module 82 measured it rejecting genuine hallucinations three separate ways —
-invented `rule 27.41(3)`, an invented FIR number, a fabricated "fully
-compliant" claim, and a fabricated negative on CR3 — and those rejections are
-load-bearing. The bug is the false positive, not the check.
+## What stays open
+
+KB9's second gold element — property marked for a deceased's heirs — needs a
+**second** aggregate composed into the same answer, and `_KbDataHalfPlan`
+carries one `sub_query`. That is **Module 79**. 0 of 6 runs name it.
 
 ---
 
