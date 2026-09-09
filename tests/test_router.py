@@ -983,20 +983,32 @@ def test_module60_all_32_gold_questions_route_exactly_as_before_except_m4():
     Asserting only "M4 now routes to XAGG" would pass if the override had
     also dragged G3 or CR7 sideways. A router change that quietly moves a
     working question is the most expensive mistake available here — the
-    M4/G3 keyword collision (PR #8) is the precedent."""
+    M4/G3 keyword collision (PR #8) is the precedent.
+
+    [AMENDED — Module 67] Module 67 widened Module 60's one-kind override to
+    a named allow-list of aggregate kinds and moves four MORE questions
+    (M2, M7, CS4, CP1), each measured live. The control is kept — and kept
+    as equality against Module 60's own captured baseline — but its allowed
+    diff is now Module 60's move plus Module 67's four, taken from Module
+    67's own `_MODULE67_INTENDED_MOVES` so there is exactly one place in
+    this file where a moved question can be declared."""
     after = {
         (it.get("id") or "").upper():
             (router._deterministic_route_override(it["question"]) or {}).get("route")
         for it in _gold32()
     }
     expected = dict(_GOLD32_DETERMINISTIC_ROUTES_BEFORE_MODULE60)
-    expected["M4"] = "XAGG"  # the one intended change
+    expected["M4"] = "XAGG"  # Module 60's one intended change
+    for qid in _MODULE67_INTENDED_MOVES:  # Module 67's four, measured live
+        expected[qid] = "XAGG"
     changed = {
         qid: (_GOLD32_DETERMINISTIC_ROUTES_BEFORE_MODULE60[qid], after[qid])
         for qid in after
         if _GOLD32_DETERMINISTIC_ROUTES_BEFORE_MODULE60[qid] != after[qid]
     }
-    assert changed == {"M4": (None, "XAGG")}, changed
+    assert changed == {
+        qid: (None, "XAGG") for qid in ("M4", *_MODULE67_INTENDED_MOVES)
+    }, changed
     assert after == expected
 
 
@@ -1020,14 +1032,219 @@ def test_module60_broad_form_was_rejected_for_a_measured_reason():
     specific" — moves SEVEN of the 32, including KB5, a legal-KB question
     that resolves to `gender_breakdown` purely as a resolver false
     positive. That is the bound on the risk, and it is measured, not
-    asserted."""
+    asserted.
+
+    [AMENDED — Module 67] Module 67 re-measured those seven and found the
+    split is at the level of the aggregate KIND, so it took four of them
+    (M2, M7, CS4, CP1) into a named allow-list and left the rest. Module
+    60's original measurement — "the broad form moves seven, and at least
+    one of them, KB5, is wrong" — is preserved here as the seven-question
+    union of what has since been taken and what is still, correctly,
+    refused. The load-bearing half is the residue: KB5, G1 and A1 must
+    still be refused."""
     from src.pipeline.xagg import resolves_to_specific_aggregate
 
-    would_move = sorted(
+    still_refused = sorted(
         (it.get("id") or "").upper()
         for it in _gold32()
         if router._deterministic_route_override(it["question"]) is None
         and resolves_to_specific_aggregate(it["question"])
     )
-    assert "KB5" in would_move
-    assert len(would_move) >= 5, would_move
+    assert still_refused == ["A1", "G1", "KB5"], still_refused
+    # The broad form's real blast radius, unchanged as a measurement: the
+    # four Module 67 took, plus M4, plus the three still refused above.
+    # Module 60's prose says "seven" and then names eight (A1, CS4, CP1, M2,
+    # M4, M7, G1, KB5) — the count was the typo, not the list; it is EIGHT.
+    broad_form_would_move = sorted(set(still_refused) | {"M4"} | set(_MODULE67_INTENDED_MOVES))
+    assert len(broad_form_would_move) == 8, broad_form_would_move
+    assert "KB5" in broad_form_would_move
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 67] The router classified a plainly cross-case
+# aggregate question as plain RAG, and the pipeline then burned ~8 minutes
+# before failing hard.
+#
+# Module 60 fixed the ROUTE for M4 alone, gated on `resolve_aggregate_kind()`
+# and hard-coded to one aggregate kind, because the broad form
+# (`resolves_to_specific_aggregate()`) was measured to move seven of the 32
+# including KB5. Module 67 re-measured those seven and found the split is at
+# the level of the KIND, not the question: five of them are cross-case
+# aggregates with purpose-built XAGG families, and the two wrong ones come
+# from exactly two kinds. So the rule is an explicit ALLOW-LIST of kinds,
+# not the broad predicate — and the two bad kinds are excluded by name.
+# ═══════════════════════════════════════════════════════════════════════
+
+
+# Captured on THIS branch's parent (`main` @ ae6ea3c), i.e. with Module 60's
+# single-kind override in place and nothing else. `None` means "no override —
+# the LLM router decides", which is the state that exposes a question to the
+# ~8-minute RAG misroute. This is the control: a diff here that is not in
+# `_MODULE67_INTENDED_MOVES` is a regression, not a test to update.
+_GOLD32_DETERMINISTIC_ROUTES_BEFORE_MODULE67 = {
+    "D1": "XAGG", "S2": "XAGG", "S3": "XAGG", "A1": None, "A7": "XAGG",
+    "CP6": "XAGG", "CR2": "XAGG", "CR3": None, "CR4": "XAGG", "CR6": "XAGG",
+    "CR7": "XAGG", "CR8": "XAGG", "CS4": None, "CP1": None, "M1": "XAGG",
+    "M2": None, "M4": "XAGG", "M5": "XAGG", "M7": None, "G1": None,
+    "G2": "XAGG", "G3": "XAGG", "G5": "XAGG", "G6": None, "KB1": None,
+    "KB2": None, "KB3": None, "KB4": None, "KB5": None, "KB6": None,
+    "KB8": None, "KB9": None,
+}
+
+# Every question Module 67 intends to move, and the aggregate kind that moves
+# it. Each one is live-measured in MODULE67_RESULT.md — this dict is the
+# module's whole blast radius, stated once and asserted below.
+_MODULE67_INTENDED_MOVES = {
+    "M2": "station_caseload_by_specialisation",
+    "M7": "incident_to_report_minutes_by_year",
+    "CS4": "criminal_record_local_match_gap",
+    "CP1": "weapon_recovery_rate_by_district",
+}
+
+
+def test_module67_all_32_gold_questions_route_exactly_as_measured():
+    """The all-32 EQUALITY negative control, and the whole risk bound.
+
+    Stated as equality against a captured map rather than as "M2/M7/CS4/CP1
+    now route to XAGG": the latter would pass even if the widened allow-list
+    had also dragged G3, CR7 or a KB question sideways. A router change that
+    quietly moves a working question is the most expensive mistake available
+    here — the M4/G3 keyword collision (PR #8) is the precedent."""
+    after = {
+        (it.get("id") or "").upper():
+            (router._deterministic_route_override(it["question"]) or {}).get("route")
+        for it in _gold32()
+    }
+    expected = dict(_GOLD32_DETERMINISTIC_ROUTES_BEFORE_MODULE67)
+    for qid in _MODULE67_INTENDED_MOVES:
+        expected[qid] = "XAGG"
+
+    changed = {
+        qid: (_GOLD32_DETERMINISTIC_ROUTES_BEFORE_MODULE67[qid], after[qid])
+        for qid in after
+        if _GOLD32_DETERMINISTIC_ROUTES_BEFORE_MODULE67[qid] != after[qid]
+    }
+    assert changed == {qid: (None, "XAGG") for qid in _MODULE67_INTENDED_MOVES}, changed
+    assert after == expected
+    # Named explicitly: the questions whose keyword space overlaps the moved
+    # ones, and whose regression would be the expensive one.
+    for qid in ("M4", "G3", "CR7", "G2", "G5", "M5"):
+        assert after[qid] == "XAGG"
+    for qid in ("KB5", "G1", "A1", "CR3", "G6"):
+        assert after[qid] is None
+
+
+def test_module67_each_moved_question_moves_via_its_own_named_aggregate_kind():
+    """Not just "it now routes XAGG" — it must route via the specific
+    aggregate family that was built for it, so a resolver change that
+    silently re-homes one of these questions fails here rather than
+    answering it out of a different aggregate."""
+    gold = {(it.get("id") or "").upper(): it["question"] for it in _gold32()}
+    for qid, kind in _MODULE67_INTENDED_MOVES.items():
+        assert router._resolved_xagg_override_kind(gold[qid]) == kind, qid
+        assert kind in router._XAGG_ROUTE_OVERRIDE_KINDS
+
+
+def test_module67_the_two_excluded_kinds_stay_excluded():
+    """The measured reason the broad form was rejected, kept executable.
+
+    `gender_breakdown` is the resolver's known false positive (KB5, a
+    legal-KB question, resolves there on vocabulary alone), and
+    `case_completeness_scan` is G1's — G1's gold answer is a five-part
+    Meta-Analysis synthesis, not one aggregate. Both are excluded BY NAME so
+    a later module cannot 'tidy' them back in without deleting this test."""
+    from src.pipeline.xagg import resolve_aggregate_kind
+
+    gold = {(it.get("id") or "").upper(): it["question"] for it in _gold32()}
+    for kind in router._XAGG_ROUTE_OVERRIDE_EXCLUDED_KINDS:
+        assert kind not in router._XAGG_ROUTE_OVERRIDE_KINDS
+
+    # KB5 and A1 both resolve to gender_breakdown; neither may be captured.
+    assert resolve_aggregate_kind(gold["KB5"]) == "gender_breakdown"
+    assert resolve_aggregate_kind(gold["A1"]) == "gender_breakdown"
+    assert router._resolved_xagg_override_kind(gold["KB5"]) is None
+    assert router._resolved_xagg_override_kind(gold["A1"]) is None
+
+    # G1 resolves to case_completeness_scan, the same kind G2 legitimately
+    # is. G2 keeps its route through its own pattern list, not through here.
+    assert resolve_aggregate_kind(gold["G1"]) == "case_completeness_scan"
+    assert router._resolved_xagg_override_kind(gold["G1"]) is None
+    assert router._deterministic_route_override(gold["G2"])["route"] == "XAGG"
+
+
+def test_module67_is_not_the_broad_form_module60_rejected():
+    """The allow-list must stay strictly narrower than
+    `resolves_to_specific_aggregate()`. If a future edit replaces it with the
+    broad predicate, KB5, G1 and A1 start routing to XAGG and this fails."""
+    from src.pipeline.xagg import resolves_to_specific_aggregate
+
+    broad = {
+        (it.get("id") or "").upper()
+        for it in _gold32()
+        if resolves_to_specific_aggregate(it["question"])
+    }
+    narrow = {
+        (it.get("id") or "").upper()
+        for it in _gold32()
+        if router._resolved_xagg_override_kind(it["question"]) is not None
+    }
+    assert narrow < broad
+    assert {"KB5", "G1", "A1"} <= (broad - narrow)
+
+
+def test_module67_no_kb_question_is_ever_captured():
+    """The eight legal-KB questions are answered from statute text by RAG.
+    None may be routed to a cross-case aggregate by this override — that
+    would trade a slow-but-right path for a fast-and-wrong one."""
+    for item in _gold32():
+        qid = (item.get("id") or "").upper()
+        if qid.startswith("KB"):
+            assert router._resolved_xagg_override_kind(item["question"]) is None, qid
+            assert router._deterministic_route_override(item["question"]) is None, qid
+
+
+def test_module67_an_active_case_still_short_circuits_the_wider_override():
+    """The widened allow-list still sits BELOW the active-case short-circuit:
+    a within-case version of any moved question stays GRAPH."""
+    gold = {(it.get("id") or "").upper(): it["question"] for it in _gold32()}
+    for qid in _MODULE67_INTENDED_MOVES:
+        assert router._deterministic_route_override(gold[qid], case_id="CASE-009") is None, qid
+
+
+def test_module67_gold_question_variants_route_exactly_as_before():
+    """The 32 questions' own paraphrase variants, held to the same bar as the
+    all-32 control: none may newly reach the widened override."""
+    for item in _gold32():
+        qid = (item.get("id") or "").upper()
+        for variant in item.get("question_variants") or []:
+            kind = router._resolved_xagg_override_kind(variant)
+            assert kind is None or qid in _MODULE67_INTENDED_MOVES or qid == "M4", (
+                f"{qid} variant newly captured by Module 67 as {kind}: {variant}"
+            )
+
+
+def test_module67_a_broken_xagg_import_leaves_routing_unchanged():
+    """The lazy import is this override's blast-radius guard: if xagg cannot
+    be imported at all, routing must fall back to exactly what it was rather
+    than raising. Module 60 wrote that property; widening the rule must not
+    lose it."""
+    import builtins
+    import sys
+
+    real_import = builtins.__import__
+
+    def exploding_import(name, *args, **kwargs):
+        if name == "src.pipeline.xagg":
+            raise ImportError("simulated")
+        return real_import(name, *args, **kwargs)
+
+    gold = {(it.get("id") or "").upper(): it["question"] for it in _gold32()}
+    saved = sys.modules.pop("src.pipeline.xagg", None)
+    builtins.__import__ = exploding_import
+    try:
+        assert router._resolved_xagg_override_kind(gold["M2"]) is None
+        assert router._deterministic_route_override(gold["M2"]) is None
+    finally:
+        builtins.__import__ = real_import
+        if saved is not None:
+            sys.modules["src.pipeline.xagg"] = saved

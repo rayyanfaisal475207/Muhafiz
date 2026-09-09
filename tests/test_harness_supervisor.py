@@ -1622,3 +1622,146 @@ def test_module60_m4_is_not_owned_by_a_module29_decomposition_plan():
     from src.pipeline.harness.agents.meta_analysis import _match_decomposition_plan
 
     assert _match_decomposition_plan(_M4_GOLD) is None
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 67, second half] A wall-clock ceiling on the
+# Semantic Search dispatch.
+#
+# Module 60's before-arm caught M4's gold text routed to plain RAG on 2 of 6
+# runs; each of those runs spent 456 s / 487 s inside Semantic Search's
+# retrieve/rerank/evaluate retry loop and then returned status=error. The
+# abstention was right; the eight minutes it cost were not — at a 32-question
+# evaluation that presents as a TIMEOUT rather than as a misroute, which is
+# the artefact class Module 42 already had to unpick once.
+#
+# The bound is a wall-clock ceiling on ONE sub-agent, not a blanket request
+# timeout, and it returns a typed, greppable ABSTAINED — never a silent
+# failure and never `route=None`.
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def _slow_sub_agent(name: str, sleep_s: float):
+    """A sub-agent that takes longer than the deadline it will be given."""
+    import asyncio as _asyncio
+
+    started = []
+    finished = []
+
+    async def _handler(agent_input, *, on_event=None, gateway=None):
+        started.append(True)
+        await _asyncio.sleep(sleep_s)
+        finished.append(True)
+        return SubAgentResult(status=SubAgentStatus.OK, answer_text="should never be served")
+
+    _handler.name = name
+    _handler.started = started
+    _handler.finished = finished
+    return _handler
+
+
+async def test_module67_semantic_search_is_bounded_and_abstains_honestly(
+    monkeypatch, isolated_registry
+):
+    """The whole point of the bound: a doomed RAG dispatch ends in a typed
+    ABSTAINED with error.kind == 'timeout', not in an eight-minute hang."""
+    monkeypatch.setattr(supervisor_mod, "SEMANTIC_SEARCH_DEADLINE_S", 0.05)
+
+    async def fake_route_query(q, case_id=None):
+        return {"route": "RAG", "case_scope": "within_case", "output_format": "chat"}
+
+    monkeypatch.setattr(supervisor_mod, "route_query", fake_route_query)
+
+    handler = _slow_sub_agent(SEMANTIC_SEARCH, sleep_s=5.0)
+    events: list[PipelineEvent] = []
+    result = await Supervisor({SEMANTIC_SEARCH: handler}).handle(
+        _agent_input(query_text="something the corpus cannot answer"),
+        on_event=events.append,
+    )
+
+    assert handler.started == [True]
+    assert handler.finished == []          # cancelled, not merely ignored
+    assert result.status is SubAgentStatus.ABSTAINED
+    assert result.error is not None and result.error.kind == "timeout"
+    assert result.answer_text is None
+    assert any("still retrying" in c for c in result.caveats)
+    # The trace must SAY it was bounded. Module 42's `route=None` row was a
+    # client timeout that looked like a classification failure for weeks; a
+    # bounded dispatch must never be that ambiguous again.
+    errs = [e for e in events if e.step == "supervisor:dispatch" and e.status == "error"]
+    assert len(errs) == 1
+    assert "deadline" in errs[0].detail
+    assert SEMANTIC_SEARCH in errs[0].detail
+
+
+async def test_module67_a_fast_semantic_search_is_untouched(monkeypatch, isolated_registry):
+    """The negative half: a healthy RAG run must pass through the ceiling
+    byte-for-byte, with no extra caveat and no extra event."""
+    monkeypatch.setattr(supervisor_mod, "SEMANTIC_SEARCH_DEADLINE_S", 30.0)
+
+    async def fake_route_query(q, case_id=None):
+        return {"route": "RAG", "case_scope": "within_case", "output_format": "chat"}
+
+    monkeypatch.setattr(supervisor_mod, "route_query", fake_route_query)
+
+    expected = SubAgentResult(status=SubAgentStatus.OK, answer_text="the real answer")
+    handler = _mock_sub_agent(SEMANTIC_SEARCH, expected)
+    events: list[PipelineEvent] = []
+    result = await Supervisor({SEMANTIC_SEARCH: handler}).handle(
+        _agent_input(), on_event=events.append,
+    )
+
+    assert result is expected  # [PRESERVE] returned exactly as received
+    assert not [e for e in events if e.status == "error"]
+
+
+async def test_module67_the_ceiling_applies_to_semantic_search_only(
+    monkeypatch, isolated_registry
+):
+    """Deliberately NOT a blanket request timeout. Large-Scale Aggregate is a
+    single deterministic call and Meta-Analysis has its own per-sub-query
+    deadline (Module 53); neither may be cut by this one. If a later module
+    widens this to every sub-agent, this test fails — that is the point."""
+    monkeypatch.setattr(supervisor_mod, "SEMANTIC_SEARCH_DEADLINE_S", 0.05)
+
+    async def fake_route_query(q, case_id=None):
+        return {"route": "XAGG", "case_scope": "cross_case", "output_format": "chat"}
+
+    monkeypatch.setattr(supervisor_mod, "route_query", fake_route_query)
+
+    handler = _slow_sub_agent(LARGE_SCALE_AGGREGATE, sleep_s=0.4)
+    result = await Supervisor({LARGE_SCALE_AGGREGATE: handler}).handle(
+        _agent_input(query_text="how many cases are there in total across all cases?"),
+    )
+    assert handler.finished == [True]
+    assert result.status is SubAgentStatus.OK
+
+
+async def test_module67_the_ceiling_can_be_disabled(monkeypatch, isolated_registry):
+    """0 disables it. Kept explicit so an operator on a slow box has an
+    escape hatch that does not require editing code."""
+    monkeypatch.setattr(supervisor_mod, "SEMANTIC_SEARCH_DEADLINE_S", 0.0)
+
+    async def fake_route_query(q, case_id=None):
+        return {"route": "RAG", "case_scope": "within_case", "output_format": "chat"}
+
+    monkeypatch.setattr(supervisor_mod, "route_query", fake_route_query)
+
+    handler = _slow_sub_agent(SEMANTIC_SEARCH, sleep_s=0.3)
+    result = await Supervisor({SEMANTIC_SEARCH: handler}).handle(_agent_input())
+    assert handler.finished == [True]
+    assert result.status is SubAgentStatus.OK
+
+
+def test_module67_the_default_deadline_sits_between_the_measured_populations():
+    """The number is measured, not chosen — and this pins the two facts it was
+    derived from, so a later edit that halves it has to argue with them.
+
+    Slowest RAG run that legitimately SUCCEEDS on this corpus: KB6 at 247.1 s
+    (Module 42). Doomed RAG runs: 456 s and 487 s (Module 60's before-arm).
+    The default must sit strictly between, with real headroom above the
+    success."""
+    slowest_success_s = 247.1
+    fastest_doomed_s = 456.0
+    assert slowest_success_s * 1.25 < supervisor_mod.SEMANTIC_SEARCH_DEADLINE_S
+    assert supervisor_mod.SEMANTIC_SEARCH_DEADLINE_S < fastest_doomed_s
