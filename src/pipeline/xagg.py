@@ -307,6 +307,61 @@ def _is_officer_role_pair_comparison(query_lower: str) -> bool:
     )
 
 
+# ── [Gold-QA fix — Module 75, question KB8] challans sent to court ────────
+#
+# KB8 asks whether the law makes the police report to the court before an
+# investigation is complete, and then whether our own case-tracking data
+# shows the case reached court. Gold's data half is "adaalat bheja gaya
+# challan (26 cases)". Before this module that reached
+# `_CRIMINAL_RECORD_KEYWORDS` and got `criminal_record_court_crosscheck`,
+# which counts the 33 `criminal_record` rows — a plausible-looking WRONG
+# number in exactly the slot gold puts 26 in.
+#
+# The cause, confirmed by probe before any code (`MODULE75_RESULT.md` §1):
+# `xagg.py` read `chalaan_outcome` (20 rows) and never `chalaan_dispatch`
+# (26 rows / 26 distinct cases, which IS gold's figure). Two record types,
+# two different quantities, and the one the file already touched is not the
+# one the question asks for.
+#
+# TWO signals, and the second is what keeps CR7 whole: a challan term AND a
+# sent-to-court term. CR7's own vocabulary ("کرمنل ریکارڈ", "عدالتی نتیجے")
+# carries no challan word, and this predicate is checked ABOVE
+# `_CRIMINAL_RECORD_KEYWORDS` — so a question naming a challan explicitly
+# gets the challan count, and everything CR7 answers today is untouched.
+# The all-32 equality control enforces both halves.
+_CHALAAN_TERMS = (
+    "challan", "chalaan", "chalan", "challaan",
+    "چالان", "چلان",
+)
+_SENT_TO_COURT_TERMS = (
+    "sent to court", "sent to the court", "submitted to court",
+    "submitted to the court", "dispatched to court", "dispatch to court",
+    "forwarded to court", "reached court", "reach court",
+    "reached the court", "filed in court", "put up in court",
+    "adaalat bheja", "adalat bheja", "adaalat mein bheja",
+    "adalat mein bheja", "adaalat tak", "adalat tak",
+    # Urdu verb stems, not full forms: بھیجا / بھیجے / بھیجنے all follow
+    # the same stem, and the full-form-only tuple this started as missed
+    # "عدالت بھیجے گئے" outright.
+    "عدالت بھیج", "عدالت میں بھیج", "عدالت روانہ", "عدالت تک",
+    "عدالت کو بھیج", "چالان عدالت",
+)
+
+
+def _is_chalaan_dispatch_count(query_lower: str) -> bool:
+    """True for KB8's family: how many challans have actually gone to court?
+
+    A named predicate rather than an inlined `and`, for the same reason
+    `_is_statute_court_stage_join()` is one — the boundary it protects
+    (CR7's `criminal_record_court_crosscheck`, which scores today and reads
+    a completely different record type) is then testable directly.
+    """
+    return (
+        _matches_any(query_lower, _CHALAAN_TERMS)
+        and _matches_any(query_lower, _SENT_TO_COURT_TERMS)
+    )
+
+
 # [Gold-QA fix — CR7, Module 14] Criminal-record status + court-outcome
 # consistency questions. CR7 (Urdu) asks how many criminal-record cases are
 # completed vs. in progress, AND whether, where a separate court record
@@ -2723,6 +2778,160 @@ def _conviction_is_settled(status: Optional[str]) -> bool:
     match on both the English tokens the data uses and their Urdu forms."""
     s = (status or "").lower()
     return any(t in s for t in ("convicted", "acquitted", "سزا", "بری", "نمٹ"))
+
+
+# [Gold-QA fix — Module 75, KB8] The record type that actually holds a
+# challan dispatch, and the neighbouring one this file used to read
+# instead. Named constants rather than inline literals precisely because
+# the whole defect was a one-word difference between them.
+_CHALAAN_DISPATCH_RECORD_TYPE = "chalaan_dispatch"
+_CHALAAN_OUTCOME_RECORD_TYPE = "chalaan_outcome"
+
+# Gold's KB8 answer asserts a schema ABSENCE — "schema mein kahin interim
+# report ka koi tasavvur nahi" — and the brief's judging standard counts
+# correctly stating a gap, where gold agrees, as a pass. So the absence is
+# DERIVED from the record types actually present rather than hard-coded as
+# prose: if an interim-report record type is ever ingested, this aggregate
+# stops claiming the gap on its own.
+_INTERIM_REPORT_TOKENS = ("interim", "zimni_report", "progress_report")
+
+
+async def _chalaan_dispatch_count(
+    jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    """
+    [Gold-QA fix — Module 75, question KB8] How many challans have been sent
+    to court, and how many cases do they cover?
+
+    CrPC s.173 makes the officer in charge forward a report to the
+    magistrate, and an interim report within three days of the fourteenth
+    day if the investigation is not finished. KB8 asks whether our data can
+    show that happened. It can show the END of that pipeline and not the
+    middle, and this aggregate says both things.
+
+    WHY A NEW FAMILY AND NOT CR7's. `criminal_record_court_crosscheck`
+    counts `criminal_record` rows (33 live) and is a good answer to CR7's
+    question. It is a WRONG answer to KB8's, in the specific way that is
+    hardest to catch: a confident, plausible number in the slot gold fills
+    with 26. The 26 are `chalaan_dispatch` StructuredRecords, a record type
+    nothing in this file read before this module — `chalaan_outcome` (20
+    rows) is the one it did, and it is a different quantity again.
+    """
+    params: dict = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+    case_filter = "AND c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+
+    dispatch_rows = await age_client.execute_cypher(
+        "MATCH (s:StructuredRecord)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE s.record_type = '{_CHALAAN_DISPATCH_RECORD_TYPE}' {case_filter}"
+        "RETURN c.case_id AS case_id, s.record_id AS record_id, "
+        "s.dispatch_datetime AS dispatch_datetime",
+        params=params, columns=["case_id", "record_id", "dispatch_datetime"],
+    )
+    dispatched = [
+        {
+            "case_id": r.get("case_id"),
+            "record_id": r.get("record_id"),
+            "dispatch_datetime": r.get("dispatch_datetime"),
+        }
+        for r in dispatch_rows if r.get("case_id")
+    ]
+    dispatch_cases = sorted({d["case_id"] for d in dispatched})
+    dated = [d for d in dispatched if d["dispatch_datetime"]]
+
+    # The neighbouring record type, reported alongside rather than instead
+    # of — the two are routinely confused (this module exists because they
+    # were), and naming both figures is what makes a live run's log line
+    # self-evidently the right metric.
+    outcome_rows = await age_client.execute_cypher(
+        "MATCH (s:StructuredRecord)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE s.record_type = '{_CHALAAN_OUTCOME_RECORD_TYPE}' {case_filter}"
+        "RETURN c.case_id AS case_id, s.challan_reached_court_date AS court_date",
+        params=params, columns=["case_id", "court_date"],
+    )
+    outcome_cases = sorted({r.get("case_id") for r in outcome_rows if r.get("case_id")})
+    outcome_dated = [r for r in outcome_rows if r.get("court_date")]
+
+    # The schema gap gold asserts, derived rather than declared.
+    type_rows = await age_client.execute_cypher(
+        "MATCH (s:StructuredRecord) RETURN DISTINCT s.record_type AS record_type",
+        columns=["record_type"],
+    )
+    record_types = sorted(
+        str(r.get("record_type")) for r in type_rows if r.get("record_type")
+    )
+    interim_types = [
+        t for t in record_types
+        if any(tok in t.lower() for tok in _INTERIM_REPORT_TOKENS)
+    ]
+
+    # Observability (Module 55) — XAGG's SSE reports only `route='XAGG'`, so
+    # this line is the only evidence of WHICH aggregate answered a live
+    # question. Both record-type counts are in it on purpose: this module's
+    # whole defect was the wrong one of the two.
+    logger.info(
+        "XAGG chalaan_dispatch_count: %d challan dispatch record(s) across "
+        "%d case(s), %d carrying a dispatch timestamp; %d chalaan_outcome "
+        "record(s) across %d case(s), %d with a court-reached date; "
+        "interim-report record type present=%s",
+        len(dispatched), len(dispatch_cases), len(dated),
+        len(outcome_rows), len(outcome_cases), len(outcome_dated),
+        bool(interim_types),
+    )
+    return {
+        "kind": "chalaan_dispatch_count",
+        "dispatched_count": len(dispatched),
+        "dispatched_case_count": len(dispatch_cases),
+        "dispatched_with_timestamp": len(dated),
+        "dispatched_cases": dispatch_cases,
+        "outcome_count": len(outcome_rows),
+        "outcome_case_count": len(outcome_cases),
+        "outcome_with_court_date": len(outcome_dated),
+        "record_types": record_types,
+        "has_interim_report_record": bool(interim_types),
+    }
+
+
+_CHALAAN_CASE_RENDER_LIMIT = 12
+
+
+def render_chalaan_dispatch_count(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — Module 75, KB8] shared renderer, imported by all three
+    XAGG rendering sites — same reason as `render_statute_court_stage_join()`.
+    """
+    total = agg_result.get("dispatched_count") or 0
+    cases = agg_result.get("dispatched_case_count") or 0
+    if not total:
+        return ["No challan dispatch records are held, so no case can be shown to have reached court."]
+    lines = [
+        f"Our case-tracking data records {total} challan(s) sent to court, "
+        f"covering {cases} case(s). "
+        f"{agg_result.get('dispatched_with_timestamp') or 0} of those carry a "
+        f"dispatch timestamp; the rest record the dispatch without a date."
+    ]
+    outcome = agg_result.get("outcome_count") or 0
+    if outcome:
+        lines.append(
+            f"A separate, smaller set of {outcome} challan-outcome record(s) "
+            f"across {agg_result.get('outcome_case_count') or 0} case(s) "
+            f"records what happened next, "
+            f"{agg_result.get('outcome_with_court_date') or 0} of them with a "
+            f"date the challan reached court. The two are different records "
+            f"and different counts; the {total} above is the dispatch figure."
+        )
+    if not agg_result.get("has_interim_report_record"):
+        lines.append(
+            "What the data cannot show: there is no interim-report record "
+            "type anywhere in the schema, and no field linking a challan back "
+            "to the start of its own investigation. So the data confirms that "
+            "a case reached court, but not whether any interim reporting duty "
+            "along the way was met."
+        )
+    for case_id in (agg_result.get("dispatched_cases") or [])[:_CHALAAN_CASE_RENDER_LIMIT]:
+        lines.append(f"  - {case_id}")
+    remaining = cases - min(cases, _CHALAAN_CASE_RENDER_LIMIT)
+    if remaining > 0:
+        lines.append(f"  - ... and {remaining} more case(s) with a challan sent to court.")
+    return lines
 
 
 async def _criminal_record_court_crosscheck(
@@ -5590,6 +5799,11 @@ def resolve_aggregate_kind(query_text: str) -> str:
     # that CR7 keeps its family and only CS4 lands on this one.
     if _is_criminal_record_local_gap(query_lower):
         return "criminal_record_local_match_gap"
+    # [Gold-QA fix — Module 75, KB8] Mirrors run_aggregate's placement:
+    # ABOVE `_CRIMINAL_RECORD_KEYWORDS` (CR7), which is what KB8's data
+    # half used to get — 33 criminal records where gold says 26 challans.
+    if _is_chalaan_dispatch_count(query_lower):
+        return "chalaan_dispatch_count"
     if _matches_any(query_lower, _CRIMINAL_RECORD_KEYWORDS):
         return "criminal_record_court_crosscheck"
     if _matches_any(query_lower, _DV_REPORT_KEYWORDS):
@@ -5827,6 +6041,26 @@ async def run_aggregate(
     # [Gold-QA fix — CR7, Module 14] Criminal-record status + court-outcome
     # consistency, checked before the generic count/status paths so a
     # "criminal record" question isn't answered as a plain case count.
+    # [Gold-QA fix — Module 75, question KB8] "How many challans have
+    # been sent to court, and how many cases do they cover, across all
+    # cases?"
+    #
+    # Placement, in both directions:
+    #   - BELOW CS4's `criminal_record_local_match_gap`, which is a
+    #     two-signal predicate over the criminal-records system and
+    #     carries no challan vocabulary at all.
+    #   - ABOVE, decisively, `_CRIMINAL_RECORD_KEYWORDS` (CR7). That is
+    #     what KB8's data half actually got before this module: CR7's
+    #     crosscheck, which counts the 33 `criminal_record` rows. It is a
+    #     correct answer to CR7 and a confidently wrong one to KB8, in
+    #     the same slot gold fills with 26. CR7 keeps first claim on its
+    #     own vocabulary because this predicate additionally requires a
+    #     challan term, which CR7's gold text does not contain — verified
+    #     against all 32 gold questions in `tests/test_xagg.py`.
+    if kind == "chalaan_dispatch_count":
+        return await _chalaan_dispatch_count(
+            jurisdiction_case_ids=jurisdiction_case_ids
+        )
     if kind == "criminal_record_court_crosscheck":
         return await _criminal_record_court_crosscheck(jurisdiction_case_ids=jurisdiction_case_ids)
     # [Gold-QA fix — CR8, Module 15] DV report ↔ FIR confirmation. Checked

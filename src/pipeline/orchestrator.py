@@ -52,6 +52,7 @@ from src.pipeline.xagg import (
     render_weapon_statute_cooccurrence,
     render_statute_court_stage_join,
     render_officer_role_pair_overlap,
+    render_chalaan_dispatch_count,
     render_offender_age_profile,
     render_accused_relationship_breakdown,
     render_seized_property_disposition,
@@ -539,6 +540,10 @@ async def _fetch_secondary_evidence(
                 # other two XAGG-route rendering sites.
                 elif agg_result["kind"] == "officer_role_pair_overlap":
                     lines = render_officer_role_pair_overlap(agg_result)
+                # [Gold-QA fix — Module 75, KB8] Kept in sync with the
+                # other two XAGG-route rendering sites.
+                elif agg_result["kind"] == "chalaan_dispatch_count":
+                    lines = render_chalaan_dispatch_count(agg_result)
                 elif agg_result["kind"] == "district_breakdown":
                     label = agg_result.get("entity_label")
                     lines = [
@@ -2226,6 +2231,10 @@ async def process_query(
             # two XAGG-route rendering sites.
             elif agg_result["kind"] == "officer_role_pair_overlap":
                 lines = render_officer_role_pair_overlap(agg_result)
+            # [Gold-QA fix — Module 75, KB8] Kept in sync with the other
+            # two XAGG-route rendering sites.
+            elif agg_result["kind"] == "chalaan_dispatch_count":
+                lines = render_chalaan_dispatch_count(agg_result)
             elif agg_result["kind"] == "district_breakdown":
                 label = agg_result.get("entity_label")
                 lines = [

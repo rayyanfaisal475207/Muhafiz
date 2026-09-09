@@ -4032,6 +4032,8 @@ def test_every_new_aggregate_kind_is_accepted_by_the_harness_tool_result():
         "criminal_record_local_match_gap",
         # [Gold-QA fix — Module 74] ninth.
         "officer_role_pair_overlap",
+        # [Gold-QA fix — Module 75] tenth.
+        "chalaan_dispatch_count",
     ):
         assert kind in accepted, kind
 
@@ -5355,3 +5357,231 @@ def test_module74_only_kb3_reaches_the_officer_pair_predicate():
         if xagg._is_officer_role_pair_comparison(it["question"].lower())
     )
     assert matched == ["KB3"], matched
+
+
+# ══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 75, question KB8] challans sent to court.
+#
+# KB8's data half — "adaalat bheja gaya challan (26 cases)" — had no
+# aggregate. Its canned sub-query reached `_CRIMINAL_RECORD_KEYWORDS` and
+# got `criminal_record_court_crosscheck`, which counts the 33
+# `criminal_record` rows: a confident, plausible, WRONG number in exactly
+# the slot gold fills with 26.
+#
+# The cause was confirmed by probe before any code was written, and it is
+# the one the brief named: `xagg.py` read `chalaan_outcome` (20 rows) and
+# never `chalaan_dispatch` (26 rows across 26 distinct cases). Three record
+# types, three different quantities — 33 / 26 / 20 — and only one of them
+# is what KB8 asks for.
+# ══════════════════════════════════════════════════════════════════════
+
+# KB8's literal gold question text, copied verbatim from the dataset.
+_KB8_GOLD = (
+    "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske "
+    "mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — "
+    "aur kya hamara case-tracking data batayega ke aisa hua ya nahi?"
+)
+
+# The canned aggregate sub-query for KB8's data half. Same "..., across all
+# cases?" shape as Module 39's `_KB_DATA_HALF_PLANS` strings, and checked
+# against `resolve_aggregate_kind()` here so the future one-entry addition
+# to that tuple can copy it without re-deriving it.
+_KB8_SQ_CHALAAN_DISPATCH = (
+    "How many challans have been sent to court, and how many cases do they "
+    "cover, across all cases?"
+)
+
+
+class _ChalaanAgeClient:
+    """Routes the three reads `_chalaan_dispatch_count()` issues: the
+    dispatch records, the outcome records, and the DISTINCT record-type list
+    the schema-gap claim is derived from."""
+
+    def __init__(self, dispatch_rows, outcome_rows, record_types):
+        self.dispatch_rows = dispatch_rows
+        self.outcome_rows = outcome_rows
+        self.record_types = [{"record_type": t} for t in record_types]
+        self.queries = []
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        self.queries.append(cypher_query)
+        if "DISTINCT" in cypher_query:
+            return self.record_types
+        if "chalaan_dispatch" in cypher_query:
+            return self.dispatch_rows
+        return self.outcome_rows
+
+
+def _dispatch(case_id, record_id, dispatch_datetime=None):
+    return {
+        "case_id": case_id, "record_id": record_id,
+        "dispatch_datetime": dispatch_datetime,
+    }
+
+
+_LIVE_RECORD_TYPES = [
+    "fir_zimni_index", "fir_section", "fir_position", "malkhana_register",
+    "criminal_record", "chalaan_dispatch", "chalaan_outcome",
+    "pkm_application", "cms_complaint",
+]
+
+
+async def test_module75_counts_chalaan_dispatch_not_chalaan_outcome(monkeypatch):
+    """The literal defect, as a fixture: 26 dispatch records and 20 outcome
+    records in the same graph. The answer is 26."""
+    dispatch_rows = [
+        _dispatch(f"fir-{i}-26", f"chalaan_dispatch:CD-{i}-1",
+                  "2024-10-20T08:40:00Z" if i < 15 else None)
+        for i in range(26)
+    ]
+    outcome_rows = [
+        {"case_id": f"fir-{i}-26", "court_date": "2024-10-25" if i < 15 else None}
+        for i in range(20)
+    ]
+    client = _ChalaanAgeClient(dispatch_rows, outcome_rows, _LIVE_RECORD_TYPES)
+    monkeypatch.setattr(xagg, "age_client", client)
+
+    result = await xagg.run_aggregate(
+        _KB8_SQ_CHALAAN_DISPATCH, None, gateway=None, user_role="supervisor",
+    )
+
+    assert result["kind"] == "chalaan_dispatch_count"
+    assert result["dispatched_count"] == 26
+    assert result["dispatched_case_count"] == 26
+    assert result["dispatched_with_timestamp"] == 15
+    # The neighbouring type is reported, never substituted.
+    assert result["outcome_count"] == 20
+    assert result["outcome_with_court_date"] == 15
+    rendered = "\n".join(xagg.render_chalaan_dispatch_count(result))
+    assert "26 challan(s) sent to court" in rendered
+    assert "the 26 above is the dispatch figure" in rendered
+
+
+async def test_module75_reads_the_dispatch_record_type_by_name(monkeypatch):
+    """Pins the one-word difference the whole defect was. If a later edit
+    points this aggregate at `chalaan_outcome`, the count silently becomes
+    20 and every unit assertion about "26" would have to be edited too —
+    this one fails on the query text itself."""
+    client = _ChalaanAgeClient([], [], _LIVE_RECORD_TYPES)
+    monkeypatch.setattr(xagg, "age_client", client)
+    await xagg._chalaan_dispatch_count()
+    assert any("chalaan_dispatch" in q for q in client.queries)
+    assert xagg._CHALAAN_DISPATCH_RECORD_TYPE == "chalaan_dispatch"
+    assert xagg._CHALAAN_OUTCOME_RECORD_TYPE == "chalaan_outcome"
+
+
+async def test_module75_cases_are_distinct_not_row_counts(monkeypatch):
+    """Two dispatch records on one case is 2 challans across 1 case."""
+    client = _ChalaanAgeClient(
+        [_dispatch("fir-1-26", "a"), _dispatch("fir-1-26", "b"),
+         _dispatch("fir-2-26", "c")],
+        [], _LIVE_RECORD_TYPES,
+    )
+    monkeypatch.setattr(xagg, "age_client", client)
+    result = await xagg._chalaan_dispatch_count()
+    assert result["dispatched_count"] == 3
+    assert result["dispatched_case_count"] == 2
+
+
+async def test_module75_the_schema_gap_is_derived_not_declared(monkeypatch):
+    """Gold's KB8 asserts an ABSENCE ("schema mein kahin interim report ka
+    koi tasavvur nahi"), and the brief counts correctly stating a gap where
+    gold agrees as a pass. It must stop being claimed the moment such a
+    record type exists."""
+    rows = [_dispatch("fir-1-26", "a")]
+    absent = _ChalaanAgeClient(rows, [], _LIVE_RECORD_TYPES)
+    monkeypatch.setattr(xagg, "age_client", absent)
+    result = await xagg._chalaan_dispatch_count()
+    assert result["has_interim_report_record"] is False
+    assert "no interim-report record type" in "\n".join(
+        xagg.render_chalaan_dispatch_count(result)
+    )
+
+    present = _ChalaanAgeClient(
+        rows, [], _LIVE_RECORD_TYPES + ["interim_report"],
+    )
+    monkeypatch.setattr(xagg, "age_client", present)
+    result = await xagg._chalaan_dispatch_count()
+    assert result["has_interim_report_record"] is True
+    assert "no interim-report record type" not in "\n".join(
+        xagg.render_chalaan_dispatch_count(result)
+    )
+
+
+async def test_module75_empty_graph_says_so(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _ChalaanAgeClient([], [], _LIVE_RECORD_TYPES))
+    result = await xagg._chalaan_dispatch_count()
+    assert result["dispatched_count"] == 0
+    assert "No challan dispatch records" in "\n".join(
+        xagg.render_chalaan_dispatch_count(result)
+    )
+
+
+async def test_module75_emits_its_xagg_log_line_with_both_figures(monkeypatch, caplog):
+    """Module 55's convention, and here the SECOND figure is load-bearing:
+    a run that silently read `chalaan_outcome` would report the same kind,
+    so the line has to name both counts."""
+    client = _ChalaanAgeClient(
+        [_dispatch(f"fir-{i}-26", str(i)) for i in range(26)],
+        [{"case_id": f"fir-{i}-26", "court_date": None} for i in range(20)],
+        _LIVE_RECORD_TYPES,
+    )
+    monkeypatch.setattr(xagg, "age_client", client)
+    with caplog.at_level(logging.INFO, logger="src.pipeline.xagg"):
+        await xagg._chalaan_dispatch_count()
+    logged = caplog.text
+    assert "XAGG chalaan_dispatch_count:" in logged
+    assert "26 challan dispatch record(s) across 26 case(s)" in logged
+    assert "20 chalaan_outcome record(s)" in logged
+
+
+class TestChalaanDispatchBoundary:
+    """CR7 must not move. It reads a different record type for a different
+    question and scores today."""
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            _KB8_SQ_CHALAAN_DISPATCH,
+            "How many challans were sent to court?",
+            "Kitne chalaan adaalat bheja gaya?",
+            "کتنے چالان عدالت بھیجے گئے؟",
+        ],
+    )
+    def test_the_challan_shape_reaches_the_new_family(self, query):
+        assert xagg.resolve_aggregate_kind(query) == "chalaan_dispatch_count"
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            # CR7's literal gold text.
+            _CR7_GOLD_TEXT,
+            # A challan word with no court-dispatch signal at all.
+            "What property is listed on the challan?",
+            # A court-dispatch signal with no challan word.
+            "How many cases have reached court?",
+        ],
+    )
+    def test_the_neighbours_do_not_reach_it(self, query):
+        assert xagg.resolve_aggregate_kind(query) != "chalaan_dispatch_count"
+
+    async def test_cr7_still_gets_its_own_crosscheck(self):
+        assert xagg.resolve_aggregate_kind(_CR7_GOLD_TEXT) == (
+            "criminal_record_court_crosscheck"
+        )
+
+
+def test_module75_no_gold_question_reaches_the_challan_predicate():
+    """The all-32 control's narrow half. NONE of the 32 gold question texts
+    may match — KB8's own gold text never says "challan"; the word is in its
+    gold ANSWER. KB8 reaches this family through the canned sub-query that
+    `rag.py::_KB_DATA_HALF_PLANS` dispatches, exactly as KB4/KB5/KB6 reach
+    theirs. So this predicate's blast radius over the gold set is zero, and
+    that is the point."""
+    items = json.loads(_GOLD32_PATH.read_text(encoding="utf-8"))
+    matched = sorted(
+        (it.get("id") or "").upper()
+        for it in items
+        if xagg._is_chalaan_dispatch_count(it["question"].lower())
+    )
+    assert matched == [], matched

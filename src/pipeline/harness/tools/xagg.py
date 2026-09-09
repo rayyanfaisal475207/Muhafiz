@@ -70,6 +70,7 @@ from src.pipeline.xagg import (
     render_weapon_statute_cooccurrence,
     render_statute_court_stage_join,
     render_officer_role_pair_overlap,
+    render_chalaan_dispatch_count,
     render_offender_age_profile,
     render_accused_relationship_breakdown,
     render_seized_property_disposition,
@@ -190,6 +191,9 @@ AggregateKind = Literal[
     # surfaced only as an EMPTY answer with status=None through
     # /api/chat, invisible to every unit test in tests/test_xagg.py.
     "officer_role_pair_overlap",
+    # [Gold-QA fix — Module 75, KB8] TENTH family. Same additive
+    # convention, same commit as the aggregate.
+    "chalaan_dispatch_count",
 ]
 
 
@@ -341,6 +345,10 @@ def _render_aggregate_text(agg_result: dict) -> str:
     # docstring.
     elif kind == "officer_role_pair_overlap":
         lines = render_officer_role_pair_overlap(agg_result)
+    # [Gold-QA fix — Module 75, KB8] Kept in sync with orchestrator.py's
+    # two identical XAGG-route rendering sites.
+    elif kind == "chalaan_dispatch_count":
+        lines = render_chalaan_dispatch_count(agg_result)
     elif kind == "station_total_count":
         lines = [f"Total police stations: {agg_result['total_stations']}"]
     # [Gold-QA fix — Module 13, RC-2] Three new kinds from the rate/ratio
