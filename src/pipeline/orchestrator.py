@@ -60,6 +60,8 @@ from src.pipeline.xagg import (
     render_incident_time_of_day,
     render_arrest_rate,
     render_filtered_fir_listing,
+    render_placeholder_officer_count,
+    render_statute_mix_by_year,
 )
 from src.pipeline.xagg import _UNSUPPORTED_JURISDICTION as _UNRESOLVED_JURISDICTION_NOTE
 from src.pipeline.xnetwork import run_network_query
@@ -511,18 +513,7 @@ async def _fetch_secondary_evidence(
                 # (see the comment above the process_query() branch further
                 # below).
                 elif agg_result["kind"] == "placeholder_officer_count":
-                    cur, ever = agg_result["current_count"], agg_result["ever_count"]
-                    asi, si = agg_result["asi_count"], agg_result["si_count"]
-                    caveat = (
-                        f" {ever - cur} additional case(s) originally had a placeholder "
-                        f"officer too but have since been assigned a real one."
-                        if ever > cur else ""
-                    )
-                    lines = [
-                        f"{cur} FIRs currently carry only a placeholder investigating "
-                        f"officer — {asi} marked \"(نامزد ASI)\", {si} marked "
-                        f"\"(نامزد SI)\".{caveat}"
-                    ]
+                    lines = render_placeholder_officer_count(agg_result)
                 elif agg_result["kind"] == "criminal_record_court_crosscheck":
                     lines = render_criminal_record_crosscheck(agg_result)
                 elif agg_result["kind"] == "cms_fir_linkage":
@@ -565,11 +556,10 @@ async def _fetch_secondary_evidence(
                         f"recovered a weapon (~{round(100 * c['rate'])}%)"
                         for c in agg_result["counts"]
                     ]
+                # [Gold-QA fix — Module 90, M1] shared renderer, kept in sync
+                # with the other two XAGG-route rendering sites.
                 elif agg_result["kind"] == "time_bucketed_breakdown":
-                    lines = []
-                    for b in agg_result["buckets"]:
-                        lines.append(f"**{b['year']}:**")
-                        lines.extend(f"  - {c['key']}: {c['count']}" for c in b["counts"])
+                    lines = render_statute_mix_by_year(agg_result)
                 elif agg_result["kind"] == "time_bucketed_rate":
                     lines = [agg_result["note"], ""]
                     lines.extend(
@@ -2206,18 +2196,7 @@ async def process_query(
             # (structured_projection.py). Already-populated data, no
             # "not synced yet" degradation needed.
             elif agg_result["kind"] == "placeholder_officer_count":
-                cur, ever = agg_result["current_count"], agg_result["ever_count"]
-                asi, si = agg_result["asi_count"], agg_result["si_count"]
-                caveat = (
-                    f" {ever - cur} additional case(s) originally had a placeholder "
-                    f"officer too but have since been assigned a real one."
-                    if ever > cur else ""
-                )
-                lines = [
-                    f"{cur} FIRs currently carry only a placeholder investigating "
-                    f"officer — {asi} marked \"(نامزد ASI)\", {si} marked "
-                    f"\"(نامزد SI)\".{caveat}"
-                ]
+                lines = render_placeholder_officer_count(agg_result)
             elif agg_result["kind"] == "criminal_record_court_crosscheck":
                 lines = render_criminal_record_crosscheck(agg_result)
             elif agg_result["kind"] == "cms_fir_linkage":
@@ -2264,11 +2243,10 @@ async def process_query(
                     f"a weapon (~{round(100 * c['rate'])}%)"
                     for c in agg_result["counts"]
                 ]
+            # [Gold-QA fix — Module 90, M1] shared renderer, kept in sync
+            # with the other two XAGG-route rendering sites.
             elif agg_result["kind"] == "time_bucketed_breakdown":
-                lines = []
-                for b in agg_result["buckets"]:
-                    lines.append(f"**{b['year']}:**")
-                    lines.extend(f"  - {c['key']}: {c['count']}" for c in b["counts"])
+                lines = render_statute_mix_by_year(agg_result)
             elif agg_result["kind"] == "time_bucketed_rate":
                 lines = [agg_result["note"], ""]
                 lines.extend(

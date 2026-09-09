@@ -3478,64 +3478,98 @@ correct answer and gold needs correcting, as G1, G6 and KB9 already were.
 
 ---
 
-# Module 90 — M1: act-level answer to a section-level question ⬜
+# Module 90 — M1: act-level answer to a section-level question ✅
 
-**M1 scores 0.40 / 0.70 / 0.40 — 1 of 3**, `route=XAGG`.
+**M1 scored 0.40 / 0.70 / 0.40 — 1 of 3**, `route=XAGG`. Fixed by Module 90;
+see `docs/gold-qa-wave2-results/MODULE90_91_RESULT.md`.
 
 Gold contrasts **2024 (13 FIRs, every case armed robbery: PPC 34, 392, Arms
 Ordinance §13, each 13/13)** with **2026 (51 FIRs, diversified: PPC 34 ×23,
 392 ×8, Arms Ord ×16, CNSA §9(c) ×12, PECA §14/§21 ×9 each…)**.
 
-The answer returns **act-level** counts for **2026 only**:
-*"PPC: 39 cases, Arms Ordinance 1965: 16, CNSA 1997: 12, PECA 2016: 9…"*
+Three defects were filed here. **Two were real; one was not.** Corrected
+diagnosis, each point measured live rather than read off the captured answer:
 
-Two defects, and a third worth fixing while there:
+1. **Act vs section — REAL, and now fixed.** `_statute_mix_by_year()` read
+   `cases.crime_category`, which `muhafiz_cases._crime_category()` reduces to
+   a comma-joined act list, discarding `section_code`. It could not
+   distinguish PPC 302 from PPC 392, which is what "what KINDS of cases"
+   asks. Module 24 found this and explicitly declined to take it. Module 90
+   takes it: the aggregate now also reads
+   `StructuredRecord{record_type:'fir_section'}` (`act` + `section_code`),
+   the identical read Modules 23, 24 and 76 already perform, and returns
+   `section_counts` alongside the unchanged act-level `counts`.
+   **Correction to the row count stated in this plan:** the corpus holds
+   **218 `fir_section` rows in total**, not "273 for 2024 and 979 for 2026".
+   Counted per CASE (de-duplicated, since the corpus holds repeat rows for
+   the same case/act/section), the derivation reproduces gold **exactly** —
+   2024: PPC §34 13, PPC §392 13, Arms Ord §13 13 over 13 FIRs; 2026: PPC
+   §34 23, Arms §13 16, CNSA §9(c) 12, PECA §14 9, PECA §21 9, PPC §419 9,
+   PPC §420 9, PPC §302 8, PPC §392 8, PPC §365-A 5, DV 4, over 51 FIRs.
+2. **"Only one year" — NOT REAL.** This plan says the answer "omits 2024
+   entirely". It does not. Re-read from
+   `evaluation/gold32_pass{1,2,3}_outputs.json`, all three captured M1
+   answers contain an explicit *"In comparison, in 2024, the cases included:
+   PPC: 13 cases, Arms Ordinance 1965: 13 cases"* block. The 2024 bucket was
+   produced, rendered and paraphrased correctly throughout. No fix was
+   needed and none was made.
+3. **The wrong expansion — REAL, and now fixed.** The answer rendered *"PPC
+   (Preventive Detention and Control Act)"*; PPC is the **Pakistan Penal
+   Code**. Grepped repository-wide: that phrase occurs **only inside the
+   captured evaluation outputs** — nothing in the code, prompts or data ever
+   wrote it. It is a model invention filling a gap in the evidence, which
+   said only "PPC: 39". The fix is to close the gap rather than to hunt a
+   non-existent code bug: the renderer now spells the act out in the document
+   the model is told not to alter ("PPC (Pakistan Penal Code)", likewise
+   CrPC, CNSA 1997, PECA 2016).
 
-1. **Act vs section.** `_statute_mix_by_year()` reads `cases.crime_category`,
-   which `muhafiz_cases._crime_category()` reduces to a comma-joined act list,
-   discarding `section_code`. So it *cannot* distinguish PPC 302 from PPC 392.
-   **Module 24 found this and explicitly declined to take it** ("whether M1
-   should become section-level is a scope change — flagged, not taken").
-   **The data exists**: `StructuredRecord{record_type:'fir_section'}` carries
-   `act` + `section_code`, and re-derived live it holds **273 rows for 2024**
-   and **979 for 2026**. Modules 23, 24 and 76 all already read it.
-2. **Only one year.** The question is explicitly comparative; the answer omits
-   2024 entirely.
-3. **A wrong expansion in the rendering:** the answer renders *"PPC (Preventive
-   Detention and Control Act)"*. PPC is the **Pakistan Penal Code**. Whatever
-   supplies that gloss is wrong and should be corrected or dropped.
+Also added while there: a per-year **FIR total** on each bucket, since gold's
+own framing is "2024 (13 FIRs)" vs "2026 (51 FIRs)" and an act count is not
+an FIR count (a case carrying two acts contributes twice).
 
 ---
 
-# Module 91 — CP6: one short, and the breakdown dropped ⬜
+# Module 91 — CP6: the diagnosis below was wrong; gold was corrected instead ✅
 
-**CP6 scores 0.30 on all three passes**, `route=XAGG`.
+**CP6 scored 0.30 on all three passes**, `route=XAGG`. Closed by Module 91;
+see `docs/gold-qa-wave2-results/MODULE90_91_RESULT.md`.
 
-Gold: **11 FIRs** carry a placeholder investigating officer — *"(نامزد ASI)"*
-on **8** and *"(نامزد SI)"* on **3** — against the busiest named officers
-(Faisal and Tariq) at 4 FIRs each.
+**The text this plan previously carried was wrong and is corrected here.** It
+said gold's 11 / 8 ASI / 3 SI was right, that the aggregate "reports 10 where
+the two placeholder classes total 11", and that it "emits only a total where
+gold's value is the split". All three are false:
 
-The answer: *"Abhi tak 10 FIRs bina kisi tafteeshi afsar ke asal tor par
-muqarrar kiye pade hue hain."* One number, no breakdown.
+- **The aggregate is correct.** There are 11 `ASSIGNED_TO {role:'investigating'}`
+  placeholder edges over 11 distinct cases, but one of them — on `fir-205-26` —
+  carries `superseded_by`, and that case now has a real named officer
+  (سلمان). So **10** cases still carry a placeholder (7 ASI + 3 SI) and 11
+  ever did. `_placeholder_officer_count()` returns exactly that. There is no
+  double-counted case.
+- **The renderer already emits the split.** It has emitted
+  `7 marked "(نامزد ASI)", 3 marked "(نامزد SI)"` plus an ever-vs-current
+  caveat since Module 7, at all three XAGG rendering sites, unchanged at the
+  evaluation commit.
+- **Gold was the thing that was wrong**, and was corrected to 10 / 7 / 3 in
+  PR #57 (`fix/gold-cp6-kb1-measured`).
 
-**Re-derived live, the graph matches gold exactly:**
+The remaining question — why the captured answer dropped the split the
+renderer had produced — **does not reproduce**. Re-run live on both
+generation providers with the identical prompt and rendered text, the split
+survives paraphrasing 5/5 on the local slot and 3/3 on the cloud fallback.
+The obvious hardening (breaking the sentence into a headline plus one bullet
+per figure) was implemented, measured, and **reverted**: it made the omission
+strictly worse, 0/5 local and 0/3 cloud, because a headline bullet gives the
+model something it can answer "kitne" with and stop. Module 91 therefore
+ships **no behavioural change** to CP6 — only the de-duplication of the three
+hand-copied renderings into one shared `render_placeholder_officer_count()`
+(byte-identical output, proven over all 32 gold questions) and two regression
+tests pinning the split into the rendered evidence.
 
-```
-"(نامزد ASI)"  8
-"(نامزد SI)"   3
-```
+**Still open:** gold's closing comparison — *"the busiest named officers
+(Faisal and Tariq) at 4 FIRs each"* — has no aggregate behind it and the
+answer does not make it. Filed as a known gap, not taken by Module 91.
 
-So **gold is right and the aggregate is wrong**, in two ways: it reports 10
-where the two placeholder classes total 11 — most likely one case carrying both
-placeholders and being counted once, which the module must confirm — and it
-emits only a total where gold's value is the split.
-
-The judge accepted 10-for-11 as within tolerance and still scored 0.30 for the
-missing breakdown, which is the correct call under the stated standard.
-
-**Work:** `_placeholder_officer_count()` should return and render the
-per-placeholder-class breakdown, and its count must be reconciled with the 8+3.
-Keep the busiest-named-officer comparison gold also makes.
+---
 
 ---
 

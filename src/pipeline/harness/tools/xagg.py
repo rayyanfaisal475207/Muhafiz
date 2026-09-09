@@ -78,6 +78,8 @@ from src.pipeline.xagg import (
     render_incident_time_of_day,
     render_arrest_rate,
     render_filtered_fir_listing,
+    render_placeholder_officer_count,
+    render_statute_mix_by_year,
     _UNSUPPORTED_JURISDICTION,
 )
 from src.retrieval.graph_retriever import jurisdiction_unresolved
@@ -308,18 +310,7 @@ def _render_aggregate_text(agg_result: dict) -> str:
     # xagg.py::_placeholder_officer_count()'s own comment for why the two
     # can diverge.
     elif kind == "placeholder_officer_count":
-        cur, ever = agg_result["current_count"], agg_result["ever_count"]
-        asi, si = agg_result["asi_count"], agg_result["si_count"]
-        caveat = (
-            f" {ever - cur} additional case(s) originally had a placeholder "
-            f"officer too but have since been assigned a real one."
-            if ever > cur else ""
-        )
-        lines = [
-            f"{cur} FIRs currently carry only a placeholder investigating "
-            f"officer — {asi} marked \"(نامزد ASI)\", {si} marked "
-            f"\"(نامزد SI)\".{caveat}"
-        ]
+        lines = render_placeholder_officer_count(agg_result)
     elif kind == "district_breakdown":
         label = agg_result.get("entity_label")
         lines = [
@@ -371,11 +362,11 @@ def _render_aggregate_text(agg_result: dict) -> str:
             f"weapon (~{round(100 * c['rate'])}%)"
             for c in agg_result["counts"]
         ]
+    # [Gold-QA fix — Module 90, M1] Now a shared renderer, kept in sync with
+    # orchestrator.py's two identical XAGG-route rendering sites by being the
+    # same function rather than a third hand-copy of it.
     elif kind == "time_bucketed_breakdown":
-        lines = []
-        for b in agg_result["buckets"]:
-            lines.append(f"**{b['year']}:**")
-            lines.extend(f"  - {c['key']}: {c['count']}" for c in b["counts"])
+        lines = render_statute_mix_by_year(agg_result)
     elif kind == "time_bucketed_rate":
         lines = [agg_result["note"], ""]
         lines.extend(

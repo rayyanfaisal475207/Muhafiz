@@ -5885,3 +5885,202 @@ def test_module76_paraphrases_reach_the_family(query):
     exercised too."""
     assert xagg.resolve_aggregate_kind(query) == "fir_section_case_count"
     assert xagg._section_code_in_query(query) == "302"
+
+
+# ── [Gold-QA fix — Modules 90/91, questions M1 and CP6] ────────────────────
+#
+# M1 asks "what KINDS of cases are we dealing with now compared to a couple
+# of years back". Before Module 90 `_statute_mix_by_year()` could only answer
+# at ACT grain, because it bucketed `cases.crime_category` — a comma-joined
+# act list that `muhafiz_cases._crime_category()` builds with `section_code`
+# already discarded. Every one of 2026's 39 "PPC" cases therefore read as the
+# same kind of case whether it was a murder (302), a robbery (392) or a
+# fraud (420), which is precisely the distinction the question is about.
+#
+# CP6's tests below are REGRESSION PINS, not a fix: Module 91 measured the
+# aggregate and the renderer as already correct and left both alone. They
+# exist so the ASI/SI split cannot be dropped from the rendered evidence
+# again without a test failing.
+
+
+class _StatuteMixAgeClient:
+    """Routes the two reads `_statute_mix_by_year()` issues after Module 90:
+    the incident-year read, and the `fir_section` section read."""
+
+    def __init__(self, year_rows, section_rows):
+        self.year_rows = year_rows
+        self.section_rows = section_rows
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        if "fir_section" in cypher_query:
+            return self.section_rows
+        return self.year_rows
+
+
+def _m1_fixture_client():
+    year_rows = [
+        {"incident_date": "2024-02-01", "case_id": "CASE-1"},
+        {"incident_date": "2024-05-15", "case_id": "CASE-2"},
+        {"incident_date": "2026-01-10", "case_id": "CASE-3"},
+        {"incident_date": "2026-03-02", "case_id": "CASE-4"},
+    ]
+    section_rows = [
+        {"act": "PPC", "section_code": "392", "case_id": "CASE-1"},
+        {"act": "PPC", "section_code": "34", "case_id": "CASE-1"},
+        # Same (case, act, section) twice: the corpus really does hold
+        # duplicate fir_section rows, and counting ROWS instead of CASES is
+        # the bug this de-duplication exists to prevent.
+        {"act": "PPC", "section_code": "34", "case_id": "CASE-1"},
+        {"act": "PPC", "section_code": "392", "case_id": "CASE-2"},
+        {"act": "PPC", "section_code": "302", "case_id": "CASE-3"},
+        {"act": "CNSA 1997", "section_code": "9(c)", "case_id": "CASE-4"},
+        # No act and no section at all — must be dropped, not counted as a
+        # bucket named "" or "None".
+        {"act": None, "section_code": None, "case_id": "CASE-4"},
+    ]
+    cases = [
+        {"case_id": "CASE-1", "crime_category": "PPC"},
+        {"case_id": "CASE-2", "crime_category": "PPC, Arms Ordinance 1965"},
+        {"case_id": "CASE-3", "crime_category": "PPC"},
+        {"case_id": "CASE-4", "crime_category": "CNSA 1997"},
+    ]
+    return _StatuteMixAgeClient(year_rows, section_rows), FakeGateway(cases)
+
+
+async def test_m1_statute_mix_reports_section_grain_not_only_act_grain(monkeypatch):
+    """FAILS before Module 90: `section_counts` did not exist on the payload,
+    so no rendering could ever name a section."""
+    client, gateway = _m1_fixture_client()
+    monkeypatch.setattr(xagg, "age_client", client)
+
+    result = await xagg.run_aggregate(
+        "What kinds of cases are we dealing with now compared to a couple of years back?",
+        None, gateway=gateway, user_role="supervisor",
+    )
+
+    by_year = {b["year"]: b for b in result["buckets"]}
+    sections_2024 = {c["key"]: c["count"] for c in by_year[2024]["section_counts"]}
+    sections_2026 = {c["key"]: c["count"] for c in by_year[2026]["section_counts"]}
+    # CASE-1 cites PPC 34 twice; it is one CASE, so the count is 1, not 2.
+    assert sections_2024 == {"PPC §392": 2, "PPC §34": 1}
+    assert sections_2026 == {"PPC §302": 1, "CNSA 1997 §9(c)": 1}
+    # The act grain is unchanged — this is additive, not a replacement.
+    assert {c["key"]: c["count"] for c in by_year[2024]["counts"]} == {
+        "PPC": 2, "Arms Ordinance 1965": 1
+    }
+
+
+async def test_m1_statute_mix_reports_the_fir_total_per_year(monkeypatch):
+    """FAILS before Module 90: no `case_count` on the bucket. Gold frames the
+    whole comparison as "2024 (13 FIRs)" vs "2026 (51 FIRs)", and an act
+    count is not an FIR count — a case carrying two acts contributes twice."""
+    client, gateway = _m1_fixture_client()
+    monkeypatch.setattr(xagg, "age_client", client)
+
+    result = await xagg.run_aggregate(
+        "What kinds of cases are we dealing with now compared to a couple of years back?",
+        None, gateway=gateway, user_role="supervisor",
+    )
+
+    assert {b["year"]: b["case_count"] for b in result["buckets"]} == {2024: 2, 2026: 2}
+    # 2024's act counts sum to 3 across 2 FIRs — proving the two are not the
+    # same number and that the new field is not just a renamed old one.
+    assert sum(c["count"] for c in result["buckets"][0]["counts"]) == 3
+
+
+async def test_m1_section_counts_capped_at_the_render_limit(monkeypatch):
+    """The cut must be a STABLE prefix, not whichever rows the dict happened
+    to yield first — otherwise the same corpus renders different sections on
+    different runs."""
+    year_rows = [{"incident_date": "2026-01-01", "case_id": f"C{i}"} for i in range(30)]
+    section_rows = [
+        {"act": "PPC", "section_code": str(300 + i), "case_id": f"C{i}"} for i in range(30)
+    ]
+    cases = [{"case_id": f"C{i}", "crime_category": "PPC"} for i in range(30)]
+    monkeypatch.setattr(xagg, "age_client", _StatuteMixAgeClient(year_rows, section_rows))
+
+    result = await xagg.run_aggregate(
+        "What kinds of cases are we dealing with now compared to a couple of years back?",
+        None, gateway=FakeGateway(cases), user_role="supervisor",
+    )
+
+    sections = result["buckets"][0]["section_counts"]
+    assert len(sections) == xagg._STATUTE_SECTION_RENDER_LIMIT
+    # All 30 are tied at 1, so the cut is the alphabetical prefix.
+    assert [s["key"] for s in sections] == sorted(s["key"] for s in sections)
+
+
+def test_m1_renderer_names_sections_the_fir_total_and_expands_ppc():
+    """FAILS before Module 90 on all three counts: the old inline renderer
+    emitted only `**2026:**` plus bare act lines.
+
+    The PPC expansion is not decoration. Handed a line reading only
+    "PPC: 39", the paraphrasing model invented "PPC (Preventive Detention and
+    Control Act)" in all three captured evaluation passes; PPC is the
+    Pakistan Penal Code, and that phrase appears nowhere in this repository
+    outside the captured outputs. Naming the act in the evidence closes the
+    gap the model was filling."""
+    payload = {
+        "kind": "time_bucketed_breakdown",
+        "dimension": "statute_by_year",
+        "buckets": [
+            {
+                "year": 2026,
+                "case_count": 51,
+                "counts": [{"key": "PPC", "count": 39}, {"key": "CNSA 1997", "count": 12}],
+                "section_counts": [{"key": "PPC §302", "count": 8}],
+            }
+        ],
+    }
+    text = "\n".join(xagg.render_statute_mix_by_year(payload))
+
+    assert "51 FIR(s)" in text
+    assert "PPC §302: 8" in text
+    assert "PPC (Pakistan Penal Code)" in text
+    assert "CNSA 1997 (Control of Narcotic Substances Act 1997)" in text
+    assert "Preventive Detention" not in text
+
+
+def test_m1_renderer_still_renders_a_payload_with_no_section_counts():
+    """A result dict produced before Module 90 (replayed, cached, or from an
+    older process) must still render at act grain rather than raising."""
+    payload = {
+        "kind": "time_bucketed_breakdown",
+        "dimension": "statute_by_year",
+        "buckets": [{"year": 2024, "counts": [{"key": "PPC", "count": 13}]}],
+    }
+    text = "\n".join(xagg.render_statute_mix_by_year(payload))
+
+    assert "**2024**" in text
+    assert "PPC (Pakistan Penal Code): 13" in text
+
+
+def test_cp6_renderer_keeps_the_asi_si_split_and_the_ever_caveat():
+    """[Module 91] Regression pin. The rendered evidence must carry the
+    split, because that split — not the bare total — is what CP6's gold
+    answer is about. Byte-identical to the three inline copies this shared
+    renderer replaced."""
+    payload = {
+        "kind": "placeholder_officer_count",
+        "current_count": 10, "ever_count": 11, "asi_count": 7, "si_count": 3,
+    }
+    text = "\n".join(xagg.render_placeholder_officer_count(payload))
+
+    assert text == (
+        '10 FIRs currently carry only a placeholder investigating officer — '
+        '7 marked "(نامزد ASI)", 3 marked "(نامزد SI)". 1 additional case(s) '
+        'originally had a placeholder officer too but have since been '
+        'assigned a real one.'
+    )
+
+
+def test_cp6_renderer_drops_the_caveat_when_nothing_was_superseded():
+    payload = {
+        "kind": "placeholder_officer_count",
+        "current_count": 11, "ever_count": 11, "asi_count": 8, "si_count": 3,
+    }
+    text = "\n".join(xagg.render_placeholder_officer_count(payload))
+
+    assert "additional case(s)" not in text
+    assert '8 marked "(نامزد ASI)"' in text
+    assert '3 marked "(نامزد SI)"' in text
