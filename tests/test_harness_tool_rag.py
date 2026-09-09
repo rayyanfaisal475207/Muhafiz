@@ -397,7 +397,7 @@ def _spy_retrieve(monkeypatch, relevant_scopes):
     seen = []
 
     async def _fake_retrieve(query, where, fetch_top_k, final_top_k, is_cross_case,
-                             statute_queries=None):
+                             statute_queries=None, english_query=None):
         seen.append(dict(where))
         key = frozenset(where.items())
         if key in relevant_scopes:
@@ -415,9 +415,18 @@ def _spy_retrieve(monkeypatch, relevant_scopes):
     async def _no_statute_query(question, n=2):
         return []
 
+    # [Module 52] Same reasoning for the English rendering of the question:
+    # a legal-KB-intent query now also asks the LLM to restate the question
+    # in the corpus's language. Stubbed to its failure return (None) here,
+    # which is the path that leaves scope selection exactly as these tests
+    # were written to describe it.
+    async def _no_english_rendering(question):
+        return None
+
     monkeypatch.setattr(rag_mod, "_retrieve_candidates", _fake_retrieve)
     monkeypatch.setattr(rag_mod, "evaluate_relevance", _eval)
     monkeypatch.setattr(rag_mod, "generate_statute_queries", _no_statute_query)
+    monkeypatch.setattr(rag_mod, "render_question_in_english", _no_english_rendering)
     return seen
 
 

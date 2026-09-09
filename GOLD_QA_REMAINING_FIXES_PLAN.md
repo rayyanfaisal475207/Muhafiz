@@ -97,7 +97,6 @@ several can run in parallel chats/worktrees without colliding.
 | 54 | Two provider-failure gaps Module 46's quota fix did not close: `503 UNAVAILABLE` is not in its grep, and a failed cutover classification silently falls back to `orchestrator.py` | `fix/provider-failure-visibility` | ✅ **Fixed** — pattern widened to `rate limit\|RESOURCE_EXHAUSTED\|429\|quota\|UNAVAILABLE\|503`, canonical in `gold32_score.py`'s `LOG_GREP_PATTERN`; the cutover fallback now emits a `cutover_classification_failed` SSE event, recorded per row in `gold32_pipeline_outputs.json`. 18 new tests, 197 passing. Live deferred (two backends mid-wave). Module 46 owns the `RESOURCE_EXHAUSTED` half. See `MODULE54_RESULT.md` |
 | 53 | Meta-Analysis' 60 s sub-query timeout is one shared wall-clock deadline, so it kills whichever sub-query is served LAST, not the slow one | `fix/meta-analysis-reliability-53-57-40` | ✅ **Done.** Reproduced by controlled experiment (deadline forced to 25 s, G1 at N=5): **8 of 10 sub-answers dropped before, 0 of 10 after**, with all five aggregates reaching the answer on both after-runs. Fix reuses `large_scale_aggregate.py`'s existing verifier-rejection fallback — a `ContextVar` salvage box (`agents/_salvage.py`) survives `wait_for()`'s cancellation, so the already-computed aggregate is served raw and disclosed. `META_ANALYSIS_SUBQUERY_TIMEOUT` 60 → 150, derived from the measured staircase. At the shipped config, **zero dropped sub-answers at N=5 across 12 runs** of G1/G6/CR3. `_MAX_PLAN_SUB_QUERIES` deliberately left at 5 — see Module 59. Result: `docs/gold-qa-wave2-results/MODULE53_RESULT.md` |
 | 51 | `backend.log` is written through a cp1252 stream, so any Urdu-carrying log record is **silently destroyed** inside `logging.emit()` | `fix/backend-log-utf8-encoding` | ✅ **Fixed** — handler-level UTF-8; the `XAGG <kind>` diagnostics every module is verified against were being deleted |
-| 52 | The relevance gate cannot judge a roman-Urdu question against English statute text (English 6/6 relevant, roman-Urdu 1/6, identical chunks) | *(not yet branched)* | ⬜ New — found by Module 42; this is what actually makes KB6 abstain, and it gates the whole roman-Urdu half of the KB bucket |
 | 55 | Every XAGG aggregate predating Modules 31–36 emits no `XAGG <kind>:` log line, so no live run of it can be identified from `backend.log` | `fix/xagg-log-lines-and-m2-vocabulary` | ✅ **Done** — measured **32 distinct aggregate kinds, 11 log lines, 21 families silent** (the brief's "~18" undercounted). All 21 now log, each carrying the **figures**, plus the three honest-refusal paths that were previously indistinguishable from XAGG never running. Confirmed live in-process against Postgres + AGE: 21 of 21 emit real figures, Urdu values intact post-PR #30. The durable fix is an **AST-derived enforcing test** — a new family with no log line fails the suite. Backend/SSE run **deferred for contention** (8015 and 8016 both mid-run). Result: `docs/gold-qa-wave2-results/MODULE55_RESULT.md` |
 | 56 | M2's dispatch vocabulary is narrower than the family it now serves — a station-type question that avoids `_STATION_TYPE_KEYWORDS`' exact wording falls to the per-station catch-all | `fix/xagg-log-lines-and-m2-vocabulary` | ✅ **Done** — tuple widened from 10 to **58** entries: specialist/specialised/dedicated unit and station forms, the ordinary/normal/regular general-purpose side, and their Roman-Urdu (`makhsoos`/`khaas`/`aam thana`) and Urdu (خصوصی/مخصوص/عام تھانہ) equivalents. Every entry binds the qualifier to a station word; no bare عام-class word. **All-32 EQUALITY control passes** — every gold question's resolved kind byte-identical to the pre-change map. The measured failing phrasing now reaches `station_caseload_by_specialisation`, as do 8 non-gold paraphrases across all three languages; M2 still reproduces gold's 9-of-73 from 2-of-19. New defect split out as **Module 59**. Result: `docs/gold-qa-wave2-results/MODULE56_RESULT.md` |
 | 57 | CR3 is non-deterministic across runs at three different layers | `fix/meta-analysis-reliability-53-57-40` | ✅ **Diagnosis closed; CR3 still unstable. No code change of its own.** Re-measured over 20 consecutive runs of CR3's gold text after Module 53: sub-query timeouts **0 of 20** (removed by Module 53); `route=None` **0 of 20** (did not reproduce — not fixed, *not observed*; `xnetwork.py` correctly untouched); synthesis-verifier rejection **7 of 14 on the shipped code** and now the only failure left. Its reason is singular and verbatim-identical every time — the claim that FIR 65/26 is *absent* from the CMS linkage list, which is exactly what gold asserts. Measured **not** to be citation attribution, so Module 40 cannot fix it either. CR3's dispatch is fully stable (same route, plan and 3 sub-queries, 20/20). Result: `docs/gold-qa-wave2-results/MODULE57_RESULT.md` |
@@ -106,6 +105,11 @@ several can run in parallel chats/worktrees without colliding.
 | 60 | M4 does **not** skip decomposition live — its route is XNETWORK, and Module 41's guard only fires on XAGG | *(start from `fix/meta-analysis-m4-synthesis-verifier-rejection`)* | ⬜ New — found by Modules 53/40's regression guard. **7 live runs of 7 reach Meta-Analysis**, across `main` @ `9942db9` and current `main`. On the older base, 4 of 4 were byte-identical: `route=XNETWORK` → two XGRAPH sub-queries → *"No information was found for any part of this question."* After Modules 38/55/56 merged, M4 became non-deterministic: 2 of 3 runs decompose into Urdu sub-queries reaching XAGG and RAG and **answer** with gold's statute half (PPC 61 / Arms 29 / CNSA 12 / PECA 9), losing gold's court-stage half to a RAG sub-query timeout; 1 of 3 reproduces the empty result. Module 41 recorded `skips_decomposition=True` from a **static** `resolve_aggregate_kind()` call and its own §8 says M4 was *"not re-run live here"*; both statements are true, because the guard at `supervisor.py:745` is conditional on `route == "XAGG"`. Three candidate fixes, all needing `router.py`/`supervisor.py`: take Module 40's `statute_vs_court_stage` plan and accept that it vetoes the Module 41 guard; widen the guard beyond `route == "XAGG"`, against that guard's own explicit reasoning; or fix why the router says XNETWORK. |
 | 61 | The grounding verifier refuses a **negative inference over a complete listing**, which is exactly what CR3's gold answer asserts | *(not yet branched)* | ⬜ New — found by Module 57, and the whole of CR3's remaining instability. Verbatim on every rejection: the claim that FIR 65/26 is absent from the CMS linkage list is *"inferred but not directly supported"*. Measured **not** to be citation attribution, so Module 40's second opinion cannot fix it (still `grounded=False` with the flag on, 3 of 3). Note the inconsistency to resolve: the **validation** gate already *hedges* the identical claim ("could only be partially confirmed") rather than refusing it, so the two gates hold different standards for the same evidence. Reaches beyond Meta-Analysis — any XAGG listing served as evidence has this shape. |
 | 62 | The deterministic decomposition plans have a narrow lexical reach | *(not yet branched)* | ⬜ New — found by Modules 57/40's non-gold paraphrase check, generalising Module 41's M4 finding to CR3 and G6. A CR3 paraphrase keeping "online banking fraud" and "handled the same way" matches `record_consistency` and answers correctly 2/2; one asking whether the records are "equally complete" matches nothing and never reaches Meta-Analysis. Same boundary for G6's `orientation_note`. The capability is **not** tied to the gold string, but it is tied to a small neighbourhood around it. The fix is probably not "add more patterns" — it is deciding whether a plan should be selected by regex at all, or by the same aggregate-resolution mechanism Module 41 used for its guard. |
+| 52 | The relevance gate cannot judge a roman-Urdu question against English statute text (English 6/6 relevant, roman-Urdu 1/6, identical chunks) | `fix/kb-evaluator-english-rendering` | ✅ **Done — the gate defect is real and fixed, and it does not on its own win the KB bucket.** The legal-KB path now renders the QUESTION in English (`render_question_in_english()`) for both retrieval and `evaluate_relevance()`; `prompts/evaluator.txt` untouched. Layer 1 re-measured on this branch, chunk set constant and containing gold's text: **0/3 roman-Urdu → 3/3 English**. Live, KB1–KB9 × 3 runs × 2 arms, **re-baselined against `main` @ `a841f5d`**: answered **18/24 → 19/24**, thematic law-half coverage **14/24 in BOTH arms**. KB9 abstained 2/3 → answers 3/3 with CrPC s.174 + Rule 25.35; KB6's six rounds collapse to **1/1/1** and its runtime falls 65%; **KB4 regresses 2/3 → 0/3**, isolated by probe to the verifier, not the gate. Non-gold roman-Urdu paraphrase: 2/3 → 3/3 answered and gold's three statutory specifics on 2 of 3 runs vs **0 of 3** before. New defects split out as Modules 58–61. Result: `docs/gold-qa-wave2-results/MODULE52_RESULT.md` |
+| 63 | `_is_legal_kb_intent()` misses an ordinary Roman-Urdu paraphrase, so every KB fix is silently skipped for it | *(not yet branched)* | ⬜ New — found by Module 52, measured directly (`False` for a plain rephrasing of KB6). Routed to the mixed FIR pool; no KB scope, no statute hypotheses, no English rendering. **Sits ahead of Modules 30/38/52 in the path** |
+| 64 | KB6's `c19`/`c18` window is still not retrieved from KB6's own wording | *(not yet branched)* | ⬜ New — found by Module 52. Module 52's brief predicted the English rendering in retrieval would surface it; measured, it does not (3/3 runs land on `c116`). A **paraphrase** of KB6 does reach it, so corpus/widening/generator are all capable |
+| 65 | KB2's gold rests on Qanun-e-Shahadat Arts 38/39 and CrPC s.162 — no run ever retrieves them | *(not yet branched)* | ⬜ New — found by Module 52 (0 of 6 live runs, both arms). This is the diagnosis **Module 48** records as missing for KB2, and it is a Module-30-shaped **retrieval** gap, not a synthesis one |
+| 66 | The English rendering can narrow a question's scope (KB5: "violence" → "domestic violence") | *(not yet branched)* | ⬜ New — found by Module 52 in its own output, against `prompts/question_english.txt` rule 4. KB5's evaluator rounds also worsened, mean 1.7 → 4.0 |
 | 27 | Final Gold-32 rerun (Module 18 redo) | *(docs only)* | ⬜ Blocked on all above — brief: `MODULE27_FINAL_GOLD32_RERUN_PROMPT.md` |
 
 ### Coverage check — every failing question maps to a module
@@ -2861,7 +2865,7 @@ say so — that is a legitimate outcome, as Module 21 established.
 
 ---
 
-# Module 52 — the relevance gate cannot judge a roman-Urdu question against English statute text ⬜ new, not yet branched
+# Module 52 — the relevance gate cannot judge a roman-Urdu question against English statute text ✅
 
 **Found while investigating Module 42.** This is what actually makes KB6
 abstain, once its `route=None` is understood to have been a harness timeout.
@@ -2962,7 +2966,148 @@ a set of adversarial non-gold phrasings that the current control does not
 contain.
 
 ---
+---
 
+## Outcome (2026-09-09, branch `fix/kb-evaluator-english-rendering`)
+
+**Done. The defect above is confirmed and fixed; the KB bucket did not move.**
+Full evidence in `docs/gold-qa-wave2-results/MODULE52_RESULT.md`.
+
+**What shipped.** `render_question_in_english()` in
+`src/pipeline/statute_hypothesis.py` plus `prompts/question_english.txt`
+restate the QUESTION — not the provision — in English. On the legal-KB path
+only (`_is_legal_kb_intent()`), `rag.py` folds it into retrieval and hands it
+to `evaluate_relevance()` as both arguments on attempt 1. `None` on any
+failure, so a dead call is byte-for-byte the old behaviour.
+**`prompts/evaluator.txt` was not touched.**
+
+**Layer 1, re-measured on this branch** with this module's own rendering,
+chunk set held constant and asserted to contain gold's text: KB6 as gold asks
+it **0/3 relevant**, the same question in English **3/3**. Module 42's finding
+reproduces.
+
+**The baseline moved, as the brief warned, and was re-measured rather than
+inherited** — `main` @ `a841f5d`, KB1–KB9 × 3 runs: **18/24 answered**, mean
+2.25 evaluator rounds. KB6 no longer shows Module 42's 4-of-5 abstention (it
+answers 3/3); **KB9** now carries that signature instead (abstains 2/3, six
+rounds, ~500s); **KB3 routed to XAGG on one run of three**, so any single-run
+KB3 number is a coin flip.
+
+**After: 19/24 answered, mean 2.33 rounds.** Thematic law-half coverage is
+**14/24 in both arms** — consistency improved, correctness did not:
+
+- **KB9 1/3 → 3/3** on the law half, abstentions gone.
+- **KB6** answers 3/3 in both arms; its evaluator rounds collapse 3/2/1 →
+  **1/1/1** and runtime 373/169/124s → 95/91/91s — the brief's predicted
+  cross-check, confirmed.
+- **KB4 2/3 → 0/3.** Isolated with a gate-only probe: retrieval still reaches
+  gold's Punjab Police Rules **27.16** and the gate names it; the **verifier**
+  refuses the generated answer. Downstream of this module, and the same
+  constraint Module 38 flagged.
+- **Mean rounds across all 24 runs is flat (2.25 → 2.33)**, because KB5 got
+  worse (1.7 → 4.0) as much as KB6 and KB9 got better.
+
+**Non-gold roman-Urdu paraphrase** (keeping the hard "baramad shuda hathyar"
+vocabulary): answered **2/3 → 3/3**, mean rounds 5.0 → 3.0, and gold's three
+statutory specifics ("packaged separately, unloaded with safety on, without
+live rounds") appear on **2 of 3** after-runs against **0 of 3** before-runs.
+This is the module's strongest evidence, and it also shows the limit: KB6's
+*own* gold wording still does not reach the chunk that carries those words.
+
+**Verdict on 48, 49 and 39 — none is subsumed:**
+
+- **Module 39: still needed, unchanged, and now the largest single cause of KB
+  failure.** **0 of 48 runs** across both arms produce gold's data half.
+- **Module 48: half advanced, half re-diagnosed.** **KB9** was not a synthesis
+  failure at all — it was abstaining; Module 52 fixed that and it now names
+  CrPC s.174 with Rules 25.31/25.35, grounded in CrPC chunks by id, so its
+  residue is Module 39. **KB2 did not move (0/3 in both arms)** and now has the
+  diagnosis Module 48 says it lacks: gold rests on Qanun-e-Shahadat Arts 38/39
+  and CrPC s.162, and all six runs answer from CrPC s.161 / case diaries
+  instead — a Module-30-shaped **retrieval** gap, not a synthesis one.
+- **Module 49: still needed, unchanged, and should be sequenced AFTER Module
+  39** — its own stated honest outcome ("KB3 cannot pass without 39") is now
+  supported by measurement (gold's 68-of-74 half unreachable on 24 of 24 runs).
+  It must also account for KB3's router instability.
+
+**New defects, split out rather than folded in — Modules 58–61 below.**
+
+---
+
+# Module 63 — `_is_legal_kb_intent()` misses an ordinary Roman-Urdu paraphrase ⬜
+
+**Found by Module 52, measured directly.** A plain Roman-Urdu rephrasing of KB6
+that says *"forensics ke usoolon"* instead of *"forensics guidelines"* returns
+**False** from `_is_legal_kb_intent()`. It is therefore routed to the mixed
+FIR-narrative pool and **every KB fix is silently skipped** — Module 8c's
+KB-only scope, Module 30's statute hypotheses, Module 38's RRF fusion and
+Module 52's English rendering. Measured live, 3 runs each arm: no rendering
+generated, and every chunk the evaluator judged was a
+`psrms_fir_fir-…#narrative` chunk.
+
+The gate's patterns key on English/loanword surface forms, so a question that
+uses ordinary Urdu vocabulary for the same concept falls through. **This sits
+ahead of Modules 30/38/52 in the path and gates the whole Roman-Urdu half of
+the KB bucket** — it should be the next module in this line.
+
+**Verify:** the gate function directly over a set of Roman-Urdu and
+Urdu-script paraphrases; then live, that a paraphrase reaches the KB corpus.
+The eight gold KB questions as a regression guard — widening this gate must not
+pull case-data questions into the KB-only scope.
+
+---
+
+# Module 64 — KB6's `c19` window is still not retrieved from KB6's own wording ⬜
+
+**Found by Module 52.** The brief predicted that giving retrieval the English
+rendering would surface `5_Forensics_guidelines_pdf_62ee00b3_c19`. Measured, it
+does not: all three post-change runs land on `_c116` and `_c0`, and the
+baseline reached the answering text only by *stumbling onto* `_c18` on 1 run in
+3 during a retry. Because Module 52 makes the gate pass on attempt 1, those
+retries are gone — KB6's answer rate is 3/3 either way, but its statutory
+specifics went from "1 in 3 by luck" to "0 in 3 reliably".
+
+Note the discriminating evidence: a **paraphrase** of KB6 does reach that text
+(2 of 3 runs), so the corpus, the widening and the generator are all capable.
+It is KB6's own phrasing that misses. **A gate fix cannot compensate for a
+retrieval miss.**
+
+**Verify:** chunk ids, never citations. KB6 live several times; the other seven
+KB questions as a regression guard.
+
+---
+
+# Module 65 — KB2's gold rests on statutes no run ever retrieves ⬜
+
+**Found by Module 52; this is the diagnosis Module 48 records as missing for
+KB2.** Across **6 live runs in two arms**, KB2's thematic coverage is **0/6**.
+Gold's answer rests on **Qanun-e-Shahadat Order 1984 Arts 38 and 39** (a
+confession to a police officer is not evidence) and **CrPC s.162** (a
+police-recorded statement is barred at trial), concluding that the missing
+statement text is *by design, not a gap*. Every run instead answers from CrPC
+s.161 and Punjab Police Rules 25.54's case diaries, and several conclude the
+**opposite** of gold — that the system does have recording mechanisms.
+
+So KB2 is a Module-30-shaped **retrieval** gap on a statute book Module 30's
+own probe never targeted, not the synthesis failure Module 48 assumes.
+
+**Verify:** probe the corpus for the Qanun-e-Shahadat Art. 38/39 and CrPC s.162
+chunks by id first — establish they exist before building anything.
+
+---
+
+# Module 61 — the English rendering can narrow a question's scope ⬜
+
+**Found by Module 52, in its own output.** KB5's *"عورت پر تشدد"* (violence
+against a woman) is rendered as *"**domestic** violence against a woman"*,
+against `prompts/question_english.txt`'s explicit rule 4 (preserve scope, add
+no term the question did not use). KB5's evaluator rounds also worsened, mean
+**1.7 → 4.0**, which is the most likely explanation — a lead, not yet a
+measurement.
+
+**Verify:** render all eight gold KB questions plus a set of paraphrases and
+check faithfulness clause by clause; then KB5 live several times against the
+rounds figure above.
 ## Reference
 
 - `MODULE_18_FINAL_REPORT.md` — the run this plan responds to.
