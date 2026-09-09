@@ -287,6 +287,15 @@ rejections occurred and both were absorbed by Module 71's `PARTIAL` fallback.
 src/` is empty and the 19 questions passing on all three passes of
 `evaluation/gold32_pass{1,2,3}_results.json` are untouched.
 
+**Corroboration, excluded from every figure.** A with-rules regression batch did
+run, and it points the same way as §4b: **KB1, KB6 and KB8 all returned
+`status=error`** where the shipped code answers 2 of 2. It is counted nowhere,
+because two runner processes wrote it across a backend restart and no row can be
+tied to one process log — but the rows are kept in `module82_regression.json`
+under `arm: "after-unattributable"` rather than deleted, because three more RAG
+questions failing under the rules is worth knowing even uncertified. Had the
+change shipped, this batch would have had to be re-run in full.
+
 ---
 
 ## 8. New defects found

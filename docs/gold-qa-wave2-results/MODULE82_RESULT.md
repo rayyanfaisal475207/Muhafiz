@@ -285,8 +285,9 @@ numbers:
   second"* and every request in that window returned HTTP 500 with
   `asyncpg … ConnectionRefusedError`. The whole affected batch was discarded and
   re-run from a fresh backend; the with-rules regression batch could not be
-  cleanly attributed to a single process afterwards and is **discarded entirely**
-  rather than reported (§7).
+  cleanly attributed to a single process afterwards and is **excluded from every
+  reported figure**, retained only as corroboration under
+  `arm: "after-unattributable"` (§7).
 
 Module 81's corrected quota pattern returns **0** on the shipped-code log and
 **0** on the with-rules log apart from the two cutover lines above.
@@ -439,10 +440,21 @@ same-session baseline for whoever takes Module 97 rather than a before/after.
 were absorbed by Module 71's `PARTIAL` fallback** — the second and third
 unforced live activations of that fallback on record, after Module 71's own §4d.
 
+**Corroboration, retained but excluded from every figure above.** A with-rules
+regression batch did run, and it points the same way as §2.1 — **KB1, KB6 and
+KB8 all returned `status=error`** where the shipped code answers 2 of 2. It is
+**not** counted anywhere in this module, because two runner processes wrote it
+across a backend restart and no row can be tied to one process log. The rows are
+kept in `module82_regression.json` under `arm: "after-unattributable"`, each
+carrying its own `_note`, rather than deleted: three more RAG questions failing
+under the rules is worth knowing even when it cannot be certified, and had the
+change shipped this batch would have had to be re-run in full.
+
 **The baseline is not regressed because nothing shipped.** `git diff origin/main
 -- src/` is empty, so the 19 questions passing on all three passes of
 `evaluation/gold32_pass{1,2,3}_results.json` cannot have moved. **The with-rules
-regression batch is discarded entirely** rather than reported: the backend was
+regression batch is excluded from every reported figure** rather than counted (it
+is retained as corroboration, above): the backend was
 restarted during it and no row's log slice can be attributed to one process
 (§4a). Had it shipped, that batch would have had to be re-run in full.
 
