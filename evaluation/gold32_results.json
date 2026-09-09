@@ -3,7 +3,7 @@
     "id": "D1",
     "type": "Fact Retrieval",
     "language": "en",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 1.0,
       "AnswerRelevancy": 1.0
@@ -17,7 +17,7 @@
     "id": "S2",
     "type": "Fact Retrieval",
     "language": "en",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 1.0,
       "AnswerRelevancy": null
@@ -31,7 +31,7 @@
     "id": "S3",
     "type": "Fact Retrieval",
     "language": "ur",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 1.0,
       "AnswerRelevancy": 1.0
@@ -45,7 +45,7 @@
     "id": "A1",
     "type": "Fact Retrieval",
     "language": "ur",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 1.0,
       "AnswerRelevancy": 1.0
@@ -59,7 +59,7 @@
     "id": "A7",
     "type": "Fact Retrieval",
     "language": "roman_ur",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 1.0,
       "AnswerRelevancy": 1.0
@@ -73,7 +73,7 @@
     "id": "CP6",
     "type": "Fact Retrieval",
     "language": "roman_ur",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 0.3,
       "AnswerRelevancy": 1.0
@@ -87,7 +87,7 @@
     "id": "CR2",
     "type": "Complex Reasoning",
     "language": "en",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 0.0,
       "AnswerRelevancy": 1.0
@@ -101,7 +101,7 @@
     "id": "CR3",
     "type": "Complex Reasoning",
     "language": "en",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 1.0,
       "AnswerRelevancy": 1.0
@@ -115,7 +115,7 @@
     "id": "CR4",
     "type": "Complex Reasoning",
     "language": "en",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 1.0,
       "AnswerRelevancy": 1.0
@@ -129,7 +129,7 @@
     "id": "CR6",
     "type": "Complex Reasoning",
     "language": "ur",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 1.0,
       "AnswerRelevancy": 0.286
@@ -143,7 +143,7 @@
     "id": "CR7",
     "type": "Complex Reasoning",
     "language": "ur",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 1.0,
       "AnswerRelevancy": 1.0
@@ -157,7 +157,7 @@
     "id": "CR8",
     "type": "Complex Reasoning",
     "language": "ur",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 1.0,
       "AnswerRelevancy": 1.0
@@ -171,7 +171,7 @@
     "id": "CS4",
     "type": "Complex Reasoning",
     "language": "roman_ur",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 1.0,
       "AnswerRelevancy": 1.0
@@ -185,7 +185,7 @@
     "id": "CP1",
     "type": "Complex Reasoning",
     "language": "roman_ur",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 0.5,
       "AnswerRelevancy": 1.0
@@ -199,7 +199,7 @@
     "id": "M1",
     "type": "Contextual Summarization",
     "language": "en",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 0.7,
       "AnswerRelevancy": 1.0
@@ -213,7 +213,7 @@
     "id": "M2",
     "type": "Contextual Summarization",
     "language": "en",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 0.8,
       "AnswerRelevancy": 1.0
@@ -227,7 +227,7 @@
     "id": "M4",
     "type": "Contextual Summarization",
     "language": "ur",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 1.0,
       "AnswerRelevancy": 1.0
@@ -241,7 +241,7 @@
     "id": "M5",
     "type": "Contextual Summarization",
     "language": "ur",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 1.0,
       "AnswerRelevancy": 1.0
@@ -255,7 +255,7 @@
     "id": "M7",
     "type": "Contextual Summarization",
     "language": "roman_ur",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 0.3,
       "AnswerRelevancy": 1.0
@@ -269,7 +269,7 @@
     "id": "G1",
     "type": "Creative Generation",
     "language": "en",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 0.7,
       "AnswerRelevancy": 1.0
@@ -283,7 +283,7 @@
     "id": "G2",
     "type": "Creative Generation",
     "language": "ur",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 0.5,
       "AnswerRelevancy": 1.0
@@ -297,7 +297,7 @@
     "id": "G3",
     "type": "Creative Generation",
     "language": "ur",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 1.0,
       "AnswerRelevancy": 1.0
@@ -311,7 +311,7 @@
     "id": "G5",
     "type": "Creative Generation",
     "language": "roman_ur",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 0.6,
       "AnswerRelevancy": 1.0
@@ -325,7 +325,7 @@
     "id": "G6",
     "type": "Creative Generation",
     "language": "roman_ur",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 0.4,
       "AnswerRelevancy": 1.0
@@ -339,7 +339,7 @@
     "id": "KB1",
     "type": "Knowledge Base Reasoning",
     "language": "en",
-    "route": "RAG",
+    "last_dispatch_route": "RAG",
     "scores": {
       "FactualCorrectness": 0.3,
       "AnswerRelevancy": 1.0
@@ -353,7 +353,7 @@
     "id": "KB2",
     "type": "Knowledge Base Reasoning",
     "language": "en",
-    "route": "RAG",
+    "last_dispatch_route": "RAG",
     "scores": {
       "FactualCorrectness": 0.0,
       "AnswerRelevancy": 1.0
@@ -367,7 +367,7 @@
     "id": "KB3",
     "type": "Knowledge Base Reasoning",
     "language": "en",
-    "route": "XNETWORK",
+    "last_dispatch_route": "XNETWORK",
     "scores": {
       "FactualCorrectness": 0.0,
       "AnswerRelevancy": 0.0
@@ -381,7 +381,7 @@
     "id": "KB4",
     "type": "Knowledge Base Reasoning",
     "language": "ur",
-    "route": "RAG",
+    "last_dispatch_route": "RAG",
     "scores": {
       "FactualCorrectness": 0.2,
       "AnswerRelevancy": 1.0
@@ -395,7 +395,7 @@
     "id": "KB5",
     "type": "Knowledge Base Reasoning",
     "language": "ur",
-    "route": "RAG",
+    "last_dispatch_route": "RAG",
     "scores": {
       "FactualCorrectness": 0.8,
       "AnswerRelevancy": 1.0
@@ -409,7 +409,7 @@
     "id": "KB6",
     "type": "Knowledge Base Reasoning",
     "language": "roman_ur",
-    "route": "RAG",
+    "last_dispatch_route": "RAG",
     "scores": {
       "FactualCorrectness": 0.4,
       "AnswerRelevancy": 0.818
@@ -423,7 +423,7 @@
     "id": "KB8",
     "type": "Knowledge Base Reasoning",
     "language": "roman_ur",
-    "route": "RAG",
+    "last_dispatch_route": "RAG",
     "scores": {
       "FactualCorrectness": 1.0,
       "AnswerRelevancy": 0.917
@@ -437,7 +437,7 @@
     "id": "KB9",
     "type": "Knowledge Base Reasoning",
     "language": "roman_ur",
-    "route": "XAGG",
+    "last_dispatch_route": "XAGG",
     "scores": {
       "FactualCorrectness": 0.4,
       "AnswerRelevancy": 0.833
