@@ -412,9 +412,9 @@ def _is_legal_kb_intent(query_text: str) -> bool:
 #   3. A `_KB_DATA_HALF_PLANS` pattern match. These are narrow, subject-
 #      specific and mutually exclusive, and the all-32 EQUALITY control in
 #      `tests/test_kb_statute_retrieval.py` pins the resolved plan for every
-#      one of the 32 gold questions: exactly KB4, KB5, KB6 and KB9 match and
-#      the other 28 — G2, G5, G3, CR7, M2 and CR3/G1/G6 included — resolve
-#      to None.
+#      one of the 32 gold questions: exactly KB3, KB4, KB5, KB6, KB8 and
+#      KB9 match (Module 77 added the first and the fifth) and the other
+#      26 — G2, G5, G3, CR7, M2 and CR3/G1/G6 included — resolve to None.
 #
 # COST. One aggregate, dispatched CONCURRENTLY with retrieval
 # (`asyncio.create_task` before the scope loop, awaited after it), so its
@@ -425,22 +425,32 @@ def _is_legal_kb_intent(query_text: str) -> bool:
 # and a timeout, a permission denial, an exception or an empty result all
 # degrade to "no extra chunk" — the byte-for-byte pre-Module-39 answer.
 #
-# WHAT IS NOT CLOSED HERE, AND WHY IT IS NOT SCOPE CREEP. Two of the six
-# figures have NO aggregate to dispatch to, verified by hand-probing the
-# graph and by `resolve_aggregate_kind()` before writing any of this:
+# WHAT MODULE 39 LEFT OPEN, AND HOW IT CLOSED (Module 77). Two of the six
+# figures had NO aggregate to dispatch to when this block was written, and
+# a third dispatched at the wrong GRAIN. All three are now entries below,
+# and each landed exactly as this comment predicted — a one-entry addition,
+# with no change to the gate, the concurrency model or the failure
+# semantics:
 #   - KB3's "68 of 74 registering/investigating officer pairs are the same
-#     person" resolves to `unsupported_officer`, an honest refusal. The
-#     figure IS computable — 68/74 = 91.9% reproduces gold exactly off the
-#     `(:Officer)-[:ASSIGNED_TO {role}]->(:Case)` edges — but building that
-#     aggregate means editing `xagg.py`, which this module does not own.
-#     Filed as **Module 67**.
-#   - KB8's "26 challans sent to court" resolves to
+#     person" used to resolve to `unsupported_officer`, an honest refusal.
+#     Module 74 built `officer_role_pair_overlap` (68/74 = 91.9%, gold
+#     exactly, at the ASSIGNMENT-edge grain); entry (5) dispatches to it.
+#   - KB8's "26 challans sent to court" used to resolve to
 #     `criminal_record_court_crosscheck`, which counts the 33 criminal
-#     records, not the 26 `chalaan_dispatch` rows. Same shape, filed as
-#     **Module 68**.
-# Each becomes a one-entry addition to `_KB_DATA_HALF_PLANS` when its
-# module lands — by design, the same one-line change `_DECOMPOSITION_PLANS`
-# advertises.
+#     records rather than the 26 `chalaan_dispatch` rows. Module 75 built
+#     `chalaan_dispatch_count`; entry (6) dispatches to it.
+#   - KB9's per-section FIR count was served by `statute_court_stage_join`,
+#     which is at WHOLE-CASELOAD grain and buries `PPC §302: 10 case(s)` as
+#     row six of a 15-row table. Module 76 built `fir_section_case_count`;
+#     entry (4) was RE-POINTED at it, in place.
+#
+# ROUTING IS THE REMAINING VARIABLE, AND IT IS NOT FIXED HERE. A plan entry
+# is only ever consulted on the **RAG** route. Modules 65 and 74/75/76 both
+# measured KB3 routing to XNETWORK and KB9 to XAGG on this machine, where
+# Module 39 measured both on RAG — so two of the six entries below may sit
+# unconsulted on any given day. That is a `router.py` question (Module 78),
+# deliberately not a `rag.py` one: the entries are correct, cost nothing
+# when unreached, and start working the moment the route does.
 # ═══════════════════════════════════════════════════════════════════════
 
 # Private deadline for the data-half aggregate. Generous relative to the
@@ -548,16 +558,27 @@ _KB_DATA_HALF_PLANS: tuple[_KbDataHalfPlan, ...] = (
     ),
     # (4) KB9 — "a suspicious death must be formally investigated; does our
     #     system record that anywhere?" Gold's data half is a CHARGING-SIDE
-    #     figure ("8 FIRs cite PPC 302") plus the honest gap that no
-    #     inquest/post-mortem record exists. `statute_court_stage_join` is
-    #     the only aggregate in this system that publishes a per-section
-    #     case count, so it is what this plan dispatches to.
+    #     figure ("10 FIRs cite PPC 302") plus the honest gap that no
+    #     inquest/post-mortem record exists.
     #
-    #     DIVERGENCE FROM GOLD, RECORDED RATHER THAN TUNED. Probed by hand
-    #     before wiring this (`MODULE39_RESULT.md` §1): **10** distinct FIRs
-    #     carry a `fir_section` row with act `PPC` and section `302`, not
-    #     gold's 8, and the aggregate reports 10. No pattern or wording here
-    #     is chosen to produce an 8.
+    #     RE-POINTED BY MODULE 77, AND THE REASON IS GRAIN, NOT DATA.
+    #     Module 39 had only `statute_court_stage_join` to reach for: it is
+    #     at WHOLE-CASELOAD grain, caps its statute list at 15 rows and
+    #     carries `PPC §302: 10 case(s)` as row six of that table. Module 39
+    #     measured what that costs — one live run named the section without
+    #     its count, another read PAST the row and asserted that no listed
+    #     section pertains to death, which is factually wrong from a chunk
+    #     that holds the right row. Module 76 built `fir_section_case_count`,
+    #     which answers ONE number at ONE grain, and this entry now
+    #     dispatches there. The literal Module 39 string stays pinned in
+    #     `tests/test_xagg.py` and must keep resolving to
+    #     `statute_court_stage_join` — M4 still owns that family.
+    #
+    #     THE 10 IS NO LONGER A DIVERGENCE. Module 39 recorded a 10-vs-8 gap
+    #     against gold and refused to tune it away; Module 76 re-derived the
+    #     10 independently, and gold has since been CORRECTED to 10. Four
+    #     derivations agree (Modules 39, 76 twice, and a direct AGE query).
+    #     No pattern or wording here is chosen to produce any figure.
     _KbDataHalfPlan(
         name="death_investigation_charging",
         patterns=(
@@ -573,10 +594,99 @@ _KB_DATA_HALF_PLANS: tuple[_KbDataHalfPlan, ...] = (
             re.compile(r"موت\s*کی\s*وجہ"),
         ),
         sub_query=(
-            "How many cases are charged under each FIR section, and how far "
-            "have those cases got in court?"
+            "How many FIRs cite PPC section 302, across all cases?"
         ),
-        expected_kind="statute_court_stage_join",
+        expected_kind="fir_section_case_count",
+    ),
+    # (5) KB3 — "does the law expect the officer who registers a case to be
+    #     the one who investigates it, and does that match our data?" Gold's
+    #     data half: the same person on 68 of 74 pairs (92%), split in only
+    #     6 cases. Module 74 built `officer_role_pair_overlap` for exactly
+    #     this and PINNED the sub-query below in `tests/test_xagg.py` as
+    #     `_KB3_SQ_OFFICER_ROLE_PAIR`, so this entry is a COPY rather than a
+    #     re-derivation; a test asserts the two copies stay equal.
+    #
+    #     The patterns need BOTH roles named, mirroring the three-signal
+    #     `xagg.py::_is_officer_role_pair_comparison()` gate they dispatch
+    #     into. A general "which officer handled this?" question must keep
+    #     reaching `unsupported_officer`, which is the RIGHT answer for it;
+    #     CP6 ("bina kisi tafteeshi afsar ke") is the live proof and the
+    #     all-32 control pins it at None.
+    #
+    #     WHETHER THIS EVER FIRES IS A ROUTER QUESTION. Modules 65 and 74
+    #     both measured KB3 routing to **XNETWORK**, not RAG, on this
+    #     machine (Module 39 measured RAG). Unconsulted, it costs nothing.
+    _KbDataHalfPlan(
+        name="officer_role_pair",
+        patterns=(
+            re.compile(
+                r"\bofficer\s+who\s+(first\s+)?(registers?|records?|logs?)\b",
+                re.IGNORECASE,
+            ),
+            re.compile(
+                r"\b(registering|recording)\s+officer\b[\s\S]{0,120}"
+                r"\binvestigat(ing|es|or)\b",
+                re.IGNORECASE,
+            ),
+            re.compile(
+                r"\binvestigating\s+officer\b[\s\S]{0,120}"
+                r"\b(registering|recording)\s+officer\b",
+                re.IGNORECASE,
+            ),
+            re.compile(
+                r"\b(darj|mudarrij)\s*(karne\s*wale?)?\s*afsar\b"
+                r"[\s\S]{0,120}\btafteesh",
+                re.IGNORECASE,
+            ),
+            re.compile(r"(درج\s*کرنے\s*وال[اے]|مدرج).{0,120}تفتیش"),
+        ),
+        sub_query=(
+            "How many cases record the same person as both the recording "
+            "officer and the investigating officer, and how many split those "
+            "roles, across all cases?"
+        ),
+        expected_kind="officer_role_pair_overlap",
+    ),
+    # (6) KB8 — "if an investigation drags on, must the police report to the
+    #     court before it finishes, and does our case-tracking data show that
+    #     happened?" Gold's data half: 26 challans sent to court, plus the
+    #     honest gap that no interim-report record type exists anywhere in
+    #     the schema — the brief's "correctly stating the data lacks
+    #     something, where gold agrees" case. The aggregate supplies both:
+    #     it reports the dispatch count AND `interim-report record type
+    #     present=False`, derived from the record types actually ingested.
+    #     Module 75 built `chalaan_dispatch_count` and pinned the sub-query
+    #     below as `_KB8_SQ_CHALAAN_DISPATCH`; copied verbatim, test-pinned.
+    #
+    #     KB8's own gold TEXT never says "challan" — the word is in its gold
+    #     ANSWER — so this plan reads the question's INVESTIGATION-to-COURT
+    #     shape instead, and the canned sub-query is what carries the challan
+    #     vocabulary into `xagg.py`. CR7 is untouched: its Urdu
+    #     ("کرمنل ریکارڈ", "عدالتی نتیجے") names neither an investigation
+    #     nor a report to a court, and the all-32 control pins it at None.
+    #     Unlike KB3 and KB9, KB8 DOES reach RAG (Module 75, 3/3).
+    _KbDataHalfPlan(
+        name="chalaan_dispatch",
+        patterns=(
+            re.compile(r"\binterim\s+report\b", re.IGNORECASE),
+            re.compile(r"\bchall?a?ans?\b", re.IGNORECASE),
+            re.compile(r"چالان|چلان"),
+            re.compile(
+                r"\btafteesh[\s\S]{0,140}\b(adaa?lat|court)\b",
+                re.IGNORECASE,
+            ),
+            re.compile(
+                r"\binvestigation\b[\s\S]{0,140}\breport(ing)?\s+to\s+"
+                r"(the\s+)?(court|magistrate)\b",
+                re.IGNORECASE,
+            ),
+            re.compile(r"تفتیش[\s\S]{0,140}عدالت"),
+        ),
+        sub_query=(
+            "How many challans have been sent to court, and how many cases "
+            "do they cover, across all cases?"
+        ),
+        expected_kind="chalaan_dispatch_count",
     ),
 )
 

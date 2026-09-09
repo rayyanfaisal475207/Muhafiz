@@ -951,10 +951,19 @@ async def test_expand_with_neighbors_degrades_to_the_unwidened_chunks():
 # too broad a gate is as bad as too narrow — a non-KB question that
 # suddenly picked up a cross-case aggregate would change an answer that is
 # already correct today.
+# [Gold-QA fix — Module 77] Six entries, not four. Modules 74/75/76 built
+# the three aggregates KB3, KB8 and KB9 needed (`officer_role_pair_overlap`,
+# `chalaan_dispatch_count`, `fir_section_case_count`); Module 77 is the
+# one-entry-each addition to `rag.py::_KB_DATA_HALF_PLANS` that lands them,
+# plus the RE-POINT of KB9 off `statute_court_stage_join`'s whole-caseload
+# grain. This table is the equality half of the control: any question NOT
+# listed here must resolve to None.
 _EXPECTED_DATA_HALF_GATE = {
+    "KB3": "officer_role_pair",
     "KB4": "property_register",
     "KB5": "violence_against_women",
     "KB6": "weapon_register",
+    "KB8": "chalaan_dispatch",
     "KB9": "death_investigation_charging",
 }
 
@@ -973,11 +982,19 @@ def _gate(question: str):
     return plan.name if plan is not None else None
 
 
-def test_module39_all32_data_half_gate_is_exactly_the_four_compound_questions():
-    """All-32 EQUALITY control. Exactly KB4/KB5/KB6/KB9 get a data half;
-    the other 28 — including the five questions most likely to be caught by
-    a widened gate (G2, G5, G3, CR7, M2) and the three that live in the
-    decomposition machinery (CR3, G1, G6) — get None."""
+def test_module39_all32_data_half_gate_is_exactly_the_six_compound_questions():
+    """All-32 EQUALITY control. Exactly KB3/KB4/KB5/KB6/KB8/KB9 get a data
+    half; the other 26 — including the five questions most likely to be
+    caught by a widened gate (G2, G5, G3, CR7, M2) and the three that live
+    in the decomposition machinery (CR3, G1, G6) — get None.
+
+    Module 77 moved exactly two questions into this table (KB3, KB8) and
+    re-pointed a third (KB9) WITHOUT moving it. CR7 is the boundary that
+    matters most for KB8: it names a criminal record and a court outcome,
+    never an investigation reported to a court, and it keeps its own
+    `criminal_record_court_crosscheck` on the XAGG route. CP6 is the
+    boundary for KB3 — it names an investigating officer and no registering
+    one, so a general officer question keeps its honest refusal."""
     rows = _all_gold_rows()
     assert len(rows) == 32
     actual = {r["id"]: _gate(r["question"]) for r in rows}
@@ -1032,6 +1049,103 @@ def test_module39_property_sub_query_is_byte_identical_to_module_33s_pinned_stri
 
     plan = next(p for p in rag_mod._KB_DATA_HALF_PLANS if p.name == "property_register")
     assert plan.sub_query == _SQ_SEIZED_PROPERTY
+
+
+# ══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 77] The three landing entries.
+#
+# Each sub-query below is a COPY of a string Modules 74/75/76 already
+# pinned in `tests/test_xagg.py`, checked there against
+# `resolve_aggregate_kind()`. The wording is load-bearing: `xagg.py`'s
+# keyword chain — not a router — decides which family answers, and a
+# re-worded string reaches a different one. `_run_kb_data_half()` DROPS a
+# data half whose aggregate is not the one its plan named, so a drift here
+# is a silent 0-of-N, never a wrong number in a user's answer. These tests
+# make the drift loud instead.
+#
+# Importing the constants from `tests.test_xagg` rather than restating them
+# is the whole point: a restatement would drift independently, which is
+# exactly the failure the pins exist to prevent.
+# ══════════════════════════════════════════════════════════════════════
+
+def _plan(name: str):
+    return next(p for p in rag_mod._KB_DATA_HALF_PLANS if p.name == name)
+
+
+def test_module77_kb3_sub_query_is_module74s_pinned_string():
+    """KB3 -> `officer_role_pair_overlap` (68 of 74 pairs, 91.9%)."""
+    from tests.test_xagg import _KB3_SQ_OFFICER_ROLE_PAIR
+
+    plan = _plan("officer_role_pair")
+    assert plan.sub_query == _KB3_SQ_OFFICER_ROLE_PAIR
+    assert plan.expected_kind == "officer_role_pair_overlap"
+    assert plan.sub_query == (
+        "How many cases record the same person as both the recording "
+        "officer and the investigating officer, and how many split those "
+        "roles, across all cases?"
+    )
+
+
+def test_module77_kb8_sub_query_is_module75s_pinned_string():
+    """KB8 -> `chalaan_dispatch_count` (26 challans sent to court)."""
+    from tests.test_xagg import _KB8_SQ_CHALAAN_DISPATCH
+
+    plan = _plan("chalaan_dispatch")
+    assert plan.sub_query == _KB8_SQ_CHALAAN_DISPATCH
+    assert plan.expected_kind == "chalaan_dispatch_count"
+    assert plan.sub_query == (
+        "How many challans have been sent to court, and how many cases "
+        "do they cover, across all cases?"
+    )
+
+
+def test_module77_kb9_is_repointed_off_the_whole_caseload_join():
+    """KB9 -> `fir_section_case_count` (10 FIRs cite PPC 302).
+
+    The RE-POINT is the assertion. Module 39 dispatched KB9 to
+    `statute_court_stage_join`, which holds the right row (`PPC §302: 10
+    case(s)`) buried at position six of a 15-row whole-caseload table, and
+    measured two distinct grain failures reading it. The plan must no
+    longer name that family — while the literal Module 39 string, still
+    pinned in `tests/test_xagg.py`, must keep resolving to it, because M4
+    owns it."""
+    from src.pipeline.xagg import resolve_aggregate_kind
+    from tests.test_xagg import _KB9_SQ_FIR_SECTION_COUNT, _MODULE39_KB9_SUB_QUERY
+
+    plan = _plan("death_investigation_charging")
+    assert plan.sub_query == _KB9_SQ_FIR_SECTION_COUNT
+    assert plan.expected_kind == "fir_section_case_count"
+    assert plan.sub_query != _MODULE39_KB9_SUB_QUERY
+    assert plan.expected_kind != "statute_court_stage_join"
+    # M4's family is untouched by the re-point.
+    assert resolve_aggregate_kind(_MODULE39_KB9_SUB_QUERY) == "statute_court_stage_join"
+
+
+def test_module77_officer_plan_needs_both_roles_not_just_the_word_officer():
+    """The refusal Module 74 preserved in `xagg.py` is preserved HERE too.
+
+    `unsupported_officer` is the RIGHT answer to a general officer-identity
+    question, and this plan must not steal one. CP6 names an investigating
+    officer and nothing else; a bare "which officer" question names neither
+    role pairing. Both must miss."""
+    assert _match_kb_data_half_plan(_gold("CP6")["question"]) is None
+    for q in (
+        "Which officer handled the most cases?",
+        "Who is the investigating officer on this FIR?",
+        "How many officers are on record?",
+    ):
+        assert _match_kb_data_half_plan(q) is None, q
+
+
+def test_module77_challan_plan_does_not_reach_cr7():
+    """CR7's boundary, in the gate rather than in `xagg.py`.
+
+    CR7 asks how many criminal-record cases are complete vs. pending and
+    whether a separate court record agrees. It names no challan, no
+    investigation and no report to a court — and it scores today on
+    `criminal_record_court_crosscheck`, which this plan must not divert."""
+    assert _match_kb_data_half_plan(_gold("CR7")["question"]) is None
+    assert _gate(_gold("CR7")["question"]) is None
 
 
 def test_module39_plan_names_and_expected_kinds_are_unique():
@@ -1121,10 +1235,15 @@ async def test_module39_non_compound_kb_question_dispatches_no_aggregate(
     monkeypatch, stub_retrieval
 ):
     """KB1 and KB2 are legal-KB questions whose data half is a SCHEMA claim,
-    not a count, and KB3/KB8's figures have no aggregate to reach (Modules
-    67/68). All four must behave byte-for-byte as they did before Module 39
-    — no aggregate call, no extra chunk."""
-    for qid in ("KB1", "KB2", "KB3", "KB8"):
+    not a count. Both must behave byte-for-byte as they did before Module
+    39 — no aggregate call, no extra chunk.
+
+    KB3 and KB8 USED to be in this list, because their figures had no
+    aggregate to reach (filed then as Modules 67/68). Modules 74/75 built
+    those aggregates and Module 77 wired them, so they now belong to the
+    positive control above; they were removed from here rather than left
+    passing vacuously."""
+    for qid in ("KB1", "KB2"):
         calls = []
         _stub_xagg(
             monkeypatch,
