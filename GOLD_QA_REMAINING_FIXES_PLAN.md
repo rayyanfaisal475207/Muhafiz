@@ -104,8 +104,9 @@ several can run in parallel chats/worktrees without colliding.
 | 58 | `_STATION_TYPE_KEYWORDS` is a 58-entry substring list where the file's other hard dispatch calls use a multi-signal predicate | *(not yet branched)* | ⬜ New — found by Module 56, which widened it. Two of its entries (`single type of crime`, `one type of crime`) name no station at all; they are in because M2's gold text is phrased that way, and nothing but the all-32 control and reviewer judgment stops the next such entry from raiding `_STATION_KEYWORDS`. The structural fix is the shape `_is_arrest_rate()` / `_is_criminal_record_local_gap()` / `_is_weapon_statute_cooccurrence()` already use: station-or-unit signal **AND** specialisation-contrast signal. Deliberately out of scope for a "widen the vocabulary" module — it is a behaviour change with its own regression surface. |
 | 59 | `_MAX_PLAN_SUB_QUERIES` is still 5, and the case for raising it is now open but unmeasured | *(not yet branched)* | ⬜ New — found by Module 53, which met Module 50's stated prerequisite for revisiting the cap and then deliberately did not revisit it. Salvage degrades an answer's *prose*; it does not remove the model server's serialisation, and model spend and the user's wall-clock wait are unchanged. The post-Module-53 staircase at N=6..9 has never been measured. Concretely at stake: gold's G6 "mostly men" element, dropped by Module 50 to fit the arrest rate. |
 | 60 | M4 does **not** skip decomposition live — its route is XNETWORK, and Module 41's guard only fires on XAGG | *(start from `fix/meta-analysis-m4-synthesis-verifier-rejection`)* | ⬜ New — found by Modules 53/40's regression guard. **7 live runs of 7 reach Meta-Analysis**, across `main` @ `9942db9` and current `main`. On the older base, 4 of 4 were byte-identical: `route=XNETWORK` → two XGRAPH sub-queries → *"No information was found for any part of this question."* After Modules 38/55/56 merged, M4 became non-deterministic: 2 of 3 runs decompose into Urdu sub-queries reaching XAGG and RAG and **answer** with gold's statute half (PPC 61 / Arms 29 / CNSA 12 / PECA 9), losing gold's court-stage half to a RAG sub-query timeout; 1 of 3 reproduces the empty result. Module 41 recorded `skips_decomposition=True` from a **static** `resolve_aggregate_kind()` call and its own §8 says M4 was *"not re-run live here"*; both statements are true, because the guard at `supervisor.py:745` is conditional on `route == "XAGG"`. Three candidate fixes, all needing `router.py`/`supervisor.py`: take Module 40's `statute_vs_court_stage` plan and accept that it vetoes the Module 41 guard; widen the guard beyond `route == "XAGG"`, against that guard's own explicit reasoning; or fix why the router says XNETWORK. |
-| 61 | The grounding verifier refuses a **negative inference over a complete listing**, which is exactly what CR3's gold answer asserts | *(not yet branched)* | ⬜ New — found by Module 57, and the whole of CR3's remaining instability. Verbatim on every rejection: the claim that FIR 65/26 is absent from the CMS linkage list is *"inferred but not directly supported"*. Measured **not** to be citation attribution, so Module 40's second opinion cannot fix it (still `grounded=False` with the flag on, 3 of 3). Note the inconsistency to resolve: the **validation** gate already *hedges* the identical claim ("could only be partially confirmed") rather than refusing it, so the two gates hold different standards for the same evidence. Reaches beyond Meta-Analysis — any XAGG listing served as evidence has this shape. |
+| 61 | The grounding verifier refuses a **negative inference over a complete listing**, which is exactly what CR3's gold answer asserts | `fix/verifier-over-rejection` | ✅ Done — `MODULE61_RESULT.md`. A chunk can now be DECLARED a complete enumeration (`metadata["exhaustive_scope"]`, set only for an XAGG-only sub-answer), and non-membership in one is supported rather than inferred. Two deterministic guards keep it narrow: the claim is checked against the listing it NAMES (CR3 serves three listings at once, and 65/26 legitimately appears in a sibling one — pooling them made every correct negative look fabricated), and a claim asserting the absence of a record the listing CONTAINS is still rejected. Live before/after on one machine: CR3 **4 of 8 → 7 of 8**, with all four pre-fix rejections carrying the FIR 65/26 absence reason. The validation gate now IMPORTS the same rule, so the two gates agree — the "could only be partially confirmed" caveat for that claim is gone on 8 of 8. Hallucination still rejected (unit test + live: CR3's one remaining failure is a different, correctly-refused claim). **KB4 is a separate defect** — its rejections are over-attribution to a RAG chunk, which this rule never touches. New defect split out as **Module 67**. |
 | 62 | The deterministic decomposition plans have a narrow lexical reach | *(not yet branched)* | ⬜ New — found by Modules 57/40's non-gold paraphrase check, generalising Module 41's M4 finding to CR3 and G6. A CR3 paraphrase keeping "online banking fraud" and "handled the same way" matches `record_consistency` and answers correctly 2/2; one asking whether the records are "equally complete" matches nothing and never reaches Meta-Analysis. Same boundary for G6's `orientation_note`. The capability is **not** tied to the gold string, but it is tied to a small neighbourhood around it. The fix is probably not "add more patterns" — it is deciding whether a plan should be selected by regex at all, or by the same aggregate-resolution mechanism Module 41 used for its guard. |
+| 67 | G1's synthesis verifier intermittently rejects an unsupported **numeric** claim | *(not yet branched)* | ⬜ New — found by Module 61's regression guard. 1 of 3 live G1 runs returned `status=error`: *"Two claims lack explicit support in the cited chunks: the alleged data discrepancy and the 73-case total for seized property."* The verifier is working correctly — the synthesis over-reached — and Module 61's exhaustive-listing rule correctly declines to rescue it, because it is not a negative inference. Same shape as CR3's one surviving failure (*"the claim about accused persons is not supported by any cited chunk"*). The question to answer is whether the synthesis prompt invites claims the sub-answers do not carry; **do not** reach for the verifier again. |
 | 27 | Final Gold-32 rerun (Module 18 redo) | *(docs only)* | ⬜ Blocked on all above — brief: `MODULE27_FINAL_GOLD32_RERUN_PROMPT.md` |
 
 ### Coverage check — every failing question maps to a module
@@ -3097,49 +3098,50 @@ noting Module 55 (`statute_court_stage_join` may not log a line).
 
 ---
 
-# Module 61 — the grounding verifier refuses a negative inference over a complete listing ⬜
+# Module 61 — the grounding verifier refuses a negative inference over a complete listing ✅
 
-**Found by:** Module 57. This is the whole of CR3's remaining instability, and
-it is not confined to CR3.
+**Done — `docs/gold-qa-wave2-results/MODULE61_RESULT.md`.** Branch
+`fix/verifier-over-rejection`, two commits.
 
-CR3's gold answer asserts a negative: *"64/26 has a matching walk-in complaint
-… 65/26 has **none**."* The evidence is a CMS linkage listing that contains
-64/26 and does not contain 65/26. Every rejection carries one verbatim reason:
+**The rule that shipped.** A caller may DECLARE a chunk a complete
+enumeration over its stated scope (`metadata["exhaustive_scope"]`), and
+non-membership in one is then supported rather than inferred. Exactly one
+caller does so today: `meta_analysis.py`, for a sub-answer whose
+`tools_used` is exactly `["XAGG"]` — a deterministic aggregate computed
+over the whole corpus, not a retrieved sample. A RAG/GRAPH/WEB chunk is
+never exhaustive and there is no path in the code to make it one, which is
+the narrowness the brief demanded. `xagg.py` was not touched: the
+provenance the fix needs is already recorded at the sub-agent boundary.
 
-> The claim about FIR 65/26's absence from the linkage list is inferred but
-> not directly supported by Document 3, which only lists linked cases without…
+**Both halves shipped.** `prompts/verifier.txt` gains rule 7 and two worked
+examples (one grounded negative, one fabricated); `verifier.py` gains a
+deterministic post-pass so the outcome is reproducible rather than
+resampled. Honest note: the post-pass **never fired live** (0 activations in
+22 post-fix runs) — the prompt rule carried the judge every time, and the
+post-pass is proven by unit test only.
 
-**Measured to be a distinct problem from citation attribution.** Module 40's
-`interchangeable_chunks` second opinion — which exists to forgive a claim
-credited to the wrong `[Document N]` — leaves this verdict unchanged, 3 runs
-of 3, because its own rule correctly says *"a claim that appears in NO chunk
-at all is still unsupported"*. The judge is behaving exactly as designed. The
-question is whether the design is right for an **exhaustive** listing.
+**Two things the brief did not name, both found by measurement.** (a) The
+unit the validation gate checks matters: its flagged unit is the answer
+SENTENCE, and CR3's sentence names both a record the listing contains and
+one it does not, so a first attempt checking the sentence left the caveat
+on 5 of 5 runs. Checking the judge's own `reason` is what reconciles the
+gates. (b) Absence is absence FROM A PARTICULAR REGISTER — CR3 serves three
+complete listings at once and 65/26 legitimately appears in a sibling one,
+so a pooled check called every correct negative fabricated.
 
-**The inconsistency that makes this urgent.** On the runs where the verifier
-*accepts*, the **validation** gate attaches a caveat for the identical claim:
+**Measured, before and after, one machine, one session:** CR3 **4 of 8 →
+7 of 8** answered. All four pre-fix rejections carry the FIR 65/26 absence
+reason, one of them Module 57's verbatim string. The single post-fix failure
+is a DIFFERENT claim the verifier correctly refused. Validation caveat for
+the identical claim: 5 of 5 → **0 of 8**. Non-gold paraphrase 3 of 3.
+Regression M2/G1/G6/G2/G5/KB4: 25 of 26 answered.
 
-> _A cited claim ([Document 3]) could only be partially confirmed against its
-> source: The source confirms the CMS linkage for FIR 64/26 but does not
-> mention FIR 65/26 or its absence from the CMS list._
+**KB4 was checked and is a different defect.** Its recorded rejections are
+over-attribution to a RAG chunk (`MODULE38_RESULT.md` §5), which this rule
+never touches. It measured 5 of 5 answering here, but nothing in this change
+is what did that, and Module 38's 1-of-3 should not be treated as fixed.
 
-So the two gates already disagree about the same evidence: one hedges it, the
-other refuses to serve the answer at all. Serving-with-a-caveat and refusing
-are very different user outcomes.
-
-**Reaches beyond Meta-Analysis.** Any XAGG listing served as evidence has this
-shape, so a fix belongs at the verifier, not in one sub-agent. The likely
-shape is a way for a caller to declare a chunk **exhaustive over its stated
-scope** — which XAGG renderings are, by construction — so that "X is not in
-this list" becomes supported rather than inferred. That declaration must be
-narrow: a RAG chunk is never exhaustive, and treating it as such would license
-real hallucination.
-
-**Verify:** CR3 live, at least 8 runs (Module 57 measured a four-run sample
-landing anywhere between 0/4 and 4/4 on unchanged code, so fewer proves
-nothing). **A fabricated negative must still be rejected** — e.g. an answer
-claiming an FIR is absent from a listing that in fact contains it. Regression-
-guard every RAG-route question, since the verifier is shared.
+**New defect split out as Module 67** (G1's numeric over-reach rejection).
 
 ---
 
