@@ -44,7 +44,10 @@ from src.pipeline.harness.tools.rag import (
     rag_tool,
 )
 from src.pipeline.harness.types import CallerContext, ExecutionContext, ToolStatus
-from src.pipeline.statute_hypothesis import generate_statute_queries
+from src.pipeline.statute_hypothesis import (
+    generate_statute_queries,
+    render_question_in_english,
+)
 
 # The dataset WITH answers is the only Gold-32 file that exists. A test
 # referencing a bare `Gold_QA_Dataset_Final32.json` silently skipped for
@@ -170,7 +173,8 @@ def stub_retrieval(monkeypatch):
     """Deterministic stand-ins for every wrapped boundary, plus recorders for
     the two things these tests assert on: which query strings were embedded,
     and which queries the cross-encoder rerank was scored against."""
-    state = {"embedded": [], "rerank_queries": []}
+    state = {"embedded": [], "rerank_queries": [], "evaluator_args": [],
+             "render_calls": []}
 
     async def _embed_text(q, **kwargs):
         state["embedded"].append(q)
@@ -204,7 +208,16 @@ def stub_retrieval(monkeypatch):
         return None
 
     async def _evaluate(orig, cur, reranked):
+        state["evaluator_args"].append((orig, cur))
         return {"relevant": True, "reason": "ok"}
+
+    async def _render(question):
+        # [Module 52] Defaults to the FAILURE return (None), so every test
+        # written before Module 52 keeps asserting the behaviour it was
+        # written for. The tests that exercise the English rendering
+        # override this with a rendering of their own.
+        state["render_calls"].append(question)
+        return None
 
     monkeypatch.setattr(rag_mod, "embed_text", _embed_text)
     monkeypatch.setattr(rag_mod, "query_similar", _query_similar)
@@ -216,6 +229,7 @@ def stub_retrieval(monkeypatch):
     monkeypatch.setattr(rag_mod, "expand_query", _expand_query)
     monkeypatch.setattr(rag_mod, "generate_cross_script_variant", _cross_script_variant)
     monkeypatch.setattr(rag_mod, "evaluate_relevance", _evaluate)
+    monkeypatch.setattr(rag_mod, "render_question_in_english", _render)
     return state
 
 
@@ -300,6 +314,188 @@ async def test_statute_query_failure_degrades_to_previous_behaviour(
     assert result.status == ToolStatus.OK
     assert stub_retrieval["embedded"] == [question]
     assert stub_retrieval["rerank_queries"] == [question]
+
+
+# ── 3b. Module 52: the RELEVANCE GATE reads the question in English ──────
+
+_ENGLISH_RENDERING = (
+    "Do the forensics guidelines say anything specific about how a recovered "
+    "weapon must be handled before it is recorded, and does our weapon "
+    "register record whether that was done?"
+)
+
+
+def _stub_render(monkeypatch, rendering):
+    async def _render(question):
+        return rendering
+    monkeypatch.setattr(rag_mod, "render_question_in_english", _render)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("qid", ["KB4", "KB5", "KB6", "KB8", "KB9"])
+async def test_non_english_kb_question_reaches_the_evaluator_in_english(
+    monkeypatch, stub_retrieval, qid
+):
+    """Module 52's whole point, pinned to the five gold KB questions that are
+    NOT asked in English (KB4/KB5 Urdu script, KB6/KB8/KB9 Roman-Urdu).
+
+    Measured at Layer 1 with the chunk set held constant and gold's own
+    statutory text present in every cell, the gate judged the English
+    phrasing relevant 6/6 and the Roman-Urdu one 1/6. So on attempt 1 BOTH
+    evaluator arguments must be the English rendering — an English string in
+    `rewritten_query` alone was measured at 1/3, and appending one to the
+    original at 0/3. The rendering must also be embedded as a retrieval
+    query."""
+    _stub_render(monkeypatch, _ENGLISH_RENDERING)
+
+    question = _gold(qid)["question"]
+    result = await rag_tool(RagToolInput(query_text=question, execution=_kb_execution()))
+
+    assert result.status == ToolStatus.OK
+    assert stub_retrieval["evaluator_args"] == [(_ENGLISH_RENDERING, _ENGLISH_RENDERING)]
+    # The raw question never reaches the gate on the legal-KB path.
+    assert question not in stub_retrieval["evaluator_args"][0]
+    assert _ENGLISH_RENDERING in stub_retrieval["embedded"]
+
+
+@pytest.mark.asyncio
+async def test_case_narrative_question_is_unaffected(monkeypatch, stub_retrieval):
+    """The other side of the gate: a plain case-data question pays no
+    rendering call, and the evaluator sees exactly the strings it saw before
+    Module 52 existed."""
+    called = []
+
+    async def _render(question):
+        called.append(question)
+        return _ENGLISH_RENDERING
+
+    monkeypatch.setattr(rag_mod, "render_question_in_english", _render)
+
+    question = "How many FIRs were registered in Ramna police station?"
+    result = await rag_tool(RagToolInput(query_text=question, execution=_kb_execution()))
+
+    assert result.status == ToolStatus.OK
+    assert called == []
+    assert stub_retrieval["evaluator_args"] == [(question, question)]
+    assert _ENGLISH_RENDERING not in stub_retrieval["embedded"]
+
+
+@pytest.mark.asyncio
+async def test_english_gold_kb_question_is_rendered_to_itself(
+    monkeypatch, stub_retrieval
+):
+    """KB1/KB2/KB3 are already English, and the prompt requires those to come
+    back verbatim. The rendering is then the question, so nothing about what
+    the gate reads changes — and the retrieval variant list must not carry
+    the same string twice."""
+    question = _gold("KB1")["question"]
+    _stub_render(monkeypatch, question)
+
+    result = await rag_tool(RagToolInput(query_text=question, execution=_kb_execution()))
+
+    assert result.status == ToolStatus.OK
+    assert stub_retrieval["evaluator_args"] == [(question, question)]
+    assert stub_retrieval["embedded"].count(question) == 1
+
+
+@pytest.mark.asyncio
+async def test_english_rendering_failure_degrades_to_previous_behaviour(
+    monkeypatch, stub_retrieval
+):
+    """A dead rendering call must leave the gate reading exactly what it read
+    before Module 52 — the raw question and the current search query — and
+    must not add a retrieval variant."""
+    _stub_render(monkeypatch, None)
+
+    question = _gold("KB6")["question"]
+    result = await rag_tool(RagToolInput(query_text=question, execution=_kb_execution()))
+
+    assert result.status == ToolStatus.OK
+    assert stub_retrieval["evaluator_args"] == [(question, question)]
+    assert stub_retrieval["embedded"] == [question]
+
+
+@pytest.mark.asyncio
+async def test_on_a_retry_the_rewritten_query_is_the_rewrite_not_the_rendering(
+    monkeypatch, stub_retrieval
+):
+    """Attempt 1 has no rewrite to report, so both arguments are the English
+    rendering. Once the retry rewriter HAS produced a new search query, that
+    query is genuinely what was searched and belongs in `rewritten_query` —
+    but the question field stays English, which is the field the 2x2
+    measured."""
+    _stub_render(monkeypatch, _ENGLISH_RENDERING)
+
+    async def _evaluate(orig, cur, reranked):
+        stub_retrieval["evaluator_args"].append((orig, cur))
+        if len(stub_retrieval["evaluator_args"]) == 1:
+            return {"relevant": False, "reason": "no weapon register"}
+        return {"relevant": True, "reason": "ok"}
+
+    async def _rewrite(original_message, previous_query, evaluator_feedback):
+        return "REWRITE: weapon register entries and firearm packaging"
+
+    monkeypatch.setattr(rag_mod, "evaluate_relevance", _evaluate)
+    monkeypatch.setattr(rag_mod, "rewrite_for_retry", _rewrite)
+
+    result = await rag_tool(
+        RagToolInput(query_text=_gold("KB6")["question"], execution=_kb_execution())
+    )
+
+    assert result.status == ToolStatus.OK
+    assert stub_retrieval["evaluator_args"] == [
+        (_ENGLISH_RENDERING, _ENGLISH_RENDERING),
+        (_ENGLISH_RENDERING, "REWRITE: weapon register entries and firearm packaging"),
+    ]
+
+
+# ── 3c. Module 52: render_question_in_english()'s own contract ───────────
+
+@pytest.mark.asyncio
+async def test_rendering_returns_the_models_question(monkeypatch):
+    _stub_llm_json(monkeypatch, {"question": _ENGLISH_RENDERING})
+    assert await render_question_in_english(_gold("KB6")["question"]) == _ENGLISH_RENDERING
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("parsed", [None, {"question": ""}, {"question": "   "}])
+async def test_rendering_returns_none_when_there_is_nothing_usable(monkeypatch, parsed):
+    """None, never a partial string: every caller falls back to the raw
+    question, which is exactly the pre-Module-52 behaviour."""
+    _stub_llm_json(monkeypatch, parsed, raw="Sure! Here is the translation...")
+    assert await render_question_in_english(_gold("KB6")["question"]) is None
+
+
+@pytest.mark.asyncio
+async def test_rendering_rejects_an_urdu_script_response(monkeypatch):
+    """The entire purpose is that the string is ENGLISH — an Urdu-script
+    rendering cannot serve it, so it is dropped rather than folded in."""
+    _stub_llm_json(monkeypatch, {"question": _gold("KB4")["question"]})
+    assert await render_question_in_english(_gold("KB4")["question"]) is None
+
+
+@pytest.mark.asyncio
+async def test_rendering_returns_none_on_llm_failure(monkeypatch):
+    _stub_llm_json(monkeypatch, None, exc=RuntimeError("model server down"))
+    assert await render_question_in_english(_gold("KB6")["question"]) is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("question", ["", "   "])
+async def test_rendering_of_an_empty_question_never_calls_the_llm(monkeypatch, question):
+    def _boom(*a, **k):
+        raise AssertionError("should not have called the LLM")
+    monkeypatch.setattr(statute_mod, "call_llm_json", _boom)
+    assert await render_question_in_english(question) is None
+
+
+@pytest.mark.asyncio
+async def test_rendering_is_truncated_rather_than_discarded(monkeypatch):
+    """An over-long rendering means the model started answering; keep the
+    usable head, matching `_MAX_QUERY_CHARS`' reasoning for the hypotheses."""
+    _stub_llm_json(monkeypatch, {"question": "x" * 5000})
+    rendered = await render_question_in_english(_gold("KB6")["question"])
+    assert rendered == "x" * 1000
 
 
 # ── 4. Multi-variant dedupe keeps the BEST score, not the first ──────────

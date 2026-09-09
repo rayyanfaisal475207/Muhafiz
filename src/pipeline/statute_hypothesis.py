@@ -55,6 +55,7 @@
 import logging
 import re
 from pathlib import Path
+from typing import Optional
 
 from src.pipeline.json_extract import call_llm_json
 
@@ -167,3 +168,104 @@ async def generate_statute_queries(question: str, n: int = DEFAULT_HYPOTHESES) -
     result = result[:n]
     logger.debug("Statute hypotheses for %r: %s", question[:60], result)
     return result
+
+
+# ============================================================
+# English rendering of the QUESTION (Module 52)
+#
+# WHY THIS IS SEPARATE FROM generate_statute_queries():
+# The statute hypotheses above are paraphrases of the PROVISION, and
+# they exist for retrieval. This one is a paraphrase of the QUESTION,
+# and it exists for the RELEVANCE GATE — a different consumer with a
+# different requirement, which is why nothing above could be reused.
+#
+# The measured gap (Module 42, artefact
+# `evaluation/kb6_evaluator_language_experiment.json`; called directly at
+# temperature 0.0 with `prompts/evaluator.txt` unmodified, the chunk set
+# held CONSTANT and containing gold's own statutory text in every cell):
+#
+#                        roman-Urdu   English
+#   compound (gold KB6)     1/3         3/3
+#   norm-clause only        0/3         3/3
+#
+# English 6/6, roman-Urdu 1/6 on identical evidence. Module 30 fixed this
+# asymmetry for retrieval and for the cross-encoder; the evaluator was the
+# one component in the path still reading the raw Roman-Urdu question.
+#
+# WHY A QUESTION AND NOT A STATUTE PHRASING — all four cheap alternatives
+# were measured and all four failed:
+#   - statute hypothesis as `rewritten_query`              1/3
+#   - statute hypothesis as BOTH evaluator arguments       2/3
+#   - the live retry rewrite                               0/3
+#   - an English rendering APPENDED to the original        0/3
+# Only a genuine English *question* reaches 3/3. The gate is being asked
+# "do these documents answer THIS question", so it needs a question, in
+# the corpus's language, and nothing else in the field.
+#
+# FAILURE MODE: returns None on LLM error, unparseable output, an empty
+# string, or an Arabic/Urdu-script response (which cannot serve the
+# purpose). Every caller falls back to the raw question, so the pipeline
+# degrades to exactly its pre-Module-52 behaviour rather than failing.
+#
+# NOT USER-FACING: like the statute hypotheses, this string is never shown
+# to a user and never sets the answer's language. It is read by the
+# retriever and by the evaluator only.
+# ============================================================
+
+_ENGLISH_PROMPT_PATH = (
+    Path(__file__).resolve().parent.parent.parent / "prompts" / "question_english.txt"
+)
+_ENGLISH_PROMPT_TEMPLATE = _ENGLISH_PROMPT_PATH.read_text(encoding="utf-8")
+
+# A question, not an answer. Anything longer means the model started
+# explaining or answering despite the prompt — truncate rather than discard
+# an otherwise-usable rendering, matching _MAX_QUERY_CHARS' reasoning.
+_MAX_QUESTION_CHARS = 1000
+
+
+async def render_question_in_english(question: str) -> Optional[str]:
+    """
+    Return `question` restated as the same question in English, or None.
+
+    Retrieval- and evaluator-use only — see this module's Module 52 block.
+    None on any failure, so callers can fall back to the raw question.
+    """
+    if not question or not question.strip():
+        return None
+
+    system_prompt = _ENGLISH_PROMPT_TEMPLATE.replace("{query}", question)
+
+    try:
+        rendered, raw = await call_llm_json(
+            system_prompt=system_prompt,
+            user_message=f"Question: {question}",
+            temperature=0.0,
+            # Same Qwen3-14B thinking-trace headroom as every other local
+            # call site here; the trace eats into max_tokens before the
+            # answer appears. A cloud model has no equivalent hidden trace.
+            max_tokens=2000,
+            cloud_max_tokens=800,
+            validate=lambda r: isinstance(r, dict) and isinstance(r.get("question"), str),
+            schema_hint='{"question": "the same question, in English"}',
+        )
+    except Exception as exc:
+        logger.warning("English-rendering LLM call failed: %s — skipping", exc)
+        return None
+
+    if rendered is None:
+        logger.warning(
+            "English rendering returned no valid JSON after retries: %s",
+            (raw or "")[:100],
+        )
+        return None
+
+    text = (rendered.get("question") or "").strip()
+    if not text:
+        return None
+    if _ARABIC_SCRIPT.search(text):
+        logger.warning(
+            "English rendering came back in Arabic/Urdu script — dropping (%r)",
+            text[:80],
+        )
+        return None
+    return text[:_MAX_QUESTION_CHARS].strip() or None

@@ -897,3 +897,137 @@ def test_module28_changes_no_other_gold_question_route():
     # collision out as the hazard for this module.
     assert after["CR2"] == before["CR2"]
     assert after["G5"] == before["G5"]
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 60, question M4] M4 must reach its own aggregate.
+#
+# The tracker recorded M4 as skipping decomposition since Module 41. Live it
+# never did — 7 runs of 7 across two code states — because Module 41's guard
+# is conditional on `route == "XAGG"` and the LLM router classifies M4 as
+# XNETWORK. Module 60 fixes the ROUTE (option 3 of the three the plan lists)
+# rather than the guard, gated on `resolve_aggregate_kind()` — Module 41's
+# single source of dispatch truth — so the router cannot disagree with the
+# chain XAGG will actually run.
+# ═══════════════════════════════════════════════════════════════════════
+
+_M4_GOLD = (
+    "ایک طرف یہ دیکھیں کہ لوگوں پر کن دفعات میں مقدمے بن رہے ہیں، اور دوسری "
+    "طرف یہ کہ وہ مقدمے عدالت میں کہاں تک پہنچے — کیا دونوں سے کیس لوڈ کی "
+    "سنگینی کا ایک ہی اندازہ ہوتا ہے؟"
+)
+
+
+def test_module60_m4_gold_text_routes_deterministically_to_xagg():
+    """Pinned to M4's LITERAL Urdu gold text. Before Module 60 this returned
+    `None` (no deterministic override) and the LLM router answered XNETWORK
+    on every one of seven live runs."""
+    override = router._deterministic_route_override(_M4_GOLD)
+    assert override is not None
+    assert override["route"] == "XAGG"
+    assert override["case_scope"] == "cross_case"
+    assert "statute" in override["reason"].lower()
+
+
+def test_module60_m4_gold_text_is_in_the_dataset_verbatim():
+    """The test above is only worth anything if the string really is M4's."""
+    m4 = [it for it in _gold32() if (it.get("id") or "").upper() == "M4"]
+    assert len(m4) == 1
+    assert m4[0]["question"] == _M4_GOLD
+
+
+def test_module60_override_is_gated_on_the_aggregate_resolver_not_a_regex():
+    """Module 62's warning, pinned: this override must ask XAGG's own chain,
+    so it inherits every precedence rule above `_is_statute_court_stage_join`
+    (G3's court-readiness scan, CR7's criminal-record cross-check) for free.
+    A future edit that reimplements it as a pattern list fails here."""
+    from src.pipeline.xagg import resolve_aggregate_kind
+
+    assert router._resolves_to_statute_court_stage_join(_M4_GOLD)
+    assert resolve_aggregate_kind(_M4_GOLD) == "statute_court_stage_join"
+    # A question the resolver sends elsewhere must not be captured, even
+    # though it carries M4's court vocabulary.
+    g3 = [it for it in _gold32() if (it.get("id") or "").upper() == "G3"][0]["question"]
+    assert resolve_aggregate_kind(g3) == "court_readiness_scan"
+    assert not router._resolves_to_statute_court_stage_join(g3)
+
+
+def test_module60_an_active_case_still_short_circuits_the_new_override():
+    """A within-case "how far did THIS case get in court?" must stay GRAPH —
+    the override sits below the active-case short-circuit deliberately."""
+    within = "How far has CASE-009 got in court, and what sections was it charged under?"
+    assert router._deterministic_route_override(within) is None
+    assert router._deterministic_route_override(
+        "How far has the case got in court and under what sections?", case_id="CASE-009"
+    ) is None
+
+
+# Captured from `_deterministic_route_override()` on the pre-Module-60 tree
+# (branch point `main` @ c5533ba). `None` means "no override — the LLM router
+# decides". This is the control: the new override must move NOTHING but M4.
+# A diff here is a regression, not a test to update.
+_GOLD32_DETERMINISTIC_ROUTES_BEFORE_MODULE60 = {
+    "D1": "XAGG", "S2": "XAGG", "S3": "XAGG", "A1": None, "A7": "XAGG",
+    "CP6": "XAGG", "CR2": "XAGG", "CR3": None, "CR4": "XAGG", "CR6": "XAGG",
+    "CR7": "XAGG", "CR8": "XAGG", "CS4": None, "CP1": None, "M1": "XAGG",
+    "M2": None, "M4": None, "M5": "XAGG", "M7": None, "G1": None,
+    "G2": "XAGG", "G3": "XAGG", "G5": "XAGG", "G6": None, "KB1": None,
+    "KB2": None, "KB3": None, "KB4": None, "KB5": None, "KB6": None,
+    "KB8": None, "KB9": None,
+}
+
+
+def test_module60_all_32_gold_questions_route_exactly_as_before_except_m4():
+    """The non-negotiable all-32 negative control, stated as EQUALITY.
+
+    Asserting only "M4 now routes to XAGG" would pass if the override had
+    also dragged G3 or CR7 sideways. A router change that quietly moves a
+    working question is the most expensive mistake available here — the
+    M4/G3 keyword collision (PR #8) is the precedent."""
+    after = {
+        (it.get("id") or "").upper():
+            (router._deterministic_route_override(it["question"]) or {}).get("route")
+        for it in _gold32()
+    }
+    expected = dict(_GOLD32_DETERMINISTIC_ROUTES_BEFORE_MODULE60)
+    expected["M4"] = "XAGG"  # the one intended change
+    changed = {
+        qid: (_GOLD32_DETERMINISTIC_ROUTES_BEFORE_MODULE60[qid], after[qid])
+        for qid in after
+        if _GOLD32_DETERMINISTIC_ROUTES_BEFORE_MODULE60[qid] != after[qid]
+    }
+    assert changed == {"M4": (None, "XAGG")}, changed
+    assert after == expected
+
+
+def test_module60_gold_question_variants_route_exactly_as_before():
+    """The 32 questions' own paraphrase variants, held to the same bar."""
+    for item in _gold32():
+        for variant in item.get("question_variants") or []:
+            route = (router._deterministic_route_override(variant) or {}).get("route")
+            # No variant may newly land on the Module 60 override.
+            if route == "XAGG":
+                assert not router._resolves_to_statute_court_stage_join(variant), (
+                    f"{item['id']} variant newly captured by Module 60: {variant}"
+                )
+
+
+def test_module60_broad_form_was_rejected_for_a_measured_reason():
+    """Documents, executably, why this override names ONE aggregate kind
+    instead of `resolves_to_specific_aggregate()`.
+
+    The broad form — "route to XAGG whenever XAGG resolves to something
+    specific" — moves SEVEN of the 32, including KB5, a legal-KB question
+    that resolves to `gender_breakdown` purely as a resolver false
+    positive. That is the bound on the risk, and it is measured, not
+    asserted."""
+    from src.pipeline.xagg import resolves_to_specific_aggregate
+
+    would_move = sorted(
+        (it.get("id") or "").upper()
+        for it in _gold32()
+        if router._deterministic_route_override(it["question"]) is None
+        and resolves_to_specific_aggregate(it["question"])
+    )
+    assert "KB5" in would_move
+    assert len(would_move) >= 5, would_move
