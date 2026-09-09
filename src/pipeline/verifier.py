@@ -134,6 +134,14 @@ def _format_chunks_for_verifier(chunks: list[dict]) -> str:
         header_parts = [f"[{i}] Source: {source}"]
         if case_id_val:
             header_parts.append(f"case_id: {case_id_val}")
+        # [Module 61] Declared by the caller, never inferred from the text.
+        # prompts/verifier.txt rule 7 keys on this exact marker.
+        if meta.get(EXHAUSTIVE_SCOPE_META_KEY):
+            header_parts.append(
+                "COMPLETE LISTING (this document enumerates EVERY record "
+                "matching its stated scope; anything not listed here is "
+                "absent from that scope)"
+            )
         if conf_status == "check_failed":
             # [AMENDMENT] Never displayed as "no confidence signal" —
             # the LLM judge must see this as an unresolved risk, the same
@@ -146,6 +154,356 @@ def _format_chunks_for_verifier(chunks: list[dict]) -> str:
         lines.append("")
 
     return "\n".join(lines)
+
+
+# ============================================================
+# [Gold-QA fix - Module 61] EXHAUSTIVE LISTINGS AND NEGATIVE INFERENCE
+#
+# THE DEFECT. CR3's gold answer asserts a negative - "FIR 64/26 has a
+# matching walk-in complaint; 65/26 has none". The evidence is a CMS
+# linkage listing that contains 64/26 and does not contain 65/26. The LLM
+# judge rejected that answer on 7 of 14 live runs (MODULE57_RESULT.md §4)
+# with one verbatim reason:
+#
+#   "The claim about FIR 65/26's absence from the linkage list is inferred
+#    but not directly supported by Document 3, which only lists linked
+#    cases without..."
+#
+# The judge was behaving exactly as prompts/verifier.txt tells it to: rule
+# 5 says a claim is unsupported unless a chunk states it. Over a NARRATIVE
+# chunk that is right - a retrieved excerpt is a fragment, and "X isn't
+# mentioned here" says nothing about whether X exists. Over an EXHAUSTIVE
+# listing it is wrong: a complete enumeration is a register, and
+# non-membership in a register IS what the register asserts. That is the
+# entire semantics of the document.
+#
+# WHY THIS IS NOT A GENERAL RELAXATION OF GROUNDING. Two guards, both
+# deterministic, both required before a negative is treated as supported:
+#
+#   1. THE CHUNK MUST DECLARE ITSELF EXHAUSTIVE. Only a caller that KNOWS
+#      its evidence is a complete enumeration sets
+#      `metadata["exhaustive_scope"]`. Today exactly one caller does:
+#      meta_analysis.py, for a sub-answer whose `tools_used` is exactly
+#      ["XAGG"] - a deterministic aggregate computed over the whole corpus
+#      by query, not a retrieved sample. A RAG/GRAPH/WEB chunk is NEVER
+#      exhaustive and this code has no way to make it so.
+#   2. THE SUBJECT OF THE NEGATIVE MUST GENUINELY BE ABSENT. Every
+#      identifier the claim names is checked, in Python, against the
+#      exhaustive listing's own text. A claim that "64/26 is absent" from
+#      a listing that in fact contains 64/26 is a FABRICATED negative and
+#      is still rejected - see
+#      `test_fabricated_negative_over_exhaustive_listing_is_still_rejected`.
+#
+# WHY DETERMINISTIC RATHER THAN A PROMPT RULE ALONE. Both are shipped -
+# prompts/verifier.txt rule 7 teaches the judge the distinction, and this
+# post-pass makes the outcome reproducible. Module 57's whole finding was
+# that the SAME question passed or failed on a coin flip; a fix whose only
+# mechanism is another sampled LLM verdict would leave that property
+# intact. The prompt rule reduces how often the override is needed; the
+# override is what makes the result consistent.
+#
+# SHARED WITH THE VALIDATION GATE. validation.py imports
+# `negative_claim_is_supported_by_exhaustive_listing()` from here and
+# applies the identical test to its own per-claim verdicts. Before Module
+# 61 the two gates disagreed about this exact claim - the verifier refused
+# to serve the answer while the validation gate, on the runs where the
+# verifier passed, attached "could only be partially confirmed... does not
+# mention FIR 65/26 or its absence from the CMS list". One rule, one
+# implementation, both gates.
+# ============================================================
+
+# Metadata key a caller sets to declare a chunk a COMPLETE enumeration over
+# its stated scope. Deliberately a metadata flag rather than something
+# inferred from the text: inferring it would let a generation model talk
+# the verifier into treating any listing as complete.
+EXHAUSTIVE_SCOPE_META_KEY = "exhaustive_scope"
+
+# Wording that marks a judge-reported claim as a NEGATIVE/absence claim,
+# split by WHERE the record being called absent sits relative to the phrase.
+# The split is not cosmetic: it is what tells "…does not mention FIR 65/26"
+# (subject follows) apart from "FIR 64/26 … does not appear" (subject
+# precedes), and getting that backwards is the difference between confirming
+# a correct negative and confirming a fabricated one.
+#
+# Both lists are deliberately narrow and absence-specific. "not stated in
+# Document 2", "misattributes", "contradicts" and similar hallucination
+# reports match NEITHER — those are the verdicts Module 17's live
+# hallucination catch is made of, and they must keep rejecting.
+
+# The record is named AFTER the phrase: "does not mention FIR 65/26",
+# "absence of a CMS linkage for FIR 65/26".
+_ABSENCE_OBJECT_AFTER_RE = re.compile(
+    r"\b(?:does|do|did)\s+not\s+(?:mention|contain|include|list|name|reference|show)\b"
+    r"|\bno\s+(?:matching|corresponding|linked|associated|entry|record|mention|reference|such)\b"
+    r"|\babsence\s+of\b"
+    r"|\bwithout\s+(?:any\s+)?(?:mention|reference)\s+of\b",
+    re.IGNORECASE,
+)
+
+# The record is named BEFORE the phrase: "FIR 65/26's absence from the list",
+# "FIR 65/26 does not appear", "65/26 has none".
+_ABSENCE_SUBJECT_BEFORE_RE = re.compile(
+    r"\babsen(?:ce|t)\b"
+    r"|\b(?:does|do|did)\s+not\s+appear\b"
+    r"|\b(?:is|are|was|were)\s+not\s+(?:in|on|listed|present|included|among|linked)\b"
+    r"|\bha[sve]+\s+none\b"
+    r"|\bmissing\s+from\b"
+    r"|\bnot\s+found\b"
+    r"|\black(?:s|ing|ed)?\b",
+    re.IGNORECASE,
+)
+
+# Identifier shapes an absence claim can be ABOUT: "65/26", "fir-65-26",
+# "FIR 65/26", "CMS-ISB-2026-0341", "CASE-014", or a bare multi-digit run.
+# Whatever the claim names must be checked against the listing itself.
+_CLAIM_ID_RES = (
+    # The lookahead forces the tail to contain a digit, so an ordinary noun
+    # phrase ("CMS complaint", "case tag") never becomes a pseudo-identifier
+    # that would satisfy the "names at least one identifier" requirement
+    # without actually naming anything checkable.
+    re.compile(r"\b(?:FIR|CASE|CMS|CNIC)[-\s]?(?=[A-Z0-9/\-]*\d)[A-Z0-9][A-Z0-9/\-]*", re.IGNORECASE),
+    re.compile(r"\b\d+\s*[/\-]\s*\d+(?:\s*[/\-]\s*\d+)*\b"),
+    re.compile(r"\b\d{4,}\b"),
+)
+
+# An identifier is only usable for the absence check if it is SPECIFIC
+# enough to be looked up. "65-26" and "cms-isb-2026-0341" are; the bare
+# "26" that falls out of splitting "65/26" is not — it occurs inside
+# "fir-64-26" and inside every other 2026 FIR number in the listing, so
+# treating it as the subject of the claim would make every negative look
+# fabricated. Composite (separator-bearing) tokens and long digit runs
+# only; bare 2-3 digit fragments are dropped.
+_MIN_BARE_ID_DIGITS = 4
+
+
+def _is_specific_identifier(token: str) -> bool:
+    return "-" in token or (token.isdigit() and len(token) >= _MIN_BARE_ID_DIGITS)
+
+# Tokens that are structurally part of a citation or of the judge's own
+# prose rather than the identifier being claimed absent.
+_CLAIM_ID_STOPWORDS = frozenset({"document", "fir", "case", "cms", "cnic"})
+
+
+def _normalize_identifier(token: str) -> str:
+    """Canonical form for comparing an identifier written one way in a claim
+    against the same identifier written another way in a listing: "FIR
+    65/26", "65/26" and "fir-65-26" all reduce to a form in which "65-26"
+    is a substring. Lowercased; "/", whitespace and repeated separators
+    collapsed to a single "-"."""
+    token = token.strip().lower()
+    token = re.sub(r"[\s/]+", "-", token)
+    token = re.sub(r"-{2,}", "-", token)
+    return token.strip("-")
+
+
+def _identifier_tokens(text: str) -> set[str]:
+    """Identifier-shaped tokens in `text`, normalized. `[Document N]`
+    markers are stripped first - the citation index is provenance
+    formatting, never the subject of a claim (the same discipline
+    `_numbers_in(strip_citations=True)` already applies)."""
+    text = _CITATION_MARKER_RE.sub(" ", text or "")
+    tokens: set[str] = set()
+    for pattern in _CLAIM_ID_RES:
+        for m in pattern.finditer(text):
+            norm = _normalize_identifier(m.group(0))
+            if not norm or norm in _CLAIM_ID_STOPWORDS:
+                continue
+            # "fir-65-26" carries the same information as "65-26"; keep the
+            # bare tail too so a claim written with the prefix still matches
+            # a listing written without it, and vice versa.
+            candidates = [norm]
+            stripped = re.sub(r"^(?:fir|case|cms|cnic)-", "", norm)
+            if stripped and stripped != norm:
+                candidates.append(stripped)
+            tokens.update(c for c in candidates if _is_specific_identifier(c))
+    return tokens
+
+
+def _chunk_is_exhaustive(chunk: dict) -> bool:
+    return bool((chunk.get("metadata") or {}).get(EXHAUSTIVE_SCOPE_META_KEY))
+
+
+def _chunk_text(chunk: dict) -> str:
+    return chunk.get("chunk_text") or chunk.get("text") or ""
+
+
+def exhaustive_chunk_texts(chunks: list[dict]) -> list[str]:
+    """The text of every chunk whose caller declared it a complete
+    enumeration over its stated scope. Empty list = no chunk did, and no
+    negative inference is licensed anywhere in this answer."""
+    return [_chunk_text(c) for c in (chunks or []) if _chunk_is_exhaustive(c)]
+
+
+# "Document 3" as the judge writes it in its own prose — bare, not the
+# answer's bracketed "[Document 3]" marker.
+_JUDGE_DOCUMENT_REF_RE = re.compile(r"\bDocument\s+(\d+)\b", re.IGNORECASE)
+
+
+def listings_a_claim_is_about(claim_text: str, chunks: list[dict]) -> list[str]:
+    """
+    Which complete listing(s) should a judge-reported absence claim be
+    checked against?
+
+    [Module 61, measured live] Pooling every exhaustive chunk was wrong and
+    the live runs proved it. CR3 hands the Verifier THREE XAGG sub-answers,
+    all of them complete enumerations: a filtered FIR listing that names
+    both 64/26 and 65/26, a CMS linkage listing that names only 64/26, and a
+    person-recurrence listing. The judge's claim is about membership in the
+    CMS LINKAGE listing specifically — and 65/26 does appear in a different
+    listing, for a different question, so a pooled check concluded
+    "fabricated" and the caveat stayed on every run. Absence is always
+    absence FROM A PARTICULAR REGISTER.
+
+    So: when the claim names a document ("…not directly supported by
+    Document 3"), that document's listing is the one to check, and only if
+    it is exhaustive. When it names none, fall back to requiring absence
+    from EVERY exhaustive listing — strictly more conservative than picking
+    one, and the right default when there is nothing to disambiguate with.
+    """
+    if not chunks:
+        return []
+    referenced = [
+        int(m.group(1)) for m in _JUDGE_DOCUMENT_REF_RE.finditer(claim_text or "")
+    ]
+    in_range = [n for n in referenced if 1 <= n <= len(chunks)]
+    if in_range:
+        named = [chunks[n - 1] for n in in_range]
+        # A claim pinned to a NON-exhaustive document licenses nothing, even
+        # if some other chunk in the answer happens to be a listing.
+        if not all(_chunk_is_exhaustive(c) for c in named):
+            return []
+        return [_chunk_text(c) for c in named]
+    return exhaustive_chunk_texts(chunks)
+
+
+def _identifier_spans(text: str) -> list[tuple[int, int, set[str]]]:
+    """`(start, end, tokens)` for every identifier-shaped run in `text`,
+    ordered by position — the positional counterpart of
+    `_identifier_tokens()`. Only COMPOSITE identifiers (a separator after
+    normalization, e.g. "65-26", "cms-isb-2026-0341") are kept as possible
+    subjects: a bare four-digit run is far more often a statute year ("PECA
+    2016") than a record id, and mistaking one for the subject of an absence
+    claim would confirm a negative nobody made."""
+    text = _CITATION_MARKER_RE.sub(" ", text or "")
+    spans: list[tuple[int, int, set[str]]] = []
+    for pattern in _CLAIM_ID_RES:
+        for m in pattern.finditer(text):
+            norm = _normalize_identifier(m.group(0))
+            if not norm or norm in _CLAIM_ID_STOPWORDS:
+                continue
+            candidates = [norm]
+            stripped = re.sub(r"^(?:fir|case|cms|cnic)-", "", norm)
+            if stripped and stripped != norm:
+                candidates.append(stripped)
+            tokens = {c for c in candidates if "-" in c}
+            if tokens:
+                spans.append((m.start(), m.end(), tokens))
+    spans.sort()
+    return spans
+
+
+def _absence_subjects(claim_text: str) -> Optional[list[set[str]]]:
+    """
+    Which record does each absence phrase in `claim_text` say is missing?
+
+    Returns one token-set per absence phrase found, or None when the claim
+    contains no absence phrase at all, or when any phrase's subject cannot
+    be resolved to an identifier. None means "this function cannot confirm
+    anything about this claim" and the judge's own verdict stands — that
+    conservative default is what keeps a vague absence claim ("the record is
+    incomplete") from being waved through.
+
+    Direction matters and is why the two phrase families exist separately.
+    "…does not mention FIR 65/26" names its record AFTER the phrase;
+    "FIR 64/26 … does not appear" names it BEFORE. Resolving both the same
+    way would, on a sentence naming one present and one absent record,
+    silently pick the wrong one — and picking the wrong one is exactly how a
+    fabricated negative would get confirmed.
+    """
+    text = _CITATION_MARKER_RE.sub(" ", claim_text or "")
+    spans = _identifier_spans(claim_text)
+
+    object_after = list(_ABSENCE_OBJECT_AFTER_RE.finditer(text))
+    after_ranges = [(m.start(), m.end()) for m in object_after]
+    subject_before = [
+        m for m in _ABSENCE_SUBJECT_BEFORE_RE.finditer(text)
+        # "absence of X" is an object-after phrase; the bare "absence"
+        # inside it must not be resolved a second time, backwards.
+        if not any(a <= m.start() < b for a, b in after_ranges)
+    ]
+    if not object_after and not subject_before:
+        return None
+    if not spans:
+        return None
+
+    subjects: list[set[str]] = []
+    for m in object_after:
+        following = next((sp for sp in spans if sp[0] >= m.end()), None)
+        if following is None:
+            return None
+        subjects.append(following[2])
+    for m in subject_before:
+        preceding = [sp for sp in spans if sp[1] <= m.start()]
+        chosen = preceding[-1] if preceding else next(
+            (sp for sp in spans if sp[0] >= m.end()), None
+        )
+        if chosen is None:
+            return None
+        subjects.append(chosen[2])
+    return subjects or None
+
+
+def negative_claim_is_supported_by_exhaustive_listing(
+    claim_text: str, exhaustive_texts: list[str]
+) -> bool:
+    """
+    True when `claim_text` — a JUDGE-AUTHORED statement of what could not be
+    confirmed, i.e. an entry in the Verifier's `unsupported_claims` or a
+    Validation claim's `reason` — says nothing more than that some record is
+    absent from a listing, and every record it names that way is genuinely
+    absent from a complete enumeration.
+
+    All of these are required, and each one is what stops this from being a
+    general relaxation of grounding:
+
+      * there is at least one chunk the CALLER declared exhaustive;
+      * every absence phrase in the claim resolves to a named, composite
+        identifier (`_absence_subjects()`), so a misattribution, an invented
+        figure or a vague "the record is incomplete" never qualifies;
+      * every one of those identifiers is confirmed ABSENT from the
+        listing's own text. A claim asserting the absence of something the
+        listing actually contains is a fabricated negative and returns
+        False.
+
+    The judge's own wording is the unit deliberately, rather than the
+    answer's sentence: a sentence routinely mixes a present record and an
+    absent one ("64/26 has a linked complaint, while 65/26 does not appear"),
+    whereas the judge's reason states precisely the one thing it could not
+    confirm. Checking the sentence would make the function's verdict depend
+    on which other, unrelated facts happened to share a sentence with the
+    negative.
+    """
+    if not exhaustive_texts:
+        return False
+    subjects = _absence_subjects(claim_text)
+    if not subjects:
+        return False
+
+    listing_ids: set[str] = set()
+    listing_blob = ""
+    for text in exhaustive_texts:
+        listing_ids |= _identifier_tokens(text)
+        listing_blob += " " + _normalize_identifier(text)
+
+    for tokens in subjects:
+        for token in tokens:
+            if token in listing_ids:
+                return False
+            # Substring check as well: a listing rendering "fir-64-26" must
+            # count as containing the claim's "64-26".
+            if token in listing_blob:
+                return False
+    return True
 
 
 def _check_temporal(chunks: list[dict], target_date: Optional[int]) -> list[str]:
@@ -650,6 +1008,53 @@ async def verify_grounding(
             "reason": "Verifier failed to parse — defaulting to not grounded (fail-closed).",
             "refusal_detected": False,
         }
+
+    # ── [Module 61] Negative inference over a COMPLETE listing ────────────
+    # The judge may still reject a correct negative ("65/26 has none")
+    # despite rule 7, because it is a sampled verdict — that sampling is
+    # exactly what made CR3 pass or fail on a coin flip across Module 57's
+    # 14 runs. When EVERY claim it flagged is an absence claim whose
+    # subject is deterministically confirmed missing from a chunk the
+    # CALLER declared exhaustive, the rejection is overturned here, in
+    # Python, so the outcome is reproducible rather than resampled.
+    #
+    # Deliberately conservative — the override does not run at all if the
+    # judge found ANY other problem (off_topic, a claim that is not
+    # absence-shaped, a claim naming an identifier the listing actually
+    # contains), and the deterministic pre-checks below still overrule it.
+    exhaustive_texts = exhaustive_chunk_texts(cited_chunks)
+    if (
+        exhaustive_texts
+        and not llm_result.get("grounded", False)
+        and not llm_result.get("off_topic", False)
+        and not llm_result.get("leaked_case_id")
+        and not pre_check_failed
+    ):
+        flagged = [str(c) for c in (llm_result.get("unsupported_claims") or []) if str(c).strip()]
+        # A rejection with no itemised claim gives nothing to check, so it
+        # stands; the reason line is used as the single claim in that case
+        # only when it is itself absence-shaped and identifier-bearing.
+        candidates = flagged or [str(llm_result.get("reason") or "")]
+        if candidates and all(
+            negative_claim_is_supported_by_exhaustive_listing(
+                c, listings_a_claim_is_about(c, cited_chunks)
+            )
+            for c in candidates
+        ):
+            logger.info(
+                "Verifier [Module 61]: overturning rejection — every flagged claim "
+                "is a negative over a COMPLETE listing whose subject is confirmed "
+                "absent. Claims: %s",
+                "; ".join(c[:80] for c in candidates),
+            )
+            llm_result["grounded"] = True
+            llm_result["unsupported_claims"] = []
+            llm_result["exhaustive_negative_override"] = True
+            llm_result["reason"] = (
+                "Supported: the only claims flagged were negative inferences over a "
+                "complete listing, and each named record is confirmed absent from "
+                "that listing."
+            )
 
     # ── Merge deterministic findings into LLM result ──────────────────────
     if pre_check_issues:
