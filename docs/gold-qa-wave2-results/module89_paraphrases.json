@@ -1,0 +1,28 @@
+{
+  "module": 89,
+  "question": "KB1",
+  "written_before_any_run": true,
+  "note": "Written and committed to disk BEFORE the first paraphrase run, and not edited afterwards. Module 94 exists because 'route' and 'plan fired' were conflated; both are reported separately for each of these.",
+  "paraphrases": [
+    {
+      "id": "P1",
+      "language": "en",
+      "text": "Under what law does a complaint made at a police station have to be turned into a written FIR, and do our own case records actually meet that standard?"
+    },
+    {
+      "id": "P2",
+      "language": "en",
+      "text": "What does the law require before a crime report counts as a properly registered First Information Report, and does our recordkeeping live up to it?"
+    },
+    {
+      "id": "P3",
+      "language": "roman-ur",
+      "text": "Qanoon ke mutabiq ek jurm ki ittila ko FIR mein darj karne ke liye kya zaroori hai, aur kya hamara record us par pura utarta hai?"
+    },
+    {
+      "id": "P4",
+      "language": "ur",
+      "text": "قانون کے مطابق کسی جرم کی اطلاع کو باقاعدہ ایف آئی آر میں درج کرنے کے لیے کیا ضروری ہے، اور کیا ہمارا ریکارڈ اس پر پورا اترتا ہے؟"
+    }
+  ]
+}

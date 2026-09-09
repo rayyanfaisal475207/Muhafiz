@@ -323,7 +323,7 @@ goes 4 → 1 and the mean spread 0.106 → 0.025.
 across the three passes — but KB6's three *captured answers differ* (1,840 /
 1,929 / 1,943 chars). Held fixed, it is 0.4 five times out of five with zero
 spread. Its remaining variance belongs to the pipeline, and no module owns it
-(filed as **Module 99**).
+(filed as **Module 108**).
 
 ---
 
@@ -422,7 +422,7 @@ errors and an invalid KB bucket. **Verify:** hit `/v1beta/models` with each key
 and record the code; then hit each candidate model once and record `limit:` and
 `PerDay`/`PerMinute` from the 429 body.
 
-**Module 99 — KB6 is the last question whose score spread is ≥0.3, and it is the
+**Module 108 — KB6 is the last question whose score spread is ≥0.3, and it is the
 pipeline's, not the judge's.** Its three captured Module 27 answers differ (1,840
 / 1,929 / 1,943 chars) and score 0.4 / 0.4 / 0.9; the *same* answer judged five
 times scores 0.4 every time, spread 0.0. Module 27's variance section attributes
