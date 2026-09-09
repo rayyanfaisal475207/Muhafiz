@@ -113,7 +113,7 @@ those tests then assert the *unchanged* pre-Module-95 output.
 - **No widening of `_COMPLETENESS_KEYWORDS`,** even though §6 measures two
   paraphrases falling through it. That list is a bag of gold-derived
   phrases and widening it is the fourth round of gold-specific regexes
-  Module 92 exists to stop. Filed as **Defect 102** with the measurement,
+  Module 92 exists to stop. Filed as **Defect 106** with the measurement,
   not fixed here.
 - **No prompt change and no canned finding list for G2/G5.** The anti-goal.
   Everything added is a measurement over real data or real structure.
@@ -121,8 +121,8 @@ those tests then assert the *unchanged* pre-Module-95 output.
   is the *right* fix and it would add 259 rows to a graph four other tracks
   are querying live, changing every existing StructuredRecord count
   underneath them. Two per-Incident counts stand in; the trade is written
-  into the projection's own comment and filed as **Defect 101**.
-- **Neither verifier was touched** (§8, Defect 100) — that layer is m83's.
+  into the projection's own comment and filed as **Defect 105**.
+- **Neither verifier was touched** (§8, Defect 104) — that layer is m83's.
 
 ### Why a backfill and not a re-projection
 
@@ -235,7 +235,7 @@ runs straight into `\n\n1.` and `_validate_structural()` looks for a bare
 "1" in the source; G5's answer enumerates four points and
 `verifier.py::_numbers_in()` looks for a bare "4". The platform therefore
 penalises an answer *for having more findings in it*. Filed as
-**Defect 100** and not fixed here — that layer is m83's.
+**Defect 104** and not fixed here — that layer is m83's.
 
 ---
 
@@ -316,7 +316,7 @@ new capability:
   cases. `_COMPLETENESS_KEYWORDS` is a bag of gold-derived phrases
   (`"fall through the cracks"` is literally in it; *"slip through the
   cracks"* is not). **Module 92's disease, one layer below the router.**
-  Filed as **Defect 102**. Widening the list is exactly the fourth round of
+  Filed as **Defect 106**. Widening the list is exactly the fourth round of
   gold-specific regexes the brief forbids, so it was measured and left.
 
 ---
@@ -385,7 +385,7 @@ pass in full on the branch, including every pre-existing G1/G3/CR6 test.
 Highest number in use in `GOLD_QA_REMAINING_FIXES_PLAN.md` when this was
 written: **97**. Taking the next free numbers above 99.
 
-### Defect 100 — a Markdown list ordinal is read as a claimed figure, by BOTH verifiers
+### Defect 104 — a Markdown list ordinal is read as a claimed figure, by BOTH verifiers
 
 **The platform penalises an answer for having more findings in it.**
 Measured on this branch, deterministic, reproduced offline:
@@ -415,7 +415,7 @@ G5 path silently discards the natural-language answer. The fix is in the
 number extraction (ignore an ordinal that is a list marker), in the m83
 layer. **Not fixed here** — this module holds neither file.
 
-### Defect 101 — `fir_zimni` is never projected, so investigation-step content is not queryable
+### Defect 105 — `fir_zimni` is never projected, so investigation-step content is not queryable
 
 `structured_projection.py` writes 11 of the 12 FIR child tables as
 StructuredRecords. `fir_zimni` — the one that holds the actual content of
@@ -428,7 +428,7 @@ one ratio out of it (188 of 259 untyped) and stood two per-Incident counts
 in rather than add 259 nodes to a graph four tracks are querying live. The
 real fix is the projection, plus a Module-22-style backfill.
 
-### Defect 102 — `resolve_aggregate_kind()`'s vocabulary is Module 92's disease one layer down
+### Defect 106 — `resolve_aggregate_kind()`'s vocabulary is Module 92's disease one layer down
 
 Module 92 measured the *router* losing a capability outside a narrow
 neighbourhood of the gold wording, and Defect 97 found the same in the
@@ -441,7 +441,7 @@ literal `"fall through the cracks"`; the paraphrase said *"slip through the
 cracks"*. Widening the list is the fourth round of gold-specific regexes;
 the fix is a predicate, and it belongs with Module 92's.
 
-### Defect 103 — the Weapon projection drops `condition` and `date_entered`
+### Defect 107 — the Weapon projection drops `condition` and `date_entered`
 
 `psrms.weapon_register` carries `condition` (ضبط شدہ / forensic status) and
 `date_entered`; `structured_projection._write_weapons` projects only

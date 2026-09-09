@@ -3932,7 +3932,7 @@ three findings it did not ask for; that cost is measured in
 `MODULE95_RESULT.md` §7 rather than assumed away. And `fir_zimni` is still
 not projected as StructuredRecords — Module 95 stood two per-Incident
 counts in for 259 nodes to keep its blast radius off a shared graph, and
-filed the real fix as **Defect 100**.
+filed the real fix as **Defect 104**.
 
 **Result:** `docs/gold-qa-wave2-results/MODULE95_RESULT.md`
 
