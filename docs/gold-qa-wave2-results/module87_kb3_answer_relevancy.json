@@ -1,0 +1,101 @@
+[
+ {
+  "id": "KB3",
+  "pass": 1,
+  "draw": 0,
+  "metric": "AnswerRelevancy",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 16.0,
+  "reason": "The score is 0.20 because the response includes significant amounts of irrelevant technical metadata and cross-case analysis that do not address the specific procedural question regarding the separation of registration and investigation roles."
+ },
+ {
+  "id": "KB3",
+  "pass": 1,
+  "draw": 1,
+  "metric": "AnswerRelevancy",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 15.9,
+  "reason": "The score is 0.20 because the response includes significant amounts of irrelevant technical metadata and cross-case analysis that do not address the specific procedural question regarding the separation of registration and investigation roles."
+ },
+ {
+  "id": "KB3",
+  "pass": 1,
+  "draw": 2,
+  "metric": "AnswerRelevancy",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 15.4,
+  "reason": "The score is 0.20 because the response includes significant amounts of irrelevant technical metadata and cross-case analysis that do not address the specific procedural question regarding the separation of registration and investigation roles."
+ },
+ {
+  "id": "KB2",
+  "pass": 1,
+  "draw": 0,
+  "metric": "AnswerRelevancy",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 15.9,
+  "reason": "The score is 1.00 because the response directly and accurately addresses the inquiry regarding data gaps in police interview recording practices."
+ },
+ {
+  "id": "KB2",
+  "pass": 1,
+  "draw": 1,
+  "metric": "AnswerRelevancy",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 17.4,
+  "reason": "The score is 1.00 because the response directly and accurately addresses the inquiry regarding data gaps in police interview recording practices."
+ },
+ {
+  "id": "KB2",
+  "pass": 1,
+  "draw": 2,
+  "metric": "AnswerRelevancy",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 20.5,
+  "reason": "The score is 1.00 because the response directly and accurately addresses the inquiry regarding data gaps in police interview recording practices."
+ },
+ {
+  "id": "D1",
+  "pass": 1,
+  "draw": 0,
+  "metric": "AnswerRelevancy",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 15.0,
+  "reason": "The score is 1.00 because the response directly and accurately addresses the inquiry with no irrelevant information included. Great job providing a clear and focused answer!"
+ },
+ {
+  "id": "D1",
+  "pass": 1,
+  "draw": 1,
+  "metric": "AnswerRelevancy",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 15.6,
+  "reason": "The score is 1.00 because the response directly and accurately addresses the inquiry with no irrelevant information included. Great job providing a clear and focused answer!"
+ },
+ {
+  "id": "D1",
+  "pass": 1,
+  "draw": 2,
+  "metric": "AnswerRelevancy",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 14.3,
+  "reason": "The score is 1.00 because the response directly and accurately addresses the inquiry with no irrelevant information included. Great job providing a clear and focused answer!"
+ }
+]

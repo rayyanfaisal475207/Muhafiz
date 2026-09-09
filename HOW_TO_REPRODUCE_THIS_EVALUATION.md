@@ -176,12 +176,33 @@ those rows from the results file and re-run.**
 ### 3.1 Judge model
 
 ```python
-GeminiModel(model="gemini-flash-lite-latest", api_key=GEMINI_API_KEY)
-# DEEPEVAL_PER_ATTEMPT_TIMEOUT_SECONDS_OVERRIDE = 180
+GeminiModel(model=os.environ.get("GOLD32_JUDGE_MODEL") or "gemini-3.1-flash-lite",
+            api_key=GEMINI_API_KEY, temperature=0.0)
+# DEEPEVAL_PER_ATTEMPT_TIMEOUT_SECONDS_OVERRIDE = 300
 ```
 
 An earlier Qwen-27B judge was replaced because it graded literally and unfairly
 penalised correct answers phrased differently.
+
+**[Module 87] The judge changed, and every number produced before it was graded
+by a different model.** All of wave 2 — including the three-pass Module 27 run —
+was graded by `gemini-flash-lite-latest`. Module 87 re-scored those same captured
+answers with four candidates and moved the default to `gemini-3.1-flash-lite`;
+`docs/gold-qa-wave2-results/MODULE87_RESULT.md` carries the question-by-question
+side-by-side and the variance measurement.
+
+**Free-tier quota, not capability, decided this.** On the two working keys in
+`.env`, `gemini-2.5-flash`, `gemini-3.5-flash` and `gemini-3.7-flash` are all
+capped at **20 requests per day** — a single three-pass re-score needs 96 — while
+`gemini-3.1-flash-lite` is capped per *minute* (15) and completed the whole run.
+It is also the candidate that removed the judge's run-to-run variance outright:
+**spread 0.0 across 5 draws on all nine probe questions**, against spreads of up
+to 0.5 on the retired judge. If you have a paid key, set `GOLD32_JUDGE_MODEL`
+and re-run; the model is a named constant (`DEFAULT_JUDGE_MODEL` in
+`evaluation/gold32_score.py`), so any report can state — and any reader can
+reproduce — the judge its numbers came from. Temperature is pinned at 0. Both
+per-attempt timeouts are raised: the harness's own cap used to be *lower* than
+the DeepEval override beside it, so a slow call was recorded as a failed one.
 
 ### 3.2 Metrics — two, both with threshold 0.6
 
@@ -205,9 +226,10 @@ shapes the score:
 2. List the key facts the EXPECTED OUTPUT asserts (counts, names, statuses, relationships, conclusions).
 3. For each key fact, check whether the ACTUAL OUTPUT states an equivalent fact **in its own words**. Different phrasing, different order, or extra correct information is **NOT an error**.
 4. For any number, compare **by size, not exact digit match**. Treat numbers as matching when within roughly 5–10%, or off by a couple of units on a small total. *(Worked example in the prompt: expected 67 males / 24 females / 94 total vs actual 65 / 24 / 92 → MATCHES, should score HIGH.)*
-5. Only score low when the answer: (a) **contradicts** the expected output in kind not degree, (b) is **materially incomplete**, omitting a key fact asked for, or (c) **refuses or abstains** when real content was available.
-6. Correctly stating that data does NOT contain something, where the gold agrees, is a **PASS**.
-7. Score high whenever key facts are covered, even with close-but-not-identical numbers or extra detail.
+5. Judge the **substantive claim, not the yes/no token** that opens it. A question can be read literally or as the difference it implies; gold and the answer may each answer a different one of those readings and so open with **opposite words while asserting the same thing**. Check the supporting facts before calling anything a contradiction — if the figures, directions and conclusions agree, the answers agree. *(Worked example in the prompt: gold answers the implied "is there a difference?" with "Yes — 15.0 minutes in 2024, 1401.3 in 2026"; the answer addresses the literal question with "No — 15.0 minutes in 2024, 1401.3 in 2026". Same figures, same meaning → MATCHES, should score HIGH.)* A real contradiction reverses a **fact**, never merely the polarity of the opening word. **This rule excuses the opening word and nothing else** — once polarity is settled the judge goes back and checks every key fact the question asked for, and an answer that agrees in direction but drops gold's specific provision, count, name or entity is still materially incomplete. That fence is not decorative: without it the rule took KB9 from 0.27 to 1.0 on an answer that never reaches gold's CrPC s.174.
+6. Only score low when the answer: (a) **contradicts** the expected output in kind not degree, (b) is **materially incomplete**, omitting a key fact asked for, or (c) **refuses or abstains** when real content was available.
+7. Correctly stating that data does NOT contain something, where the gold agrees, is a **PASS**.
+8. Score high whenever key facts are covered, even with close-but-not-identical numbers or extra detail.
 
 This encodes the testing team's rule: *cover the main points in your own way,
 with the right facts, and it passes; only opposite or incomplete fails.*

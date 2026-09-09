@@ -11,7 +11,9 @@ semantic coverage of the key facts and penalizes contradiction/omission, NOT
 lexical overlap. Answer Relevancy is computed alongside it. (Faithfulness was
 dropped — see the _METRICS comment.)
 
-Judge: Gemini `gemini-flash-lite-latest` (see `_judge()`).
+Judge: Gemini, model named by `JUDGE_MODEL` / `GOLD32_JUDGE_MODEL` (see
+`_judge()`). Default `gemini-2.5-flash` since Module 87, which measured it
+against the `gemini-flash-lite-latest` that graded the whole of wave 2.
 
 Two integrity rules this script enforces (Module 45) — both exist because a
 number that is quietly wrong is worse than no number at all:
@@ -70,7 +72,12 @@ NULL_RETRIES = 3
 RATE_LIMIT_RETRIES = 8
 # Hard per-attempt cap. A hung metric call is a judge failure like any other:
 # it yields no number, so it is retried and then recorded as unscored.
-ATTEMPT_TIMEOUT_S = 120
+# [Module 87] Was a bare 120, which is LOWER than the DeepEval per-attempt
+# override right below it — so under contention a call the provider would have
+# answered was killed here first and the row went UNSCORED. Measured: two
+# questions (S3, A7) lost all three attempts to this cap on a loaded machine
+# while returning 1.0 in 6 s when the machine was quiet.
+ATTEMPT_TIMEOUT_S = int(os.environ.get("GOLD32_ATTEMPT_TIMEOUT_S", "300"))
 
 # Provider signatures for "the call failed for a reason that is the provider's,
 # not the answer's" — retried on the separate budget above rather than the null
@@ -128,22 +135,152 @@ PASS_THRESHOLD = 0.5
 _METRICS = ["FactualCorrectness", "AnswerRelevancy"]
 
 
-def _judge():
-    # Judge = Gemini flash-lite. The earlier Qwen-27B judge (via Groq) was too
-    # weak to honor the testing team's "semantic, close-numbers-OK" grading
-    # rule — it reverted to literal fact-matching and unfairly scored correct
-    # answers low. Gemini flash-lite follows the nuanced instruction better,
-    # but even Gemini needed the FactualCorrectness metric's evaluation_steps
-    # (below) spelled out explicitly with a worked example before it actually
-    # honored the close-numbers rule in practice — see Module 20.
+# [Module 87] The judge model is a named, env-overridable constant instead of a
+# literal inside `_judge()`, for the same reason the answer cap became one in
+# Module 46: every report must be able to state which judge produced its
+# numbers, and an experiment must be able to change the judge without editing
+# the scorer.
+#
+# The default was `gemini-flash-lite-latest` through the whole of wave 2 — a
+# 2.5-generation lite model, and the project's own history already records one
+# judge (Qwen-27B via Groq) being replaced for grading too literally.
+#
+# Module 87 measured four candidates against the three committed Module 27
+# passes. The choice is NOT simply "the biggest model", because free-tier quota
+# turned out to be the binding constraint on this project's keys:
+#
+#   gemini-2.5-flash        20 requests/DAY  — fixes M7 (0.92 over 5 draws on the
+#                                              OLD prompt) and cannot run: one
+#                                              3-pass re-score needs 96 calls
+#   gemini-3.5-flash        20 requests/DAY  — M7 1.0 (3/3), 45-90 s per call
+#   gemini-3.7-flash        20 requests/DAY  — M7 1.0, CP1 1.0 (3/3 each)
+#   gemini-3.1-flash-lite   15 requests/MIN  — M7 1.0 (5/5), spread 0.0 on ALL
+#                                              NINE probe questions, 9.1 s mean
+#
+# So the strongest model that is actually reliable here is the newest LITE tier,
+# not the newest flash tier: it is the only candidate above flash-lite's
+# generation whose quota can complete a run at all, and it is also the one that
+# removed the judge's run-to-run variance outright. See
+# docs/gold-qa-wave2-results/MODULE87_RESULT.md for the side-by-side table.
+DEFAULT_JUDGE_MODEL = "gemini-3.1-flash-lite"
+JUDGE_MODEL = os.environ.get("GOLD32_JUDGE_MODEL") or DEFAULT_JUDGE_MODEL
+# DeepEval's GeminiModel already defaults to 0.0; pinned here so the value is
+# visible in the file rather than inherited from a library default that could
+# change under us. Module 87 measured the residual judge-to-judge spread AT this
+# temperature — it is not zero, so temperature is not the whole story.
+JUDGE_TEMPERATURE = float(os.environ.get("GOLD32_JUDGE_TEMPERATURE", "0"))
+# Module 87 measured 9.1 s mean per FactualCorrectness call on the default
+# judge, but 45-90 s on the flash-tier candidates and a 354 s worst case under
+# machine contention, so both timeouts are raised with headroom and made
+# overridable. A judge call that is merely SLOW must not be recorded as a
+# judge FAILURE — that is Module 45's rule one layer out.
+JUDGE_ATTEMPT_TIMEOUT_OVERRIDE = os.environ.get(
+    "DEEPEVAL_PER_ATTEMPT_TIMEOUT_SECONDS_OVERRIDE", "300")
+
+
+def _judge(model=None, temperature=None):
+    # The earlier Qwen-27B judge (via Groq) was too weak to honor the testing
+    # team's "semantic, close-numbers-OK" grading rule — it reverted to literal
+    # fact-matching and unfairly scored correct answers low. Gemini follows the
+    # nuanced instruction better, but even Gemini needed the FactualCorrectness
+    # metric's evaluation_steps (below) spelled out explicitly with a worked
+    # example before it actually honored the close-numbers rule in practice —
+    # see Module 20, and Module 87 for the same lesson learned twice on polarity.
     # A raised per-attempt timeout accommodates Gemini's slower GEval calls.
-    os.environ.setdefault("DEEPEVAL_PER_ATTEMPT_TIMEOUT_SECONDS_OVERRIDE", "180")
+    os.environ["DEEPEVAL_PER_ATTEMPT_TIMEOUT_SECONDS_OVERRIDE"] = str(
+        JUDGE_ATTEMPT_TIMEOUT_OVERRIDE)
     from deepeval.models import GeminiModel
     key = os.environ.get("GEMINI_JUDGE_KEY") or os.environ.get("GEMINI_API_KEY")
-    return GeminiModel(model="gemini-flash-lite-latest", api_key=key)
+    return GeminiModel(model=model or JUDGE_MODEL, api_key=key,
+                       temperature=JUDGE_TEMPERATURE if temperature is None
+                       else temperature)
 
 
-def build_metrics(judge):
+# The complete FactualCorrectness prompt, hoisted to module scope so that a
+# test can pin individual rules to it and an experiment can diff one prompt
+# against another without re-declaring the metric. HOW_TO_REPRODUCE_THIS_
+# EVALUATION.md §3.3 reproduces this list for readers and a test asserts the
+# two do not drift.
+FACTUAL_EVALUATION_STEPS = [
+    "Read the QUESTION, the EXPECTED OUTPUT (verified ground truth), "
+    "and the ACTUAL OUTPUT.",
+    "List the key facts the EXPECTED OUTPUT asserts (the specific "
+    "things the question asked for — counts, names, statuses, "
+    "relationships, conclusions).",
+    "For each key fact, check whether the ACTUAL OUTPUT states an "
+    "equivalent fact, in its own words. Different phrasing, "
+    "different order, or extra correct information beyond what was "
+    "asked is NOT an error — do not penalize for any of that.",
+    "For any number in the EXPECTED OUTPUT, compare it to the "
+    "corresponding number in the ACTUAL OUTPUT by size, not by exact "
+    "digit match. Treat two numbers as MATCHING (not an error) when "
+    "they are close enough to plausibly be the same underlying fact "
+    "measured with a slightly different count/de-duplication method "
+    "— roughly within 5-10% of each other, or off by only a couple "
+    "of units on a small total. Worked example, a real case this "
+    "rule exists for: EXPECTED says 67 males, 24 females, 3 unclear, "
+    "94 total; ACTUAL says 65 males, 24 females, 92 total. Here 24 "
+    "is an exact match, and 65 vs 67 / 92 vs 94 are each off by only "
+    "2 (about 2-3%) — under this rule that whole answer MATCHES the "
+    "expected output and should score HIGH, not be marked as having "
+    "'incorrect numbers'.",
+    # ── [Module 87] the polarity rule ──────────────────────────────────
+    # A measured false negative, not a hypothetical: M7 was scored 0.1 /
+    # 0.3 / 0.2 across three passes on an answer carrying gold's figures
+    # EXACTLY, because gold opens "Haan" (yes) and the answer opens "No".
+    # Module 43 separately measured M7 returning gold on 6 live runs of 6.
+    # Module 20 proved that an abstract rule alone is not honoured — the
+    # close-numbers rule only started working once a worked example from a
+    # real case was attached to it — so this rule carries its own.
+    "Judge the SUBSTANTIVE CLAIM, not the yes/no token that opens it. A "
+    "question can be read literally or as the difference it implies, and "
+    "the EXPECTED OUTPUT and the ACTUAL OUTPUT may each answer a "
+    "different one of those readings — which makes them open with "
+    "OPPOSITE words while asserting exactly the SAME thing. Before "
+    "calling anything a contradiction, check the supporting facts: if "
+    "the two outputs' figures, directions and conclusions agree, the "
+    "answers AGREE, and the opposite yes/no is NOT an error. Worked "
+    "example, a real case this rule exists for: the QUESTION is 'Are "
+    "people reporting incidents to police as quickly in 2026 as in "
+    "2024?'. EXPECTED answers the implied 'is there a difference?' with "
+    "'Yes, by a very large margin — 2024 mean 15.0 minutes, 2026 mean "
+    "1401.3 minutes'. ACTUAL answers the literal question with 'No, "
+    "people are not reporting as quickly — 15.0 minutes in 2024, 1401.3 "
+    "minutes in 2026'. That is 'Yes' against 'No', but both assert that "
+    "reporting became dramatically slower and the figures are identical "
+    "— under this rule that answer MATCHES the expected output and "
+    "should score HIGH. A real contradiction reverses a FACT (the "
+    "direction of a change, which group is larger, the identity of an "
+    "entity, a number that is wildly off), never merely the polarity of "
+    "the opening word. This rule excuses the OPENING WORD AND NOTHING "
+    "ELSE. It is not a shortcut past the rest of this checklist: once "
+    "polarity is settled, go back and check every key fact the question "
+    "asked for, one at a time. An ACTUAL OUTPUT that agrees with the "
+    "EXPECTED OUTPUT in direction but leaves out its specific legal "
+    "provision, count, name or entity is still materially INCOMPLETE and "
+    "must score LOW.",
+    "Only score low when the ACTUAL OUTPUT does one of: (a) states "
+    "something that CONTRADICTS the expected output in kind, not "
+    "degree (e.g. reverses which group is larger, names the wrong "
+    "entity, gives a number that is wildly off — an order of "
+    "magnitude or a large fraction of the total, not a close "
+    "count); (b) is materially INCOMPLETE, omitting a key fact the "
+    "question specifically asked for; (c) refuses or abstains "
+    "('the data does not specify', 'insufficient information') when "
+    "the expected output shows real content was available.",
+    "An ACTUAL OUTPUT that correctly states the data does NOT "
+    "contain something, and the EXPECTED OUTPUT agrees with that, "
+    "is a PASS (high score) — this is not an abstention, it is the "
+    "correct answer.",
+    "Score high (pass) whenever the actual output covers the "
+    "expected output's key facts under the rules above, even with "
+    "close-but-not-identical numbers or extra correct detail. Score "
+    "low only for genuine contradiction, material omission, wildly "
+    "wrong numbers, or an unwarranted refusal.",
+]
+
+
+def build_metrics(judge, evaluation_steps=None):
     from deepeval.metrics import AnswerRelevancyMetric, FaithfulnessMetric, GEval
     from deepeval.test_case import LLMTestCaseParams as P
     # `criteria` alone (free text) lets GEval silently regenerate its own
@@ -155,51 +292,13 @@ def build_metrics(judge):
     # harshness this module exists to fix. `evaluation_steps` are followed
     # literally instead of being reinterpreted, so the close-numbers rule is
     # spelled out as an explicit step with a worked example lifted from that
-    # same real case.
+    # same real case. [Module 87] The same lesson had to be learned a second
+    # time for polarity: see FACTUAL_EVALUATION_STEPS above, where the list now
+    # lives so that a test can pin one rule to it and an experiment can diff two
+    # prompts without re-declaring the metric.
     factual = GEval(
         name="FactualCorrectness",
-        evaluation_steps=[
-            "Read the QUESTION, the EXPECTED OUTPUT (verified ground truth), "
-            "and the ACTUAL OUTPUT.",
-            "List the key facts the EXPECTED OUTPUT asserts (the specific "
-            "things the question asked for — counts, names, statuses, "
-            "relationships, conclusions).",
-            "For each key fact, check whether the ACTUAL OUTPUT states an "
-            "equivalent fact, in its own words. Different phrasing, "
-            "different order, or extra correct information beyond what was "
-            "asked is NOT an error — do not penalize for any of that.",
-            "For any number in the EXPECTED OUTPUT, compare it to the "
-            "corresponding number in the ACTUAL OUTPUT by size, not by exact "
-            "digit match. Treat two numbers as MATCHING (not an error) when "
-            "they are close enough to plausibly be the same underlying fact "
-            "measured with a slightly different count/de-duplication method "
-            "— roughly within 5-10% of each other, or off by only a couple "
-            "of units on a small total. Worked example, a real case this "
-            "rule exists for: EXPECTED says 67 males, 24 females, 3 unclear, "
-            "94 total; ACTUAL says 65 males, 24 females, 92 total. Here 24 "
-            "is an exact match, and 65 vs 67 / 92 vs 94 are each off by only "
-            "2 (about 2-3%) — under this rule that whole answer MATCHES the "
-            "expected output and should score HIGH, not be marked as having "
-            "'incorrect numbers'.",
-            "Only score low when the ACTUAL OUTPUT does one of: (a) states "
-            "something that CONTRADICTS the expected output in kind, not "
-            "degree (e.g. reverses which group is larger, names the wrong "
-            "entity, gives a number that is wildly off — an order of "
-            "magnitude or a large fraction of the total, not a close "
-            "count); (b) is materially INCOMPLETE, omitting a key fact the "
-            "question specifically asked for; (c) refuses or abstains "
-            "('the data does not specify', 'insufficient information') when "
-            "the expected output shows real content was available.",
-            "An ACTUAL OUTPUT that correctly states the data does NOT "
-            "contain something, and the EXPECTED OUTPUT agrees with that, "
-            "is a PASS (high score) — this is not an abstention, it is the "
-            "correct answer.",
-            "Score high (pass) whenever the actual output covers the "
-            "expected output's key facts under the rules above, even with "
-            "close-but-not-identical numbers or extra correct detail. Score "
-            "low only for genuine contradiction, material omission, wildly "
-            "wrong numbers, or an unwarranted refusal.",
-        ],
+        evaluation_steps=evaluation_steps or FACTUAL_EVALUATION_STEPS,
         evaluation_params=[P.INPUT, P.ACTUAL_OUTPUT, P.EXPECTED_OUTPUT],
         model=judge, threshold=0.6,
     )
@@ -508,6 +607,7 @@ def main(argv=None):
         json.dump(results, open(RESULTS, "w", encoding="utf-8"),
                   ensure_ascii=False, indent=2)
     print("\nwrote %d to %s" % (len(results), RESULTS))
+    print("judge model for this run: %s (temperature %s)" % (JUDGE_MODEL, JUDGE_TEMPERATURE))
     print("answer cap in force for this run: %s chars" % (MAX_ANSWER_CHARS or "none"))
     print(format_summary(summarize(results)))
 

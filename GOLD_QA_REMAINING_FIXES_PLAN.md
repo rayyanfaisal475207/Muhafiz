@@ -141,9 +141,12 @@ several can run in parallel chats/worktrees without colliding.
 | 95b | **CP1 (was 1.0 / 0.5 / 0.9)** — the third question in the original row 95 | *(no module needed)* | ✅ **Closed by measurement, not by a fix.** Module 87's re-judge scored CP1 **1.0 / 1.0 / 1.0**. The "one unlucky draw" framing was right about the mechanism and wrong about which question it threatened: G2 and G5 were flat failures on every pass, and CP1 needed nothing |
 | 96 | **KB2 is the last gold question with no module** — 0.00 on all three passes, AnswerRelevancy 1.00 | *(not yet branched)* | ⬜ New — diagnosis first, fix second. Gold is *"no, that's by design"*: an assertion about what the schema deliberately does NOT hold (Qanun-e-Shahadat Arts. 38/39, CrPC s.162 make police-recorded statements unusable, so only witness identity is stored). Module 39 excluded it from `_KB_DATA_HALF_PLANS` as a "schema claim, not a count" — correct for KB2, unlike KB1. FC 0.00 with AR 1.00 usually means fluent and wrong. **Decide which of three it is before writing code**: our answer is wrong, gold is wrong, or the judge cannot score a correct negative |
 | 97 | **Gold's own wording loses the provision its paraphrase retrieves** — the same split on two independent questions, one layer below Module 92's router finding | *(not yet branched)* | ⬜ **New — measured by Module 82/85 on `main` @ `6cf89fb`, shared Chroma, reranker live, 3 runs each, `route=RAG` on all twelve.** KB2's QSO Art. 38 `2_qanun-e-shahadat-order-1984_pdf_3e604153_c176`: **0 of 3** for gold's literal text, **3 of 3** for a Roman-Urdu paraphrase. Art. 39 `…_c177`: 0 of 3 vs 3 of 3. KB4's rule 27.16(1) chunk `4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209`: **0 of 3** vs **3 of 3**. Module 65 measured KB2's Art. 38 at 3/3 and Module 38 measured KB4's `…_c2209` at 3/3 — both against **private** Chroma copies on earlier merge-bases; neither reproduces here for the gold question and both do for a paraphrase, same build, same store, same session. Book selection still works (KB2's hypothesis names the Qanun-e-Shahadat and uses its verb *"shall not be proved"*); what varies is the section number and surrounding wording, and Module 65 §7a already measured that variation alone flipping an outcome on an unchanged prompt. The window is not deterministic either — a control run on the same question and same code returned `…_c2209` at position 2. **This is Module 92's shape one layer down**: the route is identical and the *retrieval window* is what the paraphrase changes, so the narrow-neighbourhood problem is not confined to `router.py`. Owner needs `src/retrieval/` and/or `prompts/statute_hypothesis.txt`; probes exist (`scripts/module65_probe.py` for rank-by-query, `scripts/module82_window_probe.py` for text-by-id, read-only) |
+| 87 | The Gold-32 **judge**: weakest-tier model pinned as a literal, no polarity rule, and 0.5 score spread on identical answers | `fix/eval-judge-upgrade-and-prompt` | ✅ **Fixed** — judge model is a named, env-overridable constant (`GOLD32_JUDGE_MODEL`) defaulting to **`gemini-3.1-flash-lite`**, chosen on measurement not size: `gemini-2.5-flash`, `3.5-flash` and `3.7-flash` are all capped at **20 requests/DAY** on both working keys and cannot produce one 96-call re-score. A **polarity rule with M7's own worked example** lands the measured false negative: **M7 0.20 → 1.00, 3/3**. Two more false negatives found and justified individually — **CP6 0.30 → 0.90** (the tolerance rule was applied and then overridden by an omission the question never asked for) and **G1 0.53 → 0.97** (its answer carries all four gold findings with gold's figures). **Variance: spread ≥0.3 on 4 of 32 → 1 of 32, mean spread 0.106 → 0.025**, and on a FIXED answer × 5 draws it is **0.0 on 9 of 9** — the model did that, not the prompt. Genuinely wrong answers still fail (CR2 **0.00** 3/3, KB2 0.17, KB3 0.00, G6 0.10) and **seven questions fell**, Creative Generation 0.580 → **0.553**. All-32 mean 0.666 → **0.702**. The rule's first version broke KB9 (0.27 → **1.0**) and is now **fenced** and pinned by a test. Result: `docs/gold-qa-wave2-results/MODULE87_RESULT.md` |
+| 98 | **Three of the five Gemini keys in `.env` are dead, and `GEMINI_MODEL`'s model cannot serve one evaluation run** | *(not yet branched)* | ⬜ New — found by Module 87 while choosing a judge. `GEMINI_API_KEY_2/_3/_4` return **401 UNAUTHENTICATED**; only `GEMINI_API_KEY` and `_1` work. On both, **`gemini-2.5-flash` — the value of `GEMINI_MODEL` — is capped at 20 requests per DAY** (so are `3.5-flash` and `3.7-flash`), and the judge's own 500/day tier was exhausted on **both** keys mid-session with other tracks running. Every Gemini caller in the project is therefore on two keys, not five, and can exhaust a model's daily quota part-way through a run — which surfaces as slow calls and `UNSCORED` rows, not as a credential error. Same class as the `SHARE/.env` incident that produced 1,410 rate-limit errors and an invalid KB bucket. **Verify:** hit `/v1beta/models` with each key and record the code; then hit each candidate model once and record `limit:` and `PerDay`/`PerMinute` from the 429 body |
 | 99 | **790 Chroma chunks are unreachable by keyword search** — present in `muhafiz_kb`, absent from `chunk_fulltext` | *(not yet branched)* | ⬜ New — found while measuring Module 37 on 2026-09-10. The two indexes disagree in **both** directions; Module 37 covers the half that serves dead ids, this covers the half that silently drops live ones from BM25. **Non-destructive**, unlike 37 — nothing is served wrongly, some chunks are simply invisible to the keyword arm of hybrid retrieval. Cost unmeasured: establish which documents the 790 belong to and whether any gold question needs them before deciding whether to re-index |
 | 100 | `xagg.py::_is_officer_role_pair_comparison()` (KB3's family) rejects ordinary rewordings — the capability is reachable only from a narrow neighbourhood of KB3's gold wording | *(not yet branched)* | ⬜ New — found by Module 89 while probing its own dispatch boundaries; measured offline against `resolve_aggregate_kind()` and **identical on `origin/main` and on `fix/kb1-data-half-plan`**, so it is pre-existing and not caused here. KB3's own gold text resolves to `officer_role_pair_overlap`. Three ordinary rewordings do not: *"Is the officer who registers a case normally the one who investigates it?"* → `station_or_category_counts` (a generic station/category group-by), *"Is the registering officer usually the investigating officer?"* → `unsupported_officer`, *"Does the same officer both register and investigate our cases?"* → `station_or_category_counts` **and fires no RAG plan either**. The first two fail on the THIRD signal alone (`_OFFICER_ROLE_SAMENESS_TERMS`): both name both roles, and both express sameness with *"the one who"* / *"usually the"*, which is not a listed token. **This is the XAGG-side twin of the widening Modules 74 and 77 each applied to the RAG-side plan patterns** — `rag.py`'s `officer_role_pair` entry matches the first two of these; `xagg.py`'s predicate does not. It matters because Modules 65/74/78 all measured KB3's ACTUAL route as XNETWORK/XAGG rather than RAG, so the predicate that never got widened is the one that actually runs. Same family as Module 92 (a capability reachable only near the gold wording), one layer down. Not fixed by Module 89: `_OFFICER_ROLE_SAMENESS_TERMS` is Module 74's and widening it needs that module's all-32 control re-run |
 | 101 | **KB9's composed answer is rejected by the grounding verifier 2 runs in 3, AFTER its aggregate has already returned gold's figure** | *(not yet branched)* | ⬜ New — filed 2026-09-10 from Module 78's committed `module78_runs.json`. This is Module 85's defect, **reproducing on the question Module 85 did not test**: 85 measured KB4, found zero rejections, and closed. On KB9 the run record shows `status=error`, `route=RAG`, `transport_ok=True`, `error=None`, `quota_lines=[]`, the plan fired (`death_investigation_charging` / `fir_section_case_count`, 829 chars), the aggregate logged `focus=302 -> 10 FIR(s)` — **corrected gold's exact figure** — the relevance evaluator returned `relevant=True`, and the served answer is the verifier's refusal string: *"The generated answer could not be verified as grounded in the retrieved documents."* Nothing failed except the check |
+| 108 | **KB6's score spread is the pipeline's, not the judge's — and Module 27 attributes it to the judge** | *(not yet branched)* | ⬜ New — found by Module 87. Of the four questions Module 27 lists with spread ≥0.3 "on identical answers", only **CP1 and M2** have byte-identical captured answers across the three passes; **KB6 (1,840 / 1,929 / 1,943 chars) and G1 (2,949 / 2,649 / 2,371) do not**. Judged five times on ONE fixed answer, KB6 scores 0.4 every time, spread **0.0**; across the three passes it is 0.4 / 0.4 / 0.9. With the judge's variance removed it is the only question left above 0.3 spread, and the remaining movement belongs to the RAG path. **Verify:** several live KB6 runs, diffing the answers, before attributing any KB6 movement to a code change |
 | 27 | Final Gold-32 rerun (Module 18 redo) | `eval/module27-final` | ✅ **Done — 3 passes, 96 question-runs.** FactualCorrectness **0.428 → 0.572 → 0.666**; AnswerRelevancy **0.931**; **19 of 32 pass on all three runs** (20 counting M7, which is correct and mis-scored); **routes stable 32/32**; 0 nulls, 0 timeouts, 0 quota, 0 cutover fallbacks. Result: `docs/gold-qa-wave2-results/MODULE27_RESULT.md` |
 
 ### Coverage check — every failing question maps to a module
@@ -4599,6 +4602,81 @@ Unit **430** (`tests/test_xagg.py`) + **645** adjacent. **0 quota lines over
 
 **New defect 89**: CR2's Roman-Urdu and Urdu paraphrases route to XGRAPH and
 never reach this aggregate at all.
+---
+
+# Module 87 — the Gold-32 judge: a stronger model, and a prompt that stops it making the mistake we measured ✅
+
+**Branch `fix/eval-judge-upgrade-and-prompt`. Full result:
+`docs/gold-qa-wave2-results/MODULE87_RESULT.md`.** Nothing here changes the
+platform; it changes the **instrument**. All 96 question-runs are re-scorings of
+the answers Module 27 already captured, so the system under test is frozen and
+the only variable is the judge. No backend, no Docker.
+
+**The model was chosen on quota, not on size, because quota is what binds here.**
+
+| candidate | free-tier cap, both working keys | M7 | s/call |
+|---|---|---|---|
+| `gemini-flash-lite-latest` *(retired)* | 500 / **day** | 0.22, spread **0.4** | 5–6 |
+| `gemini-2.5-flash` | **20 / day** | 0.92 *(old prompt)* | 16–68 |
+| `gemini-3.5-flash` | **20 / day** | 1.0 | 20–90 |
+| `gemini-3.7-flash` | **20 / day** | 1.0 | 7–354 |
+| **`gemini-3.1-flash-lite`** ← default | **15 / minute** | **1.0, spread 0.0** | **8.1** |
+
+One three-pass re-score is **96 judge calls**, so a 20-per-day model cannot
+produce one however many times it is retried. `gemini-2.5-flash` would have
+fixed M7 on the *old* prompt and still cannot be the default — that is the whole
+of "measure, do not assume". `GOLD32_JUDGE_MODEL` moves it the moment there is a
+paid key.
+
+**The polarity rule** carries M7's own worked example, because Module 20 already
+proved an abstract rule is not honoured on its own. **M7 0.20 → 1.00 (3/3)**, and
+the judge's own reason now names the rule.
+
+**Two more false negatives, found here rather than in the brief, each justified
+separately:** **CP6 0.30 → 0.90** — the retired judge applied the tolerance rule
+and then overrode it (*"the number is very close and within an acceptable
+tolerance, [but] … omits the specific details about the placeholders"*) for a
+breakdown the question never asked for; **no rule was added for CP6**. **G1
+0.53 → 0.97** — its answer carries all four of gold's findings with gold's own
+figures (24–49 / avg 31.5, stranger 15-of-24, 13 forensic + 7 to heirs, the
+time-of-day split).
+
+**Variance.** Measured the only way that isolates the judge — one fixed answer,
+five draws: **spread 0.0 on 9 of 9 probe questions**, from 0.5 (CP1, M2), 0.4
+(M7) and 0.3 (KB6, G1). The middle arm shows the **model** did that, not the
+prompt. Across all 32 × 3 passes, spread ≥0.3 goes **4 → 1** and mean spread
+**0.106 → 0.025**; the one survivor is KB6, whose captured answers differ across
+passes (**Module 108**).
+
+**Proof it is not a leniency shift.** All-32 mean 0.666 → **0.702**, but **seven
+questions FELL** (M1 −0.30, M2 −0.27, G2/G6 −0.20, G5 −0.17, KB6 −0.13, CR8
+−0.10), Creative Generation goes **down** 0.580 → 0.553, and the pass rate barely
+moves (20/22/21 → 20/20/21). CR2 stays **0.00** on all three passes; KB2's hedge
+stays at 0.17; KB3 stays 0.00. Held-out controls: a polarity flip on a question
+the prompt has never seen scores **1.0 3/3**, while M7's facts *reversed* score
+**0.2 3/3** and M7 with 2026 given as 18.0 minutes instead of 1401.3 scores
+**0.2 3/3** — tolerance is for phrasing, not magnitude, at a 78× error.
+
+**The regression this module caused, and fixed.** The first version of the
+polarity rule took **KB9 from 0.27 to 1.0 on all three passes** on an answer that
+never reaches gold's CrPC s.174 or its 10 PPC-302 FIRs: the judge settled
+polarity and stopped checking facts. Attributed, not guessed — the same model
+with the rule *removed* scores KB9 0.3. The rule is now fenced (*"excuses the
+OPENING WORD AND NOTHING ELSE"*), KB9 returns to 0.4, M7 stays 1.0, and a test
+pins the fence. Both arms are committed so the claim is checkable.
+
+**Also fixed:** `ATTEMPT_TIMEOUT_S` was 120 — *lower* than the DeepEval
+per-attempt override beside it — so under contention S3 and A7 lost all three
+attempts to it and were recorded `UNSCORED` while scoring 1.0 in 6 s on a quiet
+machine. A slow call is not a failed call (Module 45's rule, one layer out).
+
+**Verification:** 56 unit tests pass, including the docs-match tests — §3.3 of
+`HOW_TO_REPRODUCE_THIS_EVALUATION.md` is now asserted to list as many numbered
+rules as the prompt has steps, so the two cannot drift apart silently again.
+
+**New defects: 98** (three dead Gemini keys; `GEMINI_MODEL`'s model capped at
+20/day) and **99** (KB6's residual spread is the pipeline's, not the judge's).
+
 
 ---
 
