@@ -289,6 +289,18 @@ _LEGAL_KB_INTENT_PATTERNS = [
         r"\b(statement|said|say|interview|interrogat|deposition|testimony)",
         re.IGNORECASE,
     ),
+    #     [Module 63] The same question in Roman-Urdu and Urdu script. The
+    #     English form above is why KB2's GOLD text passes this gate while an
+    #     ordinary Roman-Urdu rewording of it does not — "gawah ya mulzim ne
+    #     jo kaha" names the same two parties and the same act of saying, in
+    #     the vocabulary a Punjab officer would actually use. Both halves are
+    #     still required, so a case narrative naming an accused cannot fire it.
+    re.compile(
+        r"\b(gawah\w*|mulzim\w*|mushtaba\w*|mudai\w*)\b.{0,50}"
+        r"\b(bayan\w*|kaha|kehta|interview|tafteesh|puchh?[- ]?gachh)",
+        re.IGNORECASE,
+    ),
+    re.compile(r"(گواہ|ملزم|مدعی|مشتبہ).{0,50}(بیان|کہا|انٹرویو|تفتیش)"),
     # (d) Named KB corpora the original list missed — the Forensics
     #     guidelines and Punjab Police Rules are two of the seven PDFs
     #     actually in this corpus (KB6, KB4).
@@ -296,6 +308,19 @@ _LEGAL_KB_INTENT_PATTERNS = [
         r"\b(forensics?\s+guidelines?|punjab\s+police\s+rules|police\s+rules)\b",
         re.IGNORECASE,
     ),
+    #     [Module 63] The same two corpora named the Roman-Urdu way. Module
+    #     52 measured the consequence directly: "forensics ke usoolon" — an
+    #     ordinary rewording of KB6 — returned False from this gate, so the
+    #     KB-only scope, the statute hypotheses, the RRF fusion and the
+    #     English rendering were all skipped and every chunk the evaluator
+    #     judged was an FIR narrative. Requires the corpus name AND its
+    #     principles/rules word, so a bare "forensics" mention cannot fire it.
+    re.compile(
+        r"\bforensics?\b.{0,20}\b(usool\w*|asool\w*|zaabt\w*|zabt\w*|"
+        r"hidaya?t\w*|qawaid|qawaed|guidelines?|rules?)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"فارنزک.{0,20}(اصول|ضابط|ہدایات|قواعد)"),
     # (e) Urdu: "قانون ... تقاضا/ضروری/لازم" (the law requires ...) — the
     #     noun form, where the existing pattern only caught the adjective
     #     "قانونی تقاضا" (KB5).
@@ -328,7 +353,30 @@ _NORM_SIGNAL_RE = re.compile(
     r"\b(law|legal|statut\w+|rule|regulation|guideline|standard|procedure|"
     r"required?|requirement|mandat\w+|oblig\w+|must|supposed to|meant to|expects?)\b"
     r"|قانون|ضابط|معیار|لازم|ضروری|تقاض"
-    r"|\b(qanoo?n|zaroori|zaruri|lazmi|laazmi|usool|zabta)\b",
+    # [Module 63] Roman-Urdu norm vocabulary, widened from the seven fixed
+    # word-forms this line originally carried to their inflected forms. The
+    # measured miss is exactly a morphology one: "usool" was here and
+    # "usoolon" — the ordinary oblique plural, and the actual word in Module
+    # 52's KB6 paraphrase — was not, so \busool\b could not see it. Added
+    # alongside: "tareeqa"/"tariqa" (procedure — the English "procedure" is
+    # already on the line above), "muqarrara"/"baqaida" (prescribed/formal,
+    # the Roman-Urdu twin of the Urdu-script (باقاعدہ|مقررہ) pattern already
+    # in the list above) and "miyaar" (standard). Each of these is a norm
+    # word only; this half of the AND is never sufficient on its own — the
+    # co-occurring our-data signal below is still required.
+    r"|\b(qanoo?n\w*|zaroor\w*|zaruri\w*|la+zm\w*|usool\w*|asool\w*|zabt[ae]\w*|"
+    r"muqarrar\w*|ba+qaid\w*|ba+qaed\w*|m[ei]yaar\w*|paband\w*|taqaz\w*)\b"
+    # "tareeqa"/"tariqa" is the Roman-Urdu for "procedure", which the
+    # English half of this pattern already treats as a norm word — but it
+    # is also the ordinary word for "manner", and this module's own
+    # negative control caught the difference: "cases kis TAREEQE SE
+    # station ke hisaab se bante hain" is a plain data question, and with
+    # "hamare record" in the same sentence it passed the AND below. The
+    # interrogative "kis/kaun se tareeqe" is excluded by lookbehind; the
+    # declarative "tafteesh ka tareeqa alag hota hai" (is the PROCEDURE
+    # different) is kept, which is the sense that makes it a norm word.
+    r"|(?<!kis )(?<!kaun se )(?<!kis se )\btareeq\w*\b"
+    r"|(?<!kis )(?<!kaun se )(?<!kis se )\btariq\w*\b",
     re.IGNORECASE,
 )
 _OUR_DATA_SIGNAL_RE = re.compile(

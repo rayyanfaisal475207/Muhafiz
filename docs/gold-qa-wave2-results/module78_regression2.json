@@ -1,0 +1,106 @@
+[
+  {
+    "id": "KB8",
+    "run": 1,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+    "expected_answer": "Haan. Code of Criminal Procedure, 1898 ki dafa 173 ke tehat har tafteesh bila-zaroori takheer ke mukammal honi chahiye, aur agar FIR darj hone ke chaudah din ke andar mukammal na ho, to officer in charge us muddat ke khatam hone ke teen din ke andar magistrate ko (public prosecutor ke zariye) ek interim report bhejne ka paband hai, jisme ab tak ki tafteesh ka natija darj ho. Hamara data us pipeline ke aakhri hisse ko darj karta hai — adaalat bheja gaya challan (26 cases) aur, hal shuda cases ke liye, darj shuda natija — magar schema mein kahin interim report ka koi tasavvur nahi aur challan ko uski tafteesh ke aaghaaz se jorne wala koi field nahi. Is liye data yeh tasdeeq kar sakta hai ke case adaalat tak pohcha, magar yeh nahi ke raaste mein 14-din ki interim-report ki zimma-daari poori hui ya nahi.",
+    "actual_answer": "### Part 1: What the Law Requires\n\nAccording to the **Code of Criminal Procedure (Pakistan)**, specifically **Section 172(i)**, a police officer is required to maintain a **case diary** during an investigation and submit it daily. This diary must record the steps taken by the police, the circumstances ascertained through the investigation, and other information required by the law. This is a mandatory requirement under the law, and failure to maintain such a diary may be considered a breach of duty [Document 7].\n\nAdditionally, **Section 173** of the Code of Criminal Procedure mandates that **a final report** be submitted by the officer in charge of the police station once the investigation is completed. This report must be submitted through the Public Prosecutor and must include details such as the names and addresses of the accused, the nature of the charge, the property found, and other relevant information [Document 3].\n\n### Part 2: What Our Case-Tracking Data Shows\n\nOur case-tracking data **does not** show whether any **interim reporting** (such as the daily case diary or any other interim report) was completed during the investigation. The data only confirms that **26 challans** were sent to court, with **15 of them having a dispatch timestamp**. However, there is **no field in the schema** that links a challan back to the start of its own investigation or that records whether any interim reporting duties were fulfilled [Document 8].\n\nIn summary, while the law requires interim reporting (such as the case diary), our case-tracking data **does not confirm** whether such reporting was done or not.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 48.2,
+    "xagg_log_lines": [
+      "XAGG chalaan_dispatch_count: 26 challan dispatch record(s) across 26 case(s), 15 carrying a dispatch timestamp; 20 chalaan_outcome record(s) across 20 case(s), 15 with a court-reached date; interim-report record type present=False"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "chalaan_dispatch",
+        "kind": "chalaan_dispatch_count",
+        "chars": 924
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal requirement for police to report to th"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "M4",
+    "run": 1,
+    "arm": "after",
+    "language": "ur",
+    "question": "ایک طرف یہ دیکھیں کہ لوگوں پر کن دفعات میں مقدمے بن رہے ہیں، اور دوسری طرف یہ کہ وہ مقدمے عدالت میں کہاں تک پہنچے — کیا دونوں سے کیس لوڈ کی سنگینی کا ایک ہی اندازہ ہوتا ہے؟",
+    "expected_answer": "نہیں — دونوں ایک دوسرے سے پیچھے ہیں۔ ایف آئی آر کی دفعات پہلے ہی ظاہر کرتی ہیں کہ سنگین جرائم عام ہیں، لیکن 33 میں سے صرف 1 کرمنل ریکارڈ حتمی سزا ہے؛ 30 اب بھی زیرِ سماعت ہیں۔ موجودہ کیس لوڈ کی سنگینی کا اندازہ ایف آئی آر/دفعات کی گنتی پر لگانا چاہیے، سزاؤں کی گنتی پر نہیں، جو ابھی پیچھے ہے۔",
+    "actual_answer": "No, the two perspectives do not give the same impression of the severity of the case load. \n\nOn one side, 73 cases are being charged under various statutes, with the most common being PPC §34 (40 cases), Arms Ordinance 1965 §13 (29 cases), and PPC §392 (21 cases). This shows the range and frequency of charges being brought.\n\nOn the other side, out of 33 criminal records, only 1 has reached a verdict, while the rest are still in progress. The status of these cases includes \"Under trial\" (30 cases), \"Convicted, on bail pending appeal\" (1 case), \"Sub judice, external prior case\" (1 case), and \"Under trial, priority hearing requested\" (1 case). The only case that has reached a verdict is FIR 891-24 (شہزیب عرف شابی), which is consistent with the court outcome record.\n\nTherefore, while the FIR/section counts provide a full picture of the current case load and the charges being brought, the conviction counts only reflect a small portion (3%) of the recorded court caseload. As a result, the severity of the current case load should be read off the FIR/section counts, as the conviction counts lag behind [Document 1].",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 5.9,
+    "xagg_log_lines": [
+      "XAGG criminal_record_court_crosscheck: 33 criminal record(s), 1 settled / 32 in progress; 1 cross-checked against a court outcome, 1 consistent",
+      "XAGG statute_court_stage_join: 73 case(s) carry a recorded section across 36 distinct statute(s); 33 criminal record(s), 1 settled / 32 in progress; 4 record(s) join to a case in this corpus; agree=False"
+    ],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB8",
+    "run": 2,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+    "expected_answer": "Haan. Code of Criminal Procedure, 1898 ki dafa 173 ke tehat har tafteesh bila-zaroori takheer ke mukammal honi chahiye, aur agar FIR darj hone ke chaudah din ke andar mukammal na ho, to officer in charge us muddat ke khatam hone ke teen din ke andar magistrate ko (public prosecutor ke zariye) ek interim report bhejne ka paband hai, jisme ab tak ki tafteesh ka natija darj ho. Hamara data us pipeline ke aakhri hisse ko darj karta hai — adaalat bheja gaya challan (26 cases) aur, hal shuda cases ke liye, darj shuda natija — magar schema mein kahin interim report ka koi tasavvur nahi aur challan ko uski tafteesh ke aaghaaz se jorne wala koi field nahi. Is liye data yeh tasdeeq kar sakta hai ke case adaalat tak pohcha, magar yeh nahi ke raaste mein 14-din ki interim-report ki zimma-daari poori hui ya nahi.",
+    "actual_answer": "### Part 1: What the law requires  \nAccording to the **Code of Criminal Procedure (Pakistan)**, specifically **Section 173**, the officer in charge of the police station is required to complete the investigation without unnecessary delay and submit a **final report** to the court as soon as the investigation is completed. This report must include details such as the names and addresses of the accused, the nature of the charge, the property involved, and other relevant information. If the investigation is not completed due to some special reason, the officer must state the reasons for not fully complying with the requirements and notify the informant, if any, as required by the **Provincial Government** (Document 4).  \n\n### Part 2: What our case-tracking data shows  \nOur case-tracking data records **26 challan(s) sent to court**, covering **26 case(s)**. Of these, **15 carry a dispatch timestamp**, while the rest record the dispatch without a date. A separate set of **20 challan-outcome records** across **20 case(s)** records what happened next, with **15 of them having a date** the challan reached court. However, the data **does not show** whether any **interim reporting duty** was met during the investigation. There is **no interim-report record type** in the schema, and **no field linking a challan back to the start of its own investigation** (Document 8).  \n\nThus, while the data confirms that a case reached court, it **does not confirm** whether the police submitted any interim reports during the investigation, as required by law.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 83.2,
+    "xagg_log_lines": [
+      "XAGG chalaan_dispatch_count: 26 challan dispatch record(s) across 26 case(s), 15 carrying a dispatch timestamp; 20 chalaan_outcome record(s) across 20 case(s), 15 with a court-reached date; interim-report record type present=False"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "chalaan_dispatch",
+        "kind": "chalaan_dispatch_count",
+        "chars": 924
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal requirement for police to report to th"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "M4",
+    "run": 2,
+    "arm": "after",
+    "language": "ur",
+    "question": "ایک طرف یہ دیکھیں کہ لوگوں پر کن دفعات میں مقدمے بن رہے ہیں، اور دوسری طرف یہ کہ وہ مقدمے عدالت میں کہاں تک پہنچے — کیا دونوں سے کیس لوڈ کی سنگینی کا ایک ہی اندازہ ہوتا ہے؟",
+    "expected_answer": "نہیں — دونوں ایک دوسرے سے پیچھے ہیں۔ ایف آئی آر کی دفعات پہلے ہی ظاہر کرتی ہیں کہ سنگین جرائم عام ہیں، لیکن 33 میں سے صرف 1 کرمنل ریکارڈ حتمی سزا ہے؛ 30 اب بھی زیرِ سماعت ہیں۔ موجودہ کیس لوڈ کی سنگینی کا اندازہ ایف آئی آر/دفعات کی گنتی پر لگانا چاہیے، سزاؤں کی گنتی پر نہیں، جو ابھی پیچھے ہے۔",
+    "actual_answer": "No, the two perspectives do not give the same impression of the severity of the caseload. \n\nOn one side, 73 cases are being charged under various statutes, with the most common being PPC §34 (40 cases), Arms Ordinance 1965 §13 (29 cases), and PPC §392 (21 cases). This shows the range and frequency of charges being brought against individuals.\n\nOn the other side, out of 33 criminal records, only 1 has reached a verdict, while the rest are still in progress. The status of these cases includes \"Under trial\" (30 cases), \"Convicted, on bail pending appeal\" (1 case), \"Sub judice, external prior case\" (1 case), and \"Under trial, priority hearing requested\" (1 case). The only case that has reached a verdict is FIR 891-24 (شہزیب عرف شابی), which was convicted under PPC §392 and is on bail pending appeal.\n\nTherefore, while the FIR/section counts provide a comprehensive view of the current caseload and the charges being brought, the conviction counts lag significantly behind, reflecting only a small portion (3%) of the recorded court caseload. As a result, the severity of the current caseload should be assessed based on the FIR/section counts, not the conviction counts.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 6.8,
+    "xagg_log_lines": [
+      "XAGG criminal_record_court_crosscheck: 33 criminal record(s), 1 settled / 32 in progress; 1 cross-checked against a court outcome, 1 consistent",
+      "XAGG statute_court_stage_join: 73 case(s) carry a recorded section across 36 distinct statute(s); 33 criminal record(s), 1 settled / 32 in progress; 4 record(s) join to a case in this corpus; agree=False"
+    ],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  }
+]
