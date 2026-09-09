@@ -104,18 +104,6 @@ _OFFICER_KEYWORDS = (
     "investigating officer", "officer assignment", "assigned officer",
     "which officer", "تفتیشی افسر", "افسر تفتیش",
 )
-# [Gold-QA fix — Module 13, question M2] "Is caseload growing faster at our
-# general-purpose stations, or at the handful set up for one specific type
-# of crime?" needs a STATION-TYPE dimension (general-purpose vs a
-# specialized/single-crime-type station) that genuinely does not exist
-# anywhere in this data model — `PoliceStation` nodes carry only
-# `name`/`code` (`structured_projection._station_identity()`), and no
-# Postgres column classifies a station by type either. Checked early,
-# alongside AGE/OFFICER above, for the same reason: an honest "can't answer
-# that" beats silently falling through to a plain per-station case count
-# (which answers "which station has the most cases", not the type-
-# normalized question actually asked).
-#
 # [Gold-QA fix — Module 56] WIDENED. Module 44 changed only the KIND this
 # tuple returns — from the honest refusal above to
 # `station_caseload_by_specialisation`, a real aggregate — without touching
@@ -137,42 +125,106 @@ _OFFICER_KEYWORDS = (
 # not merely M2's — five Urdu substring collisions (تعلق inside متعلق,
 # رات inside کراتا, شام inside شامل, لوگ inside لوگوں, and "cyber crime
 # circle" containing "cyber crime") have already cost this project real bugs.
-_STATION_TYPE_KEYWORDS = (
-    # Module 13's original refusal vocabulary, unchanged.
-    "station type", "type of station", "general-purpose station",
-    "general purpose station", "specialized station", "specialised station",
-    "specific type of crime", "one specific type of crime",
-    "تھانے کی قسم", "مخصوص نوعیت کے تھانے",
-    # The specialised side, in ordinary English. "specialist police" /
-    # "specialised police" are deliberately the shorter stems so they also
-    # catch "... police station(s)" and "... police units" without a
-    # separate entry each.
-    "specialist unit", "specialist station", "specialist thana",
-    "specialist police",
-    "specialised unit", "specialized unit",
-    "specialised thana", "specialized thana",
-    "specialised police", "specialized police",
-    "dedicated unit", "dedicated station", "dedicated thana",
-    "crime-specific station", "crime specific station",
-    "single type of crime", "one type of crime",
-    # The general-purpose side. Each needs the qualifier IN the entry —
-    # "station" on its own is S2's question, not this family's.
-    "ordinary station", "ordinary police", "ordinary thana",
-    "normal station", "normal police station", "normal thana",
-    "regular station", "regular police station", "regular thana",
-    "general-purpose thana", "general purpose thana",
-    "general-purpose unit", "general purpose unit",
-    # Roman Urdu. "aam"/"khaas"/"makhsoos" are never entered bare — عام-class
-    # words are exactly the substring-collision family this file has been
-    # bitten by — so each is bound to a station word.
-    "makhsoos thana", "makhsoos thanay", "makhsoos thane",
-    "khaas thana", "khaas thanay", "khaas thane",
-    "aam thana", "aam thanay", "aam thane", "aam police station",
-    # Urdu. Same rule: the qualifier and the station word travel together.
-    "خصوصی تھانہ", "خصوصی تھانے", "خصوصی یونٹ",
-    "مخصوص تھانہ", "مخصوص تھانے",
-    "عام تھانہ", "عام تھانے", "عام پولیس اسٹیشن",
+# [Gold-QA fix — Module 58] CONVERTED FROM A 58-ENTRY TUPLE TO A PREDICATE.
+# Module 56's widening was protected by one thing only: an all-32 equality
+# control, which is exactly as broad as those 32 questions. The soft spot was
+# visible in the tuple itself — `single type of crime` and `one type of crime`
+# named NO STATION AT ALL. "How many cases involve one type of crime only?"
+# would have been pulled into this family, ahead of every entity family, and
+# no test in the repository would have noticed.
+#
+# The house technique for exactly this is a multi-signal predicate:
+# `_is_arrest_rate()`, `_is_criminal_record_local_gap()` and
+# `_is_weapon_statute_cooccurrence()` all exist so that no single phrase can
+# carry a dispatch alone. `_is_station_specialisation()` below does the same:
+# the STATION concept and the SPECIALISATION qualifier must both be present,
+# and for the ordinary-language qualifiers they must additionally travel
+# together.
+#
+# TWO TIERS, and the reason for the split is measured, not stylistic:
+#
+#   Tier 1 (`_STATION_KIND_TERMS`) — phrases that already name a station
+#   KIND or a crime-specialisation contrast on their own. Safe anywhere in
+#   the sentence, because they still require a station/unit noun via the
+#   outer check.
+#
+#   Tier 2 (`_STATION_QUALIFIER_ON_NOUN_RE`) — the ordinary-language
+#   qualifiers (`ordinary`, `normal`, `regular`, `dedicated`, `aam`,
+#   `khaas`, `makhsoos`, `عام`, `خصوصی`, `مخصوص`). These are common words
+#   that qualify anything, so a bare AND is not enough: "Which station has
+#   the most ORDINARY theft cases?" and KB9's "police ... KHAAS tor par"
+#   both carry a station-or-org word and one of these qualifiers without
+#   being this family's question at all. They only count when they sit
+#   directly on the station noun (0–1 intervening words), which is the same
+#   pairing Module 56's tuple encoded by hand as "ordinary station",
+#   "aam police station", "خصوصی تھانے" — now generated instead of listed.
+#
+# WHAT IS NOT A STATION SIGNAL: a bare "police"/"پولیس". KB9 ("police ko
+# maut ki wajah ki baaqaida tehqeeqaat ... khaas tor par") was measured to
+# match a naive police+khaas AND and would have been hijacked out of
+# `graph_recurrence_person`. A station is `station`/`thana`/`unit`/`چوکی`,
+# not an organisation.
+#
+# The original Module 13 rationale, unchanged: M2 ("Is caseload growing
+# faster at our general-purpose stations, or at the handful set up for one
+# specific type of crime?") needs a station-TYPE dimension. Module 44 turned
+# the honest refusal into `station_caseload_by_specialisation`, a real
+# aggregate derived from the station names, and Module 56 widened the
+# vocabulary because a narrow trigger list is the SAFE default for a refusal
+# and the WRONG default for a real aggregate. Checked early in
+# `resolve_aggregate_kind()`, so a false positive here silently replaces a
+# working answer — five Urdu substring collisions (تعلق inside متعلق, رات
+# inside کراتا, شام inside شامل, لوگ inside لوگوں, and "cyber crime circle"
+# containing "cyber crime") have already cost this project real bugs, which
+# is why S2 ("Which police station handles the most cases?") and CR6 ("جب
+# کوئی شخص تھانے آ کر...") carry the bare station word and are pinned as
+# negatives.
+_STATION_UNIT_NOUN = (
+    r"(?:police\s+stations?|stations?|thanay|thane|thanon|thana"
+    r"|\bunits?\b|پولیس\s*اسٹیشن|تھانوں|تھانے|تھانہ|یونٹ|چوکی)"
 )
+_STATION_UNIT_NOUN_RE = re.compile(_STATION_UNIT_NOUN)
+
+# Tier 1 — names a station kind / crime-specialisation contrast outright.
+_STATION_KIND_TERMS = (
+    "station type", "type of station", "types of station",
+    "specialist", "specialised", "specialized",
+    "crime-specific", "crime specific",
+    "general-purpose", "general purpose",
+    "single type of crime", "one type of crime",
+    "specific type of crime", "single crime type", "one crime type",
+    "ek hi qisam ke jurm", "ek qisam ke jurm",
+    "ایک ہی قسم کے جرم", "ایک قسم کے جرم", "مخصوص نوعیت",
+)
+
+# Tier 2 — ordinary-language qualifiers, valid ONLY directly on the station
+# noun. `\w+\s+` allows one intervening word so "ordinary police stations"
+# / "aam police station" / "regular police thana" all land, while "ordinary
+# theft cases" and "khaas tor par jab" do not.
+_STATION_KIND_QUALIFIER = (
+    r"(?:ordinary|normal|regular|dedicated|\baam\b|khaas|makhsoos"
+    r"|عام|خصوصی|مخصوص)"
+)
+_STATION_QUALIFIER_ON_NOUN_RE = re.compile(
+    _STATION_KIND_QUALIFIER + r"\s+(?:\w+\s+)?" + _STATION_UNIT_NOUN
+)
+
+
+def _is_station_specialisation(query_lower: str) -> bool:
+    """True for M2's family: general-purpose stations set against the ones
+    set up for a single type of crime.
+
+    Two signals, both required — see the comment block above for the tier
+    split and the measured reasons for it (KB9's `police`+`khaas`, and the
+    tuple entries that named no station at all).
+    """
+    if not _STATION_UNIT_NOUN_RE.search(query_lower):
+        return False
+    if _matches_any(query_lower, _STATION_KIND_TERMS):
+        return True
+    return bool(_STATION_QUALIFIER_ON_NOUN_RE.search(query_lower))
+
+
 # [Gold-QA fix — Module 7, question CP6] "How many cases are still assigned
 # only a PLACEHOLDER investigating officer, not a real one?" is a COUNT
 # question with a real data path (Officer nodes and their ASSIGNED_TO
@@ -5309,7 +5361,7 @@ def resolve_aggregate_kind(query_text: str) -> str:
     # plain per-station group-by further down), but now a real aggregate:
     # the specialisation is derivable from the station names. See
     # `_station_caseload_by_specialisation()`.
-    if _matches_any(query_lower, _STATION_TYPE_KEYWORDS):
+    if _is_station_specialisation(query_lower):
         return "station_caseload_by_specialisation"
     if _matches_any(query_lower, _PLACEHOLDER_OFFICER_KEYWORDS):
         return "placeholder_officer_count"
