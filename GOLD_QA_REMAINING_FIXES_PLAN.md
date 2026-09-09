@@ -4675,7 +4675,7 @@ machine. A slow call is not a failed call (Module 45's rule, one layer out).
 rules as the prompt has steps, so the two cannot drift apart silently again.
 
 **New defects: 98** (three dead Gemini keys; `GEMINI_MODEL`'s model capped at
-20/day) and **99** (KB6's residual spread is the pipeline's, not the judge's).
+20/day) and **108** (KB6's residual spread is the pipeline's, not the judge's).
 
 
 ---
