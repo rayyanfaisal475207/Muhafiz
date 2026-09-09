@@ -131,7 +131,12 @@ several can run in parallel chats/worktrees without colliding.
 | 80 | `"How many FIRs cite PPC section 302, across all cases?"` and two rewordings are all classified **SQL** by the router, 2 of 3 ending `status=error` after 77–93 s | *(not yet branched)* | ⬜ New — found by Module 76 while looking for live evidence. **Harmless to the composition path and fatal to a user typing the question**: a `_KB_DATA_HALF_PLANS` sub-query is handed straight to `xagg_tool()` and never sees the router (Module 39 §2.1, and Module 76 exercised that path 3/3 successfully), so the new aggregate lands correctly where it is meant to. But no phrasing of a per-section FIR count reaches XAGG on its own. `router.py`, adjacent to Modules 60/67 |
 | 81 | The canonical quota grep matched a **timestamp** — `16:19:29,503` scored as a 503 UNAVAILABLE | `fix/quota-grep-timestamp-false-positive` | ✅ **Fixed** — numeric codes boundary-guarded; every module that certified a clean run with the bare pattern was reading its own milliseconds as a provider failure |
 | 83 | Meta-Analysis' synthesis intermittently cites nothing at all, and the rate is **prompt-length-sensitive** | *(not yet branched)* | ⬜ New — found by Module 71 in its own work, by accident and then deliberately. G6's *"Answer is substantial (long, or a multi-item list) but cites no `[Document N]` source at all"* refusal is Module 29's, still live: **0 of 4** on pre-fix code, but **10 of 12** once five short deterministic lines were interleaved into `_format_subanswers_for_prompt`'s output, and back to **0 of 8** the moment they were removed. Rewording them to avoid the `[Document N]` marker (Module 25's finding) did not help, so the cost is the interleaving, not the wording. The citation rule is therefore held only by its proximity to the end of the synthesis prompt, which makes every future addition to that section a coin flip nobody will think to re-measure. The durable fix is structural — put the citation requirement where length cannot dilute it, or carry provenance out of band so `[Document N]` markers are not the mechanism — not another restatement. Module 71 recovered G6 by deleting its own change, which is a workaround. **Verify on G6 and CR3, several runs each, with a deliberately lengthened sub-answers section as the control.** |
-| 27 | Final Gold-32 rerun (Module 18 redo) | *(docs only)* | ⬜ Blocked on all above — brief: `MODULE27_FINAL_GOLD32_RERUN_PROMPT.md` |
+| 88 | CR2 scored **0.00 on all three of Module 27's passes**, deterministically — `graph_recurrence_person` found gold's exact pair and rendered it as bare case ids, with no dates, roles, status or conviction | `fix/cr2-recurrence-temporal-context` | ✅ **Done — an evidence-rendering gap, not a reasoning failure, exactly as the brief predicted.** The pre-fix live answer names its own missing evidence: *"there is no information provided that would indicate the chronological order of these cases"*. **Cypher-probed before any code and derived independently:** 4 recurring `Person` nodes, all `case_count=2`; شہزیب عرف شابی `PERSON-685fc54914` on `fir-891-24` (incident **2024-09-14**, role accused, `گرفتار، بعد ازاں سزا یافتہ`, criminal record **"Convicted, on bail pending appeal"**) and `fir-214-26` (incident **2026-03-03**, role accused, `گرفتار`, **"Under trial"**) — **gold reproduces exactly and is NOT challenged**. `_top_recurring_nodes()` now attaches a **date-ordered per-case timeline** (year via `OCCURRED_ON`→`Date` as `_statute_mix_by_year()` does; role/`arrest_status` via `INVOLVED_IN`; `conviction_status` via `_fir_key()` — Module 28's own chain, reused not reinvented), and a **shared `render_graph_recurrence()`** replaces the f-string copied across all three render sites. **The FIR id is deliberately NOT parsed for the year: the live graph disproves the shortcut — `fir-401-26` carries an incident date of 2024-09-25.** Nothing is narrowed toward CR2: no new kind, no `Literal` entry needed, no dispatch change, and the **all-32 dispatch equality control is byte-identical, 0 questions move**. Undated cases (9 of 73) sort last and get no sequence number; the conviction join is `(fir, subject)` so one person's conviction is never attributed to another named on the same FIR; عاصم رشید's two FIRs are **four days apart** and are excluded from the cross-year count by `_spans_calendar_years()`. Live on :8032, both arms same backend: CR2 **0/3 refusal → 7/7 naming شہزیب عرف شابی, FIR 891/24's conviction and FIR 214/26's current accusation**, `route=XAGG` 10/10, `XAGG graph_recurrence: … 4 with a date-ordered timeline, 2 with a criminal-record outcome; شہزیب عرف شابی=2[2024-09-14..2026-03-03]`. An **intermediate arm is reported, not hidden**: the timeline alone took CR2 to a three-name "Yes" and let a paraphrase reproduce a 2024 and a 2026 case in its own body while concluding "none are years apart"; the leading summary line is what closed it. **S3 improved** — it named all four recurrers pre-fix and never said "arrested"; now it names gold's two exactly. Regression **24 runs over S3/CR4/CR6/CR7/CR8/CS4/M4/G3, 3/3 each, 0 route changes**; unit **430 + 645**; 0 quota lines over 39 live runs. New defect **92**. Result: `docs/gold-qa-wave2-results/MODULE88_RESULT.md` |
+| 89 | **KB1 (0.30 ×3)** — a compound KB question with no data-half plan: it answers the law and says the documents cannot say whether our recordkeeping follows it | *(not yet branched)* | ⬜ New — diagnosed from Module 27's captured run. Module 39 deliberately excluded KB1/KB2 as "schema claims, not counts", but gold's KB1 second half IS checkable |
+| 90 | **M1 (0.40/0.70/0.40, 1-of-3)** — answers ACT-level counts where gold asserts SECTION-level, and reports only 2026 rather than the 2024→2026 comparison the question asks for | *(not yet branched)* | ⬜ New — diagnosed from Module 27's captured run. Module 24 flagged the act/section split and explicitly did not take it; the data exists |
+| 91 | **CP6 (0.30 ×3)** — reports 10 placeholder FIRs against gold's 11, and omits gold's 8-ASI / 3-SI breakdown entirely | *(not yet branched)* | ⬜ New — diagnosed from Module 27's captured run; the graph carries the breakdown exactly |
+| 92 | **Non-English paraphrases lose their route.** A capability is reachable only from a narrow neighbourhood of the gold wording — fourth independent sighting (62 CR3/G6, 78 KB3/KB9, 88 CR2, and now measured across the board) | *(not yet branched)* | ⬜ **Scoped, with evidence.** Measured offline by `docs/gold-qa-wave2-results/module92_override_survival_probe.py` (no backend needed): over 8 questions that all take a deterministic `XAGG` override at their gold wording, an English paraphrase keeps it **5 of 8** and a Roman-Urdu paraphrase keeps it **0 of 8**. Every one of those 8 falls through to the local Qwen3-14B classifier that `router.py`'s own module comment (~line 42) records as unreliable. **The fix is NOT a fourth round of gold-specific regexes** — three waves of those are exactly how the debt accumulated |
+| 27 | Final Gold-32 rerun (Module 18 redo) | `eval/module27-final` | ✅ **Done — 3 passes, 96 question-runs.** FactualCorrectness **0.428 → 0.572 → 0.666**; AnswerRelevancy **0.931**; **19 of 32 pass on all three runs** (20 counting M7, which is correct and mis-scored); **routes stable 32/32**; 0 nulls, 0 timeouts, 0 quota, 0 cutover fallbacks. Result: `docs/gold-qa-wave2-results/MODULE27_RESULT.md` |
 
 ### Coverage check — every failing question maps to a module
 
@@ -3474,6 +3479,198 @@ measurement.
 **Verify:** render all eight gold KB questions plus a set of paraphrases and
 check faithfulness clause by clause; then KB5 live several times against the
 rounds figure above.
+# Modules 89–91 — the three questions that had no owning module ⬜
+
+**Diagnosed 2026-09-09 from Module 27's captured three-pass run**, not from
+fresh guesses: each of KB1, M1 and CP6 fails consistently (never 1-of-3 luck)
+and none had a module. Every figure below was re-derived against the live
+graph.
+
+---
+
+# Module 89 — KB1: the compound question's data half ⬜
+
+**KB1 scores 0.30 on all three passes**, `route=RAG`, AnswerRelevancy 1.00.
+
+**Question:** *"What legal requirement governs how a report of a crime becomes
+a formal FIR, **and does our recordkeeping actually follow it?**"*
+
+The answer gets the law right — CrPC ss.154/155, "recorded in writing by the
+officer in charge" — and then says the documents do not say whether our
+recordkeeping follows. The judge's reason names exactly that: *"fails to
+address whether the recordkeeping follows it."*
+
+**This is Module 39's defect on a question Module 39 deliberately excluded.**
+Its result file records KB1 and KB2 as "deliberately unwired — their data
+halves are schema claims, not counts". That was a reasonable call for KB2,
+whose gold answer is *"no, by design"*. It is wrong for KB1, whose gold asserts
+a **checkable** claim about the register.
+
+**Work:** determine what KB1's data half actually needs (whether FIRs carry the
+s.154 elements — written record, read back, signed, registered), whether any
+aggregate can express it, and either wire a `_KB_DATA_HALF_PLANS` entry or say
+plainly that the schema cannot support it. **If the schema genuinely cannot,
+that is gold's problem** — gold asserts our records *do* follow, and under the
+stated standard an honest "the schema does not record this" would then be the
+correct answer and gold needs correcting, as G1, G6 and KB9 already were.
+
+---
+
+# Module 90 — M1: act-level answer to a section-level question ✅
+
+**M1 scored 0.40 / 0.70 / 0.40 — 1 of 3**, `route=XAGG`. Fixed by Module 90;
+see `docs/gold-qa-wave2-results/MODULE90_91_RESULT.md`.
+
+Gold contrasts **2024 (13 FIRs, every case armed robbery: PPC 34, 392, Arms
+Ordinance §13, each 13/13)** with **2026 (51 FIRs, diversified: PPC 34 ×23,
+392 ×8, Arms Ord ×16, CNSA §9(c) ×12, PECA §14/§21 ×9 each…)**.
+
+Three defects were filed here. **Two were real; one was not.** Corrected
+diagnosis, each point measured live rather than read off the captured answer:
+
+1. **Act vs section — REAL, and now fixed.** `_statute_mix_by_year()` read
+   `cases.crime_category`, which `muhafiz_cases._crime_category()` reduces to
+   a comma-joined act list, discarding `section_code`. It could not
+   distinguish PPC 302 from PPC 392, which is what "what KINDS of cases"
+   asks. Module 24 found this and explicitly declined to take it. Module 90
+   takes it: the aggregate now also reads
+   `StructuredRecord{record_type:'fir_section'}` (`act` + `section_code`),
+   the identical read Modules 23, 24 and 76 already perform, and returns
+   `section_counts` alongside the unchanged act-level `counts`.
+   **Correction to the row count stated in this plan:** the corpus holds
+   **218 `fir_section` rows in total**, not "273 for 2024 and 979 for 2026".
+   Counted per CASE (de-duplicated, since the corpus holds repeat rows for
+   the same case/act/section), the derivation reproduces gold **exactly** —
+   2024: PPC §34 13, PPC §392 13, Arms Ord §13 13 over 13 FIRs; 2026: PPC
+   §34 23, Arms §13 16, CNSA §9(c) 12, PECA §14 9, PECA §21 9, PPC §419 9,
+   PPC §420 9, PPC §302 8, PPC §392 8, PPC §365-A 5, DV 4, over 51 FIRs.
+2. **"Only one year" — NOT REAL.** This plan says the answer "omits 2024
+   entirely". It does not. Re-read from
+   `evaluation/gold32_pass{1,2,3}_outputs.json`, all three captured M1
+   answers contain an explicit *"In comparison, in 2024, the cases included:
+   PPC: 13 cases, Arms Ordinance 1965: 13 cases"* block. The 2024 bucket was
+   produced, rendered and paraphrased correctly throughout. No fix was
+   needed and none was made.
+3. **The wrong expansion — REAL, and now fixed.** The answer rendered *"PPC
+   (Preventive Detention and Control Act)"*; PPC is the **Pakistan Penal
+   Code**. Grepped repository-wide: that phrase occurs **only inside the
+   captured evaluation outputs** — nothing in the code, prompts or data ever
+   wrote it. It is a model invention filling a gap in the evidence, which
+   said only "PPC: 39". The fix is to close the gap rather than to hunt a
+   non-existent code bug: the renderer now spells the act out in the document
+   the model is told not to alter ("PPC (Pakistan Penal Code)", likewise
+   CrPC, CNSA 1997, PECA 2016).
+
+Also added while there: a per-year **FIR total** on each bucket, since gold's
+own framing is "2024 (13 FIRs)" vs "2026 (51 FIRs)" and an act count is not
+an FIR count (a case carrying two acts contributes twice).
+
+---
+
+# Module 91 — CP6: the diagnosis below was wrong; gold was corrected instead ✅
+
+**CP6 scored 0.30 on all three passes**, `route=XAGG`. Closed by Module 91;
+see `docs/gold-qa-wave2-results/MODULE90_91_RESULT.md`.
+
+**The text this plan previously carried was wrong and is corrected here.** It
+said gold's 11 / 8 ASI / 3 SI was right, that the aggregate "reports 10 where
+the two placeholder classes total 11", and that it "emits only a total where
+gold's value is the split". All three are false:
+
+- **The aggregate is correct.** There are 11 `ASSIGNED_TO {role:'investigating'}`
+  placeholder edges over 11 distinct cases, but one of them — on `fir-205-26` —
+  carries `superseded_by`, and that case now has a real named officer
+  (سلمان). So **10** cases still carry a placeholder (7 ASI + 3 SI) and 11
+  ever did. `_placeholder_officer_count()` returns exactly that. There is no
+  double-counted case.
+- **The renderer already emits the split.** It has emitted
+  `7 marked "(نامزد ASI)", 3 marked "(نامزد SI)"` plus an ever-vs-current
+  caveat since Module 7, at all three XAGG rendering sites, unchanged at the
+  evaluation commit.
+- **Gold was the thing that was wrong**, and was corrected to 10 / 7 / 3 in
+  PR #57 (`fix/gold-cp6-kb1-measured`).
+
+The remaining question — why the captured answer dropped the split the
+renderer had produced — **does not reproduce**. Re-run live on both
+generation providers with the identical prompt and rendered text, the split
+survives paraphrasing 5/5 on the local slot and 3/3 on the cloud fallback.
+The obvious hardening (breaking the sentence into a headline plus one bullet
+per figure) was implemented, measured, and **reverted**: it made the omission
+strictly worse, 0/5 local and 0/3 cloud, because a headline bullet gives the
+model something it can answer "kitne" with and stop. Module 91 therefore
+ships **no behavioural change** to CP6 — only the de-duplication of the three
+hand-copied renderings into one shared `render_placeholder_officer_count()`
+(byte-identical output, proven over all 32 gold questions) and two regression
+tests pinning the split into the rendered evidence.
+
+**Still open:** gold's closing comparison — *"the busiest named officers
+(Faisal and Tariq) at 4 FIRs each"* — has no aggregate behind it and the
+answer does not make it. Filed as a known gap, not taken by Module 91.
+
+---
+
+---
+
+# Module 92 — the router generalises in English and not at all in Roman-Urdu ⬜
+
+Three modules have now each found the same thing on their own question and
+filed it as a one-off: **Module 62** (CR3/G6), **Module 78** (KB3/KB9),
+**Module 88** (CR2). It is not a one-off. It is the router's design working as
+built.
+
+## How the router decides
+
+`route_query()` runs a **deterministic regex pre-classification**
+(`_deterministic_route_override()`) and short-circuits to XAGG/XGRAPH/XNETWORK
+on a match. Anything that does not match falls through to a **local Qwen3-14B
+classifier**, which the file's own comment at ~line 42 records as unreliable on
+novel phrasings — that unreliability is *why* the regex layer exists.
+
+Each Gold-QA module that hit a misroute added patterns for its own question's
+wording. That is why gold itself looks healthy: **20 of 32** gold questions take
+a deterministic override today, spread evenly across languages (en 6/11,
+roman-ur 6/10, ur 8/11) — the Urdu ones matching Urdu regexes added for those
+exact strings.
+
+## The measurement
+
+`docs/gold-qa-wave2-results/module92_override_survival_probe.py`, offline, no
+backend or model server. Eight questions that all take a deterministic `XAGG`
+override at their gold wording, each given one English and one Roman-Urdu
+paraphrase (written before the run, not adjusted after):
+
+| | keeps gold's route |
+|---|---|
+| English paraphrase | **5 / 8** |
+| Roman-Urdu paraphrase | **0 / 8** |
+
+The English regexes carry *some* generality. The non-English coverage is
+literally per-gold-string, so **every** reworded Urdu or Roman-Urdu question
+lands on the classifier the regex layer was built to avoid. Module 88 saw the
+consequence live: CR2's Urdu paraphrase routes to XGRAPH and asserts *"there is
+no indication that any individual has a prior case record"* — which the graph
+flatly contradicts.
+
+## The anti-goal
+
+**Do not add a fourth round of gold-specific patterns.** Three rounds of those
+are how this debt accumulated, and each one buys exactly one wording. Candidate
+directions, to be measured rather than assumed:
+
+1. **A reliable classifier.** Replace or backstop the local Qwen3-14B with a
+   cloud model, the same lever the judge upgrade uses. Simplest; costs a
+   round-trip on the miss path only.
+2. **Normalise before classifying.** Transliterate/translate to English first,
+   so the English patterns and English-competent classification both apply.
+3. **Embedding nearest-neighbour over route exemplars.** The stack already runs
+   multilingual `e5` embeddings, which is what would make this language-agnostic
+   by construction.
+
+Whatever lands must be measured on **paraphrases in all three languages**, not
+on gold — gold is exactly the set the current design already fits.
+
+---
+
 ## Reference
 
 - `MODULE_18_FINAL_REPORT.md` — the run this plan responds to.
@@ -3833,3 +4030,84 @@ and not adjusted afterwards**, several each; plus the full 32-question
 negative control, since a broader plan selector can newly capture questions
 that currently answer correctly in one call (that is exactly the regression
 Module 41 was filed for).
+
+
+---
+
+# Module 88 — CR2's recurrence evidence had no time axis ✅
+
+**Found by:** Module 27 §7 · **Branch:** `fix/cr2-recurrence-temporal-context`
+· **Result:** `docs/gold-qa-wave2-results/MODULE88_RESULT.md`
+
+CR2 — *"Is there anyone with an earlier case already on record who has since
+resurfaced as a suspect in a newer, separate case?"* — was the one clear
+regression in Module 27's final rerun: **0.00 on all three passes**, the same
+refusal each time, on `route='XAGG'`.
+
+**The aggregate was never wrong.** `resolve_aggregate_kind()` returned
+`graph_recurrence_person` every time and the result already carried gold's
+exact pair. What reached the model was `appears in 2 cases — fir-214-26,
+fir-891-24` and nothing else: no dates, no per-case role, no arrest status,
+no conviction. The refusal was **correct given the evidence it was handed**,
+which is why it was deterministic rather than flaky. The pre-fix answer says
+so itself — *"there is no information provided that would indicate the
+chronological order of these cases"*.
+
+**Probed with hand-written Cypher before any code was written**, and the
+figures re-derived rather than inherited:
+
+- 4 recurring `Person` nodes, every one `case_count = 2`.
+- شہزیب عرف شابی (`PERSON-685fc54914`): `fir-891-24` incident **2024-09-14**,
+  role accused, `arrest_status` `گرفتار، بعد ازاں سزا یافتہ`, criminal record
+  **"Convicted, on bail pending appeal"**; `fir-214-26` incident
+  **2026-03-03**, role accused, `گرفتار`, **"Under trial"**.
+- **Gold reproduces exactly and is not challenged** — unusually for this
+  wave.
+- Only **4 of 33** `criminal_record` rows carry a parseable FIR reference, so
+  the `_fir_key()` join is sparse by construction and is disclosed rather
+  than widened into a bare-name match.
+- **`fir-401-26` has an incident date of 2024-09-25.** The FIR id encodes 26;
+  the incident is 2024. That single row is why the year is derived from the
+  `OCCURRED_ON` edge and never parsed out of the id.
+
+**The fix** attaches a date-ordered per-case timeline to every recurring
+entity — year from `Incident-[:OCCURRED_ON]->Date` (as `_statute_mix_by_year()`
+resolves it), role and `arrest_status` from `Person-[:INVOLVED_IN]->Incident`,
+and `conviction_status` from the `criminal_record` StructuredRecord joined on
+`_fir_key()` (Module 28's own weapon→FIR→accused→status chain, reused with
+the same free-text hedge) — and renders the sequence **explicitly** instead
+of leaving it to be inferred. A shared `render_graph_recurrence()` replaces
+three copies of one f-string across the two orchestrator branches and the
+harness tool.
+
+**Nothing is narrowed toward CR2.** No new aggregate kind (so no
+`XAggToolResult.aggregate_kind` `Literal` entry and no exposure to the
+empty-answer trap), no dispatch change, and the **all-32 dispatch equality
+control is byte-identical — 0 questions move**. Three refusals are pinned by
+tests: an undated case gets no sequence number, a conviction is never
+attributed across subjects sharing a FIR, and two FIRs four days apart
+(عاصم رشید's real shape) are not counted as an "earlier case already on
+record".
+
+**Live, :8032, both arms on the same backend:** CR2 **0/3 → 7/7**, naming
+شہزیب عرف شابی, FIR 891/24's prior conviction and FIR 214/26's current
+accusation; `route='XAGG'` 10/10. The `XAGG graph_recurrence:` line now
+carries the ordering and conviction counts, because on all three of Module
+27's failing passes it read *"4 recurring node(s)"* and was true every time.
+
+**The intermediate arm is recorded rather than hidden.** With the timeline
+but without the leading summary line (7 live runs), CR2 answered "Yes" and
+listed three people including the right one, and a paraphrase reproduced a
+2024 case and a 2026 case for the same person **in its own body** while
+concluding *"none of these are years apart"*. The summary line is the half
+that closed the gap, and that is measured, not asserted.
+
+**S3 improved from the same generic change**, without being named anywhere in
+the code: Module 27's captured S3 answer listed all four recurrers and never
+used the word "arrested"; post-fix it names gold's two exactly. Regression
+over S3/CR4/CR6/CR7/CR8/CS4/M4/G3: **24 runs, 3/3 each, 0 route changes.**
+Unit **430** (`tests/test_xagg.py`) + **645** adjacent. **0 quota lines over
+39 live runs.**
+
+**New defect 89**: CR2's Roman-Urdu and Urdu paraphrases route to XGRAPH and
+never reach this aggregate at all.

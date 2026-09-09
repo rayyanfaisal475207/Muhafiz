@@ -1,0 +1,54 @@
+[
+  {
+    "id": "PARA2",
+    "run": 1,
+    "question": "Kya koi aisa banda hai jiska pehle se koi purana case chal raha tha aur ab woh dobara kisi naye muqadme mein mulzim bana hai?",
+    "expected_answer": "(non-gold paraphrase of CR2)",
+    "actual_answer": "Yes (with some uncertainty) — the same entity recurs across 6 case(s), a possible cross-case link: fir-202-26, fir-214-26, fir-401-26, fir-64-26, fir-65-26, fir-891-24 (graph traversal, depth 1 hop(s)). Chain confidence 50%. These cases are linked because the graph resolved a shared entity across them; that resolution is an inference from the records, not independent proof that every mention is the same individual.\n\n**Confirmed connections**\n\n- This cross-case traversal returned linked evidence across 6 case(s): fir-202-26, fir-214-26, fir-401-26, fir-64-26, fir-65-26, fir-891-24 (traversal depth 1 hop(s)).\n\n_No community cluster in the case corpus is closely related to this specific question (\"Kya koi aisa banda hai jiska pehle se koi purana case chal raha tha aur ab woh dobara kisi naye muqadme mein mulzim bana hai?\") (nearest cluster found was distance 0.158 against a relevance cutoff of 0.145). Rather than describing an unrelated cluster, no cross-case network finding is being reported here._",
+    "route": "XGRAPH",
+    "status": "done",
+    "cutover_classification_failed": false,
+    "error": null,
+    "transport_ok": true,
+    "elapsed_s": 11.2
+  },
+  {
+    "id": "PARA3",
+    "run": 1,
+    "question": "کیا کوئی ایسا شخص ہے جس کا پہلے سے کوئی پرانا مقدمہ ریکارڈ پر ہو اور اب وہ کسی نئے، الگ مقدمے میں دوبارہ ملزم کے طور پر سامنے آیا ہو؟",
+    "expected_answer": "(non-gold paraphrase of CR2)",
+    "actual_answer": "Yes (with some uncertainty) — the same entity recurs across 6 case(s), a possible cross-case link: fir-202-26, fir-214-26, fir-401-26, fir-64-26, fir-65-26, fir-891-24 (graph traversal, depth 1 hop(s)). Chain confidence 50%. These cases are linked because the graph resolved a shared entity across them; that resolution is an inference from the records, not independent proof that every mention is the same individual. Based on the information provided in the documents, there is no indication that any individual involved in the cases described has a prior case record that is mentioned in the documents. The documents only describe the current cases and the individuals involved in them without referencing any previous cases or records.\n\n- Document 1 describes the individuals involved in fir-233-26 and their relationships but does not mention any prior cases [Document 1].\n- Document 2 describes the individuals involved in fir-97-26 and does not mention any prior cases [Document 2].\n\n**Confirmed connections**\n\n- This cross-case traversal returned linked evidence across 6 case(s): fir-202-26, fir-214-26, fir-401-26, fir-64-26, fir-65-26, fir-891-24 (traversal depth 1 hop(s)).\n- This cluster centers on a single case, fir-233-26 (FIR 233/26), a PPC case handled at تھانہ ماڈل ٹاؤن، لاہور police station. The individuals connected to this case are طارق محمود, محمد اسلم, حمزہ طارق, شعیب ارشد, and ذیشان بٹ. Multiple relationships between these individuals are stated: محمد اسلم and شعیب ارشد, طارق محمود and شعیب ارشد, حمزہ طارق and شعیب ارشد, محمد اسلم and حمزہ طارق, طارق محمود and حمزہ طارق, محمد اسلم and ذیشان بٹ, طارق محمود and ذیشان بٹ, حمزہ طارق and ذیشان بٹ, شعیب ارشد and ذیشان بٹ.\n- This cluster centers on a domestic violence case, fir-97-26 (FIR 97/26), handled at خواتین تھانہ police station in Faisalabad. The individuals connected to this case are عدنان الطاف, نازیہ کوثر, فرحین کوثر, and صغراں بی بی, with the latter three being co-accused as per the available data.",
+    "route": "XGRAPH",
+    "status": "done",
+    "cutover_classification_failed": false,
+    "error": null,
+    "transport_ok": true,
+    "elapsed_s": 45.0
+  },
+  {
+    "id": "PARA2",
+    "run": 2,
+    "question": "Kya koi aisa banda hai jiska pehle se koi purana case chal raha tha aur ab woh dobara kisi naye muqadme mein mulzim bana hai?",
+    "expected_answer": "(non-gold paraphrase of CR2)",
+    "actual_answer": "Yes (with some uncertainty) — the same entity recurs across 6 case(s), a possible cross-case link: fir-202-26, fir-214-26, fir-401-26, fir-64-26, fir-65-26, fir-891-24 (graph traversal, depth 1 hop(s)). Chain confidence 50%. These cases are linked because the graph resolved a shared entity across them; that resolution is an inference from the records, not independent proof that every mention is the same individual.\n\n**Confirmed connections**\n\n- This cross-case traversal returned linked evidence across 6 case(s): fir-202-26, fir-214-26, fir-401-26, fir-64-26, fir-65-26, fir-891-24 (traversal depth 1 hop(s)).\n\n_No community cluster in the case corpus is closely related to this specific question (\"Kya koi aisa banda hai jiska pehle se koi purana case chal raha tha aur ab woh dobara kisi naye muqadme mein mulzim bana hai?\") (nearest cluster found was distance 0.158 against a relevance cutoff of 0.145). Rather than describing an unrelated cluster, no cross-case network finding is being reported here._",
+    "route": "XGRAPH",
+    "status": "done",
+    "cutover_classification_failed": false,
+    "error": null,
+    "transport_ok": true,
+    "elapsed_s": 12.3
+  },
+  {
+    "id": "PARA3",
+    "run": 2,
+    "question": "کیا کوئی ایسا شخص ہے جس کا پہلے سے کوئی پرانا مقدمہ ریکارڈ پر ہو اور اب وہ کسی نئے، الگ مقدمے میں دوبارہ ملزم کے طور پر سامنے آیا ہو؟",
+    "expected_answer": "(non-gold paraphrase of CR2)",
+    "actual_answer": "Yes (with some uncertainty) — the same entity recurs across 6 case(s), a possible cross-case link: fir-202-26, fir-214-26, fir-401-26, fir-64-26, fir-65-26, fir-891-24 (graph traversal, depth 1 hop(s)). Chain confidence 50%. These cases are linked because the graph resolved a shared entity across them; that resolution is an inference from the records, not independent proof that every mention is the same individual. Based on the information provided in the documents, there is no indication that any individual has a prior case record and is now appearing as an accused in a new, separate case. \n\nDocument 1 describes a single case (fir-233-26) involving several individuals, but it does not mention any prior cases involving these individuals. Similarly, Document 2 describes a domestic violence case (fir-97-26) involving specific individuals, but again, there is no mention of prior cases for these individuals.\n\nTherefore, based on the available information, there is no evidence of an individual with a prior case record appearing as an accused in a new, separate case.\n\n**Confirmed connections**\n\n- This cross-case traversal returned linked evidence across 6 case(s): fir-202-26, fir-214-26, fir-401-26, fir-64-26, fir-65-26, fir-891-24 (traversal depth 1 hop(s)).\n- This cluster centers on a single case, fir-233-26 (FIR 233/26), a PPC case handled at تھانہ ماڈل ٹاؤن، لاہور police station. The individuals connected to this case are طارق محمود, محمد اسلم, حمزہ طارق, شعیب ارشد, and ذیشان بٹ. Multiple relationships between these individuals are stated: محمد اسلم and شعیب ارشد, طارق محمود and شعیب ارشد, حمزہ طارق and شعیب ارشد, محمد اسلم and حمزہ طارق, طارق محمود and حمزہ طارق, محمد اسلم and ذیشان بٹ, طارق محمود and ذیشان بٹ, حمزہ طارق and ذیشان بٹ, شعیب ارشد and ذیشان بٹ.\n- This cluster centers on a domestic violence case, fir-97-26 (FIR 97/26), handled at خواتین تھانہ police station in Faisalabad. The individuals connected to this case are عدنان الطاف, نازیہ کوثر, فرحین کوثر, and صغراں بی بی, with the latter three being co-accused as per the available data.",
+    "route": "XGRAPH",
+    "status": "done",
+    "cutover_classification_failed": false,
+    "error": null,
+    "transport_ok": true,
+    "elapsed_s": 36.0
+  }
+]
