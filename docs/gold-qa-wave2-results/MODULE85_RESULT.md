@@ -68,7 +68,7 @@ evaluator citing a "section 174" absent from the chunks it judged.
 Gold's own rule chunk `…_c2209` (*"…a receipt thereof taken in register No. 1
 **[rule 27.16(1)]**"*), which Module 38 measured 3 of 3, is **0 of 3** here for
 gold's wording and **3 of 3** for the paraphrase (§6). Same split as KB2's, filed
-together as **Module 93** (`MODULE82_RESULT.md` §8a).
+together as **Module 97** (`MODULE82_RESULT.md` §8a).
 
 **The answer, 3 of 3 runs, spends its entire "Part 1" on positions 1, 3 and 6 —
 the packaging and chain-of-custody chunks — and never touches positions 2, 4 or
@@ -266,7 +266,7 @@ all-Punjab-Police-Rules set — on 3 of 3 runs.
 
 **Two things follow.** First, the capability is there: the same pipeline, same
 corpus, same session gets gold's rule, gold's form and gold's three-year clock
-from a differently-worded question — so KB4's norm-half failure is **Module 93's
+from a differently-worded question — so KB4's norm-half failure is **Module 97's
 retrieval split**, not a reasoning limit. Second, **Module 86 is not**: KB4P has
 the total in its data-half chunk exactly as KB4 does, and it drops the 45 on 3 of
 3 too. The denominator miss is independent of which chunks the norm half got.
@@ -293,7 +293,7 @@ src/` is empty and the 19 questions passing on all three passes of
 
 All four are written up in `MODULE82_RESULT.md` §8 and shared with it:
 
-- **Module 93** — gold's own wording loses the provision its paraphrase
+- **Module 97** — gold's own wording loses the provision its paraphrase
   retrieves, on **both** KB2 and KB4 (`…_c2209` 0 of 3 vs 3 of 3). The single
   most consequential finding for this question, and out of bounds here.
 - **Module 37 confirmed load-bearing** on KB2, by id, on the shared store.

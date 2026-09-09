@@ -81,7 +81,7 @@ exactly the shape Module 65 documented. The book is selected; the provision
 loses its window slot anyway, and only on gold's phrasing.
 
 **`src/retrieval/` and `rag.py` are out of bounds for this module and this is
-not repaired here.** Filed as **Module 93** (§8a). It also means Module 82's own
+not repaired here.** Filed as **Module 97** (§8a). It also means Module 82's own
 premise is only half available today — but **s.162(1) is in the window 3 of 3
 and is enough for gold's conclusion on its own**, so there is still a real
 generation defect to see, and §1.2 sees it.
@@ -408,7 +408,7 @@ day answers gold's question correctly when it is asked in different words — an
 the difference in the window is Art. 38 and Art. 39, present for the paraphrase
 and absent for gold on every run. Module 65 read this split as generation; with
 the retrieval half re-measured on the shared store it reads more naturally as
-**Module 93**.
+**Module 97**.
 
 The with-rules arm's KB2Q answers are more repetitive and carry a new validation
 caveat (*"Claim cites figure(s)/identifier(s) not found in its source text: 1984,
@@ -419,7 +419,7 @@ caveat (*"Claim cites figure(s)/identifier(s) not found in its source text: 1984
 ## 7. Regression guard
 
 Run on the **shipped code**, which is `main`'s code, so this is a
-same-session baseline for whoever takes Module 93 rather than a before/after.
+same-session baseline for whoever takes Module 97 rather than a before/after.
 2 runs each; 17 valid rows after §4a's one drop.
 
 | Question | Route | Runs | Answered | Notes |
@@ -450,7 +450,7 @@ restarted during it and no row's log slice can be attributed to one process
 
 ## 8. New defects found
 
-### 8a. Module 93 — gold's own wording loses the provision its paraphrase retrieves
+### 8a. Module 97 — gold's own wording loses the provision its paraphrase retrieves
 
 **The largest finding here, and a retrieval one, which is why it is filed rather
 than fixed.** On `main` @ `6cf89fb`, shared Chroma, reranker live, 3 runs each:
@@ -523,7 +523,33 @@ but cites no [Document N] source at all` — once, on G6, on shipped code. Modul
 `PARTIAL` fallback served the sub-answers. Reported as a live unforced activation
 of that fallback, alongside CR3 run 2's (§7).
 
-### 8e. Module 71 §8 filed a different defect under the number "Module 82"
+### 8e. Module 96 was filed for KB2 while this module was running, and §1 answers two of its three branches
+
+`main` gained **Module 96 — "KB2, the last question with no module"** during
+this module's live batches. It asks which of three things is true, *"with
+evidence, and only then decide what to change"*:
+
+1. **"Our answer is wrong."** — **Confirmed, and specifically.** §1.2: the
+   answer asserts the system *does* maintain interview records, built on a
+   Module 37 orphan it cites first on 3 of 3 runs, with s.162(1) sitting uncited
+   at window position 1. It does not "call the absence a data gap"; it denies the
+   absence.
+2. **"Gold is wrong."** — **Not supported.** §1.1 confirms all three of gold's
+   provisions exist in the corpus by id, and §6 shows the pipeline reproducing
+   gold's conclusion from them, 3 of 3, for a paraphrase. Gold's law half is
+   reachable and correct. (Gold's *schema* claim — witness records hold identity
+   and contact only — was not checked here and remains Module 96's to verify.)
+3. **"The judge cannot score a correct negative."** — **Not reached, and not
+   ruled out.** The answers measured here never state the correct negative, so
+   there was nothing for the judge to mis-score. That branch stays open and needs
+   an answer that gets the law right first.
+
+Module 96 should also be read against **Module 97** (§8a): KB2's law half is
+0 of 3 on gold's own wording and 3 of 3 on a paraphrase, so a KB2 fix that does
+not start at retrieval will be working with two of gold's three provisions
+missing from the window.
+
+### 8f. Module 71 §8 filed a different defect under the number "Module 82"
 
 `GOLD_QA_REMAINING_FIXES_PLAN.md` line 3756 files the G6 "cites no [Document N]"
 defect as **Module 82**, which is this module's number. §8d is that defect,
@@ -531,7 +557,7 @@ still live. Flagged rather than edited — it is Module 71's row, not this
 module's — but the number needs reassigning by whoever owns it. 82 is KB2's in
 the tracker's own §-list, and 88–92 have all been taken on `main` since (CR2,
 KB1, M1, CP6, and the router's paraphrase generalisation), which is why this
-module's own new defect is **93** and not 88 as first drafted.
+module's own new defect is **97** and not 88 as first drafted.
 
 ---
 

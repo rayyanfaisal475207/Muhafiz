@@ -1644,16 +1644,49 @@ async def test_verifier_not_run_for_direct_route(run_pipeline):
     """
     Phase 6: the DIRECT route is not gated by the verifier (no retrieval context
     to ground against). No citation_validator event should be emitted.
+
+    [Module 78] The message used to be "What is the Pakistan Penal Code?", and
+    that stopped being a DIRECT question. `_deterministic_route_override()` now
+    routes to RAG whenever `rag.py`'s own `_is_legal_kb_intent()` claims the
+    query, and it claims that one — correctly: we hold 7,716 legal-KB chunks,
+    and answering a statute question from model memory instead of the corpus is
+    the defect Module 30 existed to fix. The override runs BEFORE the LLM
+    router, so the mocked `route=DIRECT` below never applied and the verifier
+    ran.
+
+    The assertion is unchanged and so is what this test is for. Only the
+    example moved, to a message that is genuinely conversational and that no
+    override claims. `test_legal_question_takes_the_rag_override` below pins the
+    behaviour change itself, so it cannot be lost silently.
     """
     events, _ = await run_pipeline(
         route='{"route": "DIRECT", "output_format": "chat"}',
-        message="What is the Pakistan Penal Code?",
+        message="Hello, what can you help me with?",
     )
 
     cv_events = [e for e in events if e["step"] == "citation_validator"]
     assert not cv_events, (
         "DIRECT route must NOT emit a citation_validator event — no evidence to ground against"
     )
+
+
+async def test_legal_question_takes_the_rag_override(run_pipeline):
+    """
+    [Module 78] The companion to the test above: a bare statute question is
+    claimed by the deterministic RAG override even when the LLM router is
+    mocked to say DIRECT, because the override is checked first. This is the
+    behaviour change that moved the previous test's example message, pinned
+    here so a later edit cannot revert it without a failure.
+    """
+    from src.pipeline.router import _deterministic_route_override
+
+    decided = _deterministic_route_override("What is the Pakistan Penal Code?")
+    assert decided is not None, "a bare statute question must take an override"
+    assert decided["route"] == "RAG"
+
+    # And the conversational message the test above now uses must NOT be
+    # claimed by any override, or that test would stop testing DIRECT at all.
+    assert _deterministic_route_override("Hello, what can you help me with?") is None
 
 
 async def test_rag_retry_exhausted_abstains_without_web_fallback(run_pipeline, monkeypatch):
