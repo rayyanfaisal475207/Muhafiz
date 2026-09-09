@@ -176,6 +176,7 @@ from typing import Optional
 
 from src.data_gateway.base import DataGateway
 from src.llm.client import call_llm
+from src.pipeline.harness.agents import _salvage
 from src.pipeline.harness.supervisor import LARGE_SCALE_AGGREGATE, register
 from src.pipeline.harness.tools.xagg import XAggToolInput, xagg_tool
 from src.pipeline.harness.types import (
@@ -308,6 +309,21 @@ async def large_scale_aggregate(
     # own contract: "chunks non-empty iff status is OK"; XAggToolResult always
     # populates exactly one synthetic chunk plus raw_summary_text).
     chunk = tool_result.chunks[0]
+
+    # [Gold-QA fix — Module 53] Offer the computed aggregate for salvage
+    # BEFORE the paraphrase call, which is the step that can be cancelled
+    # out from under this frame. When this sub-agent is running as one
+    # sub-query of a Meta-Analysis fan-out, that fan-out's shared wall-clock
+    # deadline (`META_ANALYSIS_SUBQUERY_TIMEOUT`) can fire mid-paraphrase
+    # purely because this sub-query was served LAST — see `_salvage.py`'s
+    # module docstring for the measurement. `raw_summary_text` is already
+    # what this sub-agent serves when the *verifier* rejects a paraphrase
+    # (see "VERIFIER-REJECTION STATUS DECISION" above); Module 53 reuses
+    # that same text and that same rationale for the deadline case rather
+    # than inventing a second fallback. No-op on every direct route: no
+    # salvage slot is open unless Meta-Analysis opened one.
+    _salvage.offer(tool_result.raw_summary_text, tool="XAGG", kind=tool_result.aggregate_kind)
+
     resolved_language = caller.preferred_language or "the same language as the user's question"
     system_prompt = _SYSTEM_PROMPT_TEMPLATE.format(
         preferred_language=resolved_language,

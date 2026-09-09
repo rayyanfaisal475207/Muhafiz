@@ -89,7 +89,13 @@ THREE STAGES:
    one level up. All N dispatches run concurrently via `asyncio.gather` over
    these non-raising wrappers — one bad sub-query can never take the others
    down, and every outcome (success, empty, denied, abstained, timed-out)
-   reaches stage 3, disclosed, never silently dropped. Bounded at
+   reaches stage 3, disclosed, never silently dropped. [Module 53] The
+   `asyncio.wait_for` deadline here is SHARED by the whole fan-out and
+   starts at fan-out, so it measures QUEUE POSITION against a model server
+   that serialises the sub-queries — a sub-query is killed for being served
+   last, not for being slow. A sub-agent that had already computed a
+   deterministic result before being cancelled now serves that result raw
+   instead of contributing nothing; see `agents/_salvage.py`. Bounded at
    `_MAX_SUB_QUERIES` (5, per findings.md's own suggested cap and the
    approved plan) — the decomposer prompt is instructed to stay within this,
    and this module hard-truncates defensively if it doesn't. A
@@ -193,6 +199,7 @@ from typing import Optional
 from src import config
 from src.data_gateway.base import DataGateway
 from src.llm.client import call_llm
+from src.pipeline.harness.agents import _salvage
 from src.pipeline.harness.supervisor import META_ANALYSIS, Supervisor, register
 from src.pipeline.harness.types import (
     ANSWER_MAX_TOKENS,
@@ -258,6 +265,19 @@ _MAX_SUB_QUERIES = 5
 # the aggregate that was wired in is precisely the one that goes missing.
 # Five is kept, and `caseload_review` is RE-COMPOSED rather than extended —
 # see that plan's own comment for which five and why.
+#
+# [Module 53 — WHAT CHANGED, and what did NOT.] The clause above, "a
+# timed-out sub-query contributes a caveat instead of its finding", is no
+# longer unconditionally true: a sub-query whose deterministic aggregate had
+# already computed now contributes that aggregate raw (see `_dispatch_one()`
+# and `agents/_salvage.py`), and `config.META_ANALYSIS_SUBQUERY_TIMEOUT`
+# went 60 -> 150 s. Five is STILL kept and this constant is deliberately NOT
+# raised here: Module 50's arithmetic was about the deadline, but the other
+# two costs it names — model spend and the user's wall-clock wait — are
+# unchanged by Module 53, and salvage degrades an answer's PROSE rather than
+# preventing the underlying serialisation. Reconsidering the cap needs its
+# own measurement of the post-Module-53 staircase, which Module 53 did not
+# do; it is left as tracked work rather than changed on inference.
 _MAX_PLAN_SUB_QUERIES = 5
 
 # Self-contained, sub-agent-scoped synthesis prompt — inline template, NOT
@@ -783,6 +803,11 @@ class _SubQueryOutcome:
     sub_query: str
     result: Optional[SubAgentResult]
     failure_reason: Optional[str] = None  # Set iff `result` is None.
+    # [Module 53] True when `result` is not the sub-agent's own return value
+    # but the deterministic aggregate rescued from a cancelled dispatch —
+    # see `_salvage.py`. Drives the disclosure caveat and the PARTIAL status
+    # at the end of `meta_analysis()`; never means the DATA is degraded.
+    salvaged: bool = False
 
 
 async def _dispatch_one(sub_query: str, agent_input: SubAgentInput, on_event, gateway) -> _SubQueryOutcome:
@@ -806,6 +831,11 @@ async def _dispatch_one(sub_query: str, agent_input: SubAgentInput, on_event, ga
     no live SSE consumer of this harness yet).
     """
     sub_input = agent_input.model_copy(update={"query_text": sub_query, "target_entity": None})
+    # [Gold-QA fix — Module 53] Opened BEFORE the awaited task exists, so the
+    # task's copied context shares this exact list and anything a sub-agent
+    # deposits in it survives `wait_for()`'s cancellation. One box per
+    # sub-query: each `asyncio.gather` child runs in its own Task context.
+    salvage_box = _salvage.open_slot()
     try:
         result = await asyncio.wait_for(
             Supervisor().handle(sub_input, on_event=on_event, gateway=gateway, allow_meta_analysis=False),
@@ -813,6 +843,34 @@ async def _dispatch_one(sub_query: str, agent_input: SubAgentInput, on_event, ga
         )
         return _SubQueryOutcome(sub_query=sub_query, result=result)
     except asyncio.TimeoutError:
+        # [Gold-QA fix — Module 53] The deadline is SHARED by the whole
+        # fan-out and starts at fan-out, so it measures queue position, not
+        # this sub-query's cost. If the sub-agent had already computed a
+        # deterministic result before it was cancelled, that result is
+        # correct by construction and is served raw — the same fallback
+        # `large_scale_aggregate.py` makes on verifier rejection, for the
+        # same reason. Only the LLM paraphrase is lost.
+        salvaged = _salvage.take(salvage_box)
+        if salvaged is not None:
+            logger.warning(
+                "Meta-Analysis: sub-query timed out after %ss but a computed %s aggregate "
+                "was already available — serving it raw: %r",
+                config.META_ANALYSIS_SUBQUERY_TIMEOUT,
+                salvaged.kind or salvaged.tool,
+                sub_query[:80],
+            )
+            return _SubQueryOutcome(
+                sub_query=sub_query,
+                # OK, not PARTIAL: nothing about the DATA degraded — exactly
+                # `large_scale_aggregate.py`'s own "NOT PARTIAL" reasoning.
+                # The fan-out-level disclosure is added by `meta_analysis()`.
+                result=SubAgentResult(
+                    status=SubAgentStatus.OK,
+                    answer_text=salvaged.text,
+                    tools_used=[salvaged.tool],
+                ),
+                salvaged=True,
+            )
         logger.warning("Meta-Analysis: sub-query timed out after %ss: %r", config.META_ANALYSIS_SUBQUERY_TIMEOUT, sub_query[:80])
         return _SubQueryOutcome(sub_query=sub_query, result=None, failure_reason="timeout")
     except Exception as exc:
@@ -934,6 +992,7 @@ async def meta_analysis(
     degraded_from: set[SourceTool] = set()
     denied_count = 0
     failed_count = 0
+    salvaged_count = 0
     empty_only = True
 
     for outcome in outcomes:
@@ -952,6 +1011,18 @@ async def meta_analysis(
             failed_count += 1
             caveats.append(f"Could not answer sub-question: {outcome.sub_query}")
             continue
+
+        # [Gold-QA fix — Module 53] A salvaged sub-answer CONTRIBUTES its
+        # computed finding (that is the whole point) but is disclosed: the
+        # user is reading a raw aggregate rendering, not a paraphrase, and
+        # the fan-out is reported as degraded so the answer never claims a
+        # clean run it did not have.
+        if outcome.salvaged:
+            salvaged_count += 1
+            caveats.append(
+                "The natural-language summary for this sub-question did not finish in "
+                f"time; showing the raw computed aggregate instead: {outcome.sub_query}"
+            )
 
         # OK / PARTIAL (with answer_text) / EMPTY all CONTRIBUTE — see
         # module docstring's EMPTY-is-a-real-finding note.
@@ -979,7 +1050,7 @@ async def meta_analysis(
             caveats=caveats,
         )
 
-    degraded = failed_count > 0 or denied_count > 0
+    degraded = failed_count > 0 or denied_count > 0 or salvaged_count > 0
 
     if empty_only:
         # Every contributing sub-query legitimately found nothing, and

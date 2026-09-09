@@ -489,6 +489,9 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, current_use
     # classification didn't run or failed, in which case process_query()
     # routes for itself exactly as before.
     classified_route: Optional[dict] = None
+    # [Module 54] Non-None iff the cutover classification below raised. Declared
+    # here (not inside the handler) because `event_generator()` closes over it.
+    cutover_classification_error: Optional[str] = None
     if config.HARNESS_CUTOVER_ROUTES:
         try:
             route_result = await route_query(chat_request.message)
@@ -504,9 +507,38 @@ async def chat_endpoint(request: Request, chat_request: ChatRequest, current_use
                 cutover_route = candidate
         except Exception as exc:
             logger.warning("Cutover classification failed, falling back to orchestrator.py: %s", exc)
+            # [Module 54] The fallback itself is correct — but it used to be
+            # visible ONLY in backend.log. The request then completes through
+            # a DIFFERENT sub-agent than the harness would have chosen (the
+            # legacy orchestrator re-routes for itself), and a reader of the
+            # SSE stream saw a perfectly normal answer with nothing saying the
+            # harness path had been skipped. Module 50 hit this twice on one
+            # transient provider outage and could not tell it from a routing
+            # regression without reading the log. Carry the failure out of the
+            # handler so `event_generator()` below can announce it on the
+            # stream; nothing about the fallback behaviour changes.
+            cutover_classification_error = f"{type(exc).__name__}: {exc}"
 
     async def event_generator():
         try:
+            # [Module 54] Announced BEFORE any pipeline event, so the marker is
+            # present even if the run later times out mid-answer. `step` is
+            # "routing" and `status` "warning" so existing consumers that only
+            # read `step == "response"` (evaluation/gold32_run.py's parse(),
+            # the frontend's answer accumulator) are unaffected; the machine
+            # -readable flag is `cutover_classification_failed`.
+            if cutover_classification_error is not None:
+                yield "data: " + json.dumps({
+                    "step": "routing",
+                    "status": "warning",
+                    "cutover_classification_failed": True,
+                    "detail": (
+                        "Cutover classification failed, falling back to "
+                        "orchestrator.py — this answer was routed by the legacy "
+                        "orchestrator, not the agent harness: "
+                        + cutover_classification_error
+                    ),
+                }) + "\n\n"
             if cutover_route is not None:
                 stream = run_cutover_query(
                     session_id=chat_request.session_id,
