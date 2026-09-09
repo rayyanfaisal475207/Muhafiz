@@ -1224,6 +1224,75 @@ class TestIncidentDescriptionFromNarrative:
         assert _incident_node(graph_calls)["properties"]["canonical_name"] == "Incident for FIR 100/26"
 
 
+class TestModule95IncidentCompletenessFields:
+    """
+    [Gold-QA fix — Module 95, question G2] Two of G2's three gold findings
+    were not computable at all before this module, for the same reason:
+    nothing projected the fields they rest on.
+
+      - `station_departure_datetime` (FIR form field 6, "تھانہ سے روانگی")
+        is a CONFIRMED column returned populated on 44 of the 73 live FIRs,
+        and NO line of this codebase read it. Gold's "13 of 73 record the
+        officer leaving before the report exists" needs it next to
+        `report_datetime` in a queryable field.
+      - `fir_zimni.entry_type` is null on 188 of 259 live rows (gold: "most
+        zimni entries record no type"), but `fir_zimni` is the one child
+        table this projection does not write as StructuredRecords, so the
+        per-Incident COUNTS stand in for 259 new nodes. See the projection's
+        own comment for why that trade was taken.
+    """
+
+    async def test_departure_timestamp_becomes_an_incident_property(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(
+            report_datetime="2026-02-12T18:30:00Z",
+            station_departure_datetime="2026-02-12T17:45:00Z",
+        )
+        await sp.project_fir(fir)
+        properties = _incident_node(graph_calls)["properties"]
+        assert properties["station_departure_datetime"] == "2026-02-12T17:45:00Z"
+        assert properties["report_datetime"] == "2026-02-12T18:30:00Z"
+
+    async def test_absent_departure_writes_no_property(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        """Same optional convention Module 22 established one class below —
+        "not recorded" stays distinguishable from "recorded as blank", which
+        is what lets the aggregate state its own coverage (44 of 73)."""
+        fir = _minimal_fir(station_departure_datetime=None)
+        await sp.project_fir(fir)
+        assert "station_departure_datetime" not in _incident_node(graph_calls)["properties"]
+        fir = _minimal_fir(station_departure_datetime="   ")
+        await sp.project_fir(fir)
+        assert "station_departure_datetime" not in _incident_node(graph_calls)["properties"]
+
+    async def test_zimni_typing_counts_are_projected(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        fir = _minimal_fir(fir_zimni=[
+            {"entry_number": 1, "entry_type": "challan"},
+            {"entry_number": 2, "entry_type": None},
+            {"entry_number": 3, "entry_type": "   "},
+            {"entry_number": 4},
+        ])
+        await sp.project_fir(fir)
+        properties = _incident_node(graph_calls)["properties"]
+        assert properties["zimni_entry_count"] == 4
+        assert properties["zimni_typed_count"] == 1
+
+    async def test_a_fir_with_no_zimni_writes_no_counts(
+        self, graph_calls, no_candidates_by_default, fake_resolve_and_write,
+    ):
+        """Zero entries and "we did not look" must stay distinguishable, so
+        the aggregate degrades to omitting the finding rather than claiming
+        a 0-of-0 ratio."""
+        fir = _minimal_fir()
+        await sp.project_fir(fir)
+        properties = _incident_node(graph_calls)["properties"]
+        assert "zimni_entry_count" not in properties
+
+
 class TestIncidentReportTimestampsProjected:
     """
     [Gold-QA fix — Module 22, question M7] The FIR record carries typed

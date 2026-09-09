@@ -137,7 +137,8 @@ several can run in parallel chats/worktrees without colliding.
 | 90 | **M1 (0.40/0.70/0.40, 1-of-3)** — answered ACT-level counts where gold asserts SECTION-level | `fix/m1-cp6-detail-loss` | ✅ **Done (PR #60).** `_statute_mix_by_year()` now also reads `StructuredRecord{record_type:'fir_section'}` — the identical query Modules 23/24/76 issue — de-duplicated per case, adding `section_counts` and `case_count` alongside the unchanged act grain; it reproduces **every figure gold names, both years**. The *"reports only 2026"* half of this row was **wrong**: all three captured passes contain an explicit 2024 block. The *"PPC (Preventive Detention and Control Act)"* gloss is a **model invention** — that phrase exists nowhere in the repo — closed by spelling the acts out in the evidence. Regression: all 32 through `run_aggregate()` + renderers, main vs branch, **exactly one output differs and it is M1**. Corpus holds **218** `fir_section` rows in total (an earlier note citing 273/979 was wrong). Result: `docs/gold-qa-wave2-results/MODULE90_91_RESULT.md` |
 | 91 | **CP6 (0.30 ×3)** — the code defect did NOT reproduce; **gold was wrong and was corrected instead** | `fix/m1-cp6-detail-loss` | ✅ **Done (PR #60), with no behavioural change.** The three-way measurement came back clean: aggregate right (10 current / 11 ever / 7 ASI / 3 SI), renderer emits the split, and re-run live the answer **keeps** it 5/5 local and 3/3 cloud on code byte-identical to the evaluation commit — the drop was model behaviour on the day. The real defect was gold asserting 11, fixed by PR #57 (one case, `fir-205-26`, has since been assigned a real officer). The obvious hardening was implemented, measured at **0/5 local and 0/3 cloud** — a headline bullet gives the model something to answer *"kitne"* with and stop — and **reverted**. Ships a de-duplication of three hand-copied renderings with byte-identical output, plus two regression pins |
 | 92 | **Non-English paraphrases lose their route.** A capability is reachable only from a narrow neighbourhood of the gold wording — fourth independent sighting (62 CR3/G6, 78 KB3/KB9, 88 CR2, and now measured across the board) | *(not yet branched)* | ⬜ **Scoped, with evidence.** Measured offline by `docs/gold-qa-wave2-results/module92_override_survival_probe.py` (no backend needed): over 8 questions that all take a deterministic `XAGG` override at their gold wording, an English paraphrase keeps it **5 of 8** and a Roman-Urdu paraphrase keeps it **0 of 8**. Every one of those 8 falls through to the local Qwen3-14B classifier that `router.py`'s own module comment (~line 42) records as unreliable. **The fix is NOT a fourth round of gold-specific regexes** — three waves of those are exactly how the debt accumulated |
-| 95 | **Three questions pass by a hair and no module owns them** — G2 scores 0.5/0.5/0.5, *exactly* at the threshold; G5 0.5/0.6/0.6; CP1 1.0/**0.5**/0.9 | *(not yet branched)* | ⬜ New — the judge was measured moving **0.3 on D1 across five identical draws** (Module 45), so at these margins one bad draw drops any of the three. Every count of "how many pass" that includes them is a coin flip nobody re-measures. This is the difference between reaching 30 and *holding* 30 |
+| 95 | **G2 and G5 produce fluent briefings that name DIFFERENT findings from the ones their gold answers name** — not hallucination, not refusal: wrong evidence selected | `fix/g2-g5-finding-coverage` | ✅ **Done (PR pending).** The original *"passes by a hair"* framing was superseded by Module 87's re-judge of Module 27's **frozen** answers (system held constant): G2 **0.5/0.5/0.5 → 0.3/0.3/0.3**, G5 **0.5/0.6/0.6 → 0.4/0.4/0.4**, both for coverage. Phase 1 established that **4 of the 6 gold findings were not computable at all** — `psrms.fir.station_departure_datetime` (FIR form field 6, populated on 44 of 73) was read by **no line of this codebase**, `fir_zimni.entry_type` is never projected, and two findings are statements about the SCHEMA's shape that no aggregate could express. **Every gold figure reproduces exactly** against the recorded API snapshot — 9 missing incident dates, 188 of 259 untyped zimni entries, **13 of 73** departure-before-report contradictions, 30 of 32 (94%) unlicensed — so this is a code fix and **not** a sixth gold correction. Fix: one projection field + two counts, a Module-22-style MATCH-only backfill, and both existing scans deepened; **no new aggregate kind and not one line of `resolve_aggregate_kind()` touched**, so all 32 dispatches are unchanged by construction. Finding coverage, measured on the evidence each finding rests on rather than on wording: G2 **1/3 → 3/3** and G5 **1/3 → 3/3**, three gold-wording runs each plus 6 pre-registered paraphrases. Result: `docs/gold-qa-wave2-results/MODULE95_RESULT.md` |
+| 95b | **CP1 (1.0 / 0.5 / 0.9)** — the third question in the original row 95, still unowned | *(not yet branched)* | ⬜ Open. Module 95 scoped itself to G2 and G5, which Module 87 re-measured as a capability gap. CP1's middle draw was never re-judged and its diagnosis is still the original one: one unlucky draw of a judge measured moving 0.3 on identical inputs (Module 45). Needs a re-judge before a code change, not after |
 | 96 | **KB2 is the last gold question with no module** — 0.00 on all three passes, AnswerRelevancy 1.00 | *(not yet branched)* | ⬜ New — diagnosis first, fix second. Gold is *"no, that's by design"*: an assertion about what the schema deliberately does NOT hold (Qanun-e-Shahadat Arts. 38/39, CrPC s.162 make police-recorded statements unusable, so only witness identity is stored). Module 39 excluded it from `_KB_DATA_HALF_PLANS` as a "schema claim, not a count" — correct for KB2, unlike KB1. FC 0.00 with AR 1.00 usually means fluent and wrong. **Decide which of three it is before writing code**: our answer is wrong, gold is wrong, or the judge cannot score a correct negative |
 | 97 | **Gold's own wording loses the provision its paraphrase retrieves** — the same split on two independent questions, one layer below Module 92's router finding | *(not yet branched)* | ⬜ **New — measured by Module 82/85 on `main` @ `6cf89fb`, shared Chroma, reranker live, 3 runs each, `route=RAG` on all twelve.** KB2's QSO Art. 38 `2_qanun-e-shahadat-order-1984_pdf_3e604153_c176`: **0 of 3** for gold's literal text, **3 of 3** for a Roman-Urdu paraphrase. Art. 39 `…_c177`: 0 of 3 vs 3 of 3. KB4's rule 27.16(1) chunk `4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209`: **0 of 3** vs **3 of 3**. Module 65 measured KB2's Art. 38 at 3/3 and Module 38 measured KB4's `…_c2209` at 3/3 — both against **private** Chroma copies on earlier merge-bases; neither reproduces here for the gold question and both do for a paraphrase, same build, same store, same session. Book selection still works (KB2's hypothesis names the Qanun-e-Shahadat and uses its verb *"shall not be proved"*); what varies is the section number and surrounding wording, and Module 65 §7a already measured that variation alone flipping an outcome on an unchanged prompt. The window is not deterministic either — a control run on the same question and same code returned `…_c2209` at position 2. **This is Module 92's shape one layer down**: the route is identical and the *retrieval window* is what the paraphrase changes, so the narrow-neighbourhood problem is not confined to `router.py`. Owner needs `src/retrieval/` and/or `prompts/statute_hypothesis.txt`; probes exist (`scripts/module65_probe.py` for rank-by-query, `scripts/module82_window_probe.py` for text-by-id, read-only) |
 | 27 | Final Gold-32 rerun (Module 18 redo) | `eval/module27-final` | ✅ **Done — 3 passes, 96 question-runs.** FactualCorrectness **0.428 → 0.572 → 0.666**; AnswerRelevancy **0.931**; **19 of 32 pass on all three runs** (20 counting M7, which is correct and mis-scored); **routes stable 32/32**; 0 nulls, 0 timeouts, 0 quota, 0 cutover fallbacks. Result: `docs/gold-qa-wave2-results/MODULE27_RESULT.md` |
@@ -3800,31 +3801,81 @@ or was a good afternoon.
 
 ---
 
-# Module 95 — the three questions that pass by a hair ⬜
+# Module 95 — G2 and G5 name the wrong findings ✅
 
-| Q | FC across Module 27's three passes |
+**Superseded framing.** This section originally read *"three questions pass
+by a hair"* (G2 0.5/0.5/0.5, G5 0.5/0.6/0.6, CP1 1.0/0.5/0.9) and asked
+Module 95 to find out why substantively-correct answers sat at the pass
+line. **Module 87's re-judge of Module 27's FROZEN answers — the system
+held constant, only the judge changed — reframed it:**
+
+| Q | old judge | new judge |
+|---|---|---|
+| **G2** | 0.5 / 0.5 / 0.5 | **0.3 / 0.3 / 0.3** |
+| **G5** | 0.5 / 0.6 / 0.6 | **0.4 / 0.4 / 0.4** |
+
+The judge's reasons were **coverage, not strictness**. Both questions are
+open-ended *"what would you flag?"* briefings whose gold answer is a method
+line plus three numbered, specifically-evidenced findings, and the system
+produced a fluent, plausible briefing naming *different, also-true*
+findings. Not hallucinating, not refusing — **selecting the wrong
+evidence.**
+
+## What Phase 1 established
+
+Four of the six gold findings were **not computable at all**, and the
+computability question — not a generation prompt — was the whole module:
+
+| Finding | Verdict |
 |---|---|
-| **G2** | 0.5 / 0.5 / 0.5 — *exactly* at the 0.5 pass threshold |
-| **G5** | 0.5 / 0.6 / 0.6 |
-| **CP1** | 1.0 / **0.5** / 0.9 |
+| G2 (1) 9 FIRs with no incident date | **(a)** already computed and already reported |
+| G2 (1) most zimni entries untyped | **(b)** `fir_zimni.entry_type` null on 188/259, but `fir_zimni` is the one child table never projected |
+| G2 (2) 13 of 73 departure-before-report | **(b)** `psrms.fir.station_departure_datetime` populated on 44 of 73 — and read by **no line of this codebase** |
+| G2 (3) complaints and FIRs joined by an optional tag | **(b)**, schema-shaped — measurable through the CMS↔FIR linkage that already existed but never reached this answer |
+| G5 (1) 30 of 32 (94%) unlicensed | **(a)** already computed and already reported |
+| G5 (2) no packaging/photo/custody field | **(b)**, schema-shaped — derivable from the register's own column inventory |
+| G5 (3) soft FIR-code join, no enforced key | **(b)**, schema-shaped — measurable as weapons resolving to no case |
 
-All three currently count as 3-of-3 passes. **Module 45 measured the judge
-moving 0.3 on D1 across five identical draws**, so a single unlucky draw drops
-any of them below the line without a line of code changing.
+**No finding was (c), and no gold figure was wrong.** Every one reproduces
+exactly against the recorded API snapshot. After five gold corrections on
+this programme (G1, G6, KB9, CP6, KB1) that was the live possibility, and
+it did not happen: `tests/test_module95_finding_coverage.py::
+test_gold_figures_reproduce_from_the_api_snapshot` pins all of them and
+passes on the merge-base as well, deliberately.
 
-They have never had a module because nothing about them looks broken — they
-pass. That is exactly why they are the risk: the pass-rate headline treats them
-as safe, and they are not.
+**The schema-shaped findings needed a different mechanism from a count**,
+as this module was warned they might. G5 (2) is computed as a set
+difference between the register's column inventory and a declared list of
+custody controls, so adding a `chain_of_custody` column upstream RETIRES the
+finding automatically instead of leaving a stale assertion in the answer.
 
-**Work:** find why three substantively-correct answers score at the pass line
-rather than clear of it, and raise them. Read the judge's `reason` field on each
-of the six sub-0.6 draws first — the answer may be missing one gold element, or
-carrying a hedge the judge reads as uncertainty. **Do not** fix this by moving
-the threshold. Coordinate with Module 87 (the judge upgrade): if the new judge
-scores these three clear of the line on its own, this module closes as measured
-rather than fixed — record that outcome, it is a real result.
+## What shipped
+
+- `structured_projection.py` — `Incident.station_departure_datetime`
+  (Module 22's own pattern and its optional convention) plus
+  `zimni_entry_count` / `zimni_typed_count`.
+- `scripts/backfill_incident_completeness_fields.py` — MATCH-only, writes
+  no nodes and no edges, modelled line for line on Module 22's backfill and
+  for the same recorded reasons (a past re-projection duplicated every edge
+  type; the graph is shared with four live tracks).
+- `xagg.py` — `_case_completeness_scan()` and `_weapon_compliance_scan()`
+  each grew the findings they were missing. **No new aggregate kind, and
+  not one line of `resolve_aggregate_kind()` was touched**, so the all-32
+  dispatch control holds by construction rather than by luck.
+
+## The debt this module did NOT pay
+
+`case_completeness_scan` is shared with **G1**, which therefore also gained
+three findings it did not ask for; that cost is measured in
+`MODULE95_RESULT.md` §7 rather than assumed away. And `fir_zimni` is still
+not projected as StructuredRecords — Module 95 stood two per-Incident
+counts in for 259 nodes to keep its blast radius off a shared graph, and
+filed the real fix as **Defect 100**.
+
+**Result:** `docs/gold-qa-wave2-results/MODULE95_RESULT.md`
 
 ---
+
 
 # Module 96 — KB2, the last question with no module ⬜
 

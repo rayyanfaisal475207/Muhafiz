@@ -686,10 +686,45 @@ async def project_fir(fir: FirRecord, *, graph: str = age_client.GRAPH_NAME) -> 
         # above — an absent timestamp writes no property at all, so "not
         # recorded" stays distinguishable from "recorded as blank", and the
         # aggregate can report its own coverage honestly.
-        for _ts_field in ("incident_datetime", "report_datetime"):
+        # [Gold-QA fix — Module 95, question G2] `station_departure_datetime`
+        # ("تھانہ سے روانگی کی تاریخ و بوقت", FIR form field 6 — a CONFIRMED
+        # column in muhafiz_schema.dbml.txt and returned populated on 44 of
+        # the 73 live FIRs) joins the same tuple, for the same reason and
+        # under the same optional convention. Until this module NOTHING in
+        # the codebase read it: G2's gold answer asserts that 13 of 73 FIRs
+        # record the officer leaving the station EARLIER than the report
+        # itself, and that contradiction is only computable once the
+        # departure stamp sits next to `report_datetime` in a queryable
+        # field. Raw stamp, not a precomputed "is contradictory" boolean —
+        # same reasoning as Module 22's note directly above.
+        for _ts_field in (
+            "incident_datetime", "report_datetime", "station_departure_datetime",
+        ):
             _ts_value = (fir.raw.get(_ts_field) or "").strip()
             if _ts_value:
                 incident_properties[_ts_field] = _ts_value
+        # [Gold-QA fix — Module 95, question G2] Zimni (روزنامچہ/ضمنی)
+        # TYPING COVERAGE. G2's gold asserts that "most zimni entries record
+        # no type", so events inside a case cannot be ordered by what they
+        # were. `psrms.fir_zimni.entry_type` is null on 188 of 259 live rows
+        # — but `fir_zimni` is the one child table this projection does NOT
+        # write as StructuredRecords (only the tracking `fir_zimni_index`
+        # is), so there is no node to hang the per-entry value on.
+        #
+        # Two counts per Incident rather than 259 new nodes, deliberately:
+        # writing `fir_zimni` as a new StructuredRecord family would add
+        # rows to a graph four other Gold-QA tracks are querying live, and
+        # would change every existing StructuredRecord count underneath
+        # them. Module 22's "project the raw values, not a derived one"
+        # principle is knowingly traded here for that blast radius; the
+        # trade is recorded rather than hidden, and the pair (total, typed)
+        # still supports both directions of the question.
+        _zimni_rows = fir.child_rows("fir_zimni")
+        if _zimni_rows:
+            incident_properties["zimni_entry_count"] = len(_zimni_rows)
+            incident_properties["zimni_typed_count"] = sum(
+                1 for _z in _zimni_rows if (_z.get("entry_type") or "").strip()
+            )
         await versioning.write_node(
             "Incident", {"entity_id": incident_id}, incident_properties,
             source_doc_id=doc_id, graph=graph,
