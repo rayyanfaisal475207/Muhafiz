@@ -1,0 +1,24 @@
+{
+  "written_before_any_run": true,
+  "written_at": "2026-09-10",
+  "module": 101,
+  "question": "KB9",
+  "note": "Non-gold rewordings of KB9, committed BEFORE the after-arm was run and never edited afterwards (Modules 88/89's discipline). Each was checked only against `rag.py::_match_kb_data_half_plan()` for plan resolution — never against a gold answer, never against a score.",
+  "paraphrases": [
+    {
+      "id": "P1",
+      "language": "English",
+      "text": "If someone dies in suspicious circumstances, the police are supposed to formally investigate the cause of death. Does our own system record that anywhere, given how many of our cases involve a death?"
+    },
+    {
+      "id": "P2",
+      "language": "Roman-Urdu",
+      "text": "Agar kisi ki maut mashkook halaat mein ho jaye, qanoon police se kya taqaza karta hai — aur hamare apne record mein maut ki wajah ki tehqeeqaat ka koi indraaj milta hai ya nahi?"
+    },
+    {
+      "id": "P3",
+      "language": "Urdu",
+      "text": "جب کوئی شخص مشکوک حالات میں مر جائے تو قانون پولیس سے کیا تقاضا کرتا ہے، اور کیا ہمارے اپنے ریکارڈ میں موت کی وجہ سے متعلق تفتیش کہیں درج ہوتی ہے؟"
+    }
+  ]
+}

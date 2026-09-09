@@ -873,6 +873,133 @@ def _check_no_citation(answer: str) -> Optional[str]:
     )
 
 
+# ============================================================
+# [Gold-QA fix — Module 101] ATTRIBUTION BY SOURCE NAME
+#
+# THE DEFECT. `_check_no_citation()` above rejects a substantial answer that
+# carries no `[Document N]` token. On KB9 that fires on an answer which is
+# CORRECT and which the LLM judge has just cleared claim by claim
+# (`grounded: true`, `unsupported_claims: []`): it states CrPC s.174/s.176
+# and Punjab Police Rules 25.31, states gold's own figure — "10 of the 73
+# FIR(s) that carry a recorded section cite PPC §302" — and states the
+# schema gap honestly. Its only fault is HOW it attributes: it names its
+# sources instead of numbering them —
+#
+#   "According to the **Code of Criminal Procedure (Pakistan)** …"
+#   "According to **our own case records (cross-case aggregate)** …"
+#
+# Both of those strings are the `source` / `source_file` labels of chunks
+# in this very window (chunks 1/3/4 and the composed data-half chunk 7).
+# The answer is not avoiding the evidence; it is citing it by name.
+# `refusal_issue` then sets `off_topic=True`, and the sub-agent's
+# [PRESERVE] contract discards the whole answer.
+#
+# Module 71 §8 filed this same check firing on Meta-Analysis' G6 synthesis
+# (10 of 12 runs) and Module 82 §8d recorded it firing there unforced on
+# shipped code. Module 71's own prescription was "make the [Document N]
+# markers unnecessary by carrying provenance out of band" — which is what
+# this is, on the Semantic Search side.
+#
+# WHY THIS IS NOT A LOOSENING. The exemption below needs BOTH of two
+# independent things to be true, and each alone is deliberately not enough:
+#
+#   (a) the answer contains, verbatim, the normalised source label of a
+#       chunk it was actually given — a deterministic string test against
+#       THIS window's own metadata, not a similarity judgement; and
+#   (b) the LLM judge independently cleared every claim in the answer
+#       (grounded, not off-topic, no unsupported claims), with no leakage
+#       and no other deterministic pre-check outstanding.
+#
+# So an evasive answer still fails (a): it names no source it was handed.
+# A fluent fabrication still fails (b): the judge flags it, exactly as it
+# flagged Module 82's forced `rule 27.41(3)` control 3 of 3 — and that
+# control's fabrication carries `[Document 2]`/`[Document 7]` markers, so
+# this check never adjudicated it in the first place. A genuine refusal is
+# untouched: `_check_refusal()` is evaluated separately below and is NEVER
+# exempted.
+#
+# What IS lost is the `[Document N]` marker itself, so the exemption is not
+# silent — `citation_format_degraded` is returned to the caller, which
+# caveats the answer.
+#
+# The `source` label of a chunk that is a bare ingest filename carries a
+# leading corpus index and an extension ("1_1898_Code_of_Criminal_
+# Procedure_(Pakistan).pdf"), neither of which any answer will ever write,
+# so both are stripped before matching. A label too short or too generic to
+# be evidence of anything ("unknown", "entity_graph") is refused outright by
+# the token/length floor: matching one of those would make the exemption
+# trivially satisfiable.
+CITATION_FORMAT_DEGRADED_KEY = "citation_format_degraded"
+
+# The caveat a caller MUST surface when it serves an exempted answer. Lives
+# here, next to the flag, so the six other agents that call
+# `verify_grounding()` can reuse the exact wording rather than each inventing
+# one -- Meta-Analysis' own wiring is another track's file and is filed, not
+# done here (see MODULE101_RESULT.md section 8).
+CITATION_FORMAT_DEGRADED_CAVEAT = (
+    "This answer attributes its sources by name rather than with [Document N] "
+    "markers, so individual claims cannot be traced to a specific source; every "
+    "claim was still checked against the retrieved evidence."
+)
+
+_SOURCE_LABEL_MIN_TOKENS = 3
+_SOURCE_LABEL_MIN_CHARS = 12
+_SOURCE_LABEL_SEPARATORS_RE = re.compile(r"[_\-]+")
+_SOURCE_LABEL_WS_RE = re.compile(r"\s+")
+_SOURCE_LABEL_EXT_RE = re.compile(r"\.(pdf|txt|docx?|csv|json|md)$", re.IGNORECASE)
+
+
+def _normalise_source_label(raw: Optional[str]) -> Optional[str]:
+    """A chunk's source label reduced to the form an answer would write it.
+
+    Extension dropped, `_`/`-` folded to spaces, whitespace collapsed,
+    lower-cased, and any LEADING all-digit tokens (the corpus index and a
+    statute year that prefixes the filename, "1_1898_…") removed — an
+    answer writes "Code of Criminal Procedure (Pakistan)", never
+    "1 1898 Code of Criminal Procedure (Pakistan)".
+
+    Returns None for a label too short or too few-worded to be evidence
+    that the answer engaged with THIS window rather than with general
+    knowledge.
+    """
+    if not raw or not raw.strip():
+        return None
+    text = _SOURCE_LABEL_EXT_RE.sub("", raw.strip())
+    text = _SOURCE_LABEL_SEPARATORS_RE.sub(" ", text)
+    text = _SOURCE_LABEL_WS_RE.sub(" ", text).strip().lower()
+    tokens = text.split(" ")
+    while tokens and tokens[0].isdigit():
+        tokens.pop(0)
+    if len(tokens) < _SOURCE_LABEL_MIN_TOKENS:
+        return None
+    label = " ".join(tokens)
+    if len(label) < _SOURCE_LABEL_MIN_CHARS:
+        return None
+    return label
+
+
+def _answer_names_a_cited_source(answer: str, chunks: list[dict]) -> Optional[str]:
+    """The first cited chunk's source label the answer states verbatim, or None.
+
+    The answer is normalised with the SAME transform as the label (minus the
+    leading-digit strip, which is a property of a filename and not of prose),
+    so "Punjab Police Rules-III" in the answer matches
+    "4_Punjab-Police-Rules-III.pdf" in the metadata.
+    """
+    if not answer:
+        return None
+    hay = _SOURCE_LABEL_WS_RE.sub(
+        " ", _SOURCE_LABEL_SEPARATORS_RE.sub(" ", answer)
+    ).lower()
+    for chunk in chunks:
+        meta = chunk.get("metadata") or {}
+        for raw in (chunk.get("source_file"), meta.get("source"), meta.get("source_file")):
+            label = _normalise_source_label(raw)
+            if label and label in hay:
+                return label
+    return None
+
+
 async def verify_grounding(
     answer: str,
     cited_chunks: list[dict],
@@ -945,14 +1072,24 @@ async def verify_grounding(
     temporal_issues = _check_temporal(cited_chunks, target_date)
     leaked_case = _check_leakage(answer, cited_chunks, case_id, cross_case_ids)
     hedging_issues = _check_hedging(answer, cited_chunks)
-    refusal_issue = _check_refusal(answer) or _check_no_citation(answer)
+    # [Module 101] Split, so the two can be merged on different terms below.
+    # `_check_refusal()` is NEVER exempted; `_check_no_citation()` is, and
+    # only under the two-part test in this module's comment block above.
+    refusal_issue = _check_refusal(answer)
+    no_citation_issue = _check_no_citation(answer)
     # [Scenario-test Finding J] Catch invented CASE-IDs inside citations —
     # see _check_fabricated_case_ids()'s own docstring for why the leakage
     # check above cannot cover this.
     fabricated_issues = _check_fabricated_case_ids(answer, cited_chunks)
 
     pre_check_issues: list[str] = temporal_issues + hedging_issues + fabricated_issues
-    pre_check_failed = bool(pre_check_issues or leaked_case or refusal_issue)
+    # [Module 101] `no_citation_issue` still counts here, unchanged: Module
+    # 61's exhaustive-negative override must stay off whenever ANY
+    # deterministic check has an outstanding finding, and whether this one is
+    # later exempted is not known until the judge has answered.
+    pre_check_failed = bool(
+        pre_check_issues or leaked_case or refusal_issue or no_citation_issue
+    )
 
     # ── Build LLM judge input ─────────────────────────────────────────────
     chunks_text = _format_chunks_for_verifier(cited_chunks)
@@ -1071,6 +1208,33 @@ async def verify_grounding(
             f"Cross-case evidence leakage detected: chunk from case '{leaked_case}' "
             f"cited in answer for case '{active_case_str}'."
         )
+
+    # ── [Module 101] Attribution by source name ──────────────────────────
+    # Evaluated HERE, after the merges above, so condition (b) sees the
+    # judge's verdict as it actually stands — including any deterministic
+    # finding or leakage that has just overruled it.
+    if no_citation_issue:
+        named_source = _answer_names_a_cited_source(answer, cited_chunks)
+        judge_cleared = (
+            bool(llm_result.get("grounded"))
+            and not llm_result.get("off_topic")
+            and not (llm_result.get("unsupported_claims") or [])
+            and not llm_result.get("leaked_case_id")
+            and not refusal_issue
+        )
+        if named_source and judge_cleared:
+            logger.info(
+                "Verifier [Module 101]: answer carries no [Document N] marker but "
+                "names cited source %r verbatim, and the judge cleared every "
+                "claim — serving it with a citation-format caveat rather than "
+                "discarding it.",
+                named_source,
+            )
+            llm_result[CITATION_FORMAT_DEGRADED_KEY] = True
+            llm_result["named_source"] = named_source
+        else:
+            # Not exempted — restore the pre-Module-101 behaviour exactly.
+            refusal_issue = refusal_issue or no_citation_issue
 
     # Distinct from off_topic/grounded — callers use this to decide whether
     # regenerating with a corrective prompt is worth trying (a refusal is a
