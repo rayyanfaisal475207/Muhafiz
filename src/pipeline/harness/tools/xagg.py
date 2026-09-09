@@ -63,6 +63,7 @@ from src.pipeline.xagg import (
     render_dv_report_fir_match,
     render_case_completeness_scan,
     render_weapon_compliance_scan,
+    render_graph_recurrence,
     render_weapon_evidence_chain,
     render_court_readiness_scan,
     render_station_caseload_by_specialisation,
@@ -262,10 +263,9 @@ def _render_aggregate_text(agg_result: dict) -> str:
             f"**{len(rows)} matching {agg_result['entity_type']}(s) found.**",
             "",
         ] if rows else []
-        lines += [
-            f"- {r['name']} ({agg_result['entity_type']}): appears in {r['case_count']} cases — {', '.join(r['case_ids'])}"
-            for r in rows
-        ]
+        # [Gold-QA fix — CR2, Module 88] shared renderer; the leading total
+        # above is this site's own and is deliberately kept.
+        lines += render_graph_recurrence(agg_result)
     elif kind == "case_listing":
         cases = agg_result["cases"]
         lines = [f"**{len(cases)} matching case(s) found.**", ""] if cases else []

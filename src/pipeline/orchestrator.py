@@ -45,6 +45,7 @@ from src.pipeline.xagg import (
     render_dv_report_fir_match,
     render_case_completeness_scan,
     render_weapon_compliance_scan,
+    render_graph_recurrence,
     render_weapon_evidence_chain,
     render_court_readiness_scan,
     render_station_caseload_by_specialisation,
@@ -473,11 +474,12 @@ async def _fetch_secondary_evidence(
                     user_role=user_role, jurisdiction_case_ids=jurisdiction_case_ids,
                 )
                 if agg_result["kind"] == "graph_recurrence":
-                    lines = [
-                        f"- {r['name']} ({agg_result['entity_type']}): appears in "
-                        f"{r['case_count']} cases — {', '.join(r['case_ids'])}"
-                        for r in agg_result["results"]
-                    ]
+                    # [Gold-QA fix — CR2, Module 88] Shared renderer, same
+                    # move Module 28 made for the weapon chain: the per-case
+                    # ordering/status enrichment has to reach all three
+                    # rendering sites, and three copies of one f-string is
+                    # how it would fail to.
+                    lines = render_graph_recurrence(agg_result)
                 elif agg_result["kind"] == "case_listing":
                     lines = [
                         f"- {c['case_id']} (FIR {c['fir_number'] or 'N/A'}): "
@@ -2144,10 +2146,9 @@ async def process_query(
             elapsed_ms = int((time.monotonic() - t0) * 1000)
 
             if agg_result["kind"] == "graph_recurrence":
-                lines = [
-                    f"- {r['name']} ({agg_result['entity_type']}): appears in {r['case_count']} cases — {', '.join(r['case_ids'])}"
-                    for r in agg_result["results"]
-                ]
+                # [Gold-QA fix — CR2, Module 88] see the process_query()
+                # branch above.
+                lines = render_graph_recurrence(agg_result)
             elif agg_result["kind"] == "case_listing":
                 lines = [
                     f"- {c['case_id']} (FIR {c['fir_number'] or 'N/A'}): {c['crime_category'] or 'uncategorized'} "
