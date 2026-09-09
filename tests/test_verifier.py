@@ -1323,3 +1323,186 @@ async def test_validation_gate_still_caveats_a_real_hallucination(monkeypatch):
     )
     assert status == ValidationStatus.ISSUES_FOUND
     assert valmod.caveats_for_validation(status, claims)
+
+
+# ── Direction: which record does the absence phrase name? ──────────────
+# Measured live (MODULE61_RESULT.md §4): the judge writes absence both ways
+# round — "…does not mention FIR 65/26" names its record AFTER the phrase,
+# "FIR 64/26 … does not appear" names it BEFORE. Resolving both the same way
+# would, on a sentence naming one present and one absent record, pick the
+# wrong one — which is precisely how a fabricated negative would get
+# confirmed.
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        # The verbatim reason Module 57 recorded, subject BEFORE the phrase.
+        _CR3_VERBATIM_REJECTION,
+        # Both live pre-fix rejection reasons captured on this branch's own
+        # control run (§4's before-table).
+        "Claims about FIR 65/26 absence from the linkage list and the "
+        "discrepancy in handling are not supported by any cited chunk.",
+        "The claim about FIR 65/26 lacking a complaint linkage relies on "
+        "absence from Document 3's list, which is not explicitly stated in "
+        "the chunk.",
+        # The live validation-gate reasons, subject AFTER the phrase.
+        "The source confirms FIR 64/26 is linked to a CMS complaint but does "
+        "not mention FIR 65/26 or its absence from the linkage list.",
+        "The source confirms FIR 64/26 is linked to a CMS complaint but does "
+        "not mention FIR 65/26 at all, making the claim about FIR 65/26 "
+        "unsupported.",
+    ],
+)
+def test_every_live_captured_absence_reason_resolves_to_the_absent_record(claim):
+    assert negative_claim_is_supported_by_exhaustive_listing(
+        claim, [_CMS_LINKAGE_LISTING]
+    ) is True
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        # Subject BEFORE, and it is a record the listing CONTAINS.
+        "FIR 64/26 absence from the CMS linkage list is not supported by "
+        "Document 1, which lists CMS-ISB-2026-0341 to fir-64-26.",
+        # Subject AFTER, same fabrication the other way round.
+        "Document 1 does not mention FIR 64/26.",
+        # A live validation reason about a STATUTE, not a listing membership:
+        # "PECA 2016" must not be mistaken for a record id.
+        "The source confirms the accused is linked to both FIR 64/26 and "
+        "65/26, but does not mention PECA 2016 or any statute in the "
+        "provided text.",
+        # The live G1 rejection reason (§7) — no absence phrase resolves.
+        "Two claims lack explicit support in the cited chunks: the alleged "
+        "data discrepancy and the 73-case total for seized property.",
+    ],
+)
+def test_reasons_that_must_not_be_rescued(claim):
+    assert negative_claim_is_supported_by_exhaustive_listing(
+        claim, [_CMS_LINKAGE_LISTING]
+    ) is False
+
+
+def test_a_statute_year_is_never_treated_as_the_absent_record():
+    """"PECA 2016" is a statute, not a record id. Only composite identifiers
+    ("65-26", "cms-isb-2026-0341") can be the subject of an absence claim —
+    otherwise any bare four-digit year in the claim would resolve as a
+    record that happens not to be in the listing."""
+    from src.pipeline.verifier import _identifier_spans
+
+    assert _identifier_spans("does not mention PECA 2016") == []
+    assert _identifier_spans("does not mention FIR 65/26")
+
+
+# ── Absence is absence FROM A PARTICULAR REGISTER ──────────────────────
+# The live bug this pins: CR3 hands the gates THREE complete listings at
+# once. FIR 65/26 legitimately appears in the filtered-FIR listing and is
+# genuinely absent from the CMS linkage listing. Checking them pooled made
+# every correct negative look fabricated, and the validation caveat stayed
+# on 5 of 5 runs (MODULE61_RESULT.md §4b).
+
+_FILTERED_FIR_LISTING = (
+    "2 FIR(s) match statute PECA 2016 at the cyber-crime circles: "
+    "fir-64-26, fir-65-26."
+)
+
+
+def _cr3_chunks():
+    """The real three-chunk shape, in the real order."""
+    return [
+        {"id": "subquery-1", "text": _FILTERED_FIR_LISTING,
+         "metadata": {"source": "Sub-question: which FIRs?",
+                      EXHAUSTIVE_SCOPE_META_KEY: True}},
+        {"id": "subquery-2", "text": "4 recurring Person(s): عاصم رشید appears in 2 cases.",
+         "metadata": {"source": "Sub-question: recurring persons?",
+                      EXHAUSTIVE_SCOPE_META_KEY: True}},
+        {"id": "subquery-3", "text": _CMS_LINKAGE_LISTING,
+         "metadata": {"source": "Sub-question: CMS linkage?",
+                      EXHAUSTIVE_SCOPE_META_KEY: True}},
+    ]
+
+
+def test_a_claim_is_checked_against_the_listing_it_names():
+    from src.pipeline.verifier import listings_a_claim_is_about
+
+    chunks = _cr3_chunks()
+    assert listings_a_claim_is_about(_CR3_VERBATIM_REJECTION, chunks) == [
+        _CMS_LINKAGE_LISTING
+    ]
+    # No document named: fall back to every listing, which is strictly more
+    # conservative than guessing one.
+    assert len(listings_a_claim_is_about("FIR 65/26 is absent.", chunks)) == 3
+
+
+def test_a_claim_pinned_to_a_non_exhaustive_document_licenses_nothing():
+    from src.pipeline.verifier import listings_a_claim_is_about
+
+    chunks = _cr3_chunks()
+    chunks[2]["metadata"].pop(EXHAUSTIVE_SCOPE_META_KEY)
+    assert listings_a_claim_is_about(_CR3_VERBATIM_REJECTION, chunks) == []
+
+
+@pytest.mark.asyncio
+async def test_the_negative_survives_a_sibling_listing_that_names_the_record(monkeypatch):
+    """65/26 IS in Document 1 and is NOT in Document 3. The claim is about
+    Document 3, so it is supported — even though a sibling listing names the
+    same record for a different question."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(vmod, "call_llm", _rejecting_llm([_CR3_VERBATIM_REJECTION]))
+
+    result = await verify_grounding(
+        answer="FIR 65/26 does not appear in the CMS linkage list [Document 3].",
+        cited_chunks=_cr3_chunks(),
+        case_id="cross_case",
+    )
+    assert result["grounded"] is True
+    assert result["exhaustive_negative_override"] is True
+
+
+@pytest.mark.asyncio
+async def test_a_negative_about_a_listing_that_contains_the_record_still_fails(monkeypatch):
+    """The same three chunks, but the claim is about Document 1 — which DOES
+    contain fir-65-26. That is a fabricated negative and must stand rejected."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(
+        vmod,
+        "call_llm",
+        _rejecting_llm(
+            ["The claim about FIR 65/26's absence is not supported by Document 1."]
+        ),
+    )
+
+    result = await verify_grounding(
+        answer="FIR 65/26 does not appear in the FIR listing [Document 1].",
+        cited_chunks=_cr3_chunks(),
+        case_id="cross_case",
+    )
+    assert result["grounded"] is False
+
+
+@pytest.mark.asyncio
+async def test_validation_upgrade_uses_the_claims_own_document(monkeypatch):
+    """The live shape from §4b: the flagged claim cites [Document 3], and its
+    reason is the CMS-linkage negative. The caveat must disappear."""
+    import src.pipeline.validation as valmod
+    from src.pipeline.harness.types import ValidationStatus
+
+    async def fake_call(system_prompt, user_message, **kwargs):
+        return json.dumps(
+            [{"pair_id": 1, "support": "partially_supported",
+              "reason": ("The source confirms FIR 64/26 is linked to "
+                         "CMS-ISB-2026-0341 but does not mention FIR 65/26 at "
+                         "all, so the claim about its absence is unsupported.")}]
+        )
+
+    monkeypatch.setattr(valmod, "call_llm", fake_call)
+
+    status, claims = await valmod.validate_answer(
+        answer_text="FIR 65/26 does not appear in the CMS linkage list [Document 3].",
+        cited_chunks=_cr3_chunks(),
+        tier="full",
+    )
+    assert status == ValidationStatus.PASSED
+    assert valmod.caveats_for_validation(status, claims) == []

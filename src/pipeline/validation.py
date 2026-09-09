@@ -119,6 +119,7 @@ from src.pipeline.json_extract import call_llm_json
 # one implementation is what makes them agree, and keeps them agreeing.
 from src.pipeline.verifier import (
     exhaustive_chunk_texts,
+    listings_a_claim_is_about,
     negative_claim_is_supported_by_exhaustive_listing,
 )
 
@@ -485,6 +486,16 @@ def _reconcile_exhaustive_negatives(
     marker licenses no negative inference at all, and a claim asserting
     the absence of a record the listing actually contains keeps its flag.
 
+    The unit checked is the judge's own `reason` — what it says it could
+    not confirm — not the answer sentence in `claim_excerpt`. Measured live
+    (MODULE61_RESULT.md §4): CR3's flagged sentence routinely names BOTH a
+    record the listing contains and one it does not ("64/26 has a matching
+    complaint … while 65/26 does not appear"), so checking the sentence
+    makes the verdict depend on which unrelated facts happened to share a
+    sentence with the negative. The reason states exactly one thing —
+    "does not mention FIR 65/26 or its absence from the CMS list" — and
+    that is the thing to confirm or not.
+
     A claim's own cited chunk is not required to be the exhaustive one —
     the answer's negative may cite the listing by a different index than
     the judge paired it with — but at least one chunk in the answer's
@@ -499,16 +510,35 @@ def _reconcile_exhaustive_negatives(
     upgraded: list[ValidationClaimResult] = []
     changed = False
     for claim in claims:
+        # The listing to check against is the claim's OWN cited document —
+        # `document_index` is exactly the "which register?" fact
+        # `listings_a_claim_is_about()` has to infer from prose on the
+        # Verifier side, so it is used directly here. Measured live: CR3
+        # hands the gate three complete listings at once, and 65/26 legitimately
+        # appears in a DIFFERENT one (the filtered FIR listing) than the CMS
+        # linkage listing the claim is about; checking them pooled kept the
+        # caveat on every run.
+        chunk = (
+            cited_chunks[claim.document_index - 1]
+            if 1 <= claim.document_index <= len(cited_chunks)
+            else None
+        )
+        own_listing = (
+            [chunk.get("chunk_text") or chunk.get("text") or ""]
+            if chunk is not None
+            and (chunk.get("metadata") or {}).get("exhaustive_scope")
+            else []
+        )
         if claim.support != ClaimSupport.SUPPORTED and (
             negative_claim_is_supported_by_exhaustive_listing(
-                claim.claim_excerpt, exhaustive_texts
+                claim.reason, own_listing
             )
         ):
             changed = True
             logger.info(
                 "Validation [Module 61]: claim upgraded to supported — negative "
                 "inference over a complete listing: %s",
-                claim.claim_excerpt[:100],
+                claim.reason[:120],
             )
             upgraded.append(
                 claim.model_copy(
