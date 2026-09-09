@@ -41,6 +41,32 @@ TIMEOUT_S = int(os.environ.get("GOLD32_TIMEOUT_S", "1200"))
 
 KB_IDS = ["KB1", "KB2", "KB3", "KB4", "KB5", "KB6", "KB8", "KB9"]
 
+# A NON-GOLD Roman-Urdu paraphrase of KB6 (section 6 of the result-file
+# shape). Deliberately keeps the hard vocabulary — "baramad shuda hathyar",
+# a term with no English surface form — rather than Module 42's "zabt shuda
+# pistol" loanword, which is the phrasing already known to pass. Its gold is
+# KB6's gold: the same facts, asked in different words.
+PARAPHRASE_ID = "KB6P"
+PARAPHRASE = (
+    "Kya forensics ke usoolon mein yeh wazeh kiya gaya hai ke baramad shuda "
+    "hathyar ko record mein laane se pehle kis tarah sambhala aur band kiya "
+    "jaye, aur kya hamare hathyar wale register se pata chalta hai ke aisa "
+    "kiya gaya ya nahi?"
+)
+
+
+# A SECOND non-gold Roman-Urdu paraphrase. The first one turned out not to
+# trip `_is_legal_kb_intent()` at all (measured: False) — "forensics ke
+# usoolon" carries none of that gate's patterns, so it never reached the
+# legal-KB path in either arm and cannot test Module 52. This one does trip
+# it (measured: True) while keeping the same hard vocabulary.
+PARAPHRASE2_ID = "KB6Q"
+PARAPHRASE2 = (
+    "Kya qanoon ya guidelines yeh kehti hain ke baramad shuda hathyar ko "
+    "record mein laane se pehle kis tarah sambhala jaye, aur kya hamara "
+    "register yeh darj karta hai ke aisa kiya gaya?"
+)
+
 
 def login():
     body = json.dumps({"email": EMAIL, "password": PW}).encode()
@@ -136,6 +162,8 @@ def dissect(text):
 
 def main():
     gold = {q["id"]: q for q in json.load(open(GOLD, encoding="utf-8"))}
+    gold[PARAPHRASE_ID] = {**gold["KB6"], "id": PARAPHRASE_ID, "question": PARAPHRASE}
+    gold[PARAPHRASE2_ID] = {**gold["KB6"], "id": PARAPHRASE2_ID, "question": PARAPHRASE2}
     ids = IDS or KB_IDS
     out = []
     if os.path.exists(OUT):
