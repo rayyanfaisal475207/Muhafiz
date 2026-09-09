@@ -42,6 +42,8 @@ grep for every field name.
 | G5 (2) | no field for packaging / photographs / chain of custody | **(b), schema-shaped** | The register's real columns are `id, fir_display_code, sr_no, item_detail, caliber_or_bore, quantity, license_status, recovered_from, date_entered, condition, updated_at`. Gold is exactly right: *what* and *condition* are there, custody is not |
 | G5 (3) | soft FIR-code join, no enforced key | **(b), schema-shaped** | The DBML says so in the column note: *"SOFT REFERENCE to psrms.fir.fir_display_code, matching the real register which lists the FIR number as a plain value, not a foreign key column."* Measurable as weapons resolving to no `Case` |
 
+**Two corrections to this module's own filed diagnosis.** It predicted that gold's *13 of 73* "would have to come from FIR narrative text, and nothing computes it today" — the second half was right, the first was wrong: `station_departure_datetime` is a typed, CONFIRMED **structured column**, returned populated on 44 of 73 FIRs, that simply nothing had ever read. And it filed CP1 alongside G2/G5; Module 87's re-judge scored CP1 **1.0 / 1.0 / 1.0**, so CP1 closed itself and this module scoped to the two that had not.
+
 **Nothing was (c), and no gold figure was wrong.** After five gold
 corrections on this programme (G1, G6, KB9, CP6, KB1) that was the live
 possibility. Every figure was re-measured:

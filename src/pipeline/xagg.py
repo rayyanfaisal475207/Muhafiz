@@ -1207,6 +1207,55 @@ def _is_fir_section_case_count(query_lower: str) -> bool:
     )
 
 
+# ── [Gold-QA fix — Module 89, question KB1] s.154 register completeness ───
+#
+# KB1's data half asks whether OUR recordkeeping follows CrPC s.154. Nothing
+# in this file answered that: the question's own text falls through to
+# `station_or_category_counts`, and Module 39 excluded KB1 from
+# `rag.py::_KB_DATA_HALF_PLANS` because it read as "a schema claim, not a
+# count". It is a count — three of them — which is what this family serves.
+#
+# TWO signals: a register / recordkeeping term AND one of the s.154 register
+# FIELDS. Deliberately not a bare "fir" or a bare "record": half this corpus'
+# vocabulary is FIR vocabulary, and `case_completeness_scan` (G1/G2, which
+# scores today) already owns the general "which records are weak?" question.
+# This predicate is checked immediately ABOVE it for exactly that reason —
+# the boundary is that G1/G2 ask which cases are weak overall, and this asks
+# whether one specific statutory register entry is present.
+_FIR_REGISTER_TERMS = (
+    "fir register", "f.i.r. register", "fir registers",
+    "fir record", "fir records", "firs record",
+    "register entry", "register entries", "register in the prescribed form",
+    "recordkeeping", "record-keeping", "record keeping",
+    "fir rajistar", "rajistar mein darj", "record rakhne",
+    "ایف آئی آر رجسٹر", "رجسٹر اندراج", "رجسٹر میں درج",
+    "ریکارڈ کیپنگ", "ریکارڈ رکھنے", "ایف آئی آر ریکارڈ",
+)
+_FIR_REGISTER_FIELD_TERMS = (
+    "complainant", "recording officer", "officer who recorded",
+    "report time", "report timestamp", "report datetime",
+    "time of the report", "time the report", "reported time",
+    "mudai", "muddai", "darj karne wala", "ittila ka waqt",
+    "مدعی", "شکایت کنندہ", "درج کرنے والا",
+    "اطلاع کا وقت", "رپورٹ کا وقت",
+)
+
+
+def _is_fir_register_completeness(query_lower: str) -> bool:
+    """True for KB1's family: does each FIR register entry actually carry the
+    things s.154 says a register entry carries?
+
+    A named predicate rather than an inlined `and`, for the same reason
+    `_is_fir_section_case_count()` is one — the boundary it protects
+    (`case_completeness_scan`, checked immediately below it and scoring on
+    G1/G2 today) is then testable directly.
+    """
+    return (
+        _matches_any(query_lower, _FIR_REGISTER_TERMS)
+        and _matches_any(query_lower, _FIR_REGISTER_FIELD_TERMS)
+    )
+
+
 def _is_statute_court_stage_join(query_lower: str) -> bool:
     """
     True for M4's family: the sections cases are charged under set against
@@ -5642,6 +5691,221 @@ def render_fir_section_case_count(agg_result: dict) -> list[str]:
     return lines
 
 
+# [Gold-QA fix — Module 89, KB1] The three s.154 register elements that have
+# a structural equivalent in this schema, and the two that have none.
+#
+# WHAT s.154 ASKS FOR. Oral information about a cognizable offence must be
+# reduced to writing, READ BACK to the informant, SIGNED by them, and entered
+# in a register in the prescribed form. Three of those have a field here:
+#   - complainant details -> (:Person)-[:INVOLVED_IN {role:'complainant'}]
+#                            ->(:Incident)-[:PART_OF]->(:Case)
+#   - the officer who recorded it -> (:Officer)-[:ASSIGNED_TO
+#                                    {role:'recording'}]->(:Case)
+#   - the time the report was made -> Incident.report_datetime
+# "Read back" and "signed" have NO field anywhere in the schema. They are
+# reported as UNMODELLED rather than as missing: an unrecorded step is not a
+# skipped step, and gold does not claim it is. Same honesty rule Module 75
+# applied to KB8's absent interim-report record type.
+_S154_UNMODELLED_ELEMENTS = (
+    "that the statement was read back to the informant",
+    "that the informant signed it",
+)
+
+# Enough to name every gap this corpus actually has (3 and 9) without the
+# renderer turning into a case dump if a future corpus is far emptier.
+_FIR_REGISTER_MISSING_RENDER_LIMIT = 12
+
+
+async def _fir_register_completeness(
+    jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    """
+    [Gold-QA fix — Module 89, question KB1] Does each case actually carry the
+    things CrPC s.154 says an FIR register entry carries?
+
+    KB1's norm half has scored since Module 30; its data half has never had
+    an aggregate to dispatch to, so the answer said — on all three of Module
+    27's passes — that the documents "do not provide specific information"
+    about our own recordkeeping. Gold gives figures. This supplies them.
+
+    GRAIN is the CASE, and it is the same denominator gold uses. The
+    complainant edge lands on the Incident, not the Case, so it is walked
+    through `[:PART_OF]` to a case before counting; this corpus is 1:1
+    (73 incidents, 73 cases) but the walk is what makes the three counts
+    share a denominator rather than happening to agree.
+
+    Re-derived directly against `evidence_graph` before this was written
+    (`MODULE89_RESULT.md` §1): 73 cases; 73 with a complainant; 70 with a
+    recording officer (missing on fir-117-26, fir-954-26, fir-955-26); 64
+    with a report timestamp (9 missing). That reproduces the corrected gold
+    exactly. Nothing below is shaped to produce those numbers — each element
+    is a presence test over the same case set.
+    """
+    params: dict = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+    case_filter = "WHERE c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+
+    case_rows = await age_client.execute_cypher(
+        "MATCH (c:Case) "
+        f"{case_filter}"
+        "RETURN c.case_id AS case_id",
+        params=params, columns=["case_id"],
+    )
+    complainant_rows = await age_client.execute_cypher(
+        "MATCH (:Person)-[r:INVOLVED_IN]->(:Incident)-[:PART_OF]->(c:Case) "
+        f"{case_filter}"
+        "RETURN c.case_id AS case_id, r.role AS role",
+        params=params, columns=["case_id", "role"],
+    )
+    officer_rows = await age_client.execute_cypher(
+        "MATCH (:Officer)-[r:ASSIGNED_TO]->(c:Case) "
+        f"{case_filter}"
+        "RETURN c.case_id AS case_id, r.role AS role",
+        params=params, columns=["case_id", "role"],
+    )
+    incident_rows = await age_client.execute_cypher(
+        "MATCH (i:Incident)-[:PART_OF]->(c:Case) "
+        f"{case_filter}"
+        "RETURN c.case_id AS case_id, i.report_datetime AS report_datetime",
+        params=params, columns=["case_id", "report_datetime"],
+    )
+
+    all_cases = {r.get("case_id") for r in case_rows if r.get("case_id")}
+
+    def _cases_with_role(rows: list, role: str) -> set:
+        # Exact role match, not a prefix: `complainant_cms` is a walk-in CMS
+        # complaint (CR6's family), not an FIR register complainant, and
+        # counting it here would inflate the numerator with a different
+        # record type.
+        return {
+            r.get("case_id") for r in rows
+            if r.get("case_id") and (r.get("role") or "").strip().lower() == role
+        }
+
+    complainant_cases = _cases_with_role(complainant_rows, "complainant")
+    recording_cases = _cases_with_role(officer_rows, "recording")
+    # A projected-but-empty timestamp is as absent as a missing one — the
+    # graph carries both forms.
+    report_time_cases = {
+        r.get("case_id") for r in incident_rows
+        if r.get("case_id") and str(r.get("report_datetime") or "").strip()
+    }
+
+    def _element(key: str, label: str, present: set) -> dict:
+        present = present & all_cases
+        missing = sorted(all_cases - present)
+        return {
+            "key": key,
+            "label": label,
+            "present_count": len(present),
+            "missing_count": len(missing),
+            "missing_case_ids": missing,
+        }
+
+    elements = [
+        _element("complainant", "complainant details", complainant_cases),
+        _element(
+            "recording_officer",
+            "the officer who recorded the report",
+            recording_cases,
+        ),
+        _element(
+            "report_datetime",
+            "the time the report was made",
+            report_time_cases,
+        ),
+    ]
+    total = len(all_cases)
+    fully_complete = len(
+        all_cases & complainant_cases & recording_cases & report_time_cases
+    )
+
+    # Observability (Module 55) — XAGG's SSE reports only `route='XAGG'`, so
+    # this line is the only evidence of WHICH aggregate answered a live
+    # question. It carries the FIGURES, not just the kind.
+    logger.info(
+        "XAGG fir_register_completeness: %d case(s); %s; all three elements "
+        "present on %d case(s); %d s.154 element(s) unmodelled in the schema",
+        total,
+        "; ".join(
+            f"{e['key']} {e['present_count']}/{total}" for e in elements
+        ),
+        fully_complete,
+        len(_S154_UNMODELLED_ELEMENTS),
+    )
+    return {
+        "kind": "fir_register_completeness",
+        "total_case_count": total,
+        "elements": elements,
+        "fully_complete_count": fully_complete,
+        "unmodelled_elements": list(_S154_UNMODELLED_ELEMENTS),
+    }
+
+
+def render_fir_register_completeness(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — Module 89, KB1] shared renderer, imported by all three
+    XAGG rendering sites — same reason as `render_statute_court_stage_join()`.
+
+    Gold's value here is the honest "mostly, with these gaps", not a
+    pass/fail: it says the structure is followed "in outline but not
+    completely" and then names both shortfalls. So this renderer states the
+    verdict, the three coverage figures, the named gaps, AND the two s.154
+    steps the schema cannot speak to at all.
+    """
+    total = agg_result.get("total_case_count") or 0
+    elements = agg_result.get("elements") or []
+    if not total or not elements:
+        return [
+            "No cases are on record in scope, so whether our FIR "
+            "recordkeeping follows Section 154 cannot be assessed."
+        ]
+
+    complete = all((e.get("missing_count") or 0) == 0 for e in elements)
+    if complete:
+        lines = [
+            f"Our FIR records follow that structure across all {total} "
+            f"case(s): every case carries each register element that this "
+            f"schema models."
+        ]
+    else:
+        lines = [
+            f"Our FIR records follow that structure in outline but not "
+            f"completely, across {total} case(s):"
+        ]
+    for element in elements:
+        missing = element.get("missing_count") or 0
+        line = (
+            f"  - {element['label']}: recorded on "
+            f"{element.get('present_count') or 0} of {total} case(s)"
+        )
+        if missing:
+            named = (element.get("missing_case_ids") or [])[
+                :_FIR_REGISTER_MISSING_RENDER_LIMIT
+            ]
+            line += f"; missing on {missing}"
+            if named:
+                line += f" ({', '.join(named)}"
+                if missing > len(named):
+                    line += f", and {missing - len(named)} more"
+                line += ")"
+        lines.append(line + ".")
+    if not complete:
+        lines.append(
+            f"All three elements are present together on "
+            f"{agg_result.get('fully_complete_count') or 0} of {total} "
+            f"case(s), so the structural equivalent of the Section 154 "
+            f"register entry is present for most cases but not all."
+        )
+    unmodelled = agg_result.get("unmodelled_elements") or []
+    if unmodelled:
+        lines.append(
+            "Two of Section 154's steps have no field anywhere in this "
+            "schema — " + ", and ".join(unmodelled) + " — so the records "
+            "can neither confirm nor contradict those; that is an "
+            "unmodelled step, not a skipped one."
+        )
+    return lines
+
+
 _STATUTE_RENDER_LIMIT = 15
 
 
@@ -6877,6 +7141,14 @@ def resolve_aggregate_kind(query_text: str) -> str:
         return "cms_fir_linkage"
     if _matches_any(query_lower, _COURT_READINESS_KEYWORDS):
         return "court_readiness_scan"
+    # [Gold-QA fix — Module 89, KB1] Mirrors run_aggregate's placement:
+    # IMMEDIATELY above `_COMPLETENESS_KEYWORDS` (G1/G2), which owns the
+    # general "which records are weak?" scan and scores today. This
+    # two-signal predicate needs a register/recordkeeping term AND an s.154
+    # register FIELD, neither of which G1's or G2's gold text carries — the
+    # all-32 equality control enforces that.
+    if _is_fir_register_completeness(query_lower):
+        return "fir_register_completeness"
     if _matches_any(query_lower, _COMPLETENESS_KEYWORDS):
         return "case_completeness_scan"
     if _matches_any(query_lower, _RELATIONSHIP_KEYWORDS):
@@ -7147,6 +7419,23 @@ async def run_aggregate(
     # specific intent (and its answer combines three court-relevant signals).
     if kind == "court_readiness_scan":
         return await _court_readiness_scan(gateway, jurisdiction_case_ids=jurisdiction_case_ids)
+    # [Gold-QA fix — Module 89, question KB1] "How many cases in the FIR
+    # register record complainant details, a recording officer and a report
+    # time, across all cases?"
+    #
+    # Placement, in both directions:
+    #   - BELOW every subject-specific family above (challan, criminal
+    #     record, DV, CMS linkage, court readiness). None of them carries a
+    #     register-FIELD term, and this one needs both signals, so neither
+    #     direction can steal the other.
+    #   - IMMEDIATELY ABOVE G1/G2's `case_completeness_scan`, the nearest
+    #     neighbour in meaning: that one asks which cases are weak overall
+    #     and reads the gateway's case rows; this one asks whether one
+    #     specific statutory register entry is present, off the graph.
+    if kind == "fir_register_completeness":
+        return await _fir_register_completeness(
+            jurisdiction_case_ids=jurisdiction_case_ids
+        )
     # [Gold-QA fix — G2, Module 15] Case data-completeness scan (needs the
     # gateway case rows, not the graph — see the function's own docstring).
     if kind == "case_completeness_scan":
