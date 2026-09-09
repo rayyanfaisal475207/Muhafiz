@@ -80,7 +80,7 @@ several can run in parallel chats/worktrees without colliding.
 | 34 | G1 — incident time-of-day distribution: no XAGG aggregate | `feature/xagg-g1-caseload-profile-aggregates` | ✅ Done — gold's "flat across the day" is a date-only artefact |
 | 35 | G6 — arrest rate: no XAGG aggregate | `feature/xagg-arrest-rate-and-fir-listing` | ✅ Done — aggregate live; published rule gives **1 in 6.6**, not gold's 1 in 9, see §35 |
 | 36 | CR3 — subject-filtered FIR listing: no aggregate returns FIR numbers filtered by statute/station/crime type | `feature/xagg-arrest-rate-and-fir-listing` | ✅ Done — returns `fir-64-26`/`fir-65-26` exactly; **wiring into `record_consistency` deferred behind Module 41**, see §36 |
-| 37 | Orphaned `chunk_fulltext` rows: 2,243 CrPC chunks in the BM25 index that no longer exist in Chroma | *(not yet branched)* | ⬜ New — found by Module 30 |
+| 37 | **Orphaned `chunk_fulltext` rows are load-bearing, not hygiene** — 2,246 rows BM25 ranks and serves whose Chroma ids no longer exist | *(not yet branched)* | ⬜ **Re-scoped and approved.** Found by Module 30 and filed as cleanup; **Module 82 proved it costs a gold question**: 2 of KB2's 5 window chunks are orphans and the answer's **lead citation is one of them on 3 of 3 runs**, after which it concludes the *opposite* of gold. Re-measured 2026-09-10: **2,246 orphans** (2,243 CrPC + 3 test docs) and, in the other direction, **790 Chroma ids absent from BM25** (Module 99). Approved scope: **back the rows up to a committed file, then delete — orphans only**. Approved timing: **after the live tracks land**, because m83/m92/m89/m64 are measuring against this shared store and a mid-flight change would void their baselines |
 | 38 | `cross_rerank_multi()` merges by max score across queries, and cross-encoder scores are not comparable across them | `fix/cross-rerank-rrf-fusion` | ✅ **Done — the per-query lists are fused by reciprocal rank**, reusing `reranker.py`'s own `reciprocal_rank_fusion()` rather than a second implementation. Measured on one shared KB4 candidate pool so only the merge differs: the wrong "Forensics guidelines" hypothesis scored 0.86–0.97 where the question topped out at 0.16, and took **all five slots**; fused by rank, ranks 1–4 are Punjab Police Rules register chunks carrying gold's **rule 27.16** and its **three-year** rule, verified in the chunk text by id. **KB4's retrieval went 0-of-3 → 3-of-3 runs, its `status` went 3-of-3 → 1-of-3** — reported, not tuned: all three `main` runs "answered" that the corpus does not contain this. KB6 and KB9 both went from abstaining to answering. KB bucket unchanged at 6/8 answering. Ran against a private copy of Chroma. Result: `docs/gold-qa-wave2-results/MODULE38_RESULT.md` |
 | 39 | The "and does our data show it?" half of every gold KB answer is unreachable from the RAG sub-agent | `feat/kb-data-half-composition` | ✅ **Done — the data half went from 0 of 48 runs to 8 of 12** on the four KB questions that have an aggregate to reach. `rag_tool()` now dispatches one canned XAGG sub-query concurrently with retrieval for a compound legal-KB question and folds the aggregate's deterministic rendering in as one extra citable chunk. **Live, KB1–KB9 × 3 runs × 2 arms:** KB4 **45 property entries** 3/3, KB5 **8 women-violence reports** 1/3, KB6 **32 weapons** 2/3, KB9 2/3; answered 18/24 → **19/24**. **The substantive finding was measured, not predicted:** wired only into the RESULT, KB9 abstained 3/3 and the gate's own reason on all 18 refusals was that the statute chunks do not say whether OUR system records an inquest — a correct verdict on a compound question judged against half the evidence. Showing the gate the data half took KB9 to 2/3 and KB4 to 3/3 (un-doing Module 52's own KB4 regression). **Cost: 0.59 s mean per aggregate, +1.6 s (+0.6 %) end to end**, 0 of 30 dispatches dropped. All-32 EQUALITY control exact (only KB4/5/6/9 gated); all 8 regression questions route to XAGG and never enter this code. **Gold challenged** on KB9: the corpus has **10** FIRs citing PPC 302, not 8. New defects split out as Modules **67/68/69**. Result: `docs/gold-qa-wave2-results/MODULE39_RESULT.md` |
 | 41 | **G2/G5 REGRESSION** — Meta-Analysis over-decomposes questions XAGG answers in one call; the supervisor guard fired only for time-comparison shapes | `fix/supervisor-skip-decomposition-for-resolvable-aggregates` | ✅ **Done — PR #31** — guard now asks `run_aggregate()`'s extracted, resolution-only chain; G2 and G5 correct on 3/3 live runs each. Result: `docs/gold-qa-wave2-results/MODULE41_RESULT.md` |
@@ -140,6 +140,7 @@ several can run in parallel chats/worktrees without colliding.
 | 95 | **Three questions pass by a hair and no module owns them** — G2 scores 0.5/0.5/0.5, *exactly* at the threshold; G5 0.5/0.6/0.6; CP1 1.0/**0.5**/0.9 | *(not yet branched)* | ⬜ New — the judge was measured moving **0.3 on D1 across five identical draws** (Module 45), so at these margins one bad draw drops any of the three. Every count of "how many pass" that includes them is a coin flip nobody re-measures. This is the difference between reaching 30 and *holding* 30 |
 | 96 | **KB2 is the last gold question with no module** — 0.00 on all three passes, AnswerRelevancy 1.00 | *(not yet branched)* | ⬜ New — diagnosis first, fix second. Gold is *"no, that's by design"*: an assertion about what the schema deliberately does NOT hold (Qanun-e-Shahadat Arts. 38/39, CrPC s.162 make police-recorded statements unusable, so only witness identity is stored). Module 39 excluded it from `_KB_DATA_HALF_PLANS` as a "schema claim, not a count" — correct for KB2, unlike KB1. FC 0.00 with AR 1.00 usually means fluent and wrong. **Decide which of three it is before writing code**: our answer is wrong, gold is wrong, or the judge cannot score a correct negative |
 | 97 | **Gold's own wording loses the provision its paraphrase retrieves** — the same split on two independent questions, one layer below Module 92's router finding | *(not yet branched)* | ⬜ **New — measured by Module 82/85 on `main` @ `6cf89fb`, shared Chroma, reranker live, 3 runs each, `route=RAG` on all twelve.** KB2's QSO Art. 38 `2_qanun-e-shahadat-order-1984_pdf_3e604153_c176`: **0 of 3** for gold's literal text, **3 of 3** for a Roman-Urdu paraphrase. Art. 39 `…_c177`: 0 of 3 vs 3 of 3. KB4's rule 27.16(1) chunk `4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209`: **0 of 3** vs **3 of 3**. Module 65 measured KB2's Art. 38 at 3/3 and Module 38 measured KB4's `…_c2209` at 3/3 — both against **private** Chroma copies on earlier merge-bases; neither reproduces here for the gold question and both do for a paraphrase, same build, same store, same session. Book selection still works (KB2's hypothesis names the Qanun-e-Shahadat and uses its verb *"shall not be proved"*); what varies is the section number and surrounding wording, and Module 65 §7a already measured that variation alone flipping an outcome on an unchanged prompt. The window is not deterministic either — a control run on the same question and same code returned `…_c2209` at position 2. **This is Module 92's shape one layer down**: the route is identical and the *retrieval window* is what the paraphrase changes, so the narrow-neighbourhood problem is not confined to `router.py`. Owner needs `src/retrieval/` and/or `prompts/statute_hypothesis.txt`; probes exist (`scripts/module65_probe.py` for rank-by-query, `scripts/module82_window_probe.py` for text-by-id, read-only) |
+| 99 | **790 Chroma chunks are unreachable by keyword search** — present in `muhafiz_kb`, absent from `chunk_fulltext` | *(not yet branched)* | ⬜ New — found while measuring Module 37 on 2026-09-10. The two indexes disagree in **both** directions; Module 37 covers the half that serves dead ids, this covers the half that silently drops live ones from BM25. **Non-destructive**, unlike 37 — nothing is served wrongly, some chunks are simply invisible to the keyword arm of hybrid retrieval. Cost unmeasured: establish which documents the 790 belong to and whether any gold question needs them before deciding whether to re-index |
 | 27 | Final Gold-32 rerun (Module 18 redo) | `eval/module27-final` | ✅ **Done — 3 passes, 96 question-runs.** FactualCorrectness **0.428 → 0.572 → 0.666**; AnswerRelevancy **0.931**; **19 of 32 pass on all three runs** (20 counting M7, which is correct and mis-scored); **routes stable 32/32**; 0 nulls, 0 timeouts, 0 quota, 0 cutover fallbacks. Result: `docs/gold-qa-wave2-results/MODULE27_RESULT.md` |
 
 ### Coverage check — every failing question maps to a module
@@ -3870,6 +3871,67 @@ things is true, with evidence, and only then decide what to change:
 
 Plan for **31, not 32**: KB2 is the one that may not come, and saying so now is
 better than discovering it in the final rerun.
+
+---
+
+# Module 37 — the orphaned rows are load-bearing ⬜
+
+Filed by Module 30 as index hygiene and left in the no-score-impact pile for
+most of this wave. **Module 82 disproved that**, live and by chunk id.
+
+## What is actually wrong
+
+`chunk_fulltext` is the BM25 half of hybrid retrieval. It holds rows whose
+`chunk_id` no longer exists in Chroma. BM25 still ranks them, retrieval still
+hands them on, `get_by_ids()` returns **nothing** for them, and the model is
+handed a citation marker pointing at an empty chunk.
+
+Measured 2026-09-10, directly against both stores:
+
+| | |
+|---|---|
+| `chunk_fulltext` rows for the legal PDFs | 9,172 |
+| Chroma `muhafiz_kb` ids | 7,716 |
+| **orphans — in BM25, absent from Chroma** | **2,246** |
+| — of those, the CrPC PDF | 2,243 |
+| — of those, leftover test documents | 3 |
+| **in Chroma, absent from BM25** | **790** -> Module 99 |
+
+The CrPC document was evidently re-chunked at some point and the BM25 index
+kept the old ids. 4,820 CrPC rows are indexed; only 2,577 of them resolve.
+
+## The cost, measured on a gold question
+
+Module 82, on KB2: **2 of the 5 chunks in the window are orphans**, returning
+nothing from `get_by_ids()` on 3 of 3 runs — and the answer's **lead citation
+is one of them on 3 of 3**. It concludes *"it is not a data gap; the system
+does maintain such records"*, which is the opposite of gold on the facts. KB2
+scores **0.00 on all three of Module 27's passes**.
+
+So this is very likely KB2's real fix, and KB2 was the question the plan had
+already written off (Module 96).
+
+## Approved scope and timing
+
+**Scope — orphans only.** Back the 2,246 rows up to a committed file first,
+then delete them. Minimal, reversible, and aimed exactly at the defect. A full
+re-index would also close Module 99 but re-runs ingestion across the whole legal
+corpus and changes retrieval for every KB question at once; that is a bigger
+blast radius than this defect justifies.
+
+**Timing — after the live tracks land.** Modules 83/70, 92, 89 and 64 are all
+running live measurements against this shared store. Changing it mid-flight
+would silently void their baselines and regression controls — the exact failure
+mode that has already cost this programme two full evaluation runs.
+
+## Required verification
+
+- KB2 before and after, several runs, with the window chunk ids captured each
+  time — the fix is proven by *which chunks are served*, not only by the score.
+- The all-32 regression control. Removing rows from the BM25 index changes
+  hybrid ranking for **every** RAG question, so this is broad by construction
+  and a silent regression here would be easy to miss.
+- Confirm the 3 test documents are genuinely test leftovers before deleting.
 
 ---
 
