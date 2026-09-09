@@ -142,6 +142,7 @@ several can run in parallel chats/worktrees without colliding.
 | 97 | **Gold's own wording loses the provision its paraphrase retrieves** — the same split on two independent questions, one layer below Module 92's router finding | *(not yet branched)* | ⬜ **New — measured by Module 82/85 on `main` @ `6cf89fb`, shared Chroma, reranker live, 3 runs each, `route=RAG` on all twelve.** KB2's QSO Art. 38 `2_qanun-e-shahadat-order-1984_pdf_3e604153_c176`: **0 of 3** for gold's literal text, **3 of 3** for a Roman-Urdu paraphrase. Art. 39 `…_c177`: 0 of 3 vs 3 of 3. KB4's rule 27.16(1) chunk `4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209`: **0 of 3** vs **3 of 3**. Module 65 measured KB2's Art. 38 at 3/3 and Module 38 measured KB4's `…_c2209` at 3/3 — both against **private** Chroma copies on earlier merge-bases; neither reproduces here for the gold question and both do for a paraphrase, same build, same store, same session. Book selection still works (KB2's hypothesis names the Qanun-e-Shahadat and uses its verb *"shall not be proved"*); what varies is the section number and surrounding wording, and Module 65 §7a already measured that variation alone flipping an outcome on an unchanged prompt. The window is not deterministic either — a control run on the same question and same code returned `…_c2209` at position 2. **This is Module 92's shape one layer down**: the route is identical and the *retrieval window* is what the paraphrase changes, so the narrow-neighbourhood problem is not confined to `router.py`. Owner needs `src/retrieval/` and/or `prompts/statute_hypothesis.txt`; probes exist (`scripts/module65_probe.py` for rank-by-query, `scripts/module82_window_probe.py` for text-by-id, read-only) |
 | 99 | **790 Chroma chunks are unreachable by keyword search** — present in `muhafiz_kb`, absent from `chunk_fulltext` | *(not yet branched)* | ⬜ New — found while measuring Module 37 on 2026-09-10. The two indexes disagree in **both** directions; Module 37 covers the half that serves dead ids, this covers the half that silently drops live ones from BM25. **Non-destructive**, unlike 37 — nothing is served wrongly, some chunks are simply invisible to the keyword arm of hybrid retrieval. Cost unmeasured: establish which documents the 790 belong to and whether any gold question needs them before deciding whether to re-index |
 | 100 | `xagg.py::_is_officer_role_pair_comparison()` (KB3's family) rejects ordinary rewordings — the capability is reachable only from a narrow neighbourhood of KB3's gold wording | *(not yet branched)* | ⬜ New — found by Module 89 while probing its own dispatch boundaries; measured offline against `resolve_aggregate_kind()` and **identical on `origin/main` and on `fix/kb1-data-half-plan`**, so it is pre-existing and not caused here. KB3's own gold text resolves to `officer_role_pair_overlap`. Three ordinary rewordings do not: *"Is the officer who registers a case normally the one who investigates it?"* → `station_or_category_counts` (a generic station/category group-by), *"Is the registering officer usually the investigating officer?"* → `unsupported_officer`, *"Does the same officer both register and investigate our cases?"* → `station_or_category_counts` **and fires no RAG plan either**. The first two fail on the THIRD signal alone (`_OFFICER_ROLE_SAMENESS_TERMS`): both name both roles, and both express sameness with *"the one who"* / *"usually the"*, which is not a listed token. **This is the XAGG-side twin of the widening Modules 74 and 77 each applied to the RAG-side plan patterns** — `rag.py`'s `officer_role_pair` entry matches the first two of these; `xagg.py`'s predicate does not. It matters because Modules 65/74/78 all measured KB3's ACTUAL route as XNETWORK/XAGG rather than RAG, so the predicate that never got widened is the one that actually runs. Same family as Module 92 (a capability reachable only near the gold wording), one layer down. Not fixed by Module 89: `_OFFICER_ROLE_SAMENESS_TERMS` is Module 74's and widening it needs that module's all-32 control re-run |
+| 101 | **KB9's composed answer is rejected by the grounding verifier 2 runs in 3, AFTER its aggregate has already returned gold's figure** | *(not yet branched)* | ⬜ New — filed 2026-09-10 from Module 78's committed `module78_runs.json`. This is Module 85's defect, **reproducing on the question Module 85 did not test**: 85 measured KB4, found zero rejections, and closed. On KB9 the run record shows `status=error`, `route=RAG`, `transport_ok=True`, `error=None`, `quota_lines=[]`, the plan fired (`death_investigation_charging` / `fir_section_case_count`, 829 chars), the aggregate logged `focus=302 -> 10 FIR(s)` — **corrected gold's exact figure** — the relevance evaluator returned `relevant=True`, and the served answer is the verifier's refusal string: *"The generated answer could not be verified as grounded in the retrieved documents."* Nothing failed except the check |
 | 27 | Final Gold-32 rerun (Module 18 redo) | `eval/module27-final` | ✅ **Done — 3 passes, 96 question-runs.** FactualCorrectness **0.428 → 0.572 → 0.666**; AnswerRelevancy **0.931**; **19 of 32 pass on all three runs** (20 counting M7, which is correct and mis-scored); **routes stable 32/32**; 0 nulls, 0 timeouts, 0 quota, 0 cutover fallbacks. Result: `docs/gold-qa-wave2-results/MODULE27_RESULT.md` |
 
 ### Coverage check — every failing question maps to a module
@@ -4034,6 +4035,67 @@ mode that has already cost this programme two full evaluation runs.
   hybrid ranking for **every** RAG question, so this is broad by construction
   and a silent regression here would be easy to miss.
 - Confirm the 3 test documents are genuinely test leftovers before deleting.
+
+---
+
+# Module 101 — the verifier rejects an answer built from a figure it was handed ⬜
+
+**KB9 scores 0.40 under Module 87's judge and fails 2 live runs in 3** — not
+because anything was wrong, but because the grounding verifier refused an
+answer whose second half was **computed** rather than retrieved.
+
+## The run record, from Module 78's committed artefacts
+
+`docs/gold-qa-wave2-results/module78_runs.json`, KB9, arm `after`:
+
+| field | value |
+|---|---|
+| `route` | `RAG` |
+| `status` | **`error`** |
+| `transport_ok` | `True` |
+| `error` | `None` |
+| `quota_lines` | `[]` |
+| `data_half_answered` | `death_investigation_charging` / `fir_section_case_count`, 829 chars |
+| `xagg_log_lines` | `fir_section_case_count: 218 section entr(ies) over 73 FIR(s) … focus=302 -> 10 FIR(s)` |
+| `evaluator_verdicts` | `relevant=True` |
+| `actual_answer` | *"The generated answer could not be verified as grounded in the retrieved documents."* |
+
+Every stage worked. Routing reached RAG (Module 78), the plan fired, the
+aggregate returned **10 FIRs citing PPC §302** — exactly the figure KB9's gold
+was corrected to — and the relevance evaluator passed it. The only thing that
+failed is the check at the end, and it replaced the whole answer with its own
+refusal string.
+
+## Why Module 85 closed without finding this
+
+Module 85 was scoped to *"the grounding verifier rejects a composed KB answer
+that has already been handed its figure"* and measured it on **KB4**, where the
+whole shipped-code arm carried **zero** rejections across 12 primary and 17
+regression runs. It closed as not-reproducing, and its result file said so
+honestly. **It never ran KB9.** Module 61's warning that the 1-of-3 figure
+should not be treated as fixed was right.
+
+## The mechanism to establish first
+
+A KB data-half answer's second half cites a chunk that `xagg_tool()` composed in
+memory. If `verify_grounding()` only trusts chunks that came from the retriever,
+then **any** composed answer is unverifiable by construction, and every KB
+question with a data-half plan is exposed — the failure just shows up
+intermittently because the verifier is an LLM call.
+
+Establish that before changing anything. Then, in order of preference:
+
+1. **Make the composed chunk first-class evidence**, so the verifier can ground
+   against it — the aggregate's own rendered text is at least as trustworthy as
+   a retrieved chunk, being machine-derived from the graph.
+2. If that is not possible, scope the verifier so it does not adjudicate the
+   composed half.
+
+**Do NOT simply disable the verifier or downgrade its refusal to a warning.**
+Module 82 measured it rejecting genuine hallucinations three separate ways —
+invented `rule 27.41(3)`, an invented FIR number, a fabricated "fully
+compliant" claim, and a fabricated negative on CR3 — and those rejections are
+load-bearing. The bug is the false positive, not the check.
 
 ---
 
