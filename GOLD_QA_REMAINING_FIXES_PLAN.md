@@ -136,7 +136,7 @@ several can run in parallel chats/worktrees without colliding.
 | 89 | **KB1 (0.30 ×3)** — a compound KB question with no data-half plan: it answers the law and says the documents cannot say whether our recordkeeping follows it | `fix/kb1-data-half-plan` | ✅ **Done — the filed diagnosis was right, and the brief's coverage table reproduced exactly.** Re-derived against `evidence_graph` before any code: **73** cases, complainant **73/73**, recording officer **70/73** (`fir-117-26`, `fir-954-26`, `fir-955-26`), report timestamp **64/73** (9 missing) — the corrected gold (PR #57) is reproduced exactly and is **not** challenged. **One correction to the brief's schema sketch:** `INVOLVED_IN` runs **Person→Incident**, not Person→Case; written as filed the query returns **0**, and the case is reached via `[:PART_OF]`. `complainant_cms` (4 edges, CR6's walk-in record) is deliberately excluded. There was **no aggregate producing these figures**, so this is Modules 74/75/76 + 77 in one: a new **`fir_register_completeness`** aggregate (4 Cypher reads, one shared renderer across all **three** hand-copied XAGG rendering sites — Module 91 de-duplicated the placeholder-officer family, not this one), a two-signal `_is_fir_register_completeness()` inserted **immediately above** G1/G2's `case_completeness_scan`, and `_KB_DATA_HALF_PLANS` entry **(7)**, checked **last** because FIR/register vocabulary is the broadest in that tuple. Gold's value is the honest *"mostly, with these gaps"*, so the renderer states the verdict, both gap lists, the 61/73 intersection, **and** the two s.154 steps (read back, signed) that have **no field at all** — reported as *unmodelled*, not *missing*. **The all-32 dispatch equality control is byte-identical: 0 of the 32 move**, and `resolves_to_specific_aggregate()` is identical main-vs-branch too, so nothing leaked into routing (`router.py`/`supervisor.py` untouched). The plan table moves **exactly one** question. Three first-draft over-matches (D1, CR6, G5 — G5's Roman-Urdu gold says *"record keeping"* about a **weapons** register) were caught **by** that control and are each pinned. Live on :8089: KB1 **RAG 3/3, plan fired 3/3, both halves composed 3/3**, answers byte-identical, every gold figure present; pre-fix was equally deterministic and carried **no figure at all**. Pre-registered paraphrases (committed before the first run): **3 of 4 route RAG and fire the plan 2/2 each**, including Roman-Urdu and Urdu-script; the fourth is intercepted by Module 15's CR6 override — **Module 93 reproduced live on a second paraphrase**, RAG-side already closed. One pattern was widened **after** a pre-registered paraphrase missed, not before (Module 56's finding for the fifth time). Regression **12 questions live, 0 route changes attributable here** (KB3/KB9 XNETWORK/XAGG→RAG are **Module 78's**, and KB3/KB9 now fire Module 77's plans and Modules 74/76's aggregates — first live confirmation the 74→77→78 chain composes). Unit **23 fail before / 32 pass after**. **0 quota lines over 25 live runs.** New defect **100**. Result: `docs/gold-qa-wave2-results/MODULE89_RESULT.md` |
 | 90 | **M1 (0.40/0.70/0.40, 1-of-3)** — answered ACT-level counts where gold asserts SECTION-level | `fix/m1-cp6-detail-loss` | ✅ **Done (PR #60).** `_statute_mix_by_year()` now also reads `StructuredRecord{record_type:'fir_section'}` — the identical query Modules 23/24/76 issue — de-duplicated per case, adding `section_counts` and `case_count` alongside the unchanged act grain; it reproduces **every figure gold names, both years**. The *"reports only 2026"* half of this row was **wrong**: all three captured passes contain an explicit 2024 block. The *"PPC (Preventive Detention and Control Act)"* gloss is a **model invention** — that phrase exists nowhere in the repo — closed by spelling the acts out in the evidence. Regression: all 32 through `run_aggregate()` + renderers, main vs branch, **exactly one output differs and it is M1**. Corpus holds **218** `fir_section` rows in total (an earlier note citing 273/979 was wrong). Result: `docs/gold-qa-wave2-results/MODULE90_91_RESULT.md` |
 | 91 | **CP6 (0.30 ×3)** — the code defect did NOT reproduce; **gold was wrong and was corrected instead** | `fix/m1-cp6-detail-loss` | ✅ **Done (PR #60), with no behavioural change.** The three-way measurement came back clean: aggregate right (10 current / 11 ever / 7 ASI / 3 SI), renderer emits the split, and re-run live the answer **keeps** it 5/5 local and 3/3 cloud on code byte-identical to the evaluation commit — the drop was model behaviour on the day. The real defect was gold asserting 11, fixed by PR #57 (one case, `fir-205-26`, has since been assigned a real officer). The obvious hardening was implemented, measured at **0/5 local and 0/3 cloud** — a headline bullet gives the model something to answer *"kitne"* with and stop — and **reverted**. Ships a de-duplication of three hand-copied renderings with byte-identical output, plus two regression pins |
-| 92 | **Non-English paraphrases lose their route.** A capability is reachable only from a narrow neighbourhood of the gold wording — fourth independent sighting (62 CR3/G6, 78 KB3/KB9, 88 CR2, and now measured across the board) | *(not yet branched)* | ⬜ **Scoped, with evidence.** Measured offline by `docs/gold-qa-wave2-results/module92_override_survival_probe.py` (no backend needed): over 8 questions that all take a deterministic `XAGG` override at their gold wording, an English paraphrase keeps it **5 of 8** and a Roman-Urdu paraphrase keeps it **0 of 8**. Every one of those 8 falls through to the local Qwen3-14B classifier that `router.py`'s own module comment (~line 42) records as unreliable. **The fix is NOT a fourth round of gold-specific regexes** — three waves of those are exactly how the debt accumulated |
+| 92 | **Non-English paraphrases lose their route.** A capability is reachable only from a narrow neighbourhood of the gold wording — fourth independent sighting (62 CR3/G6, 78 KB3/KB9, 88 CR2) | `fix/router-language-generalisation` | 🔶 **Measured in full; the defect is NOT fixed, and that is the reported result.** Built a committed 96-paraphrase corpus (one en, one roman-ur, one ur per gold question, all written before any run) plus `evaluation/router_paraphrase_harness.py`. **The plan’s own framing was too narrow**: the probe’s 5/8-vs-0/8 scores the REGEX layer alone, which over 96 paraphrases is weak in every language (en 19%, ru 25%, ur 25%); the shipped router recovers to **55/96 (en 59% / ru 50% / ur 62%)**, a 9-point gap, not total failure. All three directions measured: e5 kNN **42/96** (cross-lingual but not discriminative — unrelated questions also sit at ~0.85), translate-to-English **62/96** (inverts the gap), compact prompt on the **cloud** model **66/96 and flat at 69%/69%/69%** — the only design reaching parity, and **no design gets past ~69%**. **Direction 1 is blocked on quota, not code**: router.txt is **13,003 tokens against Groq’s 8,000 per-request cap** (hard 413), and Gemini’s pool is one 429 key + three 401 keys. **The key finding: route accuracy is NOT a proxy for answer quality** — the compact prompt on LOCAL scored 55→61/96 with nothing regressing, then end-to-end turned CR3’s and G6’s answers into RAG abstentions and sent G6’s English paraphrase to DIRECT, which fabricated an ungrounded note; it did **not** ship. **Shipped instead:** `cloud_system_prompt` on `call_llm_json()` + `prompts/router_compact.txt`, repairing an escalation path that had been silently 413-ing for weeks (before: 413→Gemini 429→`result=None`; after: `route=XAGG` in 0.7 s). **Local path byte-identical on all 32 gold × all 8 routing fields.** **CR2’s ru/ur paraphrases still route XGRAPH — Module 88’s symptom is NOT closed**, nor is Module 62’s. New defects **98–102**. Result: `docs/gold-qa-wave2-results/MODULE92_RESULT.md` |
 | 95 | **G2 and G5 produce fluent briefings that name DIFFERENT findings from the ones their gold answers name** — not hallucination, not refusal: wrong evidence selected | `fix/g2-g5-finding-coverage` | ✅ **Done (PR pending).** The original *"passes by a hair"* framing was superseded by Module 87's re-judge of Module 27's **frozen** answers (system held constant): G2 **0.5/0.5/0.5 → 0.3/0.3/0.3**, G5 **0.5/0.6/0.6 → 0.4/0.4/0.4**, both for coverage. Phase 1 established that **4 of the 6 gold findings were not computable at all** — `psrms.fir.station_departure_datetime` (FIR form field 6, populated on 44 of 73) was read by **no line of this codebase**, `fir_zimni.entry_type` is never projected, and two findings are statements about the SCHEMA's shape that no aggregate could express. **Every gold figure reproduces exactly** against the recorded API snapshot — 9 missing incident dates, 188 of 259 untyped zimni entries, **13 of 73** departure-before-report contradictions, 30 of 32 (94%) unlicensed — so this is a code fix and **not** a sixth gold correction. Fix: one projection field + two counts, a Module-22-style MATCH-only backfill, and both existing scans deepened; **no new aggregate kind and not one line of `resolve_aggregate_kind()` touched**, so all 32 dispatches are unchanged by construction. Finding coverage, measured on the evidence each finding rests on rather than on wording: G2 **1/3 → 3/3** and G5 **1/3 → 3/3**, three gold-wording runs each plus 6 pre-registered paraphrases. Result: `docs/gold-qa-wave2-results/MODULE95_RESULT.md` |
 | 95b | **CP1 (was 1.0 / 0.5 / 0.9)** — the third question in the original row 95 | *(no module needed)* | ✅ **Closed by measurement, not by a fix.** Module 87's re-judge scored CP1 **1.0 / 1.0 / 1.0**. The "one unlucky draw" framing was right about the mechanism and wrong about which question it threatened: G2 and G5 were flat failures on every pass, and CP1 needed nothing |
 | 96 | **KB2 is the last gold question with no module** — 0.00 on all three passes, AnswerRelevancy 1.00 | *(not yet branched)* | ⬜ New — diagnosis first, fix second. Gold is *"no, that's by design"*: an assertion about what the schema deliberately does NOT hold (Qanun-e-Shahadat Arts. 38/39, CrPC s.162 make police-recorded statements unusable, so only witness identity is stored). Module 39 excluded it from `_KB_DATA_HALF_PLANS` as a "schema claim, not a count" — correct for KB2, unlike KB1. FC 0.00 with AR 1.00 usually means fluent and wrong. **Decide which of three it is before writing code**: our answer is wrong, gold is wrong, or the judge cannot score a correct negative |
@@ -3797,63 +3797,95 @@ answer does not make it. Filed as a known gap, not taken by Module 91.
 
 ---
 
-# Module 92 — the router generalises in English and not at all in Roman-Urdu ⬜
+# Module 92 — the router generalises unevenly across languages 🔶 partially closed
 
-Three modules have now each found the same thing on their own question and
-filed it as a one-off: **Module 62** (CR3/G6), **Module 78** (KB3/KB9),
-**Module 88** (CR2). It is not a one-off. It is the router's design working as
-built.
+**Branch:** `fix/router-language-generalisation` ·
+**Result:** `docs/gold-qa-wave2-results/MODULE92_RESULT.md`
 
-## How the router decides
+Three modules each found the same thing on their own question and filed it as a
+one-off: **Module 62** (CR3/G6), **Module 78** (KB3/KB9), **Module 88** (CR2).
+It is not a one-off. It is the router's design working as built.
 
-`route_query()` runs a **deterministic regex pre-classification**
-(`_deterministic_route_override()`) and short-circuits to XAGG/XGRAPH/XNETWORK
-on a match. Anything that does not match falls through to a **local Qwen3-14B
-classifier**, which the file's own comment at ~line 42 records as unreliable on
-novel phrasings — that unreliability is *why* the regex layer exists.
+**Status: the measurement is done and committed; the defect is NOT fixed.**
+What shipped is a latent-path bug fix with a measured zero blast radius. The
+language gap needs a cloud classifier, and that is blocked on quota, not code.
 
-Each Gold-QA module that hit a misroute added patterns for its own question's
-wording. That is why gold itself looks healthy: **20 of 32** gold questions take
-a deterministic override today, spread evenly across languages (en 6/11,
-roman-ur 6/10, ur 8/11) — the Urdu ones matching Urdu regexes added for those
-exact strings.
+## What was measured
 
-## The measurement
+`evaluation/gold32_paraphrases.json` — **96 paraphrases**, one English, one
+Roman-Urdu and one Urdu for each of the 32 gold questions, all written before
+anything was run and none adjusted afterwards.
+`evaluation/router_paraphrase_harness.py` scores any candidate over 32 gold +
+96 paraphrases, by language. Both are committed and reusable.
 
-`docs/gold-qa-wave2-results/module92_override_survival_probe.py`, offline, no
-backend or model server. Eight questions that all take a deterministic `XAGG`
-override at their gold wording, each given one English and one Roman-Urdu
-paraphrase (written before the run, not adjusted after):
+| candidate | gold 32 | paraphrases 96 | en | roman-ur | ur | miss latency |
+|---|---|---|---|---|---|---|
+| deterministic layer only | 28 | 22 (23%) | 19% | 25% | 25% | 0.02 s |
+| **shipped (local Qwen3-14B)** | **29** | **55 (57%)** | **59%** | **50%** | **62%** | 4.25 s |
+| e5 kNN over route exemplars | 28 | 42 (44%) | 34% | 69% | 28% | 1.46 s |
+| compact prompt, local | 29 | 61 (64%) | 69% | 59% | 62% | 5.34 s |
+| translate to English first | 29 | 62 (65%) | 59% | 69% | 66% | 13.22 s |
+| **compact prompt, CLOUD model** | **29** | **66 (69%)** | **69%** | **69%** | **69%** | 14.79 s |
 
-| | keeps gold's route |
-|---|---|
-| English paraphrase | **5 / 8** |
-| Roman-Urdu paraphrase | **0 / 8** |
+**Corrections to this plan's own earlier framing, from the wider sample:**
 
-The English regexes carry *some* generality. The non-English coverage is
-literally per-gold-string, so **every** reworded Urdu or Roman-Urdu question
-lands on the classifier the regex layer was built to avoid. Module 88 saw the
-consequence live: CR2's Urdu paraphrase routes to XGRAPH and asserts *"there is
-no indication that any individual has a prior case record"* — which the graph
-flatly contradicts.
+- The probe's *5/8 vs 0/8* measures the **regex layer alone**. Over 96
+  paraphrases that layer is weak in every language (19/25/25%) — English has no
+  real advantage. The language asymmetry lives in the **classifier**, and there
+  the shipped gap is **9 points** (en 59% vs roman-ur 50%), not total failure.
+- **Only a better MODEL flattens the languages.** Every prompt-side lever
+  raises all three by similar amounts. The cloud arm is the sole design
+  reaching parity — and no design measured gets past ~69%, so roughly **30% of
+  ordinary rewordings are misrouted under all of them**.
+- **Module 78's approach is vindicated by this data**: gating on
+  `_is_legal_kb_intent()` rather than on vocabulary lifted the deterministic
+  layer 10/96 → 22/96 *evenly across all three languages*.
 
-## The anti-goal
+## Why direction 1 could not simply be shipped
 
-**Do not add a fourth round of gold-specific patterns.** Three rounds of those
-are how this debt accumulated, and each one buys exactly one wording. Candidate
-directions, to be measured rather than assumed:
+- `prompts/router.txt` is **13,003 request tokens** against Groq's **8,000**
+  `on_demand` per-request cap — a hard **413**, not a slow call. So
+  `route_query()`'s own `escalate_to_cloud_on_failure=True` had been dead for
+  weeks, failing over to Gemini, whose pool is one 429 key and three 401 keys.
+- With a compact prompt Groq works but sustains only **~2.7 calls/minute** on
+  shared quota. Not viable on the miss path of every query.
 
-1. **A reliable classifier.** Replace or backstop the local Qwen3-14B with a
-   cloud model, the same lever the judge upgrade uses. Simplest; costs a
-   round-trip on the miss path only.
-2. **Normalise before classifying.** Transliterate/translate to English first,
-   so the English patterns and English-competent classification both apply.
-3. **Embedding nearest-neighbour over route exemplars.** The stack already runs
-   multilingual `e5` embeddings, which is what would make this language-agnostic
-   by construction.
+## The finding that matters most
 
-Whatever lands must be measured on **paraphrases in all three languages**, not
-on gold — gold is exactly the set the current design already fits.
+**Route accuracy is not a proxy for answer quality.** The compact prompt on the
+*local* model improved route-match 55→61/96 with **nothing regressing** — and
+end-to-end it turned CR3's and G6's substantive answers into RAG abstentions
+and sent G6's English paraphrase to **DIRECT**, which fabricated an ungrounded
+welcome note. Cause: the compact prompt drops router.txt's `ACTIVE_CASE:`
+block, three of whose entries are gold questions verbatim. **That gold-specific
+prompt debt is load-bearing**, and removing it without a replacement regresses.
+So it did not ship, and any future attempt here must be judged on answers.
+
+## What shipped
+
+`cloud_system_prompt` on `call_llm_json()` (inert for every other caller) and
+`prompts/router_compact.txt` (~2,560 tokens, derived from router.txt, pinned
+against drift by a test). The **local path is untouched**: all 32 gold
+questions, all 8 load-bearing router fields, **byte-identical before and
+after**. Live proof of the fix: before → Groq 413 → Gemini 429 → `result=None`;
+after → `route=XAGG` in 0.7 s. 8 new tests, 6 fail before; 409 tests green.
+
+## Still open, and owned by nobody yet
+
+- **CR2's Roman-Urdu and Urdu paraphrases still route XGRAPH** — Module 88's
+  symptom reproduces before and after. **Module 92 does not close it.** Nor
+  does it close CR3's or G6's (Module 62's). KB3/KB9 were closed by Module 78.
+- Closing the gap needs a paid provider tier or a better local classifier. The
+  code side is now ready: `escalate_to_cloud_on_failure` exists and works.
+
+**New defects filed:** **98** (Gemini pool: one 429 key, three 401 keys, and
+rotation turns a throttle into a hard failure — this also affects
+`gold32_score.py`'s judge), **99** (`_is_legal_kb_intent()` cross-lingual false
+positive on `taqaza`/`تقاضا` + `hamare`/`ہمارے`), **100** (the gold-32 route
+baseline is stale: CR3, G1 and G6 now reach XNETWORK, not the recorded XAGG),
+**101** (the local classifier reproduces only 63/74 of its own prompt's
+few-shot examples), **102** (a router.txt few-shot sets `target_entity` to the
+descriptive phrase its own schema forbids).
 
 ---
 

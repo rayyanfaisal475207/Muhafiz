@@ -1567,3 +1567,231 @@ def test_module78_a_broken_rag_import_leaves_routing_unchanged():
         builtins.__import__ = real_import
         if saved is not None:
             sys.modules["src.pipeline.harness.tools.rag"] = saved
+
+
+# ═══════════════════════════════════════════════════════════════════════
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 92] The cloud escalation was dead: the router prompt
+# had outgrown the cloud provider's per-request token cap.
+#
+# Module 92 set out to fix the router's uneven generalisation across English,
+# Roman Urdu and Urdu, measured every candidate design it could, and shipped
+# only the part that survived being judged on ANSWERS rather than on route
+# labels. What survived is this: `route_query()`'s LOCAL path is byte-
+# identical, and its documented `escalate_to_cloud_on_failure=True` safety net
+# — which had been returning HTTP 413 silently for weeks, because
+# prompts/router.txt is 13,003 request tokens against an 8,000 cap — is given
+# a prompt the cloud can actually accept.
+#
+# These tests pin, in order: that the local path did not change (the property
+# the whole decision rests on), that the cloud path did, that the cloud prompt
+# fits, that compression did not lose `secondary_methods`, that the two prompt
+# files cannot drift apart, and that the deterministic fast path is untouched.
+# See MODULE92_RESULT.md §3 for the fails-before/passes-after check.
+# ═══════════════════════════════════════════════════════════════════════
+
+import re as _re92
+
+# Groq `on_demand` per-request token cap for config.GROQ_MODEL, read off a real
+# 413 response's own x-ratelimit-limit-tokens header on 2026-09-09.
+_GROQ_PER_REQUEST_TOKEN_CAP = 8000
+
+
+def _approx_tokens(text: str) -> int:
+    """~4 chars/token. Deliberately crude: the margin guarded here is >2x."""
+    return len(text) // 4
+
+
+@pytest.mark.asyncio
+async def test_module92_local_path_still_sends_router_txt_unchanged(monkeypatch):
+    """
+    THE PROPERTY THE WHOLE CHANGE RESTS ON.
+
+    Module 92 measured sending the compact prompt locally too: route accuracy
+    over 96 paraphrases rose 55 -> 61 with nothing regressing, and then live
+    answers got WORSE (CR3 and G6 fell from substantive XNETWORK answers to
+    RAG abstentions; G6's English paraphrase reached DIRECT and invented an
+    ungrounded note). So local must keep the prompt it had, exactly.
+    """
+    seen = []
+
+    async def fake_call_llm(system_prompt, user_message, **kwargs):
+        seen.append((system_prompt, kwargs.get("force_cloud")))
+        return json.dumps({"route": "RAG", "case_scope": "within_case",
+                           "target_entity": None, "output_format": "chat",
+                           "target_year": None, "confidence": "high",
+                           "reason": "x", "station": None, "district": None})
+
+    monkeypatch.setattr(router, "call_llm", fake_call_llm)
+    await router.route_query("why would someone say that")  # no override: LLM path
+    assert seen, "the LLM classification path was never reached"
+    local_prompt, forced_cloud = seen[0]
+    assert forced_cloud is not True
+    assert local_prompt == router._SYSTEM_PROMPT
+    assert local_prompt != router._CLOUD_SYSTEM_PROMPT
+
+
+@pytest.mark.asyncio
+async def test_module92_cloud_escalation_uses_the_compact_prompt(monkeypatch):
+    """
+    The change itself, observed where it happens: when local has failed every
+    attempt and call_llm_json escalates, the request that goes out carries the
+    compact prompt, not the 13k-token one that would 413.
+    """
+    seen = []
+
+    async def fake_call_llm(system_prompt, user_message, **kwargs):
+        seen.append((system_prompt, kwargs.get("force_cloud")))
+        if kwargs.get("force_cloud"):
+            return json.dumps({"route": "XAGG", "case_scope": "cross_case",
+                               "target_entity": None, "output_format": "chat",
+                               "target_year": None, "confidence": "high",
+                               "reason": "x", "station": None, "district": None})
+        return "I'm not sure what you mean — could you clarify?"  # unusable, every local attempt
+
+    monkeypatch.setattr(router, "call_llm", fake_call_llm)
+    result = await router.route_query("why would someone say that")
+
+    local_calls = [p for p, forced in seen if not forced]
+    cloud_calls = [p for p, forced in seen if forced]
+    assert local_calls, "expected local attempts first"
+    assert all(p == router._SYSTEM_PROMPT for p in local_calls)
+    assert cloud_calls, "escalation never fired"
+    assert all(p == router._CLOUD_SYSTEM_PROMPT for p in cloud_calls)
+    # And the escalation's result is actually used, rather than dropped into
+    # the low-confidence RAG default this whole path exists to avoid.
+    assert result["route"] == "XAGG"
+
+
+def test_module92_cloud_prompt_fits_the_provider_request_cap():
+    """
+    The measurement that made this a bug rather than a preference: the shipped
+    prompt is over the cap and the cloud prompt is comfortably under it.
+    """
+    budget = _approx_tokens(router._CLOUD_SYSTEM_PROMPT) + 300  # + cloud_max_tokens
+    assert budget < _GROQ_PER_REQUEST_TOKEN_CAP, (
+        f"cloud prompt + reply budget is ~{budget} tokens, over the "
+        f"{_GROQ_PER_REQUEST_TOKEN_CAP} per-request cap — escalation would 413 again"
+    )
+    assert _approx_tokens(router._SYSTEM_PROMPT) > _GROQ_PER_REQUEST_TOKEN_CAP, (
+        "router.txt is no longer over the cap — if it shrank, re-check whether "
+        "this whole split is still needed"
+    )
+
+
+def test_module92_cloud_prompt_states_language_is_not_a_routing_signal():
+    """
+    Module 92's finding is that the same question routes differently in Roman
+    Urdu than in English. The prompt that reaches the more capable model is
+    where the instruction not to do that belongs — and on the cloud model it
+    measured 69% in all three languages, against the local model's 59/50/62.
+    """
+    p = router._CLOUD_SYSTEM_PROMPT
+    assert "LANGUAGE IS NEVER A ROUTING SIGNAL" in p
+    for token in ["kitne", "kaunsa", "tadaad", "dobara", "muqable"]:
+        assert token in p, f"cloud prompt lost the Roman-Urdu cue {token!r}"
+
+
+def test_module92_cloud_prompt_preserves_secondary_methods():
+    """
+    router.py's comments record that the deterministic fast path NEVER
+    populates secondary_methods, so the classification prompt is the only
+    place it can come from, and that dropping a compound question's second
+    half is a real failure mode. Compression must not have compressed it out.
+    """
+    p = router._CLOUD_SYSTEM_PROMPT
+    assert "secondary_methods" in p
+    assert "COMPOUND QUESTIONS" in p
+    compound = [ln for ln in p.splitlines() if "[secondary=" in ln]
+    assert len(compound) >= 5, f"only {len(compound)} compound examples survived"
+    for method in ["SQL", "GRAPH", "XGRAPH", "XAGG"]:
+        assert any(f"secondary={method}" in ln for ln in compound), (
+            f"no compound example teaches secondary_methods=[{method}]"
+        )
+
+
+def _router_txt_examples() -> dict:
+    pairs = _re92.findall(
+        r'^Query:\s*"(.*?)"\s*\nOutput:\s*(\{.*?\})\s*$',
+        router._SYSTEM_PROMPT, _re92.M | _re92.S,
+    )
+    return {q: json.loads(o)["route"] for q, o in pairs}
+
+
+def test_module92_cloud_prompt_does_not_drift_from_router_txt():
+    """
+    THE HAZARD THIS CHANGE CREATES, guarded rather than left to discipline.
+
+    Two prompt files now describe one routing contract. A later module will
+    naturally edit router.txt — the big, well-commented one — and would change
+    nothing about what the cloud path is told. Every example router.txt
+    teaches must still be taught, with the SAME route, by the cloud prompt.
+    """
+    compact = router._CLOUD_SYSTEM_PROMPT
+    examples = _router_txt_examples()
+    missing, disagreeing = [], []
+    for query, route in examples.items():
+        line = f'"{query}" -> '
+        if line not in compact:
+            missing.append(query)
+        elif f"{line}{route}" not in compact:
+            got = compact.split(line, 1)[1].split("\n", 1)[0].split()[0]
+            disagreeing.append((query, route, got))
+    assert not disagreeing, f"cloud prompt contradicts router.txt: {disagreeing}"
+    kept = len(examples) - len(missing)
+    assert kept >= 50, (
+        f"only {kept} of {len(examples)} router.txt examples survive in the "
+        f"cloud prompt; dropped: {missing[:8]}"
+    )
+
+
+def test_module92_deterministic_fast_path_is_untouched():
+    """
+    Module 92 changes only what happens after the local classifier has failed.
+    The overrides are cheap, correct and auditable and stay exactly as they
+    were — pinned so a later reading cannot mistake this module for a licence
+    to loosen them.
+    """
+    assert router._deterministic_route_override(
+        "How many FIRs are currently registered?")["route"] == "XAGG"
+    assert router._deterministic_route_override(
+        "How many FIRs are currently registered?", case_id="FIR-401-26") is None
+    assert router._deterministic_route_override(
+        "What PPC section applies to mobile phone theft?")["route"] == "SQL"
+    # The fast path still never populates secondary_methods — a property
+    # route_query()'s own comments depend on.
+    for q in ["How many FIRs are currently registered?",
+              "What PPC section applies to mobile phone theft?"]:
+        assert "secondary_methods" not in router._deterministic_route_override(q)
+
+
+@pytest.mark.asyncio
+async def test_module92_cloud_system_prompt_defaults_to_no_change():
+    """
+    call_llm_json's new parameter must be inert for every other caller — a
+    shared helper gaining a router-specific behaviour by default would be a
+    much bigger change than the one Module 92 intends.
+    """
+    from src.pipeline.json_extract import call_llm_json
+
+    seen = []
+
+    async def fake_call_llm(system_prompt, user_message, **kwargs):
+        seen.append(system_prompt)
+        if kwargs.get("force_cloud"):
+            return '{"ok": true}'
+        return "not json at all"
+
+    result, _raw = await call_llm_json(
+        system_prompt="THE ONLY PROMPT",
+        user_message="q",
+        max_tokens=100,
+        _call_llm=fake_call_llm,
+        escalate_to_cloud_on_failure=True,
+    )
+    assert result == {"ok": True}
+    assert seen and all(p == "THE ONLY PROMPT" for p in seen), (
+        "omitting cloud_system_prompt must leave both paths on the same prompt"
+    )
