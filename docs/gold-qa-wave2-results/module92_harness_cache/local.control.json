@@ -1,0 +1,372 @@
+{
+ "EX00::DIRECT": {
+  "detail": "llm",
+  "elapsed_s": 10.43,
+  "route": "DIRECT"
+ },
+ "EX01::DIRECT": {
+  "detail": "llm",
+  "elapsed_s": 4.25,
+  "route": "DIRECT"
+ },
+ "EX02::DIRECT": {
+  "detail": "llm",
+  "elapsed_s": 7.55,
+  "route": "DIRECT"
+ },
+ "EX03::DIRECT": {
+  "detail": "llm",
+  "elapsed_s": 12.21,
+  "route": "DIRECT"
+ },
+ "EX04::DIRECT": {
+  "detail": "llm",
+  "elapsed_s": 51.66,
+  "route": "DIRECT"
+ },
+ "EX05::DIRECT": {
+  "detail": "llm",
+  "elapsed_s": 32.67,
+  "route": "DIRECT"
+ },
+ "EX06::SQL": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "SQL"
+ },
+ "EX07::SQL": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "SQL"
+ },
+ "EX08::SQL": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "SQL"
+ },
+ "EX09::RAG": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "EX10::RAG": {
+  "detail": "llm",
+  "elapsed_s": 4.6,
+  "route": "RAG"
+ },
+ "EX11::RAG": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "SQL"
+ },
+ "EX12::RAG": {
+  "detail": "llm",
+  "elapsed_s": 5.16,
+  "route": "RAG"
+ },
+ "EX13::RAG": {
+  "detail": "llm",
+  "elapsed_s": 5.37,
+  "route": "RAG"
+ },
+ "EX14::WEB": {
+  "detail": "llm",
+  "elapsed_s": 3.98,
+  "route": "WEB"
+ },
+ "EX15::WEB": {
+  "detail": "llm",
+  "elapsed_s": 2.81,
+  "route": "WEB"
+ },
+ "EX16::WEB": {
+  "detail": "llm",
+  "elapsed_s": 8.24,
+  "route": "WEB"
+ },
+ "EX17::DIRECT": {
+  "detail": "llm",
+  "elapsed_s": 2.94,
+  "route": "DIRECT"
+ },
+ "EX18::DIRECT": {
+  "detail": "llm",
+  "elapsed_s": 17.51,
+  "route": "DIRECT"
+ },
+ "EX19::DIRECT": {
+  "detail": "llm",
+  "elapsed_s": 6.21,
+  "route": "DIRECT"
+ },
+ "EX20::DIRECT": {
+  "detail": "llm",
+  "elapsed_s": 13.23,
+  "route": "DIRECT"
+ },
+ "EX21::SQL": {
+  "detail": "llm",
+  "elapsed_s": 7.22,
+  "route": "SQL"
+ },
+ "EX22::SQL": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "SQL"
+ },
+ "EX23::RAG": {
+  "detail": "llm",
+  "elapsed_s": 5.24,
+  "route": "RAG"
+ },
+ "EX24::DIRECT": {
+  "detail": "llm",
+  "elapsed_s": 3.26,
+  "route": "DIRECT"
+ },
+ "EX25::SQL": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "SQL"
+ },
+ "EX26::GRAPH_HYBRID": {
+  "detail": "llm",
+  "elapsed_s": 4.74,
+  "route": "GRAPH_HYBRID"
+ },
+ "EX27::GRAPH_HYBRID": {
+  "detail": "llm",
+  "elapsed_s": 11.9,
+  "route": "GRAPH_HYBRID"
+ },
+ "EX28::GRAPH_HYBRID": {
+  "detail": "llm",
+  "elapsed_s": 53.83,
+  "route": "XGRAPH"
+ },
+ "EX29::GRAPH_HYBRID": {
+  "detail": "llm",
+  "elapsed_s": 37.57,
+  "route": "RAG"
+ },
+ "EX30::XGRAPH": {
+  "detail": "llm",
+  "elapsed_s": 16.34,
+  "route": "XGRAPH"
+ },
+ "EX31::RAG": {
+  "detail": "llm",
+  "elapsed_s": 5.22,
+  "route": "RAG"
+ },
+ "EX32::GRAPH_HYBRID": {
+  "detail": "llm",
+  "elapsed_s": 5.32,
+  "route": "XGRAPH"
+ },
+ "EX33::GRAPH": {
+  "detail": "llm",
+  "elapsed_s": 3.4,
+  "route": "DIRECT"
+ },
+ "EX34::GRAPH": {
+  "detail": "llm",
+  "elapsed_s": 4.8,
+  "route": "XGRAPH"
+ },
+ "EX35::GRAPH": {
+  "detail": "llm",
+  "elapsed_s": 4.46,
+  "route": "XGRAPH"
+ },
+ "EX36::GRAPH": {
+  "detail": "llm",
+  "elapsed_s": 6.1,
+  "route": "GRAPH"
+ },
+ "EX37::GRAPH": {
+  "detail": "llm",
+  "elapsed_s": 3.12,
+  "route": "GRAPH"
+ },
+ "EX38::GRAPH_HYBRID": {
+  "detail": "llm",
+  "elapsed_s": 4.44,
+  "route": "GRAPH_HYBRID"
+ },
+ "EX39::GRAPH_HYBRID": {
+  "detail": "llm",
+  "elapsed_s": 5.07,
+  "route": "GRAPH_HYBRID"
+ },
+ "EX40::XGRAPH": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XGRAPH"
+ },
+ "EX41::XGRAPH": {
+  "detail": "llm",
+  "elapsed_s": 3.67,
+  "route": "XGRAPH"
+ },
+ "EX42::XGRAPH": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XGRAPH"
+ },
+ "EX43::XGRAPH": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XGRAPH"
+ },
+ "EX44::XGRAPH": {
+  "detail": "llm",
+  "elapsed_s": 3.83,
+  "route": "XGRAPH"
+ },
+ "EX45::XGRAPH": {
+  "detail": "llm",
+  "elapsed_s": 10.76,
+  "route": "XGRAPH"
+ },
+ "EX46::XGRAPH": {
+  "detail": "llm",
+  "elapsed_s": 6.64,
+  "route": "XGRAPH"
+ },
+ "EX47::XGRAPH": {
+  "detail": "llm",
+  "elapsed_s": 4.63,
+  "route": "XGRAPH"
+ },
+ "EX48::XAGG": {
+  "detail": "llm",
+  "elapsed_s": 11.54,
+  "route": "XAGG"
+ },
+ "EX49::XGRAPH": {
+  "detail": "llm",
+  "elapsed_s": 5.84,
+  "route": "XGRAPH"
+ },
+ "EX50::XAGG": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "EX51::XAGG": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "EX52::XAGG": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "EX53::XAGG": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "EX54::XAGG": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "EX55::XAGG": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "EX56::XAGG": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "EX57::XGRAPH": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XGRAPH"
+ },
+ "EX58::XGRAPH": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XGRAPH"
+ },
+ "EX59::XNETWORK": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XNETWORK"
+ },
+ "EX60::XNETWORK": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XNETWORK"
+ },
+ "EX61::GRAPH_HYBRID": {
+  "detail": "llm",
+  "elapsed_s": 5.13,
+  "route": "GRAPH_HYBRID"
+ },
+ "EX62::XNETWORK": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XGRAPH"
+ },
+ "EX63::RAG": {
+  "detail": "llm",
+  "elapsed_s": 4.03,
+  "route": "RAG"
+ },
+ "EX64::SQL": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "SQL"
+ },
+ "EX65::XAGG": {
+  "detail": "llm",
+  "elapsed_s": 4.2,
+  "route": "XAGG"
+ },
+ "EX66::XAGG": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "EX67::XGRAPH": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XGRAPH"
+ },
+ "EX68::GRAPH": {
+  "detail": "llm",
+  "elapsed_s": 4.79,
+  "route": "GRAPH"
+ },
+ "EX69::SQL": {
+  "detail": "llm",
+  "elapsed_s": 3.61,
+  "route": "SQL"
+ },
+ "EX70::GRAPH": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XGRAPH"
+ },
+ "EX71::GRAPH_HYBRID": {
+  "detail": "llm",
+  "elapsed_s": 4.24,
+  "route": "GRAPH_HYBRID"
+ },
+ "EX72::GRAPH": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "EX73::GRAPH": {
+  "detail": "llm",
+  "elapsed_s": 4.08,
+  "route": "XGRAPH"
+ }
+}

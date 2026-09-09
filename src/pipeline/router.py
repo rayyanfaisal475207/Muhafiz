@@ -34,6 +34,54 @@ logger = logging.getLogger(__name__)
 _PROMPT_PATH = Path(__file__).resolve().parent.parent.parent / "prompts" / "router.txt"
 _SYSTEM_PROMPT = _PROMPT_PATH.read_text(encoding="utf-8")
 
+# [Gold-QA fix — Module 92] The prompt used ONLY when a router classification
+# goes to the cloud. The local path below is untouched and still gets
+# `_SYSTEM_PROMPT`; this exists because the cloud path cannot receive it.
+#
+# THE DEFECT, measured 2026-09-09 against this account's Groq `on_demand`
+# tier, whose per-request cap its own 413 response reports as 8,000 tokens:
+#
+#     "Request too large for model `openai/gpt-oss-120b` ... on tokens per
+#      minute (TPM): Limit 8000, Requested 13003"
+#
+# prompts/router.txt is 13,003 request tokens. It has been over the cap since
+# roughly 2026-08-25 — three rounds of Gold-QA few-shot additions took it from
+# ~9,300 to ~12,300 estimated tokens — so `escalate_to_cloud_on_failure=True`
+# below, this file's documented safety net for "the local model produced no
+# usable JSON three times running", has been returning 413 before the model
+# read a single token, silently, for weeks. The comment further down recording
+# "total request tokens landed at 7802, under the 8000 cap" was a true
+# measurement of a prompt that no longer exists.
+#
+# It fails all the way down: `client.py::_is_payload_too_large()` correctly
+# recognises the 413 and fails over to the other provider, but Gemini on this
+# machine is one key at 429 and three keys at 401 (Module 92's defect list), so
+# the escalation ends in an exception and `route_query()` falls back to the
+# blind low-confidence RAG default at the bottom of this function — the exact
+# outcome the escalation was added to prevent.
+#
+# router_compact.txt carries the same nine route definitions and the same 74
+# few-shot examples, compressed from a JSON object each to one
+# `"query" -> ROUTE [non-default fields]` line. ~2,500 tokens, so a cloud
+# router request is ~2,900 and is accepted — verified live, 2.1 s, no 413.
+#
+# SCOPE, AND WHY IT IS THIS NARROW. Module 92 measured sending this compact
+# prompt on the LOCAL path too. On route accuracy it looked like a clear win
+# (paraphrases keeping their gold route 55/96 -> 61/96, with no gold question
+# and no paraphrase regressing). Judged on ANSWERS it was a net regression:
+# CR3 and G6 stopped reaching XNETWORK and started abstaining from RAG with
+# "no sufficiently relevant documents", and G6's English paraphrase reached
+# DIRECT and invented an ungrounded welcome note — the precise failure
+# router.txt's own DIRECT rule exists to forbid. The cause is identifiable:
+# the compact prompt drops router.txt's trailing `ACTIVE_CASE:` examples,
+# three of which are gold questions verbatim and were doing real work. So the
+# local path keeps the prompt that produces the better answers, the cloud path
+# gets the only prompt it can physically accept, and Module 92's headline
+# finding — that route accuracy is not a proxy for answer quality — is
+# recorded in MODULE92_RESULT.md rather than shipped as a regression.
+_COMPACT_PROMPT_PATH = _PROMPT_PATH.parent / "router_compact.txt"
+_CLOUD_SYSTEM_PROMPT = _COMPACT_PROMPT_PATH.read_text(encoding="utf-8")
+
 _VALID_ROUTES = ["DIRECT", "RAG", "WEB", "SQL", "GRAPH", "GRAPH_HYBRID", "XGRAPH", "XAGG", "XNETWORK"]
 
 # ── Deterministic pre-classification for unambiguous cross-case aggregate/
@@ -1020,6 +1068,11 @@ async def route_query(rewritten_query: str, case_id: str | None = None) -> dict:
             and r["route"].strip().upper() in _VALID_ROUTES
         ),
         schema_hint='"route", "case_scope", "target_entity", "output_format", "target_year", "confidence", "reason", "secondary_methods"',
+        # [Module 92] Cloud-only prompt. The local attempts above still receive
+        # `_SYSTEM_PROMPT` unchanged — see `_CLOUD_SYSTEM_PROMPT`'s comment for
+        # why the cloud path cannot, and for why this is deliberately not
+        # applied to local as well.
+        cloud_system_prompt=_CLOUD_SYSTEM_PROMPT,
         _call_llm=call_llm,
         # Router-specific opt-in (unlike evaluator/query_rewriter, which do
         # NOT set this — see call_llm_json's own docstring for why blanket
