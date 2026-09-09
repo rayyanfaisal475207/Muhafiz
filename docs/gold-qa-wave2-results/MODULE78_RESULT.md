@@ -408,7 +408,7 @@ therefore wins. This is the cost of the "checked last" placement, stated
 plainly: the property that makes this override safe also lets an earlier list
 claim a KB paraphrase. **KB1's own gold text is unaffected** — it says "report
 of a crime", not "complaint" — and still routes RAG. Pinned at its measured
-value in the test rather than removed from the battery; filed as **Module 88**.
+value in the test rather than removed from the battery; filed as **Module 93**.
 
 ### 6.3 Live, on wordings this module never saw
 
@@ -426,7 +426,7 @@ still returns no data half, because `rag.py::_KB_DATA_HALF_PLANS`'
 `officer_role_pair` pattern does not match "writes up an FIR" / "bear that out".
 That is **Module 56's finding for the fourth time** (Modules 56, 74, 77, now
 this one) and it is a *different layer* from the one this module fixes: the
-route is right, the plan's vocabulary is narrow. Filed as **Module 89** rather
+route is right, the plan's vocabulary is narrow. Filed as **Module 94** rather
 than widened here, because widening that pattern without re-running Module 77's
 own all-32 plan-resolution control is exactly the mistake this project keeps
 recording.
@@ -471,7 +471,7 @@ supervisor guard and its `route == "XAGG"` precondition are not modified.
 Numbers to 87 are taken, so these start at 88. Both are left deliberately
 unfixed.
 
-- **Module 88 — Module 15's CR6 pattern claims an ordinary KB1 paraphrase.**
+- **Module 93 — Module 15's CR6 pattern claims an ordinary KB1 paraphrase.**
   *"What rule decides when a written **complaint** has to be turned into a
   formal **FIR**, and do our own records follow it?"* passes `rag.py`'s legal-KB
   gate but is intercepted first by `_XAGG_OVERRIDE_PATTERNS`' `complaint … FIR`
@@ -481,7 +481,7 @@ unfixed.
   not what the law requires), and it needs live measurement of CR6, which this
   module has none of. Pinned at its measured value in
   `test_module78_every_kb_paraphrase_reaches_rag_too`.
-- **Module 89 — `_KB_DATA_HALF_PLANS`' `officer_role_pair` pattern misses a
+- **Module 94 — `_KB_DATA_HALF_PLANS`' `officer_role_pair` pattern misses a
   third KB3 paraphrase.** *"Is the officer who **writes up** an FIR meant to be
   a different person from the one who investigates the case, and do our own
   case records **bear that out** across the whole caseload?"* routes to RAG 3 of
