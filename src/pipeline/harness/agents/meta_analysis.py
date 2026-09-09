@@ -134,6 +134,18 @@ THREE STAGES:
    sub-answer text, by construction, not a shortcut around fetching real
    evidence.
 
+   [Gold-QA fix — Module 71] If that synthesis pass is REJECTED by the
+   verifier, this module no longer returns a bare ABSTAINED (which
+   `cutover.py` renders as `status=error`). It returns `PARTIAL` carrying a
+   deterministic composition of the contributing sub-answers — each of
+   which already passed its own sub-agent's verifier — with a caveat saying
+   the synthesis across them is missing. The rejected text is DROPPED and
+   never served, so "an answer that failed verification is never served"
+   holds unchanged; what is served is the evidence underneath it. Same
+   instinct and deliberately the same shape as `large_scale_aggregate.py`'s
+   raw-aggregate fallback for a rejected paraphrase and Module 53's for a
+   cancelled one. See the branch itself for the full reasoning.
+
    If ALL contributing sub-queries are legitimate EMPTY (nothing found
    anywhere, and nothing genuinely failed either), this module returns
    `EMPTY` with a deterministic templated `answer_text` naming every
@@ -316,14 +328,34 @@ _SYNTHESIS_SYSTEM_PROMPT_TEMPLATE = (
     # This is the same Module 25 verifier-interaction family (M2), and the
     # M2 regression is re-run against this wording — see this module's
     # result file.
-    "Check both of these before you answer:\n"
+    # [Gold-QA fix — Module 71] Rule 2 used to read "every number you state
+    # appears literally in a sub-answer above", and that is exactly the rule
+    # G1's fabricated figure SATISFIED. G1 fans out to five aggregates over
+    # five DIFFERENT populations — 73 cases, 92 accused, 45 property entries
+    # across 28 FIRs, per-accused FIR counts — so a total lifted from one
+    # sub-answer and attached to another's subject passes an "appears
+    # somewhere above" test while being false. Module 61's regression guard
+    # caught the result live: *"the 73-case total for seized property"*, a
+    # number that appears above (it is the corpus case count) but is not
+    # what the seized-property aggregate computed. The rule is therefore
+    # scoped to the DOCUMENT, not the page. `_misattributed_figures()`
+    # measures the same property on the produced answer, so a future
+    # recurrence names itself in the log instead of arriving as a bare
+    # rejection.
+    "Check all three of these before you answer:\n"
     "1. Every sentence that states a fact carries the [Document N] marker of "
     "the sub-answer it came from. An answer that cites no [Document N] at all "
     "is rejected outright as ungrounded, however good it is.\n"
-    "2. Every number you state appears literally in a sub-answer above. Do "
-    "not add up, average, or convert figures into percentages yourself — a "
-    "derived number that appears in no sub-answer is treated as unsupported "
-    "and the whole answer is rejected."
+    "2. Every number you state appears literally in THE SUB-ANSWER YOU CITE "
+    "FOR IT — not merely somewhere above. Each sub-answer counts a different "
+    "population, so a figure belongs only to the document it came from. Never "
+    "carry a total, a denominator or a coverage figure from one [Document N] "
+    "onto a subject described by another: if the sub-answer about one topic "
+    "does not say how many records its finding covers, state the finding "
+    "without a total rather than borrowing one from a different sub-answer.\n"
+    "3. Do not add up, average, or convert figures into percentages "
+    "yourself — a derived number that appears in no sub-answer is treated as "
+    "unsupported and the whole answer is rejected."
 ) + NAME_FIDELITY_RULE
 
 _NO_INFO_SUBANSWER_TEXT = "No information was found for this sub-question."
@@ -717,11 +749,22 @@ _DECOMPOSITION_PLANS: tuple[_DecompositionPlan, ...] = (
             "dominates, what the seized-property register shows was done with the items, "
             "what time of day incidents actually happen, and any accused recurring across "
             "more than one FIR — with the exact counts from the sub-answers. Where a "
-            "sub-answer states how much of the caseload its figure is based on, carry "
-            "that coverage across too: a profile drawn from a minority of records is a "
-            "finding about the records as much as about the crime. Do not pad with "
-            "routine observations, and do not assert anything the sub-answers do not "
-            "contain."
+            "sub-answer states how much of the caseload ITS OWN figure is based on, "
+            "carry that coverage across with it, onto that finding and no other: a "
+            "profile drawn from a minority of records is a finding about the records "
+            "as much as about the crime. "
+            # [Gold-QA fix — Module 71] The sentence above used to end at
+            # "carry that coverage across too", and the five sub-answers it
+            # is spoken over report on five different populations. A live
+            # run read it as licence to give the seized-property finding the
+            # caseload's own 73-case denominator, which no sub-answer states
+            # and the verifier correctly refused. The coverage figure travels
+            # WITH its finding or not at all.
+            "Each of these findings counts a different set of records, so never give "
+            "one finding another's total: if a sub-answer does not say how many "
+            "records its figure covers, report the figure without a denominator. "
+            "Do not pad with routine observations, and do not assert anything the "
+            "sub-answers do not contain."
         ),
     ),
 )
@@ -985,10 +1028,165 @@ def _pseudo_chunk(index: int, sub_query: str, text: str, *, exhaustive: bool = F
     }
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 71] Per-document figure provenance.
+#
+# THE DEFECT. Module 61's regression guard measured 1 of 3 live G1 runs
+# returning `status=error` on
+#
+#     "Two claims lack explicit support in the cited chunks: the alleged
+#      data discrepancy and the 73-case total for seized property."
+#
+# The verifier was RIGHT — no sub-answer states a 73-case total for seized
+# property (Module 33/39 computed 45 property entries across 28 FIRs) — so
+# the defect is on the GENERATION side. 73 is the corpus case count, stated
+# by a SIBLING sub-answer, and the synthesis blended it across denominators.
+#
+# WHY THE EXISTING PROMPT RULE COULD NOT CATCH IT. The old rule 2 asked for
+# a number that "appears literally in a sub-answer above". 73 does. Every
+# G1 sub-query is phrased "How many cases … across all cases?", so five
+# sub-answers each open with a count over a DIFFERENT population and the
+# page as a whole offers a menu of plausible-looking totals.
+#
+# WHAT THIS ADDS. `_misattributed_figures()` measures the borrow directly
+# on the produced answer — deterministically, here, not by asking a model —
+# so the mechanism is observable live instead of merely hypothesised, and a
+# recurrence names the figure and the document it was attached to rather
+# than arriving as a bare rejection. It is OBSERVATION ONLY; the prompt
+# rules above are what try to prevent the borrow.
+#
+# A third piece was built here and DELETED: a per-document figure roster
+# printed under each sub-answer. It cost G6 a live regression and bought no
+# measured benefit — see `_format_subanswers_for_prompt()`.
+#
+# Digits are matched in ASCII, Arabic-Indic (٠-٩) and Extended Arabic-Indic
+# (۰-۹) form and normalised to ASCII before comparison, because a sub-answer
+# generated in Urdu renders its counts in the latter two.
+_DIGIT_MAP = {
+    **{ord("٠") + i: str(i) for i in range(10)},  # ٠-٩
+    **{ord("۰") + i: str(i) for i in range(10)},  # ۰-۹
+}
+_FIGURE_RE = re.compile(r"[0-9٠-٩۰-۹]+(?:[.,][0-9٠-٩۰-۹]+)*")
+# An IDENTIFIER is not a figure. Measured, not assumed: run offline against
+# the eleven pre-fix live G1 answers then captured by
+# `scripts/module71_live_runs.py`, the first draft of this rule flagged
+# `24` and `64` on three of them — both lifted out of
+# `fir-891-24` / `fir-64-26` in the recurring-accused sub-answer, where
+# they are case numbers and mean nothing arithmetically. A whitespace-
+# delimited token is dropped whole when it shows any of:
+#   * a letter (Latin or Urdu) bonded to a digit by `-`/`_`  -> fir-64-26,
+#     CMS-ISB-2026-0341
+#   * a digit bonded to a digit by `/` or `:`                -> 64/26,
+#     18:00-23:59
+#   * three or more `-`/`_`-joined numeric groups            -> 2026-09-09
+# A two-group range like `24-49` is NOT an identifier and survives, because
+# an age range genuinely states both of its ends. Nor is a hyphenated
+# COMPOUND — `73-case`, `24-year-old` — which is why the letter must come
+# BEFORE the digit: the live rejection reads *"the 73-case total"*, and a
+# rule that read that as an identifier would discard the one number this
+# module exists to catch (it did, on the first draft; the test below pins
+# it).
+_IDENTIFIER_RE = re.compile(
+    r"\S*(?:[A-Za-z؀-ۿ][-_]\d|\d[/:]\d|\d[-_]\d+[-_]\d)\S*"
+)
+# Below this, a bare number is ordinal/structural noise ("the 2 records",
+# list bullets, "1-based") rather than a computed figure, and treating it
+# as one would make the detector fire on prose. Measured against G1's five
+# live sub-answers, whose every real figure is >= 4.
+_FIGURE_MIN = 4
+
+
+def _normalise_digits(text: str) -> str:
+    return text.translate(_DIGIT_MAP)
+
+
+def figures_in(text: str) -> list[str]:
+    """Every figure a text states, normalised to ASCII digits, in order of
+    first appearance and de-duplicated. `1,234` and `31.5` are single
+    figures; `1,234` also contributes its comma-stripped form so a
+    synthesis restating it as `1234` is not read as an invention.
+    Identifiers (`fir-64-26`, `CMS-ISB-2026-0341`, `18:00-23:59`) are not
+    figures and are removed before extraction — see `_IDENTIFIER_RE`."""
+    out: list[str] = []
+    cleaned = _IDENTIFIER_RE.sub(" ", _normalise_digits(text or ""))
+    for raw in _FIGURE_RE.findall(cleaned):
+        for form in (raw, raw.replace(",", "")):
+            stripped = form.rstrip(".,")
+            if not stripped or stripped in out:
+                continue
+            try:
+                if float(stripped.replace(",", "")) < _FIGURE_MIN:
+                    continue
+            except ValueError:
+                continue
+            out.append(stripped)
+    return out
+
+
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?۔])\s+|\n+")
+_DOC_MARKER_RE = re.compile(r"\[Document\s+(\d+)\]", re.IGNORECASE)
+
+
+def _misattributed_figures(answer: str, entries: list[tuple[str, str]]) -> list[tuple[str, int]]:
+    """Figures the synthesis attached to a document that does not state
+    them, but that a SIBLING document does — the exact shape of "the
+    73-case total for seized property".
+
+    Returns `[(figure, document_index), ...]` for the cited document. A
+    sentence citing no document, or a figure no sub-answer states at all, is
+    NOT reported here: the first is the citation rule's business (rule 1)
+    and the second is an outright invention the Verifier already catches.
+    This function is deliberately narrow — it names only the cross-document
+    borrow, so a firing is evidence for this module and nothing else.
+
+    OBSERVATION ONLY. Nothing branches on the return value: it is logged,
+    so the mechanism can be counted across live runs. It is explicitly NOT
+    wired into a rejection — a second, stricter gate on top of a verifier
+    that is already correct is what Modules 17/25/40/61 each declined to
+    build, and what this module's brief forbids."""
+    if not answer:
+        return []
+    rosters = {i: set(figures_in(text)) for i, (_sq, text) in enumerate(entries, start=1)}
+    everything = set().union(*rosters.values()) if rosters else set()
+    found: list[tuple[str, int]] = []
+    for sentence in _SENTENCE_SPLIT_RE.split(answer):
+        cited = {int(n) for n in _DOC_MARKER_RE.findall(sentence) if int(n) in rosters}
+        if not cited:
+            continue
+        supported = set().union(*(rosters[i] for i in cited))
+        for figure in figures_in(_DOC_MARKER_RE.sub("", sentence)):
+            if figure in supported or figure not in everything:
+                continue
+            pair = (figure, min(cited))
+            if pair not in found:
+                found.append(pair)
+    return found
+
+
 def _format_subanswers_for_prompt(entries: list[tuple[str, str]]) -> str:
     """`entries` is `[(sub_query, sub_answer_text), ...]`, same order as the
     pseudo-chunks handed to the Verifier — [PRESERVE — design §5] positional
-    correspondence."""
+    correspondence.
+
+    [Module 71] UNCHANGED, and that is a measured decision rather than an
+    omission. This module built and then DELETED a per-document "figure
+    roster" here — a deterministic line under each sub-answer listing the
+    figures it states, so rule 2's "the sub-answer you cite for it" was a
+    lookup rather than a recollection. It reads well and it cost a
+    regression: G6, which shares this prompt, went from **0 rejections in
+    4 pre-fix runs to 3 of 4 and then 7 of 8** with the roster in, every one
+    of them the "cites no [Document N] source at all" refusal Module 29
+    filed and fixed by restating the citation rule AFTER the sub-answers.
+    Five extra lines interleaved into that section put it back. Rewording
+    the roster to stop naming `[Document N]` (Module 25's stray-marker
+    finding) did not recover it — 7 of 8 again — so the cost is the
+    interleaving itself, not the wording.
+
+    The roster bought no measured benefit to set against that: the defect
+    it prevents did not occur in 25 pre-fix G1 runs. `figures_in()` stays,
+    because `_misattributed_figures()` uses it to MEASURE the same property
+    on the produced answer, which costs the prompt nothing. See the result
+    file's §7."""
     parts = []
     for i, (sub_query, text) in enumerate(entries, start=1):
         parts.append(f"[Document {i}] Sub-question: {sub_query}\n{text}")
@@ -1159,6 +1357,18 @@ async def meta_analysis(
             len(exhaustive_flags),
         )
 
+    # [Module 71] Measured on the answer the model actually produced, before
+    # the verifier sees it, so the count is comparable across a passing run
+    # and a rejected one. Observation only — see `_misattributed_figures()`.
+    misattributed = _misattributed_figures(answer, entries)
+    if misattributed:
+        logger.warning(
+            "Meta-Analysis [Module 71]: %d figure(s) attached to a document that "
+            "does not state them, though a sibling sub-answer does: %s",
+            len(misattributed),
+            "; ".join(f"{fig} -> [Document {idx}]" for fig, idx in misattributed),
+        )
+
     verification = await verify_grounding(answer=answer, cited_chunks=pseudo_chunks, case_id="cross_case")
     verifier_passed = bool(verification.get("grounded", False)) and not verification.get("off_topic", False)
 
@@ -1167,12 +1377,62 @@ async def meta_analysis(
             "Meta-Analysis: verifier rejected synthesized answer: %s",
             (verification.get("reason") or "")[:150],
         )
+        # [Gold-QA fix — Module 71] SERVE WHAT WAS COMPUTED.
+        #
+        # Until now this branch returned a bare ABSTAINED, which
+        # `cutover.py` (line ~478: ABSTAINED or `answer_text is None`)
+        # turns into `status=error` — the worst available outcome. Every
+        # contributing sub-answer had already passed its OWN sub-agent's
+        # verifier and validation gate; what failed is the ONE narrative
+        # pass on top of them. Discarding five correct aggregates because
+        # the paragraph joining them over-reached throws away the whole
+        # answer to punish one sentence.
+        #
+        # This is the same instinct, and deliberately the same shape, as
+        # two precedents already in the codebase rather than a third
+        # invention: `large_scale_aggregate.py` serves `raw_summary_text`
+        # when the verifier rejects its paraphrase (see that module's
+        # "VERIFIER-REJECTION STATUS DECISION"), and Module 53 serves the
+        # raw aggregate when a sub-query paraphrase is CANCELLED.
+        #
+        # THE REJECTED TEXT IS NEVER SERVED. `answer` is dropped here and
+        # does not appear in the returned `answer_text`, which is composed
+        # deterministically — no LLM call — from the verified sub-answers
+        # alone. That keeps AGENT_HARNESS_DESIGN's "an answer that failed
+        # verification is NEVER served" intact: what is served is the
+        # evidence, not the rejected synthesis. It is `PARTIAL`, not `OK`,
+        # because the cross-cutting narrative the user asked for is
+        # genuinely missing, and the caveat says so in the user's sight.
+        logger.info(
+            "Meta-Analysis [Module 71]: serving %d verified sub-answer(s) instead "
+            "of erroring out.",
+            len(entries),
+        )
+        fallback_text = "\n\n".join(
+            f"**{sub_query}**\n{text}" for sub_query, text in entries
+        )
+        fallback_caveats = [
+            "The combined answer could not be verified as grounded in the "
+            "sub-answers, so each verified sub-answer is shown as computed, "
+            "without a synthesis across them.",
+            *caveats,
+        ]
         return SubAgentResult(
-            status=SubAgentStatus.ABSTAINED,
-            caveats=[
-                "The synthesized answer could not be verified as grounded in the sub-answers.",
-                *caveats,
+            status=SubAgentStatus.PARTIAL,
+            answer_text=fallback_text,
+            citations=[
+                Citation(
+                    document_index=i,
+                    source_tool=(result.tools_used[0] if result.tools_used else "RAG"),
+                    case_id=None,
+                    source_file=None,
+                    confidence=None,
+                )
+                for i, (_sq, _text, result) in enumerate(contributing, start=1)
             ],
+            tools_used=sorted(tools_used),
+            degraded_from=sorted(degraded_from),
+            caveats=fallback_caveats,
         )
 
     # Validation gate — FULL semantic tier, same reasoning as Cross-Case
