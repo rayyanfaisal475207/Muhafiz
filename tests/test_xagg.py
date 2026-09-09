@@ -1643,9 +1643,10 @@ async def test_module44_m2_lead_carries_both_halves_of_the_question(monkeypatch)
 
 def test_module44_m2_all32_negative_control_equality():
     """All-32 equality control: exactly M2 resolves to the new family. The
-    predicate is `_STATION_TYPE_KEYWORDS`, unchanged by Module 44 — only the
-    kind it returns changed — so this also pins that the re-pointing did not
-    widen the family's reach."""
+    predicate is `_is_station_specialisation()` (Module 58; a 58-entry
+    `_STATION_TYPE_KEYWORDS` tuple before that, and unchanged by Module 44 —
+    only the kind it returns changed) — so this also pins that neither the
+    re-pointing nor the predicate conversion widened the family's reach."""
     matched = [
         (it.get("id") or "").upper()
         for it in _gold32_items()
@@ -4926,7 +4927,7 @@ def test_module56_only_m2_reaches_the_station_type_vocabulary():
     matched = sorted(
         (it.get("id") or "").upper()
         for it in items
-        if xagg._matches_any(it["question"].lower(), xagg._STATION_TYPE_KEYWORDS)
+        if xagg._is_station_specialisation(it["question"].lower())
     )
     assert matched == ["M2"], matched
 
@@ -4987,7 +4988,8 @@ def test_module56_widened_vocabulary_does_not_swallow_plain_station_questions(qu
 
 def test_module56_dispatch_change_lives_only_in_resolve_aggregate_kind():
     """Module 41 made `resolve_aggregate_kind()` the single source of dispatch
-    truth, and the supervisor guard reads it. `_STATION_TYPE_KEYWORDS` must
+    truth, and the supervisor guard reads it. `_is_station_specialisation()`
+    (Module 58's replacement for the `_STATION_TYPE_KEYWORDS` tuple) must
     therefore be consulted there and nowhere else — a second inline check in
     `run_aggregate()` would let the two drift apart silently."""
     import ast
@@ -4998,6 +5000,131 @@ def test_module56_dispatch_change_lives_only_in_resolve_aggregate_kind():
         if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         for node in ast.walk(func):
-            if isinstance(node, ast.Name) and node.id == "_STATION_TYPE_KEYWORDS":
+            if isinstance(node, ast.Name) and node.id == "_is_station_specialisation":
                 users.add(func.name)
     assert users == {"resolve_aggregate_kind"}, users
+    # Module 58: the tuple it replaced must be gone, not merely unused —
+    # a leftover would be a second, silently-diverging vocabulary.
+    assert not hasattr(xagg, "_STATION_TYPE_KEYWORDS")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# [Module 58] `_STATION_TYPE_KEYWORDS` is now `_is_station_specialisation()`.
+#
+# Module 56 widened M2's trigger vocabulary from 10 entries to 58 and proved
+# with an all-32 equality control that nothing moved. That control is the only
+# thing protecting the widening, and it is only as broad as those 32
+# questions. Two of the 58 entries — `single type of crime` and `one type of
+# crime` — named NO STATION AT ALL; they were there because M2's gold is
+# phrased that way. "How many cases involve one type of crime only?" would
+# have been pulled into this family, which is checked second in
+# `resolve_aggregate_kind()`, and nothing in the repository would have
+# noticed.
+#
+# The tests below are the guarantee that no longer depends on those 32: the
+# equality control is re-run above (`test_module56_...`), and these add the
+# out-of-gold adversarial phrasings the control does not contain.
+# ══════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        # THE FILED DEFECT. Names a crime specialisation and no station.
+        "How many cases involve one type of crime only?",
+        "How many FIRs cover a single type of crime?",
+        "Are most of our cases a single type of crime, or a mix?",
+        "کیا ہمارے زیادہ تر مقدمات ایک ہی قسم کے جرم سے متعلق ہیں؟",
+        # Tier-2 qualifiers next to something that is NOT a station noun.
+        "Which station has the most ordinary theft cases?",
+        "Is it normal for a case to take this long at any station?",
+        "What is the regular procedure a station follows after an FIR is "
+        "registered?",
+        "Do we hold a dedicated register of recovered weapons at each station?",
+        "کیا تھانے میں عام شکایات درج ہوتی ہیں؟",
+        # KB9's measured shape: an org word plus a floating "khaas tor par".
+        # A naive police+khaas AND hijacks this out of graph_recurrence_person.
+        "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut "
+        "ki wajah ki baaqaida tehqeeqaat karni hoti hai — khaas tor par jab "
+        "hamare itne cases mein maut shamil hai?",
+        # A station word with no specialisation contrast at all.
+        "Which police station handles the most cases?",
+        "How many cases per police station?",
+        "Har thane mein kitne cases hain?",
+    ],
+)
+def test_module58_out_of_gold_phrasings_are_not_pulled_into_the_family(query):
+    """Adversarial phrasings that appear in NONE of the 32 gold questions.
+    These are the whole point of Module 58 — the equality control cannot see
+    them."""
+    assert not xagg._is_station_specialisation(query.lower()), query
+    assert xagg.resolve_aggregate_kind(query) != "station_caseload_by_specialisation"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        # M2's own gold text and Module 56's measured failure, re-pinned
+        # against the predicate rather than the tuple.
+        "Is caseload growing faster at our general-purpose stations, or at "
+        "the handful set up for one specific type of crime?",
+        "Do the specialist units handle a bigger share of our cases than the "
+        "ordinary police stations?",
+        "Do dedicated units carry more caseload than regular police stations?",
+        "Is a normal thana busier than a station set up for one type of crime?",
+        "Kya makhsoos thanay aam thanay se zyada cases handle kar rahe hain?",
+        "Khaas thane ka caseload aam police station se kitna mukhtalif hai?",
+        "کیا خصوصی تھانے عام تھانے سے زیادہ مقدمات سنبھال رہے ہیں؟",
+        "کیا مخصوص تھانے پر کیس لوڈ عام تھانے کے مقابلے میں زیادہ ہے؟",
+    ],
+)
+def test_module58_predicate_keeps_every_phrasing_module56_earned(query):
+    """Module 58 is a shape change, not a narrowing: every phrasing Module
+    56's widening bought must still reach the family."""
+    assert xagg.resolve_aggregate_kind(query) == "station_caseload_by_specialisation"
+
+
+def test_module58_both_signals_are_required_neither_is_sufficient():
+    """The multi-signal contract stated directly, in the style of
+    `_is_arrest_rate()`'s own boundary test: neither half carries the
+    dispatch alone."""
+    station_only = "how many cases at each police station?"
+    qualifier_only = "how many cases involve one specific type of crime?"
+    both = "do specialist police stations carry more than general-purpose ones?"
+    assert not xagg._is_station_specialisation(station_only)
+    assert not xagg._is_station_specialisation(qualifier_only)
+    assert xagg._is_station_specialisation(both)
+
+
+def test_module58_tier2_qualifiers_must_sit_on_the_station_noun():
+    """The tier split, pinned. The ordinary-language qualifiers are common
+    words that qualify anything; they count only next to the station noun."""
+    assert xagg._is_station_specialisation("ordinary police stations")
+    assert xagg._is_station_specialisation("aam police station")
+    assert xagg._is_station_specialisation("خصوصی تھانے")
+    # Same qualifier, same sentence, not on the station noun.
+    assert not xagg._is_station_specialisation(
+        "which station logged the most ordinary theft cases"
+    )
+    assert not xagg._is_station_specialisation(
+        "police ko khaas tor par yeh dekhna hai"
+    )
+
+
+def test_module58_bare_police_is_not_a_station_signal():
+    """Measured on KB9: an organisation is not a station. If a later edit
+    admits a bare `police`/`پولیس` as the station half, KB9 leaves
+    `graph_recurrence_person` and this fails."""
+    assert not xagg._STATION_UNIT_NOUN_RE.search("police ko khaas tor par")
+    assert not xagg._STATION_UNIT_NOUN_RE.search("پولیس کو")
+    assert xagg._STATION_UNIT_NOUN_RE.search("police station")
+
+
+def test_module58_unit_is_word_bounded():
+    """`unit` is a substring of `opportunity`, `impunity` and `immunity` —
+    the exact class of collision this file has been bitten by five times in
+    Urdu."""
+    assert xagg._STATION_UNIT_NOUN_RE.search("specialist units")
+    assert not xagg._STATION_UNIT_NOUN_RE.search(
+        "was there an opportunity to act with impunity?"
+    )

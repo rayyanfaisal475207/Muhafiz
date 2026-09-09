@@ -3,9 +3,12 @@ Unit tests for src.pipeline.verifier — the Phase 6 grounding gate.
 
 All external calls (call_llm) are monkeypatched; no network, no disk.
 """
+import json
+
 import pytest
 
 from src.pipeline.verifier import (
+    EXHAUSTIVE_SCOPE_META_KEY,
     _check_fabricated_case_ids,
     _check_hedging,
     _check_leakage,
@@ -13,7 +16,10 @@ from src.pipeline.verifier import (
     _check_temporal,
     _format_chunks_for_verifier,
     _is_derived_ratio,
+    _identifier_tokens,
     _numbers_in,
+    exhaustive_chunk_texts,
+    negative_claim_is_supported_by_exhaustive_listing,
     verify_grounding,
     verify_structured_aggregate_paraphrase,
 )
@@ -920,3 +926,583 @@ async def test_structured_paraphrase_allows_restated_decimal_average_unchanged()
         case_id="cross_case",
     )
     assert result["grounded"] is True
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Gold-QA fix — Module 61: a NEGATIVE INFERENCE over an EXHAUSTIVE listing.
+#
+# CR3's gold answer asserts a negative — "64/26 has a matching walk-in
+# complaint; 65/26 has none" — over a CMS linkage listing that contains
+# 64/26 and does not contain 65/26. Module 57 measured the verifier
+# rejecting that answer on 7 of 14 live runs with one verbatim reason:
+# "The claim about FIR 65/26's absence from the linkage list is inferred
+# but not directly supported by Document 3, which only lists linked cases
+# without…".
+#
+# These tests pin the three properties the fix must have SIMULTANEOUSLY —
+# the third is not optional, and is the reason the fix is two guarded
+# conditions rather than a relaxation:
+#   (a) the negative over a listing DECLARED exhaustive is accepted;
+#   (b) the same claim over a listing NOT so declared is still rejected;
+#   (c) a genuinely hallucinated synthesis is STILL rejected.
+# ═══════════════════════════════════════════════════════════════════════
+
+# The real shape `render_cms_fir_linkage()` produces, as it reaches the
+# Meta-Analysis verifier: an enumeration of every walk-in CMS complaint and
+# the FIR it links to. 64/26 is in it; 65/26 is not.
+_CMS_LINKAGE_LISTING = (
+    "Of 5 walk-in CMS complaint(s), 4 link to a real FIR via a shared case "
+    "tag; 1 has no matching FIR.\n"
+    "  - CMS-ISB-2026-0341 → fir-64-26\n"
+    "  - CMS-ISB-2026-0355 → fir-71-26\n"
+    "  - CMS-ISB-2026-0362 → fir-72-26\n"
+    "  - CMS-ISB-2026-0370 → fir-73-26"
+)
+
+# The judge's own verbatim rejection reason, from MODULE57_RESULT.md §1.
+_CR3_VERBATIM_REJECTION = (
+    "The claim about FIR 65/26's absence from the linkage list is inferred "
+    "but not directly supported by Document 3, which only lists linked "
+    "cases without stating which FIRs are excluded."
+)
+
+
+def _listing_chunk(exhaustive: bool, text: str = _CMS_LINKAGE_LISTING):
+    meta = {"source": "Sub-question: which FIRs have a linked walk-in CMS complaint?"}
+    if exhaustive:
+        meta[EXHAUSTIVE_SCOPE_META_KEY] = True
+    return {"id": "subquery-3", "text": text, "metadata": meta}
+
+
+def _rejecting_llm(claims, reason="One or more claims lack support in the provided chunks."):
+    async def fake_call(system_prompt, user_message, **kwargs):
+        return json.dumps(
+            {
+                "grounded": False,
+                "off_topic": False,
+                "leaked_case_id": None,
+                "unsupported_claims": claims,
+                "reason": reason,
+            }
+        )
+
+    return fake_call
+
+
+# ── The deterministic rule itself ──────────────────────────────────────
+
+def test_negative_over_exhaustive_listing_is_supported():
+    assert negative_claim_is_supported_by_exhaustive_listing(
+        _CR3_VERBATIM_REJECTION, [_CMS_LINKAGE_LISTING]
+    ) is True
+
+
+def test_negative_over_a_listing_not_declared_exhaustive_is_not_supported():
+    """No exhaustive chunk anywhere = no negative inference is licensed."""
+    assert negative_claim_is_supported_by_exhaustive_listing(
+        _CR3_VERBATIM_REJECTION, []
+    ) is False
+
+
+def test_fabricated_negative_is_not_supported():
+    """Claiming a record is absent that the listing ACTUALLY CONTAINS."""
+    assert negative_claim_is_supported_by_exhaustive_listing(
+        "FIR 64/26's absence from the linkage list is not supported by Document 3.",
+        [_CMS_LINKAGE_LISTING],
+    ) is False
+
+
+def test_a_misattribution_claim_is_not_an_absence_claim():
+    """Module 17's live hallucination shape — names and counts attributed to
+    the wrong chunk. Nothing about it is absence-shaped, so the exhaustive
+    rule must not touch it."""
+    assert negative_claim_is_supported_by_exhaustive_listing(
+        "The answer attributes the name عاصم رشید and a count of 12 cases to "
+        "Document 2, which states neither.",
+        [_CMS_LINKAGE_LISTING],
+    ) is False
+
+
+def test_a_vague_absence_claim_with_no_identifier_is_not_supported():
+    """Nothing checkable in it, so the judge's own verdict stands."""
+    assert negative_claim_is_supported_by_exhaustive_listing(
+        "The claim that the record is missing from the list is not supported.",
+        [_CMS_LINKAGE_LISTING],
+    ) is False
+
+
+def test_identifier_normalisation_matches_across_written_forms():
+    """"FIR 65/26", "65/26" and "fir-65-26" are the same record."""
+    for form in ("FIR 65/26", "65/26", "fir-65-26", "FIR 65-26"):
+        assert "65-26" in _identifier_tokens(form), form
+
+
+def test_a_noun_phrase_is_not_mistaken_for_an_identifier():
+    """"CMS complaint" must not count as naming a checkable record — if it
+    did, a vague absence claim would satisfy the identifier requirement."""
+    assert _identifier_tokens("no matching FIR record for the CMS complaint") == set()
+
+
+def test_exhaustive_chunk_texts_only_returns_declared_chunks():
+    chunks = [_listing_chunk(exhaustive=False), _listing_chunk(exhaustive=True)]
+    assert exhaustive_chunk_texts(chunks) == [_CMS_LINKAGE_LISTING]
+
+
+# ── (a) accepted over an exhaustive listing ────────────────────────────
+
+@pytest.mark.asyncio
+async def test_negative_inference_over_exhaustive_listing_is_accepted(monkeypatch):
+    """CR3's exact claim, CR3's exact rejection reason, over a listing the
+    caller declared complete: the answer is served."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(vmod, "call_llm", _rejecting_llm([_CR3_VERBATIM_REJECTION]))
+
+    result = await verify_grounding(
+        answer=(
+            "The two cases were not handled identically. FIR 64/26 has a matching "
+            "walk-in complaint linked via case tag CMS-ISB-2026-0341 [Document 1], "
+            "whereas FIR 65/26 does not appear in the CMS linkage list at all, so "
+            "it has no corresponding walk-in complaint [Document 1]."
+        ),
+        cited_chunks=[_listing_chunk(exhaustive=True)],
+        case_id="cross_case",
+    )
+    assert result["grounded"] is True
+    assert result["exhaustive_negative_override"] is True
+    assert result["unsupported_claims"] == []
+
+
+@pytest.mark.asyncio
+async def test_the_complete_listing_marker_reaches_the_judge_prompt():
+    """The prompt-side half of the fix: rule 7 keys on this exact marker, so
+    it has to actually appear in what the judge is shown."""
+    rendered = _format_chunks_for_verifier([_listing_chunk(exhaustive=True)])
+    assert "COMPLETE LISTING" in rendered
+    assert "COMPLETE LISTING" not in _format_chunks_for_verifier(
+        [_listing_chunk(exhaustive=False)]
+    )
+
+
+# ── (b) still rejected without the declaration ─────────────────────────
+
+@pytest.mark.asyncio
+async def test_same_claim_over_a_non_exhaustive_listing_is_still_rejected(monkeypatch):
+    """Identical answer, identical judge verdict, identical listing text —
+    the ONLY difference is that no caller declared it complete. A retrieved
+    fragment licenses no negative inference."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(vmod, "call_llm", _rejecting_llm([_CR3_VERBATIM_REJECTION]))
+
+    result = await verify_grounding(
+        answer=(
+            "FIR 65/26 does not appear in the CMS linkage list at all, so it has "
+            "no corresponding walk-in complaint [Document 1]."
+        ),
+        cited_chunks=[_listing_chunk(exhaustive=False)],
+        case_id="cross_case",
+    )
+    assert result["grounded"] is False
+    assert result.get("exhaustive_negative_override") is not True
+
+
+@pytest.mark.asyncio
+async def test_fabricated_negative_over_exhaustive_listing_is_still_rejected(monkeypatch):
+    """The listing CONTAINS fir-64-26. An answer asserting 64/26 is absent
+    from it is a fabricated negative and must not be rescued."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(
+        vmod,
+        "call_llm",
+        _rejecting_llm(
+            ["FIR 64/26's absence from the CMS linkage list is not supported by "
+             "Document 1, which lists CMS-ISB-2026-0341 → fir-64-26."]
+        ),
+    )
+
+    result = await verify_grounding(
+        answer="FIR 64/26 has no linked walk-in complaint — it does not appear "
+               "in the CMS linkage list [Document 1].",
+        cited_chunks=[_listing_chunk(exhaustive=True)],
+        case_id="cross_case",
+    )
+    assert result["grounded"] is False
+    assert result.get("exhaustive_negative_override") is not True
+
+
+# ── (c) a genuinely hallucinated synthesis is STILL rejected ───────────
+
+@pytest.mark.asyncio
+async def test_hallucinated_synthesis_is_still_rejected_over_exhaustive_listing(monkeypatch):
+    """
+    Module 17's live catch, re-run against an EXHAUSTIVE chunk: a
+    cross-chunk synthesis that misattributes names and case counts. This is
+    the test the brief calls non-optional — the exhaustive declaration must
+    buy a correct NEGATIVE and nothing else.
+    """
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(
+        vmod,
+        "call_llm",
+        _rejecting_llm(
+            [
+                "The answer attributes the complainant name سعد الرحمن to FIR "
+                "71/26, but Document 1 associates that name with no FIR at all.",
+                "The answer states 12 linked complaints; Document 1 states 4.",
+            ]
+        ),
+    )
+
+    result = await verify_grounding(
+        answer=(
+            "There are 12 linked walk-in complaints [Document 1], and the "
+            "complainant سعد الرحمن is recorded against FIR 71/26 [Document 1]."
+        ),
+        cited_chunks=[_listing_chunk(exhaustive=True)],
+        case_id="cross_case",
+    )
+    assert result["grounded"] is False
+    assert result.get("exhaustive_negative_override") is not True
+    assert len(result["unsupported_claims"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_a_mixed_rejection_is_not_overturned(monkeypatch):
+    """One valid negative AND one real hallucination: the override requires
+    EVERY flagged claim to qualify, so the rejection stands."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(
+        vmod,
+        "call_llm",
+        _rejecting_llm(
+            [
+                _CR3_VERBATIM_REJECTION,
+                "The answer states 12 linked complaints; Document 1 states 4.",
+            ]
+        ),
+    )
+
+    result = await verify_grounding(
+        answer="FIR 65/26 is absent from the list and there are 12 linked "
+               "complaints [Document 1].",
+        cited_chunks=[_listing_chunk(exhaustive=True)],
+        case_id="cross_case",
+    )
+    assert result["grounded"] is False
+
+
+@pytest.mark.asyncio
+async def test_override_never_beats_a_deterministic_pre_check(monkeypatch):
+    """Cross-case leakage, a fabricated CASE-ID, a missing hedge — none of
+    those are negotiable, exhaustive listing or not."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(vmod, "call_llm", _rejecting_llm([_CR3_VERBATIM_REJECTION]))
+
+    chunk = _listing_chunk(exhaustive=True)
+    chunk["metadata"]["case_id"] = "CASE-999"
+    result = await verify_grounding(
+        answer="FIR 65/26 is absent from the linkage list [Document 1].",
+        cited_chunks=[chunk],
+        case_id="CASE-001",
+    )
+    assert result["grounded"] is False
+    assert result["leaked_case_id"] == "CASE-999"
+
+
+@pytest.mark.asyncio
+async def test_an_off_topic_answer_is_never_overturned(monkeypatch):
+    import src.pipeline.verifier as vmod
+
+    async def fake_call(system_prompt, user_message, **kwargs):
+        return json.dumps(
+            {
+                "grounded": False,
+                "off_topic": True,
+                "leaked_case_id": None,
+                "unsupported_claims": [_CR3_VERBATIM_REJECTION],
+                "reason": "Generic non-answer.",
+            }
+        )
+
+    monkeypatch.setattr(vmod, "call_llm", fake_call)
+
+    result = await verify_grounding(
+        answer="FIR 65/26 is absent from the linkage list [Document 1].",
+        cited_chunks=[_listing_chunk(exhaustive=True)],
+        case_id="cross_case",
+    )
+    assert result["grounded"] is False
+
+
+# ── The Verifier and the Validation gate must agree ────────────────────
+
+@pytest.mark.asyncio
+async def test_validation_gate_agrees_with_the_verifier_on_the_same_claim(monkeypatch):
+    """
+    Module 61's second half. Before the fix these two gates disagreed about
+    the identical claim: the Verifier refused to serve the answer, while the
+    Validation gate (on the runs where the Verifier passed) attached "could
+    only be partially confirmed … does not mention FIR 65/26 or its absence
+    from the CMS list". Now one imported rule governs both.
+    """
+    import src.pipeline.validation as valmod
+    from src.pipeline.harness.types import ValidationStatus
+
+    async def fake_call(system_prompt, user_message, **kwargs):
+        return json.dumps(
+            [
+                {
+                    "pair_id": 1,
+                    "support": "partially_supported",
+                    "reason": (
+                        "The source confirms the CMS linkage for FIR 64/26 but does "
+                        "not mention FIR 65/26 or its absence from the CMS list."
+                    ),
+                }
+            ]
+        )
+
+    monkeypatch.setattr(valmod, "call_llm", fake_call)
+
+    answer = "FIR 65/26 does not appear in the CMS linkage list [Document 1]."
+    status, claims = await valmod.validate_answer(
+        answer_text=answer,
+        cited_chunks=[_listing_chunk(exhaustive=True)],
+        tier="full",
+    )
+    assert status == ValidationStatus.PASSED
+    assert valmod.caveats_for_validation(status, claims) == []
+
+
+@pytest.mark.asyncio
+async def test_validation_gate_still_caveats_without_the_exhaustive_marker(monkeypatch):
+    """The counterpart: no declaration, no upgrade, caveat preserved."""
+    import src.pipeline.validation as valmod
+    from src.pipeline.harness.types import ValidationStatus
+
+    async def fake_call(system_prompt, user_message, **kwargs):
+        return json.dumps(
+            [{"pair_id": 1, "support": "partially_supported",
+              "reason": "Does not mention FIR 65/26 or its absence."}]
+        )
+
+    monkeypatch.setattr(valmod, "call_llm", fake_call)
+
+    status, claims = await valmod.validate_answer(
+        answer_text="FIR 65/26 does not appear in the CMS linkage list [Document 1].",
+        cited_chunks=[_listing_chunk(exhaustive=False)],
+        tier="full",
+    )
+    assert status == ValidationStatus.ISSUES_FOUND
+    assert valmod.caveats_for_validation(status, claims)
+
+
+@pytest.mark.asyncio
+async def test_validation_gate_still_caveats_a_real_hallucination(monkeypatch):
+    """An exhaustive listing does not silence the validation gate generally."""
+    import src.pipeline.validation as valmod
+    from src.pipeline.harness.types import ValidationStatus
+
+    async def fake_call(system_prompt, user_message, **kwargs):
+        return json.dumps(
+            [{"pair_id": 1, "support": "not_supported",
+              "reason": "The source states 4 linked complaints, not 12."}]
+        )
+
+    monkeypatch.setattr(valmod, "call_llm", fake_call)
+
+    status, claims = await valmod.validate_answer(
+        answer_text="There are 12 linked walk-in complaints [Document 1].",
+        cited_chunks=[_listing_chunk(exhaustive=True)],
+        tier="full",
+    )
+    assert status == ValidationStatus.ISSUES_FOUND
+    assert valmod.caveats_for_validation(status, claims)
+
+
+# ── Direction: which record does the absence phrase name? ──────────────
+# Measured live (MODULE61_RESULT.md §4): the judge writes absence both ways
+# round — "…does not mention FIR 65/26" names its record AFTER the phrase,
+# "FIR 64/26 … does not appear" names it BEFORE. Resolving both the same way
+# would, on a sentence naming one present and one absent record, pick the
+# wrong one — which is precisely how a fabricated negative would get
+# confirmed.
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        # The verbatim reason Module 57 recorded, subject BEFORE the phrase.
+        _CR3_VERBATIM_REJECTION,
+        # Both live pre-fix rejection reasons captured on this branch's own
+        # control run (§4's before-table).
+        "Claims about FIR 65/26 absence from the linkage list and the "
+        "discrepancy in handling are not supported by any cited chunk.",
+        "The claim about FIR 65/26 lacking a complaint linkage relies on "
+        "absence from Document 3's list, which is not explicitly stated in "
+        "the chunk.",
+        # The live validation-gate reasons, subject AFTER the phrase.
+        "The source confirms FIR 64/26 is linked to a CMS complaint but does "
+        "not mention FIR 65/26 or its absence from the linkage list.",
+        "The source confirms FIR 64/26 is linked to a CMS complaint but does "
+        "not mention FIR 65/26 at all, making the claim about FIR 65/26 "
+        "unsupported.",
+    ],
+)
+def test_every_live_captured_absence_reason_resolves_to_the_absent_record(claim):
+    assert negative_claim_is_supported_by_exhaustive_listing(
+        claim, [_CMS_LINKAGE_LISTING]
+    ) is True
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        # Subject BEFORE, and it is a record the listing CONTAINS.
+        "FIR 64/26 absence from the CMS linkage list is not supported by "
+        "Document 1, which lists CMS-ISB-2026-0341 to fir-64-26.",
+        # Subject AFTER, same fabrication the other way round.
+        "Document 1 does not mention FIR 64/26.",
+        # A live validation reason about a STATUTE, not a listing membership:
+        # "PECA 2016" must not be mistaken for a record id.
+        "The source confirms the accused is linked to both FIR 64/26 and "
+        "65/26, but does not mention PECA 2016 or any statute in the "
+        "provided text.",
+        # The live G1 rejection reason (§7) — no absence phrase resolves.
+        "Two claims lack explicit support in the cited chunks: the alleged "
+        "data discrepancy and the 73-case total for seized property.",
+    ],
+)
+def test_reasons_that_must_not_be_rescued(claim):
+    assert negative_claim_is_supported_by_exhaustive_listing(
+        claim, [_CMS_LINKAGE_LISTING]
+    ) is False
+
+
+def test_a_statute_year_is_never_treated_as_the_absent_record():
+    """"PECA 2016" is a statute, not a record id. Only composite identifiers
+    ("65-26", "cms-isb-2026-0341") can be the subject of an absence claim —
+    otherwise any bare four-digit year in the claim would resolve as a
+    record that happens not to be in the listing."""
+    from src.pipeline.verifier import _identifier_spans
+
+    assert _identifier_spans("does not mention PECA 2016") == []
+    assert _identifier_spans("does not mention FIR 65/26")
+
+
+# ── Absence is absence FROM A PARTICULAR REGISTER ──────────────────────
+# The live bug this pins: CR3 hands the gates THREE complete listings at
+# once. FIR 65/26 legitimately appears in the filtered-FIR listing and is
+# genuinely absent from the CMS linkage listing. Checking them pooled made
+# every correct negative look fabricated, and the validation caveat stayed
+# on 5 of 5 runs (MODULE61_RESULT.md §4b).
+
+_FILTERED_FIR_LISTING = (
+    "2 FIR(s) match statute PECA 2016 at the cyber-crime circles: "
+    "fir-64-26, fir-65-26."
+)
+
+
+def _cr3_chunks():
+    """The real three-chunk shape, in the real order."""
+    return [
+        {"id": "subquery-1", "text": _FILTERED_FIR_LISTING,
+         "metadata": {"source": "Sub-question: which FIRs?",
+                      EXHAUSTIVE_SCOPE_META_KEY: True}},
+        {"id": "subquery-2", "text": "4 recurring Person(s): عاصم رشید appears in 2 cases.",
+         "metadata": {"source": "Sub-question: recurring persons?",
+                      EXHAUSTIVE_SCOPE_META_KEY: True}},
+        {"id": "subquery-3", "text": _CMS_LINKAGE_LISTING,
+         "metadata": {"source": "Sub-question: CMS linkage?",
+                      EXHAUSTIVE_SCOPE_META_KEY: True}},
+    ]
+
+
+def test_a_claim_is_checked_against_the_listing_it_names():
+    from src.pipeline.verifier import listings_a_claim_is_about
+
+    chunks = _cr3_chunks()
+    assert listings_a_claim_is_about(_CR3_VERBATIM_REJECTION, chunks) == [
+        _CMS_LINKAGE_LISTING
+    ]
+    # No document named: fall back to every listing, which is strictly more
+    # conservative than guessing one.
+    assert len(listings_a_claim_is_about("FIR 65/26 is absent.", chunks)) == 3
+
+
+def test_a_claim_pinned_to_a_non_exhaustive_document_licenses_nothing():
+    from src.pipeline.verifier import listings_a_claim_is_about
+
+    chunks = _cr3_chunks()
+    chunks[2]["metadata"].pop(EXHAUSTIVE_SCOPE_META_KEY)
+    assert listings_a_claim_is_about(_CR3_VERBATIM_REJECTION, chunks) == []
+
+
+@pytest.mark.asyncio
+async def test_the_negative_survives_a_sibling_listing_that_names_the_record(monkeypatch):
+    """65/26 IS in Document 1 and is NOT in Document 3. The claim is about
+    Document 3, so it is supported — even though a sibling listing names the
+    same record for a different question."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(vmod, "call_llm", _rejecting_llm([_CR3_VERBATIM_REJECTION]))
+
+    result = await verify_grounding(
+        answer="FIR 65/26 does not appear in the CMS linkage list [Document 3].",
+        cited_chunks=_cr3_chunks(),
+        case_id="cross_case",
+    )
+    assert result["grounded"] is True
+    assert result["exhaustive_negative_override"] is True
+
+
+@pytest.mark.asyncio
+async def test_a_negative_about_a_listing_that_contains_the_record_still_fails(monkeypatch):
+    """The same three chunks, but the claim is about Document 1 — which DOES
+    contain fir-65-26. That is a fabricated negative and must stand rejected."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(
+        vmod,
+        "call_llm",
+        _rejecting_llm(
+            ["The claim about FIR 65/26's absence is not supported by Document 1."]
+        ),
+    )
+
+    result = await verify_grounding(
+        answer="FIR 65/26 does not appear in the FIR listing [Document 1].",
+        cited_chunks=_cr3_chunks(),
+        case_id="cross_case",
+    )
+    assert result["grounded"] is False
+
+
+@pytest.mark.asyncio
+async def test_validation_upgrade_uses_the_claims_own_document(monkeypatch):
+    """The live shape from §4b: the flagged claim cites [Document 3], and its
+    reason is the CMS-linkage negative. The caveat must disappear."""
+    import src.pipeline.validation as valmod
+    from src.pipeline.harness.types import ValidationStatus
+
+    async def fake_call(system_prompt, user_message, **kwargs):
+        return json.dumps(
+            [{"pair_id": 1, "support": "partially_supported",
+              "reason": ("The source confirms FIR 64/26 is linked to "
+                         "CMS-ISB-2026-0341 but does not mention FIR 65/26 at "
+                         "all, so the claim about its absence is unsupported.")}]
+        )
+
+    monkeypatch.setattr(valmod, "call_llm", fake_call)
+
+    status, claims = await valmod.validate_answer(
+        answer_text="FIR 65/26 does not appear in the CMS linkage list [Document 3].",
+        cited_chunks=_cr3_chunks(),
+        tier="full",
+    )
+    assert status == ValidationStatus.PASSED
+    assert valmod.caveats_for_validation(status, claims) == []

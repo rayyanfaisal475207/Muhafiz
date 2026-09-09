@@ -489,6 +489,24 @@ def _structured_identifier_in(query: str) -> str | None:
     return None
 
 
+# [Gold-QA fix — Module 60, question M4] Asks XAGG's own dispatch chain
+# whether it would send this query to M4's purpose-built statute x
+# court-stage join aggregate. Imported lazily so this module keeps its
+# current import graph (router.py is imported very early; xagg.py pulls in
+# the graph/database layers) and so a broken/absent xagg can never take the
+# router down — a failed import simply leaves routing exactly as it was.
+def _resolves_to_statute_court_stage_join(query: str) -> bool:
+    try:
+        from src.pipeline.xagg import resolve_aggregate_kind
+    except Exception:  # pragma: no cover - defensive
+        logger.warning(
+            "router: could not import resolve_aggregate_kind; "
+            "leaving deterministic routing unchanged."
+        )
+        return False
+    return resolve_aggregate_kind(query) == "statute_court_stage_join"
+
+
 def _deterministic_route_override(query: str, case_id: str | None = None) -> dict | None:
     """
     Return a route dict for an unambiguous cross-case pattern, or None.
@@ -571,6 +589,63 @@ def _deterministic_route_override(query: str, case_id: str | None = None) -> dic
                 "reason": "Deterministic override: unambiguous open-ended cross-case network/pattern trigger language detected before the LLM call",
                 "station": None, "district": None,
             }
+
+    # [Gold-QA fix — Module 60, question M4] Checked immediately before the
+    # XAGG pattern list, and deliberately NOT as another regex entry in it.
+    #
+    # THE DEFECT. The tracker recorded M4 as skipping Meta-Analysis
+    # decomposition since Module 41. Live it never did — 7 runs of 7, across
+    # two code states. Module 41's guard in `harness/supervisor.py` is
+    # conditional on `route == "XAGG"` (its own comment explains why: so it
+    # can never suppress a genuine decomposition for an XGRAPH/XNETWORK
+    # comparison), and the LLM router classifies M4's Urdu gold text as
+    # **XNETWORK**. `resolve_aggregate_kind()` reports
+    # `statute_court_stage_join` with a purpose-built one-call aggregate
+    # behind it, but the route precondition fails first, so that resolution
+    # is never consulted. Reading the resolver in isolation gives the wrong
+    # answer; only the live route does.
+    #
+    # WHY THE ROUTE, AND NOT THE GUARD. Module 60 weighed three options
+    # (GOLD_QA_REMAINING_FIXES_PLAN.md has them). Widening the guard past
+    # `route == "XAGG"` does not actually help: with route XNETWORK the
+    # supervisor's fallthrough is `_ROUTE_TO_SUBAGENT["XNETWORK"]` —
+    # Cross-Case Linkage / Global Search — so skipping decomposition would
+    # send M4 somewhere that still cannot reach its aggregate, while
+    # repealing the guard's stated protection for every other cross-case
+    # route. Fixing the ROUTE is the only option that puts M4 in front of
+    # the aggregate that was built for it, and it leaves Module 41's guard
+    # exactly as written: the guard then fires for M4 on its own terms.
+    #
+    # WHY `resolve_aggregate_kind()` AND NOT A NEW REGEX. Module 41 made
+    # that function the single source of dispatch truth and Module 62 warns
+    # that widening pattern lists measures nothing. Asking XAGG's own chain
+    # "would you dispatch this to M4's aggregate?" cannot drift from what
+    # XAGG will actually do, and it inherits every precedence rule ABOVE
+    # `_is_statute_court_stage_join()` in that chain for free — G3's
+    # court-readiness scan and CR7's criminal-record cross-check are both
+    # resolved earlier and so can never reach here. (The G3/M4 keyword
+    # collision is PR #8's precedent and the reason this is gated on the
+    # resolver rather than on the word "court".)
+    #
+    # DELIBERATELY ONE KIND, NOT `resolves_to_specific_aggregate()`. The
+    # broad form — "route to XAGG whenever XAGG resolves to something
+    # specific" — was measured against all 32 gold questions and moves
+    # SEVEN of them, including KB5 (a legal-KB question that resolves to
+    # `gender_breakdown` purely as a resolver false positive) and G1/M2/M7.
+    # That is a demonstration that `resolves_to_specific_aggregate()` is not
+    # a safe routing signal, and the reason this override names exactly one
+    # aggregate kind. Measured blast radius over all 32: M4 alone.
+    #
+    # Placed AFTER the XNETWORK loop so XNETWORK's stated precedence over
+    # XAGG is untouched, and after the active-case short-circuit above so a
+    # within-case "how far did this case get in court?" is still GRAPH.
+    if _resolves_to_statute_court_stage_join(query):
+        return {
+            "route": "XAGG", "case_scope": "cross_case", "target_entity": None,
+            "output_format": "chat", "target_year": None, "confidence": "high",
+            "reason": "Deterministic override: XAGG resolves this to its purpose-built statute x court-stage join aggregate (Module 60)",
+            "station": None, "district": None,
+        }
 
     # XAGG checked next: "recurring vehicles across cases" matches both an
     # XAGG pattern (recurring-entity aggregate) and the XGRAPH "across ...

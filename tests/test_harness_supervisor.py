@@ -1566,3 +1566,59 @@ def test_module41_all_32_gold_questions_dispatch_change_is_exactly_the_expected_
             changed.add(q["id"])
 
     assert changed == {"CR6", "CR7", "CR8", "CS4", "M2", "M4", "M7", "G2", "G3", "G5"}
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 60, question M4] The reconciliation, pinned.
+# ═══════════════════════════════════════════════════════════════════════
+
+_M4_GOLD = (
+    "ایک طرف یہ دیکھیں کہ لوگوں پر کن دفعات میں مقدمے بن رہے ہیں، اور دوسری "
+    "طرف یہ کہ وہ مقدمے عدالت میں کہاں تک پہنچے — کیا دونوں سے کیس لوڈ کی "
+    "سنگینی کا ایک ہی اندازہ ہوتا ہے؟"
+)
+
+
+def test_module60_m4_gold_text_skips_decomposition_once_the_route_is_xagg():
+    """Module 41's guard, unchanged, fires for M4 the moment the route is
+    right — which is the whole of Module 60's argument for fixing the route
+    instead of the guard."""
+    assert resolve_aggregate_kind(_M4_GOLD) == "statute_court_stage_join"
+    assert resolves_to_specific_aggregate(_M4_GOLD)
+    assert supervisor_mod._xagg_answers_in_one_call(_M4_GOLD)
+    assert classify_to_subagent(_XAGG_CROSS_CASE, _M4_GOLD) == LARGE_SCALE_AGGREGATE
+
+
+def test_module60_m4_under_the_live_xnetwork_route_still_decomposes():
+    """The defect itself, pinned as a fact rather than a fix.
+
+    Module 41's guard is deliberately conditional on `route == "XAGG"`, so
+    under the route the LLM actually returned live (XNETWORK, 7 runs of 7)
+    M4 goes to Meta-Analysis no matter what the aggregate resolver says.
+    Module 60 does NOT widen that precondition — this test records why it
+    did not need to: widening it would have sent M4 to
+    `_ROUTE_TO_SUBAGENT["XNETWORK"]`, which still cannot reach the
+    statute x court-stage aggregate. If a later module ever does widen the
+    guard, this test fails and forces the negative control to be re-run."""
+    xnetwork = {"route": "XNETWORK", "case_scope": "cross_case", "output_format": "chat"}
+    assert classify_to_subagent(xnetwork, _M4_GOLD) == META_ANALYSIS
+    assert supervisor_mod._ROUTE_TO_SUBAGENT["XNETWORK"] != LARGE_SCALE_AGGREGATE
+
+
+def test_module60_m4_still_matches_the_meta_analysis_triggers():
+    """The negative half: the test above is only meaningful because M4's
+    text DOES match `_META_ANALYSIS_TRIGGER_PATTERNS` and would still be
+    decomposed under an XAGG route without Module 41's guard."""
+    assert any(
+        pat.search(_M4_GOLD) for pat in supervisor_mod._META_ANALYSIS_TRIGGER_PATTERNS
+    )
+
+
+def test_module60_m4_is_not_owned_by_a_module29_decomposition_plan():
+    """The trap Module 40's branch walked into: a matched deterministic plan
+    VETOES the Module 41 guard, so M4 would decompose on every run including
+    the ones where its one-call aggregate is the better answer. Module 60
+    deliberately adds no plan for M4."""
+    from src.pipeline.harness.agents.meta_analysis import _match_decomposition_plan
+
+    assert _match_decomposition_plan(_M4_GOLD) is None

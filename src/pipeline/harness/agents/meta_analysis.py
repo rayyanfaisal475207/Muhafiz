@@ -215,7 +215,7 @@ from src.pipeline.harness.types import (
 )
 from src.pipeline.json_extract import call_llm_json
 from src.pipeline.validation import caveats_for_validation, validate_answer
-from src.pipeline.verifier import verify_grounding
+from src.pipeline.verifier import EXHAUSTIVE_SCOPE_META_KEY, verify_grounding
 
 logger = logging.getLogger(__name__)
 
@@ -924,16 +924,64 @@ def _strip_nested_citations(text: str) -> str:
     return _NESTED_CITATION_RE.sub("", text).strip()
 
 
-def _pseudo_chunk(index: int, sub_query: str, text: str) -> dict:
+def _sub_answer_is_exhaustive(result: SubAgentResult) -> bool:
+    """
+    [Gold-QA fix — Module 61] Is this sub-answer a COMPLETE enumeration over
+    its stated scope, rather than a sample of retrieved evidence?
+
+    True for exactly one shape: a sub-answer whose contributing tool is
+    XAGG and nothing else. A Large-Scale-Aggregate result is computed by
+    query over the entire corpus — `filtered_fir_listing` returns every FIR
+    matching the filter, `cms_fir_linkage` every walk-in complaint and its
+    link — so "X is not in this result" is a real finding about the corpus,
+    not an artefact of what retrieval happened to surface. That is what
+    licenses the Verifier's rule 7 (see verifier.py's Module 61 block).
+
+    Everything else is False, deliberately and by construction:
+      * RAG / GRAPH / WEB sub-answers are retrieved fragments. A negative
+        inference over one of them is exactly the hallucination the
+        Verifier exists to catch, and this function must never mark one.
+      * A MIXED sub-answer (`{"XAGG", "RAG"}`) is not exhaustive either —
+        the RAG half is a sample, and there is no way from here to tell
+        which half a given sentence came from.
+
+    The provenance is read from the sub-agent's OWN `tools_used`, which
+    RESOLVED-4 defines as the tools that actually contributed data after
+    all fallbacks resolved. Nothing is inferred from the answer text, and
+    nothing in `xagg.py` had to change: the fact this needs is already
+    recorded at the sub-agent boundary.
+
+    Known limit, recorded rather than hidden: the text handed on is the
+    XAGG agent's NL paraphrase of the computed listing, not the raw
+    rendering. Its numbers are already checked against the computed source
+    by `verify_structured_aggregate_paraphrase()`, but a paraphrase that
+    silently dropped a row would make a negative about that row look
+    confirmed. The identifier check in
+    `negative_claim_is_supported_by_exhaustive_listing()` runs against the
+    text that is actually served, which is the same text the user reads.
+    """
+    return set(result.tools_used) == {"XAGG"}
+
+
+def _pseudo_chunk(index: int, sub_query: str, text: str, *, exhaustive: bool = False) -> dict:
     """Same flat `{"id", "text", "metadata"}` shape every other sub-agent's
     own `_chunk_to_verifier_dict()` produces — see module docstring's stage-3
     note for why the source text here is a sub-answer, not raw evidence.
     `text` is expected to already be `_strip_nested_citations()`-cleaned by
-    the caller — see that function's own docstring/comment for why."""
+    the caller — see that function's own docstring/comment for why.
+
+    [Module 61] `exhaustive` declares this sub-answer a complete enumeration
+    over its stated scope, which is what lets the Verifier and the
+    Validation gate treat "record X is not in this listing" as supported
+    rather than inferred. Set only by `_sub_answer_is_exhaustive()`; never
+    inferred from the text."""
+    metadata: dict = {"source": f"Sub-question: {sub_query}", "case_id": None}
+    if exhaustive:
+        metadata[EXHAUSTIVE_SCOPE_META_KEY] = True
     return {
         "id": f"subquery-{index}",
         "text": text,
-        "metadata": {"source": f"Sub-question: {sub_query}", "case_id": None},
+        "metadata": metadata,
     }
 
 
@@ -1075,6 +1123,10 @@ async def meta_analysis(
     # own comment for why leaving them in confuses both the synthesis model
     # and the verifier's LLM judge about which numbering scheme is in play.
     entries = [(sq, _strip_nested_citations(text)) for sq, text, _r in contributing]
+    # [Module 61] Positionally aligned with `entries`/`pseudo_chunks` — the
+    # same [PRESERVE — design §5] correspondence `_format_subanswers_for_prompt`
+    # relies on.
+    exhaustive_flags = [_sub_answer_is_exhaustive(r) for _sq, _text, r in contributing]
     resolved_language = caller.preferred_language or "the same language as the user's question"
     system_prompt = _SYNTHESIS_SYSTEM_PROMPT_TEMPLATE.format(
         synthesis_goal=decomposition.synthesis_goal or "combine these sub-answers into one complete answer",
@@ -1094,7 +1146,18 @@ async def meta_analysis(
             caveats=["Synthesizing the sub-answers into a final answer failed.", *caveats],
         )
 
-    pseudo_chunks = [_pseudo_chunk(i, sq, text) for i, (sq, text) in enumerate(entries, start=1)]
+    pseudo_chunks = [
+        _pseudo_chunk(i, sq, text, exhaustive=exhaustive_flags[i - 1])
+        for i, (sq, text) in enumerate(entries, start=1)
+    ]
+    if any(exhaustive_flags):
+        logger.info(
+            "Meta-Analysis [Module 61]: %d of %d sub-answers declared a complete "
+            "enumeration (XAGG-only provenance); negative inference over those is "
+            "supported, not inferred.",
+            sum(exhaustive_flags),
+            len(exhaustive_flags),
+        )
 
     verification = await verify_grounding(answer=answer, cited_chunks=pseudo_chunks, case_id="cross_case")
     verifier_passed = bool(verification.get("grounded", False)) and not verification.get("off_topic", False)
