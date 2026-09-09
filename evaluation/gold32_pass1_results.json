@@ -1,0 +1,450 @@
+[
+  {
+    "id": "D1",
+    "type": "Fact Retrieval",
+    "language": "en",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 1.0,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output correctly states the number of registered cases as 73, which is an exact match with the expected output.",
+      "AnswerRelevancy": "The score is 1.00 because the output directly and accurately addresses the input without containing any irrelevant statements. Excellent job!"
+    }
+  },
+  {
+    "id": "S2",
+    "type": "Fact Retrieval",
+    "language": "en",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 1.0,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output correctly identifies the police station handling the most cases as Thane Model Town, Lahore and states the exact same count of 7 cases as the expected output, fully capturing the key facts.",
+      "AnswerRelevancy": "The score is 1.00 because the actual output directly and accurately addresses the input without including any irrelevant statements."
+    }
+  },
+  {
+    "id": "S3",
+    "type": "Fact Retrieval",
+    "language": "ur",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 0.9,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output correctly identifies individuals who have been arrested more than once, capturing key names like Shahzib a.k.a. Shabi and Aasim Rashid along with their respective FIR numbers, aligning well with the expected output despite providing additional correct details for Faisal and Tariq.",
+      "AnswerRelevancy": "The score is 1.00 because the response is completely relevant to the input question and directly addresses what was asked without any irrelevant statements. Excellent work!"
+    }
+  },
+  {
+    "id": "A1",
+    "type": "Fact Retrieval",
+    "language": "ur",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 1.0,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output matches all key facts from the expected output. It correctly identifies 67 men, 24 women, and 3 unknown/unclear cases, which corresponds to the total of 94. The numbers and details align perfectly with the expected output.",
+      "AnswerRelevancy": "The score is 1.00 because the actual output is completely relevant and directly answers the question about the gender ratio of the nominated accused."
+    }
+  },
+  {
+    "id": "A7",
+    "type": "Fact Retrieval",
+    "language": "roman_ur",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 1.0,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output successfully captures all key facts from the expected output, stating that 8 out of 73 FIRs provided a reason for the delay while the majority did not. The numbers match exactly, and the additional details and percentages align fully with the evaluation guidelines.",
+      "AnswerRelevancy": "The score is 0.67 because while it partially addresses the input regarding the reasons for delays, it includes an irrelevant and incorrect claim that some FIRs had no delay at all."
+    }
+  },
+  {
+    "id": "CP6",
+    "type": "Fact Retrieval",
+    "language": "roman_ur",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 0.3,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output states that 10 FIRs are pending without an investigating officer, whereas the expected output mentions 11 FIRs with placeholders (8 as Naamzad ASI and 3 as Naamzad SI). Although 10 is close to 11, the actual output is materially incomplete because it completely omits the detailed b",
+      "AnswerRelevancy": "The score is 1.00 because the actual output directly and accurately addresses the input query regarding pending cases without any irrelevant information."
+    }
+  },
+  {
+    "id": "CR2",
+    "type": "Complex Reasoning",
+    "language": "en",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 0.0,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output claims there is no indication of any person appearing in an earlier case and resurfacing as a suspect in a newer case, which directly contradicts the expected output stating that a specific identity has a prior conviction and is separately accused in a newer FIR. This is a material",
+      "AnswerRelevancy": "The score is 1.00 because the actual output is completely relevant and directly addresses the input question without including any extraneous or off-topic information. Great job!"
+    }
+  },
+  {
+    "id": "CR3",
+    "type": "Complex Reasoning",
+    "language": "en",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 1.0,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output successfully addresses the core question by correctly noting that the two victims' cases were not processed identically, supporting this with the specific FIR numbers and the key fact that one case has a matching walk-in complaint while the other does not. This aligns closely with ",
+      "AnswerRelevancy": "The score is 1.00 because the actual output directly and accurately addresses the input without including any irrelevant statements."
+    }
+  },
+  {
+    "id": "CR4",
+    "type": "Complex Reasoning",
+    "language": "en",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 1.0,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output directly answers the question, aligns with the expected output by confirming that weapons can be traced to the person they were taken from, and provides relevant examples from the data. It successfully covers the key facts regarding the weapon-to-FIR-to-accused link and even includ",
+      "AnswerRelevancy": "The score is 1.00 because the response directly and fully addresses the inquiry about tracking evidence weapons without including any irrelevant information."
+    }
+  },
+  {
+    "id": "CR6",
+    "type": "Complex Reasoning",
+    "language": "ur",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 1.0,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output successfully captures all key facts from the expected output, noting that complaints and FIRs are separate systems linked practically through shared case tags, and correctly lists all four corresponding FIR mappings with minor language differences, fulfilling all evaluation criteri",
+      "AnswerRelevancy": "The score is 1.00 because the actual output directly and accurately answers the user's question regarding the relationship between a police complaint and an FIR without including any irrelevant information."
+    }
+  },
+  {
+    "id": "CR7",
+    "type": "Complex Reasoning",
+    "language": "ur",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 1.0,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output successfully captures all key facts from the expected output, including the total count of cases (33), the breakdown of active and resolved statuses, and the consistency of the independent court record for FIR 891/24. The numbers match closely and no material omissions or contradic",
+      "AnswerRelevancy": "The score is 1.00 because the actual output directly and accurately addresses every single question asked in the input regarding the criminal record system's completed and pending cases, as well as the consistency between court records and the system, with zero irrelevant statements."
+    }
+  },
+  {
+    "id": "CR8",
+    "type": "Complex Reasoning",
+    "language": "ur",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 1.0,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output successfully covers all key facts from the expected output, confirming that out of 8 domestic-violence reports, 4 have a forwarded FIR number and 4 do not, with matching numbers and correct conclusions. The slight difference in language (English vs Urdu) does not affect the semanti",
+      "AnswerRelevancy": "The score is 1.00 because the actual output directly and accurately addresses the input regarding domestic violence case records without including any irrelevant statements."
+    }
+  },
+  {
+    "id": "CS4",
+    "type": "Complex Reasoning",
+    "language": "roman_ur",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 1.0,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output successfully identifies the single person (Waqas with CNIC 00000-9000020-1) who does not match any local FIR accused record, perfectly aligning with the key fact in the expected output. It includes extra contextual details and correct counts without contradicting the expected respo",
+      "AnswerRelevancy": "The score is 1.00 because the actual output is completely relevant and directly addresses the input query without any unnecessary or unrelated information. Great job!"
+    }
+  },
+  {
+    "id": "CP1",
+    "type": "Complex Reasoning",
+    "language": "roman_ur",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 1.0,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output correctly identifies Hyderabad as the district with the highest weapon recovery rate based on the expected output, matching the key fact and the percentage (60%), and providing additional context from the expected data without contradictions or material omissions.",
+      "AnswerRelevancy": "The score is 1.00 because the response perfectly addresses the input without containing any irrelevant information. Great job!"
+    }
+  },
+  {
+    "id": "M1",
+    "type": "Contextual Summarization",
+    "language": "en",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 0.4,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output covers the general comparison of cases between 2024 and 2026, but it misses a significant portion of the specific details and breakdown of charges (such as murder, kidnapping, and financial fraud) present in the expected output, resulting in a material omission.",
+      "AnswerRelevancy": "The score is 1.00 because the actual output directly and completely addresses the types of cases being handled currently compared to the past, with zero irrelevant statements."
+    }
+  },
+  {
+    "id": "M2",
+    "type": "Contextual Summarization",
+    "language": "en",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 0.3,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output answers the question about which station type has a faster caseload growth, but it completely misses the key facts and proportional analysis regarding the specialized cybercrime units provided in the expected output, resulting in a material omission.",
+      "AnswerRelevancy": "The score is 1.00 because the actual output directly and accurately addresses the input regarding caseload growth comparison without including any irrelevant statements."
+    }
+  },
+  {
+    "id": "M4",
+    "type": "Contextual Summarization",
+    "language": "ur",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 1.0,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output successfully addresses the core question by comparing the two perspectives on case load severity, capturing the key facts regarding the section counts versus the conviction status, matching the numbers closely, and reaching the exact same conclusion as the expected output.",
+      "AnswerRelevancy": "The score is 1.00 because the actual output is completely relevant and directly addresses the user's input regarding the comparison of case severity between charges and court progress."
+    }
+  },
+  {
+    "id": "M5",
+    "type": "Contextual Summarization",
+    "language": "ur",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 0.9,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output effectively captures the key facts regarding weapons cases in 2024 and 2026, noting the charges and how the nature of the cases changed over time, aligning well with the expected output despite minor differences in the exact numerical counts.",
+      "AnswerRelevancy": "The score is 1.00 because the response directly and accurately addresses both parts of the user's inquiry regarding the nature of cases involving weapons and any potential changes compared to 2024, with no irrelevant statements."
+    }
+  },
+  {
+    "id": "M7",
+    "type": "Contextual Summarization",
+    "language": "roman_ur",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 0.1,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output directly contradicts the expected output regarding the core conclusion. The expected output asserts that people are reporting much slower in 2026 ('Haan, bohat zyada farq se'), whereas the actual output states 'No, people are not reporting incidents to the police as quickly in 2026",
+      "AnswerRelevancy": "The score is 1.00 because the actual output is completely relevant and directly addresses the user's question about reporting incidents to the police in 2026 compared to 2024, without any irrelevant statements."
+    }
+  },
+  {
+    "id": "G1",
+    "type": "Creative Generation",
+    "language": "en",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 0.3,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output covers several useful analytical points regarding the caseload, such as relationship types, property, and timing, but it diverges significantly from the expected output's core findings. Specifically, it misses key conclusions from the expected output, such as the uniform offender a",
+      "AnswerRelevancy": "The score is 1.00 because the output directly and comprehensively addresses the prompt without any irrelevant information."
+    }
+  },
+  {
+    "id": "G2",
+    "type": "Creative Generation",
+    "language": "ur",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 0.5,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output covers the missing incident dates (9 out of 73 FIRs), matching the first key point in the expected output, but it misses several other key points such as the timeline contradictions regarding departure times and the systemic issue with walk-in complaints and optional tags. Because ",
+      "AnswerRelevancy": "The score is 1.00 because the actual output directly and comprehensively addresses the prompt about briefing an SHO on overlooked or suppressed cases without containing any irrelevant statements."
+    }
+  },
+  {
+    "id": "G3",
+    "type": "Creative Generation",
+    "language": "ur",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 1.0,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output accurately captures all the key facts from the expected output, including the missing relationship details, the unrecorded weapon license statuses, and the missing incident dates in the FIRs. The numbers provided match within the acceptable margin of error (such as 82 versus 81 out",
+      "AnswerRelevancy": "The score is 1.00 because the actual output is completely relevant and directly addresses the components of a court case file preparation for extradition based on the given input."
+    }
+  },
+  {
+    "id": "G5",
+    "type": "Creative Generation",
+    "language": "roman_ur",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 0.5,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output successfully captures the major compliance concern regarding the high percentage of unlicensed weapons. However, it is materially incomplete because it omits two other key issues mentioned in the expected output: the lack of packaging, photography, or chain of custody records, and ",
+      "AnswerRelevancy": "The score is 1.00 because the actual output is completely relevant and directly addresses the inquiry regarding compliance issues related to recovered weapons without including any extraneous information."
+    }
+  },
+  {
+    "id": "G6",
+    "type": "Creative Generation",
+    "language": "roman_ur",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 0.3,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output fails to provide a cohesive orientation note for a newly posted officer as requested by the input question and expected output. Instead, it provides a fragmented breakdown of statistics and acknowledges that the combined answer could not be synthesized, resulting in material omissi",
+      "AnswerRelevancy": "The score is 1.00 because the response perfectly addresses the input by providing a concise and relevant orientation note regarding the expected case load for the newly appointed officer."
+    }
+  },
+  {
+    "id": "KB1",
+    "type": "Knowledge Base Reasoning",
+    "language": "en",
+    "route": "RAG",
+    "scores": {
+      "FactualCorrectness": 0.3,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output correctly identifies the legal requirement under the Code of Criminal Procedure but fails to address whether the recordkeeping follows it, instead stating that the documents do not provide specific information. This contradicts the expected output, which asserts that the records do",
+      "AnswerRelevancy": "The score is 1.00 because the actual output directly and comprehensively addresses both parts of the input regarding the legal requirements for a formal FIR and the evaluation of recordkeeping practices without any irrelevant statements."
+    }
+  },
+  {
+    "id": "KB2",
+    "type": "Knowledge Base Reasoning",
+    "language": "en",
+    "route": "RAG",
+    "scores": {
+      "FactualCorrectness": 0.0,
+      "AnswerRelevancy": 0.571
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output directly contradicts the expected output by claiming that the system does keep a written record of statements made during police interviews, whereas the expected output clarifies that the system intentionally does not store interview text due to legal rules under the Qanun-e-Shahad",
+      "AnswerRelevancy": "The score is 0.57 because the output contains incorrect assertions that contradict the premise of the user's question by falsely claiming the system records what is said, though it still partially addresses the context of police interview records."
+    }
+  },
+  {
+    "id": "KB3",
+    "type": "Knowledge Base Reasoning",
+    "language": "en",
+    "route": "XNETWORK",
+    "scores": {
+      "FactualCorrectness": 0.0,
+      "AnswerRelevancy": 0.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output wrongfully abstains by stating that no cross-case connections or patterns were found, whereas the expected output provided a complete, substantive answer detailing both the legal requirement of separation under Article 18 of the Police Order, 2002 and the empirical reality from the",
+      "AnswerRelevancy": "The score is 0.00 because the entire output consists of irrelevant discussions about cross-case connections, entity-graph searches, community cluster analysis, and network findings, completely failing to address whether the registering and investigating police officers are expected to be the same pe"
+    }
+  },
+  {
+    "id": "KB4",
+    "type": "Knowledge Base Reasoning",
+    "language": "ur",
+    "route": "RAG",
+    "scores": {
+      "FactualCorrectness": 0.1,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output completely misses the specific legal reference (Punjab Police Rules 1934, Rule 27.16) and the detail about property disposal timelines mentioned in the expected output, resulting in a material omission and a low score.",
+      "AnswerRelevancy": "The score is 1.00 because the response directly and accurately addresses every aspect of the input regarding police procedures for logging and disposing of case property."
+    }
+  },
+  {
+    "id": "KB5",
+    "type": "Knowledge Base Reasoning",
+    "language": "ur",
+    "route": "RAG",
+    "scores": {
+      "FactualCorrectness": 0.9,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output covers both parts of the question, correctly identifying that the law requires a female police officer and special procedures, and addressing the case records (noting 8 reports and the lack of explicit data on the implementation of these measures). Although the expected output ment",
+      "AnswerRelevancy": "The score is 1.00 because the response directly and comprehensively addresses both parts of the user's inquiry regarding legal procedures in cases of violence against women and whether data shows the implementation of those extra measures without including any irrelevant statements."
+    }
+  },
+  {
+    "id": "KB6",
+    "type": "Knowledge Base Reasoning",
+    "language": "roman_ur",
+    "route": "RAG",
+    "scores": {
+      "FactualCorrectness": 0.8,
+      "AnswerRelevancy": 0.812
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output addresses both parts of the question regarding forensics guidelines and the weapon register. While it frames the guidelines through sharp weapons and packaging rather than firearms as specified in the expected output, and provides slightly different details about what the register ",
+      "AnswerRelevancy": "The score is 0.81 because the output addresses the core forensic guidelines and weapon register tracking regarding recovered firearms, but it includes several irrelevant tangents discussing sexual assault cases, weapon licenses, and license statuses that do not directly answer the user's specific qu"
+    }
+  },
+  {
+    "id": "KB8",
+    "type": "Knowledge Base Reasoning",
+    "language": "roman_ur",
+    "route": "RAG",
+    "scores": {
+      "FactualCorrectness": 0.9,
+      "AnswerRelevancy": 0.556
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output covers the key facts regarding the legal requirement for interim reporting and correctly identifies the limitations of the case-tracking data, including the mention of challans, while matching the expected output's core conclusions despite using different legal citations and langua",
+      "AnswerRelevancy": "The score is 0.56 because while the response partially touches upon police investigation reports, it includes several irrelevant details discussing case diaries under Section 172, their specific contents, consequences of failing to maintain them, and final reports, rather than staying focused on whe"
+    }
+  },
+  {
+    "id": "KB9",
+    "type": "Knowledge Base Reasoning",
+    "language": "roman_ur",
+    "route": "XAGG",
+    "scores": {
+      "FactualCorrectness": 0.2,
+      "AnswerRelevancy": 0.833
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output is materially incomplete and contradicts the expected output. While the expected output clearly states that the schema does not contain inquest, post-mortem, or separate legal death investigation records (other than FIR sections like PPC 302), the actual output incorrectly claims t",
+      "AnswerRelevancy": "The score is 0.83 because while the response mostly addresses the user's question about the system recording suspicious deaths, it introduces an irrelevant shift in focus to four individuals linked to multiple cases."
+    }
+  }
+]

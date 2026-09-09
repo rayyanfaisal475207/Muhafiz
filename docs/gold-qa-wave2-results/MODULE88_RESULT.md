@@ -400,7 +400,7 @@ entity recurs across 6 case(s) … chain confidence 50%"* and names no person;
 P3 additionally asserts *"there is no indication that any individual … has a
 prior case record"*, which is wrong. This is a **routing** defect, not a
 rendering one — `router.py` is out of bounds for this module — and it is
-filed as **Module 89**. It is the same shape Module 78 records for KB3/KB9
+filed as **Module 92**. It is the same shape Module 78 records for KB3/KB9
 and Module 62 for CR3/G6: a capability reachable only from a narrow
 neighbourhood of the gold wording.
 
