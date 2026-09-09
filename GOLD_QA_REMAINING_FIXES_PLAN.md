@@ -114,7 +114,7 @@ several can run in parallel chats/worktrees without colliding.
 | 69 | `_is_station_specialisation()`'s tier-2 proximity window (0–1 words) is a judgement, not a measurement | *(not yet branched)* | ⬜ New — found by Module 58 in its own work. The window covers the pairings Module 56 enumerated by hand and survives 14 adversarial phrasings, but the number was chosen, not fitted: a gap of 2 would admit *"ordinary, everyday police stations"* and also *"normal for a case at the station"*. **No corpus of real user phrasings exists to fit it against** — one should, before the window is widened. |
 | 70 | M2's headline concentration figure is dropped ABOVE XAGG on ~1 run in 3 | *(not yet branched)* | ⬜ New — found by Module 58, observed but not caused by it. The aggregate emits gold's 9-of-73-from-2-of-19 on **3 of 3** live runs; the served answer carries it on **2 of 3**. The loss is in the paraphrase/verifier layer, which Modules 44 and 56 both saw and neither owns — the same class as **Module 61**, on a different question. Means any single-run M2 score is a coin flip on gold's headline number. |
 | 61 | The grounding verifier refuses a **negative inference over a complete listing**, which is exactly what CR3's gold answer asserts | `fix/verifier-over-rejection` | ✅ Done — `MODULE61_RESULT.md`. A chunk can now be DECLARED a complete enumeration (`metadata["exhaustive_scope"]`, set only for an XAGG-only sub-answer), and non-membership in one is supported rather than inferred. Two deterministic guards keep it narrow: the claim is checked against the listing it NAMES (CR3 serves three listings at once, and 65/26 legitimately appears in a sibling one — pooling them made every correct negative look fabricated), and a claim asserting the absence of a record the listing CONTAINS is still rejected. Live before/after on one machine: CR3 **4 of 8 → 7 of 8**, with all four pre-fix rejections carrying the FIR 65/26 absence reason. The validation gate now IMPORTS the same rule, so the two gates agree — the "could only be partially confirmed" caveat for that claim is gone on 8 of 8. Hallucination still rejected (unit test + live: CR3's one remaining failure is a different, correctly-refused claim). **KB4 is a separate defect** — its rejections are over-attribution to a RAG chunk, which this rule never touches. New defect split out as **Module 74**. |
-| 71 | G1's synthesis verifier intermittently rejects an unsupported **numeric** claim | *(not yet branched)* | ⬜ New — found by Module 61's regression guard. 1 of 3 live G1 runs returned `status=error`: *"Two claims lack explicit support in the cited chunks: the alleged data discrepancy and the 73-case total for seized property."* The verifier is working correctly — the synthesis over-reached — and Module 61's exhaustive-listing rule correctly declines to rescue it, because it is not a negative inference. Same shape as CR3's one surviving failure (*"the claim about accused persons is not supported by any cited chunk"*). The question to answer is whether the synthesis prompt invites claims the sub-answers do not carry; **do not** reach for the verifier again. |
+| 71 | G1's synthesis verifier intermittently rejects an unsupported **numeric** claim | `fix/verifier-numeric-overreach` | ✅ Done — `MODULE71_RESULT.md`. **The fabricated 73 is the incident-time-of-day sub-answer's denominator** ("64 of 73 incidents"), the only one of G1's five sub-answers that states 73, borrowed onto seized property (which computes 45 entries across 28 FIRs). Fixed on the GENERATION side only: rule 2 rescoped from "appears literally in a sub-answer above" — **the rule the fabricated 73 satisfied** — to "the sub-answer you cite for it", the `caseload_review` synthesis goal stopped inviting a coverage figure to travel between findings, and a rejected synthesis now serves the verified sub-answers instead of `status=error` (`large_scale_aggregate.py`/Module 53's shape). `verifier.py`, `validation.py` and `prompts/verifier.txt` untouched. **The defect did not reproduce in 25 pre-fix live G1 runs** (Module 61 saw 1 in 3; this path has since got ~3× faster), so no answer-rate improvement is claimed — proven instead on a forced-hallucination control: same fabricated synthesis, same real verifier, **`status=error` 3/3 → `status=done` 4/4**, all four gold findings served, fabrication never served, and the deterministic detector naming `73 -> [Document 3]` on 4/4. A per-document figure roster was built, measured, **found harmful (G6 0/4 → 7/8 rejections, Module 29's citation refusal) and deleted**. Regressions CR3/G6/M2/G2/G5 **40 of 40**. New defect split out as **82**. |
 | 72 | `A1` and `KB5` are indistinguishable at `gender_breakdown`, so neither can be given a deterministic route | *(not yet branched)* | ⬜ New — found by Module 67 in its own work. `resolve_aggregate_kind()` sends both A1 (نامزد ملزمان میں مرد اور عورت کا تناسب — a genuine cross-case count) and KB5 (a legal-KB question about violence against women) to `gender_breakdown`. One is a true dispatch, the other a vocabulary false positive, and nothing **at the kind level** separates them — which is the sole reason Module 67 could not give A1 a deterministic route without dragging KB5 into a cross-case aggregate, the exact mistake Module 60 refused. A1 is 8-of-8 XAGG on the probe and 2-of-2 live: stable today, unpinned tomorrow. **Verify:** whether `_is_gender_breakdown()` can require a caseload-counting signal KB5's statutory phrasing does not carry, negative-controlled against all 32 and against KB5's variants. |
 | 73 | A doomed RAG request costs more than the sub-agent it is bounded at, because the same classification is computed twice | *(not yet branched)* | ⬜ New — found by Module 67 while measuring its own fix. `SEMANTIC_SEARCH_DEADLINE_S` bounds the Semantic Search dispatch and **fires live** (`exceeded its 360s deadline`), yet the request still took **406.7 s**: the query rewriter, `main.py`'s cutover classification call and `Supervisor.handle()`'s own `route_query()` all sit outside the bound, and a router call alone is **15–30 s** (Module 67 measured 128 of them). Two of those three are the same classification, computed twice per request. **Verify:** whether `main.py` can hand its already-computed route to `Supervisor.handle()` instead of having it recomputed, and what the end-to-end saving is. Owner is `main.py`/`cutover.py` — neither of which Module 67 was allowed to touch. |
 | 74 | KB3's data half — "the registering officer and the investigating officer are the same person in 68 of 74 pairs" — had **no aggregate**; the question resolved to `unsupported_officer`, an honest refusal | `feat/xagg-kb-data-half-aggregates` | ✅ **Done — figure reproduces gold exactly, third independent derivation.** Re-probed rather than inheriting Module 39's numbers: 144 `(:Officer)-[:ASSIGNED_TO {role}]->(:Case)` edges, **74 investigating / 70 recording**, and **68 of the 74 investigating assignments name the same person as that case's recording officer = 91.9 %**, 6 split across 6 cases — gold's "68 of 74 pairs (92%)" and "only 6 cases", exactly. **Grain is the ASSIGNMENT edge, not the case, and that is load-bearing**: `fir-205-26` carries TWO investigating edges (a superseded placeholder ASI plus its real successor), so a per-case count gives 68/5 — true, and not gold. (Module 39's breakdown listed `fir-205-26` among three "genuine" splits; corrected in `MODULE74_RESULT.md` §1.1.) The refusal is **preserved**: `_is_officer_role_pair_comparison()` needs THREE signals (registering AND investigating AND sameness), so a general "which officer" identity question still gets `unsupported_officer` — pinned both ways by `TestOfficerRolePairBoundary`. All-32 EQUALITY control moves **exactly one** question, KB3. Live: the canned sub-query is `route=XAGG`, `XAGG officer_role_pair_overlap: … same officer on 68 of 74 pair(s) (91.9%)` on **3 of 3** runs plus 3 in-process, answering "68 out of 74 … 92%". **Vocabulary widened after BOTH paraphrases missed** — Module 56's finding again; 5 of 6 post-widening, the miss pinned rather than tuned. **KB3's own data half is still not live**, for two reasons neither of which is in `xagg.py`: the plan entry is in `rag.py` (out of bounds, Module 77) and **KB3 routes to XNETWORK 3/3, never RAG** (Module 78). Result: `docs/gold-qa-wave2-results/MODULE74_RESULT.md` |
@@ -125,6 +125,7 @@ several can run in parallel chats/worktrees without colliding.
 | 79 | A compound KB question can need **two** aggregates, and `_KbDataHalfPlan` is single-aggregate by construction | *(not yet branched)* | ⬜ New — found by Module 76. KB9's gold answer carries a charging-side figure ("8 FIRs cite PPC 302", really 10) **and** a property one ("kai zabt shuda property entries meyyat ke warisaan ko wapas karne ke liye nishaanzad hain"). The second is `seized_property_disposition`'s own heirs figure and **already exists** — Module 39 reaches it for KB4 — so nothing needs computing; only the plan SHAPE is missing. Module 39 predicted this in its own row ("this question may want two aggregates rather than a better one") and Module 76 confirms it: a better aggregate closes the first element and leaves the second exactly where it was |
 | 80 | `"How many FIRs cite PPC section 302, across all cases?"` and two rewordings are all classified **SQL** by the router, 2 of 3 ending `status=error` after 77–93 s | *(not yet branched)* | ⬜ New — found by Module 76 while looking for live evidence. **Harmless to the composition path and fatal to a user typing the question**: a `_KB_DATA_HALF_PLANS` sub-query is handed straight to `xagg_tool()` and never sees the router (Module 39 §2.1, and Module 76 exercised that path 3/3 successfully), so the new aggregate lands correctly where it is meant to. But no phrasing of a per-section FIR count reaches XAGG on its own. `router.py`, adjacent to Modules 60/67 |
 | 81 | Module 54's canonical quota grep matches the **millisecond field of a timestamp** | *(not yet branched)* | ⬜ New — found by Module 74. `rate limit\|RESOURCE_EXHAUSTED\|429\|quota\|UNAVAILABLE\|503` returned exactly one hit across 38 live runs, and it is `16:19:29,503 … XAGG criminal_record_court_crosscheck: 33 criminal record(s)` — the `,503` of the timestamp, not a provider failure. `429` carries the same exposure (`…,429`). Every module in this wave reports a quota count from this pattern, so a false positive is a false alarm in a load-bearing check. Needs word boundaries or an HTTP-status context. Left unchanged deliberately: the pattern is canonical in `gold32_score.py::LOG_GREP_PATTERN`, cited by three prescriptive docs and enforced by a test, all outside Module 74's scope |
+| 82 | Meta-Analysis' synthesis intermittently cites nothing at all, and the rate is **prompt-length-sensitive** | *(not yet branched)* | ⬜ New — found by Module 71 in its own work, by accident and then deliberately. G6's *"Answer is substantial (long, or a multi-item list) but cites no `[Document N]` source at all"* refusal is Module 29's, still live: **0 of 4** on pre-fix code, but **10 of 12** once five short deterministic lines were interleaved into `_format_subanswers_for_prompt`'s output, and back to **0 of 8** the moment they were removed. Rewording them to avoid the `[Document N]` marker (Module 25's finding) did not help, so the cost is the interleaving, not the wording. The citation rule is therefore held only by its proximity to the end of the synthesis prompt, which makes every future addition to that section a coin flip nobody will think to re-measure. The durable fix is structural — put the citation requirement where length cannot dilute it, or carry provenance out of band so `[Document N]` markers are not the mechanism — not another restatement. Module 71 recovered G6 by deleting its own change, which is a workaround. **Verify on G6 and CR3, several runs each, with a deliberately lengthened sub-answers section as the control.** |
 | 27 | Final Gold-32 rerun (Module 18 redo) | *(docs only)* | ⬜ Blocked on all above — brief: `MODULE27_FINAL_GOLD32_RERUN_PROMPT.md` |
 
 ### Coverage check — every failing question maps to a module
@@ -3561,6 +3562,75 @@ never touches. It measured 5 of 5 answering here, but nothing in this change
 is what did that, and Module 38's 1-of-3 should not be treated as fixed.
 
 **New defect split out as Module 67** (G1's numeric over-reach rejection).
+
+---
+
+# Module 71 — G1's synthesis blends denominators across sub-answers ✅
+
+**Done — `docs/gold-qa-wave2-results/MODULE71_RESULT.md`.** Branch
+`fix/verifier-numeric-overreach`.
+
+**Where the fabricated number comes from, exactly.** G1's five aggregates
+count five different populations. `incident_time_of_day` renders *"64 of 73
+incident(s) carry a datetime"* — and it is **the only one of the five that
+states 73 at all**. `seized_property_disposition` computes 45 register
+entries across 28 FIRs. Module 61's recorded rejection, *"the 73-case total
+for seized property"*, is that denominator borrowed from [Document 4] onto
+[Document 3]'s subject: not an invention out of nothing, not arithmetic, a
+**cross-denominator borrow**. The verifier was right, and Module 61's
+exhaustive-listing rule correctly neither fires nor rescues.
+
+**Why the existing rule could not catch it.** The synthesis prompt already
+said *"every number you state appears literally in a sub-answer above"*
+(Module 29, after G6 summed per-district counts). **73 satisfies that
+rule.** It was scoped to the page; the property it needed was scoped to the
+document. Rule 2 is now "…in THE SUB-ANSWER YOU CITE FOR IT, not merely
+somewhere above", with an explicit ban on moving a total, denominator or
+coverage figure between documents; the derived-number half survives as rule
+3. `caseload_review`'s synthesis goal also stopped inviting the blend — it
+used to end at *"carry that coverage across too"*, spoken over five
+different denominators.
+
+**`verifier.py`, `validation.py` and `prompts/verifier.txt` were not
+touched**, as the brief requires. One production file changed.
+
+**An error is no longer the outcome.** A verifier-rejected synthesis now
+returns `PARTIAL` carrying a deterministic composition of the verified
+sub-answers (no second LLM call), with a caveat saying the synthesis is
+missing — the same shape as `large_scale_aggregate.py`'s raw-aggregate
+fallback and Module 53's. The rejected text is dropped and never served.
+
+**The headline live number is a null result, reported as one.** The defect
+**did not reproduce in 25 pre-fix live G1 runs** on this machine (Module 61
+measured 1 in 3, on a build where this path took ~120 s rather than today's
+~35 s). No before/after improvement in G1's answer rate is claimed. The fix
+is justified by the root cause and by a **forced-hallucination control**
+(`scripts/module71_forced_hallucination_control.py`: the ordinary backend
+with `meta_analysis.call_llm` replaced, everything downstream real):
+same fabricated synthesis, same real verifier, **`status=error` 3 of 3 →
+`status=done` 4 of 4**, all four gold findings served, the fabrication never
+served, and the new deterministic detector naming `73 -> [Document 3]` on
+4 of 4 before the verifier spoke.
+
+**A change was built, measured, found harmful and deleted.** The brief's
+second direction — make the sub-answers carry their denominators explicitly
+— was implemented as a per-document figure roster in the prompt. G6 went
+from **0 rejections in 4 pre-fix runs to 3 of 4, then 7 of 8**, every one
+Module 29's *"cites no [Document N] source at all"*; rewording the roster to
+drop the marker did not recover it; deleting it did, 8 of 8 at the pre-fix
+timing. Against that cost, no measured benefit — the defect it prevents did
+not occur in 25 runs. The measurement is written into the function's
+docstring and pinned by a test, so the next module to have the idea finds
+the answer before spending the runs.
+
+**Regression CR3/G6/M2/G2/G5: 40 of 40 answered, 0 rejections.** CR3 holds
+Module 61's result. Non-gold Roman-Urdu paraphrase 3 of 3 with all four
+findings; the English paraphrase routes to XNETWORK 3 of 3 and never reaches
+the plan — **Module 62 reproducing verbatim**, reported rather than swapped
+out.
+
+**New defect split out as Module 82** (the citation rule is held only by
+prompt proximity).
 
 ---
 
