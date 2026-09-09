@@ -100,9 +100,9 @@ several can run in parallel chats/worktrees without colliding.
 | 55 | Every XAGG aggregate predating Modules 31–36 emits no `XAGG <kind>:` log line, so no live run of it can be identified from `backend.log` | `fix/xagg-log-lines-and-m2-vocabulary` | ✅ **Done** — measured **32 distinct aggregate kinds, 11 log lines, 21 families silent** (the brief's "~18" undercounted). All 21 now log, each carrying the **figures**, plus the three honest-refusal paths that were previously indistinguishable from XAGG never running. Confirmed live in-process against Postgres + AGE: 21 of 21 emit real figures, Urdu values intact post-PR #30. The durable fix is an **AST-derived enforcing test** — a new family with no log line fails the suite. Backend/SSE run **deferred for contention** (8015 and 8016 both mid-run). Result: `docs/gold-qa-wave2-results/MODULE55_RESULT.md` |
 | 56 | M2's dispatch vocabulary is narrower than the family it now serves — a station-type question that avoids `_STATION_TYPE_KEYWORDS`' exact wording falls to the per-station catch-all | `fix/xagg-log-lines-and-m2-vocabulary` | ✅ **Done** — tuple widened from 10 to **58** entries: specialist/specialised/dedicated unit and station forms, the ordinary/normal/regular general-purpose side, and their Roman-Urdu (`makhsoos`/`khaas`/`aam thana`) and Urdu (خصوصی/مخصوص/عام تھانہ) equivalents. Every entry binds the qualifier to a station word; no bare عام-class word. **All-32 EQUALITY control passes** — every gold question's resolved kind byte-identical to the pre-change map. The measured failing phrasing now reaches `station_caseload_by_specialisation`, as do 8 non-gold paraphrases across all three languages; M2 still reproduces gold's 9-of-73 from 2-of-19. New defect split out as **Module 59**. Result: `docs/gold-qa-wave2-results/MODULE56_RESULT.md` |
 | 57 | CR3 is non-deterministic across runs at three different layers | `fix/meta-analysis-reliability-53-57-40` | ✅ **Diagnosis closed; CR3 still unstable. No code change of its own.** Re-measured over 20 consecutive runs of CR3's gold text after Module 53: sub-query timeouts **0 of 20** (removed by Module 53); `route=None` **0 of 20** (did not reproduce — not fixed, *not observed*; `xnetwork.py` correctly untouched); synthesis-verifier rejection **7 of 14 on the shipped code** and now the only failure left. Its reason is singular and verbatim-identical every time — the claim that FIR 65/26 is *absent* from the CMS linkage list, which is exactly what gold asserts. Measured **not** to be citation attribution, so Module 40 cannot fix it either. CR3's dispatch is fully stable (same route, plan and 3 sub-queries, 20/20). Result: `docs/gold-qa-wave2-results/MODULE57_RESULT.md` |
-| 58 | `_STATION_TYPE_KEYWORDS` is a 58-entry substring list where the file's other hard dispatch calls use a multi-signal predicate | *(not yet branched)* | ⬜ New — found by Module 56, which widened it. Two of its entries (`single type of crime`, `one type of crime`) name no station at all; they are in because M2's gold text is phrased that way, and nothing but the all-32 control and reviewer judgment stops the next such entry from raiding `_STATION_KEYWORDS`. The structural fix is the shape `_is_arrest_rate()` / `_is_criminal_record_local_gap()` / `_is_weapon_statute_cooccurrence()` already use: station-or-unit signal **AND** specialisation-contrast signal. Deliberately out of scope for a "widen the vocabulary" module — it is a behaviour change with its own regression surface. |
+| 58 | `_STATION_TYPE_KEYWORDS` is a 58-entry substring list where the file's other hard dispatch calls use a multi-signal predicate | `fix/m4-routing-and-station-predicate` | ✅ **Done.** The tuple is **deleted** and replaced by `_is_station_specialisation()` — a station/unit **noun** AND a specialisation qualifier, in two tiers. Tier 1 (`specialist`, `general-purpose`, `one type of crime`…) is free-floating; tier 2 (the ordinary-language `ordinary`/`normal`/`regular`/`dedicated`/`aam`/`khaas`/`عام`/`خصوصی`) counts only **directly on the station noun**, generating the pairings Module 56 enumerated by hand. Two design points are measured, not asserted: a naive AND hijacks **KB9** (`police` + `khaas tor par`) out of `graph_recurrence_person`, so a bare `police`/`پولیس` is **not** a station signal; and `unit` is word-bounded against `opportunity`/`impunity`. **All-32 EQUALITY control re-run: identical, 32 of 32**, and exactly one of the 32 (`M2`) matches the predicate. **The filed defect is confirmed and fixed** — *"How many cases involve one type of crime only?"* and two siblings resolved to this family before and now do not; live, that phrasing gets `total_count` and an honest limitation, 2/2. **14 out-of-gold adversarial negatives** added, so the guarantee no longer rests on the 32. Live: M2 gold **3/3** to `station_caseload_by_specialisation` (gold's 9-of-73 from 2-of-19 on 2 of 3 — the aggregate is right 3/3, the prose drops it once: Module 70); Module 56's own measured failure phrasing **2/2**. Regression G3/CR7/G2/G5/M5 **2/2 each**, no family moved. New defects: **69, 70**. Result: `docs/gold-qa-wave2-results/MODULE58_RESULT.md` |
 | 59 | `_MAX_PLAN_SUB_QUERIES` is still 5, and the case for raising it is now open but unmeasured | *(not yet branched)* | ⬜ New — found by Module 53, which met Module 50's stated prerequisite for revisiting the cap and then deliberately did not revisit it. Salvage degrades an answer's *prose*; it does not remove the model server's serialisation, and model spend and the user's wall-clock wait are unchanged. The post-Module-53 staircase at N=6..9 has never been measured. Concretely at stake: gold's G6 "mostly men" element, dropped by Module 50 to fit the arrest rate. |
-| 60 | M4 does **not** skip decomposition live — its route is XNETWORK, and Module 41's guard only fires on XAGG | *(start from `fix/meta-analysis-m4-synthesis-verifier-rejection`)* | ⬜ New — found by Modules 53/40's regression guard. **7 live runs of 7 reach Meta-Analysis**, across `main` @ `9942db9` and current `main`. On the older base, 4 of 4 were byte-identical: `route=XNETWORK` → two XGRAPH sub-queries → *"No information was found for any part of this question."* After Modules 38/55/56 merged, M4 became non-deterministic: 2 of 3 runs decompose into Urdu sub-queries reaching XAGG and RAG and **answer** with gold's statute half (PPC 61 / Arms 29 / CNSA 12 / PECA 9), losing gold's court-stage half to a RAG sub-query timeout; 1 of 3 reproduces the empty result. Module 41 recorded `skips_decomposition=True` from a **static** `resolve_aggregate_kind()` call and its own §8 says M4 was *"not re-run live here"*; both statements are true, because the guard at `supervisor.py:745` is conditional on `route == "XAGG"`. Three candidate fixes, all needing `router.py`/`supervisor.py`: take Module 40's `statute_vs_court_stage` plan and accept that it vetoes the Module 41 guard; widen the guard beyond `route == "XAGG"`, against that guard's own explicit reasoning; or fix why the router says XNETWORK. |
+| 60 | M4 does **not** skip decomposition live — its route is XNETWORK, and Module 41's guard only fires on XAGG | `fix/m4-routing-and-station-predicate` | ✅ **Done — and the defect is worse than filed.** Re-measured live on one backend, router reverted vs. restored, 6 runs each arm. **Before: four distinct outcomes in six runs.** 2/6 `XNETWORK` → decomposed, 325–329 s, gold's court-stage half lost to the sub-query timeout; 2/6 `XAGG` → answers correctly (**these are the runs Module 41's static verification assumed were universal**); **2/6 plain `RAG` → `status=error` after 456 s / 487 s** — a failure mode never previously recorded for M4, filed as **Module 67**. The router itself was probed directly, 8 calls on M4's gold text: **6 XAGG / 2 XNETWORK, `confidence: medium` on all eight** (Module 68). **Option 3 taken — fix the ROUTE, not the guard.** Option 2 was rejected on measurement, not preference: with `route=XNETWORK` the supervisor falls through to Cross-Case Linkage / Global Search, which still cannot reach the aggregate, so widening the guard would repeal its protection for every cross-case route and fix nothing. Option 1 (Module 40's plan) was rejected because a matched plan **vetoes** the guard. The new `router.py` override is gated on **`resolve_aggregate_kind()`**, Module 41's single source of dispatch truth — so it inherits every precedence rule above `_is_statute_court_stage_join()` and **G3's `court_readiness_scan` and CR7's cross-check can never reach it**. The broad form (`resolves_to_specific_aggregate()`) was measured and rejected: it moves **7 of the 32**, including KB5. **After: 7 of 7 `XAGG` → Large-Scale Aggregate, one dispatch, `statute_court_stage_join` logged every run, 13.6–29.7 s, every gold element present on every run** — including the court-stage half, which had never appeared before. **All-32 EQUALITY negative control: exactly one question changed, M4** (None → XAGG); variants swept, none moved. Regression G3/CR7/G2/G5/M5 **2/2 each**. New defects: **67, 68**. Result: `docs/gold-qa-wave2-results/MODULE60_RESULT.md` |
 | 61 | The grounding verifier refuses a **negative inference over a complete listing**, which is exactly what CR3's gold answer asserts | *(not yet branched)* | ⬜ New — found by Module 57, and the whole of CR3's remaining instability. Verbatim on every rejection: the claim that FIR 65/26 is absent from the CMS linkage list is *"inferred but not directly supported"*. Measured **not** to be citation attribution, so Module 40's second opinion cannot fix it (still `grounded=False` with the flag on, 3 of 3). Note the inconsistency to resolve: the **validation** gate already *hedges* the identical claim ("could only be partially confirmed") rather than refusing it, so the two gates hold different standards for the same evidence. Reaches beyond Meta-Analysis — any XAGG listing served as evidence has this shape. |
 | 62 | The deterministic decomposition plans have a narrow lexical reach | *(not yet branched)* | ⬜ New — found by Modules 57/40's non-gold paraphrase check, generalising Module 41's M4 finding to CR3 and G6. A CR3 paraphrase keeping "online banking fraud" and "handled the same way" matches `record_consistency` and answers correctly 2/2; one asking whether the records are "equally complete" matches nothing and never reaches Meta-Analysis. Same boundary for G6's `orientation_note`. The capability is **not** tied to the gold string, but it is tied to a small neighbourhood around it. The fix is probably not "add more patterns" — it is deciding whether a plan should be selected by regex at all, or by the same aggregate-resolution mechanism Module 41 used for its guard. |
 | 52 | The relevance gate cannot judge a roman-Urdu question against English statute text (English 6/6 relevant, roman-Urdu 1/6, identical chunks) | `fix/kb-evaluator-english-rendering` | ✅ **Done — the gate defect is real and fixed, and it does not on its own win the KB bucket.** The legal-KB path now renders the QUESTION in English (`render_question_in_english()`) for both retrieval and `evaluate_relevance()`; `prompts/evaluator.txt` untouched. Layer 1 re-measured on this branch, chunk set constant and containing gold's text: **0/3 roman-Urdu → 3/3 English**. Live, KB1–KB9 × 3 runs × 2 arms, **re-baselined against `main` @ `a841f5d`**: answered **18/24 → 19/24**, thematic law-half coverage **14/24 in BOTH arms**. KB9 abstained 2/3 → answers 3/3 with CrPC s.174 + Rule 25.35; KB6's six rounds collapse to **1/1/1** and its runtime falls 65%; **KB4 regresses 2/3 → 0/3**, isolated by probe to the verifier, not the gate. Non-gold roman-Urdu paraphrase: 2/3 → 3/3 answered and gold's three statutory specifics on 2 of 3 runs vs **0 of 3** before. New defects split out as Modules 58–61. Result: `docs/gold-qa-wave2-results/MODULE52_RESULT.md` |
@@ -110,6 +110,10 @@ several can run in parallel chats/worktrees without colliding.
 | 64 | KB6's `c19`/`c18` window is still not retrieved from KB6's own wording | *(not yet branched)* | ⬜ New — found by Module 52. Module 52's brief predicted the English rendering in retrieval would surface it; measured, it does not (3/3 runs land on `c116`). A **paraphrase** of KB6 does reach it, so corpus/widening/generator are all capable |
 | 65 | KB2's gold rests on Qanun-e-Shahadat Arts 38/39 and CrPC s.162 — no run ever retrieves them | *(not yet branched)* | ⬜ New — found by Module 52 (0 of 6 live runs, both arms). This is the diagnosis **Module 48** records as missing for KB2, and it is a Module-30-shaped **retrieval** gap, not a synthesis one |
 | 66 | The English rendering can narrow a question's scope (KB5: "violence" → "domestic violence") | *(not yet branched)* | ⬜ New — found by Module 52 in its own output, against `prompts/question_english.txt` rule 4. KB5's evaluator rounds also worsened, mean 1.7 → 4.0 |
+| 67 | The router classifies a plainly cross-case aggregate question as plain **RAG**, and the pipeline then burns ~8 minutes before failing hard | *(not yet branched)* | ⬜ New — found by Module 60's own before-arm. 2 of 6 runs of M4's gold text routed `RAG` → Semantic Search, spent **456 s and 487 s** on retrieval retries, and returned `status=error`: *"No sufficiently relevant documents were found for this question after retrying with query refinements."* Module 60's deterministic override masks this **for M4 only**; the behaviour is untouched, and the **11 gold questions with no deterministic override** — all eight KB questions plus G1, G6, CR3 — are exposed. Two things to settle: how often the router picks a route the question cannot be answered from, and whether an ~8-minute retry budget on a doomed classification is right. |
+| 68 | `route_query()`'s `confidence` is `medium` for a classification it gets wrong 1 run in 4 | *(not yet branched)* | ⬜ New — found by Module 60's 8-call router probe on M4's gold text: **6 XAGG / 2 XNETWORK, `confidence: "medium"` on all eight**. The field carries no information about run-to-run stability while reading as if it does. Nothing consumes it today, which is the only reason this is a defect and not an incident. Either make it correlate with stability, or stop emitting it. |
+| 69 | `_is_station_specialisation()`'s tier-2 proximity window (0–1 words) is a judgement, not a measurement | *(not yet branched)* | ⬜ New — found by Module 58 in its own work. The window covers the pairings Module 56 enumerated by hand and survives 14 adversarial phrasings, but the number was chosen, not fitted: a gap of 2 would admit *"ordinary, everyday police stations"* and also *"normal for a case at the station"*. **No corpus of real user phrasings exists to fit it against** — one should, before the window is widened. |
+| 70 | M2's headline concentration figure is dropped ABOVE XAGG on ~1 run in 3 | *(not yet branched)* | ⬜ New — found by Module 58, observed but not caused by it. The aggregate emits gold's 9-of-73-from-2-of-19 on **3 of 3** live runs; the served answer carries it on **2 of 3**. The loss is in the paraphrase/verifier layer, which Modules 44 and 56 both saw and neither owns — the same class as **Module 61**, on a different question. Means any single-run M2 score is a coin flip on gold's headline number. |
 | 27 | Final Gold-32 rerun (Module 18 redo) | *(docs only)* | ⬜ Blocked on all above — brief: `MODULE27_FINAL_GOLD32_RERUN_PROMPT.md` |
 
 ### Coverage check — every failing question maps to a module
@@ -2936,7 +2940,7 @@ experiments, every verdict and reason, including the negative results.
 
 ---
 
-# Module 58 — `_STATION_TYPE_KEYWORDS` should be a predicate, not a 58-entry list ⬜
+# Module 58 — `_STATION_TYPE_KEYWORDS` should be a predicate, not a 58-entry list ✅ DONE
 
 **Found by:** Module 56, which is the module that made it 58 entries.
 
@@ -2964,6 +2968,55 @@ the vocabulary"; this is a behaviour change to the dispatch shape, with its
 own regression surface, and it needs the all-32 equality control re-run plus
 a set of adversarial non-gold phrasings that the current control does not
 contain.
+
+
+---
+
+## Outcome (2026-09-09, branch `fix/m4-routing-and-station-predicate`)
+
+**Done. The defect above is confirmed and fixed, and the all-32 control did not
+move.** Full evidence in `docs/gold-qa-wave2-results/MODULE58_RESULT.md`.
+
+**What shipped.** `_STATION_TYPE_KEYWORDS` is deleted;
+`_is_station_specialisation()` replaces it — a station/unit **noun**
+(`station`, `thana`, `\bunits?\b`, `تھانے`, `یونٹ`, `چوکی`) **AND** a
+specialisation qualifier, in two tiers. Tier 1 names a station kind outright
+and is free-floating. Tier 2 — the ordinary-language qualifiers — counts only
+**directly on the station noun** (0–1 intervening words), which generates the
+pairings Module 56 wrote out by hand and refuses the ones it did not.
+
+**Two design points were measured rather than assumed, and both changed the
+shape:**
+
+- A naive `station-word AND qualifier-word` hijacks **KB9** (*"police ko …
+  khaas tor par …"*) out of `graph_recurrence_person`. A bare
+  `police`/`پولیس` is therefore **not** a station signal. This is an accepted
+  narrowing relative to Module 56's `specialist police` entry, taken knowingly.
+- `unit` is word-bounded — it is a substring of `opportunity` and `impunity`.
+
+**The filed defect is real and is fixed.** Measured on the pre-fix tree, three
+phrasings resolved to `station_caseload_by_specialisation` with no station
+named at all: *"How many cases involve one type of crime only?"*, *"How many
+FIRs cover a single type of crime?"*, *"Are most of our cases a single type of
+crime, or a mix?"*. Live, the first now gets `total_count` and an honest *"the
+data does not categorise cases that way"*, **2 of 2**.
+
+**The all-32 EQUALITY control was re-run against the completely different
+dispatch mechanism: identical, 32 of 32**, and exactly one of the 32 (`M2`)
+matches the predicate. **14 out-of-gold adversarial negatives** were added, so
+the guarantee no longer depends solely on those 32 questions.
+
+**Live:** M2's gold text **3/3** to `station_caseload_by_specialisation`, one
+route event and one dispatch each, the aggregate line identical every time.
+Module 56's own measured failure phrasing **2/2**. Regression G3/CR7/G2/G5/M5
+**2/2 each**, no family moved.
+
+**Honest limit:** gold's headline "9 of 73 FIRs from 2 of 19 stations" reaches
+the served answer on **2 of 3** runs. The aggregate is correct 3/3 — the loss
+is in the paraphrase/verifier layer above XAGG, the same variance Modules 44
+and 56 recorded, and it is filed as **Module 70** rather than papered over.
+
+**New defects split out as Modules 69 and 70.**
 
 ---
 ---
@@ -3163,7 +3216,7 @@ aggregate dumps is not an improvement.
 
 ---
 
-# Module 60 — M4 does not skip decomposition live; Module 41's guard never fires for it ⬜
+# Module 60 — M4 does not skip decomposition live; Module 41's guard never fires for it ✅ DONE
 
 **Found by:** Modules 53/40's regression guard, on the branch
 `fix/meta-analysis-reliability-53-57-40`.
@@ -3239,6 +3292,75 @@ options, and this module must pick one explicitly rather than drift into it:
 as the Module 41 regression guard** — option 2 in particular must negative-
 control against all 32. Confirm from `backend.log` which aggregate answered,
 noting Module 55 (`statute_court_stage_join` may not log a line).
+
+---
+
+---
+
+## Outcome (2026-09-09, branch `fix/m4-routing-and-station-predicate`)
+
+**Done. The finding is confirmed, and the before-arm is worse than the tracker
+recorded.** Full evidence in `docs/gold-qa-wave2-results/MODULE60_RESULT.md`.
+
+**Before, re-measured on one backend with only `router.py` reverted to
+`c5533ba`, 6 runs — four distinct outcomes:**
+
+| Runs | Route events | Seconds | Outcome |
+|---|---|---|---|
+| 1–2 | `XNETWORK` → `XAGG`, `RAG` | 328.9 / 324.6 | **partial** — statute half only; the answer says outright that court-stage data is not specified |
+| 3–4 | `XAGG` | 86.9 / 69.7 | **answers** — the runs Module 41's static check assumed were universal |
+| 5–6 | `RAG` | 456.0 / 486.6 | **`status=error`** — *"No sufficiently relevant documents were found…"*. Never previously recorded for M4 |
+
+The router was also probed directly, 8 calls on M4's literal gold text with
+the new override disabled: **6 XAGG / 2 XNETWORK**, `confidence: medium` on
+all eight. The router's own output is the flaky part, which is why 7-of-7 and
+2-of-3 were both true.
+
+**Option 3 was taken — fix the ROUTE — and options 1 and 2 were rejected on
+measurement:**
+
+- **Option 2 (widen the guard) does not work.** With `route=XNETWORK`,
+  skipping Meta-Analysis falls through to `_ROUTE_TO_SUBAGENT["XNETWORK"]` —
+  Cross-Case Linkage / Global Search — which still cannot reach
+  `_statute_court_stage_join()`. It would repeal the guard's stated protection
+  for every cross-case route and fix nothing. Pinned by
+  `test_module60_m4_under_the_live_xnetwork_route_still_decomposes`.
+- **Option 1 (Module 40's plan) is vetoed by design** — a matched plan makes
+  `_xagg_answers_in_one_call()` return `False`, so M4 would decompose even on
+  the runs where the one-call aggregate is the better answer.
+
+**Module 41's guard is unmodified.** It now fires for M4 on its own terms.
+
+**The override is gated on `resolve_aggregate_kind()`**, not on a new regex —
+Module 41's single source of dispatch truth, and Module 62's warning taken
+seriously. It therefore inherits every precedence rule above
+`_is_statute_court_stage_join()`, so **G3's `court_readiness_scan` and CR7's
+`criminal_record_court_crosscheck` resolve first and can never reach it**. The
+PR #8 collision is guarded structurally rather than by hand. The broad form,
+`resolves_to_specific_aggregate()`, was measured and rejected: it moves
+**seven** of the 32, including **KB5**, a legal-KB question that resolves to
+`gender_breakdown` as a pure resolver false positive.
+
+**After: 7 of 7** — `route='XAGG'`, one dispatch to Large-Scale Aggregate, no
+decomposition, `XAGG statute_court_stage_join` logged every run, **13.6–29.7 s**
+against 325–487 s. **Every gold element present on every run**, including the
+court-stage half (33 records, 1 verdict, the rest under trial, read severity
+from the section counts) which had never appeared in any recorded M4 run.
+
+**All-32 EQUALITY negative control: exactly one question changed — M4, from no
+deterministic override to `XAGG`.** All 31 others identical; the 32
+questions' own `question_variants` swept as well, none newly captured.
+Regression G3/CR7/G2/G5/M5 live, 2 runs each: **`XAGG` → Large-Scale
+Aggregate, correct aggregate, 10 of 10**.
+
+**Honest bound:** the override is exactly as wide as
+`_is_statute_court_stage_join()`. Three of five non-gold paraphrases reach it;
+a Roman-Urdu one and an English one naming no court *stage* do not. Widening
+that predicate is **Module 62**'s job, not this module's — doing it here would
+have changed the blast radius the negative control measures.
+
+**New defects split out as Modules 67 and 68.**
+
 
 ---
 
