@@ -137,7 +137,7 @@ several can run in parallel chats/worktrees without colliding.
 | 90 | **M1 (0.40/0.70/0.40, 1-of-3)** — answered ACT-level counts where gold asserts SECTION-level | `fix/m1-cp6-detail-loss` | ✅ **Done (PR #60).** `_statute_mix_by_year()` now also reads `StructuredRecord{record_type:'fir_section'}` — the identical query Modules 23/24/76 issue — de-duplicated per case, adding `section_counts` and `case_count` alongside the unchanged act grain; it reproduces **every figure gold names, both years**. The *"reports only 2026"* half of this row was **wrong**: all three captured passes contain an explicit 2024 block. The *"PPC (Preventive Detention and Control Act)"* gloss is a **model invention** — that phrase exists nowhere in the repo — closed by spelling the acts out in the evidence. Regression: all 32 through `run_aggregate()` + renderers, main vs branch, **exactly one output differs and it is M1**. Corpus holds **218** `fir_section` rows in total (an earlier note citing 273/979 was wrong). Result: `docs/gold-qa-wave2-results/MODULE90_91_RESULT.md` |
 | 91 | **CP6 (0.30 ×3)** — the code defect did NOT reproduce; **gold was wrong and was corrected instead** | `fix/m1-cp6-detail-loss` | ✅ **Done (PR #60), with no behavioural change.** The three-way measurement came back clean: aggregate right (10 current / 11 ever / 7 ASI / 3 SI), renderer emits the split, and re-run live the answer **keeps** it 5/5 local and 3/3 cloud on code byte-identical to the evaluation commit — the drop was model behaviour on the day. The real defect was gold asserting 11, fixed by PR #57 (one case, `fir-205-26`, has since been assigned a real officer). The obvious hardening was implemented, measured at **0/5 local and 0/3 cloud** — a headline bullet gives the model something to answer *"kitne"* with and stop — and **reverted**. Ships a de-duplication of three hand-copied renderings with byte-identical output, plus two regression pins |
 | 92 | **Non-English paraphrases lose their route.** A capability is reachable only from a narrow neighbourhood of the gold wording — fourth independent sighting (62 CR3/G6, 78 KB3/KB9, 88 CR2, and now measured across the board) | *(not yet branched)* | ⬜ **Scoped, with evidence.** Measured offline by `docs/gold-qa-wave2-results/module92_override_survival_probe.py` (no backend needed): over 8 questions that all take a deterministic `XAGG` override at their gold wording, an English paraphrase keeps it **5 of 8** and a Roman-Urdu paraphrase keeps it **0 of 8**. Every one of those 8 falls through to the local Qwen3-14B classifier that `router.py`'s own module comment (~line 42) records as unreliable. **The fix is NOT a fourth round of gold-specific regexes** — three waves of those are exactly how the debt accumulated |
-| 95 | **Three questions pass by a hair and no module owns them** — G2 scores 0.5/0.5/0.5, *exactly* at the threshold; G5 0.5/0.6/0.6; CP1 1.0/**0.5**/0.9 | *(not yet branched)* | ⬜ New — the judge was measured moving **0.3 on D1 across five identical draws** (Module 45), so at these margins one bad draw drops any of the three. Every count of "how many pass" that includes them is a coin flip nobody re-measures. This is the difference between reaching 30 and *holding* 30 |
+| 95 | **G2 and G5 name the wrong findings** — both are open-ended "what would you flag?" questions whose gold answers are three SPECIFIC data-integrity findings each, and the system reports different, also-true ones | *(not yet branched)* | ⬜ **Re-scoped 2026-09-10 — this row previously said "three questions pass by a hair", and that framing is dead.** Under Module 87's judge G2 scores **0.30 ×3** and G5 **0.40 ×3** — flat failures, not borderline passes; CP1, the third question in the old row, is now **1.00 ×3** and needs nothing. The judge's reasons are coverage, not strictness: G2 *"fails to address … the chronological contradictions in departure times and the systemic issue of disconnected walk-in complaint and FIR systems … focuses on different metrics (missing investigation status)"*; G5 *"correctly identifies … unlicensed weapons [but] fails to mention … the lack of chain of custody documentation"*. **First question for this module is whether each gold finding is computable at all** — G2's *13 of 73 FIRs whose departure time precedes the report time* has no aggregate and no structured column behind it |
 | 96 | **KB2 is the last gold question with no module** — 0.00 on all three passes, AnswerRelevancy 1.00 | *(not yet branched)* | ⬜ New — diagnosis first, fix second. Gold is *"no, that's by design"*: an assertion about what the schema deliberately does NOT hold (Qanun-e-Shahadat Arts. 38/39, CrPC s.162 make police-recorded statements unusable, so only witness identity is stored). Module 39 excluded it from `_KB_DATA_HALF_PLANS` as a "schema claim, not a count" — correct for KB2, unlike KB1. FC 0.00 with AR 1.00 usually means fluent and wrong. **Decide which of three it is before writing code**: our answer is wrong, gold is wrong, or the judge cannot score a correct negative |
 | 97 | **Gold's own wording loses the provision its paraphrase retrieves** — the same split on two independent questions, one layer below Module 92's router finding | *(not yet branched)* | ⬜ **New — measured by Module 82/85 on `main` @ `6cf89fb`, shared Chroma, reranker live, 3 runs each, `route=RAG` on all twelve.** KB2's QSO Art. 38 `2_qanun-e-shahadat-order-1984_pdf_3e604153_c176`: **0 of 3** for gold's literal text, **3 of 3** for a Roman-Urdu paraphrase. Art. 39 `…_c177`: 0 of 3 vs 3 of 3. KB4's rule 27.16(1) chunk `4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209`: **0 of 3** vs **3 of 3**. Module 65 measured KB2's Art. 38 at 3/3 and Module 38 measured KB4's `…_c2209` at 3/3 — both against **private** Chroma copies on earlier merge-bases; neither reproduces here for the gold question and both do for a paraphrase, same build, same store, same session. Book selection still works (KB2's hypothesis names the Qanun-e-Shahadat and uses its verb *"shall not be proved"*); what varies is the section number and surrounding wording, and Module 65 §7a already measured that variation alone flipping an outcome on an unchanged prompt. The window is not deterministic either — a control run on the same question and same code returned `…_c2209` at position 2. **This is Module 92's shape one layer down**: the route is identical and the *retrieval window* is what the paraphrase changes, so the narrow-neighbourhood problem is not confined to `router.py`. Owner needs `src/retrieval/` and/or `prompts/statute_hypothesis.txt`; probes exist (`scripts/module65_probe.py` for rank-by-query, `scripts/module82_window_probe.py` for text-by-id, read-only) |
 | 99 | **790 Chroma chunks are unreachable by keyword search** — present in `muhafiz_kb`, absent from `chunk_fulltext` | *(not yet branched)* | ⬜ New — found while measuring Module 37 on 2026-09-10. The two indexes disagree in **both** directions; Module 37 covers the half that serves dead ids, this covers the half that silently drops live ones from BM25. **Non-destructive**, unlike 37 — nothing is served wrongly, some chunks are simply invisible to the keyword arm of hybrid retrieval. Cost unmeasured: establish which documents the 790 belong to and whether any gold question needs them before deciding whether to re-index |
@@ -3801,31 +3801,74 @@ or was a good afternoon.
 
 ---
 
-# Module 95 — the three questions that pass by a hair ⬜
+# Module 95 — G2 and G5 name the wrong findings ⬜
 
-| Q | FC across Module 27's three passes |
-|---|---|
-| **G2** | 0.5 / 0.5 / 0.5 — *exactly* at the 0.5 pass threshold |
-| **G5** | 0.5 / 0.6 / 0.6 |
-| **CP1** | 1.0 / **0.5** / 0.9 |
+**This module was filed as "three questions pass by a hair". That framing is
+dead**, and the correction matters more than the module: Module 87 re-scored
+Module 27's frozen answers with the new judge, and
 
-All three currently count as 3-of-3 passes. **Module 45 measured the judge
-moving 0.3 on D1 across five identical draws**, so a single unlucky draw drops
-any of them below the line without a line of code changing.
+| Q | old judge | **new judge** |
+|---|---|---|
+| G2 | 0.5 / 0.5 / 0.5 — passing | **0.3 / 0.3 / 0.3 — failing** |
+| G5 | 0.5 / 0.6 / 0.6 — passing | **0.4 / 0.4 / 0.4 — failing** |
+| CP1 | 1.0 / 0.5 / 0.9 — flaky | **1.0 / 1.0 / 1.0 — needs nothing** |
 
-They have never had a module because nothing about them looks broken — they
-pass. That is exactly why they are the risk: the pass-rate headline treats them
-as safe, and they are not.
+So this is not insurance against an unlucky draw. Two of the three are flat
+failures on every pass, and the third has closed itself.
 
-**Work:** find why three substantively-correct answers score at the pass line
-rather than clear of it, and raise them. Read the judge's `reason` field on each
-of the six sub-0.6 draws first — the answer may be missing one gold element, or
-carrying a hedge the judge reads as uncertainty. **Do not** fix this by moving
-the threshold. Coordinate with Module 87 (the judge upgrade): if the new judge
-scores these three clear of the line on its own, this module closes as measured
-rather than fixed — record that outcome, it is a real result.
+## They are not scored down for strictness — they answer a different question
 
----
+Both are open-ended *"what would you flag?"* briefings, and both gold answers
+are **a method line plus three numbered, specifically-evidenced findings**. The
+system produces a fluent briefing that names *different, also-true* findings.
+
+**G2** (Urdu — brief an SHO on which cases could get buried or lost):
+1. 9 FIRs carry no incident date and most zimni entries no type, so events
+   cannot be ordered;
+2. **13 of 73 FIRs record the officer's departure for the scene as EARLIER than
+   the report time** — a chronology contradiction that will not survive
+   scrutiny;
+3. walk-in complaints and FIRs live in separate systems joined only by an
+   optional shared tag, so a mistagged complaint looks unactioned.
+
+The judge: *"fails to address the key points … chronological contradictions in
+departure times and the systemic issue of disconnected walk-in complaint and
+FIR systems. It focuses on different metrics (missing investigation status)."*
+
+**G5** (Roman-Urdu — anything worth flagging in recovered-weapon
+recordkeeping):
+1. 30 of 32 weapons (94%) unlicensed;
+2. the register records what was recovered and its condition but has **no
+   field** for packaging, photographs or chain of custody;
+3. weapons join to cases by a **soft FIR-code match with no enforced key**, so
+   a mistyped code silently orphans an item.
+
+The judge: *"correctly identifies the primary compliance issue regarding …
+unlicensed weapons. However, it is materially incomplete"* — it misses (2) and
+(3).
+
+## The first question is computability, not generation
+
+Findings (2) and (3) in both answers are **schema-shaped observations**, not
+counts an existing aggregate produces:
+
+- No structured column holds an officer's departure time. `Incident` carries
+  only `incident_datetime` and `report_datetime`; `StructuredRecord`'s
+  `fir_position` carries `status_date`. Gold's *13 of 73* would have to come
+  from FIR narrative text, and **nothing computes it today**.
+- "Two systems joined by an optional tag" and "a soft FIR-code match with no
+  enforced key" are statements about the schema's shape, which no aggregate
+  expresses at all.
+
+**So do not start by tuning the generation prompt.** Establish, finding by
+finding, whether the fact is (a) computable now, (b) computable with a new
+aggregate, or (c) not present in the data. Only (a) and (b) are generation
+problems; (c) means gold asserts something the system cannot know, and that is
+a gold correction — the sixth this wave, after G1, G6, KB9, CP6 and KB1.
+
+**Verify gold's figures before building anything.** The 30-of-32 unlicensed
+figure is confirmed by the Module 27 pre-flight. The 13-of-73 and 9-missing-date
+figures are not, and this programme has repeatedly found gold overstated.
 
 # Module 96 — KB2, the last question with no module ⬜
 
