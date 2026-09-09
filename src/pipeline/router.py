@@ -489,13 +489,77 @@ def _structured_identifier_in(query: str) -> str | None:
     return None
 
 
-# [Gold-QA fix — Module 60, question M4] Asks XAGG's own dispatch chain
-# whether it would send this query to M4's purpose-built statute x
-# court-stage join aggregate. Imported lazily so this module keeps its
-# current import graph (router.py is imported very early; xagg.py pulls in
-# the graph/database layers) and so a broken/absent xagg can never take the
-# router down — a failed import simply leaves routing exactly as it was.
-def _resolves_to_statute_court_stage_join(query: str) -> bool:
+# [Gold-QA fix — Module 60, question M4; WIDENED by Module 67] The aggregate
+# kinds a query may be routed to XAGG *by name*, asked of XAGG's own dispatch
+# chain (`resolve_aggregate_kind()`) rather than of a regex in this file.
+#
+# WHY AN ALLOW-LIST AND NOT `resolves_to_specific_aggregate()`. Module 60
+# measured the broad form — "route to XAGG whenever XAGG resolves to
+# something specific" — over all 32 gold questions and rejected it: it moves
+# SEVEN, and two of those seven are wrong. Module 67 re-measured the same
+# seven and found the split is entirely at the level of the *kind*, not the
+# question, so naming the kinds keeps the five correct moves and drops the
+# two wrong ones:
+#
+#   MOVED, and each one is a question whose gold answer is a single
+#   cross-case aggregate that already has a purpose-built XAGG family behind
+#   it, measured live-correct by an earlier module:
+#     statute_court_stage_join           M4  — Module 24/60 (already shipped)
+#     station_caseload_by_specialisation M2  — Module 44/56/58
+#     incident_to_report_minutes_by_year M7  — Module 22/43
+#     criminal_record_local_match_gap    CS4 — Module 44
+#     weapon_recovery_rate_by_district   CP1 — Module 55
+#
+#   EXCLUDED BY NAME, with the reason recorded so a later module cannot
+#   "tidy" them back in:
+#     gender_breakdown        — the resolver's known false positive. KB5 is a
+#         legal-KB question about violence against women and resolves here on
+#         vocabulary alone; A1 is a genuine gender count and resolves here
+#         correctly. The two are indistinguishable AT THIS KIND, so neither is
+#         routed. A1 therefore keeps whatever the LLM router says — recorded
+#         as remaining exposure in MODULE67_RESULT.md, not silently fixed.
+#     case_completeness_scan  — G1 resolves here, and G1's gold answer is a
+#         five-part Meta-Analysis synthesis (Modules 31–34/50), not one
+#         aggregate. Including the kind would buy nothing — G2, which
+#         legitimately IS this aggregate, already reaches XAGG through its own
+#         `_XAGG_OVERRIDE_PATTERNS` entry — while pinning a deterministic
+#         route onto a question with live defects still open (Module 71) that
+#         no measurement in this module covers. Measured, so the claim is not
+#         overstated: G1's live route is ALREADY XAGG (2 of 2 runs, from the
+#         LLM) and it still dispatches to Meta-Analysis, because
+#         `_xagg_answers_in_one_call(G1)` is False — so capturing it would
+#         probably be harmless. "Probably harmless and useless" is not a
+#         reason to widen a router.
+#
+# Measured blast radius over all 32, before -> after: M2, M7, CS4, CP1 move
+# from "no deterministic override" to XAGG; M4 was already moved by Module
+# 60; the other 27 are byte-identical. Pinned by
+# `test_module67_all_32_gold_questions_route_exactly_as_measured`.
+_XAGG_ROUTE_OVERRIDE_KINDS: frozenset[str] = frozenset({
+    "statute_court_stage_join",
+    "station_caseload_by_specialisation",
+    "incident_to_report_minutes_by_year",
+    "criminal_record_local_match_gap",
+    "weapon_recovery_rate_by_district",
+})
+
+# Kinds deliberately NOT in the set above. Kept as a named constant purely so
+# the exclusion is executable — `test_module67_the_two_excluded_kinds_stay_
+# excluded` asserts these never appear in `_XAGG_ROUTE_OVERRIDE_KINDS`.
+_XAGG_ROUTE_OVERRIDE_EXCLUDED_KINDS: frozenset[str] = frozenset({
+    "gender_breakdown",
+    "case_completeness_scan",
+})
+
+
+# [Gold-QA fix — Module 60, question M4; widened by Module 67] Asks XAGG's
+# own dispatch chain which aggregate it would send this query to, and returns
+# that kind only if it is one this file is allowed to route on. Imported
+# lazily so this module keeps its current import graph (router.py is imported
+# very early; xagg.py pulls in the graph/database layers) and so a
+# broken/absent xagg can never take the router down — a failed import simply
+# leaves routing exactly as it was.
+def _resolved_xagg_override_kind(query: str) -> str | None:
     try:
         from src.pipeline.xagg import resolve_aggregate_kind
     except Exception:  # pragma: no cover - defensive
@@ -503,8 +567,16 @@ def _resolves_to_statute_court_stage_join(query: str) -> bool:
             "router: could not import resolve_aggregate_kind; "
             "leaving deterministic routing unchanged."
         )
-        return False
-    return resolve_aggregate_kind(query) == "statute_court_stage_join"
+        return None
+    kind = resolve_aggregate_kind(query)
+    return kind if kind in _XAGG_ROUTE_OVERRIDE_KINDS else None
+
+
+def _resolves_to_statute_court_stage_join(query: str) -> bool:
+    """Module 60's original, narrower predicate. Kept because Module 60's own
+    regression tests are written against it and must keep passing unchanged —
+    it is now one member of the allow-list above, not the whole rule."""
+    return _resolved_xagg_override_kind(query) == "statute_court_stage_join"
 
 
 def _deterministic_route_override(query: str, case_id: str | None = None) -> dict | None:
@@ -639,11 +711,28 @@ def _deterministic_route_override(query: str, case_id: str | None = None) -> dic
     # Placed AFTER the XNETWORK loop so XNETWORK's stated precedence over
     # XAGG is untouched, and after the active-case short-circuit above so a
     # within-case "how far did this case get in court?" is still GRAPH.
-    if _resolves_to_statute_court_stage_join(query):
+    #
+    # [Module 67] WIDENED from one aggregate kind to the named allow-list
+    # `_XAGG_ROUTE_OVERRIDE_KINDS` above. Module 67 measured the same defect
+    # Module 60 recorded for M4 on four more questions — M2, M7, CS4 and CP1
+    # are cross-case aggregates with purpose-built XAGG families, none of them
+    # had a deterministic override, and all four were therefore left to the
+    # same flaky LLM classification that sent M4 to plain RAG for ~8 minutes
+    # and a hard failure. This is NOT the broad `resolves_to_specific_
+    # aggregate()` form Module 60 rejected: the two kinds that produced that
+    # form's wrong moves (KB5's `gender_breakdown`, G1's
+    # `case_completeness_scan`) are excluded BY NAME, with the reason recorded
+    # next to the allow-list, and the all-32 equality control names every
+    # question that moves.
+    resolved_kind = _resolved_xagg_override_kind(query)
+    if resolved_kind is not None:
         return {
             "route": "XAGG", "case_scope": "cross_case", "target_entity": None,
             "output_format": "chat", "target_year": None, "confidence": "high",
-            "reason": "Deterministic override: XAGG resolves this to its purpose-built statute x court-stage join aggregate (Module 60)",
+            "reason": (
+                "Deterministic override: XAGG resolves this to its purpose-built "
+                f"'{resolved_kind}' aggregate (Module 60, widened by Module 67)"
+            ),
             "station": None, "district": None,
         }
 
