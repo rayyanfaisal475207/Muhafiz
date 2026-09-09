@@ -55,8 +55,10 @@ rather than searching unfiltered.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
+from dataclasses import dataclass
 from typing import Literal, Optional
 
 from pydantic import Field
@@ -368,6 +370,298 @@ def _is_legal_kb_intent(query_text: str) -> bool:
     )
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 39] THE "AND DOES OUR DATA SHOW IT?" HALF
+#
+# WHAT THIS CLOSES. Every gold KB answer is COMPOUND: a statutory norm plus
+# a figure read off our own case database (KB4 "45 property entries", KB5
+# "8 violence-against-women reports", KB6 "32 weapons", KB9 "8 FIRs citing
+# PPC 302", and — not closed here, see below — KB3's officer pairs and
+# KB8's 26 challans). Module 52 re-baselined all eight KB questions across
+# 48 live runs and found **0 of 48** producing gold's data half, in either
+# arm. That is not a retrieval defect and no amount of retrieval work can
+# fix it: this tool searches a corpus of seven English statute PDFs, and
+# the figure the question asks for is not in any of them. The RAG sub-agent
+# has no database access at all, so it answers the second clause with "the
+# documents do not confirm whether…" — which gold explicitly contradicts,
+# because gold gives the number.
+#
+# WHY HERE AND NOT IN THE DECOMPOSER. `meta_analysis.py::_DECOMPOSITION_PLANS`
+# is the obvious prior art and the shape below is deliberately copied from
+# it (a question SHAPE -> a canned, deterministically-routed sub-query).
+# But Meta-Analysis is only ever reached on the XAGG route
+# (`supervisor.py`'s route->sub-agent table), and a legal-KB question routes
+# to **RAG** -> Semantic Search. Sending KB questions to Meta-Analysis
+# instead would mean a router change, and would cost them the entire
+# statutory half Modules 30 and 52 just fixed. The composition therefore
+# happens where the norm half already lives: this tool runs the aggregate
+# ALONGSIDE retrieval and returns its deterministic rendering as one extra
+# citable chunk — exactly the shape `harness/tools/xagg.py` already hands
+# the Verifier on the XAGG route. Nothing about the norm half changes: same
+# scopes, same evaluator, same retry loop, same chunk order in front of it.
+#
+# THE GATE IS THREE-WAY AND EVERY CLAUSE MATTERS.
+#   1. `_is_legal_kb_intent()` — the same predicate Modules 8c/30/52 use, so
+#      this cannot fire on a question the KB path itself does not claim.
+#      (Module 63 — that predicate misses some paraphrases — is inherited
+#      here by construction and is NOT fixed in this module: a paraphrase
+#      that never reaches the legal-KB path never reaches this either.)
+#   2. `all_cases` scope + `include_global` — the same two conditions that
+#      gate the KB-only scope retry below. A case-scoped question, or a
+#      caller who excluded global material, is byte-for-byte unaffected.
+#   3. A `_KB_DATA_HALF_PLANS` pattern match. These are narrow, subject-
+#      specific and mutually exclusive, and the all-32 EQUALITY control in
+#      `tests/test_kb_statute_retrieval.py` pins the resolved plan for every
+#      one of the 32 gold questions: exactly KB4, KB5, KB6 and KB9 match and
+#      the other 28 — G2, G5, G3, CR7, M2 and CR3/G1/G6 included — resolve
+#      to None.
+#
+# COST. One aggregate, dispatched CONCURRENTLY with retrieval
+# (`asyncio.create_task` before the scope loop, awaited after it), so its
+# ~1s of Cypher overlaps a ~90-250s retrieve/evaluate/generate cycle and
+# adds no measurable wall clock. Module 53 measured the Meta-Analysis
+# sub-query deadline as a SHARED wall clock and this deliberately does not
+# reproduce that: the aggregate has its own private `_DATA_HALF_TIMEOUT`,
+# and a timeout, a permission denial, an exception or an empty result all
+# degrade to "no extra chunk" — the byte-for-byte pre-Module-39 answer.
+#
+# WHAT IS NOT CLOSED HERE, AND WHY IT IS NOT SCOPE CREEP. Two of the six
+# figures have NO aggregate to dispatch to, verified by hand-probing the
+# graph and by `resolve_aggregate_kind()` before writing any of this:
+#   - KB3's "68 of 74 registering/investigating officer pairs are the same
+#     person" resolves to `unsupported_officer`, an honest refusal. The
+#     figure IS computable — 68/74 = 91.9% reproduces gold exactly off the
+#     `(:Officer)-[:ASSIGNED_TO {role}]->(:Case)` edges — but building that
+#     aggregate means editing `xagg.py`, which this module does not own.
+#     Filed as **Module 67**.
+#   - KB8's "26 challans sent to court" resolves to
+#     `criminal_record_court_crosscheck`, which counts the 33 criminal
+#     records, not the 26 `chalaan_dispatch` rows. Same shape, filed as
+#     **Module 68**.
+# Each becomes a one-entry addition to `_KB_DATA_HALF_PLANS` when its
+# module lands — by design, the same one-line change `_DECOMPOSITION_PLANS`
+# advertises.
+# ═══════════════════════════════════════════════════════════════════════
+
+# Private deadline for the data-half aggregate. Generous relative to the
+# ~1s these aggregates actually take live (measured 0.4-1.6s each), and
+# deliberately far below the retrieval loop it runs beside — the whole
+# point is that this can never become the thing that makes a KB question
+# slow. Exceeding it drops the data half and keeps the norm half.
+_DATA_HALF_TIMEOUT = 45.0
+
+
+@dataclass(frozen=True)
+class _KbDataHalfPlan:
+    """A compound-KB question SHAPE, and the one canned aggregate sub-query
+    that answers its "and does our data show it?" clause."""
+
+    name: str
+    patterns: tuple[re.Pattern, ...]
+    sub_query: str
+    expected_kind: str
+
+
+# Sub-query wordings are INTERNAL dispatch strings, never shown to a user,
+# so they are written in English regardless of the question's own language
+# — `xagg.py`'s keyword families are most reliable in English, and each
+# string below was checked against `resolve_aggregate_kind()` BEFORE being
+# written here (a test keeps them honest). They are dispatched straight to
+# `xagg_tool()`, never through `router.py`, so unlike Module 29's plan
+# strings they cost zero router calls and cannot be stolen by a router
+# override.
+_KB_DATA_HALF_PLANS: tuple[_KbDataHalfPlan, ...] = (
+    # (1) KB5 — "when violence against a woman is involved, does the law
+    #     require a different procedure, and does our data show those steps
+    #     were taken?" Gold's data half: 8 women-violence reports on record.
+    #     Checked FIRST: it is the narrowest subject here, and a
+    #     violence-against-women question can easily also carry the generic
+    #     "record"/"register" vocabulary the property plan reads.
+    _KbDataHalfPlan(
+        name="violence_against_women",
+        patterns=(
+            re.compile(r"\bviolence\s+against\s+(a\s+)?wom[ae]n\b", re.IGNORECASE),
+            re.compile(r"\b(domestic|gender[- ]based)\s+violence\b", re.IGNORECASE),
+            re.compile(r"عورت.{0,20}تشدد"),
+            re.compile(r"خواتین.{0,20}تشدد"),
+            re.compile(r"گھریلو\s*تشدد"),
+            re.compile(r"\b(aurat|khatoon|khawateen)\b.{0,25}\btashad?dud\b", re.IGNORECASE),
+        ),
+        sub_query=(
+            "How many domestic violence reports against women are recorded, "
+            "and how many are confirmed by a matching FIR, across all cases?"
+        ),
+        expected_kind="dv_report_fir_match",
+    ),
+    # (2) KB4 — "is there a standard for how seized items are recorded and
+    #     disposed of, and does our property record follow it?" Gold's data
+    #     half: 45 property-register entries. The sub-query is COPIED
+    #     VERBATIM from Module 50's `_SQ_SEIZED_PROPERTY`, which Module 33
+    #     pinned in `tests/test_xagg.py` for exactly this kind of re-use;
+    #     a test asserts the two copies stay equal.
+    _KbDataHalfPlan(
+        name="property_register",
+        patterns=(
+            re.compile(r"\b(case\s+)?propert(y|ies)\b", re.IGNORECASE),
+            re.compile(r"\bmal[- ]?khana\b|\bmaal[- ]?khana\b", re.IGNORECASE),
+            re.compile(r"\bseized\s+(item|good|propert)", re.IGNORECASE),
+            re.compile(r"پراپرٹی"),
+            re.compile(r"مال\s*خانہ|مالخانہ"),
+            re.compile(r"تحویل\s*میں\s*لیتی"),
+        ),
+        sub_query=(
+            "How many cases record seized property, and what happens to it — how "
+            "many items were sent to a forensic laboratory or held for a deceased's "
+            "heirs, across all cases?"
+        ),
+        expected_kind="seized_property_disposition",
+    ),
+    # (3) KB6 — "do the forensics guidelines say how a recovered weapon must
+    #     be handled, and does our weapon register record that it was?"
+    #     Gold's data half: 32 weapons on record — and gold's own verdict is
+    #     that the register records NONE of the handling steps, which is the
+    #     brief's "correctly stating the data lacks something, where gold
+    #     agrees" case. The compliance scan supplies both: the denominator
+    #     (32) and what the register does and does not hold.
+    _KbDataHalfPlan(
+        name="weapon_register",
+        patterns=(
+            re.compile(r"\bweapons?\s+register\b", re.IGNORECASE),
+            re.compile(
+                r"\b(recovered|seized|confiscated)\s+(weapon|firearm|arm|pistol|gun)",
+                re.IGNORECASE,
+            ),
+            re.compile(r"\bfirearms?\b", re.IGNORECASE),
+            re.compile(
+                r"\b(baramad|zabt)\s*(shuda)?\s*(aslah?a|hathyar|hathiyar)\b",
+                re.IGNORECASE,
+            ),
+            re.compile(r"\bhathyar\s+wale?\s+register\b", re.IGNORECASE),
+            re.compile(r"(برآمد|ضبط)\s*شدہ\s*(اسلحہ|ہتھیار)"),
+            re.compile(r"اسلحہ\s*رجسٹر|ہتھیار\s*رجسٹر"),
+        ),
+        sub_query=(
+            "How many recovered weapons are on record, and how many record no "
+            "licence status, across all cases?"
+        ),
+        expected_kind="weapon_compliance_scan",
+    ),
+    # (4) KB9 — "a suspicious death must be formally investigated; does our
+    #     system record that anywhere?" Gold's data half is a CHARGING-SIDE
+    #     figure ("8 FIRs cite PPC 302") plus the honest gap that no
+    #     inquest/post-mortem record exists. `statute_court_stage_join` is
+    #     the only aggregate in this system that publishes a per-section
+    #     case count, so it is what this plan dispatches to.
+    #
+    #     DIVERGENCE FROM GOLD, RECORDED RATHER THAN TUNED. Probed by hand
+    #     before wiring this (`MODULE39_RESULT.md` §1): **10** distinct FIRs
+    #     carry a `fir_section` row with act `PPC` and section `302`, not
+    #     gold's 8, and the aggregate reports 10. No pattern or wording here
+    #     is chosen to produce an 8.
+    _KbDataHalfPlan(
+        name="death_investigation_charging",
+        patterns=(
+            re.compile(
+                r"\b(suspicious|unnatural|custodial)\s+(death|circumstance)",
+                re.IGNORECASE,
+            ),
+            re.compile(r"\bcause\s+of\s+death\b", re.IGNORECASE),
+            re.compile(r"\b(inquest|post[- ]?mortem)\b", re.IGNORECASE),
+            re.compile(r"\bmashko?ok\b.{0,20}\b(halaat|halat)\b", re.IGNORECASE),
+            re.compile(r"\bmaut\s+ki\s+(wajah|waja)\b", re.IGNORECASE),
+            re.compile(r"مشکوک\s*حالات"),
+            re.compile(r"موت\s*کی\s*وجہ"),
+        ),
+        sub_query=(
+            "How many cases are charged under each FIR section, and how far "
+            "have those cases got in court?"
+        ),
+        expected_kind="statute_court_stage_join",
+    ),
+)
+
+
+def _match_kb_data_half_plan(query_text: str) -> Optional[_KbDataHalfPlan]:
+    """First matching plan, in declaration order (narrowest subject first).
+
+    Pure and deterministic — no LLM call, no I/O — so the all-32 equality
+    control can assert over exactly the 32 gold questions. Does NOT itself
+    check `_is_legal_kb_intent()`; `rag_tool()` composes the two, so each
+    half of the gate stays independently testable.
+    """
+    if not query_text:
+        return None
+    for plan in _KB_DATA_HALF_PLANS:
+        if any(pat.search(query_text) for pat in plan.patterns):
+            return plan
+    return None
+
+
+async def _run_kb_data_half(plan: _KbDataHalfPlan, execution) -> Optional[EvidenceChunk]:
+    """Run one plan's aggregate and return its deterministic rendering as a
+    citable chunk, or None on ANY failure.
+
+    `xagg_tool` is imported lazily so every caller that never takes this
+    branch (GRAPH_HYBRID's within-case composition, every case-scoped RAG
+    query) keeps this module's existing import surface.
+
+    Never raises. A permission denial (an investigator has no cross-case
+    reach), an upstream failure, a timeout, an empty result, or an
+    aggregate that resolved to something other than the family this plan
+    named all return None — and the caller then behaves exactly as it did
+    before Module 39.
+    """
+    try:
+        from src.pipeline.harness.tools.xagg import XAggToolInput, xagg_tool
+
+        result = await asyncio.wait_for(
+            xagg_tool(XAggToolInput(query_text=plan.sub_query, execution=execution)),
+            timeout=_DATA_HALF_TIMEOUT,
+        )
+    except asyncio.TimeoutError:
+        logger.warning(
+            "RAG tool: KB data-half aggregate %r timed out after %.0fs — "
+            "returning the statutory half alone.",
+            plan.name, _DATA_HALF_TIMEOUT,
+        )
+        return None
+    except Exception as exc:  # noqa: BLE001 — degradation is the contract
+        logger.warning("RAG tool: KB data-half aggregate %r failed: %s", plan.name, exc)
+        return None
+
+    if result.status != ToolStatus.OK or not result.raw_summary_text:
+        logger.info(
+            "RAG tool: KB data-half aggregate %r returned status=%s — "
+            "no data half added.",
+            plan.name, result.status,
+        )
+        return None
+    # Defence in depth against `xagg.py`'s keyword chain drifting under us:
+    # a sub-query that had silently started resolving to a DIFFERENT family
+    # would inject a confidently wrong figure into a KB answer, which is
+    # strictly worse than the missing half this module exists to add.
+    if result.aggregate_kind != plan.expected_kind:
+        logger.warning(
+            "RAG tool: KB data-half plan %r expected aggregate %r but got %r — "
+            "dropping it rather than citing an unrelated figure.",
+            plan.name, plan.expected_kind, result.aggregate_kind,
+        )
+        return None
+
+    logger.info(
+        "RAG tool: KB data-half plan %r answered by aggregate %r (%d chars).",
+        plan.name, result.aggregate_kind, len(result.raw_summary_text),
+    )
+    return EvidenceChunk(
+        id=f"kb-data-half:{plan.name}",
+        text=result.raw_summary_text,
+        metadata=ChunkMetadata(
+            source_tool="XAGG",
+            source_file="our own case records (cross-case aggregate)",
+        ),
+    )
+
+
 def _build_where(
     caller: CallerContext, include_global: bool, project_id: Optional[str] = None
 ) -> dict:
@@ -628,21 +922,79 @@ async def rag_tool(
         if english_query:
             logger.info("RAG tool: English rendering of the question: %s", english_query[:300])
 
-    last_empty_result: Optional[RagToolResult] = None
-    for scope_index, where in enumerate(where_scopes):
-        if scope_index > 0:
+    # [Gold-QA fix — Module 39] The "and does our data show it?" half.
+    # Dispatched HERE, before the scope loop, so the aggregate's Cypher runs
+    # CONCURRENTLY with retrieval instead of after it — see
+    # `_KB_DATA_HALF_PLANS`' comment block for the full rationale, the
+    # three-way gate, and the two figures (KB3's, KB8's) this deliberately
+    # does not close. The two `where_scopes` conditions are repeated rather
+    # than reused so the data half can never fire on a scope the KB-only
+    # retry itself would not have been offered.
+    data_half_task = None
+    data_half_plan = None
+    if (
+        base_where.get("all_cases")
+        and tool_input.include_global
+        and _is_legal_kb_intent(tool_input.query_text)
+    ):
+        data_half_plan = _match_kb_data_half_plan(tool_input.query_text)
+        if data_half_plan is not None:
+            logger.info(
+                "RAG tool: compound legal-KB question — dispatching data-half "
+                "plan %r (%s) alongside retrieval.",
+                data_half_plan.name, data_half_plan.expected_kind,
+            )
             _emit("retrieval", "active",
-                  "No legal-corpus match — widening to all case documents…")
-        result = await _run_retrieval_loop(
-            tool_input, where, fetch_top_k, top_k, is_cross_case, _emit,
-            statute_queries=statute_queries,
-            english_query=english_query,
-        )
-        if result.status == ToolStatus.OK:
-            return result
-        last_empty_result = result
-    # Every scope tried; return the last (EMPTY/FAILED) outcome unchanged.
-    return last_empty_result if last_empty_result is not None else RagToolResult(status=ToolStatus.EMPTY)
+                  "Checking our own case records alongside the legal corpus…")
+            data_half_task = asyncio.create_task(
+                _run_kb_data_half(data_half_plan, tool_input.execution)
+            )
+
+    try:
+        last_empty_result: Optional[RagToolResult] = None
+        for scope_index, where in enumerate(where_scopes):
+            if scope_index > 0:
+                _emit("retrieval", "active",
+                      "No legal-corpus match — widening to all case documents…")
+            result = await _run_retrieval_loop(
+                tool_input, where, fetch_top_k, top_k, is_cross_case, _emit,
+                statute_queries=statute_queries,
+                english_query=english_query,
+            )
+            if result.status == ToolStatus.OK:
+                return await _append_kb_data_half(result, data_half_task)
+            last_empty_result = result
+        # Every scope tried; return the last (EMPTY/FAILED) outcome unchanged.
+        #
+        # DELIBERATELY NOT rescued by the data half. A run where retrieval
+        # abstained has no statutory half at all, and answering such a
+        # question with a bare corpus figure and no norm would be a NEW
+        # failure mode — a confident half-answer replacing an honest
+        # abstention — not the compound answer gold asks for. The task is
+        # still awaited (below) so it is never left pending.
+        return last_empty_result if last_empty_result is not None else RagToolResult(status=ToolStatus.EMPTY)
+    finally:
+        if data_half_task is not None and not data_half_task.done():
+            data_half_task.cancel()
+
+
+async def _append_kb_data_half(
+    result: "RagToolResult", data_half_task
+) -> "RagToolResult":
+    """Fold the data-half chunk, if any, onto an OK retrieval result.
+
+    Appended LAST so the statutory chunks keep the positions — and therefore
+    the `[Document N]` numbers — they had before Module 39; the citation
+    contract `verify_grounding()` checks is positional
+    (`semantic_search.py::_format_documents_for_prompt`), so inserting
+    anywhere else would renumber every legal citation in the answer.
+    """
+    if data_half_task is None:
+        return result
+    chunk = await data_half_task
+    if chunk is None:
+        return result
+    return result.model_copy(update={"chunks": list(result.chunks) + [chunk]})
 
 
 async def _run_retrieval_loop(
