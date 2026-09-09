@@ -266,28 +266,48 @@ _PLACEHOLDER_OFFICER_KEYWORDS = (
 # fir-117-26?" question names neither the other role nor a sameness test, so
 # it still falls through to the refusal. `TestOfficerRolePairBoundary` in
 # `tests/test_xagg.py` pins both directions.
+# WIDENED after the first paraphrase sweep, and the widening is reported
+# rather than hidden: the tuples this family shipped with were mined from
+# KB3's own gold wording, and BOTH of the non-gold paraphrases written for
+# this module missed. That is Module 56's finding again — a narrow trigger
+# list is the safe default for a REFUSAL and the wrong one for a real
+# aggregate, because a missed match no longer means "generic answer", it
+# means the `unsupported_officer` refusal this family exists to replace.
+# The all-32 equality control still moves exactly one question (KB3), and
+# `TestOfficerRolePairBoundary` still holds the refusal for every
+# officer-IDENTITY question.
 _OFFICER_REGISTERING_TERMS = (
     "registering officer", "recording officer", "registers a case",
     "registers the case", "register a case", "registered the case",
     "first registers", "who registers", "records the fir", "record the fir",
     "recording the fir", "records a case", "who first registers",
+    "writes up the fir", "writes the fir", "who writes", "logs the case",
+    "lodges the fir", "who lodges", "files the fir",
     "darj karne wala", "darj karnay wala", "muharrir",
+    "likhne wala", "likhnay wala", "fir likhne", "fir darj karne",
     "اندراج کرنے والا", "محرر", "مقدمہ درج کرنے والا",
+    "ایف آئی آر لکھنے والا", "لکھنے والا", "درج کرنے والا",
 )
 _OFFICER_INVESTIGATING_TERMS = (
     "investigating officer", "investigation officer", "investigates it",
     "investigates the case", "who investigates", "ends up investigating",
     "investigating it", "carries out the investigation",
-    "tafteesh karne wala", "tafteeshi afsar",
-    "تفتیشی افسر", "افسر تفتیش", "تفتیش کرنے والا",
+    "later investigates", "then investigates", "does the investigation",
+    "runs the investigation", "handles the investigation",
+    "tafteesh karne wala", "tafteeshi afsar", "tafteesh bhi karta",
+    "tafteesh karta", "tafteesh bhi", "tafteesh karne",
+    "تفتیشی افسر", "افسر تفتیش", "تفتیش کرنے والا", "تفتیش بھی",
+    "تفتیش کرتا", "تفتیش کرنے",
 )
 _OFFICER_ROLE_SAMENESS_TERMS = (
     "same person", "same one", "same officer", "same individual",
     "separate role", "separate roles", "separate function",
-    "different person", "different officer", "split", "role separation",
-    "one and the same", "both roles",
-    "ek hi shakhs", "ek hi afsar", "alag alag",
-    "ایک ہی شخص", "ایک ہی افسر", "الگ الگ", "الگ کردار",
+    "different person", "different people", "different officer",
+    "two different", "split", "role separation",
+    "one and the same", "both roles", "usually the same",
+    "ek hi shakhs", "ek hi afsar", "ek hi", "alag alag", "do alag",
+    "ایک ہی شخص", "ایک ہی افسر", "ایک ہی", "الگ الگ", "الگ کردار",
+    "دو الگ",
 )
 
 

@@ -5803,3 +5803,85 @@ def test_module76_no_gold_question_reaches_the_section_count_predicate():
         if xagg._is_fir_section_case_count(it["question"].lower())
     )
     assert matched == [], matched
+
+
+# ── [Gold-QA fix — Module 74] the widening, and what forced it ─────────────
+#
+# The vocabulary this family shipped with was mined from KB3's own gold
+# wording, and BOTH non-gold paraphrases written for the module missed it.
+# That is Module 56's finding a second time: a narrow trigger list is the
+# SAFE default for a refusal and the WRONG one for a real aggregate, because
+# a missed match no longer means "a generic answer", it means the
+# `unsupported_officer` refusal this family exists to replace.
+#
+# Measured, before the widening:
+#
+#   "Kya thane mein FIR likhne wala officer hi baad mein us case ki
+#    tafteesh bhi karta hai, ya ye do alag alag log hote hain?"
+#                                       -> station_or_category_counts  ❌
+#   "Is the person who writes up the FIR usually the same officer who
+#    later investigates it, or are they different people?"
+#                                       -> graph_recurrence_person     ❌
+#
+# The all-32 equality control and `TestOfficerRolePairBoundary` are what
+# bound the widening: exactly one gold question still moves, and every
+# officer-IDENTITY question still gets the refusal.
+_MODULE74_PARAPHRASES = (
+    # The two that failed before the widening (Roman-Urdu, English).
+    "Kya thane mein FIR likhne wala officer hi baad mein us case ki tafteesh "
+    "bhi karta hai, ya ye do alag alag log hote hain?",
+    "Is the person who writes up the FIR usually the same officer who later "
+    "investigates it, or are they different people?",
+    # Written AFTER the widening and not tuned to it. One of the four fresh
+    # paraphrases written at that point still misses — see
+    # `test_module74_a_known_paraphrase_miss_is_recorded_not_hidden`.
+    "کیا ایف آئی آر لکھنے والا افسر ہی تفتیش بھی کرتا ہے یا الگ الگ افسر ہوتے ہیں؟",
+)
+
+
+@pytest.mark.parametrize("query", _MODULE74_PARAPHRASES)
+def test_module74_paraphrases_reach_the_family(query):
+    assert xagg.resolve_aggregate_kind(query) == "officer_role_pair_overlap"
+
+
+def test_module74_a_known_paraphrase_miss_is_recorded_not_hidden():
+    """Reported, not tuned away. This phrasing names the registering side
+    ("who lodges the FIR") and the investigating side ("run the
+    investigation") but tests sameness only by implication ("or is that
+    handled by someone else?"), which the third signal does not read. It is
+    a real boundary of the predicate and it is pinned here so that a later
+    module widening it has to change this test deliberately rather than
+    discover the gap again."""
+    assert xagg.resolve_aggregate_kind(
+        "In our records, does the officer who lodges the FIR usually run the "
+        "investigation too, or is that handled by someone else?"
+    ) != "officer_role_pair_overlap"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Of our cases, how many have had their challan forwarded to court "
+        "already?",
+        "Hamare kitne cases ka chalaan adaalat tak pohanch chuka hai?",
+    ],
+)
+def test_module75_paraphrases_reach_the_family(query):
+    """Written before the live sweeps and not adjusted afterwards — English
+    and Roman-Urdu, where KB8's canned sub-query is English."""
+    assert xagg.resolve_aggregate_kind(query) == "chalaan_dispatch_count"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Across the caseload, how many FIRs cite dafa 302?",
+        "کتنے ایف آئی آر میں قتل کی دفعہ 302 درج ہے؟",
+    ],
+)
+def test_module76_paraphrases_reach_the_family(query):
+    """Roman-Urdu and Urdu script, where KB9's canned sub-query is English —
+    and neither says "PPC", so the section extractor's non-act branches are
+    exercised too."""
+    assert xagg.resolve_aggregate_kind(query) == "fir_section_case_count"
+    assert xagg._section_code_in_query(query) == "302"
