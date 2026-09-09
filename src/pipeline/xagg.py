@@ -4536,6 +4536,37 @@ async def _weapon_recovery_rate_by_district(jurisdiction_case_ids: Optional[list
     }
 
 
+# [Gold-QA fix — Module 90, M1] How many SECTION rows to render per year.
+# 15 mirrors the act-level cap directly below it; measured against the live
+# corpus, 2026's fourteenth-ranked section is the last one the question is
+# actually about (the tail past it is singleton sections), so the cut costs
+# no substance while keeping one year's block readable.
+_STATUTE_SECTION_RENDER_LIMIT = 15
+
+# [Gold-QA fix — Module 90, M1] Act abbreviations spelled out ONCE, in the
+# rendered evidence, because leaving them bare is what produced M1's worst
+# error: the paraphrasing model, handed a line reading only "PPC: 39",
+# invented "PPC (Preventive Detention and Control Act)" — three passes
+# running, and PPC is the Pakistan Penal Code. Nothing in this repository
+# ever wrote that phrase (grepped: it occurs only inside the captured
+# evaluation outputs), so the fix is not a code correction but removing the
+# gap the model filled: state the expansion in the document it is told not
+# to alter. Keyed on the act label the data itself uses; an act absent from
+# this map renders bare, exactly as before.
+_ACT_FULL_NAMES = {
+    "PPC": "Pakistan Penal Code",
+    "CrPC": "Code of Criminal Procedure",
+    "CNSA 1997": "Control of Narcotic Substances Act 1997",
+    "PECA 2016": "Prevention of Electronic Crimes Act 2016",
+}
+
+
+def _act_with_full_name(act: str) -> str:
+    """"PPC" -> "PPC (Pakistan Penal Code)"; an unmapped act unchanged."""
+    full = _ACT_FULL_NAMES.get((act or "").strip())
+    return f"{act} ({full})" if full else act
+
+
 # [Module 13, RC-2, question M1] Year-partitioned statute mix — "what kinds
 # of cases are we dealing with now compared to a couple of years back".
 # Built on `_count_breakdown_by_year()` above: each Incident's own year
@@ -4575,6 +4606,39 @@ async def _statute_mix_by_year(gateway, jurisdiction_case_ids: Optional[list[str
         if case_id and year is not None:
             year_by_case[case_id] = year
 
+    # [Gold-QA fix — Module 90, M1] SECTION grain, alongside the ACT grain
+    # below. `cases.crime_category` is a comma-joined ACT list
+    # (`muhafiz_cases._crime_category()` discards `section_code` on the way
+    # in), so the act-level buckets below cannot in principle tell armed
+    # robbery (PPC 392) from murder (PPC 302) — every one of them is just
+    # "PPC". M1 asks exactly that question ("what KINDS of cases"), and the
+    # 2024-vs-2026 contrast its gold answer draws lives entirely at section
+    # level. The data is already projected: `StructuredRecord
+    # {record_type: 'fir_section'}` carries `act` + `section_code` and a
+    # BELONGS_TO_CASE edge — the identical read `_weapon_statute_cooccurrence
+    # _by_year()` (Module 23) and `_statute_court_stage_join()` (Module 24)
+    # already perform, reused verbatim rather than reinvented so the three
+    # can never disagree about what a statute label is.
+    #
+    # Counted per CASE, not per ROW: the corpus holds several fir_section
+    # rows for the same (case, act, section) triple, so a row count would
+    # inflate every figure. De-duplicating into a set per case reproduces
+    # the measured ground truth exactly (2024: PPC §34/§392/Arms §13 at
+    # 13 of 13 each; 2026: PPC §34 x23, Arms §13 x16, CNSA §9(c) x12 ...).
+    section_case_filter = "AND c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+    section_rows = await age_client.execute_cypher(
+        "MATCH (s:StructuredRecord)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE s.record_type = 'fir_section' {section_case_filter}"
+        "RETURN s.act AS act, s.section_code AS section_code, c.case_id AS case_id",
+        params=params, columns=["act", "section_code", "case_id"],
+    )
+    sections_by_case: dict[str, set[str]] = {}
+    for row in section_rows:
+        case_id = row.get("case_id")
+        label = _statute_label(row.get("act"), row.get("section_code"))
+        if case_id and label:
+            sections_by_case.setdefault(case_id, set()).add(label)
+
     cases = await gateway.get_cases(user_id=None, user_role="platform-admin")
     if jurisdiction_case_ids is not None:
         allowed = set(jurisdiction_case_ids)
@@ -4585,13 +4649,20 @@ async def _statute_mix_by_year(gateway, jurisdiction_case_ids: Optional[list[str
     # `_count_breakdown_by_year()` — that primitive's own job is parsing a
     # DATE STRING into a year, which has nothing left to do here.
     buckets: dict[int, Counter] = {}
+    section_buckets: dict[int, Counter] = {}
+    case_counts: Counter = Counter()
     for c in cases:
-        year = year_by_case.get(c.get("case_id"))
+        case_id = c.get("case_id")
+        year = year_by_case.get(case_id)
         if year is None:
             continue
+        case_counts[year] += 1
         bucket = buckets.setdefault(year, Counter())
         for act in split_crime_category(c.get("crime_category")) or []:
             bucket[act] += 1
+        section_bucket = section_buckets.setdefault(year, Counter())
+        for label in sections_by_case.get(case_id, ()):
+            section_bucket[label] += 1
     years = sorted(buckets.keys())
     # Observability (Module 55) — see `_offender_age_profile()`'s note:
     # XAGG's SSE reports only `route='XAGG'`, so this line is the only
@@ -4600,16 +4671,118 @@ async def _statute_mix_by_year(gateway, jurisdiction_case_ids: Optional[list[str
         "XAGG time_bucketed_breakdown: dimension=statute_by_year, "
         "%d year bucket(s) [%s]",
         len(years),
-        ", ".join(f"{y}:n={sum(buckets[y].values())}" for y in years) or "none",
+        ", ".join(
+            f"{y}:cases={case_counts[y]},acts={sum(buckets[y].values())},"
+            f"sections={len(section_buckets.get(y) or ())}"
+            for y in years
+        ) or "none",
     )
     return {
         "kind": "time_bucketed_breakdown",
         "dimension": "statute_by_year",
         "buckets": [
-            {"year": y, "counts": [{"key": k, "count": v} for k, v in buckets[y].most_common(15)]}
+            {
+                "year": y,
+                # [Module 90] Total FIRs in the year, so the mix can be read
+                # as a proportion and not only as raw counts — gold's own
+                # framing is "2024 (13 FIRs)" vs "2026 (51 FIRs)".
+                "case_count": case_counts[y],
+                "counts": [{"key": k, "count": v} for k, v in buckets[y].most_common(15)],
+                # [Module 90] The section grain. Ties are broken
+                # alphabetically (not left in Counter insertion order, which
+                # for a set-derived input is not stable) so the rendered
+                # order — and therefore the 15-row cut — is reproducible
+                # run to run.
+                "section_counts": [
+                    {"key": k, "count": v}
+                    for k, v in sorted(
+                        section_buckets.get(y, Counter()).items(),
+                        key=lambda kv: (-kv[1], kv[0]),
+                    )[:_STATUTE_SECTION_RENDER_LIMIT]
+                ],
+            }
             for y in years
         ],
     }
+
+
+def render_placeholder_officer_count(agg_result: dict) -> list[str]:
+    """
+    [Gold-QA fix — Module 7, CP6; consolidated by Module 91] Shared renderer
+    for all three XAGG rendering sites, replacing three hand-copied inline
+    copies of this text. The TEXT is byte-identical to what those three
+    copies produced — this is a de-duplication, not a rewording.
+
+    WHY IT IS NOT REWORDED, since the obvious change was tried and measured.
+    CP6's captured three-pass answer keeps the headline count and drops the
+    ASI/SI split that gold's answer turns on. The intuitive fix is to break
+    this one sentence into a headline plus one bullet per figure — the shape
+    M1's per-year breakdown uses, which survived paraphrasing intact in the
+    same run. Measured on the live generation slot (Module 91, 5 runs on the
+    local model and 3 on the cloud fallback, same prompt, same question):
+
+        one sentence  (this text)            split kept 5/5 local, 3/3 cloud
+        headline + bullets                   split kept 0/5 local, 0/3 cloud
+        one sentence, split named up front   split kept 5/5 local, 3/3 cloud
+
+    Bulleting it makes the omission WORSE, not better, and on both providers:
+    a bulleted list gives the model a headline it can answer the "kitne"
+    question with and stop. Whatever produced the captured answer, it was not
+    this sentence's shape — re-run live today, this exact text keeps the
+    split 8 times out of 8. See docs/gold-qa-wave2-results/MODULE90_91_RESULT.md
+    §1 for the full three-way evidence.
+    """
+    cur, ever = agg_result["current_count"], agg_result["ever_count"]
+    asi, si = agg_result["asi_count"], agg_result["si_count"]
+    caveat = (
+        f" {ever - cur} additional case(s) originally had a placeholder "
+        f"officer too but have since been assigned a real one."
+        if ever > cur else ""
+    )
+    return [
+        f"{cur} FIRs currently carry only a placeholder investigating "
+        f"officer — {asi} marked \"(نامزد ASI)\", {si} marked "
+        f"\"(نامزد SI)\".{caveat}"
+    ]
+
+
+def render_statute_mix_by_year(agg_result: dict) -> list[str]:
+    """
+    [Gold-QA fix — Module 90, question M1] Shared renderer for all three
+    XAGG rendering sites (the harness tool plus orchestrator.py's two),
+    replacing the three hand-copied inline `time_bucketed_breakdown`
+    blocks — same consolidation every render_* function above performs, and
+    the reason this one exists rather than a fourth copy of the new shape.
+
+    Two grains per year, deliberately both:
+      - ACT level, unchanged from before this module, because it is the
+        grain the corpus's own `crime_category` column is recorded at.
+      - SECTION level, added here, because "what KINDS of cases" is a
+        question about offences, and every one of 2026's 39 "PPC" cases is
+        the same word at act level whether it is a murder or a fraud.
+
+    `section_counts` is read with `.get()` so a payload produced before
+    this module (a cached or replayed result dict) still renders, at the
+    act grain alone, instead of raising.
+    """
+    lines: list[str] = []
+    for b in agg_result["buckets"]:
+        case_count = b.get("case_count")
+        header = f"**{b['year']}**"
+        if case_count is not None:
+            header += f" — {case_count} FIR(s):"
+        else:
+            header += ":"
+        lines.append(header)
+        lines.append("  Legal acts charged (a case can carry more than one):")
+        lines.extend(
+            f"    - {_act_with_full_name(c['key'])}: {c['count']}" for c in b["counts"]
+        )
+        sections = b.get("section_counts")
+        if sections:
+            lines.append("  Specific sections charged, by number of FIRs citing each:")
+            lines.extend(f"    - {c['key']}: {c['count']}" for c in sections)
+    return lines
 
 
 # [Gold-QA fix — Module 23, question M5] Weapon × statute co-occurrence, by
