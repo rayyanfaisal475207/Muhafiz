@@ -376,7 +376,7 @@ stale for these three. Filed as defect 100.
 
 Filed, not fixed.
 
-**98 — the Gemini key pool is one throttled key and three invalid ones.**
+**114 — the Gemini key pool is one throttled key and three invalid ones.**
 `GEMINI_API_KEY` and `GEMINI_API_KEY_1` are the same key and return 429
 (free tier: 20 `gemini-2.5-flash` requests/day); `GEMINI_API_KEY_2`, `_3` and
 `_4` return `401 UNAUTHENTICATED`. `key_manager.rotate_key()` responds to a 429
@@ -386,7 +386,7 @@ failure — observed as 95 consecutive 401s. This also affects
 `GEMINI_JUDGE_KEY or GEMINI_API_KEY` and whose `GEMINI_JUDGE_KEY` is unset, so
 gold scoring is currently running on the exhausted key.
 
-**99 — `_is_legal_kb_intent()` has a cross-lingual false positive.** In
+**115 — `_is_legal_kb_intent()` has a cross-lingual false positive.** In
 `src/pipeline/harness/tools/rag.py`, the compound rule
 `_NORM_SIGNAL_RE AND _OUR_DATA_SIGNAL_RE` fires on G1's Roman-Urdu and Urdu
 paraphrases — `taqaza`/`تقاض` matches the norm signal and `hamare`/`ہمارے`
@@ -398,7 +398,7 @@ English one, so the gate over-fires in exactly the languages it was widened
 for. Evidence: `scratchpad`-reproducible via `_is_legal_kb_intent()` directly;
 these are the only two false positives across all 128 corpus items.
 
-**100 — the gold-32 route baseline is stale on `main`.** CR3, G1 and G6 are
+**116 — the gold-32 route baseline is stale on `main`.** CR3, G1 and G6 are
 recorded as `XAGG` on all three of Module 27's passes and reach `XNETWORK`
 today, on unchanged code — confirmed offline via `route_query()` and
 end-to-end in-process. router.txt's own `ACTIVE_CASE:` block explicitly teaches
@@ -406,7 +406,7 @@ CR3 → XNETWORK and G6's shape → XNETWORK, so the prompt and the recorded
 baseline disagree with each other. Any module treating the pass artefacts as
 current ground truth for these three will draw the wrong conclusion.
 
-**101 — the local classifier cannot reproduce 11 of its own prompt's
+**117 — the local classifier cannot reproduce 11 of its own prompt's
 examples.** Scored against `prompts/router.txt`'s own 74 few-shot pairs — which
 are *in the prompt it is reading* — the local Qwen3-14B answers **63/74 (85%)**.
 Misses include `"Who is the complainant and who is the accused in this case?"`
@@ -415,7 +415,7 @@ anyone else in this case?"` → DIRECT (documented GRAPH). This quantifies the
 unreliability router.py's opening comment asserts, and bounds what any
 prompt-only fix can achieve.
 
-**102 — a router.txt few-shot example violates router.txt's own schema.** The
+**118 — a router.txt few-shot example violates router.txt's own schema.** The
 example `"Is this suspect a repeat offender — has he shown up elsewhere
 before?"` carries `target_entity: "this suspect"`, while the schema in the same
 file states target_entity must be a literal identifier and "never a descriptive
