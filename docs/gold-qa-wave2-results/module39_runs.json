@@ -1,0 +1,1856 @@
+[
+  {
+    "id": "KB1",
+    "run": 1,
+    "arm": "gate",
+    "language": "en",
+    "question": "What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?",
+    "expected_answer": "Section 154 of the Code of Criminal Procedure, 1898 requires that oral information about a cognizable offence given to the officer-in-charge of a police station be reduced to writing, read back to the informant, signed by them, and entered in a register in the prescribed form — that's the actual legal basis for what we call an FIR. Our FIR records follow that structure: every entry carries a recording officer, a report timestamp, and complainant details, which is the database's structural equivalent of the Section 154 register entry.",
+    "actual_answer": "The legal requirements governing the formalization of a crime report into a First Information Report (FIR) are outlined in **sections 154 and 155 of the Code of Criminal Procedure (CrPC)**, as specified in **Document 2**. Specifically:  \n- **Section 154 CrPC** mandates that every information relating to an offence (cognizable or non-cognizable) must be recorded in writing by the officer in charge of the police station. The substance of such information must be entered into the **police station daily diary** (Document 2, rule 24.1).  \n- **Section 155 CrPC** governs the format of the report, distinguishing between cases requiring a formal FIR (for cognizable offences) and other reports.  \n\nRegarding recordkeeping compliance:  \n- The **Punjab Police Rules** (Documents 1, 3, and 4) specify procedural requirements, such as using a **printed First Information Report Register** (Form 24.5(1)) with annual serial numbers, carbon-copying for every five pages, and sealing copies with the station seal (Document 1, rule 24.5).  \n- **Document 4** provides a template for FIRs, including fields for police station name, district, FIR number, date, and details of the offence.  \n\nHowever, the documents **do not explicitly confirm** whether actual recordkeeping practices adhere to these rules. They only define the **legal framework and procedural standards** that must be followed. Compliance would require independent verification beyond the provided texts.  \n\nSources: [Document 1], [Document 2], [Document 3], [Document 4].",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 96.8,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1259",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1236",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1383",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c150",
+          "2022 (Amendments upto date).pdf]"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "Documents directly reference Sections 154 and 155 of the Criminal Procedure Code"
+      }
+    ],
+    "english_rendering": [
+      "What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?"
+    ],
+    "statute_hypotheses": [
+      "Code of Criminal Procedure 1898 section 154 registration of FIR by police officer: police officer shall record the complaint in writing and issue a First Information Report",
+      "Punjab Police Rules 1934 registers and records of FIRs: entry of FIR in the station diary with date, time, complainant details, and reference to the investigating officer"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [],
+    "data_half_answered": [],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB2",
+    "run": 1,
+    "arm": "gate",
+    "language": "en",
+    "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+    "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "actual_answer": "The documents indicate that there are established procedures for recording statements made by witnesses or accused persons during police interviews. Specifically:\n\n1. **Police officers** are explicitly permitted to reduce statements made to them into writing, and they must create a separate record of such statements (Document 2, section 4). This suggests that the system does include mechanisms for documenting police interviews.\n\n2. **Case diaries** (Document 7, Rule 25.54) require that statements recorded under section 161 of the Criminal Procedure Code be listed and attached to the diary, with details about their page count. These diaries are sent to the police station and maintained there.\n\nHowever, the documents do not explicitly confirm whether **all** police interviews are systematically recorded or whether gaps exist in practice. The procedures outlined are procedural requirements, but they do not address whether compliance is universal or if failures occur. Thus, while the legal framework includes recording mechanisms, the existence of a data gap (if any) is not directly confirmed or denied by the provided documents.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 90.4,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c602",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c1061",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c1048",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601",
+          "2_qanun-e-shahadat-order-1984_pdf_3e604153_c44",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1647"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents from the Code of Criminal Procedure and Punjab Police Ru"
+      }
+    ],
+    "english_rendering": [
+      "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?"
+    ],
+    "statute_hypotheses": [
+      "Qanun-e-Shahadat Order 1984 section 14 duty to record evidence: the court or investigating authority shall record the evidence of a witness or accused in writing",
+      "Punjab Police Rules 1934 Volume III rule 102 case diary entries: the station house officer shall enter in the case diary the statement of a witness or accused as recorded during police interview"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [],
+    "data_half_answered": [],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB3",
+    "run": 1,
+    "arm": "gate",
+    "language": "en",
+    "question": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+    "expected_answer": "The law expects separation. Article 18 of the Police Order, 2002 sets up a distinct Investigation Wing under a dedicated head of investigation, states that registered cases \"shall be investigated by the investigation staff\" under that head, and bars the District Police Officer from interfering in the investigation process — the clear intent is that logging a case and investigating it are separate functions. In practice, our data shows the opposite: the officer who records the FIR and the officer who ends up investigating it are the same person in 68 of 74 pairs (92%); role-splitting happens in only 6 cases. So the separation the law sets up isn't what's actually happening on the ground in this data.",
+    "actual_answer": "The documents do not explicitly state whether the officer who first registers a case must also investigate it, nor do they provide data on actual practices. However, they imply that **registration and investigation may involve separate roles**:\n\n1. **Registration**: Document 2 specifies that the \"officer in charge of a police station\" is responsible for registering an FIR if they suspect an offence (under section 156 of the Criminal Procedure Code) [Document 2].  \n2. **Investigation**: Document 1 states that \"all registered cases shall be investigated by the investigation staff in the district under the supervision of the head of investigation\" [Document 1], suggesting a separate hierarchy or team handles investigations.  \n\nWhile the documents do not confirm whether the same officer performs both tasks, they indicate that **investigations are managed by specialized staff** (e.g., \"Investigation Wing\") rather than the officer who initially registers the case. There is no mention of actual practices in the provided data to confirm or refute this separation.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 340.5,
+    "evaluator_rounds": 6,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c570",
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c657",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c579",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1406"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c570",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c657",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1406"
+        ]
+      },
+      {
+        "attempt": 3,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c570",
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c657",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c583",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1406"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240",
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c570",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1406",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c18",
+          "2022 (Amendments upto date).pdf]"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c570",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c18",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c146",
+          "2022 (Amendments upto date).pdf]",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1406"
+        ]
+      },
+      {
+        "attempt": 3,
+        "chunk_ids": [
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c146",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c32",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c570"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents discuss police procedural roles and hierarchies (e.g., o"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents discuss procedural roles and hierarchies (e.g., ranks of"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents discuss procedural powers of officers under sections 156"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents discuss police procedures related to case registration a"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents discuss procedural roles and delegation of investigation"
+      },
+      {
+        "relevant": true,
+        "reason": "Documents 1 and 2 establish procedural separation between the officer-in-charge "
+      }
+    ],
+    "english_rendering": [
+      "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?"
+    ],
+    "statute_hypotheses": [
+      "Code of Criminal Procedure 1898 sections 158 and 176 registration of FIR and investigation: officer in charge of police station shall record FIR, investigation to be conducted by police under directio",
+      "Police Order 2002 Rule 10(2) Investigation Wing responsibilities: investigation of registered cases to be conducted by Investigation Wing staff under supervision of senior police officers"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [],
+    "data_half_answered": [],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB4",
+    "run": 1,
+    "arm": "gate",
+    "language": "ur",
+    "question": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+    "expected_answer": "جی ہاں۔ پنجاب پولیس رولز، 1934 (جلد 3) کا رول 27.16 پولیس کو پابند کرتا ہے کہ وہ مقررہ فارم میں کیس پراپرٹی اور لاوارث پراپرٹی کا رجسٹر برقرار رکھے، جسے مکمل ہونے کے تین سال بعد ہی تلف کیا جا سکتا ہے۔ ہمارا مال خانہ رجسٹر اِسی ساخت کی عکاسی کرتا ہے: ریکارڈ میں موجود 45 اندراجات میں سے ہر ایک میں سیریل نمبر، رجسٹریشن نمبر، اندراج کی تاریخ، شے کی تفصیل، مقدار اور حالت درج ہے — وہی خانے جن کا اِس رول کا مقررہ رجسٹر فارم تقاضا کرتا ہے۔",
+    "actual_answer": "**Part 1: Governing Legal Requirements**  \n- **Rule 22.16(1)** of the Punjab Police Rules mandates that police seize property in criminal cases and take charge of unclaimed property under specific legal authorities (e.g., Code of Criminal Procedure Sections 170, 153). It also requires officers to examine property upon receiving/handing over charge, note damages/shortages, and report to the Superintendent.  \n- **Rule 25.54(1)** requires case diaries to be submitted in Form 25.54(1), with each sheet numbered and stamped. Diaries must be brief, include only relevant investigation incidents, and document stolen/seized property lists in the first diary after reporting such property.  \n- **Rule 22.16(4)** and **Rule 27.16(1)** (Documents 2, 3) specify that unclaimed property must be handed over to the sheriff, with receipts recorded in register No. 1. Property in active cases may be retained for evidence but must eventually be disposed of per magisterial orders.  \n- **Anti-Rape Act Rules (Documents 5, 6)** require evidence to be marked with case/item numbers, descriptions, recovery dates, and maintained via a strict chain of custody, including transfers between authorities.  \n\n**Part 2: Case Records Compliance**  \n- **Document 7** (our case records summary) shows:  \n  - **Disposition of seized property**: 45 entries across 28 FIRs, including confiscation (14 items), forensic lab dispatch (13 items), holding for heirs (7 items), and other methods.  \n  - **Documentation gaps**: The records do not explicitly mention:  \n    - **Marking evidence with case/item numbers** (required by Anti-Rape Act Rules 7–8).  \n    - **Detailed chain-of-custody logs** (e.g., transfers between authorities with timestamps, as per Rule 6(2)).  \n    - **Formal submission of case diaries in Form 25.54(1)** (though some entries note forensic processes, the format compliance is unspecified).  \n  - **Forensic handling**: 13 items were literally \"sent to the lab,\" but only 16 entries mention forensic processes (e.g., \"held as forensic evidence\"), not all meeting the Anti-Rape Act’s explicit documentation requirements.  \n\n**Conclusion**: While our records show some compliance with property disposition (e.g., forensic dispatch, handing over to heirs), they lack explicit adherence to legal mandates for detailed evidence marking, chain-of-custody logs, and formal diary formats.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 121.7,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c334",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c158",
+          "2022 (Amendments upto date).pdf]",
+          "kb-data-half:property_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents from Punjab Police Rules (e.g., Rule 22.16, 27.16, 27.18"
+      }
+    ],
+    "english_rendering": [
+      "When the police take possession of items related to a case, is there an established standard for how they are recorded and eventually disposed of — and does our property records follow that?"
+    ],
+    "statute_hypotheses": [
+      "Punjab Police Rules 1934 case property and malkhana: case property shall be entered in the station register, marked with case number and description, stored in malkhana under lock and key, and disposa",
+      "Forensics guidelines handling and chain of custody: recovered evidence shall be packaged in tamper-evident containers, labelled with case details and seized by officer in charge, maintained through do"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [
+      {
+        "plan": "property_register",
+        "expected_kind": "seized_property_disposition"
+      }
+    ],
+    "data_half_answered": [
+      {
+        "plan": "property_register",
+        "kind": "seized_property_disposition",
+        "chars": 1369
+      }
+    ],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB5",
+    "run": 1,
+    "arm": "gate",
+    "language": "ur",
+    "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+    "expected_answer": "جی ہاں۔ اینٹی ریپ (انویسٹی گیشن) رولز، 2022 کا رول 3(2) تفتیشی افسر کو پابند کرتا ہے کہ وہ یقینی بنائے کہ ایک خاتون پولیس افسر شامل ہو، متاثرہ کا بیان اینٹی ریپ کرائسز سیل (اے آر سی سی) میں تنہائی میں ریکارڈ کیا جائے، اور شواہد کی چین آف کسٹڈی پورے عمل کے دوران برقرار رکھی جائے — یہ واضح فرائض ہیں، تھانے کی صوابدید پر نہیں چھوڑے گئے۔ ہماری خواتین سے تشدد کی رپورٹوں کے ریکارڈ اس کا کچھ حصہ ظاہر کرتے ہیں: ریکارڈ میں موجود 8 میں سے ہر رپورٹ میں مقررہ خواتین پولیس اسٹیشن اور بیج نمبر کے ساتھ نامزد تفتیشی افسر کا خانہ موجود ہے، جو کیس کے باقاعدہ ایف آئی آر میں تبدیل ہونے سے پہلے ہی درج کیا جاتا ہے۔ جو چیز درج نہیں ہوتی وہ یہ ہے کہ چین آف کسٹڈی واقعی برقرار رکھی گئی یا نہیں — تقاضے کے اُس حصے کے لیے کوئی متعلقہ خانہ موجود نہیں۔",
+    "actual_answer": "**Part 1: Legal Requirements**  \nThe **Anti-Rape (Investigation and Trial) Act, 2021** (Document 2) and its rules impose specific procedures for cases involving violence against women. For example:  \n- **Section 3(d)** requires the presence of a **female police officer** during statements taken from the victim at the ARCC (Anti-Rape Crisis Cell) and during medico-legal examinations (MLE) and DNA sample submissions (Document 4, 5).  \n- **Section 3(f)** mandates **timely and correct collection of evidence** (Document 5).  \n- **Section 3(g)** requires **timely submission of blood/urine samples** signed and sealed by the medico-legal officer (MLO) (Document 5).  \nThese measures differ from general procedures under the **Code of Criminal Procedure, 1898** (Documents 1, 3), which focus on broader investigative steps (e.g., Section 164A for medical examinations, Section 167 for extended investigations).  \n\n**Part 2: Case Records**  \nOur case records (Document 7) show:  \n- **4 out of 8 domestic-violence reports** have **forwarded FIR numbers** matching real, active FIRs (e.g., `fir-97-26`, `fir-416-26`).  \n- **4 reports** have **no forwarded FIR number**.  \nThe records do **not explicitly mention** whether female police officers were present during statements, evidence collection procedures, or DNA sample submissions. The data only confirms the existence of forwarded FIRs, which may align with general procedural requirements (e.g., under the Code) but **do not confirm compliance with the Anti-Rape Act’s specific measures** (e.g., female officer presence, MLO-sealed samples).  \n\n**Conclusion**: The law requires additional measures for violence against women (per the Anti-Rape Act), but our records lack explicit confirmation of these steps beyond basic FIR forwarding.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 171.8,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c34",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c21",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c34",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c146",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c147",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c22",
+          "2022 (Amendments upto date).pdf]",
+          "kb-data-half:violence_against_women"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal requirements for cases involving viole"
+      }
+    ],
+    "english_rendering": [
+      "When a case involves violence against a woman, does the law require a different procedure than in a regular case — and if yes, does our data show that those additional measures were actually taken?"
+    ],
+    "statute_hypotheses": [
+      "Anti-Rape (Investigation and Trial) Act 2021 sections 5 and 6 special investigation procedures in cases of violence against women: police officer in charge shall conduct investigation with sensitivity",
+      "Code of Criminal Procedure 1898 section 129A protection of victims in cases of violence against women: court may issue orders for protection, prohibition of contact, and other relief to ensure safety "
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [
+      {
+        "plan": "violence_against_women",
+        "expected_kind": "dv_report_fir_match"
+      }
+    ],
+    "data_half_answered": [
+      {
+        "plan": "violence_against_women",
+        "kind": "dv_report_fir_match",
+        "chars": 365
+      }
+    ],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB6",
+    "run": 1,
+    "arm": "gate",
+    "language": "roman_ur",
+    "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: Forensic Guidelines on Handling Recovered Weapons  \n**Governing Provision**:  \nForensic guidelines specify that recovered weapons must be packaged in appropriate containers (e.g., cardboard boxes for sharp weapons like knives) and sealed with clear markings (e.g., \"SHARP weapon\" or \"may contain biological material\") [Document 3]. Additionally, all evidence must be documented, labeled, and inventoried before packaging [Document 6].  \n\n**Substance**:  \nWeapons must be handled with care to prevent contamination or damage, using sterile/disinfected equipment where necessary [Document 1]. Packaging must ensure integrity, and digital evidence requires anti-static containers [Document 6].  \n\n---\n\n### Part 2: Weapon Register Compliance  \n**Our Case Records**:  \n- The weapon register records **license status** (e.g., \"no licence\" or \"licence status unknown\") but **does not explicitly track whether handling procedures were followed** [Document 8].  \n- Of 32 weapon entries:  \n  - 30 (~94%) are recorded **without a licence**.  \n  - 2 entries **carry no licence status** at all.  \n- No field in the summary indicates compliance with handling protocols (e.g., proper packaging, sterility, or documentation of chain of custody).  \n\n**Conclusion**:  \nWhile forensic guidelines mandate specific handling procedures, the weapon register **does not document whether these procedures were applied**. The register focuses solely on licence status, not evidence-handling compliance.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 365.7,
+    "evaluator_rounds": 3,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1279",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c477",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c1039",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c158",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1279",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 3,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c158",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c228",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1279",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents address the handling of seized weapons per forensics gui"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents discuss forensic handling protocols for seized weapons ("
+      },
+      {
+        "relevant": true,
+        "reason": "Documents from Forensics_guidelines.pdf specify handling procedures for seized w"
+      }
+    ],
+    "english_rendering": [
+      "Are there any specific provisions in the forensics guidelines regarding how seized weapons should be handled before they are registered, and does our weapon register record whether actions were taken on them?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: chain of custody procedures for evidence before entry into official records",
+      "Punjab Police Rules 1934 weapon register entries: recording of actions taken on seized weapons including whether they were used in offences"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [
+      {
+        "plan": "weapon_register",
+        "expected_kind": "weapon_compliance_scan"
+      }
+    ],
+    "data_half_answered": [
+      {
+        "plan": "weapon_register",
+        "kind": "weapon_compliance_scan",
+        "chars": 300
+      }
+    ],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB8",
+    "run": 1,
+    "arm": "gate",
+    "language": "roman_ur",
+    "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+    "expected_answer": "Haan. Code of Criminal Procedure, 1898 ki dafa 173 ke tehat har tafteesh bila-zaroori takheer ke mukammal honi chahiye, aur agar FIR darj hone ke chaudah din ke andar mukammal na ho, to officer in charge us muddat ke khatam hone ke teen din ke andar magistrate ko (public prosecutor ke zariye) ek interim report bhejne ka paband hai, jisme ab tak ki tafteesh ka natija darj ho. Hamara data us pipeline ke aakhri hisse ko darj karta hai — adaalat bheja gaya challan (26 cases) aur, hal shuda cases ke liye, darj shuda natija — magar schema mein kahin interim report ka koi tasavvur nahi aur challan ko uski tafteesh ke aaghaaz se jorne wala koi field nahi. Is liye data yeh tasdeeq kar sakta hai ke case adaalat tak pohcha, magar yeh nahi ke raaste mein 14-din ki interim-report ki zimma-daari poori hui ya nahi.",
+    "actual_answer": "Yes, under the Code of Criminal Procedure (Pakistan), if an investigation is not completed within 14 days from the date of the first information report (FIR), the police officer in charge **must submit an interim report** to the Magistrate through the Public Prosecutor within three days of the expiration of the 14-day period. This is explicitly stated in [Document 1]. \n\nRegarding case-tracking data:  \n- **Case diaries** (as mandated by [Document 3]) are maintained daily during an investigation and record steps taken, circumstances ascertained, and other details required by law. These diaries would reflect delays or ongoing actions in the case.  \n- However, the documents do not explicitly mention a centralized \"case-tracking data\" system beyond these diaries and the formal reports (interim or final) required by Sections 172–173 of the Code of Criminal Procedure.  \n\nIn summary, the police are legally required to report delays via an interim report, and case diaries would document the investigation’s progress, but broader case-tracking systems are not detailed in the provided documents.\n\n_A cited claim ([Document 3]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: CASE-TRACKING._",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 598.8,
+    "evaluator_rounds": 6,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c752",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c652",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1431",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c649",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1662",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1643"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c752",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c652",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1431",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c660",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c649",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1662",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1643"
+        ]
+      },
+      {
+        "attempt": 3,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1431",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c752",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1643",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c652",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c649"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c752",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c649",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1662",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1643",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c639"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1643",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c752",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c652",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c649",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1662"
+        ]
+      },
+      {
+        "attempt": 3,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c757",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c752",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1643",
+          "psrms_fir_fir-460-26#zimni_FZ-C360-5_06e2708e_c1",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1662"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents discuss procedural requirements for completing investiga"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents discuss procedural requirements for submitting case diar"
+      },
+      {
+        "relevant": false,
+        "reason": "The documents discuss procedural requirements for maintaining and submitting cas"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents discuss procedural requirements for completing investiga"
+      },
+      {
+        "relevant": false,
+        "reason": "Documents mention daily case diary requirements (Section 172) and final report s"
+      },
+      {
+        "relevant": true,
+        "reason": "Documents address the legal requirement for interim court reports under Code of "
+      }
+    ],
+    "english_rendering": [
+      "If an investigation in a case becomes lengthy, does the law require the police to report something to the court before the investigation is completed — and does our case-tracking data show whether this happened or not?"
+    ],
+    "statute_hypotheses": [
+      "Code of Criminal Procedure 1898 section 178 report by police to court on prolonged investigation: if the investigation cannot be completed within a reasonable time, the police shall report to the cour",
+      "Punjab Police Rules 1934 case diaries and tracking data: entries in the case diary shall record the progress of the investigation, including any delays or extensions in the timeline of the case"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [],
+    "data_half_answered": [],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB9",
+    "run": 1,
+    "arm": "gate",
+    "language": "roman_ur",
+    "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+    "expected_answer": "Code of Criminal Procedure, 1898 ki dafa 174 officer in charge ko paband karti hai ke jab use maloom ho ke koi shakhs khudkushi se, qatl se, ya aise halaat mein mara gaya jo shak paida karte hain, to woh tehqeeqaat kare aur maut ki zaahiri wajah par ek report tayyar kare — jism par mojood zakhmon ya nishaanaat ki tafseel ke saath — aur ise qareeb tareen magistrate ko bheje. Hamara data zahir karta hai ke aise cases mojood hain: 8 FIRs qatl ki dafa (PPC 302) ka hawala dete hain, aur kai zabt shuda property entries meyyat ke warisaan ko wapas karne ke liye nishaanzad hain. Magar schema mein kahin koi inquest, post-mortem ya cause-of-death record nahi. FIR aur uski dafaat yeh darj karti hain ke maut ka daawa kiya gaya hai; woh alag qanooni maut ki tehqeeqaat ko darj nahi kartin.",
+    "actual_answer": "**Part 1: Governing Legal Requirements**  \nUnder Rule 25.31(1) [Document 1], police must investigate sudden/unnatural deaths by holding inquests as per Section 174 of the Code of Criminal Procedure. Rule 25.35(1)-(2) [Document 3] mandates that the investigating officer prepare a detailed inquest report (in duplicate) specifying the apparent cause of death, marks of violence, and the weapon/instrument involved. These provisions explicitly require systematic documentation of death investigations.  \n\n**Part 2: Case Records Analysis**  \nOur case records [Document 6] do **not** include any field or data point related to death investigations, inquest reports, or cause-of-death documentation. The summary explicitly states:  \n- **73 cases** are charged under FIR sections, but none of the listed sections (e.g., PPC §34, Arms Ordinance §13, etc.) pertain to death investigations.  \n- Of **33 criminal records**, **none** mention inquests, autopsies, or death-related procedures.  \n- The overlap between FIRs and court records (4 cases) involves charges like theft (PPC §392), arms offenses (Arms Ordinance §13), and fraud (PECA §14), but **no death-related cases** are explicitly noted.  \n\nThus, while the law requires detailed death investigations, our records lack any corresponding data on this matter.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 353.7,
+    "evaluator_rounds": 3,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c35",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c35",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c770",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1573",
+          "kb-data-half:death_investigation_charging"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1547",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1558",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c35",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c674",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1565",
+          "kb-data-half:death_investigation_charging"
+        ]
+      },
+      {
+        "attempt": 3,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c35",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1558",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c674",
+          "kb-data-half:death_investigation_charging"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents describe legal procedures for investigating suspicious d"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents describe legal procedures and requirements for investiga"
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents describe legal procedures under CrPC 174 requiring inque"
+      }
+    ],
+    "english_rendering": [
+      "When a person dies in suspicious circumstances, the police must conduct a thorough investigation into the cause of death — does our system record this anywhere, especially when so many of our cases involve death?"
+    ],
+    "statute_hypotheses": [
+      "Code of Criminal Procedure 1898 sections 174 and 176 inquest and cause-of-death enquiry: police officer in charge shall proceed to the place where the body is found, examine the body and surrounding c",
+      "Punjab Police Rules 1934 case diary entries for deaths: entry in the case diary shall include time, place, circumstances of death, names of witnesses, and steps taken for post-mortem and inquest"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [
+      {
+        "plan": "death_investigation_charging",
+        "expected_kind": "statute_court_stage_join"
+      }
+    ],
+    "data_half_answered": [
+      {
+        "plan": "death_investigation_charging",
+        "kind": "statute_court_stage_join",
+        "chars": 2564
+      }
+    ],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB1",
+    "run": 2,
+    "arm": "gate",
+    "language": "en",
+    "question": "What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?",
+    "expected_answer": "Section 154 of the Code of Criminal Procedure, 1898 requires that oral information about a cognizable offence given to the officer-in-charge of a police station be reduced to writing, read back to the informant, signed by them, and entered in a register in the prescribed form — that's the actual legal basis for what we call an FIR. Our FIR records follow that structure: every entry carries a recording officer, a report timestamp, and complainant details, which is the database's structural equivalent of the Section 154 register entry.",
+    "actual_answer": "The legal requirements governing the formalization of a crime report into a First Information Report (FIR) are outlined in **sections 154 and 155 of the Code of Criminal Procedure (CrPC)**, as specified in **Document 2**. Specifically:  \n- **Section 154 CrPC** mandates that every information relating to an offence (cognizable or non-cognizable) must be recorded in writing by the officer in charge of the police station. The substance of such information must be entered into the **police station daily diary** (Document 2, rule 24.1).  \n- **Section 155 CrPC** governs the format of the report, distinguishing between information under section 154 (which requires detailed entry in the diary) and other cases.  \n\nAdditionally, **Punjab Police Rules** (Documents 1, 3, and 4) specify procedural requirements for FIR registration:  \n- The **First Information Report Register** (Form 24.5(1)) must be a printed book with annual serial numbers, filled completely before a new register is started (Document 1, rule 24.5).  \n- FIRs must include details such as the date and hour of the offence, the complainant’s name and residence, a brief description of the offence (with IPC section), and steps taken for investigation (Document 4, Form 24.5(1)).  \n\nRegarding whether recordkeeping follows these rules:  \n- The documents **prescribe the procedures** (e.g., use of the FIR register, form formatting, and diary entries) but **do not provide evidence of compliance** in practice. They describe **what must be done** but not whether it is actually done.  \n\nFor rape cases, **Document 5** adds specific requirements (e.g., involvement of a lady police officer, private recording of the victim’s statement). However, again, compliance with these rules is not assessed in the provided documents.  \n\nIn conclusion, the legal framework is clearly defined, but the documents do not confirm whether recordkeeping adheres to these requirements.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 169.1,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1259",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1236",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1383",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c150",
+          "2022 (Amendments upto date).pdf]"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "Documents directly reference Sections 154 and 155 of the Criminal Procedure Code"
+      }
+    ],
+    "english_rendering": [
+      "What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?"
+    ],
+    "statute_hypotheses": [
+      "Code of Criminal Procedure 1898 section 154 registration of FIR by police officer: police officer shall record the complaint in writing and issue a First Information Report",
+      "Punjab Police Rules 1934 registers and records of FIRs: entry of FIR in the station diary with date, time, complainant details, and reference to the investigating officer"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [],
+    "data_half_answered": [],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB2",
+    "run": 2,
+    "arm": "gate",
+    "language": "en",
+    "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+    "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "actual_answer": "The system does provide mechanisms for recording statements made by witnesses or accused persons during police interviews, as outlined in the documents. For example:\n\n- Under **section 161** of the Code of Criminal Procedure (Document 4), police officers are authorized to examine witnesses orally and may reduce statements into writing, creating a separate record (Document 4, section 161(4)).  \n- **Section 161A** (Document 2) and **section 161(3)** (Document 4) emphasize that statements must be recorded in writing, with specific safeguards for women in certain cases (e.g., presence of a female police officer or family member).  \n- **Section 161(3)** also requires that if a Magistrate or Judge does not take down evidence personally, they must create a memorandum of the witness’s testimony, signed by them, which forms part of the record (Document 3).  \n\nHowever, the documents do not explicitly confirm whether failures to follow these procedures (e.g., incomplete records, lack of memoranda) constitute a systemic data gap. The existence of such procedures implies that the system *intends* to maintain records, but whether this is consistently implemented in practice is not addressed in the provided materials. Thus, the question of whether this represents a data gap would require further empirical analysis beyond the documents.  \n\n[Document 1], [Document 2], [Document 3], [Document 4]",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 188.4,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c602",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c1048",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c668",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1647",
+          "2_qanun-e-shahadat-order-1984_pdf_3e604153_c44"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents from the Code of Criminal Procedure (Pakistan) and Punja"
+      }
+    ],
+    "english_rendering": [
+      "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?"
+    ],
+    "statute_hypotheses": [
+      "Qanun-e-Shahadat Order 1984 section 14 duty to record evidence: the court or investigating authority shall record the evidence of a witness or accused in writing",
+      "Punjab Police Rules 1934 Volume III rule 102 case diary entries: the station house officer shall enter in the case diary the statement of a witness or accused as recorded during police interview"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [],
+    "data_half_answered": [],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB3",
+    "run": 2,
+    "arm": "gate",
+    "language": "en",
+    "question": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+    "expected_answer": "The law expects separation. Article 18 of the Police Order, 2002 sets up a distinct Investigation Wing under a dedicated head of investigation, states that registered cases \"shall be investigated by the investigation staff\" under that head, and bars the District Police Officer from interfering in the investigation process — the clear intent is that logging a case and investigating it are separate functions. In practice, our data shows the opposite: the officer who records the FIR and the officer who ends up investigating it are the same person in 68 of 74 pairs (92%); role-splitting happens in only 6 cases. So the separation the law sets up isn't what's actually happening on the ground in this data.",
+    "actual_answer": "No sufficiently relevant documents were found for this question after retrying with query refinements.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 617.3,
+    "evaluator_rounds": 6,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c570",
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c579",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c657",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1406"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c570",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c657",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c579",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1406"
+        ]
+      },
+      {
+        "attempt": 3,
+        "chunk_ids": [
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c570",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1406",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c657"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240",
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c570",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1406",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c18",
+          "2022 (Amendments upto date).pdf]"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c570",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c639",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c146",
+          "2022 (Amendments upto date).pdf]",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1406"
+        ]
+      },
+      {
+        "attempt": 3,
+        "chunk_ids": [
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c18",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c146",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c32",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1406"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents do not explicitly address whether the law requires the s"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents discuss police hierarchy, investigation procedures, and "
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents do not explicitly address whether the officer who regist"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents discuss police procedures related to case registration a"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents do not contain a statutory provision explicitly specifyi"
+      },
+      {
+        "relevant": false,
+        "reason": "Documents discuss procedural authority (e.g., officer-in-charge registering FIRs"
+      }
+    ],
+    "english_rendering": [
+      "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?"
+    ],
+    "statute_hypotheses": [
+      "Code of Criminal Procedure 1898 sections 158 and 176 registration of FIR and investigation: officer in charge of police station shall record FIR, investigation to be conducted by police under directio",
+      "Police Order 2002 Rule 10(2) Investigation Wing responsibilities: investigation of registered cases to be conducted by Investigation Wing staff under supervision of senior police officers"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [],
+    "data_half_answered": [],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB4",
+    "run": 2,
+    "arm": "gate",
+    "language": "ur",
+    "question": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+    "expected_answer": "جی ہاں۔ پنجاب پولیس رولز، 1934 (جلد 3) کا رول 27.16 پولیس کو پابند کرتا ہے کہ وہ مقررہ فارم میں کیس پراپرٹی اور لاوارث پراپرٹی کا رجسٹر برقرار رکھے، جسے مکمل ہونے کے تین سال بعد ہی تلف کیا جا سکتا ہے۔ ہمارا مال خانہ رجسٹر اِسی ساخت کی عکاسی کرتا ہے: ریکارڈ میں موجود 45 اندراجات میں سے ہر ایک میں سیریل نمبر، رجسٹریشن نمبر، اندراج کی تاریخ، شے کی تفصیل، مقدار اور حالت درج ہے — وہی خانے جن کا اِس رول کا مقررہ رجسٹر فارم تقاضا کرتا ہے۔",
+    "actual_answer": "**Part 1: Governing Legal Requirements**  \n- **Rule 22.16(1)** of the Punjab Police Rules III mandates that police seize property in criminal cases and take charge of unclaimed property under specific legal authorities (e.g., Code of Criminal Procedure Sections 170, 153). It also requires officers to examine property upon receipt/handover, note damages/shortages, and report to the Superintendent of Police.  \n- **Rule 25.54(1)** requires case diaries to be submitted in a standardized form (Form 25.54(1)), with each sheet numbered and stamped. Diaries must be brief, include only relevant investigation incidents, and document stolen/seized property details in the first diary after reporting such property.  \n- **Anti-Rape Act Rules 2022 (Documents 5–6)** stipulate that evidence must be marked with case/item numbers, descriptions, recovery dates, and maintained via a strict chain of custody, including details like recovery location, investigating officer’s name, time/date, and evidence condition.  \n\n**Part 2: Case Records Summary (Document 7)**  \n- **What the records show**:  \n  - Seized property is disposed of in various ways, including:  \n    - Confiscated (14 items, 13 FIRs).  \n    - Sealed and sent to forensic labs (13 items, 11 FIRs).  \n    - Held for return to heirs (7 items, 7 FIRs).  \n    - Held for complainants (6 items, 6 FIRs).  \n  - **Forensic processes**: 16 entries mention forensic-related handling (e.g., \"forensic examination required\"), but only 13 explicitly state items were \"sent to the lab.\"  \n- **What the records do not show**:  \n  - No mention of **standardized case diaries** (per Rule 25.54) with numbered/sheet-stamped entries.  \n  - No explicit documentation of **chain of custody details** (e.g., recovery location, investigating officer’s name, time/date, evidence condition) as required by the Anti-Rape Act Rules.  \n  - No indication of **marking seized items** with case/item numbers, descriptions, or recovery dates (per Anti-Rape Act Rules 7–8).  \n\n**Conclusion**: While the case records reflect some disposal methods (e.g., forensic lab dispatch), they lack compliance with legal requirements for standardized diaries, chain-of-custody documentation, and item-specific marking.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 187.3,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c334",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c158",
+          "2022 (Amendments upto date).pdf]",
+          "kb-data-half:property_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents from Punjab Police Rules (e.g., Rule 22.16, 27.16) estab"
+      }
+    ],
+    "english_rendering": [
+      "When the police seize items related to a case, is there an established standard for how they are recorded and ultimately disposed of — and does our property records comply with that?"
+    ],
+    "statute_hypotheses": [
+      "Punjab Police Rules 1934 case property and malkhana: case property shall be entered in the station register, marked with case number and description, stored in malkhana under lock and key, and disposa",
+      "Forensics guidelines handling and chain of custody: recovered evidence shall be packaged in tamper-evident containers, labelled with case details and seized by officer in charge, maintained through do"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [
+      {
+        "plan": "property_register",
+        "expected_kind": "seized_property_disposition"
+      }
+    ],
+    "data_half_answered": [
+      {
+        "plan": "property_register",
+        "kind": "seized_property_disposition",
+        "chars": 1369
+      }
+    ],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB5",
+    "run": 2,
+    "arm": "gate",
+    "language": "ur",
+    "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+    "expected_answer": "جی ہاں۔ اینٹی ریپ (انویسٹی گیشن) رولز، 2022 کا رول 3(2) تفتیشی افسر کو پابند کرتا ہے کہ وہ یقینی بنائے کہ ایک خاتون پولیس افسر شامل ہو، متاثرہ کا بیان اینٹی ریپ کرائسز سیل (اے آر سی سی) میں تنہائی میں ریکارڈ کیا جائے، اور شواہد کی چین آف کسٹڈی پورے عمل کے دوران برقرار رکھی جائے — یہ واضح فرائض ہیں، تھانے کی صوابدید پر نہیں چھوڑے گئے۔ ہماری خواتین سے تشدد کی رپورٹوں کے ریکارڈ اس کا کچھ حصہ ظاہر کرتے ہیں: ریکارڈ میں موجود 8 میں سے ہر رپورٹ میں مقررہ خواتین پولیس اسٹیشن اور بیج نمبر کے ساتھ نامزد تفتیشی افسر کا خانہ موجود ہے، جو کیس کے باقاعدہ ایف آئی آر میں تبدیل ہونے سے پہلے ہی درج کیا جاتا ہے۔ جو چیز درج نہیں ہوتی وہ یہ ہے کہ چین آف کسٹڈی واقعی برقرار رکھی گئی یا نہیں — تقاضے کے اُس حصے کے لیے کوئی متعلقہ خانہ موجود نہیں۔",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 426.1,
+    "evaluator_rounds": 5,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c34",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c21",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c34",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c146",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c147",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c22",
+          "2022 (Amendments upto date).pdf]",
+          "kb-data-half:violence_against_women"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c34",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c22",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c150",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c147",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c146",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c78",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c21",
+          "2022 (Amendments upto date).pdf]",
+          "kb-data-half:violence_against_women"
+        ]
+      },
+      {
+        "attempt": 3,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c147",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c34",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c146",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c21",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c694",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c797",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c22",
+          "2022 (Amendments upto date).pdf]",
+          "kb-data-half:violence_against_women"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c21",
+          "2022 (Amendments upto date).pdf]",
+          "psrms_fir_fir-97-26#narrative_f93f24e4_c1",
+          "psrms_fir_fir-425-26#narrative_bbbf41c2_c1",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c147",
+          "2022 (Amendments upto date).pdf]",
+          "psrms_fir_fir-426-26#narrative_a2b14a9a_c2",
+          "kb-data-half:violence_against_women"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c21",
+          "2022 (Amendments upto date).pdf]",
+          "psrms_fir_fir-97-26#narrative_f93f24e4_c1",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c147",
+          "2022 (Amendments upto date).pdf]",
+          "psrms_fir_fir-426-26#narrative_a2b14a9a_c3",
+          "psrms_fir_fir-426-26#narrative_a2b14a9a_c2",
+          "kb-data-half:violence_against_women"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents mention legal procedures for rape cases (e.g., Anti-Rape"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents do not explicitly address legal procedures specific to d"
+      },
+      {
+        "relevant": false,
+        "reason": "Documents specify legal procedures for rape/sexual abuse cases (e.g. female poli"
+      },
+      {
+        "relevant": false,
+        "reason": "The documents do not explicitly state whether the law requires different procedu"
+      },
+      {
+        "relevant": true,
+        "reason": "Documents 1 and 3 explicitly mention legal procedures for domestic violence case"
+      }
+    ],
+    "english_rendering": [
+      "When domestic violence against a woman is involved in a case, does the law require a different procedure from a regular case — and if so, does our data show that those additional measures were actually taken?"
+    ],
+    "statute_hypotheses": [
+      "Anti-Rape (Investigation and Trial) Act 2021 sections 5 and 6 special investigation procedures in cases of violence against women: police officer in charge shall conduct investigation with sensitivity",
+      "Code of Criminal Procedure 1898 section 129A protection of victims in cases of violence against women: court may issue orders for protection, prohibition of contact, and other relief to ensure safety "
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [
+      {
+        "plan": "violence_against_women",
+        "expected_kind": "dv_report_fir_match"
+      }
+    ],
+    "data_half_answered": [
+      {
+        "plan": "violence_against_women",
+        "kind": "dv_report_fir_match",
+        "chars": 365
+      }
+    ],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB6",
+    "run": 2,
+    "arm": "gate",
+    "language": "roman_ur",
+    "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "**Part 1: Governing Forensic Guidelines**  \nThe *forensics guidelines* (Document 3 and Document 6) specify that seized items (including weapons) must be:  \n- **Packaged in suitable containers** to prevent contamination or damage (Document 6).  \n- **Documented, labeled, marked, photographed, and inventoried** before packaging (Document 6).  \n- **Maintained with integrity** through package documentation, including all markings, seals, tags, and labels from involved agencies (Document 3).  \n- **Marked with case number, item number, description, and date of recovery** (Document 5).  \n\n**Part 2: Weapon Register Compliance**  \nOur *case records summary* (Document 7) shows:  \n- **30 of 32 weapons** (~94%) are recorded **without a licence**.  \n- **2 weapons** have **no licence status** at all.  \n- **No field** in the weapon register indicates whether the above forensic handling guidelines were followed (e.g., packaging, labeling, documentation). The summary only addresses licence status, not procedural compliance with handling protocols.  \n\nThus, the weapon register does **not** record whether the guidelines were applied.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 401.9,
+    "evaluator_rounds": 4,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1279",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c228",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c477",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c158",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1279",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 3,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c158",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1279",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "psrms_fir_fir-212-26#narrative_d8abc19f_c1",
+          "psrms_fir_fir-203-26#narrative_1f26ae88_c2",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "psrms_fir_fir-408-26#narrative_92cb5125_c1",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents address the handling of seized weapons (e.g., packaging,"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents address forensic handling procedures for seized weapons "
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents address forensic guidelines for handling seized weapons "
+      },
+      {
+        "relevant": true,
+        "reason": "Documents 3 and 6 from the Forensics Guidelines directly address handling proced"
+      }
+    ],
+    "english_rendering": [
+      "Are there any specific provisions in the forensics guidelines regarding how seized weapons should be handled before they are registered, and does our weapon register record whether actions were taken on them?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: chain of custody procedures for evidence before entry into official records",
+      "Punjab Police Rules 1934 weapon register entries: recording of actions taken on seized weapons including whether they were used in offences"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [
+      {
+        "plan": "weapon_register",
+        "expected_kind": "weapon_compliance_scan"
+      }
+    ],
+    "data_half_answered": [
+      {
+        "plan": "weapon_register",
+        "kind": "weapon_compliance_scan",
+        "chars": 300
+      }
+    ],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB8",
+    "run": 2,
+    "arm": "gate",
+    "language": "roman_ur",
+    "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+    "expected_answer": "Haan. Code of Criminal Procedure, 1898 ki dafa 173 ke tehat har tafteesh bila-zaroori takheer ke mukammal honi chahiye, aur agar FIR darj hone ke chaudah din ke andar mukammal na ho, to officer in charge us muddat ke khatam hone ke teen din ke andar magistrate ko (public prosecutor ke zariye) ek interim report bhejne ka paband hai, jisme ab tak ki tafteesh ka natija darj ho. Hamara data us pipeline ke aakhri hisse ko darj karta hai — adaalat bheja gaya challan (26 cases) aur, hal shuda cases ke liye, darj shuda natija — magar schema mein kahin interim report ka koi tasavvur nahi aur challan ko uski tafteesh ke aaghaaz se jorne wala koi field nahi. Is liye data yeh tasdeeq kar sakta hai ke case adaalat tak pohcha, magar yeh nahi ke raaste mein 14-din ki interim-report ki zimma-daari poori hui ya nahi.",
+    "actual_answer": "Yes, under certain conditions, the police are required by law to report to the court before an investigation is completed. Specifically:  \n- If an investigation cannot be completed within **14 days** from the date of the first information report (FIR), the police officer in charge must submit an **interim report** to the Magistrate via the Public Prosecutor within **three days** of the 14-day period expiring. This interim report allows the court to commence the trial based on the findings so far, unless the court decides otherwise [Document 4].  \n- Similarly, if an investigation cannot be completed within **24 hours** of an arrest, the police must immediately transmit a copy of the diary entries relating to the case to the nearest Magistrate, along with the accused [Document 5].  \n\nHowever, the documents do not mention **case-tracking data** or systems to monitor whether such reports were submitted. The requirement to submit interim reports is explicitly stated in the legal text, but there is no reference to automated or administrative tracking mechanisms in the provided materials [Documents 1–6].\n\n_A cited claim ([Document 5]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 24._",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 221.2,
+    "evaluator_rounds": 2,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c752",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c652",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c662",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1643",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c649",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1662"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c652",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c752",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1643",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c757",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c725",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c639"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents do not mention any legal requirement for police to repor"
+      },
+      {
+        "relevant": true,
+        "reason": "Documents address the legal requirement for police to report to the court during"
+      }
+    ],
+    "english_rendering": [
+      "If an investigation in a case becomes lengthy, does the law require the police to report something to the court before the investigation is completed — and does our case-tracking data show whether this happened or not?"
+    ],
+    "statute_hypotheses": [
+      "Code of Criminal Procedure 1898 sections 176 and 177 investigation report to magistrate: police officer in charge shall submit a report to the magistrate if the investigation cannot be completed withi",
+      "Punjab Police Rules 1934 case diary and progress records: case diaries shall contain entries of all stages of investigation, including dates of commencement and completion, and any extensions or delay"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [],
+    "data_half_answered": [],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB9",
+    "run": 2,
+    "arm": "gate",
+    "language": "roman_ur",
+    "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+    "expected_answer": "Code of Criminal Procedure, 1898 ki dafa 174 officer in charge ko paband karti hai ke jab use maloom ho ke koi shakhs khudkushi se, qatl se, ya aise halaat mein mara gaya jo shak paida karte hain, to woh tehqeeqaat kare aur maut ki zaahiri wajah par ek report tayyar kare — jism par mojood zakhmon ya nishaanaat ki tafseel ke saath — aur ise qareeb tareen magistrate ko bheje. Hamara data zahir karta hai ke aise cases mojood hain: 8 FIRs qatl ki dafa (PPC 302) ka hawala dete hain, aur kai zabt shuda property entries meyyat ke warisaan ko wapas karne ke liye nishaanzad hain. Magar schema mein kahin koi inquest, post-mortem ya cause-of-death record nahi. FIR aur uski dafaat yeh darj karti hain ke maut ka daawa kiya gaya hai; woh alag qanooni maut ki tehqeeqaat ko darj nahi kartin.",
+    "actual_answer": "**Part 1: Governing Legal Requirements**  \nUnder Rule 25.31 of the Punjab Police Rules (Document 1 and 5), when a person dies under \"sudden or unnatural\" circumstances, the police must:  \n- Immediately notify the nearest magistrate authorized to hold inquests.  \n- Conduct an investigation at the scene of death per **Section 174, Code of Criminal Procedure** (Document 1, Rule 25.31(1)).  \n- If the body is buried, no Section 174 investigation is possible unless there is \"reasonable grounds for suspicion\" of a cognizable offence (Document 5, Rule 25.31(2)).  \n- For inquest reports (Rule 25.35, Document 2 and 6), the police must document:  \n  - The apparent cause of death (natural, violence, poisoning).  \n  - Marks of violence, weapons used, and other forensic details (Document 6, Rule 25.35(2)).  \n\n**Part 2: What Our Case Records Actually Show**  \nAccording to the case records summary (Document 7):  \n- **No field exists** for recording detailed inquest reports (e.g., cause of death, forensic details, or weapon descriptions).  \n- The 73 cases involving death are charged under FIR sections (e.g., PPC §302, §392, Arms Ordinance §13) but **do not include data** on whether police conducted Section 174 investigations or completed inquest reports.  \n- Of 33 criminal records, **only 1 case** has reached a verdict (conviction under PPC §392), while the rest remain \"under trial\" or \"sub judice.\"  \n- The summary explicitly states that **conviction data lags behind** the FIR/section counts, implying **no systematic tracking** of completed investigations into cause of death.  \n\n**Conclusion**: While the law mandates detailed death investigations (Documents 1, 2, 5, 6), our case records **do not capture** this data, as they lack fields for inquest reports or forensic details. The system does not currently record these investigations explicitly.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 171.2,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1548",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c770",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1543",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1561",
+          "kb-data-half:death_investigation_charging"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents describe legal procedures requiring police to conduct in"
+      }
+    ],
+    "english_rendering": [
+      "When a person dies in suspicious circumstances, the police must conduct a formal investigation into the cause of death — does our system record this anywhere, especially when so many of our cases involve death?"
+    ],
+    "statute_hypotheses": [
+      "Code of Criminal Procedure 1898 sections 174 and 176 inquest and cause-of-death enquiry: police officer in charge shall proceed to the place where the body is found, examine the body and surrounding c",
+      "Punjab Police Rules 1934 inquest records and case diaries: entries relating to deaths under suspicious circumstances shall be made in the station diary, including details of the inquest, findings, and"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [
+      {
+        "plan": "death_investigation_charging",
+        "expected_kind": "statute_court_stage_join"
+      }
+    ],
+    "data_half_answered": [
+      {
+        "plan": "death_investigation_charging",
+        "kind": "statute_court_stage_join",
+        "chars": 2564
+      }
+    ],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB1",
+    "run": 3,
+    "arm": "gate",
+    "language": "en",
+    "question": "What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?",
+    "expected_answer": "Section 154 of the Code of Criminal Procedure, 1898 requires that oral information about a cognizable offence given to the officer-in-charge of a police station be reduced to writing, read back to the informant, signed by them, and entered in a register in the prescribed form — that's the actual legal basis for what we call an FIR. Our FIR records follow that structure: every entry carries a recording officer, a report timestamp, and complainant details, which is the database's structural equivalent of the Section 154 register entry.",
+    "actual_answer": "The legal requirements governing the formalization of a crime report into a First Information Report (FIR) are outlined in **Sections 154 and 155 of the Criminal Procedure Code**, as referenced in **Document 3**. Specifically:  \n- **Section 154** mandates that every information relating to an offence (cognizable or non-cognizable) must be recorded in writing by the police station officer incharge, with the substance of the report entered into the police station daily diary [Document 3].  \n- **Rule 24.5** (Document 1 and 2) specifies that the **First Information Report Register** must be a printed book in **Form 24.5(1)** with **500 pages**, filled completely before a new register is started. Cases are assigned **annual serial numbers** for each police station, and **every five pages** are numbered identically and written simultaneously using the **carbon copying process**. The original copy is retained as a permanent record, while duplicates are submitted to designated officials (e.g., Senior Superintendent of Police, Magistrate).  \n\nRegarding compliance with these requirements:  \n- The documents **explicitly describe the procedural and formatting standards** (e.g., serial numbering, carbon copying, submission of duplicates) but **do not provide evidence of whether actual recordkeeping adheres to these rules**. Compliance would require independent verification beyond the provided texts.  \n\nIn summary, the legal framework is detailed in the documents, but no information is given on whether practice aligns with these requirements.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 146.9,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1259",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1260",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1236",
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c219",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "Documents directly reference Sections 154 and 155 of the Code of Criminal Proced"
+      }
+    ],
+    "english_rendering": [
+      "What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?"
+    ],
+    "statute_hypotheses": [
+      "Code of Criminal Procedure 1898 section 154 registration of FIR by police officer: police officer in charge of a station shall, upon receipt of a complaint, record the substance thereof in a book and ",
+      "Punjab Police Rules 1934 Volume III rule 122 maintenance of FIR register: every station shall maintain a register for FIRs, with entries including date, time, complainant details, and reference to the"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [],
+    "data_half_answered": [],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB2",
+    "run": 3,
+    "arm": "gate",
+    "language": "en",
+    "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+    "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "actual_answer": "The system does have procedures for recording statements made by witnesses or accused persons during police interviews. For instance:\n\n- Under **Document 2**, police officers are explicitly permitted to \"reduce into writing any statement made to him in the course of an examination\" and must create a \"separate record\" of such statements.  \n- **Document 7** (Rule 25.54) mandates that case diaries include a list of statements recorded under **section 161** of the Criminal Procedure Code, with details about the number of pages for each statement. These diaries must be submitted to the police station and copied as required.  \n\nHowever, the documents do not explicitly confirm whether these procedures are consistently followed in practice. If they are not, this could represent a procedural gap, but the legal framework itself does not appear to have a \"data gap\" in its requirements. The absence of explicit mention of failures in the documents provided means we cannot definitively conclude that such gaps exist based on the given information.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 140.9,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c602",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c925",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c1048",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c1061",
+          "2_qanun-e-shahadat-order-1984_pdf_3e604153_c44",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1647"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents describe legal procedures requiring police to record wit"
+      }
+    ],
+    "english_rendering": [
+      "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?"
+    ],
+    "statute_hypotheses": [
+      "Qanun-e-Shahadat Order 1984 section 14 duty to record evidence: the court or investigating authority shall record the evidence of a witness or accused in writing",
+      "Punjab Police Rules 1934 Volume III rule 102 case diary entries: the station house officer shall enter in the case diary the statement of a witness or accused as recorded during police interview"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [],
+    "data_half_answered": [],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB3",
+    "run": 3,
+    "arm": "gate",
+    "language": "en",
+    "question": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+    "expected_answer": "The law expects separation. Article 18 of the Police Order, 2002 sets up a distinct Investigation Wing under a dedicated head of investigation, states that registered cases \"shall be investigated by the investigation staff\" under that head, and bars the District Police Officer from interfering in the investigation process — the clear intent is that logging a case and investigating it are separate functions. In practice, our data shows the opposite: the officer who records the FIR and the officer who ends up investigating it are the same person in 68 of 74 pairs (92%); role-splitting happens in only 6 cases. So the separation the law sets up isn't what's actually happening on the ground in this data.",
+    "actual_answer": "The law does not explicitly require the officer who first registers a case (e.g., by recording an FIR) to be the same officer who investigates it, nor does it explicitly mandate that these roles be separate. Instead, the documents outline hierarchical and supervisory responsibilities without specifying whether the same individual must perform both tasks. \n\nFor example:\n- The **officer-in-charge** of a special sexual offences investigation unit (SSOIU) is tasked with ensuring an FIR is registered immediately (Document 2, 3) and liaising between police, prosecution, and forensic departments, but the actual investigation is conducted by the **investigation officer** (Document 2, 6). This implies a division of roles, with the officer-in-charge overseeing processes and the investigation officer handling the case's investigation.\n- Document 1 states that the District Police Officer must not interfere with the investigation, and the head of investigation in a district is responsible to their hierarchy, suggesting a structured separation of duties.\n\nHowever, the documents do not provide empirical data on whether these roles are typically filled by the same individual in practice. The legal framework focuses on **supervisory and procedural responsibilities** rather than specifying whether the same officer must handle both registration and investigation. \n\nThus, the law does not explicitly require the roles to be separate or unified, but the structure implies distinct responsibilities. There is no information in the provided documents about real-world data on how these roles are assigned in practice.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 213.7,
+    "evaluator_rounds": 2,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c570",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c144",
+          "2022 (Amendments upto date).pdf]",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c657",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c145",
+          "2022 (Amendments upto date).pdf]"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c145",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c144",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c570",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c657"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents do not explicitly address whether the law requires the s"
+      },
+      {
+        "relevant": true,
+        "reason": "Documents address the norm clause by indicating that the officer-in-charge (who "
+      }
+    ],
+    "english_rendering": [
+      "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?"
+    ],
+    "statute_hypotheses": [
+      "Code of Criminal Procedure 1898 sections 158 and 202 registration of FIR and investigation duties: officer in charge of police station shall record FIR, investigation to be conducted by police officer",
+      "Police Order 2002 Investigation Wing structure and roles: investigation of registered cases to be carried out by Investigation Wing personnel under supervision of senior police officers, separate from"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [],
+    "data_half_answered": [],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB4",
+    "run": 3,
+    "arm": "gate",
+    "language": "ur",
+    "question": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+    "expected_answer": "جی ہاں۔ پنجاب پولیس رولز، 1934 (جلد 3) کا رول 27.16 پولیس کو پابند کرتا ہے کہ وہ مقررہ فارم میں کیس پراپرٹی اور لاوارث پراپرٹی کا رجسٹر برقرار رکھے، جسے مکمل ہونے کے تین سال بعد ہی تلف کیا جا سکتا ہے۔ ہمارا مال خانہ رجسٹر اِسی ساخت کی عکاسی کرتا ہے: ریکارڈ میں موجود 45 اندراجات میں سے ہر ایک میں سیریل نمبر، رجسٹریشن نمبر، اندراج کی تاریخ، شے کی تفصیل، مقدار اور حالت درج ہے — وہی خانے جن کا اِس رول کا مقررہ رجسٹر فارم تقاضا کرتا ہے۔",
+    "actual_answer": "**Part 1: Governing Legal Requirements**  \n- **Rule 22.16(1)** of the Punjab Police Rules mandates that police seize property in criminal cases and take charge of unclaimed property under specific legal authorities (e.g., Code of Criminal Procedure Sections 170, 153). It also requires officers to examine property upon receiving/handing over charge, note damages/shortages, and report to the Superintendent.  \n- **Rule 25.54(1)** requires case diaries to be submitted in Form 25.54(1), with each sheet numbered and stamped. Diaries must be brief, include only relevant investigation incidents, and document stolen/seized property lists in the first diary after reporting such property.  \n- **Rule 22.16(4)** and **Rule 27.16(1)** (Documents 2, 3) specify that unclaimed property must be handed over to the sheriff, with receipts recorded in register No. 1. Property in active cases may be retained for evidence but must eventually be disposed of per magisterial orders.  \n- **Anti-Rape Act Rules (Documents 5, 6)** require evidence to be marked with case/item numbers, descriptions, recovery dates, and maintained via a strict chain of custody, including transfers between authorities.  \n\n**Part 2: Case Records Compliance**  \n- **Document 7** (our case records summary) shows:  \n  - **Disposition of seized property**: 45 entries across 28 FIRs, including confiscation (14 items), forensic lab dispatch (13 items), holding for heirs (7 items), and other methods.  \n  - **Documentation gaps**: The records do not explicitly mention:  \n    - **Marking evidence with case/item numbers** (required by Anti-Rape Act Rules 7–8).  \n    - **Detailed chain-of-custody logs** (e.g., transfers between authorities with timestamps, as per Rule 6(2)).  \n    - **Formal submission of case diaries in Form 25.54(1)** (though some entries note forensic processes, the format compliance is unspecified).  \n  - **Forensic handling**: 13 items were literally \"sent to the lab,\" but only 16 entries mention forensic processes (e.g., \"held as forensic evidence\"), not all meeting the Anti-Rape Act’s explicit documentation requirements.  \n\n**Conclusion**: While our records show some compliance with property disposition (e.g., forensic dispatch, handing over to heirs), they lack explicit adherence to legal mandates for detailed evidence marking, chain-of-custody logs, and formal diary formats.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 173.3,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c334",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c158",
+          "2022 (Amendments upto date).pdf]",
+          "kb-data-half:property_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents from Punjab Police Rules (e.g., Rule 22.16, 27.16, 27.18"
+      }
+    ],
+    "english_rendering": [
+      "When the police take possession of items related to a case, is there an established standard for how they are recorded and eventually disposed of — and does our property records follow that?"
+    ],
+    "statute_hypotheses": [
+      "Punjab Police Rules 1934 case property and malkhana: case property shall be entered in the station register, marked with case number and description, stored in malkhana under lock and key, and disposa",
+      "Forensics guidelines handling and chain of custody: recovered evidence shall be packaged in tamper-evident containers, labelled with case details and seized by officer in charge, maintained through do"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [
+      {
+        "plan": "property_register",
+        "expected_kind": "seized_property_disposition"
+      }
+    ],
+    "data_half_answered": [
+      {
+        "plan": "property_register",
+        "kind": "seized_property_disposition",
+        "chars": 1369
+      }
+    ],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB5",
+    "run": 3,
+    "arm": "gate",
+    "language": "ur",
+    "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+    "expected_answer": "جی ہاں۔ اینٹی ریپ (انویسٹی گیشن) رولز، 2022 کا رول 3(2) تفتیشی افسر کو پابند کرتا ہے کہ وہ یقینی بنائے کہ ایک خاتون پولیس افسر شامل ہو، متاثرہ کا بیان اینٹی ریپ کرائسز سیل (اے آر سی سی) میں تنہائی میں ریکارڈ کیا جائے، اور شواہد کی چین آف کسٹڈی پورے عمل کے دوران برقرار رکھی جائے — یہ واضح فرائض ہیں، تھانے کی صوابدید پر نہیں چھوڑے گئے۔ ہماری خواتین سے تشدد کی رپورٹوں کے ریکارڈ اس کا کچھ حصہ ظاہر کرتے ہیں: ریکارڈ میں موجود 8 میں سے ہر رپورٹ میں مقررہ خواتین پولیس اسٹیشن اور بیج نمبر کے ساتھ نامزد تفتیشی افسر کا خانہ موجود ہے، جو کیس کے باقاعدہ ایف آئی آر میں تبدیل ہونے سے پہلے ہی درج کیا جاتا ہے۔ جو چیز درج نہیں ہوتی وہ یہ ہے کہ چین آف کسٹڈی واقعی برقرار رکھی گئی یا نہیں — تقاضے کے اُس حصے کے لیے کوئی متعلقہ خانہ موجود نہیں۔",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 303.2,
+    "evaluator_rounds": 3,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c34",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c21",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c34",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c146",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c147",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c22",
+          "2022 (Amendments upto date).pdf]",
+          "kb-data-half:violence_against_women"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c34",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c34",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c21",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c22",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c147",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c40",
+          "2022 (Amendments upto date).pdf]",
+          "kb-data-half:violence_against_women"
+        ]
+      },
+      {
+        "attempt": 3,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c21",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c34",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c146",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c34",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c150",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c646",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c22",
+          "2022 (Amendments upto date).pdf]",
+          "kb-data-half:violence_against_women"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents mention legal procedures for rape cases (e.g., Anti-Rape"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents mention legal procedures for rape cases (e.g., Anti-Rape"
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal requirements for cases involving domes"
+      }
+    ],
+    "english_rendering": [
+      "When domestic violence against a woman is involved in a case, does the law require a different procedure from a regular case — and if so, does our data show that those additional measures were actually taken?"
+    ],
+    "statute_hypotheses": [
+      "Anti-Rape (Investigation and Trial) Act 2021 sections 5 and 6 special investigation procedures in cases of violence against women: police officer in charge shall conduct investigation with sensitivity",
+      "Code of Criminal Procedure 1898 section 129A protection of victims in cases of violence against women: court may issue orders for protection, prohibition of contact, and other relief to ensure safety "
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [
+      {
+        "plan": "violence_against_women",
+        "expected_kind": "dv_report_fir_match"
+      }
+    ],
+    "data_half_answered": [
+      {
+        "plan": "violence_against_women",
+        "kind": "dv_report_fir_match",
+        "chars": 365
+      }
+    ],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB6",
+    "run": 3,
+    "arm": "gate",
+    "language": "roman_ur",
+    "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 225.3,
+    "evaluator_rounds": 2,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c1396",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c477",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "5_Forensics_guidelines_pdf_62ee00b3_c18",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents address the handling of recovered weapons (packaging, do"
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents from the forensics guidelines (e.g., 5_Forensics_guideli"
+      }
+    ],
+    "english_rendering": [
+      "Are there any specific provisions in the forensics guidelines regarding how recovered weapons should be handled before they are registered, and does our weapon register record whether action has been taken on them?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling and packaging of recovered evidence: evidence shall be properly handled, packaged, labelled, and transported to maintain chain of custody",
+      "Punjab Police Rules 1934 weapon register entries: weapon register shall record details of seized weapons including whether they have been used in any offence"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [
+      {
+        "plan": "weapon_register",
+        "expected_kind": "weapon_compliance_scan"
+      }
+    ],
+    "data_half_answered": [
+      {
+        "plan": "weapon_register",
+        "kind": "weapon_compliance_scan",
+        "chars": 300
+      }
+    ],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB8",
+    "run": 3,
+    "arm": "gate",
+    "language": "roman_ur",
+    "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+    "expected_answer": "Haan. Code of Criminal Procedure, 1898 ki dafa 173 ke tehat har tafteesh bila-zaroori takheer ke mukammal honi chahiye, aur agar FIR darj hone ke chaudah din ke andar mukammal na ho, to officer in charge us muddat ke khatam hone ke teen din ke andar magistrate ko (public prosecutor ke zariye) ek interim report bhejne ka paband hai, jisme ab tak ki tafteesh ka natija darj ho. Hamara data us pipeline ke aakhri hisse ko darj karta hai — adaalat bheja gaya challan (26 cases) aur, hal shuda cases ke liye, darj shuda natija — magar schema mein kahin interim report ka koi tasavvur nahi aur challan ko uski tafteesh ke aaghaaz se jorne wala koi field nahi. Is liye data yeh tasdeeq kar sakta hai ke case adaalat tak pohcha, magar yeh nahi ke raaste mein 14-din ki interim-report ki zimma-daari poori hui ya nahi.",
+    "actual_answer": "Yes, under the Code of Criminal Procedure, if an investigation is not completed within 14 days from the date of the first information report (FIR), the police officer in charge of the station must forward an **interim report** to the Magistrate through the Public Prosecutor within three days of the expiration of the 14-day period. This is explicitly stated in [Document 3], which mandates the submission of such a report detailing the results of the investigation up to that point.  \n\nRegarding case-tracking data, [Document 5] emphasizes the maintenance of **case diaries** by the investigating officer, which must be submitted daily during the investigation. These diaries record steps taken, circumstances ascertained, and other relevant information. While the documents do not explicitly mention \"case-tracking data\" as a formal system, the requirement to maintain and submit case diaries implies that such records would exist and could indicate whether an interim report was submitted. However, the documents do not confirm the existence of a centralized or digital case-tracking system.  \n\nIn summary:  \n- **Legal requirement for interim reporting**: [Document 3].  \n- **Case diaries as tracking records**: [Document 5].\n\n_A cited claim ([Document 5]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: CASE-TRACKING._",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 230.0,
+    "evaluator_rounds": 2,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c752",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c652",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c662",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1643",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c649",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1662"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c752",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c652",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c757",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c725",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1643"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents do not mention any legal requirement for police to repor"
+      },
+      {
+        "relevant": true,
+        "reason": "Documents address the legal requirement under Section 173 of the Code of Crimina"
+      }
+    ],
+    "english_rendering": [
+      "If an investigation into a case becomes prolonged, does the law require the police to report something to the court before the investigation is completed — and does our case-tracking data indicate whether this occurred or not?"
+    ],
+    "statute_hypotheses": [
+      "Code of Criminal Procedure 1898 sections 176 and 177 investigation report to magistrate: police officer in charge shall submit a report to the magistrate if the investigation cannot be completed withi",
+      "Punjab Police Rules 1934 case diary and progress records: case diaries shall contain entries of all stages of investigation, including dates of commencement and completion, and any extensions or delay"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [],
+    "data_half_answered": [],
+    "data_half_dropped": []
+  },
+  {
+    "id": "KB9",
+    "run": 3,
+    "arm": "gate",
+    "language": "roman_ur",
+    "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+    "expected_answer": "Code of Criminal Procedure, 1898 ki dafa 174 officer in charge ko paband karti hai ke jab use maloom ho ke koi shakhs khudkushi se, qatl se, ya aise halaat mein mara gaya jo shak paida karte hain, to woh tehqeeqaat kare aur maut ki zaahiri wajah par ek report tayyar kare — jism par mojood zakhmon ya nishaanaat ki tafseel ke saath — aur ise qareeb tareen magistrate ko bheje. Hamara data zahir karta hai ke aise cases mojood hain: 8 FIRs qatl ki dafa (PPC 302) ka hawala dete hain, aur kai zabt shuda property entries meyyat ke warisaan ko wapas karne ke liye nishaanzad hain. Magar schema mein kahin koi inquest, post-mortem ya cause-of-death record nahi. FIR aur uski dafaat yeh darj karti hain ke maut ka daawa kiya gaya hai; woh alag qanooni maut ki tehqeeqaat ko darj nahi kartin.",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 172.2,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1548",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1543",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c770",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1561",
+          "kb-data-half:death_investigation_charging"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents from Punjab Police Rules (e.g., Rule 25.31 and 25.35) di"
+      }
+    ],
+    "english_rendering": [
+      "When a person dies in suspicious circumstances, the police must conduct a formal investigation into the cause of death — does our system record this anywhere, especially when so many of our cases involve death?"
+    ],
+    "statute_hypotheses": [
+      "Code of Criminal Procedure 1898 sections 174 and 176 inquest and cause-of-death enquiry: police officer in charge shall proceed to the place where the body is found, examine the body and surrounding c",
+      "Punjab Police Rules 1934 inquest records and case diaries: entries relating to deaths under suspicious circumstances shall be made in the station diary, including details of the inquest, findings, and"
+    ],
+    "quota_lines": [],
+    "data_half_dispatched": [
+      {
+        "plan": "death_investigation_charging",
+        "expected_kind": "statute_court_stage_join"
+      }
+    ],
+    "data_half_answered": [
+      {
+        "plan": "death_investigation_charging",
+        "kind": "statute_court_stage_join",
+        "chars": 2564
+      }
+    ],
+    "data_half_dropped": []
+  }
+]
