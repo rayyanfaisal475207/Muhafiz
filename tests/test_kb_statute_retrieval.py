@@ -1672,3 +1672,167 @@ def test_default_hypotheses_stays_at_two():
     38 showed a wrong third slot is no longer *harmful* under RRF fusion; it is
     still not useful here, so the budget is unchanged and the reason recorded."""
     assert statute_mod.DEFAULT_HYPOTHESES == 2
+
+
+# ── 10. Module 64: the exhibit-handling branch of the statute-hypothesis prompt ──
+#
+# KB6's gold answer rests on ONE chunk of the forensics guidelines —
+#     5_Forensics_guidelines_pdf_62ee00b3_c19
+#       "Every evidence exhibit must be packaged separately. Every firearm must
+#        be packaged in unloaded condition with safety on. There must not be
+#        live rounds in the chamber of the firearm, magazine or in the parcel."
+# — and Module 52 measured 3 of 3 live runs landing on _c116/_c0 instead.
+#
+# Module 64's offline probe (scripts/module64_probe.py) ruled out the two
+# mechanisms the tracker proposed, and those negative results are why this rule
+# is worded the way it is. At the KB-only scope, top-30 per query:
+#   - NOT Roman-Urdu. A Roman-Urdu paraphrase that says "pack" reaches c19 at
+#     rank 2-3; gold's own Urdu-SCRIPT rendering misses it exactly as gold's
+#     Roman-Urdu does, so the script is not the variable.
+#   - NOT compoundness. Gold's NORM CLAUSE ALONE, in gold's own vocabulary,
+#     still misses c19 entirely — deleting the data clause changes nothing.
+#   - It is VOCABULARY. c19 never says "handle" or "register"; it is written
+#     entirely in the verb "packaged". Gold asks how a weapon is "handled"
+#     before it is "recorded", and that phrasing retrieves the guidelines'
+#     GENERAL opening passage (_c0, _c94, _c116 — documenting, labelling,
+#     inventorying) which the firearm section then sits below.
+#
+# The one component built to carry the corpus's own vocabulary is the statute
+# hypothesis, and it was copying this prompt's own Forensics map line verbatim:
+#     "Forensics guidelines handling packaging labelling and transport of
+#      recovered evidence ... chain of custody"          -> c19 at rank 29
+#     "Forensics guidelines packing of a recovered firearm as evidence: how a
+#      firearm exhibit must be packaged before submission to the laboratory"
+#                                                        -> c19 at rank 1
+# So the map line WAS the query, and it never named an exhibit type.
+#
+# Measured over the full live variant set (question + 2 expansions +
+# cross-script variant + 2 hypotheses + English rendering), merged and cut to
+# TOP_K_RETRIEVAL * CROSS_CASE_RETRIEVAL_MULTIPLIER = 30:
+#     before — c19 at merged rank 53/54/54, below the cut, 3 of 3 trials
+#     after  — c19 at merged rank 1, 3 of 3 trials
+#
+# The fix is entirely in `prompts/statute_hypothesis.txt`, and is deliberately
+# about EXHIBIT TYPES IN GENERAL rather than about firearms: an English
+# paraphrase, a Roman-Urdu paraphrase and a question about a BLOOD SAMPLE (a
+# different section of the same document) all move to rank 1-3 from 27, absent
+# and 12 respectively.
+
+
+def test_statute_prompt_has_an_exhibit_handling_branch():
+    """Module 64. Before this branch, "how must a recovered weapon be handled
+    before it is recorded?" fell into WHAT IS WRITTEN DOWN and spent a query on
+    the Punjab Police Rules' weapon register — the book that says which
+    register the item goes in, not the one that says what state the item must
+    be in."""
+    assert "HOW A PHYSICAL EXHIBIT MUST BE PREPARED" in _STATUTE_PROMPT
+    branch = _STATUTE_PROMPT.split(
+        "HOW A PHYSICAL EXHIBIT MUST BE PREPARED", 1
+    )[1].split(chr(10), 1)[0].lower()
+    assert "forensics guidelines" in branch
+    assert "punjab police rules" in branch, (
+        "the branch must say which book it is taking the question AWAY from"
+    )
+
+
+def test_statute_prompt_corpus_map_says_the_guidelines_are_per_exhibit_type():
+    """The map line was the failing component: the model copied it verbatim as
+    its query, and it described the document as one undifferentiated chapter on
+    "recovered evidence". It has to say the document is split by exhibit type,
+    or the query cannot name one."""
+    forensics = next(
+        l for l in _STATUTE_PROMPT.splitlines() if l.startswith("- Forensics guidelines")
+    )
+    lowered = forensics.lower()
+    assert "by exhibit type" in lowered
+    for exhibit in ("firearms and tool marks", "biological", "digital"):
+        assert exhibit in lowered, exhibit
+
+
+def test_statute_prompt_rule_4d_demands_an_exhibit_type_and_the_packaging_verb():
+    """Rule 4d. Naming the book is not enough — a query about "recovered
+    evidence" in general retrieves only the guidelines' opening passage. The
+    rule has to be prohibitive about the general form, the way Module 65's 4c
+    had to be."""
+    assert "4d." in _STATUTE_PROMPT
+    rule = _STATUTE_PROMPT.split("4d.", 1)[1].split(chr(10), 1)[0]
+    lowered = rule.lower()
+    assert "name the exhibit type" in lowered
+    assert '"packaged"' in rule, "the guidelines' own verb must be named"
+    assert 'do not write a query about "recovered evidence" in general' in lowered
+
+
+def test_module_64_rule_is_not_keyed_to_kb6s_wording():
+    """The anti-goal, pinned. Three waves of gold-specific patterns are how the
+    router accumulated its debt; a retrieval fix keyed to one question's string
+    is the same mistake in a different file. Nothing distinctive to KB6's gold
+    text — or to any paraphrase of it used while measuring, or to its gold
+    ANSWER — may appear in this prompt."""
+    lowered = _STATUTE_PROMPT.lower()
+    for gold_ism in (
+        "baramad", "aslaha", "hathyar", "hathiyar", "makhsoos", "sambhala",
+        "weapon register", "unloaded", "safety on", "live round",
+    ):
+        assert gold_ism not in lowered, gold_ism
+    # And the worked example must be about a DIFFERENT exhibit type than the
+    # question that motivated the rule.
+    assert "blood sample" in lowered
+    assert "namoona" in lowered
+
+
+def test_module_30_and_65_selection_rules_survive_the_module_64_edit():
+    """Module 64 added a fifth branch and a fourth sub-rule to a map Modules 30
+    and 65 both measured. Everything they pinned is load-bearing for KB1/KB2/
+    KB3/KB8/KB9 and must not be collateral damage."""
+    for marker in (
+        "A STEP in a criminal case",
+        "WHO inside the police force may do something",
+        "WHAT IS WRITTEN DOWN",
+        "WHETHER SOMETHING MAY BE USED",
+        "the words the provision ITSELF would use",
+        "Each query must target a DIFFERENT statute book",
+        "4b. Match the ACTOR",
+        "4c.",
+        '"shall be proved"',
+    ):
+        assert marker in _STATUTE_PROMPT, marker
+
+
+@pytest.mark.asyncio
+async def test_kb6_gold_text_reaches_the_llm_with_the_exhibit_branch(monkeypatch):
+    """Same end-of-chain check Module 65 made for KB2: the branch and rule 4d
+    have to survive `{n}`/`{query}` substitution and actually be in the system
+    prompt sent for KB6's LITERAL gold text."""
+    seen = {}
+
+    async def _call_llm_json(**kwargs):
+        seen.update(kwargs)
+        return ["Forensics guidelines packaging of a firearm exhibit"], ""
+
+    monkeypatch.setattr(statute_mod, "call_llm_json", _call_llm_json)
+    question = _gold("KB6")["question"]
+    await generate_statute_queries(question, n=2)
+
+    system_prompt = seen["system_prompt"]
+    assert "HOW A PHYSICAL EXHIBIT MUST BE PREPARED" in system_prompt
+    assert "4d." in system_prompt
+    assert question in system_prompt
+    assert "{n}" not in system_prompt and "{query}" not in system_prompt
+
+
+def test_module_64_blast_radius_is_exactly_the_eight_kb_questions():
+    """A prompt edit is broad and quiet, so the bound is asserted rather than
+    argued: `generate_statute_queries()` is only ever called under
+    `_is_legal_kb_intent()`, and that predicate is True for exactly the eight
+    gold KB questions and False for the other twenty-four. Nothing outside
+    KB1-KB9 can be moved by anything in this prompt."""
+    gold = json.loads(
+        (
+            Path(__file__).resolve().parent.parent
+            / "evaluation"
+            / "Gold_QA_Dataset_Final32_With_Answers.json"
+        ).read_text(encoding="utf-8")
+    )
+    reached = {q["id"] for q in gold if _is_legal_kb_intent(q["question"])}
+    assert reached == {"KB1", "KB2", "KB3", "KB4", "KB5", "KB6", "KB8", "KB9"}
+    assert len(gold) == 32
