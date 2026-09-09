@@ -1360,6 +1360,101 @@ def _is_derived_ratio(candidate: str, source_values: set[str]) -> bool:
     return False
 
 
+# [Gold-QA fix — Module 70, M2] THE OPPOSITE DIRECTION.
+#
+# Everything above this point is a HALLUCINATION guard: it computes
+# `ans_nums - src_nums` and asks "did the paraphrase invent a number?".
+# That set difference is one-directional by construction, so nothing
+# anywhere notices a figure the aggregate COMPUTED and the paraphrase
+# DROPPED. Module 83's three-way capture over nine M2 runs measured the
+# consequence exactly: the aggregate payload and the rendered
+# `raw_summary_text` both carried gold's headline — "9 of 73 FIRs (~12.3%)
+# … carried by just 2 of 19 stations" — on 9 of 9, byte-identical, and the
+# served paraphrase dropped it on 9 of 9, with the gate logging
+# `grounded=True unsupported_numbers=[]` every time. That verdict was true
+# and useless: the paraphrase stated a strict subset.
+#
+# WHAT IS *NOT* CHECKED, AND WHY. A rendered aggregate legitimately states
+# dozens of numbers — per-station rows, per-year rows, per-district rates —
+# and a gold answer is prose, not a table. A rule of the form "every source
+# number must appear in the answer" would force every XAGG answer into a
+# recitation of its own breakdown, which is both worse to read and, per
+# Module 104, actively dangerous: a Markdown list ordinal is itself read as
+# a claimed figure by both verifiers, so pushing answers into list shape
+# trips a different gate. So the rule below covers exactly one construction.
+#
+# THE LOAD-BEARING FIGURES ARE THE HEADLINE'S PROPORTIONS. Two properties
+# of the rendering layer, both already load-bearing and both documented at
+# their own sites, make this identifiable without hand-listing anything
+# per question:
+#
+#   1. Every renderer LEADS with its finding — `_render_aggregate_text()`'s
+#      own comment ("Every enumerating branch leads with its own total")
+#      and `render_station_caseload_by_specialisation()`'s ("both are in
+#      the first sentence", made ONE sentence so a paraphrase has "no seam
+#      to drop"). So the first non-empty rendered line is the finding.
+#   2. A renderer writes "X of Y <noun>" when, and only when, it has
+#      computed a PROPORTION. A proportion is the one numeric construction
+#      that is destroyed by dropping either half: "2 stations" without "of
+#      19" is not a weaker version of the concentration finding, it is a
+#      different and much duller claim. Counts, totals and years survive
+#      being summarised away; a ratio does not.
+#
+# Measured blast radius, all 32 gold questions run through this gate on
+# 2026-09-10 (see MODULE70_RESULT.md §1.2): a naive "every headline figure"
+# rule fires on 10 of 32 and is wrong on at least 5 of them — it reads the
+# "1997" of "CNSA 1997" and the "1965" of "Arms Ordinance 1965" out of a
+# NOTE line as computed figures (CR3, KB1, KB8), and it misses that CR6's
+# Urdu answer states its "4" as the word "چار". The proportion rule below
+# fires on 1 of 32 — M2 — and on none of those five.
+_PROPORTION_PAIR_RE = re.compile(
+    r"(\d[\d,]*(?:\.\d+)?)\s+of\s+(\d[\d,]*(?:\.\d+)?)", re.IGNORECASE
+)
+
+
+def _headline_line(source_text: str) -> str:
+    """The first non-empty rendered line — the renderers' documented
+    headline slot (see the comment block above)."""
+    for line in (source_text or "").splitlines():
+        if line.strip():
+            return line.strip()
+    return ""
+
+
+def _omitted_headline_proportions(answer: str, source_text: str) -> list[str]:
+    """Figures from an "X of Y" proportion stated in the rendered headline
+    that the paraphrase does not state.
+
+    Returns [] — the check does not apply — when the answer states NONE of
+    the headline's figures. An answer in that shape is not a paraphrase
+    that dropped a finding; it is the sub-agent correctly saying the
+    computed aggregate does not address the question (KB2 and KB9 both
+    produce exactly that against a `graph_recurrence` payload). Pushing
+    figures into such an answer would manufacture a false claim, which is
+    the failure mode the OTHER direction of this function exists to stop.
+    """
+    headline = _headline_line(source_text)
+    pairs = _PROPORTION_PAIR_RE.findall(headline)
+    if not pairs:
+        return []
+
+    head_nums = _numbers_in(headline)
+    ans_nums = _numbers_in(answer, strip_citations=True)
+    if not (head_nums & ans_nums):
+        return []
+
+    missing: set[str] = set()
+    for a, b in pairs:
+        a, b = a.replace(",", ""), b.replace(",", "")
+        absent = [n for n in (a, b) if n not in ans_nums]
+        if absent:
+            # Report the WHOLE pair, not just the absent half: the repair
+            # pass above this function has to restate the proportion, and
+            # "19" on its own is not a restatable fact.
+            missing.update({a, b})
+    return sorted(missing)
+
+
 async def verify_structured_aggregate_paraphrase(
     answer: str,
     source_text: str,
@@ -1445,6 +1540,17 @@ async def verify_structured_aggregate_paraphrase(
         and not _is_derived_ratio(n, src_nums)
     )
 
+    # [Module 70] The opposite direction — see the comment block above
+    # `_omitted_headline_proportions()`. Deliberately ADDITIVE: it does not
+    # feed `grounded`, does not touch `unsupported_claims`, and cannot flip
+    # any verdict this function returns today. An omission is a
+    # completeness shortfall, not a grounding failure or a safety problem;
+    # making it fail the gate would trade a missing figure for the raw
+    # computed dump (or, upstream, for no answer at all — which is what
+    # `[PRESERVE]` did to KB9 and what Module 101 had to undo). The caller
+    # reads this field and repairs; nothing here refuses.
+    omitted_figures = _omitted_headline_proportions(answer, source_text)
+
     grounded = not leaked_case and not fabricated_issues and not unsupported_numbers
     reason = "Paraphrase numbers match the computed source; deterministic check passed."
     if leaked_case:
@@ -1455,8 +1561,9 @@ async def verify_structured_aggregate_paraphrase(
         reason = f"Paraphrase states number(s) not present in the computed result: {', '.join(unsupported_numbers)}."
 
     logger.info(
-        "Structured-aggregate verifier: grounded=%s leaked=%s unsupported_numbers=%s — %s",
-        grounded, leaked_case, unsupported_numbers, reason[:80],
+        "Structured-aggregate verifier: grounded=%s leaked=%s unsupported_numbers=%s "
+        "omitted_headline_proportions=%s — %s",
+        grounded, leaked_case, unsupported_numbers, omitted_figures, reason[:80],
     )
     return {
         "grounded": grounded,
@@ -1465,4 +1572,7 @@ async def verify_structured_aggregate_paraphrase(
         "unsupported_claims": fabricated_issues + [f"number: {n}" for n in unsupported_numbers],
         "reason": reason,
         "refusal_detected": False,
+        # [Module 70] Additive; see `_omitted_headline_proportions()`.
+        "omitted_source_figures": omitted_figures,
+        "omitted_source_headline": _headline_line(source_text) if omitted_figures else None,
     }
