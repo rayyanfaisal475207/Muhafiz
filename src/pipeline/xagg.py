@@ -1136,6 +1136,57 @@ _CASE_PROGRESS_TERMS = (
 )
 
 
+
+# ── [Gold-QA fix — Module 76, question KB9] per-section FIR counts ────────
+#
+# KB9's data half needs ONE number at ONE grain: how many FIRs cite a given
+# section. The only aggregate publishing anything like it was
+# `statute_court_stage_join`, a whole-caseload two-view report whose statute
+# list is capped at 15 rows and which carries `PPC §302: 10 case(s)` as row
+# six. Module 39 wired it anyway and measured what that costs: one live run
+# named the section without its count, and another read past the row and
+# asserted that no listed section pertains to death — factually wrong, from
+# a chunk holding the right row. That is a GRAIN failure, not a data one.
+#
+# TWO signals: an FIR-count term AND a section term. Deliberately NOT a bare
+# "section" — `_CASE_PROGRESS_TERMS` and the court families already own
+# every question about how far a charged case has got, and M4's whole shape
+# is "sections × court stage". This predicate is checked immediately BELOW
+# `_is_statute_court_stage_join()` for exactly that reason: a question that
+# asks for sections AND court progress is still M4's, and the canned KB9
+# sub-query Module 39 already ships ("...and how far have those cases got in
+# court?") keeps the family its plan names, so nothing it wired is dropped
+# by the runtime family check in `rag.py::_run_kb_data_half()`.
+_FIR_SECTION_COUNT_TERMS = (
+    "how many firs", "how many fir ", "how many f.i.r", "number of firs",
+    "count of firs", "how many firs cite", "how many first information",
+    "kitni firs", "kitni fir ", "kitne fir ",
+    "کتنی ایف آئی آر", "کتنے ایف آئی آر", "کتنی رپورٹس",
+)
+_FIR_SECTION_TERMS = (
+    "ppc section", "penal code section", "section of the ppc",
+    "fir section", "fir sections", "each section", "per section",
+    "under section", "cite section", "cited section", "cite each",
+    "which sections", "section 302", "ppc 302",
+    "dafa ", "dafaat",
+    "دفعہ", "دفعات",
+)
+
+
+def _is_fir_section_case_count(query_lower: str) -> bool:
+    """True for KB9's family: how many FIRs cite a given (or each) section?
+
+    A named predicate rather than an inlined `and`, for the same reason
+    `_is_statute_court_stage_join()` is one — the boundary it protects (M4's
+    statute x court-stage join, which is checked immediately above it and
+    scores today) is then testable directly.
+    """
+    return (
+        _matches_any(query_lower, _FIR_SECTION_COUNT_TERMS)
+        and _matches_any(query_lower, _FIR_SECTION_TERMS)
+    )
+
+
 def _is_statute_court_stage_join(query_lower: str) -> bool:
     """
     True for M4's family: the sections cases are charged under set against
@@ -4577,6 +4628,198 @@ async def _statute_court_stage_join(
     }
 
 
+# [Gold-QA fix — Module 76, KB9] A section named IN the question, so the
+# answer can be given at that grain instead of as row six of a 15-row
+# table. Deliberately generic: any act, any section code, extracted from
+# the query text — nothing here is special-cased to PPC 302, which is the
+# only section gold's KB9 happens to name.
+_QUERY_SECTION_RES = (
+    # "PPC 302", "PPC section 302", "PPC §302", "PPC s.302"
+    re.compile(
+        r"\b(ppc|pakistan penal code|crpc|cnsa|peca)\b[^0-9a-z]{0,12}"
+        r"(?:section|sec\.?|s\.?|§)?\s*([0-9]{2,4}(?:-[a-z]\([a-z]+\)|-[a-z])?)",
+        re.IGNORECASE,
+    ),
+    # "section 302 of the Pakistan Penal Code", "section 302"
+    re.compile(
+        r"\bsection\s+([0-9]{2,4}(?:-[a-z]\([a-z]+\)|-[a-z])?)",
+        re.IGNORECASE,
+    ),
+    # Urdu / Roman-Urdu: "دفعہ 302", "dafa 302"
+    re.compile(r"(?:دفعہ|dafa)\s*([0-9]{2,4})", re.IGNORECASE),
+)
+
+
+def _section_code_in_query(query_text: str) -> Optional[str]:
+    """The section code named in the query, or None.
+
+    Returns only the CODE, never the act: the act spelling in a question
+    ("PPC", "Pakistan Penal Code") and in the data ("PPC") do not have to
+    agree, and the corpus carries each section code exactly once per act.
+    """
+    for pattern in _QUERY_SECTION_RES:
+        match = pattern.search(query_text or "")
+        if match:
+            return match.group(match.lastindex).strip().upper()
+    return None
+
+
+_FIR_SECTION_RENDER_LIMIT = 20
+
+
+async def _fir_section_case_count(
+    query_text: str,
+    jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    """
+    [Gold-QA fix — Module 76, question KB9] How many FIRs cite each section,
+    and — when the question names one — how many cite THAT section.
+
+    GRAIN is the whole point of this family. `statute_court_stage_join`
+    already computes per-section case counts, correctly, as one half of a
+    two-view report capped at 15 rows; Module 39 measured a live run reading
+    past the row it needed inside that report. This aggregate answers the
+    per-section question and nothing else, and when the query names a
+    section it LEADS with that section's count.
+
+    DIVERGENCE FROM GOLD, RECORDED RATHER THAN TUNED. Gold's KB9 says "8
+    FIRs qatl ki dafa (PPC 302) ka hawala dete hain". Re-derived
+    independently for this module (`MODULE76_RESULT.md` §1), off a fresh
+    probe rather than by inheriting Module 39's: **10** distinct FIRs carry
+    a `fir_section` row with act `PPC` and section `302`, exactly one row
+    per case (so no double counting), and the only section code in the
+    corpus containing "302" is "302" itself. That is 10 vs 8, a 25 % gap,
+    outside the brief's 5-10 % tolerance. Nothing in this function is
+    shaped to produce an 8.
+    """
+    params: dict = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+    case_filter = "AND c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+
+    rows = await age_client.execute_cypher(
+        "MATCH (s:StructuredRecord)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE s.record_type = 'fir_section' {case_filter}"
+        "RETURN s.act AS act, s.section_code AS section_code, "
+        "c.case_id AS case_id",
+        params=params, columns=["act", "section_code", "case_id"],
+    )
+
+    # key -> set(case_id). A case charged twice under one section must count
+    # once - the same denominator rule `_statute_court_stage_join()` uses,
+    # and the one gold's "8 FIRs" is expressed in.
+    cases_by_section: dict[str, set] = {}
+    meta: dict[str, tuple] = {}
+    all_cases: set = set()
+    for row in rows:
+        case_id = row.get("case_id")
+        act = row.get("act")
+        section_code = row.get("section_code")
+        label = _statute_label(act, section_code)
+        if not case_id or not label:
+            continue
+        all_cases.add(case_id)
+        cases_by_section.setdefault(label, set()).add(case_id)
+        meta.setdefault(label, (act, section_code))
+
+    sections = [
+        {
+            "key": key,
+            "act": meta[key][0],
+            "section_code": meta[key][1],
+            "fir_count": len(case_ids),
+        }
+        for key, case_ids in cases_by_section.items()
+    ]
+    sections.sort(key=lambda s: (-s["fir_count"], s["key"]))
+
+    focus_code = _section_code_in_query(query_text)
+    focus = None
+    if focus_code:
+        matched = [
+            s for s in sections
+            if (s["section_code"] or "").strip().upper() == focus_code
+        ]
+        if matched:
+            best = max(matched, key=lambda s: s["fir_count"])
+            focus = {
+                **best,
+                "case_ids": sorted(cases_by_section[best["key"]]),
+            }
+        else:
+            # Named but absent - an honest "no FIR cites it", which is a
+            # real answer and must not be silently dropped into the table.
+            focus = {
+                "key": focus_code, "act": None, "section_code": focus_code,
+                "fir_count": 0, "case_ids": [],
+            }
+
+    # Observability (Module 55) - XAGG's SSE reports only `route='XAGG'`, so
+    # this line is the only evidence of WHICH aggregate answered a live
+    # question, and the difference between this family and M4's is precisely
+    # the grain, so the focused figure has to be in the line.
+    logger.info(
+        "XAGG fir_section_case_count: %d section entr(ies) over %d FIR(s) "
+        "and %d distinct section(s); focus=%s -> %s FIR(s); top=%s",
+        len(rows), len(all_cases), len(sections),
+        focus_code or "none",
+        focus["fir_count"] if focus else "n/a",
+        ", ".join(
+            f"{s['key']}={s['fir_count']}" for s in sections[:5]
+        ) or "none",
+    )
+    return {
+        "kind": "fir_section_case_count",
+        "section_entry_count": len(rows),
+        "charged_fir_count": len(all_cases),
+        "distinct_section_count": len(sections),
+        "sections": sections,
+        "focus_section_code": focus_code,
+        "focus": focus,
+    }
+
+
+def render_fir_section_case_count(agg_result: dict) -> list[str]:
+    """[Gold-QA fix - Module 76, KB9] shared renderer, imported by all three
+    XAGG rendering sites - same reason as `render_statute_court_stage_join()`.
+    """
+    total_firs = agg_result.get("charged_fir_count") or 0
+    if not total_firs:
+        return ["No FIR in this corpus carries a recorded section."]
+
+    lines: list[str] = []
+    focus = agg_result.get("focus")
+    if focus:
+        label = focus.get("key") or focus.get("section_code")
+        count = focus.get("fir_count") or 0
+        if count:
+            lines.append(
+                f"{count} of the {total_firs} FIR(s) that carry a recorded "
+                f"section cite {label}."
+            )
+            case_ids = focus.get("case_ids") or []
+            if case_ids:
+                lines.append("  - " + ", ".join(case_ids[:_FIR_SECTION_RENDER_LIMIT]))
+        else:
+            lines.append(
+                f"No FIR in this corpus cites section {label}; "
+                f"{total_firs} FIR(s) carry a recorded section."
+            )
+        lines.append("For context, the sections most often cited:")
+    else:
+        lines.append(
+            f"{total_firs} FIR(s) carry a recorded section, "
+            f"{agg_result.get('section_entry_count') or 0} section entr(ies) "
+            f"across {agg_result.get('distinct_section_count') or 0} distinct "
+            f"section(s). Counted per FIR, so a case charged twice under one "
+            f"section counts once:"
+        )
+    for section in (agg_result.get("sections") or [])[:_FIR_SECTION_RENDER_LIMIT]:
+        lines.append(f"  - {section['key']}: {section['fir_count']} FIR(s)")
+    remaining = (agg_result.get("distinct_section_count") or 0) - _FIR_SECTION_RENDER_LIMIT
+    if remaining > 0:
+        lines.append(f"  - ... and {remaining} more section(s).")
+    return lines
+
+
 _STATUTE_RENDER_LIMIT = 15
 
 
@@ -5847,6 +6090,12 @@ def resolve_aggregate_kind(query_text: str) -> str:
         return "weapon_statute_cooccurrence_by_year"
     if _is_statute_court_stage_join(query_lower):
         return "statute_court_stage_join"
+    # [Gold-QA fix — Module 76, KB9] Mirrors run_aggregate's placement:
+    # IMMEDIATELY below M4's join, which owns any question pairing
+    # sections with court progress, and above the time/trend/person
+    # families KB9's own sub-query would otherwise fall into.
+    if _is_fir_section_case_count(query_lower):
+        return "fir_section_case_count"
     if _matches_any(query_lower, _TIME_OF_DAY_KEYWORDS):
         return "incident_time_of_day"
     if _matches_any(query_lower, _TIME_COMPARISON_KEYWORDS):
@@ -6258,6 +6507,26 @@ async def run_aggregate(
     #     accused, which answers nothing M4 asked.
     if kind == "statute_court_stage_join":
         return await _statute_court_stage_join(jurisdiction_case_ids=jurisdiction_case_ids)
+    # [Gold-QA fix — Module 76, question KB9] "How many FIRs cite PPC
+    # section 302, across all cases?" — a per-section FIR count at the
+    # grain the question asks it in.
+    #
+    # Placement, in both directions:
+    #   - IMMEDIATELY BELOW M4's `statute_court_stage_join`. M4 owns any
+    #     question pairing sections with court progress, and Module 39's
+    #     already-shipped KB9 data-half plan dispatches a sub-query of
+    #     exactly that shape. Keeping M4 first means that plan still gets
+    #     the family it names, so `rag.py::_run_kb_data_half()`'s runtime
+    #     family check does not start dropping it — a regression this
+    #     module would otherwise have shipped invisibly.
+    #   - ABOVE `_TIME_COMPARISON_KEYWORDS` (M1), `_TREND_KEYWORDS`'
+    #     refusal, `_PERSON_KEYWORDS` and `_LIST_ALL_KEYWORDS`. KB9's own
+    #     gold text lands on `graph_recurrence_person` today — a ranked
+    #     list of repeat accused, which answers nothing it asked.
+    if kind == "fir_section_case_count":
+        return await _fir_section_case_count(
+            query_text, jurisdiction_case_ids=jurisdiction_case_ids
+        )
     # [Gold-QA fix — Module 34, question G1] "At what time of day do
     # incidents happen, across all cases?" — G1's timing sub-question.
     #

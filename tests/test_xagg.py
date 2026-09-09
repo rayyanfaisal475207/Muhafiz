@@ -4034,6 +4034,8 @@ def test_every_new_aggregate_kind_is_accepted_by_the_harness_tool_result():
         "officer_role_pair_overlap",
         # [Gold-QA fix — Module 75] tenth.
         "chalaan_dispatch_count",
+        # [Gold-QA fix — Module 76] eleventh.
+        "fir_section_case_count",
     ):
         assert kind in accepted, kind
 
@@ -5583,5 +5585,221 @@ def test_module75_no_gold_question_reaches_the_challan_predicate():
         (it.get("id") or "").upper()
         for it in items
         if xagg._is_chalaan_dispatch_count(it["question"].lower())
+    )
+    assert matched == [], matched
+
+
+# ══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 76, question KB9] per-section FIR counts.
+#
+# KB9's data half needs ONE number at ONE grain — how many FIRs cite a
+# given section. The only aggregate publishing anything like it was
+# `statute_court_stage_join`, whose statute list is capped at 15 rows and
+# carries `PPC §302: 10 case(s)` as row six. Module 39 wired it anyway and
+# measured the cost: one live run named the section without its count, and
+# another read past the row and asserted that no listed section pertains to
+# death — factually wrong, from a chunk holding the right row. A grain
+# failure, not a data one.
+#
+# GOLD DIVERGENCE, RE-DERIVED INDEPENDENTLY AND NOT TUNED AWAY. Gold says
+# "8 FIRs qatl ki dafa (PPC 302) ka hawala dete hain". A fresh probe for
+# this module returns **10** distinct FIRs, exactly one `fir_section` row
+# per case, with "302" the only section code in the corpus containing
+# "302". 10 vs 8 is a 25 % gap — outside the brief's 5-10 % tolerance, and
+# reported as a divergence rather than smoothed. Modules 34, 35 and 43 each
+# did the same and two gold answers have already been corrected as a
+# result.
+# ══════════════════════════════════════════════════════════════════════
+
+# KB9's literal gold question text, copied verbatim from the dataset.
+_KB9_GOLD = (
+    "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki "
+    "wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh "
+    "kahin darj karta hai, khaas tor par jab hamare itne cases mein maut "
+    "shamil hai?"
+)
+
+# The canned aggregate sub-query for KB9's data half at the RIGHT grain.
+_KB9_SQ_FIR_SECTION_COUNT = (
+    "How many FIRs cite PPC section 302, across all cases?"
+)
+
+# Module 39's already-shipped KB9 plan sub-query, copied verbatim from
+# `rag.py::_KB_DATA_HALF_PLANS`. It must KEEP resolving to
+# `statute_court_stage_join`: that plan names the family, and
+# `_run_kb_data_half()` DROPS the data half when the aggregate that
+# answered is not the one named. Moving this string would have silently
+# regressed KB9 from Module 39's measured 2-of-3 to 0-of-3.
+_MODULE39_KB9_SUB_QUERY = (
+    "How many cases are charged under each FIR section, and how far "
+    "have those cases got in court?"
+)
+
+
+def _fir_section(case_id, act, section_code):
+    return {"case_id": case_id, "act": act, "section_code": section_code}
+
+
+async def test_module76_counts_firs_per_section_and_focuses_on_the_named_one(monkeypatch):
+    rows = (
+        [_fir_section(f"fir-{i}-26", "PPC", "302") for i in range(10)]
+        + [_fir_section(f"fir-{i}-26", "PPC", "34") for i in range(40)]
+        + [_fir_section(f"fir-{i}-26", "Arms Ordinance 1965", "13") for i in range(29)]
+    )
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        _KB9_SQ_FIR_SECTION_COUNT, None, gateway=None, user_role="supervisor",
+    )
+
+    assert result["kind"] == "fir_section_case_count"
+    assert result["focus_section_code"] == "302"
+    assert result["focus"]["fir_count"] == 10
+    assert result["focus"]["key"] == "PPC §302"
+    assert len(result["focus"]["case_ids"]) == 10
+    assert result["charged_fir_count"] == 40
+    assert result["distinct_section_count"] == 3
+    rendered = "\n".join(xagg.render_fir_section_case_count(result))
+    assert "10 of the 40 FIR(s)" in rendered
+    assert "cite PPC §302" in rendered
+
+
+async def test_module76_counts_per_fir_not_per_row(monkeypatch):
+    """A case charged twice under one section counts once — the same
+    denominator rule `_statute_court_stage_join()` uses, and the one gold's
+    "8 FIRs" is expressed in."""
+    rows = [
+        _fir_section("fir-1-26", "PPC", "302"),
+        _fir_section("fir-1-26", "PPC", "302"),
+        _fir_section("fir-2-26", "PPC", "302"),
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+    result = await xagg._fir_section_case_count(_KB9_SQ_FIR_SECTION_COUNT)
+    assert result["section_entry_count"] == 3
+    assert result["focus"]["fir_count"] == 2
+    assert result["charged_fir_count"] == 2
+
+
+async def test_module76_a_named_but_absent_section_is_said_so_not_hidden(monkeypatch):
+    rows = [_fir_section("fir-1-26", "PPC", "34")]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+    result = await xagg._fir_section_case_count(
+        "How many FIRs cite PPC section 999, across all cases?"
+    )
+    assert result["focus"]["fir_count"] == 0
+    assert "No FIR in this corpus cites section 999" in "\n".join(
+        xagg.render_fir_section_case_count(result)
+    )
+
+
+async def test_module76_with_no_section_named_it_reports_the_whole_table(monkeypatch):
+    rows = [
+        _fir_section("fir-1-26", "PPC", "34"),
+        _fir_section("fir-2-26", "PPC", "392"),
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+    result = await xagg._fir_section_case_count(
+        "How many FIRs cite each PPC section, across all cases?"
+    )
+    assert result["focus"] is None
+    rendered = "\n".join(xagg.render_fir_section_case_count(result))
+    assert "2 FIR(s) carry a recorded section" in rendered
+    assert "PPC §34: 1 FIR(s)" in rendered
+
+
+async def test_module76_empty_corpus_says_so(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient([]))
+    result = await xagg._fir_section_case_count(_KB9_SQ_FIR_SECTION_COUNT)
+    assert result["charged_fir_count"] == 0
+    assert "No FIR in this corpus carries a recorded section." in "\n".join(
+        xagg.render_fir_section_case_count(result)
+    )
+
+
+async def test_module76_emits_its_xagg_log_line_with_the_focused_figure(monkeypatch, caplog):
+    """Module 55's convention, and here the FOCUS is the load-bearing part:
+    the difference between this family and M4's is the grain, so a live run
+    has to be identifiable by the focused figure, not just the kind."""
+    rows = [_fir_section(f"fir-{i}-26", "PPC", "302") for i in range(10)]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+    with caplog.at_level(logging.INFO, logger="src.pipeline.xagg"):
+        await xagg._fir_section_case_count(_KB9_SQ_FIR_SECTION_COUNT)
+    logged = caplog.text
+    assert "XAGG fir_section_case_count:" in logged
+    assert "focus=302 -> 10 FIR(s)" in logged
+
+
+@pytest.mark.parametrize(
+    "query,expected",
+    [
+        ("How many FIRs cite PPC section 302, across all cases?", "302"),
+        ("How many FIRs cite PPC 302?", "302"),
+        ("how many firs cite section 337-A(i)?", "337-A(I)"),
+        ("kitni firs dafa 302 ka hawala deti hain?", "302"),
+        ("کتنی ایف آئی آر دفعہ 302 کا حوالہ دیتی ہیں؟", "302"),
+        ("How many FIRs cite each PPC section, across all cases?", None),
+    ],
+)
+def test_module76_section_extraction(query, expected):
+    """Generic by construction — nothing is special-cased to 302, which is
+    only the section gold's KB9 happens to name."""
+    assert xagg._section_code_in_query(query) == expected
+
+
+class TestFirSectionCountBoundary:
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            _KB9_SQ_FIR_SECTION_COUNT,
+            "How many FIRs cite each PPC section, across all cases?",
+            "kitni firs dafa 302 ka hawala deti hain?",
+            "کتنی ایف آئی آر دفعہ 302 کا حوالہ دیتی ہیں؟",
+        ],
+    )
+    def test_the_per_section_count_shape_reaches_the_new_family(self, query):
+        assert xagg.resolve_aggregate_kind(query) == "fir_section_case_count"
+
+    def test_module39s_shipped_kb9_sub_query_keeps_m4s_family(self):
+        """The regression this module would otherwise have shipped
+        invisibly. `rag.py::_run_kb_data_half()` DROPS a data half whose
+        aggregate family is not the one its plan named, so moving this
+        string would have taken KB9 from Module 39's measured 2-of-3 to
+        0-of-3 with every unit test still green."""
+        assert xagg.resolve_aggregate_kind(_MODULE39_KB9_SUB_QUERY) == (
+            "statute_court_stage_join"
+        )
+
+    def test_m4_keeps_its_own_family(self):
+        assert xagg.resolve_aggregate_kind(_M4_GOLD_TEXT) == (
+            "statute_court_stage_join"
+        )
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            # A section term with no FIR-count term: M4's territory or a
+            # listing, never this family.
+            "Which sections have reached the trial stage?",
+            # An FIR-count term with no section term.
+            "How many FIRs were registered last year?",
+        ],
+    )
+    def test_a_single_signal_is_not_enough(self, query):
+        assert xagg.resolve_aggregate_kind(query) != "fir_section_case_count"
+
+
+def test_module76_no_gold_question_reaches_the_section_count_predicate():
+    """The all-32 control's narrow half. NONE of the 32 may match — KB9's
+    own gold text names no section and asks no count; the "8 FIRs ... PPC
+    302" is in its gold ANSWER. KB9 reaches this family through a canned
+    sub-query, exactly as KB4/KB5/KB6 reach theirs, so this predicate's
+    blast radius over the gold set is zero. M4 in particular must not move:
+    it carries statute vocabulary and is the nearest neighbour."""
+    items = json.loads(_GOLD32_PATH.read_text(encoding="utf-8"))
+    matched = sorted(
+        (it.get("id") or "").upper()
+        for it in items
+        if xagg._is_fir_section_case_count(it["question"].lower())
     )
     assert matched == [], matched
