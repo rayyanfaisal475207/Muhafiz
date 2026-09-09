@@ -247,6 +247,66 @@ _PLACEHOLDER_OFFICER_KEYWORDS = (
     "asal tor par", "asal tafteeshi afsar", "asal afsar",
     "اصل تفتیشی افسر", "حقیقی تفتیشی افسر", "اصل افسر",
 )
+
+# ── [Gold-QA fix — Module 74, question KB3] registering vs. investigating ──
+#
+# KB3 asks whether the officer who REGISTERS a case is the same one who
+# INVESTIGATES it — the Police Order 2002 Article 18 separation-of-roles
+# question — and then whether our own data matches. Before this module that
+# question reached `_OFFICER_KEYWORDS` and got `unsupported_officer`, whose
+# text asserts that "investigating-officer identity is not currently modeled
+# as a queryable field". That claim stopped being true: the graph carries
+# 144 `(:Officer)-[:ASSIGNED_TO {role}]->(:Case)` edges, 74 `investigating`
+# and 70 `recording`, and the comparison is a straight per-case pairing.
+#
+# THREE signals, all required, for the reason the brief insists on: the
+# refusal is CORRECT for a general "which officer" identity question and
+# must keep answering those. A pair-comparison names BOTH sides of the pair
+# AND asks whether they are the same or separate; a "which officer is on
+# fir-117-26?" question names neither the other role nor a sameness test, so
+# it still falls through to the refusal. `TestOfficerRolePairBoundary` in
+# `tests/test_xagg.py` pins both directions.
+_OFFICER_REGISTERING_TERMS = (
+    "registering officer", "recording officer", "registers a case",
+    "registers the case", "register a case", "registered the case",
+    "first registers", "who registers", "records the fir", "record the fir",
+    "recording the fir", "records a case", "who first registers",
+    "darj karne wala", "darj karnay wala", "muharrir",
+    "اندراج کرنے والا", "محرر", "مقدمہ درج کرنے والا",
+)
+_OFFICER_INVESTIGATING_TERMS = (
+    "investigating officer", "investigation officer", "investigates it",
+    "investigates the case", "who investigates", "ends up investigating",
+    "investigating it", "carries out the investigation",
+    "tafteesh karne wala", "tafteeshi afsar",
+    "تفتیشی افسر", "افسر تفتیش", "تفتیش کرنے والا",
+)
+_OFFICER_ROLE_SAMENESS_TERMS = (
+    "same person", "same one", "same officer", "same individual",
+    "separate role", "separate roles", "separate function",
+    "different person", "different officer", "split", "role separation",
+    "one and the same", "both roles",
+    "ek hi shakhs", "ek hi afsar", "alag alag",
+    "ایک ہی شخص", "ایک ہی افسر", "الگ الگ", "الگ کردار",
+)
+
+
+def _is_officer_role_pair_comparison(query_lower: str) -> bool:
+    """True for KB3's family: is the registering officer the same person as
+    the investigating officer?
+
+    A named predicate rather than an inlined `and`, for the same reason
+    `_is_statute_court_stage_join()` is one — the boundary it protects (the
+    `unsupported_officer` refusal, which is the RIGHT answer for a general
+    officer-identity question) is then testable directly.
+    """
+    return (
+        _matches_any(query_lower, _OFFICER_REGISTERING_TERMS)
+        and _matches_any(query_lower, _OFFICER_INVESTIGATING_TERMS)
+        and _matches_any(query_lower, _OFFICER_ROLE_SAMENESS_TERMS)
+    )
+
+
 # [Gold-QA fix — CR7, Module 14] Criminal-record status + court-outcome
 # consistency questions. CR7 (Urdu) asks how many criminal-record cases are
 # completed vs. in progress, AND whether, where a separate court record
@@ -2476,6 +2536,164 @@ async def _placeholder_officer_count(jurisdiction_case_ids: Optional[list[str]] 
         "asi_count": asi_count,
         "si_count": si_count,
     }
+
+
+async def _officer_role_pair_overlap(
+    jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    """
+    [Gold-QA fix — Module 74, question KB3] Is the officer who REGISTERS a
+    case the same one who INVESTIGATES it?
+
+    Police Order 2002 Article 18 sets up an Investigation Wing and says a
+    registered case "shall be investigated by the investigation staff" — the
+    law expects the two functions to be separate. This aggregate answers the
+    other half of KB3: whether our own data shows that separation.
+
+    GRAIN, and why it is the EDGE and not the case. Gold says "the same
+    person in 68 of 74 pairs (92%)" and "role-splitting happens in only 6
+    cases". 74 is the number of `role='investigating'` ASSIGNED_TO edges, not
+    the number of cases (73 cases carry one, and `fir-205-26` carries two —
+    a superseded placeholder ASI plus the real successor). Counting per CASE
+    gives 68 same / 5 split, which is a true statement about a different
+    denominator and does NOT reproduce gold's pair count. So the unit here is
+    the investigating ASSIGNMENT, and each one is asked: does the officer
+    holding it also hold this case's `recording` edge? Both denominators are
+    returned; the renderer leads with the pair one.
+
+    Derived independently before this aggregate was written
+    (`MODULE74_RESULT.md` §1): 144 edges, 74 investigating / 70 recording,
+    68 of the 74 investigating assignments name the same person as that
+    case's recording officer = 91.9%, and 6 do not. That reproduces gold
+    exactly.
+    """
+    params: dict = {"case_ids": jurisdiction_case_ids} if jurisdiction_case_ids is not None else {}
+    case_filter = "WHERE c.case_id IN $case_ids " if jurisdiction_case_ids is not None else ""
+
+    rows = await age_client.execute_cypher(
+        "MATCH (o:Officer)-[r:ASSIGNED_TO]->(c:Case) "
+        f"{case_filter}"
+        "RETURN c.case_id AS case_id, o.canonical_name AS name, r.role AS role",
+        params=params, columns=["case_id", "name", "role"],
+    )
+
+    # role -> {case_id -> set(officer names)}. Names are compared as-is:
+    # `Officer.canonical_name` is already the canonicalised form both edges
+    # are projected against, so a same-person pair is a string equality.
+    by_case: dict[str, dict[str, set]] = {}
+    investigating_edges: list[tuple] = []
+    for row in rows:
+        case_id = row.get("case_id")
+        name = row.get("name")
+        role = (row.get("role") or "").strip().lower()
+        if not case_id or not name or not role:
+            continue
+        by_case.setdefault(case_id, {}).setdefault(role, set()).add(name)
+        if role == "investigating":
+            investigating_edges.append((case_id, name))
+
+    same_pairs: list[dict] = []
+    split_pairs: list[dict] = []
+    for case_id, name in investigating_edges:
+        recorders = by_case.get(case_id, {}).get("recording", set())
+        entry = {
+            "case_id": case_id,
+            "investigating_officer": name,
+            "recording_officer": sorted(recorders)[0] if recorders else None,
+            "has_recording_counterpart": bool(recorders),
+        }
+        if name in recorders:
+            same_pairs.append(entry)
+        else:
+            split_pairs.append(entry)
+
+    total_pairs = len(investigating_edges)
+    same_share = (len(same_pairs) / total_pairs) if total_pairs else None
+
+    # The case-grain view, kept alongside rather than instead of the pair
+    # one — a reader who checks the split list against the corpus counts
+    # cases, and the two denominators differ by exactly the one case with a
+    # superseded investigating assignment.
+    split_cases = sorted({p["case_id"] for p in split_pairs})
+    no_counterpart = [p for p in split_pairs if not p["has_recording_counterpart"]]
+
+    # Observability (Module 55) — XAGG's SSE reports only `route='XAGG'`, so
+    # this line is the only evidence of WHICH aggregate answered a live
+    # question. It carries the FIGURES, not just the kind.
+    logger.info(
+        "XAGG officer_role_pair_overlap: %d assignment edge(s), %d "
+        "investigating / %d recording; same officer on %d of %d pair(s) "
+        "(%s), %d split across %d case(s), %d investigating assignment(s) "
+        "with no recording counterpart",
+        len(rows),
+        total_pairs,
+        sum(len(v.get("recording", ())) for v in by_case.values()),
+        len(same_pairs), total_pairs,
+        f"{same_share * 100:.1f}%" if same_share is not None else "n/a",
+        len(split_pairs), len(split_cases), len(no_counterpart),
+    )
+    return {
+        "kind": "officer_role_pair_overlap",
+        "assignment_edge_count": len(rows),
+        "pair_count": total_pairs,
+        "recording_edge_count": sum(
+            len(v.get("recording", ())) for v in by_case.values()
+        ),
+        "same_officer_count": len(same_pairs),
+        "split_count": len(split_pairs),
+        "split_case_count": len(split_cases),
+        "no_recording_counterpart_count": len(no_counterpart),
+        "same_share": same_share,
+        "split_pairs": split_pairs,
+    }
+
+
+_OFFICER_PAIR_RENDER_LIMIT = 10
+
+
+def render_officer_role_pair_overlap(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — Module 74, KB3] shared renderer, imported by all three
+    XAGG rendering sites — same reason as `render_statute_court_stage_join()`.
+    """
+    total = agg_result.get("pair_count") or 0
+    same = agg_result.get("same_officer_count") or 0
+    split = agg_result.get("split_count") or 0
+    if not total:
+        return [
+            "No officer assignments are recorded, so the registering officer "
+            "and the investigating officer cannot be compared."
+        ]
+    share = agg_result.get("same_share")
+    pct = f"{share * 100:.0f}%" if share is not None else "n/a"
+    lines = [
+        f"In this corpus the two roles are mostly NOT separated: the officer "
+        f"who recorded the FIR and the officer who investigated it are the "
+        f"same person in {same} of {total} recorded assignment pairs ({pct}). "
+        f"Roles are split in only {split} pair(s), across "
+        f"{agg_result.get('split_case_count') or 0} case(s)."
+    ]
+    no_counterpart = agg_result.get("no_recording_counterpart_count") or 0
+    if no_counterpart:
+        lines.append(
+            f"  - {no_counterpart} of those {split} carry an investigating "
+            f"officer with no recording officer on the same case at all, so "
+            f"the pair is unresolvable rather than genuinely split."
+        )
+    for pair in (agg_result.get("split_pairs") or [])[:_OFFICER_PAIR_RENDER_LIMIT]:
+        recorder = pair.get("recording_officer") or "no recording officer"
+        lines.append(
+            f"  - {pair['case_id']}: investigated by "
+            f"{pair['investigating_officer']}, recorded by {recorder}"
+        )
+    remaining = split - min(split, _OFFICER_PAIR_RENDER_LIMIT)
+    if remaining > 0:
+        lines.append(f"  - ... and {remaining} more split pair(s).")
+    lines.append(
+        f"Basis: {agg_result.get('assignment_edge_count') or 0} officer-to-case "
+        f"assignment records, {total} of them investigating and "
+        f"{agg_result.get('recording_edge_count') or 0} recording."
+    )
+    return lines
 
 
 # [Gold-QA fix — CR7, Module 14] FIR number pulled out of a free-text case
@@ -5397,6 +5615,12 @@ def resolve_aggregate_kind(query_text: str) -> str:
     # land on graph_recurrence/Person) and above _LIST_ALL/_TOTAL.
     if _is_arrest_rate(query_lower):
         return "arrest_rate"
+    # [Gold-QA fix — Module 74, KB3] Mirrors run_aggregate's placement:
+    # IMMEDIATELY above `_OFFICER_KEYWORDS`' honest refusal, which is what
+    # KB3's data half used to get, and which stays the right answer for a
+    # general "which officer" identity question.
+    if _is_officer_role_pair_comparison(query_lower):
+        return "officer_role_pair_overlap"
     if _matches_any(query_lower, _OFFICER_KEYWORDS):
         return "unsupported_officer"
     if _is_reporting_speed_comparison(query_lower):
@@ -5701,6 +5925,29 @@ async def run_aggregate(
     # today. See that function's own docstring.
     if kind == "arrest_rate":
         return await _arrest_rate(jurisdiction_case_ids=jurisdiction_case_ids)
+    # [Gold-QA fix — Module 74, question KB3] "Is the officer who registers
+    # a case the same one who investigates it, and does our data show the
+    # separation the law expects?"
+    #
+    # Placement, in both directions:
+    #   - BELOW every subject-specific family above, none of which carries
+    #     all three of this predicate's signals. CP6's
+    #     `placeholder_officer_count` is the closest neighbour — it reads the
+    #     SAME `ASSIGNED_TO` edges for a different question and scores today
+    #     — and it is checked far earlier in the chain, so it keeps first
+    #     claim structurally rather than by keyword luck.
+    #   - IMMEDIATELY ABOVE `unsupported_officer`, which is what KB3's data
+    #     half actually got before this module: an honest refusal whose text
+    #     asserts investigating-officer identity "is not currently modeled as
+    #     a queryable field". Module 74 measured 144 ASSIGNED_TO edges
+    #     carrying exactly that, so the refusal's premise was false for THIS
+    #     shape. It is still true, and still returned, for a general
+    #     officer-identity question — which is why the predicate above needs
+    #     three signals rather than one keyword tuple.
+    if kind == "officer_role_pair_overlap":
+        return await _officer_role_pair_overlap(
+            jurisdiction_case_ids=jurisdiction_case_ids
+        )
     if kind == "unsupported_officer":
         # Observability (Module 55) — a refusal is an answer too, and until
         # now was indistinguishable in the log from XAGG never running.

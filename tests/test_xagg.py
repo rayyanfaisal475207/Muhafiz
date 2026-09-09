@@ -4030,6 +4030,8 @@ def test_every_new_aggregate_kind_is_accepted_by_the_harness_tool_result():
         # [Gold-QA fix — Module 44] seventh and eighth.
         "station_caseload_by_specialisation",
         "criminal_record_local_match_gap",
+        # [Gold-QA fix — Module 74] ninth.
+        "officer_role_pair_overlap",
     ):
         assert kind in accepted, kind
 
@@ -4904,6 +4906,22 @@ _GOLD32_RESOLVED_KINDS_BEFORE_MODULE56 = {
 }
 
 
+# [Gold-QA fix — Modules 74/75/76] The ONLY deliberate departures from the
+# Module 56 baseline above, each one a question whose data half previously
+# had no aggregate at all. Every other one of the 32 must still resolve
+# byte-identically, which is what the equality below enforces — a new entry
+# in this dict is a decision, not a test update.
+#
+#   KB3  station_or_category_counts -> officer_role_pair_overlap  (Module 74)
+#        Also passes THROUGH `unsupported_officer`, which is what KB3's
+#        canned data-half sub-query used to get.
+#   KB8  station_or_category_counts -> chalaan_dispatch_count     (Module 75)
+#   KB9  graph_recurrence_person    -> fir_section_case_count      (Module 76)
+_GOLD32_KINDS_MOVED_BY_MODULES_74_TO_76 = {
+    "KB3": "officer_role_pair_overlap",
+}
+
+
 def test_module56_all_32_gold_questions_resolve_exactly_as_before():
     """EQUALITY, not absence. Asserting only "no extra question reaches M2's
     family" would pass if a widened keyword pushed CR3 or KB4 sideways into
@@ -4911,11 +4929,13 @@ def test_module56_all_32_gold_questions_resolve_exactly_as_before():
     items = json.loads(_GOLD32_PATH.read_text(encoding="utf-8"))
     assert len(items) == 32, len(items)
 
+    expected = dict(_GOLD32_RESOLVED_KINDS_BEFORE_MODULE56)
+    expected.update(_GOLD32_KINDS_MOVED_BY_MODULES_74_TO_76)
     resolved = {
         (it.get("id") or "").upper(): xagg.resolve_aggregate_kind(it["question"])
         for it in items
     }
-    assert resolved == _GOLD32_RESOLVED_KINDS_BEFORE_MODULE56
+    assert resolved == expected
 
 
 def test_module56_only_m2_reaches_the_station_type_vocabulary():
@@ -5128,3 +5148,210 @@ def test_module58_unit_is_word_bounded():
     assert not xagg._STATION_UNIT_NOUN_RE.search(
         "was there an opportunity to act with impunity?"
     )
+
+
+# ══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 74, question KB3] registering officer vs.
+# investigating officer.
+#
+# KB3's data half — "the officer who records the FIR and the officer who
+# ends up investigating it are the same person in 68 of 74 pairs (92%);
+# role-splitting happens in only 6 cases" — had no aggregate. The question
+# reached `_OFFICER_KEYWORDS` and got `unsupported_officer`, an honest
+# refusal whose text asserts investigating-officer identity "is not
+# currently modeled as a queryable field in this system". Module 74 probed
+# the live graph before writing a line of this: 144
+# `(:Officer)-[:ASSIGNED_TO {role}]->(:Case)` edges, 74 `investigating` and
+# 70 `recording`, 68 of the 74 investigating assignments naming the same
+# person as that case's recording officer — 91.9%, gold exactly. So the
+# refusal's premise was false for THIS shape.
+#
+# It is still true, and must stay, for a general "which officer" identity
+# question — which is why `_is_officer_role_pair_comparison()` needs three
+# signals rather than one keyword tuple, and why the boundary class below
+# asserts both directions.
+# ══════════════════════════════════════════════════════════════════════
+
+# KB3's literal gold question text, copied verbatim from the dataset.
+_KB3_GOLD = (
+    "Does the law expect the officer who first registers a case to be the "
+    "same one who investigates it, or are those meant to be separate roles "
+    "— and does that match what actually happens in our data?"
+)
+
+# The canned aggregate sub-query for KB3's data half, in the same
+# "..., across all cases?" shape as `meta_analysis.py`'s other sub-queries
+# and Module 39's `_KB_DATA_HALF_PLANS` strings. Checked against
+# `resolve_aggregate_kind()` here so a future one-entry addition to
+# `rag.py::_KB_DATA_HALF_PLANS` can copy it without re-deriving it.
+_KB3_SQ_OFFICER_ROLE_PAIR = (
+    "How many cases record the same person as both the recording officer "
+    "and the investigating officer, and how many split those roles, across "
+    "all cases?"
+)
+
+
+def _assign(case_id, name, role):
+    return {"case_id": case_id, "name": name, "role": role}
+
+
+async def test_module74_officer_role_pair_overlap_counts_at_the_pair_grain(monkeypatch):
+    """The unit is the investigating ASSIGNMENT, not the case — gold's "68 of
+    74 pairs" is the edge count, and `fir-205-26` carries two investigating
+    edges (a superseded placeholder plus its successor) live. A per-case
+    count would be a true statement about a different denominator."""
+    rows = [
+        # 2 cases where the same officer holds both roles.
+        _assign("fir-1-26", "طارق", "recording"),
+        _assign("fir-1-26", "طارق", "investigating"),
+        _assign("fir-2-26", "سلمان", "recording"),
+        _assign("fir-2-26", "سلمان", "investigating"),
+        # A genuine role split.
+        _assign("fir-3-26", "شہزاد احمد", "recording"),
+        _assign("fir-3-26", "راحیل شہزاد", "investigating"),
+        # An investigating assignment with no recording counterpart at all.
+        _assign("fir-4-26", "مریم طاہر", "investigating"),
+        # The two-investigating-edges case: one matches the recorder, one
+        # does not. Two PAIRS, one case.
+        _assign("fir-5-26", "(نامزد ASI)", "recording"),
+        _assign("fir-5-26", "(نامزد ASI)", "investigating"),
+        _assign("fir-5-26", "وقاص علی", "investigating"),
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        _KB3_SQ_OFFICER_ROLE_PAIR, None, gateway=None, user_role="supervisor",
+    )
+
+    assert result["kind"] == "officer_role_pair_overlap"
+    assert result["assignment_edge_count"] == 10
+    assert result["pair_count"] == 6           # investigating edges
+    assert result["recording_edge_count"] == 4
+    assert result["same_officer_count"] == 3
+    assert result["split_count"] == 3
+    assert result["split_case_count"] == 3
+    assert result["no_recording_counterpart_count"] == 1
+    assert result["same_share"] == pytest.approx(0.5)
+
+
+async def test_module74_reproduces_golds_68_of_74(monkeypatch):
+    """The measured live shape, as a fixture: 68 same-person pairs, 3 genuine
+    splits and 3 investigating assignments with no recording counterpart,
+    over 74 investigating and 71 recording edges. 68/74 = 91.9% — gold's
+    "68 of 74 pairs (92%)" and "only 6 cases"."""
+    rows = []
+    for i in range(68):
+        rows.append(_assign(f"fir-{i}-26", f"officer-{i}", "recording"))
+        rows.append(_assign(f"fir-{i}-26", f"officer-{i}", "investigating"))
+    for i in range(68, 71):                       # genuine role splits
+        rows.append(_assign(f"fir-{i}-26", f"recorder-{i}", "recording"))
+        rows.append(_assign(f"fir-{i}-26", f"investigator-{i}", "investigating"))
+    for i in range(71, 74):                       # no recording counterpart
+        rows.append(_assign(f"fir-{i}-26", f"investigator-{i}", "investigating"))
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg._officer_role_pair_overlap()
+
+    assert (result["same_officer_count"], result["pair_count"]) == (68, 74)
+    assert result["split_count"] == 6
+    assert result["recording_edge_count"] == 71
+    assert round(result["same_share"] * 100, 1) == 91.9
+    rendered = "\n".join(xagg.render_officer_role_pair_overlap(result))
+    assert "68 of 74" in rendered
+    assert "(92%)" in rendered
+
+
+async def test_module74_empty_graph_says_so_rather_than_dividing_by_zero(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient([]))
+    result = await xagg._officer_role_pair_overlap()
+    assert result["pair_count"] == 0
+    assert result["same_share"] is None
+    assert "cannot be compared" in "\n".join(
+        xagg.render_officer_role_pair_overlap(result)
+    )
+
+
+async def test_module74_emits_its_xagg_log_line_with_the_figures(monkeypatch, caplog):
+    """Module 55's convention: the kind alone is not enough — a wrong-metric
+    run reports the same kind, so the counts have to be in the line."""
+    rows = [
+        _assign("fir-1-26", "طارق", "recording"),
+        _assign("fir-1-26", "طارق", "investigating"),
+        _assign("fir-2-26", "شہزاد", "recording"),
+        _assign("fir-2-26", "راحیل", "investigating"),
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+    with caplog.at_level(logging.INFO, logger="src.pipeline.xagg"):
+        await xagg._officer_role_pair_overlap()
+    logged = caplog.text
+    assert "XAGG officer_role_pair_overlap:" in logged
+    assert "same officer on 1 of 2 pair(s)" in logged
+
+
+class TestOfficerRolePairBoundary:
+    """Both directions of the carve-out the brief insists on."""
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            _KB3_GOLD,
+            _KB3_SQ_OFFICER_ROLE_PAIR,
+            "Is the registering officer the same person as the investigating "
+            "officer in our cases?",
+            "Are the recording officer and the investigating officer "
+            "different people, or one and the same?",
+            "Kya FIR darj karne wala aur tafteesh karne wala ek hi shakhs "
+            "hota hai?",
+            "کیا مقدمہ درج کرنے والا اور تفتیشی افسر ایک ہی شخص ہوتا ہے؟",
+        ],
+    )
+    def test_the_pair_comparison_shape_reaches_the_new_family(self, query):
+        assert xagg.resolve_aggregate_kind(query) == "officer_role_pair_overlap"
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            # The general officer-IDENTITY question the refusal exists for,
+            # and which the brief requires be left alone. One role named, no
+            # sameness test.
+            "Which officer is assigned to case fir-117-26?",
+            "Who is the investigating officer on FIR 245/26?",
+            "Show me the officer assignment for every case.",
+            "تفتیشی افسر کون ہے؟",
+            # Names both roles but asks nothing about sameness.
+            "List the recording officer and the investigating officer for "
+            "each case.",
+        ],
+    )
+    def test_the_identity_question_still_gets_the_honest_refusal(self, query):
+        assert xagg.resolve_aggregate_kind(query) == "unsupported_officer"
+
+    async def test_the_refusal_still_actually_fires(self):
+        """Resolver agreement is not enough — `run_aggregate()` must still
+        return the refusal body for an identity question."""
+        result = await xagg.run_aggregate(
+            "Which officer is assigned to case fir-117-26?",
+            None, gateway=FakeGateway([]), user_role="supervisor",
+        )
+        assert result["kind"] == "unsupported_aggregate"
+        assert result["message"] == xagg._UNSUPPORTED_OFFICER
+
+    def test_cp6s_placeholder_family_keeps_first_claim(self):
+        """CP6 reads the SAME ASSIGNED_TO edges for a different question and
+        is checked far earlier in the chain. It must not move."""
+        assert xagg.resolve_aggregate_kind(
+            "Kitne cases abhi tak bina kisi tafteeshi afsar ke asal tor par "
+            "muqarrar kiye pade hue hain?"
+        ) == "placeholder_officer_count"
+
+
+def test_module74_only_kb3_reaches_the_officer_pair_predicate():
+    """The narrower half of the all-32 control, stated directly against the
+    predicate: exactly one of the 32 gold questions may match it."""
+    items = json.loads(_GOLD32_PATH.read_text(encoding="utf-8"))
+    matched = sorted(
+        (it.get("id") or "").upper()
+        for it in items
+        if xagg._is_officer_role_pair_comparison(it["question"].lower())
+    )
+    assert matched == ["KB3"], matched
