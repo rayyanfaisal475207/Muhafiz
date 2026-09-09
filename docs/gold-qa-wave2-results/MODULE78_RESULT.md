@@ -25,7 +25,7 @@ grep -ciE "rate limit|RESOURCE_EXHAUSTED|quota|UNAVAILABLE|(^|[^0-9.,:])(429|503
 stopped mid-regression and KB8's second run returned `HTTP 500` in 4.1 s — the
 traceback is `ConnectionRefusedError` inside `get_current_user`, i.e. Postgres,
 before any routing happened. Docker was restarted and KB8 re-run twice; the
-failed row is left in `scratchpad/m78_regression.json` rather than deleted.
+failed row is left in `docs/gold-qa-wave2-results/module78_regression.json` rather than deleted.
 
 ---
 
@@ -70,7 +70,7 @@ paraphrase of each question routes to RAG and fires its plan, so the defect
 attaches to the two gold wordings. Two variables sit between the typed
 question and `route_query()`, and only one of them had ever been looked at.
 
-`scratchpad/m78_bisect.py`, 3 runs per question, in process, temperature 0:
+`scripts/module78_bisect.py`, 3 runs per question, in process, temperature 0:
 
 | Question | `rewrite_query()` output | `route_query(gold)` | `route_query(rewritten)` | confidence |
 |---|---|---|---|---|
@@ -294,10 +294,12 @@ test itself rather than silently re-baselined:
 Backend `:8030`, real `/api/chat`, SSE parsed for `route=`; the
 `XAGG <kind>` line and the `KB data-half plan '<plan>' answered by aggregate
 '<kind>'` line read out of `backend.log` per run (Module 55). Runner:
-`scratchpad/m78_live.py`, which **imports** `scripts/module74_live_runs.py`
-unchanged, so this is measured by the same code Modules 74 and 77 used.
-Artefacts: `scratchpad/m78_runs.json`, `scratchpad/m78_regression.json`,
-`scratchpad/m78_regression2.json`, `scratchpad/m78_bisect.json`.
+`scripts/module78_live_runs.py`, which **imports** `scripts/module74_live_runs.py`
+unchanged, so this is measured by the same code Modules 74 and 77 used; the
+bisect is `scripts/module78_bisect.py`. Artefacts, all committed:
+`docs/gold-qa-wave2-results/module78_runs.json` (the 18 KB3/KB9/paraphrase
+runs), `…_regression.json` and `…_regression2.json` (the 24 regression runs),
+`…_bisect.json` (the 12 rewriter-vs-classifier probes).
 
 ### 4.1 KB3 and KB9, gold wording, 3 runs each
 
