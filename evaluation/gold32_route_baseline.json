@@ -1,0 +1,324 @@
+{
+  "schema": "module116/route-baseline/1",
+  "what_this_is": "The TOP-LEVEL route of each gold-32 question — what route_query() returns for the question the user asked. This replaces the  column of evaluation/gold32_pass{1,2,3}_outputs.json as the route baseline: that column was scraped from the LAST supervisor:dispatch SSE event, which for a Meta-Analysis question is a DECOMPOSED SUB-QUERY's route (and, since those sub-queries are dispatched concurrently, a race). See docs/gold-qa-wave2-results/MODULE116_RESULT.md.",
+  "measured_on": "2026-09-10, origin/main @ 9b55e10, local Qwen3-14B classifier, temperature 0.0",
+  "method": "evaluation/module116_route_probe.py — route_query() only, no retrieval, no sub-agent, no backend",
+  "runs_per_question": "3 for all 32; 11 for CR3/G1/G6 (the three under test)",
+  "all_unanimous": true,
+  "corroboration": "docs/gold-qa-wave2-results/module92_harness_cache/local.json ('...::gold' rows) is an independent measurement of the same quantity by Module 92 and agrees on all 32.",
+  "routes": {
+    "D1": "XAGG",
+    "S2": "XAGG",
+    "S3": "XAGG",
+    "A1": "XAGG",
+    "A7": "XAGG",
+    "CP6": "XAGG",
+    "CR2": "XAGG",
+    "CR3": "XNETWORK",
+    "CR4": "XAGG",
+    "CR6": "XAGG",
+    "CR7": "XAGG",
+    "CR8": "XAGG",
+    "CS4": "XAGG",
+    "CP1": "XAGG",
+    "M1": "XAGG",
+    "M2": "XAGG",
+    "M4": "XAGG",
+    "M5": "XAGG",
+    "M7": "XAGG",
+    "G1": "XNETWORK",
+    "G2": "XAGG",
+    "G3": "XAGG",
+    "G5": "XAGG",
+    "G6": "XNETWORK",
+    "KB1": "RAG",
+    "KB2": "RAG",
+    "KB3": "RAG",
+    "KB4": "RAG",
+    "KB5": "RAG",
+    "KB6": "RAG",
+    "KB8": "RAG",
+    "KB9": "RAG"
+  },
+  "per_question": {
+    "D1": {
+      "route": "XAGG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "XAGG"
+    },
+    "S2": {
+      "route": "XAGG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "XAGG"
+    },
+    "S3": {
+      "route": "XAGG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "XAGG"
+    },
+    "A1": {
+      "route": "XAGG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "llm_classifier",
+      "module92_local_cache": "XAGG"
+    },
+    "A7": {
+      "route": "XAGG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "XAGG"
+    },
+    "CP6": {
+      "route": "XAGG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "XAGG"
+    },
+    "CR2": {
+      "route": "XAGG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "XAGG"
+    },
+    "CR3": {
+      "route": "XNETWORK",
+      "runs": 11,
+      "unanimous": true,
+      "decided_by": "llm_classifier",
+      "module92_local_cache": "XNETWORK"
+    },
+    "CR4": {
+      "route": "XAGG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "XAGG"
+    },
+    "CR6": {
+      "route": "XAGG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "XAGG"
+    },
+    "CR7": {
+      "route": "XAGG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "XAGG"
+    },
+    "CR8": {
+      "route": "XAGG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "XAGG"
+    },
+    "CS4": {
+      "route": "XAGG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "XAGG"
+    },
+    "CP1": {
+      "route": "XAGG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "XAGG"
+    },
+    "M1": {
+      "route": "XAGG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "XAGG"
+    },
+    "M2": {
+      "route": "XAGG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "XAGG"
+    },
+    "M4": {
+      "route": "XAGG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "XAGG"
+    },
+    "M5": {
+      "route": "XAGG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "XAGG"
+    },
+    "M7": {
+      "route": "XAGG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "XAGG"
+    },
+    "G1": {
+      "route": "XNETWORK",
+      "runs": 11,
+      "unanimous": true,
+      "decided_by": "llm_classifier",
+      "module92_local_cache": "XNETWORK"
+    },
+    "G2": {
+      "route": "XAGG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "XAGG"
+    },
+    "G3": {
+      "route": "XAGG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "XAGG"
+    },
+    "G5": {
+      "route": "XAGG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "XAGG"
+    },
+    "G6": {
+      "route": "XNETWORK",
+      "runs": 11,
+      "unanimous": true,
+      "decided_by": "llm_classifier",
+      "module92_local_cache": "XNETWORK"
+    },
+    "KB1": {
+      "route": "RAG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "RAG"
+    },
+    "KB2": {
+      "route": "RAG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "RAG"
+    },
+    "KB3": {
+      "route": "RAG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "RAG"
+    },
+    "KB4": {
+      "route": "RAG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "RAG"
+    },
+    "KB5": {
+      "route": "RAG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "RAG"
+    },
+    "KB6": {
+      "route": "RAG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "RAG"
+    },
+    "KB8": {
+      "route": "RAG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "RAG"
+    },
+    "KB9": {
+      "route": "RAG",
+      "runs": 3,
+      "unanimous": true,
+      "decided_by": "deterministic_override",
+      "module92_local_cache": "RAG"
+    }
+  },
+  "historical_reconciliation": {
+    "_note": "Every row of evaluation/gold32_pass{1,2,3}_outputs.json whose recorded value differs from the measured top-level route, with the cause. Five questions, two causes, no overlap. The other 27 agree on all three passes.",
+    "questions": {
+      "CR3": {
+        "recorded_last_dispatch_route": "XAGG",
+        "measured_top_level_route": "XNETWORK",
+        "passes": [
+          1,
+          2,
+          3
+        ],
+        "why": "Recording defect: the question decomposes through Meta-Analysis, and the recorder kept the LAST supervisor:dispatch event — one of Meta-Analysis's own XAGG sub-queries. The top-level route did not move."
+      },
+      "G1": {
+        "recorded_last_dispatch_route": "XAGG",
+        "measured_top_level_route": "XNETWORK",
+        "passes": [
+          1,
+          2,
+          3
+        ],
+        "why": "Recording defect: the question decomposes through Meta-Analysis, and the recorder kept the LAST supervisor:dispatch event — one of Meta-Analysis's own XAGG sub-queries. The top-level route did not move."
+      },
+      "G6": {
+        "recorded_last_dispatch_route": "XAGG",
+        "measured_top_level_route": "XNETWORK",
+        "passes": [
+          1,
+          2,
+          3
+        ],
+        "why": "Recording defect: the question decomposes through Meta-Analysis, and the recorder kept the LAST supervisor:dispatch event — one of Meta-Analysis's own XAGG sub-queries. The top-level route did not move."
+      },
+      "KB3": {
+        "recorded_last_dispatch_route": "XNETWORK",
+        "measured_top_level_route": "RAG",
+        "passes": [
+          1,
+          2,
+          3
+        ],
+        "why": "Genuine code change, not a recording defect: Module 78 (3ff2112) routes the compound legal-KB question on rag.py's own _is_legal_kb_intent() gate, which moved this question to RAG AFTER Module 27's three passes were recorded."
+      },
+      "KB9": {
+        "recorded_last_dispatch_route": "XAGG",
+        "measured_top_level_route": "RAG",
+        "passes": [
+          1,
+          2,
+          3
+        ],
+        "why": "Genuine code change, not a recording defect: Module 78 (3ff2112) routes the compound legal-KB question on rag.py's own _is_legal_kb_intent() gate, which moved this question to RAG AFTER Module 27's three passes were recorded."
+      }
+    }
+  }
+}

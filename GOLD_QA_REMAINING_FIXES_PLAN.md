@@ -151,11 +151,15 @@ several can run in parallel chats/worktrees without colliding.
 | 111 | **G6 answers its gold wording and essentially nothing else** — all three rewordings refuse at XNETWORK, 6 of 6 | *(not yet branched)* | ⬜ New — Module 83 §8A. A Roman-Urdu, a plain **English** and an **Urdu-script** rewording all fail `supervisor.py`'s Meta-Analysis trigger patterns, go whole to XNETWORK and are refused (nearest cluster 0.164 / 0.206 / 0.187 against a 0.145 cutoff). **The sharpest evidence of literal-phrase brittleness in the codebase**: the `orientation_note` plan already carries a `نئے تعینات` pattern matching the Urdu rewording *exactly*, and it is never consulted, because the supervisor gate above it keeps its own different literal list. Same disease as Modules 92 / 106, a **fourth** layer down |
 | 112 | **The Roman-Urdu synthesis is fluent-sounding but partly non-words** | *(not yet branched)* | ⬜ New — Module 83 §8C. Recovered G6 syntheses carry invented Urdu-ish tokens — *"kismatiyadari"*, *"mohtajr"*, *"tawarruq"*, *"qanuniyadari"* — with no meaning, mixed into otherwise correct, correctly-cited prose. Figures and citations are right; the connective language is not. Plausibly the same generation slot whose greedy decode collapses into a repetition loop, at a lower severity — **a hypothesis, not a measurement** |
 | 113 | **`_attach_provenance()` ships without ever firing** | *(not yet branched)* | ⬜ New — Module 83 §8D, filed **against its own change**. Correct, conservative, unit-tested both directions, and it fired **0 times in 20 live G6 runs** and 0 times across all 32 gold questions, because the failure it was built for is not the failure that occurs. Recorded so a later module does not assume it is load-bearing. If the marker-free-but-correct synthesis is measured never to happen, this is dead code and should be **deleted rather than maintained** |
-| 116 | **The gold-32 route baseline on `main` is STALE — CR3, G1 and G6 are recorded `XAGG` and reach `XNETWORK` on unchanged code** | *(not yet branched)* | ⬜ New — Module 92. Module 27's *"routes stable 32/32"* **no longer describes `main`**. Independently confirmed: none of the three takes a deterministic override, so all three are decided by the local Qwen3-14B classifier that `router.py`'s own comment calls unreliable. **CR3 scores 1.00 ×3 and G1 0.97 ×3 today — two of the strongest passes on the board are riding a coin flip**, and every regression control that asserts "routes equal to baseline" is comparing against a baseline that has moved. Fix the routes or re-baseline the control; do not leave both |
+| 116 | **The gold-32 route baseline was never a route baseline** — CR3, G1 and G6 are recorded `XAGG` because the recorder kept a Meta-Analysis SUB-QUERY's route | `fix/route-stability-cr3-g1-g6` | ✅ Done — `MODULE116_RESULT.md`. **The filed diagnosis was wrong and the correction is the finding.** There is no coin flip: all three route `XNETWORK` **11 runs of 11 each** at temperature 0, unanimous, and all 32 gold questions are unanimous over 3 runs (`evaluation/gold32_route_baseline.json`). The `XAGG` came from `gold32_run.py::parse()` scraping `route='…'` out of `supervisor:dispatch`'s prose and keeping the **last** match — and `meta_analysis.py` re-enters `Supervisor.handle()` per decomposed sub-query, emitting that same event again, `XAGG` by construction, **concurrently** (so which one landed last was a race). Proven from Module 92's own committed trace, no new run needed. **Nothing in `src/pipeline/router.py` changed — not one line.** The event now carries machine-readable `route`/`sub_agent`/`nested`, `cutover.py` stops dropping `PipelineEvent` extras, `parse()` reads the top-level route and keeps `subquery_routes` separately, and the eight historical artefacts have their misleading `route` key **renamed to `last_dispatch_route`** — which is exactly what those values are |
 | 114 | **The Gemini key pool is one throttled key and three invalid ones — and it breaks the JUDGE too** | *(not yet branched)* | ⬜ New — Module 92, independently of Module 87's own finding. Re-measured directly: `GEMINI_API_KEY` and `_1` answer on `gemini-3.1-flash-lite` but are **already 429 on `gemini-2.5-flash`**; `_2`/`_3`/`_4` return **401 on every model**. This is not only a router-escalation problem — `evaluation/gold32_score.py`'s judge draws from the same pool, and an exhausted quota surfaces as slow calls and `UNSCORED` rows rather than a credential error |
 | 117 | **The local classifier cannot reproduce 11 of its own prompt's few-shot examples** | *(not yet branched)* | ⬜ New — Module 92. Fed `router.txt`'s own worked examples back to the model it instructs, 11 come back with a different route. The prompt is not being followed even on the cases it was written to teach |
 | 118 | **A `router.txt` few-shot example violates `router.txt`'s own schema** | *(not yet branched)* | ⬜ New — Module 92 |
 | 115 | **`_is_legal_kb_intent()` has a cross-lingual false positive** | *(not yet branched)* | ⬜ New — Module 92, found while measuring Module 78's gate at paraphrase scale |
+| 119 | **Meta-Analysis is gated on a literal trigger list — and it costs CR3 and G1 too, not just G6** | *(not yet branched)* | ⬜ New — Module 116. `supervisor.py::classify_to_subagent()` reaches Meta-Analysis only when `_META_ANALYSIS_TRIGGER_PATTERNS` matches the **query text**, independently of the route; miss it and an `XNETWORK` question falls through to Global Search / Cross-Case Linkage and is refused by its relevance gate. Measured over six paraphrases written before running: **route correct 6/6, Meta-Analysis reached 3/6** — CR3-Urdu refused at 0.149, G1-English at 0.197, G6-English at 0.200 against a 0.145 cutoff. **This generalises Module 111**, which read the same failure as G6-specific: it is neither G6-specific nor language-specific — G6's *Urdu* rewording passes while its *English* one fails, and G1's Roman-Urdu passes while its English fails. The variable is trigger-pattern membership. Needs a predicate (Module 78's `_is_legal_kb_intent()` precedent), **not a fourth word list** |
+| 120 | **A nested `supervisor:dispatch` event cannot be attributed to its sub-query** | *(not yet branched)* | ⬜ New — Module 116. `meta_analysis.py::_dispatch_one()` runs sub-queries under `asyncio.gather` and the dispatch event carries no sub-query text or index: CR3's trace is three byte-identical `route='XAGG' -> Large-Scale Aggregate` lines, G6's is five, and **their order is a race**. Module 116 fixed the consequence (`nested` is now on the event, so the recorder no longer depends on ordering) but not the cause — a trace reader still cannot tell which decomposed question produced which answer. Cheap: add the sub-query text or index to the event |
+| 121 | **One gold question costs up to SEVEN router classification calls** | *(not yet branched)* | ⬜ New — Module 116. `main.py::chat_endpoint()` classifies once, `Supervisor.handle()` classifies again (the documented "KNOWN, ACCEPTED INEFFICIENCY"), and then once **more per decomposed sub-query**. G6 decomposes into five, so one G6 request makes **1 + 1 + 5 = 7** `route_query()` calls against the local Qwen3-14B with a prompt Module 92 measured at **13,003 request tokens** — roughly **91,000 prompt tokens of routing for one question**. The accepted-inefficiency note covers only the first duplicate; the per-sub-query multiplication is undocumented. G6 gold runs took 105–118 s each in process |
+| 122 | **G6's synthesis collapsed 3 of 3, and one fallback served ENGLISH to a Roman-Urdu question** | *(not yet branched)* | ⬜ New — Module 116. Module 83's guard fired on all three G6 gold runs with a **byte-identical** signature (*758 tokens, unique-token ratio 0.024, one 4-gram repeated 370 times*) — a **3/3 rate with an identical signature reads as deterministic**, not as the sampling accident Module 112 filed it as. Runs 2–3 recovered at temperature 0.4; run 1's regeneration **also** collapsed, `_attach_provenance()` ran and failed, and the fallback served the five raw sub-answers **in English** to a question asked in Roman-Urdu whose gold answer is Roman-Urdu — **the fallback path has no language contract**. Also evidence against Module 113's "delete it as dead code": here `_attach_provenance()` fired |
 | 27 | Final Gold-32 rerun (Module 18 redo) | `eval/module27-final` | ✅ **Done — 3 passes, 96 question-runs.** FactualCorrectness **0.428 → 0.572 → 0.666**; AnswerRelevancy **0.931**; **19 of 32 pass on all three runs** (20 counting M7, which is correct and mis-scored); **routes stable 32/32**; 0 nulls, 0 timeouts, 0 quota, 0 cutover fallbacks. Result: `docs/gold-qa-wave2-results/MODULE27_RESULT.md` |
 
 ### Coverage check — every failing question maps to a module
@@ -4759,3 +4763,83 @@ and widening it moves questions inside an ordered first-match-wins chain, which
 needs that module's all-32 equality control re-run. Module 89 pinned the two
 probes at their measured values in `TestModule89Dispatch` instead, so the gap is
 recorded rather than silently carried.
+
+---
+
+---
+
+# Module 116 — the route baseline was never a route baseline ✅ closed
+
+**Branch:** `fix/route-stability-cr3-g1-g6` ·
+**Result:** `docs/gold-qa-wave2-results/MODULE116_RESULT.md`
+
+**The filed diagnosis was wrong, and the correction is the finding.** Row 116
+said CR3, G1 and G6 were "recorded `XAGG`, reaching `XNETWORK` on unchanged
+code — two of the strongest passes on the board riding a coin flip." There is
+no coin flip. All three route `XNETWORK` on **11 runs of 11 each**, at
+temperature 0, unanimous, with a stable and correct `reason` field every time.
+All 32 gold questions are unanimous over 3 runs each
+(`evaluation/gold32_route_baseline.json`), and Module 92's own independent
+all-32 measurement (`module92_harness_cache/local.json`) agrees on **all 32**.
+
+## Where the `XAGG` came from
+
+`Supervisor.handle()` emits `supervisor:dispatch` with the route in **English
+prose** inside `detail`. `meta_analysis.py::_dispatch_one()` calls back into
+`Supervisor.handle()` **once per decomposed sub-query**, so that same event is
+emitted again for each — and Meta-Analysis's decomposer produces
+*aggregate-shaped* sub-queries, so those are `XAGG` by construction.
+`evaluation/gold32_run.py::parse()` regex-scraped the prose and kept the
+**last** match. The last match is a sub-query. And because `_dispatch_one()`
+runs under `asyncio.gather`, *which* sub-query landed last was a race.
+
+Proven **from data already on `main`**, no new run required — Module 92's own
+committed trace, on unchanged shipped code:
+
+```
+CR3 (gold):  route='XNETWORK' -> Meta-Analysis
+             route='XAGG'     -> Large-Scale Aggregate   × 3
+G6 (gold):   route='XNETWORK' -> Meta-Analysis
+             route='XAGG'     -> Large-Scale Aggregate   × 5
+```
+
+Apply the last-match rule to either and you get `XAGG` — the exact value Module
+27 recorded, on all three passes, for exactly the three questions that
+decompose. Module 27 and Module 92 never disagreed; they measured two different
+quantities and both were right.
+
+**The score argument inverts.** "CR3 scores 1.00 and G1 0.97 under XAGG" was the
+strongest case for `XAGG`. A question only emits `XAGG` sub-dispatches if it
+went to Meta-Analysis, and it only goes to Meta-Analysis if its top-level route
+was `XNETWORK`. Those scores were **earned on `XNETWORK`**.
+
+## What shipped
+
+**`src/pipeline/router.py` is untouched — not one line.** No override, no
+regex, no prompt edit. Six lines of production code in total:
+
+* `supervisor.py` — the dispatch event carries machine-readable `route`,
+  `sub_agent` and `nested`; `detail` is byte-identical. `nested` is derived from
+  `allow_meta_analysis` (`meta_analysis.py` is its only `False` caller), so it
+  cannot drift from what it means.
+* `cutover.py` — forwards `PipelineEvent`'s extras onto the SSE dict. The model
+  has been `extra="allow"` all along and this adapter dropped every extra; that
+  is *why* the route had to be scraped out of prose at all.
+* `gold32_run.py` / `gold32_score.py` — read the top-level route, keep
+  `subquery_routes` separately, and carry `route` / `last_dispatch_route` side
+  by side rather than coalescing them.
+* `evaluation/gold32_route_baseline.json` (new) — the authoritative all-32 route
+  baseline, with runs, method, Module 92's corroboration, and a per-question
+  reconciliation against the historical passes.
+* Eight historical artefacts have the misleading `route` key **renamed to
+  `last_dispatch_route`** — precisely what those values are. A consumer asking
+  for `route` now gets nothing, loudly, instead of a wrong `XAGG` quietly.
+
+## Attribution — nothing merged today caused it
+
+Only Modules 78 and 92 have touched `router.py`/`router.txt` since Module 27.
+Module 78's KB gate is False for CR3/G1/G6; Module 92 changed only the **cloud**
+prompt path and its own before-arm already records these three as `XNETWORK`.
+Exactly **five** rows differ between the historical passes and the measured
+baseline, and every one is accounted for: CR3/G1/G6 by the recording defect,
+KB3/KB9 by Module 78's genuine, intended route change.
