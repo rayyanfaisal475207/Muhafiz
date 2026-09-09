@@ -616,11 +616,22 @@ _KB_DATA_HALF_PLANS: tuple[_KbDataHalfPlan, ...] = (
     #     WHETHER THIS EVER FIRES IS A ROUTER QUESTION. Modules 65 and 74
     #     both measured KB3 routing to **XNETWORK**, not RAG, on this
     #     machine (Module 39 measured RAG). Unconsulted, it costs nothing.
+    #     VOCABULARY WIDENED AFTER A PARAPHRASE MISSED, NOT BEFORE. The
+    #     first pattern below started as `officer who (first) registers`,
+    #     which is KB3's own wording and nothing else: an ordinary English
+    #     paraphrase — "is the PERSON who records an FIR supposed to be a
+    #     different officer from the one who investigates it?" — missed it
+    #     outright, in process, against the real graph. That is Module 56's
+    #     finding for the third time and Module 74's for the second, so it
+    #     is recorded here rather than quietly fixed. The widened form still
+    #     demands BOTH roles; the all-32 control is unchanged by it.
     _KbDataHalfPlan(
         name="officer_role_pair",
         patterns=(
             re.compile(
-                r"\bofficer\s+who\s+(first\s+)?(registers?|records?|logs?)\b",
+                r"\b(officer|person|policeman|police\s+officer|official)\s+who\s+"
+                r"(first\s+)?(registers?|records?|logs?|files?)\b"
+                r"[\s\S]{0,160}\binvestigat",
                 re.IGNORECASE,
             ),
             re.compile(
@@ -675,9 +686,13 @@ _KB_DATA_HALF_PLANS: tuple[_KbDataHalfPlan, ...] = (
                 r"\btafteesh[\s\S]{0,140}\b(adaa?lat|court)\b",
                 re.IGNORECASE,
             ),
+            # Widened for the same reason and at the same time as the
+            # officer plan's first pattern: "does the law make the police
+            # REPORT SOMETHING TO the court" missed a form that demanded
+            # `report to the court` with nothing in between.
             re.compile(
-                r"\binvestigation\b[\s\S]{0,140}\breport(ing)?\s+to\s+"
-                r"(the\s+)?(court|magistrate)\b",
+                r"\b(investigation|inquiry)\b[\s\S]{0,140}\breport"
+                r"[\s\S]{0,40}\bto\s+(the\s+)?(court|magistrate|adaa?lat)\b",
                 re.IGNORECASE,
             ),
             re.compile(r"تفتیش[\s\S]{0,140}عدالت"),

@@ -1148,6 +1148,51 @@ def test_module77_challan_plan_does_not_reach_cr7():
     assert _gate(_gold("CR7")["question"]) is None
 
 
+# The three NON-GOLD paraphrases Module 77 measured in process, against the
+# real graph, through `rag_tool()` itself. Two of them (KB3's and KB8's)
+# MISSED the patterns as first written — an ordinary English rewording of a
+# question the module had just wired — and the patterns were widened in
+# response. They are pinned here so the widening cannot silently rot, and
+# recorded in `MODULE77_RESULT.md` §6 as a miss that happened rather than a
+# success that was designed.
+_PARAPHRASES = {
+    "officer_role_pair": (
+        "Under police law, is the person who records an FIR supposed to be a "
+        "different officer from the one who investigates it — and what does "
+        "our own data actually show about that?"
+    ),
+    "chalaan_dispatch": (
+        "If an investigation drags on, does the law make the police report "
+        "something to the court before it is finished, and does our own "
+        "tracking data show whether that happened?"
+    ),
+    "death_investigation_charging": (
+        "When a death looks suspicious the police must formally investigate "
+        "the cause of death — does our system record that anywhere?"
+    ),
+}
+
+
+@pytest.mark.parametrize("expected,text", sorted(_PARAPHRASES.items()))
+def test_module77_non_gold_paraphrases_reach_the_same_plan(expected, text):
+    """A capability fix, not a curve fit: none of these is the gold wording,
+    and each must still reach the plan its subject belongs to — through the
+    full gate, intent clause included."""
+    assert _gate(text) == expected
+
+
+def test_module77_widened_officer_pattern_still_needs_the_investigating_half():
+    """The widening replaced a KB3-only literal with `<role-noun> who
+    records/registers … investigat…`. It must not have turned into a bare
+    "who records" match: a registration-only question has no second role to
+    compare against and belongs to no plan."""
+    for q in (
+        "Which officer records an FIR when a complaint comes in?",
+        "Is the person who records the FIR required to sign it?",
+    ):
+        assert _match_kb_data_half_plan(q) is None, q
+
+
 def test_module39_plan_names_and_expected_kinds_are_unique():
     """A duplicated name would make the log line ambiguous and a duplicated
     aggregate would mean two question shapes silently share one figure."""
