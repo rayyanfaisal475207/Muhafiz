@@ -390,7 +390,7 @@ photographed before packaging · chain of custody in transit.*
 
 **Not a full L pass, and this is the honest qualifier.** Gold's *"document,
 label, mark and photograph before packaging"* and its *chain of custody in
-transit* are still absent from the after arm's answers. §8's Module 100 explains
+transit* are still absent from the after arm's answers. §8's Module 129 explains
 why, and it is not this module's doing: that text is **not** in `c19` or `c18`.
 It is in `...62ee00b3_c0`, the document's general opening bullet, which the
 before arm retrieved reliably and the after arm mostly does not. **KB6 has been
@@ -565,7 +565,7 @@ count also jumped once.**
   *"... registration and recording of death cases"* — same book, worse
   provision. Rule 4d is gated on the Forensics guidelines being a chosen book,
   and they are not chosen for KB9, so this is prompt-length drift rather than
-  the rule firing. That makes it **Module 99's** problem, filed in §8, and a
+  the rule firing. That makes it **Module 128's** problem, filed in §8, and a
   real cost of this change either way.
 
 ### 7.2 The offline sweep at the layer that changed
@@ -638,7 +638,7 @@ means its two hypotheses are not the variants that carry its gold chunk.
 Numbering starts at **98**: `GOLD_QA_REMAINING_FIXES_PLAN.md`'s highest in use
 is 96, and 97 is claimed by Module 89's track. Filed, evidenced, **not fixed**.
 
-### Module 98 — the corpus map in `statute_hypothesis.txt` is the query, and nobody wrote it to be one
+### Module 127 — the corpus map in `statute_hypothesis.txt` is the query, and nobody wrote it to be one
 
 Not a KB6 defect: a structural one this module found while fixing KB6. The
 model copies a book's map line **verbatim** into its query whenever it has
@@ -655,7 +655,7 @@ Telecom) have never been probed for the same thing.
 **Verify:** for each of the five, take its map line verbatim as a query at
 `{"is_global": True}` top-30 and check what it actually returns.
 
-### Module 99 — a prompt edit moves unrelated questions' hypotheses by prompt-length drift alone
+### Module 128 — a prompt edit moves unrelated questions' hypotheses by prompt-length drift alone
 
 Measured in §7.2. Adding ~4 lines to `statute_hypothesis.txt` moved KB1's target
 13 → 15/16 and destabilised KB9's 11 → 11/22/22, on questions where the added
@@ -667,7 +667,7 @@ other KB question, and none of them can currently tell drift from effect.
 similar amount, drift is confirmed as the mechanism and the noise band is
 measured, which is what every future prompt module needs.
 
-### Module 100 — gold KB6's second guideline clause comes from a chunk no run retrieves, and it is a general one
+### Module 129 — gold KB6's second guideline clause comes from a chunk no run retrieves, and it is a general one
 
 Gold's answer asserts the firearm must be *"document, label, mark aur photograph
 kiya jaye"* before packaging. That text is **not** in `c19` or `c18`. It is in
@@ -696,4 +696,4 @@ one hit, `…62ee00b3_c0` — and read it beside `c19`.
 - Measured on paraphrases rather than on gold, including on a **different
   exhibit type**, which is the test that separates a rule from a special case.
 - The prompt-layer drift in §7.2 is the part of this result I am least happy
-  with, and it is filed as Module 99 rather than smoothed over.
+  with, and it is filed as Module 128 rather than smoothed over.

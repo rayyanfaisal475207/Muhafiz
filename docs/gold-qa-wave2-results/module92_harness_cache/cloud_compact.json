@@ -1,0 +1,642 @@
+{
+ "A1::gold": {
+  "detail": "compact",
+  "elapsed_s": 2.16,
+  "route": "XAGG"
+ },
+ "A1::para::en": {
+  "detail": "compact",
+  "elapsed_s": 20.91,
+  "route": "XAGG"
+ },
+ "A1::para::roman_ur": {
+  "detail": "compact",
+  "elapsed_s": 2.72,
+  "route": "XAGG"
+ },
+ "A1::para::ur": {
+  "detail": "compact",
+  "elapsed_s": 2.2,
+  "route": "XAGG"
+ },
+ "A7::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "A7::para::en": {
+  "detail": "compact",
+  "elapsed_s": 22.0,
+  "route": "XAGG"
+ },
+ "A7::para::roman_ur": {
+  "detail": "compact",
+  "elapsed_s": 21.09,
+  "route": "XAGG"
+ },
+ "A7::para::ur": {
+  "detail": "compact",
+  "elapsed_s": 22.04,
+  "route": "XAGG"
+ },
+ "CP1::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CP1::para::en": {
+  "detail": "compact",
+  "elapsed_s": 1.91,
+  "route": "XAGG"
+ },
+ "CP1::para::roman_ur": {
+  "detail": "compact",
+  "elapsed_s": 22.6,
+  "route": "XAGG"
+ },
+ "CP1::para::ur": {
+  "detail": "compact",
+  "elapsed_s": 21.87,
+  "route": "XAGG"
+ },
+ "CP6::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CP6::para::en": {
+  "detail": "compact",
+  "elapsed_s": 2.94,
+  "route": "XAGG"
+ },
+ "CP6::para::roman_ur": {
+  "detail": "compact",
+  "elapsed_s": 23.08,
+  "route": "XAGG"
+ },
+ "CP6::para::ur": {
+  "detail": "compact",
+  "elapsed_s": 31.07,
+  "route": "XAGG"
+ },
+ "CR2::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR2::para::en": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR2::para::roman_ur": {
+  "detail": "compact",
+  "elapsed_s": 2.87,
+  "route": "XAGG"
+ },
+ "CR2::para::ur": {
+  "detail": "compact",
+  "elapsed_s": 3.02,
+  "route": "XAGG"
+ },
+ "CR3::gold": {
+  "detail": "compact",
+  "elapsed_s": 0.64,
+  "route": "RAG"
+ },
+ "CR3::para::en": {
+  "detail": "compact",
+  "elapsed_s": 0.71,
+  "route": "RAG"
+ },
+ "CR3::para::roman_ur": {
+  "detail": "compact",
+  "elapsed_s": 5.04,
+  "route": "RAG"
+ },
+ "CR3::para::ur": {
+  "detail": "compact",
+  "elapsed_s": 22.44,
+  "route": "RAG"
+ },
+ "CR4::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR4::para::en": {
+  "detail": "compact",
+  "elapsed_s": 21.19,
+  "route": "RAG"
+ },
+ "CR4::para::roman_ur": {
+  "detail": "compact",
+  "elapsed_s": 23.17,
+  "route": "RAG"
+ },
+ "CR4::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR6::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR6::para::en": {
+  "detail": "compact",
+  "elapsed_s": 20.1,
+  "route": "RAG"
+ },
+ "CR6::para::roman_ur": {
+  "detail": "compact",
+  "elapsed_s": 23.12,
+  "route": "RAG"
+ },
+ "CR6::para::ur": {
+  "detail": "compact",
+  "elapsed_s": 2.13,
+  "route": "RAG"
+ },
+ "CR7::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR7::para::en": {
+  "detail": "compact",
+  "elapsed_s": 4.1,
+  "route": "XAGG"
+ },
+ "CR7::para::roman_ur": {
+  "detail": "compact",
+  "elapsed_s": 22.19,
+  "route": "XAGG"
+ },
+ "CR7::para::ur": {
+  "detail": "compact",
+  "elapsed_s": 20.09,
+  "route": "XAGG"
+ },
+ "CR8::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR8::para::en": {
+  "detail": "compact",
+  "elapsed_s": 2.97,
+  "route": "RAG"
+ },
+ "CR8::para::roman_ur": {
+  "detail": "compact",
+  "elapsed_s": 1.92,
+  "route": "RAG"
+ },
+ "CR8::para::ur": {
+  "detail": "compact",
+  "elapsed_s": 2.81,
+  "route": "RAG"
+ },
+ "CS4::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CS4::para::en": {
+  "detail": "compact",
+  "elapsed_s": 23.59,
+  "route": "XAGG"
+ },
+ "CS4::para::roman_ur": {
+  "detail": "compact",
+  "elapsed_s": 21.24,
+  "route": "XGRAPH"
+ },
+ "CS4::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "D1::gold": {
+  "detail": "override",
+  "elapsed_s": 6.84,
+  "route": "XAGG"
+ },
+ "D1::para::en": {
+  "detail": "compact",
+  "elapsed_s": 22.01,
+  "route": "XAGG"
+ },
+ "D1::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "D1::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XNETWORK"
+ },
+ "G1::gold": {
+  "detail": "compact",
+  "elapsed_s": 7.04,
+  "route": "XNETWORK"
+ },
+ "G1::para::en": {
+  "detail": "compact",
+  "elapsed_s": 22.56,
+  "route": "XNETWORK"
+ },
+ "G1::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "G1::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "G2::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "G2::para::en": {
+  "detail": "compact",
+  "elapsed_s": 4.92,
+  "route": "DIRECT"
+ },
+ "G2::para::roman_ur": {
+  "detail": "compact",
+  "elapsed_s": 1.58,
+  "route": "DIRECT"
+ },
+ "G2::para::ur": {
+  "detail": "compact",
+  "elapsed_s": 1.75,
+  "route": "RAG"
+ },
+ "G3::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "G3::para::en": {
+  "detail": "compact",
+  "elapsed_s": 6.61,
+  "route": "DIRECT"
+ },
+ "G3::para::roman_ur": {
+  "detail": "compact",
+  "elapsed_s": 1.1,
+  "route": "XAGG"
+ },
+ "G3::para::ur": {
+  "detail": "compact",
+  "elapsed_s": 7.13,
+  "route": "XAGG"
+ },
+ "G5::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "G5::para::en": {
+  "detail": "compact",
+  "elapsed_s": 21.52,
+  "route": "RAG"
+ },
+ "G5::para::roman_ur": {
+  "detail": "compact",
+  "elapsed_s": 22.47,
+  "route": "RAG"
+ },
+ "G5::para::ur": {
+  "detail": "compact",
+  "elapsed_s": 21.45,
+  "route": "RAG"
+ },
+ "G6::gold": {
+  "detail": "compact",
+  "elapsed_s": 22.15,
+  "route": "DIRECT"
+ },
+ "G6::para::en": {
+  "detail": "compact",
+  "elapsed_s": 20.38,
+  "route": "DIRECT"
+ },
+ "G6::para::roman_ur": {
+  "detail": "compact",
+  "elapsed_s": 20.86,
+  "route": "DIRECT"
+ },
+ "G6::para::ur": {
+  "detail": "compact",
+  "elapsed_s": 22.1,
+  "route": "DIRECT"
+ },
+ "KB1::gold": {
+  "detail": "override",
+  "elapsed_s": 4.93,
+  "route": "RAG"
+ },
+ "KB1::para::en": {
+  "detail": "compact",
+  "elapsed_s": 2.29,
+  "route": "SQL"
+ },
+ "KB1::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "KB1::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "KB2::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB2::para::en": {
+  "detail": "compact",
+  "elapsed_s": 22.08,
+  "route": "RAG"
+ },
+ "KB2::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB2::para::ur": {
+  "detail": "compact",
+  "elapsed_s": 24.05,
+  "route": "RAG"
+ },
+ "KB3::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB3::para::en": {
+  "detail": "compact",
+  "elapsed_s": 21.02,
+  "route": "RAG"
+ },
+ "KB3::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB3::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB4::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB4::para::en": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB4::para::roman_ur": {
+  "detail": "compact",
+  "elapsed_s": 22.41,
+  "route": "RAG"
+ },
+ "KB4::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB5::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB5::para::en": {
+  "detail": "compact",
+  "elapsed_s": 22.55,
+  "route": "RAG"
+ },
+ "KB5::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB5::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB6::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB6::para::en": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB6::para::roman_ur": {
+  "detail": "compact",
+  "elapsed_s": 22.97,
+  "route": "RAG"
+ },
+ "KB6::para::ur": {
+  "detail": "compact",
+  "elapsed_s": 2.04,
+  "route": "RAG"
+ },
+ "KB8::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB8::para::en": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB8::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB8::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB9::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB9::para::en": {
+  "detail": "compact",
+  "elapsed_s": 22.02,
+  "route": "RAG"
+ },
+ "KB9::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB9::para::ur": {
+  "detail": "compact",
+  "elapsed_s": 21.75,
+  "route": "RAG"
+ },
+ "M1::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M1::para::en": {
+  "detail": "compact",
+  "elapsed_s": 22.18,
+  "route": "XAGG"
+ },
+ "M1::para::roman_ur": {
+  "detail": "compact",
+  "elapsed_s": 19.95,
+  "route": "XAGG"
+ },
+ "M1::para::ur": {
+  "detail": "compact",
+  "elapsed_s": 4.03,
+  "route": "RAG"
+ },
+ "M2::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M2::para::en": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M2::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M2::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M4::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M4::para::en": {
+  "detail": "compact",
+  "elapsed_s": 21.96,
+  "route": "XAGG"
+ },
+ "M4::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M4::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M5::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M5::para::en": {
+  "detail": "compact",
+  "elapsed_s": 0.69,
+  "route": "XAGG"
+ },
+ "M5::para::roman_ur": {
+  "detail": "compact",
+  "elapsed_s": 22.92,
+  "route": "XAGG"
+ },
+ "M5::para::ur": {
+  "detail": "compact",
+  "elapsed_s": 3.74,
+  "route": "XAGG"
+ },
+ "M7::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M7::para::en": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M7::para::roman_ur": {
+  "detail": "compact",
+  "elapsed_s": 22.05,
+  "route": "XAGG"
+ },
+ "M7::para::ur": {
+  "detail": "compact",
+  "elapsed_s": 1.99,
+  "route": "XAGG"
+ },
+ "S2::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "S2::para::en": {
+  "detail": "compact",
+  "elapsed_s": 21.91,
+  "route": "XAGG"
+ },
+ "S2::para::roman_ur": {
+  "detail": "compact",
+  "elapsed_s": 22.24,
+  "route": "XAGG"
+ },
+ "S2::para::ur": {
+  "detail": "compact",
+  "elapsed_s": 21.04,
+  "route": "XAGG"
+ },
+ "S3::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "S3::para::en": {
+  "detail": "compact",
+  "elapsed_s": 22.98,
+  "route": "XAGG"
+ },
+ "S3::para::roman_ur": {
+  "detail": "compact",
+  "elapsed_s": 21.24,
+  "route": "XAGG"
+ },
+ "S3::para::ur": {
+  "detail": "compact",
+  "elapsed_s": 22.12,
+  "route": "XAGG"
+ }
+}

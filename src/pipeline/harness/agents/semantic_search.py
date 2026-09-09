@@ -111,7 +111,11 @@ from src.pipeline.harness.types import (
     ToolStatus,
 )
 from src.pipeline.validation import caveats_for_validation, validate_answer
-from src.pipeline.verifier import verify_grounding
+from src.pipeline.verifier import (
+    CITATION_FORMAT_DEGRADED_CAVEAT,
+    CITATION_FORMAT_DEGRADED_KEY,
+    verify_grounding,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -443,6 +447,16 @@ async def semantic_search(
     # shape (nested degradation is not swallowed).
     degraded_from: list[str] = []
     caveats = list(caveats_for_validation(validation_status, validation_claims))
+    # [Gold-QA fix — Module 101] The Verifier served this answer even though
+    # it carries no [Document N] marker, because it names a cited source
+    # verbatim and the judge cleared every claim (see verifier.py's
+    # "ATTRIBUTION BY SOURCE NAME" block). The exemption is never silent:
+    # what was lost is per-claim traceability, and the reader is told so.
+    # `citations` below is still complete — it is built positionally from
+    # `chunks`, never parsed out of the answer text — so the sources are
+    # available; it is the claim-to-source mapping that is not.
+    if verification.get(CITATION_FORMAT_DEGRADED_KEY):
+        caveats.append(CITATION_FORMAT_DEGRADED_CAVEAT)
     if tool_result.evaluator_verdict == "unavailable":
         degraded_from.append("RAG")
         for caveat in tool_result.degradation_caveats:

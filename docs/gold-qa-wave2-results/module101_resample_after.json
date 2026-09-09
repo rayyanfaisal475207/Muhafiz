@@ -1,0 +1,66 @@
+[
+ {
+  "i": 1,
+  "grounded": true,
+  "off_topic": false,
+  "unsupported_claims": [],
+  "reason": "All claims are directly supported by cited chunks. The legal requirements are supported by sections 174 and 176 of the Code of Criminal Procedure. The case records summary is supported by the cross-case aggregate data in chunk 7.",
+  "computed_evidence_override": null
+ },
+ {
+  "i": 2,
+  "grounded": true,
+  "off_topic": false,
+  "unsupported_claims": [],
+  "reason": "All claims are directly supported by cited chunks. The legal requirements are supported by sections 174 and 176 of the Code of Criminal Procedure. The case records summary is supported by the cross-case aggregate data in chunk 7.",
+  "computed_evidence_override": null
+ },
+ {
+  "i": 3,
+  "grounded": true,
+  "off_topic": false,
+  "unsupported_claims": [],
+  "reason": "All claims are directly supported by cited chunks. The legal requirements are supported by sections 174 and 176 of the Code of Criminal Procedure. The case records summary is supported by the cross-case aggregate data in chunk 7.",
+  "computed_evidence_override": null
+ },
+ {
+  "i": 4,
+  "grounded": true,
+  "off_topic": false,
+  "unsupported_claims": [],
+  "reason": "All claims are directly supported by cited chunks. The legal requirements are supported by sections 174 and 176 of the Code of Criminal Procedure. The case records summary is supported by the cross-case aggregate data in chunk 7.",
+  "computed_evidence_override": null
+ },
+ {
+  "i": 5,
+  "grounded": true,
+  "off_topic": false,
+  "unsupported_claims": [],
+  "reason": "All claims are directly supported by cited chunks. The legal requirements are supported by sections 174 and 176 of the Code of Criminal Procedure. The case records summary is supported by the cross-case aggregate data in chunk 7.",
+  "computed_evidence_override": null
+ },
+ {
+  "i": 6,
+  "grounded": true,
+  "off_topic": false,
+  "unsupported_claims": [],
+  "reason": "All claims are directly supported by cited chunks. The legal requirements are supported by sections 174 and 176 of the Code of Criminal Procedure. The case records summary is supported by the cross-case aggregate data in chunk 7.",
+  "computed_evidence_override": null
+ },
+ {
+  "i": 7,
+  "grounded": true,
+  "off_topic": false,
+  "unsupported_claims": [],
+  "reason": "All claims are directly supported by cited chunks. The legal requirements are supported by sections 174 and 176 of the Code of Criminal Procedure. The case records summary is supported by the cross-case aggregate data in chunk 7.",
+  "computed_evidence_override": null
+ },
+ {
+  "i": 8,
+  "grounded": true,
+  "off_topic": false,
+  "unsupported_claims": [],
+  "reason": "All claims are directly supported by cited chunks. The legal requirements are supported by sections 174 and 176 of the Code of Criminal Procedure. The case records summary is supported by the cross-case aggregate data in chunk 7.",
+  "computed_evidence_override": null
+ }
+]

@@ -1,0 +1,315 @@
+[
+  {
+    "id": "D1",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "How many FIRs are currently registered?",
+    "expected_answer": "73",
+    "actual_answer": "According to the provided document, there are a total of 73 cases registered [Document 1].",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 3.1,
+    "xagg_log_lines": [
+      "XAGG total_count: 73 case(s) after filtering; unsupported_filters=none"
+    ],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  },
+  {
+    "id": "G5",
+    "run": 1,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Baramad shuda hathiyaron ki record keeping ko dekhte hue, kya koi aisi baat hai jo compliance ke lihaz se flag karne layak ho?",
+    "expected_answer": "Tareeqa: 32 weapon-register entries ka jaiza lein — license status, case aur shakhs se rabta, aur handling record ki takmeel. Tashweeshaat: (1) 32 mein se 30 baramad hathiyar (94%) bila-license darj hain — itna wasee pattern ke ise case-by-case ke bajaye apni alag compliance note ki zaroorat hai; (2) register yeh darj karta hai ke kya baramad hua aur uski halat, magar packaging, tasaweer ya chain of custody ka koi khana nahi, is liye kisi bhi entry ke liye zaabte ki pasdari ki tasdeeq mumkin nahi; (3) hathiyar case se sirf ek narm FIR-code match se jurte hain, bina kisi lazmi key ke, is liye ek ghalat type kiya gaya code khamoshi se kisi item ko orphan kar dega. Bila-license ki shrah sab se numaya point hai.",
+    "actual_answer": "Yes, there are issues that warrant attention regarding compliance. According to the review of the 32 weapon-register entries:\n\n- 30 out of 32 recovered weapons (~94%) are recorded without a licence — a pattern that is too broad to treat on a case-by-case basis and requires a standing compliance check.\n- 2 entries carry no licence status at all, making it impossible to confirm their compliance status. \n\nThese findings highlight a significant issue in record keeping that needs to be addressed [Document 1].",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 3.4,
+    "xagg_log_lines": [
+      "XAGG weapon_compliance_scan: 32 weapon(s); 30 unlicensed, 2 with no licence status recorded"
+    ],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  },
+  {
+    "id": "CR6",
+    "run": 1,
+    "arm": "after",
+    "language": "ur",
+    "question": "جب کوئی شخص تھانے آ کر شکایت درج کراتا ہے، تو کیا وہ کسی باقاعدہ ایف آئی آر سے منسلک ہو جاتی ہے، یا دونوں الگ الگ ہی رہتے ہیں؟",
+    "expected_answer": "یہ الگ الگ نظام ہیں، لیکن عملی طور پر ان میں تعلق موجود ہے۔ چاروں موجودہ واک اِن شکایات ایک حقیقی ایف آئی آر سے مشترکہ کیس ٹیگ کے ذریعے جُڑتی ہیں: 417/26 (صبا)، 427/26 (عارفہ)، 462/26 (نمرہ)، 64/26 (سعد الرحمن)۔",
+    "actual_answer": "When someone walks into a police station to file a complaint, it does not automatically become linked to a formal FIR. However, in practice, the Walk-in CMS complaints and FIRs are connected through a shared case tag. Specifically, all 4 current CMS complaints are linked to real FIRs via this shared tag (CMS.case_tag_number = FIR.e_tag_number). Here are the specific links:\n\n- CMS-KHI-2026-0417 → fir-417-26\n- CMS-LHR-2026-0427 → fir-427-26\n- CMS-KHI-2026-0462 → fir-462-26\n- CMS-ISB-2026-0341 → fir-64-26\n\n[Document 1]",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 4.6,
+    "xagg_log_lines": [
+      "XAGG cms_fir_linkage: 4 CMS complaint(s), 4 linked to a case, 0 unlinked"
+    ],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  },
+  {
+    "id": "G1",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "Acting as a crime analyst, review our current caseload and flag anything that looks unusual or worth monitoring.",
+    "expected_answer": "Approach: profile the accused, the victims, the property and the timing across the 73 FIRs, and flag what doesn't look routine. What stands out: (1) the offender profile is unusually uniform — every accused is between 24 and 49 (average ~31), none younger or older; (2) where an accused–complainant relationship is recorded at all, 'stranger' dominates, so this is largely stranger-perpetrated crime rather than disputes between people who know each other, apart from the domestic-violence cases; (3) seized-property records point to more fatalities than the charge sheet alone — 13 items sent to a forensic lab and 7 held for return to a deceased's heirs, alongside 8 murder-section FIRs; (4) incident times are fairly flat across the day with only a mild evening lean, so there's no strong night-crime pattern to build a patrol case around. The uniform offender profile and the stranger-perpetrated skew are the most useful things to keep watching.",
+    "actual_answer": "Based on the current caseload, several patterns and anomalies stand out that warrant further monitoring:\n\n- The age range and average age of the accused are only documented for a minority of the accused individuals. Specifically, among the 92 distinct accused individuals, only 17 have recorded ages, ranging from 24 to 49, with an average age of 31.5. The remaining 75 accused individuals have no recorded age, which limits the ability to draw broader demographic conclusions about the accused [Document 1].\n\n- The relationship between the accused and the complainant is recorded in 10 FIRs, with a total of 24 relationships noted. The most common relationship is \"اجنبی (stranger),\" which appears in 15 of the 24 recorded relationships and is found in 6 FIRs. This suggests that a significant portion of the incidents involve individuals who are not known to the complainant [Document 2].\n\n- Seized property is recorded in 28 FIRs, with a total of 45 property-register entries. Of these, 13 items in 11 FIRs were sent to a forensic laboratory, and 7 items in 7 FIRs are held for return to the deceased person's heirs. This indicates that a portion of the seized items are being processed for forensic analysis, while others are being held for legal or familial disposition [Document 3].\n\n- The time of day for 64 of the 73 incidents is recorded, with the busiest time being the evening (18:00-23:59), where 19 incidents occurred. This accounts for approximately 38% of the recorded incidents. Additionally, 14 of the 64 incidents record exactly 00:00:00, which is interpreted as a date with no clock time rather than a real midnight [Document 4].\n\n- Certain accused individuals appear in more than one FIR. Specifically:\n\n  - **فیصل** appears in **2 cases**: FIR 401/26 and FIR 202/26.\n  - **طارق** appears in **2 cases**: FIR 401/26 and FIR 202/26.\n  - **شہزیب عرف شابی** appears in **2 cases**: FIR 891/24 and FIR 214/26.\n  - **عاصم رشید** appears in **2 cases**: FIR 64/26 and FIR 65/26.\n\nThese recurring appearances suggest potential links between these individuals and multiple incidents, which may be worth further investigation [Document 5].\n\n_A cited claim ([Document 2]) could only be partially confirmed against its source: The source confirms that 'اجنبی (stranger)' is the most common relationship, which implies a significant portion of incidents involve individuals not known to the complainant, but it does not explicitly state this conclusion._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 41.1,
+    "xagg_log_lines": [
+      "XAGG offender_age_profile: 17 of 92 distinct accused carry an age (19 of 94 accused entries); range 24-49, mean 31.5",
+      "XAGG seized_property_disposition: 45 register entr(ies) across 28 FIR(s), 9 distinct disposition(s); forensic-lab dispatch 13 item(s) in 11 FIR(s) (16 mention forensic in any wording); heirs 7 item(s) in 7 FIR(s); 0 entr(ies) record no disposition",
+      "XAGG accused_relationship_breakdown: 24 relationship edge(s) across 10 FIR(s), 6 distinct value(s); dominant='اجنبی' 15; coverage 12 of 92 distinct accused",
+      "XAGG incident_time_of_day: 64 of 73 incident(s) carry a datetime; 14 are date-only 00:00:00 and excluded; 50 usable -> {'night (00:00-05:59)': 1, 'morning (06:00-11:59)': 14, 'afternoon (12:00-17:59)': 16, 'evening (18:00-23:59)': 19}; peak='evening (18:00-23:59)'",
+      "XAGG graph_recurrence: entity_type=Person, 4 recurring node(s); 4 with a date-ordered timeline, 2 with a criminal-record outcome; فیصل=2[2024-09-25..2026-03-06], طارق=2[2024-09-25..2026-03-06], شہزیب عرف شابی=2[2024-09-14..2026-03-03], عاصم رشید=2[2026-03-19..2026-03-23]"
+    ],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  },
+  {
+    "id": "G2",
+    "run": 1,
+    "arm": "after",
+    "language": "ur",
+    "question": "فرض کریں آپ کسی ایس ایچ او کو بریفنگ دے رہے ہیں کہ کون سے مقدمے دب کر یا نظر سے اوجھل ہو کر رہ سکتے ہیں — آپ کن چیزوں کی نشاندہی کریں گے؟",
+    "expected_answer": "طریقہ کار: ایسے مقدمات تلاش کریں جن کے اپنے ریکارڈ اتنے مربوط نہیں کہ اُن پر انحصار کیا جا سکے۔ قابلِ توجہ نکات: (1) 9 ایف آئی آر میں واقعے کی تاریخ درج نہیں اور زیادہ تر روزنامچہ (زمنی) اندراجات کی کوئی قسم درج نہیں، اس لیے اِن مقدمات میں یہ واضح طور پر ترتیب دینا ممکن نہیں کہ کیا کب ہوا؛ (2) 73 میں سے 13 ایف آئی آر میں افسر کے تھانے سے جائے وقوعہ کی طرف روانگی کا وقت خود رپورٹ کے وقت سے پہلے کا درج ہے — یہ ترتیب کا تضاد ہے جو جانچ میں نہیں ٹکے گا؛ (3) واک اِن شکایات اور ایف آئی آر الگ الگ نظاموں میں ہیں جو صرف ایک اختیاری مشترکہ ٹیگ سے جُڑے ہیں، اس لیے غلط یا غائب ٹیگ والی شکایت ایف آئی آر موجود ہونے کے باوجود بغیر کارروائی کے دکھائی دے سکتی ہے۔ اِن میں سے کوئی بھی اکیلے کسی مقدمے کو ضائع نہیں کرتی، لیکن ہر ایک وہ خلا ہے جو جائزے میں رکاوٹ بنتا ہے۔",
+    "actual_answer": "When briefing an SHO about cases that might be stalled or overlooked, I would highlight the following key issues identified in the cross-case aggregate:\n\n1. **Missing Incident Dates**: 9 out of 73 FIRs do not record an incident date (fir-205-26, fir-211-26, fir-340-25, fir-406-26, fir-410-25, fir-422-26, fir-457-26, fir-467-26, fir-77-26). This lack of information makes it impossible to establish a clear timeline for these cases, increasing the risk that they may be overlooked or not properly followed up on.\n\n2. **No Recorded Investigation Status**: 52 out of 73 FIRs do not have a recorded investigation status. This absence of information means that the progress of these cases cannot be tracked, and they may quietly stall without anyone being aware of the delay or the need for action.\n\nThese issues require closer attention to ensure that these cases are not left unaddressed or forgotten in the system [Document 1].",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 5.7,
+    "xagg_log_lines": [
+      "XAGG case_completeness_scan: 73 case(s) scanned; 9 missing an incident date, 52 missing an investigation status"
+    ],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB2",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+    "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "actual_answer": "The system does keep a record of what a witness or an accused person says during a police interview. According to the documents, the police officer may reduce any statement made to him in the course of an examination into writing and make a separate record of the statement [Document 2]. Additionally, statements made during an investigation can be recorded by a magistrate under Section 164 of the Code of Criminal Procedure to ensure they are available as evidence at a later stage [Document 3]. Therefore, it is not a data gap; the system is designed to record such statements for use in legal proceedings.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 37.4,
+    "xagg_log_lines": [],
+    "data_half_answered": [],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents discuss the legal procedures for recording statements ma"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB3",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+    "expected_answer": "The law expects separation. Article 18 of the Police Order, 2002 sets up a distinct Investigation Wing under a dedicated head of investigation, states that registered cases \"shall be investigated by the investigation staff\" under that head, and bars the District Police Officer from interfering in the investigation process — the clear intent is that logging a case and investigating it are separate functions. In practice, our data shows the opposite: the officer who records the FIR and the officer who ends up investigating it are the same person in 68 of 74 pairs (92%); role-splitting happens in only 6 cases. So the separation the law sets up isn't what's actually happening on the ground in this data.",
+    "actual_answer": "### Governing Legal Provision:\nThe law does not explicitly require the officer who first registers a case to be the same one who investigates it. Instead, it provides general guidelines on the investigation process. For example, under the Code of Criminal Procedure (Pakistan), any police officer receiving an order to investigate may exercise the same powers as an officer in charge of a police station may exercise in a cognizable case [Document 3]. This implies that the investigation may be carried out by any officer authorized to do so, not necessarily the one who first registered the case.\n\nAdditionally, under Punjab Police Rules, an officer in charge of a police station may delegate investigation responsibilities to other officers, and assistance is required to be rendered to officers of the Criminal Investigation Department working within the jurisdiction [Document 7]. This further supports the idea that the roles of registering and investigating a case may be carried out by different officers.\n\n### What Actually Happens in Our Data:\nIn our case records, the roles of the officer who recorded the FIR and the officer who investigated the case are mostly NOT separated. In 68 of 74 recorded assignment pairs (92%), the same officer is responsible for both tasks. The roles are split in only 6 cases, and in 3 of those 6, the investigating officer has no recording officer on the same case at all, making the pair unresolvable rather than genuinely split [Document 8].",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 53.9,
+    "xagg_log_lines": [
+      "XAGG officer_role_pair_overlap: 144 assignment edge(s), 74 investigating / 70 recording; same officer on 68 of 74 pair(s) (91.9%), 6 split across 6 case(s), 3 investigating assignment(s) with no recording counterpart"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "officer_role_pair",
+        "kind": "officer_role_pair_overlap",
+        "chars": 944
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal expectations regarding the roles of of"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB4",
+    "run": 1,
+    "arm": "after",
+    "language": "ur",
+    "question": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+    "expected_answer": "جی ہاں۔ پنجاب پولیس رولز، 1934 (جلد 3) کا رول 27.16 پولیس کو پابند کرتا ہے کہ وہ مقررہ فارم میں کیس پراپرٹی اور لاوارث پراپرٹی کا رجسٹر برقرار رکھے، جسے مکمل ہونے کے تین سال بعد ہی تلف کیا جا سکتا ہے۔ ہمارا مال خانہ رجسٹر اِسی ساخت کی عکاسی کرتا ہے: ریکارڈ میں موجود 45 اندراجات میں سے ہر ایک میں سیریل نمبر، رجسٹریشن نمبر، اندراج کی تاریخ، شے کی تفصیل، مقدار اور حالت درج ہے — وہی خانے جن کا اِس رول کا مقررہ رجسٹر فارم تقاضا کرتا ہے۔",
+    "actual_answer": "### Part 1: What the Law, Rule, or Guideline Requires\n\nAccording to **Rule 27.18** from **Document 1**, when weapons, articles, and property are received in connection with cases, they must be entered in **Register No. 1** and stored properly in the store-room of the head of the prosecuting agency or the police station. Additionally, when such articles are required for production in court, they must be taken out in the presence and under the personal order of an officer of rank not less than a prosecuting sub-inspector, and an entry must be made in the register of issue from and return to the prosecuting agency's store-room.\n\nFurthermore, **Rule 27.18** also mandates that property connected with a case in which the accused is at large and has been proclaimed shall, if likely to be of material advantage to the prosecution, be kept by the head of the prosecuting agency in a strong box in his store-room. If such property, excepting valuables, is too large to be kept in the strong box, it may be kept on separate racks.\n\nFrom **Document 4**, it is mandatory that all necessary precautions be observed to avoid evidence from getting contaminated, and all equipment used for crime scene management must be sterile/disinfected. Additionally, evidence collected or sent for any purpose under the Act and rules must be inventoried and packaged prior to being released and leaving the crime scene. All evidence collected must be marked, and the evidence markers should be used for this purpose. The marking must include the case number, item number, description, and date of recovery or receiving.\n\nFrom **Document 7**, all items should be packaged in containers of suitable size that will prevent contamination or deleterious change. All evidence collected must be properly documented, labeled, marked, photographed, and inventoried before it is packaged. Digital evidence must be packaged in anti-static packaging to prevent it from static electricity.\n\n### Part 2: What Our Case Records Actually Show\n\nAccording to **Document 8**, which is a summary of our own case records, the disposition of seized property across 28 FIRs is as follows:\n\n- **ضبط شدہ (confiscated):** 14 items in 13 FIRs\n- **سیل بند، نمونہ فرانزک لیبارٹری بھجوایا گیا (sealed, sample sent to the forensic laboratory):** 13 items in 11 FIRs\n- **ورثاء کے حوالے کیا جائے گا (to be handed over to the heirs):** 7 items in 7 FIRs\n- **مدعی کے حوالے کے لیے محفوظ (held for return to the complainant):** 6 items in 6 FIRs\n- **ضبط شدہ، فرانزک جانچ کے بعد محفوظ (confiscated, held after forensic testing):** 1 item in 1 FIR\n- **فرانزک شواہد کے طور پر محفوظ (held as forensic evidence):** 1 item in 1 FIR\n- **مالخانہ میں مہر بند (sealed in the property store):** 1 item in 1 FIR\n- **مالخانہ میں مہر بند، فرانزک معائنہ مطلوب (sealed in the property store, forensic examination required):** 1 item in 1 FIR\n- **محفوظ (held):** 1 item in 1 FIR\n\nOf these, **13 items in 11 FIRs** were literally **DISPATCHED** to a forensic laboratory, and **7 items in 7 FIRs** are held for return to a deceased person's heirs.\n\n### Summary\n\n- **Legal Requirements:** According to the rules and guidelines, property must be properly stored, documented, and handled with care to avoid contamination. Evidence must be inventoried, marked, and packaged appropriately, and digital evidence must be packaged in anti-static containers.\n- **Case Records:** Our records show that property is being handled in various ways, including being confiscated, sent to the forensic laboratory, held for return to the complainant or heirs, and sealed in the property store. However, the records do not show that all items are being handled in a fully compliant manner with all the legal requirements, as some items are being held without clear documentation or forensic examination.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 194.7,
+    "xagg_log_lines": [
+      "XAGG seized_property_disposition: 45 register entr(ies) across 28 FIR(s), 9 distinct disposition(s); forensic-lab dispatch 13 item(s) in 11 FIR(s) (16 mention forensic in any wording); heirs 7 item(s) in 7 FIR(s); 0 entr(ies) record no disposition"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "property_register",
+        "kind": "seized_property_disposition",
+        "chars": 1369
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain formal standards regarding the recording and dis"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB5",
+    "run": 1,
+    "arm": "after",
+    "language": "ur",
+    "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+    "expected_answer": "جی ہاں۔ اینٹی ریپ (انویسٹی گیشن) رولز، 2022 کا رول 3(2) تفتیشی افسر کو پابند کرتا ہے کہ وہ یقینی بنائے کہ ایک خاتون پولیس افسر شامل ہو، متاثرہ کا بیان اینٹی ریپ کرائسز سیل (اے آر سی سی) میں تنہائی میں ریکارڈ کیا جائے، اور شواہد کی چین آف کسٹڈی پورے عمل کے دوران برقرار رکھی جائے — یہ واضح فرائض ہیں، تھانے کی صوابدید پر نہیں چھوڑے گئے۔ ہماری خواتین سے تشدد کی رپورٹوں کے ریکارڈ اس کا کچھ حصہ ظاہر کرتے ہیں: ریکارڈ میں موجود 8 میں سے ہر رپورٹ میں مقررہ خواتین پولیس اسٹیشن اور بیج نمبر کے ساتھ نامزد تفتیشی افسر کا خانہ موجود ہے، جو کیس کے باقاعدہ ایف آئی آر میں تبدیل ہونے سے پہلے ہی درج کیا جاتا ہے۔ جو چیز درج نہیں ہوتی وہ یہ ہے کہ چین آف کسٹڈی واقعی برقرار رکھی گئی یا نہیں — تقاضے کے اُس حصے کے لیے کوئی متعلقہ خانہ موجود نہیں۔",
+    "actual_answer": "### Part 1: What the Law Requires\n\nYes, the law requires a different procedure when a case involves violence against a woman. According to the **Anti-Rape (Investigation and Trial) Act, 2021**, specifically **Section 3(2)(d)**, it mandates that a **female police officer must be present during the statements taken from the victim**, at the **ARCC for medico-legal examination (MLE)**, and at the **forensic laboratory for DNA reference sample submission**. This provision ensures that the victim is treated with sensitivity and that the investigation is conducted in a manner that respects the victim's rights and dignity.\n\n### Part 2: What Our Case Records Show\n\nAccording to **our own case records** (Document 7), out of **8 domestic-violence reports**, **4 carry a forwarded FIR number that matches a real, active FIR**, and the remaining **4 record no forwarded number**. However, the records do **not explicitly indicate** whether the **presence of a female police officer** was ensured during the **statements, MLE, or DNA sample submission** as required by the law. Therefore, **our data does not confirm** whether the **additional measures required by the law were actually implemented**.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 63.6,
+    "xagg_log_lines": [
+      "XAGG dv_report_fir_match: 8 women-violence report(s), 4 matched to an FIR, 4 unconfirmed"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "violence_against_women",
+        "kind": "dv_report_fir_match",
+        "chars": 365
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal procedures for handling cases involvin"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6",
+    "run": 1,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule or Guideline Requires\n\nAccording to the **Forensics guidelines** (Document 2), there are specific instructions for handling and packaging evidence, particularly in sexual assault cases. For example:\n\n- **Paragraph 12** states that sharp weapons such as knives, daggers, and similar items should be packaged in appropriate-sized cardboard boxes or cartons. The submitting individual must seal the box and indicate on the exterior that it contains a **SHARP weapon** and may contain biological material.\n- **Paragraph 13** emphasizes the importance of maintaining the **integrity of the item** through proper packaging documentation, including all markings, seals, tags, and labels used by all involved agencies. It also states that **all packaging and labels** received by or returned to the agency must be preserved and documented, as this information is **critical**.\n\nThese guidelines ensure that evidence is handled in a way that maintains its integrity and prevents contamination or damage.\n\n---\n\n### Part 2: What Our Own Case Records Actually Show\n\nAccording to the **summary of our own case records** (Document 7):\n\n- **Reviewing the 32 weapon-register entries for compliance**:\n  - **30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence** — this indicates that the weapon register does **not** record whether a weapon has been **licensed** or not.\n  - **2 carry no licence status at all**, so their compliance can't be confirmed either way.\n\nThis shows that the **weapon register does not record whether a weapon has been handled in accordance with the guidelines** (e.g., whether it was properly packaged, sealed, or marked as SHARP). It also does **not** record whether a weapon was **licensed** or not, which is a key piece of information required by the **forensics guidelines**.\n\nIn conclusion, while the **forensics guidelines** clearly specify how weapons should be handled and documented, the **weapon register** does **not** capture this information in a way that confirms whether the guidelines were followed.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 65.9,
+    "xagg_log_lines": [
+      "XAGG weapon_compliance_scan: 32 weapon(s); 30 unlicensed, 2 with no licence status recorded"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "weapon_register",
+        "kind": "weapon_compliance_scan",
+        "chars": 300
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents provide specific instructions on how recovered weapons s"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB8",
+    "run": 1,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+    "expected_answer": "Haan. Code of Criminal Procedure, 1898 ki dafa 173 ke tehat har tafteesh bila-zaroori takheer ke mukammal honi chahiye, aur agar FIR darj hone ke chaudah din ke andar mukammal na ho, to officer in charge us muddat ke khatam hone ke teen din ke andar magistrate ko (public prosecutor ke zariye) ek interim report bhejne ka paband hai, jisme ab tak ki tafteesh ka natija darj ho. Hamara data us pipeline ke aakhri hisse ko darj karta hai — adaalat bheja gaya challan (26 cases) aur, hal shuda cases ke liye, darj shuda natija — magar schema mein kahin interim report ka koi tasavvur nahi aur challan ko uski tafteesh ke aaghaaz se jorne wala koi field nahi. Is liye data yeh tasdeeq kar sakta hai ke case adaalat tak pohcha, magar yeh nahi ke raaste mein 14-din ki interim-report ki zimma-daari poori hui ya nahi.",
+    "actual_answer": "### Part 1: What the law requires  \nAccording to the **Code of Criminal Procedure (Pakistan)**, specifically **Section 173**, the officer in charge of the police station is required to complete the investigation without unnecessary delay and submit a **final report** to the court as soon as the investigation is completed. This report must include details such as the names and addresses of the accused, the nature of the charge, the property involved, and other relevant information. If the investigation is not completed due to some special reason, the officer must state the reasons for not fully complying with the requirements of the section in the report.  \n\nThis is supported by **Document 1** and **Document 4**, which both reference **Section 173** of the Code of Criminal Procedure and outline the requirement for the police to submit a final report after completing the investigation.  \n\n### Part 2: What our case-tracking data shows  \nOur case-tracking data does **not** show whether any interim reporting duties were met during the investigation. The data only confirms that **26 challans** were sent to court, covering **26 cases**, with **15 of those** having a dispatch timestamp. However, there is **no field in the schema** that links a challan back to the start of its own investigation, nor is there an **interim-report record type** in the data.  \n\nThis is confirmed by **Document 8**, which explicitly states:  \n> \"What the data cannot show: there is no interim-report record type anywhere in the schema, and no field linking a challan back to the start of its own investigation. So the data confirms that a case reached court, but not whether any interim reporting duty along the way was met.\"  \n\nThus, while the law requires the police to submit a report upon completing the investigation, our case-tracking data does **not** confirm whether such interim reporting duties were fulfilled.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 62.7,
+    "xagg_log_lines": [
+      "XAGG chalaan_dispatch_count: 26 challan dispatch record(s) across 26 case(s), 15 carrying a dispatch timestamp; 20 chalaan_outcome record(s) across 20 case(s), 15 with a court-reached date; interim-report record type present=False"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "chalaan_dispatch",
+        "kind": "chalaan_dispatch_count",
+        "chars": 924
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal requirement for police to report to th"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB9",
+    "run": 1,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+    "expected_answer": "Code of Criminal Procedure, 1898 ki dafa 174 officer in charge ko paband karti hai ke jab use maloom ho ke koi shakhs khudkushi se, qatl se, ya aise halaat mein mara gaya jo shak paida karte hain, to woh tehqeeqaat kare aur maut ki zaahiri wajah par ek report tayyar kare — jism par mojood zakhmon ya nishaanaat ki tafseel ke saath — aur ise qareeb tareen magistrate ko bheje. Hamara data zahir karta hai ke aise cases mojood hain: 10 FIRs qatl ki dafa (PPC 302) ka hawala dete hain, aur kai zabt shuda property entries meyyat ke warisaan ko wapas karne ke liye nishaanzad hain. Magar schema mein kahin koi inquest, post-mortem ya cause-of-death record nahi. FIR aur uski dafaat yeh darj karti hain ke maut ka daawa kiya gaya hai; woh alag qanooni maut ki tehqeeqaat ko darj nahi kartin.",
+    "actual_answer": "### Part 1: What the Law Requires\n\nAccording to the **Code of Criminal Procedure (Pakistan)**, when a person dies while in the custody of the police or under circumstances that suggest unnatural or suspicious death, the police are required to conduct an inquiry into the cause of death. This is outlined in **Section 174** of the Code of Criminal Procedure, which mandates that the police inquire and report on suicide, etc. Additionally, **Section 176** provides that in cases where a person dies while in police custody, the nearest magistrate empowered to hold inquests shall conduct an inquiry into the cause of death.\n\nFurthermore, **Punjab Police Rules-III** (Rule 25.31) states that upon receiving information of the sudden or unnatural death of any person within the local jurisdiction of a police station, the officer in charge must immediately inform the nearest magistrate authorized to hold inquests and proceed to the place where the body is to conduct an investigation in accordance with **Section 174** of the Code of Criminal Procedure.\n\n### Part 2: What Our Case Records Actually Show\n\nAccording to **our own case records** (Document 7), out of **73 FIRs** that carry a recorded section cite, **10** of them cite **PPC §302**, which pertains to murder. This indicates that **murder** is a significant category of cases in our records. However, the records do not explicitly state whether the police conducted detailed investigations into the cause of death in these cases, as required by the law. The records do not provide specific data on whether the police conducted inquiries into the cause of death in all cases of unnatural or suspicious deaths, nor do they provide a breakdown of how many cases involved the police conducting such inquiries.\n\nIn summary, while the law mandates that the police conduct inquiries into the cause of death in cases of unnatural or suspicious deaths, our case records do not provide sufficient information to confirm whether this requirement was consistently followed.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 49.7,
+    "xagg_log_lines": [
+      "XAGG fir_section_case_count: 218 section entr(ies) over 73 FIR(s) and 36 distinct section(s); focus=302 -> 10 FIR(s); top=PPC §34=40, Arms Ordinance 1965 §13=29, PPC §392=21, CNSA 1997 §9(c)=12, PPC §420=11"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "death_investigation_charging",
+        "kind": "fir_section_case_count",
+        "chars": 829
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents discuss procedures for police inquiries into the cause o"
+      }
+    ],
+    "quota_lines": []
+  }
+]

@@ -1,0 +1,642 @@
+{
+ "A1::gold": {
+  "detail": "translate+llm | What is the ratio of male to female suspects?",
+  "elapsed_s": 50.46,
+  "route": "XAGG"
+ },
+ "A1::para::en": {
+  "detail": "translate+llm | Among the people named as accused, what is the split between men and w",
+  "elapsed_s": 5.61,
+  "route": "XAGG"
+ },
+ "A1::para::roman_ur": {
+  "detail": "translate+llm | How many men and how many women are among those people who have been n",
+  "elapsed_s": 5.18,
+  "route": "XAGG"
+ },
+ "A1::para::ur": {
+  "detail": "translate+llm | How many men and how many women are among those individuals who have b",
+  "elapsed_s": 5.4,
+  "route": "XAGG"
+ },
+ "A7::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "A7::para::en": {
+  "detail": "translate+llm | In how many files did the person reporting explain why they took time ",
+  "elapsed_s": 5.29,
+  "route": "XAGG"
+ },
+ "A7::para::roman_ur": {
+  "detail": "translate+llm | How many complainants said that they faced a delay in reaching the pol",
+  "elapsed_s": 5.36,
+  "route": "XAGG"
+ },
+ "A7::para::ur": {
+  "detail": "translate+llm | In how many files did the complainant explain why there was a delay in",
+  "elapsed_s": 6.7,
+  "route": "XAGG"
+ },
+ "CP1::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CP1::para::en": {
+  "detail": "translate+llm | Relative to how many files it carries, which district seizes arms most",
+  "elapsed_s": 7.2,
+  "route": "XAGG"
+ },
+ "CP1::para::roman_ur": {
+  "detail": "translate+llm | Which district, according to the number of your files, records the mos",
+  "elapsed_s": 9.17,
+  "route": "XAGG"
+ },
+ "CP1::para::ur": {
+  "detail": "translate+llm | Which district confiscates the most weapons based on the number of fil",
+  "elapsed_s": 6.93,
+  "route": "XAGG"
+ },
+ "CP6::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CP6::para::en": {
+  "detail": "translate+llm | How many files are still sitting with nobody formally put in charge of",
+  "elapsed_s": 6.26,
+  "route": "XAGG"
+ },
+ "CP6::para::roman_ur": {
+  "detail": "translate+llm | How many files are there for which no official has been formally held ",
+  "elapsed_s": 55.97,
+  "route": "XAGG"
+ },
+ "CP6::para::ur": {
+  "detail": "translate+llm | How many files are there for which no officer has been officially assi",
+  "elapsed_s": 35.93,
+  "route": "XAGG"
+ },
+ "CR2::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR2::para::en": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR2::para::roman_ur": {
+  "detail": "translate+llm | Is there any person who already had a case pending against them and no",
+  "elapsed_s": 7.06,
+  "route": "XGRAPH"
+ },
+ "CR2::para::ur": {
+  "detail": "translate+llm | Is there any individual who previously had a case pending against them",
+  "elapsed_s": 12.59,
+  "route": "XGRAPH"
+ },
+ "CR3::gold": {
+  "detail": "translate+llm | In the online banking fraud matter involving two separate victims, was",
+  "elapsed_s": 9.98,
+  "route": "XNETWORK"
+ },
+ "CR3::para::en": {
+  "detail": "translate+llm | Take the internet banking cheating matter that had two different compl",
+  "elapsed_s": 76.91,
+  "route": "XNETWORK"
+ },
+ "CR3::para::roman_ur": {
+  "detail": "translate+llm | Was the internet banking fraud case involving two different complainan",
+  "elapsed_s": 7.8,
+  "route": "XNETWORK"
+ },
+ "CR3::para::ur": {
+  "detail": "translate+llm | Were both victims of the internet banking fraud case, which involved t",
+  "elapsed_s": 7.92,
+  "route": "XNETWORK"
+ },
+ "CR4::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR4::para::en": {
+  "detail": "translate+llm | When a firearm sits in our evidence store, are we able to trace the pe",
+  "elapsed_s": 56.4,
+  "route": "XGRAPH"
+ },
+ "CR4::para::roman_ur": {
+  "detail": "override-after-translate | When a weapon is seized as evidence, can we find out who it was taken ",
+  "elapsed_s": 5.49,
+  "route": "XAGG"
+ },
+ "CR4::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR6::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR6::para::en": {
+  "detail": "translate+llm | When a member of the public walks in and lodges a grievance, does that",
+  "elapsed_s": 9.56,
+  "route": "RAG"
+ },
+ "CR6::para::roman_ur": {
+  "detail": "override-after-translate | If someone comes to the police station to file a complaint, does that ",
+  "elapsed_s": 3.93,
+  "route": "XAGG"
+ },
+ "CR6::para::ur": {
+  "detail": "translate+llm | If a person comes to the police station to register their case, does t",
+  "elapsed_s": 58.87,
+  "route": "RAG"
+ },
+ "CR7::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR7::para::en": {
+  "detail": "translate+llm | Out of the entries in our offender-history store, how many matters hav",
+  "elapsed_s": 13.06,
+  "route": "XAGG"
+ },
+ "CR7::para::roman_ur": {
+  "detail": "override-after-translate | How many cases are closed and how many are still pending in our crimin",
+  "elapsed_s": 5.09,
+  "route": "XAGG"
+ },
+ "CR7::para::ur": {
+  "detail": "override-after-translate | How many cases in our criminal record have been resolved and how many ",
+  "elapsed_s": 4.91,
+  "route": "XAGG"
+ },
+ "CR8::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR8::para::en": {
+  "detail": "translate+llm | If a household-abuse grievance was noted as having turned into a prope",
+  "elapsed_s": 8.61,
+  "route": "RAG"
+ },
+ "CR8::para::roman_ur": {
+  "detail": "translate+llm | If a complaint of domestic violence has been formally recorded in the ",
+  "elapsed_s": 10.19,
+  "route": "RAG"
+ },
+ "CR8::para::ur": {
+  "detail": "translate+llm | If a complaint of domestic violence is written as a formal case, does ",
+  "elapsed_s": 10.56,
+  "route": "RAG"
+ },
+ "CS4::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CS4::para::en": {
+  "detail": "translate+llm | In the broader offender-history holdings, is there an individual who l",
+  "elapsed_s": 6.9,
+  "route": "XNETWORK"
+ },
+ "CS4::para::roman_ur": {
+  "detail": "override-after-translate | Is there any person in the criminal record during the spring who does ",
+  "elapsed_s": 2.98,
+  "route": "XAGG"
+ },
+ "CS4::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "D1::gold": {
+  "detail": "override",
+  "elapsed_s": 6.1,
+  "route": "XAGG"
+ },
+ "D1::para::en": {
+  "detail": "translate+llm | What is the total number of first information reports we currently hol",
+  "elapsed_s": 8.93,
+  "route": "XAGG"
+ },
+ "D1::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "D1::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XNETWORK"
+ },
+ "G1::gold": {
+  "detail": "translate+llm | Acting as a crime analyst, review our current caseload and flag anythi",
+  "elapsed_s": 9.54,
+  "route": "XNETWORK"
+ },
+ "G1::para::en": {
+  "detail": "translate+llm | Put on an analyst's hat, go through what we are carrying at present an",
+  "elapsed_s": 5.11,
+  "route": "XNETWORK"
+ },
+ "G1::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "G1::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "G2::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "G2::para::en": {
+  "detail": "translate+llm | Imagine you are updating a station head about matters at risk of slipp",
+  "elapsed_s": 5.83,
+  "route": "XNETWORK"
+ },
+ "G2::para::roman_ur": {
+  "detail": "translate+llm | Suppose you are informing a police station incharge about matters that",
+  "elapsed_s": 4.95,
+  "route": "RAG"
+ },
+ "G2::para::ur": {
+  "detail": "translate+llm | Suppose you are informing a police station in-charge about cases that ",
+  "elapsed_s": 7.58,
+  "route": "RAG"
+ },
+ "G3::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "G3::para::en": {
+  "detail": "ClientError: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and ",
+  "elapsed_s": 9.56,
+  "route": "ERROR"
+ },
+ "G3::para::roman_ur": {
+  "detail": "translate+llm | You are preparing a file to send to court — according to the data, whi",
+  "elapsed_s": 5.58,
+  "route": "RAG"
+ },
+ "G3::para::ur": {
+  "detail": "override-after-translate | Are you preparing a file to send to court — according to the data, whi",
+  "elapsed_s": 2.36,
+  "route": "XAGG"
+ },
+ "G5::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "G5::para::en": {
+  "detail": "translate+llm | Looking at how seized arms are being written up, is there anything a c",
+  "elapsed_s": 6.89,
+  "route": "RAG"
+ },
+ "G5::para::roman_ur": {
+  "detail": "translate+llm | Are the recorded original documents written in such a way that somethi",
+  "elapsed_s": 6.25,
+  "route": "RAG"
+ },
+ "G5::para::ur": {
+  "detail": "translate+llm | Is there something in the way the seized weapon is being written that ",
+  "elapsed_s": 8.68,
+  "route": "RAG"
+ },
+ "G6::gold": {
+  "detail": "translate+llm | Write a brief orientation note for a new officer arriving at this stat",
+  "elapsed_s": 9.45,
+  "route": "XNETWORK"
+ },
+ "G6::para::en": {
+  "detail": "translate+llm | Draft a short welcome brief for someone just posted in — what should t",
+  "elapsed_s": 8.84,
+  "route": "XNETWORK"
+ },
+ "G6::para::roman_ur": {
+  "detail": "translate+llm | What should the new officer be told at the beginning — what should the",
+  "elapsed_s": 56.75,
+  "route": "XNETWORK"
+ },
+ "G6::para::ur": {
+  "detail": "translate+llm | What should the new officer be told at the beginning — what should the",
+  "elapsed_s": 9.89,
+  "route": "XNETWORK"
+ },
+ "KB1::gold": {
+  "detail": "override",
+  "elapsed_s": 5.48,
+  "route": "RAG"
+ },
+ "KB1::para::en": {
+  "detail": "translate+llm | Which provision of law lays down the way a complaint turns into an off",
+  "elapsed_s": 8.64,
+  "route": "RAG"
+ },
+ "KB1::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "KB1::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "KB2::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB2::para::en": {
+  "detail": "translate+llm | How come nothing in our setup preserves the statements given by a witn",
+  "elapsed_s": 57.54,
+  "route": "RAG"
+ },
+ "KB2::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB2::para::ur": {
+  "detail": "translate+llm | Why aren't the statements made by a witness or accused during an inves",
+  "elapsed_s": 6.2,
+  "route": "RAG"
+ },
+ "KB3::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB3::para::en": {
+  "detail": "translate+llm | Is the person who opens a matter supposed under the rules to also be t",
+  "elapsed_s": 55.91,
+  "route": "XNETWORK"
+ },
+ "KB3::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB3::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB4::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB4::para::en": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB4::para::roman_ur": {
+  "detail": "translate+llm | When police take possession of items related to a case, is there a fix",
+  "elapsed_s": 10.49,
+  "route": "RAG"
+ },
+ "KB4::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB5::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB5::para::en": {
+  "detail": "translate+llm | Where a matter involves harm done to a female, do the rules call for a",
+  "elapsed_s": 9.05,
+  "route": "RAG"
+ },
+ "KB5::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB5::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB6::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB6::para::en": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB6::para::roman_ur": {
+  "detail": "translate+llm | Is there any specific instruction in the rules of evidence regarding h",
+  "elapsed_s": 8.6,
+  "route": "RAG"
+ },
+ "KB6::para::ur": {
+  "detail": "translate+llm | Are there any specific guidelines in the lab rules regarding how seize",
+  "elapsed_s": 17.02,
+  "route": "RAG"
+ },
+ "KB8::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB8::para::en": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB8::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB8::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB9::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB9::para::en": {
+  "detail": "translate+llm | Where a person passes away in circumstances that raise doubt, the forc",
+  "elapsed_s": 12.82,
+  "route": "RAG"
+ },
+ "KB9::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB9::para::ur": {
+  "detail": "translate+llm | If someone's death occurs under circumstances that raise suspicion, do",
+  "elapsed_s": 7.63,
+  "route": "RAG"
+ },
+ "M1::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M1::para::en": {
+  "detail": "translate+llm | Has the make-up of the matters we handle moved on from where it stood ",
+  "elapsed_s": 6.74,
+  "route": "XAGG"
+ },
+ "M1::para::roman_ur": {
+  "detail": "translate+llm | Have the matters that used to occur three years ago changed now?",
+  "elapsed_s": 7.18,
+  "route": "RAG"
+ },
+ "M1::para::ur": {
+  "detail": "translate+llm | Have the types of cases that occurred two or three years ago changed n",
+  "elapsed_s": 10.44,
+  "route": "XAGG"
+ },
+ "M2::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M2::para::en": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M2::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M2::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M4::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M4::para::en": {
+  "detail": "translate+llm | Look at which provisions people are being booked under on one hand, an",
+  "elapsed_s": 6.41,
+  "route": "XNETWORK"
+ },
+ "M4::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M4::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M5::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M5::para::en": {
+  "detail": "translate+llm | Which categories of matter do arms usually turn up in, and is that pic",
+  "elapsed_s": 4.97,
+  "route": "XAGG"
+ },
+ "M5::para::roman_ur": {
+  "detail": "translate+llm | What kind of cases do firearms commonly appear in, and is this situati",
+  "elapsed_s": 5.59,
+  "route": "XAGG"
+ },
+ "M5::para::ur": {
+  "detail": "translate+llm | What kind of situations do weapons typically appear in, and is this sc",
+  "elapsed_s": 5.31,
+  "route": "RAG"
+ },
+ "M7::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M7::para::en": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M7::para::roman_ur": {
+  "detail": "override-after-translate | Are city officials providing news about incidents as promptly in 2026 ",
+  "elapsed_s": 2.17,
+  "route": "XAGG"
+ },
+ "M7::para::ur": {
+  "detail": "override-after-translate | Are citizens reporting incidents to us as promptly in 2026 as they did",
+  "elapsed_s": 1.3,
+  "route": "XAGG"
+ },
+ "S2::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "S2::para::en": {
+  "detail": "translate+llm | Which of our stations is responsible for the biggest share of files?",
+  "elapsed_s": 7.0,
+  "route": "XAGG"
+ },
+ "S2::para::roman_ur": {
+  "detail": "override-after-translate | Which police station has the most files?",
+  "elapsed_s": 2.24,
+  "route": "XAGG"
+ },
+ "S2::para::ur": {
+  "detail": "translate+llm | Which police station has the highest number of cases?",
+  "elapsed_s": 5.71,
+  "route": "XAGG"
+ },
+ "S3::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "S3::para::en": {
+  "detail": "translate+llm | Has any individual been taken into custody on more than one occasion?",
+  "elapsed_s": 5.27,
+  "route": "XGRAPH"
+ },
+ "S3::para::roman_ur": {
+  "detail": "translate+llm | Has any individual been taken into custody more than once?",
+  "elapsed_s": 4.89,
+  "route": "XAGG"
+ },
+ "S3::para::ur": {
+  "detail": "translate+llm | Is there any individual who has been taken into custody more than once",
+  "elapsed_s": 5.48,
+  "route": "XAGG"
+ }
+}
