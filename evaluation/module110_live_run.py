@@ -82,6 +82,15 @@ def _load(p: Path):
 
 def build_items(qids: list[str], gold_only: bool, para_only: bool) -> list[dict]:
     gold = {g["id"]: g for g in _load(GOLD_PATH)}
+    if qids == ["ALL32"]:
+        # Section 7's regression guard. Routes are compared against
+        # `evaluation/gold32_route_baseline.json` (Module 116); ANSWERS need
+        # their own before/after arms, because that baseline records routes
+        # only. G1 is in here by name and on purpose: it shares
+        # `_SQ_ACCUSED_AGE` and `_SQ_RELATIONSHIP` with the plan this module
+        # changed, and Module 95 measured a shared sub-query's cost rather
+        # than assuming it away.
+        qids = [g["id"] for g in _load(GOLD_PATH)]
     out = []
     for qid in qids:
         if not para_only:

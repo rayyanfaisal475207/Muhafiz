@@ -290,7 +290,51 @@ _MAX_SUB_QUERIES = 5
 # preventing the underlying serialisation. Reconsidering the cap needs its
 # own measurement of the post-Module-53 staircase, which Module 53 did not
 # do; it is left as tracked work rather than changed on inference.
-_MAX_PLAN_SUB_QUERIES = 5
+#
+# [Gold-QA fix - Module 110] RAISED 5 -> 8, and this is the one paragraph in
+# this file that had to change before G6 could be fixed at all - so the
+# reasoning is here rather than in a commit message.
+#
+# WHY THE COVERAGE FIX COULD NOT AVOID IT. Module 110 owns "G6's
+# `orientation_note` plan computes five of gold's seven findings". Each of
+# those five sub-queries carries exactly ONE of gold's findings, so there is
+# no weak slot to re-compose into: any swap trades one gold finding for
+# another and nets zero. At `_MAX_PLAN_SUB_QUERIES = 5` G6 cannot exceed five
+# of seven, whatever the plan is composed of. The cap IS the defect; the plan
+# composition is not.
+#
+# WHY 8 AND NOT 9. Module 59 is the tracked work this paragraph asked for
+# ("measure the post-Module-53 staircase at N=6..9, then decide"), and it is
+# not fully discharged here - Module 110 measured N=8 on G6, not the whole
+# ladder. What DOES bound the number is this file's own existing invariant,
+# asserted in `tests/test_harness_agent_meta_analysis.py::
+# test_module53_subquery_timeout_leaves_headroom_over_the_measured_staircase`:
+# `_MAX_PLAN_SUB_QUERIES` x 12 s (Module 50's staircase step, rounded up) x
+# 1.5 headroom must fit inside `META_ANALYSIS_SUBQUERY_TIMEOUT`. At 150 s
+# that permits 8 (144 s) and REFUSES 9 (162 s). So 8 is not a taste
+# judgement - it is the largest value the deadline arithmetic already in
+# this repo allows, and the test that encodes it fails if a later module
+# raises the cap without also moving the deadline.
+#
+# WHAT THAT LEAVES OUT, stated plainly. Gold's accused-profile finding has
+# three components - "mostly men", "aged 25-40", "usually strangers to the
+# complainant". Two of the three fit (`_SQ_ACCUSED_AGE`, `_SQ_RELATIONSHIP`).
+# `_SQ_GENDER` - which Module 50 dropped from THIS plan and Module 59 records
+# as the first thing to go back in if the cap rises - still does not fit, and
+# it is the best-covered of the three (91 of 94 accused entries record a
+# gender, against 17 of 92 for age). It stays out because the ninth slot does
+# not exist, not because it lost on merit. See MODULE110_RESULT.md Section 8.
+#
+# WHAT MEASUREMENT SUPPORTS IT. Module 110 ran G6 six times before and six
+# times after, in process, recording the model that answered each run (see
+# `evaluation/module110_live_run.py` - `call_llm()`'s silent Groq fallback
+# invalidated Module 101's first eight runs, so it is captured, not assumed).
+# The numbers are in MODULE110_RESULT.md Section 4. The risk this had to
+# clear is NOT the deadline but Module 83's length-sensitive synthesis
+# collapse: three more sub-answers is a longer synthesis prompt, which is the
+# exact stressor Module 83 measured (3 of 4 collapsing at the old length, 4
+# of 4 lengthened).
+_MAX_PLAN_SUB_QUERIES = 8
 
 # Self-contained, sub-agent-scoped synthesis prompt — inline template, NOT
 # an external prompts/*.txt file. See module docstring's stage-1 note for
@@ -499,6 +543,49 @@ _SQ_CRIMINAL_RECORD_VS_COURT = (
     "How many cases in the criminal record system have a court outcome that matches "
     "the recorded conviction status, across all cases?"
 )
+# [Gold-QA fix - Module 110] G6's court-stage element, and a DIFFERENT
+# question from `_SQ_CRIMINAL_RECORD_VS_COURT` above even though both resolve
+# to the same aggregate (`criminal_record_court_crosscheck`). This distinction
+# was not designed, it was MEASURED: Module 110's first after-arm dispatched
+# `_SQ_CRIMINAL_RECORD_VS_COURT` and the synthesis carried the wrong half of
+# the answer in 6 runs of 6 - "of 33 criminal records, only 1 has a court
+# outcome matching the recorded conviction status" - because that is what the
+# sub-question ASKS. It is CR7's question. The sub-agent paraphrases the
+# aggregate to answer the question it was given, so the aggregate's other
+# half, the one gold's G6 states ("32 of 33 are still in progress"), never
+# reached the synthesis prompt at all. Dispatching the right aggregate is not
+# sufficient; the sub-question has to ask for the half the plan needs.
+#
+# Checked against the resolver before being committed, per this file's
+# convention, and against `router._deterministic_route_override()` too - the
+# obvious phrasing "How many criminal records are still under trial ..."
+# resolves to the right aggregate but routes XGRAPH, which is exactly the
+# override-order trap the Modules 31-34 comment block above documents. This
+# wording leads with "How many cases" for that reason.
+#
+# THEN CHECKED AGAINST A LIVE SUB-ANSWER, which is the step that actually
+# settled the wording, and which resolving alone would not have caught. Three
+# candidates all resolve to `criminal_record_court_crosscheck` and all route
+# XAGG, and they produce three DIFFERENT sub-answers, because the sub-agent
+# paraphrases the rendered aggregate to answer the question it was handed:
+#
+#   "...have a court outcome that MATCHES the recorded conviction status"
+#       -> "out of 33 criminal records, 1 case (FIR 891-24) has a court
+#          outcome that matches" - CR7's answer, not G6's
+#   "...record a conviction status, and how many of those are STILL IN
+#    PROGRESS rather than decided"
+#       -> "out of 33 criminal records, 1 case records a conviction status"
+#          - and that is also WRONG, not merely off-target
+#   the wording below
+#       -> "out of 33 criminal records, 32 are still in progress and 1 has
+#          reached a verdict" - gold's finding, verbatim from the renderer
+#
+# A sub-query is not verified by the aggregate it resolves to. It is verified
+# by the sub-answer it comes back with.
+_SQ_COURT_STAGE = (
+    "How many cases in the criminal record system are still in progress in "
+    "court, and how many have reached a verdict, across all cases?"
+)
 _SQ_DISTRICT_SPREAD = "How many cases are registered in each district, across all cases?"
 _SQ_REPORTING_SPEED = (
     "How long does it typically take someone to report a crime to us these days "
@@ -664,6 +751,33 @@ _DECOMPOSITION_PLANS: tuple[_DecompositionPlan, ...] = (
             _SQ_ARREST_RATE,
             _SQ_REPORTING_SPEED,
             _SQ_WEAPON_LICENCE,
+            # [Gold-QA fix - Module 110] The three added here are NOT new
+            # aggregates and NOT new dispatch strings: the first two are the
+            # SAME constants `caseload_review` below already dispatches for
+            # G1, referenced rather than re-worded so a reword in one plan
+            # cannot silently diverge from the other, and the third has sat in
+            # this file unused since Module 50 dropped it from G1's own
+            # re-composition. Each was checked against
+            # `xagg.resolve_aggregate_kind()` before being committed, per this
+            # file's own convention - `offender_age_profile`,
+            # `accused_relationship_breakdown`,
+            # `criminal_record_court_crosscheck` - and
+            # `test_module29_every_planned_sub_query_routes_deterministically_to_xagg`
+            # covers all three as plan members automatically.
+            #
+            # They close gold's two uncomputed findings: the accused profile
+            # (age range + who the accused are to the complainant) and "most
+            # matters are still pending in court", which the criminal-record
+            # cross-check states directly ("Of 33 criminal records, 32 are
+            # still in progress and 1 has reached a verdict").
+            #
+            # `_SQ_COURT_STAGE` is a NEW dispatch string rather than the
+            # long-declared `_SQ_CRIMINAL_RECORD_VS_COURT`, and see that
+            # constant for the six-of-six live measurement that forced the
+            # distinction: same aggregate, different half of it.
+            _SQ_ACCUSED_AGE,
+            _SQ_RELATIONSHIP,
+            _SQ_COURT_STAGE,
         ),
         synthesis_goal=(
             "Write a short orientation note for an officer joining this caseload. Say "
@@ -671,6 +785,26 @@ _DECOMPOSITION_PLANS: tuple[_DecompositionPlan, ...] = (
             "how it has changed, how often an arrest is actually recorded, how promptly "
             "crimes are reported now compared with earlier, and what the "
             "weapon-licensing picture looks like. "
+            # [Gold-QA fix - Module 110] The two elements the plan could not
+            # compute until this module. Asked for as SHAPES of the caseload -
+            # "who the accused tend to be", "how far cases have got in court" -
+            # not as the values gold happens to state: the note must report
+            # whatever the profile turns out to be, not be tuned to reproduce
+            # "men aged 25-40" or "most still pending".
+            "Also say what the accused tend to look like as a group - the recorded "
+            "age range and how the accused relate to the complainant, and which "
+            "relationship comes up most - and how far the cases have actually got "
+            "in court. "
+            # The coverage discipline Module 71 established for G1 applies with
+            # more force here: the age and relationship sub-answers each state
+            # a coverage figure, and each describes a small MINORITY of the
+            # accused roster. An orientation note saying "the accused are aged
+            # 24-49" without saying how few records carry an age is a claim
+            # this data does not support, and the same is true of the
+            # court-stage figure, which counts criminal records, not FIRs.
+            "Where a sub-answer says how much of the caseload its own figure covers, "
+            "carry that coverage across with it, onto that finding and no other, and "
+            "never give one finding another's denominator. "
             "Quote the per-district and per-year figures exactly as the sub-answers give "
             "them — do not total them up — and state plainly anything the sub-answers say "
             "is not available rather than guessing at it."
