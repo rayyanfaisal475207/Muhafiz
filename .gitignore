@@ -105,3 +105,9 @@ scratchpad/
 # Credential drop-file and backups — never commit
 api.txt
 .env.backup*
+
+# SHARE hand-off artefacts — regenerated from the live stack, never committed.
+# .env and certs/*.key under SHARE/ are already covered by the rules above.
+SHARE/database/*.sql
+SHARE/database/*.zip
+SHARE_muhafiz_*.zip
