@@ -101,3 +101,7 @@ skills-lock.json
 
 # Agent working files -- never part of a PR
 scratchpad/
+
+# Credential drop-file and backups — never commit
+api.txt
+.env.backup*
