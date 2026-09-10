@@ -1,0 +1,578 @@
+[
+  {
+    "id": "D1",
+    "type": "Fact Retrieval",
+    "lang": "en",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 90
+  },
+  {
+    "id": "S2",
+    "type": "Fact Retrieval",
+    "lang": "en",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 109
+  },
+  {
+    "id": "A1",
+    "type": "Fact Retrieval",
+    "lang": "ur",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 240
+  },
+  {
+    "id": "A7",
+    "type": "Fact Retrieval",
+    "lang": "roman_ur",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 0.6670000000000001,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 165
+  },
+  {
+    "id": "S3",
+    "type": "Fact Retrieval",
+    "lang": "ur",
+    "fc": [
+      0.9,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 0.9666666666666667,
+    "spread": 0.09999999999999998,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 733
+  },
+  {
+    "id": "CP6",
+    "type": "Fact Retrieval",
+    "lang": "roman_ur",
+    "fc": [
+      0.8,
+      0.8,
+      0.8
+    ],
+    "fc_mean": 0.8000000000000002,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 100
+  },
+  {
+    "id": "CR2",
+    "type": "Complex Reasoning",
+    "lang": "en",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 0.5333333333333333,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 630
+  },
+  {
+    "id": "CR3",
+    "type": "Complex Reasoning",
+    "lang": "en",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 1.0,
+    "route": "XNETWORK",
+    "route_stable": true,
+    "len_mean": 789
+  },
+  {
+    "id": "CR4",
+    "type": "Complex Reasoning",
+    "lang": "en",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 0.988,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 2711
+  },
+  {
+    "id": "CR6",
+    "type": "Complex Reasoning",
+    "lang": "ur",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 0.875,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 521
+  },
+  {
+    "id": "CR7",
+    "type": "Complex Reasoning",
+    "lang": "ur",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 661
+  },
+  {
+    "id": "CS4",
+    "type": "Complex Reasoning",
+    "lang": "roman_ur",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 0.8610000000000001,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 849
+  },
+  {
+    "id": "CP1",
+    "type": "Complex Reasoning",
+    "lang": "roman_ur",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 0.5,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 153
+  },
+  {
+    "id": "CR8",
+    "type": "Complex Reasoning",
+    "lang": "ur",
+    "fc": [
+      0.9,
+      0.9,
+      0.9
+    ],
+    "fc_mean": 0.9,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 192
+  },
+  {
+    "id": "KB6",
+    "type": "Knowledge Base Reasoning",
+    "lang": "roman_ur",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 0.965,
+    "route": "RAG",
+    "route_stable": true,
+    "len_mean": 1886
+  },
+  {
+    "id": "KB8",
+    "type": "Knowledge Base Reasoning",
+    "lang": "roman_ur",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 0.7999999999999999,
+    "route": "RAG",
+    "route_stable": true,
+    "len_mean": 2283
+  },
+  {
+    "id": "KB9",
+    "type": "Knowledge Base Reasoning",
+    "lang": "roman_ur",
+    "fc": [
+      0.9,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 0.9666666666666667,
+    "spread": 0.09999999999999998,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 0.926,
+    "route": "RAG",
+    "route_stable": true,
+    "len_mean": 1686
+  },
+  {
+    "id": "KB1",
+    "type": "Knowledge Base Reasoning",
+    "lang": "en",
+    "fc": [
+      0.7,
+      0.7,
+      0.7
+    ],
+    "fc_mean": 0.6999999999999998,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 0.867,
+    "route": "RAG",
+    "route_stable": true,
+    "len_mean": 1613
+  },
+  {
+    "id": "KB5",
+    "type": "Knowledge Base Reasoning",
+    "lang": "ur",
+    "fc": [
+      0.4,
+      0.6,
+      0.6
+    ],
+    "fc_mean": 0.5333333333333333,
+    "spread": 0.19999999999999996,
+    "n_pass": 2,
+    "n_scored": 3,
+    "ar_mean": 1.0,
+    "route": "RAG",
+    "route_stable": true,
+    "len_mean": 1865
+  },
+  {
+    "id": "KB3",
+    "type": "Knowledge Base Reasoning",
+    "lang": "en",
+    "fc": [
+      0.4,
+      0.6,
+      0.4
+    ],
+    "fc_mean": 0.4666666666666666,
+    "spread": 0.19999999999999996,
+    "n_pass": 1,
+    "n_scored": 3,
+    "ar_mean": 1.0,
+    "route": "RAG",
+    "route_stable": true,
+    "len_mean": 1322
+  },
+  {
+    "id": "KB2",
+    "type": "Knowledge Base Reasoning",
+    "lang": "en",
+    "fc": [
+      0.3,
+      0.2,
+      0.2
+    ],
+    "fc_mean": 0.2333333333333333,
+    "spread": 0.09999999999999998,
+    "n_pass": 0,
+    "n_scored": 3,
+    "ar_mean": 1.0,
+    "route": "RAG",
+    "route_stable": true,
+    "len_mean": 739
+  },
+  {
+    "id": "KB4",
+    "type": "Knowledge Base Reasoning",
+    "lang": "ur",
+    "fc": [
+      0.2,
+      0.2,
+      0.2
+    ],
+    "fc_mean": 0.20000000000000004,
+    "spread": 0.0,
+    "n_pass": 0,
+    "n_scored": 3,
+    "ar_mean": 0.9783333333333334,
+    "route": "RAG",
+    "route_stable": true,
+    "len_mean": 3109
+  },
+  {
+    "id": "M1",
+    "type": "Contextual Summarization",
+    "lang": "en",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 1002
+  },
+  {
+    "id": "M2",
+    "type": "Contextual Summarization",
+    "lang": "en",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 405
+  },
+  {
+    "id": "M4",
+    "type": "Contextual Summarization",
+    "lang": "ur",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 957
+  },
+  {
+    "id": "M7",
+    "type": "Contextual Summarization",
+    "lang": "roman_ur",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 252
+  },
+  {
+    "id": "M5",
+    "type": "Contextual Summarization",
+    "lang": "ur",
+    "fc": [
+      0.9,
+      0.9,
+      0.9
+    ],
+    "fc_mean": 0.9,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 759
+  },
+  {
+    "id": "G2",
+    "type": "Creative Generation",
+    "lang": "ur",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 1985
+  },
+  {
+    "id": "G3",
+    "type": "Creative Generation",
+    "lang": "ur",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 626
+  },
+  {
+    "id": "G5",
+    "type": "Creative Generation",
+    "lang": "roman_ur",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "n_scored": 3,
+    "ar_mean": 0.867,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 984
+  },
+  {
+    "id": "G1",
+    "type": "Creative Generation",
+    "lang": "en",
+    "fc": [
+      1.0,
+      0.9,
+      0.4
+    ],
+    "fc_mean": 0.7666666666666666,
+    "spread": 0.6,
+    "n_pass": 2,
+    "n_scored": 3,
+    "ar_mean": 1.0,
+    "route": "XNETWORK",
+    "route_stable": true,
+    "len_mean": 2264
+  },
+  {
+    "id": "G6",
+    "type": "Creative Generation",
+    "lang": "roman_ur",
+    "fc": [
+      0.0,
+      0.4,
+      1.0
+    ],
+    "fc_mean": 0.4666666666666666,
+    "spread": 1.0,
+    "n_pass": 1,
+    "n_scored": 3,
+    "ar_mean": 1.0,
+    "route": "XNETWORK",
+    "route_stable": true,
+    "len_mean": 2773
+  }
+]
