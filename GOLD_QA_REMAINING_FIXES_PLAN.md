@@ -112,7 +112,7 @@ several can run in parallel chats/worktrees without colliding.
 | 67 | The router classifies a plainly cross-case aggregate question as plain **RAG**, and the pipeline then burns ~8 minutes before failing hard | `fix/router-rag-misclassification` | ✅ **Done — both halves, and the row's own exposure count was wrong.** The override-less set is **sixteen**, not eleven: this row omitted **A1, CS4, CP1, M2, M7**, and those five are the ones RAG structurally cannot answer (the eleven it named are exposed to a slow failure; these were exposed to a wrong one). **(1) The misclassification.** Module 60's resolver-gated override is widened from one aggregate kind to a named allow-list of five — `statute_court_stage_join` (M4), `station_caseload_by_specialisation` (M2), `incident_to_report_minutes_by_year` (M7), `criminal_record_local_match_gap` (CS4), `weapon_recovery_rate_by_district` (CP1). This is **not** the broad `resolves_to_specific_aggregate()` form Module 60 rejected: that form's real blast radius is **eight** (Module 60's prose says seven and then names eight — the count was the typo), and the two kinds producing its wrong moves are excluded **by name** — `gender_breakdown` (KB5's false positive, shared with A1, indistinguishable at the kind, so **neither** is routed) and `case_completeness_scan` (G1; measured — G1's live route is already XAGG 2/2 and it still decomposes, so capturing it would buy nothing). **All-32 EQUALITY control: exactly four move, M2/M7/CS4/CP1**, none other, variants swept. **Live, 4 runs each, both arms: route unchanged 16/16 → 16/16** — the LLM already said XAGG on this machine today, so this is insurance against Module 60's measured tail, not a repair of an observed misroute — but wall-clock falls **53.0 s → 14.3 s mean** because the router LLM call is skipped. **(2) The cost.** `SEMANTIC_SEARCH_DEADLINE_S` (360 s, env-overridable, 0 disables) bounds the Semantic Search dispatch only, returning `ABSTAINED` + `error.kind="timeout"` and an `error` PipelineEvent naming the deadline — never another Module-42-shaped `route=None`. Not in `tools/rag.py`'s retry loop: that file is Module 39's and lowering `MAX_RETRIES` would take attempts the KB path needs. The number is measured (slowest known success KB6 247.1 s; doomed 347–487 s) and its limit is stated: the populations **overlap** (KB3 abstained at 176.7 s, answered at 178.4 s), so 360 s bounds the tail, it does not classify. **KB3 reproduced the pathology before the fix: 468.1 s / 347.5 s `status=error`**; after, the ceiling **fired live** (`exceeded its 360s deadline`) — but the request still took 406.7 s, because the rewriter and two `route_query()` calls sit outside the bound (**Module 73**). Regression: **M4 7/7** (Module 60's holds, every gold element), G3/CR7/G2/G5/M5 2/2 each, **KB5 2/2 still RAG**, **G1 2/2 still decomposes**, A1 2/2 unchanged. M2 carries gold's 9-of-73 on 3 of 4 — the miss is **Module 70**, whose aggregate emitted the figure every run in both arms. New defects: **72, 73**. Module 68 measured but left open. Result: `docs/gold-qa-wave2-results/MODULE67_RESULT.md` |
 | 68 | `route_query()`'s `confidence` is `medium` for a classification it gets wrong 1 run in 4 | *(not yet branched)* | ⬜ **Still open — re-measured by Module 78, still no principled fix, still not forced.** Module 67's measurement stands and is not overturned: 128 calls, `medium` on KB3's eight including both wrong ones, so the field cannot distinguish a coin flip from a certainty. Module 78 adds a second sample that points the other way and is reported rather than acted on — in its bisect the field separated correct from incorrect 12 of 12 (`medium` on KB3's and KB9's wrong classifications, `high` on both paraphrases' right ones). A field that is `medium` for a coin flip AND `medium` for a stable-but-wrong answer AND `high` for a stable-right one carries some signal and not enough to branch on. **What did change is the exposure**: Module 78 makes all eight KB questions deterministic, so the override-less set drops from **16 to 8** and `confidence` is an honest `"high"` for the eight. Correlating the field still needs run-to-run stability the router cannot see from one call, and removing it still changes the SSE `router done` contract. |
 | 69 | `_is_station_specialisation()`'s tier-2 proximity window (0–1 words) is a judgement, not a measurement | *(not yet branched)* | ⬜ New — found by Module 58 in its own work. The window covers the pairings Module 56 enumerated by hand and survives 14 adversarial phrasings, but the number was chosen, not fitted: a gap of 2 would admit *"ordinary, everyday police stations"* and also *"normal for a case at the station"*. **No corpus of real user phrasings exists to fit it against** — one should, before the window is widened. |
-| 70 | **M2's headline concentration figure is dropped ABOVE XAGG on 9 runs of 9** — filed as ~1 in 3 | *(not yet branched)* | ⬜ **Diagnosed exactly by Module 83, left open deliberately, and it is WORSE than filed.** Three-way capture over 9 M2 runs: the aggregate payload and the rendered `raw_summary_text` both carry gold's *9 of 73 FIRs from 2 of 19 stations* on **9 of 9, byte-identical**; the served paraphrase drops it on **9 of 9** (10 of 10 counting the baseline run). **Root cause is exact**: `verify_structured_aggregate_paraphrase()` computes only `ans_nums - src_nums` — one-directional, so it catches every INVENTED number and structurally cannot see an OMITTED one. Not fixed because that gate is shared by most XAGG-composing questions and needs its own all-32 control, and the rule may belong in `verifier.py` |
+| 70 | **M2's headline concentration figure is dropped ABOVE XAGG on 9 runs of 9** — filed as ~1 in 3 | `fix/paraphrase-omission-check` | ✅ **Done — and the class question Module 83 left open is answered: M2 is ALONE.** Module 83's capture reproduces exactly on `21d3d0e`: aggregate payload and rendered `raw_summary_text` carry *9 of 73 FIRs … 2 of 19 stations* on **9 of 9**, the served paraphrase drops it on **9 of 9** (five distinct strings, so it is the model and the rendering, not one memorised completion). **Blast radius measured before designing, and it is what shaped the rule**: 25 of 32 compose this gate across 19 aggregate kinds, and a naive "every rendered headline figure must survive" rule fires on **10 of 32 and is wrong on at least 5** — it reads the *1997* of "CNSA 1997" and the *1965* of "Arms Ordinance 1965" out of a `NOTE:` caveat line as computed figures (CR3/KB1/KB8), and it cannot see that CR6's Urdu answer states its `4` as **چار**. The rule shipped covers **only an `X of Y` proportion in the first rendered line** — the one construction destroyed by dropping either half — and fires on **1 of 32**. **The check is ADDITIVE**: two new keys, `grounded`/`unsupported_claims`/`reason`/`leaked_case_id` provably unmoved by a **900-cell** old-vs-new exhaustive control. **Omission never refuses** — Module 83 proposed serving `raw_summary_text`, and that was NOT built, because a rule that cannot be perfect must not turn prose into a computed dump (`[PRESERVE]`/KB9, Module 101). Instead **one** repair regeneration, figures computed at runtime from the rendering, adopted only if it passes the FULL gate (invented-number direction included) and omits strictly fewer — so it cannot make any served answer worse. Live M2 **0 of 9 → 9 of 9**, all 18 generations local `qwen3:14b`; Module 87's judge **FactualCorrectness 0.20 → 1.00 on 3 of 3**. Non-gold **Urdu 3/3 and Roman-Urdu 3/3**; answers grew 301→399 chars with **zero** new list lines. All-32: routes 32/32 identical, repair fires on 1 of 32; G5/KB8 moved and were resampled n=3 per arm and shown to be the gate's pre-existing invented-number flap (**KB1 is 3/3 rejected on `origin/main` and 1/3 after**). **A natural English rewording of M2 never reaches M2's aggregate at all** — Defect 122, and it bounds what this buys. New defects: **122, 123, 124, 125**. Result: `docs/gold-qa-wave2-results/MODULE70_RESULT.md` |
 | 61 | The grounding verifier refuses a **negative inference over a complete listing**, which is exactly what CR3's gold answer asserts | `fix/verifier-over-rejection` | ✅ Done — `MODULE61_RESULT.md`. A chunk can now be DECLARED a complete enumeration (`metadata["exhaustive_scope"]`, set only for an XAGG-only sub-answer), and non-membership in one is supported rather than inferred. Two deterministic guards keep it narrow: the claim is checked against the listing it NAMES (CR3 serves three listings at once, and 65/26 legitimately appears in a sibling one — pooling them made every correct negative look fabricated), and a claim asserting the absence of a record the listing CONTAINS is still rejected. Live before/after on one machine: CR3 **4 of 8 → 7 of 8**, with all four pre-fix rejections carrying the FIR 65/26 absence reason. The validation gate now IMPORTS the same rule, so the two gates agree — the "could only be partially confirmed" caveat for that claim is gone on 8 of 8. Hallucination still rejected (unit test + live: CR3's one remaining failure is a different, correctly-refused claim). **KB4 is a separate defect** — its rejections are over-attribution to a RAG chunk, which this rule never touches. New defect split out as **Module 74**. |
 | 71 | G1's synthesis verifier intermittently rejects an unsupported **numeric** claim | `fix/verifier-numeric-overreach` | ✅ Done — `MODULE71_RESULT.md`. **The fabricated 73 is the incident-time-of-day sub-answer's denominator** ("64 of 73 incidents"), the only one of G1's five sub-answers that states 73, borrowed onto seized property (which computes 45 entries across 28 FIRs). Fixed on the GENERATION side only: rule 2 rescoped from "appears literally in a sub-answer above" — **the rule the fabricated 73 satisfied** — to "the sub-answer you cite for it", the `caseload_review` synthesis goal stopped inviting a coverage figure to travel between findings, and a rejected synthesis now serves the verified sub-answers instead of `status=error` (`large_scale_aggregate.py`/Module 53's shape). `verifier.py`, `validation.py` and `prompts/verifier.txt` untouched. **The defect did not reproduce in 25 pre-fix live G1 runs** (Module 61 saw 1 in 3; this path has since got ~3× faster), so no answer-rate improvement is claimed — proven instead on a forced-hallucination control: same fabricated synthesis, same real verifier, **`status=error` 3/3 → `status=done` 4/4**, all four gold findings served, fabrication never served, and the deterministic detector naming `73 -> [Document 3]` on 4/4. A per-document figure roster was built, measured, **found harmful (G6 0/4 → 7/8 rejections, Module 29's citation refusal) and deleted**. Regressions CR3/G6/M2/G2/G5 **40 of 40**. New defect split out as **82**. |
 | 72 | `A1` and `KB5` are indistinguishable at `gender_breakdown`, so neither can be given a deterministic route | *(not yet branched)* | ⬜ New — found by Module 67 in its own work. `resolve_aggregate_kind()` sends both A1 (نامزد ملزمان میں مرد اور عورت کا تناسب — a genuine cross-case count) and KB5 (a legal-KB question about violence against women) to `gender_breakdown`. One is a true dispatch, the other a vocabulary false positive, and nothing **at the kind level** separates them — which is the sole reason Module 67 could not give A1 a deterministic route without dragging KB5 into a cross-case aggregate, the exact mistake Module 60 refused. A1 is 8-of-8 XAGG on the probe and 2-of-2 live: stable today, unpinned tomorrow. **Verify:** whether `_is_gender_breakdown()` can require a caseload-counting signal KB5's statutory phrasing does not carry, negative-controlled against all 32 and against KB5's variants. |
@@ -147,7 +147,11 @@ several can run in parallel chats/worktrees without colliding.
 | 100 | `xagg.py::_is_officer_role_pair_comparison()` (KB3's family) rejects ordinary rewordings — the capability is reachable only from a narrow neighbourhood of KB3's gold wording | *(not yet branched)* | ⬜ New — found by Module 89 while probing its own dispatch boundaries; measured offline against `resolve_aggregate_kind()` and **identical on `origin/main` and on `fix/kb1-data-half-plan`**, so it is pre-existing and not caused here. KB3's own gold text resolves to `officer_role_pair_overlap`. Three ordinary rewordings do not: *"Is the officer who registers a case normally the one who investigates it?"* → `station_or_category_counts` (a generic station/category group-by), *"Is the registering officer usually the investigating officer?"* → `unsupported_officer`, *"Does the same officer both register and investigate our cases?"* → `station_or_category_counts` **and fires no RAG plan either**. The first two fail on the THIRD signal alone (`_OFFICER_ROLE_SAMENESS_TERMS`): both name both roles, and both express sameness with *"the one who"* / *"usually the"*, which is not a listed token. **This is the XAGG-side twin of the widening Modules 74 and 77 each applied to the RAG-side plan patterns** — `rag.py`'s `officer_role_pair` entry matches the first two of these; `xagg.py`'s predicate does not. It matters because Modules 65/74/78 all measured KB3's ACTUAL route as XNETWORK/XAGG rather than RAG, so the predicate that never got widened is the one that actually runs. Same family as Module 92 (a capability reachable only near the gold wording), one layer down. Not fixed by Module 89: `_OFFICER_ROLE_SAMENESS_TERMS` is Module 74's and widening it needs that module's all-32 control re-run |
 | 101 | **KB9's answer is discarded by a deterministic `[Document N]` check, not by the grounding judge — and the composed-evidence diagnosis was wrong** | `fix/verifier-composed-evidence` | ✅ **Done.** The filed mechanism did **not** reproduce and is corrected here: the composed data-half chunk is already first-class evidence (captured live, chunk 7 of 7, 829 chars, untruncated), so Phase 2's preferred fix had nothing to do. The real rejection is `verifier.py::_check_no_citation()` — a substantial answer carrying no `[Document N]` token is merged as `refusal_issue`, sets `off_topic=True`, and Semantic Search's `[PRESERVE]` contract discards the whole answer. On the captured KB9 rejection `unsupported_claims` is **empty**: the judge found nothing wrong. The discarded answer states CrPC s.174/s.176, PPR 25.31, gold's *10 of the 73 FIRs cite PPC §302* and the schema gap — attributing by **name** (*"the Code of Criminal Procedure (Pakistan)"*, *"our own case records (cross-case aggregate)"*), and both strings are `source` labels of chunks in that very window. **The intermittency is not the judge**: replayed on a fixed (answer, window) pair the verdict is deterministic — rejected 8 of 8 before, served 8 of 8 after — what varies is whether Qwen3-14B emits the markers. Same defect as Module 71 §8's G6 finding (10 of 12, *"prompt-length-sensitive"*), whose own prescription was *"carry provenance out of band"*. **Exposure is wider than the data-half class**, not narrower. Fix: `_check_no_citation()` unchanged and not loosened; its finding is dropped only when the answer names a cited source **verbatim** AND the judge independently cleared every claim, and the served answer carries a caveat. **KB9 2 of 6 rejected → 0 of 6**; forced-hallucination control **6 of 6 rejected, 0 markers served** across two arms (Module 82's verbatim, plus a harder uncited arm that satisfies the exemption's source-name condition); exhaustive old-vs-new equality control **144 cells, 3 move, 0 regressions**. Heirs element remains Module 79's. Result: `docs/gold-qa-wave2-results/MODULE101_RESULT.md` |
 | 108 | **KB6's score spread is the pipeline's, not the judge's — and Module 27 attributes it to the judge** | *(not yet branched)* | ⬜ New — found by Module 87. Of the four questions Module 27 lists with spread ≥0.3 "on identical answers", only **CP1 and M2** have byte-identical captured answers across the three passes; **KB6 (1,840 / 1,929 / 1,943 chars) and G1 (2,949 / 2,649 / 2,371) do not**. Judged five times on ONE fixed answer, KB6 scores 0.4 every time, spread **0.0**; across the three passes it is 0.4 / 0.4 / 0.9. With the judge's variance removed it is the only question left above 0.3 spread, and the remaining movement belongs to the RAG path. **Verify:** several live KB6 runs, diffing the answers, before attributing any KB6 movement to a code change |
-| 110 | **G6's `orientation_note` plan computes five of gold's SEVEN findings**, and the two it misses are unreachable from above | `fix/g6-plan-coverage` | ✅ **Done (PR open, not merged) — `MODULE110_RESULT.md`.** Confirmed as filed: each of the five dispatched sub-queries carries exactly ONE gold finding, so there is no weak slot to re-compose into and the **cap was the defect**. `_MAX_PLAN_SUB_QUERIES` 5 → **8** (the largest the repo's own headroom invariant allows — 8=144s fits `META_ANALYSIS_SUBQUERY_TIMEOUT`=150s, 9=162s does not), and `orientation_note` gained `_SQ_ACCUSED_AGE` + `_SQ_RELATIONSHIP` (**G1's own constants, referenced not copied**) + a new `_SQ_COURT_STAGE`. **Gold's two claims were verified live first and BOTH HOLD** — no sixth gold correction: 67 مرد/24 عورت of 94 (71%), ages 24–49 mean 31.5 on 17 of 92, اجنبی 15 of 24, and 32 of 33 criminal records still in progress. **Findings carried 5/7 → 6/7 plus two thirds of the seventh, 9 runs of 9** (`_SQ_GENDER` still uncomputed — no ninth slot; pinned as a failing-on-purpose test). **The feared cost did not materialise and the opposite did: synthesis collapse 100% (12/12 across two before arms) → 50% (4/8).** All 32 routes match Module 116's baseline; **G1 unchanged at 16 sub-dispatches, no cost measured**. Four RAG answer deltas are **Module 37's** `chunk_fulltext` deletion, not this change. ⚠️ **No judge re-run — the 0.10 is NOT re-measured** |
+| 110 | **G6's `orientation_note` plan computes five of gold's SEVEN findings**, and the two it misses are unreachable from above | *(not yet branched)* | ⬜ New — Module 83 §8B. Gold also asserts an accused profile (mostly men 25–40, usually strangers to the complainant) and that most matters are still pending in court. **No synthesis, however good, can carry them** — no sub-query computes them. This is a decomposition-coverage gap, not a synthesis loss, and it **caps G6's achievable score** now that Module 83 has fixed the collapse. Both figures demonstrably exist: **G1's own plan computes the age profile and the stranger relationship from the same data** |
+| 122 | **A natural English rewording of M2 never reaches M2's aggregate** | *(not yet branched)* | ⬜ New — found by Module 70 in its own non-gold paraphrase arm. *"Which of our stations are picking up caseload fastest right now — the ordinary ones that take everything, or the small number that only handle one kind of offence?"* resolves to `relational_aggregate` (a flat per-station listing) on **3 of 3**, never to `station_caseload_by_specialisation`, and the answer is a 10-row bullet list of station names with no growth comparison and no concentration finding. Gold's own wording and **both** Urdu paraphrases resolve correctly. Module 56's vocabulary finding again, and it bounds Module 70: the fix repairs the paraphrase of a finding that was computed, and under this wording the finding is never computed. **Verify:** whether `_is_station_specialisation()`'s tier-2 signals can cover "the ordinary ones that take everything" / "only handle one kind of offence" without dragging in the neighbours row 69's window note flags. Evidence: `scratchpad/m70_after_paraphrase.json`, `M2_en_reworded` runs 1–3 |
+| 131 | **A legal SECTION NUMBER in an XAGG paraphrase is read as an invented figure, and the whole answer is discarded** | *(not yet branched)* | ⬜ New — found by Module 70 in its all-32 sweep. KB1's paraphrase correctly cites *Section 158*, *Section 159* and *the Criminal Procedure Code, 1898*; `verify_structured_aggregate_paraphrase()` sees `158`/`159`/`1898` as absent from the computed aggregate and serves the raw case-count dump instead — **3 of 3 runs on `origin/main`**, 1 of 3 after (decode variance, not Module 70). Module 101's family seen from the aggregate side: a statute citation is provenance, not a claimed figure, exactly as `[Document N]` is — and `_CITATION_MARKER_RE` already strips that one. **Verify:** a `Section|Article|Rule|§` + number and `Act/Ordinance/Code, 19xx` exemption on `_numbers_in()`'s ANSWER side only, negative-controlled so a fabricated count cannot pass disguised as a section. Evidence: `scratchpad/m70_flake_before.json` KB1 runs 1–3 |
+| 132 | **Module 104's Markdown-ordinal defect reproduces on the XAGG gate, live, on a gold question** | *(not yet branched)* | ⬜ New — found by Module 70 in its all-32 sweep. G5's Roman-Urdu paraphrase is a numbered list and the gate rejects it with *"number(s) not present in the computed result: **4**"* — the ordinal of the fourth list item, not a claimed figure. **1 of 3 on `origin/main`**, 2 of 3 after (decode variance; Module 70's branch cannot reach it). Module 104 filed this against the other verifier; this records that `verify_structured_aggregate_paraphrase()` has it too. It is also the reason Module 70's omission check refuses to cover anything below the headline line: making answers more list-shaped trips this. **Verify:** strip leading list ordinals in BOTH verifiers, negative-controlled against an answer whose first real figure is line-initial. Evidence: `scratchpad/m70_flake_after.json` G5 runs 2–3 |
+| 133 | **Every numeric check in `verifier.py` is blind to a number written as a WORD** | *(not yet branched)* | ⬜ New — found by Module 70 while measuring its own false positives. CR6's Urdu answer states the aggregate's *"all 4 current CMS complaint(s)"* as **چار**. `_numbers_in()` is a digit-run regex, so BOTH directions are blind: an omission check reports a false omission, and — the serious half — **the pre-existing hallucination guard cannot see an INVENTED count written in words either**. Module 70's rule dodges the false-positive half by construction (a renderer never writes a proportion in words) and does not address the hallucination half at all. **Verify:** measure first — how many corpus Urdu/Roman-Urdu answers state a figure in words at all — because a word-numeral parser across Urdu, Roman Urdu and English is a large surface for a hole that may be rare. Evidence: `scratchpad/m70_blast.json`, CR6 |
 | 111 | **G6 answers its gold wording and essentially nothing else** — all three rewordings refuse at XNETWORK, 6 of 6 | *(not yet branched)* | ⬜ New — Module 83 §8A. A Roman-Urdu, a plain **English** and an **Urdu-script** rewording all fail `supervisor.py`'s Meta-Analysis trigger patterns, go whole to XNETWORK and are refused (nearest cluster 0.164 / 0.206 / 0.187 against a 0.145 cutoff). **The sharpest evidence of literal-phrase brittleness in the codebase**: the `orientation_note` plan already carries a `نئے تعینات` pattern matching the Urdu rewording *exactly*, and it is never consulted, because the supervisor gate above it keeps its own different literal list. Same disease as Modules 92 / 106, a **fourth** layer down |
 | 112 | **The Roman-Urdu synthesis is fluent-sounding but partly non-words** | *(not yet branched)* | ⬜ New — Module 83 §8C. Recovered G6 syntheses carry invented Urdu-ish tokens — *"kismatiyadari"*, *"mohtajr"*, *"tawarruq"*, *"qanuniyadari"* — with no meaning, mixed into otherwise correct, correctly-cited prose. Figures and citations are right; the connective language is not. Plausibly the same generation slot whose greedy decode collapses into a repetition loop, at a lower severity — **a hypothesis, not a measurement** |
 | 113 | **`_attach_provenance()` ships without ever firing** | *(not yet branched)* | ⬜ New — Module 83 §8D, filed **against its own change**. Correct, conservative, unit-tested both directions, and it fired **0 times in 20 live G6 runs** and 0 times across all 32 gold questions, because the failure it was built for is not the failure that occurs. Recorded so a later module does not assume it is load-bearing. If the marker-free-but-correct synthesis is measured never to happen, this is dead code and should be **deleted rather than maintained** |
@@ -4888,14 +4892,62 @@ probes at their measured values in `TestModule89Dispatch` instead, so the gap is
 recorded rather than silently carried.
 
 ---
-
+# Module 109 — should a Groq-hosted judge replace the Gemini one? ✅ measured, **answer: no**
+**Branch `eval/judge-groq-comparison`, on top of Module 87's
+`fix/eval-judge-upgrade-and-prompt`. Full result:
+`docs/gold-qa-wave2-results/MODULE109_RESULT.md`.** Nothing here changes the
+platform or any published score; 366 committed judge calls, all re-scorings of
+the answers Module 27 captured. No backend, no Docker.
+**Recommendation: keep `gemini-3.1-flash-lite`.** Every Groq model this account
+can reach holds the held-out controls and none reproduces the judge Module 87
+shipped.
+| judge | M7 ×5 | spread 0.0 on | controls A/B/C | 96-run mean | pass | UNSCORED | wall clock |
+|---|---|---|---|---|---|---|---|
+| **`gemini-3.1-flash-lite`** | **1.0** | **9/9** | 1.0 / 0.2 / 0.2 | **0.702** | **61/96** | **0** | **10 min** |
+| `openai/gpt-oss-20b` | 1.0 | 7/9 | 1.0 / 0.0 / 0.0–0.2 | 0.573 | 45/96 | **1** | 21 min |
+| `qwen/qwen3.8-27b` | 1.0 | 8/9 | 1.0 / 0.0 / 0.0 | — | — | — | — |
+| `groq/compound-mini` | 1.0 | 6/9 | 1.0 / 0.0–0.1 / 0.0–0.2 | — | — | — | — |
+| `openai/gpt-oss-120b` *(self-grading)* | 1.0 | **4/9** | 1.0 / 0.0–0.1 / 0.1–0.2 | — | — | — | — |
+**`llama-3.3-70b-versatile` and `moonshotai/kimi-k2-instruct` do not exist on
+this account** — the model list was queried before the set was fixed. `qwen/
+qwen3.6-27b` is unusable: a **1,000-token OTPM cap** 429s every call, which the
+harness retries as a quota wobble and so **hangs silently** (new defect 119).
+**M7 does not discriminate — all five score it 1.0 on 5/5 draws.** What separates
+them is variance and the rest of the checklist. **G1 collapses 0.9 → 0.2 on every
+Groq model** and KB6 0.8 → 0.2–0.3; `gpt-oss-20b`'s reason for G1 is the retired
+judge's mistake verbatim (*"it uses 92 accused individuals and 28 FIRs … instead
+of the expected"*), the exact difference the close-numbers rule exists to excuse.
+On the full 96-run re-score it is **noisier, not stricter** — CP6/CR8/G6 rise
+while G1, KB5 (0.90→0.23), KB8 (0.97→0.30), CR6 and M5 (both 1.00→0.57) fall —
+and DeepEval's own verdict on the one UNSCORED row is *"Evaluation LLM outputted
+an invalid JSON. Please use a better evaluation model."*
+**The self-grading bias is measurably ~zero.** `openai/gpt-oss-120b` judging its
+own output means **0.500** across the nine probes — identical to non-self
+`gpt-oss-20b`, below `compound-mini`. It stays out of the default anyway, but for
+variance (worst of all five: 4/9, including **0.7 spread on CP1**), not leniency.
+**Quota is weaker than the brief assumed, in both directions.** The shipped judge
+is capped per *minute*, ran all 96 calls in 10 minutes, and was never what the
+20/day cap blocked. Groq's `x-ratelimit-limit-tokens: 8000` is per **minute** and
+binds before the 1,000/day request limit at ~1,730 tokens/judge call →
+**~4.6 calls/min/key**, making the Groq judge the *slower* option at 21 min.
+**`.env` was rewritten at 02:21:30 mid-module** and Module 98's dead Gemini keys
+now authenticate; both measurements are committed.
+**Shipped anyway: the provider seam.** `GOLD32_JUDGE_PROVIDER` (`gemini` default,
+`groq` selectable), `evaluation/groq_judge.py` wired through `key_manager.py`'s
+rotation, and `evaluation/module109_judge_probe.py` — the harness, with the three
+held-out controls **in code**. Temperature pinned identically on both paths; an
+unknown provider raises instead of falling through to Gemini. **45 unit tests
+pass** (38 pre-existing); the evaluation prompt is byte-identical to Module 87's.
+**New defects: 117** (`key_manager` rotates numbered keys only, and five env
+names carry four distinct keys per provider — two modules have computed headroom
+by counting env names), **118** (Module 87's held-out controls exist only as
+prose; Module 109 had to reconstruct them, validated against its published
+scores), **119** (a per-model OTPM cap is retried as a quota failure and hangs
+the run with nothing in the log).
 ---
-
 # Module 116 — the route baseline was never a route baseline ✅ closed
-
 **Branch:** `fix/route-stability-cr3-g1-g6` ·
 **Result:** `docs/gold-qa-wave2-results/MODULE116_RESULT.md`
-
 **The filed diagnosis was wrong, and the correction is the finding.** Row 116
 said CR3, G1 and G6 were "recorded `XAGG`, reaching `XNETWORK` on unchanged
 code — two of the strongest passes on the board riding a coin flip." There is
@@ -4904,9 +4956,7 @@ temperature 0, unanimous, with a stable and correct `reason` field every time.
 All 32 gold questions are unanimous over 3 runs each
 (`evaluation/gold32_route_baseline.json`), and Module 92's own independent
 all-32 measurement (`module92_harness_cache/local.json`) agrees on **all 32**.
-
 ## Where the `XAGG` came from
-
 `Supervisor.handle()` emits `supervisor:dispatch` with the route in **English
 prose** inside `detail`. `meta_analysis.py::_dispatch_one()` calls back into
 `Supervisor.handle()` **once per decomposed sub-query**, so that same event is
@@ -4915,32 +4965,25 @@ emitted again for each — and Meta-Analysis's decomposer produces
 `evaluation/gold32_run.py::parse()` regex-scraped the prose and kept the
 **last** match. The last match is a sub-query. And because `_dispatch_one()`
 runs under `asyncio.gather`, *which* sub-query landed last was a race.
-
 Proven **from data already on `main`**, no new run required — Module 92's own
 committed trace, on unchanged shipped code:
-
 ```
 CR3 (gold):  route='XNETWORK' -> Meta-Analysis
              route='XAGG'     -> Large-Scale Aggregate   × 3
 G6 (gold):   route='XNETWORK' -> Meta-Analysis
              route='XAGG'     -> Large-Scale Aggregate   × 5
 ```
-
 Apply the last-match rule to either and you get `XAGG` — the exact value Module
 27 recorded, on all three passes, for exactly the three questions that
 decompose. Module 27 and Module 92 never disagreed; they measured two different
 quantities and both were right.
-
 **The score argument inverts.** "CR3 scores 1.00 and G1 0.97 under XAGG" was the
 strongest case for `XAGG`. A question only emits `XAGG` sub-dispatches if it
 went to Meta-Analysis, and it only goes to Meta-Analysis if its top-level route
 was `XNETWORK`. Those scores were **earned on `XNETWORK`**.
-
 ## What shipped
-
 **`src/pipeline/router.py` is untouched — not one line.** No override, no
 regex, no prompt edit. Six lines of production code in total:
-
 * `supervisor.py` — the dispatch event carries machine-readable `route`,
   `sub_agent` and `nested`; `detail` is byte-identical. `nested` is derived from
   `allow_meta_analysis` (`meta_analysis.py` is its only `False` caller), so it
@@ -4957,42 +5000,31 @@ regex, no prompt edit. Six lines of production code in total:
 * Eight historical artefacts have the misleading `route` key **renamed to
   `last_dispatch_route`** — precisely what those values are. A consumer asking
   for `route` now gets nothing, loudly, instead of a wrong `XAGG` quietly.
-
 ## Attribution — nothing merged today caused it
-
 Only Modules 78 and 92 have touched `router.py`/`router.txt` since Module 27.
 Module 78's KB gate is False for CR3/G1/G6; Module 92 changed only the **cloud**
 prompt path and its own before-arm already records these three as `XNETWORK`.
 Exactly **five** rows differ between the historical passes and the measured
 baseline, and every one is accounted for: CR3/G1/G6 by the recording defect,
 KB3/KB9 by Module 78's genuine, intended route change.
-
 ---
-
 # Module 110 — Outcome (2026-09-10, branch `fix/g6-plan-coverage`)
-
 Full write-up: `docs/gold-qa-wave2-results/MODULE110_RESULT.md`.
-
 ## The filed diagnosis was right, and the cap was the reason
-
 Row 110 was filed as a decomposition-coverage gap, and that is exactly what it is.
 The part the row did not say is *why it was unfixable in place*: each of the five
 sub-queries `orientation_note` dispatched carried **exactly one** of gold's seven
 findings, so any swap inside a five-slot plan traded one gold finding for another and
 netted zero. `_MAX_PLAN_SUB_QUERIES = 5` **was** the defect.
-
 It moved to **8** — not a taste judgement, but the largest value this repo's own
 existing invariant permits (`_MAX_PLAN_SUB_QUERIES` × 12 s × 1.5 headroom ≤
 `META_ANALYSIS_SUBQUERY_TIMEOUT` = 150 s: 8 → 144 s fits, 9 → 162 s does not), with a
 new test asserting that boundary from both ends. This **partially** discharges Module
 59, which is **not closed**: it asked for the staircase at N = 6, 7 and 9 on G6 *and*
 G1, and this measured N = 8 on G6 only.
-
 No new aggregate and no reworded pinned string. `_SQ_ACCUSED_AGE` and
 `_SQ_RELATIONSHIP` are **G1's own constants, referenced rather than copied**.
-
 ## Gold survived measurement — no sixth correction
-
 Five gold answers have been corrected on this programme because gold asserted more
 than the data supports, and G6's had already been corrected once. Both of row 110's
 claims were checked against the live data **before** anything changed, and **both
@@ -5001,37 +5033,29 @@ on 17 of 92; اجنبی 15 of 24 recorded relationships across 6 FIRs; 32 of 33 
 records still in progress against 1 verdict. Two of those carry small denominators,
 so the `synthesis_goal` re-states Module 71's coverage discipline, and the served
 answers do carry the coverage figure across.
-
 ## The measured result, including the part that was not expected
-
 **Findings carried: 5 of 7 → 6 of 7 in full plus two of the three components of the
 seventh, 9 runs of 9.** Gold's *"mostly men"* is still not computed — `_SQ_GENDER`
 lost the ninth slot that does not exist, not a merit contest, and it is the
 best-covered component of the three. Pinned as a failing-on-purpose test.
-
 **The stressor this module was told to watch did not materialise, and the opposite
 did.** Three more sub-queries lengthen the synthesis prompt, which is Module 83's
 known length-sensitive collapse trigger. Measured with a **contemporaneous control** —
 `meta_analysis.py` reverted to `main` and re-run under the same machine conditions as
 the after arm:
-
 | Arm | Collapse rate | Regeneration recovered |
 |---|---|---|
 | before, original (~03:40) | 6 / 6 | 6 / 6 |
 | before, re-baselined (~09:20) | 6 / 6 | 3 / 6 |
 | after, local runs only | **4 / 8** | 3 / 4 |
-
 Collapse **halved**. The mechanism is offered as a hypothesis (eight distinct
 sub-answers give the synthesis more distinct material than five) and explicitly not
 claimed as a finding — the rate is measured, the cause is not.
-
 **This corrects Module 126's row.** Module 126 records G6 collapsing 3 of 3
 byte-identically, read as deterministic. That reading **still holds on `main`** — 12
 of 12 across two arms — but it is **conditional on the five-sub-query plan**, and
 stops holding under this change. Module 126 should be re-worded, not closed.
-
 ## What it cost, stated plainly
-
 - **Regeneration recovery is unstable and unpinned**: 6/6, then 3/6, on *identical*
   `main` code hours apart. Module 83 measured the collapse but never the recovery.
   When recovery is lost, Module 83's second guard serves the verified sub-answers
@@ -5040,30 +5064,23 @@ stops holding under this change. Module 126 should be re-worded, not closed.
 - **Wall time** on collapsing runs rose ~86 s → ~100–117 s.
 - **The synthesis still transfers a denominator**, rendering *"32 criminal records"*
   as *"32 FIRs"* despite an explicit prohibition in the `synthesis_goal`. Filed.
-
 ## Regression, and the change that landed underneath
-
 All 32 routes match `evaluation/gold32_route_baseline.json` (Module 116) and match the
 before arm. **G1 checked explicitly by name** — it shares both reused constants:
 XNETWORK, **16 sub-dispatches before and after**, no collapse either side, content
 intact. Module 95's discipline applied; **no cost to G1 measured**.
-
 Four RAG answers moved (KB5, KB6, KB8, KB9 — two of them from near-empty to real
 answers). **Module 37's 2,246-row `chunk_fulltext` deletion** (9,962 → 7,716,
 confirmed) landed mid-module and re-ranks BM25 for every RAG question; this change is
 confined to an XNETWORK decomposition plan and cannot reach them. Re-baselined rather
 than chased, and **not claimed as this module's benefit**.
-
 ## Still open
-
 **G6 has not been re-judged.** Module 87's judge was not re-run, so the 0.10 is stale
 from here and the score effect of this change is unmeasured — that is Module 87's
 call, not this module's claim.
-
 **Modules 111 / 123 are untouched and still binding.** All three G6 rewordings —
 written and committed *before* any run so they could not be tuned — still refuse at
 XNETWORK, 3 of 3, at 5 steps rather than 22: they never enter the Meta-Analysis path,
 so this change is invisible to them. `supervisor.py` was not edited. **Module 110
 raises what G6 can answer and changes nothing about which questions get to ask it.**
-
 **Module 113 unchanged**: `_attach_provenance()` fired **0 times across all 41 runs**.

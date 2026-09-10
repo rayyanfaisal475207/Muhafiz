@@ -1,0 +1,101 @@
+[
+ {
+  "case": "A_heldout_positive",
+  "draw": 0,
+  "expect": "HIGH",
+  "model": "openai/gpt-oss-20b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 4.9,
+  "reason": "The actual output correctly states that 11 FIRs lack a real named officer, with 8 placeholders of \"Naamzad ASI\" and 3 of \"Naamzad SI\", and identifies Faisal and Tariq as the busiest officers with 4 FIRs each—exactly matching the expected facts. The only discrepancy is the opening word \"Yes\" versus t"
+ },
+ {
+  "case": "A_heldout_positive",
+  "draw": 1,
+  "expect": "HIGH",
+  "model": "openai/gpt-oss-20b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 3.9,
+  "reason": "The actual output correctly states that 11 FIRs lack a real named officer, with 8 placeholders of type \"Naamzad ASI\" and 3 of type \"Naamzad SI\", and that Faisal and Tariq each have 4 FIRs. These facts match the expected output exactly. The only difference is the opening word (Yes vs. No), which is i"
+ },
+ {
+  "case": "A_heldout_positive",
+  "draw": 2,
+  "expect": "HIGH",
+  "model": "openai/gpt-oss-20b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 3.7,
+  "reason": "The actual output correctly states that 11 FIRs lack a real named officer, with 8 placeholders of \"(Naamzad ASI)\" and 3 of \"(Naamzad SI)\", and that Faisal and Tariq each have 4 FIRs. These facts match the expected output exactly. The only difference is the opening word (Yes vs. No), which is exempte"
+ },
+ {
+  "case": "B_reversed_fact",
+  "draw": 0,
+  "expect": "LOW",
+  "model": "openai/gpt-oss-20b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.0,
+  "elapsed_s": 4.0,
+  "reason": "The actual output reverses the key facts from the expected output: it states that 2024 had a mean of 1401.3 minutes and 2026 had 15.0 minutes, whereas the expected output says the opposite. This direct contradiction of the direction of the change and the specific numbers means the answer is material"
+ },
+ {
+  "case": "B_reversed_fact",
+  "draw": 1,
+  "expect": "LOW",
+  "model": "openai/gpt-oss-20b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.0,
+  "elapsed_s": 9.1,
+  "reason": "The actual output reverses the key facts from the expected output: it states that 2024 had a mean of 1401.3 minutes and 2026 had 15.0 minutes, whereas the expected output says the opposite. This contradicts the direction of the change and the specific numbers requested, violating the substantive cla"
+ },
+ {
+  "case": "B_reversed_fact",
+  "draw": 2,
+  "expect": "LOW",
+  "model": "openai/gpt-oss-20b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.0,
+  "elapsed_s": 15.9,
+  "reason": "The actual output reverses the key facts from the expected output: it states that 2024 had a mean of 1401.3 minutes and 2026 had 15.0 minutes, whereas the expected output says the opposite. This contradicts the direction of the change and the specific numbers requested, violating the substantive cla"
+ },
+ {
+  "case": "C_wrong_magnitude",
+  "draw": 0,
+  "expect": "LOW",
+  "model": "openai/gpt-oss-20b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.0,
+  "elapsed_s": 16.2,
+  "reason": "The actual output contradicts the expected answer: it states that reporting in 2026 is not as quick and gives a mean of 18.0 minutes, whereas the expected answer says reporting is much slower with 1401.3 minutes and affirms a big difference. The polarity and the key numeric fact are reversed, so the"
+ },
+ {
+  "case": "C_wrong_magnitude",
+  "draw": 1,
+  "expect": "LOW",
+  "model": "openai/gpt-oss-20b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 15.4,
+  "reason": "The actual answer states a 2026 mean of 18.0 minutes, whereas the expected answer specifies 1401.3 minutes. This large discrepancy in the key numeric fact about reporting speed in 2026 means the answer does not align with the expected output, resulting in a low score."
+ },
+ {
+  "case": "C_wrong_magnitude",
+  "draw": 2,
+  "expect": "LOW",
+  "model": "openai/gpt-oss-20b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.0,
+  "elapsed_s": 18.8,
+  "reason": "The actual output reports a 2026 average of 18 minutes, which is wildly inconsistent with the expected 1401.3 minutes. This key fact about reporting speed is materially contradicted, warranting a low score."
+ }
+]

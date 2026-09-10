@@ -169,6 +169,25 @@ JUDGE_MODEL = os.environ.get("GOLD32_JUDGE_MODEL") or DEFAULT_JUDGE_MODEL
 # change under us. Module 87 measured the residual judge-to-judge spread AT this
 # temperature — it is not zero, so temperature is not the whole story.
 JUDGE_TEMPERATURE = float(os.environ.get("GOLD32_JUDGE_TEMPERATURE", "0"))
+
+# [Module 109] The judge PROVIDER, not just the judge model name.
+#
+# Module 87 could only vary the model name, because `_judge()` constructed a
+# `GeminiModel` unconditionally. That mattered: its chosen judge was picked on
+# QUOTA, not on capability — the two live Gemini keys cap the flash tier at 20
+# requests/day against the 96 calls one three-pass re-score needs, so the
+# stronger models it measured could not run. Groq's keys carry ~1,000
+# requests/day each and rotate, which is a reason to LOOK at another provider.
+#
+# It is not a reason to switch. Module 109 measured the Groq candidates on
+# Module 87's own held-out controls and they did not hold the line
+# (docs/gold-qa-wave2-results/MODULE109_RESULT.md), so the default is unchanged
+# and Gemini stays the shipped judge. The seam exists so that the comparison is
+# reproducible and so the next candidate can be measured without editing this
+# file.
+DEFAULT_JUDGE_PROVIDER = "gemini"
+JUDGE_PROVIDER = (os.environ.get("GOLD32_JUDGE_PROVIDER")
+                  or DEFAULT_JUDGE_PROVIDER).strip().lower()
 # Module 87 measured 9.1 s mean per FactualCorrectness call on the default
 # judge, but 45-90 s on the flash-tier candidates and a 354 s worst case under
 # machine contention, so both timeouts are raised with headroom and made
@@ -189,11 +208,23 @@ def _judge(model=None, temperature=None):
     # A raised per-attempt timeout accommodates Gemini's slower GEval calls.
     os.environ["DEEPEVAL_PER_ATTEMPT_TIMEOUT_SECONDS_OVERRIDE"] = str(
         JUDGE_ATTEMPT_TIMEOUT_OVERRIDE)
+    temp = JUDGE_TEMPERATURE if temperature is None else temperature
+    name = model or JUDGE_MODEL
+    # [Module 109] The provider seam. `gemini` is the default and reproduces
+    # Module 87's numbers exactly; `groq` is selectable so a reviewer can
+    # re-run Module 109's comparison without editing this file. Temperature is
+    # pinned identically on both paths — a judge measured at one temperature
+    # and run at another is a different instrument.
+    if JUDGE_PROVIDER == "groq":
+        from evaluation.groq_judge import build_groq_judge
+        return build_groq_judge(name, temperature=temp)
+    if JUDGE_PROVIDER != "gemini":
+        raise ValueError(
+            "GOLD32_JUDGE_PROVIDER must be 'gemini' or 'groq', got %r"
+            % JUDGE_PROVIDER)
     from deepeval.models import GeminiModel
     key = os.environ.get("GEMINI_JUDGE_KEY") or os.environ.get("GEMINI_API_KEY")
-    return GeminiModel(model=model or JUDGE_MODEL, api_key=key,
-                       temperature=JUDGE_TEMPERATURE if temperature is None
-                       else temperature)
+    return GeminiModel(model=name, api_key=key, temperature=temp)
 
 
 # The complete FactualCorrectness prompt, hoisted to module scope so that a

@@ -21,7 +21,9 @@ So two things are pinned here:
 
 No network: the judge is a stub. `measure`'s backoff sleeps are injected.
 """
+import importlib
 import importlib.util
+import inspect
 import json
 import os
 import re
@@ -427,3 +429,79 @@ class TestDocsMatchTheJudgeContract:
             "§3.3 lists %d rules but the prompt has %d steps"
             % (len(numbered), len(gs.FACTUAL_EVALUATION_STEPS))
         )
+
+
+# ── 6. the judge PROVIDER seam (Module 109) ──────────────────────────────
+
+class TestJudgeProviderSeam:
+    """[Module 109] `_judge()` constructed a `GeminiModel` unconditionally, so
+    the only thing an experiment could vary was the model NAME. That is what
+    made Module 87's choice a quota choice: the Gemini keys cap the flash tier
+    at 20 requests/day against 96 calls per three-pass re-score, and there was
+    no way to point the judge at a provider whose quota could run.
+
+    Module 109 measured the Groq candidates and did NOT recommend a switch, so
+    these tests pin the two properties that matter regardless of the verdict:
+    Gemini stays the default (Module 87's numbers must stay reproducible), and
+    the seam is real (the next candidate is measurable without editing the
+    scorer)."""
+
+    def test_the_default_provider_is_still_gemini(self):
+        """Module 87's committed numbers were produced on Gemini. If the
+        default moves without those numbers being re-produced, every published
+        score silently changes instrument."""
+        assert gs.DEFAULT_JUDGE_PROVIDER == "gemini"
+
+    @staticmethod
+    def _reload():
+        spec = importlib.util.spec_from_file_location(
+            "gold32_score_provider_reload", _SCRIPT)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def test_the_provider_is_env_overridable(self, monkeypatch):
+        monkeypatch.setenv("GOLD32_JUDGE_PROVIDER", "groq")
+        assert self._reload().JUDGE_PROVIDER == "groq"
+
+    def test_an_unknown_provider_fails_loudly(self, monkeypatch):
+        """A typo must not fall through to Gemini and silently produce numbers
+        under a judge the report does not name."""
+        monkeypatch.setenv("GOLD32_JUDGE_PROVIDER", "grok")
+        with pytest.raises(ValueError):
+            self._reload()._judge()
+
+    def test_temperature_is_pinned_on_both_paths(self):
+        """A judge measured at one temperature and run at another is a
+        different instrument. `_judge()` passes the same pinned value whichever
+        provider it builds."""
+        src = inspect.getsource(gs._judge)
+        assert "temp = JUDGE_TEMPERATURE if temperature is None else temperature" in src
+        # exactly one construction per provider, each carrying the pinned value
+        assert "build_groq_judge(name, temperature=temp)" in src
+        assert "GeminiModel(model=name, api_key=key, temperature=temp)" in src
+
+
+class TestGroqJudgeReasoningTraces:
+    """Some Groq models (measured: `qwen/qwen3.6-27b`) emit a `<think>` block
+    inside `message.content`. DeepEval then cannot parse a score out of the
+    reply, and the row lands as `score=None` — which Module 45's rule reports
+    as UNSCORED, i.e. as an outage rather than as a model that cannot follow
+    the output contract. Stripped at the wrapper so the distinction survives."""
+
+    def _mod(self):
+        return importlib.import_module("evaluation.groq_judge")
+
+    def test_a_closed_reasoning_block_is_removed(self):
+        s = self._mod().strip_reasoning(
+            '<think>let me consider</think>{"score": 7}')
+        assert s == '{"score": 7}'
+
+    def test_an_unclosed_reasoning_block_is_removed(self):
+        """A reply truncated mid-thought has an opening tag and no closing one,
+        and leaving it in produces exactly the same unparseable JSON."""
+        s = self._mod().strip_reasoning('{"score": 7}\n<think>still thinking')
+        assert s == '{"score": 7}'
+
+    def test_ordinary_content_is_untouched(self):
+        assert self._mod().strip_reasoning('{"score": 7}') == '{"score": 7}'
