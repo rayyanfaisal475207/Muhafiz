@@ -17,6 +17,7 @@ _A case-centric, graph-backed investigative assistant — bilingual (Urdu/Englis
 [![ChromaDB](https://img.shields.io/badge/ChromaDB-Vector_Store_1024d-6A5ACD?style=for-the-badge&logoColor=white)](https://www.trychroma.com/)
 <br/>
 [![Local LLM](https://img.shields.io/badge/Local-Qwen3--14B_%2B_Qalb--8B-8A2BE2?style=for-the-badge)](#technology-stack)
+[![Gold-QA](https://img.shields.io/badge/Gold--QA-26%2F32_on_3_of_3_runs-2E8B57?style=for-the-badge)](#evaluation-measured-accuracy)
 
 </div>
 
@@ -26,6 +27,7 @@ _A case-centric, graph-backed investigative assistant — bilingual (Urdu/Englis
 
 - [Overview](#overview)
 - [Key Features](#key-features)
+- [Evaluation: measured accuracy](#evaluation-measured-accuracy)
 - [Architecture & Pipeline](#architecture--pipeline)
 - [Documents: Knowledge Base vs. Chat Attachments](#documents-knowledge-base-vs-chat-attachments)
 - [The Evidence Graph](#the-evidence-graph)
@@ -88,13 +90,13 @@ Access is controlled per case: an investigator sees only the cases they're assig
 
 - **Verifier Agent — a hard gate, not a suggestion.** Every route that answers from retrieved evidence (`RAG`, `SQL`, `WEB`, `GRAPH`, `GRAPH_HYBRID`, `XGRAPH`, `XAGG`, `XNETWORK`, and every web-search fallback path) is checked before delivery: claim-to-citation grounding, off-topic/generic detection, cross-case evidence leakage, confidence-appropriate hedging for low-confidence graph links, and temporal validity. It fails **closed** — a JSON-parse failure or a rejected claim serves a safe abstention, never a best-effort guess. `DIRECT` (no retrieval happened) is the one route it doesn't gate.
 
-### Agent harness (built; off by default, cut over for `RAG` in this deployment)
+### Agent harness (live — all seven retrieval routes cut over)
 
-A second architecture layer sits alongside the orchestrator described in [Architecture & Pipeline](#architecture--pipeline): `src/pipeline/harness/` restructures the same retrieval/generation logic into a `Supervisor` routing to 11 specialized sub-agents — the original eight (semantic search, case summarization, report drafting, investigative analysis, timeline building, cross-case linkage, large-scale aggregate, data quality) plus three added in a later reconciliation sweep (`findings.md` Modules 8-10): **Local Search** (semantic entity-access-point matching against a dedicated entity-description embedding store, for descriptive references like "the investigating officer" that a literal-name graph seed match can't resolve), **Global Search** (whole-dataset map-reduce reasoning over every precomputed community report at a hierarchy level, not a top-k similarity cut), and **Meta-Analysis** (the outermost layer — decomposes a compound question into up to 5 standalone sub-queries, re-enters the Supervisor concurrently for each, then synthesizes across the sub-answers). Each sub-agent composes the same underlying primitives (RAG, GRAPH/GRAPH_HYBRID, XGRAPH, XAGG, XNETWORK, SQL, WEB) as reusable tools rather than a hand-coded `if/elif` chain. It's wired live into `main.py`'s chat endpoint behind a per-route rollout flag (`HARNESS_CUTOVER_ROUTES`, a comma-separated route allowlist, **code default is empty/off** — every route falls back to the original orchestrator unless explicitly cut over). Not a parallel product, not experimental scaffolding left unfinished: it's the same contracts, same audit logging, same case/role scoping, built and tested, staged for a route-by-route rollout rather than a single big-bang switch. Its per-step trace now correctly resolves every step (`citation_validator`'s emitted event previously never reached `done`/`error`, leaving that step stuck "in progress" in the UI even after the request finished — fixed).
+A second architecture layer sits alongside the orchestrator described in [Architecture & Pipeline](#architecture--pipeline): `src/pipeline/harness/` restructures the same retrieval/generation logic into a `Supervisor` routing to 11 specialized sub-agents — the original eight (semantic search, case summarization, report drafting, investigative analysis, timeline building, cross-case linkage, large-scale aggregate, data quality) plus three added in a later reconciliation sweep (`findings.md` Modules 8-10): **Local Search** (semantic entity-access-point matching against a dedicated entity-description embedding store, for descriptive references like "the investigating officer" that a literal-name graph seed match can't resolve), **Global Search** (whole-dataset map-reduce reasoning over every precomputed community report at a hierarchy level, not a top-k similarity cut), and **Meta-Analysis** (the outermost layer — decomposes a compound question into up to 8 standalone sub-queries, re-enters the Supervisor concurrently for each, then synthesizes across the sub-answers). Each sub-agent composes the same underlying primitives (RAG, GRAPH/GRAPH_HYBRID, XGRAPH, XAGG, XNETWORK, SQL, WEB) as reusable tools rather than a hand-coded `if/elif` chain. It's wired live into `main.py`'s chat endpoint behind a per-route rollout flag (`HARNESS_CUTOVER_ROUTES`, a comma-separated route allowlist, **code default is empty/off** — every route falls back to the original orchestrator unless explicitly cut over). Not a parallel product, not experimental scaffolding left unfinished: it's the same contracts, same audit logging, same case/role scoping, built and tested, staged for a route-by-route rollout rather than a single big-bang switch. Its per-step trace now correctly resolves every step (`citation_validator`'s emitted event previously never reached `done`/`error`, leaving that step stuck "in progress" in the UI even after the request finished — fixed).
 
 **Cutover decision order, per request** (`main.py`'s chat endpoint): the router classifies the query exactly once up front (`route`, `output_format`). If `HARNESS_CUTOVER_ROUTES` is non-empty, that single classification is checked against it — `route` in the allowlist **and** `output_format == "chat"` (a file-generation request is always forced to the orchestrator regardless of route, since Report Drafting isn't in the cutover slice) sends the request to the harness; anything else, or the harness disabled entirely, sends it to the orchestrator. Exactly one of the two ever runs per request — never both, never a blend. If it does go to the harness, `Supervisor.handle()` re-runs the same classification a second time internally (a known, accepted inefficiency — see the code comment at the call site) purely to pick which of the 11 sub-agents handles it; that sub-agent can still internally fall back across tools (e.g. Investigative Analysis trying GRAPH → SQL → RAG in sequence).
 
-**This deployment's `.env` sets `HARNESS_CUTOVER_ROUTES=RAG`** (live-verified 2026-08-29: a direct `run_cutover_query()` call produced `supervisor:dispatch ... sub-agent='Semantic Search'` for a RAG-classified question, and a second query correctly fell through to `Investigative Analysis`'s GRAPH→SQL→RAG chain, landing a grounded SQL-route answer). The code default everywhere else remains empty/off, per `src/config.py`'s own "session-scoped first slice: `HARNESS_CUTOVER_ROUTES=RAG`" comment — this is that first slice actually being turned on, not a change to the default.
+**This deployment's `.env` sets `HARNESS_CUTOVER_ROUTES=RAG,SQL,GRAPH,GRAPH_HYBRID,XGRAPH,XAGG,XNETWORK`** — all seven retrieval routes. The rollout began as a single `RAG` slice (live-verified 2026-08-29) and was widened route by route as each was measured; the code default in `src/config.py` remains empty/off, so a fresh checkout still starts on the original orchestrator. **Every number in [Evaluation](#evaluation-measured-accuracy) was produced through the harness**, not the orchestrator. `output_format == "chat"` is still required, so a file-generation request continues to take the orchestrator regardless of route.
 
 ### Security & access control
 
@@ -108,6 +110,79 @@ Multi-step agentic pipeline with externalized prompts, in-chat file generation (
 
 ---
 
+## Evaluation: measured accuracy
+
+Muhafiz is evaluated against a **32-question Gold-QA set** written by the testing
+team, with their own verified answer key, asked through the live `/api/chat`
+pipeline exactly as an investigator would. The set spans fact retrieval, complex
+multi-hop reasoning, legal knowledge-base questions, summarization and open-ended
+report writing, in **English, Urdu and Roman-Urdu**.
+
+**Every question is asked three separate times.** The headline figure is how many
+are correct on *all three* runs — a system that answers correctly once and wrongly
+twice is not usable in an investigation.
+
+### Result — 2026-09-10, 96 question-runs
+
+| | |
+|---|---|
+| **Correct on all three runs** | **26 / 32 (81%)** |
+| Factual Correctness (semantic, vs answer key) | **0.872** |
+| Answer Relevancy | **0.932** |
+| Abstained / refused to answer | **0 of 96** |
+| Routing identical across all three runs | **32 / 32** |
+| Runs lost to timeout, quota or infrastructure | **0 of 96** |
+
+| Question type | Correct all 3 runs | Factual Correctness |
+|---|---|---|
+| Fact Retrieval | **6 / 6** | 0.961 |
+| Complex Reasoning | **8 / 8** | 0.988 |
+| Knowledge Base Reasoning | **4 / 8** | 0.637 |
+| Contextual Summarization | **5 / 5** | 0.980 |
+| Creative Generation | **3 / 5** | 0.847 |
+
+**Fact retrieval, complex reasoning and contextual summarization are 19 of 19.**
+The remaining weakness is concentrated: of the six questions not correct on all
+three runs, four are legal knowledge-base questions and two are open-ended report
+writing.
+
+### How it is graded
+
+Judge: **`gemini-3.1-flash-lite`**, temperature 0, grading each answer against the
+answer key on the testing team's own rule — *cover the main facts in your own words;
+the failure is stating something opposite or incomplete*, not differing wording.
+
+The judge itself is validated before use, because a grader that drifts makes every
+number meaningless: on a **fixed** answer across five draws it returns **spread 0.0
+on 9 of 9** probe questions, and it holds three held-out controls — an unseen
+polarity flip scores 1.0, while the same answer with its facts reversed, or with one
+figure 78x wrong, scores ~0.2.
+
+Five answers in the original answer key were found to assert more than the database
+supports and were **corrected against the live data** before this run, each with the
+query that justified it.
+
+### Known limits
+
+Reported here rather than left for a reader to discover:
+
+- **Two questions fail on every run.** One asks the system to confirm the *absence*
+  of a database field, which is written in no document in the corpus, so retrieval
+  cannot reach it at any quality. The other has the correct total in the first line
+  of its evidence and omits it from the prose.
+- **Report generation is inconsistent.** The open-ended synthesis step collapses into
+  a degenerate repetition loop on roughly half its runs; a detector plus one
+  regeneration reduced that from 100% to 50%.
+- **Reworded questions fare worse than the gold wording.** Six paraphrases routed
+  correctly 6 of 6 and reached the correct sub-agent only 3 of 6, because one gate
+  matches on a literal trigger list. This is the honest gap between answering *these*
+  32 questions and answering a user's own words.
+
+Full method, per-question scores and every raw answer:
+`evaluation/GOLD32_EVALUATION_REPORT_2026-09-10.md`,
+`HOW_TO_REPRODUCE_THIS_EVALUATION.md`, and `evaluation/rerun3pass/`.
+
+---
 ## Architecture & Pipeline
 
 ```text
@@ -657,7 +732,7 @@ Verified during an independent code audit (not just the phase build reports) —
 - Genuinely incremental community *detection* (re-clustering only the part of the person graph that changed) is not built — community refresh moved from admin/script-invoked-only to an automatic staleness-gated trigger, but the detection pass itself is still a full recompute every time it runs.
 - Phase 9's GPU load test, keyword-search checkpoint, end-to-end eval, and air-gap dry run are built as scripts (`scripts/gpu_load_test.py`, `eval_keyword_search.py`, `eval_end_to_end.py`) but have not yet been executed against live infrastructure, and Go/No-Go pass thresholds are not yet locked in.
 - `.env.example` has not been kept in sync with `src/config.py` — several variables in the Configuration table above (the local-model and air-gap settings) aren't reflected in the template file yet.
-- The agent harness (`src/pipeline/harness/`) is built and tested but not cut over to live traffic by default (`HARNESS_CUTOVER_ROUTES` empty) — its per-step trace granularity is intentionally coarser than the orchestrator's for whichever route is cut over, a known, accepted first-slice trade-off, not an oversight. This deployment's `.env` has turned the first slice on (`HARNESS_CUTOVER_ROUTES=RAG`) — see [Key Features](#key-features) for the live-verification note.
+- The agent harness (`src/pipeline/harness/`) is **off by default in code** (`HARNESS_CUTOVER_ROUTES` empty), so a fresh checkout runs the original orchestrator. **This deployment has all seven retrieval routes cut over**, and every figure in [Evaluation](#evaluation-measured-accuracy) was produced through the harness. Its per-step trace granularity remains intentionally coarser than the orchestrator's — a known, accepted trade-off, not an oversight. See [Key Features](#key-features) for the cutover decision order.
 - `GROQ_MODEL` in `.env` needs to be a model your Groq account can currently reach — Groq's catalog rotates, and a model that worked when this was configured can silently stop resolving (`does not exist or you do not have access to it`) with no local warning until the cloud fallback is actually exercised. Confirm against a live `client.models.list()` call periodically, not just once at setup.
 - **`chunk_fulltext` and `ingestion_run_quality` still lack explicit `muhafiz_app` grants** — the same class of bug migration 031 fixed for the AGE schemas, found while diagnosing a real failed query (`fir-430-26`) but not yet fixed for these two tables. **Confirmed live (2026-08-29), not just theoretical:** every BM25 candidate-pool query against `chunk_fulltext` throws `asyncpg.exceptions.InsufficientPrivilegeError: permission denied for table chunk_fulltext` under the `muhafiz_app` role, on every retry, for every query — RAG's keyword leg is currently 100% non-functional, silently falling back to semantic-only (or, if that also comes up empty, a full abstention). Known, not yet scheduled.
 - **The shared/global knowledge base has zero content in this environment.** Checked directly (2026-08-29): of 790 chunks in the `muhafiz_kb` Chroma collection, **none** carry `is_global=True` — every chunk is real case evidence synced from the Muhafiz API (`doc_type` is exclusively `fir_narrative`/`roznamcha_entry`/`pkm_application`/`cms_complaint`). Nobody has used the admin "Knowledge Base" upload page (or an equivalent `ingest_directory(is_global=True)` script run) to load any procedural/reference document corpus (PPC text, SOPs, filing-requirement guides, etc.) into this deployment. This is a data/ops gap, not a code bug — `is_global=True` is set correctly by the admin upload path when it *is* used (`src/api/admin.py`). Practical effect, confirmed live: any question depending on actual reference-document text (e.g. "what documents are needed to file an FIR") abstains for every user regardless of role, case selection, or harness cutover state; a question a structured lookup can answer instead (e.g. "what PPC section covers mobile phone theft") only succeeds because the SQL route's `police_reference_data` table carries it — RAG itself finds nothing to retrieve.
@@ -687,6 +762,6 @@ No component carries a raw hex value; a theme change is a change to the token fi
 
 <div align="center">
 
-Built to prioritize **accuracy over speed** and **transparency over black-box magic.**
+Built to prioritize **accuracy over speed** and **transparency over black-box magic** — and measured on both: **26 of 32** gold questions correct on all three of three runs, with every remaining failure named and mechanism-diagnosed in [Evaluation](#evaluation-measured-accuracy).
 
 </div>
