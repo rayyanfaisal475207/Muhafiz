@@ -1,0 +1,62 @@
+[
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 0,
+  "metric": "FactualCorrectness",
+  "model": "qwen/qwen3.8-27b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 4.2,
+  "reason": "The actual output fails to identify the specific legal provision (Code of Criminal Procedure, 1898, Section 174) that the expected output cites as the basis for the system's recording of death investigations. Furthermore, the actual output incorrectly states that the system records cause-of-death in"
+ },
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 1,
+  "metric": "FactualCorrectness",
+  "model": "qwen/qwen3.8-27b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 3.5,
+  "reason": "The actual output fails to identify the specific legal provision (Code of Criminal Procedure, 1898, Section 174) that the expected output cites as the basis for the system's recording of death investigations. Furthermore, the actual output incorrectly states that the system records cause-of-death in"
+ },
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 2,
+  "metric": "FactualCorrectness",
+  "model": "qwen/qwen3.8-27b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 10.5,
+  "reason": "The actual output fails to identify the specific legal provision (Code of Criminal Procedure, 1898, Section 174) that the expected output cites as the basis for the system's recording of death investigations. Furthermore, the actual output incorrectly states that the system records cause-of-death in"
+ },
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 3,
+  "metric": "FactualCorrectness",
+  "model": "qwen/qwen3.8-27b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 3.7,
+  "reason": "The actual output fails to identify the specific legal provision (Code of Criminal Procedure, 1898, Section 174) that the expected output cites as the basis for the system's recording of death investigations. Furthermore, the actual output incorrectly states that the system records cause-of-death in"
+ },
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 4,
+  "metric": "FactualCorrectness",
+  "model": "qwen/qwen3.8-27b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 3.2,
+  "reason": "The actual output fails to identify the specific legal provision (Code of Criminal Procedure, 1898, Section 174) that the expected output cites as the basis for the system's recording of death investigations. Furthermore, the actual output incorrectly states that the system records cause-of-death in"
+ }
+]

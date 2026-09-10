@@ -4886,4 +4886,56 @@ needs that module's all-32 equality control re-run. Module 89 pinned the two
 probes at their measured values in `TestModule89Dispatch` instead, so the gap is
 recorded rather than silently carried.
 
-
+---
+# Module 109 — should a Groq-hosted judge replace the Gemini one? ✅ measured, **answer: no**
+**Branch `eval/judge-groq-comparison`, on top of Module 87's
+`fix/eval-judge-upgrade-and-prompt`. Full result:
+`docs/gold-qa-wave2-results/MODULE109_RESULT.md`.** Nothing here changes the
+platform or any published score; 366 committed judge calls, all re-scorings of
+the answers Module 27 captured. No backend, no Docker.
+**Recommendation: keep `gemini-3.1-flash-lite`.** Every Groq model this account
+can reach holds the held-out controls and none reproduces the judge Module 87
+shipped.
+| judge | M7 ×5 | spread 0.0 on | controls A/B/C | 96-run mean | pass | UNSCORED | wall clock |
+|---|---|---|---|---|---|---|---|
+| **`gemini-3.1-flash-lite`** | **1.0** | **9/9** | 1.0 / 0.2 / 0.2 | **0.702** | **61/96** | **0** | **10 min** |
+| `openai/gpt-oss-20b` | 1.0 | 7/9 | 1.0 / 0.0 / 0.0–0.2 | 0.573 | 45/96 | **1** | 21 min |
+| `qwen/qwen3.8-27b` | 1.0 | 8/9 | 1.0 / 0.0 / 0.0 | — | — | — | — |
+| `groq/compound-mini` | 1.0 | 6/9 | 1.0 / 0.0–0.1 / 0.0–0.2 | — | — | — | — |
+| `openai/gpt-oss-120b` *(self-grading)* | 1.0 | **4/9** | 1.0 / 0.0–0.1 / 0.1–0.2 | — | — | — | — |
+**`llama-3.3-70b-versatile` and `moonshotai/kimi-k2-instruct` do not exist on
+this account** — the model list was queried before the set was fixed. `qwen/
+qwen3.6-27b` is unusable: a **1,000-token OTPM cap** 429s every call, which the
+harness retries as a quota wobble and so **hangs silently** (new defect 119).
+**M7 does not discriminate — all five score it 1.0 on 5/5 draws.** What separates
+them is variance and the rest of the checklist. **G1 collapses 0.9 → 0.2 on every
+Groq model** and KB6 0.8 → 0.2–0.3; `gpt-oss-20b`'s reason for G1 is the retired
+judge's mistake verbatim (*"it uses 92 accused individuals and 28 FIRs … instead
+of the expected"*), the exact difference the close-numbers rule exists to excuse.
+On the full 96-run re-score it is **noisier, not stricter** — CP6/CR8/G6 rise
+while G1, KB5 (0.90→0.23), KB8 (0.97→0.30), CR6 and M5 (both 1.00→0.57) fall —
+and DeepEval's own verdict on the one UNSCORED row is *"Evaluation LLM outputted
+an invalid JSON. Please use a better evaluation model."*
+**The self-grading bias is measurably ~zero.** `openai/gpt-oss-120b` judging its
+own output means **0.500** across the nine probes — identical to non-self
+`gpt-oss-20b`, below `compound-mini`. It stays out of the default anyway, but for
+variance (worst of all five: 4/9, including **0.7 spread on CP1**), not leniency.
+**Quota is weaker than the brief assumed, in both directions.** The shipped judge
+is capped per *minute*, ran all 96 calls in 10 minutes, and was never what the
+20/day cap blocked. Groq's `x-ratelimit-limit-tokens: 8000` is per **minute** and
+binds before the 1,000/day request limit at ~1,730 tokens/judge call →
+**~4.6 calls/min/key**, making the Groq judge the *slower* option at 21 min.
+**`.env` was rewritten at 02:21:30 mid-module** and Module 98's dead Gemini keys
+now authenticate; both measurements are committed.
+**Shipped anyway: the provider seam.** `GOLD32_JUDGE_PROVIDER` (`gemini` default,
+`groq` selectable), `evaluation/groq_judge.py` wired through `key_manager.py`'s
+rotation, and `evaluation/module109_judge_probe.py` — the harness, with the three
+held-out controls **in code**. Temperature pinned identically on both paths; an
+unknown provider raises instead of falling through to Gemini. **45 unit tests
+pass** (38 pre-existing); the evaluation prompt is byte-identical to Module 87's.
+**New defects: 117** (`key_manager` rotates numbered keys only, and five env
+names carry four distinct keys per provider — two modules have computed headroom
+by counting env names), **118** (Module 87's held-out controls exist only as
+prose; Module 109 had to reconstruct them, validated against its published
+scores), **119** (a per-model OTPM cap is retried as a quota failure and hangs
+the run with nothing in the log).

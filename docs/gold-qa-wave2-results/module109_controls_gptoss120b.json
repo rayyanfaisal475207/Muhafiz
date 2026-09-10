@@ -1,0 +1,101 @@
+[
+ {
+  "case": "A_heldout_positive",
+  "draw": 0,
+  "expect": "HIGH",
+  "model": "openai/gpt-oss-120b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 6.6,
+  "reason": "The actual output correctly captures all key facts: it acknowledges a gap (i.e., not every FIR has a designated officer), reports exactly 11 FIRs with placeholders, specifies 8 \"(Naamzad ASI)\" and 3 \"(Naamzad SI)\" placeholders, and notes that Faisal and Tariq each handle 4 FIRs. The opening \"Yes\" re"
+ },
+ {
+  "case": "A_heldout_positive",
+  "draw": 1,
+  "expect": "HIGH",
+  "model": "openai/gpt-oss-120b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 5.1,
+  "reason": "The actual output correctly states that not all FIRs have a designated officer (acknowledging the gap), matches the 11 FIRs with placeholders, gives the exact counts of 8 \"(Naamzad ASI)\" and 3 \"(Naamzad SI)\", and identifies Faisal and Tariq as the busiest officers with 4 FIRs each. All key facts fro"
+ },
+ {
+  "case": "A_heldout_positive",
+  "draw": 2,
+  "expect": "HIGH",
+  "model": "openai/gpt-oss-120b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 4.4,
+  "reason": "The actual output includes all key facts from the expected answer: it states that 11 FIRs lack a real investigating officer, specifies the placeholders '(Naamzad ASI)' on 8 FIRs and '(Naamzad SI)' on 3 FIRs, and notes that Faisal and Tariq each handle 4 FIRs. Although it begins with \"Yes,\" it correc"
+ },
+ {
+  "case": "B_reversed_fact",
+  "draw": 0,
+  "expect": "LOW",
+  "model": "openai/gpt-oss-120b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.1,
+  "elapsed_s": 4.5,
+  "reason": "The expected output states that the 2024 average reporting time is 15.0 minutes and the 2026 average is 1401.3 minutes (much slower). The actual output reverses these numbers, claiming 1401.3 minutes for 2024 and 15.0 minutes for 2026, and also says reporting is \"just as quickly — in fact faster,\" w"
+ },
+ {
+  "case": "B_reversed_fact",
+  "draw": 1,
+  "expect": "LOW",
+  "model": "openai/gpt-oss-120b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.1,
+  "elapsed_s": 6.6,
+  "reason": "The expected output states that the 2024 average reporting time is 15.0 minutes and the 2026 average is 1401.3 minutes (much slower). The actual output reverses these numbers, claiming 1401.3 minutes for 2024 and 15.0 minutes for 2026, and also says reporting is \"just as quickly — in fact faster,\" w"
+ },
+ {
+  "case": "B_reversed_fact",
+  "draw": 2,
+  "expect": "LOW",
+  "model": "openai/gpt-oss-120b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.0,
+  "elapsed_s": 15.7,
+  "reason": "The actual output reverses the key facts: it states the 2024 mean is 1401.3 minutes and 2026 mean is 15.0 minutes, opposite to the expected output which has 2024 at 15.0 minutes and 2026 at 1401.3 minutes. This contradicts the direction of change and the specific numbers, resulting in a material err"
+ },
+ {
+  "case": "C_wrong_magnitude",
+  "draw": 0,
+  "expect": "LOW",
+  "model": "openai/gpt-oss-120b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.1,
+  "elapsed_s": 6.7,
+  "reason": "The expected answer states a huge slowdown (2026 average 1401.3 min vs 2024 15.0 min). The actual answer also says reporting is slower, but gives a vastly different 2026 average of 18 min, which is orders of magnitude off and not within the allowed tolerance. This contradicts a key numeric fact, so "
+ },
+ {
+  "case": "C_wrong_magnitude",
+  "draw": 1,
+  "expect": "LOW",
+  "model": "openai/gpt-oss-120b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.1,
+  "elapsed_s": 15.1,
+  "reason": "The expected output states a 2026 average of 1401.3 minutes versus 15.0 minutes in 2024, while the actual output gives 18.0 minutes for 2026. This large discrepancy far exceeds the allowed 5‑10% tolerance, constituting a wildly incorrect number. Although both answers agree that reporting is slower i"
+ },
+ {
+  "case": "C_wrong_magnitude",
+  "draw": 2,
+  "expect": "LOW",
+  "model": "openai/gpt-oss-120b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 16.4,
+  "reason": "The actual output correctly states that reporting was slower in 2026 than in 2024, matching the expected direction, but it gives a mean time of 18.0 minutes for 2026 versus the expected 1401.3 minutes. This numeric discrepancy is far beyond the allowed 5‑10% tolerance, representing a material error "
+ }
+]

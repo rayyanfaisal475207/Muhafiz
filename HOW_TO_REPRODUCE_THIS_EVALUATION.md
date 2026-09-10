@@ -176,6 +176,7 @@ those rows from the results file and re-run.**
 ### 3.1 Judge model
 
 ```python
+# GOLD32_JUDGE_PROVIDER = "gemini" (default) | "groq"
 GeminiModel(model=os.environ.get("GOLD32_JUDGE_MODEL") or "gemini-3.1-flash-lite",
             api_key=GEMINI_API_KEY, temperature=0.0)
 # DEEPEVAL_PER_ATTEMPT_TIMEOUT_SECONDS_OVERRIDE = 300
@@ -203,6 +204,24 @@ and re-run; the model is a named constant (`DEFAULT_JUDGE_MODEL` in
 reproduce — the judge its numbers came from. Temperature is pinned at 0. Both
 per-attempt timeouts are raised: the harness's own cap used to be *lower* than
 the DeepEval override beside it, so a slow call was recorded as a failed one.
+
+**[Module 109] The provider is selectable now, and the default did NOT move.**
+`GOLD32_JUDGE_PROVIDER` chooses `gemini` (default) or `groq`; the Groq path is an
+OpenAI-compatible wrapper (`evaluation/groq_judge.py`) that draws its key from
+`src/llm/key_manager.py`'s existing rotation. It exists because Module 87's
+choice above was forced by quota — measured again on 2026-09-10, only **one**
+Gemini key in `.env` is live (`GEMINI_API_KEY` and `GEMINI_API_KEY_1` are the
+same key; `_2/_3/_4` return 401 — Module 98) and `gemini-2.5-flash` is already
+429 on it, so the flash tier cannot serve one 96-call re-score. The four distinct
+Groq keys carry **1,000 requests/day each**, ~40 re-scores.
+
+**It is still not the recommended judge.** Module 109 measured every Groq model
+this account can reach against Module 87's own probes and held-out controls
+(`docs/gold-qa-wave2-results/MODULE109_RESULT.md`). The candidates hold the
+controls but do not reproduce the judge Module 87 shipped, and the seam is
+provided so the comparison is reproducible — not because the instrument changed.
+Any run that sets `GOLD32_JUDGE_PROVIDER=groq` is producing numbers under a
+DIFFERENT instrument and must say so.
 
 ### 3.2 Metrics — two, both with threshold 0.6
 
