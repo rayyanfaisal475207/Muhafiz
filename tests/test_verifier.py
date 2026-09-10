@@ -8,6 +8,7 @@ import json
 import pytest
 
 from src.pipeline.verifier import (
+    CITATION_FORMAT_DEGRADED_KEY,
     EXHAUSTIVE_SCOPE_META_KEY,
     _check_fabricated_case_ids,
     _check_hedging,
@@ -22,6 +23,8 @@ from src.pipeline.verifier import (
     negative_claim_is_supported_by_exhaustive_listing,
     verify_grounding,
     verify_structured_aggregate_paraphrase,
+    _omitted_headline_proportions,
+    _headline_line,
 )
 
 
@@ -1506,3 +1509,456 @@ async def test_validation_upgrade_uses_the_claims_own_document(monkeypatch):
     )
     assert status == ValidationStatus.PASSED
     assert valmod.caveats_for_validation(status, claims) == []
+
+
+# ============================================================
+# [Gold-QA fix - Module 101] Attribution by source name
+#
+# The live KB9 answer that `_check_no_citation()` discarded is reproduced
+# below VERBATIM (`docs/gold-qa-wave2-results/module101_before.json`, run 1),
+# together with the real source labels of the window it was generated from.
+# The three "is served" tests fail on the code as it stood before this module
+# and pass after; the five "is still rejected" tests pass in BOTH directions,
+# which is what makes them a guard rather than a restatement of the change.
+# ============================================================
+
+_M101_KB9_SOURCES = [
+    "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+    "4_Punjab-Police-Rules-III.pdf",
+    "our own case records (cross-case aggregate)",
+]
+
+# The composed data-half chunk's own rendering, from
+# `xagg.py::render_fir_section_case_count` on the live corpus.
+_M101_DATA_HALF_TEXT = (
+    "10 of the 73 FIR(s) that carry a recorded section cite PPC 302.\n"
+    "  - fir-202-26, fir-213-26, fir-214-26, fir-218-26, fir-340-25\n"
+    "For context, the sections most often cited:\n"
+    "  - PPC 34: 40 FIR(s)\n"
+    "  - PPC 302: 10 FIR(s)\n"
+)
+
+# Verbatim, the answer the shipped verifier threw away.
+_M101_KB9_ANSWER = (
+    "### Legal Requirement:\n"
+    "According to the **Code of Criminal Procedure (Pakistan)**, when a person "
+    "dies while in the custody of the police or under certain other conditions, "
+    "the police are required to conduct an inquiry into the cause of death. This "
+    "is outlined in **Section 174** of the Code of Criminal Procedure. "
+    "Additionally, **Section 176** provides that in cases where a person dies "
+    "while in police custody, the nearest magistrate empowered to hold inquests "
+    "shall conduct an inquiry into the cause of death.\n\n"
+    "### Case Records Summary:\n"
+    "According to **our own case records (cross-case aggregate)**, **10 of the 73 "
+    "FIR(s)** that carry a recorded section cite **PPC 302**, which pertains to "
+    "murder. However, the summary does **not** provide specific information on "
+    "whether the police conducted detailed inquiries into the cause of death."
+)
+
+
+def _m101_chunks():
+    return [
+        {"id": "cr-pc-35",
+         "text": "174. Police to inquire and report on suicide, etc.",
+         "metadata": {"source": _M101_KB9_SOURCES[0]}},
+        {"id": "ppr-1561",
+         "text": "25.31. Information of a death in suspicious circumstances.",
+         "metadata": {"source": _M101_KB9_SOURCES[1]}},
+        {"id": "kb-data-half:death_investigation_charging",
+         "text": _M101_DATA_HALF_TEXT,
+         "metadata": {"source": _M101_KB9_SOURCES[2], "source_tool": "XAGG"}},
+    ]
+
+
+def _m101_passing_llm(reason="All claims are directly supported by cited chunks."):
+    async def fake_call(system_prompt, user_message, **kwargs):
+        return json.dumps(
+            {
+                "grounded": True,
+                "off_topic": False,
+                "leaked_case_id": None,
+                "unsupported_claims": [],
+                "reason": reason,
+            }
+        )
+
+    return fake_call
+
+
+def test_module101_normalises_an_ingest_filename_to_the_form_prose_writes():
+    from src.pipeline.verifier import _normalise_source_label
+
+    assert (
+        _normalise_source_label("1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf")
+        == "code of criminal procedure (pakistan)"
+    )
+    assert _normalise_source_label("4_Punjab-Police-Rules-III.pdf") == "punjab police rules iii"
+    assert (
+        _normalise_source_label("our own case records (cross-case aggregate)")
+        == "our own case records (cross case aggregate)"
+    )
+
+
+def test_module101_a_label_too_short_or_generic_is_refused():
+    """The floor is what stops the exemption being trivially satisfiable: an
+    answer containing the word "unknown" must never count as attribution."""
+    from src.pipeline.verifier import _normalise_source_label
+
+    assert _normalise_source_label("unknown") is None
+    assert _normalise_source_label("entity_graph") is None
+    assert _normalise_source_label("") is None
+    assert _normalise_source_label(None) is None
+    # Three tokens, but under the character floor.
+    assert _normalise_source_label("a_b_c.pdf") is None
+
+
+def test_module101_finds_the_named_source_across_separator_differences():
+    from src.pipeline.verifier import _answer_names_a_cited_source
+
+    assert (
+        _answer_names_a_cited_source(_M101_KB9_ANSWER, _m101_chunks())
+        == "code of criminal procedure (pakistan)"
+    )
+    assert (
+        _answer_names_a_cited_source(
+            "As Punjab Police Rules-III requires, the register is permanent.",
+            _m101_chunks(),
+        )
+        == "punjab police rules iii"
+    )
+    # The composed data-half chunk's own label is recognised like any other.
+    assert (
+        _answer_names_a_cited_source(
+            "According to our own case records (cross-case aggregate), 10 FIRs cite PPC 302.",
+            _m101_chunks(),
+        )
+        == "our own case records (cross case aggregate)"
+    )
+
+
+def test_module101_an_answer_naming_no_cited_source_is_not_attribution():
+    from src.pipeline.verifier import _answer_names_a_cited_source
+
+    assert (
+        _answer_names_a_cited_source(
+            "Under the Anti-Terrorism Act 1997 the accused must be produced within 24 hours.",
+            _m101_chunks(),
+        )
+        is None
+    )
+
+
+@pytest.mark.asyncio
+async def test_module101_kb9_answer_is_served_instead_of_discarded(monkeypatch):
+    """The defect, as a test. Before this module the identical call returned
+    grounded=False / off_topic=True and the sub-agent discarded the answer."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(vmod, "call_llm", _m101_passing_llm())
+
+    result = await verify_grounding(
+        answer=_M101_KB9_ANSWER,
+        cited_chunks=_m101_chunks(),
+        case_id=None,
+    )
+    assert result["grounded"] is True
+    assert result["off_topic"] is False
+    assert result[CITATION_FORMAT_DEGRADED_KEY] is True
+    assert result["named_source"] == "code of criminal procedure (pakistan)"
+    assert result["refusal_detected"] is False
+
+
+@pytest.mark.asyncio
+async def test_module101_the_exemption_is_never_silent(monkeypatch):
+    """What the exemption gives up (claim-level traceability) has to reach the
+    caller, or the reader is told the answer is better sourced than it is."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(vmod, "call_llm", _m101_passing_llm())
+    result = await verify_grounding(
+        answer=_M101_KB9_ANSWER, cited_chunks=_m101_chunks(), case_id=None
+    )
+    assert result.get(CITATION_FORMAT_DEGRADED_KEY) is True
+
+
+@pytest.mark.asyncio
+async def test_module101_a_cited_answer_is_not_flagged_as_degraded(monkeypatch):
+    """The ordinary case is unchanged: an answer that DOES carry [Document N]
+    never reaches this code at all."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(vmod, "call_llm", _m101_passing_llm())
+    result = await verify_grounding(
+        answer=(
+            "Section 174 of the Code of Criminal Procedure (Pakistan) requires an "
+            "inquiry into the cause of death [Document 1]. Our own records show 10 "
+            "of 73 FIRs cite PPC 302 [Document 3]."
+        ),
+        cited_chunks=_m101_chunks(),
+        case_id=None,
+    )
+    assert result["grounded"] is True
+    assert CITATION_FORMAT_DEGRADED_KEY not in result
+
+
+@pytest.mark.asyncio
+async def test_module101_an_evasive_answer_naming_nothing_is_still_rejected(monkeypatch):
+    """Condition (a). The check's original target, a long answer that names no
+    source it was given, is untouched."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(vmod, "call_llm", _m101_passing_llm())
+    result = await verify_grounding(
+        answer=(
+            "Police procedure in such matters is generally governed by the "
+            "applicable criminal statutes and departmental standing orders. In "
+            "practice the officer in charge would open an inquiry, record the "
+            "circumstances, and forward the matter onward for further action by "
+            "the competent authority as the situation may require."
+        ),
+        cited_chunks=_m101_chunks(),
+        case_id=None,
+    )
+    assert result["grounded"] is False
+    assert result["off_topic"] is True
+    assert "cites no [Document N]" in result["reason"]
+
+
+@pytest.mark.asyncio
+async def test_module101_a_fabrication_is_still_rejected_even_when_it_names_a_source(monkeypatch):
+    """Condition (b), and the brief's non-negotiable. Module 82's forced
+    fabrication shape, an invented rule number and an invented FIR id,
+    rewritten so it ALSO names a real cited source and therefore satisfies
+    (a). The judge flags it, so it must still be rejected."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(
+        vmod,
+        "call_llm",
+        _rejecting_llm(
+            ["Rule 27.41(3) appears in no cited chunk.",
+             "FIR 512/26 is not in any cited chunk."]
+        ),
+    )
+    result = await verify_grounding(
+        answer=(
+            "Under rule 27.41(3) of the Punjab Police Rules-III, every article of "
+            "case property must be destroyed exactly seven years after the register "
+            "is closed. Our own case records (cross-case aggregate) are fully "
+            "compliant: the audit confirmed no entry has ever been retained past "
+            "that limit."
+        ),
+        cited_chunks=_m101_chunks(),
+        case_id=None,
+    )
+    assert result["grounded"] is False
+    assert CITATION_FORMAT_DEGRADED_KEY not in result
+    assert result["unsupported_claims"]
+
+
+@pytest.mark.asyncio
+async def test_module101_a_genuine_refusal_is_never_exempted(monkeypatch):
+    """`_check_refusal()` is evaluated separately and is not part of the
+    exemption at all, so a refusal that happens to name a source still fails."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(vmod, "call_llm", _m101_passing_llm())
+    result = await verify_grounding(
+        answer=(
+            "I cannot answer this question. The Code of Criminal Procedure "
+            "(Pakistan) material is not publicly available and I do not have "
+            "access to the information required to respond to this request in any "
+            "meaningful way whatsoever."
+        ),
+        cited_chunks=_m101_chunks(),
+        case_id=None,
+    )
+    assert result["grounded"] is False
+    assert result["refusal_detected"] is True
+    assert CITATION_FORMAT_DEGRADED_KEY not in result
+
+
+@pytest.mark.asyncio
+async def test_module101_a_deterministic_pre_check_still_overrules_the_exemption(monkeypatch):
+    """A temporal finding (the chunk is not yet in force) is a deterministic
+    pre-check, and it must beat the exemption even though the answer names a
+    real cited source and the judge cleared every claim.
+
+    `_check_fabricated_case_ids()` cannot be used for this test and that is a
+    finding, not a shortcut: it only inspects `[Document N, CASE-ID]`
+    citations, so by construction it can never fire on an answer that carries
+    no `[Document N]` marker at all. That is why the exemption is gated on the
+    judge as well as on the source name -- the one deterministic check aimed
+    at invented identifiers is blind on exactly this path (filed as Module 102).
+    """
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(vmod, "call_llm", _m101_passing_llm())
+    chunks = _m101_chunks()
+    chunks[0]["metadata"]["effective_from"] = 2030
+
+    result = await verify_grounding(
+        answer=_M101_KB9_ANSWER,
+        cited_chunks=chunks,
+        case_id=None,
+        target_date=2026,
+    )
+    assert result["grounded"] is False
+    assert CITATION_FORMAT_DEGRADED_KEY not in result
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Gold-QA fix — Module 70: THE OPPOSITE DIRECTION.
+#
+# `verify_structured_aggregate_paraphrase()` computed only
+# `ans_nums - src_nums` — a one-directional set difference that catches
+# every INVENTED number and structurally cannot see an OMITTED one. Module
+# 83's three-way capture over nine M2 runs measured the aggregate payload
+# and the rendered `raw_summary_text` carrying gold's headline on 9 of 9,
+# byte-identical, and the served paraphrase dropping it on 9 of 9 with the
+# gate logging `grounded=True unsupported_numbers=[]` every time.
+#
+# The tests below pin BOTH directions, because the whole risk of this
+# module is weakening the first one while adding the second.
+# ═══════════════════════════════════════════════════════════════════════
+
+_M2_HEADLINE = (
+    "Growth: caseload is rising fastest at the 15 general-purpose station(s) — "
+    "7 FIRs in 2024 to 39 in 2026, against 3 to 5 at the 2 single-crime-type "
+    "station(s) — though even so, 9 of 73 FIRs (~12.3%) are carried by just 2 "
+    "of 19 stations, the ones set up for a single type of crime.\n"
+    "\n"
+    "9 of 73 FIRs (~12.3%) are filed at the 2 of 19 stations set up for one "
+    "specific type of crime:\n"
+    "  - سائبر کرائم سرکل کراچی (PS-KHI-CYB): 5 FIRs\n"
+)
+
+# Verbatim from Module 83's layer-3 capture — the paraphrase served on 9 of
+# 9 M2 runs, reproduced on this branch's own runs of 2026-09-10.
+_M2_SERVED_PARAPHRASE = (
+    "The caseload is growing faster at the general-purpose stations. "
+    "Specifically, the 15 general-purpose stations saw an increase from 7 FIRs "
+    "in 2024 to 39 FIRs in 2026. In contrast, the 2 stations set up for one "
+    "specific type of crime saw a much slower increase, from 3 FIRs in 2024 to "
+    "5 FIRs in 2026 [Document 1]."
+)
+
+
+@pytest.mark.asyncio
+async def test_module70_the_live_m2_paraphrase_is_reported_as_omitting_its_headline():
+    """FAILS BEFORE THIS MODULE (the key is absent), PASSES AFTER."""
+    result = await verify_structured_aggregate_paraphrase(
+        answer=_M2_SERVED_PARAPHRASE,
+        source_text=_M2_HEADLINE,
+        case_id="cross_case",
+    )
+    # Both halves of both proportions are reported, because a repair pass
+    # has to restate the whole proportion, not the absent digit.
+    assert result["omitted_source_figures"] == ["19", "2", "73", "9"]
+    assert result["omitted_source_headline"].startswith("Growth: caseload is rising")
+
+
+@pytest.mark.asyncio
+async def test_module70_omission_does_not_flip_grounded_or_add_unsupported_claims():
+    """The signal is ADDITIVE. An omission is a completeness shortfall, not
+    a grounding failure — making it fail the gate would route a good prose
+    answer into the raw computed dump on every question that trips it."""
+    result = await verify_structured_aggregate_paraphrase(
+        answer=_M2_SERVED_PARAPHRASE,
+        source_text=_M2_HEADLINE,
+        case_id="cross_case",
+    )
+    assert result["grounded"] is True
+    assert result["unsupported_claims"] == []
+    assert "Paraphrase numbers match the computed source" in result["reason"]
+
+
+@pytest.mark.asyncio
+async def test_module70_a_paraphrase_that_keeps_the_proportion_is_not_flagged():
+    result = await verify_structured_aggregate_paraphrase(
+        answer=(
+            "Caseload is rising fastest at the general-purpose stations, but even "
+            "so 9 of 73 FIRs are carried by just 2 of 19 stations [Document 1]."
+        ),
+        source_text=_M2_HEADLINE,
+        case_id="cross_case",
+    )
+    assert result["grounded"] is True
+    assert result["omitted_source_figures"] == []
+
+
+@pytest.mark.asyncio
+async def test_module70_the_invented_number_direction_still_fires():
+    """THE POINT OF THIS TEST: Module 70 ADDS a second, opposite-direction
+    check; it does not relax the hallucination guard. Module 101 measured
+    that guard correctly rejecting invented rule numbers, invented FIR
+    numbers and a fabricated negative — an answer that carries the whole
+    proportion AND invents a number must still be rejected."""
+    result = await verify_structured_aggregate_paraphrase(
+        answer=(
+            "9 of 73 FIRs are carried by just 2 of 19 stations, and 61 of them "
+            "reached the trial stage [Document 1]."
+        ),
+        source_text=_M2_HEADLINE,
+        case_id="cross_case",
+    )
+    assert result["grounded"] is False
+    assert "61" in result["reason"]
+    assert result["omitted_source_figures"] == []
+
+
+# ── the three ways the rule is deliberately NARROW ──────────────────────
+#
+# Each of these is a live false positive a naive "every headline figure
+# must appear" rule produced on the 32-question sweep of 2026-09-10.
+
+def test_module70_a_statute_year_in_a_note_line_is_not_a_proportion():
+    """CR3/KB1/KB8: the headline is a NOTE, and its only digits are the
+    "1997" of "CNSA 1997" and the "1965" of "Arms Ordinance 1965"."""
+    src = (
+        "NOTE: Grouped by the statute(s) each case was registered under "
+        "(e.g. PPC, CNSA 1997, Arms Ordinance 1965), not by crime type.\n"
+        "- PPC: 25 cases\n"
+    )
+    assert _omitted_headline_proportions("There are 25 PPC cases.", src) == []
+
+
+def test_module70_a_bare_headline_total_is_not_a_proportion():
+    """S3/CR2/KB2/KB9 lead with "**4 matching Person(s) found.**", and M5
+    with "32 case(s) recorded a recovered weapon". A count survives being
+    summarised away; a ratio does not."""
+    assert _omitted_headline_proportions(
+        "Two people appear in more than one case.", "**4 matching Person(s) found.**\n- ...\n"
+    ) == []
+    assert _omitted_headline_proportions(
+        "In 2024, 13 cases recovered a weapon; in 2026, 19 did.",
+        "32 case(s) recorded a recovered weapon. What those cases were charged under:\n",
+    ) == []
+
+
+def test_module70_an_answer_that_states_no_headline_figure_is_left_alone():
+    """KB2/KB9's shape: the sub-agent correctly says the computed aggregate
+    does not address the question. That is not a paraphrase that dropped a
+    finding, and pushing figures into it would manufacture a claim."""
+    assert _omitted_headline_proportions(
+        "The provided document does not address how causes of death are investigated.",
+        "9 of 73 FIRs are carried by 2 of 19 stations.\n",
+    ) == []
+
+
+def test_module70_only_the_headline_line_is_covered_not_every_rendered_row():
+    """A per-district breakdown states a proportion on every row. An answer
+    is prose, not a table, and is not required to recite all of them —
+    Module 104 records that pushing answers into list shape trips a
+    different gate entirely."""
+    src = (
+        "Weapon recovery by district:\n"
+        "- Karachi: 3 of 12 cases recovered a weapon (~25%)\n"
+        "- Lahore: 7 of 20 cases recovered a weapon (~35%)\n"
+    )
+    assert _omitted_headline_proportions("Recovery rates vary by district.", src) == []
+
+
+def test_module70_headline_line_skips_leading_blank_lines():
+    assert _headline_line("\n\n  9 of 73 FIRs.\n- row\n") == "9 of 73 FIRs."
+    assert _headline_line("") == ""

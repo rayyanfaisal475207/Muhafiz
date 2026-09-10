@@ -1141,6 +1141,38 @@ class Supervisor:
                     update={"target_entity": str(routed_entity)}
                 )
 
+        # [Gold-QA fix — Module 116] `detail` is byte-identical to what this
+        # event has always emitted; the three fields BESIDE it are the fix.
+        #
+        # THE DEFECT. This same event is emitted once for the question the
+        # user actually asked AND once for every sub-query `meta_analysis.py`
+        # decomposes it into (that module calls back into `Supervisor.handle()`
+        # per sub-query — see `_dispatch_one()`), and until now the only
+        # difference between the two was prose inside `detail`. Every consumer
+        # therefore had to scrape `route='...'` out of that string, and
+        # `evaluation/gold32_run.py::parse()` — the recorder behind
+        # `gold32_pass{1,2,3}_outputs.json`, the route baseline this whole
+        # programme's regression controls compare against — kept the LAST
+        # match. For a Meta-Analysis question the last match is a decomposed
+        # SUB-query's route, and since `meta_analysis.py` dispatches its
+        # sub-queries concurrently (`asyncio.gather`), WHICH sub-query wins
+        # that race is not even deterministic.
+        #
+        # Measured consequence: CR3, G1 and G6 are recorded `route=XAGG` on
+        # all three of Module 27's passes; their real top-level route is
+        # XNETWORK, measured 8/8 each at temperature 0 (Module 116 §1). The
+        # `XAGG` in the baseline is Meta-Analysis's own sub-queries, which are
+        # XAGG by construction — the decomposer is built to emit
+        # aggregate-shaped sub-queries. So the baseline never disagreed with
+        # the router; it was recording a different quantity.
+        #
+        # `nested` is taken from `allow_meta_analysis`, not from a new
+        # parameter: `meta_analysis.py` is the ONLY caller that passes False
+        # (its own one-level recursion guard, findings.md Module 10), so that
+        # flag already IS "this dispatch is a decomposed sub-query" and the two
+        # cannot drift apart. `PipelineEvent` is `extra="allow"`, so these ride
+        # along without a schema change; `cutover.py` forwards them onto the
+        # SSE dict.
         emit(
             PipelineEvent(
                 step="supervisor:dispatch",
@@ -1149,6 +1181,9 @@ class Supervisor:
                     f"Classified query as route={route_result.get('route')!r} "
                     f"-> sub-agent={sub_agent_name!r}"
                 ),
+                route=route_result.get("route"),
+                sub_agent=sub_agent_name,
+                nested=not allow_meta_analysis,
             )
         )
 

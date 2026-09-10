@@ -873,6 +873,133 @@ def _check_no_citation(answer: str) -> Optional[str]:
     )
 
 
+# ============================================================
+# [Gold-QA fix — Module 101] ATTRIBUTION BY SOURCE NAME
+#
+# THE DEFECT. `_check_no_citation()` above rejects a substantial answer that
+# carries no `[Document N]` token. On KB9 that fires on an answer which is
+# CORRECT and which the LLM judge has just cleared claim by claim
+# (`grounded: true`, `unsupported_claims: []`): it states CrPC s.174/s.176
+# and Punjab Police Rules 25.31, states gold's own figure — "10 of the 73
+# FIR(s) that carry a recorded section cite PPC §302" — and states the
+# schema gap honestly. Its only fault is HOW it attributes: it names its
+# sources instead of numbering them —
+#
+#   "According to the **Code of Criminal Procedure (Pakistan)** …"
+#   "According to **our own case records (cross-case aggregate)** …"
+#
+# Both of those strings are the `source` / `source_file` labels of chunks
+# in this very window (chunks 1/3/4 and the composed data-half chunk 7).
+# The answer is not avoiding the evidence; it is citing it by name.
+# `refusal_issue` then sets `off_topic=True`, and the sub-agent's
+# [PRESERVE] contract discards the whole answer.
+#
+# Module 71 §8 filed this same check firing on Meta-Analysis' G6 synthesis
+# (10 of 12 runs) and Module 82 §8d recorded it firing there unforced on
+# shipped code. Module 71's own prescription was "make the [Document N]
+# markers unnecessary by carrying provenance out of band" — which is what
+# this is, on the Semantic Search side.
+#
+# WHY THIS IS NOT A LOOSENING. The exemption below needs BOTH of two
+# independent things to be true, and each alone is deliberately not enough:
+#
+#   (a) the answer contains, verbatim, the normalised source label of a
+#       chunk it was actually given — a deterministic string test against
+#       THIS window's own metadata, not a similarity judgement; and
+#   (b) the LLM judge independently cleared every claim in the answer
+#       (grounded, not off-topic, no unsupported claims), with no leakage
+#       and no other deterministic pre-check outstanding.
+#
+# So an evasive answer still fails (a): it names no source it was handed.
+# A fluent fabrication still fails (b): the judge flags it, exactly as it
+# flagged Module 82's forced `rule 27.41(3)` control 3 of 3 — and that
+# control's fabrication carries `[Document 2]`/`[Document 7]` markers, so
+# this check never adjudicated it in the first place. A genuine refusal is
+# untouched: `_check_refusal()` is evaluated separately below and is NEVER
+# exempted.
+#
+# What IS lost is the `[Document N]` marker itself, so the exemption is not
+# silent — `citation_format_degraded` is returned to the caller, which
+# caveats the answer.
+#
+# The `source` label of a chunk that is a bare ingest filename carries a
+# leading corpus index and an extension ("1_1898_Code_of_Criminal_
+# Procedure_(Pakistan).pdf"), neither of which any answer will ever write,
+# so both are stripped before matching. A label too short or too generic to
+# be evidence of anything ("unknown", "entity_graph") is refused outright by
+# the token/length floor: matching one of those would make the exemption
+# trivially satisfiable.
+CITATION_FORMAT_DEGRADED_KEY = "citation_format_degraded"
+
+# The caveat a caller MUST surface when it serves an exempted answer. Lives
+# here, next to the flag, so the six other agents that call
+# `verify_grounding()` can reuse the exact wording rather than each inventing
+# one -- Meta-Analysis' own wiring is another track's file and is filed, not
+# done here (see MODULE101_RESULT.md section 8).
+CITATION_FORMAT_DEGRADED_CAVEAT = (
+    "This answer attributes its sources by name rather than with [Document N] "
+    "markers, so individual claims cannot be traced to a specific source; every "
+    "claim was still checked against the retrieved evidence."
+)
+
+_SOURCE_LABEL_MIN_TOKENS = 3
+_SOURCE_LABEL_MIN_CHARS = 12
+_SOURCE_LABEL_SEPARATORS_RE = re.compile(r"[_\-]+")
+_SOURCE_LABEL_WS_RE = re.compile(r"\s+")
+_SOURCE_LABEL_EXT_RE = re.compile(r"\.(pdf|txt|docx?|csv|json|md)$", re.IGNORECASE)
+
+
+def _normalise_source_label(raw: Optional[str]) -> Optional[str]:
+    """A chunk's source label reduced to the form an answer would write it.
+
+    Extension dropped, `_`/`-` folded to spaces, whitespace collapsed,
+    lower-cased, and any LEADING all-digit tokens (the corpus index and a
+    statute year that prefixes the filename, "1_1898_…") removed — an
+    answer writes "Code of Criminal Procedure (Pakistan)", never
+    "1 1898 Code of Criminal Procedure (Pakistan)".
+
+    Returns None for a label too short or too few-worded to be evidence
+    that the answer engaged with THIS window rather than with general
+    knowledge.
+    """
+    if not raw or not raw.strip():
+        return None
+    text = _SOURCE_LABEL_EXT_RE.sub("", raw.strip())
+    text = _SOURCE_LABEL_SEPARATORS_RE.sub(" ", text)
+    text = _SOURCE_LABEL_WS_RE.sub(" ", text).strip().lower()
+    tokens = text.split(" ")
+    while tokens and tokens[0].isdigit():
+        tokens.pop(0)
+    if len(tokens) < _SOURCE_LABEL_MIN_TOKENS:
+        return None
+    label = " ".join(tokens)
+    if len(label) < _SOURCE_LABEL_MIN_CHARS:
+        return None
+    return label
+
+
+def _answer_names_a_cited_source(answer: str, chunks: list[dict]) -> Optional[str]:
+    """The first cited chunk's source label the answer states verbatim, or None.
+
+    The answer is normalised with the SAME transform as the label (minus the
+    leading-digit strip, which is a property of a filename and not of prose),
+    so "Punjab Police Rules-III" in the answer matches
+    "4_Punjab-Police-Rules-III.pdf" in the metadata.
+    """
+    if not answer:
+        return None
+    hay = _SOURCE_LABEL_WS_RE.sub(
+        " ", _SOURCE_LABEL_SEPARATORS_RE.sub(" ", answer)
+    ).lower()
+    for chunk in chunks:
+        meta = chunk.get("metadata") or {}
+        for raw in (chunk.get("source_file"), meta.get("source"), meta.get("source_file")):
+            label = _normalise_source_label(raw)
+            if label and label in hay:
+                return label
+    return None
+
+
 async def verify_grounding(
     answer: str,
     cited_chunks: list[dict],
@@ -945,14 +1072,24 @@ async def verify_grounding(
     temporal_issues = _check_temporal(cited_chunks, target_date)
     leaked_case = _check_leakage(answer, cited_chunks, case_id, cross_case_ids)
     hedging_issues = _check_hedging(answer, cited_chunks)
-    refusal_issue = _check_refusal(answer) or _check_no_citation(answer)
+    # [Module 101] Split, so the two can be merged on different terms below.
+    # `_check_refusal()` is NEVER exempted; `_check_no_citation()` is, and
+    # only under the two-part test in this module's comment block above.
+    refusal_issue = _check_refusal(answer)
+    no_citation_issue = _check_no_citation(answer)
     # [Scenario-test Finding J] Catch invented CASE-IDs inside citations —
     # see _check_fabricated_case_ids()'s own docstring for why the leakage
     # check above cannot cover this.
     fabricated_issues = _check_fabricated_case_ids(answer, cited_chunks)
 
     pre_check_issues: list[str] = temporal_issues + hedging_issues + fabricated_issues
-    pre_check_failed = bool(pre_check_issues or leaked_case or refusal_issue)
+    # [Module 101] `no_citation_issue` still counts here, unchanged: Module
+    # 61's exhaustive-negative override must stay off whenever ANY
+    # deterministic check has an outstanding finding, and whether this one is
+    # later exempted is not known until the judge has answered.
+    pre_check_failed = bool(
+        pre_check_issues or leaked_case or refusal_issue or no_citation_issue
+    )
 
     # ── Build LLM judge input ─────────────────────────────────────────────
     chunks_text = _format_chunks_for_verifier(cited_chunks)
@@ -1071,6 +1208,33 @@ async def verify_grounding(
             f"Cross-case evidence leakage detected: chunk from case '{leaked_case}' "
             f"cited in answer for case '{active_case_str}'."
         )
+
+    # ── [Module 101] Attribution by source name ──────────────────────────
+    # Evaluated HERE, after the merges above, so condition (b) sees the
+    # judge's verdict as it actually stands — including any deterministic
+    # finding or leakage that has just overruled it.
+    if no_citation_issue:
+        named_source = _answer_names_a_cited_source(answer, cited_chunks)
+        judge_cleared = (
+            bool(llm_result.get("grounded"))
+            and not llm_result.get("off_topic")
+            and not (llm_result.get("unsupported_claims") or [])
+            and not llm_result.get("leaked_case_id")
+            and not refusal_issue
+        )
+        if named_source and judge_cleared:
+            logger.info(
+                "Verifier [Module 101]: answer carries no [Document N] marker but "
+                "names cited source %r verbatim, and the judge cleared every "
+                "claim — serving it with a citation-format caveat rather than "
+                "discarding it.",
+                named_source,
+            )
+            llm_result[CITATION_FORMAT_DEGRADED_KEY] = True
+            llm_result["named_source"] = named_source
+        else:
+            # Not exempted — restore the pre-Module-101 behaviour exactly.
+            refusal_issue = refusal_issue or no_citation_issue
 
     # Distinct from off_topic/grounded — callers use this to decide whether
     # regenerating with a corrective prompt is worth trying (a refusal is a
@@ -1196,6 +1360,101 @@ def _is_derived_ratio(candidate: str, source_values: set[str]) -> bool:
     return False
 
 
+# [Gold-QA fix — Module 70, M2] THE OPPOSITE DIRECTION.
+#
+# Everything above this point is a HALLUCINATION guard: it computes
+# `ans_nums - src_nums` and asks "did the paraphrase invent a number?".
+# That set difference is one-directional by construction, so nothing
+# anywhere notices a figure the aggregate COMPUTED and the paraphrase
+# DROPPED. Module 83's three-way capture over nine M2 runs measured the
+# consequence exactly: the aggregate payload and the rendered
+# `raw_summary_text` both carried gold's headline — "9 of 73 FIRs (~12.3%)
+# … carried by just 2 of 19 stations" — on 9 of 9, byte-identical, and the
+# served paraphrase dropped it on 9 of 9, with the gate logging
+# `grounded=True unsupported_numbers=[]` every time. That verdict was true
+# and useless: the paraphrase stated a strict subset.
+#
+# WHAT IS *NOT* CHECKED, AND WHY. A rendered aggregate legitimately states
+# dozens of numbers — per-station rows, per-year rows, per-district rates —
+# and a gold answer is prose, not a table. A rule of the form "every source
+# number must appear in the answer" would force every XAGG answer into a
+# recitation of its own breakdown, which is both worse to read and, per
+# Module 104, actively dangerous: a Markdown list ordinal is itself read as
+# a claimed figure by both verifiers, so pushing answers into list shape
+# trips a different gate. So the rule below covers exactly one construction.
+#
+# THE LOAD-BEARING FIGURES ARE THE HEADLINE'S PROPORTIONS. Two properties
+# of the rendering layer, both already load-bearing and both documented at
+# their own sites, make this identifiable without hand-listing anything
+# per question:
+#
+#   1. Every renderer LEADS with its finding — `_render_aggregate_text()`'s
+#      own comment ("Every enumerating branch leads with its own total")
+#      and `render_station_caseload_by_specialisation()`'s ("both are in
+#      the first sentence", made ONE sentence so a paraphrase has "no seam
+#      to drop"). So the first non-empty rendered line is the finding.
+#   2. A renderer writes "X of Y <noun>" when, and only when, it has
+#      computed a PROPORTION. A proportion is the one numeric construction
+#      that is destroyed by dropping either half: "2 stations" without "of
+#      19" is not a weaker version of the concentration finding, it is a
+#      different and much duller claim. Counts, totals and years survive
+#      being summarised away; a ratio does not.
+#
+# Measured blast radius, all 32 gold questions run through this gate on
+# 2026-09-10 (see MODULE70_RESULT.md §1.2): a naive "every headline figure"
+# rule fires on 10 of 32 and is wrong on at least 5 of them — it reads the
+# "1997" of "CNSA 1997" and the "1965" of "Arms Ordinance 1965" out of a
+# NOTE line as computed figures (CR3, KB1, KB8), and it misses that CR6's
+# Urdu answer states its "4" as the word "چار". The proportion rule below
+# fires on 1 of 32 — M2 — and on none of those five.
+_PROPORTION_PAIR_RE = re.compile(
+    r"(\d[\d,]*(?:\.\d+)?)\s+of\s+(\d[\d,]*(?:\.\d+)?)", re.IGNORECASE
+)
+
+
+def _headline_line(source_text: str) -> str:
+    """The first non-empty rendered line — the renderers' documented
+    headline slot (see the comment block above)."""
+    for line in (source_text or "").splitlines():
+        if line.strip():
+            return line.strip()
+    return ""
+
+
+def _omitted_headline_proportions(answer: str, source_text: str) -> list[str]:
+    """Figures from an "X of Y" proportion stated in the rendered headline
+    that the paraphrase does not state.
+
+    Returns [] — the check does not apply — when the answer states NONE of
+    the headline's figures. An answer in that shape is not a paraphrase
+    that dropped a finding; it is the sub-agent correctly saying the
+    computed aggregate does not address the question (KB2 and KB9 both
+    produce exactly that against a `graph_recurrence` payload). Pushing
+    figures into such an answer would manufacture a false claim, which is
+    the failure mode the OTHER direction of this function exists to stop.
+    """
+    headline = _headline_line(source_text)
+    pairs = _PROPORTION_PAIR_RE.findall(headline)
+    if not pairs:
+        return []
+
+    head_nums = _numbers_in(headline)
+    ans_nums = _numbers_in(answer, strip_citations=True)
+    if not (head_nums & ans_nums):
+        return []
+
+    missing: set[str] = set()
+    for a, b in pairs:
+        a, b = a.replace(",", ""), b.replace(",", "")
+        absent = [n for n in (a, b) if n not in ans_nums]
+        if absent:
+            # Report the WHOLE pair, not just the absent half: the repair
+            # pass above this function has to restate the proportion, and
+            # "19" on its own is not a restatable fact.
+            missing.update({a, b})
+    return sorted(missing)
+
+
 async def verify_structured_aggregate_paraphrase(
     answer: str,
     source_text: str,
@@ -1281,6 +1540,17 @@ async def verify_structured_aggregate_paraphrase(
         and not _is_derived_ratio(n, src_nums)
     )
 
+    # [Module 70] The opposite direction — see the comment block above
+    # `_omitted_headline_proportions()`. Deliberately ADDITIVE: it does not
+    # feed `grounded`, does not touch `unsupported_claims`, and cannot flip
+    # any verdict this function returns today. An omission is a
+    # completeness shortfall, not a grounding failure or a safety problem;
+    # making it fail the gate would trade a missing figure for the raw
+    # computed dump (or, upstream, for no answer at all — which is what
+    # `[PRESERVE]` did to KB9 and what Module 101 had to undo). The caller
+    # reads this field and repairs; nothing here refuses.
+    omitted_figures = _omitted_headline_proportions(answer, source_text)
+
     grounded = not leaked_case and not fabricated_issues and not unsupported_numbers
     reason = "Paraphrase numbers match the computed source; deterministic check passed."
     if leaked_case:
@@ -1291,8 +1561,9 @@ async def verify_structured_aggregate_paraphrase(
         reason = f"Paraphrase states number(s) not present in the computed result: {', '.join(unsupported_numbers)}."
 
     logger.info(
-        "Structured-aggregate verifier: grounded=%s leaked=%s unsupported_numbers=%s — %s",
-        grounded, leaked_case, unsupported_numbers, reason[:80],
+        "Structured-aggregate verifier: grounded=%s leaked=%s unsupported_numbers=%s "
+        "omitted_headline_proportions=%s — %s",
+        grounded, leaked_case, unsupported_numbers, omitted_figures, reason[:80],
     )
     return {
         "grounded": grounded,
@@ -1301,4 +1572,7 @@ async def verify_structured_aggregate_paraphrase(
         "unsupported_claims": fabricated_issues + [f"number: {n}" for n in unsupported_numbers],
         "reason": reason,
         "refusal_detected": False,
+        # [Module 70] Additive; see `_omitted_headline_proportions()`.
+        "omitted_source_figures": omitted_figures,
+        "omitted_source_headline": _headline_line(source_text) if omitted_figures else None,
     }

@@ -587,8 +587,18 @@ def main(argv=None):
     for o in outs:
         if o["id"] in done:
             continue
+        # [Module 116] `route` is the question's OWN route and is absent from
+        # any outputs file written before Module 116 — those rows carry
+        # `last_dispatch_route` instead, which for a Meta-Analysis question is
+        # a decomposed sub-query's route, not the question's (see
+        # gold32_run.py::parse()'s comment and MODULE116_RESULT.md). Carried
+        # side by side rather than coalesced with `or`: silently substituting
+        # one for the other is exactly how CR3/G1/G6 came to be recorded XAGG.
         row = {"id": o["id"], "type": o["type"], "language": o["language"],
-               "route": o.get("route"), "scores": {}, "reasons": {}}
+               "route": o.get("route"),
+               "last_dispatch_route": o.get("last_dispatch_route"),
+               "subquery_routes": o.get("subquery_routes"),
+               "scores": {}, "reasons": {}}
 
         # [Module 42] A row the runner never got an answer for is the ABSENCE
         # of a measurement, and must not be judged.
