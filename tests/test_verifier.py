@@ -23,6 +23,8 @@ from src.pipeline.verifier import (
     negative_claim_is_supported_by_exhaustive_listing,
     verify_grounding,
     verify_structured_aggregate_paraphrase,
+    _omitted_headline_proportions,
+    _headline_line,
 )
 
 
@@ -1803,3 +1805,160 @@ async def test_module101_a_deterministic_pre_check_still_overrules_the_exemption
     )
     assert result["grounded"] is False
     assert CITATION_FORMAT_DEGRADED_KEY not in result
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Gold-QA fix — Module 70: THE OPPOSITE DIRECTION.
+#
+# `verify_structured_aggregate_paraphrase()` computed only
+# `ans_nums - src_nums` — a one-directional set difference that catches
+# every INVENTED number and structurally cannot see an OMITTED one. Module
+# 83's three-way capture over nine M2 runs measured the aggregate payload
+# and the rendered `raw_summary_text` carrying gold's headline on 9 of 9,
+# byte-identical, and the served paraphrase dropping it on 9 of 9 with the
+# gate logging `grounded=True unsupported_numbers=[]` every time.
+#
+# The tests below pin BOTH directions, because the whole risk of this
+# module is weakening the first one while adding the second.
+# ═══════════════════════════════════════════════════════════════════════
+
+_M2_HEADLINE = (
+    "Growth: caseload is rising fastest at the 15 general-purpose station(s) — "
+    "7 FIRs in 2024 to 39 in 2026, against 3 to 5 at the 2 single-crime-type "
+    "station(s) — though even so, 9 of 73 FIRs (~12.3%) are carried by just 2 "
+    "of 19 stations, the ones set up for a single type of crime.\n"
+    "\n"
+    "9 of 73 FIRs (~12.3%) are filed at the 2 of 19 stations set up for one "
+    "specific type of crime:\n"
+    "  - سائبر کرائم سرکل کراچی (PS-KHI-CYB): 5 FIRs\n"
+)
+
+# Verbatim from Module 83's layer-3 capture — the paraphrase served on 9 of
+# 9 M2 runs, reproduced on this branch's own runs of 2026-09-10.
+_M2_SERVED_PARAPHRASE = (
+    "The caseload is growing faster at the general-purpose stations. "
+    "Specifically, the 15 general-purpose stations saw an increase from 7 FIRs "
+    "in 2024 to 39 FIRs in 2026. In contrast, the 2 stations set up for one "
+    "specific type of crime saw a much slower increase, from 3 FIRs in 2024 to "
+    "5 FIRs in 2026 [Document 1]."
+)
+
+
+@pytest.mark.asyncio
+async def test_module70_the_live_m2_paraphrase_is_reported_as_omitting_its_headline():
+    """FAILS BEFORE THIS MODULE (the key is absent), PASSES AFTER."""
+    result = await verify_structured_aggregate_paraphrase(
+        answer=_M2_SERVED_PARAPHRASE,
+        source_text=_M2_HEADLINE,
+        case_id="cross_case",
+    )
+    # Both halves of both proportions are reported, because a repair pass
+    # has to restate the whole proportion, not the absent digit.
+    assert result["omitted_source_figures"] == ["19", "2", "73", "9"]
+    assert result["omitted_source_headline"].startswith("Growth: caseload is rising")
+
+
+@pytest.mark.asyncio
+async def test_module70_omission_does_not_flip_grounded_or_add_unsupported_claims():
+    """The signal is ADDITIVE. An omission is a completeness shortfall, not
+    a grounding failure — making it fail the gate would route a good prose
+    answer into the raw computed dump on every question that trips it."""
+    result = await verify_structured_aggregate_paraphrase(
+        answer=_M2_SERVED_PARAPHRASE,
+        source_text=_M2_HEADLINE,
+        case_id="cross_case",
+    )
+    assert result["grounded"] is True
+    assert result["unsupported_claims"] == []
+    assert "Paraphrase numbers match the computed source" in result["reason"]
+
+
+@pytest.mark.asyncio
+async def test_module70_a_paraphrase_that_keeps_the_proportion_is_not_flagged():
+    result = await verify_structured_aggregate_paraphrase(
+        answer=(
+            "Caseload is rising fastest at the general-purpose stations, but even "
+            "so 9 of 73 FIRs are carried by just 2 of 19 stations [Document 1]."
+        ),
+        source_text=_M2_HEADLINE,
+        case_id="cross_case",
+    )
+    assert result["grounded"] is True
+    assert result["omitted_source_figures"] == []
+
+
+@pytest.mark.asyncio
+async def test_module70_the_invented_number_direction_still_fires():
+    """THE POINT OF THIS TEST: Module 70 ADDS a second, opposite-direction
+    check; it does not relax the hallucination guard. Module 101 measured
+    that guard correctly rejecting invented rule numbers, invented FIR
+    numbers and a fabricated negative — an answer that carries the whole
+    proportion AND invents a number must still be rejected."""
+    result = await verify_structured_aggregate_paraphrase(
+        answer=(
+            "9 of 73 FIRs are carried by just 2 of 19 stations, and 61 of them "
+            "reached the trial stage [Document 1]."
+        ),
+        source_text=_M2_HEADLINE,
+        case_id="cross_case",
+    )
+    assert result["grounded"] is False
+    assert "61" in result["reason"]
+    assert result["omitted_source_figures"] == []
+
+
+# ── the three ways the rule is deliberately NARROW ──────────────────────
+#
+# Each of these is a live false positive a naive "every headline figure
+# must appear" rule produced on the 32-question sweep of 2026-09-10.
+
+def test_module70_a_statute_year_in_a_note_line_is_not_a_proportion():
+    """CR3/KB1/KB8: the headline is a NOTE, and its only digits are the
+    "1997" of "CNSA 1997" and the "1965" of "Arms Ordinance 1965"."""
+    src = (
+        "NOTE: Grouped by the statute(s) each case was registered under "
+        "(e.g. PPC, CNSA 1997, Arms Ordinance 1965), not by crime type.\n"
+        "- PPC: 25 cases\n"
+    )
+    assert _omitted_headline_proportions("There are 25 PPC cases.", src) == []
+
+
+def test_module70_a_bare_headline_total_is_not_a_proportion():
+    """S3/CR2/KB2/KB9 lead with "**4 matching Person(s) found.**", and M5
+    with "32 case(s) recorded a recovered weapon". A count survives being
+    summarised away; a ratio does not."""
+    assert _omitted_headline_proportions(
+        "Two people appear in more than one case.", "**4 matching Person(s) found.**\n- ...\n"
+    ) == []
+    assert _omitted_headline_proportions(
+        "In 2024, 13 cases recovered a weapon; in 2026, 19 did.",
+        "32 case(s) recorded a recovered weapon. What those cases were charged under:\n",
+    ) == []
+
+
+def test_module70_an_answer_that_states_no_headline_figure_is_left_alone():
+    """KB2/KB9's shape: the sub-agent correctly says the computed aggregate
+    does not address the question. That is not a paraphrase that dropped a
+    finding, and pushing figures into it would manufacture a claim."""
+    assert _omitted_headline_proportions(
+        "The provided document does not address how causes of death are investigated.",
+        "9 of 73 FIRs are carried by 2 of 19 stations.\n",
+    ) == []
+
+
+def test_module70_only_the_headline_line_is_covered_not_every_rendered_row():
+    """A per-district breakdown states a proportion on every row. An answer
+    is prose, not a table, and is not required to recite all of them —
+    Module 104 records that pushing answers into list shape trips a
+    different gate entirely."""
+    src = (
+        "Weapon recovery by district:\n"
+        "- Karachi: 3 of 12 cases recovered a weapon (~25%)\n"
+        "- Lahore: 7 of 20 cases recovered a weapon (~35%)\n"
+    )
+    assert _omitted_headline_proportions("Recovery rates vary by district.", src) == []
+
+
+def test_module70_headline_line_skips_leading_blank_lines():
+    assert _headline_line("\n\n  9 of 73 FIRs.\n- row\n") == "9 of 73 FIRs."
+    assert _headline_line("") == ""
