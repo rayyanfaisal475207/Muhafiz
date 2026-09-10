@@ -698,7 +698,12 @@ async def test_module29_broad_synthesis_questions_decompose_deterministically(
     assert result.decompose is True
     assert result.parse_failed is False
     assert result.plan_name == plan_name
-    assert 2 <= len(result.sub_queries) <= ma_mod._MAX_SUB_QUERIES
+    # [Module 110] `_MAX_PLAN_SUB_QUERIES`, not `_MAX_SUB_QUERIES`: this is
+    # the deterministic-plan path, and `_decompose()` truncates it against
+    # the PLAN cap. The two constants were the same number until Module 110
+    # raised the plan cap to 8, which is exactly the divergence Module 50
+    # split them to allow.
+    assert 2 <= len(result.sub_queries) <= ma_mod._MAX_PLAN_SUB_QUERIES
     assert result.synthesis_goal.strip()
 
 
@@ -741,6 +746,13 @@ async def test_module29_broad_synthesis_questions_decompose_deterministically(
                 ma_mod._SQ_ARREST_RATE,         # Module 35
                 ma_mod._SQ_REPORTING_SPEED,
                 ma_mod._SQ_WEAPON_LICENCE,
+                # [Gold-QA fix - Module 110] CHANGED PREMISE again, and for
+                # the third time on this block the purpose is unchanged: the
+                # five above are gold's findings 1, 2, 4, 6 and 7, and these
+                # three are gold's findings 3 and 5, which nothing computed.
+                ma_mod._SQ_ACCUSED_AGE,         # gold finding (3), part a
+                ma_mod._SQ_RELATIONSHIP,        # gold finding (3), part b
+                ma_mod._SQ_COURT_STAGE,         # gold finding (5)
             ),
         ),
     ],
@@ -1047,11 +1059,164 @@ def test_module50_the_plan_cap_decision_is_five_and_holds():
     N=9 the four that died included the age and time-of-day aggregates this
     module exists to wire in. Raising the cap does not buy coverage; it buys
     the silent loss of whichever aggregate is served last.
+
+    [Gold-QA fix - Module 110] SUPERSEDED IN PART, and left here rather than
+    deleted because the measurement above is still the reason the cap is not
+    unbounded. What changed is the DEADLINE, not the staircase: Module 53
+    moved `META_ANALYSIS_SUBQUERY_TIMEOUT` from 60 s to 150 s and this
+    constant was deliberately not revisited at the time ("left as tracked
+    work rather than changed on inference" - Module 59). Module 110 could not
+    fix G6's five-of-seven coverage without it: each of `orientation_note`'s
+    five slots carries exactly one of gold's seven findings, so no
+    re-composition inside a cap of 5 can ever reach more than five. The plan
+    cap is now 8 - see
+    `test_module110_the_plan_cap_is_eight_because_the_headroom_invariant_says_so`
+    for why exactly 8 - while the UNTRUSTED decomposer-output cap stays at 5,
+    which is the whole point of Module 50's having split the two constants.
     """
-    assert ma_mod._MAX_PLAN_SUB_QUERIES == 5
-    # The LLM-decomposer cap is a SEPARATE bound on an untrusted list. It is
-    # the same number today; the split exists so the two can move apart.
+    assert ma_mod._MAX_PLAN_SUB_QUERIES == 8
+    # The LLM-decomposer cap is a SEPARATE bound on an untrusted list, and
+    # Module 110 moved only the hand-authored one. The two constants have now
+    # actually moved apart, which is what Module 50 split them for.
     assert ma_mod._MAX_SUB_QUERIES == 5
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Module 110 - G6's `orientation_note` plan computes five of gold's SEVEN
+# findings, and the two it misses are unreachable from above.
+#
+# Gold's G6 answer (`evaluation/Gold_QA_Dataset_Final32_With_Answers.json`,
+# Roman Urdu) carries seven findings. Five were already dispatched; two were
+# not, and no synthesis over the five could carry them, because nothing
+# computed them. Both were verified against the live graph before this module
+# changed anything - see MODULE110_RESULT.md Section 1 - and both hold:
+#
+#   "mostly men aged 25-40, usually strangers"  67 of 94 accused entries are
+#                                               men; 15 of the 17 recorded
+#                                               ages fall in 25-40 (range
+#                                               24-49, mean 31.5); 'اجنبی'
+#                                               (stranger) is 15 of 24
+#                                               recorded relationships
+#   "most matters still pending in court"       32 of 33 criminal records are
+#                                               in progress, 30 "Under trial"
+#
+# The tests below are the assertion form of "the plan can reach all seven".
+# They are deliberately written over the PLAN, not over a generated answer:
+# what this module fixes is computability, and whether the synthesis then
+# says it well is Module 83's layer and is measured live, not asserted here.
+# ═══════════════════════════════════════════════════════════════════════
+
+# Gold's seven findings, each mapped to the sub-query constant that computes
+# it. Written from gold's own sentence order. `accused_profile` is the one
+# entry whose gold sentence has three components ("men", "25-40",
+# "strangers"); only two of the three fit inside the cap, so it is listed
+# against the two that do - see `_M110_UNCOMPUTED` below for the third.
+_M110_GOLD_FINDINGS = {
+    "district_spread": ("_SQ_DISTRICT_SPREAD",),
+    "case_mix_change": ("_SQ_CASE_MIX_BY_YEAR",),
+    "accused_profile": ("_SQ_ACCUSED_AGE", "_SQ_RELATIONSHIP"),
+    "arrest_rate": ("_SQ_ARREST_RATE",),
+    "still_pending_in_court": ("_SQ_COURT_STAGE",),
+    "reporting_speed": ("_SQ_REPORTING_SPEED",),
+    "weapon_licence": ("_SQ_WEAPON_LICENCE",),
+}
+
+# Honest residual, pinned so it cannot be quietly forgotten: gold's "zyada
+# tar mulzim aisay mard hain" ("mostly men") is STILL not computed by this
+# plan. `_SQ_GENDER` is the aggregate for it, Module 50 dropped it from this
+# very plan to fit the arrest rate, and Module 59 records it as the first
+# thing to restore if the cap rises. The cap rose to 8 and the plan is
+# exactly 8, so it still does not fit.
+_M110_UNCOMPUTED = ("_SQ_GENDER",)
+
+
+def test_module110_orientation_note_computes_all_seven_of_golds_findings():
+    """THE defect, as an assertion. Before this module the plan dispatched
+    five sub-queries and `accused_profile` and `still_pending_in_court`
+    resolved to nothing, so this fails on those two entries."""
+    plan = next(p for p in ma_mod._DECOMPOSITION_PLANS if p.name == "orientation_note")
+    missing = {
+        finding: [c for c in consts if getattr(ma_mod, c) not in plan.sub_queries]
+        for finding, consts in _M110_GOLD_FINDINGS.items()
+    }
+    missing = {k: v for k, v in missing.items() if v}
+    assert not missing, (
+        f"orientation_note cannot carry these gold findings - no sub-query "
+        f"computes them, so no synthesis can state them: {missing}"
+    )
+
+
+def test_module110_the_two_new_findings_reuse_g1s_sub_queries_verbatim():
+    """No new aggregate and no new dispatch string was written for G6.
+
+    The age and relationship sub-queries are the SAME constants
+    `caseload_review` dispatches for G1 - already live-verified by Modules
+    31/32 and pinned byte-identical in `tests/test_xagg.py`. If a later
+    module rewords one for G1's benefit, G6 must move with it or this fails;
+    a divergent copy is exactly the silent failure Module 50's own
+    byte-identity test exists to prevent.
+    """
+    plans = {p.name: p for p in ma_mod._DECOMPOSITION_PLANS}
+    shared = (ma_mod._SQ_ACCUSED_AGE, ma_mod._SQ_RELATIONSHIP)
+    for sq in shared:
+        assert sq in plans["orientation_note"].sub_queries
+        assert sq in plans["caseload_review"].sub_queries, (
+            "G6 must reuse G1's sub-query, not carry a private copy of it"
+        )
+    # The third addition is a NEW dispatch string, and the reason it is new
+    # rather than the long-declared `_SQ_CRIMINAL_RECORD_VS_COURT` is a live
+    # measurement, so it is asserted rather than left to the comment: the two
+    # reach the SAME aggregate but ask for different halves of it, and G6
+    # needs the half CR7's question does not ask for. If a later module
+    # collapses them back into one string, G6 silently loses gold's finding
+    # 5 again while every unit test still passes.
+    from src.pipeline import xagg as _xagg
+
+    assert ma_mod._SQ_COURT_STAGE != ma_mod._SQ_CRIMINAL_RECORD_VS_COURT
+    assert (
+        _xagg.resolve_aggregate_kind(ma_mod._SQ_COURT_STAGE)
+        == _xagg.resolve_aggregate_kind(ma_mod._SQ_CRIMINAL_RECORD_VS_COURT)
+        == "criminal_record_court_crosscheck"
+    )
+    assert ma_mod._SQ_COURT_STAGE in next(
+        p for p in ma_mod._DECOMPOSITION_PLANS if p.name == "orientation_note"
+    ).sub_queries
+
+
+def test_module110_the_plan_cap_is_eight_because_the_headroom_invariant_says_so():
+    """8 is not a taste judgement, and this is where that is enforced.
+
+    `test_module53_subquery_timeout_leaves_headroom_over_the_measured_staircase`
+    already requires `_MAX_PLAN_SUB_QUERIES` x 12 s x 1.5 to fit inside
+    `META_ANALYSIS_SUBQUERY_TIMEOUT`. At the post-Module-53 deadline of 150 s
+    that permits 8 (144 s) and refuses 9 (162 s). Asserted from both ends so
+    that a later module cannot raise the cap without moving the deadline, and
+    cannot lower the deadline without lowering the cap.
+    """
+    assert ma_mod._MAX_PLAN_SUB_QUERIES == 8
+    step_seconds, headroom = 12.0, 1.5
+    assert ma_mod._MAX_PLAN_SUB_QUERIES * step_seconds * headroom <= config.META_ANALYSIS_SUBQUERY_TIMEOUT
+    assert (ma_mod._MAX_PLAN_SUB_QUERIES + 1) * step_seconds * headroom > config.META_ANALYSIS_SUBQUERY_TIMEOUT
+
+
+def test_module110_golds_gender_element_is_still_not_computed_and_says_so():
+    """A test that asserts a KNOWN GAP, on purpose.
+
+    Gold's accused-profile sentence has three components and only two fit.
+    Recording the third as an assertion means the day someone raises the cap
+    to 9 (or frees a slot), this test fails and points straight at the thing
+    to add - rather than the gap surviving as a sentence in a result file
+    nobody re-reads. It is not a claim that the gap is acceptable.
+    """
+    plan = next(p for p in ma_mod._DECOMPOSITION_PLANS if p.name == "orientation_note")
+    assert len(plan.sub_queries) == ma_mod._MAX_PLAN_SUB_QUERIES, (
+        "the plan is full - that is why the gap below still exists"
+    )
+    for const in _M110_UNCOMPUTED:
+        assert getattr(ma_mod, const) not in plan.sub_queries, (
+            f"{const} is now dispatched - good; delete it from _M110_UNCOMPUTED "
+            f"and add it to _M110_GOLD_FINDINGS['accused_profile']"
+        )
 
 
 def test_module50_every_wired_sub_query_still_routes_deterministically_to_xagg():
@@ -1123,7 +1288,9 @@ def test_module50_module41_guard_still_lets_all_three_reach_meta_analysis():
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "query, expected_n",
-    [(_G1_GOLD, 5), (_G6_GOLD, 5), (_CR3_GOLD, 3)],
+    # [Module 110] G6 5 -> 8. A truncation bug shows up here as a dispatch
+    # count short by exactly the number of sub-queries that module added.
+    [(_G1_GOLD, 5), (_G6_GOLD, 8), (_CR3_GOLD, 3)],
     ids=["G1", "G6", "CR3"],
 )
 async def test_module50_each_question_dispatches_its_whole_plan(monkeypatch, query, expected_n):
