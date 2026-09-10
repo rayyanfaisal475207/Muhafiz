@@ -80,7 +80,7 @@ several can run in parallel chats/worktrees without colliding.
 | 34 | G1 — incident time-of-day distribution: no XAGG aggregate | `feature/xagg-g1-caseload-profile-aggregates` | ✅ Done — gold's "flat across the day" is a date-only artefact |
 | 35 | G6 — arrest rate: no XAGG aggregate | `feature/xagg-arrest-rate-and-fir-listing` | ✅ Done — aggregate live; published rule gives **1 in 6.6**, not gold's 1 in 9, see §35 |
 | 36 | CR3 — subject-filtered FIR listing: no aggregate returns FIR numbers filtered by statute/station/crime type | `feature/xagg-arrest-rate-and-fir-listing` | ✅ Done — returns `fir-64-26`/`fir-65-26` exactly; **wiring into `record_consistency` deferred behind Module 41**, see §36 |
-| 37 | **Orphaned `chunk_fulltext` rows are load-bearing, not hygiene** — 2,246 rows BM25 ranks and serves whose Chroma ids no longer exist | *(not yet branched)* | ⬜ **Re-scoped and approved.** Found by Module 30 and filed as cleanup; **Module 82 proved it costs a gold question**: 2 of KB2's 5 window chunks are orphans and the answer's **lead citation is one of them on 3 of 3 runs**, after which it concludes the *opposite* of gold. Re-measured 2026-09-10: **2,246 orphans** (2,243 CrPC + 3 test docs) and, in the other direction, **790 Chroma ids absent from BM25** (Module 99). Approved scope: **back the rows up to a committed file, then delete — orphans only**. Approved timing: **after the live tracks land**, because m83/m92/m89/m64 are measuring against this shared store and a mid-flight change would void their baselines |
+| 37 | **Orphaned `chunk_fulltext` rows are load-bearing, not hygiene** — 2,246 rows BM25 ranks and serves whose Chroma ids no longer exist | `fix/orphaned-bm25-rows` | ✅ **Done — the mechanical claim is confirmed exactly, and the gold claim built on it is WRONG.** 2,246 orphans (2,243 from one superseded CrPC ingestion `0519abd8`, 3 test fixtures) backed up to a committed gzip with **all 9 columns** and deleted; `chunk_fulltext` **9,962 → 7,716**, and both stores are now **exactly in sync at 7,716 in both directions** — including Module 99's 790, which now measure **0** and should be re-measured before that module does any work. The script derives orphans **live from both stores** every run, is **idempotent** (second run is a no-op), **reversible** (`--restore` rebuilds `tsv` with `fulltext_index.maintain()`'s own expression), and **refuses to run when Chroma looks empty** — not theoretical, since `CHROMA_PERSIST_DIR` is relative in `.env` and a worktree opens an empty store in which every row looks orphaned. **Retrieval half — confirmed on all eight RAG questions, not just KB2:** orphans in window **1–3 → 0**, every question, every run; KB2's window loses `…_0519abd8_c590`/`_c601` (Module 82's two ids) **and** a third, `_c602`, that Module 82 did not record. **Answer half — refuted.** Module 82 predicted the deletion would stop KB2 concluding *"it is not a data gap; the system does maintain such records"*. Live, 3 runs per arm plus a dedicated 4+4 arm, **all `generation=local`, 0 cutover fallbacks, 0 quota lines**: KB2 says it **7 of 7 post-deletion**, where pre-deletion the grounding verifier blocked the answer on **5 of 7** and the two that answered only hedged. **The orphans were MASKING KB2's failure, not causing it** — gold's substance is a fact about our *schema* (*"no field anywhere in the system for confession or interview-statement text"*) that is not in the statute corpus at all, so no BM25 change can retrieve it (defect **136**). **Scoreboard, stated plainly: answered 19/24 → 24/24, gold's own anchor 8/24 → 9/24.** KB5 is the one real win (refused 3/3 → answered 3/3, Anti-Rape Rules 3(2)/ARCC anchor 0/3 → 3/3); **KB9 regressed**, s.174 → s.176, anchor 2/3 → 0/3 (defect **137**); KB1 (Module 89) and KB6 (Module 64) both **safe, 3/3 → 3/3**; KB3/KB4/KB8 unchanged and still wrong for pre-existing reasons. **The mechanism explains both directions: 1,871 of the 2,246 orphans (83%) were byte-identical duplicates of a still-live chunk**, so BM25 was burning two window slots on one passage — KB9's window held both `…_0519abd8_c35` and `…_f9908363_c35`, verified identical. Deleting them frees slots and admits more diverse chunks, which rescued KB5 and displaced KB9's and KB2's correct provisions. **Regression control: `last_dispatch_route` identical on 32 of 32**; the CR3/G1/G6 mismatch against `evaluation/gold32_route_baseline.json` is Module 116's two-different-quantities finding and is identical in both arms, and `route_query()` does no retrieval so the baseline could not have moved. The 24 XAGG questions are bounded **structurally** (BM25 is read from exactly two call sites, both RAG) and **not** by measurement — they have n=1 per arm and that is reported as a limitation, not papered over. **This is a CLEANUP, not a fix: nothing prevents the rows returning** — a Chroma reset re-orphans the whole index (**134**) and re-ingesting a changed source never retires the previous ingestion's rows (**135**), both pinned by tests that fail when the defect closes. Ships as a script, not a migration, and §2.1 says why: the orphan set is defined by what Chroma currently holds, which no SQL migration can know (`alembic_version` exists at head `ae3e106053f8`, but `chunk_fulltext` came from `migrations/022_*.sql`, outside alembic). 150 unit tests green; **no file under `src/` changed**. New defects **134, 135, 136, 137**. Result: `docs/gold-qa-wave2-results/MODULE37_RESULT.md` |
 | 38 | `cross_rerank_multi()` merges by max score across queries, and cross-encoder scores are not comparable across them | `fix/cross-rerank-rrf-fusion` | ✅ **Done — the per-query lists are fused by reciprocal rank**, reusing `reranker.py`'s own `reciprocal_rank_fusion()` rather than a second implementation. Measured on one shared KB4 candidate pool so only the merge differs: the wrong "Forensics guidelines" hypothesis scored 0.86–0.97 where the question topped out at 0.16, and took **all five slots**; fused by rank, ranks 1–4 are Punjab Police Rules register chunks carrying gold's **rule 27.16** and its **three-year** rule, verified in the chunk text by id. **KB4's retrieval went 0-of-3 → 3-of-3 runs, its `status` went 3-of-3 → 1-of-3** — reported, not tuned: all three `main` runs "answered" that the corpus does not contain this. KB6 and KB9 both went from abstaining to answering. KB bucket unchanged at 6/8 answering. Ran against a private copy of Chroma. Result: `docs/gold-qa-wave2-results/MODULE38_RESULT.md` |
 | 39 | The "and does our data show it?" half of every gold KB answer is unreachable from the RAG sub-agent | `feat/kb-data-half-composition` | ✅ **Done — the data half went from 0 of 48 runs to 8 of 12** on the four KB questions that have an aggregate to reach. `rag_tool()` now dispatches one canned XAGG sub-query concurrently with retrieval for a compound legal-KB question and folds the aggregate's deterministic rendering in as one extra citable chunk. **Live, KB1–KB9 × 3 runs × 2 arms:** KB4 **45 property entries** 3/3, KB5 **8 women-violence reports** 1/3, KB6 **32 weapons** 2/3, KB9 2/3; answered 18/24 → **19/24**. **The substantive finding was measured, not predicted:** wired only into the RESULT, KB9 abstained 3/3 and the gate's own reason on all 18 refusals was that the statute chunks do not say whether OUR system records an inquest — a correct verdict on a compound question judged against half the evidence. Showing the gate the data half took KB9 to 2/3 and KB4 to 3/3 (un-doing Module 52's own KB4 regression). **Cost: 0.59 s mean per aggregate, +1.6 s (+0.6 %) end to end**, 0 of 30 dispatches dropped. All-32 EQUALITY control exact (only KB4/5/6/9 gated); all 8 regression questions route to XAGG and never enter this code. **Gold challenged** on KB9: the corpus has **10** FIRs citing PPC 302, not 8. New defects split out as Modules **67/68/69**. Result: `docs/gold-qa-wave2-results/MODULE39_RESULT.md` |
 | 41 | **G2/G5 REGRESSION** — Meta-Analysis over-decomposes questions XAGG answers in one call; the supervisor guard fired only for time-comparison shapes | `fix/supervisor-skip-decomposition-for-resolvable-aggregates` | ✅ **Done — PR #31** — guard now asks `run_aggregate()`'s extracted, resolution-only chain; G2 and G5 correct on 3/3 live runs each. Result: `docs/gold-qa-wave2-results/MODULE41_RESULT.md` |
@@ -515,7 +515,7 @@ capability.
 
 ---
 
-# Module 37 — `chunk_fulltext` holds an orphaned re-ingestion ⬜ new, not yet branched
+# Module 37 — `chunk_fulltext` holds an orphaned re-ingestion ✅ done — see the Module 37 section below
 
 **Found while verifying Module 30.**
 
@@ -539,6 +539,16 @@ Chroma delete on re-ingest (the function exists), plus a one-off cleanup of
 the orphaned rows. Add a consistency check — `chunk_fulltext` row count per
 source vs. Chroma's — to the health/admin surface so this cannot recur
 silently.
+
+**Outcome (see the full Module 37 section below).** The one-off cleanup shipped:
+2,246 rows backed up and deleted, both stores now in sync at 7,716. **This
+section's mechanism call was exactly right** — *"they duplicate the whole CrPC in
+BM25's pool, compete for RRF slots against the live copy"* — measured at **1,871
+of 2,246 (83%) byte-identical to a live chunk**, and freeing those slots is
+precisely what moved KB5 (up) and KB9 (down). The recurrence half of the
+prescription is **not** done and is filed as defects **134** and **135**: nothing
+calls `delete_by_source()` on re-ingest, and there is still no consistency check
+on the health/admin surface.
 
 ---
 
@@ -4187,66 +4197,96 @@ better than discovering it in the final rerun.
 
 ---
 
-# Module 37 — the orphaned rows are load-bearing ⬜
+# Module 37 — the orphaned rows were real; the KB2 claim on top of them was not ✅
 
-Filed by Module 30 as index hygiene and left in the no-score-impact pile for
-most of this wave. **Module 82 disproved that**, live and by chunk id.
+**Done.** Branch `fix/orphaned-bm25-rows`. Full write-up:
+`docs/gold-qa-wave2-results/MODULE37_RESULT.md`.
 
-## What is actually wrong
+Filed by Module 30 as index hygiene, re-scoped after Module 82 said it cost a
+gold question. **Module 82's mechanical observation was right and its conclusion
+was wrong**, and that is this module's main finding.
 
-`chunk_fulltext` is the BM25 half of hybrid retrieval. It holds rows whose
-`chunk_id` no longer exists in Chroma. BM25 still ranks them, retrieval still
-hands them on, `get_by_ids()` returns **nothing** for them, and the model is
-handed a citation marker pointing at an empty chunk.
+## What was actually wrong, and is now fixed
 
-Measured 2026-09-10, directly against both stores:
+`chunk_fulltext` is the BM25 half of hybrid retrieval. It held rows whose
+`chunk_id` no longer existed in Chroma: BM25 ranked them, retrieval passed them
+on, `get_by_ids()` returned nothing, and the model received a `[Document N]`
+marker pointing at an empty chunk.
 
-| | |
-|---|---|
-| `chunk_fulltext` rows for the legal PDFs | 9,172 |
-| Chroma `muhafiz_kb` ids | 7,716 |
-| **orphans — in BM25, absent from Chroma** | **2,246** |
-| — of those, the CrPC PDF | 2,243 |
-| — of those, leftover test documents | 3 |
-| **in Chroma, absent from BM25** | **790** -> Module 99 |
+| | before | after |
+|---|---|---|
+| `chunk_fulltext` rows | 9,962 | **7,716** |
+| Chroma `muhafiz_kb` ids | 7,716 | 7,716 |
+| orphans (BM25 \ Chroma) | **2,246** | **0** |
+| reverse (Chroma \ BM25) — Module 99's half | — | **0** |
 
-The CrPC document was evidently re-chunked at some point and the BM25 index
-kept the old ids. 4,820 CrPC rows are indexed; only 2,577 of them resolve.
+Of the 2,246: **2,243** from one superseded CrPC ingestion (`doc_id 0519abd8`,
+replaced by `f9908363`) and **3** leftover test fixtures.
 
-## The cost, measured on a gold question
+Backed up first — all 9 columns, 2,246 rows, gzipped and committed — and only
+then deleted. `--restore` puts them back, rebuilding `tsv` with the same
+expression `fulltext_index.maintain()` uses.
 
-Module 82, on KB2: **2 of the 5 chunks in the window are orphans**, returning
-nothing from `get_by_ids()` on 3 of 3 runs — and the answer's **lead citation
-is one of them on 3 of 3**. It concludes *"it is not a data gap; the system
-does maintain such records"*, which is the opposite of gold on the facts. KB2
-scores **0.00 on all three of Module 27's passes**.
+## What it bought, stated plainly
 
-So this is very likely KB2's real fix, and KB2 was the question the plan had
-already written off (Module 96).
+Orphans left **every** window on **every** RAG question (1–3 → 0, all eight).
+Live, 3 runs per arm, all `generation=local`, 0 cutover fallbacks, 0 quota lines:
 
-## Approved scope and timing
+* **Answered 19/24 → 24/24** — five grounding-verifier refusals disappear.
+* **Gold's own anchor 8/24 → 9/24** — near-neutral on correctness.
+* **KB5 is the one real win**: refused 3/3 → answered 3/3, and the Anti-Rape
+  Rules 3(2)/ARCC anchor goes 0/3 → 3/3.
+* **KB9 regressed**: CrPC s.174 → s.176, anchor 2/3 → 0/3 (defect **137**).
+* **KB1 (Module 89) and KB6 (Module 64) are safe** — 3/3 → 3/3 on their anchors.
+* KB3, KB4, KB8 unchanged and still wrong, for reasons that predate this.
 
-**Scope — orphans only.** Back the 2,246 rows up to a committed file first,
-then delete them. Minimal, reversible, and aimed exactly at the defect. A full
-re-index would also close Module 99 but re-runs ingestion across the whole legal
-corpus and changes retrieval for every KB question at once; that is a bigger
-blast radius than this defect justifies.
+**KB2 — the claim this module was re-scoped for — is refuted.** Both ids Module
+82 named are gone from the window (plus a third it did not record), but the
+answer does not improve: it asserts *"it is not a data gap; the system does
+maintain records"* on **7 of 7** post-deletion runs, where pre-deletion the
+verifier blocked it on **5 of 7**. Gold's substance is a fact about our
+**schema** — *"no field anywhere in the system for confession or
+interview-statement text"* — which is not in the statute corpus, so retrieval
+cannot reach it. The orphans were **masking** KB2, not causing it. Defect **136**.
 
-**Timing — after the live tracks land.** Modules 83/70, 92, 89 and 64 are all
-running live measurements against this shared store. Changing it mid-flight
-would silently void their baselines and regression controls — the exact failure
-mode that has already cost this programme two full evaluation runs.
+**Why it cuts both ways: 1,871 of the 2,246 (83%) were byte-identical duplicates
+of a still-live chunk.** BM25 was burning two window slots on one passage —
+KB9's window carried both `…_0519abd8_c35` and `…_f9908363_c35`, verified
+identical. Deleting them frees slots and admits more diverse chunks; that
+rescued KB5 and displaced KB9's and KB2's correct provisions.
 
-## Required verification
+## Regression control
 
-- KB2 before and after, several runs, with the window chunk ids captured each
-  time — the fix is proven by *which chunks are served*, not only by the score.
-- The all-32 regression control. Removing rows from the BM25 index changes
-  hybrid ranking for **every** RAG question, so this is broad by construction
-  and a silent regression here would be easy to miss.
-- Confirm the 3 test documents are genuinely test leftovers before deleting.
+`last_dispatch_route` identical on **32 of 32**. The CR3/G1/G6 mismatch against
+`evaluation/gold32_route_baseline.json` is Module 116's two-different-quantities
+finding, identical in both arms; `route_query()` does no retrieval, so the
+baseline could not have moved. The 24 XAGG questions are bounded **structurally**
+— BM25 is read from exactly two call sites, both on the RAG path — and **not** by
+measurement: they have n=1 per arm, reported as a limitation rather than papered
+over. 150 unit tests green. **No file under `src/` changed.**
 
----
+## This is a cleanup, not a fix — it will recur
+
+Nothing in the code prevents the rows coming back, so the script must be re-run
+after any Chroma reset or any re-ingestion of an already-ingested source:
+
+* **134** — `drop_and_recreate()` and `scripts/reset_evidence_state.py` empty
+  Chroma without touching `chunk_fulltext`, orphaning the **entire** index.
+* **135** — `Document._generate_id()` hashes `self.text[:200]`, so re-ingesting a
+  changed source mints a new `doc_id` and inserts alongside the old rows rather
+  than over them. This produced the 2,243.
+
+Both are pinned by tests that assert the *current, defective* behaviour, so
+closing either defect fails `tests/test_module37_orphan_cleanup.py` and points
+whoever closes it at the result file.
+
+Shipped as a script, not a migration: the orphan set is defined by what Chroma
+currently holds, which no SQL migration can know. (`alembic_version` exists and
+is at head `ae3e106053f8`, but `chunk_fulltext` came from
+`migrations/022_chunk_fulltext_index.sql`, outside alembic.)
+
+**New defects: 134, 135, 136, 137.** **Module 99 should re-measure** — its 790
+now read 0.
 
 # Module 101 — the verifier rejects an answer built from a figure it was handed ✅
 
