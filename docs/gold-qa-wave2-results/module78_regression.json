@@ -1,0 +1,483 @@
+[
+  {
+    "id": "M4",
+    "run": 1,
+    "arm": "after",
+    "language": "ur",
+    "question": "ایک طرف یہ دیکھیں کہ لوگوں پر کن دفعات میں مقدمے بن رہے ہیں، اور دوسری طرف یہ کہ وہ مقدمے عدالت میں کہاں تک پہنچے — کیا دونوں سے کیس لوڈ کی سنگینی کا ایک ہی اندازہ ہوتا ہے؟",
+    "expected_answer": "نہیں — دونوں ایک دوسرے سے پیچھے ہیں۔ ایف آئی آر کی دفعات پہلے ہی ظاہر کرتی ہیں کہ سنگین جرائم عام ہیں، لیکن 33 میں سے صرف 1 کرمنل ریکارڈ حتمی سزا ہے؛ 30 اب بھی زیرِ سماعت ہیں۔ موجودہ کیس لوڈ کی سنگینی کا اندازہ ایف آئی آر/دفعات کی گنتی پر لگانا چاہیے، سزاؤں کی گنتی پر نہیں، جو ابھی پیچھے ہے۔",
+    "actual_answer": "No, the two perspectives do not give the same impression of the severity of the case load. \n\nOn one side, 73 cases are being charged under various statutes, with the most common being PPC §34 (40 cases), Arms Ordinance 1965 §13 (29 cases), and PPC §392 (21 cases). This shows the range and frequency of charges being brought.\n\nOn the other side, out of 33 criminal records, only 1 has reached a verdict, while the rest are still in progress. The status of these cases includes \"Under trial\" (30 cases), \"Convicted, on bail pending appeal\" (1 case), \"Sub judice, external prior case\" (1 case), and \"Under trial, priority hearing requested\" (1 case). The only case that has reached a verdict is FIR 891-24 (شہزیب عرف شابی), which was convicted under PPC §392 and is on bail pending appeal.\n\nTherefore, while the FIR/section counts provide a comprehensive view of the current case load and the charges being brought, the conviction counts lag significantly behind, reflecting only a small portion (3%) of the recorded court caseload. As a result, the severity of the current case load should be assessed based on the FIR/section counts, not the conviction counts [Document 1].",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 6.2,
+    "xagg_log_lines": [
+      "XAGG criminal_record_court_crosscheck: 33 criminal record(s), 1 settled / 32 in progress; 1 cross-checked against a court outcome, 1 consistent",
+      "XAGG statute_court_stage_join: 73 case(s) carry a recorded section across 36 distinct statute(s); 33 criminal record(s), 1 settled / 32 in progress; 4 record(s) join to a case in this corpus; agree=False"
+    ],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  },
+  {
+    "id": "G3",
+    "run": 1,
+    "arm": "after",
+    "language": "ur",
+    "question": "آپ عدالت کو حوالگی کے لیے ایک کیس فائل تیار کر رہے ہیں — ڈیٹا کی روشنی میں، کن چیزوں کے نامکمل قرار پانے کا سب سے زیادہ امکان ہے؟",
+    "expected_answer": "طریقہ کار: ہر فائل میں وہ خانے دیکھیں جو ایک پراسیکیوٹر یا عدالت عموماً قبول کرنے سے پہلے بھرا ہوا دیکھنا چاہتی ہے۔ سب سے زیادہ امکان: (1) ملزم اور مدعی کے درمیان تعلق 94 میں سے 81 ملزم اندراجات میں خالی ہے — عدالتیں تقریباً ہمیشہ پوچھتی ہیں کہ دونوں کا آپس میں کیا تعلق ہے؛ (2) برآمد شدہ 32 ہتھیاروں میں سے 2 کی لائسنس کی حیثیت درج نہیں، جو کسی بھی آرمز آرڈیننس کی دفعہ والے مقدمے میں فیصلہ کن ہوتی ہے؛ (3) 9 ایف آئی آر میں واقعے کی تاریخ درج نہیں، اس لیے فائل کی ٹائم لائن عملاً واقعے کے بجائے رپورٹ سے شروع ہوتی ہے۔ اِن میں سے ہر ایک ایک متوقع تکرارِ آمدورفت ہے، نہ کہ کوئی مکمل رکاوٹ۔",
+    "actual_answer": "When preparing a case file for court, the following items are most likely to be incomplete based on the data:\n\n- The relationship between the accused and the complainant is missing in 82 out of 94 accused entries — courts almost always ask how the parties are related.\n- The licence status of 2 out of 32 recovered weapons is not recorded — this is decisive in any Arms Ordinance charge.\n- 9 FIRs do not record an incident date, so the file's timeline effectively starts at the report, not the event.\n\nEach of these is likely to require correction before the file can be accepted, but none is an absolute blocker [Document 1].",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 10.3,
+    "xagg_log_lines": [
+      "XAGG weapon_compliance_scan: 32 weapon(s); 30 unlicensed, 2 with no licence status recorded",
+      "XAGG case_completeness_scan: 73 case(s) scanned; 9 missing an incident date, 52 missing an investigation status",
+      "XAGG court_readiness_scan: 94 accused edge(s), 82 with no recorded relationship; 2 of 32 weapon(s) with no licence status; 9 of 73 case(s) with no incident date"
+    ],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  },
+  {
+    "id": "CR7",
+    "run": 1,
+    "arm": "after",
+    "language": "ur",
+    "question": "کرمنل ریکارڈ سسٹم میں کتنے کیس مکمل ہو چکے ہیں اور کتنے ابھی زیرِ کارروائی ہیں — اور جہاں کسی ایک کیس کا الگ عدالتی ریکارڈ بھی موجود ہے، کیا دونوں ایک دوسرے سے مطابقت رکھتے ہیں؟",
+    "expected_answer": "33 میں سے 30 کرمنل ریکارڈ ’زیرِ سماعت‘ ہیں، 1 ’سزا یافتہ، اپیل کے دوران ضمانت پر‘ ہے۔ اُس ایک نمٹے ہوئے کیس (ایف آئی آر 891/24) کے لیے عدالتی نتیجے کا ریکارڈ آزادانہ طور پر وہی 5 سالہ سزا اور اپیل کی تفصیل کی تصدیق کرتا ہے — دونوں میں مطابقت ہے۔",
+    "actual_answer": "In the criminal record system, out of 33 criminal records, 1 has reached a verdict and 32 are still in progress [Document 1]. The breakdown of the 33 criminal records by status is as follows:\n  - Under trial: 30\n  - Convicted, on bail pending appeal: 1\n  - Sub judice, external prior case: 1\n  - Under trial, priority hearing requested: 1\n\nIn cases where there is also an independent court-outcome record, the two records are consistent. For example, FIR 891-24 (شہزیب عرف شابی) has a criminal record stating \"Convicted, on bail pending appeal\" and a court outcome stating \"5 سال قید بامشقت زیر دفعہ 392 ت.پ سزایاب\" — which is consistent.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 8.7,
+    "xagg_log_lines": [
+      "XAGG criminal_record_court_crosscheck: 33 criminal record(s), 1 settled / 32 in progress; 1 cross-checked against a court outcome, 1 consistent"
+    ],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  },
+  {
+    "id": "G2",
+    "run": 1,
+    "arm": "after",
+    "language": "ur",
+    "question": "فرض کریں آپ کسی ایس ایچ او کو بریفنگ دے رہے ہیں کہ کون سے مقدمے دب کر یا نظر سے اوجھل ہو کر رہ سکتے ہیں — آپ کن چیزوں کی نشاندہی کریں گے؟",
+    "expected_answer": "طریقہ کار: ایسے مقدمات تلاش کریں جن کے اپنے ریکارڈ اتنے مربوط نہیں کہ اُن پر انحصار کیا جا سکے۔ قابلِ توجہ نکات: (1) 9 ایف آئی آر میں واقعے کی تاریخ درج نہیں اور زیادہ تر روزنامچہ (زمنی) اندراجات کی کوئی قسم درج نہیں، اس لیے اِن مقدمات میں یہ واضح طور پر ترتیب دینا ممکن نہیں کہ کیا کب ہوا؛ (2) 73 میں سے 13 ایف آئی آر میں افسر کے تھانے سے جائے وقوعہ کی طرف روانگی کا وقت خود رپورٹ کے وقت سے پہلے کا درج ہے — یہ ترتیب کا تضاد ہے جو جانچ میں نہیں ٹکے گا؛ (3) واک اِن شکایات اور ایف آئی آر الگ الگ نظاموں میں ہیں جو صرف ایک اختیاری مشترکہ ٹیگ سے جُڑے ہیں، اس لیے غلط یا غائب ٹیگ والی شکایت ایف آئی آر موجود ہونے کے باوجود بغیر کارروائی کے دکھائی دے سکتی ہے۔ اِن میں سے کوئی بھی اکیلے کسی مقدمے کو ضائع نہیں کرتی، لیکن ہر ایک وہ خلا ہے جو جائزے میں رکاوٹ بنتا ہے۔",
+    "actual_answer": "When briefing an SHO about cases that might be stalled or overlooked, I would highlight the following key issues identified in the cross-case aggregate:\n\n1. **Missing Incident Dates**: 9 out of 73 FIRs do not record an incident date (fir-205-26, fir-211-26, fir-340-25, fir-406-26, fir-410-25, fir-422-26, fir-457-26, fir-467-26, fir-77-26). This lack of information makes it impossible to establish a clear timeline for these cases, increasing the risk that they may be overlooked or not properly tracked.\n\n2. **No Investigation Status Recorded**: 52 out of 73 FIRs do not have a recorded investigation status. This absence of information means that the progress of these cases cannot be monitored, and they may quietly stall without anyone being aware.\n\nThese issues require closer attention to ensure that these cases are not left unaddressed or forgotten in the system [Document 1].",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 4.8,
+    "xagg_log_lines": [
+      "XAGG case_completeness_scan: 73 case(s) scanned; 9 missing an incident date, 52 missing an investigation status"
+    ],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  },
+  {
+    "id": "G5",
+    "run": 1,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Baramad shuda hathiyaron ki record keeping ko dekhte hue, kya koi aisi baat hai jo compliance ke lihaz se flag karne layak ho?",
+    "expected_answer": "Tareeqa: 32 weapon-register entries ka jaiza lein — license status, case aur shakhs se rabta, aur handling record ki takmeel. Tashweeshaat: (1) 32 mein se 30 baramad hathiyar (94%) bila-license darj hain — itna wasee pattern ke ise case-by-case ke bajaye apni alag compliance note ki zaroorat hai; (2) register yeh darj karta hai ke kya baramad hua aur uski halat, magar packaging, tasaweer ya chain of custody ka koi khana nahi, is liye kisi bhi entry ke liye zaabte ki pasdari ki tasdeeq mumkin nahi; (3) hathiyar case se sirf ek narm FIR-code match se jurte hain, bina kisi lazmi key ke, is liye ek ghalat type kiya gaya code khamoshi se kisi item ko orphan kar dega. Bila-license ki shrah sab se numaya point hai.",
+    "actual_answer": "According to the review of the 32 weapon-register entries for compliance [Document 1], the following issues are flagged:\n\n- 30 out of 32 recovered weapons (~94%) are recorded without a licence — a pattern too broad to treat case-by-case; it warrants a standing compliance check.\n- 2 entries carry no licence status at all, so their compliance cannot be confirmed either way.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 2.9,
+    "xagg_log_lines": [
+      "XAGG weapon_compliance_scan: 32 weapon(s); 30 unlicensed, 2 with no licence status recorded"
+    ],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  },
+  {
+    "id": "M5",
+    "run": 1,
+    "arm": "after",
+    "language": "ur",
+    "question": "ہتھیار عام طور پر کس نوعیت کے مقدمات میں سامنے آتے ہیں، اور کیا 2024 کے مقابلے میں اب یہ نوعیت بدل گئی ہے؟",
+    "expected_answer": "2024 میں آرمز آرڈیننس §13 صرف ڈکیتی کی دفعات (پی پی سی 34 اور 392، دونوں 13/13) کے ساتھ آتی ہے۔ 2026 میں یہ منشیات (سی این ایس اے §9(c)، 8 مقدمات) اور قتل (پی پی سی 302، 8 مقدمات) کے ساتھ ساتھ اُنہی ڈکیتی کی دفعات (ہر ایک 8 مقدمات) کے ساتھ بھی آتی ہے — اسلحے کا استعمال محض ڈکیتی کے آلے تک محدود نہیں رہا۔",
+    "actual_answer": "Recovered weapons are most commonly associated with legal charges under PPC §34 and PPC §392. In 2024, all 13 cases with recovered weapons were charged under Arms Ordinance 1965 §13, PPC §34, and PPC §392. The weapon type recovered was 30 بور پستول (13).\n\nIn 2026, out of 19 cases with recovered weapons, the charges included Arms Ordinance 1965 §13, PPC §34, PPC §392, CNSA 1997 §9(c), PPC §302, and others. The weapon types recovered included 30 بور پستول (17), خالی خول (فائرنگ کا شاہد)، جائے وقوعہ سے برآمد (1), and others. \n\nCompared to 2024, in 2026, the weapons charge now also appears alongside CNSA 1997 §9(c) and PPC §302, which were not present in 2024 [Document 1].",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 6.5,
+    "xagg_log_lines": [
+      "XAGG weapon_statute_cooccurrence: 32 weapon case(s), 2 year bucket(s), 0 with no resolvable incident date"
+    ],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB5",
+    "run": 1,
+    "arm": "after",
+    "language": "ur",
+    "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+    "expected_answer": "جی ہاں۔ اینٹی ریپ (انویسٹی گیشن) رولز، 2022 کا رول 3(2) تفتیشی افسر کو پابند کرتا ہے کہ وہ یقینی بنائے کہ ایک خاتون پولیس افسر شامل ہو، متاثرہ کا بیان اینٹی ریپ کرائسز سیل (اے آر سی سی) میں تنہائی میں ریکارڈ کیا جائے، اور شواہد کی چین آف کسٹڈی پورے عمل کے دوران برقرار رکھی جائے — یہ واضح فرائض ہیں، تھانے کی صوابدید پر نہیں چھوڑے گئے۔ ہماری خواتین سے تشدد کی رپورٹوں کے ریکارڈ اس کا کچھ حصہ ظاہر کرتے ہیں: ریکارڈ میں موجود 8 میں سے ہر رپورٹ میں مقررہ خواتین پولیس اسٹیشن اور بیج نمبر کے ساتھ نامزد تفتیشی افسر کا خانہ موجود ہے، جو کیس کے باقاعدہ ایف آئی آر میں تبدیل ہونے سے پہلے ہی درج کیا جاتا ہے۔ جو چیز درج نہیں ہوتی وہ یہ ہے کہ چین آف کسٹڈی واقعی برقرار رکھی گئی یا نہیں — تقاضے کے اُس حصے کے لیے کوئی متعلقہ خانہ موجود نہیں۔",
+    "actual_answer": "### Part 1: What the Law Requires\n\nYes, the law requires a different procedure when a case involves violence against a woman. According to the **Anti-Rape (Investigation and Trial) Act, 2021**, specifically **Section 3(2)(d)**, it mandates that a **female police officer must be present during the statements taken from the victim**, at the **ARCC for medico-legal examination (MLE)**, and at the **forensic laboratory for DNA reference sample submission**. This provision ensures that the victim is treated with sensitivity and that the investigation is conducted in a manner that respects the rights and dignity of the victim.\n\n### Part 2: What Our Case Records Show\n\nAccording to **our own case records** (Document 7), out of **8 domestic-violence reports**, **4 carry a forwarded FIR number that matches a real, active FIR**, and the remaining **4 record no forwarded number**. However, the records do **not** explicitly indicate whether the **presence of a female police officer** was ensured during the **statements, MLE, or DNA sample submission** as required by the law. Therefore, while the records show that **some cases have been forwarded with FIR numbers**, they **do not confirm** whether the **additional measures required by the law** (such as the presence of a female police officer) were actually implemented.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 52.0,
+    "xagg_log_lines": [
+      "XAGG dv_report_fir_match: 8 women-violence report(s), 4 matched to an FIR, 4 unconfirmed"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "violence_against_women",
+        "kind": "dv_report_fir_match",
+        "chars": 365
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal procedures for handling cases involvin"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB4",
+    "run": 1,
+    "arm": "after",
+    "language": "ur",
+    "question": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+    "expected_answer": "جی ہاں۔ پنجاب پولیس رولز، 1934 (جلد 3) کا رول 27.16 پولیس کو پابند کرتا ہے کہ وہ مقررہ فارم میں کیس پراپرٹی اور لاوارث پراپرٹی کا رجسٹر برقرار رکھے، جسے مکمل ہونے کے تین سال بعد ہی تلف کیا جا سکتا ہے۔ ہمارا مال خانہ رجسٹر اِسی ساخت کی عکاسی کرتا ہے: ریکارڈ میں موجود 45 اندراجات میں سے ہر ایک میں سیریل نمبر، رجسٹریشن نمبر، اندراج کی تاریخ، شے کی تفصیل، مقدار اور حالت درج ہے — وہی خانے جن کا اِس رول کا مقررہ رجسٹر فارم تقاضا کرتا ہے۔",
+    "actual_answer": "### Part 1: What the law, rule or guideline requires\n\nAccording to the legal provisions, when the police collect evidence or property related to a case, they must follow specific procedures to ensure the integrity of the evidence. These include:\n\n- **Marking, packaging, and documenting evidence** (Document 1): All evidence collected must be inventoried, packaged, and marked with the following details: case number, item number, description, and date of recovery or receiving.\n- **Chain of custody** (Document 1): The investigation officer and all other persons involved in the process must maintain a safe chain of custody for the evidence.\n- **Precautions to avoid contamination** (Document 1): All necessary precautions must be taken to avoid evidence from getting contaminated, and all equipment used for crime scene management must be sterile or disinfected.\n- **Packaging and sealing** (Document 6): Evidence must be packaged in containers that can be sealed, and the seals must display the initials of the personnel creating the seal and the date when the seal is created. The seals must be made from tamper-evident material.\n\n### Part 2: What our own case records actually show\n\nAccording to the summary of our own case records (Document 7), the disposition of seized property across 28 FIRs is as follows:\n\n- **Confiscated**: 14 items in 13 FIRs.\n- **Sealed, sample sent to the forensic laboratory**: 13 items in 11 FIRs.\n- **To be handed over to the heirs**: 7 items in 7 FIRs.\n- **Held for return to the complainant**: 6 items in 6 FIRs.\n- **Confiscated, held after forensic testing**: 1 item in 1 FIR.\n- **Held as forensic evidence**: 1 item in 1 FIR.\n- **Sealed in the property store**: 1 item in 1 FIR.\n- **Sealed in the property store, forensic examination required**: 1 item in 1 FIR.\n- **Held**: 1 item in 1 FIR.\n\nOf these, 13 items in 11 FIRs were literally **dispatched to a forensic laboratory**, and 7 items in 7 FIRs are **held for return to a deceased person's heirs**.\n\nThe records do not show any entries that explicitly mention the **chain of custody** or **precautions to avoid contamination** as required by the legal provisions. However, the records do show that **some items were sealed and sent to the forensic laboratory**, which aligns with the requirement for **packaging and sealing**.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 67.0,
+    "xagg_log_lines": [
+      "XAGG seized_property_disposition: 45 register entr(ies) across 28 FIR(s), 9 distinct disposition(s); forensic-lab dispatch 13 item(s) in 11 FIR(s) (16 mention forensic in any wording); heirs 7 item(s) in 7 FIR(s); 0 entr(ies) record no disposition"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "property_register",
+        "kind": "seized_property_disposition",
+        "chars": 1369
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain information about formal standards for recording"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6",
+    "run": 1,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule or Guideline Requires\n\nAccording to the **Forensics guidelines** (Document 2), there are specific instructions for handling and packaging evidence, particularly in sexual assault cases. For example:\n\n- **Paragraph 12** states that sharp weapons such as knives, daggers, and similar items should be packaged in appropriate-sized cardboard boxes or cartons. The submitting individual must seal the box and indicate on the exterior that it contains a **SHARP weapon** and may contain biological material.\n- **Paragraph 13** emphasizes the importance of maintaining the **integrity of the item** through proper packaging documentation, including all markings, seals, tags, and labels used by all involved agencies. It also states that **all packaging and labels** received by or returned to the agency must be preserved and documented, as this information is **critical**.\n\nThese guidelines ensure that evidence is handled in a way that maintains its integrity and prevents contamination or damage.\n\n---\n\n### Part 2: What Our Own Case Records Actually Show\n\nAccording to the **summary of our own case records** (Document 7):\n\n- **Reviewing the 32 weapon-register entries for compliance**:\n  - **30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence** — this indicates that the weapon register does **not** record whether a weapon has been **licensed** or not.\n  - **2 carry no licence status at all**, so their compliance can't be confirmed either way.\n\nThis shows that the **weapon register does not record whether a weapon has been handled in accordance with the guidelines** (e.g., whether it was properly packaged, sealed, or marked as SHARP). It also does **not** record whether a weapon was **licensed** or not, which is a key piece of information required by the **forensics guidelines**.\n\nIn conclusion, while the **forensics guidelines** clearly specify how weapons should be handled and documented, the **weapon register** does **not** capture this information in a way that confirms whether the guidelines were followed.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 56.6,
+    "xagg_log_lines": [
+      "XAGG weapon_compliance_scan: 32 weapon(s); 30 unlicensed, 2 with no licence status recorded"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "weapon_register",
+        "kind": "weapon_compliance_scan",
+        "chars": 300
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents provide specific instructions on how recovered weapons s"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB8",
+    "run": 1,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+    "expected_answer": "Haan. Code of Criminal Procedure, 1898 ki dafa 173 ke tehat har tafteesh bila-zaroori takheer ke mukammal honi chahiye, aur agar FIR darj hone ke chaudah din ke andar mukammal na ho, to officer in charge us muddat ke khatam hone ke teen din ke andar magistrate ko (public prosecutor ke zariye) ek interim report bhejne ka paband hai, jisme ab tak ki tafteesh ka natija darj ho. Hamara data us pipeline ke aakhri hisse ko darj karta hai — adaalat bheja gaya challan (26 cases) aur, hal shuda cases ke liye, darj shuda natija — magar schema mein kahin interim report ka koi tasavvur nahi aur challan ko uski tafteesh ke aaghaaz se jorne wala koi field nahi. Is liye data yeh tasdeeq kar sakta hai ke case adaalat tak pohcha, magar yeh nahi ke raaste mein 14-din ki interim-report ki zimma-daari poori hui ya nahi.",
+    "actual_answer": "### Part 1: What the Law Requires\nUnder the **Code of Criminal Procedure (Pakistan)**, if an investigation is not completed within **14 days** from the date of recording the **first information report (FIR)** under **Section 154**, the **officer in charge of the police station** is required to **forward an interim report** to the **Magistrate** through the **Public Prosecutor** within **three days** of the expiration of the 14-day period. This is specified in **Section 173** of the **Code of Criminal Procedure** [Document 3].\n\n### Part 2: What Our Case-Tracking Data Shows\nOur **case-tracking data** does **not** include any **interim-report record type** in its schema, and there is **no field** that links a **challan** back to the **start of its own investigation** [Document 6]. Therefore, the data **cannot confirm** whether any **interim reporting duty** was fulfilled during the investigation.\n\n_A cited claim ([Document 3]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 173._\n_A cited claim ([Document 6]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 2._",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 62.7,
+    "xagg_log_lines": [
+      "XAGG chalaan_dispatch_count: 26 challan dispatch record(s) across 26 case(s), 15 carrying a dispatch timestamp; 20 chalaan_outcome record(s) across 20 case(s), 15 with a court-reached date; interim-report record type present=False"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "chalaan_dispatch",
+        "kind": "chalaan_dispatch_count",
+        "chars": 924
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal requirement for police to report to th"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "M4",
+    "run": 2,
+    "arm": "after",
+    "language": "ur",
+    "question": "ایک طرف یہ دیکھیں کہ لوگوں پر کن دفعات میں مقدمے بن رہے ہیں، اور دوسری طرف یہ کہ وہ مقدمے عدالت میں کہاں تک پہنچے — کیا دونوں سے کیس لوڈ کی سنگینی کا ایک ہی اندازہ ہوتا ہے؟",
+    "expected_answer": "نہیں — دونوں ایک دوسرے سے پیچھے ہیں۔ ایف آئی آر کی دفعات پہلے ہی ظاہر کرتی ہیں کہ سنگین جرائم عام ہیں، لیکن 33 میں سے صرف 1 کرمنل ریکارڈ حتمی سزا ہے؛ 30 اب بھی زیرِ سماعت ہیں۔ موجودہ کیس لوڈ کی سنگینی کا اندازہ ایف آئی آر/دفعات کی گنتی پر لگانا چاہیے، سزاؤں کی گنتی پر نہیں، جو ابھی پیچھے ہے۔",
+    "actual_answer": "No, the two perspectives do not give the same impression of the severity of the case load. \n\nOn one side, 73 cases are being charged under various statutes, with the most frequent being PPC §34 (40 cases), Arms Ordinance 1965 §13 (29 cases), and PPC §392 (21 cases). This shows the range and frequency of charges being brought.\n\nOn the other side, out of 33 criminal records, only 1 has reached a verdict, while the rest are still in progress. The status of these cases includes \"Under trial\" (30 cases), \"Convicted, on bail pending appeal\" (1 case), \"Sub judice, external prior case\" (1 case), and \"Under trial, priority hearing requested\" (1 case). The only case that has reached a verdict is FIR 891-24 (شہزیب عرف شابی), which was convicted under PPC §392 and is on bail pending appeal.\n\nTherefore, while the FIR/section counts provide a comprehensive view of the current case load and the charges being brought, the conviction counts lag significantly behind, reflecting only a small portion (3%) of the recorded court caseload. As a result, the severity of the current case load should be assessed based on the FIR/section counts, not the conviction counts [Document 1].",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 9.3,
+    "xagg_log_lines": [
+      "XAGG criminal_record_court_crosscheck: 33 criminal record(s), 1 settled / 32 in progress; 1 cross-checked against a court outcome, 1 consistent",
+      "XAGG statute_court_stage_join: 73 case(s) carry a recorded section across 36 distinct statute(s); 33 criminal record(s), 1 settled / 32 in progress; 4 record(s) join to a case in this corpus; agree=False"
+    ],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  },
+  {
+    "id": "G3",
+    "run": 2,
+    "arm": "after",
+    "language": "ur",
+    "question": "آپ عدالت کو حوالگی کے لیے ایک کیس فائل تیار کر رہے ہیں — ڈیٹا کی روشنی میں، کن چیزوں کے نامکمل قرار پانے کا سب سے زیادہ امکان ہے؟",
+    "expected_answer": "طریقہ کار: ہر فائل میں وہ خانے دیکھیں جو ایک پراسیکیوٹر یا عدالت عموماً قبول کرنے سے پہلے بھرا ہوا دیکھنا چاہتی ہے۔ سب سے زیادہ امکان: (1) ملزم اور مدعی کے درمیان تعلق 94 میں سے 81 ملزم اندراجات میں خالی ہے — عدالتیں تقریباً ہمیشہ پوچھتی ہیں کہ دونوں کا آپس میں کیا تعلق ہے؛ (2) برآمد شدہ 32 ہتھیاروں میں سے 2 کی لائسنس کی حیثیت درج نہیں، جو کسی بھی آرمز آرڈیننس کی دفعہ والے مقدمے میں فیصلہ کن ہوتی ہے؛ (3) 9 ایف آئی آر میں واقعے کی تاریخ درج نہیں، اس لیے فائل کی ٹائم لائن عملاً واقعے کے بجائے رپورٹ سے شروع ہوتی ہے۔ اِن میں سے ہر ایک ایک متوقع تکرارِ آمدورفت ہے، نہ کہ کوئی مکمل رکاوٹ۔",
+    "actual_answer": "According to [Document 1], when preparing a case file for court, the following fields are most often incomplete:\n- The relationship between the accused and the complainant is missing in 82 out of 94 accused entries — courts almost always ask how the parties relate.\n- The licence status of 2 out of 32 recovered weapons is not recorded — this is decisive in any Arms Ordinance charge.\n- 9 FIRs do not record an incident date, so the file's timeline effectively starts at the report, not the event.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 6.5,
+    "xagg_log_lines": [
+      "XAGG weapon_compliance_scan: 32 weapon(s); 30 unlicensed, 2 with no licence status recorded",
+      "XAGG case_completeness_scan: 73 case(s) scanned; 9 missing an incident date, 52 missing an investigation status",
+      "XAGG court_readiness_scan: 94 accused edge(s), 82 with no recorded relationship; 2 of 32 weapon(s) with no licence status; 9 of 73 case(s) with no incident date"
+    ],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  },
+  {
+    "id": "CR7",
+    "run": 2,
+    "arm": "after",
+    "language": "ur",
+    "question": "کرمنل ریکارڈ سسٹم میں کتنے کیس مکمل ہو چکے ہیں اور کتنے ابھی زیرِ کارروائی ہیں — اور جہاں کسی ایک کیس کا الگ عدالتی ریکارڈ بھی موجود ہے، کیا دونوں ایک دوسرے سے مطابقت رکھتے ہیں؟",
+    "expected_answer": "33 میں سے 30 کرمنل ریکارڈ ’زیرِ سماعت‘ ہیں، 1 ’سزا یافتہ، اپیل کے دوران ضمانت پر‘ ہے۔ اُس ایک نمٹے ہوئے کیس (ایف آئی آر 891/24) کے لیے عدالتی نتیجے کا ریکارڈ آزادانہ طور پر وہی 5 سالہ سزا اور اپیل کی تفصیل کی تصدیق کرتا ہے — دونوں میں مطابقت ہے۔",
+    "actual_answer": "In the criminal record system, out of 33 criminal records, 1 has reached a verdict and 32 are still in progress [Document 1]. The breakdown of the 33 criminal records by status is as follows:\n- Under trial: 30\n- Convicted, on bail pending appeal: 1\n- Sub judice, external prior case: 1\n- Under trial, priority hearing requested: 1\n\nIn cases where an independent court-outcome record is also available, the two records are consistent. For example, FIR 891-24 (شہزیب عرف شابی) has a criminal record stating \"Convicted, on bail pending appeal\" and a court outcome stating \"5 سال قید بامشقت زیر دفعہ 392 ت.پ سزایاب,\" which are consistent with each other [Document 1].",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 5.0,
+    "xagg_log_lines": [
+      "XAGG criminal_record_court_crosscheck: 33 criminal record(s), 1 settled / 32 in progress; 1 cross-checked against a court outcome, 1 consistent"
+    ],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  },
+  {
+    "id": "G2",
+    "run": 2,
+    "arm": "after",
+    "language": "ur",
+    "question": "فرض کریں آپ کسی ایس ایچ او کو بریفنگ دے رہے ہیں کہ کون سے مقدمے دب کر یا نظر سے اوجھل ہو کر رہ سکتے ہیں — آپ کن چیزوں کی نشاندہی کریں گے؟",
+    "expected_answer": "طریقہ کار: ایسے مقدمات تلاش کریں جن کے اپنے ریکارڈ اتنے مربوط نہیں کہ اُن پر انحصار کیا جا سکے۔ قابلِ توجہ نکات: (1) 9 ایف آئی آر میں واقعے کی تاریخ درج نہیں اور زیادہ تر روزنامچہ (زمنی) اندراجات کی کوئی قسم درج نہیں، اس لیے اِن مقدمات میں یہ واضح طور پر ترتیب دینا ممکن نہیں کہ کیا کب ہوا؛ (2) 73 میں سے 13 ایف آئی آر میں افسر کے تھانے سے جائے وقوعہ کی طرف روانگی کا وقت خود رپورٹ کے وقت سے پہلے کا درج ہے — یہ ترتیب کا تضاد ہے جو جانچ میں نہیں ٹکے گا؛ (3) واک اِن شکایات اور ایف آئی آر الگ الگ نظاموں میں ہیں جو صرف ایک اختیاری مشترکہ ٹیگ سے جُڑے ہیں، اس لیے غلط یا غائب ٹیگ والی شکایت ایف آئی آر موجود ہونے کے باوجود بغیر کارروائی کے دکھائی دے سکتی ہے۔ اِن میں سے کوئی بھی اکیلے کسی مقدمے کو ضائع نہیں کرتی، لیکن ہر ایک وہ خلا ہے جو جائزے میں رکاوٹ بنتا ہے۔",
+    "actual_answer": "The cases that are most likely to slip through the cracks are those with missing core data:\n\n* **FIRs without an incident date** – 9 out of 73 FIRs have no recorded date, meaning any timeline built on them is unanchored. The specific FIR numbers are fir-205-26, fir-211-26, fir-340-25, fir-406-26, fir-410-25, fir-422-26, fir-457-26, fir-467-26, and fir-77-26 [Document 1].\n\n* **FIRs without an investigation status** – 52 out of 73 FIRs lack a recorded investigation status, so they cannot be tracked through their lifecycle and may silently stall [Document 1].\n\nThese two data gaps—missing incident dates and missing investigation statuses—are the key indicators that a case could be “pressed down” or become invisible in the system.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 11.2,
+    "xagg_log_lines": [
+      "XAGG case_completeness_scan: 73 case(s) scanned; 9 missing an incident date, 52 missing an investigation status"
+    ],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  },
+  {
+    "id": "G5",
+    "run": 2,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Baramad shuda hathiyaron ki record keeping ko dekhte hue, kya koi aisi baat hai jo compliance ke lihaz se flag karne layak ho?",
+    "expected_answer": "Tareeqa: 32 weapon-register entries ka jaiza lein — license status, case aur shakhs se rabta, aur handling record ki takmeel. Tashweeshaat: (1) 32 mein se 30 baramad hathiyar (94%) bila-license darj hain — itna wasee pattern ke ise case-by-case ke bajaye apni alag compliance note ki zaroorat hai; (2) register yeh darj karta hai ke kya baramad hua aur uski halat, magar packaging, tasaweer ya chain of custody ka koi khana nahi, is liye kisi bhi entry ke liye zaabte ki pasdari ki tasdeeq mumkin nahi; (3) hathiyar case se sirf ek narm FIR-code match se jurte hain, bina kisi lazmi key ke, is liye ek ghalat type kiya gaya code khamoshi se kisi item ko orphan kar dega. Bila-license ki shrah sab se numaya point hai.",
+    "actual_answer": "Yes, there are issues that warrant flagging in terms of compliance. According to the review of the 32 weapon-register entries:\n\n- 30 out of 32 recovered weapons (~94%) are recorded **without a licence** — a pattern that is too broad to treat on a case-by-case basis and requires a standing compliance check.\n- 2 entries carry **no licence status at all**, making it impossible to confirm their compliance status either way. \n\nThese findings highlight significant compliance concerns that need to be addressed [Document 1].",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 4.3,
+    "xagg_log_lines": [
+      "XAGG weapon_compliance_scan: 32 weapon(s); 30 unlicensed, 2 with no licence status recorded"
+    ],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  },
+  {
+    "id": "M5",
+    "run": 2,
+    "arm": "after",
+    "language": "ur",
+    "question": "ہتھیار عام طور پر کس نوعیت کے مقدمات میں سامنے آتے ہیں، اور کیا 2024 کے مقابلے میں اب یہ نوعیت بدل گئی ہے؟",
+    "expected_answer": "2024 میں آرمز آرڈیننس §13 صرف ڈکیتی کی دفعات (پی پی سی 34 اور 392، دونوں 13/13) کے ساتھ آتی ہے۔ 2026 میں یہ منشیات (سی این ایس اے §9(c)، 8 مقدمات) اور قتل (پی پی سی 302، 8 مقدمات) کے ساتھ ساتھ اُنہی ڈکیتی کی دفعات (ہر ایک 8 مقدمات) کے ساتھ بھی آتی ہے — اسلحے کا استعمال محض ڈکیتی کے آلے تک محدود نہیں رہا۔",
+    "actual_answer": "Recovered weapons are most commonly associated with legal charges under PPC §34 and PPC §392. In 2024, all 13 cases with recovered weapons were charged under Arms Ordinance 1965 §13, PPC §34, and PPC §392. The weapon type recovered was 30 بور پستول (13).\n\nIn 2026, the weapon charges were still associated with PPC §34 and PPC §392, but also appeared alongside CNSA 1997 §9(c) and PPC §302, which were not associated with weapons charges in 2024. The weapon types recovered in 2026 included 30 بور پستول (17), خالی خول (فائرنگ کا شاہد)، جائے وقوعہ سے برآمد (1), and general wooden stick, one piece (1).\n\nThus, the type of legal charges associated with recovered weapons has changed from 2024 to 2026, with the addition of CNSA 1997 §9(c) and PPC §302.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 6.3,
+    "xagg_log_lines": [
+      "XAGG weapon_statute_cooccurrence: 32 weapon case(s), 2 year bucket(s), 0 with no resolvable incident date"
+    ],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB5",
+    "run": 2,
+    "arm": "after",
+    "language": "ur",
+    "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+    "expected_answer": "جی ہاں۔ اینٹی ریپ (انویسٹی گیشن) رولز، 2022 کا رول 3(2) تفتیشی افسر کو پابند کرتا ہے کہ وہ یقینی بنائے کہ ایک خاتون پولیس افسر شامل ہو، متاثرہ کا بیان اینٹی ریپ کرائسز سیل (اے آر سی سی) میں تنہائی میں ریکارڈ کیا جائے، اور شواہد کی چین آف کسٹڈی پورے عمل کے دوران برقرار رکھی جائے — یہ واضح فرائض ہیں، تھانے کی صوابدید پر نہیں چھوڑے گئے۔ ہماری خواتین سے تشدد کی رپورٹوں کے ریکارڈ اس کا کچھ حصہ ظاہر کرتے ہیں: ریکارڈ میں موجود 8 میں سے ہر رپورٹ میں مقررہ خواتین پولیس اسٹیشن اور بیج نمبر کے ساتھ نامزد تفتیشی افسر کا خانہ موجود ہے، جو کیس کے باقاعدہ ایف آئی آر میں تبدیل ہونے سے پہلے ہی درج کیا جاتا ہے۔ جو چیز درج نہیں ہوتی وہ یہ ہے کہ چین آف کسٹڈی واقعی برقرار رکھی گئی یا نہیں — تقاضے کے اُس حصے کے لیے کوئی متعلقہ خانہ موجود نہیں۔",
+    "actual_answer": "### Part 1: What the Law Requires\n\nYes, the law requires a different procedure when a case involves violence against a woman. According to the **Anti-Rape (Investigation and Trial) Act, 2021**, specifically **Section 3(2)(d)**, it mandates that a **female police officer must be present during the statements taken from the victim**, at the **ARCC for medico-legal examination (MLE)**, and at the **forensic laboratory for DNA reference sample submission**. This provision ensures that the victim is treated with sensitivity and that the investigation is conducted in a manner that respects the rights and dignity of the victim.\n\n### Part 2: What Our Case Records Show\n\nAccording to **our own case records** (Document 7), out of **8 domestic-violence reports**, **4 carry a forwarded FIR number that matches a real, active FIR**, and the remaining **4 record no forwarded number**. However, the records do **not explicitly indicate** whether the **presence of a female police officer** was ensured during the **statements, MLE, or DNA sample submission** as required by the law. Therefore, while the records show that **some cases have been forwarded with FIR numbers**, they **do not confirm** whether the **additional measures required by the law** (such as the presence of a female police officer) were actually implemented.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 57.0,
+    "xagg_log_lines": [
+      "XAGG dv_report_fir_match: 8 women-violence report(s), 4 matched to an FIR, 4 unconfirmed"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "violence_against_women",
+        "kind": "dv_report_fir_match",
+        "chars": 365
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal procedures for handling cases involvin"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB4",
+    "run": 2,
+    "arm": "after",
+    "language": "ur",
+    "question": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+    "expected_answer": "جی ہاں۔ پنجاب پولیس رولز، 1934 (جلد 3) کا رول 27.16 پولیس کو پابند کرتا ہے کہ وہ مقررہ فارم میں کیس پراپرٹی اور لاوارث پراپرٹی کا رجسٹر برقرار رکھے، جسے مکمل ہونے کے تین سال بعد ہی تلف کیا جا سکتا ہے۔ ہمارا مال خانہ رجسٹر اِسی ساخت کی عکاسی کرتا ہے: ریکارڈ میں موجود 45 اندراجات میں سے ہر ایک میں سیریل نمبر، رجسٹریشن نمبر، اندراج کی تاریخ، شے کی تفصیل، مقدار اور حالت درج ہے — وہی خانے جن کا اِس رول کا مقررہ رجسٹر فارم تقاضا کرتا ہے۔",
+    "actual_answer": "### Part 1: What the law, rule or guideline requires\n\nAccording to the legal provisions, when the police collect evidence or property related to a case, they must follow specific procedures to ensure the integrity of the evidence. These include:\n\n- **Marking, packaging, and documenting evidence** (Document 1 and Document 3): All evidence collected must be inventoried, packaged, and marked with the following details: case number, item number, description, and date of recovery or receiving. This ensures that the evidence is properly identified and tracked.\n- **Chain of custody** (Document 1 and Document 3): The investigation officer and all other persons involved in the process must maintain a safe chain of custody for the evidence. Every document must mention the location where the evidence was received or collected and the name of the investigating officer.\n- **Precautions to avoid contamination** (Document 1 and Document 3): All necessary precautions must be taken to avoid evidence from getting contaminated, and all equipment used for crime scene management must be sterile or disinfected.\n- **Packaging and sealing** (Document 6): Evidence must be packaged in containers that can be sealed, and the seals must display the initials of the personnel creating the seal and the date when the seal is created. The seals must be made from a material that is tamper-evident.\n\n### Part 2: What our own case records actually show\n\nAccording to the summary of our own case records (Document 7), the disposition of seized property across 28 FIRs is as follows:\n\n- **Confiscated**: 14 items in 13 FIRs.\n- **Sealed, sample sent to the forensic laboratory**: 13 items in 11 FIRs.\n- **To be handed over to the heirs**: 7 items in 7 FIRs.\n- **Held for return to the complainant**: 6 items in 6 FIRs.\n- **Confiscated, held after forensic testing**: 1 item in 1 FIR.\n- **Held as forensic evidence**: 1 item in 1 FIR.\n- **Sealed in the property store**: 1 item in 1 FIR.\n- **Sealed in the property store, forensic examination required**: 1 item in 1 FIR.\n- **Held**: 1 item in 1 FIR.\n\nOf these, 13 items in 11 FIRs were literally **DISPATCHED** to a forensic laboratory, and 7 items in 7 FIRs are held for return to a deceased person's heirs.\n\n### Summary\n\n- **Legal requirements** (as outlined in the documents) include marking, packaging, and maintaining a chain of custody for evidence, as well as taking precautions to avoid contamination.\n- **Our records** show that some items were dispatched to the forensic laboratory, and others were handled in accordance with the procedures outlined in the legal guidelines. However, the records do not provide a complete breakdown of all the steps taken to ensure the integrity of the evidence, such as the use of sterile equipment or the specific precautions taken to avoid contamination.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 54.0,
+    "xagg_log_lines": [
+      "XAGG seized_property_disposition: 45 register entr(ies) across 28 FIR(s), 9 distinct disposition(s); forensic-lab dispatch 13 item(s) in 11 FIR(s) (16 mention forensic in any wording); heirs 7 item(s) in 7 FIR(s); 0 entr(ies) record no disposition"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "property_register",
+        "kind": "seized_property_disposition",
+        "chars": 1369
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain information about formal standards for recording"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6",
+    "run": 2,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule or Guideline Requires\n\nAccording to the **forensics guidelines** (Document 1), there are specific instructions on how to handle and package evidence, particularly weapons. For example:\n\n- **Paragraph 12** states that sharp weapons such as knives, daggers, etc., should be packaged in appropriate-sized cardboard boxes or cartons. The submitting individual must seal the box and indicate on the exterior that it contains a **SHARP weapon** and may contain biological material.\n- **Paragraph 13** emphasizes the importance of maintaining the integrity of the item through package documentation, including all markings, seals, tags, and labels used by all involved agencies. It also states that all packaging and labels received by or returned to the agency must be preserved and documented, as this information is critical.\n\nThese guidelines are part of the **Guideline for the Collection, Packaging and Transport of Evidence in Sexual Assault Cases** (Document 1), which outlines the proper handling and documentation of evidence.\n\n### Part 2: What Our Own Case Records Actually Show\n\nAccording to the **summary of our own case records** (Document 7):\n\n- **Reviewing the 32 weapon-register entries for compliance**:\n  - **30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence** — a pattern too broad to treat case-by-case; it warrants a standing compliance check.\n  - **2 carry no licence status at all**, so their compliance can't be confirmed either way.\n\nThis summary does **not** indicate whether the weapons were handled in accordance with the **forensics guidelines** (e.g., whether they were properly sealed, marked, or documented). It only provides information about the **licence status** of the recovered weapons, not about how they were handled or packaged.\n\nTherefore, the **weapon register does not record whether the weapons were handled in accordance with the guidelines**.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 78.8,
+    "xagg_log_lines": [
+      "XAGG weapon_compliance_scan: 32 weapon(s); 30 unlicensed, 2 with no licence status recorded"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "weapon_register",
+        "kind": "weapon_compliance_scan",
+        "chars": 300
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain specific instructions on how recovered weapons s"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB8",
+    "run": 2,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+    "expected_answer": "Haan. Code of Criminal Procedure, 1898 ki dafa 173 ke tehat har tafteesh bila-zaroori takheer ke mukammal honi chahiye, aur agar FIR darj hone ke chaudah din ke andar mukammal na ho, to officer in charge us muddat ke khatam hone ke teen din ke andar magistrate ko (public prosecutor ke zariye) ek interim report bhejne ka paband hai, jisme ab tak ki tafteesh ka natija darj ho. Hamara data us pipeline ke aakhri hisse ko darj karta hai — adaalat bheja gaya challan (26 cases) aur, hal shuda cases ke liye, darj shuda natija — magar schema mein kahin interim report ka koi tasavvur nahi aur challan ko uski tafteesh ke aaghaaz se jorne wala koi field nahi. Is liye data yeh tasdeeq kar sakta hai ke case adaalat tak pohcha, magar yeh nahi ke raaste mein 14-din ki interim-report ki zimma-daari poori hui ya nahi.",
+    "actual_answer": "",
+    "route": null,
+    "status": "error",
+    "transport_ok": false,
+    "error": "HTTPError: HTTP Error 500: Internal Server Error",
+    "elapsed_s": 4.1,
+    "xagg_log_lines": [],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  }
+]

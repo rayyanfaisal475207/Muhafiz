@@ -1,0 +1,101 @@
+[
+ {
+  "case": "A_heldout_positive",
+  "draw": 0,
+  "expect": "HIGH",
+  "model": "groq/compound-mini",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 8.8,
+  "reason": "The actual output includes all key facts from the expected output: it states that 11 FIRs lack a real investigating officer, with placeholders '(Naamzad ASI)' on 8 and '(Naamzad SI)' on 3, and identifies Faisal and Tariq as the busiest officers with 4 FIRs each. Numbers match exactly, and the substa"
+ },
+ {
+  "case": "A_heldout_positive",
+  "draw": 1,
+  "expect": "HIGH",
+  "model": "groq/compound-mini",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 10.2,
+  "reason": "The actual output correctly captures all key facts: it states that not every FIR has a designated officer, specifies 11 FIRs with placeholders, gives the exact counts of each placeholder (8 ASI, 3 SI), and notes that Faisal and Tariq each handle 4 FIRs. Numbers match the expected values, and despite"
+ },
+ {
+  "case": "A_heldout_positive",
+  "draw": 2,
+  "expect": "HIGH",
+  "model": "groq/compound-mini",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 5.2,
+  "reason": "The actual output correctly captures all key facts: it states there is a gap (matching the expected 'No'), reports exactly 11 FIRs lacking a real officer, gives the same placeholder counts (8 '(Naamzad ASI)' and 3 '(Naamzad SI)'), and notes Faisal and Tariq each handle 4 FIRs. Numbers and details al"
+ },
+ {
+  "case": "B_reversed_fact",
+  "draw": 0,
+  "expect": "LOW",
+  "model": "groq/compound-mini",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.0,
+  "elapsed_s": 5.2,
+  "reason": "The expected answer states that 2024 average reporting time is 15.0 minutes and 2026 is 1401.3 minutes (much slower), indicating a large difference. The actual answer reverses these numbers, claiming 1401.3 minutes in 2024 and 15.0 minutes in 2026, and says reporting is \"just as quickly — in fact fa"
+ },
+ {
+  "case": "B_reversed_fact",
+  "draw": 1,
+  "expect": "LOW",
+  "model": "groq/compound-mini",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.1,
+  "elapsed_s": 6.0,
+  "reason": "The expected answer states that the 2024 average reporting time is 15.0 minutes and the 2026 average is 1401.3 minutes (much slower in 2026). The actual output reverses these numbers, claiming 1401.3 minutes in 2024 and 15.0 minutes in 2026, and also says reporting is \"just as quickly — in fact fast"
+ },
+ {
+  "case": "B_reversed_fact",
+  "draw": 2,
+  "expect": "LOW",
+  "model": "groq/compound-mini",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.0,
+  "elapsed_s": 5.3,
+  "reason": "The expected output states that the 2024 average reporting time is 15.0 minutes and the 2026 average is 1401.3 minutes (much slower). The actual output reverses these numbers, claiming 1401.3 minutes for 2024 and 15.0 minutes for 2026, and also says reporting is \"just as quickly — in fact faster,\" w"
+ },
+ {
+  "case": "C_wrong_magnitude",
+  "draw": 0,
+  "expect": "LOW",
+  "model": "groq/compound-mini",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.1,
+  "elapsed_s": 8.5,
+  "reason": "The expected answer states a huge slowdown (2026 average 1401.3 min vs 15 min in 2024). The actual answer reports only a slight slowdown (2026 average 18 min vs 15 min in 2024). The 2026 figure is far outside the 5‑10% tolerance, so the key fact about the magnitude of change contradicts the expected"
+ },
+ {
+  "case": "C_wrong_magnitude",
+  "draw": 1,
+  "expect": "LOW",
+  "model": "groq/compound-mini",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 5.3,
+  "reason": "The expected answer states that the 2026 average reporting time is 1401.3 minutes (a huge slowdown), while the actual answer gives 18.0 minutes. This number is far outside the allowed 5‑10% tolerance and represents a wildly different fact, contradicting the key expected fact. The 2024 figure (15.0 m"
+ },
+ {
+  "case": "C_wrong_magnitude",
+  "draw": 2,
+  "expect": "LOW",
+  "model": "groq/compound-mini",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.0,
+  "elapsed_s": 5.0,
+  "reason": "The expected output states a 2024 average of 15.0 minutes and a 2026 average of 1401.3 minutes, indicating a massive slowdown. The actual output matches the 2024 figure but reports a 2026 average of only 18.0 minutes, which is far outside the allowed 5‑10% tolerance and reverses the substantive clai"
+ }
+]

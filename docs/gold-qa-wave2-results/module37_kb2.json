@@ -1,0 +1,426 @@
+[
+  {
+    "id": "KB2",
+    "run": 1,
+    "arm": "before",
+    "language": "en",
+    "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+    "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "last_dispatch_route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 91.8,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1010",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c602"
+        ],
+        "orphans": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c602"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal procedures and restrictions governing "
+      }
+    ],
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": [],
+    "window_chunk_ids": [
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1010",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c602"
+    ],
+    "window_orphan_ids": [
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c602"
+    ],
+    "n_orphans_in_window": 3
+  },
+  {
+    "id": "KB2",
+    "run": 2,
+    "arm": "before",
+    "language": "en",
+    "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+    "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "last_dispatch_route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 119.2,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1010",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c602"
+        ],
+        "orphans": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c602"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal procedures and restrictions governing "
+      }
+    ],
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": [],
+    "window_chunk_ids": [
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1010",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c602"
+    ],
+    "window_orphan_ids": [
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c602"
+    ],
+    "n_orphans_in_window": 3
+  },
+  {
+    "id": "KB2",
+    "run": 3,
+    "arm": "before",
+    "language": "en",
+    "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+    "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "last_dispatch_route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 87.9,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1010",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c602"
+        ],
+        "orphans": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c602"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal procedures and restrictions governing "
+      }
+    ],
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": [],
+    "window_chunk_ids": [
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1010",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c602"
+    ],
+    "window_orphan_ids": [
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c602"
+    ],
+    "n_orphans_in_window": 3
+  },
+  {
+    "id": "KB2",
+    "run": 4,
+    "arm": "before",
+    "language": "en",
+    "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+    "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "last_dispatch_route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 81.9,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1010",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c602"
+        ],
+        "orphans": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c602"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal procedures and restrictions governing "
+      }
+    ],
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": [],
+    "window_chunk_ids": [
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1010",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c602"
+    ],
+    "window_orphan_ids": [
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c602"
+    ],
+    "n_orphans_in_window": 3
+  },
+  {
+    "id": "KB2",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+    "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "actual_answer": "The system does keep a record of what a witness or an accused person says during a police interview. According to the documents, statements made by any person to a police officer during an investigation are to be reduced into writing, although they are not required to be signed by the person making the statement [Document 1]. These records can be used for purposes other than the trial or inquiry related to the offence under investigation at the time the statement was made [Document 1]. Additionally, in certain cases, copies of statements of witnesses and inspection notes are supplied to the accused before the trial [Document 2]. The purpose of these provisions is to ensure a reliable record of statements or confessions made during the police investigation, which can be used during the enquiry or trial [Document 3]. Therefore, it is not a data gap; the system does maintain records of statements made during police interviews.",
+    "last_dispatch_route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 26.0,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1010",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1695",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1694",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c673"
+        ],
+        "orphans": []
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents discuss the legal procedures for recording statements of"
+      }
+    ],
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": [],
+    "window_chunk_ids": [
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1010",
+      "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1695",
+      "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1694",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c673"
+    ],
+    "window_orphan_ids": [],
+    "n_orphans_in_window": 0
+  },
+  {
+    "id": "KB2",
+    "run": 2,
+    "arm": "after",
+    "language": "en",
+    "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+    "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "actual_answer": "The system does keep a record of what a witness or an accused person says during a police interview. According to the documents, statements made by any person to a police officer during an investigation are to be reduced into writing, although they are not required to be signed by the person making the statement [Document 1]. These records can be used for purposes other than the trial or inquiry related to the offence under investigation at the time the statement was made [Document 1]. Additionally, in certain cases, copies of statements of witnesses and inspection notes are supplied to the accused before the trial [Document 2]. The purpose of these provisions is to ensure a reliable record of statements or confessions made during the police investigation, which can be used during the enquiry or trial [Document 3]. Therefore, it is not a data gap; the system does maintain records of statements made during police interviews.",
+    "last_dispatch_route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 24.9,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1010",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1695",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1694",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c673"
+        ],
+        "orphans": []
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents discuss the legal procedures for recording statements of"
+      }
+    ],
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": [],
+    "window_chunk_ids": [
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1010",
+      "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1695",
+      "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1694",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c673"
+    ],
+    "window_orphan_ids": [],
+    "n_orphans_in_window": 0
+  },
+  {
+    "id": "KB2",
+    "run": 3,
+    "arm": "after",
+    "language": "en",
+    "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+    "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "actual_answer": "The system does keep a record of what a witness or an accused person says during a police interview. According to the documents, statements made by any person to a police officer during an investigation are to be reduced into writing, although they are not required to be signed by the person making the statement [Document 1]. These records can be used for purposes other than the trial or inquiry related to the offence under investigation at the time the statement was made [Document 1]. Additionally, in certain cases, copies of statements of witnesses and inspection notes are supplied to the accused before the trial [Document 2]. The purpose of these provisions is to ensure a reliable record of statements or confessions made during the police investigation, which can be used during the enquiry or trial [Document 3]. Therefore, it is not a data gap; the system does maintain records of statements made during police interviews.",
+    "last_dispatch_route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 27.5,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1010",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1695",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1694",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c673"
+        ],
+        "orphans": []
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents discuss the legal procedures for recording statements of"
+      }
+    ],
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": [],
+    "window_chunk_ids": [
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1010",
+      "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1695",
+      "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1694",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c673"
+    ],
+    "window_orphan_ids": [],
+    "n_orphans_in_window": 0
+  },
+  {
+    "id": "KB2",
+    "run": 4,
+    "arm": "after",
+    "language": "en",
+    "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+    "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "actual_answer": "The system does keep a record of what a witness or an accused person says during a police interview. According to the documents, statements made by any person to a police officer during an investigation are to be reduced into writing, although they are not required to be signed by the person making the statement [Document 1]. These records can be used for purposes other than the trial or inquiry related to the offence under investigation at the time the statement was made [Document 1]. Additionally, in certain cases, copies of statements of witnesses and inspection notes are supplied to the accused before the trial [Document 2]. The purpose of these provisions is to ensure a reliable record of statements or confessions made during the police investigation, which can be used during the enquiry or trial [Document 3]. Therefore, it is not a data gap; the system does maintain records of statements made during police interviews.",
+    "last_dispatch_route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 36.7,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1010",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1695",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1694",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c673"
+        ],
+        "orphans": []
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents discuss the legal procedures for recording statements of"
+      }
+    ],
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": [],
+    "window_chunk_ids": [
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1010",
+      "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1695",
+      "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1694",
+      "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c673"
+    ],
+    "window_orphan_ids": [],
+    "n_orphans_in_window": 0
+  }
+]

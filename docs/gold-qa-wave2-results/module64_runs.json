@@ -1,0 +1,2017 @@
+[
+  {
+    "id": "KB6",
+    "run": 1,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule or Guideline Requires\n\nAccording to the **forensics guidelines**, there are specific instructions on how to handle recovered weapons before they are recorded in the weapon register. These include:\n\n- Every firearm must be **packaged in unloaded condition with safety on** [Document 2].\n- There must **not be live rounds in the chamber of the firearm, magazine or in the parcel** [Document 2].\n- Weapons must be **packaged separately** [Document 2].\n- If a firearm is recovered from **water or any other liquid**, it must be submitted with the **same sample of water or liquid** from which it has been recovered [Document 1].\n- If any evidence related to a particular case is **previously in PFSA custody**, the **link of previous evidence** must be clearly mentioned while submitting new evidence [Document 1].\n\nThese are the requirements for handling recovered weapons before they are recorded in the weapon register.\n\n---\n\n### Part 2: What Our Own Case Records Actually Show\n\nAccording to the **case records summary**, the following is observed:\n\n- **30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence** — this indicates that the weapon register does **not** record whether a weapon has been handled or processed in accordance with the guidelines.\n- **2 carry no licence status at all**, so their compliance can't be confirmed either way.\n\nThis shows that the **weapon register does not record whether the weapon has been handled or processed in accordance with the guidelines**. It only records whether a licence is present or not, and in many cases, this information is missing entirely.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 146.6,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "5_Forensics_guidelines_pdf_62ee00b3_c19",
+          "5_Forensics_guidelines_pdf_62ee00b3_c20",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1326",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1371",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c648",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain specific instructions in the forensics guideline"
+      }
+    ],
+    "english_rendering": [
+      "Are there any specific instructions in the forensics guidelines regarding how recovered weapons should be handled before being registered, and does our weapon register record whether action was taken on them or not?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling of firearms as evidence: how a firearm exhibit must be packaged before submission to the laboratory",
+      "Punjab Police Rules 1934 weapon register: entries to be made in the register when a firearm is received, examined, and returned, including whether the weapon has been fired or otherwise used"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6",
+    "run": 2,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule, or Guideline Requires\n\nAccording to the **forensics guidelines** (Document 5), the following measures should be followed while packing evidence related to firearms:\n\n- Every evidence exhibit must be packaged separately.\n- Every firearm must be packaged in unloaded condition with safety on.\n- There must not be live rounds in the chamber of the firearm, magazine, or in the parcel.\n- Every cartridge case and bullet must be packaged separately.\n- Evidence submitted for Gun Shot Residue (GSR) analysis must be packaged in a hard box instead of a cloth bag or paper envelope.\n- Layers of the clothes containing GSR must not touch with the other layers. Clothes must be wrapped by placing a white paper sheet between the layers of clothes before packing it in a hard box.\n- For serial number restoration of firearms, the area containing obliteration should be marked clearly if there is more than one location of obliteration.\n- For trajectory analysis, vehicles must not be washed or cleaned at all prior to examination. Suspected bullet holes must be covered with white paper.\n- Seals must be intact and as per mentioned in the docket.\n- If a firearm is recovered from water or any other liquid, then submit the firearm with the same sample of water or liquid from which it has been recovered.\n\nThese guidelines ensure that firearms and related evidence are handled and preserved in a manner that maintains their integrity for forensic analysis.\n\n### Part 2: What Our Case Records Actually Show\n\nAccording to the **summary of our own case records** (Document 8):\n\n- Out of 32 weapon-register entries reviewed:\n  - 30 of 32 recovered weapons (~94%) are recorded **WITHOUT** a licence.\n  - 2 carry **no licence status** at all, so their compliance can't be confirmed either way.\n\nThis summary does **not** indicate whether the weapons were handled in accordance with the forensic guidelines. It only provides information about the **licensing status** of the recovered weapons, not about how they were **handled or preserved** before being recorded in the weapon register.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 67.8,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c792",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c1635",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c664",
+          "5_Forensics_guidelines_pdf_62ee00b3_c20",
+          "5_Forensics_guidelines_pdf_62ee00b3_c19",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c438",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain specific instructions from the forensics guideli"
+      }
+    ],
+    "english_rendering": [
+      "Are there any specific instructions in the forensics guidelines regarding how recovered weapons should be handled before being registered, and does our weapon register record whether action was taken on them or not?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling of firearms as evidence: how a firearm exhibit must be packaged before submission to the laboratory",
+      "Punjab Police Rules 1934 weapon register: entries to be made in the weapon register, including whether the weapon has been used or not"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6",
+    "run": 3,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule, or Guideline Requires\n\nAccording to the **forensics guidelines**, the following measures should be followed while packing evidence related to firearms:\n\n- Every evidence exhibit must be packaged separately.\n- Every firearm must be packaged in unloaded condition with safety on.\n- There must not be live rounds in the chamber of the firearm, magazine, or in the parcel.\n- Every cartridge case and bullet must be packaged separately.\n- Evidence submitted for Gun Shot Residue (GSR) analysis must be packaged in a hard box instead of a cloth bag or paper envelope.\n- Layers of the clothes containing GSR must not touch with the other layers. Clothes must be wrapped by placing a white paper sheet between the layers of clothes before packing it in a hard box.\n- For serial number restoration of firearms, the area containing obliteration should be marked clearly if there is more than one location of obliteration.\n- For trajectory analysis, vehicles must not be washed or cleaned at all prior to examination. Suspected bullet holes must be covered with white paper.\n- Seals must be intact and as per mentioned in the docket.\n- If a firearm is recovered from water or any other liquid, then submit the firearm with the same sample of water or liquid from which it has been recovered.\n\nThese requirements are outlined in **Document 5** and **Document 6**.\n\n---\n\n### Part 2: What Our Own Case Records Actually Show\n\nAccording to the **summary of our own case records**:\n\n- **30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence** — this indicates that the weapon register does not show that a licence was in effect for these weapons.\n- **2 carry no licence status at all**, so their compliance can't be confirmed either way.\n\nThis information is provided in **Document 7**.\n\n---\n\n### Conclusion\n\n- The **forensics guidelines** clearly outline specific handling and packaging procedures for firearms and related evidence.\n- However, the **weapon register** does **not** record whether a licence was in effect for the recovered weapons, as it shows that **30 of 32 weapons (~94%) are recorded without a licence**, and **2 have no licence status at all**.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 80.4,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c792",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c1635",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c664",
+          "5_Forensics_guidelines_pdf_62ee00b3_c20",
+          "5_Forensics_guidelines_pdf_62ee00b3_c19",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain specific instructions in the forensics guideline"
+      }
+    ],
+    "english_rendering": [
+      "Are there any specific instructions in the forensics guidelines regarding how recovered weapons should be handled before being registered, and does our weapon register record whether action was taken on them or not?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling of firearms as evidence: how a firearm exhibit must be packaged before submission to the laboratory",
+      "Punjab Police Rules 1934 weapon register: entries to be made in the weapon register, including whether the weapon has been used or not"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6",
+    "run": 4,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule, or Guideline Requires\n\nAccording to the **forensics guidelines**, the following measures should be followed while packing evidence related to firearms:\n\n- Every firearm must be packaged in an **unloaded condition with safety on**.\n- There must **not be live rounds** in the chamber of the firearm, magazine, or in the parcel.\n- Evidence submitted for **Gun Shot Residue (GSR) analysis** must be packaged in a **hard box** instead of a cloth bag or paper envelope.\n- Layers of the clothes containing GSR must **not touch** with the other layers. Clothes must be wrapped by placing a **white paper sheet** between the layers of clothes before packing it in a hard box.\n- For **serial number restoration** of firearms, the area containing obliteration should be **marked clearly** if there is more than one location of obliteration.\n- For **trajectory analysis**, vehicles must **not be washed or cleaned** at all prior to examination. Suspected bullet holes must be **covered with white paper**.\n- **Seals must be intact** and as per mentioned in the docket.\n- If a firearm is recovered from **water or any other liquid**, then submit the firearm with the **same sample of water or liquid** from which it has been recovered.\n\nThese requirements are outlined in **Document 5** and **Document 6**.\n\n---\n\n### Part 2: What Our Own Case Records Actually Show\n\nAccording to the **summary of our own case records** (Document 8):\n\n- **30 of 32 recovered weapons (~94%)** are recorded **without a licence**.\n- **2** carry **no licence status at all**, so their compliance can't be confirmed either way.\n\nThis summary does **not** indicate whether the recovered weapons were handled in accordance with the **forensics guidelines** (e.g., whether they were unloaded, packaged in hard boxes, or whether GSR was preserved properly). Therefore, the **weapon register does not record whether the guidelines were followed**.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 74.5,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c792",
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c1635",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c664",
+          "5_Forensics_guidelines_pdf_62ee00b3_c20",
+          "5_Forensics_guidelines_pdf_62ee00b3_c19",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c438",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain specific instructions from the forensics guideli"
+      }
+    ],
+    "english_rendering": [
+      "Are there any specific instructions in the forensics guidelines regarding how recovered weapons should be handled before being registered, and does our weapon register record whether action was taken on them or not?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling of firearms as evidence: how a firearm exhibit must be packaged before submission to the laboratory",
+      "Punjab Police Rules 1934 weapon register: entries to be made in the weapon register, including whether the weapon has been used or not"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6",
+    "run": 5,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule, or Guideline Requires\n\nAccording to the **forensics guidelines** (Document 5), the following measures must be followed while packing evidence, particularly firearms and related items:\n\n- Every firearm must be packaged in an **unloaded condition with safety on**.\n- There must **not be live rounds** in the chamber of the firearm, magazine, or in the parcel.\n- Every cartridge case and bullet must be **packaged separately**.\n- Evidence submitted for **Gun Shot Residue (GSR) analysis** must be **packaged in a hard box** instead of a cloth bag or paper envelope.\n- Layers of the clothes containing GSR must **not touch** with the other layers. Clothes must be **wrapped by placing a white paper sheet** between the layers of clothes before packing it in a hard box.\n- For **serial number restoration of firearms**, the area containing obliteration should be **marked clearly** if there is more than one location of obliteration.\n- For **trajectory analysis**, vehicles must **not be washed or cleaned** at all prior to examination. Suspected bullet holes must be **covered with white paper**.\n- **Seals must be intact** and as per mentioned in the docket.\n- If a firearm is recovered from **water or any other liquid**, then it must be submitted with the **same sample of water or liquid** from which it has been recovered.\n\nThese are the **guidelines** that must be followed for the proper handling of firearms and related evidence before they are submitted for analysis.\n\n---\n\n### Part 2: What Our Case Records Actually Show\n\nAccording to the **case records summary** (Document 8):\n\n- **30 of 32 recovered weapons (~94%)** are recorded **WITHOUT a licence**.\n- **2** carry **no licence status at all**, so their compliance can't be confirmed either way.\n\nThis summary does **not** indicate whether the weapons were handled in accordance with the **forensics guidelines** (e.g., whether they were unloaded, sealed, or packaged properly). It only provides information about **licensing compliance**, not about **handling and packaging procedures**.\n\nTherefore, the **weapon register** does **not** record whether the **guidelines** were followed in handling the weapons.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 106.6,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c792",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c1635",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c664",
+          "5_Forensics_guidelines_pdf_62ee00b3_c20",
+          "5_Forensics_guidelines_pdf_62ee00b3_c19",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c438",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain specific instructions from the forensics guideli"
+      }
+    ],
+    "english_rendering": [
+      "Are there any specific instructions in the forensics guidelines regarding how recovered weapons should be handled before being registered, and does our weapon register record whether action was taken on them or not?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling of firearms as evidence: how a firearm exhibit must be packaged before submission to the laboratory",
+      "Punjab Police Rules 1934 weapon register: entries to be made in the weapon register, including whether the weapon has been used or not"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6-P1",
+    "run": 1,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Before a seized pistol is logged into our records, do the forensic guidelines lay down anything about the state it has to be in, and would our weapons register even show whether that was followed?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule, or Guideline Requires\n\nAccording to the forensic guidelines, before a seized pistol is logged into records, it must be packaged in an unloaded condition with the safety on, and there must not be live rounds in the chamber of the firearm, magazine, or in the parcel. This is explicitly stated in [Document 2] and [Document 4].\n\nAdditionally, if the firearm was recovered from water or any other liquid, it must be submitted with the same sample of water or liquid from which it was recovered, as noted in [Document 1] and [Document 4].\n\n### Part 2: What Our Case Records Actually Show\n\nOur weapons register does not show whether the pistol was in the required state (unloaded with safety on, no live rounds, etc.) before being logged into records. According to [Document 6], the review of 32 weapon-register entries shows that 30 of 32 recovered weapons (~94%) are recorded without a licence, and 2 carry no licence status at all. However, the document does not mention whether the state of the weapons (e.g., unloaded, safety on, etc.) was recorded in the weapons register. Therefore, the weapons register does not provide information on whether the forensic guidelines were followed in terms of the state of the pistol before being logged.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 108.8,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "5_Forensics_guidelines_pdf_62ee00b3_c19",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c537",
+          "5_Forensics_guidelines_pdf_62ee00b3_c20",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents mention specific guidelines for handling firearms, inclu"
+      }
+    ],
+    "english_rendering": [
+      "Before a seized pistol is logged into our records, do the forensic guidelines lay down anything about the state it has to be in, and would our weapons register even show whether that was followed?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines packing of a recovered firearm as evidence: how a firearm exhibit must be packaged before submission to the laboratory",
+      "Punjab Police Rules 1934 registration of seized firearms in the weapons register: entry of details of seized firearms, including condition and handling prior to logging"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6-P2",
+    "run": 1,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Jab police koi pistol qabza mein leti hai, to kya forensic guidelines mein koi hidayat hai ke usay record mein laane se pehle kis halat mein rakha jaye, aur kya hamara weapon register yeh dikhata hai ke aisa hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule, or Guideline Requires\n\nAccording to the **forensic guidelines**, when a firearm is recovered, it must be **packaged in an unloaded condition with the safety on**, and **there must not be live rounds in the chamber of the firearm, magazine, or in the parcel**. Additionally, **evidence submitted for Gun Shot Residue (GSR) analysis must be packaged in a hard box instead of a cloth bag or paper envelope**, and **layers of the clothes containing GSR must not touch with the other layers**. These instructions are provided to **minimize safety risks and contamination of evidence** [Document 6].\n\n### Part 2: What Our Own Case Records Actually Show\n\nOur own case records show that **30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence**, and **2 carry no licence status at all**, so their compliance can't be confirmed either way [Document 7]. However, the records do **not provide any information about whether the weapons were stored in an unloaded condition with the safety on, or whether they were packaged in a hard box** as required by the forensic guidelines. Therefore, **our weapon register does not show whether these procedures were followed or not**.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 116.2,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c537",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2217",
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c813",
+          "5_Forensics_guidelines_pdf_62ee00b3_c19",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents provide instructions on how seized pistols should be sto"
+      }
+    ],
+    "english_rendering": [
+      "When the police seize a pistol, are there any instructions in the forensic guidelines on how it should be stored before being entered into the record, and does our weapon register show whether this happened or not?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines packaging of a firearm as evidence: firearm exhibit must be packaged in a secure container, sealed, labelled, and transported to the laboratory with a chain of custody form",
+      "Punjab Police Rules 1934 weapon register and records: entry of seized firearms in the weapon register, details to be recorded, and verification of proper handling and storage"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6-P3",
+    "run": 1,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "What do the forensic guidelines require for a blood sample taken in a case before it goes to the laboratory?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 112.0,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c93",
+          "5_Forensics_guidelines_pdf_62ee00b3_c94",
+          "5_Forensics_guidelines_pdf_62ee00b3_c110",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "5_Forensics_guidelines_pdf_62ee00b3_c109",
+          "5_Forensics_guidelines_pdf_62ee00b3_c43"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the requirements for collecting, preser"
+      }
+    ],
+    "english_rendering": [
+      "What do the forensic guidelines require for a blood sample taken in a case before it goes to the laboratory?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines packaging of a blood sample as evidence: sealed jar placed in an appropriately sized cardboard box, evidence tape applied at all opening slots, signed and stamped, chain of custod"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6-P1",
+    "run": 2,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Before a seized pistol is logged into our records, do the forensic guidelines lay down anything about the state it has to be in, and would our weapons register even show whether that was followed?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule, or Guideline Requires\n\nAccording to the forensic guidelines, before a seized pistol is logged into records, it must be packaged in an unloaded condition with the safety on, and there must not be live rounds in the chamber of the firearm, magazine, or in the parcel. This is explicitly stated in [Document 2] and [Document 4].\n\nAdditionally, if the firearm was recovered from water or any other liquid, it must be submitted with the same sample of water or liquid from which it was recovered, as noted in [Document 1] and [Document 4].\n\n### Part 2: What Our Case Records Actually Show\n\nOur weapons register does not show whether the pistol was in the required state (unloaded with safety on, no live rounds, etc.) before being logged into records. According to [Document 6], the review of 32 weapon-register entries shows that 30 of 32 recovered weapons (~94%) are recorded without a licence, and 2 carry no licence status at all. However, the document does not mention whether the state of the weapons (e.g., unloaded, safety on, etc.) was recorded in the weapons register. Therefore, the weapons register does not provide information on whether the forensic guidelines were followed in terms of the state of the pistol before being logged.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 112.4,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "5_Forensics_guidelines_pdf_62ee00b3_c19",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c537",
+          "5_Forensics_guidelines_pdf_62ee00b3_c20",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents mention specific guidelines for handling firearms, inclu"
+      }
+    ],
+    "english_rendering": [
+      "Before a seized pistol is logged into our records, do the forensic guidelines lay down anything about the state it has to be in, and would our weapons register even show whether that was followed?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines packing of a recovered firearm as evidence: how a firearm exhibit must be packaged before submission to the laboratory",
+      "Punjab Police Rules 1934 registration of seized firearms in the weapons register: entry of details of seized firearms, including condition and handling prior to logging"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6-P2",
+    "run": 2,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Jab police koi pistol qabza mein leti hai, to kya forensic guidelines mein koi hidayat hai ke usay record mein laane se pehle kis halat mein rakha jaye, aur kya hamara weapon register yeh dikhata hai ke aisa hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule, or Guideline Requires\n\nAccording to the **forensic guidelines**, when a firearm is recovered, it must be **packaged in an unloaded condition with the safety on**, and **there must not be live rounds in the chamber of the firearm, magazine, or in the parcel**. Additionally, **every firearm must be packaged separately**, and **evidence submitted for Gun Shot Residue (GSR) analysis must be packaged in a hard box instead of a cloth bag or paper envelope**. Layers of the clothes containing GSR must not touch with the other layers, and **clothes must be wrapped by placing a white paper sheet between the layers of clothes before packing it in a hard box**. These instructions are provided in **Document 6**.\n\n### Part 2: What Our Own Case Records Show\n\nAccording to **Document 7**, which is a summary of our own case records:\n\n- **30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence**.\n- **2 carry no licence status at all**, so their compliance can't be confirmed either way.\n\nHowever, **this summary does not mention anything about whether the firearms were properly packaged or handled in accordance with the forensic guidelines**. Therefore, **our weapon register does not show whether the firearms were handled in compliance with the forensic guidelines or not**.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 92.1,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c537",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2217",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c813",
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c477",
+          "5_Forensics_guidelines_pdf_62ee00b3_c19",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents provide instructions on how seized pistols should be sto"
+      }
+    ],
+    "english_rendering": [
+      "When the police seize a pistol, are there any instructions in the forensic guidelines on how it should be stored before being entered into the record, and does our weapon register show whether this happened or not?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines packaging of a firearm as evidence: firearm exhibit must be packaged in a secure container, sealed, labelled, and transported to the laboratory with a chain of custody form",
+      "Punjab Police Rules 1934 weapon register and records: entry of seized firearms in the weapon register, details to be recorded, and verification of receipt and storage"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6-P3",
+    "run": 2,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "What do the forensic guidelines require for a blood sample taken in a case before it goes to the laboratory?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 87.9,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c93",
+          "5_Forensics_guidelines_pdf_62ee00b3_c94",
+          "5_Forensics_guidelines_pdf_62ee00b3_c110",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "5_Forensics_guidelines_pdf_62ee00b3_c109",
+          "5_Forensics_guidelines_pdf_62ee00b3_c43"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the requirements for collecting, preser"
+      }
+    ],
+    "english_rendering": [
+      "What do the forensic guidelines require for a blood sample taken in a case before it goes to the laboratory?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines packaging of a blood sample as evidence: sealed jar placed in an appropriately sized cardboard box, evidence tape applied at all opening slots, signed and stamped, chain of custod"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6-P1",
+    "run": 3,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Before a seized pistol is logged into our records, do the forensic guidelines lay down anything about the state it has to be in, and would our weapons register even show whether that was followed?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule, or Guideline Requires\n\nAccording to the forensic guidelines, before a seized pistol is logged into records, it must be packaged in an unloaded condition with the safety on, and there must not be live rounds in the chamber of the firearm, magazine, or in the parcel. This is explicitly stated in [Document 2] and [Document 4].\n\nAdditionally, if the firearm was recovered from water or any other liquid, it must be submitted with the same sample of water or liquid from which it was recovered, as noted in [Document 1] and [Document 4].\n\n### Part 2: What Our Own Case Records Actually Show\n\nOur weapons register does not show whether the pistol was in the required state (unloaded with safety on, no live rounds, etc.) before being logged into records. According to [Document 6], the review of 32 weapon-register entries shows that 30 of 32 recovered weapons (~94%) are recorded without a licence, and 2 carry no licence status at all. However, the document does not mention whether the weapons were in the required condition (unloaded, with safety on, etc.) when logged into the register. Therefore, the weapons register does not show whether the required state was followed.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 67.2,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "5_Forensics_guidelines_pdf_62ee00b3_c19",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c537",
+          "5_Forensics_guidelines_pdf_62ee00b3_c20",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents mention specific guidelines for handling firearms, inclu"
+      }
+    ],
+    "english_rendering": [
+      "Before a seized pistol is logged into our records, do the forensic guidelines lay down anything about the state it has to be in, and would our weapons register even show whether that was followed?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines packing of a recovered firearm as evidence: how a firearm exhibit must be packaged before submission to the laboratory",
+      "Punjab Police Rules 1934 registration of seized firearms in the weapons register: entry of details of seized firearms, including condition and handling prior to logging"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6-P2",
+    "run": 3,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Jab police koi pistol qabza mein leti hai, to kya forensic guidelines mein koi hidayat hai ke usay record mein laane se pehle kis halat mein rakha jaye, aur kya hamara weapon register yeh dikhata hai ke aisa hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule, or Guideline Requires\n\nAccording to the **forensic guidelines**, when a firearm is recovered, it must be **packaged in an unloaded condition with the safety on**, and **there must not be live rounds in the chamber of the firearm, magazine, or in the parcel**. Additionally, **every firearm must be packaged separately**, and **evidence submitted for Gun Shot Residue (GSR) analysis must be packaged in a hard box instead of a cloth bag or paper envelope**. Layers of the clothes containing GSR must not touch with the other layers, and **clothes must be wrapped by placing a white paper sheet between the layers of clothes before packing it in a hard box**. These instructions are provided in **Document 6**.\n\n### Part 2: What Our Own Case Records Actually Show\n\nAccording to **Document 7**, which is a summary of our own case records:\n\n- **30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence**.\n- **2 carry no licence status at all**, so their compliance can't be confirmed either way.\n\nHowever, **this summary does not provide any information about whether the firearms were properly packaged or handled in accordance with the forensic guidelines**. Therefore, we cannot determine from the case records whether the firearms were stored or recorded in compliance with the forensic guidelines.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 66.8,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c537",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2217",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c813",
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c477",
+          "5_Forensics_guidelines_pdf_62ee00b3_c19",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents provide instructions on how seized pistols should be sto"
+      }
+    ],
+    "english_rendering": [
+      "When the police seize a pistol, are there any instructions in the forensic guidelines on how it should be stored before being entered into the record, and does our weapon register show whether this happened or not?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines packaging of a firearm as evidence: firearm exhibit must be packaged in a secure container, sealed, labelled, and transported to the laboratory with a chain of custody form",
+      "Punjab Police Rules 1934 weapon register and records: entry of seized firearms in the weapon register, details to be recorded, and verification of receipt and storage"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6-P3",
+    "run": 3,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "What do the forensic guidelines require for a blood sample taken in a case before it goes to the laboratory?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 69.2,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c93",
+          "5_Forensics_guidelines_pdf_62ee00b3_c94",
+          "5_Forensics_guidelines_pdf_62ee00b3_c110",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "5_Forensics_guidelines_pdf_62ee00b3_c109",
+          "5_Forensics_guidelines_pdf_62ee00b3_c43"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the requirements for collecting, preser"
+      }
+    ],
+    "english_rendering": [
+      "What do the forensic guidelines require for a blood sample taken in a case before it goes to the laboratory?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines packaging of a blood sample as evidence: sealed jar placed in an appropriately sized cardboard box, evidence tape applied at all opening slots, signed and stamped, chain of custod"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6",
+    "run": 1,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule or Guideline Requires\n\nAccording to the **Forensics guidelines** (Document 2), there are specific instructions on how to handle and package evidence, including weapons. For example:\n\n- Weapons should be packaged in appropriate containers (e.g., cardboard boxes) and sealed by the submitting individual.\n- The exterior of the package must indicate whether the weapon was unloaded, made safe, and whether it may contain biological material.\n- The integrity of the item must be maintained through proper packaging, documentation, and labeling.\n- All packaging and labels must be preserved and documented, as this information is critical.\n\nThese guidelines ensure that evidence is handled in a way that maintains its integrity and prevents contamination or damage.\n\n### Part 2: What Our Own Case Records Actually Show\n\nAccording to the **summary of our own case records** (Document 6):\n\n- Out of 32 weapon-register entries reviewed:\n  - **30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence**.\n  - **2 carry no licence status at all**, so their compliance cannot be confirmed either way.\n\nThis summary does **not** indicate whether the weapons were handled in accordance with the forensic guidelines (e.g., whether they were sealed, labeled, or marked properly). The summary only provides information about the **licensing status** of the recovered weapons, not about how they were **handled or packaged** before being recorded in the weapon register.\n\nTherefore, the **weapon register does not record whether the weapons were handled in accordance with the forensic guidelines**.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 80.6,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c340",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c158",
+          "2022 (Amendments upto date).pdf]",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1326",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain specific instructions on how recovered weapons s"
+      }
+    ],
+    "english_rendering": [
+      "Are there any specific instructions in the forensics guidelines regarding how recovered weapons should be handled before being registered, and does our weapon register record whether action was taken on them or not?",
+      "Are there any specific instructions in the forensics guidelines regarding how recovered weapons should be handled before being registered, and does our weapon register record whether action was taken on them or not?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be handled in accordance with specific procedures to maintain chain of custody",
+      "Punjab Police Rules 1934 weapon register and recording of actions taken: entries in the weapon register shall include details of actions taken on seized weapons",
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be handled in accordance with specific procedures to maintain chain of custody",
+      "Punjab Police Rules 1934 weapon register and recording of actions taken: entries in the weapon register shall include details of actions taken on seized weapons"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6-P1",
+    "run": 1,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Before a seized pistol is logged into our records, do the forensic guidelines lay down anything about the state it has to be in, and would our weapons register even show whether that was followed?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "**Part 1: What the law, rule or guideline requires**  \nThe forensic guidelines do lay down requirements for the state in which a seized pistol must be before it is logged into records. Specifically, they require that all items be packaged in containers of suitable size, that they be packaged in containers that will prevent contamination or deleterious change, and that all evidence collected be properly documented, labeled, marked, photographed, and inventoried before it is packaged. These requirements are outlined in [Document 4].\n\n**Part 2: What our own case records actually show**  \nOur weapons register does not show whether the above requirements were followed. The weapons register only records the serial number and date of issue, the serial number of the property register, the signature of the court orderly to whom the property was issued, the initials of the prosecuting officer in whose presence the property was issued, the signature of the head constable, incharge, Malkhana, who receives back the property with the date of receipt, and the initials of the prosecuting officer in whose presence the property was returned to the Malkhana. It does not include any information about the condition or packaging of the seized pistol. This is detailed in [Document 8].",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 212.2,
+    "evaluator_rounds": 7,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c340",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c158",
+          "2022 (Amendments upto date).pdf]",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1326",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c5",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c477",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "5_Forensics_guidelines_pdf_62ee00b3_c5",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c392",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2425",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c340",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c158",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c1039",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 3,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c477",
+          "5_Forensics_guidelines_pdf_62ee00b3_c5",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2425",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "psrms_fir_fir-203-26#narrative_1f26ae88_c2",
+          "psrms_fir_fir-423-26#narrative_ecd0d856_c2",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2425",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c340",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c158",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c1039",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents do not mention anything about the state a seized pistol "
+      },
+      {
+        "relevant": true,
+        "reason": "The forensics guidelines document provides explicit instructions on handling rec"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents do not mention any forensic guidelines regarding the sta"
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain specific instructions on how recovered weapons s"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents do not mention any forensic guidelines specifically for "
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents mention guidelines for evidence collection, preservation"
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain specific instructions on how recovered weapons s"
+      }
+    ],
+    "english_rendering": [
+      "Before a seized pistol is logged into our records, do the forensic guidelines lay down anything about the state it has to be in, and would our weapons register even show whether that was followed?",
+      "Are there any specific instructions in the forensics guidelines regarding how recovered weapons should be handled before being registered, and does our weapon register record whether action was taken on them or not?",
+      "Are there any specific instructions in the forensics guidelines regarding how recovered weapons should be handled before being registered, and does our weapon register record whether action was taken on them or not?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be properly packaged labelled and transported to maintain chain of custody",
+      "Punjab Police Rules 1934 case property and malkhana: entry of seized property in the station register including description and condition of the item",
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be handled in accordance with specific procedures to maintain chain of custody",
+      "Punjab Police Rules 1934 weapon register and recording of actions taken: entries in the weapon register shall include details of actions taken on seized weapons",
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be handled in accordance with specific procedures to maintain chain of custody",
+      "Punjab Police Rules 1934 weapon register and recording of actions taken: entries in the weapon register shall include details of actions taken on seized weapons"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6-P2",
+    "run": 1,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Jab police koi pistol qabza mein leti hai, to kya forensic guidelines mein koi hidayat hai ke usay record mein laane se pehle kis halat mein rakha jaye, aur kya hamara weapon register yeh dikhata hai ke aisa hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule or Guideline Requires\n\nAccording to the **forensic guidelines**, when a firearm is recovered, it must be **packaged in unloaded condition with safety on**, and **there must not be live rounds in the chamber of the firearm, magazine, or in the parcel** [Document 4]. This is a key requirement to ensure the **safety of personnel** and to **prevent contamination of evidence**.\n\n### Part 2: What Our Own Case Records Actually Show\n\nAccording to the **case records summary**, out of **32 weapon-register entries**:\n- **30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence**.\n- **2 carry no licence status at all**, so their compliance can't be confirmed either way [Document 7].\n\nThe records do **not** indicate whether the weapons were **unloaded with safety on** or whether **live rounds were present** in the chamber, magazine, or parcel. Therefore, the **forensic guidelines' requirement** regarding the **condition of the firearm** is **not reflected** in the **weapon register**.\n\n_A cited claim ([Document 4]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 1._",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 140.2,
+    "evaluator_rounds": 4,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c634",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c477",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c544",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c813",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c340",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c158",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c1039",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2217",
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "5_Forensics_guidelines_pdf_62ee00b3_c18",
+          "5_Forensics_guidelines_pdf_62ee00b3_c94",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c340",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c158",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c1039",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents do not contain specific instructions from forensic guide"
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain specific instructions on how recovered weapons s"
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents provide instructions on the storage of firearms, includi"
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain specific instructions on how recovered weapons s"
+      }
+    ],
+    "english_rendering": [
+      "When the police seize a pistol, are there any instructions in the forensic guidelines on how it should be stored before being entered into the record, and does our weapon register show whether this happened or not?",
+      "Are there any specific instructions in the forensics guidelines regarding how recovered weapons should be handled before being registered, and does our weapon register record whether action was taken on them or not?",
+      "Are there any specific instructions in the forensics guidelines regarding how recovered weapons should be handled before being registered, and does our weapon register record whether action was taken on them or not?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be properly packaged labelled and transported to maintain chain of custody",
+      "Punjab Police Rules 1934 weapon register and records: weapon register shall contain details of seized firearms including date of seizure and custody information",
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be handled in accordance with specific procedures to maintain chain of custody",
+      "Punjab Police Rules 1934 weapon register and recording of actions taken: entries in the weapon register shall include details of actions taken on seized weapons",
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be handled in accordance with specific procedures to maintain chain of custody",
+      "Punjab Police Rules 1934 weapon register and recording of actions taken: entries in the weapon register shall include details of actions taken on seized weapons"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6-P3",
+    "run": 1,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "What do the forensic guidelines require for a blood sample taken in a case before it goes to the laboratory?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "The forensic guidelines require that blood samples be collected as soon as possible after the offense, in death cases before embalming where applicable. They must be packed in well-sealed, leak-proof containers, and all samples must be collected in separate containers. For most specimens, disposable hard plastic or glass tubes are recommended. Blood tubes should be sealed and kept cold, but do not freeze. Additionally, they must not be exposed to hot temperatures [Document 1].",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 62.6,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c94",
+          "5_Forensics_guidelines_pdf_62ee00b3_c93",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "5_Forensics_guidelines_pdf_62ee00b3_c5",
+          "5_Forensics_guidelines_pdf_62ee00b3_c95"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the requirements for handling blood sam"
+      }
+    ],
+    "english_rendering": [
+      "What do the forensic guidelines require for a blood sample taken in a case before it goes to the laboratory?",
+      "Before a seized pistol is logged into our records, do the forensic guidelines lay down anything about the state it has to be in, and would our weapons register even show whether that was followed?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling, packaging, labelling and transport of recovered evidence: blood sample shall be packaged in a sealed container, labelled with case number and date of collection, and tra",
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be properly packaged labelled and transported to maintain chain of custody",
+      "Punjab Police Rules 1934 case property and malkhana: entry of seized property in the station register including description and condition of the item"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6",
+    "run": 2,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule, or Guideline Requires\n\nAccording to the **Forensics guidelines** (Document 2), there are specific instructions on how to handle and package evidence, particularly weapons. For example:\n\n- Weapons should be packaged in appropriate containers (e.g., cardboard boxes) and sealed by the submitting individual.\n- The exterior of the box should indicate whether the weapon was unloaded, made safe, and may contain biological material.\n- The integrity of the item must be maintained through proper packaging, documentation, and labeling.\n- All packaging and labels must be preserved and documented, as this information is critical.\n\nThese guidelines ensure that evidence is handled in a way that maintains its integrity and prevents contamination or damage.\n\n### Part 2: What Our Own Case Records Actually Show\n\nAccording to the **case records summary** (Document 6):\n\n- Out of 32 weapon-register entries reviewed:\n  - **30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence**.\n  - **2 carry no licence status at all**, so their compliance cannot be confirmed either way.\n\nThere is **no mention** in the case records of whether the weapons were handled in accordance with the forensic guidelines (e.g., whether they were sealed, marked, or documented properly). The records do not indicate whether the weapons were \"made safe\" or whether biological material was present, as required by the guidelines.\n\nThus, the case records do **not** show whether the weapons were handled in compliance with the forensic guidelines.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 69.5,
+    "evaluator_rounds": 2,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "5_Forensics_guidelines_pdf_62ee00b3_c18",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2425",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c340",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c158",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c1039",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents mention guidelines for packaging and handling firearms, "
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain specific instructions on how recovered weapons s"
+      }
+    ],
+    "english_rendering": [
+      "Are there any specific instructions in the forensics guidelines regarding how recovered weapons should be handled before being registered, and does our weapon register record whether action was taken on them or not?",
+      "When the police seize a pistol, are there any instructions in the forensic guidelines on how it should be stored before being entered into the record, and does our weapon register show whether this happened or not?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be handled in accordance with specific procedures to maintain chain of custody",
+      "Punjab Police Rules 1934 weapon register and recording of actions taken: entries in the weapon register shall include details of actions taken on seized weapons",
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be properly packaged labelled and transported to maintain chain of custody",
+      "Punjab Police Rules 1934 weapon register and records: weapon register shall contain details of seized firearms including date of seizure and custody information"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6-P1",
+    "run": 2,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Before a seized pistol is logged into our records, do the forensic guidelines lay down anything about the state it has to be in, and would our weapons register even show whether that was followed?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Forensic Guidelines Require\nAccording to the forensic guidelines, before a seized pistol is logged into records, it must be packaged in an unloaded condition with the safety on, and there must not be live rounds in the chamber of the firearm, magazine, or in the parcel. This is explicitly stated in [Document 5], which outlines the following measures for packing evidence:\n- Every firearm must be packaged in unloaded condition with safety on.\n- There must not be live rounds in the chamber of the firearm, magazine, or in the parcel.\n\n### Part 2: What Our Weapons Register Shows\nOur weapons register does not show whether the pistol was in the required state (unloaded with safety on) before being logged into our records. According to [Document 7], the weapons register only records whether a weapon was recovered with or without a licence. It does not include information about the condition of the weapon (e.g., whether it was unloaded or had its safety on) at the time of logging.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 55.1,
+    "evaluator_rounds": 2,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c634",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c477",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c564",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c544",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "5_Forensics_guidelines_pdf_62ee00b3_c18",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2425",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents do not contain specific instructions from forensic guide"
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents mention guidelines for packaging and handling firearms, "
+      }
+    ],
+    "english_rendering": [
+      "Before a seized pistol is logged into our records, do the forensic guidelines lay down anything about the state it has to be in, and would our weapons register even show whether that was followed?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be properly packaged labelled and transported to maintain chain of custody",
+      "Punjab Police Rules 1934 case property and malkhana: entry of seized property in the station register including description and condition of the item"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6-P2",
+    "run": 2,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Jab police koi pistol qabza mein leti hai, to kya forensic guidelines mein koi hidayat hai ke usay record mein laane se pehle kis halat mein rakha jaye, aur kya hamara weapon register yeh dikhata hai ke aisa hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule or Guideline Requires\n\nAccording to the **forensic guidelines**, when a firearm is recovered, it must be **packaged in unloaded condition with safety on**, and **there must not be live rounds in the chamber of the firearm, magazine, or in the parcel** [Document 5]. Additionally, **every firearm must be packaged separately**, and **evidence submitted for Gun Shot Residue (GSR) analysis must be packaged in hard box instead of cloth bag or paper envelope** [Document 5].\n\n### Part 2: What Our Own Case Records Actually Show\n\nOur **weapon register** records show that **30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence**, and **2 carry no licence status at all, so their compliance can't be confirmed either way** [Document 7]. However, the **weapon register does not provide any information about whether the firearms were packaged in unloaded condition with safety on, or whether they were packaged separately**. Therefore, the **weapon register does not show whether the firearms were handled in accordance with the forensic guidelines**.\n\n_A cited claim ([Document 5]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 1._",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 91.5,
+    "evaluator_rounds": 4,
+    "attempts": [
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c18",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "5_Forensics_guidelines_pdf_62ee00b3_c94",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c634",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c477",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c564",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c544",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c94",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "5_Forensics_guidelines_pdf_62ee00b3_c93",
+          "5_Forensics_guidelines_pdf_62ee00b3_c5",
+          "5_Forensics_guidelines_pdf_62ee00b3_c95"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2217",
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c18",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents provide instructions on how seized firearms should be st"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents do not contain specific instructions from forensic guide"
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the requirements for handling blood sam"
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain information about the storage and handling of fi"
+      }
+    ],
+    "english_rendering": [
+      "When the police seize a pistol, are there any instructions in the forensic guidelines on how it should be stored before being entered into the record, and does our weapon register show whether this happened or not?",
+      "What do the forensic guidelines require for a blood sample taken in a case before it goes to the laboratory?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be properly packaged labelled and transported to maintain chain of custody",
+      "Punjab Police Rules 1934 weapon register and records: weapon register shall contain details of seized firearms including date of seizure and custody information",
+      "Forensics guidelines handling, packaging, labelling and transport of recovered evidence: blood sample shall be packaged in a sealed container, labelled with case number and date of collection, and tra"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6-P3",
+    "run": 2,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "What do the forensic guidelines require for a blood sample taken in a case before it goes to the laboratory?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "The forensic guidelines require that blood samples be collected as soon as possible after the offense, in death cases before embalming where applicable. They must be packed in well-sealed, leak-proof containers, and all samples must be collected in separate containers. For most specimens, disposable hard plastic or glass tubes are recommended. Blood tubes should be sealed and kept cold, but do not freeze. Additionally, they must not be exposed to hot temperatures [Document 1].",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 44.0,
+    "evaluator_rounds": 2,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c94",
+          "5_Forensics_guidelines_pdf_62ee00b3_c93",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "5_Forensics_guidelines_pdf_62ee00b3_c5",
+          "5_Forensics_guidelines_pdf_62ee00b3_c95"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "5_Forensics_guidelines_pdf_62ee00b3_c18",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2425",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the requirements for handling blood sam"
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents mention guidelines for packaging and handling firearms, "
+      }
+    ],
+    "english_rendering": [
+      "Before a seized pistol is logged into our records, do the forensic guidelines lay down anything about the state it has to be in, and would our weapons register even show whether that was followed?",
+      "What do the forensic guidelines require for a blood sample taken in a case before it goes to the laboratory?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be properly packaged labelled and transported to maintain chain of custody",
+      "Punjab Police Rules 1934 case property and malkhana: entry of seized property in the station register including description and condition of the item",
+      "Forensics guidelines handling, packaging, labelling and transport of recovered evidence: blood sample shall be packaged in a sealed container, labelled with case number and date of collection, and tra"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6",
+    "run": 3,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule or Guideline Requires\n\nAccording to the **forensics guidelines** (Document 3), there are specific instructions on how to handle and package evidence, particularly weapons. For example:\n\n- **Paragraph 11** states that sharp weapons such as knives, daggers, etc., should be packaged in appropriate-sized cardboard boxes or cartons. The submitting individual must seal the box and indicate on the exterior that it contains a **SHARP weapon** and may contain biological material.\n- **Paragraph 13** emphasizes the importance of maintaining the integrity of the item through package documentation, including all markings, seals, tags, and labels used by all involved agencies. It also states that all packaging and labels received by or returned to the agency must be preserved and documented, as this information is critical.\n\nThese guidelines ensure that evidence is handled in a way that preserves its integrity and prevents contamination or damage.\n\n### Part 2: What Our Own Case Records Actually Show\n\nAccording to the **summary of our own case records** (Document 6):\n\n- **30 out of 32 recovered weapons (~94%) are recorded WITHOUT a licence** — this indicates that the weapon register does not record whether a weapon has been handled or used (i.e., whether it has been fired or used in a crime).\n- **2 weapons carry no licence status at all**, so their compliance cannot be confirmed either way.\n\nThis shows that the **weapon register does not record whether a weapon has been used or handled**, which is a critical piece of information that the **forensics guidelines** (Document 3) emphasize should be preserved and documented.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 62.6,
+    "evaluator_rounds": 2,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c340",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c158",
+          "2022 (Amendments upto date).pdf]",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1326",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c634",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c477",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c544",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c813",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain specific instructions on how recovered weapons s"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents do not contain specific instructions from forensic guide"
+      }
+    ],
+    "english_rendering": [
+      "Are there any specific instructions in the forensics guidelines regarding how recovered weapons should be handled before being registered, and does our weapon register record whether action was taken on them or not?",
+      "When the police seize a pistol, are there any instructions in the forensic guidelines on how it should be stored before being entered into the record, and does our weapon register show whether this happened or not?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be handled in accordance with specific procedures to maintain chain of custody",
+      "Punjab Police Rules 1934 weapon register and recording of actions taken: entries in the weapon register shall include details of actions taken on seized weapons",
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be properly packaged labelled and transported to maintain chain of custody",
+      "Punjab Police Rules 1934 weapon register and records: weapon register shall contain details of seized firearms including date of seizure and custody information"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6-P1",
+    "run": 3,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Before a seized pistol is logged into our records, do the forensic guidelines lay down anything about the state it has to be in, and would our weapons register even show whether that was followed?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Forensic Guidelines Require\nAccording to the forensic guidelines, before a seized pistol is logged into records, it must be packaged in an unloaded condition with the safety on, and there must not be live rounds in the chamber of the firearm, magazine, or in the parcel. This is explicitly stated in [Document 5], which outlines the following measures for packing evidence:\n- Every firearm must be packaged in unloaded condition with safety on.\n- There must not be live rounds in the chamber of the firearm, magazine, or in the parcel.\n\n### Part 2: What Our Weapons Register Shows\nOur weapons register does not show whether the pistol was in the required state (unloaded with safety on) before being logged into our records. According to [Document 7], the weapons register only records whether a weapon was recovered with or without a licence. It does not include information about the condition of the weapon (e.g., whether it was unloaded or had its safety on) at the time of logging.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 66.2,
+    "evaluator_rounds": 2,
+    "attempts": [
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2217",
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "5_Forensics_guidelines_pdf_62ee00b3_c18",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "5_Forensics_guidelines_pdf_62ee00b3_c18",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2425",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain instructions on the proper storage of firearms ("
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents mention guidelines for packaging and handling firearms, "
+      }
+    ],
+    "english_rendering": [
+      "Before a seized pistol is logged into our records, do the forensic guidelines lay down anything about the state it has to be in, and would our weapons register even show whether that was followed?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be properly packaged labelled and transported to maintain chain of custody",
+      "Punjab Police Rules 1934 case property and malkhana: entry of seized property in the station register including description and condition of the item"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6-P2",
+    "run": 3,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Jab police koi pistol qabza mein leti hai, to kya forensic guidelines mein koi hidayat hai ke usay record mein laane se pehle kis halat mein rakha jaye, aur kya hamara weapon register yeh dikhata hai ke aisa hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule, or Guideline Requires\n\nAccording to the **forensic guidelines**, when a firearm is recovered, it must be **packaged separately**, **unloaded with the safety on**, and **without live rounds in the chamber, magazine, or parcel**. Additionally, **evidence submitted for Gun Shot Residue (GSR) analysis must be packaged in a hard box instead of a cloth bag or paper envelope** [Document 2].\n\n### Part 2: What Our Own Case Records Actually Show\n\nOur **case records** show that **30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence**, and **2 carry no licence status at all**, so their compliance can't be confirmed either way [Document 8]. However, the records do **not** provide any information about whether the weapons were **packaged separately, unloaded with the safety on, or packaged in a hard box** as required by the forensic guidelines. Therefore, it is **not possible to confirm** whether the weapons were handled in accordance with the forensic guidelines based on the information provided in the records.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 115.9,
+    "evaluator_rounds": 4,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c94",
+          "5_Forensics_guidelines_pdf_62ee00b3_c93",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "5_Forensics_guidelines_pdf_62ee00b3_c5",
+          "5_Forensics_guidelines_pdf_62ee00b3_c95"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c634",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c477",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c544",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c813",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c18",
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "5_Forensics_guidelines_pdf_62ee00b3_c5",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c564",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2425",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the requirements for handling blood sam"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents do not contain specific instructions from forensic guide"
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents provide instructions on how seized firearms should be st"
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents mention guidelines for packaging and handling evidence, "
+      }
+    ],
+    "english_rendering": [
+      "What do the forensic guidelines require for a blood sample taken in a case before it goes to the laboratory?",
+      "When the police seize a pistol, are there any instructions in the forensic guidelines on how it should be stored before being entered into the record, and does our weapon register show whether this happened or not?",
+      "Before a seized pistol is logged into our records, do the forensic guidelines lay down anything about the state it has to be in, and would our weapons register even show whether that was followed?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling, packaging, labelling and transport of recovered evidence: blood sample shall be packaged in a sealed container, labelled with case number and date of collection, and tra",
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be properly packaged labelled and transported to maintain chain of custody",
+      "Punjab Police Rules 1934 weapon register and records: weapon register shall contain details of seized firearms including date of seizure and custody information",
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be properly packaged labelled and transported to maintain chain of custody",
+      "Punjab Police Rules 1934 case property and malkhana: entry of seized property in the station register including description and condition of the item"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6-P3",
+    "run": 3,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "What do the forensic guidelines require for a blood sample taken in a case before it goes to the laboratory?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "The forensic guidelines state that a blood specimen must be:\n\n* **Collected promptly** – as soon as possible after the offense and, in death cases, before embalming. [Document 1]  \n* **Packaged in a sealed, leak‑proof container** – preferably a disposable hard‑plastic or glass tube, with each specimen placed in its own container. [Document 1]  \n* **Kept cold but not frozen** – the tube should be sealed and stored at a refrigerated temperature; exposure to hot temperatures is prohibited. [Document 1]  \n* **Labeled for chain‑of‑custody** – the label must include the victim or suspect’s name, the case number, the type of specimen (Blood), the site of collection (e.g., Femoral, Heart), the amount of specimen, the date and time of collection, and the name(s) of the medical examiner or person who collected the sample. [Document 1]  \n* **Secured with tamper‑evident tape** – the collector’s initials and the collection date are placed on the tape over the lid, or the sample may be placed in a tamper‑evident container labeled with the case number and name. [Document 1]  \n\nThese steps must be completed before the blood sample is sent to the laboratory. [Document 5] (reiterates labeling and packaging requirements).",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 58.6,
+    "evaluator_rounds": 2,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c94",
+          "5_Forensics_guidelines_pdf_62ee00b3_c93",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "5_Forensics_guidelines_pdf_62ee00b3_c5",
+          "5_Forensics_guidelines_pdf_62ee00b3_c95"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c634",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c477",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c544",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c813",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the requirements for handling blood sam"
+      }
+    ],
+    "english_rendering": [
+      "What do the forensic guidelines require for a blood sample taken in a case before it goes to the laboratory?",
+      "When the police seize a pistol, are there any instructions in the forensic guidelines on how it should be stored before being entered into the record, and does our weapon register show whether this happened or not?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling, packaging, labelling and transport of recovered evidence: blood sample shall be packaged in a sealed container, labelled with case number and date of collection, and tra",
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be properly packaged labelled and transported to maintain chain of custody",
+      "Punjab Police Rules 1934 weapon register and records: weapon register shall contain details of seized firearms including date of seizure and custody information"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6",
+    "run": 4,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule or Guideline Requires\n\nAccording to the **Forensics guidelines** (Document 2), there are specific instructions on how to handle and package evidence, including weapons. For example:\n\n- Weapons such as guns should be placed into a new cardboard gun box, sealed, and marked to indicate that the weapon was unloaded, made safe, and may contain biological material (Document 2, paragraph 11).\n- Sharp weapons such as knives should be packaged in appropriate-sized cardboard boxes, sealed, and marked to indicate that they contain a **SHARP** weapon and may contain biological material (Document 2, paragraph 12).\n- The integrity of the item must be maintained through proper packaging, documentation, and labeling (Document 2, paragraph 13).\n\nThese guidelines emphasize the need for proper handling, marking, and packaging of evidence to ensure its integrity and safety.\n\n### Part 2: What Our Own Case Records Actually Show\n\nAccording to the **summary of our own case records** (Document 6):\n\n- Out of 32 weapon-register entries reviewed:\n  - **30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence**.\n  - **2 carry no licence status at all**, so their compliance cannot be confirmed either way.\n\nThis summary does **not** indicate whether the weapons were handled in accordance with the **forensics guidelines** (e.g., whether they were sealed, marked, or packaged properly). It only provides information about the **licensing status** of the recovered weapons, not about how they were handled or documented during recovery or storage.\n\nTherefore, the **weapon register does not record whether proper handling (as per the forensics guidelines) was applied** to the weapons.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 89.0,
+    "evaluator_rounds": 2,
+    "attempts": [
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2217",
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "5_Forensics_guidelines_pdf_62ee00b3_c18",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c340",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c158",
+          "2022 (Amendments upto date).pdf]",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1326",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents do not contain specific instructions from forensic guide"
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents provide instructions on the proper storage and handling "
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain specific instructions on how recovered weapons s"
+      }
+    ],
+    "english_rendering": [
+      "Are there any specific instructions in the forensics guidelines regarding how recovered weapons should be handled before being registered, and does our weapon register record whether action was taken on them or not?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be handled in accordance with specific procedures to maintain chain of custody",
+      "Punjab Police Rules 1934 weapon register and recording of actions taken: entries in the weapon register shall include details of actions taken on seized weapons"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6-P1",
+    "run": 4,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Before a seized pistol is logged into our records, do the forensic guidelines lay down anything about the state it has to be in, and would our weapons register even show whether that was followed?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Forensic Guidelines Require\nThe forensic guidelines specify that firearms must be packaged in an unloaded condition with the safety on, and that there must not be live rounds in the chamber of the firearm, magazine, or in the parcel [Document 5]. This ensures the safety of personnel handling the evidence and prevents contamination or damage to the evidence itself.\n\n### Part 2: What Our Records Actually Show\nOur weapons register does not show whether the seized pistol was in an unloaded condition with the safety on, or whether there were live rounds in the chamber, magazine, or parcel. The register only records whether the weapon was recovered with a licence or not. Specifically:\n- 30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence.\n- 2 carry no licence status at all, so their compliance can't be confirmed either way [Document 7].\n\n_A cited claim ([Document 5]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 1._",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 59.7,
+    "evaluator_rounds": 2,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c94",
+          "5_Forensics_guidelines_pdf_62ee00b3_c93",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "5_Forensics_guidelines_pdf_62ee00b3_c5",
+          "5_Forensics_guidelines_pdf_62ee00b3_c95"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "5_Forensics_guidelines_pdf_62ee00b3_c18",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2425",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the requirements for handling blood sam"
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents mention guidelines for packaging and handling firearms, "
+      }
+    ],
+    "english_rendering": [
+      "What do the forensic guidelines require for a blood sample taken in a case before it goes to the laboratory?",
+      "Before a seized pistol is logged into our records, do the forensic guidelines lay down anything about the state it has to be in, and would our weapons register even show whether that was followed?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling, packaging, labelling and transport of recovered evidence: blood sample shall be packaged in a sealed container, labelled with case number and date of collection, and tra",
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be properly packaged labelled and transported to maintain chain of custody",
+      "Punjab Police Rules 1934 case property and malkhana: entry of seized property in the station register including description and condition of the item"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6-P2",
+    "run": 4,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Jab police koi pistol qabza mein leti hai, to kya forensic guidelines mein koi hidayat hai ke usay record mein laane se pehle kis halat mein rakha jaye, aur kya hamara weapon register yeh dikhata hai ke aisa hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule, or Guideline Requires\n\nAccording to the **forensic guidelines**, when a firearm is recovered, it must be **packaged separately**, and **every firearm must be packaged in an unloaded condition with the safety on**. Additionally, **there must not be live rounds in the chamber of the firearm, magazine, or in the parcel**. These requirements are outlined in [Document 2].\n\n### Part 2: What Our Own Case Records Actually Show\n\nOur **case records** show that **30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence**, and **2 carry no licence status at all**, so their compliance can't be confirmed either way. This information is provided in [Document 8]. However, the records do **not** specifically mention whether the firearms were **unloaded** or **packaged with the safety on** as required by the forensic guidelines. Therefore, it is **not clear** from the records whether the firearms were handled in accordance with the guidelines.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 82.7,
+    "evaluator_rounds": 2,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c634",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c477",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c544",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c813",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c18",
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c5",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c564",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents do not contain specific instructions from forensic guide"
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents provide instructions on how seized firearms should be st"
+      }
+    ],
+    "english_rendering": [
+      "When the police seize a pistol, are there any instructions in the forensic guidelines on how it should be stored before being entered into the record, and does our weapon register show whether this happened or not?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be properly packaged labelled and transported to maintain chain of custody",
+      "Punjab Police Rules 1934 weapon register and records: weapon register shall contain details of seized firearms including date of seizure and custody information"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6-P3",
+    "run": 4,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "What do the forensic guidelines require for a blood sample taken in a case before it goes to the laboratory?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "The forensic guidelines require that blood samples be collected as soon as possible after the offense, in death cases before embalming where applicable. They must be packed in well-sealed, leak-proof containers, and all samples must be collected in separate containers. For most specimens, disposable hard plastic or glass tubes are recommended. Blood tubes should be sealed and kept cold, but do not freeze. Additionally, they must not be exposed to hot temperatures [Document 1].",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 48.3,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c94",
+          "5_Forensics_guidelines_pdf_62ee00b3_c93",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "5_Forensics_guidelines_pdf_62ee00b3_c5",
+          "5_Forensics_guidelines_pdf_62ee00b3_c95"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the requirements for handling blood sam"
+      }
+    ],
+    "english_rendering": [
+      "What do the forensic guidelines require for a blood sample taken in a case before it goes to the laboratory?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling, packaging, labelling and transport of recovered evidence: blood sample shall be packaged in a sealed container, labelled with case number and date of collection, and tra"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6",
+    "run": 5,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule, or Guideline Requires\n\nAccording to the **Forensics guidelines** (Document 2), there are specific instructions on how to handle and package evidence, particularly weapons. For example:\n\n- Weapons should be packaged in appropriate containers (e.g., cardboard boxes) and sealed by the submitting individual.\n- The exterior of the box should indicate whether the weapon was unloaded, made safe, and may contain biological material.\n- The integrity of the item must be maintained through proper packaging, documentation, and labeling.\n- All packaging and labels must be preserved and documented throughout the process.\n\nThese guidelines ensure that evidence is handled in a way that maintains its integrity and prevents contamination or damage.\n\n### Part 2: What Our Case Records Actually Show\n\nAccording to the **case records summary** (Document 6):\n\n- Out of 32 weapon-register entries reviewed:\n  - **30 of 32** recovered weapons (~94%) are recorded **without a licence**.\n  - **2** carry **no licence status at all**, so their compliance cannot be confirmed either way.\n\nThere is **no mention** in the case records of whether the weapons were handled in accordance with the **forensics guidelines** (e.g., whether they were sealed, marked, or documented properly). The records only mention the **licence status** of the weapons, not the **handling or packaging procedures**.\n\nThus, the **weapon register does not record whether the guidelines were followed** in handling the weapons.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 71.6,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c340",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c158",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c1039",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain specific instructions on how recovered weapons s"
+      }
+    ],
+    "english_rendering": [
+      "Are there any specific instructions in the forensic guidelines regarding how recovered weapons should be handled before being registered, and does our weapon register record whether action was taken on them or not?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be handled in accordance with specific procedures to maintain chain of custody",
+      "Punjab Police Rules 1934 weapon register and recording of actions taken: entries in the weapon register shall include details of actions taken on seized weapons"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6-P1",
+    "run": 5,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Before a seized pistol is logged into our records, do the forensic guidelines lay down anything about the state it has to be in, and would our weapons register even show whether that was followed?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Forensic Guidelines Require\nAccording to the forensic guidelines, before a seized pistol is logged into records, it must be packaged in an unloaded condition with the safety on, and there must not be live rounds in the chamber of the firearm, magazine, or in the parcel. This is explicitly stated in [Document 5], which outlines the following measures for packing evidence:  \n- Every firearm must be packaged in unloaded condition with safety on.  \n- There must not be live rounds in the chamber of the firearm, magazine, or in the parcel.  \n\n### Part 2: What Our Weapons Register Shows\nOur weapons register does not show whether the pistol was in the required state (unloaded with safety on) before being logged into records. According to [Document 7], the weapons register only records whether a weapon was recovered with or without a licence. It does not include information about the condition of the weapon (e.g., whether it was unloaded or had its safety on).  \n- 30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence.  \n- 2 carry no licence status at all, so their compliance can't be confirmed either way.  \n\nThus, the weapons register does not capture the required forensic state of the weapon before logging.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 66.3,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "5_Forensics_guidelines_pdf_62ee00b3_c18",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2425",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents mention guidelines for packaging and handling firearms, "
+      }
+    ],
+    "english_rendering": [
+      "Before a seized pistol is logged into our records, do the forensic guidelines lay down anything about the state it has to be in, and would our weapons register even show whether that was followed?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be properly packaged labelled and transported to maintain chain of custody",
+      "Punjab Police Rules 1934 case property and malkhana: entry of seized property in the station register including description and condition of the item"
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB6-P2",
+    "run": 5,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Jab police koi pistol qabza mein leti hai, to kya forensic guidelines mein koi hidayat hai ke usay record mein laane se pehle kis halat mein rakha jaye, aur kya hamara weapon register yeh dikhata hai ke aisa hua ya nahi?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "### Part 1: What the Law, Rule or Guideline Requires\n\nAccording to the **forensic guidelines**, when a firearm is recovered, it must be **packaged in unloaded condition with safety on**, and **there must not be live rounds in the chamber of the firearm, magazine, or in the parcel**. This is explicitly stated in [Document 5].\n\nAdditionally, the **chain of custody** must be maintained for all evidence, including firearms, and all evidence must be **marked, inventoried, and packaged** before being released from the crime scene. This is covered in [Document 1] and [Document 4].\n\n### Part 2: What Our Own Case Records Actually Show\n\nAccording to the **summary of our own case records** ([Document 7]):\n\n- **30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence**.\n- **2 carry no licence status at all**, so their compliance can't be confirmed either way.\n\nHowever, the **summary does not provide any information about whether the firearms were packaged in unloaded condition with safety on**, or whether they were properly marked, inventoried, and packaged before being released from the crime scene. Therefore, **our weapon register does not show whether these procedures were followed or not**.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 140.8,
+    "evaluator_rounds": 2,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c634",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c477",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c544",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c813",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "kb-data-half:weapon_register"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "2022 (Amendments upto date).pdf]",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2217",
+          "5_Forensics_guidelines_pdf_62ee00b3_c21",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "2022 (Amendments upto date).pdf]",
+          "5_Forensics_guidelines_pdf_62ee00b3_c18",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "kb-data-half:weapon_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents do not contain specific instructions from forensic guide"
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain instructions on the proper storage of firearms ("
+      }
+    ],
+    "english_rendering": [
+      "When the police seize a pistol, are there any instructions in the forensic guidelines on how it should be stored before being entered into the record, and does our weapon register show whether this happened or not?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be properly packaged labelled and transported to maintain chain of custody",
+      "Punjab Police Rules 1934 weapon register and records: weapon register shall contain details of seized firearms including date of seizure and custody information"
+    ],
+    "quota_lines": [
+      "2026-09-10 02:07:30,577 [INFO] httpx: HTTP Request: POST https://api.groq.com/openai/v1/chat/completions \"HTTP/1.1 429 Too Many Requests\"",
+      "2026-09-10 02:07:30,579 [WARNING] src.llm.client: Rate limit hit on groq. Rotating key... (Attempt 1/3)"
+    ]
+  },
+  {
+    "id": "KB6-P3",
+    "run": 5,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "What do the forensic guidelines require for a blood sample taken in a case before it goes to the laboratory?",
+    "expected_answer": "Haan, guidelines makhsoos hain: evidence ke tor par baramad har firearm ko alag se package kiya jaye, khaali (unloaded), safety on ke saath, aur chamber, magazine ya parcel mein koi zinda round na ho, aur ise package karne se pehle document, label, mark aur photograph kiya jaye, transport ke doran chain of custody barqarar rakhi jaye. Hamara weapon register is handling process mein se kuch bhi darj nahi karta — yeh darj karta hai ke kya baramad hua (item detail, caliber/bore, miqdaar, license status, kis se baramad hua, aur halat), magar packaging ke tareeqe, tasaweer ya custody log ka koi khana nahi. Is liye sirf data se yeh tasdeeq mumkin nahi ke record par mojood 32 mein se kisi bhi hathiyar ke liye guideline par waqai amal hua.",
+    "actual_answer": "The forensic guidelines require that blood samples be collected as soon as possible after the offense, in death cases before embalming where applicable. They must be packed in well-sealed, leak-proof containers, and all samples must be collected in separate containers. For most specimens, disposable hard plastic or glass tubes are recommended. Blood tubes should be sealed and kept cold, but do not freeze. Additionally, they must not be exposed to hot temperatures [Document 1].",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 89.3,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c94",
+          "5_Forensics_guidelines_pdf_62ee00b3_c93",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "5_Forensics_guidelines_pdf_62ee00b3_c5",
+          "5_Forensics_guidelines_pdf_62ee00b3_c95"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the requirements for handling blood sam"
+      }
+    ],
+    "english_rendering": [
+      "What do the forensic guidelines require for a blood sample taken in a case before it goes to the laboratory?",
+      "What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?"
+    ],
+    "statute_hypotheses": [
+      "Forensics guidelines handling, packaging, labelling and transport of recovered evidence: blood sample shall be packaged in a sealed container, labelled with case number and date of collection, and tra",
+      "Code of Criminal Procedure 1898 section 158 registration of FIR: police officer in charge of the station shall record the information given by the complainant in the FIR book and shall proceed to inve",
+      "Punjab Police Rules 1934 registration of FIR and maintenance of records: FIR shall be entered in the FIR register with the date, time, and details of the information given, and shall be kept in the st"
+    ],
+    "quota_lines": []
+  }
+]

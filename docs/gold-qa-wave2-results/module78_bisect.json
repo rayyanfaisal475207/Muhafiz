@@ -1,0 +1,122 @@
+[
+ {
+  "id": "KB3",
+  "run": 1,
+  "rewritten": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+  "route_on_gold": "XNETWORK",
+  "conf_gold": "medium",
+  "route_on_rewritten": "XNETWORK",
+  "conf_rw": "medium",
+  "reason_rw": "Asks for a comparison between legal expectations and actual data patterns across cases — an open-ended synthesis of cross-case data, not a single-case or entity lookup"
+ },
+ {
+  "id": "KB3",
+  "run": 2,
+  "rewritten": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+  "route_on_gold": "XNETWORK",
+  "conf_gold": "medium",
+  "route_on_rewritten": "XNETWORK",
+  "conf_rw": "medium",
+  "reason_rw": "Asks for a comparison between legal expectations and actual data patterns across cases — an open-ended synthesis of cross-case data, not a single-case or entity lookup"
+ },
+ {
+  "id": "KB3",
+  "run": 3,
+  "rewritten": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+  "route_on_gold": "XNETWORK",
+  "conf_gold": "medium",
+  "route_on_rewritten": "XNETWORK",
+  "conf_rw": "medium",
+  "reason_rw": "Asks for a comparison between legal expectations and actual data patterns across cases — an open-ended synthesis of cross-case data, not a single-case or entity lookup"
+ },
+ {
+  "id": "KB9",
+  "run": 1,
+  "rewritten": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "route_on_gold": "XAGG",
+  "conf_gold": "medium",
+  "route_on_rewritten": "XAGG",
+  "conf_rw": "medium",
+  "reason_rw": "The query asks about whether the system records detailed investigations into the cause of death in cases involving death, and specifically mentions that there are many such cases. This is a cross-case aggregate question about case metadata (whether investigations into the cause of death are recorded), not a single entity or document lookup."
+ },
+ {
+  "id": "KB9",
+  "run": 2,
+  "rewritten": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "route_on_gold": "XAGG",
+  "conf_gold": "medium",
+  "route_on_rewritten": "XAGG",
+  "conf_rw": "medium",
+  "reason_rw": "The query asks about whether the system records detailed investigations into the cause of death in cases involving death, and specifically mentions that there are many such cases. This is a cross-case aggregate question about case metadata (whether investigations into the cause of death are recorded), not a single entity or document lookup."
+ },
+ {
+  "id": "KB9",
+  "run": 3,
+  "rewritten": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "route_on_gold": "XAGG",
+  "conf_gold": "medium",
+  "route_on_rewritten": "XAGG",
+  "conf_rw": "medium",
+  "reason_rw": "The query asks about whether the system records detailed investigations into the cause of death in cases involving death, and specifically mentions that there are many such cases. This is a cross-case aggregate question about case metadata (whether investigations into the cause of death are recorded), not a single entity or document lookup."
+ },
+ {
+  "id": "P-KB3",
+  "run": 1,
+  "rewritten": "Under police law, is the person who records an FIR supposed to be a different officer from the one who investigates it — and what does our own data actually show about that?",
+  "route_on_gold": "RAG",
+  "conf_gold": "high",
+  "route_on_rewritten": "RAG",
+  "conf_rw": "high",
+  "reason_rw": "The question asks about police law and our own data, requiring document search for both the legal requirement and the actual data from cases. This is a factual question that needs retrieval from the document corpus, not a structured lookup or a graph traversal."
+ },
+ {
+  "id": "P-KB3",
+  "run": 2,
+  "rewritten": "Under police law, is the person who records an FIR supposed to be a different officer from the one who investigates it — and what does our own data actually show about that?",
+  "route_on_gold": "RAG",
+  "conf_gold": "high",
+  "route_on_rewritten": "RAG",
+  "conf_rw": "high",
+  "reason_rw": "The question asks about police law and our own data, requiring document search for both the legal requirement and the actual data from cases. This is a factual question that needs retrieval from the document corpus, not a structured lookup or a graph traversal."
+ },
+ {
+  "id": "P-KB3",
+  "run": 3,
+  "rewritten": "Under police law, is the person who records an FIR supposed to be a different officer from the one who investigates it — and what does our own data actually show about that?",
+  "route_on_gold": "RAG",
+  "conf_gold": "high",
+  "route_on_rewritten": "RAG",
+  "conf_rw": "high",
+  "reason_rw": "The question asks about police law and our own data, requiring document search for both the legal requirement and the actual data from cases. This is a factual question that needs retrieval from the document corpus, not a structured lookup or a graph traversal."
+ },
+ {
+  "id": "P-KB9",
+  "run": 1,
+  "rewritten": "When a death looks suspicious the police must formally investigate the cause of death — does our system record that anywhere?",
+  "route_on_gold": "RAG",
+  "conf_gold": "high",
+  "route_on_rewritten": "RAG",
+  "conf_rw": "high",
+  "reason_rw": "Asks whether the system records a specific police procedure (investigating suspicious deaths) — this is a factual claim about how the system operates, not a general-knowledge question, and requires document search to answer correctly"
+ },
+ {
+  "id": "P-KB9",
+  "run": 2,
+  "rewritten": "When a death looks suspicious the police must formally investigate the cause of death — does our system record that anywhere?",
+  "route_on_gold": "RAG",
+  "conf_gold": "high",
+  "route_on_rewritten": "RAG",
+  "conf_rw": "high",
+  "reason_rw": "Asks whether the system records a specific police procedure (investigating suspicious deaths) — this is a factual claim about how the system operates, not a general-knowledge question, and requires document search to answer correctly"
+ },
+ {
+  "id": "P-KB9",
+  "run": 3,
+  "rewritten": "When a death looks suspicious the police must formally investigate the cause of death — does our system record that anywhere?",
+  "route_on_gold": "RAG",
+  "conf_gold": "high",
+  "route_on_rewritten": "RAG",
+  "conf_rw": "high",
+  "reason_rw": "Asks whether the system records a specific police procedure (investigating suspicious deaths) — this is a factual claim about how the system operates, not a general-knowledge question, and requires document search to answer correctly"
+ }
+]

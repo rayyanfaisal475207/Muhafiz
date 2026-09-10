@@ -40,19 +40,30 @@ from src.retrieval.graph_retriever import (
 from src.pipeline.xagg import (
     run_aggregate,
     render_criminal_record_crosscheck,
+    render_criminal_record_local_match_gap,
     render_cms_fir_linkage,
     render_dv_report_fir_match,
     render_case_completeness_scan,
     render_weapon_compliance_scan,
+    render_graph_recurrence,
     render_weapon_evidence_chain,
     render_court_readiness_scan,
+    render_station_caseload_by_specialisation,
     render_time_bucketed_mean,
     render_weapon_statute_cooccurrence,
     render_statute_court_stage_join,
+    render_officer_role_pair_overlap,
+    render_chalaan_dispatch_count,
+    render_fir_section_case_count,
+    render_fir_register_completeness,
     render_offender_age_profile,
     render_accused_relationship_breakdown,
     render_seized_property_disposition,
     render_incident_time_of_day,
+    render_arrest_rate,
+    render_filtered_fir_listing,
+    render_placeholder_officer_count,
+    render_statute_mix_by_year,
 )
 from src.pipeline.xagg import _UNSUPPORTED_JURISDICTION as _UNRESOLVED_JURISDICTION_NOTE
 from src.pipeline.xnetwork import run_network_query
@@ -464,11 +475,12 @@ async def _fetch_secondary_evidence(
                     user_role=user_role, jurisdiction_case_ids=jurisdiction_case_ids,
                 )
                 if agg_result["kind"] == "graph_recurrence":
-                    lines = [
-                        f"- {r['name']} ({agg_result['entity_type']}): appears in "
-                        f"{r['case_count']} cases — {', '.join(r['case_ids'])}"
-                        for r in agg_result["results"]
-                    ]
+                    # [Gold-QA fix — CR2, Module 88] Shared renderer, same
+                    # move Module 28 made for the weapon chain: the per-case
+                    # ordering/status enrichment has to reach all three
+                    # rendering sites, and three copies of one f-string is
+                    # how it would fail to.
+                    lines = render_graph_recurrence(agg_result)
                 elif agg_result["kind"] == "case_listing":
                     lines = [
                         f"- {c['case_id']} (FIR {c['fir_number'] or 'N/A'}): "
@@ -504,18 +516,7 @@ async def _fetch_secondary_evidence(
                 # (see the comment above the process_query() branch further
                 # below).
                 elif agg_result["kind"] == "placeholder_officer_count":
-                    cur, ever = agg_result["current_count"], agg_result["ever_count"]
-                    asi, si = agg_result["asi_count"], agg_result["si_count"]
-                    caveat = (
-                        f" {ever - cur} additional case(s) originally had a placeholder "
-                        f"officer too but have since been assigned a real one."
-                        if ever > cur else ""
-                    )
-                    lines = [
-                        f"{cur} FIRs currently carry only a placeholder investigating "
-                        f"officer — {asi} marked \"(نامزد ASI)\", {si} marked "
-                        f"\"(نامزد SI)\".{caveat}"
-                    ]
+                    lines = render_placeholder_officer_count(agg_result)
                 elif agg_result["kind"] == "criminal_record_court_crosscheck":
                     lines = render_criminal_record_crosscheck(agg_result)
                 elif agg_result["kind"] == "cms_fir_linkage":
@@ -530,6 +531,22 @@ async def _fetch_secondary_evidence(
                     lines = render_weapon_evidence_chain(agg_result)
                 elif agg_result["kind"] == "court_readiness_scan":
                     lines = render_court_readiness_scan(agg_result)
+                # [Gold-QA fix — Module 74, KB3] Kept in sync with the
+                # other two XAGG-route rendering sites.
+                elif agg_result["kind"] == "officer_role_pair_overlap":
+                    lines = render_officer_role_pair_overlap(agg_result)
+                # [Gold-QA fix — Module 75, KB8] Kept in sync with the
+                # other two XAGG-route rendering sites.
+                elif agg_result["kind"] == "chalaan_dispatch_count":
+                    lines = render_chalaan_dispatch_count(agg_result)
+                # [Gold-QA fix — Module 76, KB9] Kept in sync with the
+                # other two XAGG-route rendering sites.
+                elif agg_result["kind"] == "fir_section_case_count":
+                    lines = render_fir_section_case_count(agg_result)
+                # [Gold-QA fix — Module 89, KB1] Kept in sync with the
+                # other two XAGG rendering sites.
+                elif agg_result["kind"] == "fir_register_completeness":
+                    lines = render_fir_register_completeness(agg_result)
                 elif agg_result["kind"] == "district_breakdown":
                     label = agg_result.get("entity_label")
                     lines = [
@@ -546,11 +563,10 @@ async def _fetch_secondary_evidence(
                         f"recovered a weapon (~{round(100 * c['rate'])}%)"
                         for c in agg_result["counts"]
                     ]
+                # [Gold-QA fix — Module 90, M1] shared renderer, kept in sync
+                # with the other two XAGG-route rendering sites.
                 elif agg_result["kind"] == "time_bucketed_breakdown":
-                    lines = []
-                    for b in agg_result["buckets"]:
-                        lines.append(f"**{b['year']}:**")
-                        lines.extend(f"  - {c['key']}: {c['count']}" for c in b["counts"])
+                    lines = render_statute_mix_by_year(agg_result)
                 elif agg_result["kind"] == "time_bucketed_rate":
                     lines = [agg_result["note"], ""]
                     lines.extend(
@@ -563,6 +579,13 @@ async def _fetch_secondary_evidence(
                 # XAGG rendering site.
                 elif agg_result["kind"] == "time_bucketed_mean":
                     lines = render_time_bucketed_mean(agg_result)
+                # [Gold-QA fix — Module 44, M2/CS4] shared renderers, kept in
+                # sync with the harness xagg_tool() wrapper and this file's
+                # other XAGG rendering site.
+                elif agg_result["kind"] == "station_caseload_by_specialisation":
+                    lines = render_station_caseload_by_specialisation(agg_result)
+                elif agg_result["kind"] == "criminal_record_local_match_gap":
+                    lines = render_criminal_record_local_match_gap(agg_result)
                 # [Gold-QA fix — Module 23, M5] shared renderer, kept in sync
                 # with the harness xagg_tool() wrapper and this file's other
                 # XAGG rendering site.
@@ -593,6 +616,16 @@ async def _fetch_secondary_evidence(
                 # XAGG rendering site.
                 elif agg_result["kind"] == "incident_time_of_day":
                     lines = render_incident_time_of_day(agg_result)
+                # [Gold-QA fix — Module 35, G6] shared renderer, kept in
+                # sync with the harness xagg_tool() wrapper and this file's
+                # other XAGG rendering site.
+                elif agg_result["kind"] == "arrest_rate":
+                    lines = render_arrest_rate(agg_result)
+                # [Gold-QA fix — Module 36, CR3] shared renderer, kept in
+                # sync with the harness xagg_tool() wrapper and this file's
+                # other XAGG rendering site.
+                elif agg_result["kind"] == "filtered_fir_listing":
+                    lines = render_filtered_fir_listing(agg_result)
                 else:
                     lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result.get("counts", [])]
                 aggregate_text = "\n".join(lines)
@@ -2118,10 +2151,9 @@ async def process_query(
             elapsed_ms = int((time.monotonic() - t0) * 1000)
 
             if agg_result["kind"] == "graph_recurrence":
-                lines = [
-                    f"- {r['name']} ({agg_result['entity_type']}): appears in {r['case_count']} cases — {', '.join(r['case_ids'])}"
-                    for r in agg_result["results"]
-                ]
+                # [Gold-QA fix — CR2, Module 88] see the process_query()
+                # branch above.
+                lines = render_graph_recurrence(agg_result)
             elif agg_result["kind"] == "case_listing":
                 lines = [
                     f"- {c['case_id']} (FIR {c['fir_number'] or 'N/A'}): {c['crime_category'] or 'uncategorized'} "
@@ -2170,18 +2202,7 @@ async def process_query(
             # (structured_projection.py). Already-populated data, no
             # "not synced yet" degradation needed.
             elif agg_result["kind"] == "placeholder_officer_count":
-                cur, ever = agg_result["current_count"], agg_result["ever_count"]
-                asi, si = agg_result["asi_count"], agg_result["si_count"]
-                caveat = (
-                    f" {ever - cur} additional case(s) originally had a placeholder "
-                    f"officer too but have since been assigned a real one."
-                    if ever > cur else ""
-                )
-                lines = [
-                    f"{cur} FIRs currently carry only a placeholder investigating "
-                    f"officer — {asi} marked \"(نامزد ASI)\", {si} marked "
-                    f"\"(نامزد SI)\".{caveat}"
-                ]
+                lines = render_placeholder_officer_count(agg_result)
             elif agg_result["kind"] == "criminal_record_court_crosscheck":
                 lines = render_criminal_record_crosscheck(agg_result)
             elif agg_result["kind"] == "cms_fir_linkage":
@@ -2196,6 +2217,22 @@ async def process_query(
                 lines = render_weapon_evidence_chain(agg_result)
             elif agg_result["kind"] == "court_readiness_scan":
                 lines = render_court_readiness_scan(agg_result)
+            # [Gold-QA fix — Module 74, KB3] Kept in sync with the other
+            # two XAGG-route rendering sites.
+            elif agg_result["kind"] == "officer_role_pair_overlap":
+                lines = render_officer_role_pair_overlap(agg_result)
+            # [Gold-QA fix — Module 75, KB8] Kept in sync with the other
+            # two XAGG-route rendering sites.
+            elif agg_result["kind"] == "chalaan_dispatch_count":
+                lines = render_chalaan_dispatch_count(agg_result)
+            # [Gold-QA fix — Module 76, KB9] Kept in sync with the other
+            # two XAGG-route rendering sites.
+            elif agg_result["kind"] == "fir_section_case_count":
+                lines = render_fir_section_case_count(agg_result)
+            # [Gold-QA fix — Module 89, KB1] Kept in sync with the other
+            # two XAGG rendering sites.
+            elif agg_result["kind"] == "fir_register_completeness":
+                lines = render_fir_register_completeness(agg_result)
             elif agg_result["kind"] == "district_breakdown":
                 label = agg_result.get("entity_label")
                 lines = [
@@ -2216,11 +2253,10 @@ async def process_query(
                     f"a weapon (~{round(100 * c['rate'])}%)"
                     for c in agg_result["counts"]
                 ]
+            # [Gold-QA fix — Module 90, M1] shared renderer, kept in sync
+            # with the other two XAGG-route rendering sites.
             elif agg_result["kind"] == "time_bucketed_breakdown":
-                lines = []
-                for b in agg_result["buckets"]:
-                    lines.append(f"**{b['year']}:**")
-                    lines.extend(f"  - {c['key']}: {c['count']}" for c in b["counts"])
+                lines = render_statute_mix_by_year(agg_result)
             elif agg_result["kind"] == "time_bucketed_rate":
                 lines = [agg_result["note"], ""]
                 lines.extend(
@@ -2233,6 +2269,13 @@ async def process_query(
             # rendering site above.
             elif agg_result["kind"] == "time_bucketed_mean":
                 lines = render_time_bucketed_mean(agg_result)
+            # [Gold-QA fix — Module 44, M2/CS4] shared renderers, kept in sync
+            # with the harness xagg_tool() wrapper and this file's first XAGG
+            # rendering site above.
+            elif agg_result["kind"] == "station_caseload_by_specialisation":
+                lines = render_station_caseload_by_specialisation(agg_result)
+            elif agg_result["kind"] == "criminal_record_local_match_gap":
+                lines = render_criminal_record_local_match_gap(agg_result)
             # [Gold-QA fix — Module 23, M5] shared renderer, kept in sync with
             # the harness xagg_tool() wrapper and this file's first XAGG
             # rendering site above.
@@ -2263,6 +2306,16 @@ async def process_query(
             # rendering site above.
             elif agg_result["kind"] == "incident_time_of_day":
                 lines = render_incident_time_of_day(agg_result)
+            # [Gold-QA fix — Module 35, G6] shared renderer, kept in sync
+            # with the harness xagg_tool() wrapper and this file's first
+            # XAGG rendering site above.
+            elif agg_result["kind"] == "arrest_rate":
+                lines = render_arrest_rate(agg_result)
+            # [Gold-QA fix — Module 36, CR3] shared renderer, kept in sync
+            # with the harness xagg_tool() wrapper and this file's first
+            # XAGG rendering site above.
+            elif agg_result["kind"] == "filtered_fir_listing":
+                lines = render_filtered_fir_listing(agg_result)
             else:
                 lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
                 # [Legal-code semantic layer] crime_category can combine

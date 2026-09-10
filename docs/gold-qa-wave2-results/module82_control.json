@@ -1,0 +1,178 @@
+[
+  {
+    "id": "KB4",
+    "run": 1,
+    "tag": "rag",
+    "port": "8031",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "elapsed_s": 85.9,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2421",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+          "5_Forensics_guidelines_pdf_62ee00b3_c5",
+          "kb-data-half:property_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain information about formal standards for recording"
+      }
+    ],
+    "statute_hypotheses": [
+      "Punjab Police Rules 1934 case property and malkhana: property recovered in investigation shall be entered in the malkhana register, marked with number and description, and kept under lock and key",
+      "Forensics guidelines handling, packaging, labelling and transport of recovered evidence: evidence shall be properly packaged, labelled with case number and date, and transported in a manner that preve"
+    ],
+    "verifier_rejections": [
+      "The claims about rule 27.41(3) and the audit of FIR 512/26 are not supported by any of the cited chunks."
+    ],
+    "data_half": [
+      {
+        "plan": "property_register",
+        "aggregate": "seized_property_disposition"
+      }
+    ],
+    "cutover_fallbacks": [
+      "2026-09-09 23:48:16,665 [WARNING] src.main: Cutover classification failed, falling back to orchestrator.py: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota,"
+    ],
+    "quota_lines": [
+      "2026-09-09 23:48:16,665 [WARNING] src.main: Cutover classification failed, falling back to orchestrator.py: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota,"
+    ],
+    "leaked_markers": [],
+    "control_fired": true
+  },
+  {
+    "id": "KB4",
+    "run": 2,
+    "tag": "rag",
+    "port": "8031",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "elapsed_s": 55.5,
+    "evaluator_rounds": 2,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1236",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c647",
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c219",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c150"
+        ]
+      },
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "5_Forensics_guidelines_pdf_62ee00b3_c5",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "5_Forensics_guidelines_pdf_62ee00b3_c116",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c477",
+          "kb-data-half:property_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the legal requirements governing how a "
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents provide information on the formal standards for recordin"
+      }
+    ],
+    "statute_hypotheses": [
+      "Code of Criminal Procedure 1898 section 158 registration of FIR: police officer in charge of the station shall record the information given by the complainant in the FIR book and shall proceed to inve",
+      "Punjab Police Rules 1934 registration of FIR and maintenance of records: FIR shall be entered in the FIR register with the date, time, and details of the information given, and shall be kept in the st",
+      "Punjab Police Rules 1934 case property and malkhana: property recovered in investigation shall be entered in the malkhana register, marked with number and description, and kept under lock and key",
+      "Forensics guidelines handling, packaging, labelling and transport of recovered evidence: evidence shall be properly packaged, labelled with case number and date, and transported in a manner that preve"
+    ],
+    "verifier_rejections": [
+      "The claims about rule 27.41(3) and compliance with it are not supported by any of the cited chunks.",
+      "The claims about rule 27.41(3) of the Punjab Police Rules and the compliance of records are not supported by any of the provided chunks."
+    ],
+    "data_half": [
+      {
+        "plan": "property_register",
+        "aggregate": "seized_property_disposition"
+      }
+    ],
+    "cutover_fallbacks": [
+      "2026-09-09 23:49:38,117 [WARNING] src.main: Cutover classification failed, falling back to orchestrator.py: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota,"
+    ],
+    "quota_lines": [
+      "2026-09-09 23:49:38,117 [WARNING] src.main: Cutover classification failed, falling back to orchestrator.py: 429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota,"
+    ],
+    "leaked_markers": [],
+    "control_fired": true
+  },
+  {
+    "id": "KB4",
+    "run": 3,
+    "tag": "rag",
+    "port": "8031",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "elapsed_s": 65.6,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2217",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1203",
+          "5_Forensics_guidelines_pdf_62ee00b3_c0",
+          "kb-data-half:property_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents mention legal provisions related to domestic violence, s"
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain formal standards regarding the recording and dis"
+      }
+    ],
+    "statute_hypotheses": [
+      "Punjab Police Rules 1934 case property and malkhana: property recovered in investigation shall be entered in the malkhana register, marked with number and description, and kept under lock and key",
+      "Forensics guidelines handling, packaging, labelling and transport of recovered evidence: evidence shall be properly packaged, labelled, and transported to the forensic laboratory for analysis, with a "
+    ],
+    "verifier_rejections": [
+      "The claims about rule 27.41(3) and the audit of FIR 512/26 are not supported by any of the cited chunks."
+    ],
+    "data_half": [
+      {
+        "plan": "property_register",
+        "aggregate": "seized_property_disposition"
+      }
+    ],
+    "cutover_fallbacks": [],
+    "quota_lines": [],
+    "leaked_markers": [],
+    "control_fired": true
+  }
+]

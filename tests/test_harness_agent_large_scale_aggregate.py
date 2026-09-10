@@ -30,6 +30,7 @@ from __future__ import annotations
 import pytest
 
 import src.pipeline.harness.agents.large_scale_aggregate as lsa_mod
+from src.pipeline.harness.agents import _salvage
 from src.pipeline.harness.agents.large_scale_aggregate import large_scale_aggregate
 from src.pipeline.harness.supervisor import (
     LARGE_SCALE_AGGREGATE,
@@ -332,3 +333,228 @@ async def test_supervisor_dispatches_to_real_large_scale_aggregate_and_real_xagg
     assert result.tools_used == ["XAGG"]
     assert len(result.citations) == 1
     assert result.citations[0].source_tool == "XAGG"
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 53] This sub-agent is the one that HOLDS a
+# deterministic, correct-by-construction result while it waits on an LLM
+# paraphrase, so it is the one that offers that result for salvage when a
+# Meta-Analysis fan-out's shared wall-clock deadline cancels it mid-call.
+# See src/pipeline/harness/agents/_salvage.py for the measurement.
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.asyncio
+async def test_module53_raw_aggregate_is_offered_for_salvage_before_the_paraphrase(monkeypatch):
+    """The offer must land BEFORE `call_llm` — that call is the one that
+    gets cancelled, so an offer made after it would never happen on the
+    path this exists for."""
+    raw = "PPC 61; Arms Ordinance 1965 29; CNSA 1997 12"
+    _stub_xagg_tool(
+        monkeypatch,
+        XAggToolResult(
+            status=ToolStatus.OK,
+            chunks=[_agg_chunk()],
+            raw_summary_text=raw,
+            case_ids_touched=["CASE-001"],
+            aggregate_kind="statute_court_stage_join",
+        ),
+    )
+    box = _salvage.open_slot()
+    order = []
+
+    async def _fake_llm(system_prompt, user_message, **kwargs):
+        order.append(("llm", _salvage.take(box)))
+        return "Paraphrased [Document 1]."
+
+    monkeypatch.setattr(lsa_mod, "call_llm", _fake_llm)
+    _stub_verify_grounding(monkeypatch, grounded=True)
+
+    result = await large_scale_aggregate(_agent_input())
+
+    assert result.status == SubAgentStatus.OK
+    # Already offered by the time the paraphrase call ran.
+    assert order and order[0][1] is not None and order[0][1].text == raw
+    salvaged = _salvage.take(box)
+    assert salvaged.text == raw
+    assert salvaged.tool == "XAGG"
+    assert salvaged.kind == "statute_court_stage_join"
+
+
+@pytest.mark.asyncio
+async def test_module53_offer_is_a_no_op_when_no_slot_is_open(monkeypatch):
+    """Every direct (non-Meta-Analysis) route runs with no slot open. The
+    offer must cost nothing and change nothing there."""
+    _stub_xagg_tool(
+        monkeypatch,
+        XAggToolResult(
+            status=ToolStatus.OK,
+            chunks=[_agg_chunk()],
+            raw_summary_text="anything",
+            case_ids_touched=[],
+        ),
+    )
+    _stub_call_llm(monkeypatch)
+    _stub_verify_grounding(monkeypatch, grounded=True)
+
+    result = await large_scale_aggregate(_agent_input())
+
+    assert result.status == SubAgentStatus.OK
+    assert _salvage._SLOT.get() is None
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 70, M2] OMISSION REPAIR.
+#
+# `verify_structured_aggregate_paraphrase()` now also reports figures from
+# a proportion in the rendered HEADLINE that the paraphrase dropped. This
+# sub-agent responds by REGENERATING once, never by refusing — routing an
+# omission into the raw-aggregate fallback would trade a missing figure for
+# a computed dump on every question that trips it.
+#
+# The three tests below pin the whole decision surface: adopt, discard on a
+# failed gate, discard on no improvement. The `_salvage`/citation contract
+# of the existing (a) test is unchanged in all three.
+# ═══════════════════════════════════════════════════════════════════════
+
+_M70_RAW = (
+    "Growth: caseload is rising fastest at the 15 general-purpose station(s), "
+    "though even so, 9 of 73 FIRs are carried by just 2 of 19 stations.\n"
+)
+_M70_DROPPED = "Caseload is growing faster at the 15 general-purpose stations [Document 1]."
+_M70_REPAIRED = (
+    "Caseload is growing faster at the 15 general-purpose stations, but even so "
+    "9 of 73 FIRs are carried by just 2 of 19 stations [Document 1]."
+)
+
+
+def _m70_tool_result():
+    chunk = _agg_chunk(_M70_RAW)
+    return XAggToolResult(
+        status=ToolStatus.OK,
+        chunks=[chunk],
+        case_ids_touched=[],
+        aggregate_kind="station_caseload_by_specialisation",
+        raw_summary_text=_M70_RAW,
+    )
+
+
+def _stub_two_generations(monkeypatch, first: str, second: str):
+    prompts: list[str] = []
+
+    async def _fake(system_prompt, user_message, **kwargs):
+        prompts.append(system_prompt)
+        return first if len(prompts) == 1 else second
+
+    monkeypatch.setattr(lsa_mod, "call_llm", _fake)
+    return prompts
+
+
+def _stub_verify_real(monkeypatch):
+    """The REAL verifier — this module's behaviour is what is under test."""
+    from src.pipeline.verifier import verify_structured_aggregate_paraphrase as real
+
+    calls: list[str] = []
+
+    async def _fake(answer, source_text, case_id, cross_case_ids=None):
+        calls.append(answer)
+        return await real(
+            answer=answer, source_text=source_text,
+            case_id=case_id, cross_case_ids=cross_case_ids,
+        )
+
+    monkeypatch.setattr(lsa_mod, "verify_structured_aggregate_paraphrase", _fake)
+    return calls
+
+
+@pytest.mark.asyncio
+async def test_module70_a_dropped_headline_proportion_triggers_one_repair_pass(monkeypatch):
+    """FAILS BEFORE THIS MODULE: the dropped answer was served verbatim and
+    no second generation happened."""
+    _stub_xagg_tool(monkeypatch, _m70_tool_result())
+    prompts = _stub_two_generations(monkeypatch, _M70_DROPPED, _M70_REPAIRED)
+    verified = _stub_verify_real(monkeypatch)
+
+    result = await large_scale_aggregate(_agent_input())
+
+    assert len(prompts) == 2, "exactly one repair regeneration, no more"
+    assert len(verified) == 2
+    assert result.status is SubAgentStatus.OK
+    assert result.answer_text == _M70_REPAIRED
+    assert result.tools_used == ["XAGG"]
+    # The repair instruction names the figures it computed, and nothing else.
+    assert "9" in prompts[1] and "73" in prompts[1] and "19" in prompts[1]
+    assert "Do not turn the answer into a list" in prompts[1]
+    # No caveat is added: the answer is a verified paraphrase, not a fallback.
+    assert not any("could not be verified" in c for c in (result.caveats or []))
+
+
+@pytest.mark.asyncio
+async def test_module70_a_repair_that_invents_a_number_is_discarded(monkeypatch):
+    """An omission must never be traded for a hallucination. The repaired
+    text is put through the FULL gate, invented-number direction included."""
+    _stub_xagg_tool(monkeypatch, _m70_tool_result())
+    prompts = _stub_two_generations(
+        monkeypatch,
+        _M70_DROPPED,
+        "9 of 73 FIRs from 2 of 19 stations, and 61 reached trial [Document 1].",
+    )
+    _stub_verify_real(monkeypatch)
+
+    result = await large_scale_aggregate(_agent_input())
+
+    assert len(prompts) == 2
+    assert result.status is SubAgentStatus.OK
+    assert result.answer_text == _M70_DROPPED, "the original paraphrase is served unchanged"
+    assert result.answer_text != _M70_RAW
+
+
+@pytest.mark.asyncio
+async def test_module70_a_repair_that_omits_just_as_much_is_discarded(monkeypatch):
+    """No improvement means no swap: the branch is incapable of making a
+    currently-served answer worse."""
+    _stub_xagg_tool(monkeypatch, _m70_tool_result())
+    prompts = _stub_two_generations(
+        monkeypatch, _M70_DROPPED, "Caseload is growing faster at the 15 stations [Document 1]."
+    )
+    _stub_verify_real(monkeypatch)
+
+    result = await large_scale_aggregate(_agent_input())
+
+    assert len(prompts) == 2
+    assert result.answer_text == _M70_DROPPED
+
+
+@pytest.mark.asyncio
+async def test_module70_a_complete_paraphrase_makes_no_second_call(monkeypatch):
+    """The repair costs one extra generation and must fire ONLY on an
+    omission — the 22 of 32 gold questions that carry their headline pay
+    nothing."""
+    _stub_xagg_tool(monkeypatch, _m70_tool_result())
+    prompts = _stub_two_generations(monkeypatch, _M70_REPAIRED, "SHOULD NOT BE CALLED")
+    _stub_verify_real(monkeypatch)
+
+    result = await large_scale_aggregate(_agent_input())
+
+    assert len(prompts) == 1
+    assert result.answer_text == _M70_REPAIRED
+
+
+@pytest.mark.asyncio
+async def test_module70_a_repair_generation_that_raises_serves_the_original(monkeypatch):
+    _stub_xagg_tool(monkeypatch, _m70_tool_result())
+    calls: list[int] = []
+
+    async def _fake(system_prompt, user_message, **kwargs):
+        calls.append(1)
+        if len(calls) == 1:
+            return _M70_DROPPED
+        raise RuntimeError("LLM unreachable")
+
+    monkeypatch.setattr(lsa_mod, "call_llm", _fake)
+    _stub_verify_real(monkeypatch)
+
+    result = await large_scale_aggregate(_agent_input())
+
+    assert result.status is SubAgentStatus.OK
+    assert result.answer_text == _M70_DROPPED

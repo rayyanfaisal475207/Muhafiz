@@ -1,0 +1,91 @@
+{
+  "renderings": {
+    "KB1": {
+      "language": "en",
+      "question": "What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?",
+      "english": "What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?"
+    },
+    "KB2": {
+      "language": "en",
+      "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+      "english": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?"
+    },
+    "KB3": {
+      "language": "en",
+      "question": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+      "english": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?"
+    },
+    "KB4": {
+      "language": "ur",
+      "question": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+      "english": "When the police take possession of items related to a case, is there an established standard for how they are recorded and eventually disposed of — and does our property records follow that?"
+    },
+    "KB5": {
+      "language": "ur",
+      "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+      "english": "When domestic violence against a woman is involved in a case, does the law require a different procedure from a regular case — and if so, does our data show that those additional measures were actually taken?"
+    },
+    "KB6": {
+      "language": "roman_ur",
+      "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+      "english": "Are there any specific provisions in the forensics guidelines regarding how recovered weapons should be handled before they are registered, and does our weapon register record whether action has been taken on them?"
+    },
+    "KB8": {
+      "language": "roman_ur",
+      "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+      "english": "If an investigation in a case becomes lengthy, does the law require the police to report something to the court before the investigation is completed — and does our case-tracking data show whether this happened or not?"
+    },
+    "KB9": {
+      "language": "roman_ur",
+      "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+      "english": "When a person dies in suspicious circumstances, the police must conduct a thorough investigation into the cause of death — does our system record this anywhere, especially when so many of our cases involve death?"
+    }
+  },
+  "two_by_two": [
+    {
+      "arm": "roman-Urdu (gold KB6)",
+      "run": 1,
+      "relevant": false,
+      "reason": "The retrieved documents discuss forensic handling procedures for firearms (e.g., packaging, safety protocols) but do not mention weapon registration systems or whether they record usage status. The second part of the question about the weapon register's functionality is unaddressed."
+    },
+    {
+      "arm": "roman-Urdu (gold KB6)",
+      "run": 2,
+      "relevant": false,
+      "reason": "The retrieved documents discuss forensic handling procedures for firearms (e.g., packaging, safety protocols) but do not mention weapon registration systems or whether they record usage status. The second part of the question about the weapon register's functionality is unaddressed."
+    },
+    {
+      "arm": "roman-Urdu (gold KB6)",
+      "run": 3,
+      "relevant": false,
+      "reason": "The retrieved documents discuss forensic handling procedures for firearms (e.g., packaging, safety protocols) but do not mention weapon registration systems or whether they record usage status. The second part of the question about the weapon register's functionality is unaddressed."
+    },
+    {
+      "arm": "English rendering",
+      "run": 1,
+      "relevant": true,
+      "reason": "The retrieved documents contain specific provisions from the forensics guidelines on handling recovered weapons (e.g., packaging firearms unloaded with safety on, separate packaging of cartridges, and avoiding live rounds). However, they do not address whether the weapon register records if action h"
+    },
+    {
+      "arm": "English rendering",
+      "run": 2,
+      "relevant": true,
+      "reason": "The retrieved documents contain specific provisions from the forensics guidelines on handling recovered weapons (e.g., packaging firearms unloaded with safety on, separate packaging of cartridges, and avoiding live rounds). However, they do not address whether the weapon register records if action h"
+    },
+    {
+      "arm": "English rendering",
+      "run": 3,
+      "relevant": true,
+      "reason": "The retrieved documents contain specific provisions from the forensics guidelines on handling recovered weapons (e.g., packaging firearms unloaded with safety on, separate packaging of cartridges, and avoiding live rounds). However, they do not address whether the weapon register records if action h"
+    }
+  ],
+  "chunk_set": {
+    "ids": [
+      "5_Forensics_guidelines_pdf_62ee00b3_c18",
+      "5_Forensics_guidelines_pdf_62ee00b3_c19",
+      "5_Forensics_guidelines_pdf_62ee00b3_c20",
+      "5_Forensics_guidelines_pdf_62ee00b3_c114"
+    ],
+    "contains_gold_text": true
+  }
+}

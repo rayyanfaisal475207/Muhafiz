@@ -34,6 +34,54 @@ logger = logging.getLogger(__name__)
 _PROMPT_PATH = Path(__file__).resolve().parent.parent.parent / "prompts" / "router.txt"
 _SYSTEM_PROMPT = _PROMPT_PATH.read_text(encoding="utf-8")
 
+# [Gold-QA fix — Module 92] The prompt used ONLY when a router classification
+# goes to the cloud. The local path below is untouched and still gets
+# `_SYSTEM_PROMPT`; this exists because the cloud path cannot receive it.
+#
+# THE DEFECT, measured 2026-09-09 against this account's Groq `on_demand`
+# tier, whose per-request cap its own 413 response reports as 8,000 tokens:
+#
+#     "Request too large for model `openai/gpt-oss-120b` ... on tokens per
+#      minute (TPM): Limit 8000, Requested 13003"
+#
+# prompts/router.txt is 13,003 request tokens. It has been over the cap since
+# roughly 2026-08-25 — three rounds of Gold-QA few-shot additions took it from
+# ~9,300 to ~12,300 estimated tokens — so `escalate_to_cloud_on_failure=True`
+# below, this file's documented safety net for "the local model produced no
+# usable JSON three times running", has been returning 413 before the model
+# read a single token, silently, for weeks. The comment further down recording
+# "total request tokens landed at 7802, under the 8000 cap" was a true
+# measurement of a prompt that no longer exists.
+#
+# It fails all the way down: `client.py::_is_payload_too_large()` correctly
+# recognises the 413 and fails over to the other provider, but Gemini on this
+# machine is one key at 429 and three keys at 401 (Module 92's defect list), so
+# the escalation ends in an exception and `route_query()` falls back to the
+# blind low-confidence RAG default at the bottom of this function — the exact
+# outcome the escalation was added to prevent.
+#
+# router_compact.txt carries the same nine route definitions and the same 74
+# few-shot examples, compressed from a JSON object each to one
+# `"query" -> ROUTE [non-default fields]` line. ~2,500 tokens, so a cloud
+# router request is ~2,900 and is accepted — verified live, 2.1 s, no 413.
+#
+# SCOPE, AND WHY IT IS THIS NARROW. Module 92 measured sending this compact
+# prompt on the LOCAL path too. On route accuracy it looked like a clear win
+# (paraphrases keeping their gold route 55/96 -> 61/96, with no gold question
+# and no paraphrase regressing). Judged on ANSWERS it was a net regression:
+# CR3 and G6 stopped reaching XNETWORK and started abstaining from RAG with
+# "no sufficiently relevant documents", and G6's English paraphrase reached
+# DIRECT and invented an ungrounded welcome note — the precise failure
+# router.txt's own DIRECT rule exists to forbid. The cause is identifiable:
+# the compact prompt drops router.txt's trailing `ACTIVE_CASE:` examples,
+# three of which are gold questions verbatim and were doing real work. So the
+# local path keeps the prompt that produces the better answers, the cloud path
+# gets the only prompt it can physically accept, and Module 92's headline
+# finding — that route accuracy is not a proxy for answer quality — is
+# recorded in MODULE92_RESULT.md rather than shipped as a regression.
+_COMPACT_PROMPT_PATH = _PROMPT_PATH.parent / "router_compact.txt"
+_CLOUD_SYSTEM_PROMPT = _COMPACT_PROMPT_PATH.read_text(encoding="utf-8")
+
 _VALID_ROUTES = ["DIRECT", "RAG", "WEB", "SQL", "GRAPH", "GRAPH_HYBRID", "XGRAPH", "XAGG", "XNETWORK"]
 
 # ── Deterministic pre-classification for unambiguous cross-case aggregate/
@@ -489,6 +537,187 @@ def _structured_identifier_in(query: str) -> str | None:
     return None
 
 
+# [Gold-QA fix — Module 60, question M4; WIDENED by Module 67] The aggregate
+# kinds a query may be routed to XAGG *by name*, asked of XAGG's own dispatch
+# chain (`resolve_aggregate_kind()`) rather than of a regex in this file.
+#
+# WHY AN ALLOW-LIST AND NOT `resolves_to_specific_aggregate()`. Module 60
+# measured the broad form — "route to XAGG whenever XAGG resolves to
+# something specific" — over all 32 gold questions and rejected it: it moves
+# SEVEN, and two of those seven are wrong. Module 67 re-measured the same
+# seven and found the split is entirely at the level of the *kind*, not the
+# question, so naming the kinds keeps the five correct moves and drops the
+# two wrong ones:
+#
+#   MOVED, and each one is a question whose gold answer is a single
+#   cross-case aggregate that already has a purpose-built XAGG family behind
+#   it, measured live-correct by an earlier module:
+#     statute_court_stage_join           M4  — Module 24/60 (already shipped)
+#     station_caseload_by_specialisation M2  — Module 44/56/58
+#     incident_to_report_minutes_by_year M7  — Module 22/43
+#     criminal_record_local_match_gap    CS4 — Module 44
+#     weapon_recovery_rate_by_district   CP1 — Module 55
+#
+#   EXCLUDED BY NAME, with the reason recorded so a later module cannot
+#   "tidy" them back in:
+#     gender_breakdown        — the resolver's known false positive. KB5 is a
+#         legal-KB question about violence against women and resolves here on
+#         vocabulary alone; A1 is a genuine gender count and resolves here
+#         correctly. The two are indistinguishable AT THIS KIND, so neither is
+#         routed. A1 therefore keeps whatever the LLM router says — recorded
+#         as remaining exposure in MODULE67_RESULT.md, not silently fixed.
+#     case_completeness_scan  — G1 resolves here, and G1's gold answer is a
+#         five-part Meta-Analysis synthesis (Modules 31–34/50), not one
+#         aggregate. Including the kind would buy nothing — G2, which
+#         legitimately IS this aggregate, already reaches XAGG through its own
+#         `_XAGG_OVERRIDE_PATTERNS` entry — while pinning a deterministic
+#         route onto a question with live defects still open (Module 71) that
+#         no measurement in this module covers. Measured, so the claim is not
+#         overstated: G1's live route is ALREADY XAGG (2 of 2 runs, from the
+#         LLM) and it still dispatches to Meta-Analysis, because
+#         `_xagg_answers_in_one_call(G1)` is False — so capturing it would
+#         probably be harmless. "Probably harmless and useless" is not a
+#         reason to widen a router.
+#
+# Measured blast radius over all 32, before -> after: M2, M7, CS4, CP1 move
+# from "no deterministic override" to XAGG; M4 was already moved by Module
+# 60; the other 27 are byte-identical. Pinned by
+# `test_module67_all_32_gold_questions_route_exactly_as_measured`.
+_XAGG_ROUTE_OVERRIDE_KINDS: frozenset[str] = frozenset({
+    "statute_court_stage_join",
+    "station_caseload_by_specialisation",
+    "incident_to_report_minutes_by_year",
+    "criminal_record_local_match_gap",
+    "weapon_recovery_rate_by_district",
+})
+
+# Kinds deliberately NOT in the set above. Kept as a named constant purely so
+# the exclusion is executable — `test_module67_the_two_excluded_kinds_stay_
+# excluded` asserts these never appear in `_XAGG_ROUTE_OVERRIDE_KINDS`.
+_XAGG_ROUTE_OVERRIDE_EXCLUDED_KINDS: frozenset[str] = frozenset({
+    "gender_breakdown",
+    "case_completeness_scan",
+})
+
+
+# [Gold-QA fix — Module 60, question M4; widened by Module 67] Asks XAGG's
+# own dispatch chain which aggregate it would send this query to, and returns
+# that kind only if it is one this file is allowed to route on. Imported
+# lazily so this module keeps its current import graph (router.py is imported
+# very early; xagg.py pulls in the graph/database layers) and so a
+# broken/absent xagg can never take the router down — a failed import simply
+# leaves routing exactly as it was.
+def _resolved_xagg_override_kind(query: str) -> str | None:
+    try:
+        from src.pipeline.xagg import resolve_aggregate_kind
+    except Exception:  # pragma: no cover - defensive
+        logger.warning(
+            "router: could not import resolve_aggregate_kind; "
+            "leaving deterministic routing unchanged."
+        )
+        return None
+    kind = resolve_aggregate_kind(query)
+    return kind if kind in _XAGG_ROUTE_OVERRIDE_KINDS else None
+
+
+def _resolves_to_statute_court_stage_join(query: str) -> bool:
+    """Module 60's original, narrower predicate. Kept because Module 60's own
+    regression tests are written against it and must keep passing unchanged —
+    it is now one member of the allow-list above, not the whole rule."""
+    return _resolved_xagg_override_kind(query) == "statute_court_stage_join"
+
+
+# [Gold-QA fix — Module 78, questions KB3 and KB9] The compound legal-KB
+# question — "what does the law/rule require, AND does our own record match
+# it?" — asked of `rag.py`'s OWN gate rather than of a new regex in this file.
+#
+# THE DEFECT, bisected rather than assumed. Module 27 measured KB3 -> XNETWORK
+# and KB9 -> XAGG on three passes, and Module 77 proved the questions are
+# answerable by paraphrasing them: an ordinary English rewording of each
+# reaches RAG and fires its `_KB_DATA_HALF_PLANS` entry 2/2, P-KB3 answering
+# with gold's own "68 out of 74 recorded assignment pairs (92%)". Module 78
+# closed the remaining gap in the causal chain by measuring the two candidate
+# variables separately, 3 runs each:
+#
+#   * The QUERY REWRITER is not the variable. `rewrite_query()` returns KB3's
+#     and KB9's gold text BYTE-IDENTICAL on 3 of 3 runs, and the route is the
+#     same whether `route_query()` is given the gold string or the rewriter's
+#     output. The rewriter had to be excluded explicitly: `orchestrator.py`
+#     routes on `rewritten_query`, not on what the user typed, so "the router
+#     discriminates on the gold wording" was not yet established.
+#   * The LLM CLASSIFIER is the variable, and its own `reason` field says why.
+#     For KB3 it returns *"an open-ended synthesis of cross-case data"*; for
+#     KB9, *"a cross-case aggregate question ... specifically mentions that
+#     there are many such cases"*. Both questions carry a trailing clause that
+#     scopes their DATA half across the whole caseload ("does that match what
+#     actually happens in our data", "khaas tor par jab hamare itne cases mein
+#     maut shamil hai"), and the classifier weighs that scope cue above the
+#     legal-norm half — so it classifies the second clause of the question and
+#     drops the first. Module 77's paraphrases route RAG 3/3 precisely because
+#     they carry no such whole-caseload cue. This is not day-to-day
+#     instability: 3/3 XNETWORK, 3/3 XAGG, 3/3 RAG, 3/3 RAG, temperature 0.
+#
+# WHY THE ROUTE AND NOT THE PROMPT. The instinct is to add a router.txt
+# few-shot. This file's own opening comment records that being tried and
+# failing for other shapes — the local Qwen3-14B defaults past prompt
+# instructions "including the router prompt's OWN literal few-shot example
+# verbatim". A prompt edit is also unmeasurable in the equality control the
+# brief requires, because every one of the 32 routes would then depend on an
+# LLM call. The deterministic layer is where a confirmed, reproducible
+# misclassification class belongs; that is the whole justification for the
+# four override lists above.
+#
+# WHY `_is_legal_kb_intent()` AND NOT A NEW REGEX. This is Module 60/67's
+# resolver-gated pattern, one route over. Module 60 routes to XAGG by asking
+# XAGG's own dispatch chain "would you answer this?"; this asks `rag.py`'s own
+# KB gate "would you treat this as a legal-KB question?" — the SAME predicate
+# that decides whether the RAG tool searches the legal-KB corpus (Module 8c),
+# generates statute hypotheses (Module 30), renders the query into English
+# (Module 52) and runs a `_KB_DATA_HALF_PLANS` entry (Modules 39/77). Routing
+# to RAG exactly when that gate is True cannot drift from what RAG will
+# actually do with the question, and it needs no vocabulary of its own — the
+# failure mode Modules 41, 56, 62, 74 and 77 have now each independently
+# recorded, where a pattern list written from one gold string reaches that
+# string and very little else.
+#
+# MEASURED BLAST RADIUS over all 32 gold questions: `_is_legal_kb_intent()` is
+# True for exactly the eight KB questions and False for the other 24. Two
+# routes CHANGE — KB3 (XNETWORK -> RAG) and KB9 (XAGG -> RAG), the two this
+# module exists to fix. Six become DETERMINISTIC at the route they already
+# reached through the LLM (KB1, KB2, KB4, KB5, KB6, KB8) — the same route,
+# now not a coin flip: Module 68 measured this classifier returning 6 RAG / 2
+# XAGG over eight calls on one such string. Pinned by
+# `test_module78_all_32_gold_questions_route_exactly_as_measured`.
+#
+# PLACED LAST, after every other override loop, and that placement is
+# load-bearing rather than stylistic. It means this override can only ever
+# fire where `_deterministic_route_override()` currently has NO opinion at
+# all — so it is structurally incapable of moving a question that any existing
+# override already decides, whatever a future widening of the KB gate does.
+# G5's weapon-compliance scan, G3's court-readiness scan, CR7's cross-check
+# and M4's statute/court join all keep their own entries above by
+# construction, not by the KB gate happening to say False for them today.
+# It also sits below the `case_id or _ACTIVE_CASE_RE` short-circuit, so a
+# question asked inside a case-scoped chat is still GRAPH's.
+def _is_legal_kb_question(query: str) -> bool:
+    """
+    True when `rag.py`'s own `_is_legal_kb_intent()` would treat this query as
+    a legal-KB question. Imported lazily for the same two reasons Module 60's
+    `_resolved_xagg_override_kind()` gives: `router.py` is imported very early
+    and `rag.py` pulls in the retrieval stack, and a broken or absent import
+    must leave routing exactly as it was rather than take the router down.
+    """
+    try:
+        from src.pipeline.harness.tools.rag import _is_legal_kb_intent
+    except Exception:  # pragma: no cover - defensive
+        logger.warning(
+            "router: could not import _is_legal_kb_intent; "
+            "leaving deterministic routing unchanged."
+        )
+        return False
+    return bool(_is_legal_kb_intent(query))
+
+
 def _deterministic_route_override(query: str, case_id: str | None = None) -> dict | None:
     """
     Return a route dict for an unambiguous cross-case pattern, or None.
@@ -572,6 +801,80 @@ def _deterministic_route_override(query: str, case_id: str | None = None) -> dic
                 "station": None, "district": None,
             }
 
+    # [Gold-QA fix — Module 60, question M4] Checked immediately before the
+    # XAGG pattern list, and deliberately NOT as another regex entry in it.
+    #
+    # THE DEFECT. The tracker recorded M4 as skipping Meta-Analysis
+    # decomposition since Module 41. Live it never did — 7 runs of 7, across
+    # two code states. Module 41's guard in `harness/supervisor.py` is
+    # conditional on `route == "XAGG"` (its own comment explains why: so it
+    # can never suppress a genuine decomposition for an XGRAPH/XNETWORK
+    # comparison), and the LLM router classifies M4's Urdu gold text as
+    # **XNETWORK**. `resolve_aggregate_kind()` reports
+    # `statute_court_stage_join` with a purpose-built one-call aggregate
+    # behind it, but the route precondition fails first, so that resolution
+    # is never consulted. Reading the resolver in isolation gives the wrong
+    # answer; only the live route does.
+    #
+    # WHY THE ROUTE, AND NOT THE GUARD. Module 60 weighed three options
+    # (GOLD_QA_REMAINING_FIXES_PLAN.md has them). Widening the guard past
+    # `route == "XAGG"` does not actually help: with route XNETWORK the
+    # supervisor's fallthrough is `_ROUTE_TO_SUBAGENT["XNETWORK"]` —
+    # Cross-Case Linkage / Global Search — so skipping decomposition would
+    # send M4 somewhere that still cannot reach its aggregate, while
+    # repealing the guard's stated protection for every other cross-case
+    # route. Fixing the ROUTE is the only option that puts M4 in front of
+    # the aggregate that was built for it, and it leaves Module 41's guard
+    # exactly as written: the guard then fires for M4 on its own terms.
+    #
+    # WHY `resolve_aggregate_kind()` AND NOT A NEW REGEX. Module 41 made
+    # that function the single source of dispatch truth and Module 62 warns
+    # that widening pattern lists measures nothing. Asking XAGG's own chain
+    # "would you dispatch this to M4's aggregate?" cannot drift from what
+    # XAGG will actually do, and it inherits every precedence rule ABOVE
+    # `_is_statute_court_stage_join()` in that chain for free — G3's
+    # court-readiness scan and CR7's criminal-record cross-check are both
+    # resolved earlier and so can never reach here. (The G3/M4 keyword
+    # collision is PR #8's precedent and the reason this is gated on the
+    # resolver rather than on the word "court".)
+    #
+    # DELIBERATELY ONE KIND, NOT `resolves_to_specific_aggregate()`. The
+    # broad form — "route to XAGG whenever XAGG resolves to something
+    # specific" — was measured against all 32 gold questions and moves
+    # SEVEN of them, including KB5 (a legal-KB question that resolves to
+    # `gender_breakdown` purely as a resolver false positive) and G1/M2/M7.
+    # That is a demonstration that `resolves_to_specific_aggregate()` is not
+    # a safe routing signal, and the reason this override names exactly one
+    # aggregate kind. Measured blast radius over all 32: M4 alone.
+    #
+    # Placed AFTER the XNETWORK loop so XNETWORK's stated precedence over
+    # XAGG is untouched, and after the active-case short-circuit above so a
+    # within-case "how far did this case get in court?" is still GRAPH.
+    #
+    # [Module 67] WIDENED from one aggregate kind to the named allow-list
+    # `_XAGG_ROUTE_OVERRIDE_KINDS` above. Module 67 measured the same defect
+    # Module 60 recorded for M4 on four more questions — M2, M7, CS4 and CP1
+    # are cross-case aggregates with purpose-built XAGG families, none of them
+    # had a deterministic override, and all four were therefore left to the
+    # same flaky LLM classification that sent M4 to plain RAG for ~8 minutes
+    # and a hard failure. This is NOT the broad `resolves_to_specific_
+    # aggregate()` form Module 60 rejected: the two kinds that produced that
+    # form's wrong moves (KB5's `gender_breakdown`, G1's
+    # `case_completeness_scan`) are excluded BY NAME, with the reason recorded
+    # next to the allow-list, and the all-32 equality control names every
+    # question that moves.
+    resolved_kind = _resolved_xagg_override_kind(query)
+    if resolved_kind is not None:
+        return {
+            "route": "XAGG", "case_scope": "cross_case", "target_entity": None,
+            "output_format": "chat", "target_year": None, "confidence": "high",
+            "reason": (
+                "Deterministic override: XAGG resolves this to its purpose-built "
+                f"'{resolved_kind}' aggregate (Module 60, widened by Module 67)"
+            ),
+            "station": None, "district": None,
+        }
+
     # XAGG checked next: "recurring vehicles across cases" matches both an
     # XAGG pattern (recurring-entity aggregate) and the XGRAPH "across ...
     # cases" pattern, and per router.txt's own examples ("top recurring
@@ -606,6 +909,42 @@ def _deterministic_route_override(query: str, case_id: str | None = None) -> dic
                 "reason": "Deterministic override: unambiguous cross-case recurrence trigger language detected before the LLM call",
                 "station": None, "district": None,
             }
+
+    # [Gold-QA fix — Module 78, questions KB3/KB9] LAST, deliberately — see
+    # `_is_legal_kb_question()`'s own comment block above for the bisect that
+    # established the LLM classifier (not the rewriter) as the variable, why
+    # this asks `rag.py`'s gate instead of adding a sixth pattern list, and
+    # why "after every other override" is the property that bounds the blast
+    # radius rather than a measurement that happens to come out clean today.
+    #
+    # THE `this X` GUARD IS NOT DECORATION — it is a regression this module
+    # caused and the existing suite caught. `rag.py`'s `_CASE_ANCHOR_RE`
+    # recognises `CASE-009`, a bare `891/24`, "this case" and "in case", but
+    # not "this WEAPON" / "this accused" — it never had to, because that gate
+    # runs inside a tool that already knows its own scope. Used as a ROUTING
+    # signal it does: findings.md Module 7's own live-tested compound example,
+    # "What is this weapon's condition, and what PPC section covers illegal
+    # possession of an unlicensed firearm?", trips `_LEGAL_KB_INTENT_PATTERNS`
+    # on the bare token "PPC" and was pulled to RAG, silently dropping the
+    # `secondary_methods` half only the LLM call can populate
+    # (`test_sql_override_skips_for_a_compound_question_naming_this_x_first`).
+    # `_SQL_OVERRIDE_COMPOUND_THIS_X_RE` is the router's own, stricter notion
+    # of "this names a case-specific instance", already written for exactly
+    # this purpose one override up; reusing it keeps the two in lockstep
+    # rather than adding a second, drifting copy. None of the eight gold KB
+    # questions names a "this X", so the guard costs nothing measured — it
+    # bounds the paraphrase space, which is the bar this module is held to.
+    if _is_legal_kb_question(query) and not _SQL_OVERRIDE_COMPOUND_THIS_X_RE.search(query):
+        return {
+            "route": "RAG", "case_scope": "within_case", "target_entity": None,
+            "output_format": "chat", "target_year": None, "confidence": "high",
+            "reason": (
+                "Deterministic override: rag.py's own legal-KB gate claims this "
+                "question, so the KB corpus/statute-hypothesis/data-half path is "
+                "the one that can answer it (Module 78)"
+            ),
+            "station": None, "district": None,
+        }
     return None
 
 
@@ -729,6 +1068,11 @@ async def route_query(rewritten_query: str, case_id: str | None = None) -> dict:
             and r["route"].strip().upper() in _VALID_ROUTES
         ),
         schema_hint='"route", "case_scope", "target_entity", "output_format", "target_year", "confidence", "reason", "secondary_methods"',
+        # [Module 92] Cloud-only prompt. The local attempts above still receive
+        # `_SYSTEM_PROMPT` unchanged — see `_CLOUD_SYSTEM_PROMPT`'s comment for
+        # why the cloud path cannot, and for why this is deliberately not
+        # applied to local as well.
+        cloud_system_prompt=_CLOUD_SYSTEM_PROMPT,
         _call_llm=call_llm,
         # Router-specific opt-in (unlike evaluator/query_rewriter, which do
         # NOT set this — see call_llm_json's own docstring for why blanket

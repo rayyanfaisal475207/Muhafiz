@@ -89,10 +89,19 @@ THREE STAGES:
    one level up. All N dispatches run concurrently via `asyncio.gather` over
    these non-raising wrappers — one bad sub-query can never take the others
    down, and every outcome (success, empty, denied, abstained, timed-out)
-   reaches stage 3, disclosed, never silently dropped. Bounded at
+   reaches stage 3, disclosed, never silently dropped. [Module 53] The
+   `asyncio.wait_for` deadline here is SHARED by the whole fan-out and
+   starts at fan-out, so it measures QUEUE POSITION against a model server
+   that serialises the sub-queries — a sub-query is killed for being served
+   last, not for being slow. A sub-agent that had already computed a
+   deterministic result before being cancelled now serves that result raw
+   instead of contributing nothing; see `agents/_salvage.py`. Bounded at
    `_MAX_SUB_QUERIES` (5, per findings.md's own suggested cap and the
    approved plan) — the decomposer prompt is instructed to stay within this,
-   and this module hard-truncates defensively if it doesn't.
+   and this module hard-truncates defensively if it doesn't. A
+   DETERMINISTIC plan is bounded by `_MAX_PLAN_SUB_QUERIES` instead
+   ([Gold-QA fix — Module 50]): same number, different justification, and
+   see that constant for the measurement that fixes it at 5.
 
 3. AGGREGATE / SYNTHESIZE. See `_bucket_outcomes()`/`meta_analysis()` for
    the full status-mapping bucket list. In short: a sub-query that produced
@@ -124,6 +133,18 @@ THREE STAGES:
    [PRESERVE — design §3] never raw chunk text) — the pseudo-chunk *is* the
    sub-answer text, by construction, not a shortcut around fetching real
    evidence.
+
+   [Gold-QA fix — Module 71] If that synthesis pass is REJECTED by the
+   verifier, this module no longer returns a bare ABSTAINED (which
+   `cutover.py` renders as `status=error`). It returns `PARTIAL` carrying a
+   deterministic composition of the contributing sub-answers — each of
+   which already passed its own sub-agent's verifier — with a caveat saying
+   the synthesis across them is missing. The rejected text is DROPPED and
+   never served, so "an answer that failed verification is never served"
+   holds unchanged; what is served is the evidence underneath it. Same
+   instinct and deliberately the same shape as `large_scale_aggregate.py`'s
+   raw-aggregate fallback for a rejected paraphrase and Module 53's for a
+   cancelled one. See the branch itself for the full reasoning.
 
    If ALL contributing sub-queries are legitimate EMPTY (nothing found
    anywhere, and nothing genuinely failed either), this module returns
@@ -190,6 +211,7 @@ from typing import Optional
 from src import config
 from src.data_gateway.base import DataGateway
 from src.llm.client import call_llm
+from src.pipeline.harness.agents import _salvage
 from src.pipeline.harness.supervisor import META_ANALYSIS, Supervisor, register
 from src.pipeline.harness.types import (
     ANSWER_MAX_TOKENS,
@@ -205,7 +227,7 @@ from src.pipeline.harness.types import (
 )
 from src.pipeline.json_extract import call_llm_json
 from src.pipeline.validation import caveats_for_validation, validate_answer
-from src.pipeline.verifier import verify_grounding
+from src.pipeline.verifier import EXHAUSTIVE_SCOPE_META_KEY, verify_grounding
 
 logger = logging.getLogger(__name__)
 
@@ -219,6 +241,100 @@ _DECOMPOSER_SYSTEM_PROMPT = _PROMPT_PATH.read_text(encoding="utf-8")
 # this; this module hard-truncates defensively if it doesn't, rather than
 # rejecting the whole decomposition outright over a prompt-compliance slip.
 _MAX_SUB_QUERIES = 5
+
+# [Gold-QA fix — Module 50] The SAME number, for a DIFFERENT reason, and
+# split out so the two reasons can move independently.
+#
+# `_MAX_SUB_QUERIES` above bounds an UNTRUSTED list — whatever the decomposer
+# LLM happened to emit. `_MAX_PLAN_SUB_QUERIES` bounds a hand-authored,
+# code-reviewed `_DecompositionPlan`. Before this split, a plan was silently
+# truncated by the LLM-path cap: appending Modules 31–34's four sub-queries
+# to `caseload_review` would have produced a 9-entry plan of which only the
+# first FIVE ever dispatched, with nothing anywhere saying so. That is the
+# worst available failure mode — a wiring module whose wiring is invisibly
+# discarded — so plans are now truncated against their own constant and a
+# unit test asserts no plan ever exceeds it (a plan that did would be a
+# code bug, not a runtime surprise).
+#
+# MEASURED, on this branch, port 8013, 2026-09-08 — see MODULE50_RESULT.md §2
+# for the full table. The binding constraint is NOT model cost, it is the
+# 60 s `META_ANALYSIS_SUBQUERY_TIMEOUT`, which every sub-query in a fan-out
+# shares as a single WALL-CLOCK deadline from the moment `asyncio.gather()`
+# starts:
+#
+#   - Dispatched ALONE, each of the six new sub-queries costs 12.1–26.1 s
+#     (mean 18.3 s) end to end.
+#   - Dispatched CONCURRENTLY they do NOT overlap. The shared model server
+#     serialises them: at N=5, G1's five sub-answers completed at +25.0,
+#     +33.4, +44.3, +50.9 and +56.7 s after the plan matched — a near-linear
+#     ~10 s per sub-query staircase, finishing 3.3 s inside the 60 s budget.
+#   - So the ceiling is arithmetic, not a matter of taste:
+#     60 s / ~10 s per sub-query ≈ 6, and the 6th lands ON the deadline.
+#     N=9 was then run live and behaved exactly as that predicts — see §2.
+#
+# Raising this number therefore does not buy more coverage; it buys TIMEOUTS,
+# and a timed-out sub-query contributes a caveat instead of its finding, so
+# the aggregate that was wired in is precisely the one that goes missing.
+# Five is kept, and `caseload_review` is RE-COMPOSED rather than extended —
+# see that plan's own comment for which five and why.
+#
+# [Module 53 — WHAT CHANGED, and what did NOT.] The clause above, "a
+# timed-out sub-query contributes a caveat instead of its finding", is no
+# longer unconditionally true: a sub-query whose deterministic aggregate had
+# already computed now contributes that aggregate raw (see `_dispatch_one()`
+# and `agents/_salvage.py`), and `config.META_ANALYSIS_SUBQUERY_TIMEOUT`
+# went 60 -> 150 s. Five is STILL kept and this constant is deliberately NOT
+# raised here: Module 50's arithmetic was about the deadline, but the other
+# two costs it names — model spend and the user's wall-clock wait — are
+# unchanged by Module 53, and salvage degrades an answer's PROSE rather than
+# preventing the underlying serialisation. Reconsidering the cap needs its
+# own measurement of the post-Module-53 staircase, which Module 53 did not
+# do; it is left as tracked work rather than changed on inference.
+#
+# [Gold-QA fix - Module 110] RAISED 5 -> 8, and this is the one paragraph in
+# this file that had to change before G6 could be fixed at all - so the
+# reasoning is here rather than in a commit message.
+#
+# WHY THE COVERAGE FIX COULD NOT AVOID IT. Module 110 owns "G6's
+# `orientation_note` plan computes five of gold's seven findings". Each of
+# those five sub-queries carries exactly ONE of gold's findings, so there is
+# no weak slot to re-compose into: any swap trades one gold finding for
+# another and nets zero. At `_MAX_PLAN_SUB_QUERIES = 5` G6 cannot exceed five
+# of seven, whatever the plan is composed of. The cap IS the defect; the plan
+# composition is not.
+#
+# WHY 8 AND NOT 9. Module 59 is the tracked work this paragraph asked for
+# ("measure the post-Module-53 staircase at N=6..9, then decide"), and it is
+# not fully discharged here - Module 110 measured N=8 on G6, not the whole
+# ladder. What DOES bound the number is this file's own existing invariant,
+# asserted in `tests/test_harness_agent_meta_analysis.py::
+# test_module53_subquery_timeout_leaves_headroom_over_the_measured_staircase`:
+# `_MAX_PLAN_SUB_QUERIES` x 12 s (Module 50's staircase step, rounded up) x
+# 1.5 headroom must fit inside `META_ANALYSIS_SUBQUERY_TIMEOUT`. At 150 s
+# that permits 8 (144 s) and REFUSES 9 (162 s). So 8 is not a taste
+# judgement - it is the largest value the deadline arithmetic already in
+# this repo allows, and the test that encodes it fails if a later module
+# raises the cap without also moving the deadline.
+#
+# WHAT THAT LEAVES OUT, stated plainly. Gold's accused-profile finding has
+# three components - "mostly men", "aged 25-40", "usually strangers to the
+# complainant". Two of the three fit (`_SQ_ACCUSED_AGE`, `_SQ_RELATIONSHIP`).
+# `_SQ_GENDER` - which Module 50 dropped from THIS plan and Module 59 records
+# as the first thing to go back in if the cap rises - still does not fit, and
+# it is the best-covered of the three (91 of 94 accused entries record a
+# gender, against 17 of 92 for age). It stays out because the ninth slot does
+# not exist, not because it lost on merit. See MODULE110_RESULT.md Section 8.
+#
+# WHAT MEASUREMENT SUPPORTS IT. Module 110 ran G6 six times before and six
+# times after, in process, recording the model that answered each run (see
+# `evaluation/module110_live_run.py` - `call_llm()`'s silent Groq fallback
+# invalidated Module 101's first eight runs, so it is captured, not assumed).
+# The numbers are in MODULE110_RESULT.md Section 4. The risk this had to
+# clear is NOT the deadline but Module 83's length-sensitive synthesis
+# collapse: three more sub-answers is a longer synthesis prompt, which is the
+# exact stressor Module 83 measured (3 of 4 collapsing at the old length, 4
+# of 4 lengthened).
+_MAX_PLAN_SUB_QUERIES = 8
 
 # Self-contained, sub-agent-scoped synthesis prompt — inline template, NOT
 # an external prompts/*.txt file. See module docstring's stage-1 note for
@@ -256,14 +372,34 @@ _SYNTHESIS_SYSTEM_PROMPT_TEMPLATE = (
     # This is the same Module 25 verifier-interaction family (M2), and the
     # M2 regression is re-run against this wording — see this module's
     # result file.
-    "Check both of these before you answer:\n"
+    # [Gold-QA fix — Module 71] Rule 2 used to read "every number you state
+    # appears literally in a sub-answer above", and that is exactly the rule
+    # G1's fabricated figure SATISFIED. G1 fans out to five aggregates over
+    # five DIFFERENT populations — 73 cases, 92 accused, 45 property entries
+    # across 28 FIRs, per-accused FIR counts — so a total lifted from one
+    # sub-answer and attached to another's subject passes an "appears
+    # somewhere above" test while being false. Module 61's regression guard
+    # caught the result live: *"the 73-case total for seized property"*, a
+    # number that appears above (it is the corpus case count) but is not
+    # what the seized-property aggregate computed. The rule is therefore
+    # scoped to the DOCUMENT, not the page. `_misattributed_figures()`
+    # measures the same property on the produced answer, so a future
+    # recurrence names itself in the log instead of arriving as a bare
+    # rejection.
+    "Check all three of these before you answer:\n"
     "1. Every sentence that states a fact carries the [Document N] marker of "
     "the sub-answer it came from. An answer that cites no [Document N] at all "
     "is rejected outright as ungrounded, however good it is.\n"
-    "2. Every number you state appears literally in a sub-answer above. Do "
-    "not add up, average, or convert figures into percentages yourself — a "
-    "derived number that appears in no sub-answer is treated as unsupported "
-    "and the whole answer is rejected."
+    "2. Every number you state appears literally in THE SUB-ANSWER YOU CITE "
+    "FOR IT — not merely somewhere above. Each sub-answer counts a different "
+    "population, so a figure belongs only to the document it came from. Never "
+    "carry a total, a denominator or a coverage figure from one [Document N] "
+    "onto a subject described by another: if the sub-answer about one topic "
+    "does not say how many records its finding covers, state the finding "
+    "without a total rather than borrowing one from a different sub-answer.\n"
+    "3. Do not add up, average, or convert figures into percentages "
+    "yourself — a derived number that appears in no sub-answer is treated as "
+    "unsupported and the whole answer is rejected."
 ) + NAME_FIDELITY_RULE
 
 _NO_INFO_SUBANSWER_TEXT = "No information was found for this sub-question."
@@ -407,6 +543,49 @@ _SQ_CRIMINAL_RECORD_VS_COURT = (
     "How many cases in the criminal record system have a court outcome that matches "
     "the recorded conviction status, across all cases?"
 )
+# [Gold-QA fix - Module 110] G6's court-stage element, and a DIFFERENT
+# question from `_SQ_CRIMINAL_RECORD_VS_COURT` above even though both resolve
+# to the same aggregate (`criminal_record_court_crosscheck`). This distinction
+# was not designed, it was MEASURED: Module 110's first after-arm dispatched
+# `_SQ_CRIMINAL_RECORD_VS_COURT` and the synthesis carried the wrong half of
+# the answer in 6 runs of 6 - "of 33 criminal records, only 1 has a court
+# outcome matching the recorded conviction status" - because that is what the
+# sub-question ASKS. It is CR7's question. The sub-agent paraphrases the
+# aggregate to answer the question it was given, so the aggregate's other
+# half, the one gold's G6 states ("32 of 33 are still in progress"), never
+# reached the synthesis prompt at all. Dispatching the right aggregate is not
+# sufficient; the sub-question has to ask for the half the plan needs.
+#
+# Checked against the resolver before being committed, per this file's
+# convention, and against `router._deterministic_route_override()` too - the
+# obvious phrasing "How many criminal records are still under trial ..."
+# resolves to the right aggregate but routes XGRAPH, which is exactly the
+# override-order trap the Modules 31-34 comment block above documents. This
+# wording leads with "How many cases" for that reason.
+#
+# THEN CHECKED AGAINST A LIVE SUB-ANSWER, which is the step that actually
+# settled the wording, and which resolving alone would not have caught. Three
+# candidates all resolve to `criminal_record_court_crosscheck` and all route
+# XAGG, and they produce three DIFFERENT sub-answers, because the sub-agent
+# paraphrases the rendered aggregate to answer the question it was handed:
+#
+#   "...have a court outcome that MATCHES the recorded conviction status"
+#       -> "out of 33 criminal records, 1 case (FIR 891-24) has a court
+#          outcome that matches" - CR7's answer, not G6's
+#   "...record a conviction status, and how many of those are STILL IN
+#    PROGRESS rather than decided"
+#       -> "out of 33 criminal records, 1 case records a conviction status"
+#          - and that is also WRONG, not merely off-target
+#   the wording below
+#       -> "out of 33 criminal records, 32 are still in progress and 1 has
+#          reached a verdict" - gold's finding, verbatim from the renderer
+#
+# A sub-query is not verified by the aggregate it resolves to. It is verified
+# by the sub-answer it comes back with.
+_SQ_COURT_STAGE = (
+    "How many cases in the criminal record system are still in progress in "
+    "court, and how many have reached a verdict, across all cases?"
+)
 _SQ_DISTRICT_SPREAD = "How many cases are registered in each district, across all cases?"
 _SQ_REPORTING_SPEED = (
     "How long does it typically take someone to report a crime to us these days "
@@ -432,7 +611,59 @@ _SQ_CMS_LINKAGE = (
 # and the whole answer degraded. The identification gap it was meant to
 # close is real; it needs a SUBJECT-FILTERED FIR listing aggregate (Module
 # 36 in the plan), not a whole-corpus dump inside a concurrent fan-out.
+# [Gold-QA fix — Module 50] Module 36 landed, and that filtered aggregate is
+# now wired into the record-consistency plan as `_SQ_FIR_LISTING_CYBER`
+# below. This constant stays unused, and the warning above stays true of
+# THIS string: the fix was to filter the listing, not to tolerate the dump.
 _SQ_CASE_LISTING = "Give me the list of all cases."
+
+# ── [Gold-QA fix — Module 50] The six aggregates Modules 31–36 built and
+#    live-verified, and which until this module NOTHING CALLED.
+#
+# Every string below is COPIED VERBATIM from the test that its own module
+# pinned it in (`tests/test_xagg.py`: `_G1_SQ_ACCUSED_AGE`,
+# `_G1_SQ_RELATIONSHIP`, `_G1_SQ_SEIZED_PROPERTY`, `_G1_SQ_TIME_OF_DAY`,
+# `_G6_SQ_ARREST_RATE`, `_CR3_SQ_FIR_LISTING`). They were pinned there
+# precisely so this module could copy them across unchanged, and
+# `test_module50_wired_sub_queries_are_byte_identical_to_the_pinned_strings`
+# asserts the two copies stay equal.
+#
+# DO NOT REWORD THEM. Each leads with "How many cases ..." for a reason
+# Modules 31–34 caught LIVE, not in review: `router.py`'s
+# `_XGRAPH_OVERRIDE_PATTERNS` carries `across.{0,15}cases`, which steals any
+# sub-query whose "..., across all cases?" suffix is the first override to
+# match. The first drafts ("What relationship is recorded...", "At what time
+# of day...") all came back `route='XGRAPH'`, never reached `run_aggregate()`
+# at all, and were answered by an unrelated cross-case traversal. Leading
+# with "How many cases" makes `_XAGG_OVERRIDE_PATTERNS` win outright, so
+# every one of these dispatches costs ZERO router LLM calls and cannot
+# drift. `test_module29_every_planned_sub_query_routes_deterministically_to_xagg`
+# already covers every plan member, these six included.
+_SQ_ACCUSED_AGE = (  # Module 31 -> `offender_age_profile`
+    "How many cases involve an accused person, and what is their age range "
+    "and average age, across all cases?"
+)
+_SQ_RELATIONSHIP = (  # Module 32 -> `accused_relationship_breakdown`
+    "How many cases record a relationship between the accused and the "
+    "complainant, and which relationship is it, across all cases?"
+)
+_SQ_SEIZED_PROPERTY = (  # Module 33 -> `seized_property_disposition`
+    "How many cases record seized property, and what happens to it — how "
+    "many items were sent to a forensic laboratory or held for a deceased's "
+    "heirs, across all cases?"
+)
+_SQ_TIME_OF_DAY = (  # Module 34 -> `incident_time_of_day`
+    "How many cases record an incident time, and at what time of day do "
+    "those incidents happen, across all cases?"
+)
+_SQ_ARREST_RATE = (  # Module 35 -> `arrest_rate`
+    "How many cases record an arrest of an accused person, and on how many "
+    "is no arrest recorded, across all cases?"
+)
+_SQ_FIR_LISTING_CYBER = (  # Module 36 -> `filtered_fir_listing`
+    "How many cases are registered under the cybercrime act at a cyber "
+    "crime circle station, and what are their FIR numbers and current status?"
+)
 
 _DECOMPOSITION_PLANS: tuple[_DecompositionPlan, ...] = (
     # (1) CROSS-RECORD CONSISTENCY — "were these two records processed and
@@ -441,6 +672,21 @@ _DECOMPOSITION_PLANS: tuple[_DecompositionPlan, ...] = (
     #     record-linkage cross-check applied to each. Checked first: it is
     #     the narrowest family, and a consistency question can also carry
     #     caseload vocabulary.
+    #
+    # [Gold-QA fix — Module 50] `_SQ_FIR_LISTING_CYBER` closes the
+    # IDENTIFICATION half, which Module 29 left open and named as CR3's
+    # single cause of instability: nothing in the two original sub-answers
+    # said which FIRs "the online banking fraud matter" refers to, so the
+    # synthesis model had to guess the pair, and across Module 29's runs it
+    # once refused outright and once paired `fir-64-26` with the wrong FIR.
+    # It is placed FIRST so it lands as [Document 1] and the synthesis goal
+    # can point at it by number.
+    #
+    # This is NOT `_SQ_CASE_LISTING` (see that constant's own comment for the
+    # 4.6 KB whole-corpus dump that starved its siblings). Module 36's
+    # `filtered_fir_listing` returns exactly the FIRs matching the statute
+    # and station filters — measured live on this branch at 2 rows, not 73 —
+    # so the cost that got the unfiltered listing removed does not apply.
     _DecompositionPlan(
         name="record_consistency",
         patterns=(
@@ -450,30 +696,45 @@ _DECOMPOSITION_PLANS: tuple[_DecompositionPlan, ...] = (
             re.compile(r"\bek\s*hi\s*tarah\s*(se)?\b", re.IGNORECASE),
             re.compile(r"ایک\s*ہی\s*طرح"),
         ),
-        sub_queries=(_SQ_PERSON_RECURRENCE, _SQ_CMS_LINKAGE),
+        sub_queries=(_SQ_FIR_LISTING_CYBER, _SQ_PERSON_RECURRENCE, _SQ_CMS_LINKAGE),
         synthesis_goal=(
             "Decide whether the records the user asked about were handled identically. "
-            "The sub-answers are dataset-wide lists, NOT pre-filtered to the records in "
-            "the question — locate the relevant FIR numbers inside them yourself: the "
-            "recurring-person answer names GROUPS of FIRs that share the same accused, "
-            "which is how two connected complaints show up in this data. Check each group "
-            "against the walk-in-complaint linkage list and work with the group that list "
-            "SPLITS — at least one of its FIRs present in the list, at least one absent. "
-            "A FIR that appears in that list has a matching complaint; one that does not "
-            "appear has none, and that difference IS the answer. If no group is split, the "
-            "records were handled the same way and you should say so. Never pair a FIR "
-            "from one group with a FIR from another. Say 'yes, identically' or 'no, not "
-            "identically' explicitly, name the FIR numbers, and name the specific record "
-            "(with its case tag) that exists for one and not the other. Do not reply that "
-            "the question cannot be answered merely because the sub-answers do not repeat "
+            "[Document 1] IDENTIFIES the pair: it is a filtered listing of exactly the "
+            "FIRs the question is about, so take the FIR numbers from there rather than "
+            "inferring them. Then check each of those FIRs against the walk-in-complaint "
+            "linkage list: a FIR that appears in that list has a matching complaint; one "
+            "that does not appear has none, and that difference IS the answer. The "
+            "recurring-person answer is corroboration — it shows the pair shares an "
+            "accused — not the identifier. If the linkage list contains all of the "
+            "identified FIRs, or none of them, the records were handled the same way and "
+            "you should say so. Say 'yes, identically' or 'no, not identically' "
+            "explicitly, name the FIR numbers, and name the specific record (with its "
+            "case tag) that exists for one and not the other. Do not reply that the "
+            "question cannot be answered merely because the sub-answers do not repeat "
             "its wording."
         ),
     ),
     # (2) ORIENTATION / WHAT-TO-EXPECT NOTE — "brief a newly posted officer
     #     on what this caseload is like" (G6). Decomposes into the standing
     #     shape of the caseload: how big and where, what it is made of and
-    #     how that changed, how fast things get reported, and the two
-    #     compliance/profile facts that most affect day-to-day work.
+    #     how that changed, how often an arrest actually happens, how fast
+    #     things get reported, and the compliance fact that most affects
+    #     day-to-day work.
+    #
+    # [Gold-QA fix — Module 50] `_SQ_ARREST_RATE` (Module 35) added.
+    # Module 35 confirmed live that G6 COMPLETED without it ever firing,
+    # for the simple reason that this plan did not ask for it — the
+    # aggregate existed and was correct and was unreachable.
+    #
+    # `_SQ_GENDER` was REMOVED to make room, and this is a real cost, stated
+    # plainly rather than glossed: gold's "zyada tar mulzim ... mard hain"
+    # is an element this plan no longer computes. It lost the slot on
+    # gradeable specificity — the arrest rate is a NUMBER gold states
+    # ("girftari sirf har no mein se taqreeban ek FIR par", vs this data's
+    # measured 1 in 6.6), where the gender split is a soft descriptor. Both
+    # cannot fit: N=6 was run live three times on this branch and the third
+    # run lost a sub-query to the 60 s timeout and produced an UNVERIFIABLE
+    # synthesis. See `_MAX_PLAN_SUB_QUERIES` for the full measurement.
     _DecompositionPlan(
         name="orientation_note",
         patterns=(
@@ -487,15 +748,63 @@ _DECOMPOSITION_PLANS: tuple[_DecompositionPlan, ...] = (
         sub_queries=(
             _SQ_DISTRICT_SPREAD,
             _SQ_CASE_MIX_BY_YEAR,
+            _SQ_ARREST_RATE,
             _SQ_REPORTING_SPEED,
             _SQ_WEAPON_LICENCE,
-            _SQ_GENDER,
+            # [Gold-QA fix - Module 110] The three added here are NOT new
+            # aggregates and NOT new dispatch strings: the first two are the
+            # SAME constants `caseload_review` below already dispatches for
+            # G1, referenced rather than re-worded so a reword in one plan
+            # cannot silently diverge from the other, and the third has sat in
+            # this file unused since Module 50 dropped it from G1's own
+            # re-composition. Each was checked against
+            # `xagg.resolve_aggregate_kind()` before being committed, per this
+            # file's own convention - `offender_age_profile`,
+            # `accused_relationship_breakdown`,
+            # `criminal_record_court_crosscheck` - and
+            # `test_module29_every_planned_sub_query_routes_deterministically_to_xagg`
+            # covers all three as plan members automatically.
+            #
+            # They close gold's two uncomputed findings: the accused profile
+            # (age range + who the accused are to the complainant) and "most
+            # matters are still pending in court", which the criminal-record
+            # cross-check states directly ("Of 33 criminal records, 32 are
+            # still in progress and 1 has reached a verdict").
+            #
+            # `_SQ_COURT_STAGE` is a NEW dispatch string rather than the
+            # long-declared `_SQ_CRIMINAL_RECORD_VS_COURT`, and see that
+            # constant for the six-of-six live measurement that forced the
+            # distinction: same aggregate, different half of it.
+            _SQ_ACCUSED_AGE,
+            _SQ_RELATIONSHIP,
+            _SQ_COURT_STAGE,
         ),
         synthesis_goal=(
             "Write a short orientation note for an officer joining this caseload. Say "
             "which districts the cases are concentrated in, what the case mix is now and "
-            "how it has changed, how promptly crimes are reported now compared with "
-            "earlier, and what the accused profile and weapon-licensing picture look like. "
+            "how it has changed, how often an arrest is actually recorded, how promptly "
+            "crimes are reported now compared with earlier, and what the "
+            "weapon-licensing picture looks like. "
+            # [Gold-QA fix - Module 110] The two elements the plan could not
+            # compute until this module. Asked for as SHAPES of the caseload -
+            # "who the accused tend to be", "how far cases have got in court" -
+            # not as the values gold happens to state: the note must report
+            # whatever the profile turns out to be, not be tuned to reproduce
+            # "men aged 25-40" or "most still pending".
+            "Also say what the accused tend to look like as a group - the recorded "
+            "age range and how the accused relate to the complainant, and which "
+            "relationship comes up most - and how far the cases have actually got "
+            "in court. "
+            # The coverage discipline Module 71 established for G1 applies with
+            # more force here: the age and relationship sub-answers each state
+            # a coverage figure, and each describes a small MINORITY of the
+            # accused roster. An orientation note saying "the accused are aged
+            # 24-49" without saying how few records carry an age is a claim
+            # this data does not support, and the same is true of the
+            # court-stage figure, which counts criminal records, not FIRs.
+            "Where a sub-answer says how much of the caseload its own figure covers, "
+            "carry that coverage across with it, onto that finding and no other, and "
+            "never give one finding another's denominator. "
             "Quote the per-district and per-year figures exactly as the sub-answers give "
             "them — do not total them up — and state plainly anything the sub-answers say "
             "is not available rather than guessing at it."
@@ -504,8 +813,48 @@ _DECOMPOSITION_PLANS: tuple[_DecompositionPlan, ...] = (
     # (3) WHOLE-CASELOAD REVIEW — "review the caseload and flag anything
     #     unusual or worth monitoring" (G1, and its non-gold paraphrase
     #     "look over everything currently open ... worth a second look").
-    #     Decomposes into the four computable "is anything off here?"
-    #     scans plus the case-mix shift.
+    #
+    # [Gold-QA fix — Module 50] RE-COMPOSED, not extended. This is the
+    # substantive judgement of this module, so the reasoning is recorded
+    # here rather than in a commit message.
+    #
+    # Module 29 wired five "is anything off here?" scans and its own result
+    # file graded the outcome honestly: "a real analytical answer, but not
+    # gold's analytical answer" — every claim correctly computed, and
+    # near-zero overlap with what gold actually asked for. Gold's G1 states
+    # its method in its first line: "profile the accused, the victims, the
+    # property and the timing across the 73 FIRs". Its four findings are
+    # therefore EXACTLY Modules 31-34's four aggregates, in order:
+    #   (1) offender age 24-49, mean 31.5      -> `_SQ_ACCUSED_AGE`
+    #   (2) 'stranger' dominates relationships -> `_SQ_RELATIONSHIP`
+    #   (3) 13 forensic-lab / 7 heirs items    -> `_SQ_SEIZED_PROPERTY`
+    #   (4) incident time-of-day distribution  -> `_SQ_TIME_OF_DAY`
+    #
+    # Appending them to the existing five was measured, not assumed, and it
+    # does not work: at N=9 FOUR of the nine sub-queries hit the 60 s
+    # `META_ANALYSIS_SUBQUERY_TIMEOUT` live on this branch, and two of the
+    # four killed were `_SQ_ACCUSED_AGE` and `_SQ_TIME_OF_DAY` — i.e. the
+    # wiring silently destroyed the very aggregates it was added to reach.
+    # See `_MAX_PLAN_SUB_QUERIES` for the numbers.
+    #
+    # So the fifth slot is contested, and it goes to `_SQ_PERSON_RECURRENCE`
+    # on a single criterion: it is the only one of Module 29's five that no
+    # OTHER gold question already asks in its own right. `_SQ_COMPLETENESS`
+    # is G2's literal question and `_SQ_WEAPON_LICENCE` is G5's — both now
+    # answered directly and correctly by Module 41's supervisor guard, so
+    # re-deriving them inside G1 spends a scarce slot on a fact the system
+    # already reports elsewhere. `_SQ_CASE_MIX_BY_YEAR` is owned by the
+    # orientation plan below. `_SQ_CRIMINAL_RECORD_VS_COURT` is the weakest
+    # of the four dropped and the honest reason it lost is that something
+    # had to.
+    #
+    # NOTE — DELIBERATELY NOT TUNED TOWARD GOLD. Module 34 established that
+    # gold's own finding (4), "incident times are fairly flat across the day",
+    # is a DATE-ONLY ARTEFACT: 14 of the 64 incidents carrying a datetime sit
+    # at exactly 00:00:00, and excluding those the remaining 50 lean evening
+    # (19) over afternoon (16), morning (14), night (1). The sub-query asks
+    # what the data says; the synthesis goal does not ask for "flat", and no
+    # wording here should be changed to produce it.
     _DecompositionPlan(
         name="caseload_review",
         patterns=(
@@ -520,20 +869,36 @@ _DECOMPOSITION_PLANS: tuple[_DecompositionPlan, ...] = (
             re.compile(r"غیر\s*معمولی"),
         ),
         sub_queries=(
-            _SQ_COMPLETENESS,
+            _SQ_ACCUSED_AGE,
+            _SQ_RELATIONSHIP,
+            _SQ_SEIZED_PROPERTY,
+            _SQ_TIME_OF_DAY,
             _SQ_PERSON_RECURRENCE,
-            _SQ_WEAPON_LICENCE,
-            _SQ_CASE_MIX_BY_YEAR,
-            _SQ_CRIMINAL_RECORD_VS_COURT,
         ),
         synthesis_goal=(
             "Report what actually stands out in the current caseload and what is worth "
-            "monitoring. Lead with the findings that are genuinely unusual — repeat "
-            "offenders appearing across FIRs, weapons held without a licence, records that "
-            "are incomplete, criminal-record and court outcomes that do not agree, and how "
-            "the case mix has shifted — with the exact counts from the sub-answers. Do not "
-            "pad with routine observations, and do not assert anything the sub-answers do "
-            "not contain."
+            "monitoring. Profile the people, the property and the timing, and say what "
+            "does not look routine — the age range and average age of the accused, what "
+            "relationship (if any) they have to the complainant and which relationship "
+            "dominates, what the seized-property register shows was done with the items, "
+            "what time of day incidents actually happen, and any accused recurring across "
+            "more than one FIR — with the exact counts from the sub-answers. Where a "
+            "sub-answer states how much of the caseload ITS OWN figure is based on, "
+            "carry that coverage across with it, onto that finding and no other: a "
+            "profile drawn from a minority of records is a finding about the records "
+            "as much as about the crime. "
+            # [Gold-QA fix — Module 71] The sentence above used to end at
+            # "carry that coverage across too", and the five sub-answers it
+            # is spoken over report on five different populations. A live
+            # run read it as licence to give the seized-property finding the
+            # caseload's own 73-case denominator, which no sub-answer states
+            # and the verifier correctly refused. The coverage figure travels
+            # WITH its finding or not at all.
+            "Each of these findings counts a different set of records, so never give "
+            "one finding another's total: if a sub-answer does not say how many "
+            "records its figure covers, report the figure without a denominator. "
+            "Do not pad with routine observations, and do not assert anything the "
+            "sub-answers do not contain."
         ),
     ),
 )
@@ -567,7 +932,7 @@ async def _decompose(query_text: str) -> _DecomposerResult:
         logger.info("Meta-Analysis: deterministic decomposition plan %r matched.", plan.name)
         return _DecomposerResult(
             decompose=True,
-            sub_queries=list(plan.sub_queries[:_MAX_SUB_QUERIES]),
+            sub_queries=list(plan.sub_queries[:_MAX_PLAN_SUB_QUERIES]),
             synthesis_goal=plan.synthesis_goal,
             plan_name=plan.name,
         )
@@ -615,6 +980,11 @@ class _SubQueryOutcome:
     sub_query: str
     result: Optional[SubAgentResult]
     failure_reason: Optional[str] = None  # Set iff `result` is None.
+    # [Module 53] True when `result` is not the sub-agent's own return value
+    # but the deterministic aggregate rescued from a cancelled dispatch —
+    # see `_salvage.py`. Drives the disclosure caveat and the PARTIAL status
+    # at the end of `meta_analysis()`; never means the DATA is degraded.
+    salvaged: bool = False
 
 
 async def _dispatch_one(sub_query: str, agent_input: SubAgentInput, on_event, gateway) -> _SubQueryOutcome:
@@ -638,6 +1008,11 @@ async def _dispatch_one(sub_query: str, agent_input: SubAgentInput, on_event, ga
     no live SSE consumer of this harness yet).
     """
     sub_input = agent_input.model_copy(update={"query_text": sub_query, "target_entity": None})
+    # [Gold-QA fix — Module 53] Opened BEFORE the awaited task exists, so the
+    # task's copied context shares this exact list and anything a sub-agent
+    # deposits in it survives `wait_for()`'s cancellation. One box per
+    # sub-query: each `asyncio.gather` child runs in its own Task context.
+    salvage_box = _salvage.open_slot()
     try:
         result = await asyncio.wait_for(
             Supervisor().handle(sub_input, on_event=on_event, gateway=gateway, allow_meta_analysis=False),
@@ -645,6 +1020,34 @@ async def _dispatch_one(sub_query: str, agent_input: SubAgentInput, on_event, ga
         )
         return _SubQueryOutcome(sub_query=sub_query, result=result)
     except asyncio.TimeoutError:
+        # [Gold-QA fix — Module 53] The deadline is SHARED by the whole
+        # fan-out and starts at fan-out, so it measures queue position, not
+        # this sub-query's cost. If the sub-agent had already computed a
+        # deterministic result before it was cancelled, that result is
+        # correct by construction and is served raw — the same fallback
+        # `large_scale_aggregate.py` makes on verifier rejection, for the
+        # same reason. Only the LLM paraphrase is lost.
+        salvaged = _salvage.take(salvage_box)
+        if salvaged is not None:
+            logger.warning(
+                "Meta-Analysis: sub-query timed out after %ss but a computed %s aggregate "
+                "was already available — serving it raw: %r",
+                config.META_ANALYSIS_SUBQUERY_TIMEOUT,
+                salvaged.kind or salvaged.tool,
+                sub_query[:80],
+            )
+            return _SubQueryOutcome(
+                sub_query=sub_query,
+                # OK, not PARTIAL: nothing about the DATA degraded — exactly
+                # `large_scale_aggregate.py`'s own "NOT PARTIAL" reasoning.
+                # The fan-out-level disclosure is added by `meta_analysis()`.
+                result=SubAgentResult(
+                    status=SubAgentStatus.OK,
+                    answer_text=salvaged.text,
+                    tools_used=[salvaged.tool],
+                ),
+                salvaged=True,
+            )
         logger.warning("Meta-Analysis: sub-query timed out after %ss: %r", config.META_ANALYSIS_SUBQUERY_TIMEOUT, sub_query[:80])
         return _SubQueryOutcome(sub_query=sub_query, result=None, failure_reason="timeout")
     except Exception as exc:
@@ -698,23 +1101,413 @@ def _strip_nested_citations(text: str) -> str:
     return _NESTED_CITATION_RE.sub("", text).strip()
 
 
-def _pseudo_chunk(index: int, sub_query: str, text: str) -> dict:
+def _sub_answer_is_exhaustive(result: SubAgentResult) -> bool:
+    """
+    [Gold-QA fix — Module 61] Is this sub-answer a COMPLETE enumeration over
+    its stated scope, rather than a sample of retrieved evidence?
+
+    True for exactly one shape: a sub-answer whose contributing tool is
+    XAGG and nothing else. A Large-Scale-Aggregate result is computed by
+    query over the entire corpus — `filtered_fir_listing` returns every FIR
+    matching the filter, `cms_fir_linkage` every walk-in complaint and its
+    link — so "X is not in this result" is a real finding about the corpus,
+    not an artefact of what retrieval happened to surface. That is what
+    licenses the Verifier's rule 7 (see verifier.py's Module 61 block).
+
+    Everything else is False, deliberately and by construction:
+      * RAG / GRAPH / WEB sub-answers are retrieved fragments. A negative
+        inference over one of them is exactly the hallucination the
+        Verifier exists to catch, and this function must never mark one.
+      * A MIXED sub-answer (`{"XAGG", "RAG"}`) is not exhaustive either —
+        the RAG half is a sample, and there is no way from here to tell
+        which half a given sentence came from.
+
+    The provenance is read from the sub-agent's OWN `tools_used`, which
+    RESOLVED-4 defines as the tools that actually contributed data after
+    all fallbacks resolved. Nothing is inferred from the answer text, and
+    nothing in `xagg.py` had to change: the fact this needs is already
+    recorded at the sub-agent boundary.
+
+    Known limit, recorded rather than hidden: the text handed on is the
+    XAGG agent's NL paraphrase of the computed listing, not the raw
+    rendering. Its numbers are already checked against the computed source
+    by `verify_structured_aggregate_paraphrase()`, but a paraphrase that
+    silently dropped a row would make a negative about that row look
+    confirmed. The identifier check in
+    `negative_claim_is_supported_by_exhaustive_listing()` runs against the
+    text that is actually served, which is the same text the user reads.
+    """
+    return set(result.tools_used) == {"XAGG"}
+
+
+def _pseudo_chunk(index: int, sub_query: str, text: str, *, exhaustive: bool = False) -> dict:
     """Same flat `{"id", "text", "metadata"}` shape every other sub-agent's
     own `_chunk_to_verifier_dict()` produces — see module docstring's stage-3
     note for why the source text here is a sub-answer, not raw evidence.
     `text` is expected to already be `_strip_nested_citations()`-cleaned by
-    the caller — see that function's own docstring/comment for why."""
+    the caller — see that function's own docstring/comment for why.
+
+    [Module 61] `exhaustive` declares this sub-answer a complete enumeration
+    over its stated scope, which is what lets the Verifier and the
+    Validation gate treat "record X is not in this listing" as supported
+    rather than inferred. Set only by `_sub_answer_is_exhaustive()`; never
+    inferred from the text."""
+    metadata: dict = {"source": f"Sub-question: {sub_query}", "case_id": None}
+    if exhaustive:
+        metadata[EXHAUSTIVE_SCOPE_META_KEY] = True
     return {
         "id": f"subquery-{index}",
         "text": text,
-        "metadata": {"source": f"Sub-question: {sub_query}", "case_id": None},
+        "metadata": metadata,
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 71] Per-document figure provenance.
+#
+# THE DEFECT. Module 61's regression guard measured 1 of 3 live G1 runs
+# returning `status=error` on
+#
+#     "Two claims lack explicit support in the cited chunks: the alleged
+#      data discrepancy and the 73-case total for seized property."
+#
+# The verifier was RIGHT — no sub-answer states a 73-case total for seized
+# property (Module 33/39 computed 45 property entries across 28 FIRs) — so
+# the defect is on the GENERATION side. 73 is the corpus case count, stated
+# by a SIBLING sub-answer, and the synthesis blended it across denominators.
+#
+# WHY THE EXISTING PROMPT RULE COULD NOT CATCH IT. The old rule 2 asked for
+# a number that "appears literally in a sub-answer above". 73 does. Every
+# G1 sub-query is phrased "How many cases … across all cases?", so five
+# sub-answers each open with a count over a DIFFERENT population and the
+# page as a whole offers a menu of plausible-looking totals.
+#
+# WHAT THIS ADDS. `_misattributed_figures()` measures the borrow directly
+# on the produced answer — deterministically, here, not by asking a model —
+# so the mechanism is observable live instead of merely hypothesised, and a
+# recurrence names the figure and the document it was attached to rather
+# than arriving as a bare rejection. It is OBSERVATION ONLY; the prompt
+# rules above are what try to prevent the borrow.
+#
+# A third piece was built here and DELETED: a per-document figure roster
+# printed under each sub-answer. It cost G6 a live regression and bought no
+# measured benefit — see `_format_subanswers_for_prompt()`.
+#
+# Digits are matched in ASCII, Arabic-Indic (٠-٩) and Extended Arabic-Indic
+# (۰-۹) form and normalised to ASCII before comparison, because a sub-answer
+# generated in Urdu renders its counts in the latter two.
+_DIGIT_MAP = {
+    **{ord("٠") + i: str(i) for i in range(10)},  # ٠-٩
+    **{ord("۰") + i: str(i) for i in range(10)},  # ۰-۹
+}
+_FIGURE_RE = re.compile(r"[0-9٠-٩۰-۹]+(?:[.,][0-9٠-٩۰-۹]+)*")
+# An IDENTIFIER is not a figure. Measured, not assumed: run offline against
+# the eleven pre-fix live G1 answers then captured by
+# `scripts/module71_live_runs.py`, the first draft of this rule flagged
+# `24` and `64` on three of them — both lifted out of
+# `fir-891-24` / `fir-64-26` in the recurring-accused sub-answer, where
+# they are case numbers and mean nothing arithmetically. A whitespace-
+# delimited token is dropped whole when it shows any of:
+#   * a letter (Latin or Urdu) bonded to a digit by `-`/`_`  -> fir-64-26,
+#     CMS-ISB-2026-0341
+#   * a digit bonded to a digit by `/` or `:`                -> 64/26,
+#     18:00-23:59
+#   * three or more `-`/`_`-joined numeric groups            -> 2026-09-09
+# A two-group range like `24-49` is NOT an identifier and survives, because
+# an age range genuinely states both of its ends. Nor is a hyphenated
+# COMPOUND — `73-case`, `24-year-old` — which is why the letter must come
+# BEFORE the digit: the live rejection reads *"the 73-case total"*, and a
+# rule that read that as an identifier would discard the one number this
+# module exists to catch (it did, on the first draft; the test below pins
+# it).
+_IDENTIFIER_RE = re.compile(
+    r"\S*(?:[A-Za-z؀-ۿ][-_]\d|\d[/:]\d|\d[-_]\d+[-_]\d)\S*"
+)
+# Below this, a bare number is ordinal/structural noise ("the 2 records",
+# list bullets, "1-based") rather than a computed figure, and treating it
+# as one would make the detector fire on prose. Measured against G1's five
+# live sub-answers, whose every real figure is >= 4.
+_FIGURE_MIN = 4
+
+
+def _normalise_digits(text: str) -> str:
+    return text.translate(_DIGIT_MAP)
+
+
+def figures_in(text: str) -> list[str]:
+    """Every figure a text states, normalised to ASCII digits, in order of
+    first appearance and de-duplicated. `1,234` and `31.5` are single
+    figures; `1,234` also contributes its comma-stripped form so a
+    synthesis restating it as `1234` is not read as an invention.
+    Identifiers (`fir-64-26`, `CMS-ISB-2026-0341`, `18:00-23:59`) are not
+    figures and are removed before extraction — see `_IDENTIFIER_RE`."""
+    out: list[str] = []
+    cleaned = _IDENTIFIER_RE.sub(" ", _normalise_digits(text or ""))
+    for raw in _FIGURE_RE.findall(cleaned):
+        for form in (raw, raw.replace(",", "")):
+            stripped = form.rstrip(".,")
+            if not stripped or stripped in out:
+                continue
+            try:
+                if float(stripped.replace(",", "")) < _FIGURE_MIN:
+                    continue
+            except ValueError:
+                continue
+            out.append(stripped)
+    return out
+
+
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?۔])\s+|\n+")
+_DOC_MARKER_RE = re.compile(r"\[Document\s+(\d+)\]", re.IGNORECASE)
+
+
+def _misattributed_figures(answer: str, entries: list[tuple[str, str]]) -> list[tuple[str, int]]:
+    """Figures the synthesis attached to a document that does not state
+    them, but that a SIBLING document does — the exact shape of "the
+    73-case total for seized property".
+
+    Returns `[(figure, document_index), ...]` for the cited document. A
+    sentence citing no document, or a figure no sub-answer states at all, is
+    NOT reported here: the first is the citation rule's business (rule 1)
+    and the second is an outright invention the Verifier already catches.
+    This function is deliberately narrow — it names only the cross-document
+    borrow, so a firing is evidence for this module and nothing else.
+
+    OBSERVATION ONLY. Nothing branches on the return value: it is logged,
+    so the mechanism can be counted across live runs. It is explicitly NOT
+    wired into a rejection — a second, stricter gate on top of a verifier
+    that is already correct is what Modules 17/25/40/61 each declined to
+    build, and what this module's brief forbids."""
+    if not answer:
+        return []
+    rosters = {i: set(figures_in(text)) for i, (_sq, text) in enumerate(entries, start=1)}
+    everything = set().union(*rosters.values()) if rosters else set()
+    found: list[tuple[str, int]] = []
+    for sentence in _SENTENCE_SPLIT_RE.split(answer):
+        cited = {int(n) for n in _DOC_MARKER_RE.findall(sentence) if int(n) in rosters}
+        if not cited:
+            continue
+        supported = set().union(*(rosters[i] for i in cited))
+        for figure in figures_in(_DOC_MARKER_RE.sub("", sentence)):
+            if figure in supported or figure not in everything:
+                continue
+            pair = (figure, min(cited))
+            if pair not in found:
+                found.append(pair)
+    return found
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 83] THE SYNTHESIS SOMETIMES COLLAPSES INTO A
+# REPETITION LOOP, AND THAT — NOT A FORGOTTEN CITATION RULE — IS WHY G6
+# FAILS.
+#
+# WHAT WAS FILED, AND WHY IT IS WRONG. Module 83 was filed as "the citation
+# rule is held only by its position in the prompt": G6's
+# `verifier.py::_check_no_citation` refusal ("substantial … but cites no
+# [Document N] source at all") appears and disappears with the LENGTH of the
+# sub-answers section, so the model was assumed to be writing a good answer
+# and forgetting to cite it. Captured live on this branch (20 G6 runs, the
+# synthesis text logged before the Verifier sees it), that is not what
+# happens. EVERY refused synthesis is a degenerate repetition loop:
+#
+#     tokens 758, unique tokens 18 (ratio 0.024), one 4-gram repeated 370
+#     times, zero digits, byte-identical across six separate runs
+#
+# against 235-267 tokens at a 0.57-0.69 unique ratio, correctly citing
+# [Document 1]-[Document 5], on the runs that pass. The refusal is not a
+# false positive — it is the only gate catching a broken generation, and
+# `_check_no_citation` is doing exactly its job.
+#
+# WHY A PLAIN RETRY CANNOT WORK. `call_llm` defaults to `temperature=0.0`,
+# so the collapse is deterministic: six runs whose sub-answers rendered
+# identically produced the SAME 6764 characters. Re-asking the same model
+# for the same prompt at the same temperature reproduces the loop exactly.
+# What breaks a greedy-decoding repetition loop is decoding differently, so
+# the one regeneration below raises the temperature; if that also collapses,
+# the answer is never served — Module 71's deterministic sub-answer
+# composition is, with a caveat naming the reason.
+#
+# The prompt-length sensitivity Module 71 measured is REAL and reproduces
+# (G6 no-citation refusals: 3 of 4 at current length, 4 of 4 with the
+# sub-answers section lengthened) — but what length changes is the
+# probability of the generation collapsing, not the model's memory of a
+# rule. Restating the rule a third time, or moving it, could not have
+# helped: the collapsed text contains no prose to cite.
+_DEGENERATE_MIN_TOKENS = 60
+_DEGENERATE_UNIQUE_RATIO = 0.15
+_DEGENERATE_NGRAM = 4
+_DEGENERATE_NGRAM_REPEATS = 10
+# Not 0.0, and not 1.0. The point is only to leave the greedy path that led
+# into the loop; a large temperature would trade a repetition loop for an
+# invention, and the Verifier — which still runs on the regenerated text —
+# is the wrong place to discover that.
+_DEGENERATE_RETRY_TEMPERATURE = 0.4
+
+
+def _repetition_profile(text: str) -> tuple[int, float, int]:
+    """`(token_count, unique_token_ratio, most_repeated_ngram_count)`.
+
+    Deterministic and cheap; no model call. Whitespace tokens, because the
+    loops observed live repeat whole words, and because this must behave the
+    same on Urdu, Roman-Urdu and English text."""
+    tokens = (text or "").split()
+    if not tokens:
+        return 0, 1.0, 0
+    ratio = len(set(tokens)) / len(tokens)
+    if len(tokens) < _DEGENERATE_NGRAM:
+        return len(tokens), ratio, 0
+    counts: dict[tuple[str, ...], int] = {}
+    for i in range(len(tokens) - _DEGENERATE_NGRAM + 1):
+        gram = tuple(tokens[i : i + _DEGENERATE_NGRAM])
+        counts[gram] = counts.get(gram, 0) + 1
+    return len(tokens), ratio, max(counts.values())
+
+
+def _is_degenerate(text: str) -> bool:
+    """A generation that has collapsed into a repetition loop rather than an
+    answer. BOTH signals are required, and both thresholds sit in the gap the
+    live captures leave: the collapses measured 0.024 / 370, the healthy
+    answers 0.57-0.69 / 2. A long legitimate list repeats its STRUCTURE, not
+    its words, and stays far above 0.15."""
+    tokens, ratio, repeats = _repetition_profile(text)
+    if tokens < _DEGENERATE_MIN_TOKENS:
+        return False
+    return ratio < _DEGENERATE_UNIQUE_RATIO and repeats >= _DEGENERATE_NGRAM_REPEATS
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 83] PROVENANCE IS RECOVERED DETERMINISTICALLY, NOT
+# ASKED FOR A THIRD TIME.
+#
+# SECONDARY, and honestly reported as such: in 20 live G6 runs this pass
+# never fired, because the failure there is the collapse above, not an
+# uncited good answer. It covers the case Module 83 was FILED for — a
+# substantial, correct, marker-free synthesis — which remains possible and
+# which no amount of restating the rule in the prompt can guarantee away.
+#
+# THE DEFECT, as Module 71 measured it. `verifier.py::_check_no_citation()`
+# refuses any substantial answer carrying no `[Document N]` marker at all.
+# Module 29 fixed that refusal for G6 by restating the citation rule AFTER
+# the sub-answers section. Module 71 then interleaved five short
+# deterministic lines INTO that section and G6 went from 0 rejections in 4
+# runs to 3 of 4 and then 7 of 8, every one of them this refusal; rewording
+# the lines so they no longer named `[Document N]` did not recover it (7 of
+# 8 again), and deleting them recovered it completely (0 of 8). So the cost
+# is the INTERLEAVING — the section's length and shape — not the wording,
+# and the citation rule is held only by its proximity to the end of the
+# prompt. Every future addition to that section is therefore a coin flip
+# that nobody will think to re-measure.
+#
+# WHY NOT A FOURTH RESTATEMENT. The rule is already stated twice (top of
+# the template, and again as checklist item 1 after the sub-answers). A
+# third statement would be the same mechanism — a token in a prompt whose
+# weight falls as the prompt grows — and would be defeated by the next
+# person who adds a line here, silently, exactly as this one was.
+#
+# WHAT THIS DOES INSTEAD. The `[Document N]` marker is a rendering of a
+# fact the caller ALREADY KNOWS deterministically: which sub-answer states
+# a given figure. `figures_in()` is already computed for every entry (it is
+# what `_misattributed_figures()` runs on). So when the model returns prose
+# with NO marker at all, provenance is re-attached from that roster instead
+# of being requested again:
+#
+#   * a sentence is attributed to document `i` only when EVERY figure the
+#     sentence states is stated by document `i`, AND `i` is the ONLY
+#     document for which that is true. Unique support, over the same text
+#     the Verifier will receive as chunk `i`.
+#   * a sentence stating no figure, or one whose figures are supported by
+#     more than one document, or by none, gets NOTHING. Ambiguity is left
+#     uncited rather than guessed.
+#   * if that yields no attribution at all, the answer is returned
+#     UNCHANGED and the Verifier refuses it exactly as it does today.
+#
+# WHAT THIS IS NOT. It does not touch, relax or bypass
+# `_check_no_citation()` — see Module 29's and Module 25's findings: that
+# refusal exists to stop ungrounded prose being served as evidence, and
+# deleting it would trade a visible failure for an invisible one. It adds
+# no marker to a sentence the roster does not support, so it cannot make an
+# ungrounded sentence LOOK grounded; the LLM grounding judge still runs
+# afterwards on the same text, unchanged. It never rewrites, renumbers or
+# removes a marker the model produced itself — the whole pass is skipped
+# the moment `answer` already contains one.
+def _attach_provenance(
+    answer: str, entries: list[tuple[str, str]]
+) -> tuple[str, list[tuple[int, int]]]:
+    """Re-attach `[Document N]` provenance to an uncited synthesis, from the
+    same per-sub-answer figure roster `_misattributed_figures()` uses.
+
+    Returns `(text, attached)` where `attached` is
+    `[(sentence_ordinal, document_index), ...]` for the log. `text` is
+    `answer` verbatim when nothing could be attributed with unique support,
+    or when the answer already cites something.
+    """
+    if not answer or not entries:
+        return answer, []
+    if _DOC_MARKER_RE.search(answer):
+        return answer, []  # The model cited something — never touch it.
+
+    rosters = {i: set(figures_in(text)) for i, (_sq, text) in enumerate(entries, start=1)}
+
+    pieces = _SENTENCE_SPLIT_RE.split(answer)
+    attached: list[tuple[int, int]] = []
+    out: list[str] = []
+    for ordinal, sentence in enumerate(pieces, start=1):
+        stripped = sentence.strip()
+        figures = set(figures_in(stripped)) if stripped else set()
+        if figures:
+            supporting = [i for i, roster in rosters.items() if figures <= roster]
+            if len(supporting) == 1:
+                idx = supporting[0]
+                attached.append((ordinal, idx))
+                # Before a trailing sentence terminator, so the marker reads
+                # as part of the sentence rather than orphaned after it.
+                trailing = ""
+                while stripped and stripped[-1] in ".!?۔":
+                    trailing = stripped[-1] + trailing
+                    stripped = stripped[:-1]
+                sentence = sentence.replace(
+                    stripped + trailing, f"{stripped} [Document {idx}]{trailing}", 1
+                )
+        out.append(sentence)
+
+    if not attached:
+        return answer, []
+
+    # `_SENTENCE_SPLIT_RE` splits on the whitespace AFTER a terminator, so
+    # re-joining on a single space is lossy for newlines. Rebuild from the
+    # original by substituting each changed piece in order instead.
+    rebuilt = answer
+    for original, replacement in zip(pieces, out):
+        if original != replacement:
+            rebuilt = rebuilt.replace(original, replacement, 1)
+    return rebuilt, attached
 
 
 def _format_subanswers_for_prompt(entries: list[tuple[str, str]]) -> str:
     """`entries` is `[(sub_query, sub_answer_text), ...]`, same order as the
     pseudo-chunks handed to the Verifier — [PRESERVE — design §5] positional
-    correspondence."""
+    correspondence.
+
+    [Module 71] UNCHANGED, and that is a measured decision rather than an
+    omission. This module built and then DELETED a per-document "figure
+    roster" here — a deterministic line under each sub-answer listing the
+    figures it states, so rule 2's "the sub-answer you cite for it" was a
+    lookup rather than a recollection. It reads well and it cost a
+    regression: G6, which shares this prompt, went from **0 rejections in
+    4 pre-fix runs to 3 of 4 and then 7 of 8** with the roster in, every one
+    of them the "cites no [Document N] source at all" refusal Module 29
+    filed and fixed by restating the citation rule AFTER the sub-answers.
+    Five extra lines interleaved into that section put it back. Rewording
+    the roster to stop naming `[Document N]` (Module 25's stray-marker
+    finding) did not recover it — 7 of 8 again — so the cost is the
+    interleaving itself, not the wording.
+
+    The roster bought no measured benefit to set against that: the defect
+    it prevents did not occur in 25 pre-fix G1 runs. `figures_in()` stays,
+    because `_misattributed_figures()` uses it to MEASURE the same property
+    on the produced answer, which costs the prompt nothing. See the result
+    file's §7."""
     parts = []
     for i, (sub_query, text) in enumerate(entries, start=1):
         parts.append(f"[Document {i}] Sub-question: {sub_query}\n{text}")
@@ -766,6 +1559,7 @@ async def meta_analysis(
     degraded_from: set[SourceTool] = set()
     denied_count = 0
     failed_count = 0
+    salvaged_count = 0
     empty_only = True
 
     for outcome in outcomes:
@@ -784,6 +1578,18 @@ async def meta_analysis(
             failed_count += 1
             caveats.append(f"Could not answer sub-question: {outcome.sub_query}")
             continue
+
+        # [Gold-QA fix — Module 53] A salvaged sub-answer CONTRIBUTES its
+        # computed finding (that is the whole point) but is disclosed: the
+        # user is reading a raw aggregate rendering, not a paraphrase, and
+        # the fan-out is reported as degraded so the answer never claims a
+        # clean run it did not have.
+        if outcome.salvaged:
+            salvaged_count += 1
+            caveats.append(
+                "The natural-language summary for this sub-question did not finish in "
+                f"time; showing the raw computed aggregate instead: {outcome.sub_query}"
+            )
 
         # OK / PARTIAL (with answer_text) / EMPTY all CONTRIBUTE — see
         # module docstring's EMPTY-is-a-real-finding note.
@@ -811,7 +1617,7 @@ async def meta_analysis(
             caveats=caveats,
         )
 
-    degraded = failed_count > 0 or denied_count > 0
+    degraded = failed_count > 0 or denied_count > 0 or salvaged_count > 0
 
     if empty_only:
         # Every contributing sub-query legitimately found nothing, and
@@ -836,6 +1642,10 @@ async def meta_analysis(
     # own comment for why leaving them in confuses both the synthesis model
     # and the verifier's LLM judge about which numbering scheme is in play.
     entries = [(sq, _strip_nested_citations(text)) for sq, text, _r in contributing]
+    # [Module 61] Positionally aligned with `entries`/`pseudo_chunks` — the
+    # same [PRESERVE — design §5] correspondence `_format_subanswers_for_prompt`
+    # relies on.
+    exhaustive_flags = [_sub_answer_is_exhaustive(r) for _sq, _text, r in contributing]
     resolved_language = caller.preferred_language or "the same language as the user's question"
     system_prompt = _SYNTHESIS_SYSTEM_PROMPT_TEMPLATE.format(
         synthesis_goal=decomposition.synthesis_goal or "combine these sub-answers into one complete answer",
@@ -855,9 +1665,109 @@ async def meta_analysis(
             caveats=["Synthesizing the sub-answers into a final answer failed.", *caveats],
         )
 
-    pseudo_chunks = [_pseudo_chunk(i, sq, text) for i, (sq, text) in enumerate(entries, start=1)]
+    # [Gold-QA fix — Module 83] The synthesis collapsed into a repetition
+    # loop. Deterministic at `temperature=0.0` — see `_is_degenerate()` for
+    # the live captures — so the single regeneration decodes differently
+    # rather than re-asking the same question the same way.
+    synthesis_collapsed = False
+    if _is_degenerate(answer):
+        tokens, ratio, repeats = _repetition_profile(answer)
+        logger.warning(
+            "Meta-Analysis [Module 83]: synthesis collapsed into a repetition "
+            "loop (%d tokens, unique-token ratio %.3f, one %d-gram repeated %d "
+            "times). Regenerating once at temperature %.1f.",
+            tokens, ratio, _DEGENERATE_NGRAM, repeats, _DEGENERATE_RETRY_TEMPERATURE,
+        )
+        try:
+            retried = await call_llm(
+                system_prompt,
+                agent_input.query_text,
+                role=_generation_role(caller.preferred_language),
+                max_tokens=ANSWER_MAX_TOKENS,
+                temperature=_DEGENERATE_RETRY_TEMPERATURE,
+            )
+        except Exception as exc:  # noqa: BLE001 — the fallback below still applies.
+            logger.warning("Meta-Analysis [Module 83]: regeneration failed: %s", exc)
+            retried = None
+        if retried and not _is_degenerate(retried):
+            logger.info("Meta-Analysis [Module 83]: regeneration recovered a usable synthesis.")
+            answer = retried
+        else:
+            # NEVER SERVED, and never sent to the Verifier either: an LLM
+            # grounding call on 6,764 characters of one repeated phrase buys
+            # nothing but latency and quota. This routes into Module 71's
+            # existing deterministic sub-answer composition — the same
+            # outcome the Verifier's refusal produces today, reached by
+            # naming the actual defect instead of a missing citation.
+            synthesis_collapsed = True
+            logger.warning(
+                "Meta-Analysis [Module 83]: regeneration also collapsed; serving the "
+                "verified sub-answers instead of the synthesis."
+            )
 
-    verification = await verify_grounding(answer=answer, cited_chunks=pseudo_chunks, case_id="cross_case")
+    pseudo_chunks = [
+        _pseudo_chunk(i, sq, text, exhaustive=exhaustive_flags[i - 1])
+        for i, (sq, text) in enumerate(entries, start=1)
+    ]
+    if any(exhaustive_flags):
+        logger.info(
+            "Meta-Analysis [Module 61]: %d of %d sub-answers declared a complete "
+            "enumeration (XAGG-only provenance); negative inference over those is "
+            "supported, not inferred.",
+            sum(exhaustive_flags),
+            len(exhaustive_flags),
+        )
+
+    # [Module 71] Measured on the answer the model actually produced, before
+    # the verifier sees it, so the count is comparable across a passing run
+    # and a rejected one. Observation only — see `_misattributed_figures()`.
+    misattributed = _misattributed_figures(answer, entries)
+    if misattributed:
+        logger.warning(
+            "Meta-Analysis [Module 71]: %d figure(s) attached to a document that "
+            "does not state them, though a sibling sub-answer does: %s",
+            len(misattributed),
+            "; ".join(f"{fig} -> [Document {idx}]" for fig, idx in misattributed),
+        )
+
+    # [Gold-QA fix — Module 83] Deterministic provenance recovery, AFTER the
+    # Module 71 measurement above so that detector still sees the model's own
+    # text. See `_attach_provenance()` for why this is not a fourth
+    # restatement of the citation rule.
+    uncited = not _DOC_MARKER_RE.search(answer or "")
+    answer, attached = _attach_provenance(answer, entries)
+    if attached:
+        logger.info(
+            "Meta-Analysis [Module 83]: synthesis cited nothing; re-attached "
+            "provenance deterministically to %d sentence(s): %s",
+            len(attached),
+            "; ".join(f"sentence {n} -> [Document {idx}]" for n, idx in attached),
+        )
+    elif uncited:
+        # The one outcome this fix does not recover, and the one worth seeing
+        # in a log: prose with no marker whose figures no single sub-answer
+        # uniquely supports. The Verifier will refuse it exactly as before —
+        # deliberate, not a gap being papered over — and this line says WHY
+        # recovery could not run, so a recurrence is diagnosable without a
+        # re-instrumented build.
+        logger.warning(
+            "Meta-Analysis [Module 83]: synthesis cited nothing and no sentence "
+            "had unique support; provenance NOT recovered. Answer figures: %s; "
+            "per-sub-answer figures: %s",
+            figures_in(answer),
+            {i: figures_in(t) for i, (_sq, t) in enumerate(entries, start=1)},
+        )
+
+    if synthesis_collapsed:
+        # [Module 83] No Verifier call: the text is a repetition loop, and
+        # the outcome (Module 71's composition, below) is already decided.
+        verification = {
+            "grounded": False,
+            "off_topic": False,
+            "reason": "Synthesis collapsed into a repetition loop; not verified, not served.",
+        }
+    else:
+        verification = await verify_grounding(answer=answer, cited_chunks=pseudo_chunks, case_id="cross_case")
     verifier_passed = bool(verification.get("grounded", False)) and not verification.get("off_topic", False)
 
     if not verifier_passed:
@@ -865,12 +1775,70 @@ async def meta_analysis(
             "Meta-Analysis: verifier rejected synthesized answer: %s",
             (verification.get("reason") or "")[:150],
         )
+        # [Gold-QA fix — Module 71] SERVE WHAT WAS COMPUTED.
+        #
+        # Until now this branch returned a bare ABSTAINED, which
+        # `cutover.py` (line ~478: ABSTAINED or `answer_text is None`)
+        # turns into `status=error` — the worst available outcome. Every
+        # contributing sub-answer had already passed its OWN sub-agent's
+        # verifier and validation gate; what failed is the ONE narrative
+        # pass on top of them. Discarding five correct aggregates because
+        # the paragraph joining them over-reached throws away the whole
+        # answer to punish one sentence.
+        #
+        # This is the same instinct, and deliberately the same shape, as
+        # two precedents already in the codebase rather than a third
+        # invention: `large_scale_aggregate.py` serves `raw_summary_text`
+        # when the verifier rejects its paraphrase (see that module's
+        # "VERIFIER-REJECTION STATUS DECISION"), and Module 53 serves the
+        # raw aggregate when a sub-query paraphrase is CANCELLED.
+        #
+        # THE REJECTED TEXT IS NEVER SERVED. `answer` is dropped here and
+        # does not appear in the returned `answer_text`, which is composed
+        # deterministically — no LLM call — from the verified sub-answers
+        # alone. That keeps AGENT_HARNESS_DESIGN's "an answer that failed
+        # verification is NEVER served" intact: what is served is the
+        # evidence, not the rejected synthesis. It is `PARTIAL`, not `OK`,
+        # because the cross-cutting narrative the user asked for is
+        # genuinely missing, and the caveat says so in the user's sight.
+        logger.info(
+            "Meta-Analysis [Module 71]: serving %d verified sub-answer(s) instead "
+            "of erroring out.",
+            len(entries),
+        )
+        fallback_text = "\n\n".join(
+            f"**{sub_query}**\n{text}" for sub_query, text in entries
+        )
+        fallback_caveats = [
+            # [Module 83] The two reasons are genuinely different and the
+            # user is told which one applies: a synthesis the Verifier could
+            # not ground, versus one that never became prose at all.
+            (
+                "The combined answer did not generate cleanly, so each verified "
+                "sub-answer is shown as computed, without a synthesis across them."
+                if synthesis_collapsed
+                else "The combined answer could not be verified as grounded in the "
+                "sub-answers, so each verified sub-answer is shown as computed, "
+                "without a synthesis across them."
+            ),
+            *caveats,
+        ]
         return SubAgentResult(
-            status=SubAgentStatus.ABSTAINED,
-            caveats=[
-                "The synthesized answer could not be verified as grounded in the sub-answers.",
-                *caveats,
+            status=SubAgentStatus.PARTIAL,
+            answer_text=fallback_text,
+            citations=[
+                Citation(
+                    document_index=i,
+                    source_tool=(result.tools_used[0] if result.tools_used else "RAG"),
+                    case_id=None,
+                    source_file=None,
+                    confidence=None,
+                )
+                for i, (_sq, _text, result) in enumerate(contributing, start=1)
             ],
+            tools_used=sorted(tools_used),
+            degraded_from=sorted(degraded_from),
+            caveats=fallback_caveats,
         )
 
     # Validation gate — FULL semantic tier, same reasoning as Cross-Case

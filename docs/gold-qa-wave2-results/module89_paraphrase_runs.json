@@ -1,0 +1,268 @@
+[
+  {
+    "id": "P1",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "Under what law does a complaint made at a police station have to be turned into a written FIR, and do our own case records actually meet that standard?",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "- تھانہ ماڈل ٹاؤن، لاہور: 7 cases\n- سائبر کرائم سرکل، اسلام آباد: 5 cases\n- تھانہ لطیف آباد، حیدر آباد: 5 cases\n- تھانہ شاہ فیصل کالونی، کراچی: 5 cases\n- موٹروے پولیس اسٹیشن ایم ٹو، لاہور: 5 cases\n- خواتین تھانہ، فیصل آباد: 5 cases\n- تھانہ صدر، ضلع چنیوٹ: 5 cases\n- تھانہ نیو کراچی، کراچی: 5 cases\n- تھانہ جھنگ روڈ، فیصل آباد: 5 cases\n- تھانہ برکی، لاہور: 5 cases\n- سائبر کرائم سرکل، راولپنڈی: 4 cases\n- تھانہ کوتوالی، فیصل آباد: 4 cases\n- تھانہ راجہ بازار، راولپنڈی: 4 cases\n- تھانہ سول لائنز، فیصل آباد: 4 cases\n- تھانہ مدینہ ٹاؤن، فیصل آباد: 1 cases\n\n_The natural-language summary could not be verified as an accurate paraphrase; showing the raw computed aggregate instead._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 12.6,
+    "xagg_log_lines": [
+      "XAGG relational_aggregate: group_by=police_station, 73 case(s) considered, 15 bucket(s); تھانہ ماڈل ٹاؤن، لاہور=7, سائبر کرائم سرکل، اسلام آباد=5, تھانہ لطیف آباد، حیدر آباد=5, تھانہ شاہ فیصل کالونی، کراچی=5, موٹروے پولیس اسٹیشن ایم ٹو، لاہور=5, خواتین تھانہ، فیصل آباد=5, تھانہ صدر، ضلع چنیوٹ=5, تھانہ نیو کراچی، کراچی=5, تھانہ جھنگ روڈ، فیصل آباد=5, تھانہ برکی، لاہور=5"
+    ],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  },
+  {
+    "id": "P2",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "What does the law require before a crime report counts as a properly registered First Information Report, and does our recordkeeping live up to it?",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "### What the Law Requires\n\nAccording to the law, specifically **Section 154 of the Criminal Procedure Code**, every information relating to an offence, whether cognizable or non-cognizable, must be recorded in writing by the officer in charge of a police station. Additionally, the substance of the information must be entered in the police station daily diary, which is the book provided for the purpose. This is outlined in **Document 2**.\n\nFurthermore, **Rule 24.5** in **Document 1** specifies that the First Information Report Register must be a printed book in Form 24.5 (1), consisting of 500 pages, and must be completely filled before a new one is commenced. Cases must bear an annual serial number in each Police Station for each calendar year. Every five pages of the register must be numbered with the same number and written at the same time by means of the carbon copying process.\n\n### What Our Records Show\n\nAccording to **Document 6**, our FIR records follow the structure outlined by the law in outline but not completely, across 73 cases:\n  - **Complainant details**: recorded on 73 of 73 cases.\n  - **The officer who recorded the report**: recorded on 70 of 73 cases; missing on 3 (fir-117-26, fir-954-26, fir-955-26).\n  - **The time the report was made**: recorded on 64 of 73 cases; missing on 9 (fir-205-26, fir-211-26, fir-340-25, fir-406-26, fir-410-25, fir-422-26, fir-457-26, fir-467-26, fir-77-26).\n\nAll three elements (complainant details, officer who recorded the report, and the time the report was made) are present together on 61 of 73 cases, so the structural equivalent of the Section 154 register entry is present for most cases but not all.\n\nAdditionally, **two of Section 154's steps have no field anywhere in this schema** — that the statement was read back to the informant, and that the informant signed it — so the records can neither confirm nor contradict those; that is an unmodelled step, not a skipped one.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 200.5,
+    "xagg_log_lines": [
+      "XAGG fir_register_completeness: 73 case(s); complainant 73/73; recording_officer 70/73; report_datetime 64/73; all three elements present on 61 case(s); 2 s.154 element(s) unmodelled in the schema"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "fir_register_completeness",
+        "kind": "fir_register_completeness",
+        "chars": 870
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the legal requirements for registering "
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P3",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "Qanoon ke mutabiq ek jurm ki ittila ko FIR mein darj karne ke liye kya zaroori hai, aur kya hamara record us par pura utarta hai?",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "**Part 1: What the law, rule or guideline requires**  \nAccording to the law, specifically **Section 154 of the Code of Criminal Procedure**, every information relating to an offence, whether cognizable or non-cognizable, must be recorded in writing by the officer in charge of a police station. The substance of the information must be entered in the police station daily diary, which is the book provided for the purpose. This is further elaborated in **Document 1** [Document 1].\n\n**Part 2: What our own case records actually show**  \nOur case records follow the structure outlined in the law but are not fully complete. According to **Document 8**, the following details are recorded in our FIR records:  \n- **Complainant details**: Recorded in all 73 cases.  \n- **The officer who recorded the report**: Recorded in 70 of 73 cases; missing in 3 cases (fir-117-26, fir-954-26, fir-955-26).  \n- **The time the report was made**: Recorded in 64 of 73 cases; missing in 9 cases (fir-205-26, fir-211-26, fir-340-25, fir-406-26, fir-410-25, fir-422-26, fir-457-26, fir-467-26, fir-77-26).  \n\nAll three elements (complainant details, the officer who recorded the report, and the time the report was made) are present together in 61 of 73 cases. However, two of the steps required by **Section 154** — that the statement was read back to the informant and that the informant signed it — have no field in the schema. Therefore, the records can neither confirm nor contradict those steps; this is an unmodelled step, not a skipped one.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 72.6,
+    "xagg_log_lines": [
+      "XAGG fir_register_completeness: 73 case(s); complainant 73/73; recording_officer 70/73; report_datetime 64/73; all three elements present on 61 case(s); 2 s.154 element(s) unmodelled in the schema"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "fir_register_completeness",
+        "kind": "fir_register_completeness",
+        "chars": 870
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents sufficiently address the legal requirements for register"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P4",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "قانون کے مطابق کسی جرم کی اطلاع کو باقاعدہ ایف آئی آر میں درج کرنے کے لیے کیا ضروری ہے، اور کیا ہمارا ریکارڈ اس پر پورا اترتا ہے؟",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "### Part 1: What the Law Requires\n\nUnder **Section 154 of the Criminal Procedure Code**, the officer in charge of a police station is required to register a **First Information Report (FIR)** whenever there is a reasonable suspicion of the commission of an offence. The law mandates that the FIR must be entered in full in the **First Information Report Register**, and it must be signed, marked, or sealed by the informant if present. Additionally, the FIR must be disposed of in accordance with the rules, and a reference to the report must be entered in the **Station Diary, Register No. II**.\n\nThis is supported by **Document 1**, which states:\n\n> \"With the exception of cases mentioned in rule 24.10 below, in every case in which the officer in charge of a police station, from information or otherwise, has reason to suspect the commission of an offence, which he is empowered under section 156, Criminal Procedure Code, to investigate, he shall enter in full such information or other intelligence as soon as practicable in the First Information Report Register, shall have each copy signed, marked or sealed by the information, if present, shall seal each with the station seal, and shall dispose of the copies in accordance with rule 24.5, and if he abstains from investigation under either of the provisos to section 157 of the Code he shall submit the copy intended for the magistrate through the Superintendent.\"\n\n### Part 2: What Our Records Show\n\nAccording to **Document 7**, which is a summary of our own case records:\n\n- **Complainant details** are recorded in **73 of 73 cases**.\n- **The officer who recorded the report** is recorded in **70 of 73 cases**, with **3 cases missing** (fir-117-26, fir-954-26, fir-955-26).\n- **The time the report was made** is recorded in **64 of 73 cases**, with **9 cases missing** (fir-205-26, fir-211-26, fir-340-25, fir-406-26, fir-410-25, fir-422-26, fir-457-26, fir-467-26, fir-77-26).\n- All three elements (complainant details, officer who recorded the report, and time of report) are present together in **61 of 73 cases**.\n\nAdditionally, **Document 7** notes that **two of Section 154's steps have no field** in the current schema — specifically, **whether the statement was read back to the informant** and **whether the informant signed it**. This means that the records **cannot confirm or contradict** these steps, as they are **unmodelled** in the current system.\n\n### Conclusion\n\n- **Legally**, the officer in charge is required to register an FIR in full, with the informant's signature (if present), and to record the time and officer who recorded the report.\n- **In practice**, our records show that **most** of these elements are present, but **not all**. Specifically, **some cases lack the officer's name or the time of report**, and **two critical steps (reading back the statement and obtaining the informant's signature) are not captured** in the current system.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 137.4,
+    "xagg_log_lines": [
+      "XAGG fir_register_completeness: 73 case(s); complainant 73/73; recording_officer 70/73; report_datetime 64/73; all three elements present on 61 case(s); 2 s.154 element(s) unmodelled in the schema"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "fir_register_completeness",
+        "kind": "fir_register_completeness",
+        "chars": 870
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal requirements for recording a crime as "
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "SQ89",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "How many cases in the FIR register record complainant details, a recording officer, and a report time, across all cases?",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "According to [Document 1], across 73 cases in the FIR register:\n\n- Complainant details are recorded in all 73 cases.\n- The officer who recorded the report is recorded in 70 of the 73 cases.\n- The time the report was made is recorded in 64 of the 73 cases.\n\nAll three elements (complainant details, recording officer, and report time) are present together in 61 of the 73 cases.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 4.1,
+    "xagg_log_lines": [
+      "XAGG fir_register_completeness: 73 case(s); complainant 73/73; recording_officer 70/73; report_datetime 64/73; all three elements present on 61 case(s); 2 s.154 element(s) unmodelled in the schema"
+    ],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  },
+  {
+    "id": "P1",
+    "run": 2,
+    "arm": "after",
+    "language": "en",
+    "question": "Under what law does a complaint made at a police station have to be turned into a written FIR, and do our own case records actually meet that standard?",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "- تھانہ ماڈل ٹاؤن، لاہور: 7 cases\n- سائبر کرائم سرکل، اسلام آباد: 5 cases\n- تھانہ لطیف آباد، حیدر آباد: 5 cases\n- تھانہ شاہ فیصل کالونی، کراچی: 5 cases\n- موٹروے پولیس اسٹیشن ایم ٹو، لاہور: 5 cases\n- خواتین تھانہ، فیصل آباد: 5 cases\n- تھانہ صدر، ضلع چنیوٹ: 5 cases\n- تھانہ نیو کراچی، کراچی: 5 cases\n- تھانہ جھنگ روڈ، فیصل آباد: 5 cases\n- تھانہ برکی، لاہور: 5 cases\n- سائبر کرائم سرکل، راولپنڈی: 4 cases\n- تھانہ کوتوالی، فیصل آباد: 4 cases\n- تھانہ راجہ بازار، راولپنڈی: 4 cases\n- تھانہ سول لائنز، فیصل آباد: 4 cases\n- تھانہ مدینہ ٹاؤن، فیصل آباد: 1 cases\n\n_The natural-language summary could not be verified as an accurate paraphrase; showing the raw computed aggregate instead._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 6.8,
+    "xagg_log_lines": [
+      "XAGG relational_aggregate: group_by=police_station, 73 case(s) considered, 15 bucket(s); تھانہ ماڈل ٹاؤن، لاہور=7, سائبر کرائم سرکل، اسلام آباد=5, تھانہ لطیف آباد، حیدر آباد=5, تھانہ شاہ فیصل کالونی، کراچی=5, موٹروے پولیس اسٹیشن ایم ٹو، لاہور=5, خواتین تھانہ، فیصل آباد=5, تھانہ صدر، ضلع چنیوٹ=5, تھانہ نیو کراچی، کراچی=5, تھانہ جھنگ روڈ، فیصل آباد=5, تھانہ برکی، لاہور=5"
+    ],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  },
+  {
+    "id": "P2",
+    "run": 2,
+    "arm": "after",
+    "language": "en",
+    "question": "What does the law require before a crime report counts as a properly registered First Information Report, and does our recordkeeping live up to it?",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "### What the Law Requires\n\nAccording to the law, specifically **Section 154 of the Criminal Procedure Code**, every information relating to an offence, whether cognizable or non-cognizable, must be recorded in writing by the officer in charge of a police station. Additionally, **Rule 24.5** of the Punjab Police Rules mandates that the **First Information Report (FIR) Register** be a printed book in Form 24.5 (1), consisting of 500 pages, and that cases be assigned an annual serial number in each Police Station for each calendar year. Every five pages of the register must be numbered with the same number and written at the same time by means of the carbon copying process. The original copy must be a permanent record in the Police Station, and the other four copies must be submitted to designated authorities.\n\n### What Our Records Show\n\nAccording to the summary of our own case records (Document 6), the following details are recorded in our FIR records:\n\n- **Complainant details**: Recorded on **73 of 73** cases.\n- **The officer who recorded the report**: Recorded on **70 of 73** cases; missing on **3** cases (fir-117-26, fir-954-26, fir-955-26).\n- **The time the report was made**: Recorded on **64 of 73** cases; missing on **9** cases (fir-205-26, fir-211-26, fir-340-25, fir-406-26, fir-410-25, fir-422-26, fir-457-26, fir-467-26, fir-77-26).\n\nAll three elements (complainant details, officer who recorded the report, and time the report was made) are present together on **61 of 73** cases, meaning that the structural equivalent of the **Section 154 register entry** is present for most cases but not all.\n\nHowever, **two of Section 154's steps have no field anywhere in this schema** — that the statement was read back to the informant, and that the informant signed it — so the records can neither confirm nor contradict those; that is an **unmodelled step**, not a skipped one.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 67.5,
+    "xagg_log_lines": [
+      "XAGG fir_register_completeness: 73 case(s); complainant 73/73; recording_officer 70/73; report_datetime 64/73; all three elements present on 61 case(s); 2 s.154 element(s) unmodelled in the schema"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "fir_register_completeness",
+        "kind": "fir_register_completeness",
+        "chars": 870
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents sufficiently address the legal requirements for register"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P3",
+    "run": 2,
+    "arm": "after",
+    "language": "en",
+    "question": "Qanoon ke mutabiq ek jurm ki ittila ko FIR mein darj karne ke liye kya zaroori hai, aur kya hamara record us par pura utarta hai?",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "**Governing Provision and Its Substance:**\nAccording to the law, specifically **Section 154 of the Code of Criminal Procedure**, every information relating to an offence, whether cognizable or non-cognizable, must be recorded in writing by the officer in charge of a police station. The substance of the information must be entered in the police station daily diary, which is the book provided for the purpose. This is further elaborated in **Document 1**, which states that the officer in charge must record the information in writing and enter the substance thereof in the police station daily diary.\n\n**Our Case Records:**\nOur case records follow the structure outlined in the law in outline but not completely, across 73 case(s):\n- **Complainant details:** Recorded on 73 of 73 case(s).\n- **The officer who recorded the report:** Recorded on 70 of 73 case(s); missing on 3 (fir-117-26, fir-954-26, fir-955-26).\n- **The time the report was made:** Recorded on 64 of 73 case(s); missing on 9 (fir-205-26, fir-211-26, fir-340-25, fir-406-26, fir-410-25, fir-422-26, fir-457-26, fir-467-26, fir-77-26).\n\nAll three elements (complainant details, the officer who recorded the report, and the time the report was made) are present together on 61 of 73 case(s), so the structural equivalent of the **Section 154** register entry is present for most cases but not all.\n\nAdditionally, two of **Section 154's** steps have no field anywhere in this schema — that the statement was read back to the informant, and that the informant signed it — so the records can neither confirm nor contradict those; that is an unmodelled step, not a skipped one. This is detailed in **Document 8**.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 59.6,
+    "xagg_log_lines": [
+      "XAGG fir_register_completeness: 73 case(s); complainant 73/73; recording_officer 70/73; report_datetime 64/73; all three elements present on 61 case(s); 2 s.154 element(s) unmodelled in the schema"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "fir_register_completeness",
+        "kind": "fir_register_completeness",
+        "chars": 870
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents sufficiently address the legal requirements for register"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P4",
+    "run": 2,
+    "arm": "after",
+    "language": "en",
+    "question": "قانون کے مطابق کسی جرم کی اطلاع کو باقاعدہ ایف آئی آر میں درج کرنے کے لیے کیا ضروری ہے، اور کیا ہمارا ریکارڈ اس پر پورا اترتا ہے؟",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "### Legal Requirement:\nUnder the law, specifically **Section 154 of the Criminal Procedure Code**, when a police officer receives information about the commission of a cognizable offence, they are required to:\n- Register a **First Information Report (FIR)** immediately and without unnecessary delay.\n- Ensure that the FIR is entered in full in the **First Information Report Register**.\n- Have the report signed, marked, or sealed by the informant, if present.\n- Seal each copy with the **station seal**.\n- Dispose of the copies in accordance with the rules.\n- If the officer abstains from investigation under the provisos to **Section 157** of the Code, they must submit the copy intended for the magistrate through the **Superintendent**.\n- Enter a reference to the report in the **Station Diary, Register No. II**.\n\nThis is outlined in **[Document 1]**.\n\n### What Our Records Show:\nAccording to **[Document 7]**, our FIR records follow the structure outlined by the law in outline but not completely, across **73 case(s)**:\n- **Complainant details**: Recorded on **73 of 73 case(s)**.\n- **The officer who recorded the report**: Recorded on **70 of 73 case(s)**; missing on **3 cases** (fir-117-26, fir-954-26, fir-955-26).\n- **The time the report was made**: Recorded on **64 of 73 case(s)**; missing on **9 cases** (fir-205-26, fir-211-26, fir-340-25, fir-406-26, fir-410-25, fir-422-26, fir-457-26, fir-467-26, fir-77-26).\n- All three elements (complainant details, officer who recorded the report, and time of report) are present together on **61 of 73 case(s)**, meaning the structural equivalent of the **Section 154 register entry** is present for most cases but not all.\n- Two of **Section 154's steps** have no field in the schema — that the **statement was read back to the informant** and that the **informant signed it** — so the records can neither confirm nor contradict those; this is an **unmodelled step**, not a skipped one.\n\n### Conclusion:\n- **Legal Requirement**: The law requires that the FIR be registered immediately, with the informant's details, the officer who recorded the report, and the time of the report all being recorded.\n- **Our Records**: While most of the required information is present in the records, there are **gaps** in the recording of the **officer who recorded the report** and the **time the report was made** in some cases. Additionally, the **statement being read back to the informant** and the **informant signing the report** are not captured in the schema, making it impossible to confirm or deny these steps.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 60.9,
+    "xagg_log_lines": [
+      "XAGG fir_register_completeness: 73 case(s); complainant 73/73; recording_officer 70/73; report_datetime 64/73; all three elements present on 61 case(s); 2 s.154 element(s) unmodelled in the schema"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "fir_register_completeness",
+        "kind": "fir_register_completeness",
+        "chars": 870
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal requirements for recording a crime as "
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "SQ89",
+    "run": 2,
+    "arm": "after",
+    "language": "en",
+    "question": "How many cases in the FIR register record complainant details, a recording officer, and a report time, across all cases?",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "According to [Document 1], across 73 cases in the FIR register:\n\n- Complainant details are recorded in all 73 cases.\n- The officer who recorded the report is recorded in 70 of the 73 cases.\n- The time the report was made is recorded in 64 of the 73 cases.\n\nAll three elements (complainant details, recording officer, and report time) are present together in 61 of the 73 cases.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 4.0,
+    "xagg_log_lines": [
+      "XAGG fir_register_completeness: 73 case(s); complainant 73/73; recording_officer 70/73; report_datetime 64/73; all three elements present on 61 case(s); 2 s.154 element(s) unmodelled in the schema"
+    ],
+    "data_half_answered": [],
+    "evaluator_verdicts": [],
+    "quota_lines": []
+  }
+]

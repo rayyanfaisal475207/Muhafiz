@@ -134,6 +134,14 @@ def _format_chunks_for_verifier(chunks: list[dict]) -> str:
         header_parts = [f"[{i}] Source: {source}"]
         if case_id_val:
             header_parts.append(f"case_id: {case_id_val}")
+        # [Module 61] Declared by the caller, never inferred from the text.
+        # prompts/verifier.txt rule 7 keys on this exact marker.
+        if meta.get(EXHAUSTIVE_SCOPE_META_KEY):
+            header_parts.append(
+                "COMPLETE LISTING (this document enumerates EVERY record "
+                "matching its stated scope; anything not listed here is "
+                "absent from that scope)"
+            )
         if conf_status == "check_failed":
             # [AMENDMENT] Never displayed as "no confidence signal" —
             # the LLM judge must see this as an unresolved risk, the same
@@ -146,6 +154,356 @@ def _format_chunks_for_verifier(chunks: list[dict]) -> str:
         lines.append("")
 
     return "\n".join(lines)
+
+
+# ============================================================
+# [Gold-QA fix - Module 61] EXHAUSTIVE LISTINGS AND NEGATIVE INFERENCE
+#
+# THE DEFECT. CR3's gold answer asserts a negative - "FIR 64/26 has a
+# matching walk-in complaint; 65/26 has none". The evidence is a CMS
+# linkage listing that contains 64/26 and does not contain 65/26. The LLM
+# judge rejected that answer on 7 of 14 live runs (MODULE57_RESULT.md §4)
+# with one verbatim reason:
+#
+#   "The claim about FIR 65/26's absence from the linkage list is inferred
+#    but not directly supported by Document 3, which only lists linked
+#    cases without..."
+#
+# The judge was behaving exactly as prompts/verifier.txt tells it to: rule
+# 5 says a claim is unsupported unless a chunk states it. Over a NARRATIVE
+# chunk that is right - a retrieved excerpt is a fragment, and "X isn't
+# mentioned here" says nothing about whether X exists. Over an EXHAUSTIVE
+# listing it is wrong: a complete enumeration is a register, and
+# non-membership in a register IS what the register asserts. That is the
+# entire semantics of the document.
+#
+# WHY THIS IS NOT A GENERAL RELAXATION OF GROUNDING. Two guards, both
+# deterministic, both required before a negative is treated as supported:
+#
+#   1. THE CHUNK MUST DECLARE ITSELF EXHAUSTIVE. Only a caller that KNOWS
+#      its evidence is a complete enumeration sets
+#      `metadata["exhaustive_scope"]`. Today exactly one caller does:
+#      meta_analysis.py, for a sub-answer whose `tools_used` is exactly
+#      ["XAGG"] - a deterministic aggregate computed over the whole corpus
+#      by query, not a retrieved sample. A RAG/GRAPH/WEB chunk is NEVER
+#      exhaustive and this code has no way to make it so.
+#   2. THE SUBJECT OF THE NEGATIVE MUST GENUINELY BE ABSENT. Every
+#      identifier the claim names is checked, in Python, against the
+#      exhaustive listing's own text. A claim that "64/26 is absent" from
+#      a listing that in fact contains 64/26 is a FABRICATED negative and
+#      is still rejected - see
+#      `test_fabricated_negative_over_exhaustive_listing_is_still_rejected`.
+#
+# WHY DETERMINISTIC RATHER THAN A PROMPT RULE ALONE. Both are shipped -
+# prompts/verifier.txt rule 7 teaches the judge the distinction, and this
+# post-pass makes the outcome reproducible. Module 57's whole finding was
+# that the SAME question passed or failed on a coin flip; a fix whose only
+# mechanism is another sampled LLM verdict would leave that property
+# intact. The prompt rule reduces how often the override is needed; the
+# override is what makes the result consistent.
+#
+# SHARED WITH THE VALIDATION GATE. validation.py imports
+# `negative_claim_is_supported_by_exhaustive_listing()` from here and
+# applies the identical test to its own per-claim verdicts. Before Module
+# 61 the two gates disagreed about this exact claim - the verifier refused
+# to serve the answer while the validation gate, on the runs where the
+# verifier passed, attached "could only be partially confirmed... does not
+# mention FIR 65/26 or its absence from the CMS list". One rule, one
+# implementation, both gates.
+# ============================================================
+
+# Metadata key a caller sets to declare a chunk a COMPLETE enumeration over
+# its stated scope. Deliberately a metadata flag rather than something
+# inferred from the text: inferring it would let a generation model talk
+# the verifier into treating any listing as complete.
+EXHAUSTIVE_SCOPE_META_KEY = "exhaustive_scope"
+
+# Wording that marks a judge-reported claim as a NEGATIVE/absence claim,
+# split by WHERE the record being called absent sits relative to the phrase.
+# The split is not cosmetic: it is what tells "…does not mention FIR 65/26"
+# (subject follows) apart from "FIR 64/26 … does not appear" (subject
+# precedes), and getting that backwards is the difference between confirming
+# a correct negative and confirming a fabricated one.
+#
+# Both lists are deliberately narrow and absence-specific. "not stated in
+# Document 2", "misattributes", "contradicts" and similar hallucination
+# reports match NEITHER — those are the verdicts Module 17's live
+# hallucination catch is made of, and they must keep rejecting.
+
+# The record is named AFTER the phrase: "does not mention FIR 65/26",
+# "absence of a CMS linkage for FIR 65/26".
+_ABSENCE_OBJECT_AFTER_RE = re.compile(
+    r"\b(?:does|do|did)\s+not\s+(?:mention|contain|include|list|name|reference|show)\b"
+    r"|\bno\s+(?:matching|corresponding|linked|associated|entry|record|mention|reference|such)\b"
+    r"|\babsence\s+of\b"
+    r"|\bwithout\s+(?:any\s+)?(?:mention|reference)\s+of\b",
+    re.IGNORECASE,
+)
+
+# The record is named BEFORE the phrase: "FIR 65/26's absence from the list",
+# "FIR 65/26 does not appear", "65/26 has none".
+_ABSENCE_SUBJECT_BEFORE_RE = re.compile(
+    r"\babsen(?:ce|t)\b"
+    r"|\b(?:does|do|did)\s+not\s+appear\b"
+    r"|\b(?:is|are|was|were)\s+not\s+(?:in|on|listed|present|included|among|linked)\b"
+    r"|\bha[sve]+\s+none\b"
+    r"|\bmissing\s+from\b"
+    r"|\bnot\s+found\b"
+    r"|\black(?:s|ing|ed)?\b",
+    re.IGNORECASE,
+)
+
+# Identifier shapes an absence claim can be ABOUT: "65/26", "fir-65-26",
+# "FIR 65/26", "CMS-ISB-2026-0341", "CASE-014", or a bare multi-digit run.
+# Whatever the claim names must be checked against the listing itself.
+_CLAIM_ID_RES = (
+    # The lookahead forces the tail to contain a digit, so an ordinary noun
+    # phrase ("CMS complaint", "case tag") never becomes a pseudo-identifier
+    # that would satisfy the "names at least one identifier" requirement
+    # without actually naming anything checkable.
+    re.compile(r"\b(?:FIR|CASE|CMS|CNIC)[-\s]?(?=[A-Z0-9/\-]*\d)[A-Z0-9][A-Z0-9/\-]*", re.IGNORECASE),
+    re.compile(r"\b\d+\s*[/\-]\s*\d+(?:\s*[/\-]\s*\d+)*\b"),
+    re.compile(r"\b\d{4,}\b"),
+)
+
+# An identifier is only usable for the absence check if it is SPECIFIC
+# enough to be looked up. "65-26" and "cms-isb-2026-0341" are; the bare
+# "26" that falls out of splitting "65/26" is not — it occurs inside
+# "fir-64-26" and inside every other 2026 FIR number in the listing, so
+# treating it as the subject of the claim would make every negative look
+# fabricated. Composite (separator-bearing) tokens and long digit runs
+# only; bare 2-3 digit fragments are dropped.
+_MIN_BARE_ID_DIGITS = 4
+
+
+def _is_specific_identifier(token: str) -> bool:
+    return "-" in token or (token.isdigit() and len(token) >= _MIN_BARE_ID_DIGITS)
+
+# Tokens that are structurally part of a citation or of the judge's own
+# prose rather than the identifier being claimed absent.
+_CLAIM_ID_STOPWORDS = frozenset({"document", "fir", "case", "cms", "cnic"})
+
+
+def _normalize_identifier(token: str) -> str:
+    """Canonical form for comparing an identifier written one way in a claim
+    against the same identifier written another way in a listing: "FIR
+    65/26", "65/26" and "fir-65-26" all reduce to a form in which "65-26"
+    is a substring. Lowercased; "/", whitespace and repeated separators
+    collapsed to a single "-"."""
+    token = token.strip().lower()
+    token = re.sub(r"[\s/]+", "-", token)
+    token = re.sub(r"-{2,}", "-", token)
+    return token.strip("-")
+
+
+def _identifier_tokens(text: str) -> set[str]:
+    """Identifier-shaped tokens in `text`, normalized. `[Document N]`
+    markers are stripped first - the citation index is provenance
+    formatting, never the subject of a claim (the same discipline
+    `_numbers_in(strip_citations=True)` already applies)."""
+    text = _CITATION_MARKER_RE.sub(" ", text or "")
+    tokens: set[str] = set()
+    for pattern in _CLAIM_ID_RES:
+        for m in pattern.finditer(text):
+            norm = _normalize_identifier(m.group(0))
+            if not norm or norm in _CLAIM_ID_STOPWORDS:
+                continue
+            # "fir-65-26" carries the same information as "65-26"; keep the
+            # bare tail too so a claim written with the prefix still matches
+            # a listing written without it, and vice versa.
+            candidates = [norm]
+            stripped = re.sub(r"^(?:fir|case|cms|cnic)-", "", norm)
+            if stripped and stripped != norm:
+                candidates.append(stripped)
+            tokens.update(c for c in candidates if _is_specific_identifier(c))
+    return tokens
+
+
+def _chunk_is_exhaustive(chunk: dict) -> bool:
+    return bool((chunk.get("metadata") or {}).get(EXHAUSTIVE_SCOPE_META_KEY))
+
+
+def _chunk_text(chunk: dict) -> str:
+    return chunk.get("chunk_text") or chunk.get("text") or ""
+
+
+def exhaustive_chunk_texts(chunks: list[dict]) -> list[str]:
+    """The text of every chunk whose caller declared it a complete
+    enumeration over its stated scope. Empty list = no chunk did, and no
+    negative inference is licensed anywhere in this answer."""
+    return [_chunk_text(c) for c in (chunks or []) if _chunk_is_exhaustive(c)]
+
+
+# "Document 3" as the judge writes it in its own prose — bare, not the
+# answer's bracketed "[Document 3]" marker.
+_JUDGE_DOCUMENT_REF_RE = re.compile(r"\bDocument\s+(\d+)\b", re.IGNORECASE)
+
+
+def listings_a_claim_is_about(claim_text: str, chunks: list[dict]) -> list[str]:
+    """
+    Which complete listing(s) should a judge-reported absence claim be
+    checked against?
+
+    [Module 61, measured live] Pooling every exhaustive chunk was wrong and
+    the live runs proved it. CR3 hands the Verifier THREE XAGG sub-answers,
+    all of them complete enumerations: a filtered FIR listing that names
+    both 64/26 and 65/26, a CMS linkage listing that names only 64/26, and a
+    person-recurrence listing. The judge's claim is about membership in the
+    CMS LINKAGE listing specifically — and 65/26 does appear in a different
+    listing, for a different question, so a pooled check concluded
+    "fabricated" and the caveat stayed on every run. Absence is always
+    absence FROM A PARTICULAR REGISTER.
+
+    So: when the claim names a document ("…not directly supported by
+    Document 3"), that document's listing is the one to check, and only if
+    it is exhaustive. When it names none, fall back to requiring absence
+    from EVERY exhaustive listing — strictly more conservative than picking
+    one, and the right default when there is nothing to disambiguate with.
+    """
+    if not chunks:
+        return []
+    referenced = [
+        int(m.group(1)) for m in _JUDGE_DOCUMENT_REF_RE.finditer(claim_text or "")
+    ]
+    in_range = [n for n in referenced if 1 <= n <= len(chunks)]
+    if in_range:
+        named = [chunks[n - 1] for n in in_range]
+        # A claim pinned to a NON-exhaustive document licenses nothing, even
+        # if some other chunk in the answer happens to be a listing.
+        if not all(_chunk_is_exhaustive(c) for c in named):
+            return []
+        return [_chunk_text(c) for c in named]
+    return exhaustive_chunk_texts(chunks)
+
+
+def _identifier_spans(text: str) -> list[tuple[int, int, set[str]]]:
+    """`(start, end, tokens)` for every identifier-shaped run in `text`,
+    ordered by position — the positional counterpart of
+    `_identifier_tokens()`. Only COMPOSITE identifiers (a separator after
+    normalization, e.g. "65-26", "cms-isb-2026-0341") are kept as possible
+    subjects: a bare four-digit run is far more often a statute year ("PECA
+    2016") than a record id, and mistaking one for the subject of an absence
+    claim would confirm a negative nobody made."""
+    text = _CITATION_MARKER_RE.sub(" ", text or "")
+    spans: list[tuple[int, int, set[str]]] = []
+    for pattern in _CLAIM_ID_RES:
+        for m in pattern.finditer(text):
+            norm = _normalize_identifier(m.group(0))
+            if not norm or norm in _CLAIM_ID_STOPWORDS:
+                continue
+            candidates = [norm]
+            stripped = re.sub(r"^(?:fir|case|cms|cnic)-", "", norm)
+            if stripped and stripped != norm:
+                candidates.append(stripped)
+            tokens = {c for c in candidates if "-" in c}
+            if tokens:
+                spans.append((m.start(), m.end(), tokens))
+    spans.sort()
+    return spans
+
+
+def _absence_subjects(claim_text: str) -> Optional[list[set[str]]]:
+    """
+    Which record does each absence phrase in `claim_text` say is missing?
+
+    Returns one token-set per absence phrase found, or None when the claim
+    contains no absence phrase at all, or when any phrase's subject cannot
+    be resolved to an identifier. None means "this function cannot confirm
+    anything about this claim" and the judge's own verdict stands — that
+    conservative default is what keeps a vague absence claim ("the record is
+    incomplete") from being waved through.
+
+    Direction matters and is why the two phrase families exist separately.
+    "…does not mention FIR 65/26" names its record AFTER the phrase;
+    "FIR 64/26 … does not appear" names it BEFORE. Resolving both the same
+    way would, on a sentence naming one present and one absent record,
+    silently pick the wrong one — and picking the wrong one is exactly how a
+    fabricated negative would get confirmed.
+    """
+    text = _CITATION_MARKER_RE.sub(" ", claim_text or "")
+    spans = _identifier_spans(claim_text)
+
+    object_after = list(_ABSENCE_OBJECT_AFTER_RE.finditer(text))
+    after_ranges = [(m.start(), m.end()) for m in object_after]
+    subject_before = [
+        m for m in _ABSENCE_SUBJECT_BEFORE_RE.finditer(text)
+        # "absence of X" is an object-after phrase; the bare "absence"
+        # inside it must not be resolved a second time, backwards.
+        if not any(a <= m.start() < b for a, b in after_ranges)
+    ]
+    if not object_after and not subject_before:
+        return None
+    if not spans:
+        return None
+
+    subjects: list[set[str]] = []
+    for m in object_after:
+        following = next((sp for sp in spans if sp[0] >= m.end()), None)
+        if following is None:
+            return None
+        subjects.append(following[2])
+    for m in subject_before:
+        preceding = [sp for sp in spans if sp[1] <= m.start()]
+        chosen = preceding[-1] if preceding else next(
+            (sp for sp in spans if sp[0] >= m.end()), None
+        )
+        if chosen is None:
+            return None
+        subjects.append(chosen[2])
+    return subjects or None
+
+
+def negative_claim_is_supported_by_exhaustive_listing(
+    claim_text: str, exhaustive_texts: list[str]
+) -> bool:
+    """
+    True when `claim_text` — a JUDGE-AUTHORED statement of what could not be
+    confirmed, i.e. an entry in the Verifier's `unsupported_claims` or a
+    Validation claim's `reason` — says nothing more than that some record is
+    absent from a listing, and every record it names that way is genuinely
+    absent from a complete enumeration.
+
+    All of these are required, and each one is what stops this from being a
+    general relaxation of grounding:
+
+      * there is at least one chunk the CALLER declared exhaustive;
+      * every absence phrase in the claim resolves to a named, composite
+        identifier (`_absence_subjects()`), so a misattribution, an invented
+        figure or a vague "the record is incomplete" never qualifies;
+      * every one of those identifiers is confirmed ABSENT from the
+        listing's own text. A claim asserting the absence of something the
+        listing actually contains is a fabricated negative and returns
+        False.
+
+    The judge's own wording is the unit deliberately, rather than the
+    answer's sentence: a sentence routinely mixes a present record and an
+    absent one ("64/26 has a linked complaint, while 65/26 does not appear"),
+    whereas the judge's reason states precisely the one thing it could not
+    confirm. Checking the sentence would make the function's verdict depend
+    on which other, unrelated facts happened to share a sentence with the
+    negative.
+    """
+    if not exhaustive_texts:
+        return False
+    subjects = _absence_subjects(claim_text)
+    if not subjects:
+        return False
+
+    listing_ids: set[str] = set()
+    listing_blob = ""
+    for text in exhaustive_texts:
+        listing_ids |= _identifier_tokens(text)
+        listing_blob += " " + _normalize_identifier(text)
+
+    for tokens in subjects:
+        for token in tokens:
+            if token in listing_ids:
+                return False
+            # Substring check as well: a listing rendering "fir-64-26" must
+            # count as containing the claim's "64-26".
+            if token in listing_blob:
+                return False
+    return True
 
 
 def _check_temporal(chunks: list[dict], target_date: Optional[int]) -> list[str]:
@@ -515,6 +873,133 @@ def _check_no_citation(answer: str) -> Optional[str]:
     )
 
 
+# ============================================================
+# [Gold-QA fix — Module 101] ATTRIBUTION BY SOURCE NAME
+#
+# THE DEFECT. `_check_no_citation()` above rejects a substantial answer that
+# carries no `[Document N]` token. On KB9 that fires on an answer which is
+# CORRECT and which the LLM judge has just cleared claim by claim
+# (`grounded: true`, `unsupported_claims: []`): it states CrPC s.174/s.176
+# and Punjab Police Rules 25.31, states gold's own figure — "10 of the 73
+# FIR(s) that carry a recorded section cite PPC §302" — and states the
+# schema gap honestly. Its only fault is HOW it attributes: it names its
+# sources instead of numbering them —
+#
+#   "According to the **Code of Criminal Procedure (Pakistan)** …"
+#   "According to **our own case records (cross-case aggregate)** …"
+#
+# Both of those strings are the `source` / `source_file` labels of chunks
+# in this very window (chunks 1/3/4 and the composed data-half chunk 7).
+# The answer is not avoiding the evidence; it is citing it by name.
+# `refusal_issue` then sets `off_topic=True`, and the sub-agent's
+# [PRESERVE] contract discards the whole answer.
+#
+# Module 71 §8 filed this same check firing on Meta-Analysis' G6 synthesis
+# (10 of 12 runs) and Module 82 §8d recorded it firing there unforced on
+# shipped code. Module 71's own prescription was "make the [Document N]
+# markers unnecessary by carrying provenance out of band" — which is what
+# this is, on the Semantic Search side.
+#
+# WHY THIS IS NOT A LOOSENING. The exemption below needs BOTH of two
+# independent things to be true, and each alone is deliberately not enough:
+#
+#   (a) the answer contains, verbatim, the normalised source label of a
+#       chunk it was actually given — a deterministic string test against
+#       THIS window's own metadata, not a similarity judgement; and
+#   (b) the LLM judge independently cleared every claim in the answer
+#       (grounded, not off-topic, no unsupported claims), with no leakage
+#       and no other deterministic pre-check outstanding.
+#
+# So an evasive answer still fails (a): it names no source it was handed.
+# A fluent fabrication still fails (b): the judge flags it, exactly as it
+# flagged Module 82's forced `rule 27.41(3)` control 3 of 3 — and that
+# control's fabrication carries `[Document 2]`/`[Document 7]` markers, so
+# this check never adjudicated it in the first place. A genuine refusal is
+# untouched: `_check_refusal()` is evaluated separately below and is NEVER
+# exempted.
+#
+# What IS lost is the `[Document N]` marker itself, so the exemption is not
+# silent — `citation_format_degraded` is returned to the caller, which
+# caveats the answer.
+#
+# The `source` label of a chunk that is a bare ingest filename carries a
+# leading corpus index and an extension ("1_1898_Code_of_Criminal_
+# Procedure_(Pakistan).pdf"), neither of which any answer will ever write,
+# so both are stripped before matching. A label too short or too generic to
+# be evidence of anything ("unknown", "entity_graph") is refused outright by
+# the token/length floor: matching one of those would make the exemption
+# trivially satisfiable.
+CITATION_FORMAT_DEGRADED_KEY = "citation_format_degraded"
+
+# The caveat a caller MUST surface when it serves an exempted answer. Lives
+# here, next to the flag, so the six other agents that call
+# `verify_grounding()` can reuse the exact wording rather than each inventing
+# one -- Meta-Analysis' own wiring is another track's file and is filed, not
+# done here (see MODULE101_RESULT.md section 8).
+CITATION_FORMAT_DEGRADED_CAVEAT = (
+    "This answer attributes its sources by name rather than with [Document N] "
+    "markers, so individual claims cannot be traced to a specific source; every "
+    "claim was still checked against the retrieved evidence."
+)
+
+_SOURCE_LABEL_MIN_TOKENS = 3
+_SOURCE_LABEL_MIN_CHARS = 12
+_SOURCE_LABEL_SEPARATORS_RE = re.compile(r"[_\-]+")
+_SOURCE_LABEL_WS_RE = re.compile(r"\s+")
+_SOURCE_LABEL_EXT_RE = re.compile(r"\.(pdf|txt|docx?|csv|json|md)$", re.IGNORECASE)
+
+
+def _normalise_source_label(raw: Optional[str]) -> Optional[str]:
+    """A chunk's source label reduced to the form an answer would write it.
+
+    Extension dropped, `_`/`-` folded to spaces, whitespace collapsed,
+    lower-cased, and any LEADING all-digit tokens (the corpus index and a
+    statute year that prefixes the filename, "1_1898_…") removed — an
+    answer writes "Code of Criminal Procedure (Pakistan)", never
+    "1 1898 Code of Criminal Procedure (Pakistan)".
+
+    Returns None for a label too short or too few-worded to be evidence
+    that the answer engaged with THIS window rather than with general
+    knowledge.
+    """
+    if not raw or not raw.strip():
+        return None
+    text = _SOURCE_LABEL_EXT_RE.sub("", raw.strip())
+    text = _SOURCE_LABEL_SEPARATORS_RE.sub(" ", text)
+    text = _SOURCE_LABEL_WS_RE.sub(" ", text).strip().lower()
+    tokens = text.split(" ")
+    while tokens and tokens[0].isdigit():
+        tokens.pop(0)
+    if len(tokens) < _SOURCE_LABEL_MIN_TOKENS:
+        return None
+    label = " ".join(tokens)
+    if len(label) < _SOURCE_LABEL_MIN_CHARS:
+        return None
+    return label
+
+
+def _answer_names_a_cited_source(answer: str, chunks: list[dict]) -> Optional[str]:
+    """The first cited chunk's source label the answer states verbatim, or None.
+
+    The answer is normalised with the SAME transform as the label (minus the
+    leading-digit strip, which is a property of a filename and not of prose),
+    so "Punjab Police Rules-III" in the answer matches
+    "4_Punjab-Police-Rules-III.pdf" in the metadata.
+    """
+    if not answer:
+        return None
+    hay = _SOURCE_LABEL_WS_RE.sub(
+        " ", _SOURCE_LABEL_SEPARATORS_RE.sub(" ", answer)
+    ).lower()
+    for chunk in chunks:
+        meta = chunk.get("metadata") or {}
+        for raw in (chunk.get("source_file"), meta.get("source"), meta.get("source_file")):
+            label = _normalise_source_label(raw)
+            if label and label in hay:
+                return label
+    return None
+
+
 async def verify_grounding(
     answer: str,
     cited_chunks: list[dict],
@@ -587,14 +1072,24 @@ async def verify_grounding(
     temporal_issues = _check_temporal(cited_chunks, target_date)
     leaked_case = _check_leakage(answer, cited_chunks, case_id, cross_case_ids)
     hedging_issues = _check_hedging(answer, cited_chunks)
-    refusal_issue = _check_refusal(answer) or _check_no_citation(answer)
+    # [Module 101] Split, so the two can be merged on different terms below.
+    # `_check_refusal()` is NEVER exempted; `_check_no_citation()` is, and
+    # only under the two-part test in this module's comment block above.
+    refusal_issue = _check_refusal(answer)
+    no_citation_issue = _check_no_citation(answer)
     # [Scenario-test Finding J] Catch invented CASE-IDs inside citations —
     # see _check_fabricated_case_ids()'s own docstring for why the leakage
     # check above cannot cover this.
     fabricated_issues = _check_fabricated_case_ids(answer, cited_chunks)
 
     pre_check_issues: list[str] = temporal_issues + hedging_issues + fabricated_issues
-    pre_check_failed = bool(pre_check_issues or leaked_case or refusal_issue)
+    # [Module 101] `no_citation_issue` still counts here, unchanged: Module
+    # 61's exhaustive-negative override must stay off whenever ANY
+    # deterministic check has an outstanding finding, and whether this one is
+    # later exempted is not known until the judge has answered.
+    pre_check_failed = bool(
+        pre_check_issues or leaked_case or refusal_issue or no_citation_issue
+    )
 
     # ── Build LLM judge input ─────────────────────────────────────────────
     chunks_text = _format_chunks_for_verifier(cited_chunks)
@@ -651,6 +1146,53 @@ async def verify_grounding(
             "refusal_detected": False,
         }
 
+    # ── [Module 61] Negative inference over a COMPLETE listing ────────────
+    # The judge may still reject a correct negative ("65/26 has none")
+    # despite rule 7, because it is a sampled verdict — that sampling is
+    # exactly what made CR3 pass or fail on a coin flip across Module 57's
+    # 14 runs. When EVERY claim it flagged is an absence claim whose
+    # subject is deterministically confirmed missing from a chunk the
+    # CALLER declared exhaustive, the rejection is overturned here, in
+    # Python, so the outcome is reproducible rather than resampled.
+    #
+    # Deliberately conservative — the override does not run at all if the
+    # judge found ANY other problem (off_topic, a claim that is not
+    # absence-shaped, a claim naming an identifier the listing actually
+    # contains), and the deterministic pre-checks below still overrule it.
+    exhaustive_texts = exhaustive_chunk_texts(cited_chunks)
+    if (
+        exhaustive_texts
+        and not llm_result.get("grounded", False)
+        and not llm_result.get("off_topic", False)
+        and not llm_result.get("leaked_case_id")
+        and not pre_check_failed
+    ):
+        flagged = [str(c) for c in (llm_result.get("unsupported_claims") or []) if str(c).strip()]
+        # A rejection with no itemised claim gives nothing to check, so it
+        # stands; the reason line is used as the single claim in that case
+        # only when it is itself absence-shaped and identifier-bearing.
+        candidates = flagged or [str(llm_result.get("reason") or "")]
+        if candidates and all(
+            negative_claim_is_supported_by_exhaustive_listing(
+                c, listings_a_claim_is_about(c, cited_chunks)
+            )
+            for c in candidates
+        ):
+            logger.info(
+                "Verifier [Module 61]: overturning rejection — every flagged claim "
+                "is a negative over a COMPLETE listing whose subject is confirmed "
+                "absent. Claims: %s",
+                "; ".join(c[:80] for c in candidates),
+            )
+            llm_result["grounded"] = True
+            llm_result["unsupported_claims"] = []
+            llm_result["exhaustive_negative_override"] = True
+            llm_result["reason"] = (
+                "Supported: the only claims flagged were negative inferences over a "
+                "complete listing, and each named record is confirmed absent from "
+                "that listing."
+            )
+
     # ── Merge deterministic findings into LLM result ──────────────────────
     if pre_check_issues:
         existing = llm_result.get("unsupported_claims") or []
@@ -666,6 +1208,33 @@ async def verify_grounding(
             f"Cross-case evidence leakage detected: chunk from case '{leaked_case}' "
             f"cited in answer for case '{active_case_str}'."
         )
+
+    # ── [Module 101] Attribution by source name ──────────────────────────
+    # Evaluated HERE, after the merges above, so condition (b) sees the
+    # judge's verdict as it actually stands — including any deterministic
+    # finding or leakage that has just overruled it.
+    if no_citation_issue:
+        named_source = _answer_names_a_cited_source(answer, cited_chunks)
+        judge_cleared = (
+            bool(llm_result.get("grounded"))
+            and not llm_result.get("off_topic")
+            and not (llm_result.get("unsupported_claims") or [])
+            and not llm_result.get("leaked_case_id")
+            and not refusal_issue
+        )
+        if named_source and judge_cleared:
+            logger.info(
+                "Verifier [Module 101]: answer carries no [Document N] marker but "
+                "names cited source %r verbatim, and the judge cleared every "
+                "claim — serving it with a citation-format caveat rather than "
+                "discarding it.",
+                named_source,
+            )
+            llm_result[CITATION_FORMAT_DEGRADED_KEY] = True
+            llm_result["named_source"] = named_source
+        else:
+            # Not exempted — restore the pre-Module-101 behaviour exactly.
+            refusal_issue = refusal_issue or no_citation_issue
 
     # Distinct from off_topic/grounded — callers use this to decide whether
     # regenerating with a corrective prompt is worth trying (a refusal is a
@@ -791,6 +1360,101 @@ def _is_derived_ratio(candidate: str, source_values: set[str]) -> bool:
     return False
 
 
+# [Gold-QA fix — Module 70, M2] THE OPPOSITE DIRECTION.
+#
+# Everything above this point is a HALLUCINATION guard: it computes
+# `ans_nums - src_nums` and asks "did the paraphrase invent a number?".
+# That set difference is one-directional by construction, so nothing
+# anywhere notices a figure the aggregate COMPUTED and the paraphrase
+# DROPPED. Module 83's three-way capture over nine M2 runs measured the
+# consequence exactly: the aggregate payload and the rendered
+# `raw_summary_text` both carried gold's headline — "9 of 73 FIRs (~12.3%)
+# … carried by just 2 of 19 stations" — on 9 of 9, byte-identical, and the
+# served paraphrase dropped it on 9 of 9, with the gate logging
+# `grounded=True unsupported_numbers=[]` every time. That verdict was true
+# and useless: the paraphrase stated a strict subset.
+#
+# WHAT IS *NOT* CHECKED, AND WHY. A rendered aggregate legitimately states
+# dozens of numbers — per-station rows, per-year rows, per-district rates —
+# and a gold answer is prose, not a table. A rule of the form "every source
+# number must appear in the answer" would force every XAGG answer into a
+# recitation of its own breakdown, which is both worse to read and, per
+# Module 104, actively dangerous: a Markdown list ordinal is itself read as
+# a claimed figure by both verifiers, so pushing answers into list shape
+# trips a different gate. So the rule below covers exactly one construction.
+#
+# THE LOAD-BEARING FIGURES ARE THE HEADLINE'S PROPORTIONS. Two properties
+# of the rendering layer, both already load-bearing and both documented at
+# their own sites, make this identifiable without hand-listing anything
+# per question:
+#
+#   1. Every renderer LEADS with its finding — `_render_aggregate_text()`'s
+#      own comment ("Every enumerating branch leads with its own total")
+#      and `render_station_caseload_by_specialisation()`'s ("both are in
+#      the first sentence", made ONE sentence so a paraphrase has "no seam
+#      to drop"). So the first non-empty rendered line is the finding.
+#   2. A renderer writes "X of Y <noun>" when, and only when, it has
+#      computed a PROPORTION. A proportion is the one numeric construction
+#      that is destroyed by dropping either half: "2 stations" without "of
+#      19" is not a weaker version of the concentration finding, it is a
+#      different and much duller claim. Counts, totals and years survive
+#      being summarised away; a ratio does not.
+#
+# Measured blast radius, all 32 gold questions run through this gate on
+# 2026-09-10 (see MODULE70_RESULT.md §1.2): a naive "every headline figure"
+# rule fires on 10 of 32 and is wrong on at least 5 of them — it reads the
+# "1997" of "CNSA 1997" and the "1965" of "Arms Ordinance 1965" out of a
+# NOTE line as computed figures (CR3, KB1, KB8), and it misses that CR6's
+# Urdu answer states its "4" as the word "چار". The proportion rule below
+# fires on 1 of 32 — M2 — and on none of those five.
+_PROPORTION_PAIR_RE = re.compile(
+    r"(\d[\d,]*(?:\.\d+)?)\s+of\s+(\d[\d,]*(?:\.\d+)?)", re.IGNORECASE
+)
+
+
+def _headline_line(source_text: str) -> str:
+    """The first non-empty rendered line — the renderers' documented
+    headline slot (see the comment block above)."""
+    for line in (source_text or "").splitlines():
+        if line.strip():
+            return line.strip()
+    return ""
+
+
+def _omitted_headline_proportions(answer: str, source_text: str) -> list[str]:
+    """Figures from an "X of Y" proportion stated in the rendered headline
+    that the paraphrase does not state.
+
+    Returns [] — the check does not apply — when the answer states NONE of
+    the headline's figures. An answer in that shape is not a paraphrase
+    that dropped a finding; it is the sub-agent correctly saying the
+    computed aggregate does not address the question (KB2 and KB9 both
+    produce exactly that against a `graph_recurrence` payload). Pushing
+    figures into such an answer would manufacture a false claim, which is
+    the failure mode the OTHER direction of this function exists to stop.
+    """
+    headline = _headline_line(source_text)
+    pairs = _PROPORTION_PAIR_RE.findall(headline)
+    if not pairs:
+        return []
+
+    head_nums = _numbers_in(headline)
+    ans_nums = _numbers_in(answer, strip_citations=True)
+    if not (head_nums & ans_nums):
+        return []
+
+    missing: set[str] = set()
+    for a, b in pairs:
+        a, b = a.replace(",", ""), b.replace(",", "")
+        absent = [n for n in (a, b) if n not in ans_nums]
+        if absent:
+            # Report the WHOLE pair, not just the absent half: the repair
+            # pass above this function has to restate the proportion, and
+            # "19" on its own is not a restatable fact.
+            missing.update({a, b})
+    return sorted(missing)
+
+
 async def verify_structured_aggregate_paraphrase(
     answer: str,
     source_text: str,
@@ -876,6 +1540,17 @@ async def verify_structured_aggregate_paraphrase(
         and not _is_derived_ratio(n, src_nums)
     )
 
+    # [Module 70] The opposite direction — see the comment block above
+    # `_omitted_headline_proportions()`. Deliberately ADDITIVE: it does not
+    # feed `grounded`, does not touch `unsupported_claims`, and cannot flip
+    # any verdict this function returns today. An omission is a
+    # completeness shortfall, not a grounding failure or a safety problem;
+    # making it fail the gate would trade a missing figure for the raw
+    # computed dump (or, upstream, for no answer at all — which is what
+    # `[PRESERVE]` did to KB9 and what Module 101 had to undo). The caller
+    # reads this field and repairs; nothing here refuses.
+    omitted_figures = _omitted_headline_proportions(answer, source_text)
+
     grounded = not leaked_case and not fabricated_issues and not unsupported_numbers
     reason = "Paraphrase numbers match the computed source; deterministic check passed."
     if leaked_case:
@@ -886,8 +1561,9 @@ async def verify_structured_aggregate_paraphrase(
         reason = f"Paraphrase states number(s) not present in the computed result: {', '.join(unsupported_numbers)}."
 
     logger.info(
-        "Structured-aggregate verifier: grounded=%s leaked=%s unsupported_numbers=%s — %s",
-        grounded, leaked_case, unsupported_numbers, reason[:80],
+        "Structured-aggregate verifier: grounded=%s leaked=%s unsupported_numbers=%s "
+        "omitted_headline_proportions=%s — %s",
+        grounded, leaked_case, unsupported_numbers, omitted_figures, reason[:80],
     )
     return {
         "grounded": grounded,
@@ -896,4 +1572,7 @@ async def verify_structured_aggregate_paraphrase(
         "unsupported_claims": fabricated_issues + [f"number: {n}" for n in unsupported_numbers],
         "reason": reason,
         "refusal_detected": False,
+        # [Module 70] Additive; see `_omitted_headline_proportions()`.
+        "omitted_source_figures": omitted_figures,
+        "omitted_source_headline": _headline_line(source_text) if omitted_figures else None,
     }

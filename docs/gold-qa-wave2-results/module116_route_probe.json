@@ -1,0 +1,170 @@
+{
+  "CR3": {
+    "text": "In the online banking fraud matter involving two separate victims, was each victim's case processed and recorded the same way?",
+    "runs": [
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "Asks to compare how two separate (unnamed) cases were handled — a synthesis across specific case records, not a single-entity lookup (XGRAPH) or a count (XAGG). ACTIVE_CASE is none and no case/FIR number is named, so this cannot be GRAPH/GRAPH_HYBRID despite the within-case-shaped wording ('the case')",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "Asks to compare how two separate (unnamed) cases were handled — a synthesis across specific case records, not a single-entity lookup (XGRAPH) or a count (XAGG). ACTIVE_CASE is none and no case/FIR number is named, so this cannot be GRAPH/GRAPH_HYBRID despite the within-case-shaped wording ('the case')",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "Asks to compare how two separate (unnamed) cases were handled — a synthesis across specific case records, not a single-entity lookup (XGRAPH) or a count (XAGG). ACTIVE_CASE is none and no case/FIR number is named, so this cannot be GRAPH/GRAPH_HYBRID despite the within-case-shaped wording ('the case')",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "Asks to compare how two separate (unnamed) cases were handled — a synthesis across specific case records, not a single-entity lookup (XGRAPH) or a count (XAGG). ACTIVE_CASE is none and no case/FIR number is named, so this cannot be GRAPH/GRAPH_HYBRID despite the within-case-shaped wording ('the case')",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "Asks to compare how two separate (unnamed) cases were handled — a synthesis across specific case records, not a single-entity lookup (XGRAPH) or a count (XAGG). ACTIVE_CASE is none and no case/FIR number is named, so this cannot be GRAPH/GRAPH_HYBRID despite the within-case-shaped wording ('the case')",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "Asks to compare how two separate (unnamed) cases were handled — a synthesis across specific case records, not a single-entity lookup (XGRAPH) or a count (XAGG). ACTIVE_CASE is none and no case/FIR number is named, so this cannot be GRAPH/GRAPH_HYBRID despite the within-case-shaped wording ('the case')",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "Asks to compare how two separate (unnamed) cases were handled — a synthesis across specific case records, not a single-entity lookup (XGRAPH) or a count (XAGG). ACTIVE_CASE is none and no case/FIR number is named, so this cannot be GRAPH/GRAPH_HYBRID despite the within-case-shaped wording ('the case')",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "Asks to compare how two separate (unnamed) cases were handled — a synthesis across specific case records, not a single-entity lookup (XGRAPH) or a count (XAGG). ACTIVE_CASE is none and no case/FIR number is named, so this cannot be GRAPH/GRAPH_HYBRID despite the within-case-shaped wording ('the case')",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XNETWORK": 8
+    }
+  },
+  "G1": {
+    "text": "Acting as a crime analyst, review our current caseload and flag anything that looks unusual or worth monitoring.",
+    "runs": [
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "Asks for a synthesized review of the entire caseload to identify unusual or noteworthy patterns — this is an open-ended cross-case network analysis, not a count (XAGG) or entity lookup (XGRAPH)",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "Asks for a synthesized review of the entire caseload to identify unusual or noteworthy patterns — this is an open-ended cross-case network analysis, not a count (XAGG) or entity lookup (XGRAPH)",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "Asks for a synthesized review of the entire caseload to identify unusual or noteworthy patterns — this is an open-ended cross-case network analysis, not a count (XAGG) or entity lookup (XGRAPH)",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "Asks for a synthesized review of the entire caseload to identify unusual or noteworthy patterns — this is an open-ended cross-case network analysis, not a count (XAGG) or entity lookup (XGRAPH)",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "Asks for a synthesized review of the entire caseload to identify unusual or noteworthy patterns — this is an open-ended cross-case network analysis, not a count (XAGG) or entity lookup (XGRAPH)",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "Asks for a synthesized review of the entire caseload to identify unusual or noteworthy patterns — this is an open-ended cross-case network analysis, not a count (XAGG) or entity lookup (XGRAPH)",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "Asks for a synthesized review of the entire caseload to identify unusual or noteworthy patterns — this is an open-ended cross-case network analysis, not a count (XAGG) or entity lookup (XGRAPH)",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "Asks for a synthesized review of the entire caseload to identify unusual or noteworthy patterns — this is an open-ended cross-case network analysis, not a count (XAGG) or entity lookup (XGRAPH)",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XNETWORK": 8
+    }
+  },
+  "G6": {
+    "text": "Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation note likhein — unhein mojooda case load se kya tawaqqo rakhni chahiye?",
+    "runs": [
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "The query asks for an orientation note for a newly posted officer covering what they should know about the current caseload, which requires a synthesized overview of the overall case network and patterns — this is an open-ended cross-case synthesis request, not a single-case or entity lookup",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "A request for an orientation note for a newly posted officer covering what they should know about the current caseload — this is an open-ended synthesis across the entire caseload, not a single-case or entity-specific query. Since no case is active, this falls under XNETWORK's cross-case synthesis route.",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "A request for an orientation note for a newly posted officer covering what they should know about the current caseload — this is an open-ended synthesis across the entire caseload, not a single-case or entity-specific query. Since no case is active, this falls under XNETWORK's cross-case synthesis route.",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "A request for an orientation note for a newly posted officer covering what they should know about the current caseload — this is an open-ended synthesis across the entire caseload, not a single-case or entity-specific query. Since no case is active, this falls under XNETWORK's cross-case synthesis route.",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "A request for an orientation note for a newly posted officer covering what they should know about the current caseload — this is an open-ended synthesis across the entire caseload, not a single-case or entity-specific query. Since no case is active, this falls under XNETWORK's cross-case synthesis route.",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "A request for an orientation note for a newly posted officer covering what they should know about the current caseload — this is an open-ended synthesis across the entire caseload, not a single-case or entity-specific query. Since no case is active, this falls under XNETWORK's cross-case synthesis route.",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "A request for an orientation note for a newly posted officer covering what they should know about the current caseload — this is an open-ended synthesis across the entire caseload, not a single-case or entity-specific query. Since no case is active, this falls under XNETWORK's cross-case synthesis route.",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "A request for an orientation note for a newly posted officer covering what they should know about the current caseload — this is an open-ended synthesis across the entire caseload, not a single-case or entity-specific query. Since no case is active, this falls under XNETWORK's cross-case synthesis route.",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XNETWORK": 8
+    }
+  }
+}

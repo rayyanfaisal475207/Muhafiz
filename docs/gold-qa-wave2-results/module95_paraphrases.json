@@ -1,0 +1,37 @@
+{
+  "_note": "[Module 95] Written BEFORE any live run and not adjusted afterwards. Each question keeps its own language (G2 Urdu, G5 Roman-Urdu) plus one English rewording, per the module brief.",
+  "G2": [
+    {
+      "id": "G2-P1",
+      "language": "ur",
+      "text": "ہمارے ریکارڈ میں ایسی کون سی خامیاں ہیں جن کی وجہ سے کوئی مقدمہ خاموشی سے رُک سکتا ہے یا نظر سے اوجھل ہو سکتا ہے؟"
+    },
+    {
+      "id": "G2-P2",
+      "language": "ur",
+      "text": "اگر تفتیشی ریکارڈ کا جائزہ لیا جائے تو کن اندراجات پر بھروسہ نہیں کیا جا سکتا، اور اس کی وجہ کیا ہے؟"
+    },
+    {
+      "id": "G2-P3",
+      "language": "en",
+      "text": "If you were warning a station commander about cases that could quietly slip through the cracks, which gaps in our records would you point to?"
+    }
+  ],
+  "G5": [
+    {
+      "id": "G5-P1",
+      "language": "roman_ur",
+      "text": "Weapon register ka jaiza lein — regulatory compliance ke aitbaar se kaun si kamzoriyan nazar aati hain?"
+    },
+    {
+      "id": "G5-P2",
+      "language": "roman_ur",
+      "text": "Hathiyaron ki baramdagi ka record kitna mukammal hai, aur is mein kis cheez ki nishandahi zaroori hai?"
+    },
+    {
+      "id": "G5-P3",
+      "language": "en",
+      "text": "Looking at how recovered weapons are recorded, what compliance concerns would you raise?"
+    }
+  ]
+}

@@ -897,3 +897,901 @@ def test_module28_changes_no_other_gold_question_route():
     # collision out as the hazard for this module.
     assert after["CR2"] == before["CR2"]
     assert after["G5"] == before["G5"]
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 60, question M4] M4 must reach its own aggregate.
+#
+# The tracker recorded M4 as skipping decomposition since Module 41. Live it
+# never did — 7 runs of 7 across two code states — because Module 41's guard
+# is conditional on `route == "XAGG"` and the LLM router classifies M4 as
+# XNETWORK. Module 60 fixes the ROUTE (option 3 of the three the plan lists)
+# rather than the guard, gated on `resolve_aggregate_kind()` — Module 41's
+# single source of dispatch truth — so the router cannot disagree with the
+# chain XAGG will actually run.
+# ═══════════════════════════════════════════════════════════════════════
+
+_M4_GOLD = (
+    "ایک طرف یہ دیکھیں کہ لوگوں پر کن دفعات میں مقدمے بن رہے ہیں، اور دوسری "
+    "طرف یہ کہ وہ مقدمے عدالت میں کہاں تک پہنچے — کیا دونوں سے کیس لوڈ کی "
+    "سنگینی کا ایک ہی اندازہ ہوتا ہے؟"
+)
+
+
+def test_module60_m4_gold_text_routes_deterministically_to_xagg():
+    """Pinned to M4's LITERAL Urdu gold text. Before Module 60 this returned
+    `None` (no deterministic override) and the LLM router answered XNETWORK
+    on every one of seven live runs."""
+    override = router._deterministic_route_override(_M4_GOLD)
+    assert override is not None
+    assert override["route"] == "XAGG"
+    assert override["case_scope"] == "cross_case"
+    assert "statute" in override["reason"].lower()
+
+
+def test_module60_m4_gold_text_is_in_the_dataset_verbatim():
+    """The test above is only worth anything if the string really is M4's."""
+    m4 = [it for it in _gold32() if (it.get("id") or "").upper() == "M4"]
+    assert len(m4) == 1
+    assert m4[0]["question"] == _M4_GOLD
+
+
+def test_module60_override_is_gated_on_the_aggregate_resolver_not_a_regex():
+    """Module 62's warning, pinned: this override must ask XAGG's own chain,
+    so it inherits every precedence rule above `_is_statute_court_stage_join`
+    (G3's court-readiness scan, CR7's criminal-record cross-check) for free.
+    A future edit that reimplements it as a pattern list fails here."""
+    from src.pipeline.xagg import resolve_aggregate_kind
+
+    assert router._resolves_to_statute_court_stage_join(_M4_GOLD)
+    assert resolve_aggregate_kind(_M4_GOLD) == "statute_court_stage_join"
+    # A question the resolver sends elsewhere must not be captured, even
+    # though it carries M4's court vocabulary.
+    g3 = [it for it in _gold32() if (it.get("id") or "").upper() == "G3"][0]["question"]
+    assert resolve_aggregate_kind(g3) == "court_readiness_scan"
+    assert not router._resolves_to_statute_court_stage_join(g3)
+
+
+def test_module60_an_active_case_still_short_circuits_the_new_override():
+    """A within-case "how far did THIS case get in court?" must stay GRAPH —
+    the override sits below the active-case short-circuit deliberately."""
+    within = "How far has CASE-009 got in court, and what sections was it charged under?"
+    assert router._deterministic_route_override(within) is None
+    assert router._deterministic_route_override(
+        "How far has the case got in court and under what sections?", case_id="CASE-009"
+    ) is None
+
+
+# Captured from `_deterministic_route_override()` on the pre-Module-60 tree
+# (branch point `main` @ c5533ba). `None` means "no override — the LLM router
+# decides". This is the control: the new override must move NOTHING but M4.
+# A diff here is a regression, not a test to update.
+_GOLD32_DETERMINISTIC_ROUTES_BEFORE_MODULE60 = {
+    "D1": "XAGG", "S2": "XAGG", "S3": "XAGG", "A1": None, "A7": "XAGG",
+    "CP6": "XAGG", "CR2": "XAGG", "CR3": None, "CR4": "XAGG", "CR6": "XAGG",
+    "CR7": "XAGG", "CR8": "XAGG", "CS4": None, "CP1": None, "M1": "XAGG",
+    "M2": None, "M4": None, "M5": "XAGG", "M7": None, "G1": None,
+    "G2": "XAGG", "G3": "XAGG", "G5": "XAGG", "G6": None, "KB1": None,
+    "KB2": None, "KB3": None, "KB4": None, "KB5": None, "KB6": None,
+    "KB8": None, "KB9": None,
+}
+
+
+def test_module60_all_32_gold_questions_route_exactly_as_before_except_m4():
+    """The non-negotiable all-32 negative control, stated as EQUALITY.
+
+    Asserting only "M4 now routes to XAGG" would pass if the override had
+    also dragged G3 or CR7 sideways. A router change that quietly moves a
+    working question is the most expensive mistake available here — the
+    M4/G3 keyword collision (PR #8) is the precedent.
+
+    [AMENDED — Module 67] Module 67 widened Module 60's one-kind override to
+    a named allow-list of aggregate kinds and moves four MORE questions
+    (M2, M7, CS4, CP1), each measured live. The control is kept — and kept
+    as equality against Module 60's own captured baseline — but its allowed
+    diff is now Module 60's move plus Module 67's four, taken from Module
+    67's own `_MODULE67_INTENDED_MOVES` so there is exactly one place in
+    this file where a moved question can be declared.
+
+    [AMENDED — Module 78] Module 78 adds a legal-KB -> RAG override, checked
+    LAST of all, and it reaches the eight KB questions. Six of the eight were
+    already reaching RAG from the LLM classifier on every measured run and
+    only become deterministic; the two that genuinely MOVE are KB3 (live
+    XNETWORK 3 of 3) and KB9 (live XAGG 3 of 3), which is the whole point of
+    that module. Declared in `_MODULE78_KB_QUESTIONS_NOW_DETERMINISTIC`, for
+    the same one-place-to-declare reason. Note what has NOT moved: every
+    question with an existing override above keeps it, by construction —
+    Module 78's check runs after all of them."""
+    after = {
+        (it.get("id") or "").upper():
+            (router._deterministic_route_override(it["question"]) or {}).get("route")
+        for it in _gold32()
+    }
+    expected = dict(_GOLD32_DETERMINISTIC_ROUTES_BEFORE_MODULE60)
+    expected["M4"] = "XAGG"  # Module 60's one intended change
+    for qid in _MODULE67_INTENDED_MOVES:  # Module 67's four, measured live
+        expected[qid] = "XAGG"
+    for qid in _MODULE78_KB_QUESTIONS_NOW_DETERMINISTIC:  # Module 78's eight
+        expected[qid] = "RAG"
+    changed = {
+        qid: (_GOLD32_DETERMINISTIC_ROUTES_BEFORE_MODULE60[qid], after[qid])
+        for qid in after
+        if _GOLD32_DETERMINISTIC_ROUTES_BEFORE_MODULE60[qid] != after[qid]
+    }
+    assert changed == {
+        **{qid: (None, "XAGG") for qid in ("M4", *_MODULE67_INTENDED_MOVES)},
+        **{qid: (None, "RAG") for qid in _MODULE78_KB_QUESTIONS_NOW_DETERMINISTIC},
+    }, changed
+    assert after == expected
+
+
+def test_module60_gold_question_variants_route_exactly_as_before():
+    """The 32 questions' own paraphrase variants, held to the same bar."""
+    for item in _gold32():
+        for variant in item.get("question_variants") or []:
+            route = (router._deterministic_route_override(variant) or {}).get("route")
+            # No variant may newly land on the Module 60 override.
+            if route == "XAGG":
+                assert not router._resolves_to_statute_court_stage_join(variant), (
+                    f"{item['id']} variant newly captured by Module 60: {variant}"
+                )
+
+
+def test_module60_broad_form_was_rejected_for_a_measured_reason():
+    """Documents, executably, why this override names ONE aggregate kind
+    instead of `resolves_to_specific_aggregate()`.
+
+    The broad form — "route to XAGG whenever XAGG resolves to something
+    specific" — moves SEVEN of the 32, including KB5, a legal-KB question
+    that resolves to `gender_breakdown` purely as a resolver false
+    positive. That is the bound on the risk, and it is measured, not
+    asserted.
+
+    [AMENDED — Module 67] Module 67 re-measured those seven and found the
+    split is at the level of the aggregate KIND, so it took four of them
+    (M2, M7, CS4, CP1) into a named allow-list and left the rest. Module
+    60's original measurement — "the broad form moves seven, and at least
+    one of them, KB5, is wrong" — is preserved here as the seven-question
+    union of what has since been taken and what is still, correctly,
+    refused. The load-bearing half is the residue: KB5, G1 and A1 must
+    still be refused.
+
+    [AMENDED — Module 74] KB3 joins the residue. Module 74 gave KB3's data
+    half a real aggregate (`officer_role_pair_overlap`), so
+    `resolves_to_specific_aggregate(KB3)` flipped True — but the kind is
+    deliberately NOT in `_XAGG_ROUTE_OVERRIDE_KINDS`, so KB3's route is
+    unchanged and it keeps reaching RAG for the statutory half its gold
+    answer is mostly made of. That is the same call Module 67 made for KB5,
+    for the same reason, and it is why this residue is the load-bearing
+    assertion: a legal-KB question resolving to a real aggregate must not,
+    on its own, become a routing decision."""
+    from src.pipeline.xagg import resolves_to_specific_aggregate
+
+    # [AMENDED — Module 78] The filter is now "this file refuses to route it
+    # to XAGG", not "this file has no opinion at all". Module 78's legal-KB
+    # override gives KB3 and KB5 a deterministic RAG route, so the old form
+    # of this filter would silently drop them from the residue and assert
+    # nothing — the residue's whole point is that a legal-KB question which
+    # resolves to a real aggregate must not become an XAGG routing decision,
+    # and that is exactly what "this file does not route it to XAGG" says.
+    still_refused = sorted(
+        (it.get("id") or "").upper()
+        for it in _gold32()
+        if (router._deterministic_route_override(it["question"]) or {}).get("route")
+        != "XAGG"
+        and resolves_to_specific_aggregate(it["question"])
+    )
+    assert still_refused == ["A1", "G1", "KB3", "KB5"], still_refused
+    # The broad form's real blast radius, re-measured: the four Module 67
+    # took, plus M4, plus the four still refused above. Module 60's prose
+    # says "seven" and then names eight (A1, CS4, CP1, M2, M4, M7, G1, KB5)
+    # — the count was the typo, not the list; it was EIGHT, and Module 74's
+    # KB3 makes it NINE.
+    broad_form_would_move = sorted(set(still_refused) | {"M4"} | set(_MODULE67_INTENDED_MOVES))
+    assert len(broad_form_would_move) == 9, broad_form_would_move
+    assert "KB5" in broad_form_would_move
+    assert "KB3" in broad_form_would_move
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 67] The router classified a plainly cross-case
+# aggregate question as plain RAG, and the pipeline then burned ~8 minutes
+# before failing hard.
+#
+# Module 60 fixed the ROUTE for M4 alone, gated on `resolve_aggregate_kind()`
+# and hard-coded to one aggregate kind, because the broad form
+# (`resolves_to_specific_aggregate()`) was measured to move seven of the 32
+# including KB5. Module 67 re-measured those seven and found the split is at
+# the level of the KIND, not the question: five of them are cross-case
+# aggregates with purpose-built XAGG families, and the two wrong ones come
+# from exactly two kinds. So the rule is an explicit ALLOW-LIST of kinds,
+# not the broad predicate — and the two bad kinds are excluded by name.
+# ═══════════════════════════════════════════════════════════════════════
+
+
+# Captured on THIS branch's parent (`main` @ ae6ea3c), i.e. with Module 60's
+# single-kind override in place and nothing else. `None` means "no override —
+# the LLM router decides", which is the state that exposes a question to the
+# ~8-minute RAG misroute. This is the control: a diff here that is not in
+# `_MODULE67_INTENDED_MOVES` is a regression, not a test to update.
+_GOLD32_DETERMINISTIC_ROUTES_BEFORE_MODULE67 = {
+    "D1": "XAGG", "S2": "XAGG", "S3": "XAGG", "A1": None, "A7": "XAGG",
+    "CP6": "XAGG", "CR2": "XAGG", "CR3": None, "CR4": "XAGG", "CR6": "XAGG",
+    "CR7": "XAGG", "CR8": "XAGG", "CS4": None, "CP1": None, "M1": "XAGG",
+    "M2": None, "M4": "XAGG", "M5": "XAGG", "M7": None, "G1": None,
+    "G2": "XAGG", "G3": "XAGG", "G5": "XAGG", "G6": None, "KB1": None,
+    "KB2": None, "KB3": None, "KB4": None, "KB5": None, "KB6": None,
+    "KB8": None, "KB9": None,
+}
+
+# Every question Module 67 intends to move, and the aggregate kind that moves
+# it. Each one is live-measured in MODULE67_RESULT.md — this dict is the
+# module's whole blast radius, stated once and asserted below.
+_MODULE67_INTENDED_MOVES = {
+    "M2": "station_caseload_by_specialisation",
+    "M7": "incident_to_report_minutes_by_year",
+    "CS4": "criminal_record_local_match_gap",
+    "CP1": "weapon_recovery_rate_by_district",
+}
+
+# [Module 78] Every question Module 78's legal-KB override reaches, declared
+# once here so both all-32 equality controls below take it from one place —
+# the same discipline Module 67 introduced for its own four.
+#
+# ALL EIGHT are listed because all eight now get a DETERMINISTIC route, but
+# only TWO of them CHANGE route: KB3 (was XNETWORK live, 3 of 3 passes) and
+# KB9 (was XAGG, 3 of 3). The other six already reached RAG through the LLM
+# classifier on every measured run; what changes for them is that the route
+# is no longer a coin flip — Module 68 measured this same classifier
+# returning 6 RAG / 2 XAGG over eight calls on one of these strings.
+_MODULE78_KB_QUESTIONS_NOW_DETERMINISTIC = (
+    "KB1", "KB2", "KB3", "KB4", "KB5", "KB6", "KB8", "KB9",
+)
+_MODULE78_QUESTIONS_WHOSE_LIVE_ROUTE_CHANGES = ("KB3", "KB9")
+
+
+def test_module67_all_32_gold_questions_route_exactly_as_measured():
+    """The all-32 EQUALITY negative control, and the whole risk bound.
+
+    Stated as equality against a captured map rather than as "M2/M7/CS4/CP1
+    now route to XAGG": the latter would pass even if the widened allow-list
+    had also dragged G3, CR7 or a KB question sideways. A router change that
+    quietly moves a working question is the most expensive mistake available
+    here — the M4/G3 keyword collision (PR #8) is the precedent."""
+    after = {
+        (it.get("id") or "").upper():
+            (router._deterministic_route_override(it["question"]) or {}).get("route")
+        for it in _gold32()
+    }
+    expected = dict(_GOLD32_DETERMINISTIC_ROUTES_BEFORE_MODULE67)
+    for qid in _MODULE67_INTENDED_MOVES:
+        expected[qid] = "XAGG"
+    for qid in _MODULE78_KB_QUESTIONS_NOW_DETERMINISTIC:
+        expected[qid] = "RAG"
+
+    changed = {
+        qid: (_GOLD32_DETERMINISTIC_ROUTES_BEFORE_MODULE67[qid], after[qid])
+        for qid in after
+        if _GOLD32_DETERMINISTIC_ROUTES_BEFORE_MODULE67[qid] != after[qid]
+    }
+    assert changed == {
+        **{qid: (None, "XAGG") for qid in _MODULE67_INTENDED_MOVES},
+        **{qid: (None, "RAG") for qid in _MODULE78_KB_QUESTIONS_NOW_DETERMINISTIC},
+    }, changed
+    assert after == expected
+    # Named explicitly: the questions whose keyword space overlaps the moved
+    # ones, and whose regression would be the expensive one.
+    for qid in ("M4", "G3", "CR7", "G2", "G5", "M5"):
+        assert after[qid] == "XAGG"
+    # [AMENDED — Module 78] KB5 moves from `None` to "RAG" and stays out of
+    # every cross-case route, which is what this line was protecting; the
+    # non-KB four are unchanged and stay `None`.
+    assert after["KB5"] == "RAG"
+    for qid in ("G1", "A1", "CR3", "G6"):
+        assert after[qid] is None
+
+
+def test_module67_each_moved_question_moves_via_its_own_named_aggregate_kind():
+    """Not just "it now routes XAGG" — it must route via the specific
+    aggregate family that was built for it, so a resolver change that
+    silently re-homes one of these questions fails here rather than
+    answering it out of a different aggregate."""
+    gold = {(it.get("id") or "").upper(): it["question"] for it in _gold32()}
+    for qid, kind in _MODULE67_INTENDED_MOVES.items():
+        assert router._resolved_xagg_override_kind(gold[qid]) == kind, qid
+        assert kind in router._XAGG_ROUTE_OVERRIDE_KINDS
+
+
+def test_module67_the_two_excluded_kinds_stay_excluded():
+    """The measured reason the broad form was rejected, kept executable.
+
+    `gender_breakdown` is the resolver's known false positive (KB5, a
+    legal-KB question, resolves there on vocabulary alone), and
+    `case_completeness_scan` is G1's — G1's gold answer is a five-part
+    Meta-Analysis synthesis, not one aggregate. Both are excluded BY NAME so
+    a later module cannot 'tidy' them back in without deleting this test."""
+    from src.pipeline.xagg import resolve_aggregate_kind
+
+    gold = {(it.get("id") or "").upper(): it["question"] for it in _gold32()}
+    for kind in router._XAGG_ROUTE_OVERRIDE_EXCLUDED_KINDS:
+        assert kind not in router._XAGG_ROUTE_OVERRIDE_KINDS
+
+    # KB5 and A1 both resolve to gender_breakdown; neither may be captured.
+    assert resolve_aggregate_kind(gold["KB5"]) == "gender_breakdown"
+    assert resolve_aggregate_kind(gold["A1"]) == "gender_breakdown"
+    assert router._resolved_xagg_override_kind(gold["KB5"]) is None
+    assert router._resolved_xagg_override_kind(gold["A1"]) is None
+
+    # G1 resolves to case_completeness_scan, the same kind G2 legitimately
+    # is. G2 keeps its route through its own pattern list, not through here.
+    assert resolve_aggregate_kind(gold["G1"]) == "case_completeness_scan"
+    assert router._resolved_xagg_override_kind(gold["G1"]) is None
+    assert router._deterministic_route_override(gold["G2"])["route"] == "XAGG"
+
+
+def test_module67_is_not_the_broad_form_module60_rejected():
+    """The allow-list must stay strictly narrower than
+    `resolves_to_specific_aggregate()`. If a future edit replaces it with the
+    broad predicate, KB5, G1 and A1 start routing to XAGG and this fails."""
+    from src.pipeline.xagg import resolves_to_specific_aggregate
+
+    broad = {
+        (it.get("id") or "").upper()
+        for it in _gold32()
+        if resolves_to_specific_aggregate(it["question"])
+    }
+    narrow = {
+        (it.get("id") or "").upper()
+        for it in _gold32()
+        if router._resolved_xagg_override_kind(it["question"]) is not None
+    }
+    assert narrow < broad
+    assert {"KB5", "G1", "A1"} <= (broad - narrow)
+
+
+def test_module67_no_kb_question_is_ever_captured():
+    """The eight legal-KB questions are answered from statute text by RAG.
+    None may be routed to a cross-case aggregate by this override — that
+    would trade a slow-but-right path for a fast-and-wrong one.
+
+    [AMENDED — Module 78] The second assertion used to be "and no other
+    deterministic override touches a KB question either", which was true
+    when the only overrides were cross-case ones. Module 78 adds a legal-KB
+    override that deliberately claims all eight FOR RAG. The claim this test
+    exists to make is unchanged and is now stated directly: whatever this
+    file decides for a KB question, it is never XGRAPH, XAGG or XNETWORK."""
+    for item in _gold32():
+        qid = (item.get("id") or "").upper()
+        if qid.startswith("KB"):
+            assert router._resolved_xagg_override_kind(item["question"]) is None, qid
+            route = (
+                router._deterministic_route_override(item["question"]) or {}
+            ).get("route")
+            assert route not in ("XAGG", "XGRAPH", "XNETWORK"), (qid, route)
+
+
+def test_module67_an_active_case_still_short_circuits_the_wider_override():
+    """The widened allow-list still sits BELOW the active-case short-circuit:
+    a within-case version of any moved question stays GRAPH."""
+    gold = {(it.get("id") or "").upper(): it["question"] for it in _gold32()}
+    for qid in _MODULE67_INTENDED_MOVES:
+        assert router._deterministic_route_override(gold[qid], case_id="CASE-009") is None, qid
+
+
+def test_module67_gold_question_variants_route_exactly_as_before():
+    """The 32 questions' own paraphrase variants, held to the same bar as the
+    all-32 control: none may newly reach the widened override."""
+    for item in _gold32():
+        qid = (item.get("id") or "").upper()
+        for variant in item.get("question_variants") or []:
+            kind = router._resolved_xagg_override_kind(variant)
+            assert kind is None or qid in _MODULE67_INTENDED_MOVES or qid == "M4", (
+                f"{qid} variant newly captured by Module 67 as {kind}: {variant}"
+            )
+
+
+def test_module67_a_broken_xagg_import_leaves_routing_unchanged():
+    """The lazy import is this override's blast-radius guard: if xagg cannot
+    be imported at all, routing must fall back to exactly what it was rather
+    than raising. Module 60 wrote that property; widening the rule must not
+    lose it."""
+    import builtins
+    import sys
+
+    real_import = builtins.__import__
+
+    def exploding_import(name, *args, **kwargs):
+        if name == "src.pipeline.xagg":
+            raise ImportError("simulated")
+        return real_import(name, *args, **kwargs)
+
+    gold = {(it.get("id") or "").upper(): it["question"] for it in _gold32()}
+    saved = sys.modules.pop("src.pipeline.xagg", None)
+    builtins.__import__ = exploding_import
+    try:
+        assert router._resolved_xagg_override_kind(gold["M2"]) is None
+        assert router._deterministic_route_override(gold["M2"]) is None
+    finally:
+        builtins.__import__ = real_import
+        if saved is not None:
+            sys.modules["src.pipeline.xagg"] = saved
+
+
+# ════════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 78, questions KB3 and KB9] The LLM classifier reads
+# these two questions' whole-caseload DATA clause and drops their legal-norm
+# clause, so KB3 lands on XNETWORK (3 of 3 gold passes) and KB9 on XAGG (3 of
+# 3) and neither ever reaches the KB corpus, the statute hypotheses or its own
+# `_KB_DATA_HALF_PLANS` entry.
+#
+# The bisect that made this a defect rather than a suspicion is in
+# `router._is_legal_kb_question()`'s own comment block: the query rewriter
+# returns both strings byte-identical 3 of 3, so the rewriter is excluded, and
+# the classifier's own `reason` field names the cross-case data clause as its
+# grounds. Module 77's paraphrases, which carry no such clause, route RAG.
+# ════════════════════════════════════════════════════════════════════════
+
+# KB3's and KB9's literal gold text, restated here rather than read out of the
+# dataset. `_gold32()` would make this test pass vacuously if the dataset were
+# ever edited; the point of a regression is that THESE bytes route to RAG.
+_MODULE78_KB3_GOLD = (
+    "Does the law expect the officer who first registers a case to be the "
+    "same one who investigates it, or are those meant to be separate roles "
+    "— and does that match what actually happens in our data?"
+)
+_MODULE78_KB9_GOLD = (
+    "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki "
+    "wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh "
+    "kahin darj karta hai, khaas tor par jab hamare itne cases mein maut "
+    "shamil hai?"
+)
+
+
+def test_module78_kb3_and_kb9_literal_gold_text_reaches_rag():
+    """The regression the brief asked for, pinned to the two literal strings.
+
+    Both are also asserted to be byte-equal to the dataset's own copy, so this
+    cannot drift into testing a string the evaluation no longer sends."""
+    gold = {(it.get("id") or "").upper(): it["question"] for it in _gold32()}
+    assert gold["KB3"] == _MODULE78_KB3_GOLD
+    assert gold["KB9"] == _MODULE78_KB9_GOLD
+    for text in (_MODULE78_KB3_GOLD, _MODULE78_KB9_GOLD):
+        override = router._deterministic_route_override(text)
+        assert override is not None
+        assert override["route"] == "RAG"
+        assert override["case_scope"] == "within_case"
+        assert "Module 78" in override["reason"]
+
+
+def test_module78_all_32_gold_questions_route_exactly_as_measured():
+    """Module 78's own all-32 EQUALITY control, naming every question that
+    moves. Kept separate from Module 60's and Module 67's rather than folded
+    into them: those two assert against the tree as it was at their own branch
+    points, and this one asserts against the tree as it was at THIS module's
+    (`main` @ 6cf89fb), which is the only baseline that can show what Module
+    78 alone did."""
+    before = {
+        "D1": "XAGG", "S2": "XAGG", "S3": "XAGG", "A1": None, "A7": "XAGG",
+        "CP6": "XAGG", "CR2": "XAGG", "CR3": None, "CR4": "XAGG",
+        "CR6": "XAGG", "CR7": "XAGG", "CR8": "XAGG", "CS4": "XAGG",
+        "CP1": "XAGG", "M1": "XAGG", "M2": "XAGG", "M4": "XAGG",
+        "M5": "XAGG", "M7": "XAGG", "G1": None, "G2": "XAGG", "G3": "XAGG",
+        "G5": "XAGG", "G6": None, "KB1": None, "KB2": None, "KB3": None,
+        "KB4": None, "KB5": None, "KB6": None, "KB8": None, "KB9": None,
+    }
+    after = {
+        (it.get("id") or "").upper():
+            (router._deterministic_route_override(it["question"]) or {}).get("route")
+        for it in _gold32()
+    }
+    changed = {qid: (before[qid], after[qid]) for qid in after if before[qid] != after[qid]}
+    assert changed == {
+        qid: (None, "RAG") for qid in _MODULE78_KB_QUESTIONS_NOW_DETERMINISTIC
+    }, changed
+    # The 24 non-KB questions are byte-identical, named rather than counted.
+    for qid in (
+        "D1", "S2", "S3", "A1", "A7", "CP6", "CR2", "CR3", "CR4", "CR6",
+        "CR7", "CR8", "CS4", "CP1", "M1", "M2", "M4", "M5", "M7", "G1",
+        "G2", "G3", "G5", "G6",
+    ):
+        assert after[qid] == before[qid], qid
+
+
+def test_module78_only_kb3_and_kb9_actually_change_their_live_route():
+    """The eight KB questions all become deterministic; only two of them get a
+    DIFFERENT route than the classifier was giving them. Module 27's three
+    passes are the source for the six that do not move — KB1/KB2/KB4/KB5/KB6/
+    KB8 were RAG on every one of them."""
+    measured_live_route_before = {
+        "KB1": "RAG", "KB2": "RAG", "KB3": "XNETWORK", "KB4": "RAG",
+        "KB5": "RAG", "KB6": "RAG", "KB8": "RAG", "KB9": "XAGG",
+    }
+    moved = tuple(
+        sorted(q for q, r in measured_live_route_before.items() if r != "RAG")
+    )
+    assert moved == tuple(sorted(_MODULE78_QUESTIONS_WHOSE_LIVE_ROUTE_CHANGES))
+
+
+def test_module78_every_kb_paraphrase_reaches_rag_too():
+    """The acceptance bar this module is held to: the fix must work on wording
+    it has never seen. One ordinary rewording per KB question, sharing no
+    distinctive phrase with its gold text, in the language an officer would
+    actually use. P-KB3 and P-KB9 are Module 77's own live-measured
+    paraphrases, reused verbatim so this is the same control it ran.
+
+    Result: the gate claims 8 of 8; the ROUTE is RAG for 7 of 8. The eighth,
+    P-KB1, is pinned at its measured value with the reason — see below."""
+    paraphrases = {
+        "P-KB1": "What rule decides when a written complaint has to be turned "
+                 "into a formal FIR, and do our own records follow it?",
+        "P-KB2": "Kya police ke interview mein mulzim ya gawah ne jo kaha wo "
+                 "hamare system mein kahin mehfooz hota hai?",
+        "P-KB3": "Under police law, is the person who records an FIR supposed "
+                 "to be a different officer from the one who investigates it "
+                 "— and what does our own data actually show about that?",
+        "P-KB4": "Seized items ko rakhne aur baad mein tabah karne ka koi "
+                 "muqarrara tareeqa hai kya, aur hamara property register us "
+                 "par chalta hai?",
+        "P-KB5": "Agar mutasira aurat ho to kya tafteesh ka tareeqa alag hota "
+                 "hai, aur kya hamare record mein wo extra qadam nazar aate hain?",
+        "P-KB6": "Kya forensics ke usoolon mein likha hai ke baramad shuda "
+                 "aslaha kaise sambhala jaye, aur kya hamara weapon register "
+                 "is par amal darj karta hai?",
+        "P-KB8": "If an investigation drags on, does the law make the police "
+                 "report something to the court before it is finished, and "
+                 "does our own tracking data show whether that happened?",
+        "P-KB9": "When a death looks suspicious the police must formally "
+                 "investigate the cause of death — does our system record "
+                 "that anywhere?",
+    }
+    # Every one of the eight passes `rag.py`'s gate — that half is complete.
+    for name, text in paraphrases.items():
+        assert router._is_legal_kb_question(text), name
+
+    # SEVEN of the eight reach RAG. P-KB1 does NOT, and it is pinned here as
+    # the measured miss rather than removed from the battery: "a written
+    # complaint ... turned into a formal FIR" collides with Module 15's CR6
+    # entry in `_XAGG_OVERRIDE_PATTERNS` (`complaint` within 60 chars of
+    # `FIR`), which is checked earlier and therefore wins — the same "checked
+    # last" property that bounds this module's blast radius also means an
+    # earlier list can claim a KB paraphrase. KB1's own GOLD text is
+    # unaffected (it says "report of a crime", not "complaint") and still
+    # routes RAG. Filed as Module 88; not fixed here, because unpicking it
+    # means reordering or narrowing CR6's pattern, which is a measured
+    # cross-case route this module has no live evidence about.
+    expected = {name: "RAG" for name in paraphrases}
+    expected["P-KB1"] = "XAGG"
+    actual = {
+        name: (router._deterministic_route_override(text) or {}).get("route")
+        for name, text in paraphrases.items()
+    }
+    assert actual == expected, actual
+
+
+def test_module78_no_non_kb_gold_question_or_paraphrase_is_claimed():
+    """The other side of the same bar. None of these may reach the legal-KB
+    override — they are cross-case aggregate questions whose own overrides
+    (or whose LLM classification) must be left alone."""
+    for item in _gold32():
+        qid = (item.get("id") or "").upper()
+        if not qid.startswith("KB"):
+            assert not router._is_legal_kb_question(item["question"]), qid
+    non_kb_paraphrases = {
+        "G5": "Looking at how recovered weapons are logged, is anything worth "
+              "flagging for compliance?",
+        "CR7": "How many criminal-record cases are complete and how many are "
+               "still pending?",
+        "CP6": "How many cases are still sitting without a properly assigned "
+               "investigating officer?",
+        "D1": "What is the total number of FIRs on the books?",
+        "G3": "I am putting a case file together for court — which fields are "
+              "most likely to be incomplete?",
+        "M4": "Which sections are people being charged under, and how far have "
+              "those cases got in court?",
+        "CS4": "Is there anyone in the wider criminal-history records who does "
+               "not match any of our own registered cases?",
+        "G1": "Review our current caseload and flag anything unusual worth "
+              "monitoring.",
+        "S2": "Which of our police stations handles the most cases?",
+    }
+    for qid, text in non_kb_paraphrases.items():
+        assert not router._is_legal_kb_question(text), qid
+
+
+def test_module78_the_override_is_checked_last_and_cannot_outrank_an_earlier_one():
+    """The placement, asserted rather than described.
+
+    This is the property that bounds the blast radius: a query that is BOTH
+    legal-KB-shaped and matched by an earlier override keeps the earlier
+    override, whatever the KB gate later grows to accept. Asserted on a
+    synthetic query rather than on a gold one, because no gold question is in
+    both sets today and a control that can only pass is not a control."""
+    both = (
+        "Under the law, are recovered weapons supposed to be logged a certain "
+        "way — and does our own record keeping show compliance?"
+    )
+    assert router._is_legal_kb_question(both)
+    assert router._deterministic_route_override(both)["route"] == "XAGG"
+
+    sql_and_kb = "What PPC section covers unlicensed possession, under the law?"
+    assert router._is_legal_kb_question(sql_and_kb)
+    assert router._deterministic_route_override(sql_and_kb)["route"] == "SQL"
+
+
+def test_module78_a_case_specific_this_x_compound_is_never_claimed():
+    """findings.md Module 7's own live-tested compound question trips
+    `_LEGAL_KB_INTENT_PATTERNS` on the bare token "PPC". `rag.py`'s
+    `_CASE_ANCHOR_RE` does not recognise "this weapon" — it never had to,
+    running inside a tool that already knows its scope — so used as a routing
+    signal it would pull this to RAG and silently drop the `secondary_methods`
+    half only the LLM call can populate. Caught by the existing suite while
+    this module was being built; pinned here so it cannot come back."""
+    compound = (
+        "What is this weapon's condition, and what PPC section covers "
+        "illegal possession of an unlicensed firearm?"
+    )
+    from src.pipeline.harness.tools.rag import _is_legal_kb_intent
+
+    assert _is_legal_kb_intent(compound), "the gate itself says True — that is the trap"
+    assert router._deterministic_route_override(compound) is None
+
+
+def test_module78_an_active_case_still_short_circuits_the_kb_override():
+    """The override sits below the `case_id`/`_ACTIVE_CASE_RE` short-circuit,
+    so a KB-shaped question asked inside a case-scoped chat is still the
+    within-case path's."""
+    for text in (_MODULE78_KB3_GOLD, _MODULE78_KB9_GOLD):
+        assert router._deterministic_route_override(text, case_id="CASE-009") is None
+
+
+def test_module78_a_broken_rag_import_leaves_routing_unchanged():
+    """Same blast-radius guard Module 60/67 wrote for the xagg import: if
+    `rag.py` cannot be imported at all, routing must fall back to exactly what
+    it was rather than raising."""
+    import builtins
+    import sys
+
+    real_import = builtins.__import__
+
+    def exploding_import(name, *args, **kwargs):
+        if name == "src.pipeline.harness.tools.rag":
+            raise ImportError("simulated")
+        return real_import(name, *args, **kwargs)
+
+    saved = sys.modules.pop("src.pipeline.harness.tools.rag", None)
+    builtins.__import__ = exploding_import
+    try:
+        assert router._is_legal_kb_question(_MODULE78_KB3_GOLD) is False
+        assert router._deterministic_route_override(_MODULE78_KB3_GOLD) is None
+    finally:
+        builtins.__import__ = real_import
+        if saved is not None:
+            sys.modules["src.pipeline.harness.tools.rag"] = saved
+
+
+# ═══════════════════════════════════════════════════════════════════════
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 92] The cloud escalation was dead: the router prompt
+# had outgrown the cloud provider's per-request token cap.
+#
+# Module 92 set out to fix the router's uneven generalisation across English,
+# Roman Urdu and Urdu, measured every candidate design it could, and shipped
+# only the part that survived being judged on ANSWERS rather than on route
+# labels. What survived is this: `route_query()`'s LOCAL path is byte-
+# identical, and its documented `escalate_to_cloud_on_failure=True` safety net
+# — which had been returning HTTP 413 silently for weeks, because
+# prompts/router.txt is 13,003 request tokens against an 8,000 cap — is given
+# a prompt the cloud can actually accept.
+#
+# These tests pin, in order: that the local path did not change (the property
+# the whole decision rests on), that the cloud path did, that the cloud prompt
+# fits, that compression did not lose `secondary_methods`, that the two prompt
+# files cannot drift apart, and that the deterministic fast path is untouched.
+# See MODULE92_RESULT.md §3 for the fails-before/passes-after check.
+# ═══════════════════════════════════════════════════════════════════════
+
+import re as _re92
+
+# Groq `on_demand` per-request token cap for config.GROQ_MODEL, read off a real
+# 413 response's own x-ratelimit-limit-tokens header on 2026-09-09.
+_GROQ_PER_REQUEST_TOKEN_CAP = 8000
+
+
+def _approx_tokens(text: str) -> int:
+    """~4 chars/token. Deliberately crude: the margin guarded here is >2x."""
+    return len(text) // 4
+
+
+@pytest.mark.asyncio
+async def test_module92_local_path_still_sends_router_txt_unchanged(monkeypatch):
+    """
+    THE PROPERTY THE WHOLE CHANGE RESTS ON.
+
+    Module 92 measured sending the compact prompt locally too: route accuracy
+    over 96 paraphrases rose 55 -> 61 with nothing regressing, and then live
+    answers got WORSE (CR3 and G6 fell from substantive XNETWORK answers to
+    RAG abstentions; G6's English paraphrase reached DIRECT and invented an
+    ungrounded note). So local must keep the prompt it had, exactly.
+    """
+    seen = []
+
+    async def fake_call_llm(system_prompt, user_message, **kwargs):
+        seen.append((system_prompt, kwargs.get("force_cloud")))
+        return json.dumps({"route": "RAG", "case_scope": "within_case",
+                           "target_entity": None, "output_format": "chat",
+                           "target_year": None, "confidence": "high",
+                           "reason": "x", "station": None, "district": None})
+
+    monkeypatch.setattr(router, "call_llm", fake_call_llm)
+    await router.route_query("why would someone say that")  # no override: LLM path
+    assert seen, "the LLM classification path was never reached"
+    local_prompt, forced_cloud = seen[0]
+    assert forced_cloud is not True
+    assert local_prompt == router._SYSTEM_PROMPT
+    assert local_prompt != router._CLOUD_SYSTEM_PROMPT
+
+
+@pytest.mark.asyncio
+async def test_module92_cloud_escalation_uses_the_compact_prompt(monkeypatch):
+    """
+    The change itself, observed where it happens: when local has failed every
+    attempt and call_llm_json escalates, the request that goes out carries the
+    compact prompt, not the 13k-token one that would 413.
+    """
+    seen = []
+
+    async def fake_call_llm(system_prompt, user_message, **kwargs):
+        seen.append((system_prompt, kwargs.get("force_cloud")))
+        if kwargs.get("force_cloud"):
+            return json.dumps({"route": "XAGG", "case_scope": "cross_case",
+                               "target_entity": None, "output_format": "chat",
+                               "target_year": None, "confidence": "high",
+                               "reason": "x", "station": None, "district": None})
+        return "I'm not sure what you mean — could you clarify?"  # unusable, every local attempt
+
+    monkeypatch.setattr(router, "call_llm", fake_call_llm)
+    result = await router.route_query("why would someone say that")
+
+    local_calls = [p for p, forced in seen if not forced]
+    cloud_calls = [p for p, forced in seen if forced]
+    assert local_calls, "expected local attempts first"
+    assert all(p == router._SYSTEM_PROMPT for p in local_calls)
+    assert cloud_calls, "escalation never fired"
+    assert all(p == router._CLOUD_SYSTEM_PROMPT for p in cloud_calls)
+    # And the escalation's result is actually used, rather than dropped into
+    # the low-confidence RAG default this whole path exists to avoid.
+    assert result["route"] == "XAGG"
+
+
+def test_module92_cloud_prompt_fits_the_provider_request_cap():
+    """
+    The measurement that made this a bug rather than a preference: the shipped
+    prompt is over the cap and the cloud prompt is comfortably under it.
+    """
+    budget = _approx_tokens(router._CLOUD_SYSTEM_PROMPT) + 300  # + cloud_max_tokens
+    assert budget < _GROQ_PER_REQUEST_TOKEN_CAP, (
+        f"cloud prompt + reply budget is ~{budget} tokens, over the "
+        f"{_GROQ_PER_REQUEST_TOKEN_CAP} per-request cap — escalation would 413 again"
+    )
+    assert _approx_tokens(router._SYSTEM_PROMPT) > _GROQ_PER_REQUEST_TOKEN_CAP, (
+        "router.txt is no longer over the cap — if it shrank, re-check whether "
+        "this whole split is still needed"
+    )
+
+
+def test_module92_cloud_prompt_states_language_is_not_a_routing_signal():
+    """
+    Module 92's finding is that the same question routes differently in Roman
+    Urdu than in English. The prompt that reaches the more capable model is
+    where the instruction not to do that belongs — and on the cloud model it
+    measured 69% in all three languages, against the local model's 59/50/62.
+    """
+    p = router._CLOUD_SYSTEM_PROMPT
+    assert "LANGUAGE IS NEVER A ROUTING SIGNAL" in p
+    for token in ["kitne", "kaunsa", "tadaad", "dobara", "muqable"]:
+        assert token in p, f"cloud prompt lost the Roman-Urdu cue {token!r}"
+
+
+def test_module92_cloud_prompt_preserves_secondary_methods():
+    """
+    router.py's comments record that the deterministic fast path NEVER
+    populates secondary_methods, so the classification prompt is the only
+    place it can come from, and that dropping a compound question's second
+    half is a real failure mode. Compression must not have compressed it out.
+    """
+    p = router._CLOUD_SYSTEM_PROMPT
+    assert "secondary_methods" in p
+    assert "COMPOUND QUESTIONS" in p
+    compound = [ln for ln in p.splitlines() if "[secondary=" in ln]
+    assert len(compound) >= 5, f"only {len(compound)} compound examples survived"
+    for method in ["SQL", "GRAPH", "XGRAPH", "XAGG"]:
+        assert any(f"secondary={method}" in ln for ln in compound), (
+            f"no compound example teaches secondary_methods=[{method}]"
+        )
+
+
+def _router_txt_examples() -> dict:
+    pairs = _re92.findall(
+        r'^Query:\s*"(.*?)"\s*\nOutput:\s*(\{.*?\})\s*$',
+        router._SYSTEM_PROMPT, _re92.M | _re92.S,
+    )
+    return {q: json.loads(o)["route"] for q, o in pairs}
+
+
+def test_module92_cloud_prompt_does_not_drift_from_router_txt():
+    """
+    THE HAZARD THIS CHANGE CREATES, guarded rather than left to discipline.
+
+    Two prompt files now describe one routing contract. A later module will
+    naturally edit router.txt — the big, well-commented one — and would change
+    nothing about what the cloud path is told. Every example router.txt
+    teaches must still be taught, with the SAME route, by the cloud prompt.
+    """
+    compact = router._CLOUD_SYSTEM_PROMPT
+    examples = _router_txt_examples()
+    missing, disagreeing = [], []
+    for query, route in examples.items():
+        line = f'"{query}" -> '
+        if line not in compact:
+            missing.append(query)
+        elif f"{line}{route}" not in compact:
+            got = compact.split(line, 1)[1].split("\n", 1)[0].split()[0]
+            disagreeing.append((query, route, got))
+    assert not disagreeing, f"cloud prompt contradicts router.txt: {disagreeing}"
+    kept = len(examples) - len(missing)
+    assert kept >= 50, (
+        f"only {kept} of {len(examples)} router.txt examples survive in the "
+        f"cloud prompt; dropped: {missing[:8]}"
+    )
+
+
+def test_module92_deterministic_fast_path_is_untouched():
+    """
+    Module 92 changes only what happens after the local classifier has failed.
+    The overrides are cheap, correct and auditable and stay exactly as they
+    were — pinned so a later reading cannot mistake this module for a licence
+    to loosen them.
+    """
+    assert router._deterministic_route_override(
+        "How many FIRs are currently registered?")["route"] == "XAGG"
+    assert router._deterministic_route_override(
+        "How many FIRs are currently registered?", case_id="FIR-401-26") is None
+    assert router._deterministic_route_override(
+        "What PPC section applies to mobile phone theft?")["route"] == "SQL"
+    # The fast path still never populates secondary_methods — a property
+    # route_query()'s own comments depend on.
+    for q in ["How many FIRs are currently registered?",
+              "What PPC section applies to mobile phone theft?"]:
+        assert "secondary_methods" not in router._deterministic_route_override(q)
+
+
+@pytest.mark.asyncio
+async def test_module92_cloud_system_prompt_defaults_to_no_change():
+    """
+    call_llm_json's new parameter must be inert for every other caller — a
+    shared helper gaining a router-specific behaviour by default would be a
+    much bigger change than the one Module 92 intends.
+    """
+    from src.pipeline.json_extract import call_llm_json
+
+    seen = []
+
+    async def fake_call_llm(system_prompt, user_message, **kwargs):
+        seen.append(system_prompt)
+        if kwargs.get("force_cloud"):
+            return '{"ok": true}'
+        return "not json at all"
+
+    result, _raw = await call_llm_json(
+        system_prompt="THE ONLY PROMPT",
+        user_message="q",
+        max_tokens=100,
+        _call_llm=fake_call_llm,
+        escalate_to_cloud_on_failure=True,
+    )
+    assert result == {"ok": True}
+    assert seen and all(p == "THE ONLY PROMPT" for p in seen), (
+        "omitting cloud_system_prompt must leave both paths on the same prompt"
+    )

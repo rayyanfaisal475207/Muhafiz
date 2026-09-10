@@ -4,9 +4,62 @@ Tests for src/pipeline/xagg.py (Phase 5.4 — cross-case aggregate queries).
 age_client and the gateway are both faked — no real Postgres/AGE (matches
 the `no_network` guard, conftest, autouse).
 """
+import json
+import logging
+import re
+from pathlib import Path
+
 import pytest
 
 import src.pipeline.xagg as xagg
+
+
+# ── [Gold-QA fix — Modules 43/44] shared gold-32 fixtures ──────────────────
+#
+# The all-32 negative controls in this file each re-resolve the dataset path
+# inline. New controls use these instead: one place that knows where the
+# dataset lives, and one place that fails loudly if it moves. A MISSING file
+# is a FAILURE, never a skip — see the note on the Module 22 control below
+# for what a silently-skipping negative control cost this project.
+
+_GOLD32_PATH = (
+    Path(__file__).resolve().parent.parent
+    / "evaluation"
+    / "Gold_QA_Dataset_Final32_With_Answers.json"
+)
+
+# Literal gold text, copied verbatim from the dataset. Asserting over the
+# real strings rather than paraphrases is the whole point.
+_M7_GOLD = (
+    "Kya log 2026 mein waqiaat ki police ko itni hi jaldi ittila de rahe hain "
+    "jitni 2024 mein dete the?"
+)
+_M2_GOLD = (
+    "Is caseload growing faster at our general-purpose stations, or at the "
+    "handful set up for one specific type of crime?"
+)
+_CS4_GOLD = (
+    "Kya wusee criminal-history records mein koi aisa shakhs hai jo hamare "
+    "apne darj kiye hue kisi case se match nahi karta?"
+)
+
+
+def _gold32_items() -> list[dict]:
+    assert _GOLD32_PATH.exists(), f"Gold-32 dataset not found at {_GOLD32_PATH}"
+    payload = json.loads(_GOLD32_PATH.read_text(encoding="utf-8"))
+    items = payload if isinstance(payload, list) else payload.get("questions", payload)
+    assert len(items) == 32, f"expected 32 gold questions, got {len(items)}"
+    return items
+
+
+def test_gold32_fixture_texts_are_the_real_dataset_texts():
+    """The constants above are only worth asserting over while they are
+    byte-identical to the dataset. A gold text edited upstream must break
+    here, not silently turn every control below into a tautology."""
+    by_id = {(it.get("id") or "").upper(): it["question"] for it in _gold32_items()}
+    assert by_id["M7"] == _M7_GOLD
+    assert by_id["M2"] == _M2_GOLD
+    assert by_id["CS4"] == _CS4_GOLD
 
 
 class FakeAgeClient:
@@ -1292,23 +1345,489 @@ def test_render_time_bucketed_mean_handles_no_usable_rows():
     assert "cannot be computed" in rendered
 
 
+# ── [Gold-QA fix — Module 43, question M7] ─────────────────────────────────
+#
+# M7 was filed at FactualCorrectness 0.0 by the 2026-09-08 post-fix
+# evaluation, contradicting Module 22's recorded live verification. The
+# three-layer re-derivation found Module 22 CORRECT: against the live
+# 2026-09-08 corpus the aggregate returns 15.0 min / n=13 (2024) and
+# 1401.3 min / n=51 (2026), `run_aggregate()` dispatches M7's literal gold
+# text to it, and three consecutive live `/api/chat` runs returned exactly
+# those figures on `route='XAGG' -> sub-agent='Large-Scale Aggregate'`.
+#
+# So these tests pin the two things that would have to break for the
+# reported symptom to be real, neither of which any existing test covered:
+#
+#   1. The aggregate must SAY which aggregate it is, in the log. The SSE
+#      stream exposes only `route='XAGG'`; the `XAGG <kind>:` line is the
+#      only live proof of which family answered, and this one had none.
+#   2. M7 must keep skipping Meta-Analysis (asserted in
+#      tests/test_harness_supervisor.py). The one recorded M7 answer in
+#      this repository — `evaluation/gold32_pipeline_outputs.json`, last
+#      written 2026-09-06, i.e. two days BEFORE Module 22 landed — is the
+#      delay-REASON rate ("0% of 13 ... 14% of 50"), which is
+#      `_reporting_delay_rate_by_year()`'s output and is no longer
+#      reachable from `run_aggregate()` at all. A decomposed sub-question
+#      is the only remaining path back to a wrong-metric M7 answer.
+
+async def test_module43_m7_aggregate_logs_which_family_answered(monkeypatch, caplog):
+    """Without this line the only way to tell M7's aggregate from the
+    delay-REASON one in a live run is to match numbers out of the prose —
+    which is precisely how Module 43's investigation had to start."""
+    rows = [
+        {"incident_datetime": "2024-09-25T17:10:00Z", "report_datetime": "2024-09-25T17:25:00Z"},
+        {"incident_datetime": "2026-01-01T10:00:00Z", "report_datetime": "2026-01-02T09:00:00Z"},
+        {"incident_datetime": None, "report_datetime": "2026-01-02T09:00:00Z"},
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    with caplog.at_level(logging.INFO, logger="src.pipeline.xagg"):
+        await xagg._incident_to_report_minutes_by_year()
+
+    logged = "\n".join(r.getMessage() for r in caplog.records)
+    assert "XAGG incident_to_report_minutes_by_year:" in logged
+    # The kind is not enough on its own — the numbers must be there too, or
+    # the line cannot distinguish a correct run from a wrong-metric one.
+    assert "2024=15.0min/n=1" in logged
+    assert "2026=1380.0min/n=1" in logged
+    assert "1 row(s) excluded" in logged
+
+
+async def test_module43_m7_gold_figures_survive_the_whole_dispatch_chain(monkeypatch):
+    """Pinned to M7's literal gold text AND the literal figures its gold
+    answer cites — 15.0 minutes across 13 FIRs (2024) and 1401.3 minutes
+    (~23.4 hours) across 51 FIRs (2026), re-derived from the live graph by
+    a hand-written Cypher probe before being written down here.
+
+    Deliberately end-to-end through `run_aggregate()` and then the shared
+    renderer, because the two halves failed independently in this file's
+    history: Module 22 fixed the metric, Module 26 fixed the routing, and
+    neither alone produced a correct answer."""
+    # 13 FIRs at exactly 15 minutes -> mean 15.0; 51 FIRs whose mean is
+    # 1401.3 minutes (50 at 1400.0 plus one at 1466.0).
+    rows = (
+        [
+            {"incident_datetime": "2024-03-01T10:00:00Z",
+             "report_datetime": "2024-03-01T10:15:00Z"}
+        ] * 13
+        + [
+            {"incident_datetime": "2026-03-01T00:00:00Z",
+             "report_datetime": "2026-03-01T23:20:00Z"}
+        ] * 50
+        + [
+            {"incident_datetime": "2026-03-02T00:00:00Z",
+             "report_datetime": "2026-03-03T00:26:00Z"}
+        ]
+    )
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(_M7_GOLD, None, gateway=None, user_role="supervisor")
+
+    assert result["kind"] == "time_bucketed_mean"
+    assert result["dimension"] == "incident_to_report_minutes_by_year"
+    by_year = {b["year"]: b for b in result["buckets"]}
+    assert by_year[2024]["mean_minutes"] == 15.0 and by_year[2024]["case_count"] == 13
+    assert by_year[2026]["mean_minutes"] == 1401.3 and by_year[2026]["case_count"] == 51
+
+    rendered = "\n".join(xagg.render_time_bucketed_mean(result))
+    assert "15.0 minutes across 13 FIRs" in rendered
+    assert "1401.3 minutes (~23.4 hours) across 51 FIRs" in rendered
+
+
+def test_module43_m7_gold_text_still_resolves_only_to_the_mean_minutes_family():
+    """The all-32 equality control for M7's own dispatch KEY (the existing
+    one above covers the `_is_reporting_speed_comparison` predicate). Any
+    aggregate added after Module 22 that stole M7's dispatch — the
+    regression hypothesis Module 43 had to rule out — fails here."""
+    items = _gold32_items()
+    matched = [
+        (it.get("id") or "").upper()
+        for it in items
+        if xagg.resolve_aggregate_kind(it["question"]) == "incident_to_report_minutes_by_year"
+    ]
+    assert matched == ["M7"], f"expected only M7, got {matched}"
+    assert xagg.resolve_aggregate_kind(_M7_GOLD) == "incident_to_report_minutes_by_year"
+
+
 # [Gold-QA fix — Module 13, question M2]
 
-async def test_m2_station_type_question_is_an_honest_unsupported_not_a_flat_count(monkeypatch):
-    """No station-type dimension exists anywhere in this data model — must
-    say so plainly rather than silently answering a per-station case count
-    (a different, easier question than the one actually asked). Uses a
-    client that fails on any call to prove this never reaches the DB."""
-    monkeypatch.setattr(xagg, "age_client", _RaisingAgeClient())
+# [Gold-QA fix — Module 13, question M2 — SUPERSEDED BY MODULE 44]
+#
+# This used to assert that M2 returned `unsupported_aggregate` carrying
+# `_UNSUPPORTED_STATION_TYPE`, over an age_client that failed on any call, to
+# prove the refusal never reached the DB.
+#
+# Module 44 retired that refusal, for the reason Module 31 retired
+# `_UNSUPPORTED_AGE`: its claim about the data model had stopped being true.
+# There is still no `station_type` field, but 2 of the 19 PoliceStation nodes
+# are named Cyber Crime Circles and carry 9 of the 73 FIRs — which is M2's
+# gold answer, and needs only the names. The replacement below asserts those
+# figures; the negative half of the old test (M2 must never be answered by
+# the plain per-station group-by) is preserved by the dispatch assertion and
+# by the all-32 equality control.
 
-    result = await xagg.run_aggregate(
-        "Is caseload growing faster at our general-purpose stations, or at the handful "
-        "set up for one specific type of crime?",
-        None, gateway=None, user_role="supervisor",
+
+# The 19 real PoliceStation names, copied verbatim from the live graph on
+# 2026-09-08, with the bucket each must land in. Asserting over the REAL
+# names is the point: a name-derived classification is only as good as its
+# behaviour on the names that actually exist.
+_REAL_STATION_NAMES = [
+    ("PS-ISB-CYBER", "سائبر کرائم سرکل، اسلام آباد", "crime_type_specialised"),
+    ("PS-RWP-CYBER", "سائبر کرائم سرکل، راولپنڈی", "crime_type_specialised"),
+    ("PS-FSD-WOMEN", "خواتین تھانہ، فیصل آباد", "other_specialised"),
+    ("PS-LHR-M2", "موٹروے پولیس اسٹیشن ایم ٹو، لاہور", "other_specialised"),
+    ("PS-CHN-SADDAR", "تھانہ صدر، ضلع چنیوٹ", "general_purpose"),
+    ("PS-FSD-CIVILLINES", "تھانہ سول لائنز، فیصل آباد", "general_purpose"),
+    ("PS-FSD-JHANGROAD", "تھانہ جھنگ روڈ، فیصل آباد", "general_purpose"),
+    ("PS-FSD-KOTWALI", "تھانہ کوتوالی، فیصل آباد", "general_purpose"),
+    ("PS-FSD-MADINATOWN", "تھانہ مدینہ ٹاؤن، فیصل آباد", "general_purpose"),
+    ("PS-HYD-LATIFABAD", "تھانہ لطیف آباد، حیدر آباد", "general_purpose"),
+    ("PS-KHI-NEWKARACHI", "تھانہ نیو کراچی، کراچی", "general_purpose"),
+    ("PS-KHI-SHAHFAISAL", "تھانہ شاہ فیصل کالونی، کراچی", "general_purpose"),
+    ("PS-LHR-BARKI", "تھانہ برکی، لاہور", "general_purpose"),
+    ("PS-LHR-IQBALTOWN", "تھانہ اقبال ٹاؤن، لاہور", "general_purpose"),
+    ("PS-LHR-MODELTOWN", "تھانہ ماڈل ٹاؤن، لاہور", "general_purpose"),
+    ("PS-MUL-CANTT", "تھانہ کینٹ، ملتان", "general_purpose"),
+    ("PS-RWP-RAJABAZAR", "تھانہ راجہ بازار، راولپنڈی", "general_purpose"),
+    ("PS-RWP-SADDAR", "تھانہ صدر، راولپنڈی", "general_purpose"),
+    ("PS-RWP-WARISKHAN", "تھانہ وارث خان، راولپنڈی", "general_purpose"),
+]
+
+# The measured per-station FIR counts on the same corpus, summing to 73.
+_REAL_STATION_FIR_COUNTS = {
+    "PS-ISB-CYBER": 5, "PS-RWP-CYBER": 4, "PS-FSD-WOMEN": 5, "PS-LHR-M2": 5,
+    "PS-CHN-SADDAR": 5, "PS-FSD-CIVILLINES": 4, "PS-FSD-JHANGROAD": 5,
+    "PS-FSD-KOTWALI": 4, "PS-FSD-MADINATOWN": 1, "PS-HYD-LATIFABAD": 5,
+    "PS-KHI-NEWKARACHI": 5, "PS-KHI-SHAHFAISAL": 5, "PS-LHR-BARKI": 5,
+    "PS-LHR-IQBALTOWN": 1, "PS-LHR-MODELTOWN": 7, "PS-MUL-CANTT": 1,
+    "PS-RWP-RAJABAZAR": 4, "PS-RWP-SADDAR": 1, "PS-RWP-WARISKHAN": 1,
+}
+
+
+class _StationAgeClient:
+    """Routes the three reads `_station_caseload_by_specialisation()` issues:
+    the station roster, the case->station edges, and the incident years."""
+
+    def __init__(self, station_rows, case_rows, year_rows):
+        self.station_rows = station_rows
+        self.case_rows = case_rows
+        self.year_rows = year_rows
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        if "Incident" in cypher_query:
+            return self.year_rows
+        if "FILED_AT" in cypher_query:
+            return self.case_rows
+        return self.station_rows
+
+
+def _real_station_client(year_rows=None):
+    stations = [{"station_id": sid, "name": name} for sid, name, _ in _REAL_STATION_NAMES]
+    cases = [
+        {"station_id": sid, "case_id": f"{sid}-{i}"}
+        for sid, n in _REAL_STATION_FIR_COUNTS.items()
+        for i in range(n)
+    ]
+    return _StationAgeClient(stations, cases, year_rows or [])
+
+
+@pytest.mark.parametrize("station_id, name, expected", _REAL_STATION_NAMES)
+def test_module44_station_specialisation_classifies_every_real_station_name(
+    station_id, name, expected
+):
+    """The classification is name-derived, so it is only trustworthy if it is
+    correct on all 19 names that actually exist.
+
+    The load-bearing cases are the two that are NOT crime-type units:
+    خواتین تھانہ contains تھانہ (so it must not fall through to
+    general-purpose on a substring), and both it and the Motorway station are
+    specialised by complainant class / jurisdiction rather than by crime
+    type, which is not what M2 asks about."""
+    assert xagg._classify_station_specialisation(name) == expected, station_id
+
+
+def test_module44_unrecognised_station_name_stays_general_never_invents_a_specialisation():
+    assert xagg._classify_station_specialisation("Some Station Nobody Modelled") == (
+        "general_purpose"
     )
+    assert xagg._classify_station_specialisation(None) == "general_purpose"
+    assert xagg._classify_station_specialisation("") == "general_purpose"
 
-    assert result["kind"] == "unsupported_aggregate"
-    assert result["message"] == xagg._UNSUPPORTED_STATION_TYPE
+
+async def test_module44_m2_reproduces_golds_station_concentration(monkeypatch):
+    """M2's literal gold text, over the corpus's real station roster and real
+    per-station counts, must reproduce gold's own figures: **9 of 73 FIRs
+    (~12%) from just 2 of 19 stations**."""
+    monkeypatch.setattr(xagg, "age_client", _real_station_client())
+
+    result = await xagg.run_aggregate(_M2_GOLD, None, gateway=None, user_role="supervisor")
+
+    assert result["kind"] == "station_caseload_by_specialisation"
+    assert result["total_stations"] == 19
+    assert result["total_firs"] == 73
+    by_group = {g["group"]: g for g in result["groups"]}
+    crime_type = by_group["crime_type_specialised"]
+    assert crime_type["station_count"] == 2
+    assert crime_type["fir_count"] == 9
+    assert crime_type["share"] == 0.123
+    assert [s["station_id"] for s in crime_type["stations"]] == [
+        "PS-ISB-CYBER", "PS-RWP-CYBER",
+    ]
+    # The two non-crime-type specialised units are held out, not folded in —
+    # folding them in gives 4 stations / 19 FIRs and contradicts gold.
+    assert by_group["other_specialised"]["station_count"] == 2
+    assert by_group["other_specialised"]["fir_count"] == 10
+    assert by_group["general_purpose"]["station_count"] == 15
+    assert by_group["general_purpose"]["fir_count"] == 54
+
+    rendered = "\n".join(xagg.render_station_caseload_by_specialisation(result))
+    assert "9 of 73 FIRs (~12.3%)" in rendered
+    assert "2 of 19 stations set up for one specific type of crime" in rendered
+
+
+async def test_module44_m2_states_its_derivation_and_declines_a_growth_rate(monkeypatch):
+    """M2 asks which group is growing FASTER. On this corpus the 2024
+    baseline is 13 FIRs across 19 stations, so every per-station growth rate
+    rests on single-digit counts. The renderer must give the year split and
+    say plainly that a rate is not a responsible figure — and must state that
+    the grouping comes from station NAMES, not a modelled field."""
+    year_rows = (
+        [{"station_id": "PS-ISB-CYBER", "incident_datetime": "2024-01-01T00:00:00Z"}]
+        + [{"station_id": "PS-ISB-CYBER", "incident_datetime": "2026-01-01T00:00:00Z"}] * 3
+        + [{"station_id": "PS-LHR-BARKI", "incident_datetime": "2024-01-01T00:00:00Z"}] * 2
+        + [{"station_id": "PS-LHR-BARKI", "incident_datetime": "2026-01-01T00:00:00Z"}] * 3
+        + [{"station_id": "PS-LHR-BARKI", "incident_datetime": None}]
+    )
+    monkeypatch.setattr(xagg, "age_client", _real_station_client(year_rows))
+
+    result = await xagg.run_aggregate(_M2_GOLD, None, gateway=None, user_role="supervisor")
+    assert result["undated_firs"] == 1
+
+    rendered = "\n".join(xagg.render_station_caseload_by_specialisation(result))
+    assert "Caseload by incident year (2024 vs 2026)" in rendered
+    assert "growth RATE is not" in rendered
+    assert "this system has no station-type field" in rendered
+    assert "derived from each station's own recorded name" in rendered
+    assert "1 FIR(s) carry no resolvable incident year" in rendered
+
+
+async def test_module44_m2_lead_carries_both_halves_of_the_question(monkeypatch):
+    """Pinned to a MEASURED failure, not a hunch.
+
+    With the growth split further down the rendering, two of three live runs
+    answered M2's growth half accurately and dropped the 9-of-73 / 2-of-19
+    concentration entirely — a good answer to the question that omits the
+    figures the question is scored against. Neither half is more true than
+    the other, so neither gets to be the part a paraphrase can leave out:
+    both must be in the first two lines, before any station list."""
+    year_rows = (
+        [{"station_id": "PS-ISB-CYBER", "incident_datetime": "2024-01-01T00:00:00Z"}] * 3
+        + [{"station_id": "PS-ISB-CYBER", "incident_datetime": "2026-01-01T00:00:00Z"}] * 5
+        + [{"station_id": "PS-LHR-BARKI", "incident_datetime": "2024-01-01T00:00:00Z"}] * 7
+        + [{"station_id": "PS-LHR-BARKI", "incident_datetime": "2026-01-01T00:00:00Z"}] * 39
+    )
+    monkeypatch.setattr(xagg, "age_client", _real_station_client(year_rows))
+    result = await xagg.run_aggregate(_M2_GOLD, None, gateway=None, user_role="supervisor")
+
+    # ONE sentence, deliberately: split across two lines, a paraphrase kept
+    # the growth clause and dropped the share clause on 3 of 3 live runs.
+    # A single sentence gives it no seam to drop.
+    lead = xagg.render_station_caseload_by_specialisation(result)[0]
+    # the growth half — the question actually asked
+    assert lead.startswith("Growth: caseload is rising fastest at the 15 general-purpose")
+    assert "7 FIRs in 2024 to 39 in 2026" in lead
+    assert "against 3 to 5 at the 2 single-crime-type station(s)" in lead
+    # gold's half — the concentration, in the SAME sentence
+    assert "9 of 73 FIRs (~12.3%) are carried by just 2 of 19 stations" in lead
+
+
+def test_module44_m2_all32_negative_control_equality():
+    """All-32 equality control: exactly M2 resolves to the new family. The
+    predicate is `_is_station_specialisation()` (Module 58; a 58-entry
+    `_STATION_TYPE_KEYWORDS` tuple before that, and unchanged by Module 44 —
+    only the kind it returns changed) — so this also pins that neither the
+    re-pointing nor the predicate conversion widened the family's reach."""
+    matched = [
+        (it.get("id") or "").upper()
+        for it in _gold32_items()
+        if xagg.resolve_aggregate_kind(it["question"]) == "station_caseload_by_specialisation"
+    ]
+    assert matched == ["M2"], f"expected only M2, got {matched}"
+
+
+def test_module44_station_type_refusal_is_no_longer_reachable():
+    """`_UNSUPPORTED_STATION_TYPE` is kept as a named constant for the record
+    but must never be returned again, and `unsupported_station_type` must be
+    gone from the refusal set — otherwise `resolves_to_specific_aggregate()`
+    would still be reasoning about a kind nothing produces."""
+    assert "unsupported_station_type" not in xagg._UNSUPPORTED_AGGREGATE_KINDS
+    assert xagg._UNSUPPORTED_AGGREGATE_KINDS == frozenset({
+        "unsupported_officer", "unsupported_trend",
+    })
+    for it in _gold32_items():
+        assert xagg.resolve_aggregate_kind(it["question"]) != "unsupported_station_type"
+
+
+# ── [Gold-QA fix — Module 44, question CS4] ────────────────────────────────
+
+class _CriminalGapAgeClient:
+    """Routes the two reads `_criminal_record_local_match_gap()` issues: the
+    criminal-record subjects, then the local accused roster."""
+
+    def __init__(self, criminal_rows, accused_rows):
+        self.criminal_rows = criminal_rows
+        self.accused_rows = accused_rows
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        if "criminal_record" in cypher_query:
+            return self.criminal_rows
+        return self.accused_rows
+
+
+def test_module44_cs4_predicate_needs_both_signals_and_leaves_cr7_alone():
+    """Two signals, not one. CR7 reads the same records and scores 1.0 today;
+    its gold text carries "مطابقت رکھتے" (do the two AGREE?) — a positive
+    match term — and must keep its own family."""
+    assert xagg._is_criminal_record_local_gap(_CS4_GOLD.lower())
+    # criminal-record vocabulary alone is CR7's, not CS4's
+    assert not xagg._is_criminal_record_local_gap(
+        "how many criminal records are still under trial?"
+    )
+    # a no-match term alone is not about criminal history at all
+    assert not xagg._is_criminal_record_local_gap(
+        "which seized weapons have no matching case?"
+    )
+    cr7 = next(it for it in _gold32_items() if (it.get("id") or "").upper() == "CR7")
+    assert not xagg._is_criminal_record_local_gap(cr7["question"].lower())
+    assert xagg.resolve_aggregate_kind(cr7["question"]) == "criminal_record_court_crosscheck"
+
+
+def test_module44_cs4_all32_negative_control_equality():
+    matched = [
+        (it.get("id") or "").upper()
+        for it in _gold32_items()
+        if xagg.resolve_aggregate_kind(it["question"]) == "criminal_record_local_match_gap"
+    ]
+    assert matched == ["CS4"], f"expected only CS4, got {matched}"
+
+
+async def test_module44_cs4_finds_the_one_unmatched_subject(monkeypatch):
+    """CS4's literal gold text over the corpus's real shape: criminal records
+    covering distinct subjects, a local accused roster, and **exactly one**
+    subject with no local match — Waqas, CNIC 00000-9000020-1, gold's own
+    answer.
+
+    This also pins the DIRECTION of the set difference. Meta-Analysis's
+    recorded decomposition of CS4 inverted it, asking which of OUR accused
+    are absent from the criminal-records system; that is a different and much
+    larger set, so the accused roster here deliberately contains a CNIC with
+    no criminal record at all — an inverted implementation fails this."""
+    criminal = [
+        {"cnic": "00000-1000001-1", "name": "شہزیب عرف شابی",
+         "record_id": "criminal_record:CR-C1-1"},
+        {"cnic": "00000-9000002-1", "name": "فیصل", "record_id": "criminal_record:CR-C101-1"},
+        {"cnic": "00000-9000002-1", "name": "فیصل", "record_id": "criminal_record:CR-C101-2"},
+        {"cnic": "00000-9000020-1", "name": "وقاص", "record_id": "criminal_record:CR-C106-1"},
+    ]
+    accused = [
+        {"cnic": "00000-1000001-1", "name": "شہزیب عرف شابی"},
+        {"cnic": "00000-9000002-1", "name": "فیصل"},
+        # Same NAME as the unmatched subject, different CNIC — the exact
+        # collision that makes a name-keyed join answer "no" to this question.
+        {"cnic": "00000-9000999-1", "name": "وقاص"},
+        # A local accused with no criminal record at all.
+        {"cnic": "00000-9000777-1", "name": "کوئی اور"},
+    ]
+    monkeypatch.setattr(xagg, "age_client", _CriminalGapAgeClient(criminal, accused))
+
+    result = await xagg.run_aggregate(_CS4_GOLD, None, gateway=None, user_role="supervisor")
+
+    assert result["kind"] == "criminal_record_local_match_gap"
+    assert result["total_criminal_records"] == 4
+    assert result["distinct_subjects"] == 3  # two records for فیصل are one person
+    assert result["matched_subject_count"] == 2
+    assert [s["cnic"] for s in result["unmatched_subjects"]] == ["00000-9000020-1"]
+    unmatched = result["unmatched_subjects"][0]
+    assert unmatched["name"] == "وقاص"
+    assert unmatched["record_ids"] == ["criminal_record:CR-C106-1"]
+    assert unmatched["name_also_appears_locally"] is True
+
+
+async def test_module44_cs4_matches_on_cnic_not_name(monkeypatch):
+    """The load-bearing join decision, asserted on its own. Keying on name
+    would collapse the one real gap in this corpus to zero and turn gold's
+    "yes, exactly one" into "no"."""
+    criminal = [{"cnic": "C-1", "name": "same name", "record_id": "r1"}]
+    accused = [{"cnic": "C-2", "name": "same name"}]
+    monkeypatch.setattr(xagg, "age_client", _CriminalGapAgeClient(criminal, accused))
+
+    result = await xagg._criminal_record_local_match_gap()
+
+    assert [s["cnic"] for s in result["unmatched_subjects"]] == ["C-1"]
+    assert result["unmatched_subjects"][0]["name_also_appears_locally"] is True
+
+
+async def test_module44_cs4_records_without_a_cnic_are_neither_matched_nor_unmatched(
+    monkeypatch,
+):
+    """A record with no join key cannot honestly be placed in either bucket.
+    It must be counted and reported, never silently dropped into one."""
+    criminal = [
+        {"cnic": "C-1", "name": "matched", "record_id": "r1"},
+        {"cnic": None, "name": "no key", "record_id": "r2"},
+        {"cnic": "  ", "name": "blank key", "record_id": "r3"},
+    ]
+    accused = [{"cnic": "C-1", "name": "matched"}]
+    monkeypatch.setattr(xagg, "age_client", _CriminalGapAgeClient(criminal, accused))
+
+    result = await xagg._criminal_record_local_match_gap()
+
+    assert result["total_criminal_records"] == 3
+    assert result["distinct_subjects"] == 1
+    assert result["records_without_cnic"] == 2
+    assert result["unmatched_subjects"] == []
+    rendered = "\n".join(xagg.render_criminal_record_local_match_gap(result))
+    assert "2 criminal record(s) carry no CNIC" in rendered
+
+
+def test_module44_cs4_render_states_golds_expected_caveat_rather_than_flagging_a_defect():
+    """Gold's own caveat: the mismatch is EXPECTED, because the
+    criminal-records system is an external/federal source rather than a
+    mirror of local FIRs. The renderer must say so — and must earn it by
+    citing how many subjects DO match, so it is a measured judgement rather
+    than an assertion pasted in from the gold answer."""
+    rendered = "\n".join(xagg.render_criminal_record_local_match_gap({
+        "kind": "criminal_record_local_match_gap",
+        "total_criminal_records": 33,
+        "distinct_subjects": 32,
+        "records_without_cnic": 0,
+        "local_accused_entries": 94,
+        "local_distinct_accused_cnics": 92,
+        "matched_subject_count": 31,
+        "unmatched_subjects": [{
+            "cnic": "00000-9000020-1", "name": "وقاص",
+            "record_ids": ["criminal_record:CR-C106-1"],
+            "name_also_appears_locally": True,
+        }],
+    }))
+    assert "exactly one person" in rendered
+    assert "00000-9000020-1" in rendered
+    assert "expected rather than a data-quality defect" in rendered
+    assert "external/federal record source" in rendered
+    assert "31 of 32 subjects DO match" in rendered
+    assert "Matched on CNIC, not on name" in rendered
+
+
+def test_module44_cs4_render_says_no_when_there_is_no_gap():
+    rendered = "\n".join(xagg.render_criminal_record_local_match_gap({
+        "kind": "criminal_record_local_match_gap",
+        "total_criminal_records": 5, "distinct_subjects": 5,
+        "records_without_cnic": 0, "local_accused_entries": 10,
+        "local_distinct_accused_cnics": 10, "matched_subject_count": 5,
+        "unmatched_subjects": [],
+    }))
+    assert rendered.startswith("No.")
+    assert "expected rather than a data-quality defect" not in rendered
 
 
 # [Gold-QA fix — Module 10.1 / Module 13, question A1]
@@ -1500,7 +2019,21 @@ class _GatewayCases:
     async def get_cases(self, user_id=None, user_role=None): return self._cases
 
 
+class _NoGraphRows:
+    """[Module 95] `_case_completeness_scan` grew three graph reads (zimni
+    typing coverage, departure-vs-report chronology, CMS<->FIR linkage), so
+    the two tests below — which exercise the gateway half — now need the
+    graph half stubbed. Every read returns no rows, which is exactly the
+    "graph projected before Module 95" case: the aggregate reports zeros and
+    the renderer omits those lines, leaving the pre-Module-95 output these
+    tests were written against."""
+
+    async def execute_cypher(self, q, params=None, columns=("result",), graph=None):
+        return []
+
+
 async def test_g2_completeness_excludes_test_rows(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _NoGraphRows())
     cases = [
         {"case_id": "fir-1-26", "incident_date": None, "investigation_status": "open", "fir_number": "1/26"},
         {"case_id": "fir-2-26", "incident_date": "2026-01-01", "investigation_status": None, "fir_number": "2/26"},
@@ -3476,6 +4009,11 @@ def test_each_new_g1_sub_query_deterministically_routes_to_xagg():
     for sub_query in (
         _G1_SQ_ACCUSED_AGE, _G1_SQ_RELATIONSHIP,
         _G1_SQ_SEIZED_PROPERTY, _G1_SQ_TIME_OF_DAY,
+        # [Gold-QA fix — Module 35] G6's arrest-rate sub-query, phrased to
+        # the same "How many cases ..." rule for the same reason.
+        _G6_SQ_ARREST_RATE,
+        # [Gold-QA fix — Module 36] CR3's FIR-listing sub-query, same rule.
+        _CR3_SQ_FIR_LISTING,
     ):
         override = router._deterministic_route_override(sub_query)
         assert override is not None, sub_query
@@ -3499,5 +4037,2646 @@ def test_every_new_aggregate_kind_is_accepted_by_the_harness_tool_result():
     for kind in (
         "offender_age_profile", "accused_relationship_breakdown",
         "seized_property_disposition", "incident_time_of_day",
+        # [Gold-QA fix — Module 35] fifth family to depend on this Literal.
+        "arrest_rate",
+        # [Gold-QA fix — Module 36] sixth.
+        "filtered_fir_listing",
+        # [Gold-QA fix — Module 44] seventh and eighth.
+        "station_caseload_by_specialisation",
+        "criminal_record_local_match_gap",
+        # [Gold-QA fix — Module 74] ninth.
+        "officer_role_pair_overlap",
+        # [Gold-QA fix — Module 75] tenth.
+        "chalaan_dispatch_count",
+        # [Gold-QA fix — Module 76] eleventh.
+        "fir_section_case_count",
     ):
         assert kind in accepted, kind
+
+
+# ── [Gold-QA fix — Module 35, question G6] arrest rate ──────────────────────
+#
+# The literal G6 sub-question this family exists to answer, in the same
+# "..., across all cases?" shape as `meta_analysis.py`'s other sub-queries,
+# and leading with "How many cases" for the reason
+# `test_each_new_g1_sub_query_deterministically_routes_to_xagg` records.
+_G6_SQ_ARREST_RATE = (
+    "How many cases record an arrest of an accused person, and on how many "
+    "is no arrest recorded, across all cases?"
+)
+_S3_GOLD_TEXT = "کیا کسی شخص کو ایک سے زیادہ بار گرفتار کیا گیا ہے؟"
+
+
+class _ArrestAgeClient:
+    """Routes the two reads `_arrest_rate()` issues: the accused roster and
+    the Case roster (the rate's denominator)."""
+
+    def __init__(self, accused_rows, case_rows):
+        self.accused_rows = accused_rows
+        self.case_rows = case_rows
+        self.queries = []
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        self.queries.append((cypher_query, params))
+        if "INVOLVED_IN" in cypher_query:
+            return self.accused_rows
+        return self.case_rows
+
+
+def _accused_arrest(status, case_id, p_id):
+    return {"arrest_status": status, "case_id": case_id, "p_id": p_id}
+
+
+def _cases(*case_ids):
+    return [{"case_id": c} for c in case_ids]
+
+
+# The four measured live status values (2026-09-08) that a naive substring
+# rule gets wrong, pinned individually so the classification rule cannot
+# drift silently.
+class TestArrestStatusClassification:
+    def test_bare_arrest_token_is_an_arrest(self):
+        assert xagg._classify_arrest_status("گرفتار") == "arrested"
+
+    @pytest.mark.parametrize("status", [
+        "موقع پر گرفتار",
+        "گرفتار، بعد ازاں سزا یافتہ",
+        "گرفتار، ڈی این اے مطابقت پر",
+    ])
+    def test_a_qualifier_does_not_stop_it_being_an_arrest(self, status):
+        assert xagg._classify_arrest_status(status) == "arrested"
+
+    @pytest.mark.parametrize("status", [
+        # BOTH of these CONTAIN گرفتار and mean the opposite of an arrest.
+        # This is the trap the whole module is about.
+        "تاحال مفرور، گرفتار نہیں ہوا",
+        "نامزد، گرفتاری کی نوبت نہ آئی",
+    ])
+    def test_a_negated_arrest_is_not_an_arrest(self, status):
+        assert xagg._classify_arrest_status(status) == "not_arrested_explicit"
+
+    def test_an_arrest_in_an_earlier_case_gets_its_own_bucket(self):
+        assert xagg._classify_arrest_status(
+            "پہلے سے کیس 10 میں گرفتار، اس مقدمے میں بھی نامزد"
+        ) == "arrested_in_another_case"
+
+    @pytest.mark.parametrize("status", [
+        "زیر تفتیش",
+        "مفرور، اشتہاری کارروائی جاری",
+        "مقام معلوم کرنے کی کارروائی جاری",
+        "نامزد، تفتیش جاری",
+        # "already in custody" carries no arrest token at all — custody is
+        # not an arrest record, and the rule does not infer one.
+        "پہلے سے زیر حراست، اس مقدمے میں بھی نامزد",
+        "",
+        None,
+    ])
+    def test_everything_else_records_no_arrest(self, status):
+        assert xagg._classify_arrest_status(status) == "no_arrest_recorded"
+
+
+async def test_arrest_rate_counts_firs_not_accused_entries(monkeypatch):
+    """Two accused arrested on the SAME FIR is one arrest FIR, not two.
+    Conflating the two denominators is the easiest way to report a wrong
+    rate here — the live corpus has 14 arrested ENTRIES across 11 FIRs."""
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[
+            _accused_arrest("گرفتار", "fir-1-26", 1),
+            _accused_arrest("موقع پر گرفتار", "fir-1-26", 2),
+            _accused_arrest("گرفتار", "fir-2-26", 3),
+            _accused_arrest("زیر تفتیش", "fir-3-26", 4),
+        ],
+        case_rows=_cases("fir-1-26", "fir-2-26", "fir-3-26", "fir-4-26"),
+    ))
+
+    result = await xagg._arrest_rate()
+
+    assert result["kind"] == "arrest_rate"
+    assert result["arrest_entry_count"] == 3
+    assert result["arrest_fir_count"] == 2
+    assert result["fir_count"] == 4
+    assert result["one_in"] == 2.0
+    assert result["no_arrest_fir_count"] == 2
+
+
+async def test_arrest_rate_denominator_includes_firs_with_no_accused(monkeypatch):
+    """5 of the live corpus's 73 Cases carry no accused entry at all. They
+    are FIRs on which no arrest is recorded, so they belong in the
+    denominator; both readings are returned so the choice is checkable."""
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[_accused_arrest("گرفتار", "fir-1-26", 1)],
+        case_rows=_cases("fir-1-26", "fir-2-26", "fir-3-26", "fir-4-26"),
+    ))
+
+    result = await xagg._arrest_rate()
+
+    assert result["fir_count"] == 4
+    assert result["fir_count_with_accused"] == 1
+    assert result["one_in"] == 4.0
+    assert result["one_in_accused_firs"] == 1.0
+
+
+async def test_arrest_rate_does_not_count_a_negated_status_as_an_arrest(monkeypatch):
+    """The module's headline trap: both negations CONTAIN گرفتار."""
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[
+            _accused_arrest("تاحال مفرور، گرفتار نہیں ہوا", "fir-1-26", 1),
+            _accused_arrest("نامزد، گرفتاری کی نوبت نہ آئی", "fir-2-26", 2),
+            _accused_arrest("گرفتار", "fir-3-26", 3),
+        ],
+        case_rows=_cases("fir-1-26", "fir-2-26", "fir-3-26"),
+    ))
+
+    result = await xagg._arrest_rate()
+
+    assert result["arrest_fir_count"] == 1
+    assert result["explicit_no_arrest_fir_count"] == 2
+    # What a naive substring rule would have reported instead.
+    assert result["naive_substring_fir_count"] == 3
+
+
+async def test_arrest_rate_publishes_the_bare_token_reading_for_comparison(monkeypatch):
+    """Gold G6's "1 in 9" is reproducible ONLY by an exact-string match on a
+    bare گرفتار, which discards three entries that record an arrest in as
+    many words. That reading is returned for comparison and is never the
+    headline — this test pins the distinction so it cannot be quietly
+    swapped in to make gold match."""
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[
+            _accused_arrest("گرفتار", "fir-1-26", 1),
+            _accused_arrest("موقع پر گرفتار", "fir-2-26", 2),
+        ],
+        case_rows=_cases("fir-1-26", "fir-2-26", "fir-3-26", "fir-4-26"),
+    ))
+
+    result = await xagg._arrest_rate()
+
+    assert result["arrest_fir_count"] == 2
+    assert result["bare_token_fir_count"] == 1
+    assert result["bare_token_one_in"] == 4.0
+    assert result["one_in"] == 2.0
+
+
+async def test_arrest_rate_renderer_states_the_counting_rule(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[
+            _accused_arrest("گرفتار", "fir-1-26", 1),
+            _accused_arrest("تاحال مفرور، گرفتار نہیں ہوا", "fir-2-26", 2),
+            _accused_arrest("زیر تفتیش", "fir-3-26", 3),
+        ],
+        case_rows=_cases("fir-1-26", "fir-2-26", "fir-3-26"),
+    ))
+
+    text = "\n".join(xagg.render_arrest_rate(await xagg._arrest_rate()))
+
+    assert "Counting rule:" in text
+    assert "گرفتار نہیں ہوا" in text
+    assert "mean the opposite" in text
+    assert "1 of 3 FIR(s)" in text
+
+
+async def test_arrest_rate_renderer_is_bounded(monkeypatch):
+    """Module 29 reverted an unfiltered 73-row listing because rendering it
+    starved its sibling sub-queries into the 60 s timeout. Every listing
+    this file renders is capped for that reason."""
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[
+            _accused_arrest(f"زیر تفتیش {i}", f"fir-{i}-26", i) for i in range(40)
+        ],
+        case_rows=_cases(*[f"fir-{i}-26" for i in range(40)]),
+    ))
+
+    lines = xagg.render_arrest_rate(await xagg._arrest_rate())
+
+    status_lines = [ln for ln in lines if ln.startswith("  - ") and "entries [" in ln]
+    assert len(status_lines) == xagg._ARREST_STATUS_RENDER_LIMIT
+    assert any("further status value(s)" in ln for ln in lines)
+
+
+async def test_arrest_rate_says_so_when_no_accused_is_recorded(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[], case_rows=_cases("fir-1-26"),
+    ))
+
+    text = "\n".join(xagg.render_arrest_rate(await xagg._arrest_rate()))
+
+    assert "No accused person is recorded" in text
+
+
+async def test_g6_arrest_sub_query_reaches_the_arrest_rate_not_person_recurrence(monkeypatch):
+    """[Gold-QA fix — Module 35] The regression pinned to the LITERAL
+    dispatched sub-query text.
+
+    Measured pre-fix on 2026-09-08 (`scratchpad/dispatch.py`, live stack):
+
+        arrest -> graph_recurrence / Person
+
+    i.e. a ranked list of repeat offenders — "فیصل and طارق both appear in
+    fir-202-26 and fir-401-26" — presented as the answer to a question about
+    arrests. The plan predicted exactly this fall-through and it reproduced.
+    """
+    monkeypatch.setattr(xagg, "age_client", _ArrestAgeClient(
+        accused_rows=[_accused_arrest("گرفتار", "fir-1-26", 1)],
+        case_rows=_cases("fir-1-26", "fir-2-26"),
+    ))
+
+    result = await xagg.run_aggregate(
+        _G6_SQ_ARREST_RATE, None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "arrest_rate"
+    assert result["kind"] != "graph_recurrence"
+    assert result["kind"] != "case_listing"
+
+
+class TestArrestRateBoundary:
+    """
+    [Gold-QA fix — Module 35] `_is_arrest_rate()` sits ABOVE
+    `_PERSON_KEYWORDS` in `run_aggregate()`'s chain, and its bare vocabulary
+    collides with a gold question OUTRIGHT — S3 contains گرفتار. That is why
+    this family is a three-signal predicate rather than a keyword tuple, and
+    why the negative control below is an equality.
+    """
+
+    def test_the_g6_arrest_sub_query_matches(self):
+        assert xagg._is_arrest_rate(_G6_SQ_ARREST_RATE.lower())
+
+    @pytest.mark.parametrize("paraphrase", [
+        # The required non-gold paraphrases — no phrase shared with the
+        # dispatched sub-query above.
+        "What share of our FIRs actually end in someone being taken into custody?",
+        "How often do we actually arrest anyone?",
+        "Kitne FIRs mein mulzim giraftar hua?",
+        "کتنی ایف آئی آر میں ملزم گرفتار ہوا؟",
+    ])
+    def test_non_gold_paraphrases_match(self, paraphrase):
+        assert xagg._is_arrest_rate(paraphrase.lower())
+
+    def test_s3_the_repeat_arrest_gold_question_is_not_captured(self):
+        """S3 CONTAINS گرفتار and is a person-RECURRENCE question answered
+        correctly today by `_top_recurring_nodes("Person")`. Both guards are
+        asserted separately so a future edit that drops either one fails
+        here rather than live."""
+        lowered = _S3_GOLD_TEXT.lower()
+        assert xagg._matches_any(lowered, xagg._ARREST_TERMS), (
+            "S3 does contain the arrest vocabulary — that is the whole point"
+        )
+        assert xagg._matches_any(lowered, xagg._ARREST_RECURRENCE_EXCLUSIONS)
+        assert not xagg._matches_any(lowered, xagg._ARREST_RATE_SIGNALS)
+        assert not xagg._is_arrest_rate(lowered)
+
+    @pytest.mark.parametrize("other", [
+        # Neighbouring families this must not swallow, given where it sits.
+        "How many cases involve an accused person, and what is their age "
+        "range and average age, across all cases?",
+        "How many of the accused are men and how many are women, across all cases?",
+        "How many accused persons are there in total?",
+        "Has anyone been arrested more than once?",
+        "Kya koi shakhs ek se zyada baar giraftar hua hai?",
+    ])
+    def test_neighbouring_families_are_not_captured(self, other):
+        assert not xagg._is_arrest_rate(other.lower())
+
+    def test_matches_no_gold_question_at_all(self):
+        """The all-32 negative control, asserted as an EQUALITY.
+
+        Reads `evaluation/Gold_QA_Dataset_Final32_With_Answers.json` — the
+        bare `Gold_QA_Dataset_Final32.json` is NOT tracked in this repo, and
+        a test pinned to it silently skips (PR #21)."""
+        import json
+        from pathlib import Path
+
+        gold_path = (
+            Path(__file__).resolve().parent.parent
+            / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json"
+        )
+        assert gold_path.exists(), gold_path
+        items = json.loads(gold_path.read_text(encoding="utf-8"))
+        assert len(items) == 32
+        matched = [
+            (it.get("id") or "").upper()
+            for it in items
+            if xagg._is_arrest_rate(it["question"].lower())
+        ]
+        assert matched == [], f"expected no gold question to match, got {matched}"
+
+    def test_the_arrest_vocabulary_alone_would_have_matched_s3(self):
+        """The negative control above is only meaningful because the naive
+        version of this family FAILS it. Pinned so nobody 'simplifies'
+        `_is_arrest_rate()` back into a bare keyword tuple."""
+        import json
+        from pathlib import Path
+
+        gold_path = (
+            Path(__file__).resolve().parent.parent
+            / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json"
+        )
+        items = json.loads(gold_path.read_text(encoding="utf-8"))
+        matched = [
+            (it.get("id") or "").upper()
+            for it in items
+            if xagg._matches_any(it["question"].lower(), xagg._ARREST_TERMS)
+        ]
+        assert matched == ["S3"], matched
+
+
+async def test_s3_still_reaches_person_recurrence_after_module_35(monkeypatch):
+    """End to end with S3's LITERAL gold text, not at the predicate level —
+    the guard Module 33 used for G5, for the same reason: this family sits
+    above `_PERSON_KEYWORDS` and S3 is the question it could break."""
+    rows = [
+        {"n": _node("P-004", "Person", canonical_name="شہزیب"), "c": _case("fir-214-26")},
+        {"n": _node("P-004", "Person", canonical_name="شہزیب"), "c": _case("fir-891-24")},
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        _S3_GOLD_TEXT, None, gateway=FakeGateway([]), user_role="supervisor",
+    )
+
+    assert result["kind"] == "graph_recurrence"
+    assert result["entity_type"] == "Person"
+
+
+# ── [Gold-QA fix — Module 36, question CR3] subject-filtered FIR listing ────
+#
+# The literal sub-question this family exists to answer. Leads with "How
+# many cases ..." for exactly the reason
+# `test_each_new_g1_sub_query_deterministically_routes_to_xagg` records —
+# `_XGRAPH_OVERRIDE_PATTERNS`' `across.{0,15}cases` would otherwise steal it.
+_CR3_SQ_FIR_LISTING = (
+    "How many cases are registered under the cybercrime act at a cyber "
+    "crime circle station, and what are their FIR numbers and current status?"
+)
+# S2's literal gold text. It is the question this family is most at risk of
+# swallowing — "which" + "police station" — and it is answered correctly
+# today by the grouped station count, so it is asserted end to end below.
+_S2_GOLD_TEXT = "Which police station handles the most cases?"
+
+
+def _fir_row(case_id, fir_number, station, acts, status=None):
+    return {
+        "case_id": case_id,
+        "fir_number": fir_number,
+        "police_station": station,
+        "crime_category": acts,
+        "investigation_status": status,
+    }
+
+
+_CYBER_ISB = "سائبر کرائم سرکل، اسلام آباد"
+_CYBER_RWP = "سائبر کرائم سرکل، راولپنڈی"
+
+
+def _cr3_corpus():
+    """The shape of the live corpus this family was probed against on
+    2026-09-08 — 9 PECA 2016 cases, 9 cases at a سائبر کرائم سرکل station,
+    intersecting in exactly `fir-64-26` and `fir-65-26`. Real values, so a
+    change in the Urdu station strings breaks the test rather than passing
+    on a sanitised English stand-in."""
+    return [
+        # PECA 2016, elsewhere.
+        _fir_row("fir-208-26", "208/26", "تھانہ ماڈل ٹاؤن، لاہور", "PECA 2016, PPC"),
+        _fir_row("fir-417-26", "417/26", "تھانہ شاہ فیصل کالونی، کراچی", "PECA 2016, PPC"),
+        _fir_row("fir-418-26", "418/26", "تھانہ راجہ بازار، راولپنڈی", "PECA 2016, PPC"),
+        _fir_row("fir-427-26", "427/26", "موٹروے پولیس اسٹیشن ایم ٹو، لاہور", "PECA 2016, PPC"),
+        _fir_row("fir-428-26", "428/26", "تھانہ کوتوالی، فیصل آباد", "PECA 2016, PPC"),
+        _fir_row("fir-453-26", "453/26", "تھانہ جھنگ روڈ، فیصل آباد", "PECA 2016, PPC"),
+        _fir_row("fir-462-26", "462/26", "تھانہ نیو کراچی، کراچی", "PECA 2016, PPC"),
+        # The CR3 pair — PECA 2016 AND a cyber-crime circle.
+        _fir_row("fir-64-26", "64/26", _CYBER_ISB, "PECA 2016, PPC",
+                 "ملزم جسمانی ریمانڈ پر، مزید برآمدگی کے لیے"),
+        _fir_row("fir-65-26", "65/26", _CYBER_RWP, "PECA 2016, PPC",
+                 "ملزم جسمانی ریمانڈ پر، مقدمہ نمبر 10 کا وہی ملزم"),
+        # Cyber-crime circle, but NOT PECA.
+        _fir_row("fir-1001-26", "1001/26", _CYBER_ISB, "PPC, Arms Ordinance 1965"),
+        _fir_row("fir-204-26", "204/26", _CYBER_RWP, "PPC, Arms Ordinance 1965"),
+        _fir_row("fir-410-26", "410/26", _CYBER_RWP, "PPC, Arms Ordinance 1965"),
+        _fir_row("fir-421-26", "421/26", _CYBER_ISB, "PPC, Arms Ordinance 1965"),
+        _fir_row("fir-424-26", "424/26", _CYBER_ISB, "CNSA 1997"),
+        _fir_row("fir-435-26", "435/26", _CYBER_RWP, "PPC"),
+        _fir_row("fir-457-26", "457/26", _CYBER_ISB, "PPC"),
+        # Neither.
+        _fir_row("fir-301-26", "301/26", "تھانہ نیو کراچی، کراچی",
+                 "CNSA 1997, Arms Ordinance 1965", "دونوں ملزمان ریمانڈ پر"),
+        _fir_row("fir-118-26", "118/26", "تھانہ لطیف آباد، حیدر آباد", "CNSA 1997"),
+    ]
+
+
+async def test_cr3_sub_query_returns_exactly_the_two_ground_truth_firs():
+    """[Gold-QA fix — Module 36] The regression pinned to the LITERAL
+    dispatched sub-query text.
+
+    Ground truth, probed live 2026-09-08 before this aggregate was written:
+    PECA 2016 ∩ سائبر کرائم سرکل = `fir-64-26` (64/26, Islamabad) and
+    `fir-65-26` (65/26, Rawalpindi), and nothing else.
+
+    Measured pre-fix (`scratchpad/dispatch.py`, live stack): this sub-query
+    returned `relational_aggregate` grouped by `police_station` — nine PECA
+    cases counted per station, with NO FIR number anywhere in the result and
+    the station filter never applied at all."""
+    result = await xagg.run_aggregate(
+        _CR3_SQ_FIR_LISTING, None,
+        gateway=FakeGateway(_cr3_corpus()), user_role="supervisor",
+    )
+
+    assert result["kind"] == "filtered_fir_listing"
+    assert result["filtered"] is True
+    assert result["matched_count"] == 2
+    assert [r["fir_number"] for r in result["cases"]] == ["64/26", "65/26"]
+    assert [r["case_id"] for r in result["cases"]] == ["fir-64-26", "fir-65-26"]
+    assert any(f.startswith("statute: PECA 2016") for f in result["filters_applied"])
+    assert any(f.startswith("station: ") for f in result["filters_applied"])
+
+
+async def test_cr3_listing_renders_the_fir_number_and_the_status():
+    """The whole point of the module: Module 29's sub-answers carried the
+    facts but never said WHICH FIRs, so synthesis had to infer the pair —
+    and once paired `fir-64-26` with the wrong FIR entirely."""
+    result = await xagg.run_aggregate(
+        _CR3_SQ_FIR_LISTING, None,
+        gateway=FakeGateway(_cr3_corpus()), user_role="supervisor",
+    )
+
+    text = "\n".join(xagg.render_filtered_fir_listing(result))
+
+    assert "64/26" in text and "65/26" in text
+    assert "ملزم جسمانی ریمانڈ پر، مزید برآمدگی کے لیے" in text
+    assert "ملزم جسمانی ریمانڈ پر، مقدمہ نمبر 10 کا وہی ملزم" in text
+    # Nothing outside the intersection leaks in.
+    assert "208/26" not in text and "1001/26" not in text
+
+
+async def test_a_station_only_question_is_not_silently_narrowed_to_peca():
+    """[Gold-QA fix — Module 36] The substring collision this module paid
+    for, CAUGHT LIVE on 2026-09-08 against the real corpus, not in review.
+
+    PECA 2016's keyword tuple contains `"cyber crime"`; the station alias is
+    `"cyber crime circle"`. Before `_mask_station_aliases()`, this question —
+    which names NO statute — silently acquired a `statute: PECA 2016` filter
+    and answered 2 FIRs where the corpus holds 9 cyber-circle FIRs. Same
+    class as this module's four existing Urdu collisions."""
+    result = await xagg.run_aggregate(
+        "Which FIR numbers are registered at a cyber crime circle station?",
+        None, gateway=FakeGateway(_cr3_corpus()), user_role="supervisor",
+    )
+
+    assert result["kind"] == "filtered_fir_listing"
+    assert result["filters_applied"] == [
+        f"station: {_CYBER_ISB}, {_CYBER_RWP}"
+    ], result["filters_applied"]
+    assert result["matched_count"] == 9
+    assert "fir-64-26" in {r["case_id"] for r in result["cases"]}
+    assert "fir-1001-26" in {r["case_id"] for r in result["cases"]}
+
+
+def test_mask_station_aliases_keeps_a_statute_the_question_really_names():
+    """The mask must not swing the other way and disarm CR3's own statute
+    filter: the sub-query says "under the CYBERCRIME act at a CYBER CRIME
+    CIRCLE station", so the one-word form survives the phrase removal."""
+    masked = xagg._mask_station_aliases(_CR3_SQ_FIR_LISTING.lower())
+
+    assert "cyber crime circle" not in masked
+    assert "cybercrime" in masked
+    assert xagg._matches_any(masked, xagg._LEGAL_CODE_ACT_KEYWORDS["PECA 2016"])
+
+
+def test_mask_station_aliases_strips_every_occurrence():
+    masked = xagg._mask_station_aliases(
+        "cyber crime circle and another cyber crime circle"
+    )
+    assert "cyber crime circle" not in masked.lower()
+
+
+async def test_urdu_question_naming_the_circle_by_its_real_name_is_answered():
+    """Station names are Urdu-only in the data and neither of the two
+    families that matter carries "تھانہ" at all, so `_STATION_KEYWORDS`
+    alone missed this question entirely and it fell through to the
+    grouped-count default — measured against the live corpus while writing
+    this module."""
+    result = await xagg.run_aggregate(
+        "کون سی ایف آئی آر سائبر کرائم سرکل میں درج ہیں؟",
+        None, gateway=FakeGateway(_cr3_corpus()), user_role="supervisor",
+    )
+
+    assert result["kind"] == "filtered_fir_listing"
+    assert result["matched_count"] == 9
+
+
+async def test_a_recognised_station_word_naming_no_real_station_refuses_to_dump():
+    """Module 29 reverted the unfiltered 73-row listing because ~4.6 KB of
+    generation starved its two concurrent siblings into the 60 s
+    `META_ANALYSIS_SUBQUERY_TIMEOUT`. When the filter cannot be resolved this
+    family reports the corpus size and the filters available instead of
+    listing anything."""
+    result = await xagg.run_aggregate(
+        "Which FIR numbers are registered at the Chichawatni police station?",
+        None, gateway=FakeGateway(_cr3_corpus()), user_role="supervisor",
+    )
+
+    assert result["kind"] == "filtered_fir_listing"
+    assert result["filtered"] is False
+    assert result["cases"] == []
+    assert result["total_in_scope"] == len(_cr3_corpus())
+
+    text = "\n".join(xagg.render_filtered_fir_listing(result))
+    assert "needs a subject filter" in text
+    assert xagg._UNRECOGNIZED_STATION in text
+    assert "64/26" not in text
+
+
+async def test_the_rendered_listing_is_capped_for_the_module_29_budget():
+    corpus = _cr3_corpus() + [
+        _fir_row(f"fir-9{i:02d}-26", f"9{i:02d}/26", "تھانہ برکی، لاہور", "CNSA 1997")
+        for i in range(20)
+    ]
+    result = await xagg.run_aggregate(
+        "Give me the FIR numbers for the narcotics cases and their status.",
+        None, gateway=FakeGateway(corpus), user_role="supervisor",
+    )
+    lines = xagg.render_filtered_fir_listing(result)
+
+    assert result["matched_count"] == 23
+    listed = [ln for ln in lines if ln.startswith("  - FIR ")]
+    assert len(listed) == xagg._FIR_LISTING_RENDER_LIMIT
+    assert any("further matching FIR(s)" in ln for ln in lines)
+
+
+async def test_a_filter_that_matches_nothing_says_so_rather_than_listing():
+    result = await xagg.run_aggregate(
+        "Which FIR numbers are registered under the Illegal Dispossession Act?",
+        None, gateway=FakeGateway(_cr3_corpus()), user_role="supervisor",
+    )
+
+    assert result["matched_count"] == 0
+    assert "No FIR matches" in "\n".join(xagg.render_filtered_fir_listing(result))
+
+
+def test_station_matches_is_driven_by_the_stored_value_not_a_hardcoded_list():
+    assert xagg._station_matches(_CYBER_ISB, "cyber crime circle station")
+    assert xagg._station_matches(_CYBER_ISB, "سائبر کرائم سرکل کے مقدمات")
+    assert xagg._station_matches(_CYBER_ISB, "cases in اسلام آباد")
+    assert not xagg._station_matches(_CYBER_ISB, "cases at the women police station")
+    # The generic prefix is stripped, so a bare "thana" question cannot
+    # match every station in the corpus.
+    assert not xagg._station_matches("تھانہ برکی، لاہور", "how many cases per thana")
+    assert not xagg._station_matches(None, "anything")
+
+
+class TestFilteredFirListingBoundary:
+    """
+    [Gold-QA fix — Module 36] This family sits above `_DISTRICT_KEYWORDS`,
+    `_LIST_ALL_KEYWORDS`, `_TOTAL_KEYWORDS` and the
+    `_station_or_category_counts()` fallback, and its FILTER half alone
+    matches five gold questions. The IDENTIFICATION half is what keeps it
+    off them, so the negative control below is an equality.
+    """
+
+    def test_the_cr3_sub_query_matches(self):
+        assert xagg._is_filtered_fir_listing(_CR3_SQ_FIR_LISTING.lower())
+
+    @pytest.mark.parametrize("paraphrase", [
+        # The required non-gold paraphrases — no phrase shared with the
+        # dispatched sub-query above.
+        "Which FIRs are registered under the Arms Ordinance, and what are "
+        "their FIR numbers and status?",
+        "Give me the FIR numbers for the narcotics cases and where each one "
+        "has got to.",
+        "Name the FIRs booked at a cyber crime circle.",
+        "کون سی ایف آئی آر سائبر کرائم سرکل میں درج ہیں؟",
+        "منشیات کے مقدمات کے نمبر کیا ہیں؟",
+    ])
+    def test_non_gold_paraphrases_match(self, paraphrase):
+        assert xagg._is_filtered_fir_listing(paraphrase.lower())
+
+    def test_s2_the_station_ranking_gold_question_is_not_captured(self):
+        """S2 is "Which police station handles the most cases?" — "which" +
+        "police station", the exact shape this family would swallow if the
+        identification half were the bare "which cases". Both halves are
+        asserted separately so a future edit that drops either fails here
+        rather than live."""
+        lowered = _S2_GOLD_TEXT.lower()
+        assert xagg._matches_any(
+            lowered,
+            xagg._STATION_KEYWORDS + xagg._STATION_NAME_HINTS,
+        ), "S2 does carry the station filter signal — that is the point"
+        assert not xagg._matches_any(lowered, xagg._FIR_IDENTIFICATION_KEYWORDS)
+        assert not xagg._is_filtered_fir_listing(lowered)
+
+    @pytest.mark.parametrize("other", [
+        # Neighbouring families this must not swallow, given where it sits.
+        "How many cases are registered at each police station?",
+        "How many police stations are there in total?",
+        "Which district recovers the most weapons relative to its caseload?",
+        "List all cases",
+        "How many cases are there in total?",
+        "How many cases record an arrest of an accused person, and on how "
+        "many is no arrest recorded, across all cases?",
+    ])
+    def test_neighbouring_families_are_not_captured(self, other):
+        assert not xagg._is_filtered_fir_listing(other.lower())
+
+    def test_an_identification_question_with_no_filter_is_declined(self):
+        """Without a filter there is nothing to narrow to, and the answer
+        would be the 73-row dump Module 29 reverted. It is left to the
+        existing listing/count families instead."""
+        assert not xagg._is_filtered_fir_listing("which fir numbers do we have?")
+
+    def test_matches_no_gold_question_at_all(self):
+        """The all-32 negative control, asserted as an EQUALITY.
+
+        Reads `evaluation/Gold_QA_Dataset_Final32_With_Answers.json` — the
+        bare `Gold_QA_Dataset_Final32.json` is NOT tracked in this repo, and
+        a test pinned to it silently skips (PR #21)."""
+        import json
+        from pathlib import Path
+
+        gold_path = (
+            Path(__file__).resolve().parent.parent
+            / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json"
+        )
+        assert gold_path.exists(), gold_path
+        items = json.loads(gold_path.read_text(encoding="utf-8"))
+        assert len(items) == 32
+        matched = [
+            (it.get("id") or "").upper()
+            for it in items
+            if xagg._is_filtered_fir_listing(it["question"].lower())
+        ]
+        assert matched == [], f"expected no gold question to match, got {matched}"
+
+    def test_the_filter_half_alone_would_have_matched_five_gold_questions(self):
+        """The negative control above is only meaningful because the naive
+        version of this family FAILS it. Measured against the live gold set
+        on 2026-09-08. Pinned so nobody 'simplifies' the identification half
+        away."""
+        import json
+        from pathlib import Path
+
+        gold_path = (
+            Path(__file__).resolve().parent.parent
+            / "evaluation" / "Gold_QA_Dataset_Final32_With_Answers.json"
+        )
+        items = json.loads(gold_path.read_text(encoding="utf-8"))
+        signal = (
+            xagg._STATION_KEYWORDS + xagg._DISTRICT_KEYWORDS
+            + xagg._CATEGORY_KEYWORDS + xagg._STATION_NAME_HINTS
+        )
+        matched = sorted(
+            (it.get("id") or "").upper()
+            for it in items
+            if xagg._matches_any(it["question"].lower(), signal)
+            or any(
+                xagg._matches_any(it["question"].lower(), kws)
+                for kws in xagg._LEGAL_CODE_ACT_KEYWORDS.values()
+            )
+        )
+        assert matched == ["CP1", "CR3", "CR8", "M2", "S2"], matched
+
+
+async def test_s2_still_reaches_the_station_ranking_after_module_36():
+    """End to end with S2's LITERAL gold text, not at the predicate level —
+    the guard Modules 33 and 35 used, for the same reason: this family sits
+    above the grouped-count fallback and S2 is the question it could
+    break."""
+    result = await xagg.run_aggregate(
+        _S2_GOLD_TEXT, None,
+        gateway=FakeGateway(_cr3_corpus()), user_role="supervisor",
+    )
+
+    assert result["kind"] == "relational_aggregate"
+    assert result["group_by"] == "police_station"
+
+
+# ══════════════════════════════════════════════════════════════════════
+# [Module 55] Every aggregate family must say which one it is, in the log.
+#
+# XAGG's SSE stream reports only `route='XAGG'`. The `XAGG <kind>:` line in
+# `backend.log` is therefore the ONLY evidence of WHICH aggregate answered a
+# live question — the fact every module in this wave is verified against.
+# Modules 31-36 each added one by hand; everything older emitted nothing, so
+# Module 43 had to identify M7's runs by matching numbers out of rendered
+# prose before it could tell a correct run from a wrong-metric one.
+#
+# The durable fix is not the 21 individual lines Module 55 added. It is this
+# test: it derives the set of aggregate kinds from the SOURCE, so the next
+# family added to `xagg.py` cannot silently skip its line.
+# ══════════════════════════════════════════════════════════════════════
+
+# The one family whose log line is labelled by its DIMENSION rather than its
+# kind. `time_bucketed_mean` is a generic container — M7's aggregate and any
+# future mean-by-bucket family would both carry it — so Module 43 labelled
+# the line `incident_to_report_minutes_by_year`, which is what actually
+# distinguishes M7's run from the neighbouring delay-reason one. Kept, and
+# recorded here explicitly, rather than relabelled: MODULE43_RESULT.md and
+# its own regression test are both pinned to the existing string.
+_LOG_LABEL_ALIASES = {"time_bucketed_mean": "incident_to_report_minutes_by_year"}
+
+
+def _xagg_source() -> str:
+    return (
+        Path(xagg.__file__).read_text(encoding="utf-8")
+    )
+
+
+def _declared_aggregate_kinds() -> set[str]:
+    """Every literal `{"kind": "..."}` value in xagg.py, read via AST so a
+    kind named only in a comment or a docstring cannot count."""
+    import ast
+
+    kinds = set()
+    for node in ast.walk(ast.parse(_xagg_source())):
+        if not isinstance(node, ast.Dict):
+            continue
+        for key, value in zip(node.keys, node.values):
+            if (
+                isinstance(key, ast.Constant) and key.value == "kind"
+                and isinstance(value, ast.Constant) and isinstance(value.value, str)
+            ):
+                kinds.add(value.value)
+    return kinds
+
+
+def _emitted_log_labels() -> set[str]:
+    return set(re.findall(r'"XAGG ([a-z0-9_]+):', _xagg_source()))
+
+
+def test_module55_every_aggregate_kind_emits_an_xagg_log_line():
+    """Measured starting point (2026-09-09, before this module): 32 distinct
+    aggregate kinds, 11 log labels — 21 families silent, including the whole
+    CR6/CR7/CR8/G2/G3 set, the entity-recurrence tier and the
+    `relational_aggregate` catch-all Module 44 measured M2 falling into."""
+    kinds = _declared_aggregate_kinds()
+    labels = _emitted_log_labels()
+
+    # Guards the guard: if the AST walk stops finding kinds (a refactor to a
+    # dataclass, say), the assertion below would pass vacuously.
+    assert len(kinds) >= 32, kinds
+
+    silent = sorted(
+        k for k in kinds
+        if k not in labels and _LOG_LABEL_ALIASES.get(k) not in labels
+    )
+    assert silent == [], (
+        "These XAGG aggregate kinds return a result but emit no "
+        f"`XAGG <kind>:` log line, so a live run of them cannot be "
+        f"identified from backend.log at all: {silent}. Add one "
+        "logger.info() carrying the FIGURES, not just the kind."
+    )
+
+
+def test_module55_log_format_strings_stay_ascii():
+    """PR #30 reconfigured the log stream to utf-8/backslashreplace, so Urdu
+    VALUES passed as `%s` arguments now survive. The format strings
+    themselves stay ASCII regardless: three of Module 36's live calls lost
+    their figures entirely to a cp1252 stream, and an ASCII template is what
+    guarantees the line is emitted at all even if a handler regresses."""
+    offenders = [
+        line for line in _xagg_source().splitlines()
+        if '"XAGG ' in line and not line.strip().startswith("#")
+        and not line.isascii()
+    ]
+    assert offenders == [], offenders
+
+
+async def test_module55_a_silent_family_now_names_itself_with_its_figures(caplog, monkeypatch):
+    """One worked example end to end, on a family that was silent before this
+    module — G2's completeness scan. The kind alone would not be enough: a
+    wrong-metric run reports the same kind, so the counts are asserted too."""
+    cases = [
+        {"case_id": "fir-1-26", "incident_date": "2026-01-01",
+         "investigation_status": "under investigation"},
+        {"case_id": "fir-2-26", "incident_date": None,
+         "investigation_status": "under investigation"},
+        {"case_id": "fir-3-26", "incident_date": "2026-01-03",
+         "investigation_status": None},
+    ]
+
+    monkeypatch.setattr(xagg, "age_client", _NoGraphRows())  # [Module 95] see _NoGraphRows
+    with caplog.at_level(logging.INFO, logger="src.pipeline.xagg"):
+        result = await xagg._case_completeness_scan(FakeGateway(cases))
+
+    logged = "\n".join(r.getMessage() for r in caplog.records)
+    assert "XAGG case_completeness_scan:" in logged
+    assert "3 case(s) scanned" in logged
+    assert "1 missing an incident date" in logged
+    assert "1 missing an investigation status" in logged
+    # No behaviour change — Module 55 is observability only.
+    assert result["total_cases"] == 3
+    assert result["missing_incident_date"] == ["fir-2-26"]
+    assert result["missing_status"] == ["fir-3-26"]
+
+
+# ══════════════════════════════════════════════════════════════════════
+# [Module 56] M2's dispatch vocabulary vs. the family it now serves.
+#
+# Module 44 changed only the KIND `_STATION_TYPE_KEYWORDS` returns — from an
+# honest refusal to `station_caseload_by_specialisation` — without widening
+# the vocabulary. A narrow trigger list is the safe default for a refusal and
+# the wrong one for a real aggregate: a missed match no longer means "generic
+# answer", it means the plain per-station count the refusal existed to
+# prevent. Measured, before this module:
+#
+#   "Do the specialist units handle a bigger share of our cases than the
+#    ordinary police stations?"          -> station_or_category_counts  ❌
+#
+# `_STATION_KEYWORDS` sits a few rungs lower in the same chain, so the
+# control below asserts EQUALITY over all 32 gold questions' resolved kinds,
+# not merely that M2 still lands right.
+# ══════════════════════════════════════════════════════════════════════
+
+# Captured from `resolve_aggregate_kind()` on the pre-Module-56 tree
+# (2026-09-09, commit 9942db9 + Module 55), before a single keyword was
+# added. This is the control: widening M2's vocabulary must move NOTHING
+# else. A diff here is a regression, not a test to update.
+_GOLD32_RESOLVED_KINDS_BEFORE_MODULE56 = {
+    "D1": "total_count",
+    "S2": "station_or_category_counts",
+    "S3": "graph_recurrence_person",
+    "A1": "gender_breakdown",
+    "A7": "reporting_delay_count",
+    "CP6": "placeholder_officer_count",
+    "CR2": "graph_recurrence_person",
+    "CR3": "station_or_category_counts",
+    "CR4": "weapon_evidence_chain",
+    "CR6": "cms_fir_linkage",
+    "CR7": "criminal_record_court_crosscheck",
+    "CR8": "dv_report_fir_match",
+    "CS4": "criminal_record_local_match_gap",
+    "CP1": "weapon_recovery_rate_by_district",
+    "M1": "statute_mix_by_year",
+    "M2": "station_caseload_by_specialisation",
+    "M4": "statute_court_stage_join",
+    "M5": "weapon_statute_cooccurrence_by_year",
+    "M7": "incident_to_report_minutes_by_year",
+    "G1": "case_completeness_scan",
+    "G2": "case_completeness_scan",
+    "G3": "court_readiness_scan",
+    "G5": "weapon_compliance_scan",
+    "G6": "station_or_category_counts",
+    "KB1": "station_or_category_counts",
+    "KB2": "graph_recurrence_person",
+    "KB3": "station_or_category_counts",
+    "KB4": "station_or_category_counts",
+    "KB5": "gender_breakdown",
+    "KB6": "graph_recurrence_weapon",
+    "KB8": "station_or_category_counts",
+    "KB9": "graph_recurrence_person",
+}
+
+
+# [Gold-QA fix — Modules 74/75/76] The ONLY deliberate departures from the
+# Module 56 baseline above, each one a question whose data half previously
+# had no aggregate at all. Every other one of the 32 must still resolve
+# byte-identically, which is what the equality below enforces — a new entry
+# in this dict is a decision, not a test update.
+#
+#   KB3  station_or_category_counts -> officer_role_pair_overlap  (Module 74)
+#        Also passes THROUGH `unsupported_officer`, which is what KB3's
+#        canned data-half sub-query used to get.
+#   KB8  station_or_category_counts -> chalaan_dispatch_count     (Module 75)
+#   KB9  graph_recurrence_person    -> fir_section_case_count      (Module 76)
+_GOLD32_KINDS_MOVED_BY_MODULES_74_TO_76 = {
+    "KB3": "officer_role_pair_overlap",
+}
+
+
+def test_module56_all_32_gold_questions_resolve_exactly_as_before():
+    """EQUALITY, not absence. Asserting only "no extra question reaches M2's
+    family" would pass if a widened keyword pushed CR3 or KB4 sideways into
+    some third family instead. A MISSING dataset is a failure, never a skip."""
+    items = json.loads(_GOLD32_PATH.read_text(encoding="utf-8"))
+    assert len(items) == 32, len(items)
+
+    expected = dict(_GOLD32_RESOLVED_KINDS_BEFORE_MODULE56)
+    expected.update(_GOLD32_KINDS_MOVED_BY_MODULES_74_TO_76)
+    resolved = {
+        (it.get("id") or "").upper(): xagg.resolve_aggregate_kind(it["question"])
+        for it in items
+    }
+    assert resolved == expected
+
+
+def test_module56_only_m2_reaches_the_station_type_vocabulary():
+    """The narrower half of the same control, stated directly against the
+    keyword tuple: exactly one of the 32 gold questions may match it. S2
+    ("Which police station handles the most cases?") and CR6 ("...تھانے آ کر
+    شکایت درج کراتا ہے...") both carry the bare station word and must not."""
+    items = json.loads(_GOLD32_PATH.read_text(encoding="utf-8"))
+    matched = sorted(
+        (it.get("id") or "").upper()
+        for it in items
+        if xagg._is_station_specialisation(it["question"].lower())
+    )
+    assert matched == ["M2"], matched
+
+
+def test_module56_m2_literal_gold_text_still_reaches_its_own_family(monkeypatch):
+    """Pinned to M2's literal gold text — the question the widening exists to
+    serve must not be broken by the widening."""
+    assert xagg.resolve_aggregate_kind(_M2_GOLD) == "station_caseload_by_specialisation"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        # The measured failure. MODULE44_RESULT.md recorded this resolving to
+        # `station_or_category_counts` — the plain per-station count.
+        "Do the specialist units handle a bigger share of our cases than the "
+        "ordinary police stations?",
+        # Neighbouring English phrasings of the same question.
+        "Do dedicated units carry more caseload than regular police stations?",
+        "Is a normal thana busier than a station set up for one type of crime?",
+        "How does the caseload at our specialist police stations compare with "
+        "the ordinary ones?",
+        # Roman Urdu, the house style half this gold set is written in.
+        "Kya makhsoos thanay aam thanay se zyada cases handle kar rahe hain?",
+        "Khaas thane ka caseload aam police station se kitna mukhtalif hai?",
+        # Urdu script.
+        "کیا خصوصی تھانے عام تھانے سے زیادہ مقدمات سنبھال رہے ہیں؟",
+        "کیا مخصوص تھانے پر کیس لوڈ عام تھانے کے مقابلے میں زیادہ ہے؟",
+    ],
+)
+def test_module56_widened_vocabulary_reaches_the_specialisation_family(query):
+    assert xagg.resolve_aggregate_kind(query) == "station_caseload_by_specialisation"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        # S2's literal gold text — the bare per-station ranking. This is the
+        # question the whole widening had to avoid swallowing.
+        "Which police station handles the most cases?",
+        "Kaunsa thana sab se zyada cases handle karta hai?",
+        "کون سا تھانہ سب سے زیادہ مقدمات دیکھتا ہے؟",
+        # CR6's opening clause: تھانے with no station-type qualifier at all.
+        "جب کوئی شخص تھانے آ کر شکایت درج کراتا ہے، تو کیا وہ کسی باقاعدہ ایف "
+        "آئی آر سے منسلک ہو جاتی ہے؟",
+        # KB5 carries عام, but qualifying a CASE, not a station — the
+        # عام-class substring collision this tuple was widened around.
+        "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے "
+        "مختلف طریقۂ کار کا تقاضا کرتا ہے؟",
+        # A plain per-station breakdown in each of the two other languages.
+        "How many cases per police station?",
+        "Har thane mein kitne cases hain?",
+    ],
+)
+def test_module56_widened_vocabulary_does_not_swallow_plain_station_questions(query):
+    assert xagg.resolve_aggregate_kind(query) != "station_caseload_by_specialisation"
+
+
+def test_module56_dispatch_change_lives_only_in_resolve_aggregate_kind():
+    """Module 41 made `resolve_aggregate_kind()` the single source of dispatch
+    truth, and the supervisor guard reads it. `_is_station_specialisation()`
+    (Module 58's replacement for the `_STATION_TYPE_KEYWORDS` tuple) must
+    therefore be consulted there and nowhere else — a second inline check in
+    `run_aggregate()` would let the two drift apart silently."""
+    import ast
+
+    tree = ast.parse(Path(xagg.__file__).read_text(encoding="utf-8"))
+    users = set()
+    for func in ast.walk(tree):
+        if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for node in ast.walk(func):
+            if isinstance(node, ast.Name) and node.id == "_is_station_specialisation":
+                users.add(func.name)
+    assert users == {"resolve_aggregate_kind"}, users
+    # Module 58: the tuple it replaced must be gone, not merely unused —
+    # a leftover would be a second, silently-diverging vocabulary.
+    assert not hasattr(xagg, "_STATION_TYPE_KEYWORDS")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# [Module 58] `_STATION_TYPE_KEYWORDS` is now `_is_station_specialisation()`.
+#
+# Module 56 widened M2's trigger vocabulary from 10 entries to 58 and proved
+# with an all-32 equality control that nothing moved. That control is the only
+# thing protecting the widening, and it is only as broad as those 32
+# questions. Two of the 58 entries — `single type of crime` and `one type of
+# crime` — named NO STATION AT ALL; they were there because M2's gold is
+# phrased that way. "How many cases involve one type of crime only?" would
+# have been pulled into this family, which is checked second in
+# `resolve_aggregate_kind()`, and nothing in the repository would have
+# noticed.
+#
+# The tests below are the guarantee that no longer depends on those 32: the
+# equality control is re-run above (`test_module56_...`), and these add the
+# out-of-gold adversarial phrasings the control does not contain.
+# ══════════════════════════════════════════════════════════════════════
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        # THE FILED DEFECT. Names a crime specialisation and no station.
+        "How many cases involve one type of crime only?",
+        "How many FIRs cover a single type of crime?",
+        "Are most of our cases a single type of crime, or a mix?",
+        "کیا ہمارے زیادہ تر مقدمات ایک ہی قسم کے جرم سے متعلق ہیں؟",
+        # Tier-2 qualifiers next to something that is NOT a station noun.
+        "Which station has the most ordinary theft cases?",
+        "Is it normal for a case to take this long at any station?",
+        "What is the regular procedure a station follows after an FIR is "
+        "registered?",
+        "Do we hold a dedicated register of recovered weapons at each station?",
+        "کیا تھانے میں عام شکایات درج ہوتی ہیں؟",
+        # KB9's measured shape: an org word plus a floating "khaas tor par".
+        # A naive police+khaas AND hijacks this out of graph_recurrence_person.
+        "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut "
+        "ki wajah ki baaqaida tehqeeqaat karni hoti hai — khaas tor par jab "
+        "hamare itne cases mein maut shamil hai?",
+        # A station word with no specialisation contrast at all.
+        "Which police station handles the most cases?",
+        "How many cases per police station?",
+        "Har thane mein kitne cases hain?",
+    ],
+)
+def test_module58_out_of_gold_phrasings_are_not_pulled_into_the_family(query):
+    """Adversarial phrasings that appear in NONE of the 32 gold questions.
+    These are the whole point of Module 58 — the equality control cannot see
+    them."""
+    assert not xagg._is_station_specialisation(query.lower()), query
+    assert xagg.resolve_aggregate_kind(query) != "station_caseload_by_specialisation"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        # M2's own gold text and Module 56's measured failure, re-pinned
+        # against the predicate rather than the tuple.
+        "Is caseload growing faster at our general-purpose stations, or at "
+        "the handful set up for one specific type of crime?",
+        "Do the specialist units handle a bigger share of our cases than the "
+        "ordinary police stations?",
+        "Do dedicated units carry more caseload than regular police stations?",
+        "Is a normal thana busier than a station set up for one type of crime?",
+        "Kya makhsoos thanay aam thanay se zyada cases handle kar rahe hain?",
+        "Khaas thane ka caseload aam police station se kitna mukhtalif hai?",
+        "کیا خصوصی تھانے عام تھانے سے زیادہ مقدمات سنبھال رہے ہیں؟",
+        "کیا مخصوص تھانے پر کیس لوڈ عام تھانے کے مقابلے میں زیادہ ہے؟",
+    ],
+)
+def test_module58_predicate_keeps_every_phrasing_module56_earned(query):
+    """Module 58 is a shape change, not a narrowing: every phrasing Module
+    56's widening bought must still reach the family."""
+    assert xagg.resolve_aggregate_kind(query) == "station_caseload_by_specialisation"
+
+
+def test_module58_both_signals_are_required_neither_is_sufficient():
+    """The multi-signal contract stated directly, in the style of
+    `_is_arrest_rate()`'s own boundary test: neither half carries the
+    dispatch alone."""
+    station_only = "how many cases at each police station?"
+    qualifier_only = "how many cases involve one specific type of crime?"
+    both = "do specialist police stations carry more than general-purpose ones?"
+    assert not xagg._is_station_specialisation(station_only)
+    assert not xagg._is_station_specialisation(qualifier_only)
+    assert xagg._is_station_specialisation(both)
+
+
+def test_module58_tier2_qualifiers_must_sit_on_the_station_noun():
+    """The tier split, pinned. The ordinary-language qualifiers are common
+    words that qualify anything; they count only next to the station noun."""
+    assert xagg._is_station_specialisation("ordinary police stations")
+    assert xagg._is_station_specialisation("aam police station")
+    assert xagg._is_station_specialisation("خصوصی تھانے")
+    # Same qualifier, same sentence, not on the station noun.
+    assert not xagg._is_station_specialisation(
+        "which station logged the most ordinary theft cases"
+    )
+    assert not xagg._is_station_specialisation(
+        "police ko khaas tor par yeh dekhna hai"
+    )
+
+
+def test_module58_bare_police_is_not_a_station_signal():
+    """Measured on KB9: an organisation is not a station. If a later edit
+    admits a bare `police`/`پولیس` as the station half, KB9 leaves
+    `graph_recurrence_person` and this fails."""
+    assert not xagg._STATION_UNIT_NOUN_RE.search("police ko khaas tor par")
+    assert not xagg._STATION_UNIT_NOUN_RE.search("پولیس کو")
+    assert xagg._STATION_UNIT_NOUN_RE.search("police station")
+
+
+def test_module58_unit_is_word_bounded():
+    """`unit` is a substring of `opportunity`, `impunity` and `immunity` —
+    the exact class of collision this file has been bitten by five times in
+    Urdu."""
+    assert xagg._STATION_UNIT_NOUN_RE.search("specialist units")
+    assert not xagg._STATION_UNIT_NOUN_RE.search(
+        "was there an opportunity to act with impunity?"
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 74, question KB3] registering officer vs.
+# investigating officer.
+#
+# KB3's data half — "the officer who records the FIR and the officer who
+# ends up investigating it are the same person in 68 of 74 pairs (92%);
+# role-splitting happens in only 6 cases" — had no aggregate. The question
+# reached `_OFFICER_KEYWORDS` and got `unsupported_officer`, an honest
+# refusal whose text asserts investigating-officer identity "is not
+# currently modeled as a queryable field in this system". Module 74 probed
+# the live graph before writing a line of this: 144
+# `(:Officer)-[:ASSIGNED_TO {role}]->(:Case)` edges, 74 `investigating` and
+# 70 `recording`, 68 of the 74 investigating assignments naming the same
+# person as that case's recording officer — 91.9%, gold exactly. So the
+# refusal's premise was false for THIS shape.
+#
+# It is still true, and must stay, for a general "which officer" identity
+# question — which is why `_is_officer_role_pair_comparison()` needs three
+# signals rather than one keyword tuple, and why the boundary class below
+# asserts both directions.
+# ══════════════════════════════════════════════════════════════════════
+
+# KB3's literal gold question text, copied verbatim from the dataset.
+_KB3_GOLD = (
+    "Does the law expect the officer who first registers a case to be the "
+    "same one who investigates it, or are those meant to be separate roles "
+    "— and does that match what actually happens in our data?"
+)
+
+# The canned aggregate sub-query for KB3's data half, in the same
+# "..., across all cases?" shape as `meta_analysis.py`'s other sub-queries
+# and Module 39's `_KB_DATA_HALF_PLANS` strings. Checked against
+# `resolve_aggregate_kind()` here so a future one-entry addition to
+# `rag.py::_KB_DATA_HALF_PLANS` can copy it without re-deriving it.
+_KB3_SQ_OFFICER_ROLE_PAIR = (
+    "How many cases record the same person as both the recording officer "
+    "and the investigating officer, and how many split those roles, across "
+    "all cases?"
+)
+
+
+def _assign(case_id, name, role):
+    return {"case_id": case_id, "name": name, "role": role}
+
+
+async def test_module74_officer_role_pair_overlap_counts_at_the_pair_grain(monkeypatch):
+    """The unit is the investigating ASSIGNMENT, not the case — gold's "68 of
+    74 pairs" is the edge count, and `fir-205-26` carries two investigating
+    edges (a superseded placeholder plus its successor) live. A per-case
+    count would be a true statement about a different denominator."""
+    rows = [
+        # 2 cases where the same officer holds both roles.
+        _assign("fir-1-26", "طارق", "recording"),
+        _assign("fir-1-26", "طارق", "investigating"),
+        _assign("fir-2-26", "سلمان", "recording"),
+        _assign("fir-2-26", "سلمان", "investigating"),
+        # A genuine role split.
+        _assign("fir-3-26", "شہزاد احمد", "recording"),
+        _assign("fir-3-26", "راحیل شہزاد", "investigating"),
+        # An investigating assignment with no recording counterpart at all.
+        _assign("fir-4-26", "مریم طاہر", "investigating"),
+        # The two-investigating-edges case: one matches the recorder, one
+        # does not. Two PAIRS, one case.
+        _assign("fir-5-26", "(نامزد ASI)", "recording"),
+        _assign("fir-5-26", "(نامزد ASI)", "investigating"),
+        _assign("fir-5-26", "وقاص علی", "investigating"),
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        _KB3_SQ_OFFICER_ROLE_PAIR, None, gateway=None, user_role="supervisor",
+    )
+
+    assert result["kind"] == "officer_role_pair_overlap"
+    assert result["assignment_edge_count"] == 10
+    assert result["pair_count"] == 6           # investigating edges
+    assert result["recording_edge_count"] == 4
+    assert result["same_officer_count"] == 3
+    assert result["split_count"] == 3
+    assert result["split_case_count"] == 3
+    assert result["no_recording_counterpart_count"] == 1
+    assert result["same_share"] == pytest.approx(0.5)
+
+
+async def test_module74_reproduces_golds_68_of_74(monkeypatch):
+    """The measured live shape, as a fixture: 68 same-person pairs, 3 genuine
+    splits and 3 investigating assignments with no recording counterpart,
+    over 74 investigating and 71 recording edges. 68/74 = 91.9% — gold's
+    "68 of 74 pairs (92%)" and "only 6 cases"."""
+    rows = []
+    for i in range(68):
+        rows.append(_assign(f"fir-{i}-26", f"officer-{i}", "recording"))
+        rows.append(_assign(f"fir-{i}-26", f"officer-{i}", "investigating"))
+    for i in range(68, 71):                       # genuine role splits
+        rows.append(_assign(f"fir-{i}-26", f"recorder-{i}", "recording"))
+        rows.append(_assign(f"fir-{i}-26", f"investigator-{i}", "investigating"))
+    for i in range(71, 74):                       # no recording counterpart
+        rows.append(_assign(f"fir-{i}-26", f"investigator-{i}", "investigating"))
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg._officer_role_pair_overlap()
+
+    assert (result["same_officer_count"], result["pair_count"]) == (68, 74)
+    assert result["split_count"] == 6
+    assert result["recording_edge_count"] == 71
+    assert round(result["same_share"] * 100, 1) == 91.9
+    rendered = "\n".join(xagg.render_officer_role_pair_overlap(result))
+    assert "68 of 74" in rendered
+    assert "(92%)" in rendered
+
+
+async def test_module74_empty_graph_says_so_rather_than_dividing_by_zero(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient([]))
+    result = await xagg._officer_role_pair_overlap()
+    assert result["pair_count"] == 0
+    assert result["same_share"] is None
+    assert "cannot be compared" in "\n".join(
+        xagg.render_officer_role_pair_overlap(result)
+    )
+
+
+async def test_module74_emits_its_xagg_log_line_with_the_figures(monkeypatch, caplog):
+    """Module 55's convention: the kind alone is not enough — a wrong-metric
+    run reports the same kind, so the counts have to be in the line."""
+    rows = [
+        _assign("fir-1-26", "طارق", "recording"),
+        _assign("fir-1-26", "طارق", "investigating"),
+        _assign("fir-2-26", "شہزاد", "recording"),
+        _assign("fir-2-26", "راحیل", "investigating"),
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+    with caplog.at_level(logging.INFO, logger="src.pipeline.xagg"):
+        await xagg._officer_role_pair_overlap()
+    logged = caplog.text
+    assert "XAGG officer_role_pair_overlap:" in logged
+    assert "same officer on 1 of 2 pair(s)" in logged
+
+
+class TestOfficerRolePairBoundary:
+    """Both directions of the carve-out the brief insists on."""
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            _KB3_GOLD,
+            _KB3_SQ_OFFICER_ROLE_PAIR,
+            "Is the registering officer the same person as the investigating "
+            "officer in our cases?",
+            "Are the recording officer and the investigating officer "
+            "different people, or one and the same?",
+            "Kya FIR darj karne wala aur tafteesh karne wala ek hi shakhs "
+            "hota hai?",
+            "کیا مقدمہ درج کرنے والا اور تفتیشی افسر ایک ہی شخص ہوتا ہے؟",
+        ],
+    )
+    def test_the_pair_comparison_shape_reaches_the_new_family(self, query):
+        assert xagg.resolve_aggregate_kind(query) == "officer_role_pair_overlap"
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            # The general officer-IDENTITY question the refusal exists for,
+            # and which the brief requires be left alone. One role named, no
+            # sameness test.
+            "Which officer is assigned to case fir-117-26?",
+            "Who is the investigating officer on FIR 245/26?",
+            "Show me the officer assignment for every case.",
+            "تفتیشی افسر کون ہے؟",
+            # Names both roles but asks nothing about sameness.
+            "List the recording officer and the investigating officer for "
+            "each case.",
+        ],
+    )
+    def test_the_identity_question_still_gets_the_honest_refusal(self, query):
+        assert xagg.resolve_aggregate_kind(query) == "unsupported_officer"
+
+    async def test_the_refusal_still_actually_fires(self):
+        """Resolver agreement is not enough — `run_aggregate()` must still
+        return the refusal body for an identity question."""
+        result = await xagg.run_aggregate(
+            "Which officer is assigned to case fir-117-26?",
+            None, gateway=FakeGateway([]), user_role="supervisor",
+        )
+        assert result["kind"] == "unsupported_aggregate"
+        assert result["message"] == xagg._UNSUPPORTED_OFFICER
+
+    def test_cp6s_placeholder_family_keeps_first_claim(self):
+        """CP6 reads the SAME ASSIGNED_TO edges for a different question and
+        is checked far earlier in the chain. It must not move."""
+        assert xagg.resolve_aggregate_kind(
+            "Kitne cases abhi tak bina kisi tafteeshi afsar ke asal tor par "
+            "muqarrar kiye pade hue hain?"
+        ) == "placeholder_officer_count"
+
+
+def test_module74_only_kb3_reaches_the_officer_pair_predicate():
+    """The narrower half of the all-32 control, stated directly against the
+    predicate: exactly one of the 32 gold questions may match it."""
+    items = json.loads(_GOLD32_PATH.read_text(encoding="utf-8"))
+    matched = sorted(
+        (it.get("id") or "").upper()
+        for it in items
+        if xagg._is_officer_role_pair_comparison(it["question"].lower())
+    )
+    assert matched == ["KB3"], matched
+
+
+# ══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 75, question KB8] challans sent to court.
+#
+# KB8's data half — "adaalat bheja gaya challan (26 cases)" — had no
+# aggregate. Its canned sub-query reached `_CRIMINAL_RECORD_KEYWORDS` and
+# got `criminal_record_court_crosscheck`, which counts the 33
+# `criminal_record` rows: a confident, plausible, WRONG number in exactly
+# the slot gold fills with 26.
+#
+# The cause was confirmed by probe before any code was written, and it is
+# the one the brief named: `xagg.py` read `chalaan_outcome` (20 rows) and
+# never `chalaan_dispatch` (26 rows across 26 distinct cases). Three record
+# types, three different quantities — 33 / 26 / 20 — and only one of them
+# is what KB8 asks for.
+# ══════════════════════════════════════════════════════════════════════
+
+# KB8's literal gold question text, copied verbatim from the dataset.
+_KB8_GOLD = (
+    "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske "
+    "mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — "
+    "aur kya hamara case-tracking data batayega ke aisa hua ya nahi?"
+)
+
+# The canned aggregate sub-query for KB8's data half. Same "..., across all
+# cases?" shape as Module 39's `_KB_DATA_HALF_PLANS` strings, and checked
+# against `resolve_aggregate_kind()` here so the future one-entry addition
+# to that tuple can copy it without re-deriving it.
+_KB8_SQ_CHALAAN_DISPATCH = (
+    "How many challans have been sent to court, and how many cases do they "
+    "cover, across all cases?"
+)
+
+
+class _ChalaanAgeClient:
+    """Routes the three reads `_chalaan_dispatch_count()` issues: the
+    dispatch records, the outcome records, and the DISTINCT record-type list
+    the schema-gap claim is derived from."""
+
+    def __init__(self, dispatch_rows, outcome_rows, record_types):
+        self.dispatch_rows = dispatch_rows
+        self.outcome_rows = outcome_rows
+        self.record_types = [{"record_type": t} for t in record_types]
+        self.queries = []
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        self.queries.append(cypher_query)
+        if "DISTINCT" in cypher_query:
+            return self.record_types
+        if "chalaan_dispatch" in cypher_query:
+            return self.dispatch_rows
+        return self.outcome_rows
+
+
+def _dispatch(case_id, record_id, dispatch_datetime=None):
+    return {
+        "case_id": case_id, "record_id": record_id,
+        "dispatch_datetime": dispatch_datetime,
+    }
+
+
+_LIVE_RECORD_TYPES = [
+    "fir_zimni_index", "fir_section", "fir_position", "malkhana_register",
+    "criminal_record", "chalaan_dispatch", "chalaan_outcome",
+    "pkm_application", "cms_complaint",
+]
+
+
+async def test_module75_counts_chalaan_dispatch_not_chalaan_outcome(monkeypatch):
+    """The literal defect, as a fixture: 26 dispatch records and 20 outcome
+    records in the same graph. The answer is 26."""
+    dispatch_rows = [
+        _dispatch(f"fir-{i}-26", f"chalaan_dispatch:CD-{i}-1",
+                  "2024-10-20T08:40:00Z" if i < 15 else None)
+        for i in range(26)
+    ]
+    outcome_rows = [
+        {"case_id": f"fir-{i}-26", "court_date": "2024-10-25" if i < 15 else None}
+        for i in range(20)
+    ]
+    client = _ChalaanAgeClient(dispatch_rows, outcome_rows, _LIVE_RECORD_TYPES)
+    monkeypatch.setattr(xagg, "age_client", client)
+
+    result = await xagg.run_aggregate(
+        _KB8_SQ_CHALAAN_DISPATCH, None, gateway=None, user_role="supervisor",
+    )
+
+    assert result["kind"] == "chalaan_dispatch_count"
+    assert result["dispatched_count"] == 26
+    assert result["dispatched_case_count"] == 26
+    assert result["dispatched_with_timestamp"] == 15
+    # The neighbouring type is reported, never substituted.
+    assert result["outcome_count"] == 20
+    assert result["outcome_with_court_date"] == 15
+    rendered = "\n".join(xagg.render_chalaan_dispatch_count(result))
+    assert "26 challan(s) sent to court" in rendered
+    assert "the 26 above is the dispatch figure" in rendered
+
+
+async def test_module75_reads_the_dispatch_record_type_by_name(monkeypatch):
+    """Pins the one-word difference the whole defect was. If a later edit
+    points this aggregate at `chalaan_outcome`, the count silently becomes
+    20 and every unit assertion about "26" would have to be edited too —
+    this one fails on the query text itself."""
+    client = _ChalaanAgeClient([], [], _LIVE_RECORD_TYPES)
+    monkeypatch.setattr(xagg, "age_client", client)
+    await xagg._chalaan_dispatch_count()
+    assert any("chalaan_dispatch" in q for q in client.queries)
+    assert xagg._CHALAAN_DISPATCH_RECORD_TYPE == "chalaan_dispatch"
+    assert xagg._CHALAAN_OUTCOME_RECORD_TYPE == "chalaan_outcome"
+
+
+async def test_module75_cases_are_distinct_not_row_counts(monkeypatch):
+    """Two dispatch records on one case is 2 challans across 1 case."""
+    client = _ChalaanAgeClient(
+        [_dispatch("fir-1-26", "a"), _dispatch("fir-1-26", "b"),
+         _dispatch("fir-2-26", "c")],
+        [], _LIVE_RECORD_TYPES,
+    )
+    monkeypatch.setattr(xagg, "age_client", client)
+    result = await xagg._chalaan_dispatch_count()
+    assert result["dispatched_count"] == 3
+    assert result["dispatched_case_count"] == 2
+
+
+async def test_module75_the_schema_gap_is_derived_not_declared(monkeypatch):
+    """Gold's KB8 asserts an ABSENCE ("schema mein kahin interim report ka
+    koi tasavvur nahi"), and the brief counts correctly stating a gap where
+    gold agrees as a pass. It must stop being claimed the moment such a
+    record type exists."""
+    rows = [_dispatch("fir-1-26", "a")]
+    absent = _ChalaanAgeClient(rows, [], _LIVE_RECORD_TYPES)
+    monkeypatch.setattr(xagg, "age_client", absent)
+    result = await xagg._chalaan_dispatch_count()
+    assert result["has_interim_report_record"] is False
+    assert "no interim-report record type" in "\n".join(
+        xagg.render_chalaan_dispatch_count(result)
+    )
+
+    present = _ChalaanAgeClient(
+        rows, [], _LIVE_RECORD_TYPES + ["interim_report"],
+    )
+    monkeypatch.setattr(xagg, "age_client", present)
+    result = await xagg._chalaan_dispatch_count()
+    assert result["has_interim_report_record"] is True
+    assert "no interim-report record type" not in "\n".join(
+        xagg.render_chalaan_dispatch_count(result)
+    )
+
+
+async def test_module75_empty_graph_says_so(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _ChalaanAgeClient([], [], _LIVE_RECORD_TYPES))
+    result = await xagg._chalaan_dispatch_count()
+    assert result["dispatched_count"] == 0
+    assert "No challan dispatch records" in "\n".join(
+        xagg.render_chalaan_dispatch_count(result)
+    )
+
+
+async def test_module75_emits_its_xagg_log_line_with_both_figures(monkeypatch, caplog):
+    """Module 55's convention, and here the SECOND figure is load-bearing:
+    a run that silently read `chalaan_outcome` would report the same kind,
+    so the line has to name both counts."""
+    client = _ChalaanAgeClient(
+        [_dispatch(f"fir-{i}-26", str(i)) for i in range(26)],
+        [{"case_id": f"fir-{i}-26", "court_date": None} for i in range(20)],
+        _LIVE_RECORD_TYPES,
+    )
+    monkeypatch.setattr(xagg, "age_client", client)
+    with caplog.at_level(logging.INFO, logger="src.pipeline.xagg"):
+        await xagg._chalaan_dispatch_count()
+    logged = caplog.text
+    assert "XAGG chalaan_dispatch_count:" in logged
+    assert "26 challan dispatch record(s) across 26 case(s)" in logged
+    assert "20 chalaan_outcome record(s)" in logged
+
+
+class TestChalaanDispatchBoundary:
+    """CR7 must not move. It reads a different record type for a different
+    question and scores today."""
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            _KB8_SQ_CHALAAN_DISPATCH,
+            "How many challans were sent to court?",
+            "Kitne chalaan adaalat bheja gaya?",
+            "کتنے چالان عدالت بھیجے گئے؟",
+        ],
+    )
+    def test_the_challan_shape_reaches_the_new_family(self, query):
+        assert xagg.resolve_aggregate_kind(query) == "chalaan_dispatch_count"
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            # CR7's literal gold text.
+            _CR7_GOLD_TEXT,
+            # A challan word with no court-dispatch signal at all.
+            "What property is listed on the challan?",
+            # A court-dispatch signal with no challan word.
+            "How many cases have reached court?",
+        ],
+    )
+    def test_the_neighbours_do_not_reach_it(self, query):
+        assert xagg.resolve_aggregate_kind(query) != "chalaan_dispatch_count"
+
+    async def test_cr7_still_gets_its_own_crosscheck(self):
+        assert xagg.resolve_aggregate_kind(_CR7_GOLD_TEXT) == (
+            "criminal_record_court_crosscheck"
+        )
+
+
+def test_module75_no_gold_question_reaches_the_challan_predicate():
+    """The all-32 control's narrow half. NONE of the 32 gold question texts
+    may match — KB8's own gold text never says "challan"; the word is in its
+    gold ANSWER. KB8 reaches this family through the canned sub-query that
+    `rag.py::_KB_DATA_HALF_PLANS` dispatches, exactly as KB4/KB5/KB6 reach
+    theirs. So this predicate's blast radius over the gold set is zero, and
+    that is the point."""
+    items = json.loads(_GOLD32_PATH.read_text(encoding="utf-8"))
+    matched = sorted(
+        (it.get("id") or "").upper()
+        for it in items
+        if xagg._is_chalaan_dispatch_count(it["question"].lower())
+    )
+    assert matched == [], matched
+
+
+# ══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 76, question KB9] per-section FIR counts.
+#
+# KB9's data half needs ONE number at ONE grain — how many FIRs cite a
+# given section. The only aggregate publishing anything like it was
+# `statute_court_stage_join`, whose statute list is capped at 15 rows and
+# carries `PPC §302: 10 case(s)` as row six. Module 39 wired it anyway and
+# measured the cost: one live run named the section without its count, and
+# another read past the row and asserted that no listed section pertains to
+# death — factually wrong, from a chunk holding the right row. A grain
+# failure, not a data one.
+#
+# GOLD DIVERGENCE, RE-DERIVED INDEPENDENTLY AND NOT TUNED AWAY. Gold says
+# "8 FIRs qatl ki dafa (PPC 302) ka hawala dete hain". A fresh probe for
+# this module returns **10** distinct FIRs, exactly one `fir_section` row
+# per case, with "302" the only section code in the corpus containing
+# "302". 10 vs 8 is a 25 % gap — outside the brief's 5-10 % tolerance, and
+# reported as a divergence rather than smoothed. Modules 34, 35 and 43 each
+# did the same and two gold answers have already been corrected as a
+# result.
+# ══════════════════════════════════════════════════════════════════════
+
+# KB9's literal gold question text, copied verbatim from the dataset.
+_KB9_GOLD = (
+    "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki "
+    "wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh "
+    "kahin darj karta hai, khaas tor par jab hamare itne cases mein maut "
+    "shamil hai?"
+)
+
+# The canned aggregate sub-query for KB9's data half at the RIGHT grain.
+_KB9_SQ_FIR_SECTION_COUNT = (
+    "How many FIRs cite PPC section 302, across all cases?"
+)
+
+# Module 39's already-shipped KB9 plan sub-query, copied verbatim from
+# `rag.py::_KB_DATA_HALF_PLANS`. It must KEEP resolving to
+# `statute_court_stage_join`: that plan names the family, and
+# `_run_kb_data_half()` DROPS the data half when the aggregate that
+# answered is not the one named. Moving this string would have silently
+# regressed KB9 from Module 39's measured 2-of-3 to 0-of-3.
+_MODULE39_KB9_SUB_QUERY = (
+    "How many cases are charged under each FIR section, and how far "
+    "have those cases got in court?"
+)
+
+
+def _fir_section(case_id, act, section_code):
+    return {"case_id": case_id, "act": act, "section_code": section_code}
+
+
+async def test_module76_counts_firs_per_section_and_focuses_on_the_named_one(monkeypatch):
+    rows = (
+        [_fir_section(f"fir-{i}-26", "PPC", "302") for i in range(10)]
+        + [_fir_section(f"fir-{i}-26", "PPC", "34") for i in range(40)]
+        + [_fir_section(f"fir-{i}-26", "Arms Ordinance 1965", "13") for i in range(29)]
+    )
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+
+    result = await xagg.run_aggregate(
+        _KB9_SQ_FIR_SECTION_COUNT, None, gateway=None, user_role="supervisor",
+    )
+
+    assert result["kind"] == "fir_section_case_count"
+    assert result["focus_section_code"] == "302"
+    assert result["focus"]["fir_count"] == 10
+    assert result["focus"]["key"] == "PPC §302"
+    assert len(result["focus"]["case_ids"]) == 10
+    assert result["charged_fir_count"] == 40
+    assert result["distinct_section_count"] == 3
+    rendered = "\n".join(xagg.render_fir_section_case_count(result))
+    assert "10 of the 40 FIR(s)" in rendered
+    assert "cite PPC §302" in rendered
+
+
+async def test_module76_counts_per_fir_not_per_row(monkeypatch):
+    """A case charged twice under one section counts once — the same
+    denominator rule `_statute_court_stage_join()` uses, and the one gold's
+    "8 FIRs" is expressed in."""
+    rows = [
+        _fir_section("fir-1-26", "PPC", "302"),
+        _fir_section("fir-1-26", "PPC", "302"),
+        _fir_section("fir-2-26", "PPC", "302"),
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+    result = await xagg._fir_section_case_count(_KB9_SQ_FIR_SECTION_COUNT)
+    assert result["section_entry_count"] == 3
+    assert result["focus"]["fir_count"] == 2
+    assert result["charged_fir_count"] == 2
+
+
+async def test_module76_a_named_but_absent_section_is_said_so_not_hidden(monkeypatch):
+    rows = [_fir_section("fir-1-26", "PPC", "34")]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+    result = await xagg._fir_section_case_count(
+        "How many FIRs cite PPC section 999, across all cases?"
+    )
+    assert result["focus"]["fir_count"] == 0
+    assert "No FIR in this corpus cites section 999" in "\n".join(
+        xagg.render_fir_section_case_count(result)
+    )
+
+
+async def test_module76_with_no_section_named_it_reports_the_whole_table(monkeypatch):
+    rows = [
+        _fir_section("fir-1-26", "PPC", "34"),
+        _fir_section("fir-2-26", "PPC", "392"),
+    ]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+    result = await xagg._fir_section_case_count(
+        "How many FIRs cite each PPC section, across all cases?"
+    )
+    assert result["focus"] is None
+    rendered = "\n".join(xagg.render_fir_section_case_count(result))
+    assert "2 FIR(s) carry a recorded section" in rendered
+    assert "PPC §34: 1 FIR(s)" in rendered
+
+
+async def test_module76_empty_corpus_says_so(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient([]))
+    result = await xagg._fir_section_case_count(_KB9_SQ_FIR_SECTION_COUNT)
+    assert result["charged_fir_count"] == 0
+    assert "No FIR in this corpus carries a recorded section." in "\n".join(
+        xagg.render_fir_section_case_count(result)
+    )
+
+
+async def test_module76_emits_its_xagg_log_line_with_the_focused_figure(monkeypatch, caplog):
+    """Module 55's convention, and here the FOCUS is the load-bearing part:
+    the difference between this family and M4's is the grain, so a live run
+    has to be identifiable by the focused figure, not just the kind."""
+    rows = [_fir_section(f"fir-{i}-26", "PPC", "302") for i in range(10)]
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClient(rows))
+    with caplog.at_level(logging.INFO, logger="src.pipeline.xagg"):
+        await xagg._fir_section_case_count(_KB9_SQ_FIR_SECTION_COUNT)
+    logged = caplog.text
+    assert "XAGG fir_section_case_count:" in logged
+    assert "focus=302 -> 10 FIR(s)" in logged
+
+
+@pytest.mark.parametrize(
+    "query,expected",
+    [
+        ("How many FIRs cite PPC section 302, across all cases?", "302"),
+        ("How many FIRs cite PPC 302?", "302"),
+        ("how many firs cite section 337-A(i)?", "337-A(I)"),
+        ("kitni firs dafa 302 ka hawala deti hain?", "302"),
+        ("کتنی ایف آئی آر دفعہ 302 کا حوالہ دیتی ہیں؟", "302"),
+        ("How many FIRs cite each PPC section, across all cases?", None),
+    ],
+)
+def test_module76_section_extraction(query, expected):
+    """Generic by construction — nothing is special-cased to 302, which is
+    only the section gold's KB9 happens to name."""
+    assert xagg._section_code_in_query(query) == expected
+
+
+class TestFirSectionCountBoundary:
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            _KB9_SQ_FIR_SECTION_COUNT,
+            "How many FIRs cite each PPC section, across all cases?",
+            "kitni firs dafa 302 ka hawala deti hain?",
+            "کتنی ایف آئی آر دفعہ 302 کا حوالہ دیتی ہیں؟",
+        ],
+    )
+    def test_the_per_section_count_shape_reaches_the_new_family(self, query):
+        assert xagg.resolve_aggregate_kind(query) == "fir_section_case_count"
+
+    def test_module39s_shipped_kb9_sub_query_keeps_m4s_family(self):
+        """The regression this module would otherwise have shipped
+        invisibly. `rag.py::_run_kb_data_half()` DROPS a data half whose
+        aggregate family is not the one its plan named, so moving this
+        string would have taken KB9 from Module 39's measured 2-of-3 to
+        0-of-3 with every unit test still green."""
+        assert xagg.resolve_aggregate_kind(_MODULE39_KB9_SUB_QUERY) == (
+            "statute_court_stage_join"
+        )
+
+    def test_m4_keeps_its_own_family(self):
+        assert xagg.resolve_aggregate_kind(_M4_GOLD_TEXT) == (
+            "statute_court_stage_join"
+        )
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            # A section term with no FIR-count term: M4's territory or a
+            # listing, never this family.
+            "Which sections have reached the trial stage?",
+            # An FIR-count term with no section term.
+            "How many FIRs were registered last year?",
+        ],
+    )
+    def test_a_single_signal_is_not_enough(self, query):
+        assert xagg.resolve_aggregate_kind(query) != "fir_section_case_count"
+
+
+def test_module76_no_gold_question_reaches_the_section_count_predicate():
+    """The all-32 control's narrow half. NONE of the 32 may match — KB9's
+    own gold text names no section and asks no count; the "8 FIRs ... PPC
+    302" is in its gold ANSWER. KB9 reaches this family through a canned
+    sub-query, exactly as KB4/KB5/KB6 reach theirs, so this predicate's
+    blast radius over the gold set is zero. M4 in particular must not move:
+    it carries statute vocabulary and is the nearest neighbour."""
+    items = json.loads(_GOLD32_PATH.read_text(encoding="utf-8"))
+    matched = sorted(
+        (it.get("id") or "").upper()
+        for it in items
+        if xagg._is_fir_section_case_count(it["question"].lower())
+    )
+    assert matched == [], matched
+
+
+# ── [Gold-QA fix — Module 74] the widening, and what forced it ─────────────
+#
+# The vocabulary this family shipped with was mined from KB3's own gold
+# wording, and BOTH non-gold paraphrases written for the module missed it.
+# That is Module 56's finding a second time: a narrow trigger list is the
+# SAFE default for a refusal and the WRONG one for a real aggregate, because
+# a missed match no longer means "a generic answer", it means the
+# `unsupported_officer` refusal this family exists to replace.
+#
+# Measured, before the widening:
+#
+#   "Kya thane mein FIR likhne wala officer hi baad mein us case ki
+#    tafteesh bhi karta hai, ya ye do alag alag log hote hain?"
+#                                       -> station_or_category_counts  ❌
+#   "Is the person who writes up the FIR usually the same officer who
+#    later investigates it, or are they different people?"
+#                                       -> graph_recurrence_person     ❌
+#
+# The all-32 equality control and `TestOfficerRolePairBoundary` are what
+# bound the widening: exactly one gold question still moves, and every
+# officer-IDENTITY question still gets the refusal.
+_MODULE74_PARAPHRASES = (
+    # The two that failed before the widening (Roman-Urdu, English).
+    "Kya thane mein FIR likhne wala officer hi baad mein us case ki tafteesh "
+    "bhi karta hai, ya ye do alag alag log hote hain?",
+    "Is the person who writes up the FIR usually the same officer who later "
+    "investigates it, or are they different people?",
+    # Written AFTER the widening and not tuned to it. One of the four fresh
+    # paraphrases written at that point still misses — see
+    # `test_module74_a_known_paraphrase_miss_is_recorded_not_hidden`.
+    "کیا ایف آئی آر لکھنے والا افسر ہی تفتیش بھی کرتا ہے یا الگ الگ افسر ہوتے ہیں؟",
+)
+
+
+@pytest.mark.parametrize("query", _MODULE74_PARAPHRASES)
+def test_module74_paraphrases_reach_the_family(query):
+    assert xagg.resolve_aggregate_kind(query) == "officer_role_pair_overlap"
+
+
+def test_module74_a_known_paraphrase_miss_is_recorded_not_hidden():
+    """Reported, not tuned away. This phrasing names the registering side
+    ("who lodges the FIR") and the investigating side ("run the
+    investigation") but tests sameness only by implication ("or is that
+    handled by someone else?"), which the third signal does not read. It is
+    a real boundary of the predicate and it is pinned here so that a later
+    module widening it has to change this test deliberately rather than
+    discover the gap again."""
+    assert xagg.resolve_aggregate_kind(
+        "In our records, does the officer who lodges the FIR usually run the "
+        "investigation too, or is that handled by someone else?"
+    ) != "officer_role_pair_overlap"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Of our cases, how many have had their challan forwarded to court "
+        "already?",
+        "Hamare kitne cases ka chalaan adaalat tak pohanch chuka hai?",
+    ],
+)
+def test_module75_paraphrases_reach_the_family(query):
+    """Written before the live sweeps and not adjusted afterwards — English
+    and Roman-Urdu, where KB8's canned sub-query is English."""
+    assert xagg.resolve_aggregate_kind(query) == "chalaan_dispatch_count"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Across the caseload, how many FIRs cite dafa 302?",
+        "کتنے ایف آئی آر میں قتل کی دفعہ 302 درج ہے؟",
+    ],
+)
+def test_module76_paraphrases_reach_the_family(query):
+    """Roman-Urdu and Urdu script, where KB9's canned sub-query is English —
+    and neither says "PPC", so the section extractor's non-act branches are
+    exercised too."""
+    assert xagg.resolve_aggregate_kind(query) == "fir_section_case_count"
+    assert xagg._section_code_in_query(query) == "302"
+
+
+# ── [Gold-QA fix — Modules 90/91, questions M1 and CP6] ────────────────────
+#
+# M1 asks "what KINDS of cases are we dealing with now compared to a couple
+# of years back". Before Module 90 `_statute_mix_by_year()` could only answer
+# at ACT grain, because it bucketed `cases.crime_category` — a comma-joined
+# act list that `muhafiz_cases._crime_category()` builds with `section_code`
+# already discarded. Every one of 2026's 39 "PPC" cases therefore read as the
+# same kind of case whether it was a murder (302), a robbery (392) or a
+# fraud (420), which is precisely the distinction the question is about.
+#
+# CP6's tests below are REGRESSION PINS, not a fix: Module 91 measured the
+# aggregate and the renderer as already correct and left both alone. They
+# exist so the ASI/SI split cannot be dropped from the rendered evidence
+# again without a test failing.
+
+
+class _StatuteMixAgeClient:
+    """Routes the two reads `_statute_mix_by_year()` issues after Module 90:
+    the incident-year read, and the `fir_section` section read."""
+
+    def __init__(self, year_rows, section_rows):
+        self.year_rows = year_rows
+        self.section_rows = section_rows
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        if "fir_section" in cypher_query:
+            return self.section_rows
+        return self.year_rows
+
+
+def _m1_fixture_client():
+    year_rows = [
+        {"incident_date": "2024-02-01", "case_id": "CASE-1"},
+        {"incident_date": "2024-05-15", "case_id": "CASE-2"},
+        {"incident_date": "2026-01-10", "case_id": "CASE-3"},
+        {"incident_date": "2026-03-02", "case_id": "CASE-4"},
+    ]
+    section_rows = [
+        {"act": "PPC", "section_code": "392", "case_id": "CASE-1"},
+        {"act": "PPC", "section_code": "34", "case_id": "CASE-1"},
+        # Same (case, act, section) twice: the corpus really does hold
+        # duplicate fir_section rows, and counting ROWS instead of CASES is
+        # the bug this de-duplication exists to prevent.
+        {"act": "PPC", "section_code": "34", "case_id": "CASE-1"},
+        {"act": "PPC", "section_code": "392", "case_id": "CASE-2"},
+        {"act": "PPC", "section_code": "302", "case_id": "CASE-3"},
+        {"act": "CNSA 1997", "section_code": "9(c)", "case_id": "CASE-4"},
+        # No act and no section at all — must be dropped, not counted as a
+        # bucket named "" or "None".
+        {"act": None, "section_code": None, "case_id": "CASE-4"},
+    ]
+    cases = [
+        {"case_id": "CASE-1", "crime_category": "PPC"},
+        {"case_id": "CASE-2", "crime_category": "PPC, Arms Ordinance 1965"},
+        {"case_id": "CASE-3", "crime_category": "PPC"},
+        {"case_id": "CASE-4", "crime_category": "CNSA 1997"},
+    ]
+    return _StatuteMixAgeClient(year_rows, section_rows), FakeGateway(cases)
+
+
+async def test_m1_statute_mix_reports_section_grain_not_only_act_grain(monkeypatch):
+    """FAILS before Module 90: `section_counts` did not exist on the payload,
+    so no rendering could ever name a section."""
+    client, gateway = _m1_fixture_client()
+    monkeypatch.setattr(xagg, "age_client", client)
+
+    result = await xagg.run_aggregate(
+        "What kinds of cases are we dealing with now compared to a couple of years back?",
+        None, gateway=gateway, user_role="supervisor",
+    )
+
+    by_year = {b["year"]: b for b in result["buckets"]}
+    sections_2024 = {c["key"]: c["count"] for c in by_year[2024]["section_counts"]}
+    sections_2026 = {c["key"]: c["count"] for c in by_year[2026]["section_counts"]}
+    # CASE-1 cites PPC 34 twice; it is one CASE, so the count is 1, not 2.
+    assert sections_2024 == {"PPC §392": 2, "PPC §34": 1}
+    assert sections_2026 == {"PPC §302": 1, "CNSA 1997 §9(c)": 1}
+    # The act grain is unchanged — this is additive, not a replacement.
+    assert {c["key"]: c["count"] for c in by_year[2024]["counts"]} == {
+        "PPC": 2, "Arms Ordinance 1965": 1
+    }
+
+
+async def test_m1_statute_mix_reports_the_fir_total_per_year(monkeypatch):
+    """FAILS before Module 90: no `case_count` on the bucket. Gold frames the
+    whole comparison as "2024 (13 FIRs)" vs "2026 (51 FIRs)", and an act
+    count is not an FIR count — a case carrying two acts contributes twice."""
+    client, gateway = _m1_fixture_client()
+    monkeypatch.setattr(xagg, "age_client", client)
+
+    result = await xagg.run_aggregate(
+        "What kinds of cases are we dealing with now compared to a couple of years back?",
+        None, gateway=gateway, user_role="supervisor",
+    )
+
+    assert {b["year"]: b["case_count"] for b in result["buckets"]} == {2024: 2, 2026: 2}
+    # 2024's act counts sum to 3 across 2 FIRs — proving the two are not the
+    # same number and that the new field is not just a renamed old one.
+    assert sum(c["count"] for c in result["buckets"][0]["counts"]) == 3
+
+
+async def test_m1_section_counts_capped_at_the_render_limit(monkeypatch):
+    """The cut must be a STABLE prefix, not whichever rows the dict happened
+    to yield first — otherwise the same corpus renders different sections on
+    different runs."""
+    year_rows = [{"incident_date": "2026-01-01", "case_id": f"C{i}"} for i in range(30)]
+    section_rows = [
+        {"act": "PPC", "section_code": str(300 + i), "case_id": f"C{i}"} for i in range(30)
+    ]
+    cases = [{"case_id": f"C{i}", "crime_category": "PPC"} for i in range(30)]
+    monkeypatch.setattr(xagg, "age_client", _StatuteMixAgeClient(year_rows, section_rows))
+
+    result = await xagg.run_aggregate(
+        "What kinds of cases are we dealing with now compared to a couple of years back?",
+        None, gateway=FakeGateway(cases), user_role="supervisor",
+    )
+
+    sections = result["buckets"][0]["section_counts"]
+    assert len(sections) == xagg._STATUTE_SECTION_RENDER_LIMIT
+    # All 30 are tied at 1, so the cut is the alphabetical prefix.
+    assert [s["key"] for s in sections] == sorted(s["key"] for s in sections)
+
+
+def test_m1_renderer_names_sections_the_fir_total_and_expands_ppc():
+    """FAILS before Module 90 on all three counts: the old inline renderer
+    emitted only `**2026:**` plus bare act lines.
+
+    The PPC expansion is not decoration. Handed a line reading only
+    "PPC: 39", the paraphrasing model invented "PPC (Preventive Detention and
+    Control Act)" in all three captured evaluation passes; PPC is the
+    Pakistan Penal Code, and that phrase appears nowhere in this repository
+    outside the captured outputs. Naming the act in the evidence closes the
+    gap the model was filling."""
+    payload = {
+        "kind": "time_bucketed_breakdown",
+        "dimension": "statute_by_year",
+        "buckets": [
+            {
+                "year": 2026,
+                "case_count": 51,
+                "counts": [{"key": "PPC", "count": 39}, {"key": "CNSA 1997", "count": 12}],
+                "section_counts": [{"key": "PPC §302", "count": 8}],
+            }
+        ],
+    }
+    text = "\n".join(xagg.render_statute_mix_by_year(payload))
+
+    assert "51 FIR(s)" in text
+    assert "PPC §302: 8" in text
+    assert "PPC (Pakistan Penal Code)" in text
+    assert "CNSA 1997 (Control of Narcotic Substances Act 1997)" in text
+    assert "Preventive Detention" not in text
+
+
+def test_m1_renderer_still_renders_a_payload_with_no_section_counts():
+    """A result dict produced before Module 90 (replayed, cached, or from an
+    older process) must still render at act grain rather than raising."""
+    payload = {
+        "kind": "time_bucketed_breakdown",
+        "dimension": "statute_by_year",
+        "buckets": [{"year": 2024, "counts": [{"key": "PPC", "count": 13}]}],
+    }
+    text = "\n".join(xagg.render_statute_mix_by_year(payload))
+
+    assert "**2024**" in text
+    assert "PPC (Pakistan Penal Code): 13" in text
+
+
+def test_cp6_renderer_keeps_the_asi_si_split_and_the_ever_caveat():
+    """[Module 91] Regression pin. The rendered evidence must carry the
+    split, because that split — not the bare total — is what CP6's gold
+    answer is about. Byte-identical to the three inline copies this shared
+    renderer replaced."""
+    payload = {
+        "kind": "placeholder_officer_count",
+        "current_count": 10, "ever_count": 11, "asi_count": 7, "si_count": 3,
+    }
+    text = "\n".join(xagg.render_placeholder_officer_count(payload))
+
+    assert text == (
+        '10 FIRs currently carry only a placeholder investigating officer — '
+        '7 marked "(نامزد ASI)", 3 marked "(نامزد SI)". 1 additional case(s) '
+        'originally had a placeholder officer too but have since been '
+        'assigned a real one.'
+    )
+
+
+def test_cp6_renderer_drops_the_caveat_when_nothing_was_superseded():
+    payload = {
+        "kind": "placeholder_officer_count",
+        "current_count": 11, "ever_count": 11, "asi_count": 8, "si_count": 3,
+    }
+    text = "\n".join(xagg.render_placeholder_officer_count(payload))
+
+    assert "additional case(s)" not in text
+    assert '8 marked "(نامزد ASI)"' in text
+    assert '3 marked "(نامزد SI)"' in text
+
+# ── Module 88 — CR2: person recurrence carries no temporal or status axis ──
+#
+# CR2's gold answer is made of three facts the pre-fix aggregate could not
+# express: which of the two cases came FIRST, that the earlier one ended in a
+# CONVICTION, and that the person is CURRENTLY accused in the newer one. The
+# aggregate already found gold's exact pair; the rendered evidence carried
+# bare case ids, so the model refused, byte-identically, on all three of
+# Module 27's passes. These tests pin the enrichment, not the refusal.
+
+# Literal gold text, copied verbatim from the dataset.
+_CR2_GOLD_QUESTION = (
+    "Is there anyone with an earlier case already on record who has since "
+    "resurfaced as a suspect in a newer, separate case?"
+)
+_CR2_GOLD_ANSWER = (
+    "Yes — this identity has a prior conviction (from FIR 891/24) and is "
+    "separately, currently accused in FIR 214/26."
+)
+_S3_GOLD_QUESTION = "کیا کسی شخص کو ایک سے زیادہ بار گرفتار کیا گیا ہے؟"
+
+
+def test_module88_gold_fixture_texts_are_the_real_dataset_texts():
+    """Same rule as `test_gold32_fixture_texts_are_the_real_dataset_texts`:
+    a gold text edited upstream must break here rather than quietly turn the
+    regression below into a tautology."""
+    by_id = {(it.get("id") or "").upper(): it for it in _gold32_items()}
+    assert by_id["CR2"]["question"] == _CR2_GOLD_QUESTION
+    assert by_id["CR2"]["answer"] == _CR2_GOLD_ANSWER
+    assert by_id["S3"]["question"] == _S3_GOLD_QUESTION
+
+
+class FakeAgeClientByQuery:
+    """`FakeAgeClient` returns one row set for every query, which is fine
+    while an aggregate runs a single Cypher statement. Module 88's
+    recurrence runs four (nodes, incident dates, INVOLVED_IN edges, criminal
+    records), so this fake dispatches on a substring of the query text."""
+
+    def __init__(self, by_marker: dict, default=None):
+        self.by_marker = by_marker
+        self.default = default if default is not None else []
+        self.seen: list[str] = []
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        self.seen.append(cypher_query)
+        for marker, rows in self.by_marker.items():
+            if marker in cypher_query:
+                return rows
+        return self.default
+
+
+def _cr2_shaped_age_client():
+    """The live shape, reduced: one person in two cases two years apart, the
+    earlier one carrying a conviction. Sampled from the Cypher probe in
+    docs/gold-qa-wave2-results/MODULE88_RESULT.md §1."""
+    return FakeAgeClientByQuery({
+        "RETURN n, c": [
+            {"n": _node("PERSON-685fc54914", "Person", canonical_name="شہزیب عرف شابی"),
+             "c": _case("fir-891-24")},
+            {"n": _node("PERSON-685fc54914", "Person", canonical_name="شہزیب عرف شابی"),
+             "c": _case("fir-214-26")},
+        ],
+        "OCCURRED_ON": [
+            {"incident_date": "2024-09-14", "case_id": "fir-891-24"},
+            {"incident_date": "2026-03-03", "case_id": "fir-214-26"},
+        ],
+        "INVOLVED_IN": [
+            {"person_id": "PERSON-685fc54914", "case_id": "fir-891-24",
+             "role": "accused", "arrest_status": "گرفتار، بعد ازاں سزا یافتہ"},
+            {"person_id": "PERSON-685fc54914", "case_id": "fir-214-26",
+             "role": "accused", "arrest_status": "گرفتار"},
+        ],
+        "criminal_record": [
+            {"subject": "شہزیب عرف شابی", "case_ref": "FIR 891/24, PS Jhang Road Faisalabad",
+             "conviction_status": "Convicted, on bail pending appeal"},
+            {"subject": "شہزیب عرف شابی", "case_ref": "FIR 214/26, PS Civil Lines Faisalabad",
+             "conviction_status": "Under trial"},
+        ],
+    })
+
+
+async def test_module88_person_recurrence_carries_per_case_ordering_and_status(monkeypatch):
+    """The structural assertion: every recurrence entry now carries a
+    date-ORDERED `cases` timeline, each entry naming its own position, role,
+    arrest status and (where the FIR join finds one) conviction status. Bare
+    `case_ids` is preserved unchanged — `_case_ids_touched()` reads it."""
+    monkeypatch.setattr(xagg, "age_client", _cr2_shaped_age_client())
+
+    result = await xagg.run_aggregate(
+        _CR2_GOLD_QUESTION, None, gateway=None, user_role="supervisor"
+    )
+
+    assert result["kind"] == "graph_recurrence"
+    assert result["entity_type"] == "Person"
+    entry = result["results"][0]
+    assert entry["case_ids"] == ["fir-214-26", "fir-891-24"]  # unchanged, sorted by id
+
+    timeline = entry["cases"]
+    assert [c["case_id"] for c in timeline] == ["fir-891-24", "fir-214-26"], (
+        "the timeline must be ordered by INCIDENT DATE, not by case id — "
+        "sorting by id would put fir-214-26 first and invert gold's sequence"
+    )
+    assert [c["sequence"] for c in timeline] == [1, 2]
+    assert [c["year"] for c in timeline] == [2024, 2026]
+    assert timeline[0]["roles"] == ["accused"]
+    assert timeline[0]["arrest_status"] == "گرفتار، بعد ازاں سزا یافتہ"
+    assert timeline[0]["conviction_status"] == "Convicted, on bail pending appeal"
+    assert timeline[1]["conviction_status"] == "Under trial"
+
+
+async def test_module88_cr2_gold_facts_are_present_in_the_rendered_evidence(monkeypatch):
+    """The regression pinned to CR2's literal gold text. Gold asserts three
+    things; the rendered evidence handed to the model must contain all three,
+    stated rather than inferable. This is the exact check that was failing:
+    pre-fix the renderer emitted only
+    `- شہزیب عرف شابی (Person): appears in 2 cases — fir-214-26, fir-891-24`."""
+    monkeypatch.setattr(xagg, "age_client", _cr2_shaped_age_client())
+
+    result = await xagg.run_aggregate(
+        _CR2_GOLD_QUESTION, None, gateway=None, user_role="supervisor"
+    )
+    text = "\n".join(xagg.render_graph_recurrence(result))
+
+    # (1) the ordering — which case is the EARLIER one, said explicitly
+    assert "earliest case FIR 891/24 (2024-09-14)" in text
+    assert "then FIR 214/26 (2026-03-03)" in text
+    assert "[case 1 of 2 in time order]" in text and "[case 2 of 2 in time order]" in text
+    # (2) gold's "prior conviction (from FIR 891/24)"
+    assert "Convicted, on bail pending appeal" in text
+    assert "گرفتار، بعد ازاں سزا یافتہ" in text
+    # (3) gold's "separately, currently accused in FIR 214/26"
+    assert "FIR 214/26" in text and "role on that case: accused" in text
+    assert "Under trial" in text
+
+    # And the pre-fix headline is still there verbatim, so nothing that read
+    # it lost its string.
+    assert (
+        "- شہزیب عرف شابی (Person): appears in 2 cases — fir-214-26, fir-891-24"
+        in text
+    )
+
+
+async def test_module88_s3_keeps_the_multiple_arrest_evidence_it_passes_on(monkeypatch):
+    """S3 (*"has anyone been arrested more than once"*) shares this exact
+    aggregate and passes 3/3 on the baseline. The enrichment must not narrow
+    what it sees: the same four-person listing, plus the arrest status per
+    case that S3's own gold answer is about."""
+    monkeypatch.setattr(xagg, "age_client", _cr2_shaped_age_client())
+
+    result = await xagg.run_aggregate(
+        _S3_GOLD_QUESTION, None, gateway=None, user_role="supervisor"
+    )
+
+    assert result["kind"] == "graph_recurrence"
+    assert result["entity_type"] == "Person"
+    text = "\n".join(xagg.render_graph_recurrence(result))
+    assert "appears in 2 cases" in text
+    assert text.count("recorded status: گرفتار") >= 1
+
+
+async def test_module88_undated_case_is_not_guessed_into_the_sequence(monkeypatch):
+    """9 of 73 live cases carry no incident date. Such a case must sort last
+    and carry `sequence: None` — placing it in the order would be inventing
+    the very fact CR2 asks about."""
+    client = _cr2_shaped_age_client()
+    client.by_marker["OCCURRED_ON"] = [
+        {"incident_date": "2024-09-14", "case_id": "fir-891-24"},
+    ]
+    monkeypatch.setattr(xagg, "age_client", client)
+
+    result = await xagg.run_aggregate(
+        _CR2_GOLD_QUESTION, None, gateway=None, user_role="supervisor"
+    )
+    timeline = result["results"][0]["cases"]
+    assert [c["case_id"] for c in timeline] == ["fir-891-24", "fir-214-26"]
+    assert [c["sequence"] for c in timeline] == [1, None]
+    text = "\n".join(xagg.render_graph_recurrence(result))
+    assert "Sequence:" not in text, "one dated case is not a sequence"
+    assert "no incident date recorded" in text
+
+
+async def test_module88_conviction_is_never_attributed_across_subjects_on_one_fir(monkeypatch):
+    """`StructuredRecord.source_case_ref` is free text and the join is on the
+    FIR number, not an enforced key (the same hedge `_weapon_evidence_chain()`
+    carries). When one FIR holds records for several subjects and none is the
+    person in hand, no conviction is attributed at all."""
+    client = _cr2_shaped_age_client()
+    client.by_marker["criminal_record"] = [
+        {"subject": "کوئی اور", "case_ref": "FIR 891/24",
+         "conviction_status": "Convicted, on bail pending appeal"},
+        {"subject": "تیسرا شخص", "case_ref": "FIR 891/24",
+         "conviction_status": "Under trial"},
+    ]
+    monkeypatch.setattr(xagg, "age_client", client)
+
+    result = await xagg.run_aggregate(
+        _CR2_GOLD_QUESTION, None, gateway=None, user_role="supervisor"
+    )
+    assert all(c["conviction_status"] is None for c in result["results"][0]["cases"])
+    assert "Convicted" not in "\n".join(xagg.render_graph_recurrence(result))
+
+
+async def test_module88_vehicle_recurrence_headline_is_byte_identical(monkeypatch):
+    """A Vehicle has no INVOLVED_IN edge and (live) no dated recurrence at
+    all, so its rendering must be exactly the string this family emitted
+    before Module 88 — no trailing sequence clause, no indented block."""
+    monkeypatch.setattr(xagg, "age_client", FakeAgeClientByQuery({
+        "RETURN n, c": [
+            {"n": _node("V-001", "Vehicle", plate="ICT-LE-309"), "c": _case("CASE-007")},
+            {"n": _node("V-001", "Vehicle", plate="ICT-LE-309"), "c": _case("CASE-008")},
+        ],
+    }))
+
+    result = await xagg.run_aggregate(
+        "what are the top recurring vehicles across cases", None, gateway=None,
+        user_role="supervisor",
+    )
+    assert xagg.render_graph_recurrence(result) == [
+        "- ICT-LE-309 (Vehicle): appears in 2 cases — CASE-007, CASE-008"
+    ]
+
+
+async def test_module88_log_line_carries_the_new_figures(monkeypatch, caplog):
+    """Module 55's rule: the `XAGG <kind>:` line is the only live evidence of
+    which aggregate answered, and a kind alone cannot separate a correct run
+    from an under-evidenced one — which is how CR2 stayed 0.00 for three
+    passes while this family fired every time. The line now carries the
+    ordering and conviction counts too."""
+    monkeypatch.setattr(xagg, "age_client", _cr2_shaped_age_client())
+    with caplog.at_level(logging.INFO, logger="src.pipeline.xagg"):
+        await xagg.run_aggregate(
+            _CR2_GOLD_QUESTION, None, gateway=None, user_role="supervisor"
+        )
+    line = next(
+        r.getMessage() for r in caplog.records
+        if r.getMessage().startswith("XAGG graph_recurrence:")
+    )
+    assert "entity_type=Person" in line
+    assert "1 with a date-ordered timeline" in line
+    assert "1 with a criminal-record outcome" in line
+    assert "[2024-09-14..2026-03-03]" in line
+
+
+async def test_module88_result_leads_with_its_own_temporal_summary(monkeypatch):
+    """The recurrence family's own summary statistic over the temporal axis,
+    computed over whatever is in the result rather than filtered toward one
+    question. It exists because a live paraphrase run reproduced a 2024 case
+    and a 2026 case for the same person in its own body and still concluded
+    "none of these are years apart" — see MODULE88_RESULT.md §6."""
+    monkeypatch.setattr(xagg, "age_client", _cr2_shaped_age_client())
+    result = await xagg.run_aggregate(
+        _CR2_GOLD_QUESTION, None, gateway=None, user_role="supervisor"
+    )
+    lines = xagg.render_graph_recurrence(result)
+    assert lines[0] == (
+        "Of the 1 recurring Person(s) below, 1 appears in cases from more than "
+        "one calendar year, and 1 carries a decided criminal-record outcome on "
+        "an EARLIER case than one they are also named in later."
+    )
+
+
+async def test_module88_two_firs_days_apart_are_not_counted_as_cross_year(monkeypatch):
+    """عاصم رشید's two FIRs are four days apart on live data. That is a real
+    recurrence and must still be listed, but it is NOT the "earlier case
+    already on record" shape, so it must not be counted into the cross-year
+    summary — and with no cross-year entity at all, no summary is emitted."""
+    client = _cr2_shaped_age_client()
+    client.by_marker["OCCURRED_ON"] = [
+        {"incident_date": "2026-03-19", "case_id": "fir-891-24"},
+        {"incident_date": "2026-03-23", "case_id": "fir-214-26"},
+    ]
+    monkeypatch.setattr(xagg, "age_client", client)
+    result = await xagg.run_aggregate(
+        _CR2_GOLD_QUESTION, None, gateway=None, user_role="supervisor"
+    )
+    assert not xagg._spans_calendar_years(result["results"][0]["cases"])
+    lines = xagg.render_graph_recurrence(result)
+    assert lines[0].startswith("- شہزیب"), "no cross-year entity, so no summary line"
+    assert "both fall in the same calendar year" in lines[0]
+
+
+def test_module88_prior_conviction_requires_a_LATER_appearance():
+    """A decided outcome on the person's MOST RECENT case is not a "prior"
+    conviction — nothing came after it. Pinned so the summary statistic can
+    never be satisfied by a single settled case."""
+    settled_last = [
+        {"sequence": 1, "conviction_status": None},
+        {"sequence": 2, "conviction_status": "Convicted, on bail pending appeal"},
+    ]
+    settled_first = [
+        {"sequence": 1, "conviction_status": "Convicted, on bail pending appeal"},
+        {"sequence": 2, "conviction_status": "Under trial"},
+    ]
+    assert xagg._has_prior_settled_conviction(settled_last) is False
+    assert xagg._has_prior_settled_conviction(settled_first) is True
+    # "Under trial" is not a decided outcome — CR7's own published rule.
+    assert xagg._has_prior_settled_conviction(
+        [{"sequence": 1, "conviction_status": "Under trial"},
+         {"sequence": 2, "conviction_status": "Under trial"}]
+    ) is False
+
+# ══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 89, question KB1] s.154 register completeness.
+#
+# KB1 asks what makes a report of a crime a formal FIR AND whether our
+# recordkeeping follows it. The norm half has scored since Module 30; the
+# data half had no aggregate at all, so all three of Module 27's passes
+# scored 0.30 with the judge's reason naming it exactly — the answer "fails
+# to address whether the recordkeeping follows it, instead stating that the
+# documents do not provide specific information."
+#
+# Module 39 excluded KB1 (and KB2) from `_KB_DATA_HALF_PLANS` as "schema
+# claims, not counts". Right for KB2, whose gold is "no, by design"; wrong
+# for KB1, whose gold asserts three checkable coverage figures.
+#
+# THE FIGURES, RE-DERIVED AGAINST `evidence_graph` BEFORE THIS WAS WRITTEN
+# (`MODULE89_RESULT.md` §1), not inherited from the brief:
+#   73 cases; 73 with a complainant; 70 with a recording officer (missing on
+#   fir-117-26, fir-954-26, fir-955-26); 64 with a report timestamp (9
+#   missing). Reproduces the corrected gold (PR #57) exactly.
+# ══════════════════════════════════════════════════════════════════════
+
+# The canned data-half sub-query, pinned here so
+# `rag.py::_KB_DATA_HALF_PLANS` can copy it rather than re-derive it — the
+# same convention Modules 74/75/76 used for theirs. The wording is
+# load-bearing: `xagg.py`'s keyword chain, not a router, decides which
+# family answers, and `_run_kb_data_half()` DROPS a data half whose
+# aggregate is not the one its plan named.
+_KB1_SQ_FIR_REGISTER_COMPLETENESS = (
+    "How many cases in the FIR register record complainant details, "
+    "a recording officer, and a report time, across all cases?"
+)
+
+# KB1's literal gold question text, copied verbatim from the dataset.
+_KB1_GOLD = (
+    "What legal requirement governs how a report of a crime becomes a "
+    "formal FIR, and does our recordkeeping actually follow it?"
+)
+
+
+def _m89_client(cases, complainants, recorders, report_times):
+    """The live shape, reduced: four Cypher statements, four row sets.
+
+    `report_times` maps case_id -> the value stored on `Incident`, so a test
+    can distinguish "no incident row" from "a row whose timestamp is empty".
+    """
+    return FakeAgeClientByQuery({
+        "INVOLVED_IN": [
+            {"case_id": cid, "role": role} for cid, role in complainants
+        ],
+        "ASSIGNED_TO": [
+            {"case_id": cid, "role": role} for cid, role in recorders
+        ],
+        "report_datetime": [
+            {"case_id": cid, "report_datetime": val}
+            for cid, val in report_times.items()
+        ],
+        "MATCH (c:Case) ": [{"case_id": cid} for cid in cases],
+    })
+
+
+def _m89_shaped_client():
+    """Ten cases in the live proportions: every case has a complainant, two
+    lack a recording officer, three lack a report time (one of those because
+    the field is projected but blank)."""
+    cases = [f"fir-{i}-26" for i in range(1, 11)]
+    return _m89_client(
+        cases,
+        complainants=[(c, "complainant") for c in cases],
+        recorders=(
+            [(c, "recording") for c in cases[:8]]
+            + [(c, "investigating") for c in cases]
+        ),
+        report_times={
+            **{c: "2026-06-19T09:10:00Z" for c in cases[:7]},
+            cases[7]: "",
+            cases[8]: None,
+        },
+    )
+
+
+async def test_module89_counts_the_three_s154_elements_over_one_case_denominator(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _m89_shaped_client())
+
+    result = await xagg.run_aggregate(
+        _KB1_SQ_FIR_REGISTER_COMPLETENESS, None, gateway=None, user_role="supervisor",
+    )
+
+    assert result["kind"] == "fir_register_completeness"
+    assert result["total_case_count"] == 10
+    by_key = {e["key"]: e for e in result["elements"]}
+    assert by_key["complainant"]["present_count"] == 10
+    assert by_key["recording_officer"]["present_count"] == 8
+    assert by_key["report_datetime"]["present_count"] == 7
+    assert by_key["recording_officer"]["missing_case_ids"] == ["fir-10-26", "fir-9-26"]
+    assert by_key["report_datetime"]["missing_count"] == 3
+    # All three together, which is a fourth number gold's "present for most
+    # cases" sentence rests on and which is NOT the min of the three.
+    assert result["fully_complete_count"] == 7
+
+
+async def test_module89_a_blank_report_timestamp_counts_as_missing(monkeypatch):
+    """The graph carries both an absent `report_datetime` and a projected-but-
+    empty one; 9 of the live 73 are missing and the aggregate must not
+    silently credit the empty ones."""
+    monkeypatch.setattr(xagg, "age_client", _m89_shaped_client())
+    result = await xagg._fir_register_completeness()
+    by_key = {e["key"]: e for e in result["elements"]}
+    assert sorted(by_key["report_datetime"]["missing_case_ids"]) == [
+        "fir-10-26", "fir-8-26", "fir-9-26",
+    ]
+
+
+async def test_module89_a_cms_complaint_is_not_a_register_complainant(monkeypatch):
+    """`complainant_cms` is CR6's walk-in complaint record, a different record
+    type on the same edge. Counting it here would inflate the numerator with
+    something s.154 says nothing about — and the live graph has exactly 4 of
+    them alongside the 73."""
+    cases = ["fir-1-26", "fir-2-26"]
+    monkeypatch.setattr(xagg, "age_client", _m89_client(
+        cases,
+        complainants=[("fir-1-26", "complainant"), ("fir-2-26", "complainant_cms")],
+        recorders=[(c, "recording") for c in cases],
+        report_times={c: "2026-01-01T00:00:00Z" for c in cases},
+    ))
+    result = await xagg._fir_register_completeness()
+    by_key = {e["key"]: e for e in result["elements"]}
+    assert by_key["complainant"]["present_count"] == 1
+    assert by_key["complainant"]["missing_case_ids"] == ["fir-2-26"]
+
+
+async def test_module89_an_edge_outside_the_case_set_cannot_inflate_a_count(monkeypatch):
+    """Every element is intersected with the case set the denominator comes
+    from, so a complainant edge on a case outside scope (a jurisdiction
+    filter, say) can never push a numerator above its denominator."""
+    monkeypatch.setattr(xagg, "age_client", _m89_client(
+        ["fir-1-26"],
+        complainants=[("fir-1-26", "complainant"), ("fir-99-26", "complainant")],
+        recorders=[("fir-1-26", "recording")],
+        report_times={"fir-1-26": "2026-01-01T00:00:00Z"},
+    ))
+    result = await xagg._fir_register_completeness()
+    by_key = {e["key"]: e for e in result["elements"]}
+    assert result["total_case_count"] == 1
+    assert by_key["complainant"]["present_count"] == 1
+
+
+async def test_module89_renderer_states_the_verdict_and_names_both_gaps(monkeypatch):
+    """Gold's value is the honest "mostly, with these gaps", not a pass/fail:
+    it says the structure is followed "in outline but not completely" and
+    then names both shortfalls. A renderer that emitted three bare numbers
+    would leave the verdict to the generation model, which is the failure
+    Module 24 recorded for M4."""
+    monkeypatch.setattr(xagg, "age_client", _m89_shaped_client())
+    result = await xagg._fir_register_completeness()
+    rendered = "\n".join(xagg.render_fir_register_completeness(result))
+
+    assert "in outline but not completely" in rendered
+    assert "complainant details: recorded on 10 of 10 case(s)." in rendered
+    assert "recorded on 8 of 10 case(s); missing on 2" in rendered
+    assert "fir-9-26" in rendered
+    assert "recorded on 7 of 10 case(s); missing on 3" in rendered
+    assert "present together on 7 of 10 case(s)" in rendered
+    # The two s.154 steps the schema cannot speak to are reported as
+    # UNMODELLED, not as missing — an unrecorded step is not a skipped one,
+    # and gold does not claim it is.
+    assert "read back to the informant" in rendered
+    assert "unmodelled step, not a skipped one" in rendered
+
+
+async def test_module89_renderer_does_not_manufacture_a_gap_when_there_is_none(monkeypatch):
+    cases = ["fir-1-26", "fir-2-26"]
+    monkeypatch.setattr(xagg, "age_client", _m89_client(
+        cases,
+        complainants=[(c, "complainant") for c in cases],
+        recorders=[(c, "recording") for c in cases],
+        report_times={c: "2026-01-01T00:00:00Z" for c in cases},
+    ))
+    result = await xagg._fir_register_completeness()
+    rendered = "\n".join(xagg.render_fir_register_completeness(result))
+    assert "in outline but not completely" not in rendered
+    assert "follow that structure across all 2 case(s)" in rendered
+    # The unmodelled steps are still disclosed: "complete" here means
+    # complete in what this schema models, and saying otherwise would be the
+    # overclaim Module 71 exists to prevent.
+    assert "no field anywhere in this schema" in rendered
+
+
+async def test_module89_empty_corpus_says_so(monkeypatch):
+    monkeypatch.setattr(xagg, "age_client", _m89_client([], [], [], {}))
+    result = await xagg._fir_register_completeness()
+    assert result["total_case_count"] == 0
+    assert "cannot be assessed" in "\n".join(
+        xagg.render_fir_register_completeness(result)
+    )
+
+
+async def test_module89_emits_its_xagg_log_line_with_the_figures(monkeypatch, caplog):
+    """Module 55's convention. XAGG's SSE reports only `route='XAGG'`, so
+    this line is the only evidence of WHICH aggregate answered a live
+    question — and it has to carry the coverage figures, because the whole
+    defect was an answer with no figures in it."""
+    monkeypatch.setattr(xagg, "age_client", _m89_shaped_client())
+    with caplog.at_level(logging.INFO, logger="src.pipeline.xagg"):
+        await xagg._fir_register_completeness()
+    logged = caplog.text
+    assert "XAGG fir_register_completeness:" in logged
+    assert "complainant 10/10" in logged
+    assert "recording_officer 8/10" in logged
+    assert "report_datetime 7/10" in logged
+
+
+class TestModule89Dispatch:
+    """`resolve_aggregate_kind()` is the single source of dispatch truth
+    (Module 41) and its chain is ordered and first-match-wins, so WHERE this
+    family sits is the whole test surface. It is checked immediately above
+    `_COMPLETENESS_KEYWORDS` (G1/G2), the nearest neighbour in meaning."""
+
+    def test_the_canned_sub_query_reaches_this_family(self):
+        assert xagg.resolve_aggregate_kind(
+            _KB1_SQ_FIR_REGISTER_COMPLETENESS
+        ) == "fir_register_completeness"
+
+    @pytest.mark.parametrize("query", [
+        "How many FIR register entries record complainant details, across all cases?",
+        "Does our FIR recordkeeping record the recording officer and the report time?",
+        "kitne cases ke fir record mein mudai darj hai?",
+        "کیا ہماری ایف آئی آر ریکارڈ کیپنگ میں مدعی درج ہوتا ہے؟",
+    ])
+    def test_ordinary_rewordings_reach_it_too(self, query):
+        """Module 56 has found FOUR times that a route is right while the
+        vocabulary is too narrow. Measured, not asserted in prose."""
+        assert xagg.resolve_aggregate_kind(query) == "fir_register_completeness"
+
+    @pytest.mark.parametrize("query,expected", [
+        # G1/G2's family, checked IMMEDIATELY below this one, keeps every
+        # question about weak records in general.
+        ("Which cases might be incomplete or overlooked?", "case_completeness_scan"),
+        # A bare register question with no s.154 field named is not this.
+        ("How many FIR records are there?", "total_count"),
+        # A bare field question with no register framing is not this
+        # either: it keeps the honest officer refusal it had before.
+        ("Which officer is the recording officer on this case?",
+         "unsupported_officer"),
+        # A two-role comparison is not this family either. It reaches
+        # `unsupported_officer` rather than KB3's `officer_role_pair_overlap`
+        # both before and after this module (a pre-existing Module 74
+        # vocabulary gap, filed as Module 100 in
+        # GOLD_QA_REMAINING_FIXES_PLAN.md); pinned at the value it actually
+        # has so this test measures THIS module and not that one.
+        ("Is the registering officer usually the investigating officer?",
+         "unsupported_officer"),
+    ])
+    def test_it_does_not_steal_its_neighbours(self, query, expected):
+        assert xagg.resolve_aggregate_kind(query) == expected
+
+    def test_the_predicate_matches_none_of_the_32_gold_questions(self):
+        """The all-32 control's narrow half, stated directly against the
+        predicate. KB1's own gold text is a NORM question — it names no
+        count — and reaches this family only through the canned sub-query
+        `rag.py` dispatches, exactly as KB4/KB8/KB9 do. A MISSING dataset is
+        a failure, never a skip."""
+        items = json.loads(_GOLD32_PATH.read_text(encoding="utf-8"))
+        assert len(items) == 32
+        matched = sorted(
+            (it.get("id") or "").upper()
+            for it in items
+            if xagg._is_fir_register_completeness(it["question"].lower())
+        )
+        assert matched == [], matched
+
+    def test_both_signals_are_required(self):
+        """A one-signal predicate over "fir register" alone would claim half
+        this corpus; over "complainant" alone it would claim CR6's walk-in
+        complaint family. Pinned so a later widening cannot quietly drop the
+        AND."""
+        assert not xagg._is_fir_register_completeness("how many fir register entries are there?")
+        assert not xagg._is_fir_register_completeness("who is the complainant?")
+        assert xagg._is_fir_register_completeness(
+            "how many fir register entries name a complainant?"
+        )

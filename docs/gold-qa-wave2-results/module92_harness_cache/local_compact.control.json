@@ -1,0 +1,372 @@
+{
+ "EX00::DIRECT": {
+  "detail": "compact",
+  "elapsed_s": 15.55,
+  "route": "DIRECT"
+ },
+ "EX01::DIRECT": {
+  "detail": "compact",
+  "elapsed_s": 10.25,
+  "route": "DIRECT"
+ },
+ "EX02::DIRECT": {
+  "detail": "compact",
+  "elapsed_s": 3.3,
+  "route": "DIRECT"
+ },
+ "EX03::DIRECT": {
+  "detail": "compact",
+  "elapsed_s": 2.82,
+  "route": "DIRECT"
+ },
+ "EX04::DIRECT": {
+  "detail": "compact",
+  "elapsed_s": 3.03,
+  "route": "DIRECT"
+ },
+ "EX05::DIRECT": {
+  "detail": "compact",
+  "elapsed_s": 3.98,
+  "route": "DIRECT"
+ },
+ "EX06::SQL": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "SQL"
+ },
+ "EX07::SQL": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "SQL"
+ },
+ "EX08::SQL": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "SQL"
+ },
+ "EX09::RAG": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "EX10::RAG": {
+  "detail": "compact",
+  "elapsed_s": 3.76,
+  "route": "RAG"
+ },
+ "EX11::RAG": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "SQL"
+ },
+ "EX12::RAG": {
+  "detail": "compact",
+  "elapsed_s": 3.73,
+  "route": "RAG"
+ },
+ "EX13::RAG": {
+  "detail": "compact",
+  "elapsed_s": 3.58,
+  "route": "RAG"
+ },
+ "EX14::WEB": {
+  "detail": "compact",
+  "elapsed_s": 3.38,
+  "route": "WEB"
+ },
+ "EX15::WEB": {
+  "detail": "compact",
+  "elapsed_s": 3.48,
+  "route": "WEB"
+ },
+ "EX16::WEB": {
+  "detail": "compact",
+  "elapsed_s": 3.22,
+  "route": "WEB"
+ },
+ "EX17::DIRECT": {
+  "detail": "compact",
+  "elapsed_s": 3.72,
+  "route": "DIRECT"
+ },
+ "EX18::DIRECT": {
+  "detail": "compact",
+  "elapsed_s": 8.24,
+  "route": "DIRECT"
+ },
+ "EX19::DIRECT": {
+  "detail": "compact",
+  "elapsed_s": 4.8,
+  "route": "DIRECT"
+ },
+ "EX20::DIRECT": {
+  "detail": "compact",
+  "elapsed_s": 11.85,
+  "route": "DIRECT"
+ },
+ "EX21::SQL": {
+  "detail": "compact",
+  "elapsed_s": 3.42,
+  "route": "SQL"
+ },
+ "EX22::SQL": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "SQL"
+ },
+ "EX23::RAG": {
+  "detail": "compact",
+  "elapsed_s": 2.8,
+  "route": "RAG"
+ },
+ "EX24::DIRECT": {
+  "detail": "compact",
+  "elapsed_s": 2.81,
+  "route": "DIRECT"
+ },
+ "EX25::SQL": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "SQL"
+ },
+ "EX26::GRAPH_HYBRID": {
+  "detail": "compact",
+  "elapsed_s": 3.03,
+  "route": "GRAPH_HYBRID"
+ },
+ "EX27::GRAPH_HYBRID": {
+  "detail": "compact",
+  "elapsed_s": 3.5,
+  "route": "GRAPH_HYBRID"
+ },
+ "EX28::GRAPH_HYBRID": {
+  "detail": "compact",
+  "elapsed_s": 2.91,
+  "route": "DIRECT"
+ },
+ "EX29::GRAPH_HYBRID": {
+  "detail": "compact",
+  "elapsed_s": 3.83,
+  "route": "RAG"
+ },
+ "EX30::XGRAPH": {
+  "detail": "compact",
+  "elapsed_s": 3.6,
+  "route": "XAGG"
+ },
+ "EX31::RAG": {
+  "detail": "compact",
+  "elapsed_s": 2.89,
+  "route": "RAG"
+ },
+ "EX32::GRAPH_HYBRID": {
+  "detail": "compact",
+  "elapsed_s": 2.83,
+  "route": "GRAPH_HYBRID"
+ },
+ "EX33::GRAPH": {
+  "detail": "compact",
+  "elapsed_s": 2.54,
+  "route": "GRAPH"
+ },
+ "EX34::GRAPH": {
+  "detail": "compact",
+  "elapsed_s": 2.69,
+  "route": "GRAPH"
+ },
+ "EX35::GRAPH": {
+  "detail": "compact",
+  "elapsed_s": 4.76,
+  "route": "GRAPH"
+ },
+ "EX36::GRAPH": {
+  "detail": "compact",
+  "elapsed_s": 2.4,
+  "route": "RAG"
+ },
+ "EX37::GRAPH": {
+  "detail": "compact",
+  "elapsed_s": 3.98,
+  "route": "RAG"
+ },
+ "EX38::GRAPH_HYBRID": {
+  "detail": "compact",
+  "elapsed_s": 2.72,
+  "route": "GRAPH_HYBRID"
+ },
+ "EX39::GRAPH_HYBRID": {
+  "detail": "compact",
+  "elapsed_s": 4.21,
+  "route": "GRAPH_HYBRID"
+ },
+ "EX40::XGRAPH": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XGRAPH"
+ },
+ "EX41::XGRAPH": {
+  "detail": "compact",
+  "elapsed_s": 3.91,
+  "route": "XGRAPH"
+ },
+ "EX42::XGRAPH": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XGRAPH"
+ },
+ "EX43::XGRAPH": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XGRAPH"
+ },
+ "EX44::XGRAPH": {
+  "detail": "compact",
+  "elapsed_s": 2.88,
+  "route": "XGRAPH"
+ },
+ "EX45::XGRAPH": {
+  "detail": "compact",
+  "elapsed_s": 9.57,
+  "route": "XGRAPH"
+ },
+ "EX46::XGRAPH": {
+  "detail": "compact",
+  "elapsed_s": 9.61,
+  "route": "XGRAPH"
+ },
+ "EX47::XGRAPH": {
+  "detail": "compact",
+  "elapsed_s": 4.25,
+  "route": "XGRAPH"
+ },
+ "EX48::XAGG": {
+  "detail": "compact",
+  "elapsed_s": 6.15,
+  "route": "XAGG"
+ },
+ "EX49::XGRAPH": {
+  "detail": "compact",
+  "elapsed_s": 2.59,
+  "route": "XGRAPH"
+ },
+ "EX50::XAGG": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "EX51::XAGG": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "EX52::XAGG": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "EX53::XAGG": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "EX54::XAGG": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "EX55::XAGG": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "EX56::XAGG": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "EX57::XGRAPH": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XGRAPH"
+ },
+ "EX58::XGRAPH": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XGRAPH"
+ },
+ "EX59::XNETWORK": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XNETWORK"
+ },
+ "EX60::XNETWORK": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XNETWORK"
+ },
+ "EX61::GRAPH_HYBRID": {
+  "detail": "compact",
+  "elapsed_s": 5.2,
+  "route": "GRAPH_HYBRID"
+ },
+ "EX62::XNETWORK": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XGRAPH"
+ },
+ "EX63::RAG": {
+  "detail": "compact",
+  "elapsed_s": 2.46,
+  "route": "RAG"
+ },
+ "EX64::SQL": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "SQL"
+ },
+ "EX65::XAGG": {
+  "detail": "compact",
+  "elapsed_s": 3.14,
+  "route": "XAGG"
+ },
+ "EX66::XAGG": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "EX67::XGRAPH": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XGRAPH"
+ },
+ "EX68::GRAPH": {
+  "detail": "compact",
+  "elapsed_s": 3.49,
+  "route": "GRAPH"
+ },
+ "EX69::SQL": {
+  "detail": "compact",
+  "elapsed_s": 2.88,
+  "route": "SQL"
+ },
+ "EX70::GRAPH": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XGRAPH"
+ },
+ "EX71::GRAPH_HYBRID": {
+  "detail": "compact",
+  "elapsed_s": 4.01,
+  "route": "GRAPH_HYBRID"
+ },
+ "EX72::GRAPH": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "EX73::GRAPH": {
+  "detail": "compact",
+  "elapsed_s": 3.59,
+  "route": "GRAPH_HYBRID"
+ }
+}

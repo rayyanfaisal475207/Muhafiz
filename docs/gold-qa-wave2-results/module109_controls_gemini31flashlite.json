@@ -1,0 +1,101 @@
+[
+ {
+  "case": "A_heldout_positive",
+  "draw": 0,
+  "expect": "HIGH",
+  "model": "gemini-3.1-flash-lite",
+  "provider": "gemini",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 6.6,
+  "reason": "The actual output correctly identifies the key facts, including the total number of FIRs missing a named officer (11) and the specific breakdown of placeholders (8 for ASI and 3 for SI). It also correctly identifies the busiest officers (Faisal and Tariq) with 4 FIRs each. Although the opening word "
+ },
+ {
+  "case": "A_heldout_positive",
+  "draw": 1,
+  "expect": "HIGH",
+  "model": "gemini-3.1-flash-lite",
+  "provider": "gemini",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 6.1,
+  "reason": "The actual output correctly identifies the key facts, including the total number of FIRs missing a named officer (11) and the specific breakdown of placeholders (8 for ASI and 3 for SI). It also correctly identifies the busiest officers (Faisal and Tariq) with 4 FIRs each. Although the opening word "
+ },
+ {
+  "case": "A_heldout_positive",
+  "draw": 2,
+  "expect": "HIGH",
+  "model": "gemini-3.1-flash-lite",
+  "provider": "gemini",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 10.0,
+  "reason": "The actual output correctly identifies the key facts, including the total number of FIRs missing a named officer (11) and the specific breakdown of placeholders (8 for ASI and 3 for SI). It also correctly identifies the busiest officers (Faisal and Tariq) with 4 FIRs each. Although the opening word "
+ },
+ {
+  "case": "B_reversed_fact",
+  "draw": 0,
+  "expect": "LOW",
+  "model": "gemini-3.1-flash-lite",
+  "provider": "gemini",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 7.7,
+  "reason": "The actual output contains a significant factual error by reversing the data for 2024 and 2026. It incorrectly claims that reporting was faster in 2026 (15 minutes) compared to 2024 (1401.3 minutes), whereas the expected output correctly identifies that reporting became much slower in 2026. This is "
+ },
+ {
+  "case": "B_reversed_fact",
+  "draw": 1,
+  "expect": "LOW",
+  "model": "gemini-3.1-flash-lite",
+  "provider": "gemini",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 7.4,
+  "reason": "The actual output contains a significant factual error by reversing the data for 2024 and 2026. It incorrectly claims that reporting was faster in 2026 (15 minutes) compared to 2024 (1401.3 minutes), whereas the expected output correctly identifies that reporting became much slower in 2026. This is "
+ },
+ {
+  "case": "B_reversed_fact",
+  "draw": 2,
+  "expect": "LOW",
+  "model": "gemini-3.1-flash-lite",
+  "provider": "gemini",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 7.7,
+  "reason": "The actual output contains a significant factual error by reversing the data for 2024 and 2026. It incorrectly claims that reporting was faster in 2026 (15 minutes) compared to 2024 (1401.3 minutes), whereas the expected output correctly identifies that reporting became much slower in 2026. This is "
+ },
+ {
+  "case": "C_wrong_magnitude",
+  "draw": 0,
+  "expect": "LOW",
+  "model": "gemini-3.1-flash-lite",
+  "provider": "gemini",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 7.0,
+  "reason": "The actual output provides a contradictory set of figures compared to the expected output. While the expected output cites a mean time of 1401.3 minutes for 2026, the actual output cites 18.0 minutes. This is a significant factual discrepancy that goes beyond minor counting differences, leading to a"
+ },
+ {
+  "case": "C_wrong_magnitude",
+  "draw": 1,
+  "expect": "LOW",
+  "model": "gemini-3.1-flash-lite",
+  "provider": "gemini",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 7.7,
+  "reason": "The actual output provides a contradictory set of figures compared to the expected output. While the expected output cites a mean time of 1401.3 minutes for 2026, the actual output cites 18.0 minutes. This is a significant factual discrepancy that goes beyond minor counting differences, leading to a"
+ },
+ {
+  "case": "C_wrong_magnitude",
+  "draw": 2,
+  "expect": "LOW",
+  "model": "gemini-3.1-flash-lite",
+  "provider": "gemini",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 6.7,
+  "reason": "The actual output provides a contradictory set of figures compared to the expected output. While the expected output cites a mean time of 1401.3 minutes for 2026, the actual output cites 18.0 minutes. This is a significant factual discrepancy that goes beyond minor counting differences, leading to a"
+ }
+]

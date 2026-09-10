@@ -1,0 +1,230 @@
+[
+  {
+    "arm": "after",
+    "row_id": "G2",
+    "gold_id": "G2",
+    "run": 1,
+    "question": "فرض کریں آپ کسی ایس ایچ او کو بریفنگ دے رہے ہیں کہ کون سے مقدمے دب کر یا نظر سے اوجھل ہو کر رہ سکتے ہیں — آپ کن چیزوں کی نشاندہی کریں گے؟",
+    "elapsed_s": 9.0,
+    "coverage": {
+      "1_ordering": true,
+      "2_chronology": true,
+      "3_two_systems": true,
+      "_count": 3
+    },
+    "actual_answer": "When briefing an SHO about cases that may be stalled or overlooked, the following key issues should be highlighted based on the cross-case aggregate data [Document 1]:\n\n1. **Missing Incident Dates in FIRs**: Nine FIRs (fir-205-26, fir-211-26, fir-340-25, fir-406-26, fir-410-25, fir-422-26, fir-457-26, fir-467-26, fir-77-26) do not record an incident date. This lack of information makes it impossible to establish a reliable timeline for these cases.\n\n2. **Unclear Investigation Status**: Fifty-two of the 73 FIRs do not have a recorded investigation status. This makes it impossible to track the progress of these cases, and they may quietly stall without anyone noticing.\n\n3. **Missing Entry Types in Roznamcha/Zimni Diary Entries**: Out of 259 roznamcha/zimni diary entries, 188 (approximately 73%) do not record the entry type. This omission makes it difficult to determine the sequence of events or the nature of each investigative step within a case.\n\n4. **Chronological Contradictions in FIRs**: Thirteen FIRs (fir-118-26, fir-203-26, fir-301-26, fir-403-26, fir-407-26, fir-413-26, fir-423-26, fir-424-26, fir-434-26, fir-449-26, fir-458-26, fir-468-26, and others) record the officer's departure from the station as earlier than the report time. This contradiction could be problematic in court and needs immediate attention.\n\n5. **Disconnection Between Walk-in Complaints and FIRs**: Walk-in complaints and FIRs are recorded in separate systems and are only linked by an optional shared tag (CMS.case_tag_number = FIR.e_tag_number). This lack of enforced linkage can lead to complaints appearing unactioned even when a corresponding FIR exists, especially if the tag is mistyped or missing.\n\nThese issues highlight the need for a closer examination of these cases to ensure they are not being overlooked or stalled due to incomplete or inconsistent records.\n\n_A cited claim ([Document 1]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 1._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null
+  },
+  {
+    "arm": "after",
+    "row_id": "G2",
+    "gold_id": "G2",
+    "run": 2,
+    "question": "فرض کریں آپ کسی ایس ایچ او کو بریفنگ دے رہے ہیں کہ کون سے مقدمے دب کر یا نظر سے اوجھل ہو کر رہ سکتے ہیں — آپ کن چیزوں کی نشاندہی کریں گے؟",
+    "elapsed_s": 8.3,
+    "coverage": {
+      "1_ordering": true,
+      "2_chronology": true,
+      "3_two_systems": true,
+      "_count": 3
+    },
+    "actual_answer": "When briefing an SHO about cases that may be stalled or overlooked, the following key issues should be highlighted, based on the cross-case aggregate data [Document 1]:\n\n1. **Missing Incident Dates in FIRs**: Nine FIRs (fir-205-26, fir-211-26, fir-340-25, fir-406-26, fir-410-25, fir-422-26, fir-457-26, fir-467-26, fir-77-26) do not record an incident date. This lack of a timeline anchor makes it difficult to establish a clear sequence of events.\n\n2. **Unclear Investigation Status**: Fifty-two of the 73 FIRs do not have a recorded investigation status. This makes it impossible to track the lifecycle of these cases, and they may quietly stall without anyone noticing.\n\n3. **Missing Entry Types in Roznamcha/Zimni Diary Entries**: Out of 259 roznamcha/zimni diary entries, 188 (approximately 73%) do not record the entry type. This omission makes it difficult to determine the nature of each investigative step, even though the steps themselves are recorded.\n\n4. **Chronological Contradictions in FIRs**: Thirteen FIRs (fir-118-26, fir-203-26, fir-301-26, fir-403-26, fir-407-26, fir-413-26, fir-423-26, fir-424-26, fir-434-26, fir-449-26, fir-458-26, fir-468-26, and others) record the officer's departure from the station as earlier than the report time. This contradiction could be problematic in court. Additionally, only 44 of the 73 FIRs record a departure time at all.\n\n5. **Disconnection Between Walk-in Complaints and FIRs**: Walk-in complaints and FIRs are in separate systems and are only linked by an optional shared tag (CMS.case_tag_number = FIR.e_tag_number), which is not enforced by any database key. This can lead to complaints appearing unactioned even when a corresponding FIR exists, especially if the tag is mistyped or missing. However, four of the four complaints currently resolve to a real FIR.\n\n_A cited claim ([Document 1]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 1._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null
+  },
+  {
+    "arm": "after",
+    "row_id": "G2",
+    "gold_id": "G2",
+    "run": 3,
+    "question": "فرض کریں آپ کسی ایس ایچ او کو بریفنگ دے رہے ہیں کہ کون سے مقدمے دب کر یا نظر سے اوجھل ہو کر رہ سکتے ہیں — آپ کن چیزوں کی نشاندہی کریں گے؟",
+    "elapsed_s": 9.9,
+    "coverage": {
+      "1_ordering": true,
+      "2_chronology": true,
+      "3_two_systems": true,
+      "_count": 3
+    },
+    "actual_answer": "When briefing an SHO about cases that may be stalled or overlooked, the following key issues should be highlighted, based on the cross-case aggregate data [Document 1]:\n\n1. **Missing Incident Dates in FIRs**: Nine FIRs (fir-205-26, fir-211-26, fir-340-25, fir-406-26, fir-410-25, fir-422-26, fir-457-26, fir-467-26, fir-77-26) do not record an incident date. This lack of a timeline anchor makes it difficult to establish a clear sequence of events.\n\n2. **Unclear Investigation Status**: Fifty-two of the 73 FIRs do not have a recorded investigation status. This makes it impossible to track the lifecycle of these cases, and they may quietly stall without anyone noticing.\n\n3. **Missing Entry Types in Roznamcha/Zimni Diary Entries**: Out of 259 roznamcha/zimni diary entries, 188 (approximately 73%) do not record the entry type. This omission makes it difficult to determine the nature of each investigative step, even though the steps themselves are recorded.\n\n4. **Chronological Contradictions in FIRs**: Thirteen FIRs (fir-118-26, fir-203-26, fir-301-26, fir-403-26, fir-407-26, fir-413-26, fir-423-26, fir-424-26, fir-434-26, fir-449-26, fir-458-26, fir-468-26, and others) record the officer's departure from the station as earlier than the report time. This contradiction could be problematic in court. Additionally, only 44 of the 73 FIRs record a departure time at all.\n\n5. **Disconnection Between Walk-in Complaints and FIRs**: Walk-in complaints and FIRs are in separate systems and are only linked by an optional shared tag (CMS.case_tag_number = FIR.e_tag_number), which is not enforced by any database key. This can lead to complaints appearing unactioned even when a corresponding FIR exists, especially if the tag is mistyped or missing. However, four of the four complaints currently resolve to a real FIR.\n\n_A cited claim ([Document 1]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 1._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null
+  },
+  {
+    "arm": "after",
+    "row_id": "G2-P1",
+    "gold_id": "G2",
+    "run": 1,
+    "question": "ہمارے ریکارڈ میں ایسی کون سی خامیاں ہیں جن کی وجہ سے کوئی مقدمہ خاموشی سے رُک سکتا ہے یا نظر سے اوجھل ہو سکتا ہے؟",
+    "elapsed_s": 11.5,
+    "coverage": {
+      "1_ordering": true,
+      "2_chronology": true,
+      "3_two_systems": true,
+      "_count": 3
+    },
+    "actual_answer": "According to [Document 1], the following deficiencies in our records could cause cases to quietly stall or become invisible:\n\n1. **Missing Incident Dates in FIRs**: 9 out of 73 FIRs (fir-205-26, fir-211-26, fir-340-25, fir-406-26, fir-410-25, fir-422-26, fir-457-26, fir-467-26, fir-77-26) do not record an incident date, making it impossible to establish a timeline.\n\n2. **No Investigation Status Recorded**: 52 of 73 FIRs do not have a recorded investigation status, making it impossible to track the lifecycle of these cases and potentially allowing them to stall silently.\n\n3. **Missing Entry Types in Roznamcha/Zimni Diary Entries**: 188 of 259 roznamcha/zimni diary entries (about 73%) do not record the entry type, making it impossible to determine the sequence of events within a case.\n\n4. **Chronological Contradictions in FIRs**: 13 of 73 FIRs (fir-118-26, fir-203-26, fir-301-26, fir-403-26, fir-407-26, fir-413-26, fir-423-26, fir-424-26, fir-434-26, fir-449-26, fir-458-26, fir-468-26…) record the officer's departure from the station as earlier than the report time itself, creating a contradiction that would not survive scrutiny in court. Only 44 of 73 FIRs record a departure time at all.\n\n5. **Separate Systems for Walk-in Complaints and FIRs**: Walk-in complaints and FIRs are in separate systems and are only linked by an optional shared tag (CMS.case_tag_number = FIR.e_tag_number), which is not enforced by any database key. Although 4 of 4 complaints today resolve to a real FIR, mistyped or missing tags can make complaints appear unactioned even when an FIR exists, and no system flags this discrepancy.\n\n_A cited claim ([Document 1]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 1._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null
+  },
+  {
+    "arm": "after",
+    "row_id": "G2-P2",
+    "gold_id": "G2",
+    "run": 1,
+    "question": "اگر تفتیشی ریکارڈ کا جائزہ لیا جائے تو کن اندراجات پر بھروسہ نہیں کیا جا سکتا، اور اس کی وجہ کیا ہے؟",
+    "elapsed_s": 84.1,
+    "coverage": {
+      "1_ordering": false,
+      "2_chronology": false,
+      "3_two_systems": false,
+      "_count": 0
+    },
+    "actual_answer": "No sufficiently relevant documents were found for this question after retrying with query refinements.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null
+  },
+  {
+    "arm": "after",
+    "row_id": "G2-P3",
+    "gold_id": "G2",
+    "run": 1,
+    "question": "If you were warning a station commander about cases that could quietly slip through the cracks, which gaps in our records would you point to?",
+    "elapsed_s": 6.1,
+    "coverage": {
+      "1_ordering": false,
+      "2_chronology": false,
+      "3_two_systems": false,
+      "_count": 0
+    },
+    "actual_answer": "Based on the data in [Document 1], there are several stations with relatively low numbers of reported cases, which could indicate potential gaps in our records or areas where cases might be underreported or overlooked. These stations include:\n\n- **تھانہ مدینہ ٹاؤن، فیصل آباد** (Thana Medina Town, Faisalabad): Only **1 case** has been recorded here. This extremely low number may suggest a lack of reporting, limited resources, or a lack of awareness about the importance of documenting cases.\n\nOther stations with relatively low numbers of cases (4 cases) include:\n\n- **سائبر کرائم سرکل، راولپنڈی** (Cyber Crime Circle, Rawalpindi)\n- **تھانہ کوتوالی، فیصل آباد** (Thana Kotwali, Faisalabad)\n- **تھانہ راجہ بازار، راولپنڈی** (Thana Rajah Bazaar, Rawalpindi)\n- **تھانہ سول لائنز، فیصل آباد** (Thana Civil Lines, Faisalabad)\n\nThese stations may also be at risk of underreporting or oversight, especially if they are not receiving adequate attention or resources compared to other stations with higher case volumes.\n\nIt is important for station commanders to be aware of these discrepancies and ensure that all cases are properly documented and investigated, regardless of the station's location or the number of cases previously recorded.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null
+  },
+  {
+    "arm": "after",
+    "row_id": "G5",
+    "gold_id": "G5",
+    "run": 1,
+    "question": "Baramad shuda hathiyaron ki record keeping ko dekhte hue, kya koi aisi baat hai jo compliance ke lihaz se flag karne layak ho?",
+    "elapsed_s": 6.7,
+    "coverage": {
+      "1_unlicensed": true,
+      "2_custody": true,
+      "3_soft_join": true,
+      "_count": 3
+    },
+    "actual_answer": "Reviewing the 32 weapon-register entries for compliance:\n  - 30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence — a pattern too broad to treat case-by-case; it warrants a standing compliance check.\n  - 2 carry no licence status at all, so their compliance can't be confirmed either way.\n  - The register records WHAT was recovered and its condition, but has no field for packaging or sealing, photographs, chain of custody / handover — so for any entry, whether the item was handled to procedure cannot be verified from the record at all. This is a gap in the form, not in one officer's paperwork.\n  - Weapons attach to a case only by a SOFT match on the FIR code written into the register — plain text, no enforced key. All 32 resolve to a real case today, but a single mistyped code would silently orphan an item with nothing raising an error.\n\n_The natural-language summary could not be verified as an accurate paraphrase; showing the raw computed aggregate instead._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null
+  },
+  {
+    "arm": "after",
+    "row_id": "G5",
+    "gold_id": "G5",
+    "run": 2,
+    "question": "Baramad shuda hathiyaron ki record keeping ko dekhte hue, kya koi aisi baat hai jo compliance ke lihaz se flag karne layak ho?",
+    "elapsed_s": 7.3,
+    "coverage": {
+      "1_unlicensed": true,
+      "2_custody": true,
+      "3_soft_join": true,
+      "_count": 3
+    },
+    "actual_answer": "Reviewing the 32 weapon-register entries for compliance:\n  - 30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence — a pattern too broad to treat case-by-case; it warrants a standing compliance check.\n  - 2 carry no licence status at all, so their compliance can't be confirmed either way.\n  - The register records WHAT was recovered and its condition, but has no field for packaging or sealing, photographs, chain of custody / handover — so for any entry, whether the item was handled to procedure cannot be verified from the record at all. This is a gap in the form, not in one officer's paperwork.\n  - Weapons attach to a case only by a SOFT match on the FIR code written into the register — plain text, no enforced key. All 32 resolve to a real case today, but a single mistyped code would silently orphan an item with nothing raising an error.\n\n_The natural-language summary could not be verified as an accurate paraphrase; showing the raw computed aggregate instead._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null
+  },
+  {
+    "arm": "after",
+    "row_id": "G5",
+    "gold_id": "G5",
+    "run": 3,
+    "question": "Baramad shuda hathiyaron ki record keeping ko dekhte hue, kya koi aisi baat hai jo compliance ke lihaz se flag karne layak ho?",
+    "elapsed_s": 4.8,
+    "coverage": {
+      "1_unlicensed": true,
+      "2_custody": true,
+      "3_soft_join": true,
+      "_count": 3
+    },
+    "actual_answer": "Reviewing the 32 weapon-register entries for compliance:\n  - 30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence — a pattern too broad to treat case-by-case; it warrants a standing compliance check.\n  - 2 carry no licence status at all, so their compliance can't be confirmed either way.\n  - The register records WHAT was recovered and its condition, but has no field for packaging or sealing, photographs, chain of custody / handover — so for any entry, whether the item was handled to procedure cannot be verified from the record at all. This is a gap in the form, not in one officer's paperwork.\n  - Weapons attach to a case only by a SOFT match on the FIR code written into the register — plain text, no enforced key. All 32 resolve to a real case today, but a single mistyped code would silently orphan an item with nothing raising an error.\n\n_The natural-language summary could not be verified as an accurate paraphrase; showing the raw computed aggregate instead._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null
+  },
+  {
+    "arm": "after",
+    "row_id": "G5-P1",
+    "gold_id": "G5",
+    "run": 1,
+    "question": "Weapon register ka jaiza lein — regulatory compliance ke aitbaar se kaun si kamzoriyan nazar aati hain?",
+    "elapsed_s": 5.4,
+    "coverage": {
+      "1_unlicensed": true,
+      "2_custody": true,
+      "3_soft_join": true,
+      "_count": 3
+    },
+    "actual_answer": "Reviewing the weapon register from a regulatory compliance perspective, the following weaknesses are apparent [Document 1]:\n\n- **Lack of Licence Information**: Out of 32 recovered weapons, 30 (~94%) are recorded without a licence. This is a widespread issue that cannot be addressed on a case-by-case basis and requires a broader compliance check. Additionally, 2 entries carry no licence status at all, making it impossible to confirm their compliance.\n\n- **Incomplete Record-Keeping**: The register only records the type and condition of the recovered weapon. It lacks fields for important details such as packaging, sealing, photographs, and chain of custody or handover. As a result, it is impossible to verify whether the item was handled in accordance with procedure based solely on the register.\n\n- **Weak Link to Case Files**: Weapons are linked to case files through a soft match based on the FIR code written in plain text, with no enforced key or validation. While all 32 entries currently resolve to real cases, a single mistyped code would silently disconnect an item from its case without any error notification.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null
+  },
+  {
+    "arm": "after",
+    "row_id": "G5-P2",
+    "gold_id": "G5",
+    "run": 1,
+    "question": "Hathiyaron ki baramdagi ka record kitna mukammal hai, aur is mein kis cheez ki nishandahi zaroori hai?",
+    "elapsed_s": 106.4,
+    "coverage": {
+      "1_unlicensed": false,
+      "2_custody": false,
+      "3_soft_join": false,
+      "_count": 0
+    },
+    "actual_answer": "No sufficiently relevant documents were found for this question after retrying with query refinements.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null
+  },
+  {
+    "arm": "after",
+    "row_id": "G5-P3",
+    "gold_id": "G5",
+    "run": 1,
+    "question": "Looking at how recovered weapons are recorded, what compliance concerns would you raise?",
+    "elapsed_s": 4.8,
+    "coverage": {
+      "1_unlicensed": true,
+      "2_custody": true,
+      "3_soft_join": true,
+      "_count": 3
+    },
+    "actual_answer": "Reviewing the 32 weapon-register entries for compliance:\n  - 30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence — a pattern too broad to treat case-by-case; it warrants a standing compliance check.\n  - 2 carry no licence status at all, so their compliance can't be confirmed either way.\n  - The register records WHAT was recovered and its condition, but has no field for packaging or sealing, photographs, chain of custody / handover — so for any entry, whether the item was handled to procedure cannot be verified from the record at all. This is a gap in the form, not in one officer's paperwork.\n  - Weapons attach to a case only by a SOFT match on the FIR code written into the register — plain text, no enforced key. All 32 resolve to a real case today, but a single mistyped code would silently orphan an item with nothing raising an error.\n\n_The natural-language summary could not be verified as an accurate paraphrase; showing the raw computed aggregate instead._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null
+  }
+]

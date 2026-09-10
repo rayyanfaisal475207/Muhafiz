@@ -1,0 +1,92 @@
+[
+ {
+  "case": "A_heldout_positive",
+  "draw": 0,
+  "expect": "HIGH",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 5.9,
+  "reason": "The actual output correctly identifies that not all FIRs have a named officer, provides the exact count of 11 unassigned FIRs, and correctly breaks down the placeholders into 8 for '(Naamzad ASI)' and 3 for '(Naamzad SI)'. The difference in the opening word (Yes vs No) is a matter of interpretation "
+ },
+ {
+  "case": "A_heldout_positive",
+  "draw": 1,
+  "expect": "HIGH",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 5.0,
+  "reason": "The actual output correctly identifies that not all FIRs have a named officer, provides the exact count of 11 unassigned FIRs, and correctly breaks down the placeholders into 8 for '(Naamzad ASI)' and 3 for '(Naamzad SI)'. The difference in the opening word (Yes vs No) is a matter of interpretation "
+ },
+ {
+  "case": "A_heldout_positive",
+  "draw": 2,
+  "expect": "HIGH",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 5.7,
+  "reason": "The actual output correctly identifies that not all FIRs have a named officer, provides the exact count of 11 unassigned FIRs, and correctly breaks down the placeholders into 8 for '(Naamzad ASI)' and 3 for '(Naamzad SI)'. The difference in the opening word (Yes vs No) is a matter of interpretation "
+ },
+ {
+  "case": "B_reversed_fact",
+  "draw": 0,
+  "expect": "LOW",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 5.6,
+  "reason": "The actual output provides the correct numerical data but reverses the conclusion regarding the speed of reporting. It incorrectly states that reporting is faster in 2026 (15.0 minutes) compared to 2024 (1401.3 minutes), whereas the expected output correctly identifies that 2024 was faster and 2026 "
+ },
+ {
+  "case": "B_reversed_fact",
+  "draw": 1,
+  "expect": "LOW",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 5.5,
+  "reason": "The actual output provides the correct numerical data but reverses the conclusion regarding the speed of reporting. It incorrectly states that reporting is faster in 2026 (15.0 minutes) compared to 2024 (1401.3 minutes), whereas the expected output correctly identifies that 2024 was faster and 2026 "
+ },
+ {
+  "case": "B_reversed_fact",
+  "draw": 2,
+  "expect": "LOW",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 5.5,
+  "reason": "The actual output provides the correct numerical data but reverses the conclusion regarding the speed of reporting. It incorrectly states that reporting is faster in 2026 (15.0 minutes) compared to 2024 (1401.3 minutes), whereas the expected output correctly identifies that 2024 was faster and 2026 "
+ },
+ {
+  "case": "C_wrong_magnitude",
+  "draw": 0,
+  "expect": "LOW",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 5.6,
+  "reason": "The actual output provides a contradictory figure for the 2026 mean time (18.0 minutes) compared to the expected output (1401.3 minutes). This is a significant factual error that misrepresents the scale of the delay, failing to capture the substantive conclusion regarding the shift in reporting spee"
+ },
+ {
+  "case": "C_wrong_magnitude",
+  "draw": 1,
+  "expect": "LOW",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 5.4,
+  "reason": "The actual output provides a contradictory figure for the 2026 mean time (18.0 minutes) compared to the expected output (1401.3 minutes). This is a significant factual error that misrepresents the scale of the delay, failing to capture the substantive conclusion regarding the shift in reporting spee"
+ },
+ {
+  "case": "C_wrong_magnitude",
+  "draw": 2,
+  "expect": "LOW",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 6.6,
+  "reason": "The actual output provides a contradictory figure for the 2026 mean time (18.0 minutes) compared to the expected output (1401.3 minutes). This is a significant factual error that misrepresents the scale of the delay, failing to capture the substantive conclusion regarding the shift in reporting spee"
+ }
+]

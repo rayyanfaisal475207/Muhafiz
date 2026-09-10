@@ -176,6 +176,7 @@ from typing import Optional
 
 from src.data_gateway.base import DataGateway
 from src.llm.client import call_llm
+from src.pipeline.harness.agents import _salvage
 from src.pipeline.harness.supervisor import LARGE_SCALE_AGGREGATE, register
 from src.pipeline.harness.tools.xagg import XAggToolInput, xagg_tool
 from src.pipeline.harness.types import (
@@ -214,6 +215,25 @@ _SYSTEM_PROMPT_TEMPLATE = (
     "--- DOCUMENTS ---\n[Document 1] Source: cross-case aggregate\n{aggregate_text}\n"
     "--- END OF DOCUMENTS ---"
 ) + NAME_FIDELITY_RULE
+
+
+# [Gold-QA fix — Module 70, M2] Appended to the SAME system prompt for the
+# single repair regeneration below. Every question-specific token in it —
+# the figures and the sentence — is interpolated from the computed
+# rendering at runtime; nothing about M2, its stations or its counts is
+# written here. The instruction is a constraint on completeness only: it
+# must not invite the model to add anything, because the repaired text is
+# still put through the invented-number direction of the same gate.
+_OMISSION_REPAIR_RULE = (
+    "\n\nIMPORTANT — your previous answer left out the document's headline "
+    "finding. The document's first sentence is:\n\n\"{headline}\"\n\n"
+    "That sentence states a proportion, and a proportion loses its meaning "
+    "if either side of it is dropped. Write the answer again, still as "
+    "flowing prose and still answering the user's question directly, but "
+    "this time state the figure(s) {figures} in that sentence's own terms. "
+    "Do not turn the answer into a list. Do not add any number, name or "
+    "case ID that is not in the document."
+)
 
 
 def _generation_role(preferred_language: Optional[str]) -> str:
@@ -308,6 +328,21 @@ async def large_scale_aggregate(
     # own contract: "chunks non-empty iff status is OK"; XAggToolResult always
     # populates exactly one synthetic chunk plus raw_summary_text).
     chunk = tool_result.chunks[0]
+
+    # [Gold-QA fix — Module 53] Offer the computed aggregate for salvage
+    # BEFORE the paraphrase call, which is the step that can be cancelled
+    # out from under this frame. When this sub-agent is running as one
+    # sub-query of a Meta-Analysis fan-out, that fan-out's shared wall-clock
+    # deadline (`META_ANALYSIS_SUBQUERY_TIMEOUT`) can fire mid-paraphrase
+    # purely because this sub-query was served LAST — see `_salvage.py`'s
+    # module docstring for the measurement. `raw_summary_text` is already
+    # what this sub-agent serves when the *verifier* rejects a paraphrase
+    # (see "VERIFIER-REJECTION STATUS DECISION" above); Module 53 reuses
+    # that same text and that same rationale for the deadline case rather
+    # than inventing a second fallback. No-op on every direct route: no
+    # salvage slot is open unless Meta-Analysis opened one.
+    _salvage.offer(tool_result.raw_summary_text, tool="XAGG", kind=tool_result.aggregate_kind)
+
     resolved_language = caller.preferred_language or "the same language as the user's question"
     system_prompt = _SYSTEM_PROMPT_TEMPLATE.format(
         preferred_language=resolved_language,
@@ -377,6 +412,75 @@ async def large_scale_aggregate(
             cross_case_ids=tool_result.case_ids_touched,
         )
     verifier_passed = verification.get("grounded", False) and not verification.get("off_topic", False)
+
+    # [Gold-QA fix — Module 70, M2] OMISSION REPAIR.
+    #
+    # `verify_structured_aggregate_paraphrase()` now also reports figures
+    # from a proportion in the rendered HEADLINE that the paraphrase
+    # dropped — see `_omitted_headline_proportions()` for why that
+    # construction specifically, and for the measured blast radius. Module
+    # 83 captured the failure it exists for: on 9 of 9 M2 runs the
+    # rendering carried "9 of 73 FIRs (~12.3%) … carried by just 2 of 19
+    # stations" and the paraphrase dropped it, while the gate — correctly,
+    # on its own terms — passed the answer.
+    #
+    # WHAT HAPPENS WHEN IT FIRES, and why it is not a rejection. Routing an
+    # omission into the raw-aggregate fallback below would trade a missing
+    # figure for a computed dump on every question that trips it, and the
+    # rule cannot be perfect (a figure restated in Urdu words is invisible
+    # to a digit check). So this repairs and never refuses: ONE regenerate,
+    # with the missing figures — computed at runtime from the rendering,
+    # never hand-listed per question — named back to the model, and the
+    # repaired text is adopted ONLY if it passes the FULL gate (including
+    # the invented-number direction, so an omission can never be traded for
+    # a hallucination) AND drops strictly fewer figures. If it does not,
+    # the original paraphrase is served exactly as it is today. This branch
+    # is therefore incapable of making any currently-served answer worse;
+    # its only cost is one extra generation on a paraphrase that fired.
+    if verifier_passed and verification.get("omitted_source_figures"):
+        missing = verification["omitted_source_figures"]
+        logger.info(
+            "Large-Scale Aggregate: paraphrase omitted computed headline figure(s) %s; "
+            "attempting one repair pass.",
+            missing,
+        )
+        repair_prompt = system_prompt + _OMISSION_REPAIR_RULE.format(
+            figures=", ".join(missing),
+            headline=verification.get("omitted_source_headline") or "",
+        )
+        try:
+            repaired = await call_llm(
+                repair_prompt,
+                agent_input.query_text,
+                role=_generation_role(caller.preferred_language),
+                max_tokens=ANSWER_MAX_TOKENS,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Large-Scale Aggregate: omission repair generation failed: %s", exc)
+            repaired = None
+
+        if repaired and repaired.strip():
+            repaired_verification = await verify_structured_aggregate_paraphrase(
+                answer=repaired,
+                source_text=tool_result.raw_summary_text,
+                case_id="cross_case",
+                cross_case_ids=tool_result.case_ids_touched,
+            )
+            repaired_ok = repaired_verification.get("grounded", False) and not repaired_verification.get("off_topic", False)
+            repaired_missing = repaired_verification.get("omitted_source_figures") or []
+            if repaired_ok and len(repaired_missing) < len(missing):
+                logger.info(
+                    "Large-Scale Aggregate: omission repair adopted (%s -> %s missing).",
+                    len(missing), len(repaired_missing),
+                )
+                paraphrase = repaired
+                verification = repaired_verification
+            else:
+                logger.info(
+                    "Large-Scale Aggregate: omission repair discarded "
+                    "(grounded=%s, still missing %s); serving the original paraphrase.",
+                    repaired_ok, repaired_missing,
+                )
 
     if not verifier_passed:
         logger.warning(

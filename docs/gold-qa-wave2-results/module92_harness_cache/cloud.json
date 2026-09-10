@@ -1,0 +1,532 @@
+{
+ "A1::gold": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 8.24,
+  "route": "ERROR"
+ },
+ "A1::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.51,
+  "route": "ERROR"
+ },
+ "A1::para::roman_ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.41,
+  "route": "ERROR"
+ },
+ "A1::para::ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.5,
+  "route": "ERROR"
+ },
+ "A7::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "A7::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.42,
+  "route": "ERROR"
+ },
+ "A7::para::roman_ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.51,
+  "route": "ERROR"
+ },
+ "A7::para::ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.49,
+  "route": "ERROR"
+ },
+ "CP1::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CP1::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.43,
+  "route": "ERROR"
+ },
+ "CP1::para::roman_ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.44,
+  "route": "ERROR"
+ },
+ "CP1::para::ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.44,
+  "route": "ERROR"
+ },
+ "CP6::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CP6::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.41,
+  "route": "ERROR"
+ },
+ "CP6::para::roman_ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.47,
+  "route": "ERROR"
+ },
+ "CP6::para::ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.39,
+  "route": "ERROR"
+ },
+ "CR2::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR2::para::en": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR2::para::roman_ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.5,
+  "route": "ERROR"
+ },
+ "CR2::para::ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.43,
+  "route": "ERROR"
+ },
+ "CR3::gold": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.5,
+  "route": "ERROR"
+ },
+ "CR3::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.46,
+  "route": "ERROR"
+ },
+ "CR3::para::roman_ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.48,
+  "route": "ERROR"
+ },
+ "CR3::para::ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.43,
+  "route": "ERROR"
+ },
+ "CR4::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR4::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 2.18,
+  "route": "ERROR"
+ },
+ "CR4::para::roman_ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.43,
+  "route": "ERROR"
+ },
+ "CR4::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR6::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR6::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.52,
+  "route": "ERROR"
+ },
+ "CR6::para::roman_ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.38,
+  "route": "ERROR"
+ },
+ "CR6::para::ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.5,
+  "route": "ERROR"
+ },
+ "CR7::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR7::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.38,
+  "route": "ERROR"
+ },
+ "CR7::para::roman_ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.5,
+  "route": "ERROR"
+ },
+ "CR7::para::ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.47,
+  "route": "ERROR"
+ },
+ "CR8::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR8::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.46,
+  "route": "ERROR"
+ },
+ "CR8::para::roman_ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.54,
+  "route": "ERROR"
+ },
+ "CR8::para::ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.37,
+  "route": "ERROR"
+ },
+ "CS4::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CS4::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.52,
+  "route": "ERROR"
+ },
+ "CS4::para::roman_ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.44,
+  "route": "ERROR"
+ },
+ "CS4::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "D1::gold": {
+  "detail": "override",
+  "elapsed_s": 4.72,
+  "route": "XAGG"
+ },
+ "D1::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.44,
+  "route": "ERROR"
+ },
+ "D1::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "D1::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XNETWORK"
+ },
+ "G1::gold": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.37,
+  "route": "ERROR"
+ },
+ "G1::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.36,
+  "route": "ERROR"
+ },
+ "G2::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "G2::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.53,
+  "route": "ERROR"
+ },
+ "G2::para::roman_ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.42,
+  "route": "ERROR"
+ },
+ "G2::para::ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.51,
+  "route": "ERROR"
+ },
+ "G3::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "G3::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.38,
+  "route": "ERROR"
+ },
+ "G3::para::roman_ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.51,
+  "route": "ERROR"
+ },
+ "G3::para::ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.39,
+  "route": "ERROR"
+ },
+ "G5::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "G5::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.6,
+  "route": "ERROR"
+ },
+ "G5::para::roman_ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.37,
+  "route": "ERROR"
+ },
+ "G5::para::ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.57,
+  "route": "ERROR"
+ },
+ "G6::gold": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.56,
+  "route": "ERROR"
+ },
+ "G6::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.38,
+  "route": "ERROR"
+ },
+ "G6::para::roman_ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.52,
+  "route": "ERROR"
+ },
+ "G6::para::ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.36,
+  "route": "ERROR"
+ },
+ "KB1::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.52,
+  "route": "ERROR"
+ },
+ "KB1::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "KB1::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "KB2::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.36,
+  "route": "ERROR"
+ },
+ "KB2::para::ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.39,
+  "route": "ERROR"
+ },
+ "KB3::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.51,
+  "route": "ERROR"
+ },
+ "KB4::para::roman_ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.53,
+  "route": "ERROR"
+ },
+ "KB5::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.55,
+  "route": "ERROR"
+ },
+ "KB6::para::roman_ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.5,
+  "route": "ERROR"
+ },
+ "KB6::para::ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.43,
+  "route": "ERROR"
+ },
+ "KB9::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.37,
+  "route": "ERROR"
+ },
+ "KB9::para::ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.37,
+  "route": "ERROR"
+ },
+ "M1::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M1::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.48,
+  "route": "ERROR"
+ },
+ "M1::para::roman_ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.41,
+  "route": "ERROR"
+ },
+ "M1::para::ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.57,
+  "route": "ERROR"
+ },
+ "M2::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M2::para::en": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M2::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M2::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M4::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M4::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.38,
+  "route": "ERROR"
+ },
+ "M4::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M4::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M5::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M5::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.5,
+  "route": "ERROR"
+ },
+ "M5::para::roman_ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.41,
+  "route": "ERROR"
+ },
+ "M5::para::ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.48,
+  "route": "ERROR"
+ },
+ "M7::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M7::para::en": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M7::para::roman_ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.41,
+  "route": "ERROR"
+ },
+ "M7::para::ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.5,
+  "route": "ERROR"
+ },
+ "S2::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "S2::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.53,
+  "route": "ERROR"
+ },
+ "S2::para::roman_ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.41,
+  "route": "ERROR"
+ },
+ "S2::para::ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.49,
+  "route": "ERROR"
+ },
+ "S3::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "S3::para::en": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.44,
+  "route": "ERROR"
+ },
+ "S3::para::roman_ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.44,
+  "route": "ERROR"
+ },
+ "S3::para::ur": {
+  "detail": "ClientError: 401 UNAUTHENTICATED. {'error': {'code': 401, 'message': 'Request had invalid authentication credentials. Expected OAuth ",
+  "elapsed_s": 0.43,
+  "route": "ERROR"
+ }
+}

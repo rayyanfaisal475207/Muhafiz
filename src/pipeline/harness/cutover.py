@@ -376,6 +376,20 @@ async def run_cutover_query(
             out["ms"] = evt.ms
         if evt.sources:
             out["sources"] = evt.sources
+        # [Gold-QA fix — Module 116] `PipelineEvent` is `extra="allow"`, and
+        # until now every extra a sub-agent attached was silently dropped
+        # right here — the model carried it, the SSE dict did not. That is
+        # why `supervisor:dispatch`'s route had to be scraped out of `detail`
+        # by regex at all, and why the scrape could not tell the top-level
+        # dispatch from a Meta-Analysis sub-query dispatch (see
+        # `supervisor.py`'s own comment at that emit for the full defect).
+        # Forwarded generically rather than by naming `route`/`nested`, so a
+        # future event's extras reach the stream without another edit here.
+        # `step`/`status`/`detail`/`ms`/`sources` are set above and are not
+        # overwritable from extras, so this cannot change any existing field.
+        for _k, _v in (evt.model_extra or {}).items():
+            if _k not in out:
+                out[_k] = _v
         yield out
 
     result = await handle_task

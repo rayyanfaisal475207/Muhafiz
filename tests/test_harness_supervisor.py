@@ -41,6 +41,10 @@ from src.pipeline.harness.supervisor import (
     register,
     unregister,
 )
+from src.pipeline.xagg import (
+    resolve_aggregate_kind,
+    resolves_to_specific_aggregate,
+)
 from src.pipeline.harness.types import (
     CallerContext,
     ConversationContext,
@@ -419,12 +423,39 @@ def test_time_comparison_guard_is_scoped_to_xagg_route_only():
 
 
 def test_time_comparison_guard_does_not_suppress_unrelated_xagg_meta_analysis_triggers():
-    """An XAGG-routed query matching a DIFFERENT Meta-Analysis trigger (not
-    the year-over-year comparison shape) must still decompose normally --
-    this guard is narrow to the shared time-comparison pattern family, not
-    a blanket "XAGG never decomposes" rule."""
+    """An XAGG-routed query matching a DIFFERENT Meta-Analysis trigger must
+    still decompose normally -- neither guard is a blanket "XAGG never
+    decomposes" rule.
+
+    [Gold-QA fix -- Module 41] Query text changed, assertion unchanged.
+    This test used to assert over M2's gold text ("Is caseload growing
+    faster at our general-purpose stations, or at the handful set up for
+    one specific type of crime?"), encoding Module 26's narrowness as an
+    invariant. Module 41 deliberately supersedes that: M2 resolves to a
+    purpose-built outcome, which is a better answer than decomposing into
+    halves that each invent a split. M2's own new behaviour is asserted
+    separately in `test_module41_m2_station_type_question_skips_decomposition`
+    below.
+
+    [Gold-QA fix -- Module 44] At the time of writing that outcome was
+    `unsupported_station_type`, XAGG's honest "this data model has no
+    station-type dimension" refusal. Module 44 found the refusal's claim was
+    no longer true and replaced it with
+    `station_caseload_by_specialisation`, a real aggregate. The reason M2
+    skips decomposition is therefore stronger now, not weaker, and this
+    test's own subject (a query that resolves to NOTHING specific) is
+    untouched by that.
+
+    The text here is instead a caseload-review shape that resolves to
+    `station_or_category_counts` -- the chain's trailing catch-all, i.e.
+    XAGG has no purpose-built answer for it -- so it still decomposes, and
+    for the reason the guard is actually about."""
     route_result = {"route": "XAGG", "case_scope": "cross_case", "output_format": "chat"}
-    query_text = "Is caseload growing faster at our general-purpose stations, or at the handful set up for one specific type of crime?"
+    query_text = (
+        "Acting as a duty supervisor, is there anything about the way these "
+        "matters have been handled that looks unusual?"
+    )
+    assert not resolves_to_specific_aggregate(query_text)
     assert classify_to_subagent(route_result, query_text) == META_ANALYSIS
 
 
@@ -914,9 +945,20 @@ async def test_handle_allow_meta_analysis_false_reaches_classify_to_subagent(mon
     # _GLOBAL_SEARCH_TRIGGER_PATTERNS's own "recurring themes across" match,
     # which would otherwise confound which override this test is isolating.
     _stub_route_query(monkeypatch, {"route": "XAGG", "case_scope": "cross_case", "output_format": "chat"})
+    # [Gold-QA fix -- Module 41] Query text changed, assertions unchanged.
+    # The original text ("Aggregate the weapon types used across all cases
+    # this year and flag any case where the weapon matches an unresolved
+    # case's weapon.") now resolves to `weapon_compliance_scan` -- "weapon"
+    # + the literal "flag", which is a `_COMPLIANCE_TERMS` entry -- so
+    # Module 41's skip guard sends it straight to Large-Scale Aggregate and
+    # it can no longer isolate the allow_meta_analysis plumbing this test
+    # is actually about. Swapped for CR3's record-consistency shape, which
+    # `meta_analysis.py::_DECOMPOSITION_PLANS` owns outright and which
+    # Module 41's guard is deliberately subordinate to, so it reaches
+    # META_ANALYSIS for a reason that cannot drift with the aggregate chain.
     query_text = (
-        "Aggregate the weapon types used across all cases this year and flag "
-        "any case where the weapon matches an unresolved case's weapon."
+        "In the online banking fraud matter involving two separate victims, "
+        "was each victim's case processed and recorded the same way?"
     )
 
     meta_mock = _mock_sub_agent(META_ANALYSIS, SubAgentResult(status=SubAgentStatus.OK, answer_text="combined"))
@@ -1191,3 +1233,535 @@ def test_data_quality_query_selects_its_sub_agent(query, route):
         {"route": route, "case_scope": "within_case"}, query, allow_meta_analysis=True
     )
     assert selected == "Data-Quality/Extraction-Coverage"
+
+
+# ══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 41, questions G2/G5] The Meta-Analysis skip guard,
+# generalised from Module 26's one time-comparison shape to "any question
+# XAGG resolves to a purpose-built single-call aggregate".
+#
+# G2 regressed 0.4 → 0.0 and G5 0.6 → 0.0 in the 2026-09-08 post-fix
+# evaluation because both route XAGG, both match
+# `_META_ANALYSIS_TRIGGER_PATTERNS`, and neither matches
+# `_TIME_COMPARISON_XAGG_PATTERNS` — so Meta-Analysis decomposed a question
+# `run_aggregate()` answers in one call, a sub-question errored, and the
+# synthesis was rejected as ungrounded.
+# ══════════════════════════════════════════════════════════════════════
+
+_XAGG_CROSS_CASE = {"route": "XAGG", "case_scope": "cross_case", "output_format": "chat"}
+
+# The literal gold text of the two regressed questions, copied verbatim from
+# `evaluation/Gold_QA_Dataset_Final32_With_Answers.json`. Asserting over the
+# real strings, not paraphrases, is the whole point — the regression was
+# specific to these exact texts.
+_G2_GOLD = (
+    "فرض کریں آپ کسی ایس ایچ او کو بریفنگ دے رہے ہیں کہ کون سے مقدمے دب کر یا "
+    "نظر سے اوجھل ہو کر رہ سکتے ہیں — آپ کن چیزوں کی نشاندہی کریں گے؟"
+)
+_G5_GOLD = (
+    "Baramad shuda hathiyaron ki record keeping ko dekhte hue, kya koi aisi "
+    "baat hai jo compliance ke lihaz se flag karne layak ho?"
+)
+# M1's gold text — Module 26's own guard, which must keep working.
+_M1_GOLD = "What kinds of cases are we dealing with now compared to a couple of years back?"
+# The three questions Module 29's `_DECOMPOSITION_PLANS` own outright.
+_CR3_GOLD = (
+    "In the online banking fraud matter involving two separate victims, was "
+    "each victim's case processed and recorded the same way?"
+)
+_G1_GOLD = (
+    "Acting as a crime analyst, review our current caseload and flag anything "
+    "that looks unusual or worth monitoring."
+)
+_G6_GOLD = (
+    "Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation note "
+    "likhein — unhein mojooda case load se kya tawaqqo rakhni chahiye?"
+)
+_M2_GOLD = (
+    "Is caseload growing faster at our general-purpose stations, or at the "
+    "handful set up for one specific type of crime?"
+)
+# [Gold-QA fix — Module 44] CS4's gold text.
+_CS4_GOLD = (
+    "Kya wusee criminal-history records mein koi aisa shakhs hai jo hamare "
+    "apne darj kiye hue kisi case se match nahi karta?"
+)
+# [Gold-QA fix — Module 43] M7's gold text.
+_M7_GOLD = (
+    "Kya log 2026 mein waqiaat ki police ko itni hi jaldi ittila de rahe hain "
+    "jitni 2024 mein dete the?"
+)
+
+
+def test_module43_m7_gold_text_skips_decomposition_and_reaches_the_aggregate():
+    """M7 must reach Large-Scale Aggregate in ONE call.
+
+    Module 43's investigation: M7 was filed at FactualCorrectness 0.0,
+    contradicting Module 22's recorded live verification. Layers 1 and 2
+    (the aggregate, and `run_aggregate()`'s dispatch) were re-derived
+    against the live graph and both return gold exactly, and three live
+    `/api/chat` runs did too — so Module 22 was right.
+
+    The one path that still leads back to a wrong-metric M7 answer is
+    decomposition: `_reporting_delay_rate_by_year()` (the delay-REASON
+    rate, 0% -> 14.9%, which is what the only M7 answer recorded in this
+    repository actually contains) has no dispatch entry of its own any
+    more, but a sub-question that drops M7's comparison vocabulary lands on
+    the neighbouring reporting-delay family instead. Module 41's guard is
+    what keeps M7 out of Meta-Analysis; nothing pinned that for M7
+    specifically until now."""
+    assert resolve_aggregate_kind(_M7_GOLD) == "incident_to_report_minutes_by_year"
+    assert resolves_to_specific_aggregate(_M7_GOLD)
+    assert classify_to_subagent(_XAGG_CROSS_CASE, _M7_GOLD) == LARGE_SCALE_AGGREGATE
+
+
+def test_module41_g2_gold_text_skips_decomposition_and_reaches_the_aggregate():
+    """G2's literal gold text must reach Large-Scale Aggregate, not
+    Meta-Analysis. Before Module 41 the live trace read
+    `route='XAGG' -> sub-agent='Meta-Analysis'`."""
+    assert resolve_aggregate_kind(_G2_GOLD) == "case_completeness_scan"
+    assert resolves_to_specific_aggregate(_G2_GOLD)
+    assert classify_to_subagent(_XAGG_CROSS_CASE, _G2_GOLD) == LARGE_SCALE_AGGREGATE
+
+
+def test_module41_g5_gold_text_skips_decomposition_and_reaches_the_aggregate():
+    """G5's literal gold text, same shape as G2's."""
+    assert resolve_aggregate_kind(_G5_GOLD) == "weapon_compliance_scan"
+    assert resolves_to_specific_aggregate(_G5_GOLD)
+    assert classify_to_subagent(_XAGG_CROSS_CASE, _G5_GOLD) == LARGE_SCALE_AGGREGATE
+
+
+def test_module41_g2_and_g5_still_match_the_meta_analysis_trigger_patterns():
+    """The negative half of the two tests above: they are only meaningful
+    because both questions DO match `_META_ANALYSIS_TRIGGER_PATTERNS` and
+    would still be decomposed without the guard. If a later edit removes
+    those pattern matches, the two tests above would start passing for the
+    wrong reason — this one fails instead."""
+    for text in (_G2_GOLD, _G5_GOLD):
+        assert any(
+            pat.search(text) for pat in supervisor_mod._META_ANALYSIS_TRIGGER_PATTERNS
+        )
+        assert classify_to_subagent(_XAGG_CROSS_CASE, text, allow_meta_analysis=True) == (
+            LARGE_SCALE_AGGREGATE
+        )
+
+
+def test_module41_m1_still_skips_via_the_original_time_comparison_guard():
+    """Module 26's guard is untouched and still load-bearing on its own
+    terms — M1 must skip because of the pattern list, independent of
+    whatever the aggregate chain resolves it to."""
+    from src.pipeline.router import _TIME_COMPARISON_XAGG_PATTERNS
+
+    assert any(pat.search(_M1_GOLD) for pat in _TIME_COMPARISON_XAGG_PATTERNS)
+    assert classify_to_subagent(_XAGG_CROSS_CASE, _M1_GOLD) == LARGE_SCALE_AGGREGATE
+
+
+@pytest.mark.parametrize(
+    "label, query_text, plan_name",
+    [
+        ("CR3", _CR3_GOLD, "record_consistency"),
+        ("G1", _G1_GOLD, "caseload_review"),
+        ("G6", _G6_GOLD, "orientation_note"),
+    ],
+)
+def test_module41_guard_is_subordinate_to_module29_decomposition_plans(
+    label, query_text, plan_name
+):
+    """CR3, G1 and G6 are the questions XAGG genuinely CANNOT answer in one
+    call. Module 41's guard must never repeal Module 29 for them.
+
+    G1 is the load-bearing case: it DOES resolve to a specific aggregate
+    (`case_completeness_scan`), so without the plan veto in
+    `_xagg_answers_in_one_call()` it would silently stop decomposing."""
+    from src.pipeline.harness.agents.meta_analysis import _match_decomposition_plan
+
+    plan = _match_decomposition_plan(query_text)
+    assert plan is not None and plan.name == plan_name
+    assert not supervisor_mod._xagg_answers_in_one_call(query_text)
+    assert classify_to_subagent(_XAGG_CROSS_CASE, query_text) == META_ANALYSIS
+
+
+def test_module41_g1_would_resolve_specifically_but_for_its_plan():
+    """Pins the reason the previous test's G1 case is not a coincidence."""
+    assert resolves_to_specific_aggregate(_G1_GOLD)
+    assert resolve_aggregate_kind(_G1_GOLD) == "case_completeness_scan"
+
+
+def test_module41_m2_station_type_question_skips_decomposition():
+    """M2 must reach Large-Scale Aggregate in one call.
+
+    [Gold-QA fix — Module 44] The ASSERTION here is unchanged; its REASON
+    changed. Module 41 pinned this because M2 resolved to
+    `unsupported_station_type` and `unsupported_aggregate` counts as
+    resolved — decomposing an honest refusal produces two halves that each
+    invent a split. Module 44 found the refusal's claim was no longer true
+    (2 of the 19 stations are named Cyber Crime Circles and carry 9 of the
+    73 FIRs, which is M2's gold answer) and replaced it with a real
+    aggregate. M2 now skips decomposition because it resolves to a genuine
+    single-call family, which is a stronger reason for the same behaviour —
+    so the invariant Module 41 established is preserved, not weakened.
+
+    `_UNSUPPORTED_AGGREGATE_KINDS` is still load-bearing for the officer and
+    trend refusals; its own test below covers that."""
+    assert resolve_aggregate_kind(_M2_GOLD) == "station_caseload_by_specialisation"
+    assert resolves_to_specific_aggregate(_M2_GOLD)
+    assert classify_to_subagent(_XAGG_CROSS_CASE, _M2_GOLD) == LARGE_SCALE_AGGREGATE
+
+
+def test_module41_unsupported_refusals_still_count_as_resolved():
+    """The half of Module 41's `_UNSUPPORTED_AGGREGATE_KINDS` policy that
+    survives Module 44's removal of `unsupported_station_type`: an honest
+    refusal is a purpose-built outcome and must not be decomposed."""
+    from src.pipeline.xagg import _UNSUPPORTED_AGGREGATE_KINDS
+
+    officer_q = "Which investigating officer is assigned to the most cases?"
+    kind = resolve_aggregate_kind(officer_q)
+    assert kind == "unsupported_officer"
+    assert kind in _UNSUPPORTED_AGGREGATE_KINDS
+    assert resolves_to_specific_aggregate(officer_q)
+
+
+def test_module44_cs4_gold_text_skips_decomposition_and_reaches_the_aggregate():
+    """CS4's literal gold text.
+
+    Before Module 44 this resolved to `graph_recurrence_person` — CS4
+    carries "shakhs", and nothing in `_CRIMINAL_RECORD_KEYWORDS` matches
+    "criminal-history records". Because that kind is in
+    `_ENTITY_RECURRENCE_AGGREGATE_KINDS`, `resolves_to_specific_aggregate()`
+    was False and the supervisor sent CS4 to Meta-Analysis, whose recorded
+    decomposition INVERTED the set difference. Giving CS4 a purpose-built
+    aggregate closes both halves at once."""
+    assert resolve_aggregate_kind(_CS4_GOLD) == "criminal_record_local_match_gap"
+    assert resolves_to_specific_aggregate(_CS4_GOLD)
+    assert classify_to_subagent(_XAGG_CROSS_CASE, _CS4_GOLD) == LARGE_SCALE_AGGREGATE
+
+
+def test_module41_generic_fallbacks_do_not_count_as_resolvable():
+    """Reaching one of `run_aggregate()`'s three trailing catch-alls means
+    NOTHING matched — the opposite of evidence that XAGG has a single-call
+    answer — so those questions must still be free to decompose."""
+    from src.pipeline.xagg import _GENERIC_AGGREGATE_KINDS
+
+    for text in (
+        "list all cases",
+        "how many cases in total",
+        "how many cases per station",
+    ):
+        assert resolve_aggregate_kind(text) in _GENERIC_AGGREGATE_KINDS
+        assert not resolves_to_specific_aggregate(text)
+
+
+def test_module41_bare_entity_recurrence_does_not_count_as_resolvable():
+    """A query that matched only a NOUN is too weak a signal to suppress
+    decomposition — see `xagg._ENTITY_RECURRENCE_AGGREGATE_KINDS`. The
+    compound query below is the measured case: the recurrence aggregate
+    answers its first half only."""
+    text = (
+        "Aggregate the vehicles seen across all cases this year and cross-"
+        "reference any that also appear in an unresolved matter."
+    )
+    assert resolve_aggregate_kind(text) == "graph_recurrence_vehicle"
+    assert not resolves_to_specific_aggregate(text)
+
+
+def test_module41_guard_is_scoped_to_the_xagg_route_only():
+    """Same scoping Module 26 established: a non-XAGG cross-case route has
+    no equivalent one-call aggregate to fall back to, so it must still
+    decompose even when the text would resolve to an aggregate kind."""
+    assert resolves_to_specific_aggregate(_G5_GOLD)
+    for route in ("XNETWORK", "XGRAPH"):
+        route_result = {"route": route, "case_scope": "cross_case", "output_format": "chat"}
+        assert classify_to_subagent(route_result, _G5_GOLD) == META_ANALYSIS
+
+
+def test_module41_guard_respects_allow_meta_analysis_false_recursion_guard():
+    """A sub-query dispatch (`allow_meta_analysis=False`) must classify
+    exactly as before — the new guard runs ahead of the Meta-Analysis
+    branch, so it can only ever move a query TOWARDS Large-Scale
+    Aggregate, which is where that branch already sends it."""
+    assert classify_to_subagent(
+        _XAGG_CROSS_CASE, _G2_GOLD, allow_meta_analysis=False
+    ) == LARGE_SCALE_AGGREGATE
+
+
+def test_module41_resolution_is_side_effect_free():
+    """The cost argument, pinned. `resolve_aggregate_kind()` must never
+    acquire an `await`, a gateway call or an RLS/context-var write — the
+    supervisor calls it at routing time, on every XAGG query, purely to
+    ASK which aggregate would answer. Executing one there would double the
+    DB and graph work for every aggregate question in the system."""
+    import ast
+    import inspect
+    import textwrap
+
+    import src.pipeline.xagg as xagg_mod
+
+    for fn in (xagg_mod.resolve_aggregate_kind, xagg_mod.resolves_to_specific_aggregate):
+        assert not inspect.iscoroutinefunction(fn)
+        tree = ast.parse(textwrap.dedent(inspect.getsource(fn)))
+        # Compare over the parsed body only -- comments and the docstring
+        # (which legitimately DISCUSS the gateway and the await this test
+        # forbids) are not code.
+        fn_node = tree.body[0]
+        body = fn_node.body
+        if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
+            body = body[1:]
+        code = "\n".join(ast.unparse(node) for node in body)
+        assert "await " not in code
+        assert "gateway" not in code
+        assert "current_rls_active" not in code
+        assert "current_cross_case" not in code
+        assert "log_audit_event" not in code
+        # And structurally: no await/async expression anywhere in the tree.
+        for node in ast.walk(fn_node):
+            assert not isinstance(node, (ast.Await, ast.AsyncFor, ast.AsyncWith))
+
+
+def test_module41_all_32_gold_questions_dispatch_change_is_exactly_the_expected_set():
+    """The all-32 negative control. Assuming an XAGG route for every
+    question (the guard's precondition), exactly these ten change from
+    Meta-Analysis to Large-Scale Aggregate and nothing else moves.
+
+    Recorded in full in `docs/gold-qa-wave2-results/MODULE41_RESULT.md`.
+    Anything added or removed here is a real behavioural change that needs
+    re-verifying live, not a test to update casually.
+
+    [Gold-QA fix — Module 44] **CS4 was added, and it is exactly such a
+    change** — verified live over three runs, recorded in
+    `MODULE44_RESULT.md`. CS4 previously resolved to
+    `graph_recurrence_person`, one of the `_ENTITY_RECURRENCE_AGGREGATE_KINDS`
+    that deliberately do NOT count as resolved, so it kept its route to
+    Meta-Analysis and was decomposed into a sub-question that inverted its
+    set difference. Module 44 gives it a purpose-built aggregate, so it now
+    resolves specifically and skips decomposition. M2 stays in the set for
+    a changed reason (a real aggregate rather than an honest refusal), which
+    does not move it here."""
+    import io as _io
+    import json as _json
+    from pathlib import Path as _Path
+
+    dataset = (
+        _Path(__file__).resolve().parents[1]
+        / "evaluation"
+        / "Gold_QA_Dataset_Final32_With_Answers.json"
+    )
+    questions = _json.load(_io.open(dataset, encoding="utf-8"))
+    assert len(questions) == 32
+
+    from src.pipeline.router import _TIME_COMPARISON_XAGG_PATTERNS
+
+    changed = set()
+    for q in questions:
+        text = q["question"]
+        matched_meta = any(
+            pat.search(text) for pat in supervisor_mod._META_ANALYSIS_TRIGGER_PATTERNS
+        )
+        matched_time = any(pat.search(text) for pat in _TIME_COMPARISON_XAGG_PATTERNS)
+        # "before Module 41": Meta-Analysis iff a trigger matched and the
+        # time-comparison guard did not already claim it.
+        before = META_ANALYSIS if (matched_meta and not matched_time) else LARGE_SCALE_AGGREGATE
+        after = classify_to_subagent(_XAGG_CROSS_CASE, text)
+        if before != after:
+            assert before == META_ANALYSIS and after == LARGE_SCALE_AGGREGATE
+            changed.add(q["id"])
+
+    assert changed == {"CR6", "CR7", "CR8", "CS4", "M2", "M4", "M7", "G2", "G3", "G5"}
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 60, question M4] The reconciliation, pinned.
+# ═══════════════════════════════════════════════════════════════════════
+
+_M4_GOLD = (
+    "ایک طرف یہ دیکھیں کہ لوگوں پر کن دفعات میں مقدمے بن رہے ہیں، اور دوسری "
+    "طرف یہ کہ وہ مقدمے عدالت میں کہاں تک پہنچے — کیا دونوں سے کیس لوڈ کی "
+    "سنگینی کا ایک ہی اندازہ ہوتا ہے؟"
+)
+
+
+def test_module60_m4_gold_text_skips_decomposition_once_the_route_is_xagg():
+    """Module 41's guard, unchanged, fires for M4 the moment the route is
+    right — which is the whole of Module 60's argument for fixing the route
+    instead of the guard."""
+    assert resolve_aggregate_kind(_M4_GOLD) == "statute_court_stage_join"
+    assert resolves_to_specific_aggregate(_M4_GOLD)
+    assert supervisor_mod._xagg_answers_in_one_call(_M4_GOLD)
+    assert classify_to_subagent(_XAGG_CROSS_CASE, _M4_GOLD) == LARGE_SCALE_AGGREGATE
+
+
+def test_module60_m4_under_the_live_xnetwork_route_still_decomposes():
+    """The defect itself, pinned as a fact rather than a fix.
+
+    Module 41's guard is deliberately conditional on `route == "XAGG"`, so
+    under the route the LLM actually returned live (XNETWORK, 7 runs of 7)
+    M4 goes to Meta-Analysis no matter what the aggregate resolver says.
+    Module 60 does NOT widen that precondition — this test records why it
+    did not need to: widening it would have sent M4 to
+    `_ROUTE_TO_SUBAGENT["XNETWORK"]`, which still cannot reach the
+    statute x court-stage aggregate. If a later module ever does widen the
+    guard, this test fails and forces the negative control to be re-run."""
+    xnetwork = {"route": "XNETWORK", "case_scope": "cross_case", "output_format": "chat"}
+    assert classify_to_subagent(xnetwork, _M4_GOLD) == META_ANALYSIS
+    assert supervisor_mod._ROUTE_TO_SUBAGENT["XNETWORK"] != LARGE_SCALE_AGGREGATE
+
+
+def test_module60_m4_still_matches_the_meta_analysis_triggers():
+    """The negative half: the test above is only meaningful because M4's
+    text DOES match `_META_ANALYSIS_TRIGGER_PATTERNS` and would still be
+    decomposed under an XAGG route without Module 41's guard."""
+    assert any(
+        pat.search(_M4_GOLD) for pat in supervisor_mod._META_ANALYSIS_TRIGGER_PATTERNS
+    )
+
+
+def test_module60_m4_is_not_owned_by_a_module29_decomposition_plan():
+    """The trap Module 40's branch walked into: a matched deterministic plan
+    VETOES the Module 41 guard, so M4 would decompose on every run including
+    the ones where its one-call aggregate is the better answer. Module 60
+    deliberately adds no plan for M4."""
+    from src.pipeline.harness.agents.meta_analysis import _match_decomposition_plan
+
+    assert _match_decomposition_plan(_M4_GOLD) is None
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 67, second half] A wall-clock ceiling on the
+# Semantic Search dispatch.
+#
+# Module 60's before-arm caught M4's gold text routed to plain RAG on 2 of 6
+# runs; each of those runs spent 456 s / 487 s inside Semantic Search's
+# retrieve/rerank/evaluate retry loop and then returned status=error. The
+# abstention was right; the eight minutes it cost were not — at a 32-question
+# evaluation that presents as a TIMEOUT rather than as a misroute, which is
+# the artefact class Module 42 already had to unpick once.
+#
+# The bound is a wall-clock ceiling on ONE sub-agent, not a blanket request
+# timeout, and it returns a typed, greppable ABSTAINED — never a silent
+# failure and never `route=None`.
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def _slow_sub_agent(name: str, sleep_s: float):
+    """A sub-agent that takes longer than the deadline it will be given."""
+    import asyncio as _asyncio
+
+    started = []
+    finished = []
+
+    async def _handler(agent_input, *, on_event=None, gateway=None):
+        started.append(True)
+        await _asyncio.sleep(sleep_s)
+        finished.append(True)
+        return SubAgentResult(status=SubAgentStatus.OK, answer_text="should never be served")
+
+    _handler.name = name
+    _handler.started = started
+    _handler.finished = finished
+    return _handler
+
+
+async def test_module67_semantic_search_is_bounded_and_abstains_honestly(
+    monkeypatch, isolated_registry
+):
+    """The whole point of the bound: a doomed RAG dispatch ends in a typed
+    ABSTAINED with error.kind == 'timeout', not in an eight-minute hang."""
+    monkeypatch.setattr(supervisor_mod, "SEMANTIC_SEARCH_DEADLINE_S", 0.05)
+
+    async def fake_route_query(q, case_id=None):
+        return {"route": "RAG", "case_scope": "within_case", "output_format": "chat"}
+
+    monkeypatch.setattr(supervisor_mod, "route_query", fake_route_query)
+
+    handler = _slow_sub_agent(SEMANTIC_SEARCH, sleep_s=5.0)
+    events: list[PipelineEvent] = []
+    result = await Supervisor({SEMANTIC_SEARCH: handler}).handle(
+        _agent_input(query_text="something the corpus cannot answer"),
+        on_event=events.append,
+    )
+
+    assert handler.started == [True]
+    assert handler.finished == []          # cancelled, not merely ignored
+    assert result.status is SubAgentStatus.ABSTAINED
+    assert result.error is not None and result.error.kind == "timeout"
+    assert result.answer_text is None
+    assert any("still retrying" in c for c in result.caveats)
+    # The trace must SAY it was bounded. Module 42's `route=None` row was a
+    # client timeout that looked like a classification failure for weeks; a
+    # bounded dispatch must never be that ambiguous again.
+    errs = [e for e in events if e.step == "supervisor:dispatch" and e.status == "error"]
+    assert len(errs) == 1
+    assert "deadline" in errs[0].detail
+    assert SEMANTIC_SEARCH in errs[0].detail
+
+
+async def test_module67_a_fast_semantic_search_is_untouched(monkeypatch, isolated_registry):
+    """The negative half: a healthy RAG run must pass through the ceiling
+    byte-for-byte, with no extra caveat and no extra event."""
+    monkeypatch.setattr(supervisor_mod, "SEMANTIC_SEARCH_DEADLINE_S", 30.0)
+
+    async def fake_route_query(q, case_id=None):
+        return {"route": "RAG", "case_scope": "within_case", "output_format": "chat"}
+
+    monkeypatch.setattr(supervisor_mod, "route_query", fake_route_query)
+
+    expected = SubAgentResult(status=SubAgentStatus.OK, answer_text="the real answer")
+    handler = _mock_sub_agent(SEMANTIC_SEARCH, expected)
+    events: list[PipelineEvent] = []
+    result = await Supervisor({SEMANTIC_SEARCH: handler}).handle(
+        _agent_input(), on_event=events.append,
+    )
+
+    assert result is expected  # [PRESERVE] returned exactly as received
+    assert not [e for e in events if e.status == "error"]
+
+
+async def test_module67_the_ceiling_applies_to_semantic_search_only(
+    monkeypatch, isolated_registry
+):
+    """Deliberately NOT a blanket request timeout. Large-Scale Aggregate is a
+    single deterministic call and Meta-Analysis has its own per-sub-query
+    deadline (Module 53); neither may be cut by this one. If a later module
+    widens this to every sub-agent, this test fails — that is the point."""
+    monkeypatch.setattr(supervisor_mod, "SEMANTIC_SEARCH_DEADLINE_S", 0.05)
+
+    async def fake_route_query(q, case_id=None):
+        return {"route": "XAGG", "case_scope": "cross_case", "output_format": "chat"}
+
+    monkeypatch.setattr(supervisor_mod, "route_query", fake_route_query)
+
+    handler = _slow_sub_agent(LARGE_SCALE_AGGREGATE, sleep_s=0.4)
+    result = await Supervisor({LARGE_SCALE_AGGREGATE: handler}).handle(
+        _agent_input(query_text="how many cases are there in total across all cases?"),
+    )
+    assert handler.finished == [True]
+    assert result.status is SubAgentStatus.OK
+
+
+async def test_module67_the_ceiling_can_be_disabled(monkeypatch, isolated_registry):
+    """0 disables it. Kept explicit so an operator on a slow box has an
+    escape hatch that does not require editing code."""
+    monkeypatch.setattr(supervisor_mod, "SEMANTIC_SEARCH_DEADLINE_S", 0.0)
+
+    async def fake_route_query(q, case_id=None):
+        return {"route": "RAG", "case_scope": "within_case", "output_format": "chat"}
+
+    monkeypatch.setattr(supervisor_mod, "route_query", fake_route_query)
+
+    handler = _slow_sub_agent(SEMANTIC_SEARCH, sleep_s=0.3)
+    result = await Supervisor({SEMANTIC_SEARCH: handler}).handle(_agent_input())
+    assert handler.finished == [True]
+    assert result.status is SubAgentStatus.OK
+
+
+def test_module67_the_default_deadline_sits_between_the_measured_populations():
+    """The number is measured, not chosen — and this pins the two facts it was
+    derived from, so a later edit that halves it has to argue with them.
+
+    Slowest RAG run that legitimately SUCCEEDS on this corpus: KB6 at 247.1 s
+    (Module 42). Doomed RAG runs: 456 s and 487 s (Module 60's before-arm).
+    The default must sit strictly between, with real headroom above the
+    success."""
+    slowest_success_s = 247.1
+    fastest_doomed_s = 456.0
+    assert slowest_success_s * 1.25 < supervisor_mod.SEMANTIC_SEARCH_DEADLINE_S
+    assert supervisor_mod.SEMANTIC_SEARCH_DEADLINE_S < fastest_doomed_s

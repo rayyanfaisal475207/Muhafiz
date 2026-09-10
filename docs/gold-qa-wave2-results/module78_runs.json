@@ -1,0 +1,547 @@
+[
+  {
+    "id": "KB3",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+    "expected_answer": "The law expects separation. Article 18 of the Police Order, 2002 sets up a distinct Investigation Wing under a dedicated head of investigation, states that registered cases \"shall be investigated by the investigation staff\" under that head, and bars the District Police Officer from interfering in the investigation process — the clear intent is that logging a case and investigating it are separate functions. In practice, our data shows the opposite: the officer who records the FIR and the officer who ends up investigating it are the same person in 68 of 74 pairs (92%); role-splitting happens in only 6 cases. So the separation the law sets up isn't what's actually happening on the ground in this data.",
+    "actual_answer": "### Governing Provision:\nThe law does not explicitly require the officer who first registers a case to be the same one who investigates it. According to [Document 4], a police officer may investigate a non-cognizable case only with the order of a Magistrate, and any police officer receiving such an order may exercise the same powers in respect of the investigation (except the power to arrest without warrant) as an officer in charge of a police station may exercise in a cognizable case. This implies that the officer who registers the case (often the one who receives the information) may not necessarily be the same as the one who conducts the investigation, especially in non-cognizable cases. Additionally, [Document 7] states that an officer in charge of a station may be deputed to investigate, and in such cases, the investigation may be taken up and completed by the officer in charge of the police station or an assistant sub-inspector at the first opportunity, which further supports the idea that the roles may be separate.\n\n### Case Records:\nIn our case records, the two roles (the officer who recorded the FIR and the officer who investigated it) are mostly NOT separated: the officer who recorded the FIR and the officer who investigated it are the same person in 68 of 74 recorded assignment pairs (92%). Roles are split in only 6 pair(s), across 6 case(s). Of those 6, 3 of them carry an investigating officer with no recording officer on the same case at all, so the pair is unresolvable rather than genuinely split. The remaining 3 cases have different officers for recording and investigating. This indicates that while the law allows for the roles to be separate, in practice, they are often combined.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 60.3,
+    "xagg_log_lines": [
+      "XAGG officer_role_pair_overlap: 144 assignment edge(s), 74 investigating / 70 recording; same officer on 68 of 74 pair(s) (91.9%), 6 split across 6 case(s), 3 investigating assignment(s) with no recording counterpart"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "officer_role_pair",
+        "kind": "officer_role_pair_overlap",
+        "chars": 944
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal expectation regarding the roles of off"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB9",
+    "run": 1,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+    "expected_answer": "Code of Criminal Procedure, 1898 ki dafa 174 officer in charge ko paband karti hai ke jab use maloom ho ke koi shakhs khudkushi se, qatl se, ya aise halaat mein mara gaya jo shak paida karte hain, to woh tehqeeqaat kare aur maut ki zaahiri wajah par ek report tayyar kare — jism par mojood zakhmon ya nishaanaat ki tafseel ke saath — aur ise qareeb tareen magistrate ko bheje. Hamara data zahir karta hai ke aise cases mojood hain: 10 FIRs qatl ki dafa (PPC 302) ka hawala dete hain, aur kai zabt shuda property entries meyyat ke warisaan ko wapas karne ke liye nishaanzad hain. Magar schema mein kahin koi inquest, post-mortem ya cause-of-death record nahi. FIR aur uski dafaat yeh darj karti hain ke maut ka daawa kiya gaya hai; woh alag qanooni maut ki tehqeeqaat ko darj nahi kartin.",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 69.4,
+    "xagg_log_lines": [
+      "XAGG fir_section_case_count: 218 section entr(ies) over 73 FIR(s) and 36 distinct section(s); focus=302 -> 10 FIR(s); top=PPC §34=40, Arms Ordinance 1965 §13=29, PPC §392=21, CNSA 1997 §9(c)=12, PPC §420=11"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "death_investigation_charging",
+        "kind": "fir_section_case_count",
+        "chars": 829
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents discuss procedures for police inquiries into the cause o"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P-KB3",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "Under police law, is the person who records an FIR supposed to be a different officer from the one who investigates it — and what does our own data actually show about that?",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "### Governing Provision:\nUnder the Punjab Police Rules, there is no explicit requirement that the person who records an FIR must be a different officer from the one who investigates it. The rules focus on the procedures for registering a case, transferring investigations between police stations if necessary, and ensuring that investigations are conducted properly. However, they do not specifically mandate a separation of roles between the FIR recorder and the investigator.\n\n### Our Case Records:\nOur own case records show that in most cases, the officer who recorded the FIR and the officer who investigated it are the same person. Specifically, in 68 out of 74 recorded assignment pairs (92%), the roles are not separated. In only 6 cases, the roles are split, and in 3 of those 6 cases, the investigating officer has no recording officer associated with the case at all, making those pairs unresolvable rather than genuinely split [Document 6].",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 88.9,
+    "xagg_log_lines": [
+      "XAGG officer_role_pair_overlap: 144 assignment edge(s), 74 investigating / 70 recording; same officer on 68 of 74 pair(s) (91.9%), 6 split across 6 case(s), 3 investigating assignment(s) with no recording counterpart"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "officer_role_pair",
+        "kind": "officer_role_pair_overlap",
+        "chars": 944
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the norm clause of the question by describing th"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P-KB9",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "When a death looks suspicious the police must formally investigate the cause of death — does our system record that anywhere?",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "**Part 1: What the law, rule or guideline requires**  \nAccording to the Code of Criminal Procedure (Pakistan), when a death appears suspicious, the police are required to conduct an investigation into the cause of death. Specifically, Section 174 of the Code of Criminal Procedure mandates that an inquiry be held into the cause of death in cases of sudden or unnatural death. This includes situations where the death appears suspicious, and the police are required to investigate and gather evidence accordingly. This is supported by [Document 2] and [Document 6], which reference the legal obligations under Section 174 of the Code of Criminal Procedure.\n\n**Part 2: What our own case records actually show**  \nOur case records do not provide specific information about whether the police formally investigated the cause of death in cases where the death appeared suspicious. The summary of our case records ([Document 7]) does not include any field or data point that explicitly tracks whether formal investigations were conducted into the cause of death in suspicious cases. Therefore, it cannot be determined from the provided case records whether the system formally records such investigations.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 75.3,
+    "xagg_log_lines": [
+      "XAGG fir_section_case_count: 218 section entr(ies) over 73 FIR(s) and 36 distinct section(s); focus=302 -> 10 FIR(s); top=PPC §34=40, Arms Ordinance 1965 §13=29, PPC §392=21, CNSA 1997 §9(c)=12, PPC §420=11"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "death_investigation_charging",
+        "kind": "fir_section_case_count",
+        "chars": 829
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents discuss procedures for investigating the cause of death,"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P2-KB3",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "Is the officer who writes up an FIR meant to be a different person from the one who investigates the case, and do our own case records bear that out across the whole caseload?",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "The documents do not explicitly state that the officer who writes up an FIR must be a different person from the one who investigates the case. However, they do indicate that the officer in charge of a police station is responsible for investigating cases and may depute a subordinate to investigate the facts and circumstances of the case, as mentioned in [Document 2]. \n\nRegarding whether the case records bear this out across the whole caseload, the documents do not provide enough information to determine this.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 59.0,
+    "xagg_log_lines": [],
+    "data_half_answered": [],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents discuss the roles and responsibilities of officers in ch"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P2-KB9",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "Agar maut mashkook lage to kya police par maut ki wajah maloom karne ki qanooni zimmedari hai, aur kya hamare record mein aisi tehqeeqat kahin darj hoti hai?",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 65.5,
+    "xagg_log_lines": [
+      "XAGG fir_section_case_count: 218 section entr(ies) over 73 FIR(s) and 36 distinct section(s); focus=302 -> 10 FIR(s); top=PPC §34=40, Arms Ordinance 1965 §13=29, PPC §392=21, CNSA 1997 §9(c)=12, PPC §420=11"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "death_investigation_charging",
+        "kind": "fir_section_case_count",
+        "chars": 829
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal obligation on the police to determine "
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB3",
+    "run": 2,
+    "arm": "after",
+    "language": "en",
+    "question": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+    "expected_answer": "The law expects separation. Article 18 of the Police Order, 2002 sets up a distinct Investigation Wing under a dedicated head of investigation, states that registered cases \"shall be investigated by the investigation staff\" under that head, and bars the District Police Officer from interfering in the investigation process — the clear intent is that logging a case and investigating it are separate functions. In practice, our data shows the opposite: the officer who records the FIR and the officer who ends up investigating it are the same person in 68 of 74 pairs (92%); role-splitting happens in only 6 cases. So the separation the law sets up isn't what's actually happening on the ground in this data.",
+    "actual_answer": "### Legal Requirement:\nThe law does not explicitly require the officer who first registers a case to be the same one who investigates it. Instead, it allows for flexibility in assigning these roles. For example, under the **Code of Criminal Procedure (Pakistan)**, any police officer receiving an order to investigate may exercise the same powers as an officer in charge of a police station, without requiring that the officer who initially recorded the information also conduct the investigation [Document 3]. Similarly, **Punjab Police Rules-III** allows for the delegation of investigation to other officers, including those from the Criminal Investigation Department, and even specifies that in some cases, the officer in charge of the police station may be required to take over the investigation if a lower-ranking officer is deputed [Document 7].\n\n### What Actually Happens in Our Data:\nIn our case records, the roles of the officer who recorded the FIR and the officer who investigated the case are **mostly not separated**. In **68 out of 74 recorded assignment pairs (92%)**, the same officer both recorded the FIR and conducted the investigation. The roles are split in only **6 cases**, and in **3 of those 6**, the investigating officer had no recording officer assigned to the same case, making the split unresolvable rather than genuine [Document 8].",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 44.0,
+    "xagg_log_lines": [
+      "XAGG officer_role_pair_overlap: 144 assignment edge(s), 74 investigating / 70 recording; same officer on 68 of 74 pair(s) (91.9%), 6 split across 6 case(s), 3 investigating assignment(s) with no recording counterpart"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "officer_role_pair",
+        "kind": "officer_role_pair_overlap",
+        "chars": 944
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal expectations regarding the roles of of"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB9",
+    "run": 2,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+    "expected_answer": "Code of Criminal Procedure, 1898 ki dafa 174 officer in charge ko paband karti hai ke jab use maloom ho ke koi shakhs khudkushi se, qatl se, ya aise halaat mein mara gaya jo shak paida karte hain, to woh tehqeeqaat kare aur maut ki zaahiri wajah par ek report tayyar kare — jism par mojood zakhmon ya nishaanaat ki tafseel ke saath — aur ise qareeb tareen magistrate ko bheje. Hamara data zahir karta hai ke aise cases mojood hain: 10 FIRs qatl ki dafa (PPC 302) ka hawala dete hain, aur kai zabt shuda property entries meyyat ke warisaan ko wapas karne ke liye nishaanzad hain. Magar schema mein kahin koi inquest, post-mortem ya cause-of-death record nahi. FIR aur uski dafaat yeh darj karti hain ke maut ka daawa kiya gaya hai; woh alag qanooni maut ki tehqeeqaat ko darj nahi kartin.",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 66.4,
+    "xagg_log_lines": [
+      "XAGG fir_section_case_count: 218 section entr(ies) over 73 FIR(s) and 36 distinct section(s); focus=302 -> 10 FIR(s); top=PPC §34=40, Arms Ordinance 1965 §13=29, PPC §392=21, CNSA 1997 §9(c)=12, PPC §420=11"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "death_investigation_charging",
+        "kind": "fir_section_case_count",
+        "chars": 829
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents discuss procedures for police inquiries into the cause o"
+      }
+    ],
+    "quota_lines": [
+      "2026-09-09 23:08:27,503 [INFO] httpx: HTTP Request: POST https://discharge-fascism-richness.ngrok-free.dev/llm \"HTTP/1.1 200 OK\""
+    ]
+  },
+  {
+    "id": "P-KB3",
+    "run": 2,
+    "arm": "after",
+    "language": "en",
+    "question": "Under police law, is the person who records an FIR supposed to be a different officer from the one who investigates it — and what does our own data actually show about that?",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "### Governing Provision:\nUnder the Punjab Police Rules, there is no explicit requirement that the person who records an FIR must be a different officer from the one who investigates the case. The rules focus on the procedures for registering a case, transferring jurisdiction, and conducting investigations, but they do not specifically mandate a separation of roles between the FIR recorder and the investigator.\n\n### Our Case Records:\nOur own case records show that in most cases, the officer who recorded the FIR and the officer who investigated the case are the same person. Specifically, in 68 out of 74 recorded assignment pairs (92%), the roles are not separated. In only 6 cases, the roles are split, and in 3 of those 6 cases, the investigating officer has no recording officer associated with the case at all, making those pairs unresolvable rather than genuinely split [Document 6].",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 44.3,
+    "xagg_log_lines": [
+      "XAGG officer_role_pair_overlap: 144 assignment edge(s), 74 investigating / 70 recording; same officer on 68 of 74 pair(s) (91.9%), 6 split across 6 case(s), 3 investigating assignment(s) with no recording counterpart"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "officer_role_pair",
+        "kind": "officer_role_pair_overlap",
+        "chars": 944
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the norm clause of the question by describing th"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P-KB9",
+    "run": 2,
+    "arm": "after",
+    "language": "en",
+    "question": "When a death looks suspicious the police must formally investigate the cause of death — does our system record that anywhere?",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "**Part 1: What the law, rule or guideline requires**  \nAccording to the **Code of Criminal Procedure (Pakistan)**, when a death appears suspicious, the police are required to conduct an investigation into the cause of death. This is outlined in **Section 174** of the Code of Criminal Procedure, which mandates that an inquiry be held into the cause of death in cases of sudden or unnatural death. Additionally, **Section 176** specifies that when a person dies while in police custody, the nearest magistrate empowered to hold inquests must conduct an inquiry into the cause of death. These provisions ensure that the police formally investigate suspicious deaths.\n\n**Part 2: What our own case records actually show**  \nAccording to **our own case records** (Document 7), there is no specific field or record that directly indicates whether the police conducted a formal investigation into the cause of death in cases of suspicious death. The records only show the sections cited in FIRs, such as **PPC §302** (which relates to murder), but they do not explicitly track whether formal investigations into the cause of death were conducted. The summary of our records does not include any field that would indicate the presence or absence of such investigations.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 52.4,
+    "xagg_log_lines": [
+      "XAGG fir_section_case_count: 218 section entr(ies) over 73 FIR(s) and 36 distinct section(s); focus=302 -> 10 FIR(s); top=PPC §34=40, Arms Ordinance 1965 §13=29, PPC §392=21, CNSA 1997 §9(c)=12, PPC §420=11"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "death_investigation_charging",
+        "kind": "fir_section_case_count",
+        "chars": 829
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents discuss procedures for investigating the cause of death,"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P2-KB3",
+    "run": 2,
+    "arm": "after",
+    "language": "en",
+    "question": "Is the officer who writes up an FIR meant to be a different person from the one who investigates the case, and do our own case records bear that out across the whole caseload?",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "The documents do not explicitly state that the officer who writes up an FIR must be a different person from the one who investigates the case. However, they do indicate that the officer in charge of a police station is responsible for entering information into the First Information Report (FIR) Register and for initiating the investigation, as per the rules and procedures outlined in the documents. \n\nIn some cases, the officer in charge may depute a subordinate to investigate the facts and circumstances of the case, as mentioned in [Document 4]. This implies that while the officer in charge may initiate the investigation, a subordinate may be involved in the actual investigation process. However, the documents do not provide enough information to determine whether the officer who writes up the FIR is always a different person from the one who investigates the case across the entire caseload.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 83.9,
+    "xagg_log_lines": [],
+    "data_half_answered": [],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents do not address whether the officer who writes up an FIR "
+      },
+      {
+        "relevant": true,
+        "reason": "The retrieved documents discuss the procedural roles of officers in FIR registra"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P2-KB9",
+    "run": 2,
+    "arm": "after",
+    "language": "en",
+    "question": "Agar maut mashkook lage to kya police par maut ki wajah maloom karne ki qanooni zimmedari hai, aur kya hamare record mein aisi tehqeeqat kahin darj hoti hai?",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 46.3,
+    "xagg_log_lines": [
+      "XAGG fir_section_case_count: 218 section entr(ies) over 73 FIR(s) and 36 distinct section(s); focus=302 -> 10 FIR(s); top=PPC §34=40, Arms Ordinance 1965 §13=29, PPC §392=21, CNSA 1997 §9(c)=12, PPC §420=11"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "death_investigation_charging",
+        "kind": "fir_section_case_count",
+        "chars": 829
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal obligation on the police to determine "
+      }
+    ],
+    "quota_lines": [
+      "2026-09-09 23:12:30,429 [INFO] httpx: HTTP Request: POST https://discharge-fascism-richness.ngrok-free.dev/llm \"HTTP/1.1 200 OK\""
+    ]
+  },
+  {
+    "id": "KB3",
+    "run": 3,
+    "arm": "after",
+    "language": "en",
+    "question": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+    "expected_answer": "The law expects separation. Article 18 of the Police Order, 2002 sets up a distinct Investigation Wing under a dedicated head of investigation, states that registered cases \"shall be investigated by the investigation staff\" under that head, and bars the District Police Officer from interfering in the investigation process — the clear intent is that logging a case and investigating it are separate functions. In practice, our data shows the opposite: the officer who records the FIR and the officer who ends up investigating it are the same person in 68 of 74 pairs (92%); role-splitting happens in only 6 cases. So the separation the law sets up isn't what's actually happening on the ground in this data.",
+    "actual_answer": "### Governing Legal Provision:\nThe law does not explicitly require the officer who first registers a case to be the same one who investigates it. Instead, it provides general guidelines on the investigation process. For example, under the Code of Criminal Procedure (Pakistan), any police officer receiving an order to investigate may exercise the same powers as an officer in charge of a police station may exercise in a cognizable case [Document 4]. This implies that the investigation can be carried out by any officer, not necessarily the one who first registered the case.\n\nAdditionally, under Punjab Police Rules, an officer in charge of a police station may delegate investigation responsibilities to other officers, including those from the Criminal Investigation Department, and may also render assistance to them [Document 7]. This further supports the idea that the roles of registering and investigating a case are not necessarily tied to the same officer.\n\n### What Our Case Records Actually Show:\nIn our case records, the roles of the officer who recorded the FIR and the officer who investigated the case are mostly NOT separated. In 68 out of 74 recorded assignment pairs (92%), the same officer both recorded the FIR and investigated the case. The roles are split in only 6 cases, and in 3 of those 6, the investigating officer had no recording officer on the same case at all, making the pair unresolvable rather than genuinely split [Document 8].",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 50.4,
+    "xagg_log_lines": [
+      "XAGG officer_role_pair_overlap: 144 assignment edge(s), 74 investigating / 70 recording; same officer on 68 of 74 pair(s) (91.9%), 6 split across 6 case(s), 3 investigating assignment(s) with no recording counterpart"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "officer_role_pair",
+        "kind": "officer_role_pair_overlap",
+        "chars": 944
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal expectation regarding the roles of off"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB9",
+    "run": 3,
+    "arm": "after",
+    "language": "roman_ur",
+    "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+    "expected_answer": "Code of Criminal Procedure, 1898 ki dafa 174 officer in charge ko paband karti hai ke jab use maloom ho ke koi shakhs khudkushi se, qatl se, ya aise halaat mein mara gaya jo shak paida karte hain, to woh tehqeeqaat kare aur maut ki zaahiri wajah par ek report tayyar kare — jism par mojood zakhmon ya nishaanaat ki tafseel ke saath — aur ise qareeb tareen magistrate ko bheje. Hamara data zahir karta hai ke aise cases mojood hain: 10 FIRs qatl ki dafa (PPC 302) ka hawala dete hain, aur kai zabt shuda property entries meyyat ke warisaan ko wapas karne ke liye nishaanzad hain. Magar schema mein kahin koi inquest, post-mortem ya cause-of-death record nahi. FIR aur uski dafaat yeh darj karti hain ke maut ka daawa kiya gaya hai; woh alag qanooni maut ki tehqeeqaat ko darj nahi kartin.",
+    "actual_answer": "### Part 1: What the Law Requires\n\nAccording to the **Code of Criminal Procedure (Pakistan)**, when a person dies while in the custody of the police or under circumstances that suggest unnatural or suspicious death, the police are required to conduct an inquiry into the cause of death. This is outlined in **Section 174** of the Code of Criminal Procedure, which mandates that the police inquire and report on suicide, etc. Additionally, **Section 176** provides that in cases where a person dies while in police custody, the nearest magistrate empowered to hold inquests shall conduct an inquiry into the cause of death.\n\nFurthermore, **Punjab Police Rules-III** (Rule 25.31) states that upon receiving information of the sudden or unnatural death of any person within the local jurisdiction of a police station, the officer in charge must immediately inform the nearest magistrate authorized to hold inquests and proceed to the place where the body is to conduct an investigation in accordance with **Section 174** of the Code of Criminal Procedure.\n\n### Part 2: What Our Case Records Actually Show\n\nAccording to **our own case records** (Document 7), out of **73 FIRs** that carry a recorded section cite, **10** of them cite **PPC §302**, which pertains to murder. This indicates that **murder** is a significant category of cases in our records. However, the records do not explicitly state whether the police conducted detailed investigations into the cause of death in these cases, as required by the law. The records do not provide specific data on whether the police conducted inquiries into the cause of death in all cases of unnatural or suspicious deaths, nor do they provide a breakdown of how many cases involved the police conducting such inquiries.\n\nIn summary, while the law mandates that the police conduct inquiries into the cause of death in cases of unnatural or suspicious deaths, our case records do not provide sufficient information to confirm whether this requirement was consistently followed.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 52.6,
+    "xagg_log_lines": [
+      "XAGG fir_section_case_count: 218 section entr(ies) over 73 FIR(s) and 36 distinct section(s); focus=302 -> 10 FIR(s); top=PPC §34=40, Arms Ordinance 1965 §13=29, PPC §392=21, CNSA 1997 §9(c)=12, PPC §420=11"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "death_investigation_charging",
+        "kind": "fir_section_case_count",
+        "chars": 829
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents discuss procedures for police inquiries into the cause o"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P-KB3",
+    "run": 3,
+    "arm": "after",
+    "language": "en",
+    "question": "Under police law, is the person who records an FIR supposed to be a different officer from the one who investigates it — and what does our own data actually show about that?",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "### Governing Provision:\nUnder the Punjab Police Rules, there is no explicit requirement that the person who records an FIR must be a different officer from the one who investigates the case. The rules focus on the procedures for registering a case, transferring jurisdiction, and conducting investigations, but they do not specifically mandate a separation of roles between the FIR recorder and the investigator.\n\n### Our Case Records:\nOur own case records show that in most cases, the officer who recorded the FIR and the officer who investigated the case are the same person. Specifically, in 68 out of 74 recorded assignment pairs (92%), the roles are not separated. In only 6 cases, the roles are split, and in 3 of those 6 cases, the investigating officer has no recording officer associated with the same case, making those pairs unresolvable rather than genuinely split [Document 6].",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 45.0,
+    "xagg_log_lines": [
+      "XAGG officer_role_pair_overlap: 144 assignment edge(s), 74 investigating / 70 recording; same officer on 68 of 74 pair(s) (91.9%), 6 split across 6 case(s), 3 investigating assignment(s) with no recording counterpart"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "officer_role_pair",
+        "kind": "officer_role_pair_overlap",
+        "chars": 944
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the norm clause of the question by describing th"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P-KB9",
+    "run": 3,
+    "arm": "after",
+    "language": "en",
+    "question": "When a death looks suspicious the police must formally investigate the cause of death — does our system record that anywhere?",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 50.8,
+    "xagg_log_lines": [
+      "XAGG fir_section_case_count: 218 section entr(ies) over 73 FIR(s) and 36 distinct section(s); focus=302 -> 10 FIR(s); top=PPC §34=40, Arms Ordinance 1965 §13=29, PPC §392=21, CNSA 1997 §9(c)=12, PPC §420=11"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "death_investigation_charging",
+        "kind": "fir_section_case_count",
+        "chars": 829
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents discuss procedures for investigating the cause of death,"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P2-KB3",
+    "run": 3,
+    "arm": "after",
+    "language": "en",
+    "question": "Is the officer who writes up an FIR meant to be a different person from the one who investigates the case, and do our own case records bear that out across the whole caseload?",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "The documents do not explicitly state that the officer who writes up an FIR must be a different person from the one who investigates the case. However, they do indicate that the officer in charge of a police station is responsible for investigating cases and may depute a subordinate to investigate the facts and circumstances of the case, as mentioned in [Document 2]. \n\nRegarding whether the case records bear this out across the whole caseload, the documents do not provide enough information to determine this.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 44.3,
+    "xagg_log_lines": [],
+    "data_half_answered": [],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents discuss the roles and responsibilities of officers in ch"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P2-KB9",
+    "run": 3,
+    "arm": "after",
+    "language": "en",
+    "question": "Agar maut mashkook lage to kya police par maut ki wajah maloom karne ki qanooni zimmedari hai, aur kya hamare record mein aisi tehqeeqat kahin darj hoti hai?",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 65.9,
+    "xagg_log_lines": [
+      "XAGG fir_section_case_count: 218 section entr(ies) over 73 FIR(s) and 36 distinct section(s); focus=302 -> 10 FIR(s); top=PPC §34=40, Arms Ordinance 1965 §13=29, PPC §392=21, CNSA 1997 §9(c)=12, PPC §420=11"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "death_investigation_charging",
+        "kind": "fir_section_case_count",
+        "chars": 829
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal obligation on the police to determine "
+      }
+    ],
+    "quota_lines": [
+      "2026-09-09 23:18:25,429 [INFO] src.pipeline.verifier: Verifier: grounded=False off_topic=False leaked=None unsupported=3 — The claims about Section 176, Rule 26.31, and the absence of inquest informat",
+      "2026-09-09 23:18:25,429 [WARNING] src.pipeline.harness.agents.semantic_search: Semantic Search: verifier rejected answer: The claims about Section 176, Rule 26.31, and the absence of inquest informati"
+    ]
+  }
+]

@@ -67,6 +67,8 @@ def reciprocal_rank_fusion(
     ranked_lists: list[list[dict]],
     top_k: int = 5,
     id_key: str = "id",
+    score_key: str = "rrf_score",
+    apply_year_boost: bool = True,
 ) -> list[dict]:
     """
     Combine multiple ranked document lists using Reciprocal Rank Fusion.
@@ -79,10 +81,27 @@ def reciprocal_rank_fusion(
         top_k:         How many top documents to return after fusion.
         id_key:        The key in each document dict that holds the unique ID.
                        Used to match the same document across different lists.
+        score_key:     Which key the fused score is written to. Defaults to
+                       "rrf_score". [Module 38] `cross_rerank_multi()` fuses
+                       a SECOND time, after the cross-encoder, over lists
+                       whose members already carry the first fusion's
+                       "rrf_score" — it passes its own key so the earlier,
+                       genuinely different score is not silently overwritten
+                       in the chunks that reach logging and provenance.
+        apply_year_boost:
+                       Whether to add the recency tie-breaker below. It is a
+                       prior over the CANDIDATE POOL and belongs to the one
+                       fusion that builds that pool. [Module 38] A second
+                       fusion pass must not re-apply it: the boost is up to
+                       +0.003 while the gap between adjacent RRF ranks near
+                       the top is 1/61 - 1/62 = 0.00026, so re-applying it
+                       would let a filename's year move a chunk several
+                       places for reasons that have nothing to do with the
+                       question.
 
     Returns:
-        Top-k documents sorted by their RRF score (highest first).
-        Each document dict has an added "rrf_score" key.
+        Top-k documents sorted by their fused score (highest first).
+        Each document dict has an added `score_key` key.
     """
     if not ranked_lists:
         return []
@@ -134,7 +153,7 @@ def reciprocal_rank_fusion(
         metadata = doc.get("metadata", {}) or {}
         record_date = metadata.get("record_date")
         year_source = record_date if record_date else (doc.get("source") or metadata.get("source", ""))
-        if year_source:
+        if apply_year_boost and year_source:
             year_match = re.search(r'\b(20\d{2})\b', str(year_source))
             if year_match:
                 year = int(year_match.group(1))
@@ -144,11 +163,11 @@ def reciprocal_rank_fusion(
                 # This breaks ties and slightly elevates newer docs
                 year_boost = max(0, (year - 2020) * 0.0005)
                 
-        doc["rrf_score"] = round(rrf_scores[doc_id] + year_boost, 6)
+        doc[score_key] = round(rrf_scores[doc_id] + year_boost, 6)
         results.append(doc)
-        
+
     # Re-sort after applying the year boost
-    results = sorted(results, key=lambda x: x["rrf_score"], reverse=True)[:top_k]
+    results = sorted(results, key=lambda x: x[score_key], reverse=True)[:top_k]
 
     logger.debug(
         "RRF: merged %d list(s) → %d unique docs → top %d selected",

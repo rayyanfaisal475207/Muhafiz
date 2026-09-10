@@ -58,19 +58,30 @@ from src.pipeline.harness.types import (
 from src.pipeline.xagg import (
     run_aggregate,
     render_criminal_record_crosscheck,
+    render_criminal_record_local_match_gap,
     render_cms_fir_linkage,
     render_dv_report_fir_match,
     render_case_completeness_scan,
     render_weapon_compliance_scan,
+    render_graph_recurrence,
     render_weapon_evidence_chain,
     render_court_readiness_scan,
+    render_station_caseload_by_specialisation,
     render_time_bucketed_mean,
     render_weapon_statute_cooccurrence,
     render_statute_court_stage_join,
+    render_officer_role_pair_overlap,
+    render_chalaan_dispatch_count,
+    render_fir_section_case_count,
+    render_fir_register_completeness,
     render_offender_age_profile,
     render_accused_relationship_breakdown,
     render_seized_property_disposition,
     render_incident_time_of_day,
+    render_arrest_rate,
+    render_filtered_fir_listing,
+    render_placeholder_officer_count,
+    render_statute_mix_by_year,
     _UNSUPPORTED_JURISDICTION,
 )
 from src.retrieval.graph_retriever import jurisdiction_unresolved
@@ -161,6 +172,39 @@ AggregateKind = Literal[
     "accused_relationship_breakdown",
     "seized_property_disposition",
     "incident_time_of_day",
+    # [Gold-QA fix — Module 35, G6] same additive convention — the
+    # arrest-rate shape. FIFTH module family to depend on this
+    # hand-maintained Literal; `tests/test_xagg.py::
+    # test_every_new_aggregate_kind_is_accepted_by_the_harness_tool_result`
+    # is what now forces it to be updated.
+    "arrest_rate",
+    # [Gold-QA fix — Module 36, CR3] same additive convention — the
+    # subject-filtered FIR listing shape.
+    "filtered_fir_listing",
+    # [Gold-QA fix — Module 44, questions M2 and CS4] SEVENTH and EIGHTH
+    # families to depend on this hand-maintained Literal. Added in the same
+    # commit as the aggregates themselves, before any live run, precisely
+    # because Module 31 proved that a missing entry here is invisible to
+    # every unit test and surfaces only as an EMPTY answer with status=None
+    # through /api/chat.
+    "station_caseload_by_specialisation",
+    "criminal_record_local_match_gap",
+    # [Gold-QA fix — Module 74, KB3] NINTH family to depend on this
+    # hand-maintained Literal. Added in the same commit as the
+    # aggregate itself, before any live run — the trap this comment
+    # block describes has now bitten four times, and every one of them
+    # surfaced only as an EMPTY answer with status=None through
+    # /api/chat, invisible to every unit test in tests/test_xagg.py.
+    "officer_role_pair_overlap",
+    # [Gold-QA fix — Module 75, KB8] TENTH family. Same additive
+    # convention, same commit as the aggregate.
+    "chalaan_dispatch_count",
+    # [Gold-QA fix — Module 76, KB9] ELEVENTH family. Same additive
+    # convention, same commit as the aggregate.
+    "fir_section_case_count",
+    # [Gold-QA fix — Module 89, KB1] TWELFTH family. Same additive
+    # convention, same commit as the aggregate.
+    "fir_register_completeness",
 ]
 
 
@@ -223,10 +267,9 @@ def _render_aggregate_text(agg_result: dict) -> str:
             f"**{len(rows)} matching {agg_result['entity_type']}(s) found.**",
             "",
         ] if rows else []
-        lines += [
-            f"- {r['name']} ({agg_result['entity_type']}): appears in {r['case_count']} cases — {', '.join(r['case_ids'])}"
-            for r in rows
-        ]
+        # [Gold-QA fix — CR2, Module 88] shared renderer; the leading total
+        # above is this site's own and is deliberately kept.
+        lines += render_graph_recurrence(agg_result)
     elif kind == "case_listing":
         cases = agg_result["cases"]
         lines = [f"**{len(cases)} matching case(s) found.**", ""] if cases else []
@@ -271,18 +314,7 @@ def _render_aggregate_text(agg_result: dict) -> str:
     # xagg.py::_placeholder_officer_count()'s own comment for why the two
     # can diverge.
     elif kind == "placeholder_officer_count":
-        cur, ever = agg_result["current_count"], agg_result["ever_count"]
-        asi, si = agg_result["asi_count"], agg_result["si_count"]
-        caveat = (
-            f" {ever - cur} additional case(s) originally had a placeholder "
-            f"officer too but have since been assigned a real one."
-            if ever > cur else ""
-        )
-        lines = [
-            f"{cur} FIRs currently carry only a placeholder investigating "
-            f"officer — {asi} marked \"(نامزد ASI)\", {si} marked "
-            f"\"(نامزد SI)\".{caveat}"
-        ]
+        lines = render_placeholder_officer_count(agg_result)
     elif kind == "district_breakdown":
         label = agg_result.get("entity_label")
         lines = [
@@ -307,6 +339,23 @@ def _render_aggregate_text(agg_result: dict) -> str:
         lines = render_weapon_evidence_chain(agg_result)
     elif kind == "court_readiness_scan":
         lines = render_court_readiness_scan(agg_result)
+    # [Gold-QA fix — Module 74, KB3] Kept in sync with orchestrator.py's
+    # two identical XAGG-route rendering sites, per this function's own
+    # docstring.
+    elif kind == "officer_role_pair_overlap":
+        lines = render_officer_role_pair_overlap(agg_result)
+    # [Gold-QA fix — Module 75, KB8] Kept in sync with orchestrator.py's
+    # two identical XAGG-route rendering sites.
+    elif kind == "chalaan_dispatch_count":
+        lines = render_chalaan_dispatch_count(agg_result)
+    # [Gold-QA fix — Module 76, KB9] Kept in sync with orchestrator.py's
+    # two identical XAGG-route rendering sites.
+    elif kind == "fir_section_case_count":
+        lines = render_fir_section_case_count(agg_result)
+    # [Gold-QA fix — Module 89, KB1] Kept in sync with orchestrator.py's
+    # two identical XAGG-route rendering sites.
+    elif kind == "fir_register_completeness":
+        lines = render_fir_register_completeness(agg_result)
     elif kind == "station_total_count":
         lines = [f"Total police stations: {agg_result['total_stations']}"]
     # [Gold-QA fix — Module 13, RC-2] Three new kinds from the rate/ratio
@@ -321,11 +370,11 @@ def _render_aggregate_text(agg_result: dict) -> str:
             f"weapon (~{round(100 * c['rate'])}%)"
             for c in agg_result["counts"]
         ]
+    # [Gold-QA fix — Module 90, M1] Now a shared renderer, kept in sync with
+    # orchestrator.py's two identical XAGG-route rendering sites by being the
+    # same function rather than a third hand-copy of it.
     elif kind == "time_bucketed_breakdown":
-        lines = []
-        for b in agg_result["buckets"]:
-            lines.append(f"**{b['year']}:**")
-            lines.extend(f"  - {c['key']}: {c['count']}" for c in b["counts"])
+        lines = render_statute_mix_by_year(agg_result)
     elif kind == "time_bucketed_rate":
         lines = [agg_result["note"], ""]
         lines.extend(
@@ -337,6 +386,13 @@ def _render_aggregate_text(agg_result: dict) -> str:
     # identical XAGG-route rendering sites, per this function's own docstring.
     elif kind == "time_bucketed_mean":
         lines = render_time_bucketed_mean(agg_result)
+    # [Gold-QA fix — Module 44, M2] Kept in sync with orchestrator.py's two
+    # identical XAGG-route rendering sites, per this function's own docstring.
+    elif kind == "station_caseload_by_specialisation":
+        lines = render_station_caseload_by_specialisation(agg_result)
+    # [Gold-QA fix — Module 44, CS4] same.
+    elif kind == "criminal_record_local_match_gap":
+        lines = render_criminal_record_local_match_gap(agg_result)
     # [Gold-QA fix — Module 23, M5] Kept in sync with orchestrator.py's two
     # identical XAGG-route rendering sites, per this function's own docstring.
     elif kind == "weapon_statute_cooccurrence":
@@ -356,6 +412,12 @@ def _render_aggregate_text(agg_result: dict) -> str:
     # [Gold-QA fix — Module 34, G1] same, for the time-of-day distribution.
     elif kind == "incident_time_of_day":
         lines = render_incident_time_of_day(agg_result)
+    # [Gold-QA fix — Module 35, G6] same, for the arrest rate.
+    elif kind == "arrest_rate":
+        lines = render_arrest_rate(agg_result)
+    # [Gold-QA fix — Module 36, CR3] same, for the filtered FIR listing.
+    elif kind == "filtered_fir_listing":
+        lines = render_filtered_fir_listing(agg_result)
     else:
         lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
         # [Legal-code semantic layer] Kept in sync with orchestrator.py's

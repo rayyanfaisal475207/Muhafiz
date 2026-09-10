@@ -1,0 +1,345 @@
+{
+  "module": 42,
+  "what_this_measures": "Why KB6 abstains. evaluate_relevance() is called directly (Layer 1 of HOW_TO_REPRODUCE_THIS_EVALUATION.md 4.1), with the retrieved chunk set held CONSTANT, while only the phrasing of the question varies. Every call uses the live evaluator, prompts/evaluator.txt unmodified, temperature 0.0.",
+  "date": "2026-09-08",
+  "chunk_sets": {
+    "LIVE": [
+      "5_Forensics_guidelines_pdf_62ee00b3_c0",
+      "5_Forensics_guidelines_pdf_62ee00b3_c18",
+      "5_Forensics_guidelines_pdf_62ee00b3_c5",
+      "5_Forensics_guidelines_pdf_62ee00b3_c116"
+    ],
+    "IDEAL": [
+      "5_Forensics_guidelines_pdf_62ee00b3_c19",
+      "5_Forensics_guidelines_pdf_62ee00b3_c18",
+      "5_Forensics_guidelines_pdf_62ee00b3_c20",
+      "5_Forensics_guidelines_pdf_62ee00b3_c114"
+    ],
+    "note": "c19 carries gold's statutory half verbatim: 'Every firearm must be packaged in unloaded condition with safety on. There must not be live rounds in the chamber of the firearm, magazine or in the parcel.' Both sets are widened by expand_with_neighbors(window=1), as the live KB path does, so both CONTAIN that text -- verified by assertion, not assumed."
+  },
+  "headline": "Language, not compoundness, decides the verdict. With gold's own text present in the chunks either way: an ENGLISH question is judged relevant 6/6; the roman-Urdu question 1/6. Removing the compound 'and does our weapon register...' clause does NOT help (roman-Urdu norm-only is the worst cell, 0/3), so this is NOT Module 39's gap. No wiring of the existing rewritten_query argument fixes it reliably (best 2/3).",
+  "experiments": {
+    "1_live_set_raw": [
+      {
+        "label": "KB6 roman-Urdu COMPOUND (gold)",
+        "run": 1,
+        "relevant": false,
+        "reason": "The retrieved documents discuss general evidence handling procedures (packaging, labeling, documentation) but do not explicitly mention a 'weapon register' or whether it records whether action has been taken on seized items. The guidelines address pre-registration handling steps, but the specific weapon register functionality is not addressed."
+      },
+      {
+        "label": "KB6 roman-Urdu COMPOUND (gold)",
+        "run": 2,
+        "relevant": false,
+        "reason": "The retrieved documents discuss general evidence handling procedures (packaging, labeling, documentation) but do not explicitly mention a 'weapon register' or whether it records whether action has been taken on seized items. The guidelines address pre-registration handling steps, but the specific weapon register functionality is not addressed."
+      },
+      {
+        "label": "KB6 roman-Urdu COMPOUND (gold)",
+        "run": 3,
+        "relevant": false,
+        "reason": "The retrieved documents discuss general evidence handling procedures (packaging, labeling, documentation) but do not explicitly mention a 'weapon register' or whether it records whether action has been taken on seized items. The guidelines address pre-registration handling steps, but the specific weapon register functionality is not addressed."
+      },
+      {
+        "label": "KB6 roman-Urdu NORM-ONLY",
+        "run": 1,
+        "relevant": false,
+        "reason": "The retrieved documents discuss evidence packaging, labeling, documentation, and transportation procedures, but do not explicitly mention specific guidelines for handling evidence before it is officially logged/recorded in the system. The focus is on post-collection steps rather than pre-logging handling protocols."
+      },
+      {
+        "label": "KB6 roman-Urdu NORM-ONLY",
+        "run": 2,
+        "relevant": false,
+        "reason": "The retrieved documents discuss evidence packaging, labeling, documentation, and transportation procedures, but do not explicitly mention specific guidelines for handling evidence before it is officially logged/recorded in the system. The focus is on post-collection steps rather than pre-logging handling protocols."
+      },
+      {
+        "label": "KB6 roman-Urdu NORM-ONLY",
+        "run": 3,
+        "relevant": false,
+        "reason": "The retrieved documents discuss evidence packaging, labeling, documentation, and transportation procedures, but do not explicitly mention specific guidelines for handling evidence before it is officially logged/recorded in the system. The focus is on post-collection steps rather than pre-logging handling protocols."
+      },
+      {
+        "label": "KB6 ENGLISH COMPOUND",
+        "run": 1,
+        "relevant": false,
+        "reason": "The retrieved documents mention general evidence packaging and documentation principles but do not specifically address firearm handling procedures before recording. They also contain no information about weapon register compliance tracking mechanisms."
+      },
+      {
+        "label": "KB6 ENGLISH COMPOUND",
+        "run": 2,
+        "relevant": false,
+        "reason": "The retrieved documents mention general evidence packaging and documentation principles but do not specifically address firearm handling procedures before recording. They also contain no information about weapon register compliance tracking mechanisms."
+      },
+      {
+        "label": "KB6 ENGLISH COMPOUND",
+        "run": 3,
+        "relevant": false,
+        "reason": "The retrieved documents mention general evidence packaging and documentation principles but do not specifically address firearm handling procedures before recording. They also contain no information about weapon register compliance tracking mechanisms."
+      }
+    ],
+    "2_live_vs_ideal_widened": [
+      {
+        "label": "LIVE set, widened (what live evaluator saw)",
+        "run": 1,
+        "relevant": false,
+        "reason": "The retrieved documents discuss forensic guidelines for handling evidence before logging (e.g., packaging, labeling, documentation, sealing) but do not mention a weapon register or whether it records whether a weapon was used. The second part of the question about the weapon register's specific functionality is not addressed.",
+        "contains_gold": true
+      },
+      {
+        "label": "LIVE set, widened (what live evaluator saw)",
+        "run": 2,
+        "relevant": false,
+        "reason": "The retrieved documents discuss forensic guidelines for handling evidence before logging (e.g., packaging, labeling, documentation, sealing) but do not mention a weapon register or whether it records whether a weapon was used. The second part of the question about the weapon register's specific functionality is not addressed.",
+        "contains_gold": true
+      },
+      {
+        "label": "LIVE set, widened (what live evaluator saw)",
+        "run": 3,
+        "relevant": false,
+        "reason": "The retrieved documents discuss forensic guidelines for handling evidence before logging (e.g., packaging, labeling, documentation, sealing) but do not mention a weapon register or whether it records whether a weapon was used. The second part of the question about the weapon register's specific functionality is not addressed.",
+        "contains_gold": true
+      },
+      {
+        "label": "IDEAL set incl. c19, widened",
+        "run": 1,
+        "relevant": false,
+        "reason": "The retrieved documents discuss forensic handling procedures for firearms (e.g., packaging, safety protocols) but do not mention weapon registration systems or whether they record usage status. The second part of the question about the weapon register's functionality is unaddressed.",
+        "contains_gold": true
+      },
+      {
+        "label": "IDEAL set incl. c19, widened",
+        "run": 2,
+        "relevant": false,
+        "reason": "The retrieved documents discuss forensic handling procedures for firearms (e.g., packaging, safety protocols) but do not mention weapon registration systems or whether they record usage status. The second part of the question about the weapon register's functionality is unaddressed.",
+        "contains_gold": true
+      },
+      {
+        "label": "IDEAL set incl. c19, widened",
+        "run": 3,
+        "relevant": false,
+        "reason": "The retrieved documents discuss forensic handling procedures for firearms (e.g., packaging, safety protocols) but do not mention weapon registration systems or whether they record usage status. The second part of the question about the weapon register's functionality is unaddressed.",
+        "contains_gold": true
+      }
+    ],
+    "3_compound_vs_norm_only": [
+      {
+        "label": "COMPOUND (gold KB6)",
+        "run": 1,
+        "relevant": false,
+        "reason": "The retrieved documents discuss forensic handling procedures for firearms (e.g., packaging, safety protocols) but do not mention weapon registration systems or whether they record usage status. The second part of the question about the weapon register's functionality is unaddressed."
+      },
+      {
+        "label": "COMPOUND (gold KB6)",
+        "run": 2,
+        "relevant": false,
+        "reason": "The retrieved documents discuss forensic guidelines for handling and packaging evidence (e.g., firearms, digital devices, biological samples) but do not mention procedures for recording seized items before registration or whether the weapon register tracks actions taken on weapons. The user's questions about documentation practices and weapon register specifics are not addressed."
+      },
+      {
+        "label": "COMPOUND (gold KB6)",
+        "run": 3,
+        "relevant": false,
+        "reason": "The retrieved documents discuss forensic guidelines for handling and packaging evidence (e.g., firearms, digital devices) but do not mention weapon registration practices or whether the weapon register records usage status. The question specifically asks about handling procedures before recording and the weapon register's functionality, which are not addressed in the documents."
+      },
+      {
+        "label": "NORM-ONLY roman-Urdu",
+        "run": 1,
+        "relevant": false,
+        "reason": "The retrieved documents discuss physical handling and storage protocols for evidence (e.g., packaging, temperature control, chain of custody) but do not mention any specific procedures for documenting or recording seized items in a system or database before they are officially logged. The question explicitly asks about guidelines for handling items 'before they are recorded,' which refers to procedural steps for documentation, not physical preservation."
+      },
+      {
+        "label": "NORM-ONLY roman-Urdu",
+        "run": 2,
+        "relevant": false,
+        "reason": "The retrieved documents discuss physical handling and storage protocols for evidence (e.g., packaging, temperature control, chain of custody) but do not mention any specific procedures for documenting or recording seized items in a system or database before they are officially logged. The question explicitly asks about guidelines for handling items 'before they are recorded,' which refers to procedural steps for documentation, not physical preservation."
+      },
+      {
+        "label": "NORM-ONLY roman-Urdu",
+        "run": 3,
+        "relevant": false,
+        "reason": "The retrieved documents discuss physical handling and storage protocols for evidence (e.g., packaging, temperature control, chain of custody) but do not mention any specific procedures for documenting or recording seized items in a system or database before they are officially logged. The question explicitly asks about guidelines for handling items 'before they are recorded,' which refers to procedural steps for documentation, not physical preservation."
+      },
+      {
+        "label": "NORM-ONLY English",
+        "run": 1,
+        "relevant": true,
+        "reason": "The retrieved documents specify handling procedures for recovered firearms, including packaging separately, ensuring unloaded condition with safety on, and maintaining chain of custody, which directly address handling before recording."
+      },
+      {
+        "label": "NORM-ONLY English",
+        "run": 2,
+        "relevant": true,
+        "reason": "The retrieved documents specify handling procedures for recovered firearms, including packaging separately, ensuring unloaded condition with safety on, and maintaining chain of custody, which directly address handling before recording."
+      },
+      {
+        "label": "NORM-ONLY English",
+        "run": 3,
+        "relevant": true,
+        "reason": "The retrieved documents specifically outline handling procedures for recovered firearms, including packaging in unloaded condition with safety on, separate packaging of firearms and ammunition, use of hard boxes for GSR analysis, and documentation of transportation with chain of custody. These steps directly address how firearms should be handled before being recorded as part of evidence."
+      }
+    ],
+    "4_two_by_two_language_x_compoundness": [
+      {
+        "cell": "compound/roman-Urdu",
+        "run": 1,
+        "relevant": false,
+        "reason": "The retrieved documents discuss forensic handling procedures for firearms (e.g., packaging, safety protocols) but do not mention weapon registration systems or whether they record usage status. The second part of the question about the weapon register's functionality is unaddressed."
+      },
+      {
+        "cell": "compound/roman-Urdu",
+        "run": 2,
+        "relevant": true,
+        "reason": "The retrieved documents address the handling of seized weapons before recording (e.g., packaging firearms unloaded with safety on, separate packaging, no live rounds). However, they do not mention the weapon register or whether it records usage status. Since the question is compound (norm clause + data clause), the norm clause (forensic guidelines) is sufficiently answered, making the documents relevant."
+      },
+      {
+        "cell": "compound/roman-Urdu",
+        "run": 3,
+        "relevant": false,
+        "reason": "The retrieved documents discuss forensic handling procedures for firearms (e.g., packaging, safety protocols) but do not mention weapon registration systems or whether they record usage status. The second part of the question about the weapon register's functionality is unaddressed."
+      },
+      {
+        "cell": "compound/English",
+        "run": 1,
+        "relevant": true,
+        "reason": "The retrieved documents directly address the handling of recovered firearms before recording, specifying requirements such as packaging in unloaded condition, separate packaging for cartridges, and use of hard boxes for GSR analysis. However, they do not mention the weapon register or compliance tracking. Since the question is compound (norm clause + our-data clause), the norm clause (guidelines) is sufficiently answered, making the documents relevant for that part of the query."
+      },
+      {
+        "cell": "compound/English",
+        "run": 2,
+        "relevant": true,
+        "reason": "The retrieved documents directly address the handling of recovered firearms before recording, specifying requirements such as packaging in unloaded condition, separate packaging for cartridges, and use of hard boxes for GSR analysis. However, they do not mention the weapon register or compliance tracking. Since the question is compound (norm clause + our-data clause), the norm clause (guidelines) is sufficiently answered, making the documents relevant for that part of the query."
+      },
+      {
+        "cell": "compound/English",
+        "run": 3,
+        "relevant": true,
+        "reason": "The retrieved documents directly address the handling of recovered firearms before recording, specifying requirements such as packaging in unloaded condition, separate packaging for cartridges, and use of hard boxes for GSR analysis. However, they do not mention the weapon register or compliance tracking. Since the question is compound (norm clause + our-data clause), the norm clause (guidelines) is sufficiently answered, making the documents relevant for that part of the query."
+      },
+      {
+        "cell": "norm-only/roman-Urdu",
+        "run": 1,
+        "relevant": false,
+        "reason": "The retrieved documents discuss handling of evidence during transportation, packaging, and storage but do not specifically address procedures for handling seized items before they are officially logged into the system (e.g., initial seizure protocols, temporary custody procedures, or pre-registration documentation requirements)."
+      },
+      {
+        "cell": "norm-only/roman-Urdu",
+        "run": 2,
+        "relevant": false,
+        "reason": "The retrieved documents discuss physical handling and storage protocols for evidence (e.g., packaging, temperature control, chain of custody) but do not mention any specific procedures for documenting or recording seized items in a system or database before they are officially logged. The question explicitly asks about guidelines for handling items 'before they are recorded,' which refers to procedural steps for documentation, not physical preservation."
+      },
+      {
+        "cell": "norm-only/roman-Urdu",
+        "run": 3,
+        "relevant": false,
+        "reason": "The retrieved documents discuss physical handling and storage protocols for evidence (e.g., packaging, temperature control, chain of custody) but do not mention any specific procedures for documenting or recording seized items in a system or database before they are officially logged. The question explicitly asks about guidelines for handling items 'before they are recorded,' which refers to procedural steps for documentation, not physical preservation."
+      },
+      {
+        "cell": "norm-only/English",
+        "run": 1,
+        "relevant": true,
+        "reason": "The retrieved documents specify handling procedures for recovered firearms, including packaging separately, ensuring firearms are unloaded with safety on, avoiding live rounds, and using hard boxes for GSR analysis. These directly address the handling of firearms before recording."
+      },
+      {
+        "cell": "norm-only/English",
+        "run": 2,
+        "relevant": true,
+        "reason": "The retrieved documents specify handling procedures for recovered firearms, including packaging separately, ensuring firearms are unloaded with safety on, avoiding live rounds, and using hard boxes for GSR analysis. These directly address the handling of firearms before recording."
+      },
+      {
+        "cell": "norm-only/English",
+        "run": 3,
+        "relevant": true,
+        "reason": "The retrieved documents specify handling procedures for recovered firearms, including packaging separately, ensuring unloaded condition with safety on, and maintaining chain of custody, which directly address handling before recording."
+      }
+    ],
+    "5_can_existing_wiring_fix_it": [
+      {
+        "case": "A original=roman, rewritten=roman   (live attempt 1)",
+        "run": 1,
+        "relevant": false,
+        "reason": "The retrieved documents discuss forensic handling procedures for firearms (e.g., packaging, safety protocols) but do not mention weapon registration systems or whether they record usage status. The second part of the question about the weapon register's functionality is unaddressed."
+      },
+      {
+        "case": "A original=roman, rewritten=roman   (live attempt 1)",
+        "run": 2,
+        "relevant": false,
+        "reason": "The retrieved documents discuss forensic handling procedures for firearms (e.g., packaging, safety protocols) but do not mention weapon registration systems or whether they record usage status. The second part of the question about the weapon register's functionality is unaddressed."
+      },
+      {
+        "case": "A original=roman, rewritten=roman   (live attempt 1)",
+        "run": 3,
+        "relevant": false,
+        "reason": "The retrieved documents discuss forensic guidelines for handling and packaging evidence (e.g., firearms, digital devices, biological samples) but do not mention procedures for recording seized items before registration or whether the weapon register tracks actions taken on weapons. The user's questions about documentation practices and weapon register specifics are not addressed."
+      },
+      {
+        "case": "B original=roman, rewritten=STATUTE (minimal wiring)",
+        "run": 1,
+        "relevant": false,
+        "reason": "Documents do not mention pre-logging handling procedures for evidence or any weapon register system that tracks actions taken on weapons. The retrieved guidelines focus solely on packaging, transportation, and storage of evidence after recovery, not on initial handling steps or weapon registration tracking."
+      },
+      {
+        "case": "B original=roman, rewritten=STATUTE (minimal wiring)",
+        "run": 2,
+        "relevant": false,
+        "reason": "The retrieved documents discuss forensic guidelines for handling, packaging, and transporting evidence (e.g., firearms, digital devices, biological samples) but do not mention anything about the weapon register or whether it records whether action has been taken on a weapon. The user's question specifically asks about the weapon register's functionality, which is not addressed in the documents."
+      },
+      {
+        "case": "B original=roman, rewritten=STATUTE (minimal wiring)",
+        "run": 3,
+        "relevant": true,
+        "reason": "The retrieved documents directly address the handling and packaging of evidence (e.g., firearms must be unloaded, packaged separately, and transported with chain of custody maintained), which answers the first part of the question about forensic guidelines. While the documents do not explicitly mention a 'weapon register' or its functionality to record usage status, the question's norm clause (guidelines on handling) is fully answered by the retrieved material."
+      },
+      {
+        "case": "C original=roman, rewritten=REWRITE (live retry)",
+        "run": 1,
+        "relevant": false,
+        "reason": "The retrieved documents discuss forensic handling procedures for seized weapons (e.g., packaging, safety measures, storage) but do not mention weapon registration processes or whether weapon registers track usage (amal hua ya nahi). The question explicitly asks about guidelines *before* registration and about the weapon register's content, which are not addressed in the documents."
+      },
+      {
+        "case": "C original=roman, rewritten=REWRITE (live retry)",
+        "run": 2,
+        "relevant": false,
+        "reason": "The retrieved documents discuss forensic handling procedures for seized weapons (e.g., packaging, safety measures, storage) but do not mention weapon registration processes or whether weapon registers track usage (amal hua ya nahi). The question explicitly asks about guidelines *before* registration and about the weapon register's content, which are not addressed in the documents."
+      },
+      {
+        "case": "C original=roman, rewritten=REWRITE (live retry)",
+        "run": 3,
+        "relevant": false,
+        "reason": "The retrieved documents discuss forensic handling procedures for seized weapons (e.g., packaging, safety measures, storage) but do not mention weapon registration processes or whether weapon registers track usage (amal hua ya nahi). The question explicitly asks about guidelines *before* registration and about the weapon register's content, which are not addressed in the documents."
+      },
+      {
+        "case": "D original=STATUTE, rewritten=STATUTE",
+        "run": 1,
+        "relevant": true,
+        "reason": "The documents directly address handling, packaging, and transportation of evidence (including chain of custody for digital evidence, separate packaging for firearms/cartridges, temperature control for biological evidence, and sealing/labeling requirements for containers). While 'labelled' is not explicitly mentioned, the requirement to 'indicate on the exterior of the box' (e.g., 'unloaded, made safe') fulfills the intent of labeling for chain of custody purposes."
+      },
+      {
+        "case": "D original=STATUTE, rewritten=STATUTE",
+        "run": 2,
+        "relevant": false,
+        "reason": "The retrieved documents do not explicitly mention the requirement to label evidence, which is a specific aspect of the user's question about handling and packaging procedures. While they cover packaging, transportation, and chain of custody, labeling is not addressed directly."
+      },
+      {
+        "case": "D original=STATUTE, rewritten=STATUTE",
+        "run": 3,
+        "relevant": true,
+        "reason": "The retrieved documents directly address handling, packaging, and transportation of evidence (e.g., 'packaged separately,' 'maintain the Chain of Custody,' 'secure during transportation'). While 'labelled' is not explicitly mentioned, the guidelines implicitly cover labeling through requirements like documenting transportation and packaging specifics, which are integral to chain of custody procedures."
+      },
+      {
+        "case": "E original=roman+STATUTE appended",
+        "run": 1,
+        "relevant": false,
+        "reason": "Documents describe general evidence handling procedures (packaging, chain of custody, storage conditions) but do not mention any specific guidelines for recording evidence in a register before processing, nor do they reference a 'weapon register' or its contents related to weapon usage status."
+      },
+      {
+        "case": "E original=roman+STATUTE appended",
+        "run": 2,
+        "relevant": false,
+        "reason": "Documents describe general evidence handling procedures (packaging, chain of custody, storage conditions) but do not mention any specific guidelines for recording evidence in a register before processing, nor do they reference a 'weapon register' or its contents related to weapon usage status."
+      },
+      {
+        "case": "E original=roman+STATUTE appended",
+        "run": 3,
+        "relevant": false,
+        "reason": "Documents describe general evidence handling procedures (packaging, chain of custody, storage conditions) but do not mention any specific guidelines for recording evidence in a register before processing, nor do they reference a 'weapon register' or its contents related to weapon usage status."
+      }
+    ]
+  }
+}

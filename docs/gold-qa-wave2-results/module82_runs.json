@@ -1,0 +1,1014 @@
+[
+  {
+    "id": "KB2",
+    "run": 1,
+    "arm": "before",
+    "language": "en",
+    "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+    "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "actual_answer": "The system does keep a record of what a witness or an accused person says during a police interview. According to the rules, the police officer may reduce any statement made to him into writing and make a separate record of the statement [Document 3]. These records can be used as evidence at a later stage, and they are part of the investigation process [Document 2]. Therefore, it is not a data gap; the system does maintain such records.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 54.0,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1521",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1010",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal procedures and requirements for record"
+      }
+    ],
+    "statute_hypotheses": [
+      "Qanun-e-Shahadat Order 1984 section 118 and 120 confession and admission: confession made to a police officer shall not be proved as against the accused",
+      "Code of Criminal Procedure 1898 section 161 and 162 statement by accused or witness: statement shall not be signed by the person making it and shall not be used for any purpose at any inquiry or trial"
+    ],
+    "verifier_rejections": [],
+    "data_half": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB4",
+    "run": 1,
+    "arm": "before",
+    "language": "ur",
+    "question": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+    "expected_answer": "جی ہاں۔ پنجاب پولیس رولز، 1934 (جلد 3) کا رول 27.16 پولیس کو پابند کرتا ہے کہ وہ مقررہ فارم میں کیس پراپرٹی اور لاوارث پراپرٹی کا رجسٹر برقرار رکھے، جسے مکمل ہونے کے تین سال بعد ہی تلف کیا جا سکتا ہے۔ ہمارا مال خانہ رجسٹر اِسی ساخت کی عکاسی کرتا ہے: ریکارڈ میں موجود 45 اندراجات میں سے ہر ایک میں سیریل نمبر، رجسٹریشن نمبر، اندراج کی تاریخ، شے کی تفصیل، مقدار اور حالت درج ہے — وہی خانے جن کا اِس رول کا مقررہ رجسٹر فارم تقاضا کرتا ہے۔",
+    "actual_answer": "### Part 1: What the law, rule or guideline requires\n\nAccording to the legal provisions, when the police collect evidence or property related to a case, they must follow specific procedures to ensure the integrity of the evidence. These include:\n\n- **Marking, packaging, and documenting evidence** (Document 1): All evidence collected must be inventoried, packaged, and marked with the following details: case number, item number, description, and date of recovery or receiving.\n- **Chain of custody** (Document 1): The investigation officer and all other persons involved in the process must maintain a safe chain of custody for the evidence.\n- **Precautions to avoid contamination** (Document 1): All necessary precautions must be taken to avoid evidence from getting contaminated, and all equipment used for crime scene management must be sterile or disinfected.\n- **Packaging and sealing** (Document 6): Evidence must be packaged in containers that can be sealed, and the seals must display the initials of the personnel creating the seal and the date when the seal is created. The seals must be made from tamper-evident material.\n\n### Part 2: What our own case records actually show\n\nAccording to the summary of our own case records (Document 7), the disposition of seized property across 28 FIRs is as follows:\n\n- **Confiscated**: 14 items in 13 FIRs.\n- **Sealed, sample sent to the forensic laboratory**: 13 items in 11 FIRs.\n- **To be handed over to the heirs**: 7 items in 7 FIRs.\n- **Held for return to the complainant**: 6 items in 6 FIRs.\n- **Confiscated, held after forensic testing**: 1 item in 1 FIR.\n- **Held as forensic evidence**: 1 item in 1 FIR.\n- **Sealed in the property store**: 1 item in 1 FIR.\n- **Sealed in the property store, forensic examination required**: 1 item in 1 FIR.\n- **Held**: 1 item in 1 FIR.\n\nOf these, 13 items in 11 FIRs were literally **DISPATCHED** to a forensic laboratory, and 7 items in 7 FIRs are held for return to a deceased person's heirs.\n\nThe records do not show any entries that explicitly mention the marking, packaging, or chain of custody as required by the legal provisions. However, the records do show that some items were sent to the forensic laboratory, which aligns with the requirement to ensure the integrity of the evidence.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 77.1,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2421",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+          "5_Forensics_guidelines_pdf_62ee00b3_c5",
+          "kb-data-half:property_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain information about formal standards for recording"
+      }
+    ],
+    "statute_hypotheses": [
+      "Punjab Police Rules 1934 case property and malkhana: property recovered in investigation shall be entered in the malkhana register, marked with number and description, and kept under lock and key",
+      "Forensics guidelines handling, packaging, labelling and transport of recovered evidence: evidence shall be properly packaged, labelled with case number and date, and transported in a manner that preve"
+    ],
+    "verifier_rejections": [],
+    "data_half": [
+      {
+        "plan": "property_register",
+        "aggregate": "seized_property_disposition"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB2Q",
+    "run": 1,
+    "arm": "before",
+    "language": "en",
+    "question": "Kya qanoon ijazat deta hai ke mulzim ne police ke saamne jo iqbal-e-jurm kiya ho use adalat mein saboot ke tor par pesh kiya jaye — aur kya isi wajah se hamare record mein bayanat mehfooz nahin hote?",
+    "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "actual_answer": "The law does not allow a confession made to a police officer to be used as evidence against the accused in court. According to [Document 4], \"No confession made to a police officer shall be proved as against a person accused of any offence.\" Additionally, [Document 6] reiterates this rule, stating that \"No confession made to a police officer shall be proved as against a person accused of any offence.\"\n\nFurthermore, [Document 1] states that statements made to a police officer during an investigation shall not be used for any purpose at any inquiry or trial in respect of any offence under investigation at the time when such statement was made, unless provided otherwise.\n\nThis is why statements or confessions made to the police are not preserved in the records as evidence. They are not admissible in court, which is why they are not kept as formal evidence in the records.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 81.5,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601",
+          "2_qanun-e-shahadat-order-1984_pdf_3e604153_c176",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1521",
+          "2_qanun-e-shahadat-order-1984_pdf_3e604153_c177"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the legal provisions regarding the admi"
+      }
+    ],
+    "statute_hypotheses": [
+      "Qanun-e-Shahadat Order 1984 section 22 confession made to police officer: confession shall not be proved as against the accused",
+      "Code of Criminal Procedure 1898 section 254 statement made to police officer not to be used for any purpose at any inquiry or trial"
+    ],
+    "verifier_rejections": [],
+    "data_half": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB4P",
+    "run": 1,
+    "arm": "before",
+    "language": "ur",
+    "question": "Kis qanoon ke tehat police ko maal-e-muqadma ka register rakhna parta hai, aur us property ko kitne arse baad tabah ya nilaam kiya ja sakta hai — kya hamare record mein iski paabandi nazar aati hai?",
+    "expected_answer": "جی ہاں۔ پنجاب پولیس رولز، 1934 (جلد 3) کا رول 27.16 پولیس کو پابند کرتا ہے کہ وہ مقررہ فارم میں کیس پراپرٹی اور لاوارث پراپرٹی کا رجسٹر برقرار رکھے، جسے مکمل ہونے کے تین سال بعد ہی تلف کیا جا سکتا ہے۔ ہمارا مال خانہ رجسٹر اِسی ساخت کی عکاسی کرتا ہے: ریکارڈ میں موجود 45 اندراجات میں سے ہر ایک میں سیریل نمبر، رجسٹریشن نمبر، اندراج کی تاریخ، شے کی تفصیل، مقدار اور حالت درج ہے — وہی خانے جن کا اِس رول کا مقررہ رجسٹر فارم تقاضا کرتا ہے۔",
+    "actual_answer": "### Part 1: What the law, rule or guideline requires\n\nThe law requiring the police to maintain a register of case property is **Rule 27.16** of the **Punjab Police Rules**. This rule mandates that the head of the police prosecuting agency maintain a register of case property and unclaimed property in **Form 27.16(1)**. This register may be destroyed **three years after being completed** [Document 1].\n\nRegarding the disposal of unclaimed property, **Rule 27.16(4)** states that if a case remains undecided for **50 years**, the property shall be made over to the sheriff for disposal [Document 2].\n\n### Part 2: What our own case records actually show\n\nAccording to the summary of our own case records (Document 6), the disposition of seized property across 28 FIRs is as follows:\n\n- **14 items** were **confiscated**.\n- **13 items** were **sealed, and a sample sent to the forensic laboratory**.\n- **7 items** are **to be handed over to the heirs**.\n- **6 items** are **held for return to the complainant**.\n- **1 item** was **confiscated, held after forensic testing**.\n- **1 item** is **held as forensic evidence**.\n- **1 item** is **sealed in the property store**.\n- **1 item** is **sealed in the property store, forensic examination required**.\n- **1 item** is **held**.\n\nThere is **no mention** in the records of any property being **destroyed** or **disposed of after 3 years** or **after 50 years** as required by the rules. Therefore, our records do **not** show compliance with the requirement to destroy the register after 3 years or to dispose of unclaimed property after 50 years.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 93.2,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2195",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c433",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c348",
+          "kb-data-half:property_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents mention that the register of case property may be destro"
+      }
+    ],
+    "statute_hypotheses": [
+      "Punjab Police Rules 1934 register of case property and malkhana: entries in the register of case property, custody of property, and period for which property may be kept in malkhana",
+      "Code of Criminal Procedure 1898 section 273 disposal of unclaimed property: property not claimed within a reasonable time may be sold or otherwise disposed of by the officer in charge of the police st"
+    ],
+    "verifier_rejections": [],
+    "data_half": [
+      {
+        "plan": "property_register",
+        "aggregate": "seized_property_disposition"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB2",
+    "run": 2,
+    "arm": "before",
+    "language": "en",
+    "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+    "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "actual_answer": "The system does keep a record of what a witness or an accused person says during a police interview. According to the rules, the police officer may reduce into writing any statement made to him in the course of an examination, and if he does so, he shall make a separate record of the statement of each such person whose statement he records [Document 3]. This indicates that there is a formal process for recording statements, and thus, it is not a data gap.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 80.1,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1521",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1010",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal procedures and requirements for record"
+      }
+    ],
+    "statute_hypotheses": [
+      "Qanun-e-Shahadat Order 1984 section 118 and 120 confession and admission: confession made to a police officer shall not be proved as against the accused",
+      "Code of Criminal Procedure 1898 section 161 and 162 statement by accused or witness: statement shall not be signed by the person making it and shall not be used for any purpose at any inquiry or trial"
+    ],
+    "verifier_rejections": [],
+    "data_half": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB4",
+    "run": 2,
+    "arm": "before",
+    "language": "ur",
+    "question": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+    "expected_answer": "جی ہاں۔ پنجاب پولیس رولز، 1934 (جلد 3) کا رول 27.16 پولیس کو پابند کرتا ہے کہ وہ مقررہ فارم میں کیس پراپرٹی اور لاوارث پراپرٹی کا رجسٹر برقرار رکھے، جسے مکمل ہونے کے تین سال بعد ہی تلف کیا جا سکتا ہے۔ ہمارا مال خانہ رجسٹر اِسی ساخت کی عکاسی کرتا ہے: ریکارڈ میں موجود 45 اندراجات میں سے ہر ایک میں سیریل نمبر، رجسٹریشن نمبر، اندراج کی تاریخ، شے کی تفصیل، مقدار اور حالت درج ہے — وہی خانے جن کا اِس رول کا مقررہ رجسٹر فارم تقاضا کرتا ہے۔",
+    "actual_answer": "### Part 1: What the law, rule or guideline requires\n\nAccording to the legal provisions, when the police collect evidence or property related to a case, they must follow specific procedures to ensure the integrity of the evidence. These include:\n\n- **Marking, packaging, and documenting evidence** (Document 1): All evidence collected must be inventoried, packaged, and marked with the following details: case number, item number, description, and date of recovery or receiving.\n- **Chain of custody** (Document 1): The investigation officer and all other persons involved in the process must maintain a safe chain of custody for the evidence.\n- **Precautions to avoid contamination** (Document 1): All necessary precautions must be taken to avoid evidence from getting contaminated, and all equipment used for crime scene management must be sterile or disinfected.\n- **Packaging and sealing** (Document 6): Evidence must be packaged in containers that can be sealed, and the seals must display the initials of the personnel creating the seal and the date when the seal is created. The seals must be made from tamper-evident material.\n\n### Part 2: What our own case records actually show\n\nAccording to the summary of our own case records (Document 7), the disposition of seized property across 28 FIRs is as follows:\n\n- **Confiscated**: 14 items in 13 FIRs.\n- **Sealed, sample sent to the forensic laboratory**: 13 items in 11 FIRs.\n- **To be handed over to the heirs**: 7 items in 7 FIRs.\n- **Held for return to the complainant**: 6 items in 6 FIRs.\n- **Confiscated, held after forensic testing**: 1 item in 1 FIR.\n- **Held as forensic evidence**: 1 item in 1 FIR.\n- **Sealed in the property store**: 1 item in 1 FIR.\n- **Sealed in the property store, forensic examination required**: 1 item in 1 FIR.\n- **Held**: 1 item in 1 FIR.\n\nOf these, 13 items in 11 FIRs were literally **DISPATCHED** to a forensic laboratory, and 7 items in 7 FIRs are held for return to a deceased person's heirs.\n\nThe records do not explicitly mention the marking, packaging, or chain of custody procedures as required by the legal provisions. However, the records do show that some items were sent to the forensic laboratory, which aligns with the requirement to ensure the integrity of evidence. However, the records do not provide detailed information on the marking, packaging, and chain of custody procedures as required by the legal provisions.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 69.5,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2421",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+          "5_Forensics_guidelines_pdf_62ee00b3_c5",
+          "kb-data-half:property_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain information about formal standards for recording"
+      }
+    ],
+    "statute_hypotheses": [
+      "Punjab Police Rules 1934 case property and malkhana: property recovered in investigation shall be entered in the malkhana register, marked with number and description, and kept under lock and key",
+      "Forensics guidelines handling, packaging, labelling and transport of recovered evidence: evidence shall be properly packaged, labelled with case number and date, and transported in a manner that preve"
+    ],
+    "verifier_rejections": [],
+    "data_half": [
+      {
+        "plan": "property_register",
+        "aggregate": "seized_property_disposition"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB2Q",
+    "run": 2,
+    "arm": "before",
+    "language": "en",
+    "question": "Kya qanoon ijazat deta hai ke mulzim ne police ke saamne jo iqbal-e-jurm kiya ho use adalat mein saboot ke tor par pesh kiya jaye — aur kya isi wajah se hamare record mein bayanat mehfooz nahin hote?",
+    "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "actual_answer": "The law does not allow a confession made to a police officer to be used as evidence against the accused in court. According to [Document 4], \"No confession made to a police officer shall be proved as against a person accused of any offence.\" Additionally, [Document 6] reiterates this rule, stating that \"No confession made to a police officer shall be proved as against a person accused of any offence.\"\n\nFurthermore, [Document 1] states that statements made to a police officer during an investigation shall not be used for any purpose at any inquiry or trial in respect of any offence under investigation at the time when such statement was made, unless provided otherwise.\n\nThis is why statements or confessions made to the police are not preserved in the records as evidence. They are not admissible in court, which is why they are not kept as formal evidence in the records.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 58.9,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601",
+          "2_qanun-e-shahadat-order-1984_pdf_3e604153_c176",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1521",
+          "2_qanun-e-shahadat-order-1984_pdf_3e604153_c177"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the legal provisions regarding the admi"
+      }
+    ],
+    "statute_hypotheses": [
+      "Qanun-e-Shahadat Order 1984 section 22 confession made to police officer: confession shall not be proved as against the accused",
+      "Code of Criminal Procedure 1898 section 254 statement made to police officer not to be used for any purpose at any inquiry or trial"
+    ],
+    "verifier_rejections": [],
+    "data_half": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB4P",
+    "run": 2,
+    "arm": "before",
+    "language": "ur",
+    "question": "Kis qanoon ke tehat police ko maal-e-muqadma ka register rakhna parta hai, aur us property ko kitne arse baad tabah ya nilaam kiya ja sakta hai — kya hamare record mein iski paabandi nazar aati hai?",
+    "expected_answer": "جی ہاں۔ پنجاب پولیس رولز، 1934 (جلد 3) کا رول 27.16 پولیس کو پابند کرتا ہے کہ وہ مقررہ فارم میں کیس پراپرٹی اور لاوارث پراپرٹی کا رجسٹر برقرار رکھے، جسے مکمل ہونے کے تین سال بعد ہی تلف کیا جا سکتا ہے۔ ہمارا مال خانہ رجسٹر اِسی ساخت کی عکاسی کرتا ہے: ریکارڈ میں موجود 45 اندراجات میں سے ہر ایک میں سیریل نمبر، رجسٹریشن نمبر، اندراج کی تاریخ، شے کی تفصیل، مقدار اور حالت درج ہے — وہی خانے جن کا اِس رول کا مقررہ رجسٹر فارم تقاضا کرتا ہے۔",
+    "actual_answer": "### Part 1: What the law, rule or guideline requires\n\nThe law requires that the head of the police prosecuting agency maintain a register of case property and unclaimed property in **Form 27.16(1)**, as stated in **Rule 27.16** [Document 1]. This register may be destroyed **three years after being completed**. Additionally, **Rule 27.16(3)** [Document 3] states that property connected with a case in which the accused is at large and has been proclaimed may be kept for up to **50 years** if the case remains undecided, after which it shall be made over to the sheriff for disposal.\n\n### Part 2: What our own case records actually show\n\nAccording to the summary of our own case records [Document 6], there is **no field** in the records that explicitly tracks the **duration for which seized property is held** or whether it is **destroyed, disposed of, or kept for a specific period**. The records only show the **disposition** of the property (e.g., \"confiscated,\" \"sent to the forensic laboratory,\" \"held for return to the complainant,\" etc.), but **not the time period** for which the property is held or the conditions under which it is disposed of.\n\nThus, our records **do not contain information** about the **duration for which property is held** or whether it is **destroyed or disposed of after a specific period**, as required by the law.\n\n_A cited claim ([Document 3]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 50._\n_A cited claim ([Document 6]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 2._",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 69.7,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2195",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c433",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c348",
+          "kb-data-half:property_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents mention that the register of case property may be destro"
+      }
+    ],
+    "statute_hypotheses": [
+      "Punjab Police Rules 1934 register of case property and malkhana: entries in the register of case property, custody of property, and period for which property may be kept in malkhana",
+      "Code of Criminal Procedure 1898 section 273 disposal of unclaimed property: property not claimed within a reasonable time may be sold or otherwise disposed of by the officer in charge of the police st"
+    ],
+    "verifier_rejections": [],
+    "data_half": [
+      {
+        "plan": "property_register",
+        "aggregate": "seized_property_disposition"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB2",
+    "run": 3,
+    "arm": "before",
+    "language": "en",
+    "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+    "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "actual_answer": "The system does keep a record of what a witness or an accused person says during a police interview. According to the rules, the police officer may reduce any statement made to him into writing and make a separate record of the statement [Document 3]. These records can be used as evidence at a later stage, and they are part of the investigation process [Document 2]. Therefore, it is not a data gap; the system does maintain such records.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 66.5,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1521",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1010",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal procedures and requirements for record"
+      }
+    ],
+    "statute_hypotheses": [
+      "Qanun-e-Shahadat Order 1984 section 118 and 120 confession and admission: confession made to a police officer shall not be proved as against the accused",
+      "Code of Criminal Procedure 1898 section 161 and 162 statement by accused or witness: statement shall not be signed by the person making it and shall not be used for any purpose at any inquiry or trial"
+    ],
+    "verifier_rejections": [],
+    "data_half": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB4",
+    "run": 3,
+    "arm": "before",
+    "language": "ur",
+    "question": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+    "expected_answer": "جی ہاں۔ پنجاب پولیس رولز، 1934 (جلد 3) کا رول 27.16 پولیس کو پابند کرتا ہے کہ وہ مقررہ فارم میں کیس پراپرٹی اور لاوارث پراپرٹی کا رجسٹر برقرار رکھے، جسے مکمل ہونے کے تین سال بعد ہی تلف کیا جا سکتا ہے۔ ہمارا مال خانہ رجسٹر اِسی ساخت کی عکاسی کرتا ہے: ریکارڈ میں موجود 45 اندراجات میں سے ہر ایک میں سیریل نمبر، رجسٹریشن نمبر، اندراج کی تاریخ، شے کی تفصیل، مقدار اور حالت درج ہے — وہی خانے جن کا اِس رول کا مقررہ رجسٹر فارم تقاضا کرتا ہے۔",
+    "actual_answer": "### Part 1: What the law, rule or guideline requires\n\nAccording to the legal provisions, when the police collect evidence or property related to a case, they must follow specific procedures to ensure the integrity of the evidence. These include:\n\n- **Marking, packaging, and documenting evidence** (Document 1): All evidence collected must be inventoried, packaged, and marked with the following details: case number, item number, description, and date of recovery or receiving.\n- **Chain of custody** (Document 1): The investigation officer and all other persons involved in the process must maintain a safe chain of custody for the evidence.\n- **Precautions to avoid contamination** (Document 1): All necessary precautions must be taken to avoid evidence from getting contaminated, and all equipment used for crime scene management must be sterile or disinfected.\n- **Packaging and sealing** (Document 6): Evidence must be packaged in containers that can be sealed, and the seals must display the initials of the personnel creating the seal and the date when the seal is created. The seals must be made from tamper-evident material.\n\n### Part 2: What our own case records actually show\n\nAccording to the summary of our own case records (Document 7), the disposition of seized property across 28 FIRs is as follows:\n\n- **Confiscated**: 14 items in 13 FIRs.\n- **Sealed, sample sent to the forensic laboratory**: 13 items in 11 FIRs.\n- **To be handed over to the heirs**: 7 items in 7 FIRs.\n- **Held for return to the complainant**: 6 items in 6 FIRs.\n- **Confiscated, held after forensic testing**: 1 item in 1 FIR.\n- **Held as forensic evidence**: 1 item in 1 FIR.\n- **Sealed in the property store**: 1 item in 1 FIR.\n- **Sealed in the property store, forensic examination required**: 1 item in 1 FIR.\n- **Held**: 1 item in 1 FIR.\n\nOf these, 13 items in 11 FIRs were literally **DISPATCHED** to a forensic laboratory, and 7 items in 7 FIRs are held for return to a deceased person's heirs.\n\nThe records do not show any entries that explicitly mention the marking, packaging, or chain of custody as required by the legal provisions. However, the records do show that some items were sent to the forensic laboratory, which aligns with the requirement to ensure the integrity of the evidence.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 64.7,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2421",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+          "5_Forensics_guidelines_pdf_62ee00b3_c5",
+          "kb-data-half:property_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain information about formal standards for recording"
+      }
+    ],
+    "statute_hypotheses": [
+      "Punjab Police Rules 1934 case property and malkhana: property recovered in investigation shall be entered in the malkhana register, marked with number and description, and kept under lock and key",
+      "Forensics guidelines handling, packaging, labelling and transport of recovered evidence: evidence shall be properly packaged, labelled with case number and date, and transported in a manner that preve"
+    ],
+    "verifier_rejections": [],
+    "data_half": [
+      {
+        "plan": "property_register",
+        "aggregate": "seized_property_disposition"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB2Q",
+    "run": 3,
+    "arm": "before",
+    "language": "en",
+    "question": "Kya qanoon ijazat deta hai ke mulzim ne police ke saamne jo iqbal-e-jurm kiya ho use adalat mein saboot ke tor par pesh kiya jaye — aur kya isi wajah se hamare record mein bayanat mehfooz nahin hote?",
+    "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "actual_answer": "The law does not allow a confession made to a police officer to be used as evidence against the accused in court. According to [Document 4], \"No confession made to a police officer shall be proved as against a person accused of any offence.\" Additionally, [Document 6] reiterates this rule, stating that \"No confession made to a police officer shall be proved as against a person accused of any offence.\"\n\nFurthermore, [Document 1] states that statements made to a police officer during an investigation shall not be used for any purpose at any inquiry or trial in respect of any offence under investigation at the time when such statement was made, unless provided otherwise.\n\nThis is why statements or confessions made to the police are not preserved in the records as evidence. They are not admissible in court, which is why they are not kept as formal evidence in the records.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 65.8,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601",
+          "2_qanun-e-shahadat-order-1984_pdf_3e604153_c176",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1521",
+          "2_qanun-e-shahadat-order-1984_pdf_3e604153_c177"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the legal provisions regarding the admi"
+      }
+    ],
+    "statute_hypotheses": [
+      "Qanun-e-Shahadat Order 1984 section 22 confession made to police officer: confession shall not be proved as against the accused",
+      "Code of Criminal Procedure 1898 section 254 statement made to police officer not to be used for any purpose at any inquiry or trial"
+    ],
+    "verifier_rejections": [],
+    "data_half": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB4P",
+    "run": 3,
+    "arm": "before",
+    "language": "ur",
+    "question": "Kis qanoon ke tehat police ko maal-e-muqadma ka register rakhna parta hai, aur us property ko kitne arse baad tabah ya nilaam kiya ja sakta hai — kya hamare record mein iski paabandi nazar aati hai?",
+    "expected_answer": "جی ہاں۔ پنجاب پولیس رولز، 1934 (جلد 3) کا رول 27.16 پولیس کو پابند کرتا ہے کہ وہ مقررہ فارم میں کیس پراپرٹی اور لاوارث پراپرٹی کا رجسٹر برقرار رکھے، جسے مکمل ہونے کے تین سال بعد ہی تلف کیا جا سکتا ہے۔ ہمارا مال خانہ رجسٹر اِسی ساخت کی عکاسی کرتا ہے: ریکارڈ میں موجود 45 اندراجات میں سے ہر ایک میں سیریل نمبر، رجسٹریشن نمبر، اندراج کی تاریخ، شے کی تفصیل، مقدار اور حالت درج ہے — وہی خانے جن کا اِس رول کا مقررہ رجسٹر فارم تقاضا کرتا ہے۔",
+    "actual_answer": "### Part 1: What the law, rule or guideline requires\n\nThe law requires that the head of the police prosecuting agency maintain a register of case property and unclaimed property in **Form 27.16(1)**, as stated in **Rule 27.16** [Document 1]. This register may be destroyed **three years after being completed**. Additionally, **Rule 27.16(3)** [Document 3] mentions that property in cases where the accused are absconding and the retention of which is necessary for purposes of evidence may be transferred to a **permanent register**.\n\nRegarding the disposal of unclaimed property, **Rule 27.16(4)** [Document 2] states that if a case remains undecided for **50 years**, the property shall be made over to the sheriff for disposal.\n\n### Part 2: What our own case records actually show\n\nAccording to the summary of our own case records [Document 6], the disposition of seized property across 28 FIRs is as follows:\n\n- **14 items** were **confiscated**.\n- **13 items** were **sealed and sent to the forensic laboratory**.\n- **7 items** are **to be handed over to the heirs**.\n- **6 items** are **held for return to the complainant**.\n- **1 item** was **confiscated and held after forensic testing**.\n- **1 item** is **held as forensic evidence**.\n- **1 item** is **sealed in the property store**.\n- **1 item** is **sealed in the property store, with forensic examination required**.\n- **1 item** is **held**.\n\nThere is **no mention** in the records of any property being **destroyed or disposed of after 3 years** or **after 50 years** as required by the rules. Therefore, **our records do not show any enforcement of the time limits** for destruction or disposal of property as mandated by the law.\n\n_A cited claim ([Document 6]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 2._",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 63.8,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2195",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c433",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c348",
+          "kb-data-half:property_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents mention that the register of case property may be destro"
+      }
+    ],
+    "statute_hypotheses": [
+      "Punjab Police Rules 1934 register of case property and malkhana: entries in the register of case property, custody of property, and period for which property may be kept in malkhana",
+      "Code of Criminal Procedure 1898 section 273 disposal of unclaimed property: property not claimed within a reasonable time may be sold or otherwise disposed of by the officer in charge of the police st"
+    ],
+    "verifier_rejections": [],
+    "data_half": [
+      {
+        "plan": "property_register",
+        "aggregate": "seized_property_disposition"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB4",
+    "run": 1,
+    "arm": "after",
+    "language": "ur",
+    "question": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+    "expected_answer": "جی ہاں۔ پنجاب پولیس رولز، 1934 (جلد 3) کا رول 27.16 پولیس کو پابند کرتا ہے کہ وہ مقررہ فارم میں کیس پراپرٹی اور لاوارث پراپرٹی کا رجسٹر برقرار رکھے، جسے مکمل ہونے کے تین سال بعد ہی تلف کیا جا سکتا ہے۔ ہمارا مال خانہ رجسٹر اِسی ساخت کی عکاسی کرتا ہے: ریکارڈ میں موجود 45 اندراجات میں سے ہر ایک میں سیریل نمبر، رجسٹریشن نمبر، اندراج کی تاریخ، شے کی تفصیل، مقدار اور حالت درج ہے — وہی خانے جن کا اِس رول کا مقررہ رجسٹر فارم تقاضا کرتا ہے۔",
+    "actual_answer": "### Part 1: What the law, rule or guideline requires\n\nAccording to the legal provisions, when the police take possession of property related to a case, they must ensure that all necessary precautions are taken to avoid contamination of evidence and that all equipment used for crime scene management is sterile or disinfected [Document 1]. Additionally, all evidence collected must be inventoried, marked, and packaged before being released or leaving the crime scene [Document 1]. The chain of custody must be maintained by the investigating officer and all other persons involved in the process of collection, transmission, examination, or otherwise handling the evidence [Document 1].\n\nFurthermore, the Punjab Police Rules specify that case diaries must be brief and include only incidents that have a bearing on the case. Detailed lists of stolen property or property seized during a search must be entered in the first case diary submitted after the facts relating to such property were reported to or discovered by the investigating officer [Document 5].\n\n### Part 2: What our own case records actually show\n\nAccording to the computed summary of our own case records, the disposition of seized property across 28 FIRs is as follows:\n\n- **Confiscated**: 14 items in 13 FIRs\n- **Sealed, sample sent to the forensic laboratory**: 13 items in 11 FIRs\n- **To be handed over to the heirs**: 7 items in 7 FIRs\n- **Held for return to the complainant**: 6 items in 6 FIRs\n- **Confiscated, held after forensic testing**: 1 item in 1 FIR\n- **Held as forensic evidence**: 1 item in 1 FIR\n- **Sealed in the property store**: 1 item in 1 FIR\n- **Sealed in the property store, forensic examination required**: 1 item in 1 FIR\n- **Held**: 1 item in 1 FIR\n\nOf these, 13 items in 11 FIRs were literally dispatched to a forensic laboratory, and 7 items in 7 FIRs are held for return to a deceased person's heirs [Document 7].\n\nIt is clear from the records that the police have followed the procedures for marking, packaging, and maintaining the chain of custody for evidence. However, the records do not explicitly mention the use of sterile or disinfected equipment for crime scene management, as required by the legal provisions [Document 1].\n\n_A cited claim ([Document 7]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 2._",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 65.8,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2421",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+          "5_Forensics_guidelines_pdf_62ee00b3_c5",
+          "kb-data-half:property_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain information about formal standards for recording"
+      }
+    ],
+    "statute_hypotheses": [
+      "Punjab Police Rules 1934 case property and malkhana: property recovered in investigation shall be entered in the malkhana register, marked with number and description, and kept under lock and key",
+      "Forensics guidelines handling, packaging, labelling and transport of recovered evidence: evidence shall be properly packaged, labelled with case number and date, and transported in a manner that preve"
+    ],
+    "verifier_rejections": [],
+    "data_half": [
+      {
+        "plan": "property_register",
+        "aggregate": "seized_property_disposition"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB2Q",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "Kya qanoon ijazat deta hai ke mulzim ne police ke saamne jo iqbal-e-jurm kiya ho use adalat mein saboot ke tor par pesh kiya jaye — aur kya isi wajah se hamare record mein bayanat mehfooz nahin hote?",
+    "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "actual_answer": "Qanoon 1898 ki Code of Criminal Procedure ke muqabla 161A aur 164 ke hisab se, mulzim ke police ke saamne jo iqbal-e-jurm kiya ho, adalat mein saboot ke tor par pesh kiya jaye, iska ijazat nahi diya gaya hai. Qanoon 1898 ki Code of Criminal Procedure ke muqabla 161A aur 164 ke hisab se, mulzim ke police ke saamne jo iqbal-e-jurm kiya ho, adalat mein saboot ke tor par pesh kiya jaye, iska ijazat nahi diya gaya hai. [Document 1] \n\nQanoon-e-Shahadat Order 1984 ke muqabla 38 ke hisab se, jo iqbal police ke saamne kiya gaya ho, uska adalat mein saboot ke tor par pesh kiya jaye, iska ijazat nahi diya gaya hai. [Document 4] \n\nIsliye, hamare record mein bayanat mehfooz nahin hote. [Document 4]\n\n_A cited claim ([Document 1]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 1984, 38._",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 55.2,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601",
+          "2_qanun-e-shahadat-order-1984_pdf_3e604153_c176",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1521",
+          "2_qanun-e-shahadat-order-1984_pdf_3e604153_c177"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the legal provisions regarding the admi"
+      }
+    ],
+    "statute_hypotheses": [
+      "Qanun-e-Shahadat Order 1984 section 22 confession made to police officer: confession shall not be proved as against the accused",
+      "Code of Criminal Procedure 1898 section 254 statement made to police officer not to be used for any purpose at any inquiry or trial"
+    ],
+    "verifier_rejections": [],
+    "data_half": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB4P",
+    "run": 1,
+    "arm": "after",
+    "language": "ur",
+    "question": "Kis qanoon ke tehat police ko maal-e-muqadma ka register rakhna parta hai, aur us property ko kitne arse baad tabah ya nilaam kiya ja sakta hai — kya hamare record mein iski paabandi nazar aati hai?",
+    "expected_answer": "جی ہاں۔ پنجاب پولیس رولز، 1934 (جلد 3) کا رول 27.16 پولیس کو پابند کرتا ہے کہ وہ مقررہ فارم میں کیس پراپرٹی اور لاوارث پراپرٹی کا رجسٹر برقرار رکھے، جسے مکمل ہونے کے تین سال بعد ہی تلف کیا جا سکتا ہے۔ ہمارا مال خانہ رجسٹر اِسی ساخت کی عکاسی کرتا ہے: ریکارڈ میں موجود 45 اندراجات میں سے ہر ایک میں سیریل نمبر، رجسٹریشن نمبر، اندراج کی تاریخ، شے کی تفصیل، مقدار اور حالت درج ہے — وہی خانے جن کا اِس رول کا مقررہ رجسٹر فارم تقاضا کرتا ہے۔",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 64.0,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2195",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c433",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c348",
+          "kb-data-half:property_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents mention that the register of case property may be destro"
+      }
+    ],
+    "statute_hypotheses": [
+      "Punjab Police Rules 1934 register of case property and malkhana: entries in the register of case property, custody of property, and period for which property may be kept in malkhana",
+      "Code of Criminal Procedure 1898 section 273 disposal of unclaimed property: property not claimed within a reasonable time may be sold or otherwise disposed of by the officer in charge of the police st"
+    ],
+    "verifier_rejections": [
+      "The claims about Rule 27.16(1) and Rule 27.16(4) are not directly stated in the cited chunks. The claim about no explicit mention of property disposal"
+    ],
+    "data_half": [
+      {
+        "plan": "property_register",
+        "aggregate": "seized_property_disposition"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB2",
+    "run": 2,
+    "arm": "after",
+    "language": "en",
+    "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+    "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "actual_answer": "The system does keep a record of what a witness or an accused person says during a police interview. According to [Document 1], the police may reduce any statement made to them into writing and make a separate record of the statement. This indicates that such records are indeed maintained as part of the investigation process.\n\nTherefore, the absence of such records is not a data gap, but rather a situation that is governed by the legal framework, which allows for the creation of written records of statements made during police interviews.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 43.1,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1521",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1010",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal procedures and requirements for record"
+      }
+    ],
+    "statute_hypotheses": [
+      "Qanun-e-Shahadat Order 1984 section 118 and 120 confession and admission: confession made to a police officer shall not be proved as against the accused",
+      "Code of Criminal Procedure 1898 section 161 and 162 statement by accused or witness: statement shall not be signed by the person making it and shall not be used for any purpose at any inquiry or trial"
+    ],
+    "verifier_rejections": [],
+    "data_half": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB4",
+    "run": 2,
+    "arm": "after",
+    "language": "ur",
+    "question": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+    "expected_answer": "جی ہاں۔ پنجاب پولیس رولز، 1934 (جلد 3) کا رول 27.16 پولیس کو پابند کرتا ہے کہ وہ مقررہ فارم میں کیس پراپرٹی اور لاوارث پراپرٹی کا رجسٹر برقرار رکھے، جسے مکمل ہونے کے تین سال بعد ہی تلف کیا جا سکتا ہے۔ ہمارا مال خانہ رجسٹر اِسی ساخت کی عکاسی کرتا ہے: ریکارڈ میں موجود 45 اندراجات میں سے ہر ایک میں سیریل نمبر، رجسٹریشن نمبر، اندراج کی تاریخ، شے کی تفصیل، مقدار اور حالت درج ہے — وہی خانے جن کا اِس رول کا مقررہ رجسٹر فارم تقاضا کرتا ہے۔",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 64.4,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2421",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+          "5_Forensics_guidelines_pdf_62ee00b3_c5",
+          "kb-data-half:property_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain information about formal standards for recording"
+      }
+    ],
+    "statute_hypotheses": [
+      "Punjab Police Rules 1934 case property and malkhana: property recovered in investigation shall be entered in the malkhana register, marked with number and description, and kept under lock and key",
+      "Forensics guidelines handling, packaging, labelling and transport of recovered evidence: evidence shall be properly packaged, labelled with case number and date, and transported in a manner that preve"
+    ],
+    "verifier_rejections": [
+      "Multiple claims are attributed to cited chunks but are absent from their text."
+    ],
+    "data_half": [
+      {
+        "plan": "property_register",
+        "aggregate": "seized_property_disposition"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB2Q",
+    "run": 2,
+    "arm": "after",
+    "language": "en",
+    "question": "Kya qanoon ijazat deta hai ke mulzim ne police ke saamne jo iqbal-e-jurm kiya ho use adalat mein saboot ke tor par pesh kiya jaye — aur kya isi wajah se hamare record mein bayanat mehfooz nahin hote?",
+    "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "actual_answer": "Qanoon 1898 ki Code of Criminal Procedure ke muqabla 161A aur 164 ke hisab se, police officer ke saamne jo iqbal-e-jurm kiya jaye, uski bayanat ko adalat mein saboot ke tor par pesh karne ke liye koi ijazat nahi di jati. 161A ke hisab se, police officer ke saamne ki bayanat ko adalat mein saboot ke tor par pesh karne ke liye koi ijazat nahi di jati. 164 ke hisab se, magistrates ke taraf se bayanat ya iqbal-e-jurm ko record karne ki ijazat di jati hai, lekin police officer ke taraf se ki bayanat ko adalat mein saboot ke tor par pesh karne ke liye koi ijazat nahi di jati. [Document 1] \n\nQanoon-e-Shahadat Order 1984 ke muqabla 38 ke hisab se, police officer ke saamne ki bayanat ko adalat mein saboot ke tor par pesh karne ke liye koi ijazat nahi di jati. [Document 4] \n\nIsliye, police officer ke taraf se ki bayanat ko adalat mein saboot ke tor par pesh karne ke liye koi ijazat nahi di jati, aur isi wajah se hamare record mein bayanat mehfooz nahin hote.\n\n_A cited claim ([Document 1]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 1984, 38._",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 50.3,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601",
+          "2_qanun-e-shahadat-order-1984_pdf_3e604153_c176",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1521",
+          "2_qanun-e-shahadat-order-1984_pdf_3e604153_c177"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the legal provisions regarding the admi"
+      }
+    ],
+    "statute_hypotheses": [
+      "Qanun-e-Shahadat Order 1984 section 22 confession made to police officer: confession shall not be proved as against the accused",
+      "Code of Criminal Procedure 1898 section 254 statement made to police officer not to be used for any purpose at any inquiry or trial"
+    ],
+    "verifier_rejections": [],
+    "data_half": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB4P",
+    "run": 2,
+    "arm": "after",
+    "language": "ur",
+    "question": "Kis qanoon ke tehat police ko maal-e-muqadma ka register rakhna parta hai, aur us property ko kitne arse baad tabah ya nilaam kiya ja sakta hai — kya hamare record mein iski paabandi nazar aati hai?",
+    "expected_answer": "جی ہاں۔ پنجاب پولیس رولز، 1934 (جلد 3) کا رول 27.16 پولیس کو پابند کرتا ہے کہ وہ مقررہ فارم میں کیس پراپرٹی اور لاوارث پراپرٹی کا رجسٹر برقرار رکھے، جسے مکمل ہونے کے تین سال بعد ہی تلف کیا جا سکتا ہے۔ ہمارا مال خانہ رجسٹر اِسی ساخت کی عکاسی کرتا ہے: ریکارڈ میں موجود 45 اندراجات میں سے ہر ایک میں سیریل نمبر، رجسٹریشن نمبر، اندراج کی تاریخ، شے کی تفصیل، مقدار اور حالت درج ہے — وہی خانے جن کا اِس رول کا مقررہ رجسٹر فارم تقاضا کرتا ہے۔",
+    "actual_answer": "Rule 27.16 of the Punjab Police Rules III mandates that the head of the police prosecuting agency maintain a register of case property and unclaimed property in Form 27.16(1). This register may be destroyed three years after being completed [Document 1].\n\nRegarding the disposal of unclaimed property, Rule 27.16(1) does not specify a time limit for destruction or disposal of property beyond the three-year period for destroying the register. However, Rule 27.16(4) states that if a case remains undecided for 50 years, the property shall be made over to the sheriff for disposal [Document 2].\n\nIn our case records, the disposition of seized property is as follows:\n- Confiscated: 14 items, in 13 FIRs\n- Sealed, sample sent to the forensic laboratory: 13 items, in 11 FIRs\n- To be handed over to the heirs: 7 items, in 7 FIRs\n- Held for return to the complainant: 6 items, in 6 FIRs\n- Confiscated, held after forensic testing: 1 item, in 1 FIR\n- Held as forensic evidence: 1 item, in 1 FIR\n- Sealed in the property store: 1 item, in 1 FIR\n- Sealed in the property store, forensic examination required: 1 item, in 1 FIR\n- Held: 1 item, in 1 FIR\n\nOur records do not show any specific entries indicating that property has been destroyed or disposed of after a 50-year period, nor do they show any entries indicating that property has been destroyed after three years. The records indicate that property is being managed according to the procedures outlined in the rules, but there is no explicit mention of destruction or disposal after the specified periods [Document 6].",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 56.6,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2195",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c433",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c338",
+          "kb-data-half:property_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents mention that the register of case property may be destro"
+      }
+    ],
+    "statute_hypotheses": [
+      "Punjab Police Rules 1934 register of case property and malkhana: entries in the register of case property, custody of property, and period for which property may be kept in malkhana",
+      "Code of Criminal Procedure 1898 section 273 disposal of unclaimed property: property not claimed within a reasonable time may be sold or otherwise disposed of by the officer in charge of the police st"
+    ],
+    "verifier_rejections": [],
+    "data_half": [
+      {
+        "plan": "property_register",
+        "aggregate": "seized_property_disposition"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB2",
+    "run": 3,
+    "arm": "after",
+    "language": "en",
+    "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+    "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "actual_answer": "The system does keep a record of what a witness or an accused person says during a police interview. According to [Document 1], police officers may reduce into writing any statement made to them in the course of an examination, and if they do so, they must make a separate record of the statement for each person whose statement they record. This indicates that such records are indeed maintained as part of the process.\n\nTherefore, the absence of such records is not a data gap, but rather a situation where the law requires that statements be recorded in writing, and the system is designed to comply with that requirement.",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 57.7,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1521",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c1010",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c602"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal procedures and requirements for record"
+      }
+    ],
+    "statute_hypotheses": [
+      "Qanun-e-Shahadat Order 1984 section 118 and 120 confession and admission: confession made to a police officer shall not be proved as against the accused",
+      "Code of Criminal Procedure 1898 section 161 and 162 statement by accused or witness: statement shall not be signed by the person making it and shall not be used for any purpose at any inquiry or trial"
+    ],
+    "verifier_rejections": [],
+    "data_half": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB4",
+    "run": 3,
+    "arm": "after",
+    "language": "ur",
+    "question": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+    "expected_answer": "جی ہاں۔ پنجاب پولیس رولز، 1934 (جلد 3) کا رول 27.16 پولیس کو پابند کرتا ہے کہ وہ مقررہ فارم میں کیس پراپرٹی اور لاوارث پراپرٹی کا رجسٹر برقرار رکھے، جسے مکمل ہونے کے تین سال بعد ہی تلف کیا جا سکتا ہے۔ ہمارا مال خانہ رجسٹر اِسی ساخت کی عکاسی کرتا ہے: ریکارڈ میں موجود 45 اندراجات میں سے ہر ایک میں سیریل نمبر، رجسٹریشن نمبر، اندراج کی تاریخ، شے کی تفصیل، مقدار اور حالت درج ہے — وہی خانے جن کا اِس رول کا مقررہ رجسٹر فارم تقاضا کرتا ہے۔",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 66.3,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c157",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c156",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2421",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+          "5_Forensics_guidelines_pdf_62ee00b3_c5",
+          "kb-data-half:property_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents contain information about formal standards for recording"
+      }
+    ],
+    "statute_hypotheses": [
+      "Punjab Police Rules 1934 case property and malkhana: property recovered in investigation shall be entered in the malkhana register, marked with number and description, and kept under lock and key",
+      "Forensics guidelines handling, packaging, labelling and transport of recovered evidence: evidence shall be properly packaged, labelled with case number and date, and transported in a manner that preve"
+    ],
+    "verifier_rejections": [
+      "Multiple claims are attributed to cited chunks but are absent from their text."
+    ],
+    "data_half": [
+      {
+        "plan": "property_register",
+        "aggregate": "seized_property_disposition"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB2Q",
+    "run": 3,
+    "arm": "after",
+    "language": "en",
+    "question": "Kya qanoon ijazat deta hai ke mulzim ne police ke saamne jo iqbal-e-jurm kiya ho use adalat mein saboot ke tor par pesh kiya jaye — aur kya isi wajah se hamare record mein bayanat mehfooz nahin hote?",
+    "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+    "actual_answer": "Qanoon 1898 ki Code of Criminal Procedure ke muqabla 161A aur 164 ke hisab se, police officer ke saamne jo iqbal-e-jurm kiya jaye, uski bayanat ko adalat mein saboot ke tor par pesh karne ke liye koi ijazat nahi di jati. 161A ke hisab se, police officer ke saamne ki bayanat ko adalat mein saboot ke tor par pesh karne ke liye koi ijazat nahi di jati. 164 ke hisab se, magistrates ke taraf se bayanat ya iqbal-e-jurm ko record karne ki ijazat di jati hai, lekin police officer ke taraf se ki bayanat ko adalat mein saboot ke tor par pesh karne ke liye koi ijazat nahi di jati. [Document 1] \n\nQanoon-e-Shahadat Order 1984 ke muqabla 38 ke hisab se, police officer ke saamne ki bayanat ko adalat mein saboot ke tor par pesh karne ke liye koi ijazat nahi di jati. [Document 4] \n\nIsliye, police officer ke taraf se ki bayanat ko adalat mein saboot ke tor par pesh karne ke liye koi ijazat nahi di jati, aur isi wajah se hamare record mein bayanat mehfooz nahin hote.\n\n_A cited claim ([Document 1]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 1984, 38._",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 59.7,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c675",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c590",
+          "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c601",
+          "2_qanun-e-shahadat-order-1984_pdf_3e604153_c176",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1521",
+          "2_qanun-e-shahadat-order-1984_pdf_3e604153_c177"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the legal provisions regarding the admi"
+      }
+    ],
+    "statute_hypotheses": [
+      "Qanun-e-Shahadat Order 1984 section 22 confession made to police officer: confession shall not be proved as against the accused",
+      "Code of Criminal Procedure 1898 section 254 statement made to police officer not to be used for any purpose at any inquiry or trial"
+    ],
+    "verifier_rejections": [],
+    "data_half": [],
+    "quota_lines": []
+  },
+  {
+    "id": "KB4P",
+    "run": 3,
+    "arm": "after",
+    "language": "ur",
+    "question": "Kis qanoon ke tehat police ko maal-e-muqadma ka register rakhna parta hai, aur us property ko kitne arse baad tabah ya nilaam kiya ja sakta hai — kya hamare record mein iski paabandi nazar aati hai?",
+    "expected_answer": "جی ہاں۔ پنجاب پولیس رولز، 1934 (جلد 3) کا رول 27.16 پولیس کو پابند کرتا ہے کہ وہ مقررہ فارم میں کیس پراپرٹی اور لاوارث پراپرٹی کا رجسٹر برقرار رکھے، جسے مکمل ہونے کے تین سال بعد ہی تلف کیا جا سکتا ہے۔ ہمارا مال خانہ رجسٹر اِسی ساخت کی عکاسی کرتا ہے: ریکارڈ میں موجود 45 اندراجات میں سے ہر ایک میں سیریل نمبر، رجسٹریشن نمبر، اندراج کی تاریخ، شے کی تفصیل، مقدار اور حالت درج ہے — وہی خانے جن کا اِس رول کا مقررہ رجسٹر فارم تقاضا کرتا ہے۔",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 62.4,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2195",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c433",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c348",
+          "kb-data-half:property_register"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents mention that the register of case property may be destro"
+      }
+    ],
+    "statute_hypotheses": [
+      "Punjab Police Rules 1934 register of case property and malkhana: entries in the register of case property, custody of property, and period for which property may be kept in malkhana",
+      "Code of Criminal Procedure 1898 section 273 disposal of unclaimed property: property not claimed within a reasonable time may be sold or otherwise disposed of by the officer in charge of the police st"
+    ],
+    "verifier_rejections": [
+      "The claims about Rule 27.16(1) and Rule 27.16(4) are not directly stated in the cited chunks. The claim about no explicit mention of property disposal"
+    ],
+    "data_half": [
+      {
+        "plan": "property_register",
+        "aggregate": "seized_property_disposition"
+      }
+    ],
+    "quota_lines": []
+  }
+]

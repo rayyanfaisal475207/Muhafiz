@@ -1,0 +1,62 @@
+[
+ {
+  "id": "M7",
+  "pass": 1,
+  "draw": 0,
+  "metric": "FactualCorrectness",
+  "model": "openai/gpt-oss-120b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 5.0,
+  "reason": "The actual output states the same substantive claim as the expected output—that reporting in 2026 is much slower than in 2024—and provides the identical numbers (15.0 min for 2024, 1401.3 min for 2026). The opposite opening word (“No” vs. “Haan”) is ignored per the rules, and no key fact is missing "
+ },
+ {
+  "id": "M7",
+  "pass": 1,
+  "draw": 1,
+  "metric": "FactualCorrectness",
+  "model": "openai/gpt-oss-120b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 4.3,
+  "reason": "The actual output states the same substantive claim as the expected output (reporting is much slower in 2026) and provides the identical numbers (15.0 min in 2024, 1401.3 min in 2026). Despite the opposite opening word, the direction and figures match, and no key fact is omitted."
+ },
+ {
+  "id": "M7",
+  "pass": 1,
+  "draw": 2,
+  "metric": "FactualCorrectness",
+  "model": "openai/gpt-oss-120b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 24.5,
+  "reason": "The actual output correctly states that reporting is slower in 2026, matching the expected answer’s substantive claim despite the opposite opening word. It provides the same average times (15.0 min for 2024, 1401.3 min for 2026) and adds extra correct detail (FIR counts). No key fact is missing or c"
+ },
+ {
+  "id": "M7",
+  "pass": 1,
+  "draw": 3,
+  "metric": "FactualCorrectness",
+  "model": "openai/gpt-oss-120b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 4.7,
+  "reason": "The actual output provides the same key facts as the expected output: 2024 average 15.0 minutes, 2026 average 1401.3 minutes, and that reporting is much slower in 2026. The numbers match exactly and the direction of change is identical. Although the opening word differs (\"No\" vs \"Haan\"), the substan"
+ },
+ {
+  "id": "M7",
+  "pass": 1,
+  "draw": 4,
+  "metric": "FactualCorrectness",
+  "model": "openai/gpt-oss-120b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 9.8,
+  "reason": "The actual output correctly states that reporting is slower in 2026, matching the expected answer’s substantive claim despite the opposite opening word. It provides the same average times (15.0 min for 2024, 1401.3 min for 2026) and adds extra correct detail (FIR counts). No key fact is missing or c"
+ }
+]

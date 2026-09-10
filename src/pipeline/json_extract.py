@@ -119,6 +119,7 @@ async def call_llm_json(
     force_cloud: bool = False,
     escalate_to_cloud_on_failure: bool = False,
     reasoning_effort: Optional[str] = None,
+    cloud_system_prompt: Optional[str] = None,
 ) -> tuple[Optional[Any], str]:
     """
     Call an LLM expecting a JSON response, retrying with an explicit
@@ -173,6 +174,14 @@ async def call_llm_json(
                      docstring. Only meaningful when the cloud branch is a
                      reasoning model (GROQ_MODEL); ignored by local and by
                      Gemini. `None` (default) omits it, unchanged behavior.
+        cloud_system_prompt:
+                     Optional replacement system prompt used ONLY on a cloud
+                     attempt (`force_cloud=True`, including the escalation
+                     below). `None` (default) means both paths use
+                     `system_prompt`, exactly as before. Added by Module 92
+                     for a prompt that outgrew a cloud provider's
+                     per-request token cap while still working locally — see
+                     `_attempt`'s own comment.
 
     Returns:
         (parsed_result, last_raw_response) — parsed_result is None if every
@@ -184,7 +193,24 @@ async def call_llm_json(
 
     def _attempt(n: int, force_cloud: bool):
         return _call_llm(
-            system_prompt=system_prompt,
+            # [Gold-QA fix — Module 92] A caller may supply a SECOND, smaller
+            # system prompt used only when the call actually goes to the
+            # cloud. Every existing caller passes nothing and gets exactly
+            # the previous behaviour: the same prompt on both paths.
+            #
+            # The reason it exists: a cloud provider enforces a per-request
+            # token cap that a local model does not, and a prompt can grow
+            # past that cap without anything failing locally. router.py's
+            # prompt did exactly that — 13,003 request tokens against Groq's
+            # 8,000 on_demand cap — so `escalate_to_cloud_on_failure=True`
+            # below, the documented safety net for "local produced no usable
+            # JSON three times", had been returning HTTP 413 for weeks and
+            # nobody could see it. The escalation looked configured, and was
+            # dead. Letting the caller hand the cloud path a prompt sized for
+            # the cloud path fixes that without touching what local receives.
+            system_prompt=(
+                cloud_system_prompt if (force_cloud and cloud_system_prompt) else system_prompt
+            ),
             user_message=message,
             temperature=temperature,
             max_tokens=max_tokens,

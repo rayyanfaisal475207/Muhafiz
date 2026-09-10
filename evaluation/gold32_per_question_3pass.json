@@ -1,0 +1,610 @@
+[
+  {
+    "id": "D1",
+    "type": "Fact Retrieval",
+    "lang": "en",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "fc_min": 1.0,
+    "fc_max": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 84
+  },
+  {
+    "id": "S2",
+    "type": "Fact Retrieval",
+    "lang": "en",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "fc_min": 1.0,
+    "fc_max": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "ar_mean": 0.6666666666666666,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 109
+  },
+  {
+    "id": "A1",
+    "type": "Fact Retrieval",
+    "lang": "ur",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "fc_min": 1.0,
+    "fc_max": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 247
+  },
+  {
+    "id": "A7",
+    "type": "Fact Retrieval",
+    "lang": "roman_ur",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "fc_min": 1.0,
+    "fc_max": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "ar_mean": 0.8889999999999999,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 165
+  },
+  {
+    "id": "S3",
+    "type": "Fact Retrieval",
+    "lang": "ur",
+    "fc": [
+      0.9,
+      1.0,
+      0.9
+    ],
+    "fc_mean": 0.9333333333333332,
+    "fc_min": 0.9,
+    "fc_max": 1.0,
+    "spread": 0.09999999999999998,
+    "n_pass": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 403
+  },
+  {
+    "id": "CP6",
+    "type": "Fact Retrieval",
+    "lang": "roman_ur",
+    "fc": [
+      0.3,
+      0.3,
+      0.3
+    ],
+    "fc_mean": 0.3,
+    "fc_min": 0.3,
+    "fc_max": 0.3,
+    "spread": 0.0,
+    "n_pass": 0,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 100
+  },
+  {
+    "id": "CR3",
+    "type": "Complex Reasoning",
+    "lang": "en",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "fc_min": 1.0,
+    "fc_max": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 429
+  },
+  {
+    "id": "CR4",
+    "type": "Complex Reasoning",
+    "lang": "en",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "fc_min": 1.0,
+    "fc_max": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 2667
+  },
+  {
+    "id": "CR6",
+    "type": "Complex Reasoning",
+    "lang": "ur",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "fc_min": 1.0,
+    "fc_max": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "ar_mean": 0.762,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 521
+  },
+  {
+    "id": "CR7",
+    "type": "Complex Reasoning",
+    "lang": "ur",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "fc_min": 1.0,
+    "fc_max": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 650
+  },
+  {
+    "id": "CR8",
+    "type": "Complex Reasoning",
+    "lang": "ur",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "fc_min": 1.0,
+    "fc_max": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 192
+  },
+  {
+    "id": "CS4",
+    "type": "Complex Reasoning",
+    "lang": "roman_ur",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "fc_min": 1.0,
+    "fc_max": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 833
+  },
+  {
+    "id": "CP1",
+    "type": "Complex Reasoning",
+    "lang": "roman_ur",
+    "fc": [
+      1.0,
+      0.5,
+      0.9
+    ],
+    "fc_mean": 0.7999999999999999,
+    "fc_min": 0.5,
+    "fc_max": 1.0,
+    "spread": 0.5,
+    "n_pass": 3,
+    "ar_mean": 0.8333333333333334,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 157
+  },
+  {
+    "id": "CR2",
+    "type": "Complex Reasoning",
+    "lang": "en",
+    "fc": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "fc_mean": 0.0,
+    "fc_min": 0.0,
+    "fc_max": 0.0,
+    "spread": 0.0,
+    "n_pass": 0,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 312
+  },
+  {
+    "id": "KB8",
+    "type": "Knowledge Base Reasoning",
+    "lang": "roman_ur",
+    "fc": [
+      0.9,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 0.9666666666666667,
+    "fc_min": 0.9,
+    "fc_max": 1.0,
+    "spread": 0.09999999999999998,
+    "n_pass": 3,
+    "ar_mean": 0.7333333333333334,
+    "route": "RAG",
+    "route_stable": true,
+    "len_mean": 1792
+  },
+  {
+    "id": "KB5",
+    "type": "Knowledge Base Reasoning",
+    "lang": "ur",
+    "fc": [
+      0.9,
+      0.8,
+      0.9
+    ],
+    "fc_mean": 0.8666666666666667,
+    "fc_min": 0.8,
+    "fc_max": 0.9,
+    "spread": 0.09999999999999998,
+    "n_pass": 3,
+    "ar_mean": 1.0,
+    "route": "RAG",
+    "route_stable": true,
+    "len_mean": 1327
+  },
+  {
+    "id": "KB6",
+    "type": "Knowledge Base Reasoning",
+    "lang": "roman_ur",
+    "fc": [
+      0.8,
+      0.4,
+      0.9
+    ],
+    "fc_mean": 0.7000000000000001,
+    "fc_min": 0.4,
+    "fc_max": 0.9,
+    "spread": 0.5,
+    "n_pass": 2,
+    "ar_mean": 0.856,
+    "route": "RAG",
+    "route_stable": true,
+    "len_mean": 1904
+  },
+  {
+    "id": "KB1",
+    "type": "Knowledge Base Reasoning",
+    "lang": "en",
+    "fc": [
+      0.3,
+      0.3,
+      0.3
+    ],
+    "fc_mean": 0.3,
+    "fc_min": 0.3,
+    "fc_max": 0.3,
+    "spread": 0.0,
+    "n_pass": 0,
+    "ar_mean": 1.0,
+    "route": "RAG",
+    "route_stable": true,
+    "len_mean": 691
+  },
+  {
+    "id": "KB9",
+    "type": "Knowledge Base Reasoning",
+    "lang": "roman_ur",
+    "fc": [
+      0.2,
+      0.4,
+      0.2
+    ],
+    "fc_mean": 0.26666666666666666,
+    "fc_min": 0.2,
+    "fc_max": 0.4,
+    "spread": 0.2,
+    "n_pass": 0,
+    "ar_mean": 0.8329999999999999,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 564
+  },
+  {
+    "id": "KB4",
+    "type": "Knowledge Base Reasoning",
+    "lang": "ur",
+    "fc": [
+      0.1,
+      0.2,
+      0.2
+    ],
+    "fc_mean": 0.16666666666666666,
+    "fc_min": 0.1,
+    "fc_max": 0.2,
+    "spread": 0.1,
+    "n_pass": 0,
+    "ar_mean": 1.0,
+    "route": "RAG",
+    "route_stable": true,
+    "len_mean": 2322
+  },
+  {
+    "id": "KB2",
+    "type": "Knowledge Base Reasoning",
+    "lang": "en",
+    "fc": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "fc_mean": 0.0,
+    "fc_min": 0.0,
+    "fc_max": 0.0,
+    "spread": 0.0,
+    "n_pass": 0,
+    "ar_mean": 0.8569999999999999,
+    "route": "RAG",
+    "route_stable": true,
+    "len_mean": 420
+  },
+  {
+    "id": "KB3",
+    "type": "Knowledge Base Reasoning",
+    "lang": "en",
+    "fc": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "fc_mean": 0.0,
+    "fc_min": 0.0,
+    "fc_max": 0.0,
+    "spread": 0.0,
+    "n_pass": 0,
+    "ar_mean": 0.06666666666666667,
+    "route": "XNETWORK",
+    "route_stable": true,
+    "len_mean": 563
+  },
+  {
+    "id": "M4",
+    "type": "Contextual Summarization",
+    "lang": "ur",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "fc_min": 1.0,
+    "fc_max": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 1175
+  },
+  {
+    "id": "M5",
+    "type": "Contextual Summarization",
+    "lang": "ur",
+    "fc": [
+      0.9,
+      1.0,
+      0.9
+    ],
+    "fc_mean": 0.9333333333333332,
+    "fc_min": 0.9,
+    "fc_max": 1.0,
+    "spread": 0.09999999999999998,
+    "n_pass": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 676
+  },
+  {
+    "id": "M1",
+    "type": "Contextual Summarization",
+    "lang": "en",
+    "fc": [
+      0.4,
+      0.7,
+      0.4
+    ],
+    "fc_mean": 0.5,
+    "fc_min": 0.4,
+    "fc_max": 0.7,
+    "spread": 0.29999999999999993,
+    "n_pass": 1,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 812
+  },
+  {
+    "id": "M2",
+    "type": "Contextual Summarization",
+    "lang": "en",
+    "fc": [
+      0.3,
+      0.8,
+      0.3
+    ],
+    "fc_mean": 0.4666666666666666,
+    "fc_min": 0.3,
+    "fc_max": 0.8,
+    "spread": 0.5,
+    "n_pass": 1,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 306
+  },
+  {
+    "id": "M7",
+    "type": "Contextual Summarization",
+    "lang": "roman_ur",
+    "fc": [
+      0.1,
+      0.3,
+      0.2
+    ],
+    "fc_mean": 0.19999999999999998,
+    "fc_min": 0.1,
+    "fc_max": 0.3,
+    "spread": 0.19999999999999998,
+    "n_pass": 0,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 252
+  },
+  {
+    "id": "G3",
+    "type": "Creative Generation",
+    "lang": "ur",
+    "fc": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "fc_mean": 1.0,
+    "fc_min": 1.0,
+    "fc_max": 1.0,
+    "spread": 0.0,
+    "n_pass": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 626
+  },
+  {
+    "id": "G5",
+    "type": "Creative Generation",
+    "lang": "roman_ur",
+    "fc": [
+      0.5,
+      0.6,
+      0.6
+    ],
+    "fc_mean": 0.5666666666666667,
+    "fc_min": 0.5,
+    "fc_max": 0.6,
+    "spread": 0.09999999999999998,
+    "n_pass": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 523
+  },
+  {
+    "id": "G1",
+    "type": "Creative Generation",
+    "lang": "en",
+    "fc": [
+      0.3,
+      0.7,
+      0.6
+    ],
+    "fc_mean": 0.5333333333333333,
+    "fc_min": 0.3,
+    "fc_max": 0.7,
+    "spread": 0.39999999999999997,
+    "n_pass": 2,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 2656
+  },
+  {
+    "id": "G2",
+    "type": "Creative Generation",
+    "lang": "ur",
+    "fc": [
+      0.5,
+      0.5,
+      0.5
+    ],
+    "fc_mean": 0.5,
+    "fc_min": 0.5,
+    "fc_max": 0.5,
+    "spread": 0.0,
+    "n_pass": 3,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 927
+  },
+  {
+    "id": "G6",
+    "type": "Creative Generation",
+    "lang": "roman_ur",
+    "fc": [
+      0.3,
+      0.4,
+      0.2
+    ],
+    "fc_mean": 0.3,
+    "fc_min": 0.2,
+    "fc_max": 0.4,
+    "spread": 0.2,
+    "n_pass": 0,
+    "ar_mean": 1.0,
+    "route": "XAGG",
+    "route_stable": true,
+    "len_mean": 2516
+  }
+]

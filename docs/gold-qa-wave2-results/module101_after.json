@@ -1,0 +1,562 @@
+[
+ {
+  "id": "KB9",
+  "run": 1,
+  "arm": "after",
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "status": "ok",
+  "served_answer": "### 1. Governing Provision and Its Substance:\nThe law requires that when a person dies under suspicious circumstances, the police must conduct a thorough investigation into the cause of death. This is outlined in **Section 174 of the Code of Criminal Procedure (Pakistan)**, which mandates that the police inquire and report on suicide, unnatural death, or any other suspicious death. Additionally, **Rule 25.31 of the Punjab Police Rules (III)** specifies that the officer in charge of the police station must immediately inform the nearest magistrate authorized to hold inquests and conduct an investigation in the manner prescribed by Section 174 of the Code of Criminal Procedure.\n\n### 2. What Our Case Records Actually Show:\nAccording to **our own case records (Document 7)**, out of **73 FIRs** that carry a recorded section cite, **10 of them** are linked to **PPC §302**, which pertains to murder. This indicates that **murder cases** (which fall under suspicious deaths) are indeed recorded in our system. However, the summary does not provide specific details about whether the police conducted thorough investigations into the cause of death in these cases, nor does it indicate whether the required reports (such as the plan of the scene of death, inventory of clothing, etc.) were prepared and submitted as required under **Punjab Police Rules-III (Document 2)**.\n\nIn conclusion, while our system does record cases involving suspicious deaths, the summary does not confirm whether the full investigative procedures required by law were followed in these cases.",
+  "caveats": [],
+  "error": null,
+  "elapsed_s": 86.8,
+  "generation": [
+   "local"
+  ],
+  "verifier_calls": [
+   {
+    "answer": "### 1. Governing Provision and Its Substance:\nThe law requires that when a person dies under suspicious circumstances, the police must conduct a thorough investigation into the cause of death. This is outlined in **Section 174 of the Code of Criminal Procedure (Pakistan)**, which mandates that the police inquire and report on suicide, unnatural death, or any other suspicious death. Additionally, **Rule 25.31 of the Punjab Police Rules (III)** specifies that the officer in charge of the police station must immediately inform the nearest magistrate authorized to hold inquests and conduct an investigation in the manner prescribed by Section 174 of the Code of Criminal Procedure.\n\n### 2. What Our Case Records Actually Show:\nAccording to **our own case records (Document 7)**, out of **73 FIRs** that carry a recorded section cite, **10 of them** are linked to **PPC §302**, which pertains to murder. This indicates that **murder cases** (which fall under suspicious deaths) are indeed recorded in our system. However, the summary does not provide specific details about whether the police conducted thorough investigations into the cause of death in these cases, nor does it indicate whether the required reports (such as the plan of the scene of death, inventory of clothing, etc.) were prepared and submitted as required under **Punjab Police Rules-III (Document 2)**.\n\nIn conclusion, while our system does record cases involving suspicious deaths, the summary does not confirm whether the full investigative procedures required by law were followed in these cases.",
+    "chunks": [
+     {
+      "n": 1,
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c35",
+      "source_tool": "RAG",
+      "source": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+      "exhaustive_scope": false,
+      "chars": 490,
+      "text": ". | Case to be sent to magistrate when evidence is sufficient. |\n| 171. | Complaints and witnesses not to be required to accompany police­officer. Complainants and witnesses not to be subjected to restraint. Recusant complainant or witness may be forwarded in custody. |\n| 172. 173. | Report of police­officer. |\n| 174. | Police to inquire and report on suicide, etc. |\n| 175. | Power to summon persons. |\n| 176. | Inquiry by magistrate into |\n| | cause of death. Power to disinter corpses."
+     },
+     {
+      "n": 2,
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1561",
+      "source_tool": "RAG",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "exhaustive_scope": false,
+      "chars": 1332,
+      "text": "-\n- A. from natural causes.\n- B. by violence.\n- C. by poisoning.\n- (2) Such report shall state the apparent cause of death, give a description of any mark or marks of violence which may be found on the body and describe the manner in which and the weapon or instrument with which such marks appear to have been inflicted. instrument with which such marks appear to have been inflicted.\n- (3) The report shall be signed by the police officer conducting the investigation and by so many of the persons assisting in the investigation as concur therein and shall be forwarded without delay through the Superintendent to the District Magistrate or, if the District Magistrate has so directed, to the Sub-Divisional Magistrate.\n- (4) The following documents shall form part of such report :-\n8. (a) The plan of the scene of death. rm part of such report :-\n8. (a) The plan of the scene of death.\n9. (b) The inventory of clothing, etc.\n10. (c) A list of the articles on and with the body, if the body is sent for medical examination.\n11. (d) A list of articles sent for medical examination, if any.\n\n(5) In cases of death by hanging, the report shall give particulars as to the height and sufficiency of the support and the nature of the thing used to bear the weight of the body.\n\nIn drowning cases the depth of the water shall be stated."
+     },
+     {
+      "n": 3,
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c779",
+      "source_tool": "RAG",
+      "source": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+      "exhaustive_scope": false,
+      "chars": 1526,
+      "text": "person who appears to be acquainted with the facts of the case. Every person so summoned shall be bound to attend and to answer truly all questions other than questions the answers to which would have a tendency to expose him to a criminal charge, or to a penalty or forfeiture.\n- (2) If the facts do not disclose a cognizable offence to which section 170 applies, such persons shall not be required by the police­officer to attend a Magistrate's Court.\n176. Inquiry by Magistrate into cause of death. istrate's Court.\n176. Inquiry by Magistrate into cause of death. \\_\\_ (1) When any person dies while in the custody of the police, the nearest Magistrate empowered to hold inquests shall, and, in any other case mentioned in section 174, clauses (a), (b) and (c) of sub­section (1), any Magistrate so empowered may hold an inquiry into the cause of death either instead of, or in addition to, the investigation held by the\n\n1 Subs. by A.O. 1937, for \"L. G.\"\n\n2 Sub­section (4) omitted by A.O., 1949, Sch.\n\n3 Subs. \"L. G.\"\n\n2 Sub­section (4) omitted by A.O., 1949, Sch.\n\n3 Subs. by Ord. 37 of 2001, S. 51 (w.e.f 14­08­2001).\n\n4 Ins. by Ord. 64 of 2001, S. 2.\n\npolice­officer, and if he does so, he shall have all the powers in conducting it which he would have in holding an inquiry into an offence. The Magistrate holding such an inquiry shall record the evidence taken by him in connection therewith in any of the manners hereinafter prescribed according to the circumstances of the case.\n\n(2)  Power  to  disinter  corpses."
+     },
+     {
+      "n": 4,
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c35",
+      "source_tool": "RAG",
+      "source": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+      "exhaustive_scope": false,
+      "chars": 1331,
+      "text": "|\n| | such statements in No inducement to be offered. |\n| 164A. | Medical examination of victim of rape, |\n| 164B. | etc. DNA test. |\n| | Search by police­officer. |\n| 165. 166. | When officer incharge of police station may require another to issue search warrant. |\n| 167. | Procedure when investigation cannot be completed in twenty­four hours. |\n| 168. 169. | Release of accused when evidence deficient. |\n| 170. | Case to be sent to magistrate when evidence is sufficient. | . | Case to be sent to magistrate when evidence is sufficient. |\n| 171. | Complaints and witnesses not to be required to accompany police­officer. Complainants and witnesses not to be subjected to restraint. Recusant complainant or witness may be forwarded in custody. |\n| 172. 173. | Report of police­officer. |\n| 174. | Police to inquire and report on suicide, etc. |\n| 175. | Power to summon persons. |\n| 176. | Inquiry by magistrate into |\n| | cause of death. Power to disinter corpses. magistrate into |\n| | cause of death. Power to disinter corpses. PART VI PROCEEDINGS IN |\n| | PROSECUTIONS CHAPTER XV THE JURISDICTION OF THE CRIMINAL COURTS IN |\n| | OF INQUIRIES AND TRIALS. A.­Place of Inquiry or Trial. |\n| 177. | |\n| | and trial. |\n| | Ordinary place of inquiry |\n\n| 178. | Power to order cases to be tried in different sessions divisions. |"
+     },
+     {
+      "n": 5,
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+      "source_tool": "RAG",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "exhaustive_scope": false,
+      "chars": 1322,
+      "text": "r should not be undertaken.\n\nRule 25.30\n\n25.30.  Place of trial. - With regard to the place of trial of cases falling under Sections 179-183, Code of Criminal Procedure, police officers shall act solely with reference to the public convenience.\n\nOrdinarily such cases shall be sent up for trial in the district in which the witnesses can attend with the least inconvenience to themselves.\n\nRule 25.31\n\n25.31.  Inquests. east inconvenience to themselves.\n\nRule 25.31\n\n25.31.  Inquests. - (1) An officer in charge of police station shall, upon receipt of information of the sudden or unnatural death of any person, when the body of such person is within the local jurisdiction of his police station, immediately send information to the nearest magistrate authorized to hold inquests and shall proceed to the place where the body is and hold an investigation in the manner prescribed by Section 174, Code of Criminal Procedure. he manner prescribed by Section 174, Code of Criminal Procedure.  When the Sub-Inpector-in-charge of the Police Station through illness or absence from the station house, is himself unable to carry out the investigation, he shall at the first convenient opportunity proceed to the place where the body of the deceased person was found, and shall personally verify the results of the investigation."
+     },
+     {
+      "n": 6,
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1546",
+      "source_tool": "RAG",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "exhaustive_scope": false,
+      "chars": 944,
+      "text": "ded that the following cases shall be exceptions to this rule :- - (a) When the death of any person is caused by injuries unlawfully inflicted by a soldier or camp follower, or occurs within the limits of a military cantonment, the inquest shall be conducted by the Cantonment Magistrate, under Section 176, Code of Criminal Procedure, or by the nearest competent Magistrate if the post of Cantonment Magistrate is held by an officer not specially empowered to hold inquests or if the scene of death is outside cantonment limits. inquests or if the scene of death is outside cantonment limits.\n- If the magistrate invited to hold the inquest fails to do so, the Superintendent or other gazetted officer shall make an investigation under the combined provisions of Sections 174 and 551, Code of Criminal Procedure, and if no gazetted officer is available such investigation shall be made by the officer in charge of the police station concerned."
+     },
+     {
+      "n": 7,
+      "id": "kb-data-half:death_investigation_charging",
+      "source_tool": "XAGG",
+      "source": "our own case records (cross-case aggregate)",
+      "exhaustive_scope": false,
+      "chars": 829,
+      "text": "10 of the 73 FIR(s) that carry a recorded section cite PPC §302.\n  - fir-202-26, fir-213-26, fir-214-26, fir-218-26, fir-340-25, fir-409-26, fir-421-26, fir-431-26, fir-466-26, fir-77-26\nFor context, the sections most often cited:\n  - PPC §34: 40 FIR(s)\n  - Arms Ordinance 1965 §13: 29 FIR(s)\n  - PPC §392: 21 FIR(s)\n  - CNSA 1997 §9(c): 12 FIR(s)\n  - PPC §420: 11 FIR(s)\n  - PPC §302: 10 FIR(s)\n  - PPC §337-A(i): 10 FIR(s)\n  - PECA 2016 §14: 9 FIR(s)\n  - PECA 2016 §21: 9 FIR(s)\n  - PPC §419: 9 FIR(s)\n  - PPC §365-A: 6 FIR(s)\n  - PPC §506: 6 FIR(s)\n  - PPC §379: 5 FIR(s)\n  - PPC §384: 4 FIR(s)\n  - Provincial Act §Punjab Domestic Violence Act: 4 FIR(s)\n  - Illegal Dispossession Act 2005 §3: 2 FIR(s)\n  - PPC §148: 2 FIR(s)\n  - PPC §149: 2 FIR(s)\n  - PPC §328A: 2 FIR(s)\n  - PPC §342: 2 FIR(s)\n  - ... and 16 more section(s)."
+     }
+    ],
+    "verdict": {
+     "grounded": true,
+     "off_topic": false,
+     "leaked_case_id": null,
+     "unsupported_claims": [],
+     "reason": "All claims are directly supported by cited chunks.",
+     "exhaustive_negative_override": null,
+     "computed_evidence_override": null
+    }
+   }
+  ]
+ },
+ {
+  "id": "KB9",
+  "run": 2,
+  "arm": "after",
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "status": "ok",
+  "served_answer": "### Legal Requirement:\nAccording to the **Code of Criminal Procedure (Pakistan)**, when a person dies while in the custody of the police or in certain other circumstances (such as unnatural or sudden death), the police are required to conduct an inquiry into the cause of death. This is outlined in **Section 174** and **Section 176** of the Code of Criminal Procedure, which mandate that the police inquire and report on suicide, etc., and that a magistrate may hold an inquiry into the cause of death. The police must also prepare a detailed report that includes the apparent cause of death, descriptions of any injuries, and other relevant information, as specified in **Punjab Police Rules-III** (Document 2). These provisions ensure that the cause of death is thoroughly investigated and documented.\n\n### Case Records Summary:\nAccording to **our own case records (Document 7)**, out of **73 FIRs** that carry a recorded section cite, **10 of them** are linked to **PPC §302** (murder). This indicates that **murder** is a significant category among the cases recorded in the system. However, the summary does not explicitly state how many of these cases involved **inquiries into the cause of death** or whether the **police conducted detailed investigations** as required by law. The summary does not include specific data on whether the police conducted inquiries or prepared detailed reports on deaths, as required by the law.\n\n### Conclusion:\nWhile the law clearly requires the police to investigate and document the cause of death in cases of unnatural or suspicious deaths, the case records do not provide specific data on how many such investigations were conducted or how thoroughly they were documented. The system does not explicitly track or report the number of cases where the police conducted inquiries into the cause of death, despite the legal requirement.",
+  "caveats": [],
+  "error": null,
+  "elapsed_s": 74.9,
+  "generation": [
+   "local"
+  ],
+  "verifier_calls": [
+   {
+    "answer": "### Legal Requirement:\nAccording to the **Code of Criminal Procedure (Pakistan)**, when a person dies while in the custody of the police or in certain other circumstances (such as unnatural or sudden death), the police are required to conduct an inquiry into the cause of death. This is outlined in **Section 174** and **Section 176** of the Code of Criminal Procedure, which mandate that the police inquire and report on suicide, etc., and that a magistrate may hold an inquiry into the cause of death. The police must also prepare a detailed report that includes the apparent cause of death, descriptions of any injuries, and other relevant information, as specified in **Punjab Police Rules-III** (Document 2). These provisions ensure that the cause of death is thoroughly investigated and documented.\n\n### Case Records Summary:\nAccording to **our own case records (Document 7)**, out of **73 FIRs** that carry a recorded section cite, **10 of them** are linked to **PPC §302** (murder). This indicates that **murder** is a significant category among the cases recorded in the system. However, the summary does not explicitly state how many of these cases involved **inquiries into the cause of death** or whether the **police conducted detailed investigations** as required by law. The summary does not include specific data on whether the police conducted inquiries or prepared detailed reports on deaths, as required by the law.\n\n### Conclusion:\nWhile the law clearly requires the police to investigate and document the cause of death in cases of unnatural or suspicious deaths, the case records do not provide specific data on how many such investigations were conducted or how thoroughly they were documented. The system does not explicitly track or report the number of cases where the police conducted inquiries into the cause of death, despite the legal requirement.",
+    "chunks": [
+     {
+      "n": 1,
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c35",
+      "source_tool": "RAG",
+      "source": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+      "exhaustive_scope": false,
+      "chars": 490,
+      "text": ". | Case to be sent to magistrate when evidence is sufficient. |\n| 171. | Complaints and witnesses not to be required to accompany police­officer. Complainants and witnesses not to be subjected to restraint. Recusant complainant or witness may be forwarded in custody. |\n| 172. 173. | Report of police­officer. |\n| 174. | Police to inquire and report on suicide, etc. |\n| 175. | Power to summon persons. |\n| 176. | Inquiry by magistrate into |\n| | cause of death. Power to disinter corpses."
+     },
+     {
+      "n": 2,
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1561",
+      "source_tool": "RAG",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "exhaustive_scope": false,
+      "chars": 1332,
+      "text": "-\n- A. from natural causes.\n- B. by violence.\n- C. by poisoning.\n- (2) Such report shall state the apparent cause of death, give a description of any mark or marks of violence which may be found on the body and describe the manner in which and the weapon or instrument with which such marks appear to have been inflicted. instrument with which such marks appear to have been inflicted.\n- (3) The report shall be signed by the police officer conducting the investigation and by so many of the persons assisting in the investigation as concur therein and shall be forwarded without delay through the Superintendent to the District Magistrate or, if the District Magistrate has so directed, to the Sub-Divisional Magistrate.\n- (4) The following documents shall form part of such report :-\n8. (a) The plan of the scene of death. rm part of such report :-\n8. (a) The plan of the scene of death.\n9. (b) The inventory of clothing, etc.\n10. (c) A list of the articles on and with the body, if the body is sent for medical examination.\n11. (d) A list of articles sent for medical examination, if any.\n\n(5) In cases of death by hanging, the report shall give particulars as to the height and sufficiency of the support and the nature of the thing used to bear the weight of the body.\n\nIn drowning cases the depth of the water shall be stated."
+     },
+     {
+      "n": 3,
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c779",
+      "source_tool": "RAG",
+      "source": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+      "exhaustive_scope": false,
+      "chars": 1526,
+      "text": "person who appears to be acquainted with the facts of the case. Every person so summoned shall be bound to attend and to answer truly all questions other than questions the answers to which would have a tendency to expose him to a criminal charge, or to a penalty or forfeiture.\n- (2) If the facts do not disclose a cognizable offence to which section 170 applies, such persons shall not be required by the police­officer to attend a Magistrate's Court.\n176. Inquiry by Magistrate into cause of death. istrate's Court.\n176. Inquiry by Magistrate into cause of death. \\_\\_ (1) When any person dies while in the custody of the police, the nearest Magistrate empowered to hold inquests shall, and, in any other case mentioned in section 174, clauses (a), (b) and (c) of sub­section (1), any Magistrate so empowered may hold an inquiry into the cause of death either instead of, or in addition to, the investigation held by the\n\n1 Subs. by A.O. 1937, for \"L. G.\"\n\n2 Sub­section (4) omitted by A.O., 1949, Sch.\n\n3 Subs. \"L. G.\"\n\n2 Sub­section (4) omitted by A.O., 1949, Sch.\n\n3 Subs. by Ord. 37 of 2001, S. 51 (w.e.f 14­08­2001).\n\n4 Ins. by Ord. 64 of 2001, S. 2.\n\npolice­officer, and if he does so, he shall have all the powers in conducting it which he would have in holding an inquiry into an offence. The Magistrate holding such an inquiry shall record the evidence taken by him in connection therewith in any of the manners hereinafter prescribed according to the circumstances of the case.\n\n(2)  Power  to  disinter  corpses."
+     },
+     {
+      "n": 4,
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c35",
+      "source_tool": "RAG",
+      "source": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+      "exhaustive_scope": false,
+      "chars": 1331,
+      "text": "|\n| | such statements in No inducement to be offered. |\n| 164A. | Medical examination of victim of rape, |\n| 164B. | etc. DNA test. |\n| | Search by police­officer. |\n| 165. 166. | When officer incharge of police station may require another to issue search warrant. |\n| 167. | Procedure when investigation cannot be completed in twenty­four hours. |\n| 168. 169. | Release of accused when evidence deficient. |\n| 170. | Case to be sent to magistrate when evidence is sufficient. | . | Case to be sent to magistrate when evidence is sufficient. |\n| 171. | Complaints and witnesses not to be required to accompany police­officer. Complainants and witnesses not to be subjected to restraint. Recusant complainant or witness may be forwarded in custody. |\n| 172. 173. | Report of police­officer. |\n| 174. | Police to inquire and report on suicide, etc. |\n| 175. | Power to summon persons. |\n| 176. | Inquiry by magistrate into |\n| | cause of death. Power to disinter corpses. magistrate into |\n| | cause of death. Power to disinter corpses. PART VI PROCEEDINGS IN |\n| | PROSECUTIONS CHAPTER XV THE JURISDICTION OF THE CRIMINAL COURTS IN |\n| | OF INQUIRIES AND TRIALS. A.­Place of Inquiry or Trial. |\n| 177. | |\n| | and trial. |\n| | Ordinary place of inquiry |\n\n| 178. | Power to order cases to be tried in different sessions divisions. |"
+     },
+     {
+      "n": 5,
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+      "source_tool": "RAG",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "exhaustive_scope": false,
+      "chars": 1322,
+      "text": "r should not be undertaken.\n\nRule 25.30\n\n25.30.  Place of trial. - With regard to the place of trial of cases falling under Sections 179-183, Code of Criminal Procedure, police officers shall act solely with reference to the public convenience.\n\nOrdinarily such cases shall be sent up for trial in the district in which the witnesses can attend with the least inconvenience to themselves.\n\nRule 25.31\n\n25.31.  Inquests. east inconvenience to themselves.\n\nRule 25.31\n\n25.31.  Inquests. - (1) An officer in charge of police station shall, upon receipt of information of the sudden or unnatural death of any person, when the body of such person is within the local jurisdiction of his police station, immediately send information to the nearest magistrate authorized to hold inquests and shall proceed to the place where the body is and hold an investigation in the manner prescribed by Section 174, Code of Criminal Procedure. he manner prescribed by Section 174, Code of Criminal Procedure.  When the Sub-Inpector-in-charge of the Police Station through illness or absence from the station house, is himself unable to carry out the investigation, he shall at the first convenient opportunity proceed to the place where the body of the deceased person was found, and shall personally verify the results of the investigation."
+     },
+     {
+      "n": 6,
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1546",
+      "source_tool": "RAG",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "exhaustive_scope": false,
+      "chars": 944,
+      "text": "ded that the following cases shall be exceptions to this rule :- - (a) When the death of any person is caused by injuries unlawfully inflicted by a soldier or camp follower, or occurs within the limits of a military cantonment, the inquest shall be conducted by the Cantonment Magistrate, under Section 176, Code of Criminal Procedure, or by the nearest competent Magistrate if the post of Cantonment Magistrate is held by an officer not specially empowered to hold inquests or if the scene of death is outside cantonment limits. inquests or if the scene of death is outside cantonment limits.\n- If the magistrate invited to hold the inquest fails to do so, the Superintendent or other gazetted officer shall make an investigation under the combined provisions of Sections 174 and 551, Code of Criminal Procedure, and if no gazetted officer is available such investigation shall be made by the officer in charge of the police station concerned."
+     },
+     {
+      "n": 7,
+      "id": "kb-data-half:death_investigation_charging",
+      "source_tool": "XAGG",
+      "source": "our own case records (cross-case aggregate)",
+      "exhaustive_scope": false,
+      "chars": 829,
+      "text": "10 of the 73 FIR(s) that carry a recorded section cite PPC §302.\n  - fir-202-26, fir-213-26, fir-214-26, fir-218-26, fir-340-25, fir-409-26, fir-421-26, fir-431-26, fir-466-26, fir-77-26\nFor context, the sections most often cited:\n  - PPC §34: 40 FIR(s)\n  - Arms Ordinance 1965 §13: 29 FIR(s)\n  - PPC §392: 21 FIR(s)\n  - CNSA 1997 §9(c): 12 FIR(s)\n  - PPC §420: 11 FIR(s)\n  - PPC §302: 10 FIR(s)\n  - PPC §337-A(i): 10 FIR(s)\n  - PECA 2016 §14: 9 FIR(s)\n  - PECA 2016 §21: 9 FIR(s)\n  - PPC §419: 9 FIR(s)\n  - PPC §365-A: 6 FIR(s)\n  - PPC §506: 6 FIR(s)\n  - PPC §379: 5 FIR(s)\n  - PPC §384: 4 FIR(s)\n  - Provincial Act §Punjab Domestic Violence Act: 4 FIR(s)\n  - Illegal Dispossession Act 2005 §3: 2 FIR(s)\n  - PPC §148: 2 FIR(s)\n  - PPC §149: 2 FIR(s)\n  - PPC §328A: 2 FIR(s)\n  - PPC §342: 2 FIR(s)\n  - ... and 16 more section(s)."
+     }
+    ],
+    "verdict": {
+     "grounded": true,
+     "off_topic": false,
+     "leaked_case_id": null,
+     "unsupported_claims": [],
+     "reason": "All claims are directly supported by cited chunks.",
+     "exhaustive_negative_override": null,
+     "computed_evidence_override": null
+    }
+   }
+  ]
+ },
+ {
+  "id": "KB9",
+  "run": 3,
+  "arm": "after",
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "status": "ok",
+  "served_answer": "### Legal Requirement:\nUnder the **Code of Criminal Procedure (Pakistan)**, specifically **Section 174**, the police are required to inquire and report on the cause of death in cases of sudden or unnatural death. This includes conducting a thorough investigation and preparing a detailed report that includes the apparent cause of death, any marks of violence, and other relevant details. This requirement is further elaborated in **Punjab Police Rules-III**, **Rule 25.31**, which mandates that the officer in charge of the police station must immediately inform the nearest magistrate authorized to hold inquests and conduct an investigation as prescribed by **Section 174** of the Code of Criminal Procedure.\n\n### Case Records Summary:\nAccording to **our own case records (cross-case aggregate)**, **10 of the 73 FIR(s)** that carry a recorded section cite **PPC §302**, which pertains to murder. This indicates that **10 cases** in the records involve **murder**, which falls under the category of **unnatural death** and would require an **inquest** under **Section 174** of the Code of Criminal Procedure.\n\nHowever, the records do **not** provide specific information on whether the **police conducted the required investigation and prepared the detailed report** as mandated by **Section 174** and **Rule 25.31**. The records only indicate the **section cited** in the FIRs, not the **details of the investigation or the completeness of the report**.\n\nIn conclusion, while the **legal framework** clearly mandates a detailed investigation and report in cases of unnatural death, the **case records** do not provide sufficient information to confirm whether the **investigation was conducted** or whether the **report was prepared** in accordance with the law.",
+  "caveats": [
+   "This answer attributes its sources by name rather than with [Document N] markers, so individual claims cannot be traced to a specific source; every claim was still checked against the retrieved evidence."
+  ],
+  "error": null,
+  "elapsed_s": 53.4,
+  "generation": [
+   "local"
+  ],
+  "verifier_calls": [
+   {
+    "answer": "### Legal Requirement:\nUnder the **Code of Criminal Procedure (Pakistan)**, specifically **Section 174**, the police are required to inquire and report on the cause of death in cases of sudden or unnatural death. This includes conducting a thorough investigation and preparing a detailed report that includes the apparent cause of death, any marks of violence, and other relevant details. This requirement is further elaborated in **Punjab Police Rules-III**, **Rule 25.31**, which mandates that the officer in charge of the police station must immediately inform the nearest magistrate authorized to hold inquests and conduct an investigation as prescribed by **Section 174** of the Code of Criminal Procedure.\n\n### Case Records Summary:\nAccording to **our own case records (cross-case aggregate)**, **10 of the 73 FIR(s)** that carry a recorded section cite **PPC §302**, which pertains to murder. This indicates that **10 cases** in the records involve **murder**, which falls under the category of **unnatural death** and would require an **inquest** under **Section 174** of the Code of Criminal Procedure.\n\nHowever, the records do **not** provide specific information on whether the **police conducted the required investigation and prepared the detailed report** as mandated by **Section 174** and **Rule 25.31**. The records only indicate the **section cited** in the FIRs, not the **details of the investigation or the completeness of the report**.\n\nIn conclusion, while the **legal framework** clearly mandates a detailed investigation and report in cases of unnatural death, the **case records** do not provide sufficient information to confirm whether the **investigation was conducted** or whether the **report was prepared** in accordance with the law.",
+    "chunks": [
+     {
+      "n": 1,
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c35",
+      "source_tool": "RAG",
+      "source": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+      "exhaustive_scope": false,
+      "chars": 490,
+      "text": ". | Case to be sent to magistrate when evidence is sufficient. |\n| 171. | Complaints and witnesses not to be required to accompany police­officer. Complainants and witnesses not to be subjected to restraint. Recusant complainant or witness may be forwarded in custody. |\n| 172. 173. | Report of police­officer. |\n| 174. | Police to inquire and report on suicide, etc. |\n| 175. | Power to summon persons. |\n| 176. | Inquiry by magistrate into |\n| | cause of death. Power to disinter corpses."
+     },
+     {
+      "n": 2,
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1561",
+      "source_tool": "RAG",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "exhaustive_scope": false,
+      "chars": 1332,
+      "text": "-\n- A. from natural causes.\n- B. by violence.\n- C. by poisoning.\n- (2) Such report shall state the apparent cause of death, give a description of any mark or marks of violence which may be found on the body and describe the manner in which and the weapon or instrument with which such marks appear to have been inflicted. instrument with which such marks appear to have been inflicted.\n- (3) The report shall be signed by the police officer conducting the investigation and by so many of the persons assisting in the investigation as concur therein and shall be forwarded without delay through the Superintendent to the District Magistrate or, if the District Magistrate has so directed, to the Sub-Divisional Magistrate.\n- (4) The following documents shall form part of such report :-\n8. (a) The plan of the scene of death. rm part of such report :-\n8. (a) The plan of the scene of death.\n9. (b) The inventory of clothing, etc.\n10. (c) A list of the articles on and with the body, if the body is sent for medical examination.\n11. (d) A list of articles sent for medical examination, if any.\n\n(5) In cases of death by hanging, the report shall give particulars as to the height and sufficiency of the support and the nature of the thing used to bear the weight of the body.\n\nIn drowning cases the depth of the water shall be stated."
+     },
+     {
+      "n": 3,
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c779",
+      "source_tool": "RAG",
+      "source": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+      "exhaustive_scope": false,
+      "chars": 1526,
+      "text": "person who appears to be acquainted with the facts of the case. Every person so summoned shall be bound to attend and to answer truly all questions other than questions the answers to which would have a tendency to expose him to a criminal charge, or to a penalty or forfeiture.\n- (2) If the facts do not disclose a cognizable offence to which section 170 applies, such persons shall not be required by the police­officer to attend a Magistrate's Court.\n176. Inquiry by Magistrate into cause of death. istrate's Court.\n176. Inquiry by Magistrate into cause of death. \\_\\_ (1) When any person dies while in the custody of the police, the nearest Magistrate empowered to hold inquests shall, and, in any other case mentioned in section 174, clauses (a), (b) and (c) of sub­section (1), any Magistrate so empowered may hold an inquiry into the cause of death either instead of, or in addition to, the investigation held by the\n\n1 Subs. by A.O. 1937, for \"L. G.\"\n\n2 Sub­section (4) omitted by A.O., 1949, Sch.\n\n3 Subs. \"L. G.\"\n\n2 Sub­section (4) omitted by A.O., 1949, Sch.\n\n3 Subs. by Ord. 37 of 2001, S. 51 (w.e.f 14­08­2001).\n\n4 Ins. by Ord. 64 of 2001, S. 2.\n\npolice­officer, and if he does so, he shall have all the powers in conducting it which he would have in holding an inquiry into an offence. The Magistrate holding such an inquiry shall record the evidence taken by him in connection therewith in any of the manners hereinafter prescribed according to the circumstances of the case.\n\n(2)  Power  to  disinter  corpses."
+     },
+     {
+      "n": 4,
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c35",
+      "source_tool": "RAG",
+      "source": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+      "exhaustive_scope": false,
+      "chars": 1331,
+      "text": "|\n| | such statements in No inducement to be offered. |\n| 164A. | Medical examination of victim of rape, |\n| 164B. | etc. DNA test. |\n| | Search by police­officer. |\n| 165. 166. | When officer incharge of police station may require another to issue search warrant. |\n| 167. | Procedure when investigation cannot be completed in twenty­four hours. |\n| 168. 169. | Release of accused when evidence deficient. |\n| 170. | Case to be sent to magistrate when evidence is sufficient. | . | Case to be sent to magistrate when evidence is sufficient. |\n| 171. | Complaints and witnesses not to be required to accompany police­officer. Complainants and witnesses not to be subjected to restraint. Recusant complainant or witness may be forwarded in custody. |\n| 172. 173. | Report of police­officer. |\n| 174. | Police to inquire and report on suicide, etc. |\n| 175. | Power to summon persons. |\n| 176. | Inquiry by magistrate into |\n| | cause of death. Power to disinter corpses. magistrate into |\n| | cause of death. Power to disinter corpses. PART VI PROCEEDINGS IN |\n| | PROSECUTIONS CHAPTER XV THE JURISDICTION OF THE CRIMINAL COURTS IN |\n| | OF INQUIRIES AND TRIALS. A.­Place of Inquiry or Trial. |\n| 177. | |\n| | and trial. |\n| | Ordinary place of inquiry |\n\n| 178. | Power to order cases to be tried in different sessions divisions. |"
+     },
+     {
+      "n": 5,
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+      "source_tool": "RAG",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "exhaustive_scope": false,
+      "chars": 1322,
+      "text": "r should not be undertaken.\n\nRule 25.30\n\n25.30.  Place of trial. - With regard to the place of trial of cases falling under Sections 179-183, Code of Criminal Procedure, police officers shall act solely with reference to the public convenience.\n\nOrdinarily such cases shall be sent up for trial in the district in which the witnesses can attend with the least inconvenience to themselves.\n\nRule 25.31\n\n25.31.  Inquests. east inconvenience to themselves.\n\nRule 25.31\n\n25.31.  Inquests. - (1) An officer in charge of police station shall, upon receipt of information of the sudden or unnatural death of any person, when the body of such person is within the local jurisdiction of his police station, immediately send information to the nearest magistrate authorized to hold inquests and shall proceed to the place where the body is and hold an investigation in the manner prescribed by Section 174, Code of Criminal Procedure. he manner prescribed by Section 174, Code of Criminal Procedure.  When the Sub-Inpector-in-charge of the Police Station through illness or absence from the station house, is himself unable to carry out the investigation, he shall at the first convenient opportunity proceed to the place where the body of the deceased person was found, and shall personally verify the results of the investigation."
+     },
+     {
+      "n": 6,
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1546",
+      "source_tool": "RAG",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "exhaustive_scope": false,
+      "chars": 944,
+      "text": "ded that the following cases shall be exceptions to this rule :- - (a) When the death of any person is caused by injuries unlawfully inflicted by a soldier or camp follower, or occurs within the limits of a military cantonment, the inquest shall be conducted by the Cantonment Magistrate, under Section 176, Code of Criminal Procedure, or by the nearest competent Magistrate if the post of Cantonment Magistrate is held by an officer not specially empowered to hold inquests or if the scene of death is outside cantonment limits. inquests or if the scene of death is outside cantonment limits.\n- If the magistrate invited to hold the inquest fails to do so, the Superintendent or other gazetted officer shall make an investigation under the combined provisions of Sections 174 and 551, Code of Criminal Procedure, and if no gazetted officer is available such investigation shall be made by the officer in charge of the police station concerned."
+     },
+     {
+      "n": 7,
+      "id": "kb-data-half:death_investigation_charging",
+      "source_tool": "XAGG",
+      "source": "our own case records (cross-case aggregate)",
+      "exhaustive_scope": false,
+      "chars": 829,
+      "text": "10 of the 73 FIR(s) that carry a recorded section cite PPC §302.\n  - fir-202-26, fir-213-26, fir-214-26, fir-218-26, fir-340-25, fir-409-26, fir-421-26, fir-431-26, fir-466-26, fir-77-26\nFor context, the sections most often cited:\n  - PPC §34: 40 FIR(s)\n  - Arms Ordinance 1965 §13: 29 FIR(s)\n  - PPC §392: 21 FIR(s)\n  - CNSA 1997 §9(c): 12 FIR(s)\n  - PPC §420: 11 FIR(s)\n  - PPC §302: 10 FIR(s)\n  - PPC §337-A(i): 10 FIR(s)\n  - PECA 2016 §14: 9 FIR(s)\n  - PECA 2016 §21: 9 FIR(s)\n  - PPC §419: 9 FIR(s)\n  - PPC §365-A: 6 FIR(s)\n  - PPC §506: 6 FIR(s)\n  - PPC §379: 5 FIR(s)\n  - PPC §384: 4 FIR(s)\n  - Provincial Act §Punjab Domestic Violence Act: 4 FIR(s)\n  - Illegal Dispossession Act 2005 §3: 2 FIR(s)\n  - PPC §148: 2 FIR(s)\n  - PPC §149: 2 FIR(s)\n  - PPC §328A: 2 FIR(s)\n  - PPC §342: 2 FIR(s)\n  - ... and 16 more section(s)."
+     }
+    ],
+    "verdict": {
+     "grounded": true,
+     "off_topic": false,
+     "leaked_case_id": null,
+     "unsupported_claims": [],
+     "reason": "All claims are directly supported by cited chunks.",
+     "exhaustive_negative_override": null,
+     "computed_evidence_override": null
+    }
+   }
+  ]
+ },
+ {
+  "id": "KB9",
+  "run": 4,
+  "arm": "after",
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "status": "ok",
+  "served_answer": "### Governing Provision:\nThe law requires that when a person dies under suspicious circumstances, the police must conduct a thorough investigation into the cause of death. This is outlined in **Section 174 of the Code of Criminal Procedure (Pakistan)**, which mandates that the police inquire and report on suicide, etc., and that in cases of unnatural death, an investigation must be conducted [Document 1].\n\n### Case Records Summary:\nAccording to **our own case records (Document 7)**, out of **73 FIRs** that carry a recorded section cite, **10 of them cite PPC §302**, which pertains to murder. This indicates that **murder cases** (which are typically associated with suspicious or unnatural deaths) are recorded in **10 FIRs**. However, the summary does not explicitly state whether the police conducted a full investigation into the cause of death in these cases, nor does it provide a breakdown of how many cases involved a full investigation into the cause of death. The summary also does not mention whether the police prepared the required reports (such as those outlined in **Document 2**) or whether they followed the procedures outlined in **Section 174** of the Code of Criminal Procedure.\n\nIn summary, while the law requires a full investigation into the cause of death in suspicious cases, the case records do not provide enough detail to confirm whether this was consistently done in the 10 murder cases or in other cases involving unnatural death.",
+  "caveats": [],
+  "error": null,
+  "elapsed_s": 80.2,
+  "generation": [
+   "local"
+  ],
+  "verifier_calls": [
+   {
+    "answer": "### Governing Provision:\nThe law requires that when a person dies under suspicious circumstances, the police must conduct a thorough investigation into the cause of death. This is outlined in **Section 174 of the Code of Criminal Procedure (Pakistan)**, which mandates that the police inquire and report on suicide, etc., and that in cases of unnatural death, an investigation must be conducted [Document 1].\n\n### Case Records Summary:\nAccording to **our own case records (Document 7)**, out of **73 FIRs** that carry a recorded section cite, **10 of them cite PPC §302**, which pertains to murder. This indicates that **murder cases** (which are typically associated with suspicious or unnatural deaths) are recorded in **10 FIRs**. However, the summary does not explicitly state whether the police conducted a full investigation into the cause of death in these cases, nor does it provide a breakdown of how many cases involved a full investigation into the cause of death. The summary also does not mention whether the police prepared the required reports (such as those outlined in **Document 2**) or whether they followed the procedures outlined in **Section 174** of the Code of Criminal Procedure.\n\nIn summary, while the law requires a full investigation into the cause of death in suspicious cases, the case records do not provide enough detail to confirm whether this was consistently done in the 10 murder cases or in other cases involving unnatural death.",
+    "chunks": [
+     {
+      "n": 1,
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c35",
+      "source_tool": "RAG",
+      "source": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+      "exhaustive_scope": false,
+      "chars": 490,
+      "text": ". | Case to be sent to magistrate when evidence is sufficient. |\n| 171. | Complaints and witnesses not to be required to accompany police­officer. Complainants and witnesses not to be subjected to restraint. Recusant complainant or witness may be forwarded in custody. |\n| 172. 173. | Report of police­officer. |\n| 174. | Police to inquire and report on suicide, etc. |\n| 175. | Power to summon persons. |\n| 176. | Inquiry by magistrate into |\n| | cause of death. Power to disinter corpses."
+     },
+     {
+      "n": 2,
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1561",
+      "source_tool": "RAG",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "exhaustive_scope": false,
+      "chars": 1332,
+      "text": "-\n- A. from natural causes.\n- B. by violence.\n- C. by poisoning.\n- (2) Such report shall state the apparent cause of death, give a description of any mark or marks of violence which may be found on the body and describe the manner in which and the weapon or instrument with which such marks appear to have been inflicted. instrument with which such marks appear to have been inflicted.\n- (3) The report shall be signed by the police officer conducting the investigation and by so many of the persons assisting in the investigation as concur therein and shall be forwarded without delay through the Superintendent to the District Magistrate or, if the District Magistrate has so directed, to the Sub-Divisional Magistrate.\n- (4) The following documents shall form part of such report :-\n8. (a) The plan of the scene of death. rm part of such report :-\n8. (a) The plan of the scene of death.\n9. (b) The inventory of clothing, etc.\n10. (c) A list of the articles on and with the body, if the body is sent for medical examination.\n11. (d) A list of articles sent for medical examination, if any.\n\n(5) In cases of death by hanging, the report shall give particulars as to the height and sufficiency of the support and the nature of the thing used to bear the weight of the body.\n\nIn drowning cases the depth of the water shall be stated."
+     },
+     {
+      "n": 3,
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c779",
+      "source_tool": "RAG",
+      "source": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+      "exhaustive_scope": false,
+      "chars": 1526,
+      "text": "person who appears to be acquainted with the facts of the case. Every person so summoned shall be bound to attend and to answer truly all questions other than questions the answers to which would have a tendency to expose him to a criminal charge, or to a penalty or forfeiture.\n- (2) If the facts do not disclose a cognizable offence to which section 170 applies, such persons shall not be required by the police­officer to attend a Magistrate's Court.\n176. Inquiry by Magistrate into cause of death. istrate's Court.\n176. Inquiry by Magistrate into cause of death. \\_\\_ (1) When any person dies while in the custody of the police, the nearest Magistrate empowered to hold inquests shall, and, in any other case mentioned in section 174, clauses (a), (b) and (c) of sub­section (1), any Magistrate so empowered may hold an inquiry into the cause of death either instead of, or in addition to, the investigation held by the\n\n1 Subs. by A.O. 1937, for \"L. G.\"\n\n2 Sub­section (4) omitted by A.O., 1949, Sch.\n\n3 Subs. \"L. G.\"\n\n2 Sub­section (4) omitted by A.O., 1949, Sch.\n\n3 Subs. by Ord. 37 of 2001, S. 51 (w.e.f 14­08­2001).\n\n4 Ins. by Ord. 64 of 2001, S. 2.\n\npolice­officer, and if he does so, he shall have all the powers in conducting it which he would have in holding an inquiry into an offence. The Magistrate holding such an inquiry shall record the evidence taken by him in connection therewith in any of the manners hereinafter prescribed according to the circumstances of the case.\n\n(2)  Power  to  disinter  corpses."
+     },
+     {
+      "n": 4,
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c35",
+      "source_tool": "RAG",
+      "source": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+      "exhaustive_scope": false,
+      "chars": 1331,
+      "text": "|\n| | such statements in No inducement to be offered. |\n| 164A. | Medical examination of victim of rape, |\n| 164B. | etc. DNA test. |\n| | Search by police­officer. |\n| 165. 166. | When officer incharge of police station may require another to issue search warrant. |\n| 167. | Procedure when investigation cannot be completed in twenty­four hours. |\n| 168. 169. | Release of accused when evidence deficient. |\n| 170. | Case to be sent to magistrate when evidence is sufficient. | . | Case to be sent to magistrate when evidence is sufficient. |\n| 171. | Complaints and witnesses not to be required to accompany police­officer. Complainants and witnesses not to be subjected to restraint. Recusant complainant or witness may be forwarded in custody. |\n| 172. 173. | Report of police­officer. |\n| 174. | Police to inquire and report on suicide, etc. |\n| 175. | Power to summon persons. |\n| 176. | Inquiry by magistrate into |\n| | cause of death. Power to disinter corpses. magistrate into |\n| | cause of death. Power to disinter corpses. PART VI PROCEEDINGS IN |\n| | PROSECUTIONS CHAPTER XV THE JURISDICTION OF THE CRIMINAL COURTS IN |\n| | OF INQUIRIES AND TRIALS. A.­Place of Inquiry or Trial. |\n| 177. | |\n| | and trial. |\n| | Ordinary place of inquiry |\n\n| 178. | Power to order cases to be tried in different sessions divisions. |"
+     },
+     {
+      "n": 5,
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+      "source_tool": "RAG",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "exhaustive_scope": false,
+      "chars": 1322,
+      "text": "r should not be undertaken.\n\nRule 25.30\n\n25.30.  Place of trial. - With regard to the place of trial of cases falling under Sections 179-183, Code of Criminal Procedure, police officers shall act solely with reference to the public convenience.\n\nOrdinarily such cases shall be sent up for trial in the district in which the witnesses can attend with the least inconvenience to themselves.\n\nRule 25.31\n\n25.31.  Inquests. east inconvenience to themselves.\n\nRule 25.31\n\n25.31.  Inquests. - (1) An officer in charge of police station shall, upon receipt of information of the sudden or unnatural death of any person, when the body of such person is within the local jurisdiction of his police station, immediately send information to the nearest magistrate authorized to hold inquests and shall proceed to the place where the body is and hold an investigation in the manner prescribed by Section 174, Code of Criminal Procedure. he manner prescribed by Section 174, Code of Criminal Procedure.  When the Sub-Inpector-in-charge of the Police Station through illness or absence from the station house, is himself unable to carry out the investigation, he shall at the first convenient opportunity proceed to the place where the body of the deceased person was found, and shall personally verify the results of the investigation."
+     },
+     {
+      "n": 6,
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1546",
+      "source_tool": "RAG",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "exhaustive_scope": false,
+      "chars": 944,
+      "text": "ded that the following cases shall be exceptions to this rule :- - (a) When the death of any person is caused by injuries unlawfully inflicted by a soldier or camp follower, or occurs within the limits of a military cantonment, the inquest shall be conducted by the Cantonment Magistrate, under Section 176, Code of Criminal Procedure, or by the nearest competent Magistrate if the post of Cantonment Magistrate is held by an officer not specially empowered to hold inquests or if the scene of death is outside cantonment limits. inquests or if the scene of death is outside cantonment limits.\n- If the magistrate invited to hold the inquest fails to do so, the Superintendent or other gazetted officer shall make an investigation under the combined provisions of Sections 174 and 551, Code of Criminal Procedure, and if no gazetted officer is available such investigation shall be made by the officer in charge of the police station concerned."
+     },
+     {
+      "n": 7,
+      "id": "kb-data-half:death_investigation_charging",
+      "source_tool": "XAGG",
+      "source": "our own case records (cross-case aggregate)",
+      "exhaustive_scope": false,
+      "chars": 829,
+      "text": "10 of the 73 FIR(s) that carry a recorded section cite PPC §302.\n  - fir-202-26, fir-213-26, fir-214-26, fir-218-26, fir-340-25, fir-409-26, fir-421-26, fir-431-26, fir-466-26, fir-77-26\nFor context, the sections most often cited:\n  - PPC §34: 40 FIR(s)\n  - Arms Ordinance 1965 §13: 29 FIR(s)\n  - PPC §392: 21 FIR(s)\n  - CNSA 1997 §9(c): 12 FIR(s)\n  - PPC §420: 11 FIR(s)\n  - PPC §302: 10 FIR(s)\n  - PPC §337-A(i): 10 FIR(s)\n  - PECA 2016 §14: 9 FIR(s)\n  - PECA 2016 §21: 9 FIR(s)\n  - PPC §419: 9 FIR(s)\n  - PPC §365-A: 6 FIR(s)\n  - PPC §506: 6 FIR(s)\n  - PPC §379: 5 FIR(s)\n  - PPC §384: 4 FIR(s)\n  - Provincial Act §Punjab Domestic Violence Act: 4 FIR(s)\n  - Illegal Dispossession Act 2005 §3: 2 FIR(s)\n  - PPC §148: 2 FIR(s)\n  - PPC §149: 2 FIR(s)\n  - PPC §328A: 2 FIR(s)\n  - PPC §342: 2 FIR(s)\n  - ... and 16 more section(s)."
+     }
+    ],
+    "verdict": {
+     "grounded": true,
+     "off_topic": false,
+     "leaked_case_id": null,
+     "unsupported_claims": [],
+     "reason": "All claims are directly supported by cited chunks.",
+     "exhaustive_negative_override": null,
+     "computed_evidence_override": null
+    }
+   }
+  ]
+ },
+ {
+  "id": "KB9",
+  "run": 5,
+  "arm": "after",
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "status": "ok",
+  "served_answer": "### Law and Guidelines:\nUnder the **Code of Criminal Procedure (Pakistan)**, when a person dies while in the custody of the police or under unnatural circumstances, the police are required to conduct an inquiry into the cause of death. This is outlined in **Section 174** of the Code of Criminal Procedure, which mandates that the police inquire and report on suicide, unnatural death, or death under suspicious circumstances. Additionally, **Section 176** provides that a magistrate may hold an inquiry into the cause of death, and the police must report on the cause of death, including the apparent cause, marks of violence, and other relevant details, as specified in **Punjab Police Rules-III** (Document 2).\n\n### Case Records:\nAccording to **our own case records** (Document 7), out of **73 FIRs** that carry a recorded section cite, **10 FIRs** are linked to **PPC §302** (murder). This indicates that **murder cases** are among the most serious and are recorded in the system. However, the data does not explicitly state how many of these cases involve **inquiries into the cause of death** as required by law. The system does record FIRs and section citations, but it does not provide a field or specific data point that explicitly tracks whether the **police conducted an inquiry into the cause of death** in each case, as required by law.\n\nThus, while the system does record **murder cases**, it does **not specifically track** whether the **inquiry into the cause of death** was conducted in each case.",
+  "caveats": [],
+  "error": null,
+  "elapsed_s": 57.7,
+  "generation": [
+   "local"
+  ],
+  "verifier_calls": [
+   {
+    "answer": "### Law and Guidelines:\nUnder the **Code of Criminal Procedure (Pakistan)**, when a person dies while in the custody of the police or under unnatural circumstances, the police are required to conduct an inquiry into the cause of death. This is outlined in **Section 174** of the Code of Criminal Procedure, which mandates that the police inquire and report on suicide, unnatural death, or death under suspicious circumstances. Additionally, **Section 176** provides that a magistrate may hold an inquiry into the cause of death, and the police must report on the cause of death, including the apparent cause, marks of violence, and other relevant details, as specified in **Punjab Police Rules-III** (Document 2).\n\n### Case Records:\nAccording to **our own case records** (Document 7), out of **73 FIRs** that carry a recorded section cite, **10 FIRs** are linked to **PPC §302** (murder). This indicates that **murder cases** are among the most serious and are recorded in the system. However, the data does not explicitly state how many of these cases involve **inquiries into the cause of death** as required by law. The system does record FIRs and section citations, but it does not provide a field or specific data point that explicitly tracks whether the **police conducted an inquiry into the cause of death** in each case, as required by law.\n\nThus, while the system does record **murder cases**, it does **not specifically track** whether the **inquiry into the cause of death** was conducted in each case.",
+    "chunks": [
+     {
+      "n": 1,
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c35",
+      "source_tool": "RAG",
+      "source": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+      "exhaustive_scope": false,
+      "chars": 490,
+      "text": ". | Case to be sent to magistrate when evidence is sufficient. |\n| 171. | Complaints and witnesses not to be required to accompany police­officer. Complainants and witnesses not to be subjected to restraint. Recusant complainant or witness may be forwarded in custody. |\n| 172. 173. | Report of police­officer. |\n| 174. | Police to inquire and report on suicide, etc. |\n| 175. | Power to summon persons. |\n| 176. | Inquiry by magistrate into |\n| | cause of death. Power to disinter corpses."
+     },
+     {
+      "n": 2,
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1561",
+      "source_tool": "RAG",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "exhaustive_scope": false,
+      "chars": 1332,
+      "text": "-\n- A. from natural causes.\n- B. by violence.\n- C. by poisoning.\n- (2) Such report shall state the apparent cause of death, give a description of any mark or marks of violence which may be found on the body and describe the manner in which and the weapon or instrument with which such marks appear to have been inflicted. instrument with which such marks appear to have been inflicted.\n- (3) The report shall be signed by the police officer conducting the investigation and by so many of the persons assisting in the investigation as concur therein and shall be forwarded without delay through the Superintendent to the District Magistrate or, if the District Magistrate has so directed, to the Sub-Divisional Magistrate.\n- (4) The following documents shall form part of such report :-\n8. (a) The plan of the scene of death. rm part of such report :-\n8. (a) The plan of the scene of death.\n9. (b) The inventory of clothing, etc.\n10. (c) A list of the articles on and with the body, if the body is sent for medical examination.\n11. (d) A list of articles sent for medical examination, if any.\n\n(5) In cases of death by hanging, the report shall give particulars as to the height and sufficiency of the support and the nature of the thing used to bear the weight of the body.\n\nIn drowning cases the depth of the water shall be stated."
+     },
+     {
+      "n": 3,
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c779",
+      "source_tool": "RAG",
+      "source": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+      "exhaustive_scope": false,
+      "chars": 1526,
+      "text": "person who appears to be acquainted with the facts of the case. Every person so summoned shall be bound to attend and to answer truly all questions other than questions the answers to which would have a tendency to expose him to a criminal charge, or to a penalty or forfeiture.\n- (2) If the facts do not disclose a cognizable offence to which section 170 applies, such persons shall not be required by the police­officer to attend a Magistrate's Court.\n176. Inquiry by Magistrate into cause of death. istrate's Court.\n176. Inquiry by Magistrate into cause of death. \\_\\_ (1) When any person dies while in the custody of the police, the nearest Magistrate empowered to hold inquests shall, and, in any other case mentioned in section 174, clauses (a), (b) and (c) of sub­section (1), any Magistrate so empowered may hold an inquiry into the cause of death either instead of, or in addition to, the investigation held by the\n\n1 Subs. by A.O. 1937, for \"L. G.\"\n\n2 Sub­section (4) omitted by A.O., 1949, Sch.\n\n3 Subs. \"L. G.\"\n\n2 Sub­section (4) omitted by A.O., 1949, Sch.\n\n3 Subs. by Ord. 37 of 2001, S. 51 (w.e.f 14­08­2001).\n\n4 Ins. by Ord. 64 of 2001, S. 2.\n\npolice­officer, and if he does so, he shall have all the powers in conducting it which he would have in holding an inquiry into an offence. The Magistrate holding such an inquiry shall record the evidence taken by him in connection therewith in any of the manners hereinafter prescribed according to the circumstances of the case.\n\n(2)  Power  to  disinter  corpses."
+     },
+     {
+      "n": 4,
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c35",
+      "source_tool": "RAG",
+      "source": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+      "exhaustive_scope": false,
+      "chars": 1331,
+      "text": "|\n| | such statements in No inducement to be offered. |\n| 164A. | Medical examination of victim of rape, |\n| 164B. | etc. DNA test. |\n| | Search by police­officer. |\n| 165. 166. | When officer incharge of police station may require another to issue search warrant. |\n| 167. | Procedure when investigation cannot be completed in twenty­four hours. |\n| 168. 169. | Release of accused when evidence deficient. |\n| 170. | Case to be sent to magistrate when evidence is sufficient. | . | Case to be sent to magistrate when evidence is sufficient. |\n| 171. | Complaints and witnesses not to be required to accompany police­officer. Complainants and witnesses not to be subjected to restraint. Recusant complainant or witness may be forwarded in custody. |\n| 172. 173. | Report of police­officer. |\n| 174. | Police to inquire and report on suicide, etc. |\n| 175. | Power to summon persons. |\n| 176. | Inquiry by magistrate into |\n| | cause of death. Power to disinter corpses. magistrate into |\n| | cause of death. Power to disinter corpses. PART VI PROCEEDINGS IN |\n| | PROSECUTIONS CHAPTER XV THE JURISDICTION OF THE CRIMINAL COURTS IN |\n| | OF INQUIRIES AND TRIALS. A.­Place of Inquiry or Trial. |\n| 177. | |\n| | and trial. |\n| | Ordinary place of inquiry |\n\n| 178. | Power to order cases to be tried in different sessions divisions. |"
+     },
+     {
+      "n": 5,
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+      "source_tool": "RAG",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "exhaustive_scope": false,
+      "chars": 1322,
+      "text": "r should not be undertaken.\n\nRule 25.30\n\n25.30.  Place of trial. - With regard to the place of trial of cases falling under Sections 179-183, Code of Criminal Procedure, police officers shall act solely with reference to the public convenience.\n\nOrdinarily such cases shall be sent up for trial in the district in which the witnesses can attend with the least inconvenience to themselves.\n\nRule 25.31\n\n25.31.  Inquests. east inconvenience to themselves.\n\nRule 25.31\n\n25.31.  Inquests. - (1) An officer in charge of police station shall, upon receipt of information of the sudden or unnatural death of any person, when the body of such person is within the local jurisdiction of his police station, immediately send information to the nearest magistrate authorized to hold inquests and shall proceed to the place where the body is and hold an investigation in the manner prescribed by Section 174, Code of Criminal Procedure. he manner prescribed by Section 174, Code of Criminal Procedure.  When the Sub-Inpector-in-charge of the Police Station through illness or absence from the station house, is himself unable to carry out the investigation, he shall at the first convenient opportunity proceed to the place where the body of the deceased person was found, and shall personally verify the results of the investigation."
+     },
+     {
+      "n": 6,
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1546",
+      "source_tool": "RAG",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "exhaustive_scope": false,
+      "chars": 944,
+      "text": "ded that the following cases shall be exceptions to this rule :- - (a) When the death of any person is caused by injuries unlawfully inflicted by a soldier or camp follower, or occurs within the limits of a military cantonment, the inquest shall be conducted by the Cantonment Magistrate, under Section 176, Code of Criminal Procedure, or by the nearest competent Magistrate if the post of Cantonment Magistrate is held by an officer not specially empowered to hold inquests or if the scene of death is outside cantonment limits. inquests or if the scene of death is outside cantonment limits.\n- If the magistrate invited to hold the inquest fails to do so, the Superintendent or other gazetted officer shall make an investigation under the combined provisions of Sections 174 and 551, Code of Criminal Procedure, and if no gazetted officer is available such investigation shall be made by the officer in charge of the police station concerned."
+     },
+     {
+      "n": 7,
+      "id": "kb-data-half:death_investigation_charging",
+      "source_tool": "XAGG",
+      "source": "our own case records (cross-case aggregate)",
+      "exhaustive_scope": false,
+      "chars": 829,
+      "text": "10 of the 73 FIR(s) that carry a recorded section cite PPC §302.\n  - fir-202-26, fir-213-26, fir-214-26, fir-218-26, fir-340-25, fir-409-26, fir-421-26, fir-431-26, fir-466-26, fir-77-26\nFor context, the sections most often cited:\n  - PPC §34: 40 FIR(s)\n  - Arms Ordinance 1965 §13: 29 FIR(s)\n  - PPC §392: 21 FIR(s)\n  - CNSA 1997 §9(c): 12 FIR(s)\n  - PPC §420: 11 FIR(s)\n  - PPC §302: 10 FIR(s)\n  - PPC §337-A(i): 10 FIR(s)\n  - PECA 2016 §14: 9 FIR(s)\n  - PECA 2016 §21: 9 FIR(s)\n  - PPC §419: 9 FIR(s)\n  - PPC §365-A: 6 FIR(s)\n  - PPC §506: 6 FIR(s)\n  - PPC §379: 5 FIR(s)\n  - PPC §384: 4 FIR(s)\n  - Provincial Act §Punjab Domestic Violence Act: 4 FIR(s)\n  - Illegal Dispossession Act 2005 §3: 2 FIR(s)\n  - PPC §148: 2 FIR(s)\n  - PPC §149: 2 FIR(s)\n  - PPC §328A: 2 FIR(s)\n  - PPC §342: 2 FIR(s)\n  - ... and 16 more section(s)."
+     }
+    ],
+    "verdict": {
+     "grounded": true,
+     "off_topic": false,
+     "leaked_case_id": null,
+     "unsupported_claims": [],
+     "reason": "All claims are directly supported by cited chunks.",
+     "exhaustive_negative_override": null,
+     "computed_evidence_override": null
+    }
+   }
+  ]
+ },
+ {
+  "id": "KB9",
+  "run": 6,
+  "arm": "after",
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "status": "ok",
+  "served_answer": "### Legal Requirement:\nUnder the **Code of Criminal Procedure (Pakistan)**, when a person dies while in the custody of the police or under unnatural circumstances, the police are required to conduct an inquiry into the cause of death. This is outlined in **Section 174** of the Code of Criminal Procedure, which mandates that the police inquire and report on suicide, unnatural death, or death by violence, among other causes. Additionally, **Section 176** provides that the Magistrate has the power to inquire into the cause of death and record evidence in such cases.\n\n### Case Records Summary:\nAccording to **our own case records** (Document 7), **10 of the 73 FIRs** that carry a recorded section cite **PPC §302**, which pertains to murder. This indicates that **murder cases involving death** are present in our records. However, the summary does **not** provide specific information about whether the police conducted detailed inquiries into the cause of death in these cases or whether the required reports (such as those outlined in **Section 174** and **Section 176**) were properly documented. Therefore, **our records do not explicitly show whether the system is recording detailed investigations into the cause of death in these cases**.",
+  "caveats": [],
+  "error": null,
+  "elapsed_s": 100.3,
+  "generation": [
+   "local"
+  ],
+  "verifier_calls": [
+   {
+    "answer": "### Legal Requirement:\nUnder the **Code of Criminal Procedure (Pakistan)**, when a person dies while in the custody of the police or under unnatural circumstances, the police are required to conduct an inquiry into the cause of death. This is outlined in **Section 174** of the Code of Criminal Procedure, which mandates that the police inquire and report on suicide, unnatural death, or death by violence, among other causes. Additionally, **Section 176** provides that the Magistrate has the power to inquire into the cause of death and record evidence in such cases.\n\n### Case Records Summary:\nAccording to **our own case records** (Document 7), **10 of the 73 FIRs** that carry a recorded section cite **PPC §302**, which pertains to murder. This indicates that **murder cases involving death** are present in our records. However, the summary does **not** provide specific information about whether the police conducted detailed inquiries into the cause of death in these cases or whether the required reports (such as those outlined in **Section 174** and **Section 176**) were properly documented. Therefore, **our records do not explicitly show whether the system is recording detailed investigations into the cause of death in these cases**.",
+    "chunks": [
+     {
+      "n": 1,
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_0519abd8_c35",
+      "source_tool": "RAG",
+      "source": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+      "exhaustive_scope": false,
+      "chars": 490,
+      "text": ". | Case to be sent to magistrate when evidence is sufficient. |\n| 171. | Complaints and witnesses not to be required to accompany police­officer. Complainants and witnesses not to be subjected to restraint. Recusant complainant or witness may be forwarded in custody. |\n| 172. 173. | Report of police­officer. |\n| 174. | Police to inquire and report on suicide, etc. |\n| 175. | Power to summon persons. |\n| 176. | Inquiry by magistrate into |\n| | cause of death. Power to disinter corpses."
+     },
+     {
+      "n": 2,
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1561",
+      "source_tool": "RAG",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "exhaustive_scope": false,
+      "chars": 1332,
+      "text": "-\n- A. from natural causes.\n- B. by violence.\n- C. by poisoning.\n- (2) Such report shall state the apparent cause of death, give a description of any mark or marks of violence which may be found on the body and describe the manner in which and the weapon or instrument with which such marks appear to have been inflicted. instrument with which such marks appear to have been inflicted.\n- (3) The report shall be signed by the police officer conducting the investigation and by so many of the persons assisting in the investigation as concur therein and shall be forwarded without delay through the Superintendent to the District Magistrate or, if the District Magistrate has so directed, to the Sub-Divisional Magistrate.\n- (4) The following documents shall form part of such report :-\n8. (a) The plan of the scene of death. rm part of such report :-\n8. (a) The plan of the scene of death.\n9. (b) The inventory of clothing, etc.\n10. (c) A list of the articles on and with the body, if the body is sent for medical examination.\n11. (d) A list of articles sent for medical examination, if any.\n\n(5) In cases of death by hanging, the report shall give particulars as to the height and sufficiency of the support and the nature of the thing used to bear the weight of the body.\n\nIn drowning cases the depth of the water shall be stated."
+     },
+     {
+      "n": 3,
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c779",
+      "source_tool": "RAG",
+      "source": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+      "exhaustive_scope": false,
+      "chars": 1526,
+      "text": "person who appears to be acquainted with the facts of the case. Every person so summoned shall be bound to attend and to answer truly all questions other than questions the answers to which would have a tendency to expose him to a criminal charge, or to a penalty or forfeiture.\n- (2) If the facts do not disclose a cognizable offence to which section 170 applies, such persons shall not be required by the police­officer to attend a Magistrate's Court.\n176. Inquiry by Magistrate into cause of death. istrate's Court.\n176. Inquiry by Magistrate into cause of death. \\_\\_ (1) When any person dies while in the custody of the police, the nearest Magistrate empowered to hold inquests shall, and, in any other case mentioned in section 174, clauses (a), (b) and (c) of sub­section (1), any Magistrate so empowered may hold an inquiry into the cause of death either instead of, or in addition to, the investigation held by the\n\n1 Subs. by A.O. 1937, for \"L. G.\"\n\n2 Sub­section (4) omitted by A.O., 1949, Sch.\n\n3 Subs. \"L. G.\"\n\n2 Sub­section (4) omitted by A.O., 1949, Sch.\n\n3 Subs. by Ord. 37 of 2001, S. 51 (w.e.f 14­08­2001).\n\n4 Ins. by Ord. 64 of 2001, S. 2.\n\npolice­officer, and if he does so, he shall have all the powers in conducting it which he would have in holding an inquiry into an offence. The Magistrate holding such an inquiry shall record the evidence taken by him in connection therewith in any of the manners hereinafter prescribed according to the circumstances of the case.\n\n(2)  Power  to  disinter  corpses."
+     },
+     {
+      "n": 4,
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c35",
+      "source_tool": "RAG",
+      "source": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+      "exhaustive_scope": false,
+      "chars": 1331,
+      "text": "|\n| | such statements in No inducement to be offered. |\n| 164A. | Medical examination of victim of rape, |\n| 164B. | etc. DNA test. |\n| | Search by police­officer. |\n| 165. 166. | When officer incharge of police station may require another to issue search warrant. |\n| 167. | Procedure when investigation cannot be completed in twenty­four hours. |\n| 168. 169. | Release of accused when evidence deficient. |\n| 170. | Case to be sent to magistrate when evidence is sufficient. | . | Case to be sent to magistrate when evidence is sufficient. |\n| 171. | Complaints and witnesses not to be required to accompany police­officer. Complainants and witnesses not to be subjected to restraint. Recusant complainant or witness may be forwarded in custody. |\n| 172. 173. | Report of police­officer. |\n| 174. | Police to inquire and report on suicide, etc. |\n| 175. | Power to summon persons. |\n| 176. | Inquiry by magistrate into |\n| | cause of death. Power to disinter corpses. magistrate into |\n| | cause of death. Power to disinter corpses. PART VI PROCEEDINGS IN |\n| | PROSECUTIONS CHAPTER XV THE JURISDICTION OF THE CRIMINAL COURTS IN |\n| | OF INQUIRIES AND TRIALS. A.­Place of Inquiry or Trial. |\n| 177. | |\n| | and trial. |\n| | Ordinary place of inquiry |\n\n| 178. | Power to order cases to be tried in different sessions divisions. |"
+     },
+     {
+      "n": 5,
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+      "source_tool": "RAG",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "exhaustive_scope": false,
+      "chars": 1322,
+      "text": "r should not be undertaken.\n\nRule 25.30\n\n25.30.  Place of trial. - With regard to the place of trial of cases falling under Sections 179-183, Code of Criminal Procedure, police officers shall act solely with reference to the public convenience.\n\nOrdinarily such cases shall be sent up for trial in the district in which the witnesses can attend with the least inconvenience to themselves.\n\nRule 25.31\n\n25.31.  Inquests. east inconvenience to themselves.\n\nRule 25.31\n\n25.31.  Inquests. - (1) An officer in charge of police station shall, upon receipt of information of the sudden or unnatural death of any person, when the body of such person is within the local jurisdiction of his police station, immediately send information to the nearest magistrate authorized to hold inquests and shall proceed to the place where the body is and hold an investigation in the manner prescribed by Section 174, Code of Criminal Procedure. he manner prescribed by Section 174, Code of Criminal Procedure.  When the Sub-Inpector-in-charge of the Police Station through illness or absence from the station house, is himself unable to carry out the investigation, he shall at the first convenient opportunity proceed to the place where the body of the deceased person was found, and shall personally verify the results of the investigation."
+     },
+     {
+      "n": 6,
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1546",
+      "source_tool": "RAG",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "exhaustive_scope": false,
+      "chars": 944,
+      "text": "ded that the following cases shall be exceptions to this rule :- - (a) When the death of any person is caused by injuries unlawfully inflicted by a soldier or camp follower, or occurs within the limits of a military cantonment, the inquest shall be conducted by the Cantonment Magistrate, under Section 176, Code of Criminal Procedure, or by the nearest competent Magistrate if the post of Cantonment Magistrate is held by an officer not specially empowered to hold inquests or if the scene of death is outside cantonment limits. inquests or if the scene of death is outside cantonment limits.\n- If the magistrate invited to hold the inquest fails to do so, the Superintendent or other gazetted officer shall make an investigation under the combined provisions of Sections 174 and 551, Code of Criminal Procedure, and if no gazetted officer is available such investigation shall be made by the officer in charge of the police station concerned."
+     },
+     {
+      "n": 7,
+      "id": "kb-data-half:death_investigation_charging",
+      "source_tool": "XAGG",
+      "source": "our own case records (cross-case aggregate)",
+      "exhaustive_scope": false,
+      "chars": 829,
+      "text": "10 of the 73 FIR(s) that carry a recorded section cite PPC §302.\n  - fir-202-26, fir-213-26, fir-214-26, fir-218-26, fir-340-25, fir-409-26, fir-421-26, fir-431-26, fir-466-26, fir-77-26\nFor context, the sections most often cited:\n  - PPC §34: 40 FIR(s)\n  - Arms Ordinance 1965 §13: 29 FIR(s)\n  - PPC §392: 21 FIR(s)\n  - CNSA 1997 §9(c): 12 FIR(s)\n  - PPC §420: 11 FIR(s)\n  - PPC §302: 10 FIR(s)\n  - PPC §337-A(i): 10 FIR(s)\n  - PECA 2016 §14: 9 FIR(s)\n  - PECA 2016 §21: 9 FIR(s)\n  - PPC §419: 9 FIR(s)\n  - PPC §365-A: 6 FIR(s)\n  - PPC §506: 6 FIR(s)\n  - PPC §379: 5 FIR(s)\n  - PPC §384: 4 FIR(s)\n  - Provincial Act §Punjab Domestic Violence Act: 4 FIR(s)\n  - Illegal Dispossession Act 2005 §3: 2 FIR(s)\n  - PPC §148: 2 FIR(s)\n  - PPC §149: 2 FIR(s)\n  - PPC §328A: 2 FIR(s)\n  - PPC §342: 2 FIR(s)\n  - ... and 16 more section(s)."
+     }
+    ],
+    "verdict": {
+     "grounded": true,
+     "off_topic": false,
+     "leaked_case_id": null,
+     "unsupported_claims": [],
+     "reason": "All claims in the answer are directly supported by the cited chunks. The legal requirements are stated in the chunks, and the case records summary is supported by Document 7.",
+     "exhaustive_negative_override": null,
+     "computed_evidence_override": null
+    }
+   }
+  ]
+ }
+]

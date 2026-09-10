@@ -249,6 +249,37 @@ Every module, both halves. A module that skips either is not done.
    plan that turned out to be mis-scoped was mis-scoped because it inherited
    a claim instead of re-deriving it.
 
+6. **Certify the live runs against provider failure.** A transient provider
+   failure completes the request through a degraded path and produces an
+   answer that looks ordinary. Every module in this wave certified its live
+   runs with the bare `grep -c "rate limit" backend.log` = 0 — and that check returns
+   **0** over a Gemini `429 RESOURCE_EXHAUSTED` and over a
+   `503 UNAVAILABLE ... 'This model is currently experiencing high demand.'`,
+   both of which Module 50 hit live. Two checks, both required, both after
+   every live run:
+
+   ```bash
+   grep -ciE "rate limit|RESOURCE_EXHAUSTED|quota|UNAVAILABLE|(^|[^0-9.,:])(429|503)([^0-9]|$)" backend.log   # near 0
+   grep -c "Cutover classification failed"                          backend.log   # 0
+   ```
+
+   **[Module 81] The numeric codes are boundary-guarded.** The bare form
+   matched a **timestamp**: a line stamped `16:19:29,503` scored as a 503
+   UNAVAILABLE, so every run certified clean with the old pattern was
+   reading its own milliseconds as a provider failure. Ephemeral ports
+   (`127.0.0.1:62503`) and latencies (`0.429s`) matched too.
+
+   The first is Module 46's widened quota check plus Module 54's capacity
+   signatures; the canonical pattern lives in `evaluation/gold32_score.py`'s
+   `LOG_GREP_PATTERN`. The second catches a failed agent-harness cutover
+   classification, which silently falls back to `orchestrator.py` so a
+   **different sub-agent answers than the one you are measuring** — Module 50's
+   G1 paraphrase moved from Meta-Analysis to Cross-Case Linkage's refusal
+   purely this way. Since Module 54 that one is also visible without the log:
+   the SSE stream carries `cutover_classification_failed`, and
+   `gold32_pipeline_outputs.json` records it per row. A non-zero count on
+   either check invalidates the run — re-run it, do not report it.
+
 ### Read the SSE stream, not just the answer
 
 Confirm the `route=` event to prove the question reached the sub-agent you

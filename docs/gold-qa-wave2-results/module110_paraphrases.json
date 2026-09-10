@@ -1,0 +1,21 @@
+{
+  "_note": "Module 110 — three G6 rewordings, WRITTEN BEFORE ANY RUN and not adjusted afterwards. Committed in this state deliberately: the point of the exercise is destroyed if the wording is tuned once the routing result is known. None of them reuses gold's 'orientation note' / 'naye tainaat' / 'نئے تعینات' phrasing, which is what the orientation_note plan's patterns and supervisor.py's Meta-Analysis trigger list both key on. Module 123 predicts the English one is refused; recorded as a known interaction, not worked around.",
+  "written_at": "2026-09-10, before the before-baseline run",
+  "paraphrases": [
+    {
+      "gold_id": "G6",
+      "language": "en",
+      "text": "I'm taking over this desk next week. Give me a quick briefing on the caseload I'm inheriting — what should I be ready for?"
+    },
+    {
+      "gold_id": "G6",
+      "language": "roman_ur",
+      "text": "Agle hafte main is desk par aa raha hoon. Mujhe mukhtasar bataayein ke jo cases mujhe milne wale hain un ki soorat-e-haal kya hai aur kin baaton ke liye tayyar rehna chahiye?"
+    },
+    {
+      "gold_id": "G6",
+      "language": "ur",
+      "text": "اگلے ہفتے میں یہاں چارج سنبھال رہا ہوں۔ مجھے مختصر بتائیں کہ موجودہ مقدمات کی صورتحال کیا ہے اور مجھے کن باتوں کے لیے تیار رہنا چاہیے؟"
+    }
+  ]
+}

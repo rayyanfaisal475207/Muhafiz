@@ -1,0 +1,642 @@
+{
+ "A1::gold": {
+  "detail": "miss",
+  "elapsed_s": 1.36,
+  "route": "MISS"
+ },
+ "A1::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "A1::para::roman_ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "A1::para::ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "A7::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "A7::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "A7::para::roman_ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "A7::para::ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CP1::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CP1::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CP1::para::roman_ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CP1::para::ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CP6::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CP6::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CP6::para::roman_ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CP6::para::ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CR2::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR2::para::en": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR2::para::roman_ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CR2::para::ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CR3::gold": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CR3::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CR3::para::roman_ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CR3::para::ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CR4::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR4::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CR4::para::roman_ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CR4::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR6::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR6::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CR6::para::roman_ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CR6::para::ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CR7::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR7::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CR7::para::roman_ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CR7::para::ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CR8::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CR8::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CR8::para::roman_ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CR8::para::ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CS4::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "CS4::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CS4::para::roman_ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "CS4::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "D1::gold": {
+  "detail": "override",
+  "elapsed_s": 4.01,
+  "route": "XAGG"
+ },
+ "D1::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "D1::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "D1::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XNETWORK"
+ },
+ "G1::gold": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "G1::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "G1::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "G1::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "G2::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "G2::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "G2::para::roman_ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "G2::para::ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "G3::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "G3::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "G3::para::roman_ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "G3::para::ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "G5::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "G5::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "G5::para::roman_ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "G5::para::ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "G6::gold": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "G6::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "G6::para::roman_ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "G6::para::ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "KB1::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB1::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "KB1::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "KB1::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "KB2::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB2::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "KB2::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB2::para::ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "KB3::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB3::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "KB3::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB3::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB4::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB4::para::en": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB4::para::roman_ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "KB4::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB5::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB5::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "KB5::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB5::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB6::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB6::para::en": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB6::para::roman_ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "KB6::para::ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "KB8::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB8::para::en": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB8::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB8::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB9::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB9::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "KB9::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "RAG"
+ },
+ "KB9::para::ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "M1::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M1::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "M1::para::roman_ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "M1::para::ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "M2::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M2::para::en": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M2::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M2::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M4::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M4::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "M4::para::roman_ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M4::para::ur": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M5::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M5::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "M5::para::roman_ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "M5::para::ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "M7::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M7::para::en": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "M7::para::roman_ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "M7::para::ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "S2::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "S2::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "S2::para::roman_ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "S2::para::ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "S3::gold": {
+  "detail": "override",
+  "elapsed_s": 0.0,
+  "route": "XAGG"
+ },
+ "S3::para::en": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "S3::para::roman_ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ },
+ "S3::para::ur": {
+  "detail": "miss",
+  "elapsed_s": 0.0,
+  "route": "MISS"
+ }
+}

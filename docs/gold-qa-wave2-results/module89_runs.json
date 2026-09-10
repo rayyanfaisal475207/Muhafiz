@@ -1,0 +1,95 @@
+[
+  {
+    "id": "KB1",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?",
+    "expected_answer": "Section 154 of the Code of Criminal Procedure, 1898 requires that oral information about a cognizable offence given to the officer-in-charge of a police station be reduced to writing, read back to the informant, signed by them, and entered in a register in the prescribed form — that's the actual legal basis for what we call an FIR. Our FIR records follow that structure in outline but not completely: all 73 cases carry complainant details, 70 of 73 carry a recording officer, and only 64 of 73 carry a report timestamp. So the database's structural equivalent of the Section 154 register entry is present for most cases, with 3 cases missing the recording officer and 9 missing the report time.",
+    "actual_answer": "### Legal Requirement:\nThe legal requirement governing how a report of a crime becomes a formal FIR is outlined in **Section 154 of the Code of Criminal Procedure**. According to this provision, every information relating to an offence, whether cognizable or non-cognizable, must be recorded in writing by the officer in charge of a police station. This includes entering the substance of the information in the police station daily diary, which is the book provided for the purpose [Document 2].\n\n### Recordkeeping Compliance:\nOur recordkeeping follows the structure outlined in Section 154 for most cases but not completely. Specifically:\n- **Complainant details** are recorded in all 73 cases.\n- **The officer who recorded the report** is recorded in 70 of 73 cases, with 3 cases missing this information (fir-117-26, fir-954-26, fir-955-26).\n- **The time the report was made** is recorded in 64 of 73 cases, with 9 cases missing this information (fir-205-26, fir-211-26, fir-340-25, fir-406-26, fir-410-25, fir-422-26, fir-457-26, fir-467-26, fir-77-26).\n- All three elements (complainant details, officer who recorded the report, and time of report) are present together in 61 of 73 cases, meaning the structural equivalent of the Section 154 register entry is present for most cases but not all [Document 6].\n\nAdditionally, two of Section 154's steps have no field in the current schema — that the statement was read back to the informant, and that the informant signed it — so the records can neither confirm nor contradict those steps; this is an unmodelled step, not a skipped one [Document 6].",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 117.9,
+    "xagg_log_lines": [
+      "XAGG fir_register_completeness: 73 case(s); complainant 73/73; recording_officer 70/73; report_datetime 64/73; all three elements present on 61 case(s); 2 s.154 element(s) unmodelled in the schema"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "fir_register_completeness",
+        "kind": "fir_register_completeness",
+        "chars": 870
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the legal requirements governing how a "
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB1",
+    "run": 2,
+    "arm": "after",
+    "language": "en",
+    "question": "What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?",
+    "expected_answer": "Section 154 of the Code of Criminal Procedure, 1898 requires that oral information about a cognizable offence given to the officer-in-charge of a police station be reduced to writing, read back to the informant, signed by them, and entered in a register in the prescribed form — that's the actual legal basis for what we call an FIR. Our FIR records follow that structure in outline but not completely: all 73 cases carry complainant details, 70 of 73 carry a recording officer, and only 64 of 73 carry a report timestamp. So the database's structural equivalent of the Section 154 register entry is present for most cases, with 3 cases missing the recording officer and 9 missing the report time.",
+    "actual_answer": "### Legal Requirement:\nThe legal requirement governing how a report of a crime becomes a formal FIR is outlined in **Section 154 of the Code of Criminal Procedure**. According to this provision, every information relating to an offence, whether cognizable or non-cognizable, must be recorded in writing by the officer in charge of a police station. This includes entering the substance of the information in the police station daily diary, which is the book provided for the purpose [Document 2].\n\n### Recordkeeping Compliance:\nOur recordkeeping follows the structure outlined in Section 154 for most cases but not completely. Specifically:\n- **Complainant details** are recorded in all 73 cases.\n- **The officer who recorded the report** is recorded in 70 of 73 cases, with 3 cases missing this information (fir-117-26, fir-954-26, fir-955-26).\n- **The time the report was made** is recorded in 64 of 73 cases, with 9 cases missing this information (fir-205-26, fir-211-26, fir-340-25, fir-406-26, fir-410-25, fir-422-26, fir-457-26, fir-467-26, fir-77-26).\n- All three elements (complainant details, officer who recorded the report, and time of report) are present together in 61 of 73 cases, meaning the structural equivalent of the Section 154 register entry is present for most cases but not all [Document 6].\n\nAdditionally, two of Section 154's steps have no field in the current schema — that the statement was read back to the informant, and that the informant signed it — so the records can neither confirm nor contradict those steps; this is an unmodelled step, not a skipped one [Document 6].",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 41.4,
+    "xagg_log_lines": [
+      "XAGG fir_register_completeness: 73 case(s); complainant 73/73; recording_officer 70/73; report_datetime 64/73; all three elements present on 61 case(s); 2 s.154 element(s) unmodelled in the schema"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "fir_register_completeness",
+        "kind": "fir_register_completeness",
+        "chars": 870
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the legal requirements governing how a "
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB1",
+    "run": 3,
+    "arm": "after",
+    "language": "en",
+    "question": "What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?",
+    "expected_answer": "Section 154 of the Code of Criminal Procedure, 1898 requires that oral information about a cognizable offence given to the officer-in-charge of a police station be reduced to writing, read back to the informant, signed by them, and entered in a register in the prescribed form — that's the actual legal basis for what we call an FIR. Our FIR records follow that structure in outline but not completely: all 73 cases carry complainant details, 70 of 73 carry a recording officer, and only 64 of 73 carry a report timestamp. So the database's structural equivalent of the Section 154 register entry is present for most cases, with 3 cases missing the recording officer and 9 missing the report time.",
+    "actual_answer": "### Legal Requirement:\nThe legal requirement governing how a report of a crime becomes a formal FIR is outlined in **Section 154 of the Code of Criminal Procedure**. According to this provision, every information relating to an offence, whether cognizable or non-cognizable, must be recorded in writing by the officer in charge of a police station. This includes entering the substance of the information in the police station daily diary, which is the book provided for the purpose [Document 2].\n\n### Recordkeeping Compliance:\nOur recordkeeping follows the structure outlined in Section 154 for most cases but not completely. Specifically:\n- **Complainant details** are recorded in all 73 cases.\n- **The officer who recorded the report** is recorded in 70 of 73 cases, with 3 cases missing this information (fir-117-26, fir-954-26, fir-955-26).\n- **The time the report was made** is recorded in 64 of 73 cases, with 9 cases missing this information (fir-205-26, fir-211-26, fir-340-25, fir-406-26, fir-410-25, fir-422-26, fir-457-26, fir-467-26, fir-77-26).\n- All three elements (complainant details, officer who recorded the report, and time of report) are present together in 61 of 73 cases, meaning the structural equivalent of the Section 154 register entry is present for most cases but not all [Document 6].\n\nAdditionally, two of Section 154's steps have no field in the current schema — that the statement was read back to the informant, and that the informant signed it — so the records can neither confirm nor contradict those steps; this is an unmodelled step, not a skipped one [Document 6].",
+    "route": "RAG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 200.5,
+    "xagg_log_lines": [
+      "XAGG fir_register_completeness: 73 case(s); complainant 73/73; recording_officer 70/73; report_datetime 64/73; all three elements present on 61 case(s); 2 s.154 element(s) unmodelled in the schema"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "fir_register_completeness",
+        "kind": "fir_register_completeness",
+        "chars": 870
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents directly address the legal requirements governing how a "
+      }
+    ],
+    "quota_lines": []
+  }
+]

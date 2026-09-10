@@ -1,0 +1,162 @@
+{
+ "measured_utc": "2026-09-09T22:03:35.080134Z",
+ "note": "Key identity is reported as a sha256 prefix only. No key material here.",
+ "gemini": [
+  {
+   "env": "GEMINI_API_KEY",
+   "fingerprint": "2cdc75f107",
+   "gemini-3.1-flash-lite": 200,
+   "gemini-2.5-flash": 200
+  },
+  {
+   "env": "GEMINI_API_KEY_1",
+   "fingerprint": "22fc39ec66",
+   "gemini-3.1-flash-lite": 200,
+   "gemini-2.5-flash": 404
+  },
+  {
+   "env": "GEMINI_API_KEY_2",
+   "fingerprint": "f20c3b92cd",
+   "gemini-3.1-flash-lite": 200,
+   "gemini-2.5-flash": 404
+  },
+  {
+   "env": "GEMINI_API_KEY_3",
+   "fingerprint": "4a57f60adc",
+   "gemini-3.1-flash-lite": 200,
+   "gemini-2.5-flash": 404
+  },
+  {
+   "env": "GEMINI_API_KEY_4",
+   "fingerprint": "49090f661a",
+   "gemini-3.1-flash-lite": 200,
+   "gemini-2.5-flash": 429
+  }
+ ],
+ "groq": [
+  {
+   "env": "GROQ_API_KEY",
+   "fingerprint": "bbde468bf2",
+   "status": 200,
+   "headers": {
+    "x-ratelimit-limit-requests": "1000",
+    "x-ratelimit-remaining-requests": "987",
+    "x-ratelimit-reset-requests": "18m43.2s",
+    "x-ratelimit-limit-tokens": "8000",
+    "x-ratelimit-remaining-tokens": "7449",
+    "x-ratelimit-reset-tokens": "4.132s"
+   }
+  },
+  {
+   "env": "GROQ_API_KEY_1",
+   "fingerprint": "bbde468bf2",
+   "status": 200,
+   "headers": {
+    "x-ratelimit-limit-requests": "1000",
+    "x-ratelimit-remaining-requests": "986",
+    "x-ratelimit-reset-requests": "20m9.6s",
+    "x-ratelimit-limit-tokens": "8000",
+    "x-ratelimit-remaining-tokens": "7514",
+    "x-ratelimit-reset-tokens": "3.645s"
+   }
+  },
+  {
+   "env": "GROQ_API_KEY_2",
+   "fingerprint": "5f9170e4c0",
+   "status": 200,
+   "headers": {
+    "x-ratelimit-limit-requests": "1000",
+    "x-ratelimit-remaining-requests": "911",
+    "x-ratelimit-reset-requests": "2h8m9.599s",
+    "x-ratelimit-limit-tokens": "8000",
+    "x-ratelimit-remaining-tokens": "6852",
+    "x-ratelimit-reset-tokens": "8.61s"
+   }
+  },
+  {
+   "env": "GROQ_API_KEY_3",
+   "fingerprint": "726e004c1a",
+   "status": 200,
+   "headers": {
+    "x-ratelimit-limit-requests": "1000",
+    "x-ratelimit-remaining-requests": "990",
+    "x-ratelimit-reset-requests": "14m24s",
+    "x-ratelimit-limit-tokens": "8000",
+    "x-ratelimit-remaining-tokens": "6648",
+    "x-ratelimit-reset-tokens": "10.14s"
+   }
+  },
+  {
+   "env": "GROQ_API_KEY_4",
+   "fingerprint": "d5f95f6a0c",
+   "status": 200,
+   "headers": {
+    "x-ratelimit-limit-requests": "1000",
+    "x-ratelimit-remaining-requests": "999",
+    "x-ratelimit-reset-requests": "1m26.4s",
+    "x-ratelimit-limit-tokens": "8000",
+    "x-ratelimit-remaining-tokens": "7350",
+    "x-ratelimit-reset-tokens": "4.875s"
+   }
+  }
+ ],
+ "groq_models": [
+  "allam-2-7b",
+  "canopylabs/orpheus-arabic-saudi",
+  "canopylabs/orpheus-v1-english",
+  "groq/compound",
+  "groq/compound-mini",
+  "meta-llama/llama-prompt-guard-2-22m",
+  "meta-llama/llama-prompt-guard-2-86m",
+  "openai/gpt-oss-120b",
+  "openai/gpt-oss-20b",
+  "openai/gpt-oss-safeguard-20b",
+  "qwen/qwen3.6-27b",
+  "qwen/qwen3.8-27b",
+  "whisper-large-v3",
+  "whisper-large-v3-turbo"
+ ],
+ "measured_local": "2026-09-10 03:03 local",
+ "WARNING": ".env is SHARED MUTABLE STATE and it changed DURING this module: mtime 2026-09-10 02:21:30. The gemini block below is the SECOND measurement. See gemini_first_measurement for the first.",
+ "gemini_first_measurement": {
+  "at": "2026-09-10 01:50 local",
+  "note": "Five env names, FOUR distinct keys: GEMINI_API_KEY and GEMINI_API_KEY_1 were byte-identical (sha256 prefix 9105a1db21). Only that one key was live.",
+  "rows": [
+   {
+    "env": "GEMINI_API_KEY",
+    "fingerprint": "9105a1db21",
+    "gemini-3.1-flash-lite": 200,
+    "gemini-2.5-flash": 429
+   },
+   {
+    "env": "GEMINI_API_KEY_1",
+    "fingerprint": "9105a1db21",
+    "gemini-3.1-flash-lite": 200,
+    "gemini-2.5-flash": 429
+   },
+   {
+    "env": "GEMINI_API_KEY_2",
+    "fingerprint": "3311cd876a",
+    "gemini-3.1-flash-lite": 401,
+    "gemini-2.5-flash": 401
+   },
+   {
+    "env": "GEMINI_API_KEY_3",
+    "fingerprint": "7e80343368",
+    "gemini-3.1-flash-lite": 401,
+    "gemini-2.5-flash": 401
+   },
+   {
+    "env": "GEMINI_API_KEY_4",
+    "fingerprint": "83df82c6fa",
+    "gemini-3.1-flash-lite": 401,
+    "gemini-2.5-flash": 401
+   }
+  ]
+ },
+ "groq_note": "Five env names, FOUR distinct keys: GROQ_API_KEY and GROQ_API_KEY_1 are byte-identical (sha256 prefix bbde468bf2), unchanged across both measurements. Requests limit 1000 is per DAY (reset-requests scales with the fraction consumed); tokens limit 8000 is per MINUTE (reset-tokens is always under 60 s). At ~1,730 prompt tokens per FactualCorrectness call the TOKEN limit binds first: ~4.6 calls/min/key.",
+ "candidates_not_available": [
+  "llama-3.3-70b-versatile",
+  "moonshotai/kimi-k2-instruct"
+ ]
+}

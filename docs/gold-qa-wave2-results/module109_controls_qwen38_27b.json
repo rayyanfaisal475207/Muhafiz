@@ -1,0 +1,101 @@
+[
+ {
+  "case": "A_heldout_positive",
+  "draw": 0,
+  "expect": "HIGH",
+  "model": "qwen/qwen3.8-27b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 3.7,
+  "reason": "The actual output correctly identifies the key facts: 11 FIRs lack a named officer (8 with 'Naamzad ASI', 3 with 'Naamzad SI') and names Faisal and Tariq as the busiest officers with 4 FIRs each. Although the actual output starts with 'Yes' while the expected output starts with 'Nahin' (No), the sub"
+ },
+ {
+  "case": "A_heldout_positive",
+  "draw": 1,
+  "expect": "HIGH",
+  "model": "qwen/qwen3.8-27b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 3.3,
+  "reason": "The actual output correctly identifies the key facts: 11 FIRs lack a named officer (8 with 'Naamzad ASI', 3 with 'Naamzad SI') and names Faisal and Tariq as the busiest officers with 4 FIRs each. Although the actual output starts with 'Yes' while the expected output starts with 'Nahin' (No), the sub"
+ },
+ {
+  "case": "A_heldout_positive",
+  "draw": 2,
+  "expect": "HIGH",
+  "model": "qwen/qwen3.8-27b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 3.1,
+  "reason": "The actual output correctly identifies the key facts: 11 FIRs lack a named officer (8 with 'Naamzad ASI', 3 with 'Naamzad SI') and names Faisal and Tariq as the busiest officers with 4 FIRs each. Although the actual output starts with 'Yes' while the expected output starts with 'Nahin' (No), the sub"
+ },
+ {
+  "case": "B_reversed_fact",
+  "draw": 0,
+  "expect": "LOW",
+  "model": "qwen/qwen3.8-27b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.0,
+  "elapsed_s": 3.3,
+  "reason": "The ACTUAL OUTPUT reverses the specific values for the years compared to the EXPECTED OUTPUT. The expected output states 2024 mean is 15.0 minutes and 2026 mean is 1401.3 minutes, indicating reporting became significantly slower. The actual output claims 2024 mean is 1401.3 minutes and 2026 mean is "
+ },
+ {
+  "case": "B_reversed_fact",
+  "draw": 1,
+  "expect": "LOW",
+  "model": "qwen/qwen3.8-27b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.0,
+  "elapsed_s": 3.3,
+  "reason": "The ACTUAL OUTPUT reverses the specific values assigned to the years compared to the EXPECTED OUTPUT. The EXPECTED OUTPUT states 2024 mean is 15.0 minutes and 2026 mean is 1401.3 minutes (indicating reporting became slower). The ACTUAL OUTPUT states 2024 mean is 1401.3 minutes and 2026 mean is 15.0 "
+ },
+ {
+  "case": "B_reversed_fact",
+  "draw": 2,
+  "expect": "LOW",
+  "model": "qwen/qwen3.8-27b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.0,
+  "elapsed_s": 3.4,
+  "reason": "The ACTUAL OUTPUT reverses the specific values assigned to the years compared to the EXPECTED OUTPUT. The EXPECTED OUTPUT states 2024 mean is 15.0 minutes and 2026 mean is 1401.3 minutes (indicating reporting became slower). The ACTUAL OUTPUT states 2024 mean is 1401.3 minutes and 2026 mean is 15.0 "
+ },
+ {
+  "case": "C_wrong_magnitude",
+  "draw": 0,
+  "expect": "LOW",
+  "model": "qwen/qwen3.8-27b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.0,
+  "elapsed_s": 30.7,
+  "reason": "The actual output provides a mean time of 18.0 minutes for 2026, which contradicts the expected output's figure of 1401.3 minutes. This is a massive discrepancy (orders of magnitude apart), not a minor counting difference, and it fundamentally changes the conclusion from 'dramatically slower' to 'sl"
+ },
+ {
+  "case": "C_wrong_magnitude",
+  "draw": 1,
+  "expect": "LOW",
+  "model": "qwen/qwen3.8-27b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.0,
+  "elapsed_s": 3.0,
+  "reason": "The actual output provides a mean time of 18.0 minutes for 2026, which contradicts the expected output's figure of 1401.3 minutes. This is a massive discrepancy (orders of magnitude apart), not a minor counting difference, and it fundamentally changes the conclusion from 'dramatically slower' to 'sl"
+ },
+ {
+  "case": "C_wrong_magnitude",
+  "draw": 2,
+  "expect": "LOW",
+  "model": "qwen/qwen3.8-27b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.0,
+  "elapsed_s": 3.7,
+  "reason": "The actual output provides a mean time of 18.0 minutes for 2026, which contradicts the expected output's figure of 1401.3 minutes. This is a massive discrepancy (orders of magnitude apart), not a minor counting difference, and it fundamentally changes the conclusion from 'dramatically slower' to 'sl"
+ }
+]

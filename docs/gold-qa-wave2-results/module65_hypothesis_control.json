@@ -1,0 +1,514 @@
+{
+  "KB1/before": [
+    {
+      "books": [
+        "CrPC",
+        "PPR"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 section 158 first information report: police officer in charge of a police station shall record the information given by the complainant in writing and shall proceed to investigate the case",
+        "Punjab Police Rules 1934 first information report: entry in the general diary, details of the information given by the complainant, and the action taken by the police officer in charge"
+      ]
+    },
+    {
+      "books": [
+        "CrPC",
+        "PPR"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 section 158 first information report: police officer in charge of a police station shall record the information given by the complainant in writing and shall proceed to investigate the case",
+        "Punjab Police Rules 1934 first information report: entry in the general diary, details of the information given by the complainant, and the action taken by the police officer in charge"
+      ]
+    },
+    {
+      "books": [
+        "CrPC",
+        "PPR"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 section 158 first information report: police officer in charge of a police station shall record the information given by the complainant in writing and shall proceed to investigate the case",
+        "Punjab Police Rules 1934 first information report: entry in the general diary, details of the information given by the complainant, and the action taken by the police officer in charge"
+      ]
+    }
+  ],
+  "KB2/before": [
+    {
+      "books": [
+        "PPR",
+        "CrPC"
+      ],
+      "queries": [
+        "Punjab Police Rules 1934 registers and records: entries in the case diary shall contain the statements of witnesses and accused persons made during the course of investigation",
+        "Code of Criminal Procedure 1898 section 161 examination of witness and accused: the officer in charge of the police station shall record the statement of the witness or accused in the presence of the person making the statement"
+      ]
+    },
+    {
+      "books": [
+        "PPR",
+        "CrPC"
+      ],
+      "queries": [
+        "Punjab Police Rules 1934 registers and records: entries in the case diary shall contain the statements of witnesses and accused persons made during the course of investigation",
+        "Code of Criminal Procedure 1898 section 161 examination of witness and accused: the officer in charge of the police station shall record the statement of the witness or accused in the presence of the person making the statement"
+      ]
+    },
+    {
+      "books": [
+        "PPR",
+        "CrPC"
+      ],
+      "queries": [
+        "Punjab Police Rules 1934 registers and records: entries in the case diary shall contain the statements of witnesses and accused persons made during the course of investigation",
+        "Code of Criminal Procedure 1898 section 161 examination of witness and accused: the officer in charge of the police station shall record the statement of the witness or accused in the presence of the person making the statement"
+      ]
+    }
+  ],
+  "KB3/before": [
+    {
+      "books": [
+        "CrPC",
+        "PoliceOrder"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 section 159 investigation by police officer: investigation of a case shall be conducted by a police officer who is not the officer in charge of the station where the case was registered",
+        "Police Order 2002 section 12 investigation wing and case handling: investigation of registered cases shall be conducted by the Investigation Wing, separate from the officer who registered the case"
+      ]
+    },
+    {
+      "books": [
+        "CrPC",
+        "PoliceOrder"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 section 159 investigation by police officer: investigation of a case shall be conducted by a police officer who is not the one who registered the case",
+        "Police Order 2002 section 12 investigation wing and case handling: investigation of registered cases shall be conducted by the Investigation Wing, separate from the officer who registered the case"
+      ]
+    },
+    {
+      "books": [
+        "CrPC",
+        "PoliceOrder"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 section 159 investigation by police officer: investigation of a case shall be conducted by a police officer who is not the one who registered the case",
+        "Police Order 2002 section 12 investigation wing and case handling: investigation of registered cases shall be conducted by the Investigation Wing, separate from the officer who registered the case"
+      ]
+    }
+  ],
+  "KB4/before": [
+    {
+      "books": [
+        "PPR",
+        "Forensics"
+      ],
+      "queries": [
+        "Punjab Police Rules 1934 case property and malkhana: entry of property in the station register, custody of property, disposal of property, and records of property destroyed or disposed of",
+        "Forensics guidelines handling, packaging, labelling and transport of recovered evidence, chain of custody"
+      ]
+    },
+    {
+      "books": [
+        "PPR",
+        "Forensics"
+      ],
+      "queries": [
+        "Punjab Police Rules 1934 case property and malkhana: entry of property in the station register, custody of property, disposal of property, and records of property destroyed or disposed of",
+        "Forensics guidelines handling, packaging, labelling and transport of recovered evidence, chain of custody"
+      ]
+    },
+    {
+      "books": [
+        "PPR",
+        "Forensics"
+      ],
+      "queries": [
+        "Punjab Police Rules 1934 case property and malkhana: entry of property in the station register, custody of property, disposal of property, and records of property destroyed or disposed of",
+        "Forensics guidelines handling, packaging, labelling and transport of recovered evidence, chain of custody"
+      ]
+    }
+  ],
+  "KB5/before": [
+    {
+      "books": [
+        "AntiRape",
+        "CrPC"
+      ],
+      "queries": [
+        "Anti-Rape (Investigation and Trial) Act 2021 special procedures for cases involving violence against women: investigation to be conducted by a female police officer, separate recording of statements, protection of the victim's identity",
+        "Code of Criminal Procedure 1898 sections 176 and 177 inquiry into offences against women: inquiry to be conducted by a female police officer, separate recording of statements, protection of the victim's identity"
+      ]
+    },
+    {
+      "books": [
+        "AntiRape",
+        "CrPC"
+      ],
+      "queries": [
+        "Anti-Rape (Investigation and Trial) Act 2021 special procedures for cases involving violence against women: investigation to be conducted by a female police officer, separate recording of statements, protection of the victim's identity",
+        "Code of Criminal Procedure 1898 sections 176 and 177 inquiry into offences against women: inquiry to be conducted by a female police officer, separate recording of statements, protection of the victim's identity"
+      ]
+    },
+    {
+      "books": [
+        "AntiRape",
+        "CrPC"
+      ],
+      "queries": [
+        "Anti-Rape (Investigation and Trial) Act 2021 special procedures for cases involving violence against women: investigation to be conducted by a female police officer, separate recording of statements, protection of the victim's identity",
+        "Code of Criminal Procedure 1898 sections 176 and 177 inquiry into offences against women: inquiry to be conducted by a female police officer, separate recording of statements, protection of the victim's identity"
+      ]
+    }
+  ],
+  "KB6/before": [
+    {
+      "books": [
+        "Forensics",
+        "PPR"
+      ],
+      "queries": [
+        "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be handled in a manner that prevents contamination, degradation or loss, and properly labelled with chain of custody details",
+        "Punjab Police Rules 1934 weapon register and recording of use: weapon register shall record the issuance, return, and use of weapons, including whether they have been fired or otherwise used"
+      ]
+    },
+    {
+      "books": [
+        "Forensics",
+        "PPR"
+      ],
+      "queries": [
+        "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be handled in a manner that preserves its integrity, packaged in appropriate containers, labelled with details of the item and chain of custody",
+        "Punjab Police Rules 1934 weapon register and recording of use: weapon register shall record the issuance, return, and use of weapons, including whether the weapon has been fired or otherwise used"
+      ]
+    },
+    {
+      "books": [
+        "Forensics",
+        "PPR"
+      ],
+      "queries": [
+        "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be handled in a manner that preserves its integrity, packaged in appropriate containers, labelled with details of the item and chain of custody",
+        "Punjab Police Rules 1934 weapon register and recording of use: weapon register shall record the issuance, return, and use of weapons, including whether the weapon has been fired or otherwise used"
+      ]
+    }
+  ],
+  "KB8/before": [
+    {
+      "books": [
+        "CrPC",
+        "PPR"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 section 178 report of progress of investigation: police officer in charge of investigation shall, at intervals not exceeding thirty days, submit a report to the Magistrate concerned stating the progress of the investigation",
+        "Punjab Police Rules 1934 case diary and station register: entries in the case diary shall record the progress of the investigation, including dates of actions taken and next steps"
+      ]
+    },
+    {
+      "books": [
+        "CrPC",
+        "PPR"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 section 178 investigation to be completed within a reasonable time and report to Magistrate: police officer in charge of investigation shall submit a report to the Magistrate when the investigation is complete or when it is not possible to complete it within a reasonable time",
+        "Punjab Police Rules 1934 case diary and station register: entries to be made in the case diary and station register regarding the progress of the investigation, including delays and reasons for the same"
+      ]
+    },
+    {
+      "books": [
+        "CrPC",
+        "PPR"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 section 178 investigation to be completed within a reasonable time and report to Magistrate: police officer in charge of investigation shall submit a report to the Magistrate when the investigation is complete or when it is not possible to complete it within a reasonable time",
+        "Punjab Police Rules 1934 case diary and station register: entries to be made in the case diary and station register regarding the progress of the investigation, including delays and reasons for the same"
+      ]
+    }
+  ],
+  "KB9/before": [
+    {
+      "books": [
+        "CrPC",
+        "PoliceOrder"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 sections 176 and 177 inquest and cause of death enquiry: inquest shall be held by a Magistrate, inquiry into the cause of death of a person who has died in custody or under suspicious circumstances",
+        "Police Order 2002 section 102 investigation of death in custody: police officer in charge of the station shall conduct a thorough investigation into the death of a person in custody and submit a report to the Magistrate"
+      ]
+    },
+    {
+      "books": [
+        "CrPC",
+        "PoliceOrder"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 sections 176 and 177 inquest and cause of death enquiry: inquest shall be held by a Magistrate, inquiry into the cause of death of a person who has died in custody or under suspicious circumstances",
+        "Police Order 2002 investigation wing duties: investigation wing shall conduct inquiries into deaths in custody, ensure proper documentation and reporting of findings"
+      ]
+    },
+    {
+      "books": [
+        "CrPC",
+        "PoliceOrder"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 sections 176 and 177 inquest and cause of death enquiry: inquest shall be held by a Magistrate, inquiry into the cause of death of a person who has died in custody or under suspicious circumstances",
+        "Police Order 2002 investigation wing duties: investigation wing shall conduct inquiries into deaths in custody, ensure proper documentation and reporting of findings"
+      ]
+    }
+  ],
+  "KB1/after": [
+    {
+      "books": [
+        "CrPC",
+        "PPR"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 section 158 registration of FIR: police officer in charge of the station shall record the information given by the complainant in the FIR book and shall proceed to investigate the case",
+        "Punjab Police Rules 1934 registration of FIR and maintenance of records: FIR shall be entered in the FIR register with the date, time, and details of the information given, and shall be kept in the station for a period of ten years"
+      ]
+    },
+    {
+      "books": [
+        "CrPC",
+        "PPR"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 section 158 registration of FIR: police officer in charge of the station shall record the information given by the complainant in the FIR book and shall proceed to investigate the case",
+        "Punjab Police Rules 1934 registration of FIR and maintenance of records: FIR shall be entered in the FIR register with the date, time, and details of the information given, and shall be kept in the station for a period of ten years"
+      ]
+    },
+    {
+      "books": [
+        "CrPC",
+        "PPR"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 section 158 registration of FIR: police officer in charge of the station shall record the information given by the complainant in the FIR book and shall proceed to investigate the case",
+        "Punjab Police Rules 1934 registration of FIR and maintenance of records: FIR shall be entered in the FIR register with the date, time, and details of the information given, and shall be kept in the station for a period of ten years"
+      ]
+    }
+  ],
+  "KB2/after": [
+    {
+      "books": [
+        "QSO",
+        "CrPC"
+      ],
+      "queries": [
+        "Qanun-e-Shahadat Order 1984 section 14 confession or admission made to police officer: shall not be proved as against the accused",
+        "Code of Criminal Procedure 1898 section 161 statement by accused or witness during investigation: shall not be signed by the person making it and shall not be used for any purpose at any inquiry or trial"
+      ]
+    },
+    {
+      "books": [
+        "QSO",
+        "CrPC"
+      ],
+      "queries": [
+        "Qanun-e-Shahadat Order 1984 section 14 confession or admission made to police officer: shall not be proved as against the accused",
+        "Code of Criminal Procedure 1898 section 161 statement by accused or witness during investigation: shall not be signed by the person making it and shall not be used for any purpose at any inquiry or trial"
+      ]
+    },
+    {
+      "books": [
+        "QSO",
+        "CrPC"
+      ],
+      "queries": [
+        "Qanun-e-Shahadat Order 1984 section 14 confession or admission made to police officer: shall not be proved as against the accused",
+        "Code of Criminal Procedure 1898 section 161 statement by accused or witness during investigation: shall not be signed by the person making it and shall not be used for any purpose at any inquiry or trial"
+      ]
+    }
+  ],
+  "KB3/after": [
+    {
+      "books": [
+        "CrPC",
+        "PoliceOrder"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 section 159 investigation by police officer: investigation of a case shall be conducted by a police officer who is not the officer in charge of the station where the case was registered",
+        "Police Order 2002 section 14 investigation wing and case handling: investigation of registered cases shall be conducted by the Investigation Wing, and the officer in charge of the station shall not be responsible for conducting the investigation"
+      ]
+    },
+    {
+      "books": [
+        "CrPC",
+        "PoliceOrder"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 section 159 investigation by police officer: investigation of a case shall be conducted by a police officer who is not the officer in charge of the station where the case was registered",
+        "Police Order 2002 section 14 investigation wing and case handling: investigation of registered cases shall be conducted by the Investigation Wing, and the officer in charge of the station shall not be responsible for conducting the investigation"
+      ]
+    },
+    {
+      "books": [
+        "CrPC",
+        "PoliceOrder"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 section 159 investigation by police officer: investigation of a case shall be conducted by a police officer who is not the officer in charge of the station where the case was registered",
+        "Police Order 2002 section 14 investigation wing and case handling: investigation of registered cases shall be conducted by the Investigation Wing, and the officer in charge of the station shall not be responsible for conducting the investigation"
+      ]
+    }
+  ],
+  "KB4/after": [
+    {
+      "books": [
+        "PPR",
+        "Forensics"
+      ],
+      "queries": [
+        "Punjab Police Rules 1934 case property and malkhana: property recovered in investigation shall be entered in the malkhana register, kept in a secure place, and disposed of according to the rules",
+        "Forensics guidelines handling, packaging, labelling and transport of recovered evidence: evidence shall be properly packaged, labelled, and transported to the forensic laboratory for analysis"
+      ]
+    },
+    {
+      "books": [
+        "PPR",
+        "Forensics"
+      ],
+      "queries": [
+        "Punjab Police Rules 1934 case property and malkhana: property recovered in investigation shall be entered in the malkhana register, marked with number and description, and kept under lock and key",
+        "Forensics guidelines handling, packaging, labelling and transport of recovered evidence: evidence shall be properly packaged, labelled, and transported to the forensic laboratory for analysis, with a chain of custody maintained"
+      ]
+    },
+    {
+      "books": [
+        "PPR",
+        "Forensics"
+      ],
+      "queries": [
+        "Punjab Police Rules 1934 case property and malkhana: property recovered in investigation shall be entered in the malkhana register, marked with number and description, and kept under lock and key",
+        "Forensics guidelines handling, packaging, labelling and transport of recovered evidence: evidence shall be properly packaged, labelled, and transported to the forensic laboratory for analysis, with a chain of custody maintained"
+      ]
+    }
+  ],
+  "KB5/after": [
+    {
+      "books": [
+        "AntiRape",
+        "CrPC"
+      ],
+      "queries": [
+        "Anti-Rape (Investigation and Trial) Act 2021 special investigation procedures in cases of sexual violence and domestic violence: investigation to be conducted by a female police officer, separate recording of statements, protection of the victim's identity",
+        "Code of Criminal Procedure 1898 sections 176 and 177 investigation of offences against women: investigation to be conducted with due regard to the special needs of the woman, and in a manner that avoids unnecessary exposure or harassment"
+      ]
+    },
+    {
+      "books": [
+        "AntiRape",
+        "CrPC"
+      ],
+      "queries": [
+        "Anti-Rape (Investigation and Trial) Act 2021 special investigation procedures in cases of sexual violence and domestic violence: investigation to be conducted by a female police officer, separate recording of statements, protection of the victim's identity",
+        "Code of Criminal Procedure 1898 sections 176 and 177 investigation of offences against women: investigation to be conducted with due regard to the special needs of the woman, and in a manner that avoids unnecessary exposure or harassment"
+      ]
+    },
+    {
+      "books": [
+        "AntiRape",
+        "CrPC"
+      ],
+      "queries": [
+        "Anti-Rape (Investigation and Trial) Act 2021 special investigation procedures in cases of sexual violence and domestic violence: investigation to be conducted by a female police officer, separate recording of statements, protection of the victim's identity",
+        "Code of Criminal Procedure 1898 sections 176 and 177 investigation of offences against women: investigation to be conducted with due regard to the special needs of the woman, and in a manner that avoids unnecessary exposure or harassment"
+      ]
+    }
+  ],
+  "KB6/after": [
+    {
+      "books": [
+        "Forensics",
+        "PPR"
+      ],
+      "queries": [
+        "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be handled in accordance with specific procedures to maintain chain of custody",
+        "Punjab Police Rules 1934 weapon register and recording of actions taken: entries in the weapon register shall include details of actions taken on seized weapons"
+      ]
+    },
+    {
+      "books": [
+        "Forensics",
+        "PPR"
+      ],
+      "queries": [
+        "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be handled in accordance with specific procedures to maintain chain of custody",
+        "Punjab Police Rules 1934 weapon register and recording of actions taken: entries in the weapon register shall include details of actions taken on seized weapons"
+      ]
+    },
+    {
+      "books": [
+        "Forensics",
+        "PPR"
+      ],
+      "queries": [
+        "Forensics guidelines handling packaging labelling and transport of recovered evidence: evidence shall be handled in accordance with specific procedures to maintain chain of custody",
+        "Punjab Police Rules 1934 weapon register and recording of actions taken: entries in the weapon register shall include details of actions taken on seized weapons"
+      ]
+    }
+  ],
+  "KB8/after": [
+    {
+      "books": [
+        "CrPC",
+        "PPR"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 section 173 investigation report by police officer in charge: investigation shall be completed within a reasonable time, and if not completed, the officer in charge shall submit a report to the Magistrate stating the reasons for the delay",
+        "Punjab Police Rules 1934 case diaries and records: case diary shall contain details of the investigation, including the progress and any delays, and shall be updated regularly for tracking purposes"
+      ]
+    },
+    {
+      "books": [
+        "CrPC",
+        "PPR"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 section 173 investigation report by police officer in charge: investigation shall be completed within a reasonable time, and if not completed, the officer in charge shall submit a report to the Magistrate stating the reasons for the delay",
+        "Punjab Police Rules 1934 case diaries and registers: case diary shall contain details of the investigation, including the progress and any delays, and shall be updated regularly for tracking purposes"
+      ]
+    },
+    {
+      "books": [
+        "CrPC",
+        "PPR"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 section 173 investigation report by police officer in charge: investigation shall be completed within a reasonable time, and if not completed, the officer in charge shall submit a report to the Magistrate stating the reasons for the delay",
+        "Punjab Police Rules 1934 case diaries and registers: case diary shall contain details of the investigation, including the progress and any delays, and shall be updated regularly for tracking purposes"
+      ]
+    }
+  ],
+  "KB9/after": [
+    {
+      "books": [
+        "CrPC",
+        "PPR"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 sections 176 and 177 inquest and cause of death enquiry: inquest shall be held by a Magistrate, inquiry into the cause of death and circumstances of the death, report of the inquest to be sent to the Court",
+        "Punjab Police Rules 1934 inquest and cause of death enquiry: record of inquest, details of the deceased, circumstances of death, and findings to be entered in the station diary"
+      ]
+    },
+    {
+      "books": [
+        "CrPC",
+        "PPR"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 sections 176 and 177 inquest and cause of death enquiry: inquest shall be held by a Magistrate, inquiry into the cause of death and circumstances of the death, report of the inquest to be sent to the Court",
+        "Punjab Police Rules 1934 inquest and cause of death enquiry: record of inquest, details of the deceased, circumstances of death, report to be submitted to the Magistrate"
+      ]
+    },
+    {
+      "books": [
+        "CrPC",
+        "PPR"
+      ],
+      "queries": [
+        "Code of Criminal Procedure 1898 sections 176 and 177 inquest and cause of death enquiry: inquest shall be held by a Magistrate, inquiry into the cause of death and circumstances of the death, report of the inquest to be sent to the Court",
+        "Punjab Police Rules 1934 inquest and cause of death enquiry: record of inquest, details of the deceased, circumstances of death, report to be submitted to the Magistrate"
+      ]
+    }
+  ]
+}

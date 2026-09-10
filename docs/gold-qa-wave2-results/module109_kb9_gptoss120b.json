@@ -1,0 +1,62 @@
+[
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 0,
+  "metric": "FactualCorrectness",
+  "model": "openai/gpt-oss-120b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.1,
+  "elapsed_s": 5.4,
+  "reason": "The expected output lists several specific facts: the legal requirement (CrPC 1898 s.174), the existence of 10 murder FIRs, and that the schema lacks any inquest/post‑mortem or cause‑of‑death records. The actual output does not mention the legal provision, the 10 FIRs, or the absence of cause‑of‑dea"
+ },
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 1,
+  "metric": "FactualCorrectness",
+  "model": "openai/gpt-oss-120b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.1,
+  "elapsed_s": 4.3,
+  "reason": "The expected answer lists specific legal requirements (CrPC 1898 s.174), the presence of 10 murder FIRs, and notes that the schema lacks any inquest or cause‑of‑death records. The actual output does not mention the legal provision, does not report the 10 FIRs, and incorrectly states that the system "
+ },
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 2,
+  "metric": "FactualCorrectness",
+  "model": "openai/gpt-oss-120b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.1,
+  "elapsed_s": 4.7,
+  "reason": "The expected answer lists specific legal provision (CrPC 1898 s.174), cites 10 murder FIRs and notes the schema lacks any inquest/post‑mortem records. The actual answer does not mention the legal provision, does not give the 10 FIR count, and incorrectly claims the system records death investigation"
+ },
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 3,
+  "metric": "FactualCorrectness",
+  "model": "openai/gpt-oss-120b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.1,
+  "elapsed_s": 4.8,
+  "reason": "The expected answer lists the legal provision (CrPC 174), cites 10 murder FIRs and notes that the schema lacks any inquest/post‑mortem or cause‑of‑death records. The actual answer does not mention the legal provision or the FIR count, and it incorrectly claims the system records cause‑of‑death inves"
+ },
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 4,
+  "metric": "FactualCorrectness",
+  "model": "openai/gpt-oss-120b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.1,
+  "elapsed_s": 5.4,
+  "reason": "The expected answer lists the legal requirement (CrPC 1898 s.174), cites 10 murder FIRs and notes that the schema contains no inquest or cause‑of‑death records. The actual answer says the system records death investigations, mentions four individuals, and does not reference the legal provision or th"
+ }
+]

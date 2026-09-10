@@ -1,0 +1,139 @@
+{
+  "_meta": {
+    "module": 92,
+    "purpose": "Three paraphrases (English, Roman-Urdu, Urdu script) for each of the 32 gold questions, used to measure whether the router's route classification generalises beyond the exact gold wording.",
+    "discipline": "Every paraphrase was written before ANY of them was run against any classifier, and none was adjusted afterwards to improve a number. Where a paraphrase turned out to shift the question's meaning, that is recorded in MODULE92_RESULT.md and the text is left as written.",
+    "intent": "Preserve the question's intent while deliberately avoiding gold's distinctive vocabulary. Domain nouns that ARE the subject of the question (FIR, weapon, district, 2024) are kept where dropping them would change what is being asked.",
+    "expected_route": "Not stored here. The harness joins each paraphrase to its gold question's route from evaluation/gold32_pass{1,2,3}_outputs.json, which Module 27 recorded stable 32/32 across three passes.",
+    "languages": ["en", "roman_ur", "ur"]
+  },
+  "paraphrases": [
+    { "gold_id": "D1", "language": "en", "text": "What is the total number of first information reports we currently hold?" },
+    { "gold_id": "D1", "language": "roman_ur", "text": "Is waqt hamare paas kul kitni FIR mojood hain?" },
+    { "gold_id": "D1", "language": "ur", "text": "اِس وقت ہمارے پاس مجموعی طور پر کتنی ایف آئی آر موجود ہیں؟" },
+
+    { "gold_id": "S2", "language": "en", "text": "Which of our stations is responsible for the biggest share of files?" },
+    { "gold_id": "S2", "language": "roman_ur", "text": "Sab se zyada files kis thane ke zimme hain?" },
+    { "gold_id": "S2", "language": "ur", "text": "سب سے زیادہ مقدمات کس تھانے کے ذمے ہیں؟" },
+
+    { "gold_id": "S3", "language": "en", "text": "Has any individual been taken into custody on more than one occasion?" },
+    { "gold_id": "S3", "language": "roman_ur", "text": "Kya kisi fard ko ek se ziyada dafa hirasat mein liya gaya hai?" },
+    { "gold_id": "S3", "language": "ur", "text": "کیا کوئی ایسا فرد ہے جسے ایک سے زائد مرتبہ حراست میں لیا گیا ہو؟" },
+
+    { "gold_id": "A1", "language": "en", "text": "Among the people named as accused, what is the split between men and women?" },
+    { "gold_id": "A1", "language": "roman_ur", "text": "Jin logon ko mulzim namzad kiya gaya hai, un mein kitne mard hain aur kitni khawateen?" },
+    { "gold_id": "A1", "language": "ur", "text": "جن افراد کو ملزم ٹھہرایا گیا ہے، اُن میں کتنے مرد ہیں اور کتنی خواتین؟" },
+
+    { "gold_id": "A7", "language": "en", "text": "In how many files did the person reporting explain why they took time before approaching the station, instead of coming straight away?" },
+    { "gold_id": "A7", "language": "roman_ur", "text": "Kitni files mein shikayat karne wale ne yeh bataya ke unhein thane tak pohanchne mein der kyun hui?" },
+    { "gold_id": "A7", "language": "ur", "text": "کتنی فائلوں میں شکایت کنندہ نے یہ وضاحت دی کہ اُسے تھانے پہنچنے میں تاخیر کیوں ہوئی؟" },
+
+    { "gold_id": "CP6", "language": "en", "text": "How many files are still sitting with nobody formally put in charge of the enquiry?" },
+    { "gold_id": "CP6", "language": "roman_ur", "text": "Kitni files aisi hain jin ki tehqeeqat ke liye abhi tak kisi afsar ko baqaida zimma nahi diya gaya?" },
+    { "gold_id": "CP6", "language": "ur", "text": "کتنی فائلیں ایسی ہیں جن کی تحقیقات کے لیے اب تک کسی افسر کو باقاعدہ ذمہ نہیں سونپا گیا؟" },
+
+    { "gold_id": "CR2", "language": "en", "text": "Do we have a person who already carried a case from before and has now turned up again as a suspect in a fresh file?" },
+    { "gold_id": "CR2", "language": "roman_ur", "text": "Kya koi aisa fard hai jis par pehle se ek muqadma mojood tha aur ab woh kisi nai file mein dobara mushtaba ke tor par saamne aaya hai?" },
+    { "gold_id": "CR2", "language": "ur", "text": "کیا کوئی ایسا فرد ہے جس پر پہلے سے ایک مقدمہ موجود تھا اور اب وہ کسی نئی فائل میں دوبارہ مشتبہ کے طور پر سامنے آیا ہو؟" },
+
+    { "gold_id": "CR3", "language": "en", "text": "Take the internet banking cheating matter that had two different complainants — were both handled and entered in the register in an identical fashion?" },
+    { "gold_id": "CR3", "language": "roman_ur", "text": "Woh internet banking dhoke ka muamla jismein do alag mutasireen thay — kya dono ko ek hi tarah se nipta kar record mein darj kiya gaya?" },
+    { "gold_id": "CR3", "language": "ur", "text": "وہ انٹرنیٹ بینکنگ دھوکہ دہی کا معاملہ جس میں دو الگ متاثرین تھے — کیا دونوں کو ایک ہی طریقے سے نمٹا کر ریکارڈ میں درج کیا گیا؟" },
+
+    { "gold_id": "CR4", "language": "en", "text": "When a firearm sits in our evidence store, are we able to trace the person it came from and how their matter ended?" },
+    { "gold_id": "CR4", "language": "roman_ur", "text": "Jab koi hathiyar shahadat ke tor par hamare paas mehfooz ho, kya hum yeh maloom kar sakte hain ke woh kis se liya gaya aur us ka anjam kya hua?" },
+    { "gold_id": "CR4", "language": "ur", "text": "جب کوئی ہتھیار بطور شہادت ہمارے پاس محفوظ ہو، تو کیا ہم یہ معلوم کر سکتے ہیں کہ وہ کس سے لیا گیا اور اُس کا انجام کیا ہوا؟" },
+
+    { "gold_id": "CR6", "language": "en", "text": "When a member of the public walks in and lodges a grievance, does that get tied to a proper first information report, or do the two stay unconnected?" },
+    { "gold_id": "CR6", "language": "roman_ur", "text": "Agar koi shakhs thane pahunch kar apna masla darj karwaye, to kya us ka rabt kisi baqaida FIR se banta hai, ya woh alag hi para rehta hai?" },
+    { "gold_id": "CR6", "language": "ur", "text": "اگر کوئی شخص تھانے پہنچ کر اپنا مسئلہ درج کرائے، تو کیا اُس کا ربط کسی باقاعدہ ایف آئی آر سے بنتا ہے، یا وہ الگ ہی پڑا رہتا ہے؟" },
+
+    { "gold_id": "CR7", "language": "en", "text": "Out of the entries in our offender-history store, how many matters have wrapped up and how many are still running — and where a case also has its own judicial entry, do the two line up?" },
+    { "gold_id": "CR7", "language": "roman_ur", "text": "Hamare mujrimana record mein kitne muamlat nipat chuke hain aur kitne abhi chal rahe hain — aur jahan kisi muamle ka alag adalati indraj bhi mojood hai, kya dono aapas mein miltay hain?" },
+    { "gold_id": "CR7", "language": "ur", "text": "ہمارے مجرمانہ ریکارڈ میں کتنے معاملات نمٹ چکے ہیں اور کتنے ابھی چل رہے ہیں — اور جہاں کسی معاملے کا الگ عدالتی اندراج بھی موجود ہے، کیا دونوں آپس میں ملتے ہیں؟" },
+
+    { "gold_id": "CR8", "language": "en", "text": "If a household-abuse grievance was noted as having turned into a proper matter, does the file itself bear that out?" },
+    { "gold_id": "CR8", "language": "roman_ur", "text": "Agar ghar ke andar tashaddud ki koi shikayat baqaida muamle mein badalne ke tor par likhi gai ho, to kya file khud is ki tasdeeq karti hai?" },
+    { "gold_id": "CR8", "language": "ur", "text": "اگر گھر کے اندر تشدد کی کوئی شکایت باقاعدہ معاملے میں بدلنے کے طور پر لکھی گئی ہو، تو کیا فائل خود اِس کی تصدیق کرتی ہے؟" },
+
+    { "gold_id": "CS4", "language": "en", "text": "In the broader offender-history holdings, is there an individual who lines up with none of the files we ourselves entered?" },
+    { "gold_id": "CS4", "language": "roman_ur", "text": "Bahar ke mujrimana record mein koi aisa fard hai jo hamari apni darj ki hui kisi bhi file se mel nahi khata?" },
+    { "gold_id": "CS4", "language": "ur", "text": "باہر کے مجرمانہ ریکارڈ میں کوئی ایسا فرد ہے جو ہماری اپنی درج کی ہوئی کسی بھی فائل سے میل نہیں کھاتا؟" },
+
+    { "gold_id": "CP1", "language": "en", "text": "Relative to how many files it carries, which district seizes arms most often?" },
+    { "gold_id": "CP1", "language": "roman_ur", "text": "Apni files ki tadaad ke hisab se kaunsa zila sab se ziyada asliha zabt karta hai?" },
+    { "gold_id": "CP1", "language": "ur", "text": "اپنی فائلوں کی تعداد کے حساب سے کون سا ضلع سب سے زیادہ اسلحہ ضبط کرتا ہے؟" },
+
+    { "gold_id": "M1", "language": "en", "text": "Has the make-up of the matters we handle moved on from where it stood two or three years earlier?" },
+    { "gold_id": "M1", "language": "roman_ur", "text": "Do teen saal pehle jo muamlat hote thay, kya ab un ki qism badal chuki hai?" },
+    { "gold_id": "M1", "language": "ur", "text": "دو تین سال پہلے جو معاملات ہوتے تھے، کیا اب اُن کی قسم بدل چکی ہے؟" },
+
+    { "gold_id": "M2", "language": "en", "text": "Where is the volume of files rising quicker — the ordinary stations, or the few dedicated to a single category of offence?" },
+    { "gold_id": "M2", "language": "roman_ur", "text": "Files ki tadaad kahan tezi se barh rahi hai — aam thanon par, ya un chand par jo sirf ek qism ke jurm ke liye banaye gaye hain?" },
+    { "gold_id": "M2", "language": "ur", "text": "فائلوں کی تعداد کہاں تیزی سے بڑھ رہی ہے — عام تھانوں پر، یا اُن چند پر جو صرف ایک قسم کے جرم کے لیے بنائے گئے ہیں؟" },
+
+    { "gold_id": "M4", "language": "en", "text": "Look at which provisions people are being booked under on one hand, and how far those matters travelled through the judiciary on the other — do both give the same read on how heavy the load is?" },
+    { "gold_id": "M4", "language": "roman_ur", "text": "Ek taraf dekhein ke logon par kin qawaneen ke tehat parche kat rahe hain, aur doosri taraf yeh ke woh muamlat adalat mein kahan tak gaye — kya dono se bojh ki shiddat ka ek hi nateeja nikalta hai?" },
+    { "gold_id": "M4", "language": "ur", "text": "ایک جانب دیکھیں کہ لوگوں پر کن قوانین کے تحت پرچے کٹ رہے ہیں، اور دوسری جانب یہ کہ وہ معاملات عدالت میں کہاں تک گئے — کیا دونوں سے بوجھ کی شدت کا ایک ہی نتیجہ نکلتا ہے؟" },
+
+    { "gold_id": "M5", "language": "en", "text": "Which categories of matter do arms usually turn up in, and is that picture different now from 2024?" },
+    { "gold_id": "M5", "language": "roman_ur", "text": "Hathiyar aam tor par kis qism ke muamlat mein nazar aate hain, aur kya ab yeh manzar 2024 se mukhtalif hai?" },
+    { "gold_id": "M5", "language": "ur", "text": "ہتھیار عام طور پر کس قسم کے معاملات میں نظر آتے ہیں، اور کیا اب یہ منظر 2024 سے مختلف ہے؟" },
+
+    { "gold_id": "M7", "language": "en", "text": "Are members of the public reporting incidents to us as promptly in 2026 as they did back in 2024?" },
+    { "gold_id": "M7", "language": "roman_ur", "text": "Kya 2026 mein shahri hamein waqiaat ki khabar utni hi phurti se de rahe hain jitni woh 2024 mein dete thay?" },
+    { "gold_id": "M7", "language": "ur", "text": "کیا 2026 میں شہری ہمیں واقعات کی خبر اُتنی ہی پھرتی سے دے رہے ہیں جتنی وہ 2024 میں دیتے تھے؟" },
+
+    { "gold_id": "G1", "language": "en", "text": "Put on an analyst's hat, go through what we are carrying at present and point out whatever stands out or needs watching." },
+    { "gold_id": "G1", "language": "roman_ur", "text": "Aik tajziya kar ki haisiyat se hamare mojooda bojh ka jaiza lein aur jo kuch ghair mamooli lage ya nigrani ka taqaza kare, us ki nishandahi karein." },
+    { "gold_id": "G1", "language": "ur", "text": "ایک تجزیہ کار کی حیثیت سے ہمارے موجودہ بوجھ کا جائزہ لیں اور جو کچھ غیر معمولی لگے یا نگرانی کا تقاضا کرے، اُس کی نشاندہی کریں۔" },
+
+    { "gold_id": "G2", "language": "en", "text": "Imagine you are updating a station head about matters at risk of slipping out of view — what would you draw attention to?" },
+    { "gold_id": "G2", "language": "roman_ur", "text": "Farz karein aap kisi thana incharge ko is bare mein bata rahe hain ke kaunse muamlat nazar se ghayab ho sakte hain — aap kin baaton ki taraf tawajjo dilayenge?" },
+    { "gold_id": "G2", "language": "ur", "text": "فرض کریں آپ کسی تھانہ انچارج کو اِس بارے میں بتا رہے ہیں کہ کون سے معاملات نظر سے غائب ہو سکتے ہیں — آپ کن باتوں کی طرف توجہ دلائیں گے؟" },
+
+    { "gold_id": "G3", "language": "en", "text": "You are putting a file together to send up to the judge — going by the data, which parts are most likely to come back as lacking?" },
+    { "gold_id": "G3", "language": "roman_ur", "text": "Aap adalat bhejne ke liye ek file tayyar kar rahe hain — data ke mutabiq, kaunse hisse sab se ziyada adhoore nikalne ka imkaan rakhte hain?" },
+    { "gold_id": "G3", "language": "ur", "text": "آپ عدالت بھیجنے کے لیے ایک فائل تیار کر رہے ہیں — ڈیٹا کے مطابق، کون سے حصے سب سے زیادہ ادھورے نکلنے کا امکان رکھتے ہیں؟" },
+
+    { "gold_id": "G5", "language": "en", "text": "Looking at how seized arms are being written up, is there anything a compliance review ought to pick up on?" },
+    { "gold_id": "G5", "language": "roman_ur", "text": "Zabt shuda asliha jis tarah likha ja raha hai, us mein aisa kuch hai jo zabte ke jaize mein uthaya jana chahiye?" },
+    { "gold_id": "G5", "language": "ur", "text": "ضبط شدہ اسلحہ جس طرح لکھا جا رہا ہے، اُس میں ایسا کچھ ہے جو ضابطے کے جائزے میں اُٹھایا جانا چاہیے؟" },
+
+    { "gold_id": "G6", "language": "en", "text": "Draft a short welcome brief for someone just posted in — what should they anticipate from the pile of work here?" },
+    { "gold_id": "G6", "language": "roman_ur", "text": "Naye aane wale afsar ko shuruaat mein kya batana chahiye — yahan ke kaam ke dher se unhein kya ummeed rakhni chahiye?" },
+    { "gold_id": "G6", "language": "ur", "text": "نئے آنے والے افسر کو شروع میں کیا بتانا چاہیے — یہاں کے کام کے ڈھیر سے اُنہیں کیا اُمید رکھنی چاہیے؟" },
+
+    { "gold_id": "KB1", "language": "en", "text": "Which provision of law lays down the way a complaint turns into an official first information report, and are our books actually in line with it?" },
+    { "gold_id": "KB1", "language": "roman_ur", "text": "Qanoon ka kaunsa hissa yeh tay karta hai ke ek shikayat kis tarah sarkari FIR banti hai, aur kya hamara indraj waqai us ke mutabiq hai?" },
+    { "gold_id": "KB1", "language": "ur", "text": "قانون کا کون سا حصہ یہ طے کرتا ہے کہ ایک شکایت کس طرح سرکاری ایف آئی آر بنتی ہے، اور کیا ہمارا اندراج واقعی اُس کے مطابق ہے؟" },
+
+    { "gold_id": "KB2", "language": "en", "text": "How come nothing in our setup preserves the statements given by a witness or a suspect during questioning — should that count as a hole in the data?" },
+    { "gold_id": "KB2", "language": "roman_ur", "text": "Hamare nizam mein woh baatein kyun mehfooz nahi hotin jo koi gawah ya mulzim poochh gachh ke dauran kehta hai — kya ise data ki kami samjha jaye?" },
+    { "gold_id": "KB2", "language": "ur", "text": "ہمارے نظام میں وہ باتیں کیوں محفوظ نہیں ہوتیں جو کوئی گواہ یا ملزم پوچھ گچھ کے دوران کہتا ہے — کیا اِسے ڈیٹا کی کمی سمجھا جائے؟" },
+
+    { "gold_id": "KB3", "language": "en", "text": "Is the person who opens a matter supposed under the rules to also be the one who takes it forward, or should those be two different postings — and what does our own record show?" },
+    { "gold_id": "KB3", "language": "roman_ur", "text": "Qanoon ke mutabiq jo afsar muamla kholta hai kya usi ne aage bhi barhana hota hai, ya yeh do alag zimmedariyan honi chahiyen — aur hamara apna record kya kehta hai?" },
+    { "gold_id": "KB3", "language": "ur", "text": "قانون کے مطابق جو افسر معاملہ کھولتا ہے کیا اُسی نے آگے بھی بڑھانا ہوتا ہے، یا یہ دو الگ ذمہ داریاں ہونی چاہئیں — اور ہمارا اپنا ریکارڈ کیا کہتا ہے؟" },
+
+    { "gold_id": "KB4", "language": "en", "text": "Where the force holds articles connected to a matter, is there a laid-down standard for entering them and for finally getting rid of them — and does our goods register keep to it?" },
+    { "gold_id": "KB4", "language": "roman_ur", "text": "Jab police kisi muamle se juri cheezein apne qabze mein leti hai, kya un ke indraj aur aakhir mein unhein khatam karne ka koi tay shuda mayaar hai — aur kya hamara maal register us par chalta hai?" },
+    { "gold_id": "KB4", "language": "ur", "text": "جب پولیس کسی معاملے سے جڑی چیزیں اپنے قبضے میں لیتی ہے، کیا اُن کے اندراج اور آخر میں اُنہیں ختم کرنے کا کوئی طے شدہ معیار ہے — اور کیا ہمارا مال رجسٹر اُس پر چلتا ہے؟" },
+
+    { "gold_id": "KB5", "language": "en", "text": "Where a matter involves harm done to a female, do the rules call for a different handling than usual — and if so, does our record show those added steps were in fact carried out?" },
+    { "gold_id": "KB5", "language": "roman_ur", "text": "Agar kisi muamle mein kisi khatoon ko nuqsan pohanchaya gaya ho, kya zabta mamool se hat kar kuch aur maangta hai — aur agar haan, to kya hamara record dikhata hai ke woh zaid iqdamaat waqai kiye gaye?" },
+    { "gold_id": "KB5", "language": "ur", "text": "اگر کسی معاملے میں کسی خاتون کو نقصان پہنچایا گیا ہو، کیا ضابطہ معمول سے ہٹ کر کچھ اور مانگتا ہے — اور اگر ہاں، تو کیا ہمارا ریکارڈ دکھاتا ہے کہ وہ زائد اقدامات واقعی کیے گئے؟" },
+
+    { "gold_id": "KB6", "language": "en", "text": "Do the lab-procedure rules set out anything particular on the way seized arms must be dealt with before entry, and does our arms register note whether that was observed?" },
+    { "gold_id": "KB6", "language": "roman_ur", "text": "Kya lab ke zawabit mein is bare mein koi khaas hidayat hai ke zabt shuda asliha indraj se pehle kis tarah rakha jaye, aur kya hamara asliha register yeh likhta hai ke un par amal hua ya nahi?" },
+    { "gold_id": "KB6", "language": "ur", "text": "کیا لیب کے ضوابط میں اِس بارے میں کوئی خاص ہدایت ہے کہ ضبط شدہ اسلحہ اندراج سے پہلے کس طرح رکھا جائے، اور کیا ہمارا اسلحہ رجسٹر یہ لکھتا ہے کہ اُن پر عمل ہوا یا نہیں؟" },
+
+    { "gold_id": "KB8", "language": "en", "text": "Where an enquiry runs long, do the rules oblige the force to put something before the judge ahead of finishing — and would our progress data tell us whether that happened?" },
+    { "gold_id": "KB8", "language": "roman_ur", "text": "Agar kisi muamle ki chhan been lambi ho jaye, kya zabta police par lazim karta hai ke mukammal hone se pehle adalat ko kuch pesh kare — aur kya hamara progress data batayega ke aisa hua ya nahi?" },
+    { "gold_id": "KB8", "language": "ur", "text": "اگر کسی معاملے کی چھان بین لمبی ہو جائے، کیا ضابطہ پولیس پر لازم کرتا ہے کہ مکمل ہونے سے پہلے عدالت کو کچھ پیش کرے — اور کیا ہمارا پروگریس ڈیٹا بتائے گا کہ ایسا ہوا یا نہیں؟" },
+
+    { "gold_id": "KB9", "language": "en", "text": "Where a person passes away in circumstances that raise doubt, the force has to formally look into what caused it — is that captured anywhere in our setup, particularly given how many of our matters involve a death?" },
+    { "gold_id": "KB9", "language": "roman_ur", "text": "Agar kisi ki maut aisay halaat mein ho jo shak paida karein, to police ko wajah ki baqaida chhan been karni hoti hai — kya hamara nizam ise kahin likhta hai, khusoosan jab hamare bohat se muamlat mein maut shamil hai?" },
+    { "gold_id": "KB9", "language": "ur", "text": "اگر کسی کی موت ایسے حالات میں ہو جو شک پیدا کریں، تو پولیس کو وجہ کی باقاعدہ چھان بین کرنی ہوتی ہے — کیا ہمارا نظام اِسے کہیں لکھتا ہے، خصوصاً جب ہمارے بہت سے معاملات میں موت شامل ہے؟" }
+  ]
+}

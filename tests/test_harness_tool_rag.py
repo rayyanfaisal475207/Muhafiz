@@ -397,7 +397,7 @@ def _spy_retrieve(monkeypatch, relevant_scopes):
     seen = []
 
     async def _fake_retrieve(query, where, fetch_top_k, final_top_k, is_cross_case,
-                             statute_queries=None):
+                             statute_queries=None, english_query=None):
         seen.append(dict(where))
         key = frozenset(where.items())
         if key in relevant_scopes:
@@ -415,9 +415,18 @@ def _spy_retrieve(monkeypatch, relevant_scopes):
     async def _no_statute_query(question, n=2):
         return []
 
+    # [Module 52] Same reasoning for the English rendering of the question:
+    # a legal-KB-intent query now also asks the LLM to restate the question
+    # in the corpus's language. Stubbed to its failure return (None) here,
+    # which is the path that leaves scope selection exactly as these tests
+    # were written to describe it.
+    async def _no_english_rendering(question):
+        return None
+
     monkeypatch.setattr(rag_mod, "_retrieve_candidates", _fake_retrieve)
     monkeypatch.setattr(rag_mod, "evaluate_relevance", _eval)
     monkeypatch.setattr(rag_mod, "generate_statute_queries", _no_statute_query)
+    monkeypatch.setattr(rag_mod, "render_question_in_english", _no_english_rendering)
     return seen
 
 
@@ -480,3 +489,337 @@ async def test_legal_intent_respects_include_global_false(monkeypatch):
     ))
     assert result.status == ToolStatus.OK
     assert {"is_global": True} not in seen      # never injected KB-only
+
+
+# ════════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 63] `_is_legal_kb_intent()` missed ordinary
+# Roman-Urdu paraphrases.
+#
+# Module 52 measured the consequence on KB6 directly: a rewording that says
+# "forensics ke usoolon" instead of "forensics guidelines" returns False, so
+# the query is searched against the mixed FIR-narrative pool and EVERY KB fix
+# downstream is skipped — Module 8c's KB-only scope, Module 30's statute
+# hypotheses, Module 38's RRF fusion, Module 52's own English rendering, and
+# (since Module 39/77) the `_KB_DATA_HALF_PLANS` entry. Every chunk the
+# evaluator judged was a `psrms_fir_…#narrative` chunk.
+#
+# Module 78 makes this gate load-bearing for a second reason: `router.py`
+# now routes on it, so a False here is a whole wrong route, not just a wrong
+# corpus. Fixed here rather than in the router, because the defect is the
+# gate's vocabulary and a router-side copy would be a second thing to drift.
+#
+# The miss reproduces on FOUR of the eight KB questions, not one: KB2, KB4,
+# KB5 and KB6's Roman-Urdu rewordings were all False before this change.
+# ════════════════════════════════════════════════════════════════════════
+
+_MODULE63_KB_PARAPHRASES = {
+    # Module 52's own measured example — the oblique plural "usoolon" that
+    # `\busool\b` could not see.
+    "P-KB6": "Kya forensics ke usoolon mein likha hai ke baramad shuda aslaha "
+             "kaise sambhala jaye, aur kya hamara weapon register is par amal "
+             "darj karta hai?",
+    "P-KB2": "Kya police ke interview mein mulzim ya gawah ne jo kaha wo "
+             "hamare system mein kahin mehfooz hota hai?",
+    "P-KB4": "Seized items ko rakhne aur baad mein tabah karne ka koi "
+             "muqarrara tareeqa hai kya, aur hamara property register us par "
+             "chalta hai?",
+    "P-KB5": "Agar mutasira aurat ho to kya tafteesh ka tareeqa alag hota "
+             "hai, aur kya hamare record mein wo extra qadam nazar aate hain?",
+    "P-KB1": "What rule decides when a written complaint has to be turned "
+             "into a formal FIR, and do our own records follow it?",
+    "P-KB3": "Under police law, is the person who records an FIR supposed to "
+             "be a different officer from the one who investigates it — and "
+             "what does our own data actually show about that?",
+    "P-KB8": "If an investigation drags on, does the law make the police "
+             "report something to the court before it is finished, and does "
+             "our own tracking data show whether that happened?",
+    "P-KB9": "When a death looks suspicious the police must formally "
+             "investigate the cause of death — does our system record that "
+             "anywhere?",
+}
+
+# Questions that are NOT legal-KB questions, in the vocabulary that most
+# nearly overlaps the widened norm words. The widening's whole risk is here:
+# "tareeqa" and "usool" are ordinary words, and the gate must still need a
+# co-occurring our-data signal or a named-corpus pattern before it fires.
+_MODULE63_NON_KB_PARAPHRASES = {
+    "G5": "Looking at how recovered weapons are logged, is anything worth "
+          "flagging for compliance?",
+    "CR7": "How many criminal-record cases are complete and how many are "
+           "still pending?",
+    "CP6": "How many cases are still sitting without a properly assigned "
+           "investigating officer?",
+    "D1": "What is the total number of FIRs on the books?",
+    "G3": "I am putting a case file together for court — which fields are "
+          "most likely to be incomplete?",
+    "M4": "Which sections are people being charged under, and how far have "
+          "those cases got in court?",
+    "CS4": "Is there anyone in the wider criminal-history records who does "
+           "not match any of our own registered cases?",
+    "G1": "Review our current caseload and flag anything unusual worth "
+          "monitoring.",
+    "S2": "Which of our police stations handles the most cases?",
+    # The two that matter most: ordinary Roman-Urdu DATA questions that use a
+    # widened word without asking about any norm at all.
+    "data-tareeqa": "Hamare record mein cases kis tareeqe se station ke "
+                    "hisaab se bante hain, kitne kis station mein hain?",
+    "data-usool": "Kitne mulzimon ko ek se zyada bar giraftar kiya gaya hai?",
+}
+
+
+def test_module63_roman_urdu_kb_paraphrases_pass_the_gate():
+    """All eight, gold-language-independent. Four of these were False before
+    this module and are named in its comment block above."""
+    for name, text in _MODULE63_KB_PARAPHRASES.items():
+        assert rag_mod._is_legal_kb_intent(text), name
+
+
+def test_module63_forensics_ke_usoolon_is_module52s_measured_miss():
+    """The single string Module 52 measured, pinned on its own so a later
+    widening of the surrounding patterns cannot make this pass vacuously."""
+    assert rag_mod._is_legal_kb_intent(
+        "Kya forensics ke usoolon mein aslaha handle karne ka koi tareeqa "
+        "likha hai?"
+    )
+    # The corpus-name pattern must carry it WITHOUT any our-data signal —
+    # that is what makes it a KB question rather than a compound one.
+    assert not rag_mod._OUR_DATA_SIGNAL_RE.search(
+        "Kya forensics ke usoolon mein aslaha handle karne ka koi tareeqa "
+        "likha hai?"
+    )
+
+
+def test_module63_widening_does_not_pull_data_questions_into_the_kb_scope():
+    """The regression guard the brief asked for, both halves: no non-KB gold
+    question and no non-KB paraphrase may newly pass."""
+    for name, text in _MODULE63_NON_KB_PARAPHRASES.items():
+        assert not rag_mod._is_legal_kb_intent(text), name
+
+
+def test_module63_all_32_gold_questions_gate_exactly_as_before():
+    """The all-32 equality control for the GATE, the same shape
+    `tests/test_router.py` runs for the route. Exactly the eight KB questions
+    pass and the other 24 do not — identical before and after this widening,
+    which is why Module 78's route control is also identical."""
+    import json
+    import os
+
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "evaluation",
+        "Gold_QA_Dataset_Final32_With_Answers.json",
+    )
+    gold = json.load(open(path, encoding="utf-8"))
+    assert len(gold) == 32
+    passing = sorted(
+        (it.get("id") or "").upper()
+        for it in gold
+        if rag_mod._is_legal_kb_intent(it["question"])
+    )
+    assert passing == ["KB1", "KB2", "KB3", "KB4", "KB5", "KB6", "KB8", "KB9"]
+
+
+def test_module63_a_case_anchored_question_is_still_refused():
+    """Unchanged property, re-asserted because the widened vocabulary makes
+    it easier to trip: a query naming a specific case still needs the mixed
+    pool, whatever norm words it carries."""
+    assert not rag_mod._is_legal_kb_intent(
+        "Is case mein qanoon ke mutabiq tareeqa kya tha — CASE-009 ka hamara "
+        "record kya kehta hai?"
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 89, question KB1] the data-half plan entry.
+#
+# KB1 scores 0.30 on all three of Module 27's passes with the judge naming
+# the failure exactly: the answer gives CrPC s.154 correctly and then says
+# the documents "do not provide specific information" about whether our
+# recordkeeping follows it. Module 39 excluded KB1 from
+# `_KB_DATA_HALF_PLANS` as "a schema claim, not a count" — right for KB2,
+# wrong for KB1, whose corrected gold (PR #57) asserts three coverage
+# figures. Module 89 built `xagg.py::_fir_register_completeness` and this
+# entry is the landing step.
+#
+# TWO DIFFERENT THINGS ARE TESTED BELOW AND MODULE 94 EXISTS BECAUSE THEY
+# WERE CONFLATED: whether a question ROUTES to RAG at all (a `router.py`
+# property, not tested here), and whether — once on RAG — it FIRES a plan.
+# Everything here is the second.
+# ══════════════════════════════════════════════════════════════════════
+
+_M89_KB1_GOLD = (
+    "What legal requirement governs how a report of a crime becomes a "
+    "formal FIR, and does our recordkeeping actually follow it?"
+)
+
+# Written down BEFORE the first run and not edited afterwards; the
+# committed copy is `docs/gold-qa-wave2-results/module89_paraphrases.json`
+# and these must stay byte-identical to it (asserted below). P1 is the one
+# that MISSED a first draft of the plan's patterns — see §6 of the result
+# file — and is kept exactly as written rather than softened.
+_M89_PARAPHRASES = {
+    "P1": (
+        "Under what law does a complaint made at a police station have to be "
+        "turned into a written FIR, and do our own case records actually meet "
+        "that standard?"
+    ),
+    "P2": (
+        "What does the law require before a crime report counts as a properly "
+        "registered First Information Report, and does our recordkeeping live "
+        "up to it?"
+    ),
+    "P3": (
+        "Qanoon ke mutabiq ek jurm ki ittila ko FIR mein darj karne ke liye "
+        "kya zaroori hai, aur kya hamara record us par pura utarta hai?"
+    ),
+    "P4": (
+        "\u0642\u0627\u0646\u0648\u0646 \u06a9\u06d2 \u0645\u0637\u0627\u0628\u0642 \u06a9\u0633\u06cc \u062c\u0631\u0645 \u06a9\u06cc \u0627\u0637\u0644\u0627\u0639 \u06a9\u0648 "
+        "\u0628\u0627\u0642\u0627\u0639\u062f\u06c1 \u0627\u06cc\u0641 \u0622\u0626\u06cc \u0622\u0631 \u0645\u06cc\u06ba \u062f\u0631\u062c \u06a9\u0631\u0646\u06d2 \u06a9\u06d2 \u0644\u06cc\u06d2 \u06a9\u06cc\u0627 "
+        "\u0636\u0631\u0648\u0631\u06cc \u06c1\u06d2\u060c \u0627\u0648\u0631 \u06a9\u06cc\u0627 \u06c1\u0645\u0627\u0631\u0627 \u0631\u06cc\u06a9\u0627\u0631\u0688 \u0627\u0633 \u067e\u0631 \u067e\u0648\u0631\u0627 \u0627\u062a\u0631\u062a\u0627 \u06c1\u06d2\u061f"
+    ),
+}
+
+
+def _m89_plan():
+    return next(
+        p for p in rag_mod._KB_DATA_HALF_PLANS
+        if p.name == "fir_register_completeness"
+    )
+
+
+def test_module89_kb1_gold_question_fires_the_plan():
+    """THE MODULE'S CENTRAL PIN. Before this module `_match_kb_data_half_plan`
+    returned None for KB1 and the answer had no data half to compose."""
+    plan = rag_mod._match_kb_data_half_plan(_M89_KB1_GOLD)
+    assert plan is not None
+    assert plan.name == "fir_register_completeness"
+
+
+def test_module89_sub_query_is_pinned_against_resolve_aggregate_kind():
+    """The plan's sub-query is an INTERNAL dispatch string handed straight to
+    `xagg_tool()`, never through `router.py`, so `xagg.py`'s ordered
+    first-match-wins chain decides which family answers it. It was checked
+    against `resolve_aggregate_kind()` BEFORE being written into the plan;
+    this keeps it true as that chain grows. `_run_kb_data_half()` also
+    re-checks at runtime and DROPS a mismatch rather than citing an
+    unrelated figure, so drift here is a silent 0-of-N in a live run — which
+    is exactly why it is a loud test failure instead."""
+    from src.pipeline.xagg import resolve_aggregate_kind
+
+    plan = _m89_plan()
+    assert plan.expected_kind == "fir_register_completeness"
+    assert resolve_aggregate_kind(plan.sub_query) == plan.expected_kind
+
+
+def test_module89_sub_query_is_byte_identical_to_the_pinned_string_in_test_xagg():
+    """Same convention Modules 74/75/76 used: the aggregate's own test file
+    pins the string, and this entry is a COPY. A restatement would drift
+    independently, which is the failure the pin exists to prevent."""
+    from tests.test_xagg import _KB1_SQ_FIR_REGISTER_COMPLETENESS
+
+    assert _m89_plan().sub_query == _KB1_SQ_FIR_REGISTER_COMPLETENESS
+
+
+@pytest.mark.parametrize("pid", sorted(_M89_PARAPHRASES))
+def test_module89_ordinary_rewordings_fire_the_plan(pid):
+    """Module 56 has now found FOUR times — most recently as Module 94 —
+    that a plan's ROUTE is right while its pattern vocabulary is too narrow,
+    so a paraphrase routes correctly and then fires nothing. Measured here
+    rather than asserted in prose. Two English, one Roman-Urdu, one
+    Urdu-script."""
+    plan = rag_mod._match_kb_data_half_plan(_M89_PARAPHRASES[pid])
+    assert plan is not None, f"{pid} routed but fired no plan"
+    assert plan.name == "fir_register_completeness"
+
+
+def test_module89_paraphrases_match_the_committed_pre_registered_copy():
+    """The paraphrases were written down before the first run. This asserts
+    the copies here are the same ones, so neither can be quietly softened
+    after a miss."""
+    import json
+    import os
+
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "docs", "gold-qa-wave2-results", "module89_paraphrases.json",
+    )
+    committed = json.load(open(path, encoding="utf-8"))
+    assert committed["written_before_any_run"] is True
+    assert {p["id"]: p["text"] for p in committed["paraphrases"]} == _M89_PARAPHRASES
+
+
+@pytest.mark.parametrize("question,why", [
+    (
+        "How many FIRs are currently registered?",
+        "D1's gold: a plain count, and it claimed the plan on a first draft "
+        "of the FIR-first pattern. The `(?!many|much)` lookahead is the guard.",
+    ),
+    (
+        "Baramad shuda hathiyaron ki record keeping ko dekhte hue, kya koi "
+        "aisi baat hai jo compliance ke lihaz se flag karne layak ho?",
+        "G5's gold: a WEAPON register question that says 'record keeping'. A "
+        "bare `record[\\s-]?keeping` pattern claimed it.",
+    ),
+    (
+        "\u062c\u0628 \u06a9\u0648\u0626\u06cc \u0634\u062e\u0635 \u062a\u06be\u0627\u0646\u06d2 \u0622 \u06a9\u0631 \u0634\u06a9\u0627\u06cc\u062a \u062f\u0631\u062c \u06a9\u0631\u0627\u062a\u0627 \u06c1\u06d2\u060c \u062a\u0648 \u06a9\u06cc\u0627 \u0648\u06c1 \u06a9\u0633\u06cc "
+        "\u0628\u0627\u0642\u0627\u0639\u062f\u06c1 \u0627\u06cc\u0641 \u0622\u0626\u06cc \u0622\u0631 \u0633\u06d2 \u0645\u0646\u0633\u0644\u06a9 \u06c1\u0648 \u062c\u0627\u062a\u06cc \u06c1\u06d2\u060c \u06cc\u0627 \u062f\u0648\u0646\u0648\u06ba \u0627\u0644\u06af \u0627\u0644\u06af \u06c1\u06cc \u0631\u06c1\u062a\u06d2 \u06c1\u06cc\u06ba\u061f",
+        "CR6's gold: a walk-in CMS complaint question whose first clause is "
+        "'\u0634\u06a9\u0627\u06cc\u062a \u062f\u0631\u062c' and whose second names an FIR. The reverse-order "
+        "Urdu pattern claimed it and was removed.",
+    ),
+])
+def test_module89_the_three_measured_over_matches_stay_fixed(question, why):
+    """Each of these claimed the new plan on a first draft and was found by
+    the all-32 equality control, not by inspection. Pinned individually so a
+    later widening cannot re-introduce one without a named failure."""
+    plan = rag_mod._match_kb_data_half_plan(question)
+    assert plan is None or plan.name != "fir_register_completeness", why
+
+
+def test_module89_kb2_is_still_excluded():
+    """Module 39 excluded KB1 AND KB2. Only KB1 moves: KB2's gold is "no, by
+    design" — a genuine schema claim with no count behind it — and it is
+    Module 96's problem, not this one."""
+    import json
+    import os
+
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "evaluation", "Gold_QA_Dataset_Final32_With_Answers.json",
+    )
+    gold = json.load(open(path, encoding="utf-8"))
+    kb2 = next(it for it in gold if (it.get("id") or "").upper() == "KB2")
+    assert rag_mod._match_kb_data_half_plan(kb2["question"]) is None
+
+
+def test_module89_all_32_gold_questions_keep_their_plan():
+    """The all-32 EQUALITY control for the plan table. `_match_kb_data_half_plan`
+    is an ordered first-match-wins loop, so a new entry is a silent, broad
+    regression risk even when it is appended last. A MISSING dataset is a
+    failure, never a skip."""
+    import json
+    import os
+
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "evaluation", "Gold_QA_Dataset_Final32_With_Answers.json",
+    )
+    gold = json.load(open(path, encoding="utf-8"))
+    assert len(gold) == 32
+    resolved = {
+        (it.get("id") or "").upper(): (
+            lambda p: p.name if p else None
+        )(rag_mod._match_kb_data_half_plan(it["question"]))
+        for it in gold
+    }
+    assert {k: v for k, v in resolved.items() if v is not None} == {
+        "CR8": "violence_against_women",
+        "KB3": "officer_role_pair",
+        "KB4": "property_register",
+        "KB5": "violence_against_women",
+        "KB6": "weapon_register",
+        "KB8": "chalaan_dispatch",
+        "KB9": "death_investigation_charging",
+        # The only entry Module 89 adds.
+        "KB1": "fir_register_completeness",
+    }

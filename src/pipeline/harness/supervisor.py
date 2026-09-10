@@ -104,8 +104,11 @@ silently pick one.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 import re
+import time
 from typing import Callable, Optional
 
 from src.data_gateway.base import DataGateway
@@ -119,6 +122,7 @@ from src.pipeline.harness.types import (
     ToolError,
 )
 from src.pipeline.router import _TIME_COMPARISON_XAGG_PATTERNS, route_query
+from src.pipeline.xagg import resolves_to_specific_aggregate
 
 logger = logging.getLogger(__name__)
 
@@ -215,6 +219,54 @@ SUB_AGENT_NAMES: tuple[str, ...] = (
 NO_SUB_AGENT = "__direct__"
 
 _FILE_OUTPUT_FORMATS = frozenset({"file_pdf", "file_xlsx", "file_docx"})
+
+# ═══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 67, the second half] A wall-clock ceiling on the
+# Semantic Search dispatch.
+#
+# THE DEFECT THIS BOUNDS. Module 60's before-arm caught M4's gold text
+# classified as plain `RAG` on 2 of 6 runs. Each of those runs spent
+# **456 s and 487 s** inside Semantic Search and then returned
+# `status=error` — "No sufficiently relevant documents were found for this
+# question after retrying with query refinements." Nothing was wrong with
+# the abstention; what was wrong is that it cost eight minutes to reach.
+# A misroute that answers wrongly in 20 s is recoverable — the user rephrases
+# — and one that hangs for eight minutes is not: at a 32-question evaluation
+# it presents as a TIMEOUT, not as a misroute, which is exactly the artefact
+# class that made the KB bucket look broken in Module 42 (a 300 s client
+# ceiling recorded as `route=None`).
+#
+# WHY HERE, AND NOT IN THE RETRY LOOP. The actual budget is
+# `config.MAX_RETRIES` inside `tools/rag.py`'s retrieve/rerank/evaluate loop,
+# and that file is owned by another live track. It is also the wrong lever:
+# lowering `MAX_RETRIES` would take a retry away from the runs that legitimately
+# need it (Module 30/38/52 built the KB path's later attempts deliberately),
+# where a wall-clock ceiling only ever fires on a run that is already far
+# outside the distribution. The Supervisor is where an unbounded sub-agent
+# becomes an unbounded REQUEST, so it is where the bound belongs.
+#
+# WHY ONLY SEMANTIC SEARCH. It is the one sub-agent whose cost is an
+# open-ended retry loop over the whole corpus with no internal deadline of
+# its own. Meta-Analysis already has `config.META_ANALYSIS_SUBQUERY_TIMEOUT`
+# (Module 53); Large-Scale Aggregate is a single deterministic call and
+# finishes in tens of seconds. Applying this to every sub-agent would be a
+# blanket request timeout, which is the Module 42 mistake, not the fix for it.
+#
+# THE NUMBER IS MEASURED, NOT CHOSEN. It must sit ABOVE the slowest RAG run
+# that legitimately SUCCEEDS and below the doomed ones. On this corpus and
+# machine the two populations are separated: Module 42 measured KB6 —
+# the slowest RAG question in the gold set — answering in 247.1 s, and
+# Module 67 re-measured the eleven override-less questions on this branch
+# (see MODULE67_RESULT.md §4 for the full table). The doomed population is
+# 456-487 s. 360 s sits between them with ~45% headroom over the slowest
+# measured success. It is an upper bound on a pathology, not a latency
+# target: a healthy run never reaches it.
+#
+# Raise it via SEMANTIC_SEARCH_DEADLINE_S on a slower box rather than editing
+# this line; set it to 0 to disable the ceiling entirely.
+SEMANTIC_SEARCH_DEADLINE_S: float = float(
+    os.getenv("SEMANTIC_SEARCH_DEADLINE_S", "360")
+)
 
 # See the module docstring's "CLASSIFICATION" section for the full
 # rationale. Deliberately a flat, inspectable table — not logic — so the
@@ -572,6 +624,88 @@ _META_ANALYSIS_TRIGGER_PATTERNS = [
 ]
 
 
+# ══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 41, questions G2/G5] The generalisation of Module
+# 26's time-comparison skip guard below.
+#
+# Module 26 established the mechanism: an XAGG question that XAGG already
+# answers in ONE call must not be handed to Meta-Analysis, because
+# decomposition splits it into undirected sub-queries that DROP the very
+# language that classified the original, leaving each half to the flaky LLM
+# router one level down. Module 26 implemented that for exactly one shape
+# (`_TIME_COMPARISON_XAGG_PATTERNS`, question M1) — and the 2026-09-08
+# post-fix evaluation then caught the same failure hitting G2 and G5, which
+# satisfy every condition of that guard except membership of its pattern
+# list. G2 fell 0.4 → 0.0 and G5 0.6 → 0.0; both were decomposed, a
+# sub-question errored, and synthesis was rejected with "The synthesized
+# answer could not be verified as grounded in the sub-answers".
+#
+# A second pattern list was the obvious fix and is the wrong one: it would
+# have needed extending for every aggregate Modules 31–36 added, and would
+# drift out of date the moment someone forgot. So the question is asked
+# structurally instead — `xagg.resolves_to_specific_aggregate()` answers
+# "does XAGG have a purpose-built single-call aggregate for this text?"
+# straight from `run_aggregate()`'s own dispatch chain, which is now
+# extracted as the pure `resolve_aggregate_kind()` and is the one source of
+# truth for both. Adding an aggregate family automatically extends this
+# guard.
+#
+# COST: nothing is executed. `resolve_aggregate_kind()` is pure keyword
+# matching — no await, no gateway, no graph traversal, no audit event, no
+# RLS arming. Running the aggregate at guard time (twice per query, once to
+# ask and once to answer) would have been unacceptable; this is a handful of
+# substring tests.
+#
+# SUBORDINATE TO MODULE 29'S DETERMINISTIC PLANS, deliberately and by
+# construction. `meta_analysis.py::_DECOMPOSITION_PLANS` exists for the
+# questions XAGG genuinely CANNOT answer in one call (CR3's record
+# consistency, G1's caseload review, G6's orientation note), and G1 in
+# particular DOES resolve to a specific aggregate here
+# (`case_completeness_scan`) — so without the plan check below this guard
+# would silently repeal Module 29 for it. A matched plan therefore wins
+# outright and the question keeps its route to Meta-Analysis.
+#
+# `unsupported_aggregate` COUNTS AS RESOLVED. The three honest refusals in
+# `run_aggregate()` (station-type — M2's shape, officer identity, trend) are
+# purpose-built outcomes, not failures to match: Module 1b added them so a
+# query with no data path gets a stated limitation instead of an unrelated
+# number. Decomposing one of them is strictly worse than the refusal, since
+# the sub-queries drop the vocabulary that earned it and each half is then
+# answered with an invented split — exactly the "fluent, on-topic,
+# confidently wrong" failure mode the 2026-09-08 report names as worse than
+# abstaining. See `xagg._UNSUPPORTED_AGGREGATE_KINDS`.
+#
+# The three TRAILING catch-alls of `run_aggregate()`'s chain (case listing,
+# grand total, station/category group-by) do NOT count — reaching one means
+# nothing matched at all, which is the opposite of evidence that XAGG has a
+# single-call answer. See `xagg._GENERIC_AGGREGATE_KINDS`.
+# ══════════════════════════════════════════════════════════════════════
+def _xagg_answers_in_one_call(query_text: str) -> bool:
+    """True when an XAGG-routed `query_text` should skip Meta-Analysis.
+
+    Pure and cheap — runs no aggregate. See the comment block above for the
+    full rationale, the cost argument, and why a matched Module 29
+    decomposition plan vetoes this outright.
+    """
+    # Module 29's deterministic plans win. Imported lazily: meta_analysis.py
+    # imports THIS module at module scope (for `Supervisor`/`register`), so a
+    # module-level import here would be circular. By the time this runs the
+    # import is a dict lookup in `sys.modules`.
+    try:
+        from src.pipeline.harness.agents.meta_analysis import _match_decomposition_plan
+    except ImportError:  # pragma: no cover - defensive
+        # Cannot confirm the question is not one Module 29 owns, so leave
+        # dispatch exactly as it was rather than guess.
+        logger.warning(
+            "supervisor: could not import _match_decomposition_plan; "
+            "leaving Meta-Analysis dispatch unchanged."
+        )
+        return False
+    if _match_decomposition_plan(query_text) is not None:
+        return False
+    return resolves_to_specific_aggregate(query_text)
+
+
 def classify_to_subagent(
     route_result: dict, query_text: str = "", *, allow_meta_analysis: bool = True
 ) -> str:
@@ -649,8 +783,18 @@ def classify_to_subagent(
     # cross-case route (e.g. an XGRAPH- or XNETWORK-classified comparison
     # question, which has no equivalent one-call aggregate to fall back
     # to and still needs decomposition).
-    if route == "XAGG" and any(
-        pat.search(query_text) for pat in _TIME_COMPARISON_XAGG_PATTERNS
+    #
+    # [Gold-QA fix — Module 41, questions G2/G5] The second disjunct
+    # generalises the first from "this one comparison shape" to "any shape
+    # XAGG resolves to a purpose-built aggregate", which is what the shape
+    # list was always a proxy for. Kept as an OR rather than replacing the
+    # pattern check: `_TIME_COMPARISON_XAGG_PATTERNS` is M1's live-verified
+    # guard and stays load-bearing on its own terms, so M1 cannot regress
+    # even if the aggregate chain is later reordered underneath it. See
+    # `_xagg_answers_in_one_call()`'s comment block above.
+    if route == "XAGG" and (
+        any(pat.search(query_text) for pat in _TIME_COMPARISON_XAGG_PATTERNS)
+        or _xagg_answers_in_one_call(query_text)
     ):
         sub_agent = _ROUTE_TO_SUBAGENT.get(route, SEMANTIC_SEARCH)
     # [AMENDMENT — findings.md Module 10] Checked before every route-specific
@@ -997,6 +1141,38 @@ class Supervisor:
                     update={"target_entity": str(routed_entity)}
                 )
 
+        # [Gold-QA fix — Module 116] `detail` is byte-identical to what this
+        # event has always emitted; the three fields BESIDE it are the fix.
+        #
+        # THE DEFECT. This same event is emitted once for the question the
+        # user actually asked AND once for every sub-query `meta_analysis.py`
+        # decomposes it into (that module calls back into `Supervisor.handle()`
+        # per sub-query — see `_dispatch_one()`), and until now the only
+        # difference between the two was prose inside `detail`. Every consumer
+        # therefore had to scrape `route='...'` out of that string, and
+        # `evaluation/gold32_run.py::parse()` — the recorder behind
+        # `gold32_pass{1,2,3}_outputs.json`, the route baseline this whole
+        # programme's regression controls compare against — kept the LAST
+        # match. For a Meta-Analysis question the last match is a decomposed
+        # SUB-query's route, and since `meta_analysis.py` dispatches its
+        # sub-queries concurrently (`asyncio.gather`), WHICH sub-query wins
+        # that race is not even deterministic.
+        #
+        # Measured consequence: CR3, G1 and G6 are recorded `route=XAGG` on
+        # all three of Module 27's passes; their real top-level route is
+        # XNETWORK, measured 8/8 each at temperature 0 (Module 116 §1). The
+        # `XAGG` in the baseline is Meta-Analysis's own sub-queries, which are
+        # XAGG by construction — the decomposer is built to emit
+        # aggregate-shaped sub-queries. So the baseline never disagreed with
+        # the router; it was recording a different quantity.
+        #
+        # `nested` is taken from `allow_meta_analysis`, not from a new
+        # parameter: `meta_analysis.py` is the ONLY caller that passes False
+        # (its own one-level recursion guard, findings.md Module 10), so that
+        # flag already IS "this dispatch is a decomposed sub-query" and the two
+        # cannot drift apart. `PipelineEvent` is `extra="allow"`, so these ride
+        # along without a schema change; `cutover.py` forwards them onto the
+        # SSE dict.
         emit(
             PipelineEvent(
                 step="supervisor:dispatch",
@@ -1005,6 +1181,9 @@ class Supervisor:
                     f"Classified query as route={route_result.get('route')!r} "
                     f"-> sub-agent={sub_agent_name!r}"
                 ),
+                route=route_result.get("route"),
+                sub_agent=sub_agent_name,
+                nested=not allow_meta_analysis,
             )
         )
 
@@ -1198,7 +1377,63 @@ class Supervisor:
         # sub-agent's `__call__` now accepts `on_event` (see
         # `types.SubAgent`'s own amendment note) — sub-agents with nothing
         # granular to report simply ignore it.
-        result = await handler(agent_input, on_event=on_event, gateway=gateway)
+        # [Gold-QA fix — Module 67] Bounded for Semantic Search only; every
+        # other sub-agent is awaited exactly as before. See
+        # `SEMANTIC_SEARCH_DEADLINE_S`'s own comment for why the ceiling sits
+        # here rather than in the retry loop, and how the number was measured.
+        deadline = (
+            SEMANTIC_SEARCH_DEADLINE_S
+            if sub_agent_name == SEMANTIC_SEARCH and SEMANTIC_SEARCH_DEADLINE_S > 0
+            else None
+        )
+        if deadline is None:
+            result = await handler(agent_input, on_event=on_event, gateway=gateway)
+        else:
+            started = time.monotonic()
+            try:
+                result = await asyncio.wait_for(
+                    handler(agent_input, on_event=on_event, gateway=gateway),
+                    timeout=deadline,
+                )
+            except asyncio.TimeoutError:
+                spent = round(time.monotonic() - started, 1)
+                logger.warning(
+                    "Supervisor: %s exceeded its %.0fs deadline (%.1fs spent) — "
+                    "abstaining rather than letting the request hang.",
+                    sub_agent_name, deadline, spent,
+                )
+                emit(
+                    PipelineEvent(
+                        step="supervisor:dispatch",
+                        # An explicit, greppable trace event. The whole point
+                        # of bounding this is that a bounded failure must be
+                        # DISTINGUISHABLE from a misroute and from a client
+                        # timeout — Module 42's `route=None` row was neither.
+                        status="error",
+                        detail=(
+                            f"{sub_agent_name} exceeded its {deadline:.0f}s deadline "
+                            f"after {spent}s — dispatch abandoned (Module 67)"
+                        ),
+                    )
+                )
+                return SubAgentResult(
+                    status=SubAgentStatus.ABSTAINED,
+                    answer_text=None,
+                    error=ToolError(
+                        kind="timeout",
+                        message=(
+                            f"{sub_agent_name} exceeded its {deadline:.0f}s "
+                            f"deadline for this question."
+                        ),
+                    ),
+                    caveats=[
+                        "Document search was still retrying after "
+                        f"{deadline:.0f} seconds and was stopped, so this "
+                        "question could not be answered from the documents. "
+                        "It may be better answered as a cross-case question "
+                        "(e.g. \"...across cases\", \"...in total\")."
+                    ],
+                )
 
         emit(
             PipelineEvent(

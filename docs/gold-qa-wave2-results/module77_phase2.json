@@ -1,0 +1,220 @@
+[
+  {
+    "id": "KB8",
+    "run": 1,
+    "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+    "actual_answer": "### Part 1: What the Law Requires\n\nAccording to the **Code of Criminal Procedure (Pakistan)**, specifically **Section 172(i)**, a police officer is required to maintain a **case diary** during an investigation and submit it daily. This diary must record the steps taken by the police, the circumstances ascertained through the investigation, and other information required by the law. This is a mandatory requirement under the law, and failure to maintain such a diary could be considered a breach of duty [Document 7].\n\nAdditionally, **Section 173** of the Code of Criminal Procedure mandates that **a final report** be submitted by the officer in charge of the police station once the investigation is completed. This report must be submitted through the Public Prosecutor and must include details such as the names and addresses of the accused, the nature of the charge, the property found, and other relevant information [Document 3].\n\n### Part 2: What Our Case-Tracking Data Shows\n\nOur **case-tracking data** records **26 challan(s)** sent to court, covering **26 case(s)**. Of these, **15 carry a dispatch timestamp**, while the rest record the dispatch without a date. A separate, smaller set of **20 challan-outcome records** across **20 case(s)** records what happened next, with **15 of them having a date** the challan reached court. However, the data **does not include any interim-report record type**, and there is **no field linking a challan back to the start of its own investigation** [Document 8].\n\nThis means that while the data confirms that a case reached court, it **does not confirm whether any interim reporting duties along the way were met**, such as the submission of a case diary or a final report under Section 173. Therefore, **our case-tracking data does not show whether the police submitted any required reports before the case reached court**.",
+    "route": "RAG",
+    "status": "done",
+    "error": null,
+    "elapsed_s": 48.1,
+    "xagg_log_lines": [
+      "XAGG chalaan_dispatch_count: 26 challan dispatch record(s) across 26 case(s), 15 carrying a dispatch timestamp; 20 chalaan_outcome record(s) across 20 case(s), 15 with a court-reached date; interim-report record type present=False"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "chalaan_dispatch",
+        "kind": "chalaan_dispatch_count",
+        "chars": 924
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal requirement for police to report to th"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P-KB3",
+    "run": 1,
+    "question": "Under police law, is the person who records an FIR supposed to be a different officer from the one who investigates it — and what does our own data actually show about that?",
+    "actual_answer": "### Governing Provision:\nUnder the Punjab Police Rules, there is no explicit requirement that the person who records an FIR must be a different officer from the one who investigates the case. The rules focus on the procedures for registering a case, transferring jurisdiction, and conducting investigations, but they do not specifically mandate a separation of roles between the FIR recorder and the investigator.\n\n### Our Case Records:\nOur own case records show that in most cases, the officer who recorded the FIR and the officer who investigated the case are the same person. Specifically, in 68 out of 74 recorded assignment pairs (92%), the roles are not separated. In only 6 cases, the roles are split, and in 3 of those 6 cases, the investigating officer has no recording officer associated with the same case, making those pairs unresolvable rather than genuinely split [Document 6].",
+    "route": "RAG",
+    "status": "done",
+    "error": null,
+    "elapsed_s": 34.1,
+    "xagg_log_lines": [
+      "XAGG officer_role_pair_overlap: 144 assignment edge(s), 74 investigating / 70 recording; same officer on 68 of 74 pair(s) (91.9%), 6 split across 6 case(s), 3 investigating assignment(s) with no recording counterpart"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "officer_role_pair",
+        "kind": "officer_role_pair_overlap",
+        "chars": 944
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the norm clause of the question by describing th"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P-KB8",
+    "run": 1,
+    "question": "If an investigation drags on, does the law make the police report something to the court before it is finished, and does our own tracking data show whether that happened?",
+    "actual_answer": "**Part 1: What the law requires**  \nYes, the law requires the police to report something to the court before an investigation is finished. According to [Document 1], if an investigation is not completed within fourteen days from the date of recording the first information report, the officer in charge of the police station must forward an interim report to the Magistrate through the Public Prosecutor within three days of the expiration of the fourteen-day period. This interim report must state the result of the investigation made until then, and the court shall commence the trial on the basis of such an interim report, unless the court decides otherwise.\n\n**Part 2: What our own tracking data shows**  \nOur own tracking data does not show whether any interim reports were made. As stated in [Document 6], there is no \"interim-report\" record type in the schema, and no field linking a challan back to the start of its own investigation. Therefore, the data confirms that a case reached court, but it does not confirm whether any interim reporting duty along the way was met.",
+    "route": "RAG",
+    "status": "done",
+    "error": null,
+    "elapsed_s": 35.2,
+    "xagg_log_lines": [
+      "XAGG chalaan_dispatch_count: 26 challan dispatch record(s) across 26 case(s), 15 carrying a dispatch timestamp; 20 chalaan_outcome record(s) across 20 case(s), 15 with a court-reached date; interim-report record type present=False"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "chalaan_dispatch",
+        "kind": "chalaan_dispatch_count",
+        "chars": 924
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal requirement for police to report to th"
+      }
+    ],
+    "quota_lines": [
+      "2026-09-09 19:40:24,503 [INFO] src.pipeline.verifier: Verifier: grounded=True off_topic=False leaked=None unsupported=0 — All claims are directly supported by cited chunks."
+    ]
+  },
+  {
+    "id": "P-KB9",
+    "run": 1,
+    "question": "When a death looks suspicious the police must formally investigate the cause of death — does our system record that anywhere?",
+    "actual_answer": "**Part 1: What the law, rule or guideline requires**  \nAccording to the **Code of Criminal Procedure (Pakistan)**, when a death appears suspicious, the police are required to conduct an investigation into the cause of death. This is outlined in **Section 174** of the Code of Criminal Procedure, which mandates that an inquiry be held into the cause of death in cases of sudden or unnatural death. Additionally, **Section 176** specifies that when a person dies while in police custody, the nearest magistrate empowered to hold inquests must conduct an inquiry into the cause of death. These provisions ensure that the police formally investigate suspicious deaths.\n\n**Part 2: What our own case records actually show**  \nAccording to **our own case records** (Document 7), there is no specific field or record that directly indicates whether the police conducted a formal investigation into the cause of death in cases of suspicious death. The records only show the sections cited in FIRs, such as **PPC §302** (which relates to murder), but they do not explicitly track whether formal investigations into the cause of death were conducted. The summary of our records does not include any field that would indicate the presence or absence of such investigations.",
+    "route": "RAG",
+    "status": "done",
+    "error": null,
+    "elapsed_s": 39.2,
+    "xagg_log_lines": [
+      "XAGG fir_section_case_count: 218 section entr(ies) over 73 FIR(s) and 36 distinct section(s); focus=302 -> 10 FIR(s); top=PPC §34=40, Arms Ordinance 1965 §13=29, PPC §392=21, CNSA 1997 §9(c)=12, PPC §420=11"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "death_investigation_charging",
+        "kind": "fir_section_case_count",
+        "chars": 829
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents discuss procedures for investigating the cause of death,"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "KB8",
+    "run": 2,
+    "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+    "actual_answer": "### Part 1: What the law requires  \nAccording to the **Code of Criminal Procedure (Pakistan)**, specifically **Section 172(i)**, every police officer conducting an investigation is required to maintain a **case diary** and submit it daily during the investigation. This diary must record the steps taken by the police, the circumstances ascertained through the investigation, and other information required by the law. This is a mandatory requirement under the law, and failure to maintain such a diary may be considered a procedural irregularity [Document 7].\n\nAdditionally, **Section 173** of the Code of Criminal Procedure mandates that once an investigation is completed, the officer in charge of the police station must submit a **final report** to the appropriate authority, which may include the Magistrate or the Public Prosecutor [Document 1].\n\n### Part 2: What our case-tracking data shows  \nOur case-tracking data records **26 challans** sent to court, covering **26 cases**. Of these, **15 carry a dispatch timestamp**, while the remaining **11 do not have a date**. A separate set of **20 challan-outcome records** across **20 cases** shows what happened next, with **15 of them having a date** when the challan reached court.\n\nHowever, the data **does not include any interim-report record type**, and there is **no field linking a challan back to the start of its own investigation**. As a result, the data confirms that a case reached court but **does not show whether any interim reporting duties were met** during the investigation [Document 8].\n\nIn summary, while the law requires the submission of **case diaries** and **final reports**, our case-tracking data **does not confirm whether these requirements were met** during the investigation.",
+    "route": "RAG",
+    "status": "done",
+    "error": null,
+    "elapsed_s": 41.9,
+    "xagg_log_lines": [
+      "XAGG chalaan_dispatch_count: 26 challan dispatch record(s) across 26 case(s), 15 carrying a dispatch timestamp; 20 chalaan_outcome record(s) across 20 case(s), 15 with a court-reached date; interim-report record type present=False"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "chalaan_dispatch",
+        "kind": "chalaan_dispatch_count",
+        "chars": 924
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal requirement for police to report to th"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P-KB3",
+    "run": 2,
+    "question": "Under police law, is the person who records an FIR supposed to be a different officer from the one who investigates it — and what does our own data actually show about that?",
+    "actual_answer": "### Governing Provision:\nUnder the Punjab Police Rules, there is no explicit requirement that the person who records an FIR must be a different officer from the one who investigates the case. The rules focus on the procedures for registering a case, transferring jurisdiction, and conducting investigations, but they do not specifically mandate a separation of roles between the FIR recorder and the investigator.\n\n### Our Case Records:\nOur own case records show that in most cases, the officer who recorded the FIR and the officer who investigated the case are the same person. Specifically, in 68 out of 74 recorded assignment pairs (92%), the roles are not separated. In only 6 cases, the roles are split, and in 3 of those 6 cases, the investigating officer has no recording officer associated with the case at all, making those pairs unresolvable rather than genuinely split [Document 6].",
+    "route": "RAG",
+    "status": "done",
+    "error": null,
+    "elapsed_s": 33.2,
+    "xagg_log_lines": [
+      "XAGG officer_role_pair_overlap: 144 assignment edge(s), 74 investigating / 70 recording; same officer on 68 of 74 pair(s) (91.9%), 6 split across 6 case(s), 3 investigating assignment(s) with no recording counterpart"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "officer_role_pair",
+        "kind": "officer_role_pair_overlap",
+        "chars": 944
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the norm clause of the question by describing th"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P-KB8",
+    "run": 2,
+    "question": "If an investigation drags on, does the law make the police report something to the court before it is finished, and does our own tracking data show whether that happened?",
+    "actual_answer": "### Part 1: What the Law Requires\n\nYes, the law requires the police to report something to the court before an investigation is finished. According to [Document 1], if an investigation is not completed within fourteen days from the date of recording the first information report, the officer in charge of the police station must forward an **interim report** to the Magistrate through the Public Prosecutor within three days of the expiration of the fourteen-day period. This interim report must state the result of the investigation made until then, and the court shall commence the trial on the basis of such an interim report, unless the court decides otherwise for reasons recorded.\n\n### Part 2: What Our Own Tracking Data Shows\n\nOur own tracking data does **not** show whether an interim report was made. As stated in [Document 6], there is **no \"interim-report\" record type** in the schema, and there is **no field linking a challan back to the start of its own investigation**. Therefore, while the data confirms that 26 challans were sent to court, it does **not** confirm whether any interim reporting duties were met during the investigation.",
+    "route": "RAG",
+    "status": "done",
+    "error": null,
+    "elapsed_s": 35.5,
+    "xagg_log_lines": [
+      "XAGG chalaan_dispatch_count: 26 challan dispatch record(s) across 26 case(s), 15 carrying a dispatch timestamp; 20 chalaan_outcome record(s) across 20 case(s), 15 with a court-reached date; interim-report record type present=False"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "chalaan_dispatch",
+        "kind": "chalaan_dispatch_count",
+        "chars": 924
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents address the legal requirement for police to report to th"
+      }
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P-KB9",
+    "run": 2,
+    "question": "When a death looks suspicious the police must formally investigate the cause of death — does our system record that anywhere?",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "error": null,
+    "elapsed_s": 41.6,
+    "xagg_log_lines": [
+      "XAGG fir_section_case_count: 218 section entr(ies) over 73 FIR(s) and 36 distinct section(s); focus=302 -> 10 FIR(s); top=PPC §34=40, Arms Ordinance 1965 §13=29, PPC §392=21, CNSA 1997 §9(c)=12, PPC §420=11"
+    ],
+    "data_half_answered": [
+      {
+        "plan": "death_investigation_charging",
+        "kind": "fir_section_case_count",
+        "chars": 829
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents discuss procedures for investigating the cause of death,"
+      }
+    ],
+    "quota_lines": []
+  }
+]

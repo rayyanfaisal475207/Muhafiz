@@ -13,9 +13,33 @@ import json, os, re, sys, time, urllib.request, uuid
 HERE = os.path.dirname(os.path.abspath(__file__))
 GOLD = os.path.join(HERE, "Gold_QA_Dataset_Final32_With_Answers.json")
 OUT = os.path.join(HERE, "gold32_pipeline_outputs.json")
-BASE = "http://127.0.0.1:8001"
+BASE = os.environ.get("GOLD32_BASE_URL", "http://127.0.0.1:8001")
 EMAIL = os.environ.get("EVAL_ADMIN_EMAIL", "admin@example.com")
 PW = os.environ.get("EVAL_ADMIN_PASSWORD", "")
+
+# [Module 42] The read timeout on a single /api/chat call.
+#
+# This was a hard-coded 300, and that number — not any pipeline defect — is
+# what produced KB6's uniquely bad row in the 2026-09-08 report:
+# FactualCorrectness 0.0 AND AnswerRelevancy 0.0 with route=None, reported
+# there as a "genuine error, did not recover". Measured live on this branch,
+# KB6 takes 428-628s on the 4 runs in 5 that abstain (the 1 that answers takes
+# 247.1s): it is a legal-KB question in All-Cases scope, so it pays
+# a KB-only retrieval pass AND a mixed-pool fallback pass, three evaluator
+# attempts each — six rounds of retrieve/rerank/evaluate. The request was
+# therefore still in flight when urlopen() gave up; the exception handler in
+# main() recorded route=None with an empty answer, and gold32_score.py scored
+# that empty answer as a genuine 0.0.
+#
+# Nothing about that row described the pipeline. Live, with room to finish,
+# KB6 returns route='RAG' every time (5/5).
+#
+# 900s is not a guess: it is comfortably above the slowest question measured
+# on this machine (628s) while still bounding a genuinely hung request. Raise
+# it via GOLD32_TIMEOUT_S on a slower box rather than editing this line — and
+# see the `error` field, which is now always recorded, to tell a timeout from
+# an answer.
+TIMEOUT_S = int(os.environ.get("GOLD32_TIMEOUT_S", "900"))
 
 
 def login():
@@ -35,11 +59,39 @@ def ask(q, ac, cs):
     req.add_header("Content-Type", "application/json")
     req.add_header("Cookie", f"access_token={ac}; csrf_token={cs}")
     req.add_header("X-CSRF-Token", cs)
-    return urllib.request.urlopen(req, timeout=300).read().decode("utf-8")
+    return urllib.request.urlopen(req, timeout=TIMEOUT_S).read().decode("utf-8")
 
 
 def parse(sse):
     ans, route, status = [], None, None
+    # [Module 116] `route` above used to be "the LAST `route='...'` anywhere in
+    # the stream". src/pipeline/harness/supervisor.py emits that event once for
+    # the question asked AND once per sub-query meta_analysis.py decomposes it
+    # into, so for every Meta-Analysis question this recorded a DECOMPOSED
+    # SUB-QUERY's route — and since those sub-queries are dispatched
+    # concurrently, which one landed last was a race. That is the whole of the
+    # "CR3/G1/G6 are recorded XAGG but reach XNETWORK" defect: their real
+    # top-level route is XNETWORK 8/8 at temperature 0, and the XAGG in
+    # gold32_pass{1,2,3}_outputs.json is Meta-Analysis's own aggregate-shaped
+    # sub-queries. Nothing about the router moved.
+    #
+    # The dispatch event now carries machine-readable `route`/`sub_agent`/
+    # `nested` fields (`nested` False == the question the user asked), so
+    # `route` below is the TOP-LEVEL route and the sub-query routes are kept
+    # separately instead of overwriting it. The `detail` regex is retained
+    # only as a fallback for a stream produced by a backend older than this
+    # change — and it now takes the FIRST match, which is the top-level
+    # dispatch, rather than the last.
+    subquery_routes, sub_agent = [], None
+    _legacy_route = None
+    # [Module 54] src/main.py emits this flag when the agent-harness cutover
+    # classification raised and the request fell back to orchestrator.py. The
+    # fallback is correct behaviour, but it means a DIFFERENT sub-agent
+    # answered than the harness would have chosen — Module 50 lost G1 from
+    # Meta-Analysis to Cross-Case Linkage's refusal purely this way, and the
+    # only trace was a line in backend.log. Recorded per row so
+    # gold32_pipeline_outputs.json can be read on its own and still show it.
+    cutover_classification_failed = False
     for line in sse.splitlines():
         if not line.startswith("data:"):
             continue
@@ -48,9 +100,17 @@ def parse(sse):
         except Exception:
             continue
         det = d.get("detail", "")
-        if "route='" in str(det):
+        if d.get("cutover_classification_failed"):
+            cutover_classification_failed = True
+        if d.get("step") == "supervisor:dispatch" and d.get("route"):
+            if d.get("nested"):
+                subquery_routes.append(d["route"])
+            elif route is None:  # first non-nested dispatch == the question asked
+                route, sub_agent = d["route"], d.get("sub_agent")
+        elif "route='" in str(det):
             m = re.search(r"route='([^']*)'", det)
-            if m: route = m.group(1)
+            if m and _legacy_route is None:
+                _legacy_route = m.group(1)
         if d.get("step") == "response":
             t = d.get("answer") or det
             if t and len(t) > 10: ans.append(t)
@@ -58,7 +118,15 @@ def parse(sse):
     a = " ".join(ans).strip()
     a = re.sub(r"^Writing the answer…\s*", "", a)
     a = re.sub(r"\s*Response generated.*$", "", a)
-    return {"actual_answer": a, "route": route, "status": status}
+    if route is None:
+        route = _legacy_route
+    return {"actual_answer": a, "route": route, "sub_agent": sub_agent,
+            # [Module 116] Recorded, not discarded: the sub-query routes are
+            # genuinely useful (they are what Module 27's `route` column
+            # actually held), they just are not the question's route.
+            "subquery_routes": subquery_routes,
+            "status": status,
+            "cutover_classification_failed": cutover_classification_failed}
 
 
 def main():
@@ -76,14 +144,33 @@ def main():
         try:
             p = parse(ask(item["question"], ac, cs))
             p["error"] = None
+            # [Module 42] Explicit, not merely implied by an empty string: the
+            # request completed and whatever is in `actual_answer` is the
+            # pipeline's own output, including a deliberate abstention.
+            p["transport_ok"] = True
         except Exception as e:  # noqa: BLE001
-            p = {"actual_answer": "", "route": None, "status": "error", "error": str(e)}
+            # [Module 42] The request never returned — a client-side timeout or
+            # a dropped connection. The empty `actual_answer` here is the
+            # ABSENCE of a measurement, not a bad answer, and route=None means
+            # "the SSE stream was never read", not "classification failed".
+            # gold32_score.py keys off `transport_ok` to leave the row
+            # unscored instead of scoring the emptiness as a genuine 0.0 —
+            # the same principle as Module 45's "a judge null is not a zero".
+            p = {"actual_answer": "", "route": None, "sub_agent": None,
+                 "subquery_routes": [], "status": "error",
+                 "error": f"{type(e).__name__}: {e}", "transport_ok": False,
+                 # [Module 54] Unknown, not False: the stream was never read.
+                 "cutover_classification_failed": None}
         p["elapsed_s"] = round(time.time() - t0, 1)
         rec = {"id": item["id"], "type": item["question_type"], "language": item["language"],
                "question": item["question"], "expected_answer": item["answer"], **p}
         outputs.append(rec)
         print(f"[{i}/32] {item['id']:5} {item['language']:8} route={str(p.get('route')):>10} "
-              f"len={len(p['actual_answer']):5} {p['elapsed_s']}s")
+              f"len={len(p['actual_answer']):5} {p['elapsed_s']}s"
+              + ("" if p.get("transport_ok") else
+                 f"   <-- NO ANSWER CAPTURED ({p.get('error')}) — will be left UNSCORED")
+              + ("   <-- CUTOVER CLASSIFICATION FAILED: answered by orchestrator.py,"
+                 " not the harness" if p.get("cutover_classification_failed") else ""))
         json.dump(outputs, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
     print(f"\nwrote {len(outputs)} to {OUT}")
 

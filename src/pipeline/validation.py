@@ -108,6 +108,20 @@ from typing import Literal, NamedTuple, Optional
 from src.llm.client import call_llm
 from src.pipeline.harness.types import ClaimSupport, ValidationClaimResult, ValidationStatus
 from src.pipeline.json_extract import call_llm_json
+# [Gold-QA fix — Module 61] The exhaustive-listing rule is IMPORTED, not
+# re-implemented. Before Module 61 the Verifier and this gate disagreed
+# about the identical claim: the Verifier refused to serve CR3's answer
+# ("FIR 65/26's absence ... is inferred but not directly supported")
+# while this gate, on the runs where the Verifier passed, attached "could
+# only be partially confirmed ... does not mention FIR 65/26 or its
+# absence from the CMS list". Serving-with-a-caveat and refusing outright
+# are very different user outcomes for one and the same inference. Sharing
+# one implementation is what makes them agree, and keeps them agreeing.
+from src.pipeline.verifier import (
+    exhaustive_chunk_texts,
+    listings_a_claim_is_about,
+    negative_claim_is_supported_by_exhaustive_listing,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -438,16 +452,118 @@ async def validate_answer(
         return ValidationStatus.SKIPPED, []
 
     if tier == "structural":
-        return _validate_structural(pairs)
+        status, claims = _validate_structural(pairs)
+    else:
+        try:
+            status, claims = await _validate_full_semantic(pairs)
+        except Exception:
+            logger.exception(
+                "Validation: full semantic tier raised unexpectedly — failing OPEN "
+                "(validation_status=not_run)."
+            )
+            return ValidationStatus.NOT_RUN, []
 
-    try:
-        return await _validate_full_semantic(pairs)
-    except Exception:
-        logger.exception(
-            "Validation: full semantic tier raised unexpectedly — failing OPEN "
-            "(validation_status=not_run)."
+    return _reconcile_exhaustive_negatives(status, claims, cited_chunks)
+
+
+# ── [Gold-QA fix — Module 61] Reconciliation with the Verifier ────────────
+
+
+def _reconcile_exhaustive_negatives(
+    status: ValidationStatus,
+    claims: list[ValidationClaimResult],
+    cited_chunks: list[dict],
+) -> tuple[ValidationStatus, list[ValidationClaimResult]]:
+    """
+    Upgrade a flagged claim to SUPPORTED when it is a negative inference
+    over a chunk the CALLER declared a complete enumeration
+    (`metadata["exhaustive_scope"]`) and the record it names is
+    deterministically confirmed absent from that listing.
+
+    This is `verifier.py`'s rule, imported rather than re-derived — see the
+    import comment at the top of this module for the disagreement it
+    exists to end. The same two limits apply here: a chunk without the
+    marker licenses no negative inference at all, and a claim asserting
+    the absence of a record the listing actually contains keeps its flag.
+
+    The unit checked is the judge's own `reason` — what it says it could
+    not confirm — not the answer sentence in `claim_excerpt`. Measured live
+    (MODULE61_RESULT.md §4): CR3's flagged sentence routinely names BOTH a
+    record the listing contains and one it does not ("64/26 has a matching
+    complaint … while 65/26 does not appear"), so checking the sentence
+    makes the verdict depend on which unrelated facts happened to share a
+    sentence with the negative. The reason states exactly one thing —
+    "does not mention FIR 65/26 or its absence from the CMS list" — and
+    that is the thing to confirm or not.
+
+    A claim's own cited chunk is not required to be the exhaustive one —
+    the answer's negative may cite the listing by a different index than
+    the judge paired it with — but at least one chunk in the answer's
+    evidence must be exhaustive, and the identifier check runs against
+    that listing's text, so nothing is upgraded on the strength of the
+    marker alone.
+    """
+    exhaustive_texts = exhaustive_chunk_texts(cited_chunks)
+    if not exhaustive_texts or not claims:
+        return status, claims
+
+    upgraded: list[ValidationClaimResult] = []
+    changed = False
+    for claim in claims:
+        # The listing to check against is the claim's OWN cited document —
+        # `document_index` is exactly the "which register?" fact
+        # `listings_a_claim_is_about()` has to infer from prose on the
+        # Verifier side, so it is used directly here. Measured live: CR3
+        # hands the gate three complete listings at once, and 65/26 legitimately
+        # appears in a DIFFERENT one (the filtered FIR listing) than the CMS
+        # linkage listing the claim is about; checking them pooled kept the
+        # caveat on every run.
+        chunk = (
+            cited_chunks[claim.document_index - 1]
+            if 1 <= claim.document_index <= len(cited_chunks)
+            else None
         )
-        return ValidationStatus.NOT_RUN, []
+        own_listing = (
+            [chunk.get("chunk_text") or chunk.get("text") or ""]
+            if chunk is not None
+            and (chunk.get("metadata") or {}).get("exhaustive_scope")
+            else []
+        )
+        if claim.support != ClaimSupport.SUPPORTED and (
+            negative_claim_is_supported_by_exhaustive_listing(
+                claim.reason, own_listing
+            )
+        ):
+            changed = True
+            logger.info(
+                "Validation [Module 61]: claim upgraded to supported — negative "
+                "inference over a complete listing: %s",
+                claim.reason[:120],
+            )
+            upgraded.append(
+                claim.model_copy(
+                    update={
+                        "support": ClaimSupport.SUPPORTED,
+                        "reason": (
+                            "Negative inference over a complete listing: the record "
+                            "named is confirmed absent from the enumerated scope, so "
+                            "the claim is supported. " + claim.reason
+                        ),
+                    }
+                )
+            )
+        else:
+            upgraded.append(claim)
+
+    if not changed:
+        return status, claims
+
+    new_status = (
+        ValidationStatus.ISSUES_FOUND
+        if any(c.support != ClaimSupport.SUPPORTED for c in upgraded)
+        else ValidationStatus.PASSED
+    )
+    return new_status, upgraded
 
 
 def caveats_for_validation(

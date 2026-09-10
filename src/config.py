@@ -149,7 +149,27 @@ MUHAFIZ_API_PAGE_SIZE: int = int(os.getenv("MUHAFIZ_API_PAGE_SIZE", "100"))
 # sub-query that exceeds this is treated as a non-contributing failure
 # (disclosed as a caveat) — it never blocks the other sub-queries or the
 # synthesis step.
-META_ANALYSIS_SUBQUERY_TIMEOUT: float = float(os.getenv("META_ANALYSIS_SUBQUERY_TIMEOUT", "60"))
+#
+# [Gold-QA fix — Module 53] 60 -> 150. This is NOT a per-sub-query budget,
+# which is how the original 60 was chosen. `_dispatch_one()` applies it
+# inside an `asyncio.gather()` over all N sub-queries at once, so it is one
+# WALL-CLOCK deadline shared by the whole fan-out, starting at fan-out —
+# and the shared model server does not run the sub-queries in parallel.
+# Module 50 measured it serialising them into a ~10 s-per-sub-query
+# staircase: G1's five sub-answers at +25.0, +33.4, +44.3, +50.9 and
+# +56.7 s. At the old 60 s that leaves the FIFTH slot 3.3 s of headroom on
+# an otherwise-quiet machine, and Module 50 measured it failing outright
+# under contention from other backends — the sub-query was killed for
+# being served last, not for being slow.
+#
+# 150 s is derived, not guessed: `_MAX_PLAN_SUB_QUERIES` (5) x the measured
+# ~12 s worst-case slot cost = 60 s of real work, x2.5 for the contention
+# Module 50 measured on this machine. It is an upper bound on a pathology,
+# not a latency target — a healthy fan-out still finishes in ~55 s and
+# never touches it. Module 53's salvage path (see
+# `agents/_salvage.py`) is the real fix; this number only stops a
+# deterministic aggregate being thrown away in the first place.
+META_ANALYSIS_SUBQUERY_TIMEOUT: float = float(os.getenv("META_ANALYSIS_SUBQUERY_TIMEOUT", "150"))
 
 
 # ── Pipeline Settings ─────────────────────────────────────────────────────────

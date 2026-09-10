@@ -1,0 +1,134 @@
+[
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 0,
+  "metric": "FactualCorrectness",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "old",
+  "score": 0.3,
+  "elapsed_s": 9.5,
+  "reason": "The actual output fails to mention the specific legal provision (Section 174 of the Code of Criminal Procedure, 1898) which is the core of the expected answer. While it acknowledges the lack of specific death investigation data, it misses the critical context regarding the legal requirement for poli"
+ },
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 1,
+  "metric": "FactualCorrectness",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "old",
+  "score": 0.3,
+  "elapsed_s": 7.0,
+  "reason": "The actual output fails to mention the specific legal provision (Section 174 of the Code of Criminal Procedure, 1898) which is the core of the expected answer. While it acknowledges the lack of specific death investigation data, it misses the critical context regarding the legal requirement for poli"
+ },
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 2,
+  "metric": "FactualCorrectness",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "old",
+  "score": 0.3,
+  "elapsed_s": 6.8,
+  "reason": "The actual output fails to mention the specific legal provision (Section 174 of the Code of Criminal Procedure, 1898) which is the core of the expected answer. While it acknowledges the lack of specific death investigation data, it misses the critical context regarding the legal requirement for poli"
+ },
+ {
+  "id": "M1",
+  "pass": 1,
+  "draw": 0,
+  "metric": "FactualCorrectness",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "old",
+  "score": 0.2,
+  "elapsed_s": 6.6,
+  "reason": "The actual output is materially incomplete and fails to capture the breadth of the data provided in the expected output. It misses several key categories mentioned in the ground truth, such as murder, kidnapping, and financial fraud, and provides significantly different case counts that do not align"
+ },
+ {
+  "id": "M1",
+  "pass": 1,
+  "draw": 1,
+  "metric": "FactualCorrectness",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "old",
+  "score": 0.2,
+  "elapsed_s": 7.7,
+  "reason": "The actual output is materially incomplete and fails to capture the breadth of the data provided in the expected output. It misses several key categories mentioned in the ground truth, such as murder, kidnapping, and financial fraud, and provides significantly different case counts that do not align"
+ },
+ {
+  "id": "M1",
+  "pass": 1,
+  "draw": 2,
+  "metric": "FactualCorrectness",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "old",
+  "score": 0.2,
+  "elapsed_s": 5.6,
+  "reason": "The actual output is materially incomplete and fails to capture the breadth of the data provided in the expected output. It misses several key categories mentioned in the ground truth, such as murder, kidnapping, and financial fraud, and provides significantly different case counts that do not align"
+ },
+ {
+  "id": "G2",
+  "pass": 1,
+  "draw": 0,
+  "metric": "FactualCorrectness",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "old",
+  "score": 0.3,
+  "elapsed_s": 8.2,
+  "reason": "The actual output fails to address the key facts provided in the expected output, specifically the chronological contradictions in departure times and the systemic issue regarding the integration of walk-in complaints and FIRs. While it correctly identifies missing dates and investigation statuses, "
+ },
+ {
+  "id": "G2",
+  "pass": 1,
+  "draw": 1,
+  "metric": "FactualCorrectness",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "old",
+  "score": 0.3,
+  "elapsed_s": 61.2,
+  "reason": "The actual output fails to address the key facts provided in the expected output, specifically the chronological contradictions in departure times and the systemic issue regarding the integration of walk-in complaints and FIRs. While it correctly identifies missing dates and investigation statuses, "
+ },
+ {
+  "id": "G2",
+  "pass": 1,
+  "draw": 2,
+  "metric": "FactualCorrectness",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "old",
+  "score": 0.3,
+  "elapsed_s": 8.4,
+  "reason": "The actual output fails to address the key facts provided in the expected output, specifically the chronological contradictions in departure times and the systemic issue regarding the integration of walk-in complaints and FIRs. While it correctly identifies missing dates and investigation statuses, "
+ },
+ {
+  "id": "G6",
+  "pass": 1,
+  "draw": 0,
+  "metric": "FactualCorrectness",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "old",
+  "score": 0.1,
+  "elapsed_s": 5.6,
+  "reason": "The actual output fails to address the user's request to write an orientation note for a new officer. Instead, it provides a raw data dump of case statistics. It completely ignores the persona and the instructional nature of the prompt, failing to synthesize the information into a helpful briefing f"
+ },
+ {
+  "id": "G6",
+  "pass": 1,
+  "draw": 1,
+  "metric": "FactualCorrectness",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "old",
+  "score": 0.1,
+  "elapsed_s": 8.0,
+  "reason": "The actual output fails to address the user's request to write an orientation note for a new officer. Instead, it provides a raw data dump of case statistics. It completely ignores the persona and the instructional nature of the prompt, failing to synthesize the information into a helpful briefing f"
+ },
+ {
+  "id": "G6",
+  "pass": 1,
+  "draw": 2,
+  "metric": "FactualCorrectness",
+  "model": "gemini-3.1-flash-lite",
+  "prompt": "old",
+  "score": 0.1,
+  "elapsed_s": 6.8,
+  "reason": "The actual output fails to address the user's request to write an orientation note for a new officer. Instead, it provides a raw data dump of case statistics. It completely ignores the persona and the instructional nature of the prompt, failing to synthesize the information into a helpful briefing f"
+ }
+]

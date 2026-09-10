@@ -1,0 +1,834 @@
+{
+  "D1": {
+    "text": "How many FIRs are currently registered?",
+    "runs": [
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XAGG": 3
+    }
+  },
+  "S2": {
+    "text": "Which police station handles the most cases?",
+    "runs": [
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XAGG": 3
+    }
+  },
+  "S3": {
+    "text": "کیا کسی شخص کو ایک سے زیادہ بار گرفتار کیا گیا ہے؟",
+    "runs": [
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XAGG": 3
+    }
+  },
+  "A1": {
+    "text": "نامزد ملزمان میں مرد اور عورت کا تناسب کیا ہے؟",
+    "runs": [
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Asks for the ratio of male to female accused across all cases — a cross-case aggregate question over case metadata",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Asks for the ratio of male to female accused across all cases — a cross-case aggregate question over case metadata",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Asks for the ratio of male to female accused across all cases — a cross-case aggregate question over case metadata",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XAGG": 3
+    }
+  },
+  "A7": {
+    "text": "Kitne cases mein mudai ne police ke paas waqe ke kuch arse baad aane ki koi wajah batai, bajaye foran aane ke?",
+    "runs": [
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XAGG": 3
+    }
+  },
+  "CP6": {
+    "text": "Kitne cases abhi tak bina kisi tafteeshi afsar ke asal tor par muqarrar kiye pade hue hain?",
+    "runs": [
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XAGG": 3
+    }
+  },
+  "CR2": {
+    "text": "Is there anyone with an earlier case already on record who has since resurfaced as a suspect in a newer, separate case?",
+    "runs": [
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XAGG": 3
+    }
+  },
+  "CR3": {
+    "text": "In the online banking fraud matter involving two separate victims, was each victim's case processed and recorded the same way?",
+    "runs": [
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "Asks to compare how two separate (unnamed) cases were handled — a synthesis across specific case records, not a single-entity lookup (XGRAPH) or a count (XAGG). ACTIVE_CASE is none and no case/FIR number is named, so this cannot be GRAPH/GRAPH_HYBRID despite the within-case-shaped wording ('the case')",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "Asks to compare how two separate (unnamed) cases were handled — a synthesis across specific case records, not a single-entity lookup (XGRAPH) or a count (XAGG). ACTIVE_CASE is none and no case/FIR number is named, so this cannot be GRAPH/GRAPH_HYBRID despite the within-case-shaped wording ('the case')",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "Asks to compare how two separate (unnamed) cases were handled — a synthesis across specific case records, not a single-entity lookup (XGRAPH) or a count (XAGG). ACTIVE_CASE is none and no case/FIR number is named, so this cannot be GRAPH/GRAPH_HYBRID despite the within-case-shaped wording ('the case')",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XNETWORK": 3
+    }
+  },
+  "CR4": {
+    "text": "If we've got a weapon logged as evidence, can we tell who it was taken off and what happened to them?",
+    "runs": [
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XAGG": 3
+    }
+  },
+  "CR6": {
+    "text": "جب کوئی شخص تھانے آ کر شکایت درج کراتا ہے، تو کیا وہ کسی باقاعدہ ایف آئی آر سے منسلک ہو جاتی ہے، یا دونوں الگ الگ ہی رہتے ہیں؟",
+    "runs": [
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XAGG": 3
+    }
+  },
+  "CR7": {
+    "text": "کرمنل ریکارڈ سسٹم میں کتنے کیس مکمل ہو چکے ہیں اور کتنے ابھی زیرِ کارروائی ہیں — اور جہاں کسی ایک کیس کا الگ عدالتی ریکارڈ بھی موجود ہے، کیا دونوں ایک دوسرے سے مطابقت رکھتے ہیں؟",
+    "runs": [
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XAGG": 3
+    }
+  },
+  "CR8": {
+    "text": "اگر کسی گھریلو تشدد کی شکایت کو باقاعدہ کیس میں تبدیل ہونے کے طور پر درج کیا گیا ہو، تو کیا کیس ریکارڈ سے اس کی تصدیق ہو جاتی ہے؟",
+    "runs": [
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XAGG": 3
+    }
+  },
+  "CS4": {
+    "text": "Kya wusee criminal-history records mein koi aisa shakhs hai jo hamare apne darj kiye hue kisi case se match nahi karta?",
+    "runs": [
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: XAGG resolves this to its purpose-built 'criminal_record_local_match_gap' aggregate (Module 60, widened by Module 67)",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: XAGG resolves this to its purpose-built 'criminal_record_local_match_gap' aggregate (Module 60, widened by Module 67)",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: XAGG resolves this to its purpose-built 'criminal_record_local_match_gap' aggregate (Module 60, widened by Module 67)",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XAGG": 3
+    }
+  },
+  "CP1": {
+    "text": "Kaunsa zila apne case load ke lihaz se sab se zyada hathiyar baramad karta hai?",
+    "runs": [
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: XAGG resolves this to its purpose-built 'weapon_recovery_rate_by_district' aggregate (Module 60, widened by Module 67)",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: XAGG resolves this to its purpose-built 'weapon_recovery_rate_by_district' aggregate (Module 60, widened by Module 67)",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: XAGG resolves this to its purpose-built 'weapon_recovery_rate_by_district' aggregate (Module 60, widened by Module 67)",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XAGG": 3
+    }
+  },
+  "M1": {
+    "text": "What kinds of cases are we dealing with now compared to a couple of years back?",
+    "runs": [
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XAGG": 3
+    }
+  },
+  "M2": {
+    "text": "Is caseload growing faster at our general-purpose stations, or at the handful set up for one specific type of crime?",
+    "runs": [
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: XAGG resolves this to its purpose-built 'station_caseload_by_specialisation' aggregate (Module 60, widened by Module 67)",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: XAGG resolves this to its purpose-built 'station_caseload_by_specialisation' aggregate (Module 60, widened by Module 67)",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: XAGG resolves this to its purpose-built 'station_caseload_by_specialisation' aggregate (Module 60, widened by Module 67)",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XAGG": 3
+    }
+  },
+  "M4": {
+    "text": "ایک طرف یہ دیکھیں کہ لوگوں پر کن دفعات میں مقدمے بن رہے ہیں، اور دوسری طرف یہ کہ وہ مقدمے عدالت میں کہاں تک پہنچے — کیا دونوں سے کیس لوڈ کی سنگینی کا ایک ہی اندازہ ہوتا ہے؟",
+    "runs": [
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: XAGG resolves this to its purpose-built 'statute_court_stage_join' aggregate (Module 60, widened by Module 67)",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: XAGG resolves this to its purpose-built 'statute_court_stage_join' aggregate (Module 60, widened by Module 67)",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: XAGG resolves this to its purpose-built 'statute_court_stage_join' aggregate (Module 60, widened by Module 67)",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XAGG": 3
+    }
+  },
+  "M5": {
+    "text": "ہتھیار عام طور پر کس نوعیت کے مقدمات میں سامنے آتے ہیں، اور کیا 2024 کے مقابلے میں اب یہ نوعیت بدل گئی ہے؟",
+    "runs": [
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XAGG": 3
+    }
+  },
+  "M7": {
+    "text": "Kya log 2026 mein waqiaat ki police ko itni hi jaldi ittila de rahe hain jitni 2024 mein dete the?",
+    "runs": [
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: XAGG resolves this to its purpose-built 'incident_to_report_minutes_by_year' aggregate (Module 60, widened by Module 67)",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: XAGG resolves this to its purpose-built 'incident_to_report_minutes_by_year' aggregate (Module 60, widened by Module 67)",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: XAGG resolves this to its purpose-built 'incident_to_report_minutes_by_year' aggregate (Module 60, widened by Module 67)",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XAGG": 3
+    }
+  },
+  "G1": {
+    "text": "Acting as a crime analyst, review our current caseload and flag anything that looks unusual or worth monitoring.",
+    "runs": [
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "Asks for a synthesized review of the entire caseload to identify unusual or noteworthy patterns — this is an open-ended cross-case network analysis, not a count (XAGG) or entity lookup (XGRAPH)",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "Asks for a synthesized review of the entire caseload to identify unusual or noteworthy patterns — this is an open-ended cross-case network analysis, not a count (XAGG) or entity lookup (XGRAPH)",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "Asks for a synthesized review of the entire caseload to identify unusual or noteworthy patterns — this is an open-ended cross-case network analysis, not a count (XAGG) or entity lookup (XGRAPH)",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XNETWORK": 3
+    }
+  },
+  "G2": {
+    "text": "فرض کریں آپ کسی ایس ایچ او کو بریفنگ دے رہے ہیں کہ کون سے مقدمے دب کر یا نظر سے اوجھل ہو کر رہ سکتے ہیں — آپ کن چیزوں کی نشاندہی کریں گے؟",
+    "runs": [
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XAGG": 3
+    }
+  },
+  "G3": {
+    "text": "آپ عدالت کو حوالگی کے لیے ایک کیس فائل تیار کر رہے ہیں — ڈیٹا کی روشنی میں، کن چیزوں کے نامکمل قرار پانے کا سب سے زیادہ امکان ہے؟",
+    "runs": [
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XAGG": 3
+    }
+  },
+  "G5": {
+    "text": "Baramad shuda hathiyaron ki record keeping ko dekhte hue, kya koi aisi baat hai jo compliance ke lihaz se flag karne layak ho?",
+    "runs": [
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      },
+      {
+        "route": "XAGG",
+        "confidence": "high",
+        "reason": "Deterministic override: unambiguous cross-case aggregate/count trigger language detected before the LLM call",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XAGG": 3
+    }
+  },
+  "G6": {
+    "text": "Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation note likhein — unhein mojooda case load se kya tawaqqo rakhni chahiye?",
+    "runs": [
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "The query asks for an orientation note for a newly posted officer covering what they should know about the current caseload, which requires a synthesized overview of the overall case network and patterns — this is an open-ended cross-case synthesis request, not a single-case or entity lookup",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "A request for an orientation note for a newly posted officer covering what they should know about the current caseload — this is an open-ended synthesis across the entire caseload, not a single-case or entity-specific query. Since no case is active, this falls under XNETWORK's cross-case synthesis route.",
+        "error": null
+      },
+      {
+        "route": "XNETWORK",
+        "confidence": "medium",
+        "reason": "A request for an orientation note for a newly posted officer covering what they should know about the current caseload — this is an open-ended synthesis across the entire caseload, not a single-case or entity-specific query. Since no case is active, this falls under XNETWORK's cross-case synthesis route.",
+        "error": null
+      }
+    ],
+    "tally": {
+      "XNETWORK": 3
+    }
+  },
+  "KB1": {
+    "text": "What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?",
+    "runs": [
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      },
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      },
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      }
+    ],
+    "tally": {
+      "RAG": 3
+    }
+  },
+  "KB2": {
+    "text": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+    "runs": [
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      },
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      },
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      }
+    ],
+    "tally": {
+      "RAG": 3
+    }
+  },
+  "KB3": {
+    "text": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+    "runs": [
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      },
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      },
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      }
+    ],
+    "tally": {
+      "RAG": 3
+    }
+  },
+  "KB4": {
+    "text": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+    "runs": [
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      },
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      },
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      }
+    ],
+    "tally": {
+      "RAG": 3
+    }
+  },
+  "KB5": {
+    "text": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+    "runs": [
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      },
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      },
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      }
+    ],
+    "tally": {
+      "RAG": 3
+    }
+  },
+  "KB6": {
+    "text": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+    "runs": [
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      },
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      },
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      }
+    ],
+    "tally": {
+      "RAG": 3
+    }
+  },
+  "KB8": {
+    "text": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+    "runs": [
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      },
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      },
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      }
+    ],
+    "tally": {
+      "RAG": 3
+    }
+  },
+  "KB9": {
+    "text": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+    "runs": [
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      },
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      },
+      {
+        "route": "RAG",
+        "confidence": "high",
+        "reason": "Deterministic override: rag.py's own legal-KB gate claims this question, so the KB corpus/statute-hypothesis/data-half path is the one that can answer it (Module 78)",
+        "error": null
+      }
+    ],
+    "tally": {
+      "RAG": 3
+    }
+  }
+}

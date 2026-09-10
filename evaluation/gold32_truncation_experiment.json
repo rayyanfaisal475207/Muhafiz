@@ -1,0 +1,187 @@
+{
+  "module": 45,
+  "purpose": "Does gold32_score.py's 900-char answer cap change judge scores? Re-scores captured answers from evaluation/gold32_pipeline_outputs.json with the cap on (900) and off (0), same judge, same prompt. This file NEVER feeds gold32_results.json — the reference run stays intact.",
+  "judge": "gemini-flash-lite-latest (evaluation/gold32_score.py::_judge)",
+  "scored_source": "evaluation/gold32_pipeline_outputs.json (Module 9 run, commit d313a60)",
+  "run_date": "2026-09-08",
+  "variants": {
+    "natural": "the captured answer exactly as produced",
+    "padded": "1020 chars of on-topic-looking filler prepended, pushing every gold fact past char 900 — a positive control proving the MECHANISM exists, independent of whether it currently fires"
+  },
+  "rescores": [
+    {
+      "id": "M5",
+      "variant": "natural",
+      "cap": 900,
+      "answer_len": 1318,
+      "scored_len": 925,
+      "scores": {
+        "FactualCorrectness": 0.0,
+        "AnswerRelevancy": 1.0
+      },
+      "reasons": {
+        "FactualCorrectness": "The actual output directly contradicts the expected output by claiming there is no significant shift in weapon types and that 30 بور پستول is the sole weapon recorded across both periods, whereas the expected output details a significant change from being exclusively tied to robbery in 2024 to also ",
+        "AnswerRelevancy": "The score is 1.00 because the actual output completely and accurately addresses both parts of the user's inquiry regarding the nature of cases involving weapons and any potential changes compared to 2024, without containing any irrelevant statements."
+      }
+    },
+    {
+      "id": "M5",
+      "variant": "natural",
+      "cap": 0,
+      "answer_len": 1318,
+      "scored_len": 1318,
+      "scores": {
+        "FactualCorrectness": 0.0,
+        "AnswerRelevancy": 1.0
+      },
+      "reasons": {
+        "FactualCorrectness": "The actual output completely fails to address the expected facts. The expected output asserts that the nature of weapon cases changed from 2024 to 2026, shifting from exclusively robbery provisions to also including narcotics and murder. The actual output contradicts this by claiming there is no sig",
+        "AnswerRelevancy": "The score is 1.00 because the actual output completely and accurately addresses both parts of the user's input regarding the nature of weapon-related cases and any changes compared to 2024, without including any irrelevant information."
+      }
+    },
+    {
+      "id": "M4",
+      "variant": "natural",
+      "cap": 900,
+      "answer_len": 1582,
+      "scored_len": 925,
+      "scores": {
+        "FactualCorrectness": 0.1,
+        "AnswerRelevancy": 1.0
+      },
+      "reasons": {
+        "FactualCorrectness": "The actual output directly contradicts the expected output regarding how to measure the severity of the case load. The expected output concludes that the severity should be judged by FIR/provision counts and notes that convictions are lagging (only 1 conviction out of 33, with 30 pending), whereas t",
+        "AnswerRelevancy": "The score is 1.00 because the actual output is completely relevant and directly addresses the user's input regarding case loads and legal proceedings."
+      }
+    },
+    {
+      "id": "M4",
+      "variant": "natural",
+      "cap": 0,
+      "answer_len": 1582,
+      "scored_len": 1582,
+      "scores": {
+        "FactualCorrectness": 0.1,
+        "AnswerRelevancy": 0.909
+      },
+      "reasons": {
+        "FactualCorrectness": "The actual output directly contradicts the expected output regarding whether the two perspectives yield the same assessment of case load severity and how severity should be measured. The expected output states that the perspectives differ and that case load severity should be gauged by FIR/clause co",
+        "AnswerRelevancy": "The score is 0.91 because the output is mostly relevant to the input question about case loads and legal proceedings, but it drops slightly due to the inclusion of a meta-commentary statement on the generation process that does not address the question."
+      }
+    },
+    {
+      "id": "CR8",
+      "variant": "natural",
+      "cap": 900,
+      "answer_len": 467,
+      "scored_len": 467,
+      "scores": {
+        "FactualCorrectness": 1.0,
+        "AnswerRelevancy": 1.0
+      },
+      "reasons": {
+        "FactualCorrectness": "The actual output successfully captures all key facts from the expected output, correctly identifying that out of 8 domestic-violence reports, 4 are confirmed with matching active FIR numbers (97/26, 416/26, 426/26, and 436/26) while the remaining 4 have no forwarded numbers. The numbers and conclus",
+        "AnswerRelevancy": "The score is 1.00 because the response directly and accurately addresses the query regarding domestic violence record verification without including any irrelevant statements."
+      }
+    },
+    {
+      "id": "D1",
+      "variant": "natural",
+      "cap": 900,
+      "answer_len": 207,
+      "scored_len": 207,
+      "scores": {
+        "FactualCorrectness": 0.7,
+        "AnswerRelevancy": 1.0
+      },
+      "reasons": {
+        "FactualCorrectness": "The expected output specifies 73 FIRs, while the actual output states 79. Although numbers do not need to be an exact digit match, 79 compared to 73 is slightly outside the standard tolerance range and represents a noticeable discrepancy, resulting in a moderate score.",
+        "AnswerRelevancy": "The score is 1.00 because the actual output directly and accurately addresses the input without including any irrelevant statements."
+      }
+    },
+    {
+      "id": "CR8",
+      "variant": "padded",
+      "cap": 900,
+      "answer_len": 1519,
+      "scored_len": 925,
+      "scores": {
+        "FactualCorrectness": 0.0,
+        "AnswerRelevancy": 0.0
+      },
+      "reasons": {
+        "FactualCorrectness": "The actual output is severely truncated with repetitive background notes and fails to provide the expected answer regarding the domestic violence case records and FIR numbers.",
+        "AnswerRelevancy": "The score is 0.00 because the actual output entirely consists of irrelevant background information and fails to address whether domestic violence case records confirm a formal complaint."
+      }
+    },
+    {
+      "id": "CR8",
+      "variant": "padded",
+      "cap": 0,
+      "answer_len": 1519,
+      "scored_len": 1519,
+      "scores": {
+        "FactualCorrectness": 1.0,
+        "AnswerRelevancy": 0.875
+      },
+      "reasons": {
+        "FactualCorrectness": "The actual output successfully provides all the key facts requested in the expected output, confirming the domestic violence cases and listing the exact same 4 confirmed FIR numbers despite the extra background text at the beginning. According to the evaluation steps, extra correct detail or differe",
+        "AnswerRelevancy": "The score is 0.88 because while the output successfully addresses the question about verifying domestic violence case records, it includes an unnecessary conversational introductory note that is not relevant to the query."
+      }
+    },
+    {
+      "id": "G3",
+      "variant": "padded",
+      "cap": 900,
+      "answer_len": 1749,
+      "scored_len": 925,
+      "scores": {
+        "FactualCorrectness": 0.0,
+        "AnswerRelevancy": 0.0
+      },
+      "reasons": {
+        "FactualCorrectness": "The actual output is severely truncated with repetitive boilerplate text and fails to provide any of the expected key facts regarding the incomplete case file items, resulting in a material omission.",
+        "AnswerRelevancy": "The score is 0.00 because the actual output fails to address the input entirely, consisting only of irrelevant introductory meta-commentary instead of identifying what is likely to be deemed incomplete in an extradition case file."
+      }
+    },
+    {
+      "id": "G3",
+      "variant": "padded",
+      "cap": 0,
+      "answer_len": 1749,
+      "scored_len": 1749,
+      "scores": {
+        "FactualCorrectness": 0.9,
+        "AnswerRelevancy": 0.833
+      },
+      "reasons": {
+        "FactualCorrectness": "The actual output covers all key facts from the expected output including the missing accused and complainant relationship details, the weapon license status, and the incident date in FIRs. The numbers and details closely match the expected output under the alignment rules, despite some repetitive f",
+        "AnswerRelevancy": "The score is 0.83 because while the output mostly addresses the question regarding incomplete case file items for court extradition based on the data, it includes conversational filler and a meta-commentary hallucination check that are irrelevant to the core inquiry."
+      }
+    }
+  ],
+  "judge_variance_same_input_cap900_FactualCorrectness": {
+    "D1": [
+      1.0,
+      1.0,
+      0.9,
+      1.0
+    ],
+    "M5": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "M4": [
+      0.1,
+      0.1,
+      0.1
+    ],
+    "CR8": [
+      1.0,
+      1.0,
+      1.0
+    ]
+  },
+  "variance_note": "D1 also returned 0.7 once in the truncation run above, so its observed spread on identical input is 0.7-1.0 across 5 draws. M4/M5 were stable to 3 decimal places across 3 draws, which is what licenses the 'no change' verdict for them."
+}

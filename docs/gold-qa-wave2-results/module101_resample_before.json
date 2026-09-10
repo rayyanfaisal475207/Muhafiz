@@ -1,0 +1,66 @@
+[
+ {
+  "i": 1,
+  "grounded": false,
+  "off_topic": true,
+  "unsupported_claims": [],
+  "reason": "Answer is substantial (long, or a multi-item list) but cites no [Document N] source at all, despite the evaluator already confirming relevant chunks exist — reads as avoiding the provided evidence rather than using it.",
+  "computed_evidence_override": null
+ },
+ {
+  "i": 2,
+  "grounded": false,
+  "off_topic": true,
+  "unsupported_claims": [],
+  "reason": "Answer is substantial (long, or a multi-item list) but cites no [Document N] source at all, despite the evaluator already confirming relevant chunks exist — reads as avoiding the provided evidence rather than using it.",
+  "computed_evidence_override": null
+ },
+ {
+  "i": 3,
+  "grounded": false,
+  "off_topic": true,
+  "unsupported_claims": [],
+  "reason": "Answer is substantial (long, or a multi-item list) but cites no [Document N] source at all, despite the evaluator already confirming relevant chunks exist — reads as avoiding the provided evidence rather than using it.",
+  "computed_evidence_override": null
+ },
+ {
+  "i": 4,
+  "grounded": false,
+  "off_topic": true,
+  "unsupported_claims": [],
+  "reason": "Answer is substantial (long, or a multi-item list) but cites no [Document N] source at all, despite the evaluator already confirming relevant chunks exist — reads as avoiding the provided evidence rather than using it.",
+  "computed_evidence_override": null
+ },
+ {
+  "i": 5,
+  "grounded": false,
+  "off_topic": true,
+  "unsupported_claims": [],
+  "reason": "Answer is substantial (long, or a multi-item list) but cites no [Document N] source at all, despite the evaluator already confirming relevant chunks exist — reads as avoiding the provided evidence rather than using it.",
+  "computed_evidence_override": null
+ },
+ {
+  "i": 6,
+  "grounded": false,
+  "off_topic": true,
+  "unsupported_claims": [],
+  "reason": "Answer is substantial (long, or a multi-item list) but cites no [Document N] source at all, despite the evaluator already confirming relevant chunks exist — reads as avoiding the provided evidence rather than using it.",
+  "computed_evidence_override": null
+ },
+ {
+  "i": 7,
+  "grounded": false,
+  "off_topic": true,
+  "unsupported_claims": [],
+  "reason": "Answer is substantial (long, or a multi-item list) but cites no [Document N] source at all, despite the evaluator already confirming relevant chunks exist — reads as avoiding the provided evidence rather than using it.",
+  "computed_evidence_override": null
+ },
+ {
+  "i": 8,
+  "grounded": false,
+  "off_topic": true,
+  "unsupported_claims": [],
+  "reason": "Answer is substantial (long, or a multi-item list) but cites no [Document N] source at all, despite the evaluator already confirming relevant chunks exist — reads as avoiding the provided evidence rather than using it.",
+  "computed_evidence_override": null
+ }
+]

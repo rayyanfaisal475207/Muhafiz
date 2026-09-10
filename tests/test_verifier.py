@@ -3,9 +3,13 @@ Unit tests for src.pipeline.verifier — the Phase 6 grounding gate.
 
 All external calls (call_llm) are monkeypatched; no network, no disk.
 """
+import json
+
 import pytest
 
 from src.pipeline.verifier import (
+    CITATION_FORMAT_DEGRADED_KEY,
+    EXHAUSTIVE_SCOPE_META_KEY,
     _check_fabricated_case_ids,
     _check_hedging,
     _check_leakage,
@@ -13,9 +17,14 @@ from src.pipeline.verifier import (
     _check_temporal,
     _format_chunks_for_verifier,
     _is_derived_ratio,
+    _identifier_tokens,
     _numbers_in,
+    exhaustive_chunk_texts,
+    negative_claim_is_supported_by_exhaustive_listing,
     verify_grounding,
     verify_structured_aggregate_paraphrase,
+    _omitted_headline_proportions,
+    _headline_line,
 )
 
 
@@ -920,3 +929,1036 @@ async def test_structured_paraphrase_allows_restated_decimal_average_unchanged()
         case_id="cross_case",
     )
     assert result["grounded"] is True
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Gold-QA fix — Module 61: a NEGATIVE INFERENCE over an EXHAUSTIVE listing.
+#
+# CR3's gold answer asserts a negative — "64/26 has a matching walk-in
+# complaint; 65/26 has none" — over a CMS linkage listing that contains
+# 64/26 and does not contain 65/26. Module 57 measured the verifier
+# rejecting that answer on 7 of 14 live runs with one verbatim reason:
+# "The claim about FIR 65/26's absence from the linkage list is inferred
+# but not directly supported by Document 3, which only lists linked cases
+# without…".
+#
+# These tests pin the three properties the fix must have SIMULTANEOUSLY —
+# the third is not optional, and is the reason the fix is two guarded
+# conditions rather than a relaxation:
+#   (a) the negative over a listing DECLARED exhaustive is accepted;
+#   (b) the same claim over a listing NOT so declared is still rejected;
+#   (c) a genuinely hallucinated synthesis is STILL rejected.
+# ═══════════════════════════════════════════════════════════════════════
+
+# The real shape `render_cms_fir_linkage()` produces, as it reaches the
+# Meta-Analysis verifier: an enumeration of every walk-in CMS complaint and
+# the FIR it links to. 64/26 is in it; 65/26 is not.
+_CMS_LINKAGE_LISTING = (
+    "Of 5 walk-in CMS complaint(s), 4 link to a real FIR via a shared case "
+    "tag; 1 has no matching FIR.\n"
+    "  - CMS-ISB-2026-0341 → fir-64-26\n"
+    "  - CMS-ISB-2026-0355 → fir-71-26\n"
+    "  - CMS-ISB-2026-0362 → fir-72-26\n"
+    "  - CMS-ISB-2026-0370 → fir-73-26"
+)
+
+# The judge's own verbatim rejection reason, from MODULE57_RESULT.md §1.
+_CR3_VERBATIM_REJECTION = (
+    "The claim about FIR 65/26's absence from the linkage list is inferred "
+    "but not directly supported by Document 3, which only lists linked "
+    "cases without stating which FIRs are excluded."
+)
+
+
+def _listing_chunk(exhaustive: bool, text: str = _CMS_LINKAGE_LISTING):
+    meta = {"source": "Sub-question: which FIRs have a linked walk-in CMS complaint?"}
+    if exhaustive:
+        meta[EXHAUSTIVE_SCOPE_META_KEY] = True
+    return {"id": "subquery-3", "text": text, "metadata": meta}
+
+
+def _rejecting_llm(claims, reason="One or more claims lack support in the provided chunks."):
+    async def fake_call(system_prompt, user_message, **kwargs):
+        return json.dumps(
+            {
+                "grounded": False,
+                "off_topic": False,
+                "leaked_case_id": None,
+                "unsupported_claims": claims,
+                "reason": reason,
+            }
+        )
+
+    return fake_call
+
+
+# ── The deterministic rule itself ──────────────────────────────────────
+
+def test_negative_over_exhaustive_listing_is_supported():
+    assert negative_claim_is_supported_by_exhaustive_listing(
+        _CR3_VERBATIM_REJECTION, [_CMS_LINKAGE_LISTING]
+    ) is True
+
+
+def test_negative_over_a_listing_not_declared_exhaustive_is_not_supported():
+    """No exhaustive chunk anywhere = no negative inference is licensed."""
+    assert negative_claim_is_supported_by_exhaustive_listing(
+        _CR3_VERBATIM_REJECTION, []
+    ) is False
+
+
+def test_fabricated_negative_is_not_supported():
+    """Claiming a record is absent that the listing ACTUALLY CONTAINS."""
+    assert negative_claim_is_supported_by_exhaustive_listing(
+        "FIR 64/26's absence from the linkage list is not supported by Document 3.",
+        [_CMS_LINKAGE_LISTING],
+    ) is False
+
+
+def test_a_misattribution_claim_is_not_an_absence_claim():
+    """Module 17's live hallucination shape — names and counts attributed to
+    the wrong chunk. Nothing about it is absence-shaped, so the exhaustive
+    rule must not touch it."""
+    assert negative_claim_is_supported_by_exhaustive_listing(
+        "The answer attributes the name عاصم رشید and a count of 12 cases to "
+        "Document 2, which states neither.",
+        [_CMS_LINKAGE_LISTING],
+    ) is False
+
+
+def test_a_vague_absence_claim_with_no_identifier_is_not_supported():
+    """Nothing checkable in it, so the judge's own verdict stands."""
+    assert negative_claim_is_supported_by_exhaustive_listing(
+        "The claim that the record is missing from the list is not supported.",
+        [_CMS_LINKAGE_LISTING],
+    ) is False
+
+
+def test_identifier_normalisation_matches_across_written_forms():
+    """"FIR 65/26", "65/26" and "fir-65-26" are the same record."""
+    for form in ("FIR 65/26", "65/26", "fir-65-26", "FIR 65-26"):
+        assert "65-26" in _identifier_tokens(form), form
+
+
+def test_a_noun_phrase_is_not_mistaken_for_an_identifier():
+    """"CMS complaint" must not count as naming a checkable record — if it
+    did, a vague absence claim would satisfy the identifier requirement."""
+    assert _identifier_tokens("no matching FIR record for the CMS complaint") == set()
+
+
+def test_exhaustive_chunk_texts_only_returns_declared_chunks():
+    chunks = [_listing_chunk(exhaustive=False), _listing_chunk(exhaustive=True)]
+    assert exhaustive_chunk_texts(chunks) == [_CMS_LINKAGE_LISTING]
+
+
+# ── (a) accepted over an exhaustive listing ────────────────────────────
+
+@pytest.mark.asyncio
+async def test_negative_inference_over_exhaustive_listing_is_accepted(monkeypatch):
+    """CR3's exact claim, CR3's exact rejection reason, over a listing the
+    caller declared complete: the answer is served."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(vmod, "call_llm", _rejecting_llm([_CR3_VERBATIM_REJECTION]))
+
+    result = await verify_grounding(
+        answer=(
+            "The two cases were not handled identically. FIR 64/26 has a matching "
+            "walk-in complaint linked via case tag CMS-ISB-2026-0341 [Document 1], "
+            "whereas FIR 65/26 does not appear in the CMS linkage list at all, so "
+            "it has no corresponding walk-in complaint [Document 1]."
+        ),
+        cited_chunks=[_listing_chunk(exhaustive=True)],
+        case_id="cross_case",
+    )
+    assert result["grounded"] is True
+    assert result["exhaustive_negative_override"] is True
+    assert result["unsupported_claims"] == []
+
+
+@pytest.mark.asyncio
+async def test_the_complete_listing_marker_reaches_the_judge_prompt():
+    """The prompt-side half of the fix: rule 7 keys on this exact marker, so
+    it has to actually appear in what the judge is shown."""
+    rendered = _format_chunks_for_verifier([_listing_chunk(exhaustive=True)])
+    assert "COMPLETE LISTING" in rendered
+    assert "COMPLETE LISTING" not in _format_chunks_for_verifier(
+        [_listing_chunk(exhaustive=False)]
+    )
+
+
+# ── (b) still rejected without the declaration ─────────────────────────
+
+@pytest.mark.asyncio
+async def test_same_claim_over_a_non_exhaustive_listing_is_still_rejected(monkeypatch):
+    """Identical answer, identical judge verdict, identical listing text —
+    the ONLY difference is that no caller declared it complete. A retrieved
+    fragment licenses no negative inference."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(vmod, "call_llm", _rejecting_llm([_CR3_VERBATIM_REJECTION]))
+
+    result = await verify_grounding(
+        answer=(
+            "FIR 65/26 does not appear in the CMS linkage list at all, so it has "
+            "no corresponding walk-in complaint [Document 1]."
+        ),
+        cited_chunks=[_listing_chunk(exhaustive=False)],
+        case_id="cross_case",
+    )
+    assert result["grounded"] is False
+    assert result.get("exhaustive_negative_override") is not True
+
+
+@pytest.mark.asyncio
+async def test_fabricated_negative_over_exhaustive_listing_is_still_rejected(monkeypatch):
+    """The listing CONTAINS fir-64-26. An answer asserting 64/26 is absent
+    from it is a fabricated negative and must not be rescued."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(
+        vmod,
+        "call_llm",
+        _rejecting_llm(
+            ["FIR 64/26's absence from the CMS linkage list is not supported by "
+             "Document 1, which lists CMS-ISB-2026-0341 → fir-64-26."]
+        ),
+    )
+
+    result = await verify_grounding(
+        answer="FIR 64/26 has no linked walk-in complaint — it does not appear "
+               "in the CMS linkage list [Document 1].",
+        cited_chunks=[_listing_chunk(exhaustive=True)],
+        case_id="cross_case",
+    )
+    assert result["grounded"] is False
+    assert result.get("exhaustive_negative_override") is not True
+
+
+# ── (c) a genuinely hallucinated synthesis is STILL rejected ───────────
+
+@pytest.mark.asyncio
+async def test_hallucinated_synthesis_is_still_rejected_over_exhaustive_listing(monkeypatch):
+    """
+    Module 17's live catch, re-run against an EXHAUSTIVE chunk: a
+    cross-chunk synthesis that misattributes names and case counts. This is
+    the test the brief calls non-optional — the exhaustive declaration must
+    buy a correct NEGATIVE and nothing else.
+    """
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(
+        vmod,
+        "call_llm",
+        _rejecting_llm(
+            [
+                "The answer attributes the complainant name سعد الرحمن to FIR "
+                "71/26, but Document 1 associates that name with no FIR at all.",
+                "The answer states 12 linked complaints; Document 1 states 4.",
+            ]
+        ),
+    )
+
+    result = await verify_grounding(
+        answer=(
+            "There are 12 linked walk-in complaints [Document 1], and the "
+            "complainant سعد الرحمن is recorded against FIR 71/26 [Document 1]."
+        ),
+        cited_chunks=[_listing_chunk(exhaustive=True)],
+        case_id="cross_case",
+    )
+    assert result["grounded"] is False
+    assert result.get("exhaustive_negative_override") is not True
+    assert len(result["unsupported_claims"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_a_mixed_rejection_is_not_overturned(monkeypatch):
+    """One valid negative AND one real hallucination: the override requires
+    EVERY flagged claim to qualify, so the rejection stands."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(
+        vmod,
+        "call_llm",
+        _rejecting_llm(
+            [
+                _CR3_VERBATIM_REJECTION,
+                "The answer states 12 linked complaints; Document 1 states 4.",
+            ]
+        ),
+    )
+
+    result = await verify_grounding(
+        answer="FIR 65/26 is absent from the list and there are 12 linked "
+               "complaints [Document 1].",
+        cited_chunks=[_listing_chunk(exhaustive=True)],
+        case_id="cross_case",
+    )
+    assert result["grounded"] is False
+
+
+@pytest.mark.asyncio
+async def test_override_never_beats_a_deterministic_pre_check(monkeypatch):
+    """Cross-case leakage, a fabricated CASE-ID, a missing hedge — none of
+    those are negotiable, exhaustive listing or not."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(vmod, "call_llm", _rejecting_llm([_CR3_VERBATIM_REJECTION]))
+
+    chunk = _listing_chunk(exhaustive=True)
+    chunk["metadata"]["case_id"] = "CASE-999"
+    result = await verify_grounding(
+        answer="FIR 65/26 is absent from the linkage list [Document 1].",
+        cited_chunks=[chunk],
+        case_id="CASE-001",
+    )
+    assert result["grounded"] is False
+    assert result["leaked_case_id"] == "CASE-999"
+
+
+@pytest.mark.asyncio
+async def test_an_off_topic_answer_is_never_overturned(monkeypatch):
+    import src.pipeline.verifier as vmod
+
+    async def fake_call(system_prompt, user_message, **kwargs):
+        return json.dumps(
+            {
+                "grounded": False,
+                "off_topic": True,
+                "leaked_case_id": None,
+                "unsupported_claims": [_CR3_VERBATIM_REJECTION],
+                "reason": "Generic non-answer.",
+            }
+        )
+
+    monkeypatch.setattr(vmod, "call_llm", fake_call)
+
+    result = await verify_grounding(
+        answer="FIR 65/26 is absent from the linkage list [Document 1].",
+        cited_chunks=[_listing_chunk(exhaustive=True)],
+        case_id="cross_case",
+    )
+    assert result["grounded"] is False
+
+
+# ── The Verifier and the Validation gate must agree ────────────────────
+
+@pytest.mark.asyncio
+async def test_validation_gate_agrees_with_the_verifier_on_the_same_claim(monkeypatch):
+    """
+    Module 61's second half. Before the fix these two gates disagreed about
+    the identical claim: the Verifier refused to serve the answer, while the
+    Validation gate (on the runs where the Verifier passed) attached "could
+    only be partially confirmed … does not mention FIR 65/26 or its absence
+    from the CMS list". Now one imported rule governs both.
+    """
+    import src.pipeline.validation as valmod
+    from src.pipeline.harness.types import ValidationStatus
+
+    async def fake_call(system_prompt, user_message, **kwargs):
+        return json.dumps(
+            [
+                {
+                    "pair_id": 1,
+                    "support": "partially_supported",
+                    "reason": (
+                        "The source confirms the CMS linkage for FIR 64/26 but does "
+                        "not mention FIR 65/26 or its absence from the CMS list."
+                    ),
+                }
+            ]
+        )
+
+    monkeypatch.setattr(valmod, "call_llm", fake_call)
+
+    answer = "FIR 65/26 does not appear in the CMS linkage list [Document 1]."
+    status, claims = await valmod.validate_answer(
+        answer_text=answer,
+        cited_chunks=[_listing_chunk(exhaustive=True)],
+        tier="full",
+    )
+    assert status == ValidationStatus.PASSED
+    assert valmod.caveats_for_validation(status, claims) == []
+
+
+@pytest.mark.asyncio
+async def test_validation_gate_still_caveats_without_the_exhaustive_marker(monkeypatch):
+    """The counterpart: no declaration, no upgrade, caveat preserved."""
+    import src.pipeline.validation as valmod
+    from src.pipeline.harness.types import ValidationStatus
+
+    async def fake_call(system_prompt, user_message, **kwargs):
+        return json.dumps(
+            [{"pair_id": 1, "support": "partially_supported",
+              "reason": "Does not mention FIR 65/26 or its absence."}]
+        )
+
+    monkeypatch.setattr(valmod, "call_llm", fake_call)
+
+    status, claims = await valmod.validate_answer(
+        answer_text="FIR 65/26 does not appear in the CMS linkage list [Document 1].",
+        cited_chunks=[_listing_chunk(exhaustive=False)],
+        tier="full",
+    )
+    assert status == ValidationStatus.ISSUES_FOUND
+    assert valmod.caveats_for_validation(status, claims)
+
+
+@pytest.mark.asyncio
+async def test_validation_gate_still_caveats_a_real_hallucination(monkeypatch):
+    """An exhaustive listing does not silence the validation gate generally."""
+    import src.pipeline.validation as valmod
+    from src.pipeline.harness.types import ValidationStatus
+
+    async def fake_call(system_prompt, user_message, **kwargs):
+        return json.dumps(
+            [{"pair_id": 1, "support": "not_supported",
+              "reason": "The source states 4 linked complaints, not 12."}]
+        )
+
+    monkeypatch.setattr(valmod, "call_llm", fake_call)
+
+    status, claims = await valmod.validate_answer(
+        answer_text="There are 12 linked walk-in complaints [Document 1].",
+        cited_chunks=[_listing_chunk(exhaustive=True)],
+        tier="full",
+    )
+    assert status == ValidationStatus.ISSUES_FOUND
+    assert valmod.caveats_for_validation(status, claims)
+
+
+# ── Direction: which record does the absence phrase name? ──────────────
+# Measured live (MODULE61_RESULT.md §4): the judge writes absence both ways
+# round — "…does not mention FIR 65/26" names its record AFTER the phrase,
+# "FIR 64/26 … does not appear" names it BEFORE. Resolving both the same way
+# would, on a sentence naming one present and one absent record, pick the
+# wrong one — which is precisely how a fabricated negative would get
+# confirmed.
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        # The verbatim reason Module 57 recorded, subject BEFORE the phrase.
+        _CR3_VERBATIM_REJECTION,
+        # Both live pre-fix rejection reasons captured on this branch's own
+        # control run (§4's before-table).
+        "Claims about FIR 65/26 absence from the linkage list and the "
+        "discrepancy in handling are not supported by any cited chunk.",
+        "The claim about FIR 65/26 lacking a complaint linkage relies on "
+        "absence from Document 3's list, which is not explicitly stated in "
+        "the chunk.",
+        # The live validation-gate reasons, subject AFTER the phrase.
+        "The source confirms FIR 64/26 is linked to a CMS complaint but does "
+        "not mention FIR 65/26 or its absence from the linkage list.",
+        "The source confirms FIR 64/26 is linked to a CMS complaint but does "
+        "not mention FIR 65/26 at all, making the claim about FIR 65/26 "
+        "unsupported.",
+    ],
+)
+def test_every_live_captured_absence_reason_resolves_to_the_absent_record(claim):
+    assert negative_claim_is_supported_by_exhaustive_listing(
+        claim, [_CMS_LINKAGE_LISTING]
+    ) is True
+
+
+@pytest.mark.parametrize(
+    "claim",
+    [
+        # Subject BEFORE, and it is a record the listing CONTAINS.
+        "FIR 64/26 absence from the CMS linkage list is not supported by "
+        "Document 1, which lists CMS-ISB-2026-0341 to fir-64-26.",
+        # Subject AFTER, same fabrication the other way round.
+        "Document 1 does not mention FIR 64/26.",
+        # A live validation reason about a STATUTE, not a listing membership:
+        # "PECA 2016" must not be mistaken for a record id.
+        "The source confirms the accused is linked to both FIR 64/26 and "
+        "65/26, but does not mention PECA 2016 or any statute in the "
+        "provided text.",
+        # The live G1 rejection reason (§7) — no absence phrase resolves.
+        "Two claims lack explicit support in the cited chunks: the alleged "
+        "data discrepancy and the 73-case total for seized property.",
+    ],
+)
+def test_reasons_that_must_not_be_rescued(claim):
+    assert negative_claim_is_supported_by_exhaustive_listing(
+        claim, [_CMS_LINKAGE_LISTING]
+    ) is False
+
+
+def test_a_statute_year_is_never_treated_as_the_absent_record():
+    """"PECA 2016" is a statute, not a record id. Only composite identifiers
+    ("65-26", "cms-isb-2026-0341") can be the subject of an absence claim —
+    otherwise any bare four-digit year in the claim would resolve as a
+    record that happens not to be in the listing."""
+    from src.pipeline.verifier import _identifier_spans
+
+    assert _identifier_spans("does not mention PECA 2016") == []
+    assert _identifier_spans("does not mention FIR 65/26")
+
+
+# ── Absence is absence FROM A PARTICULAR REGISTER ──────────────────────
+# The live bug this pins: CR3 hands the gates THREE complete listings at
+# once. FIR 65/26 legitimately appears in the filtered-FIR listing and is
+# genuinely absent from the CMS linkage listing. Checking them pooled made
+# every correct negative look fabricated, and the validation caveat stayed
+# on 5 of 5 runs (MODULE61_RESULT.md §4b).
+
+_FILTERED_FIR_LISTING = (
+    "2 FIR(s) match statute PECA 2016 at the cyber-crime circles: "
+    "fir-64-26, fir-65-26."
+)
+
+
+def _cr3_chunks():
+    """The real three-chunk shape, in the real order."""
+    return [
+        {"id": "subquery-1", "text": _FILTERED_FIR_LISTING,
+         "metadata": {"source": "Sub-question: which FIRs?",
+                      EXHAUSTIVE_SCOPE_META_KEY: True}},
+        {"id": "subquery-2", "text": "4 recurring Person(s): عاصم رشید appears in 2 cases.",
+         "metadata": {"source": "Sub-question: recurring persons?",
+                      EXHAUSTIVE_SCOPE_META_KEY: True}},
+        {"id": "subquery-3", "text": _CMS_LINKAGE_LISTING,
+         "metadata": {"source": "Sub-question: CMS linkage?",
+                      EXHAUSTIVE_SCOPE_META_KEY: True}},
+    ]
+
+
+def test_a_claim_is_checked_against_the_listing_it_names():
+    from src.pipeline.verifier import listings_a_claim_is_about
+
+    chunks = _cr3_chunks()
+    assert listings_a_claim_is_about(_CR3_VERBATIM_REJECTION, chunks) == [
+        _CMS_LINKAGE_LISTING
+    ]
+    # No document named: fall back to every listing, which is strictly more
+    # conservative than guessing one.
+    assert len(listings_a_claim_is_about("FIR 65/26 is absent.", chunks)) == 3
+
+
+def test_a_claim_pinned_to_a_non_exhaustive_document_licenses_nothing():
+    from src.pipeline.verifier import listings_a_claim_is_about
+
+    chunks = _cr3_chunks()
+    chunks[2]["metadata"].pop(EXHAUSTIVE_SCOPE_META_KEY)
+    assert listings_a_claim_is_about(_CR3_VERBATIM_REJECTION, chunks) == []
+
+
+@pytest.mark.asyncio
+async def test_the_negative_survives_a_sibling_listing_that_names_the_record(monkeypatch):
+    """65/26 IS in Document 1 and is NOT in Document 3. The claim is about
+    Document 3, so it is supported — even though a sibling listing names the
+    same record for a different question."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(vmod, "call_llm", _rejecting_llm([_CR3_VERBATIM_REJECTION]))
+
+    result = await verify_grounding(
+        answer="FIR 65/26 does not appear in the CMS linkage list [Document 3].",
+        cited_chunks=_cr3_chunks(),
+        case_id="cross_case",
+    )
+    assert result["grounded"] is True
+    assert result["exhaustive_negative_override"] is True
+
+
+@pytest.mark.asyncio
+async def test_a_negative_about_a_listing_that_contains_the_record_still_fails(monkeypatch):
+    """The same three chunks, but the claim is about Document 1 — which DOES
+    contain fir-65-26. That is a fabricated negative and must stand rejected."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(
+        vmod,
+        "call_llm",
+        _rejecting_llm(
+            ["The claim about FIR 65/26's absence is not supported by Document 1."]
+        ),
+    )
+
+    result = await verify_grounding(
+        answer="FIR 65/26 does not appear in the FIR listing [Document 1].",
+        cited_chunks=_cr3_chunks(),
+        case_id="cross_case",
+    )
+    assert result["grounded"] is False
+
+
+@pytest.mark.asyncio
+async def test_validation_upgrade_uses_the_claims_own_document(monkeypatch):
+    """The live shape from §4b: the flagged claim cites [Document 3], and its
+    reason is the CMS-linkage negative. The caveat must disappear."""
+    import src.pipeline.validation as valmod
+    from src.pipeline.harness.types import ValidationStatus
+
+    async def fake_call(system_prompt, user_message, **kwargs):
+        return json.dumps(
+            [{"pair_id": 1, "support": "partially_supported",
+              "reason": ("The source confirms FIR 64/26 is linked to "
+                         "CMS-ISB-2026-0341 but does not mention FIR 65/26 at "
+                         "all, so the claim about its absence is unsupported.")}]
+        )
+
+    monkeypatch.setattr(valmod, "call_llm", fake_call)
+
+    status, claims = await valmod.validate_answer(
+        answer_text="FIR 65/26 does not appear in the CMS linkage list [Document 3].",
+        cited_chunks=_cr3_chunks(),
+        tier="full",
+    )
+    assert status == ValidationStatus.PASSED
+    assert valmod.caveats_for_validation(status, claims) == []
+
+
+# ============================================================
+# [Gold-QA fix - Module 101] Attribution by source name
+#
+# The live KB9 answer that `_check_no_citation()` discarded is reproduced
+# below VERBATIM (`docs/gold-qa-wave2-results/module101_before.json`, run 1),
+# together with the real source labels of the window it was generated from.
+# The three "is served" tests fail on the code as it stood before this module
+# and pass after; the five "is still rejected" tests pass in BOTH directions,
+# which is what makes them a guard rather than a restatement of the change.
+# ============================================================
+
+_M101_KB9_SOURCES = [
+    "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+    "4_Punjab-Police-Rules-III.pdf",
+    "our own case records (cross-case aggregate)",
+]
+
+# The composed data-half chunk's own rendering, from
+# `xagg.py::render_fir_section_case_count` on the live corpus.
+_M101_DATA_HALF_TEXT = (
+    "10 of the 73 FIR(s) that carry a recorded section cite PPC 302.\n"
+    "  - fir-202-26, fir-213-26, fir-214-26, fir-218-26, fir-340-25\n"
+    "For context, the sections most often cited:\n"
+    "  - PPC 34: 40 FIR(s)\n"
+    "  - PPC 302: 10 FIR(s)\n"
+)
+
+# Verbatim, the answer the shipped verifier threw away.
+_M101_KB9_ANSWER = (
+    "### Legal Requirement:\n"
+    "According to the **Code of Criminal Procedure (Pakistan)**, when a person "
+    "dies while in the custody of the police or under certain other conditions, "
+    "the police are required to conduct an inquiry into the cause of death. This "
+    "is outlined in **Section 174** of the Code of Criminal Procedure. "
+    "Additionally, **Section 176** provides that in cases where a person dies "
+    "while in police custody, the nearest magistrate empowered to hold inquests "
+    "shall conduct an inquiry into the cause of death.\n\n"
+    "### Case Records Summary:\n"
+    "According to **our own case records (cross-case aggregate)**, **10 of the 73 "
+    "FIR(s)** that carry a recorded section cite **PPC 302**, which pertains to "
+    "murder. However, the summary does **not** provide specific information on "
+    "whether the police conducted detailed inquiries into the cause of death."
+)
+
+
+def _m101_chunks():
+    return [
+        {"id": "cr-pc-35",
+         "text": "174. Police to inquire and report on suicide, etc.",
+         "metadata": {"source": _M101_KB9_SOURCES[0]}},
+        {"id": "ppr-1561",
+         "text": "25.31. Information of a death in suspicious circumstances.",
+         "metadata": {"source": _M101_KB9_SOURCES[1]}},
+        {"id": "kb-data-half:death_investigation_charging",
+         "text": _M101_DATA_HALF_TEXT,
+         "metadata": {"source": _M101_KB9_SOURCES[2], "source_tool": "XAGG"}},
+    ]
+
+
+def _m101_passing_llm(reason="All claims are directly supported by cited chunks."):
+    async def fake_call(system_prompt, user_message, **kwargs):
+        return json.dumps(
+            {
+                "grounded": True,
+                "off_topic": False,
+                "leaked_case_id": None,
+                "unsupported_claims": [],
+                "reason": reason,
+            }
+        )
+
+    return fake_call
+
+
+def test_module101_normalises_an_ingest_filename_to_the_form_prose_writes():
+    from src.pipeline.verifier import _normalise_source_label
+
+    assert (
+        _normalise_source_label("1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf")
+        == "code of criminal procedure (pakistan)"
+    )
+    assert _normalise_source_label("4_Punjab-Police-Rules-III.pdf") == "punjab police rules iii"
+    assert (
+        _normalise_source_label("our own case records (cross-case aggregate)")
+        == "our own case records (cross case aggregate)"
+    )
+
+
+def test_module101_a_label_too_short_or_generic_is_refused():
+    """The floor is what stops the exemption being trivially satisfiable: an
+    answer containing the word "unknown" must never count as attribution."""
+    from src.pipeline.verifier import _normalise_source_label
+
+    assert _normalise_source_label("unknown") is None
+    assert _normalise_source_label("entity_graph") is None
+    assert _normalise_source_label("") is None
+    assert _normalise_source_label(None) is None
+    # Three tokens, but under the character floor.
+    assert _normalise_source_label("a_b_c.pdf") is None
+
+
+def test_module101_finds_the_named_source_across_separator_differences():
+    from src.pipeline.verifier import _answer_names_a_cited_source
+
+    assert (
+        _answer_names_a_cited_source(_M101_KB9_ANSWER, _m101_chunks())
+        == "code of criminal procedure (pakistan)"
+    )
+    assert (
+        _answer_names_a_cited_source(
+            "As Punjab Police Rules-III requires, the register is permanent.",
+            _m101_chunks(),
+        )
+        == "punjab police rules iii"
+    )
+    # The composed data-half chunk's own label is recognised like any other.
+    assert (
+        _answer_names_a_cited_source(
+            "According to our own case records (cross-case aggregate), 10 FIRs cite PPC 302.",
+            _m101_chunks(),
+        )
+        == "our own case records (cross case aggregate)"
+    )
+
+
+def test_module101_an_answer_naming_no_cited_source_is_not_attribution():
+    from src.pipeline.verifier import _answer_names_a_cited_source
+
+    assert (
+        _answer_names_a_cited_source(
+            "Under the Anti-Terrorism Act 1997 the accused must be produced within 24 hours.",
+            _m101_chunks(),
+        )
+        is None
+    )
+
+
+@pytest.mark.asyncio
+async def test_module101_kb9_answer_is_served_instead_of_discarded(monkeypatch):
+    """The defect, as a test. Before this module the identical call returned
+    grounded=False / off_topic=True and the sub-agent discarded the answer."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(vmod, "call_llm", _m101_passing_llm())
+
+    result = await verify_grounding(
+        answer=_M101_KB9_ANSWER,
+        cited_chunks=_m101_chunks(),
+        case_id=None,
+    )
+    assert result["grounded"] is True
+    assert result["off_topic"] is False
+    assert result[CITATION_FORMAT_DEGRADED_KEY] is True
+    assert result["named_source"] == "code of criminal procedure (pakistan)"
+    assert result["refusal_detected"] is False
+
+
+@pytest.mark.asyncio
+async def test_module101_the_exemption_is_never_silent(monkeypatch):
+    """What the exemption gives up (claim-level traceability) has to reach the
+    caller, or the reader is told the answer is better sourced than it is."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(vmod, "call_llm", _m101_passing_llm())
+    result = await verify_grounding(
+        answer=_M101_KB9_ANSWER, cited_chunks=_m101_chunks(), case_id=None
+    )
+    assert result.get(CITATION_FORMAT_DEGRADED_KEY) is True
+
+
+@pytest.mark.asyncio
+async def test_module101_a_cited_answer_is_not_flagged_as_degraded(monkeypatch):
+    """The ordinary case is unchanged: an answer that DOES carry [Document N]
+    never reaches this code at all."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(vmod, "call_llm", _m101_passing_llm())
+    result = await verify_grounding(
+        answer=(
+            "Section 174 of the Code of Criminal Procedure (Pakistan) requires an "
+            "inquiry into the cause of death [Document 1]. Our own records show 10 "
+            "of 73 FIRs cite PPC 302 [Document 3]."
+        ),
+        cited_chunks=_m101_chunks(),
+        case_id=None,
+    )
+    assert result["grounded"] is True
+    assert CITATION_FORMAT_DEGRADED_KEY not in result
+
+
+@pytest.mark.asyncio
+async def test_module101_an_evasive_answer_naming_nothing_is_still_rejected(monkeypatch):
+    """Condition (a). The check's original target, a long answer that names no
+    source it was given, is untouched."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(vmod, "call_llm", _m101_passing_llm())
+    result = await verify_grounding(
+        answer=(
+            "Police procedure in such matters is generally governed by the "
+            "applicable criminal statutes and departmental standing orders. In "
+            "practice the officer in charge would open an inquiry, record the "
+            "circumstances, and forward the matter onward for further action by "
+            "the competent authority as the situation may require."
+        ),
+        cited_chunks=_m101_chunks(),
+        case_id=None,
+    )
+    assert result["grounded"] is False
+    assert result["off_topic"] is True
+    assert "cites no [Document N]" in result["reason"]
+
+
+@pytest.mark.asyncio
+async def test_module101_a_fabrication_is_still_rejected_even_when_it_names_a_source(monkeypatch):
+    """Condition (b), and the brief's non-negotiable. Module 82's forced
+    fabrication shape, an invented rule number and an invented FIR id,
+    rewritten so it ALSO names a real cited source and therefore satisfies
+    (a). The judge flags it, so it must still be rejected."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(
+        vmod,
+        "call_llm",
+        _rejecting_llm(
+            ["Rule 27.41(3) appears in no cited chunk.",
+             "FIR 512/26 is not in any cited chunk."]
+        ),
+    )
+    result = await verify_grounding(
+        answer=(
+            "Under rule 27.41(3) of the Punjab Police Rules-III, every article of "
+            "case property must be destroyed exactly seven years after the register "
+            "is closed. Our own case records (cross-case aggregate) are fully "
+            "compliant: the audit confirmed no entry has ever been retained past "
+            "that limit."
+        ),
+        cited_chunks=_m101_chunks(),
+        case_id=None,
+    )
+    assert result["grounded"] is False
+    assert CITATION_FORMAT_DEGRADED_KEY not in result
+    assert result["unsupported_claims"]
+
+
+@pytest.mark.asyncio
+async def test_module101_a_genuine_refusal_is_never_exempted(monkeypatch):
+    """`_check_refusal()` is evaluated separately and is not part of the
+    exemption at all, so a refusal that happens to name a source still fails."""
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(vmod, "call_llm", _m101_passing_llm())
+    result = await verify_grounding(
+        answer=(
+            "I cannot answer this question. The Code of Criminal Procedure "
+            "(Pakistan) material is not publicly available and I do not have "
+            "access to the information required to respond to this request in any "
+            "meaningful way whatsoever."
+        ),
+        cited_chunks=_m101_chunks(),
+        case_id=None,
+    )
+    assert result["grounded"] is False
+    assert result["refusal_detected"] is True
+    assert CITATION_FORMAT_DEGRADED_KEY not in result
+
+
+@pytest.mark.asyncio
+async def test_module101_a_deterministic_pre_check_still_overrules_the_exemption(monkeypatch):
+    """A temporal finding (the chunk is not yet in force) is a deterministic
+    pre-check, and it must beat the exemption even though the answer names a
+    real cited source and the judge cleared every claim.
+
+    `_check_fabricated_case_ids()` cannot be used for this test and that is a
+    finding, not a shortcut: it only inspects `[Document N, CASE-ID]`
+    citations, so by construction it can never fire on an answer that carries
+    no `[Document N]` marker at all. That is why the exemption is gated on the
+    judge as well as on the source name -- the one deterministic check aimed
+    at invented identifiers is blind on exactly this path (filed as Module 102).
+    """
+    import src.pipeline.verifier as vmod
+
+    monkeypatch.setattr(vmod, "call_llm", _m101_passing_llm())
+    chunks = _m101_chunks()
+    chunks[0]["metadata"]["effective_from"] = 2030
+
+    result = await verify_grounding(
+        answer=_M101_KB9_ANSWER,
+        cited_chunks=chunks,
+        case_id=None,
+        target_date=2026,
+    )
+    assert result["grounded"] is False
+    assert CITATION_FORMAT_DEGRADED_KEY not in result
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Gold-QA fix — Module 70: THE OPPOSITE DIRECTION.
+#
+# `verify_structured_aggregate_paraphrase()` computed only
+# `ans_nums - src_nums` — a one-directional set difference that catches
+# every INVENTED number and structurally cannot see an OMITTED one. Module
+# 83's three-way capture over nine M2 runs measured the aggregate payload
+# and the rendered `raw_summary_text` carrying gold's headline on 9 of 9,
+# byte-identical, and the served paraphrase dropping it on 9 of 9 with the
+# gate logging `grounded=True unsupported_numbers=[]` every time.
+#
+# The tests below pin BOTH directions, because the whole risk of this
+# module is weakening the first one while adding the second.
+# ═══════════════════════════════════════════════════════════════════════
+
+_M2_HEADLINE = (
+    "Growth: caseload is rising fastest at the 15 general-purpose station(s) — "
+    "7 FIRs in 2024 to 39 in 2026, against 3 to 5 at the 2 single-crime-type "
+    "station(s) — though even so, 9 of 73 FIRs (~12.3%) are carried by just 2 "
+    "of 19 stations, the ones set up for a single type of crime.\n"
+    "\n"
+    "9 of 73 FIRs (~12.3%) are filed at the 2 of 19 stations set up for one "
+    "specific type of crime:\n"
+    "  - سائبر کرائم سرکل کراچی (PS-KHI-CYB): 5 FIRs\n"
+)
+
+# Verbatim from Module 83's layer-3 capture — the paraphrase served on 9 of
+# 9 M2 runs, reproduced on this branch's own runs of 2026-09-10.
+_M2_SERVED_PARAPHRASE = (
+    "The caseload is growing faster at the general-purpose stations. "
+    "Specifically, the 15 general-purpose stations saw an increase from 7 FIRs "
+    "in 2024 to 39 FIRs in 2026. In contrast, the 2 stations set up for one "
+    "specific type of crime saw a much slower increase, from 3 FIRs in 2024 to "
+    "5 FIRs in 2026 [Document 1]."
+)
+
+
+@pytest.mark.asyncio
+async def test_module70_the_live_m2_paraphrase_is_reported_as_omitting_its_headline():
+    """FAILS BEFORE THIS MODULE (the key is absent), PASSES AFTER."""
+    result = await verify_structured_aggregate_paraphrase(
+        answer=_M2_SERVED_PARAPHRASE,
+        source_text=_M2_HEADLINE,
+        case_id="cross_case",
+    )
+    # Both halves of both proportions are reported, because a repair pass
+    # has to restate the whole proportion, not the absent digit.
+    assert result["omitted_source_figures"] == ["19", "2", "73", "9"]
+    assert result["omitted_source_headline"].startswith("Growth: caseload is rising")
+
+
+@pytest.mark.asyncio
+async def test_module70_omission_does_not_flip_grounded_or_add_unsupported_claims():
+    """The signal is ADDITIVE. An omission is a completeness shortfall, not
+    a grounding failure — making it fail the gate would route a good prose
+    answer into the raw computed dump on every question that trips it."""
+    result = await verify_structured_aggregate_paraphrase(
+        answer=_M2_SERVED_PARAPHRASE,
+        source_text=_M2_HEADLINE,
+        case_id="cross_case",
+    )
+    assert result["grounded"] is True
+    assert result["unsupported_claims"] == []
+    assert "Paraphrase numbers match the computed source" in result["reason"]
+
+
+@pytest.mark.asyncio
+async def test_module70_a_paraphrase_that_keeps_the_proportion_is_not_flagged():
+    result = await verify_structured_aggregate_paraphrase(
+        answer=(
+            "Caseload is rising fastest at the general-purpose stations, but even "
+            "so 9 of 73 FIRs are carried by just 2 of 19 stations [Document 1]."
+        ),
+        source_text=_M2_HEADLINE,
+        case_id="cross_case",
+    )
+    assert result["grounded"] is True
+    assert result["omitted_source_figures"] == []
+
+
+@pytest.mark.asyncio
+async def test_module70_the_invented_number_direction_still_fires():
+    """THE POINT OF THIS TEST: Module 70 ADDS a second, opposite-direction
+    check; it does not relax the hallucination guard. Module 101 measured
+    that guard correctly rejecting invented rule numbers, invented FIR
+    numbers and a fabricated negative — an answer that carries the whole
+    proportion AND invents a number must still be rejected."""
+    result = await verify_structured_aggregate_paraphrase(
+        answer=(
+            "9 of 73 FIRs are carried by just 2 of 19 stations, and 61 of them "
+            "reached the trial stage [Document 1]."
+        ),
+        source_text=_M2_HEADLINE,
+        case_id="cross_case",
+    )
+    assert result["grounded"] is False
+    assert "61" in result["reason"]
+    assert result["omitted_source_figures"] == []
+
+
+# ── the three ways the rule is deliberately NARROW ──────────────────────
+#
+# Each of these is a live false positive a naive "every headline figure
+# must appear" rule produced on the 32-question sweep of 2026-09-10.
+
+def test_module70_a_statute_year_in_a_note_line_is_not_a_proportion():
+    """CR3/KB1/KB8: the headline is a NOTE, and its only digits are the
+    "1997" of "CNSA 1997" and the "1965" of "Arms Ordinance 1965"."""
+    src = (
+        "NOTE: Grouped by the statute(s) each case was registered under "
+        "(e.g. PPC, CNSA 1997, Arms Ordinance 1965), not by crime type.\n"
+        "- PPC: 25 cases\n"
+    )
+    assert _omitted_headline_proportions("There are 25 PPC cases.", src) == []
+
+
+def test_module70_a_bare_headline_total_is_not_a_proportion():
+    """S3/CR2/KB2/KB9 lead with "**4 matching Person(s) found.**", and M5
+    with "32 case(s) recorded a recovered weapon". A count survives being
+    summarised away; a ratio does not."""
+    assert _omitted_headline_proportions(
+        "Two people appear in more than one case.", "**4 matching Person(s) found.**\n- ...\n"
+    ) == []
+    assert _omitted_headline_proportions(
+        "In 2024, 13 cases recovered a weapon; in 2026, 19 did.",
+        "32 case(s) recorded a recovered weapon. What those cases were charged under:\n",
+    ) == []
+
+
+def test_module70_an_answer_that_states_no_headline_figure_is_left_alone():
+    """KB2/KB9's shape: the sub-agent correctly says the computed aggregate
+    does not address the question. That is not a paraphrase that dropped a
+    finding, and pushing figures into it would manufacture a claim."""
+    assert _omitted_headline_proportions(
+        "The provided document does not address how causes of death are investigated.",
+        "9 of 73 FIRs are carried by 2 of 19 stations.\n",
+    ) == []
+
+
+def test_module70_only_the_headline_line_is_covered_not_every_rendered_row():
+    """A per-district breakdown states a proportion on every row. An answer
+    is prose, not a table, and is not required to recite all of them —
+    Module 104 records that pushing answers into list shape trips a
+    different gate entirely."""
+    src = (
+        "Weapon recovery by district:\n"
+        "- Karachi: 3 of 12 cases recovered a weapon (~25%)\n"
+        "- Lahore: 7 of 20 cases recovered a weapon (~35%)\n"
+    )
+    assert _omitted_headline_proportions("Recovery rates vary by district.", src) == []
+
+
+def test_module70_headline_line_skips_leading_blank_lines():
+    assert _headline_line("\n\n  9 of 73 FIRs.\n- row\n") == "9 of 73 FIRs."
+    assert _headline_line("") == ""
