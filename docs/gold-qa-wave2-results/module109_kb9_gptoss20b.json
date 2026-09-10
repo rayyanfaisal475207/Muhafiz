@@ -1,0 +1,62 @@
+[
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 0,
+  "metric": "FactualCorrectness",
+  "model": "openai/gpt-oss-20b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.0,
+  "elapsed_s": 4.7,
+  "reason": "The actual answer states that the system records information about deaths and the investigation of cause of death, which directly contradicts the expected output that the schema does not record inquest, post‑mortem, or cause‑of‑death details. It also omits the key fact that the system only records t"
+ },
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 1,
+  "metric": "FactualCorrectness",
+  "model": "openai/gpt-oss-20b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.0,
+  "elapsed_s": 3.8,
+  "reason": "The actual answer states that the system records information about deaths and the investigation of cause of death, which directly contradicts the expected output that the schema does not record inquest, post‑mortem, or cause‑of‑death details. It also omits the key fact that the system only records t"
+ },
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 2,
+  "metric": "FactualCorrectness",
+  "model": "openai/gpt-oss-20b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 3.9,
+  "reason": "The actual answer claims the system records cause‑of‑death investigations, while the expected answer explicitly states that the schema does not contain inquest, post‑mortem or cause‑of‑death records. This is a direct contradiction in the type of information recorded. Additionally, the actual output "
+ },
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 3,
+  "metric": "FactualCorrectness",
+  "model": "openai/gpt-oss-20b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 3.9,
+  "reason": "The actual output incorrectly claims that the system records cause‑of‑death investigations, whereas the expected output clearly states that the schema does not capture inquest, post‑mortem, or cause‑of‑death records. This is a direct contradiction in kind. Additionally, the actual answer omits the s"
+ },
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 4,
+  "metric": "FactualCorrectness",
+  "model": "openai/gpt-oss-20b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.0,
+  "elapsed_s": 6.0,
+  "reason": "The actual output claims the system records cause‑of‑death investigations, whereas the expected output explicitly states that the schema does not capture inquest, post‑mortem, or cause‑of‑death records—only that a death was claimed. This direct contradiction of a key fact in the expected answer warr"
+ }
+]

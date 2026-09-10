@@ -1,0 +1,62 @@
+[
+ {
+  "id": "M7",
+  "pass": 1,
+  "draw": 0,
+  "metric": "FactualCorrectness",
+  "model": "openai/gpt-oss-20b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 4.2,
+  "reason": "The actual output correctly states the key facts: 2024 mean 15.0 minutes, 2026 mean 1401.3 minutes, and that reporting is slower in 2026. The only difference is the opening word (“No” vs “Haan”), which is exempted by the evaluation rule that focuses on substantive agreement. All requested counts, ti"
+ },
+ {
+  "id": "M7",
+  "pass": 1,
+  "draw": 1,
+  "metric": "FactualCorrectness",
+  "model": "openai/gpt-oss-20b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 4.0,
+  "reason": "The actual output correctly reports the same mean times (15.0 minutes in 2024, 1401.3 minutes in 2026) and the same direction of change (reporting became much slower). The only difference is the opening polarity, which the evaluation rules allow to be ignored when the substantive facts agree."
+ },
+ {
+  "id": "M7",
+  "pass": 1,
+  "draw": 2,
+  "metric": "FactualCorrectness",
+  "model": "openai/gpt-oss-20b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 3.6,
+  "reason": "The actual output correctly states the key facts: 2024 mean 15.0 minutes, 2026 mean 1401.3 minutes, and the number of FIRs. It matches the expected numbers and the substantive claim that reporting slowed dramatically. The only difference is the opening word “No” versus “Haan,” which is explicitly ex"
+ },
+ {
+  "id": "M7",
+  "pass": 1,
+  "draw": 3,
+  "metric": "FactualCorrectness",
+  "model": "openai/gpt-oss-20b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 3.7,
+  "reason": "The actual output correctly reports the same mean times (15.0 minutes in 2024, 1401.3 minutes in 2026) and the same direction of change (reporting became much slower). The only difference is the opening polarity, which the evaluation rules allow to be ignored when the substantive facts agree."
+ },
+ {
+  "id": "M7",
+  "pass": 1,
+  "draw": 4,
+  "metric": "FactualCorrectness",
+  "model": "openai/gpt-oss-20b",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 3.7,
+  "reason": "The actual output correctly reports the same mean times (15.0 minutes in 2024, 1401.3 minutes in 2026) and the same direction of change (reporting became much slower). The only difference is the opening polarity, which the evaluation rules allow to be ignored when the substantive facts agree."
+ }
+]

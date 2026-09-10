@@ -1,0 +1,62 @@
+[
+ {
+  "id": "M7",
+  "pass": 1,
+  "draw": 0,
+  "metric": "FactualCorrectness",
+  "model": "groq/compound-mini",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 5.7,
+  "reason": "The actual output provides the same key facts as the expected output: 2024 mean reporting time 15.0 minutes, 2026 mean reporting time 1401.3 minutes, and that 2026 is much slower. The opposite opening word ('No' vs 'Haan') does not constitute an error because the substantive claim matches. No key fa"
+ },
+ {
+  "id": "M7",
+  "pass": 1,
+  "draw": 1,
+  "metric": "FactualCorrectness",
+  "model": "groq/compound-mini",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 5.0,
+  "reason": "The expected output's key facts are the average reporting times (2024 = 15.0 min, 2026 = 1401.3 min) and that there is a large difference. The actual output states the same two averages, cites the same values, and conveys that reporting is much slower in 2026. Although the opening yes/no word differ"
+ },
+ {
+  "id": "M7",
+  "pass": 1,
+  "draw": 2,
+  "metric": "FactualCorrectness",
+  "model": "groq/compound-mini",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 5.0,
+  "reason": "The actual output states the same key facts as the expected output: 2024 average 15.0 minutes, 2026 average 1401.3 minutes, and that reporting is much slower in 2026. Although it uses a opposite opening word ('No' vs 'Haan'), step 5 exempts this because the substantive claim and numbers match, so th"
+ },
+ {
+  "id": "M7",
+  "pass": 1,
+  "draw": 3,
+  "metric": "FactualCorrectness",
+  "model": "groq/compound-mini",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 9.4,
+  "reason": "The actual output states the same substantive claim as the expected output—that reporting slowed dramatically in 2026—and provides the identical average times (15.0 min in 2024, 1401.3 min in 2026). Although it opens with \"No\" instead of \"Haan,\" the direction of the change and the figures match, and"
+ },
+ {
+  "id": "M7",
+  "pass": 1,
+  "draw": 4,
+  "metric": "FactualCorrectness",
+  "model": "groq/compound-mini",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 1.0,
+  "elapsed_s": 5.3,
+  "reason": "The actual output provides the same average times (15.0 min for 2024, 1401.3 min for 2026) and the same direction of change as the expected output. Although it starts with \"No\" versus the expected \"Haan, bohat zyada farq se,\" both assert that reporting in 2026 is much slower than in 2024, satisfying"
+ }
+]

@@ -1,0 +1,62 @@
+[
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 0,
+  "metric": "FactualCorrectness",
+  "model": "groq/compound-mini",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.1,
+  "elapsed_s": 10.1,
+  "reason": "The expected answer lists the legal provision (Code of Criminal Procedure 174), cites 10 murder FIRs, and notes that the schema contains no inquest or cause‑of‑death records. The actual output does not mention the legal provision or the FIR count, and it claims the system records cause‑of‑death deta"
+ },
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 1,
+  "metric": "FactualCorrectness",
+  "model": "groq/compound-mini",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.1,
+  "elapsed_s": 4.8,
+  "reason": "The expected answer lists specific legal requirements (CrPC 174), cites 10 murder FIRs and notes the schema lacks any inquest/post‑mortem or cause‑of‑death records. The actual answer claims the system does record death information and investigations, mentions four individuals, and says details are m"
+ },
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 2,
+  "metric": "FactualCorrectness",
+  "model": "groq/compound-mini",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.1,
+  "elapsed_s": 5.0,
+  "reason": "The expected answer lists the legal provision (CrPC 174), cites 10 FIRs and notes that the schema lacks any inquest/post‑mortem or cause‑of‑death records. The actual answer does not mention the law or the FIR count, and it incorrectly states that the system records cause‑of‑death information, contra"
+ },
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 3,
+  "metric": "FactualCorrectness",
+  "model": "groq/compound-mini",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.2,
+  "elapsed_s": 22.1,
+  "reason": "The expected output lists specific key facts: the legal requirement (Code of Criminal Procedure 1898 §174), the need for a cause‑of‑death report with injury details, the number of FIRs (10 murder FIRs), and the absence of inquest/post‑mortem records in the schema. The actual output does not mention "
+ },
+ {
+  "id": "KB9",
+  "pass": 1,
+  "draw": 4,
+  "metric": "FactualCorrectness",
+  "model": "groq/compound-mini",
+  "provider": "groq",
+  "prompt": "new",
+  "score": 0.1,
+  "elapsed_s": 5.3,
+  "reason": "The expected output lists specific legal provisions (Code of Criminal Procedure 1898 §174), case counts (10 FIRs) and notes that the schema lacks any inquest or cause‑of‑death records. The actual output does not mention the legal provision or case counts and instead claims the system records death i"
+ }
+]
