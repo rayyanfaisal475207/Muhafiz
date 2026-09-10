@@ -12,7 +12,7 @@ maintained incrementally on ingest by `fulltext_index.maintain()`, called from
 
 Nothing keeps the two stores in step in the *other* direction:
 
-  * `ChromaVectorStore.drop_and_recreate()` (src/retrieval/vector_store.py:136,
+  * `ChromaVectorStore.drop_and_recreate()` (src/retrieval/vector_store.py:141,
     reached by `reset_collection()` and by `scripts/reset_evidence_state.py`'s
     `_reset_chroma()`) empties the Chroma collection and does not touch
     `chunk_fulltext` at all. `scripts/reset_evidence_state.py::_reset_postgres()`

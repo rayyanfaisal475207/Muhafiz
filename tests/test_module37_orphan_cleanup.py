@@ -126,7 +126,7 @@ def test_the_guard_threshold_is_below_the_real_corpus(monkeypatch):
 #
 # Module 37's deletion is a CLEANUP, not a fix: nothing in the code prevents
 # the rows coming back. Both tests below assert the current, defective
-# behaviour, so that closing either defect (134 / 135) fails here and whoever
+# behaviour, so that closing either defect (139 / 140) fails here and whoever
 # closes it is pointed at this module's result file.
 
 
@@ -135,11 +135,11 @@ def _src(rel: str) -> str:
         return fh.read()
 
 
-def test_module37_defect_134_resetting_chroma_does_not_clear_chunk_fulltext():
+def test_module37_defect_139_resetting_chroma_does_not_clear_chunk_fulltext():
     """`drop_and_recreate()` empties the Chroma collection; `chunk_fulltext` is
     untouched, so EVERY row in the BM25 index becomes an orphan. Same for
     scripts/reset_evidence_state.py, which enumerates the Postgres tables it
-    clears and does not list chunk_fulltext. Filed as defect 134 —
+    clears and does not list chunk_fulltext. Filed as defect 139 —
     docs/gold-qa-wave2-results/MODULE37_RESULT.md §5."""
     vs = _src("src/retrieval/vector_store.py")
     body = vs.split("def drop_and_recreate", 1)[1].split("\n    def ", 1)[0]
@@ -148,13 +148,13 @@ def test_module37_defect_134_resetting_chroma_does_not_clear_chunk_fulltext():
     assert "chunk_fulltext" not in reset
 
 
-def test_module37_defect_135_reingest_never_deletes_the_previous_ingestions_rows():
+def test_module37_defect_140_reingest_never_deletes_the_previous_ingestions_rows():
     """`Document._generate_id()` hashes the first 200 characters of the
     extracted text, so a change to extraction or chunking yields a DIFFERENT
     doc_id — and `upsert_documents()` only ever calls `fulltext_index.maintain()`
     per new chunk. The previous ingestion's rows are never deleted; they simply
     stop resolving in Chroma. This is exactly what produced the CrPC's 2,243
-    `…_0519abd8_` orphans. Filed as defect 135."""
+    `…_0519abd8_` orphans. Filed as defect 140."""
     doc = _src("src/ingestion/document.py")
     assert "self.text[:200]" in doc
     vs = _src("src/retrieval/vector_store.py")

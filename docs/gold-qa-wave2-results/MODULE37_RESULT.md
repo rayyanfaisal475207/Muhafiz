@@ -28,7 +28,7 @@ is wrong regardless of what it scores, both stores are now exactly in sync at
 **7,716 = 7,716** in both directions, and one gold question (**KB5**) genuinely
 recovered. But this is a **cleanup, not a fix**, on two counts: KB2's claim
 does not survive measurement, and **nothing in the code prevents the rows
-coming back** (§5, new defects 134 and 135).
+coming back** (§5, new defects 139 and 140).
 
 ---
 
@@ -54,7 +54,7 @@ as `f9908363`. Raw ids: `module37_orphan_ids.json`.
 `chunk_fulltext` is maintained **forward only**. `fulltext_index.maintain()` is
 called per chunk from `vector_store.upsert_documents()`; nothing removes a row
 when the corresponding Chroma id goes away. Two distinct paths produce orphans,
-and **both are still open** — filed as defects **134** and **135** in §8:
+and **both are still open** — filed as defects **139** and **140** in §8:
 
 * **`ChromaVectorStore.drop_and_recreate()`** (`src/retrieval/vector_store.py`)
   deletes and recreates the collection and does not touch `chunk_fulltext` at
@@ -77,7 +77,7 @@ The only path that stays in sync is `src/api/admin.py::delete_kb_document`,
 which calls `fulltext_index.delete_by_source()`.
 
 **So: this deletion is a cleanup that must be repeated** after any Chroma reset
-or any re-ingestion of an already-ingested source, until 134/135 are closed.
+or any re-ingestion of an already-ingested source, until 139/140 are closed.
 
 ### 1.3 Blast radius, established structurally
 
@@ -147,7 +147,7 @@ Four cover the backup that makes the deletion reversible (every column round
 trips, gzip+UTF-8 including Urdu text, union-merge across two cleanups,
 rewrite-replaces-rather-than-duplicates). Two cover the safety guard. Three are
 **findings, not guards**: they assert the *current, defective* behaviour behind
-134 and 135, so that closing either defect fails here and points whoever closes
+139 and 140, so that closing either defect fails here and points whoever closes
 it at this file.
 
 ---
@@ -297,7 +297,7 @@ Gold's substance is a fact about **our schema** — *"there is no field anywhere
 the system for confession or interview-statement text"*. That sentence is not in
 the statute corpus, so no BM25 change can retrieve it. Module 82 read the
 orphaned lead citation as the *cause*; measured, it was a **mask**. Filed as
-defect 136.
+defect 141.
 
 ---
 
@@ -315,7 +315,7 @@ PYTHONPATH=. python scripts/cleanup_orphaned_fulltext_rows.py --restore  # put t
 Run from the deployment root, **not** from a worktree — a worktree opens an
 empty Chroma store and the guard will (correctly) refuse. Re-run `--apply` after
 any Chroma reset or any re-ingestion of an already-ingested source, until
-defects 134 and 135 are closed.
+defects 139 and 140 are closed.
 
 ---
 
@@ -363,28 +363,28 @@ file, four artefacts and this document.
 
 **Numbers re-checked against the tracker immediately before commit.**
 
-**134 — a Chroma reset leaves the entire BM25 index orphaned.**
+**139 — a Chroma reset leaves the entire BM25 index orphaned.**
 `ChromaVectorStore.drop_and_recreate()` empties the collection and never touches
 `chunk_fulltext`; `scripts/reset_evidence_state.py::_reset_postgres()` enumerates
 the tables it clears and `chunk_fulltext` is not among them. After either, **every
 row** in the BM25 index points at an id that no longer exists — the state this
 module just spent 2,246 rows cleaning up, re-created wholesale. Pinned by
-`test_module37_defect_134_resetting_chroma_does_not_clear_chunk_fulltext`.
+`test_module37_defect_139_resetting_chroma_does_not_clear_chunk_fulltext`.
 
-**135 — re-ingesting a changed source never retires the previous ingestion's
+**140 — re-ingesting a changed source never retires the previous ingestion's
 rows.** `Document._generate_id()` hashes `self.text[:200]`, so any change to
 extraction or chunking yields a new `doc_id` and the new chunks are inserted
 *alongside* the old ones. This is the direct cause of the 2,243 `…_0519abd8_`
 rows. `upsert_documents()`'s `fulltext_index.delete_by_ids()` call is **not** the
 missing cleanup — it is a rollback compensator inside the `except` branch, and it
 only ever names ids that same call just inserted. Pinned by
-`test_module37_defect_135_reingest_never_deletes_the_previous_ingestions_rows`.
+`test_module37_defect_140_reingest_never_deletes_the_previous_ingestions_rows`.
 
-**Together, 134 and 135 are why this module is a cleanup and not a fix.** The
+**Together, 139 and 140 are why this module is a cleanup and not a fix.** The
 script must be re-run after any Chroma reset or any re-ingestion of an
 already-ingested source until they close.
 
-**136 — KB2's gold rests on a product-schema fact that is not in the corpus, and
+**141 — KB2's gold rests on a product-schema fact that is not in the corpus, and
 removing the orphans made the answer worse.** Gold's substance is *"there is no
 field anywhere in the system for confession or interview-statement text"*. No
 statute chunk says that, so retrieval cannot reach it. Post-deletion KB2 asserts
@@ -394,7 +394,7 @@ the answer on 5 of 7. **Module 82's diagnosis is corrected: the orphaned lead
 citation was masking this, not causing it.** KB2 needs a data-half plan that can
 state the schema absence (the Module 39 / 77 / 89 mechanism), not better BM25.
 
-**137 — KB9 answers on CrPC s.176 instead of s.174 once the duplicate CrPC chunk
+**142 — KB9 answers on CrPC s.176 instead of s.174 once the duplicate CrPC chunk
 leaves its window.** Anchor **2/3 → 0/3**. The orphan `…_0519abd8_c35` was a
 byte-identical duplicate of the live `…_f9908363_c35`; removing it freed window
 slots that Punjab Police Rules custodial-death chunks took, moving the answer
