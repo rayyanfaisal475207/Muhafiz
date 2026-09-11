@@ -92,6 +92,8 @@ Access is controlled per case: an investigator sees only the cases they're assig
 
 ### Agent harness (live — all seven retrieval routes cut over)
 
+**Design record:** [`AGENT_HARNESS_DESIGN.md`](AGENT_HARNESS_DESIGN.md) is the preservation contract every behaviour below was required to keep, and [`SUBAGENT_INTERFACES.md`](SUBAGENT_INTERFACES.md) is the interface contract each sub-agent implements. Both are cited from source comments as the rationale for specific code — ~55 files — so they are binding on future changes, not historical.
+
 A second architecture layer sits alongside the orchestrator described in [Architecture & Pipeline](#architecture--pipeline): `src/pipeline/harness/` restructures the same retrieval/generation logic into a `Supervisor` routing to 11 specialized sub-agents — the original eight (semantic search, case summarization, report drafting, investigative analysis, timeline building, cross-case linkage, large-scale aggregate, data quality) plus three added in a later reconciliation sweep (`findings.md` Modules 8-10): **Local Search** (semantic entity-access-point matching against a dedicated entity-description embedding store, for descriptive references like "the investigating officer" that a literal-name graph seed match can't resolve), **Global Search** (whole-dataset map-reduce reasoning over every precomputed community report at a hierarchy level, not a top-k similarity cut), and **Meta-Analysis** (the outermost layer — decomposes a compound question into up to 8 standalone sub-queries, re-enters the Supervisor concurrently for each, then synthesizes across the sub-answers). Each sub-agent composes the same underlying primitives (RAG, GRAPH/GRAPH_HYBRID, XGRAPH, XAGG, XNETWORK, SQL, WEB) as reusable tools rather than a hand-coded `if/elif` chain. It's wired live into `main.py`'s chat endpoint behind a per-route rollout flag (`HARNESS_CUTOVER_ROUTES`, a comma-separated route allowlist, **code default is empty/off** — every route falls back to the original orchestrator unless explicitly cut over). Not a parallel product, not experimental scaffolding left unfinished: it's the same contracts, same audit logging, same case/role scoping, built and tested, staged for a route-by-route rollout rather than a single big-bang switch. Its per-step trace now correctly resolves every step (`citation_validator`'s emitted event previously never reached `done`/`error`, leaving that step stuck "in progress" in the UI even after the request finished — fixed).
 
 **Cutover decision order, per request** (`main.py`'s chat endpoint): the router classifies the query exactly once up front (`route`, `output_format`). If `HARNESS_CUTOVER_ROUTES` is non-empty, that single classification is checked against it — `route` in the allowlist **and** `output_format == "chat"` (a file-generation request is always forced to the orchestrator regardless of route, since Report Drafting isn't in the cutover slice) sends the request to the harness; anything else, or the harness disabled entirely, sends it to the orchestrator. Exactly one of the two ever runs per request — never both, never a blend. If it does go to the harness, `Supervisor.handle()` re-runs the same classification a second time internally (a known, accepted inefficiency — see the code comment at the call site) purely to pick which of the 11 sub-agents handles it; that sub-agent can still internally fall back across tools (e.g. Investigative Analysis trying GRAPH → SQL → RAG in sequence).
@@ -504,6 +506,10 @@ cp .env.example .env             # then fill in the values below — note .env.e
 
 ### 2. Database
 
+**Restore the snapshot, don't rebuild.** A hand-off folder (`SHARE/`, distributed as `SHARE_muhafiz_<date>.zip`) carries a full Postgres dump including the Apache AGE graph, the ChromaDB store, certs, `.env`, and one-command restore scripts. It is the **exact database state the [evaluation](#evaluation-measured-accuracy) was measured on** — 73 cases, 7,716 chunks in both indexes, 18,409 graph rows. Follow `SHARE/SETUP.md`; it takes minutes. Re-ingesting from scratch (steps 2–5 below) takes hours, is where every encoding and chunking bug in this project's history was found, and produces a database that will not reproduce the evaluation numbers.
+
+The steps below are for building an environment from nothing, or for understanding what the snapshot contains.
+
 ```bash
 docker compose up -d             # starts the AGE-enabled Postgres
 alembic upgrade head
@@ -522,7 +528,11 @@ Until 003 is applied, chat attachments are disabled (with an explicit message) a
 
 ### 3. Model serving
 
-Point these at wherever your model-serving process is running (see [Configuration](#configuration)): `LOCAL_LLM_URL` (Qwen3-14B, reasoning), `LOCAL_GEN_LLM_URL` (Qalb-8B, generation), `EMBEDDINGS_URL` (multilingual-e5-large-instruct), `RERANKER_URL` (bge-reranker-v2-m3). Leave any of them empty to fall back to the corresponding cloud provider for that role (Groq/Gemini) — except that this fallback is refused entirely when `AIR_GAP_MODE=true`.
+Point these at wherever your model-serving process is running (see [Configuration](#configuration)): `LOCAL_LLM_URL` (Qwen3-14B, reasoning), `LOCAL_GEN_LLM_URL` (Qalb-8B, generation), `EMBEDDINGS_URL` (multilingual-e5-large-instruct), `RERANKER_URL` (bge-reranker-v2-m3).
+
+**The LLM roles fall back to cloud; the embedder does not.** Leaving `LOCAL_LLM_URL` or `LOCAL_GEN_LLM_URL` empty falls back to Groq/Gemini for that role (refused entirely when `AIR_GAP_MODE=true`). **`EMBEDDINGS_URL` has no fallback at all**: with `EMBEDDING_PROVIDER=e5`, `embed_texts()` calls that URL directly, and if it is unreachable every retrieval returns nothing — while `/health` still reports `ok`, because it checks the vector store, not the embedder. The reranker fails the same way but more quietly: it silently keeps RRF order instead of erroring. Before trusting any live answer, `POST` a real `{"text": "..."}` to `$EMBEDDINGS_URL` and confirm a vector comes back; a `200` from `/health` proves nothing.
+
+Do not work around a missing embedder by switching `EMBEDDING_PROVIDER`: the shipped Chroma store is 1024-dimensional e5 vectors, and another provider writes incompatible vectors into the same collection.
 
 If your ChromaDB collection was created before switching to the 1024-dim e5 embedder, it needs a full wipe + re-ingest (`scripts/reingest_kb.py`) — Chroma pins one embedding dimension per collection.
 
