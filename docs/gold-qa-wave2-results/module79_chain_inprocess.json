@@ -1,0 +1,72 @@
+{
+ "most_cited_section_by_district": [
+  {
+   "status": "ok",
+   "first_kind": "fir_section_case_count",
+   "then_kind": "district_breakdown",
+   "value": "34",
+   "narrowed_to": 40,
+   "seconds": 0.502,
+   "wall": 1.854,
+   "text": "73 FIR(s) carry a recorded section, 218 section entr(ies) across 36 distinct section(s). Counted per FIR, so a case charged twice under one section counts once:\n  - PPC §34: 40 FIR(s)\n  - Arms Ordinance 1965 §13: 29 FIR(s)\n  - PPC §392: 21 FIR(s)\n  - CNSA 1997 §9(c): 12 FIR(s)\n  - PPC §420: 11 FIR(s)\n  - PPC §302: 10 FIR(s)\n  - PPC §337-A(i): 10 FIR(s)\n  - PECA 2016 §14: 9 FIR(s)\n  - PECA 2016 §21: 9 FIR(s)\n  - PPC §419: 9 FIR(s)\n  - PPC §365-A: 6 FIR(s)\n  - PPC §506: 6 FIR(s)\n  - PPC §379: 5 FIR(s)\n  - PPC §384: 4 FIR(s)\n  - Provincial Act §Punjab Domestic Violence Act: 4 FIR(s)\n  - Illegal Dispossession Act 2005 §3: 2 FIR(s)\n  - PPC §148: 2 FIR(s)\n  - PPC §149: 2 FIR(s)\n  - PPC §328A: 2 FIR(s)\n  - PPC §342: 2 FIR(s)\n  - ... and 16 more section(s).\n\nPPC §34 is the section cited by the most FIRs: 40 of the 73 FIR(s) that carry a recorded section.\nNarrowed to the 40 case(s) under section 34 (the value read from the first result), the second aggregate gives:\n\n- فیصل آباد: 12 case(s)\n- لاہور: 10 case(s)\n- راولپنڈی: 4 case(s)\n- کراچی ایسٹ: 4 case(s)\n- چنیوٹ: 3 case(s)\n- حیدر آباد: 3 case(s)\n- اسلام آباد: 2 case(s)\n- کراچی وسطی: 2 case(s)",
+   "error": null
+  },
+  {
+   "status": "ok",
+   "first_kind": "fir_section_case_count",
+   "then_kind": "district_breakdown",
+   "value": "34",
+   "narrowed_to": 40,
+   "seconds": 0.18,
+   "wall": 0.18,
+   "text": "73 FIR(s) carry a recorded section, 218 section entr(ies) across 36 distinct section(s). Counted per FIR, so a case charged twice under one section counts once:\n  - PPC §34: 40 FIR(s)\n  - Arms Ordinance 1965 §13: 29 FIR(s)\n  - PPC §392: 21 FIR(s)\n  - CNSA 1997 §9(c): 12 FIR(s)\n  - PPC §420: 11 FIR(s)\n  - PPC §302: 10 FIR(s)\n  - PPC §337-A(i): 10 FIR(s)\n  - PECA 2016 §14: 9 FIR(s)\n  - PECA 2016 §21: 9 FIR(s)\n  - PPC §419: 9 FIR(s)\n  - PPC §365-A: 6 FIR(s)\n  - PPC §506: 6 FIR(s)\n  - PPC §379: 5 FIR(s)\n  - PPC §384: 4 FIR(s)\n  - Provincial Act §Punjab Domestic Violence Act: 4 FIR(s)\n  - Illegal Dispossession Act 2005 §3: 2 FIR(s)\n  - PPC §148: 2 FIR(s)\n  - PPC §149: 2 FIR(s)\n  - PPC §328A: 2 FIR(s)\n  - PPC §342: 2 FIR(s)\n  - ... and 16 more section(s).\n\nPPC §34 is the section cited by the most FIRs: 40 of the 73 FIR(s) that carry a recorded section.\nNarrowed to the 40 case(s) under section 34 (the value read from the first result), the second aggregate gives:\n\n- فیصل آباد: 12 case(s)\n- لاہور: 10 case(s)\n- راولپنڈی: 4 case(s)\n- کراچی ایسٹ: 4 case(s)\n- چنیوٹ: 3 case(s)\n- حیدر آباد: 3 case(s)\n- اسلام آباد: 2 case(s)\n- کراچی وسطی: 2 case(s)",
+   "error": null
+  },
+  {
+   "status": "ok",
+   "first_kind": "fir_section_case_count",
+   "then_kind": "district_breakdown",
+   "value": "34",
+   "narrowed_to": 40,
+   "seconds": 0.175,
+   "wall": 0.175,
+   "text": "73 FIR(s) carry a recorded section, 218 section entr(ies) across 36 distinct section(s). Counted per FIR, so a case charged twice under one section counts once:\n  - PPC §34: 40 FIR(s)\n  - Arms Ordinance 1965 §13: 29 FIR(s)\n  - PPC §392: 21 FIR(s)\n  - CNSA 1997 §9(c): 12 FIR(s)\n  - PPC §420: 11 FIR(s)\n  - PPC §302: 10 FIR(s)\n  - PPC §337-A(i): 10 FIR(s)\n  - PECA 2016 §14: 9 FIR(s)\n  - PECA 2016 §21: 9 FIR(s)\n  - PPC §419: 9 FIR(s)\n  - PPC §365-A: 6 FIR(s)\n  - PPC §506: 6 FIR(s)\n  - PPC §379: 5 FIR(s)\n  - PPC §384: 4 FIR(s)\n  - Provincial Act §Punjab Domestic Violence Act: 4 FIR(s)\n  - Illegal Dispossession Act 2005 §3: 2 FIR(s)\n  - PPC §148: 2 FIR(s)\n  - PPC §149: 2 FIR(s)\n  - PPC §328A: 2 FIR(s)\n  - PPC §342: 2 FIR(s)\n  - ... and 16 more section(s).\n\nPPC §34 is the section cited by the most FIRs: 40 of the 73 FIR(s) that carry a recorded section.\nNarrowed to the 40 case(s) under section 34 (the value read from the first result), the second aggregate gives:\n\n- فیصل آباد: 12 case(s)\n- لاہور: 10 case(s)\n- راولپنڈی: 4 case(s)\n- کراچی ایسٹ: 4 case(s)\n- چنیوٹ: 3 case(s)\n- حیدر آباد: 3 case(s)\n- اسلام آباد: 2 case(s)\n- کراچی وسطی: 2 case(s)",
+   "error": null
+  }
+ ],
+ "busiest_district_by_section": [
+  {
+   "status": "ok",
+   "first_kind": "district_breakdown",
+   "then_kind": "fir_section_case_count",
+   "value": "فیصل آباد",
+   "narrowed_to": 19,
+   "seconds": 0.176,
+   "wall": 0.176,
+   "text": "- فیصل آباد: 19 case(s)\n- لاہور: 18 case(s)\n- راولپنڈی: 10 case(s)\n- اسلام آباد: 5 case(s)\n- چنیوٹ: 5 case(s)\n- حیدر آباد: 5 case(s)\n- کراچی ایسٹ: 5 case(s)\n- کراچی وسطی: 5 case(s)\n- ملتان: 1 case(s)\n\nفیصل آباد is the district with the most registered cases: 19.\nNarrowed to the 19 case(s) in Faisalabad district (the value read from the first result), the second aggregate gives:\n\n19 FIR(s) carry a recorded section, 54 section entr(ies) across 14 distinct section(s). Counted per FIR, so a case charged twice under one section counts once:\n  - PPC §34: 12 FIR(s)\n  - Arms Ordinance 1965 §13: 9 FIR(s)\n  - PPC §392: 7 FIR(s)\n  - PPC §337-A(i): 5 FIR(s)\n  - CNSA 1997 §9(c): 4 FIR(s)\n  - Provincial Act §Punjab Domestic Violence Act: 3 FIR(s)\n  - PECA 2016 §14: 2 FIR(s)\n  - PECA 2016 §21: 2 FIR(s)\n  - PPC §302: 2 FIR(s)\n  - PPC §365-A: 2 FIR(s)\n  - PPC §419: 2 FIR(s)\n  - PPC §420: 2 FIR(s)\n  - PPC §328A: 1 FIR(s)\n  - PPC §379: 1 FIR(s)",
+   "error": null
+  },
+  {
+   "status": "ok",
+   "first_kind": "district_breakdown",
+   "then_kind": "fir_section_case_count",
+   "value": "فیصل آباد",
+   "narrowed_to": 19,
+   "seconds": 0.173,
+   "wall": 0.173,
+   "text": "- فیصل آباد: 19 case(s)\n- لاہور: 18 case(s)\n- راولپنڈی: 10 case(s)\n- اسلام آباد: 5 case(s)\n- چنیوٹ: 5 case(s)\n- حیدر آباد: 5 case(s)\n- کراچی ایسٹ: 5 case(s)\n- کراچی وسطی: 5 case(s)\n- ملتان: 1 case(s)\n\nفیصل آباد is the district with the most registered cases: 19.\nNarrowed to the 19 case(s) in Faisalabad district (the value read from the first result), the second aggregate gives:\n\n19 FIR(s) carry a recorded section, 54 section entr(ies) across 14 distinct section(s). Counted per FIR, so a case charged twice under one section counts once:\n  - PPC §34: 12 FIR(s)\n  - Arms Ordinance 1965 §13: 9 FIR(s)\n  - PPC §392: 7 FIR(s)\n  - PPC §337-A(i): 5 FIR(s)\n  - CNSA 1997 §9(c): 4 FIR(s)\n  - Provincial Act §Punjab Domestic Violence Act: 3 FIR(s)\n  - PECA 2016 §14: 2 FIR(s)\n  - PECA 2016 §21: 2 FIR(s)\n  - PPC §302: 2 FIR(s)\n  - PPC §365-A: 2 FIR(s)\n  - PPC §419: 2 FIR(s)\n  - PPC §420: 2 FIR(s)\n  - PPC §328A: 1 FIR(s)\n  - PPC §379: 1 FIR(s)",
+   "error": null
+  },
+  {
+   "status": "ok",
+   "first_kind": "district_breakdown",
+   "then_kind": "fir_section_case_count",
+   "value": "فیصل آباد",
+   "narrowed_to": 19,
+   "seconds": 0.176,
+   "wall": 0.176,
+   "text": "- فیصل آباد: 19 case(s)\n- لاہور: 18 case(s)\n- راولپنڈی: 10 case(s)\n- اسلام آباد: 5 case(s)\n- چنیوٹ: 5 case(s)\n- حیدر آباد: 5 case(s)\n- کراچی ایسٹ: 5 case(s)\n- کراچی وسطی: 5 case(s)\n- ملتان: 1 case(s)\n\nفیصل آباد is the district with the most registered cases: 19.\nNarrowed to the 19 case(s) in Faisalabad district (the value read from the first result), the second aggregate gives:\n\n19 FIR(s) carry a recorded section, 54 section entr(ies) across 14 distinct section(s). Counted per FIR, so a case charged twice under one section counts once:\n  - PPC §34: 12 FIR(s)\n  - Arms Ordinance 1965 §13: 9 FIR(s)\n  - PPC §392: 7 FIR(s)\n  - PPC §337-A(i): 5 FIR(s)\n  - CNSA 1997 §9(c): 4 FIR(s)\n  - Provincial Act §Punjab Domestic Violence Act: 3 FIR(s)\n  - PECA 2016 §14: 2 FIR(s)\n  - PECA 2016 §21: 2 FIR(s)\n  - PPC §302: 2 FIR(s)\n  - PPC §365-A: 2 FIR(s)\n  - PPC §419: 2 FIR(s)\n  - PPC §420: 2 FIR(s)\n  - PPC §328A: 1 FIR(s)\n  - PPC §379: 1 FIR(s)",
+   "error": null
+  }
+ ]
+}
