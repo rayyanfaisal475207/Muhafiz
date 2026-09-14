@@ -1,0 +1,223 @@
+[
+ {
+  "n": 1,
+  "wall_s": 9.61,
+  "ok": 1,
+  "failed": 0,
+  "durations_s": [
+   7.72
+  ],
+  "completion_order_end_s": [
+   9.61
+  ],
+  "calls": [
+   {
+    "i": 0,
+    "start_s": 1.89,
+    "end_s": 9.61,
+    "duration_s": 7.72,
+    "ok": true,
+    "error": null,
+    "chars": 500
+   }
+  ],
+  "rep": 1,
+  "timestamp": "2026-09-14 20:47:02"
+ },
+ {
+  "n": 2,
+  "wall_s": 19.21,
+  "ok": 2,
+  "failed": 0,
+  "durations_s": [
+   13.21,
+   18.82
+  ],
+  "completion_order_end_s": [
+   13.21,
+   19.21
+  ],
+  "calls": [
+   {
+    "i": 0,
+    "start_s": 0.0,
+    "end_s": 13.21,
+    "duration_s": 13.21,
+    "ok": true,
+    "error": null,
+    "chars": 500
+   },
+   {
+    "i": 1,
+    "start_s": 0.39,
+    "end_s": 19.21,
+    "duration_s": 18.82,
+    "ok": true,
+    "error": null,
+    "chars": 500
+   }
+  ],
+  "rep": 1,
+  "timestamp": "2026-09-14 20:47:26"
+ },
+ {
+  "n": 4,
+  "wall_s": 43.72,
+  "ok": 4,
+  "failed": 0,
+  "durations_s": [
+   23.94,
+   37.08,
+   42.91,
+   30.26
+  ],
+  "completion_order_end_s": [
+   23.94,
+   31.45,
+   37.49,
+   43.72
+  ],
+  "calls": [
+   {
+    "i": 0,
+    "start_s": 0.0,
+    "end_s": 23.94,
+    "duration_s": 23.94,
+    "ok": true,
+    "error": null,
+    "chars": 500
+   },
+   {
+    "i": 1,
+    "start_s": 0.4,
+    "end_s": 37.49,
+    "duration_s": 37.08,
+    "ok": true,
+    "error": null,
+    "chars": 500
+   },
+   {
+    "i": 2,
+    "start_s": 0.82,
+    "end_s": 43.72,
+    "duration_s": 42.91,
+    "ok": true,
+    "error": null,
+    "chars": 500
+   },
+   {
+    "i": 3,
+    "start_s": 1.19,
+    "end_s": 31.45,
+    "duration_s": 30.26,
+    "ok": true,
+    "error": null,
+    "chars": 536
+   }
+  ],
+  "rep": 1,
+  "timestamp": "2026-09-14 20:48:15"
+ },
+ {
+  "n": 8,
+  "wall_s": 62.7,
+  "ok": 8,
+  "failed": 0,
+  "durations_s": [
+   32.62,
+   18.17,
+   38.23,
+   24.92,
+   43.54,
+   55.0,
+   48.64,
+   60.39
+  ],
+  "completion_order_end_s": [
+   18.49,
+   25.98,
+   32.62,
+   38.85,
+   44.91,
+   50.65,
+   56.66,
+   62.7
+  ],
+  "calls": [
+   {
+    "i": 0,
+    "start_s": 0.0,
+    "end_s": 32.62,
+    "duration_s": 32.62,
+    "ok": true,
+    "error": null,
+    "chars": 500
+   },
+   {
+    "i": 1,
+    "start_s": 0.33,
+    "end_s": 18.49,
+    "duration_s": 18.17,
+    "ok": true,
+    "error": null,
+    "chars": 500
+   },
+   {
+    "i": 2,
+    "start_s": 0.62,
+    "end_s": 38.85,
+    "duration_s": 38.23,
+    "ok": true,
+    "error": null,
+    "chars": 500
+   },
+   {
+    "i": 3,
+    "start_s": 1.05,
+    "end_s": 25.98,
+    "duration_s": 24.92,
+    "ok": true,
+    "error": null,
+    "chars": 536
+   },
+   {
+    "i": 4,
+    "start_s": 1.37,
+    "end_s": 44.91,
+    "duration_s": 43.54,
+    "ok": true,
+    "error": null,
+    "chars": 500
+   },
+   {
+    "i": 5,
+    "start_s": 1.67,
+    "end_s": 56.66,
+    "duration_s": 55.0,
+    "ok": true,
+    "error": null,
+    "chars": 500
+   },
+   {
+    "i": 6,
+    "start_s": 2.0,
+    "end_s": 50.65,
+    "duration_s": 48.64,
+    "ok": true,
+    "error": null,
+    "chars": 500
+   },
+   {
+    "i": 7,
+    "start_s": 2.31,
+    "end_s": 62.7,
+    "duration_s": 60.39,
+    "ok": true,
+    "error": null,
+    "chars": 500
+   }
+  ],
+  "rep": 1,
+  "timestamp": "2026-09-14 20:49:23"
+ }
+]

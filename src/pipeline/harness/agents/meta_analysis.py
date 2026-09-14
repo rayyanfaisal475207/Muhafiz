@@ -1148,7 +1148,22 @@ class _SubQueryOutcome:
     salvaged: bool = False
 
 
-async def _dispatch_one(sub_query: str, agent_input: SubAgentInput, on_event, gateway) -> _SubQueryOutcome:
+def _fanout_gate() -> Optional[asyncio.Semaphore]:
+    """[Gold-QA fix — Module 150] The per-fan-out concurrency gate, or None
+    when `config.META_ANALYSIS_MAX_CONCURRENT_SUBQUERIES` is 0/unset. Built
+    per call so it belongs to the running event loop and to ONE fan-out —
+    two concurrent Meta-Analysis requests do not share it."""
+    limit = int(getattr(config, "META_ANALYSIS_MAX_CONCURRENT_SUBQUERIES", 0) or 0)
+    return asyncio.Semaphore(limit) if limit > 0 else None
+
+
+async def _dispatch_one(
+    sub_query: str,
+    agent_input: SubAgentInput,
+    on_event,
+    gateway,
+    gate: Optional[asyncio.Semaphore] = None,
+) -> _SubQueryOutcome:
     """
     One sub-query's full pipeline pass, re-entering the Supervisor with
     `allow_meta_analysis=False` — [PRESERVE] the one-level-only recursion
@@ -1167,6 +1182,19 @@ async def _dispatch_one(sub_query: str, agent_input: SubAgentInput, on_event, ga
     future work for Cross-Case Linkage's own per-source-tool trace; not
     addressed here either, for the same reason (out of this module's scope,
     no live SSE consumer of this harness yet).
+
+    [Gold-QA fix — Module 150] `gate` bounds how many sub-queries of ONE
+    fan-out are in flight at once (`config.META_ANALYSIS_MAX_CONCURRENT_
+    SUBQUERIES`; None == ungated). It is acquired INSIDE the `wait_for()`
+    below, on purpose: `META_ANALYSIS_SUBQUERY_TIMEOUT` stays the one
+    wall-clock deadline for the whole fan-out that Module 53 documents, so
+    the 150 s overall bound Module 110 relies on is unchanged — a sub-query
+    still queued at the gate when the deadline fires is cancelled having
+    done no work, exactly as an ungated one starved by the server would
+    have been. What changes is WHERE the queue lives: at the gate, where
+    waiting does not count against `LOCAL_LLM_TIMEOUT`, instead of on the
+    serial model server, where it did (see config.py's note on the
+    constant for the measurement).
     """
     # [Gold-QA fix — Module 79] A chained step is not a Supervisor pass at
     # all: two direct aggregate calls (measured 0.1-0.4 s each live) and a
@@ -1184,11 +1212,19 @@ async def _dispatch_one(sub_query: str, agent_input: SubAgentInput, on_event, ga
     # deposits in it survives `wait_for()`'s cancellation. One box per
     # sub-query: each `asyncio.gather` child runs in its own Task context.
     salvage_box = _salvage.open_slot()
+
+    async def _gated_handle() -> SubAgentResult:
+        if gate is None:
+            return await Supervisor().handle(
+                sub_input, on_event=on_event, gateway=gateway, allow_meta_analysis=False
+            )
+        async with gate:
+            return await Supervisor().handle(
+                sub_input, on_event=on_event, gateway=gateway, allow_meta_analysis=False
+            )
+
     try:
-        result = await asyncio.wait_for(
-            Supervisor().handle(sub_input, on_event=on_event, gateway=gateway, allow_meta_analysis=False),
-            timeout=config.META_ANALYSIS_SUBQUERY_TIMEOUT,
-        )
+        result = await asyncio.wait_for(_gated_handle(), timeout=config.META_ANALYSIS_SUBQUERY_TIMEOUT)
         return _SubQueryOutcome(sub_query=sub_query, result=result)
     except asyncio.TimeoutError:
         # [Gold-QA fix — Module 53] The deadline is SHARED by the whole
@@ -1772,9 +1808,14 @@ async def meta_analysis(
             )
         return result
 
+    # [Gold-QA fix — Module 150] One gate per fan-out, sized by config; the
+    # sub-queries still dispatch in plan order and the gate's FIFO waiters
+    # keep that order, so the plan's first findings are also the first
+    # served. 0 restores the ungated fan-out for bisecting.
+    gate = _fanout_gate()
     outcomes = await asyncio.gather(
         *[
-            _dispatch_one(sq, agent_input, on_event, gateway)
+            _dispatch_one(sq, agent_input, on_event, gateway, gate=gate)
             for sq in decomposition.sub_queries
         ]
     )

@@ -1,0 +1,680 @@
+{
+ "G1::run1": {
+  "answer": "The current caseload reveals several patterns and anomalies warranting attention:  \n\n1. **Accused Demographics**: Of 92 distinct accused, **75 have no age recorded**, leaving only **17 with documented ages** (24–49 years, mean 31.5) [Document 1]. This lack of age data for most accused limits analysis of age-related trends, though the recorded subset suggests a younger demographic.  \n\n2. **Relationships Between Accused and Complainants**: In **10 FIRs** with relationship data, **15 of 24 entries** classify the accused as **اجنبی (stranger)**, dominating over familial or acquaintance ties [Document 2]. This suggests a significant proportion of incidents involve strangers, which may indicate a focus on crimes like theft or assault between non-acquainted parties.  \n\n3. **Seized Property Handling**: **28 FIRs** document seized property (45 items total), with **13 items sent to forensic labs** and **7 held for deceased heirs** [Document 3]. The latter may signal cases involving inheritance disputes or crimes linked to deceased individuals, though further context is needed.  \n\n4. **Incident Timing**: Of **64 incidents** with recorded times, **19 (38%) occur in the evening (18:00–23:59)**, making it the busiest时段. Only **1 incident (2%) occurs at night (00:00–05:59)**, despite 14 entries marked as \"00:00:00\" (possibly unassigned dates) [Document 4]. The low nighttime activity contrasts with the evening peak, which may align with typical crime patterns but requires cross-referencing historical data.  \n\n5. **Recurring Accused**: **Three individuals** appear in **2 cases each**: **فیصل** (FIRs 202-26, 401-26), **شہزیب عرف شابی** (FIRs 214-26, 891-24), and **عاصم رشید** (FIRs 64-26, 65-26) [Document 5]. This suggests potential repeat offenders or organized involvement, though the small sample size (only 3 individuals) limits broader conclusions.  \n\nNotably, **no age data** for most accused, the **dominance of stranger relationships**, and the **evening incident peak** stand out as non-routine features. The recurring accused and forensic lab activity also merit closer monitoring.Response generated (2103 chars)",
+  "confidence": "medium",
+  "config": {
+   "LOCAL_LLM_TIMEOUT": 60.0,
+   "META_ANALYSIS_MAX_CONCURRENT_SUBQUERIES": 0,
+   "META_ANALYSIS_SUBQUERY_TIMEOUT": 150.0
+  },
+  "elapsed_s": 119.7,
+  "llm_calls": [
+   {
+    "chars": 424,
+    "duration_s": 14.31,
+    "end_s": 18.8,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 4.49,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 424,
+    "duration_s": 9.23,
+    "end_s": 28.19,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 18.96,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 436,
+    "duration_s": 8.16,
+    "end_s": 37.05,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 28.89,
+    "sub_query": "How many cases record seized property, and what happens to it — how many items were sent t"
+   },
+   {
+    "chars": 404,
+    "duration_s": 17.52,
+    "end_s": 47.11,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 29.59,
+    "sub_query": "How many cases involve an accused person, and what is their age range and average age, acr"
+   },
+   {
+    "chars": 423,
+    "duration_s": 52.58,
+    "end_s": 82.49,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 29.91,
+    "sub_query": "How many cases does each accused person appear in, and which FIR numbers, across all cases"
+   },
+   {
+    "chars": 700,
+    "duration_s": 37.21,
+    "end_s": 67.45,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 30.25,
+    "sub_query": "How many cases record an incident time, and at what time of day do those incidents happen,"
+   },
+   {
+    "chars": 568,
+    "duration_s": 25.78,
+    "end_s": 56.42,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 30.64,
+    "sub_query": "How many cases record a relationship between the accused and the complainant, and which re"
+   },
+   {
+    "chars": 2103,
+    "duration_s": 18.53,
+    "end_s": 101.02,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 82.5,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 253,
+    "duration_s": 12.09,
+    "end_s": 113.12,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 101.03,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 828,
+    "duration_s": 11.05,
+    "end_s": 124.17,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 113.12,
+    "sub_query": "<top-level>"
+   }
+  ],
+  "log_lines": [
+   {
+    "line": "INFO src.pipeline.harness.agents.meta_analysis: Meta-Analysis: deterministic decomposition plan 'caseload_review' matched.",
+    "sub_query": "<top-level>",
+    "t_s": 28.19
+   }
+  ],
+  "question": "Acting as a crime analyst, review our current caseload and flag anything that looks unusual or worth monitoring.",
+  "reason": "Open-ended request for synthesized network analysis across the entire caseload to identify unusual patterns — matches XNETWORK's purpose of providing a narrative synthesis of cross-case connections and trends",
+  "route": "XNETWORK",
+  "route_error": null,
+  "secondary_methods": [],
+  "signals": {
+   "fallback_messages": [],
+   "fanout_wall_s": 54.3,
+   "groq_fallbacks": 0,
+   "llm_calls_total": 10,
+   "local_failed": 0,
+   "local_failed_errors": [],
+   "local_ok": 10,
+   "model": "local",
+   "per_call_s_max": 52.58,
+   "per_call_s_mean": 20.6,
+   "per_call_s_min": 8.16,
+   "salvaged": 0,
+   "sub_query_count": 5,
+   "subquery_timeouts": 0,
+   "synthesis_collapsed": 0,
+   "verifier_rejected_synthesis": 0
+  },
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XNETWORK' -> sub-agent='Meta-Analysis'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Meta-Analysis completed with status=ok",
+   "supervisor/done: Harness routing complete",
+   "citations/done: 5 citation(s)",
+   "memory/done: Saved to session"
+  ],
+  "sub_queries": [
+   {
+    "duration_s": 18.92,
+    "end_s": 47.11,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 28.19,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases involve an accused person, and what is their age range and average age, acr",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 28.23,
+    "end_s": 56.42,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 28.19,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases record a relationship between the accused and the complainant, and which re",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 8.85,
+    "end_s": 37.05,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 28.2,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases record seized property, and what happens to it — how many items were sent t",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 39.25,
+    "end_s": 67.45,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 28.2,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases record an incident time, and at what time of day do those incidents happen,",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 54.29,
+    "end_s": 82.49,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 28.2,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases does each accused person appear in, and which FIR numbers, across all cases",
+    "tools_used": [
+     "XAGG"
+    ]
+   }
+  ],
+  "timestamp": "2026-09-14 21:19:48",
+  "used_cutover": true,
+  "wall_s": 124.2
+ },
+ "G1::run2": {
+  "answer": "The current caseload reveals several patterns and anomalies warranting attention:  \n\n1. **Accused Demographics**: Of 92 distinct accused, **75 have no age recorded**, leaving only **17 with documented ages** (24–49 years, mean 31.5) [Document 1]. This lack of age data for most accused limits analysis of age-related trends, though the recorded subset suggests a younger demographic.  \n\n2. **Relationships Between Accused and Complainants**: In **10 FIRs** with relationship data, **15 of 24 entries** classify the accused as **اجنبی (stranger)**, dominating over familial or acquaintance ties [Document 2]. This suggests a significant proportion of incidents involve strangers, which may indicate a focus on crimes like theft or assault between non-acquainted parties.  \n\n3. **Seized Property Handling**: **28 FIRs** document seized property (45 items total), with **13 items sent to forensic labs** and **7 held for deceased heirs** [Document 3]. The latter may signal cases involving inheritance disputes or crimes linked to deceased individuals, though further context is needed.  \n\n4. **Incident Timing**: Of **64 incidents** with recorded times, **19 (38%) occur in the evening (18:00–23:59)**, making it the busiest时段. Only **1 incident (2%) occurs at night (00:00–05:59)**, despite 14 entries marked as \"00:00:00\" (possibly unassigned dates) [Document 4]. The low nighttime activity contrasts with the evening peak, which may align with typical crime patterns but requires cross-referencing historical data.  \n\n5. **Recurring Accused**: **Three individuals** appear in **2 cases each**: **فیصل** (FIRs 202-26, 401-26), **شہزیب عرف شابی** (FIRs 214-26, 891-24), and **عاصم رشید** (FIRs 64-26, 65-26) [Document 5]. This suggests potential repeat offenders or organized involvement, though the small sample size (only 3 individuals) limits broader conclusions.  \n\nNotably, **no age data** for most accused, the **dominance of stranger relationships**, and the **evening incident peak** stand out as non-routine features. The recurring accused and forensic lab activity also merit closer monitoring.Response generated (2103 chars)",
+  "confidence": "medium",
+  "config": {
+   "LOCAL_LLM_TIMEOUT": 60.0,
+   "META_ANALYSIS_MAX_CONCURRENT_SUBQUERIES": 0,
+   "META_ANALYSIS_SUBQUERY_TIMEOUT": 150.0
+  },
+  "elapsed_s": 119.9,
+  "llm_calls": [
+   {
+    "chars": 424,
+    "duration_s": 14.15,
+    "end_s": 14.15,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 0.0,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 424,
+    "duration_s": 9.32,
+    "end_s": 23.51,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 14.19,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 436,
+    "duration_s": 8.51,
+    "end_s": 32.1,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 23.59,
+    "sub_query": "How many cases record seized property, and what happens to it — how many items were sent t"
+   },
+   {
+    "chars": 700,
+    "duration_s": 19.08,
+    "end_s": 43.13,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 24.05,
+    "sub_query": "How many cases record an incident time, and at what time of day do those incidents happen,"
+   },
+   {
+    "chars": 568,
+    "duration_s": 28.0,
+    "end_s": 52.51,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 24.51,
+    "sub_query": "How many cases record a relationship between the accused and the complainant, and which re"
+   },
+   {
+    "chars": 423,
+    "duration_s": 42.55,
+    "end_s": 67.55,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 24.99,
+    "sub_query": "How many cases does each accused person appear in, and which FIR numbers, across all cases"
+   },
+   {
+    "chars": 404,
+    "duration_s": 52.13,
+    "end_s": 77.6,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 25.47,
+    "sub_query": "How many cases involve an accused person, and what is their age range and average age, acr"
+   },
+   {
+    "chars": 2103,
+    "duration_s": 18.82,
+    "end_s": 96.42,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 77.6,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 253,
+    "duration_s": 12.04,
+    "end_s": 108.46,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 96.42,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 828,
+    "duration_s": 11.4,
+    "end_s": 119.86,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 108.46,
+    "sub_query": "<top-level>"
+   }
+  ],
+  "log_lines": [
+   {
+    "line": "INFO src.pipeline.harness.agents.meta_analysis: Meta-Analysis: deterministic decomposition plan 'caseload_review' matched.",
+    "sub_query": "<top-level>",
+    "t_s": 23.51
+   }
+  ],
+  "question": "Acting as a crime analyst, review our current caseload and flag anything that looks unusual or worth monitoring.",
+  "reason": "Open-ended request for synthesized network analysis across the entire caseload to identify unusual patterns — matches XNETWORK's purpose of providing a narrative synthesis of cross-case connections and trends",
+  "route": "XNETWORK",
+  "route_error": null,
+  "secondary_methods": [],
+  "signals": {
+   "fallback_messages": [],
+   "fanout_wall_s": 54.1,
+   "groq_fallbacks": 0,
+   "llm_calls_total": 10,
+   "local_failed": 0,
+   "local_failed_errors": [],
+   "local_ok": 10,
+   "model": "local",
+   "per_call_s_max": 52.13,
+   "per_call_s_mean": 21.6,
+   "per_call_s_min": 8.51,
+   "salvaged": 0,
+   "sub_query_count": 5,
+   "subquery_timeouts": 0,
+   "synthesis_collapsed": 0,
+   "verifier_rejected_synthesis": 0
+  },
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XNETWORK' -> sub-agent='Meta-Analysis'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Meta-Analysis completed with status=ok",
+   "supervisor/done: Harness routing complete",
+   "citations/done: 5 citation(s)",
+   "memory/done: Saved to session"
+  ],
+  "sub_queries": [
+   {
+    "duration_s": 8.59,
+    "end_s": 32.1,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 23.51,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases record seized property, and what happens to it — how many items were sent t",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 19.62,
+    "end_s": 43.13,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 23.51,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases record an incident time, and at what time of day do those incidents happen,",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 29.0,
+    "end_s": 52.51,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 23.51,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases record a relationship between the accused and the complainant, and which re",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 54.09,
+    "end_s": 77.6,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 23.51,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases involve an accused person, and what is their age range and average age, acr",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 44.02,
+    "end_s": 67.55,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 23.53,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases does each accused person appear in, and which FIR numbers, across all cases",
+    "tools_used": [
+     "XAGG"
+    ]
+   }
+  ],
+  "timestamp": "2026-09-14 21:21:48",
+  "used_cutover": true,
+  "wall_s": 119.9
+ },
+ "G1::run3": {
+  "answer": "The current caseload reveals several patterns and anomalies warranting attention:  \n\n1. **Accused Demographics**: Of 92 distinct accused, **75 have no age recorded**, leaving only **17 with documented ages** (24–49 years, mean 31.5) [Document 1]. This lack of age data for most accused limits analysis of age-related trends, though the recorded subset suggests a younger demographic.  \n\n2. **Relationships Between Accused and Complainants**: In **10 FIRs** with relationship data, **15 of 24 entries** classify the accused as **اجنبی (stranger)**, dominating over familial or acquaintance ties [Document 2]. This suggests a significant proportion of incidents involve strangers, which may indicate a focus on crimes like theft or assault between non-acquainted parties.  \n\n3. **Seized Property Handling**: **28 FIRs** document seized property (45 items total), with **13 items sent to forensic labs** and **7 held for deceased heirs** [Document 3]. The latter may signal cases involving inheritance disputes or crimes linked to deceased individuals, though further context is needed.  \n\n4. **Incident Timing**: Of **64 incidents** with recorded times, **19 (38%) occur in the evening (18:00–23:59)**, making it the busiest时段. Only **1 incident (2%) occurs at night (00:00–05:59)**, despite 14 entries marked as \"00:00:00\" (possibly unassigned dates) [Document 4]. The low nighttime activity contrasts with the evening peak, which may align with typical crime patterns but requires cross-referencing historical data.  \n\n5. **Recurring Accused**: **Three individuals** appear in **2 cases each**: **فیصل** (FIRs 202-26, 401-26), **شہزیب عرف شابی** (FIRs 214-26, 891-24), and **عاصم رشید** (FIRs 64-26, 65-26) [Document 5]. This suggests potential repeat offenders or organized involvement, though the small sample size (only 3 individuals) limits broader conclusions.  \n\nNotably, **no age data** for most accused, the **dominance of stranger relationships**, and the **evening incident peak** stand out as non-routine features. The recurring accused and forensic lab activity also merit closer monitoring.Response generated (2103 chars)",
+  "confidence": "medium",
+  "config": {
+   "LOCAL_LLM_TIMEOUT": 60.0,
+   "META_ANALYSIS_MAX_CONCURRENT_SUBQUERIES": 0,
+   "META_ANALYSIS_SUBQUERY_TIMEOUT": 150.0
+  },
+  "elapsed_s": 119.8,
+  "llm_calls": [
+   {
+    "chars": 424,
+    "duration_s": 14.19,
+    "end_s": 14.19,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 0.0,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 424,
+    "duration_s": 9.3,
+    "end_s": 23.51,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 14.22,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 436,
+    "duration_s": 8.75,
+    "end_s": 32.33,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 23.58,
+    "sub_query": "How many cases record seized property, and what happens to it — how many items were sent t"
+   },
+   {
+    "chars": 700,
+    "duration_s": 19.27,
+    "end_s": 43.32,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 24.06,
+    "sub_query": "How many cases record an incident time, and at what time of day do those incidents happen,"
+   },
+   {
+    "chars": 568,
+    "duration_s": 28.19,
+    "end_s": 52.71,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 24.52,
+    "sub_query": "How many cases record a relationship between the accused and the complainant, and which re"
+   },
+   {
+    "chars": 404,
+    "duration_s": 37.82,
+    "end_s": 62.77,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 24.95,
+    "sub_query": "How many cases involve an accused person, and what is their age range and average age, acr"
+   },
+   {
+    "chars": 423,
+    "duration_s": 52.3,
+    "end_s": 77.79,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 25.49,
+    "sub_query": "How many cases does each accused person appear in, and which FIR numbers, across all cases"
+   },
+   {
+    "chars": 2103,
+    "duration_s": 18.73,
+    "end_s": 96.52,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 77.79,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 253,
+    "duration_s": 11.97,
+    "end_s": 108.5,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 96.53,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 828,
+    "duration_s": 11.25,
+    "end_s": 119.75,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 108.5,
+    "sub_query": "<top-level>"
+   }
+  ],
+  "log_lines": [
+   {
+    "line": "INFO src.pipeline.harness.agents.meta_analysis: Meta-Analysis: deterministic decomposition plan 'caseload_review' matched.",
+    "sub_query": "<top-level>",
+    "t_s": 23.51
+   }
+  ],
+  "question": "Acting as a crime analyst, review our current caseload and flag anything that looks unusual or worth monitoring.",
+  "reason": "Open-ended request for synthesized network analysis across the entire caseload to identify unusual patterns — matches XNETWORK's purpose of providing a narrative synthesis of cross-case connections and trends",
+  "route": "XNETWORK",
+  "route_error": null,
+  "secondary_methods": [],
+  "signals": {
+   "fallback_messages": [],
+   "fanout_wall_s": 54.3,
+   "groq_fallbacks": 0,
+   "llm_calls_total": 10,
+   "local_failed": 0,
+   "local_failed_errors": [],
+   "local_ok": 10,
+   "model": "local",
+   "per_call_s_max": 52.3,
+   "per_call_s_mean": 21.2,
+   "per_call_s_min": 8.75,
+   "salvaged": 0,
+   "sub_query_count": 5,
+   "subquery_timeouts": 0,
+   "synthesis_collapsed": 0,
+   "verifier_rejected_synthesis": 0
+  },
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XNETWORK' -> sub-agent='Meta-Analysis'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Meta-Analysis completed with status=ok",
+   "supervisor/done: Harness routing complete",
+   "citations/done: 5 citation(s)",
+   "memory/done: Saved to session"
+  ],
+  "sub_queries": [
+   {
+    "duration_s": 29.2,
+    "end_s": 52.71,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 23.51,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases record a relationship between the accused and the complainant, and which re",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 39.26,
+    "end_s": 62.77,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 23.51,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases involve an accused person, and what is their age range and average age, acr",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 8.82,
+    "end_s": 32.33,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 23.52,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases record seized property, and what happens to it — how many items were sent t",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 19.81,
+    "end_s": 43.33,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 23.52,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases record an incident time, and at what time of day do those incidents happen,",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 54.28,
+    "end_s": 77.79,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 23.52,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases does each accused person appear in, and which FIR numbers, across all cases",
+    "tools_used": [
+     "XAGG"
+    ]
+   }
+  ],
+  "timestamp": "2026-09-14 21:23:47",
+  "used_cutover": true,
+  "wall_s": 119.8
+ }
+}

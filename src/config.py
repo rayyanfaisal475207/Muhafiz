@@ -177,6 +177,34 @@ MUHAFIZ_API_PAGE_SIZE: int = int(os.getenv("MUHAFIZ_API_PAGE_SIZE", "100"))
 # deterministic aggregate being thrown away in the first place.
 META_ANALYSIS_SUBQUERY_TIMEOUT: float = float(os.getenv("META_ANALYSIS_SUBQUERY_TIMEOUT", "150"))
 
+# [Gold-QA fix — Module 150] How many of a Meta-Analysis fan-out's sub-queries
+# may be IN FLIGHT at once. 0 disables the gate (every sub-query dispatches
+# immediately — the pre-Module-150 behaviour).
+#
+# This is about the PER-CALL timeout, not the deadline above. The local
+# model server runs requests strictly one at a time (Module 150 measured
+# N=8 concurrent paraphrase calls completing at +18, +26, +33, +39, +45,
+# +51, +57 and +63 s — a serial staircase, exactly as Module 50 saw), while
+# `LOCAL_LLM_TIMEOUT` is an httpx read timeout that starts the moment each
+# request is SENT. Fan out eight sub-queries at once and the sixth-to-eighth
+# LLM calls spend their whole budget queued behind the first five on the
+# server, hit the 60 s timeout with an empty `httpx.ReadTimeout` message,
+# and fall back to Groq ("Local LLM failed: . Falling back to groq...").
+# Nothing was slow; they were served last. Client-side concurrency buys
+# no throughput against a serial server, so gating the fan-out costs no
+# wall time — it moves the queue from the server (where the wait counts
+# against the per-call timeout) to the client (where it does not).
+#
+# 2, not 1: keeping one request queued at the server while another is
+# being served hides the ngrok round trip and each sub-query's own
+# deterministic-aggregate compute (~1 s), and the second-in-line call waits
+# at most ONE service time (~10-15 s measured, ~30 s under the heaviest
+# shared load seen) before its own — inside a 60 s per-call timeout with
+# 2x headroom. 3 would put the third-in-line at 2 x 30 s under load, on
+# the timeout. Reasoned and measured in MODULE150_RESULT.md §1-2, pinned
+# by `tests/test_harness_agent_meta_analysis.py::test_module150_*`.
+META_ANALYSIS_MAX_CONCURRENT_SUBQUERIES: int = int(os.getenv("META_ANALYSIS_MAX_CONCURRENT_SUBQUERIES", "2"))
+
 
 # ── Pipeline Settings ─────────────────────────────────────────────────────────
 MAX_RETRIES: int = int(os.getenv("MAX_RETRIES", "1"))

@@ -1,0 +1,36 @@
+id    route(ours) route(base) = sub_agent              fb ours fb main s ours  s main  len ours len main status
+D1    XAGG        XAGG        = Large-Scale Aggregate  0       0           5.3 25.2         424      424 done
+S2    XAGG        XAGG        = Large-Scale Aggregate  0       0           6.0 31.1         207      179 done
+S3    XAGG        XAGG        = Large-Scale Aggregate  0       0          14.1 40.9         671     1160 done
+A1    XAGG        XAGG        = Large-Scale Aggregate  0       0          32.4 125.0        158      158 done
+A7    XAGG        XAGG        = Large-Scale Aggregate  0       0           6.2 6.8          214      214 done
+CP6   XAGG        XAGG        = Large-Scale Aggregate  0       0          12.3 12.7         348      348 done
+CR2   XAGG        XAGG        = Large-Scale Aggregate  0       0          10.0 10.6         554      554 done
+CR3   XNETWORK    XNETWORK    = Meta-Analysis          0       0         100.7 108.0        637      637 done
+CR4   XAGG        XAGG        = Large-Scale Aggregate  0       0          11.4 12.9        1440     1440 done
+CR6   XAGG        XAGG        = Large-Scale Aggregate  0       0           6.0 6.8          669      669 done
+CR7   XAGG        XAGG        = Large-Scale Aggregate  0       0           7.8 8.6          726      726 done
+CR8   XAGG        XAGG        = Large-Scale Aggregate  0       0           6.8 7.3          435      435 done
+CS4   XAGG        XAGG        = Large-Scale Aggregate  0       0           7.3 8.0          638      638 done
+CP1   XAGG        XAGG        = Large-Scale Aggregate  0       0           5.9 6.4          274      274 done
+M1    XAGG        XAGG        = Large-Scale Aggregate  0       0          15.3 16.6        1926     1926 done
+M2    XAGG        XAGG        = Large-Scale Aggregate  0       0          10.7 11.2        1827     1827 done
+M4    XAGG        XAGG        = Large-Scale Aggregate  0       0           8.7 9.4         1117     1117 done
+M5    XAGG        XAGG        = Large-Scale Aggregate  0       0          11.2 11.7         807      807 done
+M7    XAGG        XAGG        = Large-Scale Aggregate  0       0           6.1 6.0          357      357 done
+G1    XNETWORK    XNETWORK    = Meta-Analysis          0       1         136.7 125.6       2220     3554 done
+G2    XAGG        XAGG        = Large-Scale Aggregate  0       0          12.0 11.5        1519     1540 done
+G3    XAGG        XAGG        = Large-Scale Aggregate  0       0          11.8 12.1         680      680 done
+G5    XAGG        XAGG        = Large-Scale Aggregate  0       0           6.8 7.2          984      984 done
+G6    XNETWORK    XNETWORK    = Meta-Analysis          2       5         224.7 175.4       2111     1726 done
+KB1   RAG         RAG         = Semantic Search        0       0          85.0 99.2        1655     1911 done
+KB2   RAG         RAG         = Semantic Search        0       0          97.8 167.1       1092     1632 done
+KB3   RAG         RAG         = Semantic Search        0       0         360.1 339.1        220      102 error
+KB4   RAG         RAG         = Semantic Search        0       0         114.8 122.1       2159     2418 done
+KB5   RAG         RAG         = Semantic Search        0       0         159.6 135.2       1603       82 done
+KB6   RAG         RAG         = Semantic Search        0       0          82.9 78.8        1331     1406 done
+KB8   RAG         RAG         = Semantic Search        0       0          82.2 74.4        1040     1066 done
+KB9   RAG         RAG         = Semantic Search        1       0         360.1 94.6         220       82 error
+
+route mismatches vs baseline: 0; total Groq fallbacks this run: 3 (main 2026-09-14: 6); total wall 33.6 min (main: 31.8 min)
+CR3: route=XNETWORK sub_agent=Meta-Analysis subquery_routes=['XAGG', 'XAGG', 'XAGG']
