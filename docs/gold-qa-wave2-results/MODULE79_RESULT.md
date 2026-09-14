@@ -72,7 +72,7 @@ the allow-list produced by Module 144's own `resolve_filter_case_ids()`.
 That makes the second aggregate unaware it is being chained, keeps
 `xagg.py` untouched, and works for any second aggregate, filterable or
 not. The standalone defect (a district breakdown silently ignores a section
-in the question) is filed, not fixed (§8, **152**).
+in the question) is filed, not fixed (§8, **157**).
 
 ### 1.3 Why the live example still cannot reach the plan live
 
@@ -92,7 +92,7 @@ each have an entry in both). The trigger list is in `supervisor.py`, which
 Module 145 owns this session, so it is not edited here. The plan is verified
 in-process through the whole sub-agent (§4.2), exactly as the brief
 anticipated, and the one-line trigger is recorded as the dependency (§8,
-**153**).
+**158**).
 
 ---
 
@@ -400,9 +400,9 @@ highest **151**), `muhafiz-m143` (151) and `muhafiz-m145` (149). Filed as
 
 | # | defect | evidence |
 |---|---|---|
-| **152** | **A district breakdown silently ignores a section (or date, age) in the question.** *"How many cases citing section 34 are registered in each district?"* → `top_districts_by`, `extract_aggregate_filters()` returns `section=34`, and the unfiltered nine-district table is served with nothing saying the filter was dropped, because `top_districts_by` is not in `FILTERABLE_AGGREGATE_KINDS`. The brief's premise that Module 144 made this work is false. `_top_districts_by()` already takes `jurisdiction_case_ids`, so the fix is one set-membership entry plus the filter line in the three renderers | §1.2, in-process against the live graph |
-| **153** | **A matched decomposition plan cannot reach Meta-Analysis on its own.** `_xagg_answers_in_one_call()` lets a plan match veto the one-call skip, but `classify_to_subagent()` then requires a separate `_META_ANALYSIS_TRIGGER_PATTERNS` hit to select Meta-Analysis; the two lists have been maintained in parallel since Module 29. So `most_cited_section_by_district` matches live and the query still lands on the XAGG agent (§4.1 after-arm, 1/1). The fix is one clause in `supervisor.py` — "a matched plan IS a trigger" — which is Module 145's file this session. **Until it lands, this module's live example is fixed in-process only** | §1.3, §4.1, `module79_probe_dispatch.py` |
-| **154** | **The relevance evaluator reads a compound data-half chunk as off-topic on the first attempt.** With KB9's two-aggregate data half, the evaluator's first verdict was `relevant=False` 3/3 (2/3 with the single aggregate), and its stated reason names the property text as not answering a death-investigation question; the retry then passes. A machine-computed chunk that the plan put there on purpose should not be able to cost a retrieve-evaluate cycle (~60–75 s). Same family as Module 143's cost finding, on the other side of the gate | §5.3 |
+| **157** | **A district breakdown silently ignores a section (or date, age) in the question.** *"How many cases citing section 34 are registered in each district?"* → `top_districts_by`, `extract_aggregate_filters()` returns `section=34`, and the unfiltered nine-district table is served with nothing saying the filter was dropped, because `top_districts_by` is not in `FILTERABLE_AGGREGATE_KINDS`. The brief's premise that Module 144 made this work is false. `_top_districts_by()` already takes `jurisdiction_case_ids`, so the fix is one set-membership entry plus the filter line in the three renderers | §1.2, in-process against the live graph |
+| **158** | **A matched decomposition plan cannot reach Meta-Analysis on its own.** `_xagg_answers_in_one_call()` lets a plan match veto the one-call skip, but `classify_to_subagent()` then requires a separate `_META_ANALYSIS_TRIGGER_PATTERNS` hit to select Meta-Analysis; the two lists have been maintained in parallel since Module 29. So `most_cited_section_by_district` matches live and the query still lands on the XAGG agent (§4.1 after-arm, 1/1). The fix is one clause in `supervisor.py` — "a matched plan IS a trigger" — which is Module 145's file this session. **Until it lands, this module's live example is fixed in-process only** | §1.3, §4.1, `module79_probe_dispatch.py` |
+| **159** | **The relevance evaluator reads a compound data-half chunk as off-topic on the first attempt.** With KB9's two-aggregate data half, the evaluator's first verdict was `relevant=False` 3/3 (2/3 with the single aggregate), and its stated reason names the property text as not answering a death-investigation question; the retry then passes. A machine-computed chunk that the plan put there on purpose should not be able to cost a retrieve-evaluate cycle (~60–75 s). Same family as Module 143's cost finding, on the other side of the gate | §5.3 |
 
 **Observations that are not defects, recorded so they are not re-found:**
 
