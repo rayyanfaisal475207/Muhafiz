@@ -3852,6 +3852,276 @@ def render_criminal_record_local_match_gap(agg_result: dict) -> list[str]:
     return lines
 
 
+# The citizen-services silo: every `StructuredRecord.record_type` written by
+# `src/graph/cross_silo_projection.py` for someone who ASKED the police for
+# something rather than being named in an FIR — a Police Khidmat Markaz
+# service application or a CMS walk-in complaint. Each carries the citizen's
+# CNIC as a plain property (`applicant_cnic` / `complainant_cnic`) whether or
+# not the record was linked to a case, which is what makes the join below
+# possible for the 10 of 18 records that resolved to no Person at all.
+_CITIZEN_SERVICE_RECORD_TYPES: tuple[str, ...] = ("pkm_application", "cms_complaint")
+_CITIZEN_SERVICE_LABELS = {
+    "pkm_application": "Khidmat Markaz application",
+    "cms_complaint": "CMS complaint",
+}
+
+
+async def _applicant_accused_overlap(
+    jurisdiction_case_ids: Optional[list[str]] = None,
+) -> dict:
+    """
+    [Gold-QA fix — Module 161] Person join across two record types: is any
+    citizen who USED a police service (a PKM application, a CMS walk-in
+    complaint) also an ACCUSED in one of our FIRs?
+
+    This is CR2's family but a different join. `graph_recurrence_person`
+    counts one Person's `BELONGS_TO_CASE` recurrence across CASES; this
+    joins the citizen-services silo (`StructuredRecord{record_type IN
+    pkm_application|cms_complaint}`) against the accused roster
+    (`Person-[:INVOLVED_IN{role:'accused'}]->Incident`, Person→Incident per
+    Module 89). Module 145 measured the live question scoring 0.002 against
+    every description and called that CORRECT — nothing computed this.
+
+    THE KEY IS CNIC, AND ONLY CNIC — measured, not preferred
+    (MODULE161_RESULT.md §1). On the live graph all 18 silo records and all
+    92 distinct accused carry a CNIC, and the CNIC join finds exactly one
+    person. A name join on the same data adds 14 FALSE matches on 9 of the
+    14 citizens (accused names are single given names — seven distinct
+    accused are "ذیشان"), i.e. 1 true in 15. A question about who is under
+    criminal investigation cannot be answered at 7% precision, so a name
+    coincidence is REPORTED per citizen, exactly as
+    `_criminal_record_local_match_gap()` does, and never counted.
+
+    Scope: `jurisdiction_case_ids` narrows the ACCUSED side — that is where
+    the "under investigation" fact lives. The silo side is always read whole:
+    a service application has no jurisdiction of its own unless it was
+    linked to a case, and 10 of 18 were not.
+    """
+    silo_rows = await age_client.execute_cypher(
+        "MATCH (r:StructuredRecord) WHERE r.record_type IN $record_types "
+        "RETURN r.record_id AS record_id, r.record_type AS record_type, "
+        "r.service_type AS service_type, r.submitted_at AS submitted_at, "
+        "r.status AS status, r.applicant_cnic AS applicant_cnic, "
+        "r.complainant_cnic AS complainant_cnic",
+        params={"record_types": list(_CITIZEN_SERVICE_RECORD_TYPES)},
+        columns=[
+            "record_id", "record_type", "service_type", "submitted_at",
+            "status", "applicant_cnic", "complainant_cnic",
+        ],
+    )
+
+    accused_filter = ""
+    params: dict = {}
+    if jurisdiction_case_ids is not None:
+        accused_filter = "AND c.case_id IN $case_ids "
+        params = {"case_ids": jurisdiction_case_ids}
+    accused_rows = await age_client.execute_cypher(
+        "MATCH (p:Person)-[r:INVOLVED_IN]->(i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+        f"WHERE r.role = 'accused' {accused_filter}"
+        "RETURN p.entity_id AS entity_id, p.cnic AS cnic, "
+        "p.canonical_name AS name, c.case_id AS case_id",
+        params=params, columns=["entity_id", "cnic", "name", "case_id"],
+    )
+
+    def _clean(value) -> str:
+        return str(value or "").strip().strip('"')
+
+    # Accused side, keyed by CNIC. One entry per distinct person, canonicalised
+    # through the confirmed SAME_AS map like `_total_accused_count()` — an
+    # accused with two identity-resolved nodes is one person with one CNIC.
+    canonical_map = build_canonical_map(await fetch_confirmed_same_as())
+    accused_by_cnic: dict[str, dict] = {}
+    accused_entities: set[str] = set()
+    accused_without_cnic: set[str] = set()
+    accused_names: dict[str, set[str]] = {}
+    for row in accused_rows:
+        entity_id = _clean(row.get("entity_id"))
+        if not entity_id:
+            continue
+        entity_id = canon(canonical_map, entity_id)
+        accused_entities.add(entity_id)
+        cnic, name = _clean(row.get("cnic")), _clean(row.get("name"))
+        if name:
+            accused_names.setdefault(name, set()).add(cnic or entity_id)
+        if not cnic:
+            accused_without_cnic.add(entity_id)
+            continue
+        entry = accused_by_cnic.setdefault(
+            cnic, {"entity_id": entity_id, "name": name, "case_ids": set()}
+        )
+        if row.get("case_id"):
+            entry["case_ids"].add(_clean(row.get("case_id")))
+
+    # Silo side, keyed by CNIC: one entry per distinct CITIZEN, with every
+    # service record they used. A record with no CNIC carries no join key
+    # and is counted, never silently dropped into either bucket.
+    citizens: dict[str, dict] = {}
+    records_without_cnic = 0
+    for row in silo_rows:
+        cnic = _clean(row.get("applicant_cnic")) or _clean(row.get("complainant_cnic"))
+        if not cnic:
+            records_without_cnic += 1
+            continue
+        record_type = _clean(row.get("record_type"))
+        citizens.setdefault(cnic, {"cnic": cnic, "services": []})["services"].append({
+            "record_id": _clean(row.get("record_id")),
+            "record_type": record_type,
+            "label": _CITIZEN_SERVICE_LABELS.get(record_type, record_type),
+            "service_type": _clean(row.get("service_type")) or None,
+            "submitted_at": _clean(row.get("submitted_at")) or None,
+            "status": _clean(row.get("status")) or None,
+        })
+
+    matches: list[dict] = []
+    for cnic, citizen in citizens.items():
+        accused = accused_by_cnic.get(cnic)
+        if accused is None:
+            continue
+        matches.append({
+            "cnic": cnic,
+            "entity_id": accused["entity_id"],
+            "name": accused["name"],
+            "case_ids": sorted(accused["case_ids"]),
+            "services": sorted(citizen["services"], key=lambda s: s["record_id"]),
+            "match_key": "cnic",
+        })
+    matches.sort(key=lambda m: m["cnic"])
+    matched_cnics = {m["cnic"] for m in matches}
+
+    # Name coincidences among the UNMATCHED citizens: how many distinct
+    # accused (on a different CNIC) share the citizen's recorded name. This
+    # is the false-positive count a name-keyed join would have produced —
+    # reported so the reader can see why the answer is keyed on CNIC, never
+    # used as a match. Only citizens who resolved to a Person carry a name.
+    name_by_cnic: dict[str, str] = {}
+    if citizens:
+        name_rows = await age_client.execute_cypher(
+            "MATCH (p:Person) WHERE p.cnic IN $cnics "
+            "RETURN p.cnic AS cnic, p.canonical_name AS name",
+            params={"cnics": sorted(citizens)}, columns=["cnic", "name"],
+        )
+        for row in name_rows:
+            cnic, name = _clean(row.get("cnic")), _clean(row.get("name"))
+            if cnic and name:
+                name_by_cnic.setdefault(cnic, name)
+    name_only_collisions = 0
+    citizens_with_name_collision = 0
+    for cnic in citizens:
+        if cnic in matched_cnics:
+            continue
+        name = name_by_cnic.get(cnic)
+        others = {k for k in accused_names.get(name or "", set()) if k != cnic}
+        if others:
+            citizens_with_name_collision += 1
+            name_only_collisions += len(others)
+
+    # Observability (Module 55) — XAGG's SSE reports only `route='XAGG'`, so
+    # this line is the only evidence of WHICH aggregate answered a live
+    # question. It carries the figures, not just the kind.
+    logger.info(
+        "XAGG applicant_accused_overlap: %d citizen-service record(s) over %d "
+        "distinct citizen(s) (%d record(s) without CNIC) vs %d accused "
+        "entr(ies) over %d distinct accused (%d without CNIC); CNIC join "
+        "matched %d%s; a name join would have added %d false match(es) on %d "
+        "citizen(s)",
+        len(silo_rows), len(citizens), records_without_cnic,
+        len(accused_rows), len(accused_entities), len(accused_without_cnic),
+        len(matches),
+        " [" + ", ".join(
+            f"{m['name'] or m['entity_id']}:{m['cnic']}:{'/'.join(m['case_ids']) or '-'}"
+            for m in matches
+        ) + "]" if matches else "",
+        name_only_collisions, citizens_with_name_collision,
+    )
+    return {
+        "kind": "applicant_accused_overlap",
+        "service_record_count": len(silo_rows),
+        "distinct_citizen_count": len(citizens),
+        "records_without_cnic": records_without_cnic,
+        "accused_entry_count": len(accused_rows),
+        "distinct_accused_count": len(accused_entities),
+        "accused_without_cnic": len(accused_without_cnic),
+        "matched_count": len(matches),
+        "matches": matches,
+        "name_only_collisions": name_only_collisions,
+        "citizens_with_name_collision": citizens_with_name_collision,
+    }
+
+
+def render_applicant_accused_overlap(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — Module 161] Defined here and imported by all three
+    rendering sites, same contract as `render_criminal_record_local_match_gap()`."""
+    records = agg_result["service_record_count"]
+    citizens = agg_result["distinct_citizen_count"]
+    accused_entries = agg_result["accused_entry_count"]
+    accused = agg_result["distinct_accused_count"]
+    matches = agg_result.get("matches") or []
+
+    if not records:
+        return [
+            "No citizen-service records (Khidmat Markaz applications or CMS "
+            "complaints) are in the data, so there is no one to compare "
+            "against the accused."
+        ]
+    if not matches:
+        lines = [
+            f"No. None of the {citizens} distinct citizens who used a police "
+            f"service ({records} Khidmat Markaz applications and CMS "
+            f"complaints) is recorded as an accused in any FIR we registered, "
+            f"matched on CNIC."
+        ]
+    else:
+        count_word = "exactly one person" if len(matches) == 1 else f"{len(matches)} people"
+        lines = [
+            f"Yes — {count_word} who used a police service is also recorded "
+            f"as an accused in an FIR we registered, matched on CNIC:"
+        ]
+        for m in matches:
+            services = "; ".join(
+                f"{s['label']}"
+                + (f" for {s['service_type'].replace('_', ' ')}" if s.get("service_type") else "")
+                + (f" submitted {s['submitted_at'][:10]}" if s.get("submitted_at") else "")
+                + (f" ({s['status']})" if s.get("status") else "")
+                + f" [{s['record_id']}]"
+                for s in m["services"]
+            )
+            cases = ", ".join(m["case_ids"]) if m["case_ids"] else "an FIR outside the current scope"
+            lines.append(
+                f"  - {m['name'] or m['entity_id']} (CNIC {m['cnic']}) — accused in "
+                f"{cases}; used: {services}."
+            )
+
+    lines.append("")
+    lines.append(
+        f"Basis: {records} citizen-service records covering {citizens} distinct "
+        f"people, compared against {accused_entries} accused entries across "
+        f"our FIRs ({accused} distinct accused). Matched on CNIC, not on name."
+    )
+    missing_key = agg_result.get("records_without_cnic") or 0
+    if missing_key:
+        lines.append(
+            f"{missing_key} service record(s) carry no CNIC and could be "
+            f"neither matched nor declared unmatched."
+        )
+    no_cnic_accused = agg_result.get("accused_without_cnic") or 0
+    if no_cnic_accused:
+        lines.append(
+            f"{no_cnic_accused} accused carry no CNIC and cannot be matched "
+            f"to any service record."
+        )
+    collisions = agg_result.get("name_only_collisions") or 0
+    if collisions:
+        # Load-bearing, not decoration: this is the number of confident wrong
+        # answers a name-keyed version of this question would have given.
+        lines.append(
+            f"A match on name alone would have added {collisions} more "
+            f"'match(es)' on {agg_result.get('citizens_with_name_collision') or 0} "
+            f"citizen(s) whose given name is shared by an accused on a "
+            f"different CNIC; those are not the same people and are not counted."
+        )
+    return lines
+
+
 async def _cms_fir_linkage(jurisdiction_case_ids: Optional[list[str]] = None) -> dict:
     """
     [Gold-QA fix — CR6, Module 15] Do walk-in CMS complaints link to a real
@@ -7452,6 +7722,21 @@ _UNSUPPORTED_AGGREGATE_KINDS = frozenset({
     "unsupported_trend",
 })
 
+# [Gold-QA fix — Module 161] Kinds that have NO phrase list at all and are
+# reachable ONLY through Module 145's semantic layer — one description in
+# `semantic_dispatch.CAPABILITY_DESCRIPTIONS`, scored by the cross-encoder
+# when the phrase chain lands on a generic catch-all. Deliberate: the
+# alternative was a fifth literal phrase list ("citizen services", "used
+# one of our services", "under investigation" …) that would reach the
+# aggregate only from a neighbourhood of one live question's wording, which
+# is exactly the disease Module 145 was filed against. `phrase_aggregate_kind()`
+# never returns these; `run_aggregate()` dispatches them; the description
+# table's equality test in tests/test_semantic_dispatch.py excludes them
+# from the chain-equality check by name.
+_SEMANTIC_ONLY_AGGREGATE_KINDS = frozenset({
+    "applicant_accused_overlap",
+})
+
 
 def resolve_aggregate_kind(query_text: str) -> str:
     """Which aggregate family `run_aggregate()` would dispatch `query_text`
@@ -7991,6 +8276,19 @@ async def run_aggregate(
     #     three signals rather than one keyword tuple.
     if kind == "officer_role_pair_overlap":
         return await _officer_role_pair_overlap(
+            jurisdiction_case_ids=jurisdiction_case_ids
+        )
+    # [Gold-QA fix — Module 161] "Is there anyone who used one of our citizen
+    # services who also turns out to be under investigation?" — the person
+    # join across the PKM/CMS applicant silo and the accused roster.
+    #
+    # Placement: this kind has NO phrase list (`_SEMANTIC_ONLY_AGGREGATE_KINDS`),
+    # so the chain order above cannot reach it — `resolve_aggregate_kind()`
+    # returns it only when every list missed and Module 145's cross-encoder
+    # scored its description above threshold. It therefore sits with the
+    # other semantic-reachable kinds by convention, not by precedence.
+    if kind == "applicant_accused_overlap":
+        return await _applicant_accused_overlap(
             jurisdiction_case_ids=jurisdiction_case_ids
         )
     if kind == "unsupported_officer":
