@@ -339,7 +339,7 @@ which names both sides in the description's own words, scores **0.996**:
 the scorer is rewarding lexical overlap, not the join. That is the
 Module 145 §6 finding ("bi-encoder measures topic") seen from the other
 side — the cross-encoder measures *wording*, and a semantic-only kind has
-no other way in. Filed as 174 (§8).
+no other way in. Filed as 175 (§8).
 
 ### 6.3 The description shipped, and the candidates not yet measured
 
@@ -392,11 +392,11 @@ the rule picks a different candidate, re-runs `module161_semantic_probe.py
 
 ## 8. New defects, filed not fixed
 
-Highest number in use at commit time: **172** (`muhafiz-m158`'s working
-tree has no tracker rows yet). These start at **173** and are filed as
-tracker rows.
+Highest number in use at commit time: **173** — PR #98 filed it on
+`origin/main` while this module ran (the keyword layer's false-positive
+side), so these start at **174** and are filed as tracker rows.
 
-**173 — The phrase chain's bare-noun tier pre-empts the semantic layer.**
+**174 — The phrase chain's bare-noun tier pre-empts the semantic layer.**
 P2 (*"…applied for a police service at the Khidmat Markaz show up as
 accused in an FIR?"*) scores **0.996** against the new description and
 never reaches it: "accused" lands it on `graph_recurrence_person` via
@@ -408,7 +408,7 @@ Extending the layer to `_ENTITY_RECURRENCE_AGGREGATE_KINDS` has its own
 hazard set — S3, CR2 and KB9 resolve on that tier and must not move — so it
 is a measured change, not a one-liner.
 
-**174 — A semantic-only kind is reachable only from its description's own
+**175 — A semantic-only kind is reachable only from its description's own
 wording.** Q2 0.034, L2 0.018, P1 0.224 against a faithful description that
 ranks first for all three; P2 0.996 when the question repeats the
 description's nouns. The cross-encoder rewards lexical overlap, so "written
@@ -421,7 +421,7 @@ into the table's vocabulary before scoring) is the alternative to
 description-side wording, and has the Roman-Urdu problem (157) as a free
 second target.
 
-**175 — Ten of eighteen citizen-service records have no name in the graph.**
+**176 — Ten of eighteen citizen-service records have no name in the graph.**
 `project_pkm_application()`/`project_cms_complaint()` mint a `Person` only
 when the record links to a case; the other ten carry only `applicant_cnic`
 /`complainant_cnic`. This aggregate names its one match because the CNIC
@@ -432,7 +432,7 @@ Ingestion recommendation: project `applicant.full_name` onto the
 not a minted Person — minting would bypass entity_resolution's
 corroboration gate, which the projection's own comments already refuse.
 
-**176 — `/health` does not cover the model server, so a dead semantic
+**177 — `/health` does not cover the model server, so a dead semantic
 layer (and dead embeddings) is invisible to the startup checklist.**
 `src/main.py::health_check()` probes Chroma and Postgres; `RERANKER_URL`,
 `EMBEDDINGS_URL` and `LOCAL_LLM_URL` are not probed. Observed this module:
