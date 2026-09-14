@@ -207,7 +207,7 @@ passed, **2 failed — and the same 2 fail identically on pristine
 `origin/main` in the same combination** (`test_semantic_search_is_registered_under_its_own_name`,
 `test_supervisor_dispatches_to_real_semantic_search_and_real_rag_tool`; both
 pass 13/13 when their file runs alone). A pre-existing registry-state
-ordering interaction between suites, not this branch; filed as **164**. (No
+ordering interaction between suites, not this branch; filed as **167**. (No
 bare `pytest tests/`.)
 
 ---
@@ -439,7 +439,7 @@ and G6 — advisory, as Module 92 classified it. Two earlier "before" captures
 had one question each come back `ERROR:ClientError`: the shared local model
 timed out under other tracks' load, Groq was exhausted, and the Gemini
 fallback 404'd on `gemini-2.5-flash`, which `.env` and `config.py`'s default
-still pin — filed as **163**. Neither error is on this branch's path and
+still pin — filed as **166**. Neither error is on this branch's path and
 both captures were repeated until the four LLM-decided questions answered.)
 
 **Aggregate dispatch and rendered text**, all 32 through `run_aggregate()`
@@ -461,7 +461,7 @@ and never reach the layer.
 
 ## 8. New defects, filed not fixed
 
-Highest number in use at filing time: **156** — Module 143 (merged as PR #93 while this module ran) filed 152–156 in `MODULE143_RESULT.md` §8, so these start at **157**. Its 156 is a cousin of this module: an officer-role proportion paraphrase that already reaches XAGG and is served a raw *"(no matching cases found)"*.
+Highest number in use at filing time: **156** — Module 143 (merged as PR #93 while this module ran) filed 152–156 in `MODULE143_RESULT.md` §8, so these start at **160**. Its 156 is a cousin of this module: an officer-role proportion paraphrase that already reaches XAGG and is served a raw *"(no matching cases found)"*.
 
 **157 — The cross-encoder is blind to Roman-Urdu.** Every Roman-Urdu item in
 the 256-item corpus scores ≤ 0.104 against every capability description
