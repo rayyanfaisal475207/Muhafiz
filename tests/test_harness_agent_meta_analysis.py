@@ -2055,3 +2055,130 @@ async def test_module83_a_healthy_synthesis_is_never_regenerated(monkeypatch):
     assert len(calls) == 1
     assert result.status == SubAgentStatus.PARTIAL
     assert any("could not be verified as grounded" in c for c in result.caveats)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Module 150 — the fan-out's concurrency is gated, and the deadline is not
+# moved by the gate.
+#
+# The defect: `LOCAL_LLM_TIMEOUT` is an httpx read timeout that starts when
+# each request is SENT, the local model server serves requests one at a
+# time, and an ungated eight-way fan-out therefore parks the sixth-to-eighth
+# LLM calls in the server's queue for their whole budget. They time out
+# with an empty `httpx.ReadTimeout` message and fall back to Groq — 5 of
+# G6's 8 sub-queries on 2026-09-14. The gate moves that queue to the client,
+# where waiting costs nothing against the per-call timeout.
+# ═══════════════════════════════════════════════════════════════════════
+
+_M150_SUB_QUERIES = [f"module-150 sub-query {i}" for i in range(5)]  # the LLM-decomposition cap
+
+
+def _stub_supervisor_handle_counting_concurrency(monkeypatch, hold_s: float = 0.02):
+    """Every call reports how many `Supervisor.handle` coroutines are live
+    at once; the returned dict's `peak` is the maximum ever observed."""
+    state = {"live": 0, "peak": 0, "order": []}
+
+    async def _fake(self, agent_input, *, on_event=None, gateway=None, allow_meta_analysis=True):
+        state["live"] += 1
+        state["peak"] = max(state["peak"], state["live"])
+        state["order"].append(agent_input.query_text)
+        try:
+            await asyncio.sleep(hold_s)
+            return SubAgentResult(status=SubAgentStatus.OK, answer_text=f"finding for {agent_input.query_text}")
+        finally:
+            state["live"] -= 1
+
+    monkeypatch.setattr(Supervisor, "handle", _fake)
+    return state
+
+
+@pytest.mark.asyncio
+async def test_module150_fanout_never_has_more_than_the_configured_sub_queries_in_flight(monkeypatch):
+    """THE Module 150 regression test. Five sub-queries, a gate of 2: at no
+    point may more than two `Supervisor.handle` calls be live. Ungated (the
+    pre-Module-150 code) this peaks at 5."""
+    _stub_decompose(monkeypatch, decompose=True, sub_queries=list(_M150_SUB_QUERIES), synthesis_goal="g")
+    state = _stub_supervisor_handle_counting_concurrency(monkeypatch)
+    monkeypatch.setattr(ma_mod.config, "META_ANALYSIS_MAX_CONCURRENT_SUBQUERIES", 2, raising=False)
+    _stub_call_llm(monkeypatch, "Synthesis [Document 1] [Document 2] [Document 3] [Document 4] [Document 5]")
+    _stub_verify_grounding(monkeypatch, grounded=True)
+    _stub_validate_answer(monkeypatch)
+
+    result = await meta_analysis(_agent_input())
+
+    assert state["peak"] == 2, f"peak concurrency was {state['peak']}, expected the gate's 2"
+    # Every sub-query still ran, in plan order, and all six contributed.
+    assert state["order"] == _M150_SUB_QUERIES
+    assert len(result.citations) == 5
+    assert result.status == SubAgentStatus.OK
+
+
+@pytest.mark.asyncio
+async def test_module150_gate_of_zero_restores_the_ungated_fanout(monkeypatch):
+    """The bisecting escape hatch: 0 means every sub-query dispatches at
+    once, exactly as before this module."""
+    _stub_decompose(monkeypatch, decompose=True, sub_queries=list(_M150_SUB_QUERIES), synthesis_goal="g")
+    state = _stub_supervisor_handle_counting_concurrency(monkeypatch)
+    monkeypatch.setattr(ma_mod.config, "META_ANALYSIS_MAX_CONCURRENT_SUBQUERIES", 0, raising=False)
+    _stub_call_llm(monkeypatch, "Synthesis [Document 1]")
+    _stub_verify_grounding(monkeypatch, grounded=True)
+    _stub_validate_answer(monkeypatch)
+
+    await meta_analysis(_agent_input())
+
+    assert state["peak"] == len(_M150_SUB_QUERIES)
+
+
+@pytest.mark.asyncio
+async def test_module150_deadline_is_still_one_wall_clock_over_the_whole_gated_fanout(monkeypatch):
+    """The gate must NOT turn `META_ANALYSIS_SUBQUERY_TIMEOUT` into a
+    per-sub-query budget measured from gate acquisition — that would let a
+    gated fan-out run for N x deadline and break the 150 s overall bound
+    Module 110 sized the plan cap against. Three sub-queries holding 0.1 s
+    each through a gate of 1 need ~0.3 s; a 0.15 s deadline must therefore
+    cut the third (and the second) off, counted from the fan-out's start."""
+    _stub_decompose(monkeypatch, decompose=True, sub_queries=list(_M150_SUB_QUERIES[:3]), synthesis_goal="g")
+    state = _stub_supervisor_handle_counting_concurrency(monkeypatch, hold_s=0.1)
+    monkeypatch.setattr(ma_mod.config, "META_ANALYSIS_MAX_CONCURRENT_SUBQUERIES", 1, raising=False)
+    monkeypatch.setattr(ma_mod.config, "META_ANALYSIS_SUBQUERY_TIMEOUT", 0.15)
+    _stub_call_llm(monkeypatch, "Synthesis [Document 1]")
+    _stub_verify_grounding(monkeypatch, grounded=True)
+    _stub_validate_answer(monkeypatch)
+
+    t0 = asyncio.get_event_loop().time()
+    result = await meta_analysis(_agent_input())
+    elapsed = asyncio.get_event_loop().time() - t0
+
+    assert state["peak"] == 1
+    timed_out = [c for c in result.caveats if "timed out" in c]
+    assert len(timed_out) == 2, result.caveats
+    assert result.status == SubAgentStatus.PARTIAL
+    # Bounded by the ONE deadline (plus scheduling slack), not by 3 x it.
+    assert elapsed < 0.15 * 2, f"fan-out took {elapsed:.2f}s — the deadline is no longer shared"
+    # And a sub-query cancelled while queued at the gate released it: the
+    # live count is back to zero, nothing is stuck holding a slot.
+    assert state["live"] == 0
+
+
+def test_module150_gate_keeps_the_last_in_line_call_inside_the_per_call_timeout():
+    """The arithmetic the default is derived from, pinned the way Modules 53
+    and 110 pinned theirs. With the server serving one request at a time, the
+    last of `META_ANALYSIS_MAX_CONCURRENT_SUBQUERIES` in-flight LLM calls
+    waits (gate - 1) service times before its own, so `gate x service time`
+    must fit inside the per-call timeout with headroom. Service time is the
+    heaviest Module 150 measured for one XAGG paraphrase under shared load
+    (~15 s; 30 s at the worst moment), the per-call timeout is the deployed
+    `.env` value (60 s), and 1.5 is the same headroom factor Module 110 used.
+    A gate of 2 fits (45 s); a gate of 3 does not (67.5 s) — so this test
+    fails the day someone raises the gate without also raising the timeout,
+    and fails the day someone lowers the deployed timeout under the gate.
+    """
+    deployed_local_llm_timeout_s = 60.0  # .env's LOCAL_LLM_TIMEOUT
+    service_time_s, headroom = 15.0, 1.5
+    gate = config.META_ANALYSIS_MAX_CONCURRENT_SUBQUERIES
+    assert gate >= 1, "the gate is on by default"
+    assert gate * service_time_s * headroom <= deployed_local_llm_timeout_s
+    assert (gate + 1) * service_time_s * headroom > deployed_local_llm_timeout_s
+    # And the gated fan-out still fits the shared deadline: eight sub-queries
+    # served one at a time at Module 50's 12 s slot is 96 s, under 150 s.
+    assert ma_mod._MAX_PLAN_SUB_QUERIES * 12.0 <= config.META_ANALYSIS_SUBQUERY_TIMEOUT

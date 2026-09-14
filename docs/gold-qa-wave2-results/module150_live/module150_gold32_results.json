@@ -1,0 +1,64 @@
+[
+  {
+    "id": "D1",
+    "type": "Fact Retrieval",
+    "language": "en",
+    "route": "XAGG",
+    "last_dispatch_route": null,
+    "subquery_routes": [],
+    "scores": {
+      "FactualCorrectness": 1.0,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output correctly identifies the number 73 as the total count, matching the expected output. While it includes additional context and caveats regarding the terminology, it provides the exact figure requested.",
+      "AnswerRelevancy": "The score is 1.00 because the response directly and accurately addresses the inquiry with no irrelevant information included. Great job providing a clear and focused answer!"
+    }
+  },
+  {
+    "id": "S2",
+    "type": "Fact Retrieval",
+    "language": "en",
+    "route": "XAGG",
+    "last_dispatch_route": null,
+    "subquery_routes": [],
+    "scores": {
+      "FactualCorrectness": 1.0,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output correctly identifies the police station with the most cases and provides the accurate count of 7 FIRs. It also provides context regarding the other stations, aligning with the expected output's key facts.",
+      "AnswerRelevancy": "The score is 1.00 because the response directly addresses the query with accurate and relevant information, maintaining perfect alignment with the user's request."
+    }
+  },
+  {
+    "id": "S3",
+    "type": "Fact Retrieval",
+    "language": "ur",
+    "route": "XAGG",
+    "last_dispatch_route": null,
+    "subquery_routes": [],
+    "scores": {
+      "FactualCorrectness": 1.0,
+      "AnswerRelevancy": 1.0
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output correctly identifies the two individuals who were arrested more than once and lists the corresponding FIR numbers for both, matching the expected output's findings perfectly.",
+      "AnswerRelevancy": "The score is 1.00 because the response is perfectly relevant and directly addresses the inquiry with clarity and precision. Great job!"
+    }
+  },
+  {
+    "id": "A1",
+    "type": "Fact Retrieval",
+    "language": "ur",
+    "route": "XAGG",
+    "last_dispatch_route": null,
+    "subquery_routes": [],
+    "scores": {
+      "FactualCorrectness": 0.9
+    },
+    "reasons": {
+      "FactualCorrectness": "The actual output correctly identifies the number of male and female accused individuals (67 and 24 respectively) and the total count of 94, which aligns with the expected output. While it omits the 3 'unclear' entries, it provides the core requested data accurately."
+    }
+  }
+]

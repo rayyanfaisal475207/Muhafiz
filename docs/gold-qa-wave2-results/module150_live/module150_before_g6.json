@@ -1,0 +1,930 @@
+{
+ "G6::run1": {
+  "answer": "For the officer joining this caseload, here is a concise orientation note:  \n\n**District Concentration**: Cases are concentrated in **فیصل آباد** (19 cases), **لاہور** (18 cases), and **راولپنڈی** (10 cases), with smaller numbers in other districts like **اسلام آباد** (5), **چنیوٹ** (5), and **کراچی ایسٹ** (5) [Document 1].  \n\n**Case Mix**: The caseload now includes **51 FIRs** (2026) across diverse legal frameworks, such as **Pakistan Penal Code (PPC)**, **Control of Narcotic Substances Act 1997 (CNSA 1997)**, **Prevention of Electronic Crimes Act 2016 (PECA 2016)**, and **Punjab Domestic Violence Act**, reflecting a shift from arms-related and robbery cases in 2024 (13 FIRs) to broader offenses like cybercrimes, narcotics, and domestic violence [Document 2].  \n\n**Arrests**: Only **11 FIRs** (out of 73 total) record at least one arrest, while **62 FIRs** have no arrests noted [Document 3].  \n\n**Reporting Delays**: The mean time from incident to report is **1401.3 minutes (~23.4 hours)** in 2026, compared to **15.0 minutes** in 2024 [Document 4].  \n\n**Weapon Licensing**: Of **32 weapon-register entries**, **30 recovered weapons** have **no licence recorded**, and **2 entries** lack licence status entirely [Document 5].  \n\n**Accused Profile**: There are **92 distinct accused**, with **17** having ages recorded (range: **24–49 years**, mean: **31.5**). However, **75 accused** have no age data [Document 6]. Relationships between accused and complainants are recorded in **10 FIRs**, with **اجنبی (stranger)** being the most frequent (15 entries out of 24 total) [Document 7].  \n\n**Court Progress**: Of **33 criminal records**, **32 are still in progress**, and **1 case** has reached a verdict [Document 8].  \n\nThis caseload requires attention to delayed reporting, unlicensed weapons, and the predominance of stranger-related offenses, alongside a high proportion of unresolved cases in court.Response generated (1915 chars)",
+  "confidence": "medium",
+  "config": {
+   "LOCAL_LLM_TIMEOUT": 60.0,
+   "META_ANALYSIS_MAX_CONCURRENT_SUBQUERIES": null,
+   "META_ANALYSIS_SUBQUERY_TIMEOUT": 150.0
+  },
+  "elapsed_s": 175.9,
+  "llm_calls": [
+   {
+    "chars": 420,
+    "duration_s": 21.69,
+    "end_s": 27.36,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 5.66,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 410,
+    "duration_s": 14.08,
+    "end_s": 41.61,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 27.53,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 510,
+    "duration_s": 10.97,
+    "end_s": 53.48,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 42.51,
+    "sub_query": "How many cases are registered in each district, across all cases?"
+   },
+   {
+    "chars": 255,
+    "duration_s": 15.03,
+    "end_s": 58.07,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 43.05,
+    "sub_query": "How long does it typically take someone to report a crime to us these days versus a couple"
+   },
+   {
+    "chars": 338,
+    "duration_s": 18.56,
+    "end_s": 62.3,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 43.74,
+    "sub_query": "How many cases in the criminal record system are still in progress in court, and how many "
+   },
+   {
+    "chars": 1126,
+    "duration_s": 29.42,
+    "end_s": 73.64,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 44.21,
+    "sub_query": "What kinds of cases are we dealing with now compared to a couple of years back?"
+   },
+   {
+    "chars": 566,
+    "duration_s": 36.34,
+    "end_s": 80.91,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 44.58,
+    "sub_query": "How many cases record an arrest of an accused person, and on how many is no arrest recorde"
+   },
+   {
+    "chars": 428,
+    "duration_s": 43.73,
+    "end_s": 88.8,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 45.06,
+    "sub_query": "How many cases involve a recovered weapon with no licence recorded, across all cases?"
+   },
+   {
+    "duration_s": 61.13,
+    "end_s": 106.55,
+    "error": "ReadTimeout: ReadTimeout('')",
+    "max_tokens": 3000,
+    "ok": false,
+    "role": "reasoning",
+    "start_s": 45.42,
+    "sub_query": "How many cases record a relationship between the accused and the complainant, and which re"
+   },
+   {
+    "chars": 404,
+    "duration_s": 53.0,
+    "end_s": 98.83,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 45.83,
+    "sub_query": "How many cases involve an accused person, and what is their age range and average age, acr"
+   },
+   {
+    "chars": 1915,
+    "duration_s": 28.51,
+    "end_s": 136.77,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 108.27,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 244,
+    "duration_s": 19.45,
+    "end_s": 156.23,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 136.78,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 1095,
+    "duration_s": 25.29,
+    "end_s": 181.52,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 156.23,
+    "sub_query": "<top-level>"
+   }
+  ],
+  "log_lines": [
+   {
+    "line": "INFO src.pipeline.harness.agents.meta_analysis: Meta-Analysis: deterministic decomposition plan 'orientation_note' matched.",
+    "sub_query": "<top-level>",
+    "t_s": 41.61
+   },
+   {
+    "line": "WARNING src.llm.client: Local LLM failed: . Falling back to groq...",
+    "sub_query": "How many cases record a relationship between the accused and the complainant, and which re",
+    "t_s": 106.56
+   }
+  ],
+  "question": "Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation note likhein — unhein mojooda case load se kya tawaqqo rakhni chahiye?",
+  "reason": "Open-ended synthesis request for a cross-case overview of precautions needed based on the current caseload — requires XNETWORK's ability to synthesize patterns across cases for a new officer's orientation",
+  "route": "XNETWORK",
+  "route_error": null,
+  "secondary_methods": [],
+  "signals": {
+   "fallback_messages": [
+    ". Falling back to groq..."
+   ],
+   "fanout_wall_s": 66.7,
+   "groq_fallbacks": 1,
+   "llm_calls_total": 13,
+   "local_failed": 1,
+   "local_failed_errors": [
+    "ReadTimeout"
+   ],
+   "local_ok": 12,
+   "model": "groq-fallback",
+   "per_call_s_max": 53.0,
+   "per_call_s_mean": 26.3,
+   "per_call_s_min": 10.97,
+   "salvaged": 0,
+   "sub_query_count": 8,
+   "subquery_timeouts": 0,
+   "synthesis_collapsed": 0,
+   "verifier_rejected_synthesis": 0
+  },
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XNETWORK' -> sub-agent='Meta-Analysis'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Meta-Analysis completed with status=ok",
+   "supervisor/done: Harness routing complete",
+   "citations/done: 8 citation(s)",
+   "memory/done: Saved to session"
+  ],
+  "sub_queries": [
+   {
+    "duration_s": 11.87,
+    "end_s": 53.48,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 41.61,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases are registered in each district, across all cases?",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 32.02,
+    "end_s": 73.64,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 41.61,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "What kinds of cases are we dealing with now compared to a couple of years back?",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 16.45,
+    "end_s": 58.07,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 41.62,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How long does it typically take someone to report a crime to us these days versus a couple",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 39.29,
+    "end_s": 80.91,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 41.62,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases record an arrest of an accused person, and on how many is no arrest recorde",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 20.67,
+    "end_s": 62.3,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 41.63,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases in the criminal record system are still in progress in court, and how many ",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 47.17,
+    "end_s": 88.8,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 41.63,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases involve a recovered weapon with no licence recorded, across all cases?",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 57.21,
+    "end_s": 98.83,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 41.63,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases involve an accused person, and what is their age range and average age, acr",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 66.64,
+    "end_s": 108.27,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 41.63,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases record a relationship between the accused and the complainant, and which re",
+    "tools_used": [
+     "XAGG"
+    ]
+   }
+  ],
+  "timestamp": "2026-09-14 20:53:59",
+  "used_cutover": true,
+  "wall_s": 181.6
+ },
+ "G6::run2": {
+  "answer": "For the officer joining this caseload, here is a concise orientation note:  \n\n**District Concentration**: Cases are concentrated in **فیصل آباد** (Faisalabad: 19 cases), **لاہور** (Lahore: 18 cases), and **راولپنڈی** (Rawalpindi: 10 cases), with smaller numbers in other districts [Document 1].  \n\n**Case Mix**: The caseload now includes **51 FIRs** (2026) across diverse legal frameworks, such as **Pakistan Penal Code (PPC)**, **Control of Narcotic Substances Act 1997 (CNSA 1997)**, **Prevention of Electronic Crimes Act 2016 (PECA 2016)**, and **Punjab Domestic Violence Act**, compared to 13 FIRs in 2024 focused on arms-related and robbery/conspiracy charges [Document 2].  \n\n**Arrests**: Only **11 of 73 FIRs** record an arrest, while **62 have no arrest** [Document 3].  \n\n**Reporting Delays**: The mean time from incident to report is **1401.3 minutes (~23.4 hours)** in 2026, significantly slower than **15.0 minutes** in 2024 [Document 4].  \n\n**Weapon Licensing**: Of **32 weapon-register entries**, **30 recovered weapons** have **no licence recorded** [Document 5].  \n\n**Accused Profile**: There are **92 distinct accused**, with **17 aged 24–49 years** (mean: 31.5). However, **75 accused have no age recorded** [Document 6].  \n\n**Relationships**: In **10 FIRs** with **24 relationship entries**, the most common is **اجنبی (stranger)**, recorded in **15 entries** [Document 7].  \n\n**Court Progress**: Of **33 criminal records**, **32 are still in progress**, and only **1 has reached a verdict** [Document 8].  \n\nThis caseload requires attention to delayed reporting, unlicensed weapons, and the predominance of cybercrime, narcotics, and domestic violence cases.Response generated (1678 chars)",
+  "confidence": "medium",
+  "config": {
+   "LOCAL_LLM_TIMEOUT": 60.0,
+   "META_ANALYSIS_MAX_CONCURRENT_SUBQUERIES": null,
+   "META_ANALYSIS_SUBQUERY_TIMEOUT": 150.0
+  },
+  "elapsed_s": 169.2,
+  "llm_calls": [
+   {
+    "chars": 416,
+    "duration_s": 20.7,
+    "end_s": 20.7,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 0.0,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 416,
+    "duration_s": 10.02,
+    "end_s": 30.76,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 20.74,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 255,
+    "duration_s": 16.78,
+    "end_s": 47.7,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 30.92,
+    "sub_query": "How long does it typically take someone to report a crime to us these days versus a couple"
+   },
+   {
+    "chars": 510,
+    "duration_s": 11.7,
+    "end_s": 43.12,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 31.42,
+    "sub_query": "How many cases are registered in each district, across all cases?"
+   },
+   {
+    "chars": 428,
+    "duration_s": 23.61,
+    "end_s": 55.59,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 31.98,
+    "sub_query": "How many cases involve a recovered weapon with no licence recorded, across all cases?"
+   },
+   {
+    "chars": 568,
+    "duration_s": 42.38,
+    "end_s": 75.01,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 32.63,
+    "sub_query": "How many cases record a relationship between the accused and the complainant, and which re"
+   },
+   {
+    "chars": 404,
+    "duration_s": 32.47,
+    "end_s": 65.62,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 33.15,
+    "sub_query": "How many cases involve an accused person, and what is their age range and average age, acr"
+   },
+   {
+    "chars": 1126,
+    "duration_s": 56.91,
+    "end_s": 90.56,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 33.65,
+    "sub_query": "What kinds of cases are we dealing with now compared to a couple of years back?"
+   },
+   {
+    "chars": 338,
+    "duration_s": 44.93,
+    "end_s": 79.23,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 34.3,
+    "sub_query": "How many cases in the criminal record system are still in progress in court, and how many "
+   },
+   {
+    "duration_s": 60.78,
+    "end_s": 95.69,
+    "error": "ReadTimeout: ReadTimeout('')",
+    "max_tokens": 3000,
+    "ok": false,
+    "role": "reasoning",
+    "start_s": 34.91,
+    "sub_query": "How many cases record an arrest of an accused person, and on how many is no arrest recorde"
+   },
+   {
+    "chars": 1678,
+    "duration_s": 26.74,
+    "end_s": 123.69,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 96.95,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 241,
+    "duration_s": 20.62,
+    "end_s": 144.31,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 123.69,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 1244,
+    "duration_s": 24.81,
+    "end_s": 169.12,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 144.31,
+    "sub_query": "<top-level>"
+   }
+  ],
+  "log_lines": [
+   {
+    "line": "INFO src.pipeline.harness.agents.meta_analysis: Meta-Analysis: deterministic decomposition plan 'orientation_note' matched.",
+    "sub_query": "<top-level>",
+    "t_s": 30.76
+   },
+   {
+    "line": "WARNING src.llm.client: Local LLM failed: . Falling back to groq...",
+    "sub_query": "How many cases record an arrest of an accused person, and on how many is no arrest recorde",
+    "t_s": 95.69
+   }
+  ],
+  "question": "Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation note likhein — unhein mojooda case load se kya tawaqqo rakhni chahiye?",
+  "reason": "Open-ended synthesis request for a cross-case overview of precautions needed for the current caseload — XNETWORK handles synthesized, narrative answers drawing on multiple pre-summarized case clusters",
+  "route": "XNETWORK",
+  "route_error": null,
+  "secondary_methods": [],
+  "signals": {
+   "fallback_messages": [
+    ". Falling back to groq..."
+   ],
+   "fanout_wall_s": 66.2,
+   "groq_fallbacks": 1,
+   "llm_calls_total": 13,
+   "local_failed": 1,
+   "local_failed_errors": [
+    "ReadTimeout"
+   ],
+   "local_ok": 12,
+   "model": "groq-fallback",
+   "per_call_s_max": 56.91,
+   "per_call_s_mean": 27.6,
+   "per_call_s_min": 10.02,
+   "salvaged": 0,
+   "sub_query_count": 8,
+   "subquery_timeouts": 0,
+   "synthesis_collapsed": 0,
+   "verifier_rejected_synthesis": 0
+  },
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XNETWORK' -> sub-agent='Meta-Analysis'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Meta-Analysis completed with status=ok",
+   "supervisor/done: Harness routing complete",
+   "citations/done: 8 citation(s)",
+   "memory/done: Saved to session"
+  ],
+  "sub_queries": [
+   {
+    "duration_s": 12.36,
+    "end_s": 43.12,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 30.76,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases are registered in each district, across all cases?",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 59.8,
+    "end_s": 90.56,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 30.76,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "What kinds of cases are we dealing with now compared to a couple of years back?",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 66.18,
+    "end_s": 96.95,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 30.76,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases record an arrest of an accused person, and on how many is no arrest recorde",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 16.94,
+    "end_s": 47.7,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 30.77,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How long does it typically take someone to report a crime to us these days versus a couple",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 24.82,
+    "end_s": 55.59,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 30.77,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases involve a recovered weapon with no licence recorded, across all cases?",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 34.85,
+    "end_s": 65.62,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 30.77,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases involve an accused person, and what is their age range and average age, acr",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 44.24,
+    "end_s": 75.01,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 30.77,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases record a relationship between the accused and the complainant, and which re",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 48.46,
+    "end_s": 79.23,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 30.77,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases in the criminal record system are still in progress in court, and how many ",
+    "tools_used": [
+     "XAGG"
+    ]
+   }
+  ],
+  "timestamp": "2026-09-14 20:56:48",
+  "used_cutover": true,
+  "wall_s": 169.2
+ },
+ "G6::run3": {
+  "answer": "For the officer joining this caseload, here is a concise orientation note:  \n\n**District Concentration**: Cases are concentrated in **فیصل آباد (19)** and **لاہور (18)**, with **راولپنڈی (10)** and other districts (e.g., اسلام آباد, چنیوٹ) having fewer cases [Document 1].  \n\n**Case Mix**: The caseload now includes **cybercrime (PECA 2016, 9 cases)**, **narcotics (CNSA 1997, 12 cases)**, and **domestic violence (4 cases)**, alongside traditional offenses like **arms violations (16 cases)** and **conspiracy (23 cases)**. This contrasts sharply with 2024, which had only **13 FIRs** limited to arms and PPC offenses [Document 2].  \n\n**Arrests**: Only **11/73 FIRs** record an arrest, with **62 cases** having no arrest [Document 3].  \n\n**Reporting Delays**: The mean time from incident to report is **~23.4 hours (1401.3 minutes)** in 2026, compared to **15 minutes** in 2024 [Document 4].  \n\n**Weapon Licensing**: **30 cases** involve recovered weapons with **no licence recorded**, and **2 cases** have **no licence status** confirmed [Document 5].  \n\n**Accused Profile**: Of **92 accused**, **17** have recorded ages ranging from **24–49 years (mean 31.5)**, but **75 accused** have no age data. Relationships to complainants are mostly **اجنبی (stranger, 15 entries)** across **10 FIRs** [Document 6][Document 7].  \n\n**Court Progress**: Of **33 criminal records**, **32 are ongoing** (under trial, awaiting appeal, etc.), and only **1 case** has reached a verdict [Document 8].  \n\nThis caseload demands attention to **diverse, complex offenses**, **low arrest rates**, and **delays in reporting**, alongside a focus on **unlicensed weapons** and **ongoing court proceedings**.\n\n_A cited claim ([Document 6]) could not be confirmed against its source: The source for pair 6 discusses accused ages, not relationships to complainants, making the claim unsupported._Response generated (1869 chars)",
+  "confidence": "medium",
+  "config": {
+   "LOCAL_LLM_TIMEOUT": 60.0,
+   "META_ANALYSIS_MAX_CONCURRENT_SUBQUERIES": null,
+   "META_ANALYSIS_SUBQUERY_TIMEOUT": 150.0
+  },
+  "elapsed_s": 144.0,
+  "llm_calls": [
+   {
+    "chars": 416,
+    "duration_s": 20.72,
+    "end_s": 20.72,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 0.0,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 416,
+    "duration_s": 10.32,
+    "end_s": 31.07,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 20.75,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 255,
+    "duration_s": 6.62,
+    "end_s": 37.8,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 31.18,
+    "sub_query": "How long does it typically take someone to report a crime to us these days versus a couple"
+   },
+   {
+    "duration_s": 2.63,
+    "end_s": 34.25,
+    "error": "RemoteProtocolError: RemoteProtocolError('Server disconnected without sending a response.')",
+    "max_tokens": 3000,
+    "ok": false,
+    "role": "reasoning",
+    "start_s": 31.62,
+    "sub_query": "How many cases are registered in each district, across all cases?"
+   },
+   {
+    "chars": 526,
+    "duration_s": 12.03,
+    "end_s": 44.05,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 32.02,
+    "sub_query": "How many cases in the criminal record system are still in progress in court, and how many "
+   },
+   {
+    "chars": 550,
+    "duration_s": 22.26,
+    "end_s": 54.71,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 32.45,
+    "sub_query": "How many cases record a relationship between the accused and the complainant, and which re"
+   },
+   {
+    "duration_s": 61.96,
+    "end_s": 94.87,
+    "error": "ReadTimeout: ReadTimeout('')",
+    "max_tokens": 3000,
+    "ok": false,
+    "role": "reasoning",
+    "start_s": 32.91,
+    "sub_query": "How many cases record an arrest of an accused person, and on how many is no arrest recorde"
+   },
+   {
+    "chars": 319,
+    "duration_s": 29.36,
+    "end_s": 62.71,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 33.35,
+    "sub_query": "How many cases involve a recovered weapon with no licence recorded, across all cases?"
+   },
+   {
+    "chars": 485,
+    "duration_s": 35.18,
+    "end_s": 68.97,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 33.79,
+    "sub_query": "How many cases involve an accused person, and what is their age range and average age, acr"
+   },
+   {
+    "chars": 1729,
+    "duration_s": 48.68,
+    "end_s": 82.95,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 34.27,
+    "sub_query": "What kinds of cases are we dealing with now compared to a couple of years back?"
+   },
+   {
+    "chars": 1683,
+    "duration_s": 17.66,
+    "end_s": 113.44,
+    "max_tokens": 3000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 95.78,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 237,
+    "duration_s": 12.38,
+    "end_s": 125.83,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 113.45,
+    "sub_query": "<top-level>"
+   },
+   {
+    "chars": 1207,
+    "duration_s": 18.16,
+    "end_s": 143.99,
+    "max_tokens": 2000,
+    "ok": true,
+    "role": "reasoning",
+    "start_s": 125.83,
+    "sub_query": "<top-level>"
+   }
+  ],
+  "log_lines": [
+   {
+    "line": "INFO src.pipeline.harness.agents.meta_analysis: Meta-Analysis: deterministic decomposition plan 'orientation_note' matched.",
+    "sub_query": "<top-level>",
+    "t_s": 31.07
+   },
+   {
+    "line": "WARNING src.llm.client: Local LLM failed: Server disconnected without sending a response.. Falling back to groq...",
+    "sub_query": "How many cases are registered in each district, across all cases?",
+    "t_s": 34.25
+   },
+   {
+    "line": "WARNING src.llm.client: Local LLM failed: . Falling back to groq...",
+    "sub_query": "How many cases record an arrest of an accused person, and on how many is no arrest recorde",
+    "t_s": 94.87
+   }
+  ],
+  "question": "Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation note likhein — unhein mojooda case load se kya tawaqqo rakhni chahiye?",
+  "reason": "Open-ended synthesis request for a cross-case overview of precautions needed for the current caseload — XNETWORK handles synthesized, narrative answers drawing on multiple pre-summarized case clusters",
+  "route": "XNETWORK",
+  "route_error": null,
+  "secondary_methods": [],
+  "signals": {
+   "fallback_messages": [
+    "Server disconnected without sending a response.. Falling back to groq...",
+    ". Falling back to groq..."
+   ],
+   "fanout_wall_s": 64.7,
+   "groq_fallbacks": 2,
+   "llm_calls_total": 13,
+   "local_failed": 2,
+   "local_failed_errors": [
+    "ReadTimeout",
+    "RemoteProtocolError"
+   ],
+   "local_ok": 11,
+   "model": "groq-fallback",
+   "per_call_s_max": 48.68,
+   "per_call_s_mean": 21.2,
+   "per_call_s_min": 6.62,
+   "salvaged": 0,
+   "sub_query_count": 8,
+   "subquery_timeouts": 0,
+   "synthesis_collapsed": 0,
+   "verifier_rejected_synthesis": 0
+  },
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XNETWORK' -> sub-agent='Meta-Analysis'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor:dispatch/done: Meta-Analysis completed with status=ok",
+   "supervisor/done: Harness routing complete",
+   "citations/done: 8 citation(s)",
+   "memory/done: Saved to session"
+  ],
+  "sub_queries": [
+   {
+    "duration_s": 4.53,
+    "end_s": 35.6,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 31.08,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases are registered in each district, across all cases?",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 6.72,
+    "end_s": 37.8,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 31.08,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How long does it typically take someone to report a crime to us these days versus a couple",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 23.63,
+    "end_s": 54.71,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 31.08,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases record a relationship between the accused and the complainant, and which re",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 31.63,
+    "end_s": 62.71,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 31.08,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases involve a recovered weapon with no licence recorded, across all cases?",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 37.88,
+    "end_s": 68.97,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 31.08,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases involve an accused person, and what is their age range and average age, acr",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 51.87,
+    "end_s": 82.95,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 31.08,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "What kinds of cases are we dealing with now compared to a couple of years back?",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 64.7,
+    "end_s": 95.78,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 31.08,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases record an arrest of an accused person, and on how many is no arrest recorde",
+    "tools_used": [
+     "XAGG"
+    ]
+   },
+   {
+    "duration_s": 12.96,
+    "end_s": 44.05,
+    "failure_reason": null,
+    "salvaged": false,
+    "start_s": 31.09,
+    "status": "SubAgentStatus.OK",
+    "sub_query": "How many cases in the criminal record system are still in progress in court, and how many ",
+    "tools_used": [
+     "XAGG"
+    ]
+   }
+  ],
+  "timestamp": "2026-09-14 20:59:12",
+  "used_cutover": true,
+  "wall_s": 144.0
+ }
+}

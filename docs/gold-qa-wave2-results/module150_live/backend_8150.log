@@ -1,0 +1,564 @@
+INFO:     Started server process [11040]
+INFO:     Waiting for application startup.
+2026-09-14 21:30:33,482 [INFO] src.main: ============================================================
+2026-09-14 21:30:33,482 [INFO] src.main: Muhafiz starting up...
+2026-09-14 21:30:33,483 [INFO] src.main: ============================================================
+2026-09-14 21:30:33,483 [INFO] src.main: Data directories ensured.
+2026-09-14 21:30:33,484 [INFO] src.main: Error capture installed.
+2026-09-14 21:30:33,583 [INFO] src.database.postgres: PostgreSQL tables created / verified successfully.
+2026-09-14 21:30:33,584 [INFO] src.main: [OK] PostgreSQL initialized (primary database)
+2026-09-14 21:30:33,620 [INFO] src.database.db: Pipeline DB initialised at D:\Rapids AI\muhafiz-m150\data\pipeline_logs.db
+2026-09-14 21:30:33,620 [INFO] src.main: [OK] Configuration valid. LLM provider: groq
+2026-09-14 21:30:33,620 [INFO] src.main: ChromaDB persist dir: D:\Rapids AI\Evidence Intelligence Platform\data\chroma_db
+2026-09-14 21:30:33,620 [INFO] src.main: Server ready at http://0.0.0.0:8000
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8150 (Press CTRL+C to quit)
+INFO:     127.0.0.1:64278 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64280 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64283 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64284 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:31:16,941 [INFO] src.pipeline.xagg: XAGG total_count: 73 case(s) after filtering; unsupported_filters=none; filters=none
+2026-09-14 21:31:22,001 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:31:22,003 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+INFO:     127.0.0.1:64287 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:31:22,145 [INFO] src.pipeline.xagg: XAGG relational_aggregate: group_by=police_station, 73 case(s) considered, 15 bucket(s); filters=none; تھانہ ماڈل ٹاؤن، لاہور=7, سائبر کرائم سرکل، اسلام آباد=5, تھانہ لطیف آباد، حیدر آباد=5, تھانہ شاہ فیصل کالونی، کراچی=5, موٹروے پولیس اسٹیشن ایم ٹو، لاہور=5, خواتین تھانہ، فیصل آباد=5, تھانہ صدر، ضلع چنیوٹ=5, تھانہ نیو کراچی، کراچی=5, تھانہ جھنگ روڈ، فیصل آباد=5, تھانہ برکی، لاہور=5
+2026-09-14 21:31:28,007 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:31:28,010 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+INFO:     127.0.0.1:64289 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:31:28,661 [INFO] src.pipeline.xagg: XAGG graph_recurrence: entity_type=Person, 4 recurring node(s); 4 with a date-ordered timeline, 2 with a criminal-record outcome; فیصل=2[2024-09-25..2026-03-06], طارق=2[2024-09-25..2026-03-06], شہزیب عرف شابی=2[2024-09-14..2026-03-03], عاصم رشید=2[2026-03-19..2026-03-23]
+2026-09-14 21:31:42,145 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:31:42,147 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+2026-09-14 21:31:54,976 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:59634 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:32:02,847 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:32:02,951 [INFO] src.pipeline.xagg: XAGG gender_breakdown: 94 accused edge(s), 3 distinct value(s); مرد=67, عورت=24, unknown=3
+2026-09-14 21:32:14,579 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:32:14,590 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+INFO:     127.0.0.1:52821 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:32:14,817 [INFO] src.pipeline.xagg: XAGG reporting_delay_count: 8 of 73 FIR(s) record a reporting-delay reason
+2026-09-14 21:32:20,755 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:32:20,756 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+INFO:     127.0.0.1:58701 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:32:20,933 [INFO] src.pipeline.xagg: XAGG placeholder_officer_count: 10 case(s) still carry a placeholder investigating officer (11 ever); ASI=7 SI=3
+2026-09-14 21:32:33,046 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:32:33,057 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+INFO:     127.0.0.1:57134 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:32:33,496 [INFO] src.pipeline.xagg: XAGG graph_recurrence: entity_type=Person, 4 recurring node(s); 4 with a date-ordered timeline, 2 with a criminal-record outcome; فیصل=2[2024-09-25..2026-03-06], طارق=2[2024-09-25..2026-03-06], شہزیب عرف شابی=2[2024-09-14..2026-03-03], عاصم رشید=2[2026-03-19..2026-03-23]
+2026-09-14 21:32:43,050 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:32:43,051 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+2026-09-14 21:32:56,265 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:52601 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:33:04,102 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:33:04,104 [INFO] src.pipeline.harness.agents.meta_analysis: Meta-Analysis: deterministic decomposition plan 'record_consistency' matched.
+2026-09-14 21:33:04,135 [INFO] src.pipeline.xagg: XAGG filtered_fir_listing: filters=['statute: PECA 2016', 'station: \u0633\u0627\u0626\u0628\u0631 \u06a9\u0631\u0627\u0626\u0645 \u0633\u0631\u06a9\u0644\u060c \u0627\u0633\u0644\u0627\u0645 \u0622\u0628\u0627\u062f, \u0633\u0627\u0626\u0628\u0631 \u06a9\u0631\u0627\u0626\u0645 \u0633\u0631\u06a9\u0644\u060c \u0631\u0627\u0648\u0644\u067e\u0646\u0688\u06cc'] -> 2 FIR(s) ['64/26', '65/26']
+2026-09-14 21:33:04,749 [INFO] src.pipeline.xagg: XAGG graph_recurrence: entity_type=Person, 4 recurring node(s); 4 with a date-ordered timeline, 2 with a criminal-record outcome; فیصل=2[2024-09-25..2026-03-06], طارق=2[2024-09-25..2026-03-06], شہزیب عرف شابی=2[2024-09-14..2026-03-03], عاصم رشید=2[2026-03-19..2026-03-23]
+2026-09-14 21:33:15,353 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:33:15,357 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+2026-09-14 21:33:15,468 [INFO] src.pipeline.xagg: XAGG cms_fir_linkage: 4 CMS complaint(s), 4 linked to a case, 0 unlinked
+2026-09-14 21:33:42,629 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:33:42,632 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+2026-09-14 21:33:47,878 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:33:47,879 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+2026-09-14 21:34:00,614 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:34:00,616 [INFO] src.pipeline.harness.agents.meta_analysis: Meta-Analysis [Module 61]: 3 of 3 sub-answers declared a complete enumeration (XAGG-only provenance); negative inference over those is supported, not inferred.
+2026-09-14 21:34:09,664 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:34:09,667 [INFO] src.pipeline.verifier: Verifier: grounded=True off_topic=False leaked=None unsupported=0 — All claims are directly supported by cited chunks: FIR 64/26's CMS linkage (Docu
+2026-09-14 21:34:23,739 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:34:23,741 [INFO] src.pipeline.validation: Validation [Module 61]: claim upgraded to supported — negative inference over a complete listing: The source only mentions four FIRs (including fir-64-26) but does not explicitly state that FIR 65/26 is absent from the
+INFO:     127.0.0.1:60161 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:34:24,023 [INFO] src.pipeline.xagg: XAGG weapon_evidence_chain: 32 weapon(s); 30 traceable to a named accused, 2 unattributed; richest chain fir-891-24
+2026-09-14 21:34:35,158 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:34:35,164 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+INFO:     127.0.0.1:53514 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:34:35,390 [INFO] src.pipeline.xagg: XAGG cms_fir_linkage: 4 CMS complaint(s), 4 linked to a case, 0 unlinked
+2026-09-14 21:34:41,198 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:34:41,199 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+INFO:     127.0.0.1:53516 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:34:41,425 [INFO] src.pipeline.xagg: XAGG criminal_record_court_crosscheck: 33 criminal record(s), 1 settled / 32 in progress; 1 cross-checked against a court outcome, 1 consistent
+2026-09-14 21:34:49,031 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:34:49,032 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+INFO:     127.0.0.1:53521 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:34:49,253 [INFO] src.pipeline.xagg: XAGG dv_report_fir_match: 8 women-violence report(s), 4 matched to an FIR, 4 unconfirmed
+2026-09-14 21:34:55,848 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:34:55,849 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+INFO:     127.0.0.1:50427 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:34:56,122 [INFO] src.pipeline.xagg: XAGG criminal_record_local_match_gap: 33 criminal record(s) over 32 distinct subject(s) vs 94 local accused entr(ies) (92 distinct CNIC); 1 subject(s) with no local match [00000-9000020-1]; 0 record(s) carry no CNIC
+2026-09-14 21:35:03,137 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:35:03,138 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+INFO:     127.0.0.1:50430 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:35:03,365 [INFO] src.pipeline.xagg: XAGG rate_breakdown: dimension=weapon_recovery_rate_by_district, 9 district(s); حیدر آباد=3/5=0.6, فیصل آباد=10/19=0.526, لاہور=8/18=0.444, اسلام آباد=2/5=0.4, چنیوٹ=2/5=0.4, کراچی ایسٹ=2/5=0.4, کراچی وسطی=2/5=0.4, راولپنڈی=3/10=0.3, ملتان=0/1=0.0
+2026-09-14 21:35:09,002 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:35:09,003 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+INFO:     127.0.0.1:50432 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:35:09,272 [INFO] src.pipeline.xagg: XAGG time_bucketed_breakdown: dimension=statute_by_year, 2 year bucket(s) [2024:cases=13,acts=26,sections=3, 2026:cases=51,acts=82,sections=31]
+2026-09-14 21:35:24,335 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:35:24,338 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+INFO:     127.0.0.1:50434 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:35:24,641 [INFO] src.pipeline.xagg: XAGG station_caseload_by_specialisation: 19 station(s), 73 FIR(s); crime_type_specialised=2 station(s)/9 FIR(s); other_specialised=2 station(s)/10 FIR(s); general_purpose=15 station(s)/54 FIR(s); 9 FIR(s) with no resolvable incident year, 0 case(s) at an unknown station
+2026-09-14 21:35:35,001 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:35:35,005 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=False leaked=None unsupported_numbers=['457', '66.6'] omitted_headline_proportions=['19', '2', '73', '9'] — Paraphrase states number(s) not present in the computed result: 457, 66.6.
+2026-09-14 21:35:35,005 [WARNING] src.pipeline.harness.agents.large_scale_aggregate: Large-Scale Aggregate: verifier rejected paraphrase, serving raw aggregate: Paraphrase states number(s) not present in the computed result: 457, 66.6.
+INFO:     127.0.0.1:50436 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:35:35,284 [INFO] src.pipeline.xagg: XAGG criminal_record_court_crosscheck: 33 criminal record(s), 1 settled / 32 in progress; 1 cross-checked against a court outcome, 1 consistent
+2026-09-14 21:35:35,385 [INFO] src.pipeline.xagg: XAGG statute_court_stage_join: 73 case(s) carry a recorded section across 36 distinct statute(s); 33 criminal record(s), 1 settled / 32 in progress; 4 record(s) join to a case in this corpus; agree=False
+2026-09-14 21:35:43,751 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:35:43,753 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+INFO:     127.0.0.1:50438 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:35:44,055 [INFO] src.pipeline.xagg: XAGG weapon_statute_cooccurrence: 32 weapon case(s), 2 year bucket(s), 0 with no resolvable incident date
+2026-09-14 21:35:54,983 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:35:54,984 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+INFO:     127.0.0.1:57072 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:35:55,157 [INFO] src.pipeline.xagg: XAGG incident_to_report_minutes_by_year: 2 year bucket(s) [2024=15.0min/n=13, 2026=1401.3min/n=51], 0 row(s) excluded for a missing/unparseable/out-of-order timestamp
+2026-09-14 21:36:01,085 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:36:01,086 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+2026-09-14 21:36:15,575 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:57074 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:36:24,941 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:36:24,942 [INFO] src.pipeline.harness.agents.meta_analysis: Meta-Analysis: deterministic decomposition plan 'caseload_review' matched.
+2026-09-14 21:36:25,130 [INFO] src.pipeline.xagg: XAGG offender_age_profile: 17 of 92 distinct accused carry an age (19 of 94 accused entries); range 24-49, mean 31.5; filters=none
+2026-09-14 21:36:25,658 [INFO] src.pipeline.xagg: XAGG accused_relationship_breakdown: 24 relationship edge(s) across 10 FIR(s), 6 distinct value(s); dominant='اجنبی' 15; coverage 12 of 92 distinct accused
+2026-09-14 21:36:34,222 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:36:34,224 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+2026-09-14 21:36:34,295 [INFO] src.pipeline.xagg: XAGG seized_property_disposition: 45 register entr(ies) across 28 FIR(s), 9 distinct disposition(s); forensic-lab dispatch 13 item(s) in 11 FIR(s) (16 mention forensic in any wording); heirs 7 item(s) in 7 FIR(s); 0 entr(ies) record no disposition
+2026-09-14 21:36:50,136 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:36:50,137 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+2026-09-14 21:36:50,261 [INFO] src.pipeline.xagg: XAGG incident_time_of_day: 64 of 73 incident(s) carry a datetime; 14 are date-only 00:00:00 and excluded; 50 usable -> {'night (00:00-05:59)': 1, 'morning (06:00-11:59)': 14, 'afternoon (12:00-17:59)': 16, 'evening (18:00-23:59)': 19}; peak='evening (18:00-23:59)'
+2026-09-14 21:36:56,886 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:36:56,888 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+2026-09-14 21:36:57,225 [INFO] src.pipeline.xagg: XAGG graph_recurrence: entity_type=Person, 4 recurring node(s); 4 with a date-ordered timeline, 2 with a criminal-record outcome; فیصل=2[2024-09-25..2026-03-06], طارق=2[2024-09-25..2026-03-06], شہزیب عرف شابی=2[2024-09-14..2026-03-03], عاصم رشید=2[2026-03-19..2026-03-23]
+2026-09-14 21:37:05,891 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:37:05,892 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+2026-09-14 21:37:33,479 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:37:33,483 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+2026-09-14 21:37:51,472 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:37:51,474 [INFO] src.pipeline.harness.agents.meta_analysis: Meta-Analysis [Module 61]: 5 of 5 sub-answers declared a complete enumeration (XAGG-only provenance); negative inference over those is supported, not inferred.
+2026-09-14 21:38:00,549 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:38:00,551 [INFO] src.pipeline.verifier: Verifier: grounded=True off_topic=False leaked=None unsupported=0 — All claims are directly supported by cited chunks with no missing data or unsupp
+2026-09-14 21:38:17,817 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:51039 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:38:18,165 [INFO] src.pipeline.xagg: XAGG cms_fir_linkage: 4 CMS complaint(s), 4 linked to a case, 0 unlinked
+2026-09-14 21:38:18,165 [INFO] src.pipeline.xagg: XAGG case_completeness_scan: 73 case(s) scanned; 9 missing an incident date, 52 missing an investigation status, 188 of 259 zimni entries carry no type, 13 of 44 recorded departures precede their own report time, 0 of 4 walk-in complaints unlinked
+2026-09-14 21:38:29,864 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:38:29,866 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+INFO:     127.0.0.1:51041 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:38:30,196 [INFO] src.pipeline.xagg: XAGG weapon_compliance_scan: 32 weapon(s); 30 unlicensed, 2 with no licence status recorded; 3 custody control(s) with no register column; 0 weapon(s) resolving to no case
+2026-09-14 21:38:30,409 [INFO] src.pipeline.xagg: XAGG cms_fir_linkage: 4 CMS complaint(s), 4 linked to a case, 0 unlinked
+2026-09-14 21:38:30,409 [INFO] src.pipeline.xagg: XAGG case_completeness_scan: 73 case(s) scanned; 9 missing an incident date, 52 missing an investigation status, 188 of 259 zimni entries carry no type, 13 of 44 recorded departures precede their own report time, 0 of 4 walk-in complaints unlinked
+2026-09-14 21:38:30,409 [INFO] src.pipeline.xagg: XAGG court_readiness_scan: 94 accused edge(s), 82 with no recorded relationship; 2 of 32 weapon(s) with no licence status; 9 of 73 case(s) with no incident date
+2026-09-14 21:38:41,639 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:38:41,641 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+INFO:     127.0.0.1:51043 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:38:41,855 [INFO] src.pipeline.xagg: XAGG weapon_compliance_scan: 32 weapon(s); 30 unlicensed, 2 with no licence status recorded; 3 custody control(s) with no register column; 0 weapon(s) resolving to no case
+2026-09-14 21:38:48,444 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:38:48,446 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=False leaked=None unsupported_numbers=['4'] omitted_headline_proportions=[] — Paraphrase states number(s) not present in the computed result: 4.
+2026-09-14 21:38:48,446 [WARNING] src.pipeline.harness.agents.large_scale_aggregate: Large-Scale Aggregate: verifier rejected paraphrase, serving raw aggregate: Paraphrase states number(s) not present in the computed result: 4.
+2026-09-14 21:39:02,989 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:51046 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:39:13,381 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:39:13,382 [INFO] src.pipeline.harness.agents.meta_analysis: Meta-Analysis: deterministic decomposition plan 'orientation_note' matched.
+2026-09-14 21:39:13,454 [INFO] src.pipeline.xagg: XAGG district_breakdown: entity=Case, 9 district(s); فیصل آباد=19, لاہور=18, راولپنڈی=10, اسلام آباد=5, چنیوٹ=5, حیدر آباد=5, کراچی ایسٹ=5, کراچی وسطی=5, ملتان=1
+2026-09-14 21:39:13,817 [INFO] src.pipeline.xagg: XAGG time_bucketed_breakdown: dimension=statute_by_year, 2 year bucket(s) [2024:cases=13,acts=26,sections=3, 2026:cases=51,acts=82,sections=31]
+2026-09-14 21:39:23,576 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:39:23,577 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+2026-09-14 21:39:23,735 [INFO] src.pipeline.xagg: XAGG arrest_rate: 11 of 73 FIR(s) record an arrest (1 in 6.6); 14 accused entr(y/ies) classified arrested, 2 explicitly not arrested, 1 arrested in an earlier case; bare-token reading 8 FIR(s) (1 in 9.1)
+2026-09-14 21:39:37,205 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:39:37,207 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+2026-09-14 21:39:37,272 [INFO] src.pipeline.xagg: XAGG incident_to_report_minutes_by_year: 2 year bucket(s) [2024=15.0min/n=13, 2026=1401.3min/n=51], 0 row(s) excluded for a missing/unparseable/out-of-order timestamp
+2026-09-14 21:39:43,507 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:39:43,509 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+2026-09-14 21:39:43,623 [INFO] src.pipeline.xagg: XAGG weapon_compliance_scan: 32 weapon(s); 30 unlicensed, 2 with no licence status recorded; 3 custody control(s) with no register column; 0 weapon(s) resolving to no case
+2026-09-14 21:39:48,150 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:39:48,151 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+2026-09-14 21:39:48,329 [INFO] src.pipeline.xagg: XAGG offender_age_profile: 17 of 92 distinct accused carry an age (19 of 94 accused entries); range 24-49, mean 31.5; filters=none
+2026-09-14 21:40:28,471 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:40:28,473 [WARNING] src.llm.client: Local LLM returned empty content (thinking trace consumed all 3000 tokens) — retrying once locally with 4000.
+2026-09-14 21:40:38,779 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:40:38,780 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+2026-09-14 21:40:38,944 [INFO] src.pipeline.xagg: XAGG accused_relationship_breakdown: 24 relationship edge(s) across 10 FIR(s), 6 distinct value(s); dominant='اجنبی' 15; coverage 12 of 92 distinct accused
+2026-09-14 21:41:29,347 [WARNING] src.llm.client: Local LLM failed: . Falling back to groq...
+2026-09-14 21:41:30,890 [INFO] httpx: HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-14 21:41:30,905 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+2026-09-14 21:41:31,021 [INFO] src.pipeline.xagg: XAGG criminal_record_court_crosscheck: 33 criminal record(s), 1 settled / 32 in progress; 1 cross-checked against a court outcome, 1 consistent
+2026-09-14 21:41:39,691 [WARNING] src.llm.client: Local LLM failed: . Falling back to groq...
+2026-09-14 21:41:40,465 [INFO] httpx: HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-14 21:41:40,467 [INFO] src.pipeline.verifier: Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.
+2026-09-14 21:41:43,394 [WARNING] src.pipeline.harness.agents.meta_analysis: Meta-Analysis: sub-query timed out after 150.0s but a computed criminal_record_court_crosscheck aggregate was already available — serving it raw: 'How many cases in the criminal record system are still in progress in court, and'
+2026-09-14 21:42:08,208 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:42:08,210 [INFO] src.pipeline.harness.agents.meta_analysis: Meta-Analysis [Module 61]: 8 of 8 sub-answers declared a complete enumeration (XAGG-only provenance); negative inference over those is supported, not inferred.
+2026-09-14 21:42:19,356 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:42:19,358 [INFO] src.pipeline.verifier: Verifier: grounded=True off_topic=False leaked=None unsupported=0 — All claims are directly supported by cited chunks with exact numerical and categ
+2026-09-14 21:42:33,134 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+INFO:     127.0.0.1:52923 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:42:33,253 [INFO] src.pipeline.harness.tools.rag: RAG tool: legal-KB-intent query in all-cases scope — trying KB-only corpus first, mixed pool as fallback.
+2026-09-14 21:42:43,502 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:42:43,505 [INFO] src.pipeline.harness.tools.rag: RAG tool: statute-hypothesis query: Code of Criminal Procedure 1898 section 154 registration of FIR: police officer shall register a First Information Report upon receiving information about a cognizable offence
+2026-09-14 21:42:43,505 [INFO] src.pipeline.harness.tools.rag: RAG tool: statute-hypothesis query: Punjab Police Rules 1934 entries in the FIR register: entries must include date, time, details of the information, and the officer's signature
+2026-09-14 21:42:49,349 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:42:49,350 [INFO] src.pipeline.harness.tools.rag: RAG tool: English rendering of the question: What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?
+2026-09-14 21:42:49,351 [INFO] src.pipeline.harness.tools.rag: RAG tool: compound legal-KB question — dispatching data-half plan 'fir_register_completeness' (fir_register_completeness) alongside retrieval.
+2026-09-14 21:42:49,929 [INFO] src.pipeline.xagg: XAGG fir_register_completeness: 73 case(s); complainant 73/73; recording_officer 70/73; report_datetime 73/73; all three elements present on 70 case(s); 2 s.154 element(s) unmodelled in the schema
+2026-09-14 21:42:49,929 [INFO] src.pipeline.harness.tools.rag: RAG tool: KB data-half plan 'fir_register_completeness' answered by aggregate 'fir_register_completeness' (748 chars).
+2026-09-14 21:42:56,236 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:43:07,927 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:43:09,694 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:43:11,098 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:43:12,994 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:43:14,484 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:43:16,217 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:43:18,030 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:43:18,793 [INFO] src.retrieval.reranker: Semantic floor rescued 2 chunk(s) RRF fusion would have dropped: ['4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2432', '4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1341']
+2026-09-14 21:43:20,879 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:43:22,964 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:43:25,289 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:43:25,310 [INFO] src.pipeline.harness.tools.rag: RAG tool: 6 chunk(s) to evaluator (attempt 1): 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1259[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1236[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1383[4_Punjab-Police-Rules-III.pdf], 7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c150[7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf], kb-data-half:fir_register_completeness[our own case records (cross-case aggregate)]
+2026-09-14 21:43:34,579 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:43:34,604 [INFO] src.pipeline.evaluator: Evaluator: relevant=True — Documents directly identify Sections 154 and 155 of the Criminal Procedure Code 
+2026-09-14 21:43:49,154 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:43:58,098 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:43:58,099 [INFO] src.pipeline.verifier: Verifier: grounded=True off_topic=False leaked=None unsupported=0 — All claims about legal requirements (Section 154, Rules 24.5/24.10) and recordke
+INFO:     127.0.0.1:57089 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:43:58,219 [INFO] src.pipeline.harness.tools.rag: RAG tool: legal-KB-intent query in all-cases scope — trying KB-only corpus first, mixed pool as fallback.
+2026-09-14 21:44:16,200 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:44:16,202 [INFO] src.pipeline.harness.tools.rag: RAG tool: statute-hypothesis query: Punjab Police Rules 1934 recording of statements in police interviews: entries in the station diary, details of the interview, and who is required to sign the record
+2026-09-14 21:44:16,202 [INFO] src.pipeline.harness.tools.rag: RAG tool: statute-hypothesis query: Qanun-e-Shahadat Order 1984 confessions and admissions: whether a statement made to a police officer may be proved against the accused, and if not, the legal basis for excluding it from evidence
+2026-09-14 21:44:20,888 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:44:20,889 [INFO] src.pipeline.harness.tools.rag: RAG tool: English rendering of the question: Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?
+2026-09-14 21:44:27,022 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:44:36,137 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:44:37,918 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:44:39,655 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:44:41,437 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:44:43,002 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:44:44,493 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:44:46,122 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:44:47,002 [INFO] src.retrieval.reranker: Semantic floor rescued 2 chunk(s) RRF fusion would have dropped: ['4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1647', '4_Punjab-Police-Rules-III_pdf_68bb5d0d_c896']
+2026-09-14 21:44:48,980 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:44:50,919 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:44:52,878 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:44:53,036 [INFO] src.retrieval.cross_reranker: Cross-query fusion rescued 2 rank-1 chunk(s) the fused window dropped: ['4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1237', '2_qanun-e-shahadat-order-1984_pdf_3e604153_c44']
+2026-09-14 21:44:53,074 [INFO] src.pipeline.harness.tools.rag: RAG tool: 7 chunk(s) to evaluator (attempt 1): 1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c642[1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1648[4_Punjab-Police-Rules-III.pdf], 2_qanun-e-shahadat-order-1984_pdf_3e604153_c416[2_qanun-e-shahadat-order-1984.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c453[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1693[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1237[4_Punjab-Police-Rules-III.pdf], 2_qanun-e-shahadat-order-1984_pdf_3e604153_c44[2_qanun-e-shahadat-order-1984.pdf]
+2026-09-14 21:45:16,241 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:45:16,246 [INFO] src.pipeline.evaluator: Evaluator: relevant=True — The retrieved documents address the legal requirements for recording statements 
+2026-09-14 21:45:27,406 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:45:35,866 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:45:35,867 [INFO] src.pipeline.verifier: Verifier: grounded=True off_topic=False leaked=None unsupported=0 — All claims about Sections 161, 164, and 154 are directly supported by Documents 
+INFO:     127.0.0.1:54590 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:45:35,987 [INFO] src.pipeline.harness.tools.rag: RAG tool: legal-KB-intent query in all-cases scope — trying KB-only corpus first, mixed pool as fallback.
+2026-09-14 21:45:44,706 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:45:44,707 [INFO] src.pipeline.harness.tools.rag: RAG tool: statute-hypothesis query: Police Order 2002 section 10(2) investigation wing responsibilities: investigation of registered cases conducted by the Investigation Wing under the command of the Superintendent of Police
+2026-09-14 21:45:44,707 [INFO] src.pipeline.harness.tools.rag: RAG tool: statute-hypothesis query: Punjab Police Rules 1934 section 12 duties of station staff: registration of cases by station house officer, investigation conducted by investigation wing personnel separate from registration duties
+2026-09-14 21:45:50,792 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:45:50,797 [INFO] src.pipeline.harness.tools.rag: RAG tool: English rendering of the question: Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?
+2026-09-14 21:45:50,798 [INFO] src.pipeline.harness.tools.rag: RAG tool: compound legal-KB question — dispatching data-half plan 'officer_role_pair' (officer_role_pair_overlap) alongside retrieval.
+2026-09-14 21:45:51,189 [INFO] src.pipeline.xagg: XAGG officer_role_pair_overlap: 144 assignment edge(s), 74 investigating / 70 recording; same officer on 68 of 74 pair(s) (91.9%), 6 split across 6 case(s), 3 investigating assignment(s) with no recording counterpart
+2026-09-14 21:45:51,190 [INFO] src.pipeline.harness.tools.rag: RAG tool: KB data-half plan 'officer_role_pair' answered by aggregate 'officer_role_pair_overlap' (944 chars).
+2026-09-14 21:45:58,599 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:46:07,286 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:46:08,858 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:46:10,963 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:46:12,452 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:46:14,347 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:46:15,746 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:46:17,455 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:46:18,386 [INFO] src.retrieval.reranker: Semantic floor rescued 2 chunk(s) RRF fusion would have dropped: ['4_Punjab-Police-Rules-III_pdf_68bb5d0d_c530', '4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240']
+2026-09-14 21:46:20,223 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:46:22,270 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:46:24,124 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:46:24,295 [INFO] src.pipeline.harness.tools.rag: RAG tool: 6 chunk(s) to evaluator (attempt 1): 3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114[3_1527157863PoliceOrder2002.pdf], 3_1527157863PoliceOrder2002_pdf_bdaa97d4_c121[3_1527157863PoliceOrder2002.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c137[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645[4_Punjab-Police-Rules-III.pdf], kb-data-half:officer_role_pair[our own case records (cross-case aggregate)]
+2026-09-14 21:46:35,647 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:46:35,648 [INFO] src.pipeline.evaluator: Evaluator: relevant=False — The retrieved documents do not explicitly address whether the law expects the sa
+2026-09-14 21:46:43,703 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:46:43,707 [INFO] src.pipeline.query_rewriter: Retry rewrite: 'Does the law expect the officer who first register' -> 'Statutory provisions in PPC regarding separation of roles between case registrat' (feedback: The retrieved documents do not explicitly address whether th)
+2026-09-14 21:46:51,648 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:47:08,182 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:47:09,945 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:47:11,589 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:47:13,088 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:47:14,847 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:47:16,708 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:47:18,238 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:47:19,936 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:47:20,674 [INFO] src.retrieval.reranker: Semantic floor rescued 2 chunk(s) RRF fusion would have dropped: ['4_Punjab-Police-Rules-III_pdf_68bb5d0d_c530', '4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240']
+2026-09-14 21:47:22,641 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:47:24,562 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:47:26,375 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:47:26,561 [INFO] src.pipeline.harness.tools.rag: RAG tool: 6 chunk(s) to evaluator (attempt 2): 3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114[3_1527157863PoliceOrder2002.pdf], 3_1527157863PoliceOrder2002_pdf_bdaa97d4_c121[3_1527157863PoliceOrder2002.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c137[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c136[4_Punjab-Police-Rules-III.pdf], 3_1527157863PoliceOrder2002_pdf_bdaa97d4_c115[3_1527157863PoliceOrder2002.pdf], kb-data-half:officer_role_pair[our own case records (cross-case aggregate)]
+2026-09-14 21:47:35,974 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:47:35,975 [INFO] src.pipeline.evaluator: Evaluator: relevant=False — The retrieved documents do not explicitly address whether the law expects the sa
+2026-09-14 21:48:00,364 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:48:00,365 [INFO] src.pipeline.query_rewriter: Retry rewrite: 'Statutory provisions in PPC regarding separation o' -> 'Legal provisions regarding same officer or separate roles in case registration a' (feedback: The retrieved documents do not explicitly address whether th)
+2026-09-14 21:48:06,964 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:48:34,872 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:48:34,874 [WARNING] src.llm.client: Local LLM returned empty content (thinking trace consumed all 2000 tokens) — retrying once locally with 4000.
+2026-09-14 21:48:49,644 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:48:51,732 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:48:53,327 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:48:55,152 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:48:56,792 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:48:58,622 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:49:00,347 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:49:02,024 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:49:02,962 [INFO] src.retrieval.reranker: Semantic floor rescued 2 chunk(s) RRF fusion would have dropped: ['4_Punjab-Police-Rules-III_pdf_68bb5d0d_c530', '4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240']
+2026-09-14 21:49:04,772 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:49:06,885 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:49:08,769 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:49:08,953 [INFO] src.pipeline.harness.tools.rag: RAG tool: 6 chunk(s) to evaluator (attempt 3): 3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114[3_1527157863PoliceOrder2002.pdf], 3_1527157863PoliceOrder2002_pdf_bdaa97d4_c121[3_1527157863PoliceOrder2002.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c137[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c136[4_Punjab-Police-Rules-III.pdf], 3_1527157863PoliceOrder2002_pdf_bdaa97d4_c115[3_1527157863PoliceOrder2002.pdf], kb-data-half:officer_role_pair[our own case records (cross-case aggregate)]
+2026-09-14 21:49:21,856 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:49:21,861 [INFO] src.pipeline.evaluator: Evaluator: relevant=False — The retrieved documents do not explicitly address whether the law expects the sa
+2026-09-14 21:49:30,875 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:49:39,654 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:49:41,312 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:49:42,862 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:49:44,497 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:49:46,204 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:49:47,991 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:49:49,544 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:49:50,635 [INFO] src.retrieval.reranker: Semantic floor rescued 2 chunk(s) RRF fusion would have dropped: ['4_Punjab-Police-Rules-III_pdf_68bb5d0d_c647', 'psrms_fir_fir-340-25#narrative_083d2f33_c1']
+2026-09-14 21:49:52,291 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:49:53,710 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:49:55,332 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:49:55,334 [INFO] src.retrieval.cross_reranker: Cross-query fusion rescued 1 rank-1 chunk(s) the fused window dropped: ['4_Punjab-Police-Rules-III_pdf_68bb5d0d_c193']
+2026-09-14 21:49:55,334 [INFO] src.pipeline.harness.tools.rag: RAG tool: 7 chunk(s) to evaluator (attempt 1): 3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114[3_1527157863PoliceOrder2002.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c137[4_Punjab-Police-Rules-III.pdf], 3_1527157863PoliceOrder2002_pdf_bdaa97d4_c121[3_1527157863PoliceOrder2002.pdf], 1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c174[1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf], 3_1527157863PoliceOrder2002_pdf_bdaa97d4_c117[3_1527157863PoliceOrder2002.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c193[4_Punjab-Police-Rules-III.pdf], kb-data-half:officer_role_pair[our own case records (cross-case aggregate)]
+2026-09-14 21:50:09,620 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:50:09,622 [INFO] src.pipeline.evaluator: Evaluator: relevant=False — The retrieved documents do not explicitly address whether the law expects the sa
+2026-09-14 21:50:20,060 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:50:20,062 [INFO] src.pipeline.query_rewriter: Retry rewrite: 'Does the law expect the officer who first register' -> 'Statutory requirements for separate officers in case registration and investigat' (feedback: The retrieved documents do not explicitly address whether th)
+2026-09-14 21:50:27,573 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:50:35,013 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:50:36,798 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:50:38,258 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:50:39,974 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:50:41,551 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:50:43,484 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:50:45,135 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:50:47,035 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:50:49,599 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:50:50,932 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:50:52,468 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:50:52,470 [INFO] src.pipeline.harness.tools.rag: RAG tool: 6 chunk(s) to evaluator (attempt 2): 3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114[3_1527157863PoliceOrder2002.pdf], psrms_fir_fir-460-26#zimni_FZ-C360-1_94e32d96_c1[psrms/fir/fir-460-26#zimni_FZ-C360-1], psrms_fir_fir-426-26#narrative_a2b14a9a_c3[psrms/fir/fir-426-26#narrative], psrms_fir_fir-460-26#zimni_FZ-C360-5_06e2708e_c1[psrms/fir/fir-460-26#zimni_FZ-C360-5], psrms_fir_fir-417-26#narrative_c52d6630_c2[psrms/fir/fir-417-26#narrative], kb-data-half:officer_role_pair[our own case records (cross-case aggregate)]
+2026-09-14 21:51:02,873 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:51:02,878 [INFO] src.pipeline.evaluator: Evaluator: relevant=False — The retrieved documents do not explicitly address whether the law requires the o
+2026-09-14 21:51:23,518 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:51:23,520 [INFO] src.pipeline.query_rewriter: Retry rewrite: 'Statutory requirements for separate officers in ca' -> 'Does the law require the officer who registers a case to be different from the i' (feedback: The retrieved documents do not explicitly address whether th)
+2026-09-14 21:51:30,421 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:51:36,002 [WARNING] src.pipeline.harness.supervisor: Supervisor: Semantic Search exceeded its 360s deadline (360.0s spent) — abstaining rather than letting the request hang.
+INFO:     127.0.0.1:52293 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:51:36,086 [INFO] src.pipeline.harness.tools.rag: RAG tool: legal-KB-intent query in all-cases scope — trying KB-only corpus first, mixed pool as fallback.
+2026-09-14 21:51:51,951 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:51:51,953 [INFO] src.pipeline.harness.tools.rag: RAG tool: statute-hypothesis query: Punjab Police Rules 1934 case property and malkhana: case property shall be entered in the station register, kept in a secure place, and disposed of according to prescribed procedures
+2026-09-14 21:51:51,953 [INFO] src.pipeline.harness.tools.rag: RAG tool: statute-hypothesis query: Forensics guidelines handling of physical exhibits: exhibits shall be packaged, sealed, labelled, and transported with a chain of custody maintained
+2026-09-14 21:51:59,595 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:51:59,597 [INFO] src.pipeline.harness.tools.rag: RAG tool: English rendering of the question: When the police take possession of items related to a case, is there an established standard for how they are recorded and eventually disposed of — and does our property records follow that?
+2026-09-14 21:51:59,597 [INFO] src.pipeline.harness.tools.rag: RAG tool: compound legal-KB question — dispatching data-half plan 'property_register' (seized_property_disposition) alongside retrieval.
+2026-09-14 21:52:00,284 [INFO] src.pipeline.xagg: XAGG seized_property_disposition: 45 register entr(ies) across 28 FIR(s), 9 distinct disposition(s); forensic-lab dispatch 13 item(s) in 11 FIR(s) (16 mention forensic in any wording); heirs 7 item(s) in 7 FIR(s); 0 entr(ies) record no disposition
+2026-09-14 21:52:00,284 [INFO] src.pipeline.harness.tools.rag: RAG tool: KB data-half plan 'property_register' answered by aggregate 'seized_property_disposition' (1369 chars).
+2026-09-14 21:52:12,295 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:52:21,818 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:52:23,665 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:52:25,330 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:52:26,812 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:52:28,485 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:52:30,191 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:52:31,951 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:52:33,676 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:52:34,702 [INFO] src.retrieval.reranker: Semantic floor rescued 2 chunk(s) RRF fusion would have dropped: ['5_Forensics_guidelines_pdf_62ee00b3_c80', '4_Punjab-Police-Rules-III_pdf_68bb5d0d_c533']
+2026-09-14 21:52:36,425 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:52:38,439 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:52:40,384 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:52:40,538 [INFO] src.retrieval.cross_reranker: Cross-query fusion rescued 1 rank-1 chunk(s) the fused window dropped: ['5_Forensics_guidelines_pdf_62ee00b3_c116']
+2026-09-14 21:52:40,562 [INFO] src.pipeline.harness.tools.rag: RAG tool: 7 chunk(s) to evaluator (attempt 1): 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c334[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c533[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c351[4_Punjab-Police-Rules-III.pdf], 5_Forensics_guidelines_pdf_62ee00b3_c116[5_Forensics_guidelines.pdf], kb-data-half:property_register[our own case records (cross-case aggregate)]
+2026-09-14 21:52:59,155 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:52:59,157 [INFO] src.pipeline.evaluator: Evaluator: relevant=True — The retrieved documents establish procedural standards for recording and disposi
+2026-09-14 21:53:16,655 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:53:30,791 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:53:30,792 [INFO] src.pipeline.verifier: Verifier: grounded=True off_topic=False leaked=None unsupported=0 — All claims are directly supported by cited chunks. Storage rules (Document 5), s
+INFO:     127.0.0.1:58746 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:53:30,894 [INFO] src.pipeline.harness.tools.rag: RAG tool: legal-KB-intent query in all-cases scope — trying KB-only corpus first, mixed pool as fallback.
+2026-09-14 21:53:37,595 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:53:37,597 [INFO] src.pipeline.harness.tools.rag: RAG tool: statute-hypothesis query: Anti-Rape (Investigation and Trial) Act 2021 and Rules 2022 special investigation duties in cases of violence against women: investigation by designated officers, protection of complainant, separate r
+2026-09-14 21:53:37,597 [INFO] src.pipeline.harness.tools.rag: RAG tool: statute-hypothesis query: Punjab Police Rules 1934 registers and records for cases involving violence against women: separate entry in station diary, documentation of protective measures taken, reference to Anti-Rape Act proce
+2026-09-14 21:53:45,351 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:53:45,352 [INFO] src.pipeline.harness.tools.rag: RAG tool: English rendering of the question: When domestic violence against a woman is involved in a case, does the law require a different procedure from a regular case — and if so, does our data show that those additional measures were actually taken?
+2026-09-14 21:53:45,352 [INFO] src.pipeline.harness.tools.rag: RAG tool: compound legal-KB question — dispatching data-half plan 'violence_against_women' (dv_report_fir_match) alongside retrieval.
+2026-09-14 21:53:45,919 [INFO] src.pipeline.xagg: XAGG dv_report_fir_match: 8 women-violence report(s), 4 matched to an FIR, 4 unconfirmed
+2026-09-14 21:53:45,919 [INFO] src.pipeline.harness.tools.rag: RAG tool: KB data-half plan 'violence_against_women' answered by aggregate 'dv_report_fir_match' (365 chars).
+2026-09-14 21:54:00,377 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:54:06,311 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:54:08,003 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:54:09,676 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:54:11,478 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:54:13,120 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:54:14,867 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:54:16,742 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:54:18,117 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:54:19,144 [INFO] src.retrieval.reranker: Semantic floor rescued 2 chunk(s) RRF fusion would have dropped: ['4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1237', '4_Punjab-Police-Rules-III_pdf_68bb5d0d_c483']
+2026-09-14 21:54:21,191 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:54:23,405 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:54:25,288 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:54:25,440 [INFO] src.retrieval.cross_reranker: Cross-query fusion rescued 1 rank-1 chunk(s) the fused window dropped: ['4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1669']
+2026-09-14 21:54:25,463 [INFO] src.pipeline.harness.tools.rag: RAG tool: 7 chunk(s) to evaluator (attempt 1): 7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c21[7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf], 7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c146[7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf], 7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c143[7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf], 7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c111[7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf], 7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c110[7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1669[4_Punjab-Police-Rules-III.pdf], kb-data-half:violence_against_women[our own case records (cross-case aggregate)]
+2026-09-14 21:54:34,143 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:54:34,148 [INFO] src.pipeline.evaluator: Evaluator: relevant=False — The retrieved documents discuss procedures under the Anti-Rape Act (e.g., specia
+2026-09-14 21:54:44,666 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:54:44,667 [INFO] src.pipeline.query_rewriter: Retry rewrite: 'جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا ' -> 'کیا PECA کے تحت خانہ داری کے زیادتی کے مقدمات میں ویژن کورٹس، ARCC کی مداخلت یا ' (feedback: The retrieved documents discuss procedures under the Anti-Ra)
+2026-09-14 21:55:00,014 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:55:07,800 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:55:09,521 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:55:11,266 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:55:13,159 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:55:14,901 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:55:16,235 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:55:17,966 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:55:19,302 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:55:20,364 [INFO] src.retrieval.reranker: Semantic floor rescued 2 chunk(s) RRF fusion would have dropped: ['4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1237', '4_Punjab-Police-Rules-III_pdf_68bb5d0d_c483']
+2026-09-14 21:55:22,228 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:55:24,273 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:55:26,533 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:55:26,696 [INFO] src.pipeline.harness.tools.rag: RAG tool: 6 chunk(s) to evaluator (attempt 2): 7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c21[7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf], 7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c146[7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf], 7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c150[7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf], 7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c110[7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf], 7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c143[7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf], kb-data-half:violence_against_women[our own case records (cross-case aggregate)]
+2026-09-14 21:55:42,264 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:55:42,266 [INFO] src.pipeline.evaluator: Evaluator: relevant=True — The retrieved documents directly address the legal requirements for domestic vio
+2026-09-14 21:55:55,114 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:56:10,433 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:56:10,435 [INFO] src.pipeline.verifier: Verifier: grounded=True off_topic=False leaked=None unsupported=0 — All claims in Part 1 are directly supported by chunks 1–3 (e.g., FIR registratio
+INFO:     127.0.0.1:50062 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:56:10,565 [INFO] src.pipeline.harness.tools.rag: RAG tool: legal-KB-intent query in all-cases scope — trying KB-only corpus first, mixed pool as fallback.
+2026-09-14 21:56:19,129 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:56:19,130 [INFO] src.pipeline.harness.tools.rag: RAG tool: statute-hypothesis query: Forensics guidelines handling of seized items before registration: how to document, label, photograph, and inventory evidence prior to entry into the station register
+2026-09-14 21:56:19,130 [INFO] src.pipeline.harness.tools.rag: RAG tool: statute-hypothesis query: Punjab Police Rules 1934 weapon register entries: whether the register records handling or use of the weapon, and what details are to be noted in the register
+2026-09-14 21:56:26,085 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:56:26,108 [INFO] src.pipeline.harness.tools.rag: RAG tool: English rendering of the question: Are there any specific provisions in the forensics guidelines regarding how recovered weapons should be handled before they are registered, and does our weapon register record whether action has been taken on them?
+2026-09-14 21:56:26,108 [INFO] src.pipeline.harness.tools.rag: RAG tool: compound legal-KB question — dispatching data-half plan 'weapon_register' (weapon_compliance_scan) alongside retrieval.
+2026-09-14 21:56:26,560 [INFO] src.pipeline.xagg: XAGG weapon_compliance_scan: 32 weapon(s); 30 unlicensed, 2 with no licence status recorded; 3 custody control(s) with no register column; 0 weapon(s) resolving to no case
+2026-09-14 21:56:26,561 [INFO] src.pipeline.harness.tools.rag: RAG tool: KB data-half plan 'weapon_register' answered by aggregate 'weapon_compliance_scan' (859 chars).
+2026-09-14 21:56:34,162 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:56:40,815 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:56:42,471 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:56:44,061 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:56:45,850 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:56:47,317 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:56:49,157 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:56:50,799 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:56:52,367 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:56:53,425 [INFO] src.retrieval.reranker: Semantic floor rescued 2 chunk(s) RRF fusion would have dropped: ['4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1371', '4_Punjab-Police-Rules-III_pdf_68bb5d0d_c537']
+2026-09-14 21:56:55,672 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:56:57,567 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:56:59,520 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:56:59,676 [INFO] src.retrieval.cross_reranker: Cross-query fusion rescued 1 rank-1 chunk(s) the fused window dropped: ['5_Forensics_guidelines_pdf_62ee00b3_c0']
+2026-09-14 21:56:59,701 [INFO] src.pipeline.harness.tools.rag: RAG tool: 7 chunk(s) to evaluator (attempt 1): 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c537[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c792[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c793[4_Punjab-Police-Rules-III.pdf], 5_Forensics_guidelines_pdf_62ee00b3_c116[5_Forensics_guidelines.pdf], 5_Forensics_guidelines_pdf_62ee00b3_c21[5_Forensics_guidelines.pdf], 5_Forensics_guidelines_pdf_62ee00b3_c0[5_Forensics_guidelines.pdf], kb-data-half:weapon_register[our own case records (cross-case aggregate)]
+2026-09-14 21:57:09,444 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:57:09,445 [INFO] src.pipeline.evaluator: Evaluator: relevant=True — Documents 4 and 5 from 5_Forensics_guidelines.pdf directly address weapon handli
+2026-09-14 21:57:20,476 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:57:33,349 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:57:33,350 [INFO] src.pipeline.verifier: Verifier: grounded=True off_topic=False leaked=None unsupported=0 — All claims in both parts of the answer are directly supported by the cited chunk
+INFO:     127.0.0.1:50123 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:57:33,472 [INFO] src.pipeline.harness.tools.rag: RAG tool: legal-KB-intent query in all-cases scope — trying KB-only corpus first, mixed pool as fallback.
+2026-09-14 21:57:43,308 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:57:43,309 [INFO] src.pipeline.harness.tools.rag: RAG tool: statute-hypothesis query: Code of Criminal Procedure 1898 sections 178 and 179 police investigation report to Magistrate: investigation shall be completed within 90 days, if not completed within that period, the officer in cha
+2026-09-14 21:57:43,309 [INFO] src.pipeline.harness.tools.rag: RAG tool: statute-hypothesis query: Punjab Police Rules 1934 case diary and tracking records: case diary shall contain daily progress of investigation, including dates of actions taken, names of witnesses examined, and status of evidenc
+2026-09-14 21:57:50,197 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:57:50,198 [INFO] src.pipeline.harness.tools.rag: RAG tool: English rendering of the question: If an investigation into a case becomes prolonged, does the law require the police to report something to the court before the investigation is completed — and does our case-tracking data indicate whether this occurred or not?
+2026-09-14 21:57:50,199 [INFO] src.pipeline.harness.tools.rag: RAG tool: compound legal-KB question — dispatching data-half plan 'chalaan_dispatch' (chalaan_dispatch_count) alongside retrieval.
+2026-09-14 21:57:50,802 [INFO] src.pipeline.xagg: XAGG chalaan_dispatch_count: 26 challan dispatch record(s) across 26 case(s), 15 carrying a dispatch timestamp; 20 chalaan_outcome record(s) across 20 case(s), 15 with a court-reached date; interim-report record type present=False
+2026-09-14 21:57:50,803 [INFO] src.pipeline.harness.tools.rag: RAG tool: KB data-half plan 'chalaan_dispatch' answered by aggregate 'chalaan_dispatch_count' (924 chars).
+2026-09-14 21:57:57,717 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:58:07,208 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:58:08,928 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:58:10,570 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:58:12,514 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:58:14,308 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:58:16,005 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:58:17,736 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:58:19,491 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:58:20,474 [INFO] src.retrieval.reranker: Semantic floor rescued 2 chunk(s) RRF fusion would have dropped: ['4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240', '1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c663']
+2026-09-14 21:58:22,444 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:58:24,893 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:58:26,941 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:58:27,105 [INFO] src.retrieval.cross_reranker: Cross-query fusion rescued 2 rank-1 chunk(s) the fused window dropped: ['1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c757', '4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1643']
+2026-09-14 21:58:27,137 [INFO] src.pipeline.harness.tools.rag: RAG tool: 8 chunk(s) to evaluator (attempt 1): 1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c752[1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c137[4_Punjab-Police-Rules-III.pdf], 1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c656[1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf], 1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c35[1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c665[4_Punjab-Police-Rules-III.pdf], 1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c757[1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1643[4_Punjab-Police-Rules-III.pdf], kb-data-half:chalaan_dispatch[our own case records (cross-case aggregate)]
+2026-09-14 21:58:36,321 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:58:36,322 [INFO] src.pipeline.evaluator: Evaluator: relevant=True — Documents from the Code of Criminal Procedure (Pakistan) directly address the le
+2026-09-14 21:58:46,043 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:58:55,570 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:58:55,571 [INFO] src.pipeline.verifier: Verifier: grounded=True off_topic=False leaked=None unsupported=0 — All claims are directly supported by cited chunks. Section 172(i) requirement (D
+INFO:     127.0.0.1:50149 - "POST /api/chat HTTP/1.1" 200 OK
+2026-09-14 21:58:55,692 [INFO] src.pipeline.harness.tools.rag: RAG tool: legal-KB-intent query in all-cases scope — trying KB-only corpus first, mixed pool as fallback.
+2026-09-14 21:59:05,557 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:59:05,559 [INFO] src.pipeline.harness.tools.rag: RAG tool: statute-hypothesis query: Code of Criminal Procedure 1898 sections 176 to 180 inquest by police officer and magistrate on death under suspicious circumstances: police officer shall conduct an inquest and submit a report to the
+2026-09-14 21:59:05,559 [INFO] src.pipeline.harness.tools.rag: RAG tool: statute-hypothesis query: Punjab Police Rules 1934 inquest and cause-of-death enquiries: entries in the station diary, details of the deceased, circumstances of death, and findings of the inquest recorded in the register
+2026-09-14 21:59:14,066 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:59:14,067 [INFO] src.pipeline.harness.tools.rag: RAG tool: English rendering of the question: When a person dies in suspicious circumstances, the police must conduct a formal investigation into the cause of death — does our system record this anywhere, especially when so many of our cases involve death?
+2026-09-14 21:59:14,067 [INFO] src.pipeline.harness.tools.rag: RAG tool: compound legal-KB question — dispatching data-half plan 'death_investigation_charging' (fir_section_case_count) alongside retrieval.
+2026-09-14 21:59:14,491 [INFO] src.pipeline.xagg: XAGG fir_section_case_count: 218 section entr(ies) over 73 FIR(s) and 36 distinct section(s); focus=302 -> 10 FIR(s); top=PPC §34=40, Arms Ordinance 1965 §13=29, PPC §392=21, CNSA 1997 §9(c)=12, PPC §420=11; filters=none
+2026-09-14 21:59:14,491 [INFO] src.pipeline.harness.tools.rag: RAG tool: KB data-half plan 'death_investigation_charging' answered by aggregate 'fir_section_case_count' (829 chars).
+2026-09-14 21:59:23,767 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:59:31,878 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 21:59:33,766 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:59:35,456 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:59:37,198 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:59:38,723 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:59:40,360 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:59:42,217 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:59:43,773 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 21:59:44,802 [INFO] src.retrieval.reranker: Semantic floor rescued 2 chunk(s) RRF fusion would have dropped: ['4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1549', '4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1488']
+2026-09-14 21:59:46,708 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:59:48,783 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:59:51,067 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 21:59:51,094 [INFO] src.pipeline.harness.tools.rag: RAG tool: 6 chunk(s) to evaluator (attempt 1): 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1561[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1548[4_Punjab-Police-Rules-III.pdf], 1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c35[1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf], kb-data-half:death_investigation_charging[our own case records (cross-case aggregate)]
+2026-09-14 22:00:02,359 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 22:00:02,361 [INFO] src.pipeline.evaluator: Evaluator: relevant=False — The retrieved documents describe legal procedures for police investigations into
+2026-09-14 22:00:07,249 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 22:00:07,250 [INFO] src.pipeline.query_rewriter: Retry rewrite: 'Jab koi shakhs mashkook halaat mein foat ho jaye, ' -> 'Does the police system maintain database entries for inquests under PPC 174, spe' (feedback: The retrieved documents describe legal procedures for police)
+2026-09-14 22:00:13,188 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 22:00:22,678 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 22:00:24,306 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 22:00:26,146 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 22:00:27,783 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 22:00:29,446 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 22:00:31,282 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 22:00:32,820 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 22:00:34,384 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 22:00:35,522 [INFO] src.retrieval.reranker: Semantic floor rescued 2 chunk(s) RRF fusion would have dropped: ['4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1549', '3_1527157863PoliceOrder2002_pdf_bdaa97d4_c542']
+2026-09-14 22:00:37,515 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 22:00:39,888 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 22:00:42,129 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 22:00:42,282 [INFO] src.retrieval.cross_reranker: Cross-query fusion rescued 2 rank-1 chunk(s) the fused window dropped: ['4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1565', '4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1561']
+2026-09-14 22:00:42,317 [INFO] src.pipeline.harness.tools.rag: RAG tool: 8 chunk(s) to evaluator (attempt 2): 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1548[4_Punjab-Police-Rules-III.pdf], 1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c35[1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf], 1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c779[1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1565[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1561[4_Punjab-Police-Rules-III.pdf], kb-data-half:death_investigation_charging[our own case records (cross-case aggregate)]
+2026-09-14 22:00:52,512 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 22:00:52,518 [INFO] src.pipeline.evaluator: Evaluator: relevant=False — The retrieved documents describe legal procedures for inquests and investigation
+2026-09-14 22:01:25,015 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 22:01:25,017 [INFO] src.pipeline.query_rewriter: Retry rewrite: 'Does the police system maintain database entries f' -> 'Does the police system maintain records of inquest procedures under PPC 174, par' (feedback: The retrieved documents describe legal procedures for inques)
+2026-09-14 22:02:25,972 [WARNING] src.llm.client: Local LLM failed: . Falling back to groq...
+2026-09-14 22:02:27,010 [INFO] httpx: HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-09-14 22:02:58,052 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 22:02:59,711 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 22:03:01,656 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 22:03:03,337 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 22:03:04,682 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 22:03:06,396 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 22:03:08,207 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 22:03:09,879 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 22:03:10,960 [INFO] src.retrieval.reranker: Semantic floor rescued 2 chunk(s) RRF fusion would have dropped: ['4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1549', '4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1488']
+2026-09-14 22:03:13,207 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 22:03:15,664 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 22:03:17,764 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 22:03:17,917 [INFO] src.retrieval.cross_reranker: Cross-query fusion rescued 1 rank-1 chunk(s) the fused window dropped: ['4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1561']
+2026-09-14 22:03:17,949 [INFO] src.pipeline.harness.tools.rag: RAG tool: 7 chunk(s) to evaluator (attempt 3): 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1548[4_Punjab-Police-Rules-III.pdf], 1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c779[1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1978[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1561[4_Punjab-Police-Rules-III.pdf], kb-data-half:death_investigation_charging[our own case records (cross-case aggregate)]
+2026-09-14 22:03:29,746 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 22:03:29,747 [INFO] src.pipeline.evaluator: Evaluator: relevant=False — The retrieved documents describe legal procedures for conducting inquests and cr
+2026-09-14 22:03:55,249 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 22:04:15,788 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 22:04:17,355 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 22:04:18,903 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 22:04:20,819 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 22:04:22,589 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 22:04:24,340 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 22:04:26,112 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 22:04:27,802 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/embed "HTTP/1.1 200 OK"
+2026-09-14 22:04:29,030 [INFO] src.retrieval.reranker: Semantic floor rescued 2 chunk(s) RRF fusion would have dropped: ['4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1565', 'psrms_fir_fir-77-26#narrative_c4a5299d_c1']
+2026-09-14 22:04:30,969 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 22:04:32,499 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 22:04:34,134 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/rerank "HTTP/1.1 200 OK"
+2026-09-14 22:04:34,136 [INFO] src.pipeline.harness.tools.rag: RAG tool: 6 chunk(s) to evaluator (attempt 1): 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559[4_Punjab-Police-Rules-III.pdf], 1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c779[1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1547[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1565[4_Punjab-Police-Rules-III.pdf], kb-data-half:death_investigation_charging[our own case records (cross-case aggregate)]
+2026-09-14 22:04:50,715 [INFO] httpx: HTTP Request: POST https://undrafted-remodeler-gravel.ngrok-free.dev/llm "HTTP/1.1 200 OK"
+2026-09-14 22:04:50,716 [INFO] src.pipeline.evaluator: Evaluator: relevant=False — The retrieved documents describe legal procedures for investigating deaths (e.g.
+2026-09-14 22:04:55,706 [WARNING] src.pipeline.harness.supervisor: Supervisor: Semantic Search exceeded its 360s deadline (360.0s spent) — abstaining rather than letting the request hang.
