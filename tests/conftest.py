@@ -52,6 +52,14 @@ PRODUCTION_CHROMA_DIR = (Path(__file__).resolve().parent.parent / "data" / "chro
 _TEST_CHROMA_DIR = Path(tempfile.mkdtemp(prefix="muhafiz-pytest-chroma-")).resolve()
 os.environ["CHROMA_PERSIST_DIR"] = str(_TEST_CHROMA_DIR)
 
+# [Gold-QA fix — Module 145] The semantic dispatch layer scores questions
+# against RERANKER_URL at routing time. "No network" is this suite's first
+# rule, and a `.env` in the checkout would otherwise let any route_query()
+# test that misses the phrase overrides reach the model server. Off here,
+# before src.config is imported; tests/test_semantic_dispatch.py plants
+# decisions with `seed_for_tests()` and never needs the scorer.
+os.environ["SEMANTIC_DISPATCH_ENABLED"] = "false"
+
 # ═══════════════════════════════════════════════════════════════════════
 # POSTGRES / AGE TEST ISOLATION — same reasoning as the Chroma block, for
 # the other persistence layer, and it must run here for the same reason.

@@ -1,0 +1,11 @@
+{
+  "_note": "Module 145 target set: questions the phrase lists MISS today (every one resolves to a generic catch-all on origin/main) and whose purpose-built aggregate exists. The three 2026-09-14 live queries plus Module 100's three KB3 rewordings, all recorded BEFORE this module ran anything. They are test cases, not tuning targets: no description was written to fit any of them.",
+  "targets": [
+    {"id": "L1", "source": "live 2026-09-14", "language": "en", "text": "How often is the officer who registers an FIR also the officer who investigates the case?", "expected_kind": "officer_role_pair_overlap"},
+    {"id": "L2", "source": "live 2026-09-14", "language": "en", "text": "Is there anyone who used one of our citizen services who is also under investigation?", "expected_kind": "graph_recurrence_person"},
+    {"id": "L3", "source": "live 2026-09-14", "language": "en", "text": "Is anyone convicted in one matter but still being sought as a fugitive in another?", "expected_kind": "graph_recurrence_person"},
+    {"id": "M100a", "source": "Module 100", "language": "en", "text": "Is the officer who registers a case normally the one who investigates it?", "expected_kind": "officer_role_pair_overlap"},
+    {"id": "M100b", "source": "Module 100", "language": "en", "text": "Is the registering officer usually the investigating officer?", "expected_kind": "officer_role_pair_overlap"},
+    {"id": "M100c", "source": "Module 100", "language": "en", "text": "Does the same officer both register and investigate our cases?", "expected_kind": "officer_role_pair_overlap"}
+  ]
+}

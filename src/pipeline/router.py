@@ -948,6 +948,69 @@ def _deterministic_route_override(query: str, case_id: str | None = None) -> dic
     return None
 
 
+# [Gold-QA fix — Module 145] The semantic fallback UNDER every phrase list
+# above, and the one place it can put a question in front of its aggregate.
+#
+# WHERE THE THREE LIVE MISSES ACTUALLY DIED. Module 145 was filed on the
+# reading that *"How often is the officer who registers an FIR also the
+# officer who investigates the case?"* fell to a generic XAGG count. Measured
+# before any code (3 runs, local classifier, temperature 0): the LLM routes it
+# **RAG** — `resolve_aggregate_kind()` is never consulted for dispatch at all,
+# so a semantic layer that lived only inside xagg.py would have closed
+# nothing. The two entity-recurrence questions route **XGRAPH** (offline) /
+# **XNETWORK** (live), same conclusion. The route is the layer that must move.
+#
+# WHY HERE AND NOT A NEW REGEX. This is Module 60/67's own mechanism —
+# `_resolved_xagg_override_kind()` already asks XAGG's dispatch chain
+# "would you send this to a purpose-built aggregate?" and routes on the
+# answer. The semantic layer is the same question asked one rung lower: only
+# when `phrase_aggregate_kind()` lands on a trailing catch-all does
+# `xagg.prepare_semantic_dispatch()` score the question against every
+# capability description with the cross-encoder, and only a match that
+# clears the measured threshold routes. The phrase lists are untouched.
+#
+# WHY IT IS ALLOWED TO ROUTE ON KINDS MODULE 67 EXCLUDED. Module 67 restricted
+# the phrase-driven override to five kinds because `resolves_to_specific_
+# aggregate()` moved seven gold questions — every one a PHRASE false positive
+# (KB5 landing on `gender_breakdown` on vocabulary alone). This layer cannot
+# reproduce that failure: it fires only when NO phrase list matched, and it
+# never sees a gold question, because all 32 either resolve by phrase or are
+# claimed by an override above (`_is_legal_kb_question()` takes KB1/KB4/KB8,
+# the three generic-tier KB questions). Pinned by the all-32 equality control
+# with the layer FORCE-ARMED: 0 of 32 move (MODULE145_RESULT.md §5).
+#
+# PLACED AFTER EVERY DETERMINISTIC OVERRIDE AND BEFORE THE LLM. After, so
+# SQL / legal-text / XNETWORK / the five Module 67 kinds / XAGG / XGRAPH /
+# legal-KB keep exactly their precedence and their blast radius; before the
+# LLM, because the LLM is what sent the live questions to RAG. Same
+# active-case guard as the cross-case overrides above, for the same reason.
+async def _semantic_xagg_override(query: str, case_id: str | None = None) -> dict | None:
+    if case_id or _ACTIVE_CASE_RE.search(query):
+        return None
+    try:
+        from src.pipeline.xagg import prepare_semantic_dispatch
+    except Exception:  # pragma: no cover - defensive, mirrors _resolved_xagg_override_kind
+        logger.warning(
+            "router: could not import prepare_semantic_dispatch; "
+            "leaving routing unchanged."
+        )
+        return None
+    match = await prepare_semantic_dispatch(query)
+    if match is None:
+        return None
+    return {
+        "route": "XAGG", "case_scope": "cross_case", "target_entity": None,
+        "output_format": "chat", "target_year": None, "confidence": "medium",
+        "reason": (
+            "Semantic dispatch: no phrase list matched, but the cross-encoder "
+            f"scores XAGG's purpose-built '{match.kind}' aggregate at "
+            f"{match.score:.3f} (runner-up '{match.runner_up}' at "
+            f"{match.runner_up_score:.3f}; Module 145)"
+        ),
+        "station": None, "district": None,
+    }
+
+
 async def route_query(rewritten_query: str, case_id: str | None = None) -> dict:
     """
     Decide the route and output format for the query.
@@ -965,6 +1028,10 @@ async def route_query(rewritten_query: str, case_id: str | None = None) -> dict:
     override = _deterministic_route_override(rewritten_query, case_id=case_id)
     if override is not None:
         return override
+
+    semantic = await _semantic_xagg_override(rewritten_query, case_id=case_id)
+    if semantic is not None:
+        return semantic
 
     # [Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Root Cause 1, the actual
     # upstream fix] The LLM classifier previously had NO signal at all for

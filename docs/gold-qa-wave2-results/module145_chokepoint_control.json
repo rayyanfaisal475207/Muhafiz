@@ -1,0 +1,1588 @@
+[
+ {
+  "id": "D1::gold",
+  "set": "gold",
+  "text": "How many FIRs are currently registered?",
+  "phrase_kind": "total_count",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "total_count",
+  "moved": false
+ },
+ {
+  "id": "S2::gold",
+  "set": "gold",
+  "text": "Which police station handles the most cases?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "S3::gold",
+  "set": "gold",
+  "text": "کیا کسی شخص کو ایک سے زیادہ بار گرفتار کیا گیا ہے؟",
+  "phrase_kind": "graph_recurrence_person",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "graph_recurrence_person",
+  "moved": false
+ },
+ {
+  "id": "A1::gold",
+  "set": "gold",
+  "text": "نامزد ملزمان میں مرد اور عورت کا تناسب کیا ہے؟",
+  "phrase_kind": "gender_breakdown",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "gender_breakdown",
+  "moved": false
+ },
+ {
+  "id": "A7::gold",
+  "set": "gold",
+  "text": "Kitne cases mein mudai ne police ke paas waqe ke kuch arse baad aane ki koi wajah batai, bajaye foran aane ke?",
+  "phrase_kind": "reporting_delay_count",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "reporting_delay_count",
+  "moved": false
+ },
+ {
+  "id": "CP6::gold",
+  "set": "gold",
+  "text": "Kitne cases abhi tak bina kisi tafteeshi afsar ke asal tor par muqarrar kiye pade hue hain?",
+  "phrase_kind": "placeholder_officer_count",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "placeholder_officer_count",
+  "moved": false
+ },
+ {
+  "id": "CR2::gold",
+  "set": "gold",
+  "text": "Is there anyone with an earlier case already on record who has since resurfaced as a suspect in a newer, separate case?",
+  "phrase_kind": "graph_recurrence_person",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "graph_recurrence_person",
+  "moved": false
+ },
+ {
+  "id": "CR3::gold",
+  "set": "gold",
+  "text": "In the online banking fraud matter involving two separate victims, was each victim's case processed and recorded the same way?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "CR4::gold",
+  "set": "gold",
+  "text": "If we've got a weapon logged as evidence, can we tell who it was taken off and what happened to them?",
+  "phrase_kind": "weapon_evidence_chain",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "weapon_evidence_chain",
+  "moved": false
+ },
+ {
+  "id": "CR6::gold",
+  "set": "gold",
+  "text": "جب کوئی شخص تھانے آ کر شکایت درج کراتا ہے، تو کیا وہ کسی باقاعدہ ایف آئی آر سے منسلک ہو جاتی ہے، یا دونوں الگ الگ ہی رہتے ہیں؟",
+  "phrase_kind": "cms_fir_linkage",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "cms_fir_linkage",
+  "moved": false
+ },
+ {
+  "id": "CR7::gold",
+  "set": "gold",
+  "text": "کرمنل ریکارڈ سسٹم میں کتنے کیس مکمل ہو چکے ہیں اور کتنے ابھی زیرِ کارروائی ہیں — اور جہاں کسی ایک کیس کا الگ عدالتی ریکارڈ بھی موجود ہے، کیا دونوں ایک دوسرے سے مطابقت رکھتے ہیں؟",
+  "phrase_kind": "criminal_record_court_crosscheck",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "criminal_record_court_crosscheck",
+  "moved": false
+ },
+ {
+  "id": "CR8::gold",
+  "set": "gold",
+  "text": "اگر کسی گھریلو تشدد کی شکایت کو باقاعدہ کیس میں تبدیل ہونے کے طور پر درج کیا گیا ہو، تو کیا کیس ریکارڈ سے اس کی تصدیق ہو جاتی ہے؟",
+  "phrase_kind": "dv_report_fir_match",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "dv_report_fir_match",
+  "moved": false
+ },
+ {
+  "id": "CS4::gold",
+  "set": "gold",
+  "text": "Kya wusee criminal-history records mein koi aisa shakhs hai jo hamare apne darj kiye hue kisi case se match nahi karta?",
+  "phrase_kind": "criminal_record_local_match_gap",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "criminal_record_local_match_gap",
+  "moved": false
+ },
+ {
+  "id": "CP1::gold",
+  "set": "gold",
+  "text": "Kaunsa zila apne case load ke lihaz se sab se zyada hathiyar baramad karta hai?",
+  "phrase_kind": "weapon_recovery_rate_by_district",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "weapon_recovery_rate_by_district",
+  "moved": false
+ },
+ {
+  "id": "M1::gold",
+  "set": "gold",
+  "text": "What kinds of cases are we dealing with now compared to a couple of years back?",
+  "phrase_kind": "statute_mix_by_year",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "statute_mix_by_year",
+  "moved": false
+ },
+ {
+  "id": "M2::gold",
+  "set": "gold",
+  "text": "Is caseload growing faster at our general-purpose stations, or at the handful set up for one specific type of crime?",
+  "phrase_kind": "station_caseload_by_specialisation",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "station_caseload_by_specialisation",
+  "moved": false
+ },
+ {
+  "id": "M4::gold",
+  "set": "gold",
+  "text": "ایک طرف یہ دیکھیں کہ لوگوں پر کن دفعات میں مقدمے بن رہے ہیں، اور دوسری طرف یہ کہ وہ مقدمے عدالت میں کہاں تک پہنچے — کیا دونوں سے کیس لوڈ کی سنگینی کا ایک ہی اندازہ ہوتا ہے؟",
+  "phrase_kind": "statute_court_stage_join",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "statute_court_stage_join",
+  "moved": false
+ },
+ {
+  "id": "M5::gold",
+  "set": "gold",
+  "text": "ہتھیار عام طور پر کس نوعیت کے مقدمات میں سامنے آتے ہیں، اور کیا 2024 کے مقابلے میں اب یہ نوعیت بدل گئی ہے؟",
+  "phrase_kind": "weapon_statute_cooccurrence_by_year",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "weapon_statute_cooccurrence_by_year",
+  "moved": false
+ },
+ {
+  "id": "M7::gold",
+  "set": "gold",
+  "text": "Kya log 2026 mein waqiaat ki police ko itni hi jaldi ittila de rahe hain jitni 2024 mein dete the?",
+  "phrase_kind": "incident_to_report_minutes_by_year",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "incident_to_report_minutes_by_year",
+  "moved": false
+ },
+ {
+  "id": "G1::gold",
+  "set": "gold",
+  "text": "Acting as a crime analyst, review our current caseload and flag anything that looks unusual or worth monitoring.",
+  "phrase_kind": "case_completeness_scan",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "case_completeness_scan",
+  "moved": false
+ },
+ {
+  "id": "G2::gold",
+  "set": "gold",
+  "text": "فرض کریں آپ کسی ایس ایچ او کو بریفنگ دے رہے ہیں کہ کون سے مقدمے دب کر یا نظر سے اوجھل ہو کر رہ سکتے ہیں — آپ کن چیزوں کی نشاندہی کریں گے؟",
+  "phrase_kind": "case_completeness_scan",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "case_completeness_scan",
+  "moved": false
+ },
+ {
+  "id": "G3::gold",
+  "set": "gold",
+  "text": "آپ عدالت کو حوالگی کے لیے ایک کیس فائل تیار کر رہے ہیں — ڈیٹا کی روشنی میں، کن چیزوں کے نامکمل قرار پانے کا سب سے زیادہ امکان ہے؟",
+  "phrase_kind": "court_readiness_scan",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "court_readiness_scan",
+  "moved": false
+ },
+ {
+  "id": "G5::gold",
+  "set": "gold",
+  "text": "Baramad shuda hathiyaron ki record keeping ko dekhte hue, kya koi aisi baat hai jo compliance ke lihaz se flag karne layak ho?",
+  "phrase_kind": "weapon_compliance_scan",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "weapon_compliance_scan",
+  "moved": false
+ },
+ {
+  "id": "G6::gold",
+  "set": "gold",
+  "text": "Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation note likhein — unhein mojooda case load se kya tawaqqo rakhni chahiye?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "KB1::gold",
+  "set": "gold",
+  "text": "What legal requirement governs how a report of a crime becomes a formal FIR, and does our recordkeeping actually follow it?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": "RAG",
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "KB2::gold",
+  "set": "gold",
+  "text": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+  "phrase_kind": "graph_recurrence_person",
+  "deterministic_override": "RAG",
+  "semantic_override": null,
+  "resolved_kind": "graph_recurrence_person",
+  "moved": false
+ },
+ {
+  "id": "KB3::gold",
+  "set": "gold",
+  "text": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+  "phrase_kind": "officer_role_pair_overlap",
+  "deterministic_override": "RAG",
+  "semantic_override": null,
+  "resolved_kind": "officer_role_pair_overlap",
+  "moved": false
+ },
+ {
+  "id": "KB4::gold",
+  "set": "gold",
+  "text": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": "RAG",
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "KB5::gold",
+  "set": "gold",
+  "text": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+  "phrase_kind": "gender_breakdown",
+  "deterministic_override": "RAG",
+  "semantic_override": null,
+  "resolved_kind": "gender_breakdown",
+  "moved": false
+ },
+ {
+  "id": "KB6::gold",
+  "set": "gold",
+  "text": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+  "phrase_kind": "graph_recurrence_weapon",
+  "deterministic_override": "RAG",
+  "semantic_override": null,
+  "resolved_kind": "graph_recurrence_weapon",
+  "moved": false
+ },
+ {
+  "id": "KB8::gold",
+  "set": "gold",
+  "text": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": "RAG",
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "KB9::gold",
+  "set": "gold",
+  "text": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "phrase_kind": "graph_recurrence_person",
+  "deterministic_override": "RAG",
+  "semantic_override": null,
+  "resolved_kind": "graph_recurrence_person",
+  "moved": false
+ },
+ {
+  "id": "D1::para::en",
+  "set": "para",
+  "text": "What is the total number of first information reports we currently hold?",
+  "phrase_kind": "total_count",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "total_count",
+  "moved": false
+ },
+ {
+  "id": "D1::para::roman_ur",
+  "set": "para",
+  "text": "Is waqt hamare paas kul kitni FIR mojood hain?",
+  "phrase_kind": "total_count",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "total_count",
+  "moved": false
+ },
+ {
+  "id": "D1::para::ur",
+  "set": "para",
+  "text": "اِس وقت ہمارے پاس مجموعی طور پر کتنی ایف آئی آر موجود ہیں؟",
+  "phrase_kind": "total_count",
+  "deterministic_override": "XNETWORK",
+  "semantic_override": null,
+  "resolved_kind": "total_count",
+  "moved": false
+ },
+ {
+  "id": "S2::para::en",
+  "set": "para",
+  "text": "Which of our stations is responsible for the biggest share of files?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "S2::para::roman_ur",
+  "set": "para",
+  "text": "Sab se zyada files kis thane ke zimme hain?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "S2::para::ur",
+  "set": "para",
+  "text": "سب سے زیادہ مقدمات کس تھانے کے ذمے ہیں؟",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "S3::para::en",
+  "set": "para",
+  "text": "Has any individual been taken into custody on more than one occasion?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": "Semantic dispatch: no phrase list matched, but the cross-encoder scores XAGG's purpose-built 'graph_recurrence_person' aggregate at 0.483 (runner-up 'graph_recurrence_weapon' at 0.031; Module 145)",
+  "resolved_kind": "graph_recurrence_person",
+  "moved": true
+ },
+ {
+  "id": "S3::para::roman_ur",
+  "set": "para",
+  "text": "Kya kisi fard ko ek se ziyada dafa hirasat mein liya gaya hai?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "S3::para::ur",
+  "set": "para",
+  "text": "کیا کوئی ایسا فرد ہے جسے ایک سے زائد مرتبہ حراست میں لیا گیا ہو؟",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": "Semantic dispatch: no phrase list matched, but the cross-encoder scores XAGG's purpose-built 'graph_recurrence_person' aggregate at 0.902 (runner-up 'graph_recurrence_weapon' at 0.041; Module 145)",
+  "resolved_kind": "graph_recurrence_person",
+  "moved": true
+ },
+ {
+  "id": "A1::para::en",
+  "set": "para",
+  "text": "Among the people named as accused, what is the split between men and women?",
+  "phrase_kind": "gender_breakdown",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "gender_breakdown",
+  "moved": false
+ },
+ {
+  "id": "A1::para::roman_ur",
+  "set": "para",
+  "text": "Jin logon ko mulzim namzad kiya gaya hai, un mein kitne mard hain aur kitni khawateen?",
+  "phrase_kind": "graph_recurrence_person",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "graph_recurrence_person",
+  "moved": false
+ },
+ {
+  "id": "A1::para::ur",
+  "set": "para",
+  "text": "جن افراد کو ملزم ٹھہرایا گیا ہے، اُن میں کتنے مرد ہیں اور کتنی خواتین؟",
+  "phrase_kind": "gender_breakdown",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "gender_breakdown",
+  "moved": false
+ },
+ {
+  "id": "A7::para::en",
+  "set": "para",
+  "text": "In how many files did the person reporting explain why they took time before approaching the station, instead of coming straight away?",
+  "phrase_kind": "graph_recurrence_person",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "graph_recurrence_person",
+  "moved": false
+ },
+ {
+  "id": "A7::para::roman_ur",
+  "set": "para",
+  "text": "Kitni files mein shikayat karne wale ne yeh bataya ke unhein thane tak pohanchne mein der kyun hui?",
+  "phrase_kind": "cms_fir_linkage",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "cms_fir_linkage",
+  "moved": false
+ },
+ {
+  "id": "A7::para::ur",
+  "set": "para",
+  "text": "کتنی فائلوں میں شکایت کنندہ نے یہ وضاحت دی کہ اُسے تھانے پہنچنے میں تاخیر کیوں ہوئی؟",
+  "phrase_kind": "cms_fir_linkage",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "cms_fir_linkage",
+  "moved": false
+ },
+ {
+  "id": "CP6::para::en",
+  "set": "para",
+  "text": "How many files are still sitting with nobody formally put in charge of the enquiry?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": "Semantic dispatch: no phrase list matched, but the cross-encoder scores XAGG's purpose-built 'placeholder_officer_count' aggregate at 0.683 (runner-up 'arrest_rate' at 0.004; Module 145)",
+  "resolved_kind": "placeholder_officer_count",
+  "moved": true
+ },
+ {
+  "id": "CP6::para::roman_ur",
+  "set": "para",
+  "text": "Kitni files aisi hain jin ki tehqeeqat ke liye abhi tak kisi afsar ko baqaida zimma nahi diya gaya?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "CP6::para::ur",
+  "set": "para",
+  "text": "کتنی فائلیں ایسی ہیں جن کی تحقیقات کے لیے اب تک کسی افسر کو باقاعدہ ذمہ نہیں سونپا گیا؟",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": "Semantic dispatch: no phrase list matched, but the cross-encoder scores XAGG's purpose-built 'placeholder_officer_count' aggregate at 0.953 (runner-up 'total_count' at 0.019; Module 145)",
+  "resolved_kind": "placeholder_officer_count",
+  "moved": true
+ },
+ {
+  "id": "CR2::para::en",
+  "set": "para",
+  "text": "Do we have a person who already carried a case from before and has now turned up again as a suspect in a fresh file?",
+  "phrase_kind": "graph_recurrence_vehicle",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "graph_recurrence_vehicle",
+  "moved": false
+ },
+ {
+  "id": "CR2::para::roman_ur",
+  "set": "para",
+  "text": "Kya koi aisa fard hai jis par pehle se ek muqadma mojood tha aur ab woh kisi nai file mein dobara mushtaba ke tor par saamne aaya hai?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "CR2::para::ur",
+  "set": "para",
+  "text": "کیا کوئی ایسا فرد ہے جس پر پہلے سے ایک مقدمہ موجود تھا اور اب وہ کسی نئی فائل میں دوبارہ مشتبہ کے طور پر سامنے آیا ہو؟",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": "Semantic dispatch: no phrase list matched, but the cross-encoder scores XAGG's purpose-built 'graph_recurrence_person' aggregate at 0.991 (runner-up 'graph_recurrence_weapon' at 0.110; Module 145)",
+  "resolved_kind": "graph_recurrence_person",
+  "moved": true
+ },
+ {
+  "id": "CR3::para::en",
+  "set": "para",
+  "text": "Take the internet banking cheating matter that had two different complainants — were both handled and entered in the register in an identical fashion?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "CR3::para::roman_ur",
+  "set": "para",
+  "text": "Woh internet banking dhoke ka muamla jismein do alag mutasireen thay — kya dono ko ek hi tarah se nipta kar record mein darj kiya gaya?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "CR3::para::ur",
+  "set": "para",
+  "text": "وہ انٹرنیٹ بینکنگ دھوکہ دہی کا معاملہ جس میں دو الگ متاثرین تھے — کیا دونوں کو ایک ہی طریقے سے نمٹا کر ریکارڈ میں درج کیا گیا؟",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "CR4::para::en",
+  "set": "para",
+  "text": "When a firearm sits in our evidence store, are we able to trace the person it came from and how their matter ended?",
+  "phrase_kind": "graph_recurrence_person",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "graph_recurrence_person",
+  "moved": false
+ },
+ {
+  "id": "CR4::para::roman_ur",
+  "set": "para",
+  "text": "Jab koi hathiyar shahadat ke tor par hamare paas mehfooz ho, kya hum yeh maloom kar sakte hain ke woh kis se liya gaya aur us ka anjam kya hua?",
+  "phrase_kind": "graph_recurrence_weapon",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "graph_recurrence_weapon",
+  "moved": false
+ },
+ {
+  "id": "CR4::para::ur",
+  "set": "para",
+  "text": "جب کوئی ہتھیار بطور شہادت ہمارے پاس محفوظ ہو، تو کیا ہم یہ معلوم کر سکتے ہیں کہ وہ کس سے لیا گیا اور اُس کا انجام کیا ہوا؟",
+  "phrase_kind": "weapon_evidence_chain",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "weapon_evidence_chain",
+  "moved": false
+ },
+ {
+  "id": "CR6::para::en",
+  "set": "para",
+  "text": "When a member of the public walks in and lodges a grievance, does that get tied to a proper first information report, or do the two stay unconnected?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "CR6::para::roman_ur",
+  "set": "para",
+  "text": "Agar koi shakhs thane pahunch kar apna masla darj karwaye, to kya us ka rabt kisi baqaida FIR se banta hai, ya woh alag hi para rehta hai?",
+  "phrase_kind": "graph_recurrence_person",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "graph_recurrence_person",
+  "moved": false
+ },
+ {
+  "id": "CR6::para::ur",
+  "set": "para",
+  "text": "اگر کوئی شخص تھانے پہنچ کر اپنا مسئلہ درج کرائے، تو کیا اُس کا ربط کسی باقاعدہ ایف آئی آر سے بنتا ہے، یا وہ الگ ہی پڑا رہتا ہے؟",
+  "phrase_kind": "graph_recurrence_person",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "graph_recurrence_person",
+  "moved": false
+ },
+ {
+  "id": "CR7::para::en",
+  "set": "para",
+  "text": "Out of the entries in our offender-history store, how many matters have wrapped up and how many are still running — and where a case also has its own judicial entry, do the two line up?",
+  "phrase_kind": "graph_recurrence_person",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "graph_recurrence_person",
+  "moved": false
+ },
+ {
+  "id": "CR7::para::roman_ur",
+  "set": "para",
+  "text": "Hamare mujrimana record mein kitne muamlat nipat chuke hain aur kitne abhi chal rahe hain — aur jahan kisi muamle ka alag adalati indraj bhi mojood hai, kya dono aapas mein miltay hain?",
+  "phrase_kind": "accused_relationship_breakdown",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "accused_relationship_breakdown",
+  "moved": false
+ },
+ {
+  "id": "CR7::para::ur",
+  "set": "para",
+  "text": "ہمارے مجرمانہ ریکارڈ میں کتنے معاملات نمٹ چکے ہیں اور کتنے ابھی چل رہے ہیں — اور جہاں کسی معاملے کا الگ عدالتی اندراج بھی موجود ہے، کیا دونوں آپس میں ملتے ہیں؟",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": "Semantic dispatch: no phrase list matched, but the cross-encoder scores XAGG's purpose-built 'criminal_record_court_crosscheck' aggregate at 0.979 (runner-up 'statute_court_stage_join' at 0.911; Module 145)",
+  "resolved_kind": "criminal_record_court_crosscheck",
+  "moved": true
+ },
+ {
+  "id": "CR8::para::en",
+  "set": "para",
+  "text": "If a household-abuse grievance was noted as having turned into a proper matter, does the file itself bear that out?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "CR8::para::roman_ur",
+  "set": "para",
+  "text": "Agar ghar ke andar tashaddud ki koi shikayat baqaida muamle mein badalne ke tor par likhi gai ho, to kya file khud is ki tasdeeq karti hai?",
+  "phrase_kind": "cms_fir_linkage",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "cms_fir_linkage",
+  "moved": false
+ },
+ {
+  "id": "CR8::para::ur",
+  "set": "para",
+  "text": "اگر گھر کے اندر تشدد کی کوئی شکایت باقاعدہ معاملے میں بدلنے کے طور پر لکھی گئی ہو، تو کیا فائل خود اِس کی تصدیق کرتی ہے؟",
+  "phrase_kind": "cms_fir_linkage",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "cms_fir_linkage",
+  "moved": false
+ },
+ {
+  "id": "CS4::para::en",
+  "set": "para",
+  "text": "In the broader offender-history holdings, is there an individual who lines up with none of the files we ourselves entered?",
+  "phrase_kind": "graph_recurrence_person",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "graph_recurrence_person",
+  "moved": false
+ },
+ {
+  "id": "CS4::para::roman_ur",
+  "set": "para",
+  "text": "Bahar ke mujrimana record mein koi aisa fard hai jo hamari apni darj ki hui kisi bhi file se mel nahi khata?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "CS4::para::ur",
+  "set": "para",
+  "text": "باہر کے مجرمانہ ریکارڈ میں کوئی ایسا فرد ہے جو ہماری اپنی درج کی ہوئی کسی بھی فائل سے میل نہیں کھاتا؟",
+  "phrase_kind": "criminal_record_local_match_gap",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "criminal_record_local_match_gap",
+  "moved": false
+ },
+ {
+  "id": "CP1::para::en",
+  "set": "para",
+  "text": "Relative to how many files it carries, which district seizes arms most often?",
+  "phrase_kind": "top_districts_by",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "top_districts_by",
+  "moved": false
+ },
+ {
+  "id": "CP1::para::roman_ur",
+  "set": "para",
+  "text": "Apni files ki tadaad ke hisab se kaunsa zila sab se ziyada asliha zabt karta hai?",
+  "phrase_kind": "top_districts_by",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "top_districts_by",
+  "moved": false
+ },
+ {
+  "id": "CP1::para::ur",
+  "set": "para",
+  "text": "اپنی فائلوں کی تعداد کے حساب سے کون سا ضلع سب سے زیادہ اسلحہ ضبط کرتا ہے؟",
+  "phrase_kind": "top_districts_by",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "top_districts_by",
+  "moved": false
+ },
+ {
+  "id": "M1::para::en",
+  "set": "para",
+  "text": "Has the make-up of the matters we handle moved on from where it stood two or three years earlier?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": "Semantic dispatch: no phrase list matched, but the cross-encoder scores XAGG's purpose-built 'statute_mix_by_year' aggregate at 0.462 (runner-up 'statute_court_stage_join' at 0.000; Module 145)",
+  "resolved_kind": "statute_mix_by_year",
+  "moved": true
+ },
+ {
+  "id": "M1::para::roman_ur",
+  "set": "para",
+  "text": "Do teen saal pehle jo muamlat hote thay, kya ab un ki qism badal chuki hai?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "M1::para::ur",
+  "set": "para",
+  "text": "دو تین سال پہلے جو معاملات ہوتے تھے، کیا اب اُن کی قسم بدل چکی ہے؟",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": "Semantic dispatch: no phrase list matched, but the cross-encoder scores XAGG's purpose-built 'statute_mix_by_year' aggregate at 0.463 (runner-up 'weapon_statute_cooccurrence_by_year' at 0.015; Module 145)",
+  "resolved_kind": "statute_mix_by_year",
+  "moved": true
+ },
+ {
+  "id": "M2::para::en",
+  "set": "para",
+  "text": "Where is the volume of files rising quicker — the ordinary stations, or the few dedicated to a single category of offence?",
+  "phrase_kind": "station_caseload_by_specialisation",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "station_caseload_by_specialisation",
+  "moved": false
+ },
+ {
+  "id": "M2::para::roman_ur",
+  "set": "para",
+  "text": "Files ki tadaad kahan tezi se barh rahi hai — aam thanon par, ya un chand par jo sirf ek qism ke jurm ke liye banaye gaye hain?",
+  "phrase_kind": "station_caseload_by_specialisation",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "station_caseload_by_specialisation",
+  "moved": false
+ },
+ {
+  "id": "M2::para::ur",
+  "set": "para",
+  "text": "فائلوں کی تعداد کہاں تیزی سے بڑھ رہی ہے — عام تھانوں پر، یا اُن چند پر جو صرف ایک قسم کے جرم کے لیے بنائے گئے ہیں؟",
+  "phrase_kind": "station_caseload_by_specialisation",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "station_caseload_by_specialisation",
+  "moved": false
+ },
+ {
+  "id": "M4::para::en",
+  "set": "para",
+  "text": "Look at which provisions people are being booked under on one hand, and how far those matters travelled through the judiciary on the other — do both give the same read on how heavy the load is?",
+  "phrase_kind": "graph_recurrence_person",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "graph_recurrence_person",
+  "moved": false
+ },
+ {
+  "id": "M4::para::roman_ur",
+  "set": "para",
+  "text": "Ek taraf dekhein ke logon par kin qawaneen ke tehat parche kat rahe hain, aur doosri taraf yeh ke woh muamlat adalat mein kahan tak gaye — kya dono se bojh ki shiddat ka ek hi nateeja nikalta hai?",
+  "phrase_kind": "statute_court_stage_join",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "statute_court_stage_join",
+  "moved": false
+ },
+ {
+  "id": "M4::para::ur",
+  "set": "para",
+  "text": "ایک جانب دیکھیں کہ لوگوں پر کن قوانین کے تحت پرچے کٹ رہے ہیں، اور دوسری جانب یہ کہ وہ معاملات عدالت میں کہاں تک گئے — کیا دونوں سے بوجھ کی شدت کا ایک ہی نتیجہ نکلتا ہے؟",
+  "phrase_kind": "statute_court_stage_join",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "statute_court_stage_join",
+  "moved": false
+ },
+ {
+  "id": "M5::para::en",
+  "set": "para",
+  "text": "Which categories of matter do arms usually turn up in, and is that picture different now from 2024?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "M5::para::roman_ur",
+  "set": "para",
+  "text": "Hathiyar aam tor par kis qism ke muamlat mein nazar aate hain, aur kya ab yeh manzar 2024 se mukhtalif hai?",
+  "phrase_kind": "graph_recurrence_weapon",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "graph_recurrence_weapon",
+  "moved": false
+ },
+ {
+  "id": "M5::para::ur",
+  "set": "para",
+  "text": "ہتھیار عام طور پر کس قسم کے معاملات میں نظر آتے ہیں، اور کیا اب یہ منظر 2024 سے مختلف ہے؟",
+  "phrase_kind": "graph_recurrence_weapon",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "graph_recurrence_weapon",
+  "moved": false
+ },
+ {
+  "id": "M7::para::en",
+  "set": "para",
+  "text": "Are members of the public reporting incidents to us as promptly in 2026 as they did back in 2024?",
+  "phrase_kind": "incident_to_report_minutes_by_year",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "incident_to_report_minutes_by_year",
+  "moved": false
+ },
+ {
+  "id": "M7::para::roman_ur",
+  "set": "para",
+  "text": "Kya 2026 mein shahri hamein waqiaat ki khabar utni hi phurti se de rahe hain jitni woh 2024 mein dete thay?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "M7::para::ur",
+  "set": "para",
+  "text": "کیا 2026 میں شہری ہمیں واقعات کی خبر اُتنی ہی پھرتی سے دے رہے ہیں جتنی وہ 2024 میں دیتے تھے؟",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "G1::para::en",
+  "set": "para",
+  "text": "Put on an analyst's hat, go through what we are carrying at present and point out whatever stands out or needs watching.",
+  "phrase_kind": "graph_recurrence_vehicle",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "graph_recurrence_vehicle",
+  "moved": false
+ },
+ {
+  "id": "G1::para::roman_ur",
+  "set": "para",
+  "text": "Aik tajziya kar ki haisiyat se hamare mojooda bojh ka jaiza lein aur jo kuch ghair mamooli lage ya nigrani ka taqaza kare, us ki nishandahi karein.",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": "RAG",
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "G1::para::ur",
+  "set": "para",
+  "text": "ایک تجزیہ کار کی حیثیت سے ہمارے موجودہ بوجھ کا جائزہ لیں اور جو کچھ غیر معمولی لگے یا نگرانی کا تقاضا کرے، اُس کی نشاندہی کریں۔",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": "RAG",
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "G2::para::en",
+  "set": "para",
+  "text": "Imagine you are updating a station head about matters at risk of slipping out of view — what would you draw attention to?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "G2::para::roman_ur",
+  "set": "para",
+  "text": "Farz karein aap kisi thana incharge ko is bare mein bata rahe hain ke kaunse muamlat nazar se ghayab ho sakte hain — aap kin baaton ki taraf tawajjo dilayenge?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "G2::para::ur",
+  "set": "para",
+  "text": "فرض کریں آپ کسی تھانہ انچارج کو اِس بارے میں بتا رہے ہیں کہ کون سے معاملات نظر سے غائب ہو سکتے ہیں — آپ کن باتوں کی طرف توجہ دلائیں گے؟",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "G3::para::en",
+  "set": "para",
+  "text": "You are putting a file together to send up to the judge — going by the data, which parts are most likely to come back as lacking?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": "Semantic dispatch: no phrase list matched, but the cross-encoder scores XAGG's purpose-built 'court_readiness_scan' aggregate at 0.933 (runner-up 'statute_court_stage_join' at 0.013; Module 145)",
+  "resolved_kind": "court_readiness_scan",
+  "moved": true
+ },
+ {
+  "id": "G3::para::roman_ur",
+  "set": "para",
+  "text": "Aap adalat bhejne ke liye ek file tayyar kar rahe hain — data ke mutabiq, kaunse hisse sab se ziyada adhoore nikalne ka imkaan rakhte hain?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "G3::para::ur",
+  "set": "para",
+  "text": "آپ عدالت بھیجنے کے لیے ایک فائل تیار کر رہے ہیں — ڈیٹا کے مطابق، کون سے حصے سب سے زیادہ ادھورے نکلنے کا امکان رکھتے ہیں؟",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": "Semantic dispatch: no phrase list matched, but the cross-encoder scores XAGG's purpose-built 'court_readiness_scan' aggregate at 0.568 (runner-up 'statute_court_stage_join' at 0.001; Module 145)",
+  "resolved_kind": "court_readiness_scan",
+  "moved": true
+ },
+ {
+  "id": "G5::para::en",
+  "set": "para",
+  "text": "Looking at how seized arms are being written up, is there anything a compliance review ought to pick up on?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "G5::para::roman_ur",
+  "set": "para",
+  "text": "Zabt shuda asliha jis tarah likha ja raha hai, us mein aisa kuch hai jo zabte ke jaize mein uthaya jana chahiye?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "G5::para::ur",
+  "set": "para",
+  "text": "ضبط شدہ اسلحہ جس طرح لکھا جا رہا ہے، اُس میں ایسا کچھ ہے جو ضابطے کے جائزے میں اُٹھایا جانا چاہیے؟",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "G6::para::en",
+  "set": "para",
+  "text": "Draft a short welcome brief for someone just posted in — what should they anticipate from the pile of work here?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "G6::para::roman_ur",
+  "set": "para",
+  "text": "Naye aane wale afsar ko shuruaat mein kya batana chahiye — yahan ke kaam ke dher se unhein kya ummeed rakhni chahiye?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "G6::para::ur",
+  "set": "para",
+  "text": "نئے آنے والے افسر کو شروع میں کیا بتانا چاہیے — یہاں کے کام کے ڈھیر سے اُنہیں کیا اُمید رکھنی چاہیے؟",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "KB1::para::en",
+  "set": "para",
+  "text": "Which provision of law lays down the way a complaint turns into an official first information report, and are our books actually in line with it?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "KB1::para::roman_ur",
+  "set": "para",
+  "text": "Qanoon ka kaunsa hissa yeh tay karta hai ke ek shikayat kis tarah sarkari FIR banti hai, aur kya hamara indraj waqai us ke mutabiq hai?",
+  "phrase_kind": "cms_fir_linkage",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "cms_fir_linkage",
+  "moved": false
+ },
+ {
+  "id": "KB1::para::ur",
+  "set": "para",
+  "text": "قانون کا کون سا حصہ یہ طے کرتا ہے کہ ایک شکایت کس طرح سرکاری ایف آئی آر بنتی ہے، اور کیا ہمارا اندراج واقعی اُس کے مطابق ہے؟",
+  "phrase_kind": "cms_fir_linkage",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "cms_fir_linkage",
+  "moved": false
+ },
+ {
+  "id": "KB2::para::en",
+  "set": "para",
+  "text": "How come nothing in our setup preserves the statements given by a witness or a suspect during questioning — should that count as a hole in the data?",
+  "phrase_kind": "graph_recurrence_person",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "graph_recurrence_person",
+  "moved": false
+ },
+ {
+  "id": "KB2::para::roman_ur",
+  "set": "para",
+  "text": "Hamare nizam mein woh baatein kyun mehfooz nahi hotin jo koi gawah ya mulzim poochh gachh ke dauran kehta hai — kya ise data ki kami samjha jaye?",
+  "phrase_kind": "graph_recurrence_person",
+  "deterministic_override": "RAG",
+  "semantic_override": null,
+  "resolved_kind": "graph_recurrence_person",
+  "moved": false
+ },
+ {
+  "id": "KB2::para::ur",
+  "set": "para",
+  "text": "ہمارے نظام میں وہ باتیں کیوں محفوظ نہیں ہوتیں جو کوئی گواہ یا ملزم پوچھ گچھ کے دوران کہتا ہے — کیا اِسے ڈیٹا کی کمی سمجھا جائے؟",
+  "phrase_kind": "graph_recurrence_person",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "graph_recurrence_person",
+  "moved": false
+ },
+ {
+  "id": "KB3::para::en",
+  "set": "para",
+  "text": "Is the person who opens a matter supposed under the rules to also be the one who takes it forward, or should those be two different postings — and what does our own record show?",
+  "phrase_kind": "graph_recurrence_person",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "graph_recurrence_person",
+  "moved": false
+ },
+ {
+  "id": "KB3::para::roman_ur",
+  "set": "para",
+  "text": "Qanoon ke mutabiq jo afsar muamla kholta hai kya usi ne aage bhi barhana hota hai, ya yeh do alag zimmedariyan honi chahiyen — aur hamara apna record kya kehta hai?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": "RAG",
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "KB3::para::ur",
+  "set": "para",
+  "text": "قانون کے مطابق جو افسر معاملہ کھولتا ہے کیا اُسی نے آگے بھی بڑھانا ہوتا ہے، یا یہ دو الگ ذمہ داریاں ہونی چاہئیں — اور ہمارا اپنا ریکارڈ کیا کہتا ہے؟",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": "RAG",
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "KB4::para::en",
+  "set": "para",
+  "text": "Where the force holds articles connected to a matter, is there a laid-down standard for entering them and for finally getting rid of them — and does our goods register keep to it?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": "RAG",
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "KB4::para::roman_ur",
+  "set": "para",
+  "text": "Jab police kisi muamle se juri cheezein apne qabze mein leti hai, kya un ke indraj aur aakhir mein unhein khatam karne ka koi tay shuda mayaar hai — aur kya hamara maal register us par chalta hai?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "KB4::para::ur",
+  "set": "para",
+  "text": "جب پولیس کسی معاملے سے جڑی چیزیں اپنے قبضے میں لیتی ہے، کیا اُن کے اندراج اور آخر میں اُنہیں ختم کرنے کا کوئی طے شدہ معیار ہے — اور کیا ہمارا مال رجسٹر اُس پر چلتا ہے؟",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": "RAG",
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "KB5::para::en",
+  "set": "para",
+  "text": "Where a matter involves harm done to a female, do the rules call for a different handling than usual — and if so, does our record show those added steps were in fact carried out?",
+  "phrase_kind": "gender_breakdown",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "gender_breakdown",
+  "moved": false
+ },
+ {
+  "id": "KB5::para::roman_ur",
+  "set": "para",
+  "text": "Agar kisi muamle mein kisi khatoon ko nuqsan pohanchaya gaya ho, kya zabta mamool se hat kar kuch aur maangta hai — aur agar haan, to kya hamara record dikhata hai ke woh zaid iqdamaat waqai kiye gaye?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": "RAG",
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "KB5::para::ur",
+  "set": "para",
+  "text": "اگر کسی معاملے میں کسی خاتون کو نقصان پہنچایا گیا ہو، کیا ضابطہ معمول سے ہٹ کر کچھ اور مانگتا ہے — اور اگر ہاں، تو کیا ہمارا ریکارڈ دکھاتا ہے کہ وہ زائد اقدامات واقعی کیے گئے؟",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": "RAG",
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "KB6::para::en",
+  "set": "para",
+  "text": "Do the lab-procedure rules set out anything particular on the way seized arms must be dealt with before entry, and does our arms register note whether that was observed?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": "RAG",
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "KB6::para::roman_ur",
+  "set": "para",
+  "text": "Kya lab ke zawabit mein is bare mein koi khaas hidayat hai ke zabt shuda asliha indraj se pehle kis tarah rakha jaye, aur kya hamara asliha register yeh likhta hai ke un par amal hua ya nahi?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "KB6::para::ur",
+  "set": "para",
+  "text": "کیا لیب کے ضوابط میں اِس بارے میں کوئی خاص ہدایت ہے کہ ضبط شدہ اسلحہ اندراج سے پہلے کس طرح رکھا جائے، اور کیا ہمارا اسلحہ رجسٹر یہ لکھتا ہے کہ اُن پر عمل ہوا یا نہیں؟",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "KB8::para::en",
+  "set": "para",
+  "text": "Where an enquiry runs long, do the rules oblige the force to put something before the judge ahead of finishing — and would our progress data tell us whether that happened?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": "RAG",
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "KB8::para::roman_ur",
+  "set": "para",
+  "text": "Agar kisi muamle ki chhan been lambi ho jaye, kya zabta police par lazim karta hai ke mukammal hone se pehle adalat ko kuch pesh kare — aur kya hamara progress data batayega ke aisa hua ya nahi?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": "RAG",
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "KB8::para::ur",
+  "set": "para",
+  "text": "اگر کسی معاملے کی چھان بین لمبی ہو جائے، کیا ضابطہ پولیس پر لازم کرتا ہے کہ مکمل ہونے سے پہلے عدالت کو کچھ پیش کرے — اور کیا ہمارا پروگریس ڈیٹا بتائے گا کہ ایسا ہوا یا نہیں؟",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": "RAG",
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "KB9::para::en",
+  "set": "para",
+  "text": "Where a person passes away in circumstances that raise doubt, the force has to formally look into what caused it — is that captured anywhere in our setup, particularly given how many of our matters involve a death?",
+  "phrase_kind": "graph_recurrence_person",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "graph_recurrence_person",
+  "moved": false
+ },
+ {
+  "id": "KB9::para::roman_ur",
+  "set": "para",
+  "text": "Agar kisi ki maut aisay halaat mein ho jo shak paida karein, to police ko wajah ki baqaida chhan been karni hoti hai — kya hamara nizam ise kahin likhta hai, khusoosan jab hamare bohat se muamlat mein maut shamil hai?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": "RAG",
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "KB9::para::ur",
+  "set": "para",
+  "text": "اگر کسی کی موت ایسے حالات میں ہو جو شک پیدا کریں، تو پولیس کو وجہ کی باقاعدہ چھان بین کرنی ہوتی ہے — کیا ہمارا نظام اِسے کہیں لکھتا ہے، خصوصاً جب ہمارے بہت سے معاملات میں موت شامل ہے؟",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "L1",
+  "set": "target",
+  "text": "How often is the officer who registers an FIR also the officer who investigates the case?",
+  "expected_kind": "officer_role_pair_overlap",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": "Semantic dispatch: no phrase list matched, but the cross-encoder scores XAGG's purpose-built 'officer_role_pair_overlap' aggregate at 1.000 (runner-up 'unsupported_officer' at 0.314; Module 145)",
+  "resolved_kind": "officer_role_pair_overlap",
+  "moved": true
+ },
+ {
+  "id": "L2",
+  "set": "target",
+  "text": "Is there anyone who used one of our citizen services who is also under investigation?",
+  "expected_kind": "graph_recurrence_person",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "L3",
+  "set": "target",
+  "text": "Is anyone convicted in one matter but still being sought as a fugitive in another?",
+  "expected_kind": "graph_recurrence_person",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "M100a",
+  "set": "target",
+  "text": "Is the officer who registers a case normally the one who investigates it?",
+  "expected_kind": "officer_role_pair_overlap",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": "Semantic dispatch: no phrase list matched, but the cross-encoder scores XAGG's purpose-built 'officer_role_pair_overlap' aggregate at 0.998 (runner-up 'unsupported_officer' at 0.625; Module 145)",
+  "resolved_kind": "officer_role_pair_overlap",
+  "moved": true
+ },
+ {
+  "id": "M100b",
+  "set": "target",
+  "text": "Is the registering officer usually the investigating officer?",
+  "expected_kind": "officer_role_pair_overlap",
+  "phrase_kind": "unsupported_officer",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "unsupported_officer",
+  "moved": false
+ },
+ {
+  "id": "M100c",
+  "set": "target",
+  "text": "Does the same officer both register and investigate our cases?",
+  "expected_kind": "officer_role_pair_overlap",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": "Semantic dispatch: no phrase list matched, but the cross-encoder scores XAGG's purpose-built 'officer_role_pair_overlap' aggregate at 0.992 (runner-up 'unsupported_officer' at 0.313; Module 145)",
+  "resolved_kind": "officer_role_pair_overlap",
+  "moved": true
+ },
+ {
+  "id": "H01",
+  "set": "hazard",
+  "text": "How many cases in total?",
+  "phrase_kind": "total_count",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "total_count",
+  "moved": false
+ },
+ {
+  "id": "H02",
+  "set": "hazard",
+  "text": "List all the cases.",
+  "phrase_kind": "case_listing",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "case_listing",
+  "moved": false
+ },
+ {
+  "id": "H03",
+  "set": "hazard",
+  "text": "Which police station has the most cases?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "H04",
+  "set": "hazard",
+  "text": "Give me a summary of the caseload.",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "H05",
+  "set": "hazard",
+  "text": "What is the weather like in Lahore today?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "H06",
+  "set": "hazard",
+  "text": "Hello, what can you do?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "H07",
+  "set": "hazard",
+  "text": "What does section 302 of the PPC say?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": "SQL",
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "H08",
+  "set": "hazard",
+  "text": "How many theft cases are open?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "H09",
+  "set": "hazard",
+  "text": "Show me the cases registered last month.",
+  "phrase_kind": "case_listing",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "case_listing",
+  "moved": false
+ },
+ {
+  "id": "H10",
+  "set": "hazard",
+  "text": "Draft a letter to the SHO about staffing.",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "H11",
+  "set": "hazard",
+  "text": "Kul kitne muqadmat darj hain?",
+  "phrase_kind": "total_count",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "total_count",
+  "moved": false
+ },
+ {
+  "id": "H12",
+  "set": "hazard",
+  "text": "تمام مقدمات کی فہرست دکھائیں",
+  "phrase_kind": "case_listing",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "case_listing",
+  "moved": false
+ },
+ {
+  "id": "H13",
+  "set": "hazard",
+  "text": "How many cases were registered in 2025?",
+  "phrase_kind": "total_count",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "total_count",
+  "moved": false
+ },
+ {
+  "id": "H14",
+  "set": "hazard",
+  "text": "Who is the complainant in FIR 460/26?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "H15",
+  "set": "hazard",
+  "text": "Which officer investigated the most cases?",
+  "phrase_kind": "unsupported_officer",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "unsupported_officer",
+  "moved": false
+ },
+ {
+  "id": "H16",
+  "set": "hazard",
+  "text": "Is crime going up month over month?",
+  "phrase_kind": "unsupported_trend",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "unsupported_trend",
+  "moved": false
+ },
+ {
+  "id": "H17",
+  "set": "hazard",
+  "text": "What is the procedure for registering an FIR?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "H18",
+  "set": "hazard",
+  "text": "Tell me about the cybercrime wing.",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "H19",
+  "set": "hazard",
+  "text": "How many FIRs were registered in Lahore?",
+  "phrase_kind": "total_count",
+  "deterministic_override": "XAGG",
+  "semantic_override": null,
+  "resolved_kind": "total_count",
+  "moved": false
+ },
+ {
+  "id": "H20",
+  "set": "hazard",
+  "text": "How many accused persons in total are under 30 years old?",
+  "phrase_kind": "total_accused_count",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "total_accused_count",
+  "moved": false
+ },
+ {
+  "id": "H21",
+  "set": "hazard",
+  "text": "پچھلے سال کتنے مقدمات درج ہوئے؟",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "H22",
+  "set": "hazard",
+  "text": "Mujhe sab se naye case ke baare mein batao",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "H23",
+  "set": "hazard",
+  "text": "What happened in the bank fraud case?",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ },
+ {
+  "id": "H24",
+  "set": "hazard",
+  "text": "Thanks, that's all for now.",
+  "phrase_kind": "station_or_category_counts",
+  "deterministic_override": null,
+  "semantic_override": null,
+  "resolved_kind": "station_or_category_counts",
+  "moved": false
+ }
+]
