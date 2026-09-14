@@ -1,0 +1,146 @@
+[
+  {
+    "id": "LIVE",
+    "run": 1,
+    "arm": "before",
+    "language": "en",
+    "question": "How many FIRs were registered in 2019 or earlier?",
+    "expected_answer": "0 (records span 2024-2026)",
+    "actual_answer": "Total cases: 73\n\n_The natural-language summary could not be verified as an accurate paraphrase; showing the raw computed aggregate instead._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 19.5,
+    "xagg_log_lines": [
+      "XAGG total_count: 73 case(s) after filtering; unsupported_filters=none"
+    ],
+    "fallback_lines": [],
+    "model": "local (no fallback line)",
+    "quota_lines": []
+  },
+  {
+    "id": "LIVE",
+    "run": 2,
+    "arm": "before",
+    "language": "en",
+    "question": "How many FIRs were registered in 2019 or earlier?",
+    "expected_answer": "0 (records span 2024-2026)",
+    "actual_answer": "Total cases: 73\n\n_The natural-language summary could not be verified as an accurate paraphrase; showing the raw computed aggregate instead._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 9.4,
+    "xagg_log_lines": [
+      "XAGG total_count: 73 case(s) after filtering; unsupported_filters=none"
+    ],
+    "fallback_lines": [],
+    "model": "local (no fallback line)",
+    "quota_lines": []
+  },
+  {
+    "id": "LIVE",
+    "run": 3,
+    "arm": "before",
+    "language": "en",
+    "question": "How many FIRs were registered in 2019 or earlier?",
+    "expected_answer": "0 (records span 2024-2026)",
+    "actual_answer": "Total cases: 73\n\n_The natural-language summary could not be verified as an accurate paraphrase; showing the raw computed aggregate instead._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 9.6,
+    "xagg_log_lines": [
+      "XAGG total_count: 73 case(s) after filtering; unsupported_filters=none"
+    ],
+    "fallback_lines": [],
+    "model": "local (no fallback line)",
+    "quota_lines": []
+  },
+  {
+    "id": "F_RANGE",
+    "run": 1,
+    "arm": "before",
+    "language": "en",
+    "question": "How many FIRs were registered between 2024 and 2025?",
+    "expected_answer": "16 (13 in 2024 + 3 in 2025)",
+    "actual_answer": "Total cases: 73\n\n_The natural-language summary could not be verified as an accurate paraphrase; showing the raw computed aggregate instead._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 6.5,
+    "xagg_log_lines": [
+      "XAGG total_count: 73 case(s) after filtering; unsupported_filters=none"
+    ],
+    "fallback_lines": [],
+    "model": "local (no fallback line)",
+    "quota_lines": []
+  },
+  {
+    "id": "F_DIST",
+    "run": 1,
+    "arm": "before",
+    "language": "en",
+    "question": "How many FIRs were registered in Lahore?",
+    "expected_answer": "18",
+    "actual_answer": "The provided document does not specify the number of FIRs registered in Lahore. It only states a total of 73 cases across all locations [Document 1]. To answer this question, location-specific data would be required.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 12.2,
+    "xagg_log_lines": [
+      "XAGG total_count: 73 case(s) after filtering; unsupported_filters=none"
+    ],
+    "fallback_lines": [],
+    "model": "local (no fallback line)",
+    "quota_lines": []
+  },
+  {
+    "id": "F_SECT",
+    "run": 1,
+    "arm": "before",
+    "language": "en",
+    "question": "How many cases were registered under PPC 302?",
+    "expected_answer": "10",
+    "actual_answer": "Total cases: 73\n\n_The natural-language summary could not be verified as an accurate paraphrase; showing the raw computed aggregate instead._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 8.0,
+    "xagg_log_lines": [
+      "XAGG total_count: 73 case(s) after filtering; unsupported_filters=none"
+    ],
+    "fallback_lines": [],
+    "model": "local (no fallback line)",
+    "quota_lines": [
+      "INFO:     127.0.0.1:50302 - \"POST /api/chat HTTP/1.1\" 200 OK"
+    ]
+  },
+  {
+    "id": "F_AGE",
+    "run": 1,
+    "arm": "before",
+    "language": "en",
+    "question": "How many accused persons are aged between 25 and 40?",
+    "expected_answer": "16 accused with a recorded age in 25-40 (19 carry an age; 24, 41 and 49 excluded) - to be re-derived",
+    "actual_answer": "Total distinct accused persons: 92\n\n_The natural-language summary could not be verified as an accurate paraphrase; showing the raw computed aggregate instead._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 71.2,
+    "xagg_log_lines": [
+      "XAGG total_accused_count: 92 distinct accused person(s) across 94 case-scoped entr(ies)"
+    ],
+    "fallback_lines": [],
+    "model": "local (no fallback line)",
+    "quota_lines": [
+      "INFO:     127.0.0.1:50305 - \"POST /api/chat HTTP/1.1\" 200 OK"
+    ]
+  }
+]

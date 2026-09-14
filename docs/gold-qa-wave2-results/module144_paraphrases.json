@@ -1,0 +1,22 @@
+{
+  "LIVE":     {"question": "How many FIRs were registered in 2019 or earlier?", "expected": "0 (records span 2024-2026; 73 in total)"},
+  "F_RANGE":  {"question": "How many FIRs were registered between 2024 and 2025?", "expected": "16 (13 in 2024 + 3 in 2025)"},
+  "F_DIST":   {"question": "How many FIRs were registered in Lahore?", "expected": "18"},
+  "F_SECT":   {"question": "How many cases were registered under PPC 302?", "expected": "10"},
+  "F_AGE":    {"question": "How many accused persons are aged between 25 and 40?", "expected": "15 distinct accused (of 17 with a recorded age; 75 without)"},
+
+  "P_DATE_1": {"question": "Count the FIRs whose registration falls before 2020.", "expected": "0 (records span 2024-2026)"},
+  "P_DATE_2": {"question": "2024 mein kul kitni FIRs darj hui thin?", "language": "roman-urdu", "expected": "13"},
+  "P_DIST_1": {"question": "How many FIRs does Faisalabad have on the books?", "expected": "19"},
+  "P_DIST_2": {"question": "Karachi mein kitni FIRs darj hain?", "language": "roman-urdu", "expected": "10 (Karachi Central 5 + Karachi East 5)"},
+  "P_SECT_1": {"question": "How many cases in total cite section 13 of the Arms Ordinance?", "expected": "29"},
+  "P_SECT_2": {"question": "Dafa 420 ke tehat kul kitne cases darj hain?", "language": "roman-urdu", "expected": "11"},
+  "P_AGE_1":  {"question": "How many accused persons in total are under 30 years old?", "expected": "8 (ages 24,25,25,26,28,29,29,29 among the 17 with an age; canonicalised)"},
+  "P_AGE_2":  {"question": "Kitne mulzim 30 se 40 saal ki umar ke hain?", "language": "roman-urdu", "expected": "offender_age_profile family: in_range 6 of 17 (31,33,38,34,32,31,34,38 minus canon folds) - re-derive"},
+
+  "G_M1":  {"question": "What kinds of cases are we dealing with now compared to a couple of years back?", "expected": "gold M1 - statute mix by year, unchanged; no filter must fire"},
+  "G_M7":  {"question": "Kya log 2026 mein waqiaat ki police ko itni hi jaldi ittila de rahe hain jitni 2024 mein dete the?", "expected": "gold M7 - incident-to-report minutes by year, unchanged; no filter must fire"},
+  "G_CP6": {"question": "Kitne cases abhi tak bina kisi tafteeshi afsar ke asal tor par muqarrar kiye pade hue hain?", "expected": "gold CP6 - placeholder officer count, unchanged"},
+  "G_A1":  {"question": "نامزد ملزمان میں مرد اور عورت کا تناسب کیا ہے؟", "expected": "gold A1 - gender breakdown, unchanged"},
+  "G_D1":  {"question": "How many FIRs are currently registered?", "expected": "gold D1 - 73, unchanged; no filter must fire"}
+}

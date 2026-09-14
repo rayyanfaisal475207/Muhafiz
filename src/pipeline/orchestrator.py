@@ -57,6 +57,9 @@ from src.pipeline.xagg import (
     render_fir_section_case_count,
     render_fir_register_completeness,
     render_offender_age_profile,
+    render_filter_line,
+    render_total_accused_count,
+    render_total_count,
     render_accused_relationship_breakdown,
     render_seized_property_disposition,
     render_incident_time_of_day,
@@ -488,11 +491,13 @@ async def _fetch_secondary_evidence(
                         for c in agg_result["cases"]
                     ]
                 elif agg_result["kind"] == "total_count":
-                    lines = [f"Total cases: {agg_result['total_cases']}"]
+                    # [Gold-QA fix — Module 144] shared renderer; unfiltered
+                    # output is byte-identical to the f-string it replaces.
+                    lines = render_total_count(agg_result)
                 elif agg_result["kind"] == "unsupported_aggregate":
                     lines = [agg_result["message"]]
                 elif agg_result["kind"] == "total_accused_count":
-                    lines = [f"Total distinct accused persons: {agg_result['total_accused']}"]
+                    lines = render_total_accused_count(agg_result)
                 elif agg_result["kind"] == "gender_breakdown":
                     if agg_result["unsupported"]:
                         lines = [agg_result["message"]]
@@ -627,7 +632,8 @@ async def _fetch_secondary_evidence(
                 elif agg_result["kind"] == "filtered_fir_listing":
                     lines = render_filtered_fir_listing(agg_result)
                 else:
-                    lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result.get("counts", [])]
+                    lines = render_filter_line(agg_result)
+                    lines += [f"- {c['key']}: {c['count']} cases" for c in agg_result.get("counts", [])]
                 aggregate_text = "\n".join(lines)
                 if aggregate_text:
                     chunks.append({
@@ -2161,7 +2167,9 @@ async def process_query(
                     for c in agg_result["cases"]
                 ]
             elif agg_result["kind"] == "total_count":
-                lines = [f"Total cases: {agg_result['total_cases']}"]
+                # [Gold-QA fix — Module 144] shared renderer; unfiltered
+                # output is byte-identical to the f-string it replaces.
+                lines = render_total_count(agg_result)
             # [Gold-QA fix — ROOT_CAUSE_AND_FIXES.md Module 1] Four new
             # XAGG result kinds: an honest refusal for topics with no data
             # path (unsupported_aggregate), a real cross-case accused
@@ -2174,7 +2182,7 @@ async def process_query(
             elif agg_result["kind"] == "unsupported_aggregate":
                 lines = [agg_result["message"]]
             elif agg_result["kind"] == "total_accused_count":
-                lines = [f"Total distinct accused persons: {agg_result['total_accused']}"]
+                lines = render_total_accused_count(agg_result)
             elif agg_result["kind"] == "gender_breakdown":
                 if agg_result["unsupported"]:
                     lines = [agg_result["message"]]
@@ -2317,7 +2325,10 @@ async def process_query(
             elif agg_result["kind"] == "filtered_fir_listing":
                 lines = render_filtered_fir_listing(agg_result)
             else:
-                lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
+                # [Gold-QA fix — Module 144] a leading line naming the
+                # date/district/section/age filter, when one applied.
+                lines = render_filter_line(agg_result)
+                lines += [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
                 # [Legal-code semantic layer] crime_category can combine
                 # several legal acts per case (e.g. "PPC, Arms Ordinance
                 # 1965") — counts_by_act, when present
