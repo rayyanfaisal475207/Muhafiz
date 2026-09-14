@@ -1,8 +1,8 @@
 # Module 79 — A compound question can need two aggregates, and every plan structure is single-aggregate by construction
 
 **Branch:** `feat/chained-aggregate-plans` (worktree `D:/Rapids AI/muhafiz-m79`), from
-`origin/main` @ `50862d6` (Module 144 merged; rebased onto `c52bfd7` — Modules
-150/151 filed, plan file only — before the PR).
+`origin/main` @ `50862d6` (Module 144 merged); rebased onto `01ddc18` (Modules
+150/151 filed, Module 143 merged) before the PR, with the suites re-run there.
 **Date:** 2026-09-14.
 **Verdict:** the plan shape now exists and works, in both plan structures,
 and the live example is answered correctly **in-process 6 of 6** — *"PPC §34
@@ -213,10 +213,10 @@ Broader suites on this tree, all green (named files only, never a bare
 `pytest tests/`): `test_harness_agent_meta_analysis.py`,
 `test_harness_tool_rag.py`, `test_kb_statute_retrieval.py`,
 `test_harness_supervisor.py`, `test_xagg.py`, `test_harness_tool_xagg.py`,
-`test_harness_agent_large_scale_aggregate.py` — **971 passed** (dot count;
-the repo's `-q` addopts suppress the summary line) — including Module 29's
-all-32 plan control, Module 41's supervisor guard tests and Module 144's
-71.
+`test_harness_agent_large_scale_aggregate.py` — **971 passed** on the
+branch point, and **1,015 passed** (with `test_retry_gate.py`) after the
+rebase onto Module 143 — including Module 29's all-32 plan control, Module
+41's supervisor guard tests and Module 144's 71.
 
 ---
 
@@ -394,7 +394,7 @@ code path did not change.
 
 ## 8. New defects — filed, not fixed
 
-Numbering re-checked at filing time against `origin/main` (`c52bfd7`,
+Numbering re-checked at filing time against `origin/main` (`01ddc18`,
 highest **151**), `muhafiz-m143` (151) and `muhafiz-m145` (149). Filed as
 **152–154** in `GOLD_QA_REMAINING_FIXES_PLAN.md`.
 
