@@ -5041,7 +5041,10 @@ def test_module56_dispatch_change_lives_only_in_resolve_aggregate_kind():
         for node in ast.walk(func):
             if isinstance(node, ast.Name) and node.id == "_is_station_specialisation":
                 users.add(func.name)
-    assert users == {"resolve_aggregate_kind"}, users
+    # [Module 145] The chain body now lives in `phrase_aggregate_kind()`;
+    # `resolve_aggregate_kind()` wraps it with the semantic fallback and
+    # consults no keyword predicate itself. Still exactly one user.
+    assert users == {"phrase_aggregate_kind"}, users
     # Module 58: the tuple it replaced must be gone, not merely unused —
     # a leftover would be a second, silently-diverging vocabulary.
     assert not hasattr(xagg, "_STATION_TYPE_KEYWORDS")

@@ -1,0 +1,245 @@
+{
+ "L1::run1": {
+  "answer": "In 68 of 74 recorded assignment pairs (92%), the officer who recorded the FIR and the officer who investigated the case are the same person. In the remaining 6 cases (8%), the roles are split:  \n- 3 cases involve investigating officers with no associated recording officer (unresolvable pairs).  \n- 3 cases have distinct officers for recording and investigating:  \n  - **fir-117-26**: investigated by سب انسپکٹر ارسلان محمود, recorded by no recording officer  \n  - **fir-245-26**: investigated by راحیل شہزاد, recorded by شہزاد احمد  \n  - **fir-205-26**: investigated by سلمان, recorded by (نامزد ASI)  \n  - **fir-88-26**: investigated by عائشہ ملک, recorded by فرحان الطاف  \n  - **fir-954-26**: investigated by انسپکٹر مریم طاہر, recorded by no recording officer  \n  - **fir-955-26**: investigated by سب انسپکٹر وقاص علی, recorded by no recording officer  \n\nBasis: 144 officer-to-case assignment records (74 investigating, 70 recording). [Document 1]Response generated (951 chars)",
+  "confidence": "medium",
+  "elapsed_s": 13.5,
+  "expected_kind": "officer_role_pair_overlap",
+  "model": "local",
+  "question": "How often is the officer who registers an FIR also the officer who investigates the case?",
+  "reason": "Semantic dispatch: no phrase list matched, but the cross-encoder scores XAGG's purpose-built 'officer_role_pair_overlap' aggregate at 1.000 (runner-up 'unsupported_officer' at 0.314; Module 145)",
+  "route": "XAGG",
+  "route_error": null,
+  "secondary_methods": null,
+  "semantic_dispatch_enabled": true,
+  "semantic_dispatch_lines": [
+   "src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH officer_role_pair_overlap: score=1.000 runner_up=unsupported_officer(0.314) threshold=0.40 1.84s | How often is the officer who registers an FIR also the officer who investigates the case?"
+  ],
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor/done: Harness routing complete",
+   "citations/done: 1 citation(s)",
+   "memory/done: Saved to session"
+  ],
+  "used_cutover": true,
+  "xagg_lines": [
+   "src.pipeline.xagg: XAGG officer_role_pair_overlap: 144 assignment edge(s), 74 investigating / 70 recording; same officer on 68 of 74 pair(s) (91.9%), 6 split across 6 case(s), 3 investigating assignment(s) with no recording counterpart"
+  ]
+ },
+ "L1::run2": {
+  "answer": "In 68 of 74 recorded assignment pairs (92%), the officer who recorded the FIR and the officer who investigated the case are the same person. In the remaining 6 cases (8%), the roles are split:  \n- 3 cases involve investigating officers with no associated recording officer (unresolvable pairs).  \n- 3 cases have distinct officers for recording and investigating:  \n  - **fir-117-26**: investigated by سب انسپکٹر ارسلان محمود, recorded by no recording officer  \n  - **fir-245-26**: investigated by راحیل شہزاد, recorded by شہزاد احمد  \n  - **fir-205-26**: investigated by سلمان, recorded by (نامزد ASI)  \n  - **fir-88-26**: investigated by عائشہ ملک, recorded by فرحان الطاف  \n  - **fir-954-26**: investigated by انسپکٹر مریم طاہر, recorded by no recording officer  \n  - **fir-955-26**: investigated by سب انسپکٹر وقاص علی, recorded by no recording officer  \n\nBasis: 144 officer-to-case assignment records (74 investigating, 70 recording). [Document 1]Response generated (951 chars)",
+  "confidence": "medium",
+  "elapsed_s": 15.3,
+  "expected_kind": "officer_role_pair_overlap",
+  "model": "local",
+  "question": "How often is the officer who registers an FIR also the officer who investigates the case?",
+  "reason": "Semantic dispatch: no phrase list matched, but the cross-encoder scores XAGG's purpose-built 'officer_role_pair_overlap' aggregate at 1.000 (runner-up 'unsupported_officer' at 0.314; Module 145)",
+  "route": "XAGG",
+  "route_error": null,
+  "secondary_methods": null,
+  "semantic_dispatch_enabled": true,
+  "semantic_dispatch_lines": [
+   "src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH officer_role_pair_overlap: score=1.000 runner_up=unsupported_officer(0.314) threshold=0.40 1.57s | How often is the officer who registers an FIR also the officer who investigates the case?"
+  ],
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor/done: Harness routing complete",
+   "citations/done: 1 citation(s)",
+   "memory/done: Saved to session"
+  ],
+  "used_cutover": true,
+  "xagg_lines": [
+   "src.pipeline.xagg: XAGG officer_role_pair_overlap: 144 assignment edge(s), 74 investigating / 70 recording; same officer on 68 of 74 pair(s) (91.9%), 6 split across 6 case(s), 3 investigating assignment(s) with no recording counterpart"
+  ]
+ },
+ "L1::run3": {
+  "answer": "In 68 of 74 recorded assignment pairs (92%), the officer who recorded the FIR and the officer who investigated the case are the same person [Document 1]. In the remaining 6 cases (8%), the roles are split:  \n- 3 cases involve an investigating officer with no recording officer listed for the same case.  \n- 3 cases involve distinct officers for recording and investigating (e.g., fir-245-26: investigated by راحیل شہزاد, recorded by شہزاد احمد).  \n\nThe basis for this calculation is 74 investigating officer assignments and 70 recording officer assignments across 144 total officer-to-case records.Response generated (598 chars)",
+  "confidence": "medium",
+  "elapsed_s": 9.0,
+  "expected_kind": "officer_role_pair_overlap",
+  "model": "local",
+  "question": "How often is the officer who registers an FIR also the officer who investigates the case?",
+  "reason": "Semantic dispatch: no phrase list matched, but the cross-encoder scores XAGG's purpose-built 'officer_role_pair_overlap' aggregate at 1.000 (runner-up 'unsupported_officer' at 0.314; Module 145)",
+  "route": "XAGG",
+  "route_error": null,
+  "secondary_methods": null,
+  "semantic_dispatch_enabled": true,
+  "semantic_dispatch_lines": [
+   "src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH officer_role_pair_overlap: score=1.000 runner_up=unsupported_officer(0.314) threshold=0.40 1.50s | How often is the officer who registers an FIR also the officer who investigates the case?"
+  ],
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XAGG' -> sub-agent='Large-Scale Aggregate'",
+   "supervisor:dispatch/done: Large-Scale Aggregate completed with status=ok",
+   "supervisor/done: Harness routing complete",
+   "citations/done: 1 citation(s)",
+   "memory/done: Saved to session"
+  ],
+  "used_cutover": true,
+  "xagg_lines": [
+   "src.pipeline.xagg: XAGG officer_role_pair_overlap: 144 assignment edge(s), 74 investigating / 70 recording; same officer on 68 of 74 pair(s) (91.9%), 6 split across 6 case(s), 3 investigating assignment(s) with no recording counterpart"
+  ]
+ },
+ "L2::run1": {
+  "answer": "No cross-case connections or patterns were found for this query, across either entity-graph search or cross-case pattern synthesis. No community cluster in the case corpus is closely related to this specific question (\"Is there anyone who used one of our citizen services who is also under investigation?\") (nearest cluster found was distance 0.167 against a relevance cutoff of 0.145). Rather than describing an unrelated cluster, no cross-case network finding is being reported here.Response generated (485 chars)",
+  "confidence": "medium",
+  "elapsed_s": 51.8,
+  "expected_kind": "graph_recurrence_person",
+  "model": "local",
+  "question": "Is there anyone who used one of our citizen services who is also under investigation?",
+  "reason": "Asks whether any entity appears in both citizen service records and investigation contexts — a cross-case entity linkage question with no specific name given, requiring traversal of connections across cases to check for overlaps",
+  "route": "XGRAPH",
+  "route_error": null,
+  "secondary_methods": [],
+  "semantic_dispatch_enabled": true,
+  "semantic_dispatch_lines": [
+   "src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH no-fire: best=graph_recurrence_person(0.002) runner_up=xgraph_named_entity_network(0.000) threshold=0.40 1.47s | Is there anyone who used one of our citizen services who is also under investigation?"
+  ],
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=empty",
+   "supervisor/done: Harness routing complete",
+   "memory/done: Saved to session"
+  ],
+  "used_cutover": true,
+  "xagg_lines": []
+ },
+ "L2::run2": {
+  "answer": "No cross-case connections or patterns were found for this query, across either entity-graph search or cross-case pattern synthesis. No community cluster in the case corpus is closely related to this specific question (\"Is there anyone who used one of our citizen services who is also under investigation?\") (nearest cluster found was distance 0.167 against a relevance cutoff of 0.145). Rather than describing an unrelated cluster, no cross-case network finding is being reported here.Response generated (485 chars)",
+  "confidence": "medium",
+  "elapsed_s": 54.4,
+  "expected_kind": "graph_recurrence_person",
+  "model": "local",
+  "question": "Is there anyone who used one of our citizen services who is also under investigation?",
+  "reason": "Asks whether any entity appears in both citizen service records and investigation contexts — a cross-case entity linkage question with no specific name given, requiring traversal of connections across cases to check for overlaps",
+  "route": "XGRAPH",
+  "route_error": null,
+  "secondary_methods": [],
+  "semantic_dispatch_enabled": true,
+  "semantic_dispatch_lines": [
+   "src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH no-fire: best=graph_recurrence_person(0.002) runner_up=xgraph_named_entity_network(0.000) threshold=0.40 1.66s | Is there anyone who used one of our citizen services who is also under investigation?"
+  ],
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=empty",
+   "supervisor/done: Harness routing complete",
+   "memory/done: Saved to session"
+  ],
+  "used_cutover": true,
+  "xagg_lines": []
+ },
+ "L2::run3": {
+  "answer": "No cross-case connections or patterns were found for this query, across either entity-graph search or cross-case pattern synthesis. No community cluster in the case corpus is closely related to this specific question (\"Is there anyone who used one of our citizen services who is also under investigation?\") (nearest cluster found was distance 0.167 against a relevance cutoff of 0.145). Rather than describing an unrelated cluster, no cross-case network finding is being reported here.Response generated (485 chars)",
+  "confidence": "medium",
+  "elapsed_s": 48.8,
+  "expected_kind": "graph_recurrence_person",
+  "model": "local",
+  "question": "Is there anyone who used one of our citizen services who is also under investigation?",
+  "reason": "Cross-case check for entities with dual attributes (citizen service usage + investigation status), no specific entity named — XGRAPH handles explicit cross-case relationship queries even with descriptive references",
+  "route": "XGRAPH",
+  "route_error": null,
+  "secondary_methods": [],
+  "semantic_dispatch_enabled": true,
+  "semantic_dispatch_lines": [
+   "src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH no-fire: best=graph_recurrence_person(0.002) runner_up=xgraph_named_entity_network(0.000) threshold=0.40 1.51s | Is there anyone who used one of our citizen services who is also under investigation?"
+  ],
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=empty",
+   "supervisor/done: Harness routing complete",
+   "memory/done: Saved to session"
+  ],
+  "used_cutover": true,
+  "xagg_lines": []
+ },
+ "L3::run1": {
+  "answer": "No cross-case connections or patterns were found for this query, across either entity-graph search or cross-case pattern synthesis. No community cluster in the case corpus is closely related to this specific question (\"Is anyone convicted in one matter but still being sought as a fugitive in another?\") (nearest cluster found was distance 0.181 against a relevance cutoff of 0.145). Rather than describing an unrelated cluster, no cross-case network finding is being reported here.Response generated (482 chars)",
+  "confidence": "medium",
+  "elapsed_s": 36.4,
+  "expected_kind": "graph_recurrence_person",
+  "model": "local",
+  "question": "Is anyone convicted in one matter but still being sought as a fugitive in another?",
+  "reason": "Cross-case entity relationship query checking for contradictions (convicted in one case but fugitive in another) — requires XGRAPH's ability to trace entity status across cases",
+  "route": "XGRAPH",
+  "route_error": null,
+  "secondary_methods": [],
+  "semantic_dispatch_enabled": true,
+  "semantic_dispatch_lines": [
+   "src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH no-fire: best=graph_recurrence_person(0.218) runner_up=graph_recurrence_weapon(0.011) threshold=0.40 1.62s | Is anyone convicted in one matter but still being sought as a fugitive in another?"
+  ],
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=empty",
+   "supervisor/done: Harness routing complete",
+   "memory/done: Saved to session"
+  ],
+  "used_cutover": true,
+  "xagg_lines": []
+ },
+ "L3::run2": {
+  "answer": "No cross-case connections or patterns were found for this query, across either entity-graph search or cross-case pattern synthesis. No community cluster in the case corpus is closely related to this specific question (\"Is anyone convicted in one matter but still being sought as a fugitive in another?\") (nearest cluster found was distance 0.181 against a relevance cutoff of 0.145). Rather than describing an unrelated cluster, no cross-case network finding is being reported here.Response generated (482 chars)",
+  "confidence": "medium",
+  "elapsed_s": 35.6,
+  "expected_kind": "graph_recurrence_person",
+  "model": "local",
+  "question": "Is anyone convicted in one matter but still being sought as a fugitive in another?",
+  "reason": "Asks whether any entity shows a cross-case contradiction (convicted in one case but fugitive in another) — explicit cross-case trigger language ('another') and no specific entity named, so XGRAPH with target_entity null",
+  "route": "XGRAPH",
+  "route_error": null,
+  "secondary_methods": [],
+  "semantic_dispatch_enabled": true,
+  "semantic_dispatch_lines": [
+   "src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH no-fire: best=graph_recurrence_person(0.218) runner_up=graph_recurrence_weapon(0.011) threshold=0.40 1.34s | Is anyone convicted in one matter but still being sought as a fugitive in another?"
+  ],
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=empty",
+   "supervisor/done: Harness routing complete",
+   "memory/done: Saved to session"
+  ],
+  "used_cutover": true,
+  "xagg_lines": []
+ },
+ "L3::run3": {
+  "answer": "No cross-case connections or patterns were found for this query, across either entity-graph search or cross-case pattern synthesis. No community cluster in the case corpus is closely related to this specific question (\"Is anyone convicted in one matter but still being sought as a fugitive in another?\") (nearest cluster found was distance 0.181 against a relevance cutoff of 0.145). Rather than describing an unrelated cluster, no cross-case network finding is being reported here.Response generated (482 chars)",
+  "confidence": "medium",
+  "elapsed_s": 55.2,
+  "expected_kind": "graph_recurrence_person",
+  "model": "local",
+  "question": "Is anyone convicted in one matter but still being sought as a fugitive in another?",
+  "reason": "Cross-case entity relationship query checking for contradictions (convicted in one case but fugitive in another) — requires XGRAPH's ability to trace entity status across cases",
+  "route": "XGRAPH",
+  "route_error": null,
+  "secondary_methods": [],
+  "semantic_dispatch_enabled": true,
+  "semantic_dispatch_lines": [
+   "src.pipeline.semantic_dispatch: SEMANTIC-DISPATCH no-fire: best=graph_recurrence_person(0.218) runner_up=graph_recurrence_weapon(0.011) threshold=0.40 1.57s | Is anyone convicted in one matter but still being sought as a fugitive in another?"
+  ],
+  "status": null,
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='XGRAPH' -> sub-agent='Cross-Case Linkage'",
+   "supervisor:dispatch/done: Cross-Case Linkage completed with status=empty",
+   "supervisor/done: Harness routing complete",
+   "memory/done: Saved to session"
+  ],
+  "used_cutover": true,
+  "xagg_lines": []
+ }
+}
