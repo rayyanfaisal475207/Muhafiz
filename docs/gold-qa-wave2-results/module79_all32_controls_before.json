@@ -1,0 +1,277 @@
+{
+ "D1": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": "XAGG"
+ },
+ "S2": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": "XAGG"
+ },
+ "S3": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": "XAGG"
+ },
+ "A1": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": null
+ },
+ "A7": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": "XAGG"
+ },
+ "CP6": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": "XAGG"
+ },
+ "CR2": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": "XAGG"
+ },
+ "CR3": {
+  "meta_plan": "record_consistency",
+  "meta_dispatch": [
+   "How many cases are registered under the cybercrime act at a cyber crime circle station, and what are their FIR numbers and current status?",
+   "How many cases does each accused person appear in, and which FIR numbers, across all cases?",
+   "How many cases have a matching walk-in complaint recorded in the complaint management system, across all cases?"
+  ],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": null
+ },
+ "CR4": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": "XAGG"
+ },
+ "CR6": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": "XAGG"
+ },
+ "CR7": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": "XAGG"
+ },
+ "CR8": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": "violence_against_women",
+  "kb_sub_query": "How many domestic violence reports against women are recorded, and how many are confirmed by a matching FIR, across all cases?",
+  "kb_then": null,
+  "route_override": "XAGG"
+ },
+ "CS4": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": "XAGG"
+ },
+ "CP1": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": "XAGG"
+ },
+ "M1": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": "XAGG"
+ },
+ "M2": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": "XAGG"
+ },
+ "M4": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": "XAGG"
+ },
+ "M5": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": "XAGG"
+ },
+ "M7": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": "XAGG"
+ },
+ "G1": {
+  "meta_plan": "caseload_review",
+  "meta_dispatch": [
+   "How many cases involve an accused person, and what is their age range and average age, across all cases?",
+   "How many cases record a relationship between the accused and the complainant, and which relationship is it, across all cases?",
+   "How many cases record seized property, and what happens to it — how many items were sent to a forensic laboratory or held for a deceased's heirs, across all cases?",
+   "How many cases record an incident time, and at what time of day do those incidents happen, across all cases?",
+   "How many cases does each accused person appear in, and which FIR numbers, across all cases?"
+  ],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": null
+ },
+ "G2": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": "XAGG"
+ },
+ "G3": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": "XAGG"
+ },
+ "G5": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": "XAGG"
+ },
+ "G6": {
+  "meta_plan": "orientation_note",
+  "meta_dispatch": [
+   "How many cases are registered in each district, across all cases?",
+   "What kinds of cases are we dealing with now compared to a couple of years back?",
+   "How many cases record an arrest of an accused person, and on how many is no arrest recorded, across all cases?",
+   "How long does it typically take someone to report a crime to us these days versus a couple of years ago?",
+   "How many cases involve a recovered weapon with no licence recorded, across all cases?",
+   "How many cases involve an accused person, and what is their age range and average age, across all cases?",
+   "How many cases record a relationship between the accused and the complainant, and which relationship is it, across all cases?",
+   "How many cases in the criminal record system are still in progress in court, and how many have reached a verdict, across all cases?"
+  ],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": null
+ },
+ "KB1": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": "fir_register_completeness",
+  "kb_sub_query": "How many cases in the FIR register record complainant details, a recording officer, and a report time, across all cases?",
+  "kb_then": null,
+  "route_override": "RAG"
+ },
+ "KB2": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": null,
+  "kb_sub_query": null,
+  "kb_then": null,
+  "route_override": "RAG"
+ },
+ "KB3": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": "officer_role_pair",
+  "kb_sub_query": "How many cases record the same person as both the recording officer and the investigating officer, and how many split those roles, across all cases?",
+  "kb_then": null,
+  "route_override": "RAG"
+ },
+ "KB4": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": "property_register",
+  "kb_sub_query": "How many cases record seized property, and what happens to it — how many items were sent to a forensic laboratory or held for a deceased's heirs, across all cases?",
+  "kb_then": null,
+  "route_override": "RAG"
+ },
+ "KB5": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": "violence_against_women",
+  "kb_sub_query": "How many domestic violence reports against women are recorded, and how many are confirmed by a matching FIR, across all cases?",
+  "kb_then": null,
+  "route_override": "RAG"
+ },
+ "KB6": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": "weapon_register",
+  "kb_sub_query": "How many recovered weapons are on record, and how many record no licence status, across all cases?",
+  "kb_then": null,
+  "route_override": "RAG"
+ },
+ "KB8": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": "chalaan_dispatch",
+  "kb_sub_query": "How many challans have been sent to court, and how many cases do they cover, across all cases?",
+  "kb_then": null,
+  "route_override": "RAG"
+ },
+ "KB9": {
+  "meta_plan": null,
+  "meta_dispatch": [],
+  "kb_plan": "death_investigation_charging",
+  "kb_sub_query": "How many FIRs cite PPC section 302, across all cases?",
+  "kb_then": null,
+  "route_override": "RAG"
+ }
+}
