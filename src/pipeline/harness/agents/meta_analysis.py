@@ -206,12 +206,13 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 from src import config
 from src.data_gateway.base import DataGateway
 from src.llm.client import call_llm
 from src.pipeline.harness.agents import _salvage
+from src.pipeline.harness.tools.chained_aggregate import ThenStep, run_aggregate_chain
 from src.pipeline.harness.supervisor import META_ANALYSIS, Supervisor, register
 from src.pipeline.harness.types import (
     ANSWER_MAX_TOKENS,
@@ -433,7 +434,9 @@ def _validate_decomposer_result(result) -> bool:
 @dataclass
 class _DecomposerResult:
     decompose: bool
-    sub_queries: list[str]
+    # [Module 79] A plan's `chained` steps ride in this list after its
+    # string sub-queries; the LLM decomposer only ever produces strings.
+    sub_queries: list[Union[str, _ChainedSubQuery]]
     synthesis_goal: str
     parse_failed: bool = False
     plan_name: Optional[str] = None  # Set iff a deterministic plan matched.
@@ -515,6 +518,22 @@ class _DecomposerResult:
 
 
 @dataclass(frozen=True)
+class _ChainedSubQuery:
+    """[Gold-QA fix — Module 79] A plan step that is TWO aggregates in
+    sequence: `first` runs, one field of its result is read, and `then`
+    runs narrowed to what that field selects. `label` stands in wherever a
+    sub-query string is shown (the synthesis prompt's "Sub-question:"
+    heading, the caveats, the log). See `tools/chained_aggregate.py` for
+    the mechanism and for why the two aggregates are called directly
+    rather than as two Supervisor passes."""
+
+    label: str
+    first: str
+    first_kind: str
+    then: ThenStep
+
+
+@dataclass(frozen=True)
 class _DecompositionPlan:
     """A question SHAPE, the standalone sub-questions it decomposes into,
     and what the synthesis has to do with the answers."""
@@ -523,6 +542,12 @@ class _DecompositionPlan:
     patterns: tuple[re.Pattern, ...]
     sub_queries: tuple[str, ...]
     synthesis_goal: str
+    # [Gold-QA fix — Module 79] Chained steps, dispatched AFTER
+    # `sub_queries` in the same fan-out. Defaults to none, so every plan
+    # declared before this field existed is byte-identical in behaviour:
+    # `_decompose()` returns `list(sub_queries) + []`, and `_dispatch_one()`
+    # takes the string branch it always took.
+    chained: tuple[_ChainedSubQuery, ...] = ()
 
 
 # Sub-question wordings are INTERNAL dispatch strings, never shown to the
@@ -664,6 +689,27 @@ _SQ_FIR_LISTING_CYBER = (  # Module 36 -> `filtered_fir_listing`
     "How many cases are registered under the cybercrime act at a cyber "
     "crime circle station, and what are their FIR numbers and current status?"
 )
+
+# [Gold-QA fix — Module 79] The two halves of a "top-N of X, then break it
+# down by Y" question. Each is an EXISTING single-call aggregate, checked
+# against `xagg.resolve_aggregate_kind()` before being written here (a test
+# keeps them honest) — the chain is the only new thing. `_SQ_DISTRICT_SPREAD`
+# above is the district half, reused verbatim rather than re-worded.
+_SQ_SECTION_CITATIONS = (  # Module 76 -> `fir_section_case_count`, unfocused: every section, most-cited first
+    "How many FIRs cite each section, across all cases?"
+)
+
+# The "top-N" cue. Matched only next to BOTH an X noun and a Y noun, so a
+# bare "which district recovers the most weapons" (CP1) or a plain "most
+# common section" question — each answered in one call today — stays
+# where it is. The all-32 control pins that no gold question matches.
+_TOP_CUE = (
+    r"(most\s+(frequently|commonly|often|heavily|widely)\s+\w+|most[- ]cited|"
+    r"most[- ]common(ly)?|most[- ]frequent(ly)?|commonest|top|highest|leading|"
+    r"biggest|largest|busiest|number\s+one)"
+)
+_SECTION_NOUN = r"(offen[cs]es?|sections?|charges?|statutes?|provisions?|dafa|dafaat|crime\s+patterns?)"
+_DISTRICT_NOUN = r"(districts?|zila|zilon|zile|regions?|areas?)"
 
 _DECOMPOSITION_PLANS: tuple[_DecompositionPlan, ...] = (
     # (1) CROSS-RECORD CONSISTENCY — "were these two records processed and
@@ -901,6 +947,118 @@ _DECOMPOSITION_PLANS: tuple[_DecompositionPlan, ...] = (
             "sub-answers do not contain."
         ),
     ),
+    # (4) MOST-CITED SECTION, BY DISTRICT — "how is the most frequently
+    #     cited offence pattern distributed across districts?" (live,
+    #     2026-09-14). Two aggregates in SEQUENCE, not two in parallel: the
+    #     section half must run first because its top row is the second
+    #     half's filter. Nothing here names PPC §34 or any other value — the
+    #     top row is whatever the corpus says it is.
+    #
+    # [Gold-QA fix — Module 79] Reaching this plan LIVE needs a
+    # `supervisor.py::_META_ANALYSIS_TRIGGER_PATTERNS` entry, which is
+    # Module 145's file (a matched plan vetoes the one-call skip in
+    # `_xagg_answers_in_one_call()`, but the route still lands on the XAGG
+    # agent unless a trigger sends it here). Until that lands, the plan is
+    # verified in-process; see `MODULE79_RESULT.md` §4.
+    _DecompositionPlan(
+        name="most_cited_section_by_district",
+        patterns=(
+            re.compile(
+                r"\b" + _TOP_CUE + r"\b[\s\S]{0,60}\b" + _SECTION_NOUN
+                + r"\b[\s\S]{0,100}\b" + _DISTRICT_NOUN + r"\b",
+                re.IGNORECASE,
+            ),
+            # "which section comes up most often ... across districts"
+            re.compile(
+                r"\b" + _SECTION_NOUN + r"\b[\s\S]{0,40}"
+                r"\b(comes?\s+up|appears?|cited|charged|used|invoked|registered|recorded)\s+"
+                r"(the\s+)?most\b[\s\S]{0,100}\b" + _DISTRICT_NOUN + r"\b",
+                re.IGNORECASE,
+            ),
+            re.compile(
+                r"\bsab\s*se\s*(zyada|ziada|ziyada|aam)\b[\s\S]{0,60}"
+                r"\b(dafa|dafaat|jurm|section)\b[\s\S]{0,100}\b(zila|zilon|zile|district)s?\b",
+                re.IGNORECASE,
+            ),
+            re.compile(r"سب\s*سے\s*زیادہ[\s\S]{0,60}(دفعہ|دفعات|جرم)[\s\S]{0,100}(ضلع|اضلاع)"),
+        ),
+        sub_queries=(),
+        chained=(
+            _ChainedSubQuery(
+                label=(
+                    "Which section is cited by the most FIRs, and how are the FIRs "
+                    "citing it distributed across districts?"
+                ),
+                first=_SQ_SECTION_CITATIONS,
+                first_kind="fir_section_case_count",
+                then=ThenStep(
+                    sub_query=_SQ_DISTRICT_SPREAD,
+                    expected_kind="district_breakdown",
+                    take="sections.0.section_code",
+                    filter_field="section",
+                    lead=(
+                        "{key} is the section cited by the most FIRs: {fir_count} of "
+                        "the {charged_fir_count} FIR(s) that carry a recorded section."
+                    ),
+                ),
+            ),
+        ),
+        synthesis_goal=(
+            "Say which section is cited by the most FIRs and by how many, then give "
+            "that section's distribution across districts exactly as the sub-answer "
+            "lists it, district by district with each count — do not total them up "
+            "and do not substitute the whole caseload's per-district figures. If the "
+            "sub-answer says the second step was not run, say so plainly."
+        ),
+    ),
+    # (5) BUSIEST DISTRICT, BY SECTION — the same shape with X and Y
+    #     swapped ("which district has the most FIRs, and what are they
+    #     charged under?"). Declared to show the chain generalises: the
+    #     only per-shape code is this entry.
+    _DecompositionPlan(
+        name="busiest_district_by_section",
+        patterns=(
+            re.compile(
+                r"\b" + _TOP_CUE + r"\b[\s\S]{0,40}\b" + _DISTRICT_NOUN
+                + r"\b[\s\S]{0,120}\b" + _SECTION_NOUN + r"\b",
+                re.IGNORECASE,
+            ),
+            re.compile(
+                r"\b" + _DISTRICT_NOUN + r"\b[\s\S]{0,40}\b(the\s+)?"
+                r"(most|highest|busiest|largest)\b[\s\S]{0,120}\b" + _SECTION_NOUN + r"\b",
+                re.IGNORECASE,
+            ),
+            re.compile(
+                r"\bsab\s*se\s*(zyada|ziada|ziyada)\b[\s\S]{0,40}\b(zila|zile|district)\b"
+                r"[\s\S]{0,120}\b(dafa|dafaat|section)\b",
+                re.IGNORECASE,
+            ),
+        ),
+        sub_queries=(),
+        chained=(
+            _ChainedSubQuery(
+                label=(
+                    "Which district has the most registered cases, and which sections "
+                    "do the FIRs in that district cite?"
+                ),
+                first=_SQ_DISTRICT_SPREAD,
+                first_kind="district_breakdown",
+                then=ThenStep(
+                    sub_query=_SQ_SECTION_CITATIONS,
+                    expected_kind="fir_section_case_count",
+                    take="counts.0.district",
+                    filter_field="district",
+                    lead="{district} ({value_display}) is the district with the most registered cases: {count}.",
+                ),
+            ),
+        ),
+        synthesis_goal=(
+            "Say which district has the most registered cases and how many, then "
+            "list the sections the FIRs in that district cite, with each section's "
+            "count exactly as the sub-answer gives it. Do not total them up, and do "
+            "not substitute the whole caseload's per-section figures."
+        ),
+    ),
 )
 
 
@@ -932,7 +1090,10 @@ async def _decompose(query_text: str) -> _DecomposerResult:
         logger.info("Meta-Analysis: deterministic decomposition plan %r matched.", plan.name)
         return _DecomposerResult(
             decompose=True,
-            sub_queries=list(plan.sub_queries[:_MAX_PLAN_SUB_QUERIES]),
+            # [Module 79] A chained step is one dispatch slot: it costs two
+            # Cypher calls and no model round trip, so it is appended after
+            # the cap rather than competing with a full sub-query for one.
+            sub_queries=[*plan.sub_queries[:_MAX_PLAN_SUB_QUERIES], *plan.chained],
             synthesis_goal=plan.synthesis_goal,
             plan_name=plan.name,
         )
@@ -1007,6 +1168,16 @@ async def _dispatch_one(sub_query: str, agent_input: SubAgentInput, on_event, ga
     addressed here either, for the same reason (out of this module's scope,
     no live SSE consumer of this harness yet).
     """
+    # [Gold-QA fix — Module 79] A chained step is not a Supervisor pass at
+    # all: two direct aggregate calls (measured 0.1-0.4 s each live) and a
+    # deterministic rendering, served as the sub-answer the way Module 53's
+    # salvage serves a computed aggregate — see `tools/chained_aggregate.py`
+    # for why this is not a relaxation. It still runs under the shared
+    # deadline, and every failure degrades into the same non-contributing
+    # outcome a string sub-query's would.
+    if isinstance(sub_query, _ChainedSubQuery):
+        return await _dispatch_chained(sub_query, agent_input, gateway)
+
     sub_input = agent_input.model_copy(update={"query_text": sub_query, "target_entity": None})
     # [Gold-QA fix — Module 53] Opened BEFORE the awaited task exists, so the
     # task's copied context shares this exact list and anything a sub-agent
@@ -1053,6 +1224,61 @@ async def _dispatch_one(sub_query: str, agent_input: SubAgentInput, on_event, ga
     except Exception as exc:
         logger.error("Meta-Analysis: sub-query dispatch raised: %s", exc)
         return _SubQueryOutcome(sub_query=sub_query, result=None, failure_reason=str(exc))
+
+
+async def _dispatch_chained(step: _ChainedSubQuery, agent_input: SubAgentInput, gateway) -> _SubQueryOutcome:
+    """[Gold-QA fix — Module 79] One chained step's pass. NEVER RAISES, for
+    the same reason `_dispatch_one()` never does. The role gate inside
+    `run_aggregate()` is what a DENIED outcome comes from — no third gate
+    is added here (SUBAGENT_INTERFACES.md §2.1's rule for every cross-case
+    sub-agent)."""
+    caller = agent_input.execution.caller
+    try:
+        if gateway is None:
+            from src.data_gateway import get_gateway
+
+            gateway = await get_gateway()
+        outcome = await asyncio.wait_for(
+            run_aggregate_chain(
+                step.first, step.first_kind, step.then,
+                gateway=gateway, user_id=caller.user_id, user_role=caller.role.value,
+                label=step.label,
+            ),
+            timeout=config.META_ANALYSIS_SUBQUERY_TIMEOUT,
+        )
+    except asyncio.TimeoutError:
+        logger.warning(
+            "Meta-Analysis: chained step timed out after %ss: %r",
+            config.META_ANALYSIS_SUBQUERY_TIMEOUT, step.label[:80],
+        )
+        return _SubQueryOutcome(sub_query=step.label, result=None, failure_reason="timeout")
+    except Exception as exc:  # noqa: BLE001 — never raises, see docstring
+        logger.error("Meta-Analysis: chained step raised: %s", exc)
+        return _SubQueryOutcome(sub_query=step.label, result=None, failure_reason=str(exc))
+
+    if outcome.status == "denied":
+        return _SubQueryOutcome(
+            sub_query=step.label,
+            result=SubAgentResult(
+                status=SubAgentStatus.DENIED,
+                error=ToolError(kind="permission_denied", message=outcome.error or "denied"),
+            ),
+        )
+    if outcome.status != "ok" or not outcome.text:
+        return _SubQueryOutcome(
+            sub_query=step.label, result=None,
+            failure_reason=outcome.error or f"chained aggregate {outcome.status}",
+        )
+    logger.info(
+        "Meta-Analysis: chained step %r answered by %s -> %s in %.2fs.",
+        step.label[:80], outcome.first_kind, outcome.then_kind, outcome.seconds,
+    )
+    return _SubQueryOutcome(
+        sub_query=step.label,
+        result=SubAgentResult(
+            status=SubAgentStatus.OK, answer_text=outcome.text, tools_used=["XAGG"],
+        ),
+    )
 
 
 # [Gold-QA fix — Module 25, M2] A sub-answer's own text already carries

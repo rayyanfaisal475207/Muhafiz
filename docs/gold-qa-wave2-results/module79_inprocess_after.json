@@ -1,0 +1,142 @@
+[
+ {
+  "id": "LIVE",
+  "run": 1,
+  "arm": "after",
+  "question": "How is the most frequently cited offence pattern distributed across districts?",
+  "status": "ok",
+  "served_answer": "The most frequently cited offence pattern is **PPC §34**, mentioned in **40 FIR(s)** [Document 1]. Across districts, these cases are distributed as follows:  \n- **فیصل آباد**: 12 case(s)  \n- **لاہور**: 10 case(s)  \n- **راولپنڈی**: 4 case(s)  \n- **کراچی ایسٹ**: 4 case(s)  \n- **چنیوٹ**: 3 case(s)  \n- **حیدر آباد**: 3 case(s)  \n- **اسلام آباد**: 2 case(s)  \n- **کراچی وسطی**: 2 case(s)  \n\nThese figures are derived specifically from the 40 FIRs under PPC §34 [Document 1].",
+  "caveats": [],
+  "tools_used": [
+   "XAGG"
+  ],
+  "error": null,
+  "elapsed_s": 35.0,
+  "llm_hosts": [
+   "https://undrafted-remodeler-gravel.ngrok-free.dev"
+  ],
+  "fallback_lines": [],
+  "chain_seconds": [
+   0.49
+  ],
+  "xagg_kinds": [
+   "fir_section_case_count",
+   "district_breakdown"
+  ],
+  "timeouts": [],
+  "plan_line": "Meta-Analysis: deterministic decomposition plan 'most_cited_section_by_district' matched.",
+  "model": "local"
+ },
+ {
+  "id": "LIVE",
+  "run": 1,
+  "arm": "after",
+  "question": "How is the most frequently cited offence pattern distributed across districts?",
+  "status": "ok",
+  "served_answer": "The most frequently cited offence pattern is **PPC §34**, mentioned in **40 FIR(s)** [Document 1]. Across districts, these cases are distributed as follows:  \n- **فیصل آباد**: 12 case(s)  \n- **لاہور**: 10 case(s)  \n- **راولپنڈی**: 4 case(s)  \n- **کراچی ایسٹ**: 4 case(s)  \n- **چنیوٹ**: 3 case(s)  \n- **حیدر آباد**: 3 case(s)  \n- **اسلام آباد**: 2 case(s)  \n- **کراچی وسطی**: 2 case(s)  \n\nThese figures are derived specifically from the 40 FIRs under PPC §34 [Document 1].",
+  "caveats": [],
+  "tools_used": [
+   "XAGG"
+  ],
+  "error": null,
+  "elapsed_s": 46.2,
+  "llm_hosts": [
+   "https://undrafted-remodeler-gravel.ngrok-free.dev"
+  ],
+  "fallback_lines": [],
+  "chain_seconds": [
+   0.19
+  ],
+  "xagg_kinds": [
+   "fir_section_case_count",
+   "district_breakdown"
+  ],
+  "timeouts": [],
+  "plan_line": "Meta-Analysis: deterministic decomposition plan 'most_cited_section_by_district' matched.",
+  "model": "local"
+ },
+ {
+  "id": "P1_EN",
+  "run": 1,
+  "arm": "after",
+  "question": "Which offence section comes up most often in the FIRs, and which districts are those FIRs spread across?",
+  "status": "ok",
+  "served_answer": "The offence section cited most often in FIRs is **PPC §34**, appearing in **40 FIR(s)** [Document 1]. These 40 FIRs are distributed across districts as follows:  \n- **فیصل آباد**: 12 case(s)  \n- **لاہور**: 10 case(s)  \n- **راولپنڈی**: 4 case(s)  \n- **کراچی ایسٹ**: 4 case(s)  \n- **چنیوٹ**: 3 case(s)  \n- **حیدر آباد**: 3 case(s)  \n- **اسلام آباد**: 2 case(s)  \n- **کراچی وسطی**: 2 case(s)  \n\nNo other section exceeds PPC §34 in frequency, and the distribution above reflects the exact per-district counts from the data [Document 1].",
+  "caveats": [],
+  "tools_used": [
+   "XAGG"
+  ],
+  "error": null,
+  "elapsed_s": 41.5,
+  "llm_hosts": [
+   "https://undrafted-remodeler-gravel.ngrok-free.dev"
+  ],
+  "fallback_lines": [],
+  "chain_seconds": [
+   0.18
+  ],
+  "xagg_kinds": [
+   "fir_section_case_count",
+   "district_breakdown"
+  ],
+  "timeouts": [],
+  "plan_line": "Meta-Analysis: deterministic decomposition plan 'most_cited_section_by_district' matched.",
+  "model": "local"
+ },
+ {
+  "id": "P2_RU",
+  "run": 1,
+  "arm": "after",
+  "question": "Sab se zyada istemal hone wali dafa kaun si hai aur us ke cases kin zilon mein hain?",
+  "status": "ok",
+  "served_answer": "The section cited by the most FIRs is **PPC §34**, with **40 FIR(s)** [Document 1]. The distribution of these 40 cases across districts is as follows:  \n- **فیصل آباد**: 12 case(s)  \n- **لاہور**: 10 case(s)  \n- **راولپنڈی**: 4 case(s)  \n- **کراچی ایسٹ**: 4 case(s)  \n- **چنیوٹ**: 3 case(s)  \n- **حیدر آباد**: 3 case(s)  \n- **اسلام آباد**: 2 case(s)  \n- **کراچی وسطی**: 2 case(s)  \n\nThese figures are derived directly from the sub-answer [Document 1], with no aggregation or modification.",
+  "caveats": [],
+  "tools_used": [
+   "XAGG"
+  ],
+  "error": null,
+  "elapsed_s": 68.2,
+  "llm_hosts": [
+   "https://undrafted-remodeler-gravel.ngrok-free.dev"
+  ],
+  "fallback_lines": [],
+  "chain_seconds": [
+   0.18
+  ],
+  "xagg_kinds": [
+   "fir_section_case_count",
+   "district_breakdown"
+  ],
+  "timeouts": [],
+  "plan_line": "Meta-Analysis: deterministic decomposition plan 'most_cited_section_by_district' matched.",
+  "model": "local"
+ },
+ {
+  "id": "P3_SWAP",
+  "run": 1,
+  "arm": "after",
+  "question": "Which district has the most FIRs, and what sections are those FIRs charged under?",
+  "status": "ok",
+  "served_answer": "فیصل آباد (Faisalabad) is the district with the most registered FIRs, with **19 case(s)** [Document 1]. The FIRs in this district cite the following sections:  \n- **PPC §34**: 12 FIR(s) [Document 1]  \n- **Arms Ordinance 1965 §13**: 9 FIR(s) [Document 1]  \n- **PPC §392**: 7 FIR(s) [Document 1]  \n- **PPC §337-A(i)**: 5 FIR(s) [Document 1]  \n- **CNSA 1997 §9(c)**: 4 FIR(s) [Document 1]  \n- **Provincial Act §Punjab Domestic Violence Act**: 3 FIR(s) [Document 1]  \n- **PECA 2016 §14**: 2 FIR(s) [Document 1]  \n- **PECA 2016 §21**: 2 FIR(s) [Document 1]  \n- **PPC §302**: 2 FIR(s) [Document 1]  \n- **PPC §365-A**: 2 FIR(s) [Document 1]  \n- **PPC §419**: 2 FIR(s) [Document 1]  \n- **PPC §420**: 2 FIR(s) [Document 1]  \n- **PPC §328A**: 1 FIR(s) [Document 1]  \n- **PPC §379**: 1 FIR(s) [Document 1].",
+  "caveats": [],
+  "tools_used": [
+   "XAGG"
+  ],
+  "error": null,
+  "elapsed_s": 92.4,
+  "llm_hosts": [
+   "https://undrafted-remodeler-gravel.ngrok-free.dev"
+  ],
+  "fallback_lines": [],
+  "chain_seconds": [
+   0.2
+  ],
+  "xagg_kinds": [
+   "district_breakdown",
+   "fir_section_case_count"
+  ],
+  "timeouts": [],
+  "plan_line": "Meta-Analysis: deterministic decomposition plan 'busiest_district_by_section' matched.",
+  "model": "local"
+ }
+]

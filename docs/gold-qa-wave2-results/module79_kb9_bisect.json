@@ -1,0 +1,360 @@
+[
+ {
+  "arm": "then",
+  "run": 1,
+  "status": "ok",
+  "elapsed_s": 221.2,
+  "evaluator": [
+   {
+    "relevant": false,
+    "reason": "The retrieved documents describe legal procedures for investigating suspicious deaths (e.g., inquests under Section 174 of the Code of Criminal Procedure) but do not explicitly address whether the system records these investigations in case files or databases. The case records (document 6) mention FIR statistics and property disposition but do not clarify if or how investigations into suspicious deaths are documented within the system."
+   },
+   {
+    "relevant": true,
+    "reason": "The retrieved documents explicitly describe procedural requirements under Section 174 of the Code of Criminal Procedure for investigating suspicious deaths, including inquest reports (Rule 25.35), post-mortem examinations (Rule 25.36), and mandatory documentation of cause of death, marks of violence, and forensic evidence. These directly address the system's recording of such investigations."
+   }
+  ],
+  "verifier": [
+   {
+    "chunks": [
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+      "chars": 1322
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1548",
+      "chars": 1162
+     },
+     {
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c779",
+      "chars": 1526
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559",
+      "chars": 1329
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1978",
+      "chars": 1324
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1565",
+      "chars": 999
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1561",
+      "chars": 1332
+     },
+     {
+      "id": "kb-data-half:death_investigation_charging",
+      "chars": 2200
+     }
+    ],
+    "verdict": {
+     "grounded": true,
+     "off_topic": false,
+     "unsupported_claims": [],
+     "reason": "All claims about Rule 25.31, Rule 25.36, Section 176, and the inquest report (Rule 25.35) are directly supported by the corresponding chunks. The analysis of case records (Document 8) is also valid as the chunks confirm the absence of cause-of-death investigation tracking in the provided FIR data."
+    }
+   }
+  ],
+  "generation": [
+   "local"
+  ],
+  "served_answer": "**Governing Provision and Requirement:**  \nUnder Rule 25.31 (Document 1), police must investigate sudden or unnatural deaths by informing the nearest magistrate and conducting an inquiry as per Section 174 of the Code of Criminal Procedure. Rule 25.36 (Document 6) mandates post-mortem examinations in cases of suspicious deaths. Additionally, Section 176 of the Code of Criminal Procedure (Document 3) requires magistrates to inquire into the cause of death, especially if the deceased was in police custody. The inquest report (Rule 25.35, Document 4) must detail the cause of death, marks of violence, and other relevant evidence.  \n\n**Case Records Analysis:**  \nOur case records (Document 8) do not explicitly track whether investigations into the cause of death were conducted or documented. While 10 FIRs cite PPC §302 (murder), the records focus on property disposition (e.g., 13 items sent to forensic labs, 7 items held for heirs) rather than detailing cause-of-death investigations. The summary does not mention fields for inquest reports, post-mortem findings, or magistrate inquiries. Thus, the system’s records do not show whether the required investigations were carried out or recorded in these cases.",
+  "caveats": [],
+  "error": null
+ },
+ {
+  "arm": "single",
+  "run": 1,
+  "status": "ok",
+  "elapsed_s": 143.6,
+  "evaluator": [
+   {
+    "relevant": true,
+    "reason": "The retrieved documents directly address the legal procedures requiring police to investigate deaths in suspicious circumstances (e.g., Rule 25.31, Section 174 of the Code of Criminal Procedure) and outline requirements for inquest reports (e.g., documenting cause of death, scene plans, etc.). These procedural standards answer the norm clause of the question (what the law requires) even though they do not explicitly mention system-wide data recording practices."
+   }
+  ],
+  "verifier": [
+   {
+    "chunks": [
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+      "chars": 1322
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1561",
+      "chars": 1332
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559",
+      "chars": 1329
+     },
+     {
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c35",
+      "chars": 1331
+     },
+     {
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c779",
+      "chars": 1526
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1546",
+      "chars": 944
+     },
+     {
+      "id": "kb-data-half:death_investigation_charging",
+      "chars": 829
+     }
+    ],
+    "verdict": {
+     "grounded": true,
+     "off_topic": false,
+     "unsupported_claims": [],
+     "reason": "All claims are directly supported by cited chunks. Legal requirements (Rules 25.31/25.35, Section 176) are explicitly stated in Documents 1/2/5. Case records analysis (10 FIRs citing PPC §302) is directly stated in Document 7. The conclusion about procedural compliance gaps is validly inferred from Document 7's explicit limitation to listing cited sections, not investigative details."
+    }
+   }
+  ],
+  "generation": [
+   "local"
+  ],
+  "served_answer": "**Part 1: Governing Legal Requirements**  \nUnder **Rule 25.31** of the Punjab Police Rules (Document 1), police officers must investigate sudden or unnatural deaths by following **Section 174 of the Code of Criminal Procedure**, including documenting the scene, cause of death, and evidence of violence. **Rule 25.35** (Document 3) mandates that inquest reports must specify the apparent cause of death, describe injuries, and include details like the plan of the scene of death (Document 2, para 8(a)) and weapon used. **Section 176** of the Code of Criminal Procedure (Document 5) further requires magistrates to inquire into the cause of death if the deceased was in police custody or died under suspicious circumstances.  \n\n**Part 2: Case Records Analysis**  \nOur case records (Document 7) show that **10 of 73 FIRs** cite **PPC §302** (murder), indicating deaths were involved. However, the records do not explicitly state whether the police conducted the required detailed investigations (e.g., scene plans, injury descriptions, or weapon details as mandated by Rules 25.31/25.35). The data provided only lists sections cited in FIRs, not whether procedural compliance with inquest requirements was documented. Thus, while the law mandates detailed records, our case files lack specific evidence of such compliance in these cases.  \n\n**Conclusion**: The system requires detailed death investigations (per Rules 25.31/25.35 and Section 176), but our records do not confirm whether these were consistently applied in the 10 §302 cases or others.",
+  "caveats": [],
+  "error": null
+ },
+ {
+  "arm": "then",
+  "run": 2,
+  "status": "abstained",
+  "elapsed_s": 218.8,
+  "evaluator": [
+   {
+    "relevant": false,
+    "reason": "The retrieved documents describe legal procedures for police investigations into suspicious deaths (e.g., inquest reports, Section 174 requirements), but none explicitly confirm whether our system actually records these investigations in case files. The case records (document 6) only show section citations in FIRs, not documentation of death investigations."
+   },
+   {
+    "relevant": true,
+    "reason": "The retrieved documents explicitly describe statutory requirements for inquest reports under Section 174 of the Code of Criminal Procedure, including mandatory creation of detailed inquest reports (Rule 25.35) and post-mortem examinations (Rule 25.36) in cases of suspicious deaths. These procedures confirm that the system is legally required to document investigations into suspicious deaths, directly addressing the user's question about system record-keeping for such cases."
+   }
+  ],
+  "verifier": [
+   {
+    "chunks": [
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+      "chars": 1322
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559",
+      "chars": 1329
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1548",
+      "chars": 1162
+     },
+     {
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c35",
+      "chars": 1331
+     },
+     {
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c779",
+      "chars": 1526
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1565",
+      "chars": 999
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1561",
+      "chars": 1332
+     },
+     {
+      "id": "kb-data-half:death_investigation_charging",
+      "chars": 829
+     }
+    ],
+    "verdict": {
+     "grounded": false,
+     "off_topic": false,
+     "unsupported_claims": [
+      "Case records 'do not explicitly track' inquest reports, post-mortems, or cause-of-death analyses — no chunk confirms this absence or provides system documentation details.",
+      "Conclusion that 'system does not currently capture detailed evidence of compliance' — no chunk discusses system capabilities or data capture limitations."
+     ],
+     "reason": "Claims about system documentation gaps and procedural non-compliance lack direct support from chunks, which only list FIRs and legal rules without addressing system tracking or compliance verification."
+    }
+   }
+  ],
+  "generation": [
+   "local"
+  ],
+  "served_answer": null,
+  "caveats": [
+   "The generated answer could not be verified as grounded in the retrieved documents."
+  ],
+  "error": null
+ },
+ {
+  "arm": "single",
+  "run": 2,
+  "status": "ok",
+  "elapsed_s": 196.2,
+  "evaluator": [
+   {
+    "relevant": false,
+    "reason": "The retrieved documents describe legal procedures for inquests and investigations into suspicious deaths (e.g., Rule 25.31, Section 174 of the Code of Criminal Procedure), but they do not explicitly confirm whether the system actually records these investigations in practice. The case records (document 6) mention FIRs citing sections like PPC §302 but do not indicate whether they include documentation of cause-of-death investigations or inquest reports. The question asks specifically about system-level record-keeping for such cases, which is not directly addressed in the retrieved chunks."
+   },
+   {
+    "relevant": true,
+    "reason": "Documents explicitly reference Section 174 of the Code of Criminal Procedure multiple times, detailing mandatory police procedures for investigating suspicious deaths (Rule 25.31, 25.35, 25.36). They describe requirements for inquests, post-mortem examinations, and formal reporting of cause-of-death investigations, directly addressing the system's documentation obligations under Section 174."
+   }
+  ],
+  "verifier": [
+   {
+    "chunks": [
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+      "chars": 1322
+     },
+     {
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c779",
+      "chars": 1526
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1548",
+      "chars": 1162
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559",
+      "chars": 1329
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1561",
+      "chars": 1332
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1565",
+      "chars": 999
+     },
+     {
+      "id": "kb-data-half:death_investigation_charging",
+      "chars": 829
+     }
+    ],
+    "verdict": {
+     "grounded": true,
+     "off_topic": false,
+     "unsupported_claims": [],
+     "reason": "All legal references (Rules 25.31/36, Sections 174/174(3)) are directly cited in chunks 1/6. The case record analysis (10 FIRs citing PPC §302) is explicitly stated in chunk 7. The claim about missing investigation details is validly hedged as 'not explicitly stated' based on chunk 7's limited data."
+    }
+   }
+  ],
+  "generation": [
+   "local"
+  ],
+  "served_answer": "**Part 1: Governing Legal Requirements**  \nUnder **Rule 25.31** of the Punjab Police Rules, police officers must investigate sudden or unnatural deaths per **Section 174** of the Code of Criminal Procedure (Pakistan). This includes documenting the cause of death, marks of violence, and other relevant details. **Rule 25.36** further mandates post-mortem examinations by a qualified surgeon in cases of suspicious, suicidal, or homicidal deaths, as per **Section 174(3)** of the Code.  \n\n**Part 2: Case Records Analysis**  \nOur case records (Document 7) show that **10 of 73 FIRs** cite **PPC §302** (murder), indicating deaths are recorded in some cases. However, the summary does **not explicitly state** whether these records include detailed investigations (e.g., post-mortem reports, inquest findings, or scene-of-death documentation). The data provided only lists section citations in FIRs, not the presence or absence of investigation-specific fields (e.g., \"plan of the scene of death\" or \"inventory of clothing\" from Rule 25.35). Thus, **our records do not confirm** whether such investigations are systematically documented in the cases listed.  \n\n**Conclusion**: While the law requires detailed investigations, our case records lack explicit data on whether these procedures were followed in the cited cases.",
+  "caveats": [],
+  "error": null
+ },
+ {
+  "arm": "then",
+  "run": 1,
+  "status": "ok",
+  "elapsed_s": 165.1,
+  "evaluator": [
+   {
+    "relevant": false,
+    "reason": "The retrieved documents describe procedural requirements for police investigations into suspicious deaths (e.g., Rule 25.31, Section 174 of the Code of Criminal Procedure) but do not address whether the system actually records these investigations or how such data is documented in case files. The case records (document 6) mention FIRs and sections cited but do not specifically reference recording of death investigations."
+   },
+   {
+    "relevant": true,
+    "reason": "The retrieved documents specify formal procedures for inquests, inquest reports (Forms 25.35(1) A/B/C), and post-mortem examinations under Sections 174 and 176 of the Code of Criminal Procedure. These directly address the legal requirement for documenting investigations into suspicious deaths, including the creation of formal reports that would be part of case files. While the documents do not explicitly mention electronic system fields or database entries, they confirm that such investigations must be formally recorded as part of police procedures, satisfying the norm clause of the question."
+   }
+  ],
+  "verifier": [
+   {
+    "chunks": [
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+      "chars": 1322
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1548",
+      "chars": 1162
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559",
+      "chars": 1329
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1561",
+      "chars": 1332
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1978",
+      "chars": 1324
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1565",
+      "chars": 999
+     },
+     {
+      "id": "kb-data-half:death_investigation_charging",
+      "chars": 2200
+     }
+    ],
+    "verdict": {
+     "grounded": true,
+     "off_topic": false,
+     "unsupported_claims": [],
+     "reason": "All claims about Punjab Police Rules (Sections 25.30–25.36) are directly supported by chunks 1, 3, 4, and 6. The analysis of case records (Document 7) aligns with chunk 7's data on FIRs and forensic processes. The conclusion about missing compliance data is valid as chunks do not track procedural adherence."
+    }
+   }
+  ],
+  "generation": [
+   "local"
+  ],
+  "served_answer": "**Governing Provision and Substance:**  \nUnder Punjab Police Rules, Sections 25.30–25.35 and 25.36 mandate that police conduct investigations into sudden or unnatural deaths (Rule 25.31), prepare detailed inquest reports (Rule 25.35), and perform post-mortem examinations when death appears suspicious (Rule 25.36). These reports must include the cause of death, marks of violence, and other forensic details (Rule 25.35(2)).  \n\n**Case Records Summary (Document 7):**  \n- **Mentions of death-related investigations:** The summary does not explicitly record the number of cases where detailed investigations into the cause of death were conducted. It only notes that 10 of 73 FIRs cite PPC §302 (murder), but this does not confirm whether the required forensic or inquest procedures were followed in those cases.  \n- **Forensic processes:** Seized property in 13 FIRs was \"sent to the forensic laboratory,\" but this pertains to evidence collection, not the documentation of death investigations. No figures track how many deaths triggered inquest reports or post-mortems as required by the rules.  \n\n**Conclusion:** While the law explicitly requires detailed death investigations (Documents 1, 3, 6), the case records do not provide specific data on how many cases fulfilled these requirements. The system lacks a field to quantify compliance with these procedural mandates in the aggregate.",
+  "caveats": [],
+  "error": null
+ },
+ {
+  "arm": "single",
+  "run": 1,
+  "status": "abstained",
+  "elapsed_s": 505.4,
+  "evaluator": [
+   {
+    "relevant": false,
+    "reason": "The retrieved documents describe legal procedures for police investigations into suspicious deaths (e.g., inquests under Section 174, reporting requirements, and magistrate involvement). However, they do not explicitly address whether our system (case records, databases, or software) actually documents these investigations. The question specifically asks about system-level recording of such investigations, which is not covered in the retrieved chunks."
+   },
+   {
+    "relevant": false,
+    "reason": "The documents describe procedural requirements for conducting inquests under Section 174 (e.g., police obligations to notify magistrates, investigation methods, and report formats) but do not explicitly confirm whether the police system maintains case records, database entries, or formal documentation of these inquests in practice. The case records aggregate (document 8) only lists FIRs with section citations, none of which reference Section 174 or inquest-related entries."
+   },
+   {
+    "relevant": false,
+    "reason": "The retrieved documents describe procedural requirements for inquests and Section 174 compliance (e.g., magistrate notifications, inquest report formats) but do not explicitly confirm whether the police system actually records these actions in practice. The case records (document 7) mention sections cited in FIRs but do not include PPC §174, suggesting potential gaps in system documentation, but this is not directly stated in the retrieved chunks."
+   },
+   {
+    "relevant": false,
+    "reason": "The retrieved documents describe legal procedures for investigating deaths (e.g., Section 174, inquest reports) but do not explicitly confirm whether the system records these investigations in any specific database, log, or case file format. The 'our system' aspect of the question remains unaddressed."
+   },
+   {
+    "relevant": false,
+    "reason": "The retrieved documents describe legal procedures for inquests under Section 174 (e.g., Rule 25.31, 25.35, and references to post-mortem requirements) but do not explicitly confirm whether the police system maintains database entries or case file documentation for inquest reports. The case records (document 7) only list FIRs citing sections like PPC §302, §34, etc., but none mention inquest reports or Section 174 compliance. The system's actual data on recording inquests is missing."
+   },
+   {
+    "relevant": false,
+    "reason": "The retrieved documents describe legal procedures for inquests and Section 174 investigations but do not explicitly confirm whether the system records these investigations in case files. The case records mention sections cited in FIRs (e.g., PPC §302) but do not address documentation of formal investigations into suspicious deaths."
+   }
+  ],
+  "verifier": [],
+  "generation": [],
+  "served_answer": null,
+  "caveats": [
+   "No sufficiently relevant documents were found for this question after retrying with query refinements."
+  ],
+  "error": null
+ }
+]

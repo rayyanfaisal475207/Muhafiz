@@ -66,6 +66,7 @@ from pydantic import Field
 from src import config
 from src.pipeline.cross_script_variant import generate_cross_script_variant
 from src.pipeline.evaluator import evaluate_relevance
+from src.pipeline.harness.tools.chained_aggregate import ThenStep, run_aggregate_chain
 from src.pipeline.harness.types import (
     CROSS_CASE_ROLES,
     CallerContext,
@@ -528,12 +529,24 @@ _DATA_HALF_TIMEOUT = 45.0
 @dataclass(frozen=True)
 class _KbDataHalfPlan:
     """A compound-KB question SHAPE, and the one canned aggregate sub-query
-    that answers its "and does our data show it?" clause."""
+    that answers its "and does our data show it?" clause.
+
+    [Gold-QA fix — Module 79] `then` is an OPTIONAL second aggregate, run
+    after `sub_query` and rendered into the SAME chunk (one data half, two
+    figures). It defaults to None, so every entry declared before this
+    field existed runs through the unchanged single-aggregate path below —
+    byte-identical chunk, same guards, same timeout. Module 39 predicted
+    KB9 "may want two aggregates rather than a better one", Module 76
+    confirmed it, and this is the plan shape both left open. See
+    `tools/chained_aggregate.py` for the mechanism, and for the `take`
+    form that feeds one aggregate's output into the other's filter.
+    """
 
     name: str
     patterns: tuple[re.Pattern, ...]
     sub_query: str
     expected_kind: str
+    then: Optional[ThenStep] = None
 
 
 # Sub-query wordings are INTERNAL dispatch strings, never shown to a user,
@@ -661,6 +674,20 @@ _KB_DATA_HALF_PLANS: tuple[_KbDataHalfPlan, ...] = (
             "How many FIRs cite PPC section 302, across all cases?"
         ),
         expected_kind="fir_section_case_count",
+        # [Gold-QA fix — Module 79] Gold's SECOND data element — property
+        # entries marked for return to a deceased's heirs — is
+        # `seized_property_disposition`'s own heirs figure, which entry (2)
+        # above already reaches for KB4. No data dependency between the two
+        # (no `take`), so this is the plain two-aggregate form. The string
+        # is entry (2)'s, verbatim; a test asserts the two copies stay equal.
+        then=ThenStep(
+            sub_query=(
+                "How many cases record seized property, and what happens to it — how "
+                "many items were sent to a forensic laboratory or held for a deceased's "
+                "heirs, across all cases?"
+            ),
+            expected_kind="seized_property_disposition",
+        ),
     ),
     # (5) KB3 — "does the law expect the officer who registers a case to be
     #     the one who investigates it, and does that match our data?" Gold's
@@ -913,6 +940,11 @@ async def _run_kb_data_half(plan: _KbDataHalfPlan, execution) -> Optional[dict]:
     named all return None — and the caller then behaves exactly as it did
     before Module 39.
     """
+    # [Gold-QA fix — Module 79] A two-aggregate plan takes the chained
+    # runner; a single-aggregate plan takes the path below, unchanged.
+    if plan.then is not None:
+        return await _run_kb_data_half_chain(plan, execution)
+
     try:
         from src.pipeline.harness.tools.xagg import XAggToolInput, xagg_tool
 
@@ -968,6 +1000,63 @@ async def _run_kb_data_half(plan: _KbDataHalfPlan, execution) -> Optional[dict]:
             "is_global": True,
         },
     }
+
+
+def _kb_data_half_chunk(plan: _KbDataHalfPlan, text: str) -> dict:
+    """The raw retrieval chunk shape a data half is folded into `reranked`
+    as — see `_run_kb_data_half()`'s closing comment."""
+    return {
+        "id": f"kb-data-half:{plan.name}",
+        "text": text,
+        "metadata": {
+            "source": "our own case records (cross-case aggregate)",
+            "source_tool": "XAGG",
+            "is_global": True,
+        },
+    }
+
+
+async def _run_kb_data_half_chain(plan: _KbDataHalfPlan, execution) -> Optional[dict]:
+    """[Gold-QA fix — Module 79] The two-aggregate form of
+    `_run_kb_data_half()`: same private deadline, same never-raises
+    contract, same family guard on BOTH aggregates (inside the runner),
+    same chunk shape and id — so everything downstream of the chunk is
+    unaware there were two."""
+    caller = execution.caller
+    try:
+        from src.data_gateway import get_gateway
+
+        gateway = await get_gateway()
+        outcome = await asyncio.wait_for(
+            run_aggregate_chain(
+                plan.sub_query, plan.expected_kind, plan.then,
+                gateway=gateway, user_id=caller.user_id, user_role=caller.role.value,
+                label=plan.name,
+            ),
+            timeout=_DATA_HALF_TIMEOUT,
+        )
+    except asyncio.TimeoutError:
+        logger.warning(
+            "RAG tool: KB data-half chain %r timed out after %.0fs — "
+            "returning the statutory half alone.",
+            plan.name, _DATA_HALF_TIMEOUT,
+        )
+        return None
+    except Exception as exc:  # noqa: BLE001 — degradation is the contract
+        logger.warning("RAG tool: KB data-half chain %r failed: %s", plan.name, exc)
+        return None
+
+    if outcome.status != "ok" or not outcome.text:
+        logger.info(
+            "RAG tool: KB data-half chain %r returned status=%s — no data half added.",
+            plan.name, outcome.status,
+        )
+        return None
+    logger.info(
+        "RAG tool: KB data-half plan %r answered by aggregates %r + %r (%d chars, %.2fs).",
+        plan.name, outcome.first_kind, outcome.then_kind, len(outcome.text), outcome.seconds,
+    )
+    return _kb_data_half_chunk(plan, outcome.text)
 
 
 def _build_where(

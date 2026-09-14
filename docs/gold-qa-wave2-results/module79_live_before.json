@@ -1,0 +1,241 @@
+[
+  {
+    "id": "LIVE",
+    "run": 1,
+    "arm": "before",
+    "language": "en",
+    "question": "How is the most frequently cited offence pattern distributed across districts?",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "The provided document [Document 1] does not specify the most frequently cited offence pattern or its distribution across districts. It only lists the total number of cases recorded in various cities and districts, as follows:  \n\n- فیصل آباد: 19 case(s)  \n- لاہور: 18 case(s)  \n- راولپنڈی: 10 case(s)  \n- اسلام آباد: 5 case(s)  \n- چنیوٹ: 5 case(s)  \n- حیدر آباد: 5 case(s)  \n- کراچی ایسٹ: 5 case(s)  \n- کراچی وسطی: 5 case(s)  \n- ملتان: 1 case(s)  \n\nTo address the question about offence patterns, additional data specifying the nature of offences would be required.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 88.9,
+    "xagg_log_lines": [
+      "XAGG district_breakdown: entity=Case, 9 district(s); فیصل آباد=19, لاہور=18, راولپنڈی=10, اسلام آباد=5, چنیوٹ=5, حیدر آباد=5, کراچی ایسٹ=5, کراچی وسطی=5, ملتان=1"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm",
+      "local:llm",
+      "local:llm"
+    ],
+    "model": "local model server (local:llm)",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": [],
+    "plan_lines": []
+  },
+  {
+    "id": "LIVE",
+    "run": 2,
+    "arm": "before",
+    "language": "en",
+    "question": "How is the most frequently cited offence pattern distributed across districts?",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "The provided document [Document 1] does not specify the most frequently cited offence pattern or its distribution across districts. It only lists the total number of cases recorded in various cities and districts, as follows:  \n\n- فیصل آباد: 19 case(s)  \n- لاہور: 18 case(s)  \n- راولپنڈی: 10 case(s)  \n- اسلام آباد: 5 case(s)  \n- چنیوٹ: 5 case(s)  \n- حیدر آباد: 5 case(s)  \n- کراچی ایسٹ: 5 case(s)  \n- کراچی وسطی: 5 case(s)  \n- ملتان: 1 case(s)  \n\nTo address the question about offence patterns, additional data specifying the nature of offences would be required.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 53.6,
+    "xagg_log_lines": [
+      "XAGG district_breakdown: entity=Case, 9 district(s); فیصل آباد=19, لاہور=18, راولپنڈی=10, اسلام آباد=5, چنیوٹ=5, حیدر آباد=5, کراچی ایسٹ=5, کراچی وسطی=5, ملتان=1"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm",
+      "local:llm",
+      "local:llm"
+    ],
+    "model": "local model server (local:llm)",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": [],
+    "plan_lines": []
+  },
+  {
+    "id": "LIVE",
+    "run": 3,
+    "arm": "before",
+    "language": "en",
+    "question": "How is the most frequently cited offence pattern distributed across districts?",
+    "expected_answer": "(probe — no gold)",
+    "actual_answer": "The provided data shows the number of cases across districts but does not specify the most frequently cited offence pattern. Based on the aggregate case counts in [Document 1], the distribution of cases is as follows:  \n\n- **فیصل آباد** (19 case(s))  \n- **لاہور** (18 case(s))  \n- **راولپنڈی** (10 case(s))  \n- **اسلام آباد**, **چنیوٹ**, **حیدر آباد**, **کراچی ایسٹ**, **کراچی وسطی** (5 case(s) each)  \n- **ملتان** (1 case(s))  \n\nTo analyze offence patterns, additional data linking cases to specific charges would be required.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 39.0,
+    "xagg_log_lines": [
+      "XAGG district_breakdown: entity=Case, 9 district(s); فیصل آباد=19, لاہور=18, راولپنڈی=10, اسلام آباد=5, چنیوٹ=5, حیدر آباد=5, کراچی ایسٹ=5, کراچی وسطی=5, ملتان=1"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm",
+      "local:llm",
+      "local:llm"
+    ],
+    "model": "local model server (local:llm)",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": [],
+    "plan_lines": []
+  },
+  {
+    "id": "G1",
+    "run": 1,
+    "arm": "before",
+    "language": "en",
+    "question": "Acting as a crime analyst, review our current caseload and flag anything that looks unusual or worth monitoring.",
+    "expected_answer": "Approach: profile the accused, the victims, the property and the timing across the 73 FIRs, and flag what doesn't look routine. What stands out: (1) the offender profile is unusually uniform — every accused is between 24 and 49 (average ~31), none younger or older; (2) where an accused–complainant relationship is recorded at all, 'stranger' dominates, so this is largely stranger-perpetrated crime rather than disputes between people who know each other, apart from the domestic-violence cases; (3) seized-property records point to more fatalities than the charge sheet alone — 13 items sent to a forensic lab and 7 held for return to a deceased's heirs, alongside 8 murder-section FIRs; (4) incident times are fairly flat across the day with only a mild evening lean, so there's no strong night-crime pattern to build a patrol case around. The uniform offender profile and the stranger-perpetrated skew are the most useful things to keep watching.",
+    "actual_answer": "**How many cases involve an accused person, and what is their age range and average age, across all cases?**\nAcross the caseload, there are **92 distinct accused** individuals. Of these, **17 have recorded ages**, with ages ranging from **24 to 49 years**, and the **mean age is 31.5**. It is emphasized that **75 of the 92 accused have no recorded age**, so this age range and average apply only to the minority of accused with available data. The total number of cases is not specified in the document.\n\n**How many cases record a relationship between the accused and the complainant, and which relationship is it, across all cases?**\nAcross all cases, relationships between the accused and the complainant or victim are recorded in **10 FIR(s)**, with a total of **24 relationship entries**. The most frequently recorded relationship is **اجنبی (stranger)**, appearing **15 times** across these cases. Other recorded relationships include:  \n- **ساس (mother-in-law)**: 2 entries  \n- **سینئر ساتھی کار (senior co-worker)**: 2 entries  \n- **شوہر (husband)**: 2 entries  \n- **محلے دار (neighbour)**: 2 entries  \n- **بھائی (brother)**: 1 entry\n\n**How many cases record seized property, and what happens to it — how many items were sent to a forensic laboratory or held for a deceased's heirs, across all cases?**\nAccording to, **28 FIR(s)** record seized property, with **45 property-register entry/entries** in total. Of these:  \n- **13 item(s)** in **11 FIR(s)** were **literally DISPATCHED to a forensic laboratory** (as per the exact phrasing \"sealed, sample sent to the forensic laboratory\").  \n- **7 item(s)** in **7 FIR(s)** are **held for return to the heirs of a deceased person** (per the disposition \"to be handed over to the heirs\").  \n\nThese figures are derived directly from the aggregate data, with no additional numbers or interpretations added.\n\n**How many cases record an incident time, and at what time of day do those incidents happen, across all cases?**\nAccording to, **64 of 73 incidents** record an incident date/time (coverage: 64/73). Of these, **14 cases** have a timestamp of exactly **00:00:00**, which represents a date with no clock time and is excluded from the time-of-day breakdown below.  \n\nFor the remaining **50 incidents** with usable clock times:  \n- **Night** (00:00–05:59): **1 case** (~2%)  \n- **Morning** (06:00–11:59): **14 cases** (~28%)  \n- **Afternoon** (12:00–17:59): **16 cases** (~32%)  \n- **Evening** (18:00–23:59): **19 cases** (~38%)  \n\nThe **busiest time band** is **evening** (18:00–23:59) with **19 cases**.  \n\nNote: If the **14 cases with 00:00:00** were counted as \"overnight,\" the night band would have **15 cases**, but the document explicitly excludes them from time-of-day analysis as they lack a real clock time.\n\n**How many cases does each accused person appear in, and which FIR numbers, across all cases?**\nThe aggregate shows three individuals who are listed as **accused** in at least one FIR:\n\n- **فیصل** is accused in **1** case – FIR 401/26 (2024‑09‑25)【】.  \n- **شہزیب عرف شابی** is accused in **2** cases – FIR 891/24 (2024‑09‑14) and FIR 214/26 (2026‑03‑03)【】.  \n- **عاصم رشید** is accused in **2** cases – FIR 64/26 (2026‑03‑19) and FIR 65/26 (2026‑03‑23)【】.\n\n_The combined answer could not be verified as grounded in the sub-answers, so each verified sub-answer is shown as computed, without a synthesis across them._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 221.7,
+    "xagg_log_lines": [
+      "XAGG accused_relationship_breakdown: 24 relationship edge(s) across 10 FIR(s), 6 distinct value(s); dominant='اجنبی' 15; coverage 12 of 92 distinct accused",
+      "XAGG offender_age_profile: 17 of 92 distinct accused carry an age (19 of 94 accused entries); range 24-49, mean 31.5; filters=none",
+      "XAGG seized_property_disposition: 45 register entr(ies) across 28 FIR(s), 9 distinct disposition(s); forensic-lab dispatch 13 item(s) in 11 FIR(s) (16 mention forensic in any wording); heirs 7 item(s) in 7 FIR(s); 0 entr(ies) record no disposition",
+      "XAGG incident_time_of_day: 64 of 73 incident(s) carry a datetime; 14 are date-only 00:00:00 and excluded; 50 usable -> {'night (00:00-05:59)': 1, 'morning (06:00-11:59)': 14, 'afternoon (12:00-17:59)': 16, 'evening (18:00-23:59)': 19}; peak='evening (18:00-23:59)'",
+      "XAGG graph_recurrence: entity_type=Person, 4 recurring node(s); 4 with a date-ordered timeline, 2 with a criminal-record outcome; فیصل=2[2024-09-25..2026-03-06], طارق=2[2024-09-25..2026-03-06], شہزیب عرف شابی=2[2024-09-14..2026-03-03], عاصم رشید=2[2026-03-19..2026-03-23]"
+    ],
+    "fallback_lines": [
+      "Falling back to groq..."
+    ],
+    "llm_hosts": [
+      "local:llm",
+      "local:llm",
+      "local:llm",
+      "local:llm",
+      "local:llm",
+      "local:llm",
+      "api.groq.com",
+      "local:llm",
+      "local:llm",
+      "local:llm"
+    ],
+    "model": "cloud fallback (api.groq.com); local calls: local:llm",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.",
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.",
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.",
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.",
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": [],
+    "plan_lines": [
+      "Meta-Analysis: deterministic decomposition plan 'caseload_review' matched."
+    ]
+  },
+  {
+    "id": "G6",
+    "run": 1,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Yahan naye tainaat hone wale afsar ke liye ek mukhtasar orientation note likhein — unhein mojooda case load se kya tawaqqo rakhni chahiye?",
+    "expected_answer": "Aap 9 zilon mein phaili 73 khuli FIRs sambhaal rahe hain, zyada bojh Faisalabad aur Lahore mein. Case load haal hi mein badla hai: do saal pehle taqreeban sab kuch armed robbery tha; ab manshiyat, cyber fraud aur online haraasgi, mali fraud, aghwa aur qatal ka mishra hai, jisme armed robbery ab bhi sab se bara silsila hai. Zyada tar mulzim aisay mard hain jo apni pachees se chalees baras ki umar mein hain, aam tor par mudai ke liye ajnabi. Tawaqqo rakhein ke cases sust raftari se chalenge — girftari sirf har chhe mein se taqreeban ek FIR par darj hai aur zyada tar maamlaat abhi adaalaton mein zeir-e-samaat hain. Fraud aur cyber cases ab waqe ke kaafi baad report hote hain, purani dakaityon ke bar-aks jo minton mein aa jati thein. Hathiyar ki baramadgi aam hai aur taqreeban hamesha bila-license.",
+    "actual_answer": "For a new officer joining this caseload, the following orientation note outlines key considerations:  \n\n**District Concentration**: Cases are concentrated in **فیصل آباد** (Faisalabad: 19 cases), **لاہور** (Lahore: 18 cases), and **راولپنڈی** (Rawalpindi: 10 cases), with smaller numbers in other districts [Document 1].  \n\n**Case Mix**: The caseload now includes a broad range of offenses under multiple statutes (e.g., **PPC**, **CNSA 1997**, **PECA 2016**) compared to 2024, when cases were limited to **PPC** and **Arms Ordinance 1965** [Document 2].  \n\n**Arrests**: Only **11 of 73 FIRs** record an arrest (1 in 6.6), with **62 FIRs** having no arrests [Document 3].  \n\n**Reporting Delays**: The mean time from incident to report is **~23.4 hours** (1401.3 minutes) in 2026, significantly slower than **15 minutes** in 2024 [Document 4].  \n\n**Weapon Licensing**: **32 cases** involve recovered weapons with **no licence recorded or unverifiable licence status** [Document 5].  \n\n**Accused Profile**: **92 accused individuals** are recorded, with ages spanning **24–49 years** (average: 31.5) for **17 of 92** (age data is incomplete) [Document 6]. Relationships between accused and complainant are recorded in **10 FIRs**, with **\"اجنبی\" (stranger)** being the most common (15 of 24 entries) [Document 7].  \n\n**Court Progress**: **32 of 33 cases** remain in progress, and only **1 case** has reached a verdict [Document 8].  \n\nThis caseload requires attention to diverse legal statutes, delayed reporting, limited arrests, and ongoing court proceedings. Officers should prioritize thorough documentation and coordination with licensing authorities for weapon-related cases.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 195.8,
+    "xagg_log_lines": [
+      "XAGG incident_to_report_minutes_by_year: 2 year bucket(s) [2024=15.0min/n=13, 2026=1401.3min/n=51], 0 row(s) excluded for a missing/unparseable/out-of-order timestamp",
+      "XAGG district_breakdown: entity=Case, 9 district(s); فیصل آباد=19, لاہور=18, راولپنڈی=10, اسلام آباد=5, چنیوٹ=5, حیدر آباد=5, کراچی ایسٹ=5, کراچی وسطی=5, ملتان=1",
+      "XAGG weapon_compliance_scan: 32 weapon(s); 30 unlicensed, 2 with no licence status recorded; 3 custody control(s) with no register column; 0 weapon(s) resolving to no case",
+      "XAGG arrest_rate: 11 of 73 FIR(s) record an arrest (1 in 6.6); 14 accused entr(y/ies) classified arrested, 2 explicitly not arrested, 1 arrested in an earlier case; bare-token reading 8 FIR(s) (1 in 9.1)",
+      "XAGG time_bucketed_breakdown: dimension=statute_by_year, 2 year bucket(s) [2024:cases=13,acts=26,sections=3, 2026:cases=51,acts=82,sections=31]",
+      "XAGG criminal_record_court_crosscheck: 33 criminal record(s), 1 settled / 32 in progress; 1 cross-checked against a court outcome, 1 consistent",
+      "XAGG accused_relationship_breakdown: 24 relationship edge(s) across 10 FIR(s), 6 distinct value(s); dominant='اجنبی' 15; coverage 12 of 92 distinct accused",
+      "XAGG offender_age_profile: 17 of 92 distinct accused carry an age (19 of 94 accused entries); range 24-49, mean 31.5; filters=none"
+    ],
+    "fallback_lines": [
+      "Falling back to groq...",
+      "Falling back to groq...",
+      "Falling back to groq...",
+      "Falling back to groq..."
+    ],
+    "llm_hosts": [
+      "local:llm",
+      "local:llm",
+      "local:llm",
+      "local:llm",
+      "local:llm",
+      "local:llm",
+      "api.groq.com",
+      "api.groq.com",
+      "api.groq.com",
+      "api.groq.com",
+      "local:llm",
+      "local:llm",
+      "local:llm"
+    ],
+    "model": "cloud fallback (api.groq.com); local calls: local:llm",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.",
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.",
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.",
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.",
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.",
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.",
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed.",
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": [],
+    "plan_lines": [
+      "Meta-Analysis: deterministic decomposition plan 'orientation_note' matched."
+    ]
+  },
+  {
+    "id": "KB9",
+    "run": 1,
+    "arm": "before",
+    "language": "roman_ur",
+    "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+    "expected_answer": "Code of Criminal Procedure, 1898 ki dafa 174 officer in charge ko paband karti hai ke jab use maloom ho ke koi shakhs khudkushi se, qatl se, ya aise halaat mein mara gaya jo shak paida karte hain, to woh tehqeeqaat kare aur maut ki zaahiri wajah par ek report tayyar kare — jism par mojood zakhmon ya nishaanaat ki tafseel ke saath — aur ise qareeb tareen magistrate ko bheje. Hamara data zahir karta hai ke aise cases mojood hain: 10 FIRs qatl ki dafa (PPC 302) ka hawala dete hain, aur kai zabt shuda property entries meyyat ke warisaan ko wapas karne ke liye nishaanzad hain. Magar schema mein kahin koi inquest, post-mortem ya cause-of-death record nahi. FIR aur uski dafaat yeh darj karti hain ke maut ka daawa kiya gaya hai; woh alag qanooni maut ki tehqeeqaat ko darj nahi kartin.",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "route": "RAG",
+    "status": "error",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 148.6,
+    "xagg_log_lines": [
+      "XAGG fir_section_case_count: 218 section entr(ies) over 73 FIR(s) and 36 distinct section(s); focus=302 -> 10 FIR(s); top=PPC §34=40, Arms Ordinance 1965 §13=29, PPC §392=21, CNSA 1997 §9(c)=12, PPC §420=11; filters=none"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm",
+      "local:llm",
+      "local:llm",
+      "local:llm",
+      "local:embed",
+      "local:embed",
+      "local:embed",
+      "local:embed",
+      "local:embed",
+      "local:embed",
+      "local:embed",
+      "local:rerank",
+      "local:rerank",
+      "local:rerank",
+      "local:llm",
+      "local:llm",
+      "local:llm"
+    ],
+    "model": "local model server (local:embed, local:llm, local:rerank)",
+    "verifier_lines": [],
+    "quota_lines": [],
+    "plan_lines": [
+      "RAG tool: compound legal-KB question — dispatching data-half plan 'death_investigation_charging' (fir_section_case_count) alongside retrieval.",
+      "RAG tool: KB data-half plan 'death_investigation_charging' answered by aggregate 'fir_section_case_count' (829 chars)."
+    ]
+  }
+]
