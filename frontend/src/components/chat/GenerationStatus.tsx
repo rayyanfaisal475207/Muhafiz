@@ -40,6 +40,15 @@ interface PhaseDef {
 const PHASES: Record<string, PhaseDef> = {
   query_rewriter:     { active: 'Understanding your question', done: 'Understood the question', Icon: SparkIcon },
   router:             { active: 'Choosing an approach',        done: 'Chose an approach',       Icon: RouteIcon },
+  // Agent-harness steps. The harness (src/pipeline/harness/) emits these
+  // instead of `router` whenever the classified route is in
+  // HARNESS_CUTOVER_ROUTES. They were missing from this map, so
+  // derivePhases() silently dropped them and a harness-routed answer
+  // showed only "Wrote the response" — making it look as though no
+  // routing had happened at all. The dispatch `detail` carries the
+  // chosen route and sub-agent, which the trail already renders.
+  supervisor:            { active: 'Routing through the agent harness', done: 'Routed through the agent harness', Icon: RouteIcon },
+  'supervisor:dispatch': { active: 'Selecting a specialist agent',      done: 'Selected a specialist agent',      Icon: SparkIcon },
   retrieval:          { active: 'Searching the knowledge base',done: 'Searched the knowledge base', Icon: SearchIcon },
   web_search:         { active: 'Searching the web',           done: 'Searched the web',        Icon: GlobeIcon },
   reranker:           { active: 'Ranking sources',             done: 'Ranked sources',          Icon: RankIcon },

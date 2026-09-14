@@ -12,7 +12,7 @@ export default defineConfig({
     // through an ngrok tunnel, whose hostname isn't localhost. ".ngrok-free.app"/
     // ".ngrok-free.dev" covers ngrok's free-tier random subdomains generally,
     // so a rotated tunnel URL doesn't need this list updated again.
-    allowedHosts: ['.ngrok-free.app', '.ngrok-free.dev'],
+    allowedHosts: ['.ngrok-free.app', '.ngrok-free.dev', '.trycloudflare.com'],
     proxy: {
       // Forward all /api/* requests to the FastAPI backend. No path
       // rewrite: every backend router is itself mounted under /api/...
