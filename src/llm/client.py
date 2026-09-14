@@ -288,6 +288,23 @@ async def _post_local(system_prompt: str, user_message: str, temperature: float,
         return response.json()["response"]
 
 
+# Bounds for the empty-response retry in _call_local() below.
+#
+# The FLOOR matters more than the multiplier. Measured live against
+# qwen3:14b, a doubled budget is not enough when the original was small:
+# retrying 300 at 600 came back empty a second time, because the thinking
+# trace alone wants ~500-1200 tokens before the answer starts. Budgets of
+# 1,200+ had headroom in every run, and 2,000 is what evaluator.py and
+# verifier.py already settled on for this same model. So retry at
+# whichever is larger — double, or the floor.
+#
+# The CEILING keeps a pathological prompt from spiralling, and stays low
+# enough that the retry lands inside LOCAL_LLM_TIMEOUT; a retry that times
+# out just raises and hands off to the cloud fallback anyway.
+_LOCAL_EMPTY_RETRY_FLOOR = 2000
+_LOCAL_EMPTY_RETRY_CEILING = 4000
+
+
 async def _call_local(system_prompt: str, user_message: str, temperature: float, max_tokens: int, role: str = "reasoning") -> str:
     content = await _post_local(system_prompt, user_message, temperature, max_tokens, role)
     # A blank string is just as unusable as None — confirmed live: Qwen3-14B
@@ -301,7 +318,37 @@ async def _call_local(system_prompt: str, user_message: str, temperature: float,
     # existing automatic Groq/Gemini fallback, which is what should have
     # happened.
     if not content or not content.strip():
-        raise ValueError("Local LLM returned empty content")
+        # The trace length is not deterministic — measured live against
+        # qwen3:14b, the SAME prompt produced traces from ~2,000 to ~4,750
+        # characters run to run. So a budget that usually suffices will
+        # intermittently be swallowed whole, and call_llm()'s default of
+        # 1,000 sits right in that failure band (500 came back empty,
+        # 800 only just answered, 1,200+ had headroom). 29 call sites use
+        # that default, including the harness sub-agents.
+        #
+        # Retry once locally with a bigger budget (double, or the floor
+        # above, whichever is larger) before giving up. This
+        # keeps the work on the local GPU instead of spilling to Groq
+        # (whose free tier rejects large prompts outright with a 413) or
+        # Gemini, and it costs nothing on the overwhelming majority of
+        # calls that never hit this branch. Capped so a pathological
+        # prompt can't spiral; if the retry is still empty — or times
+        # out — we raise exactly as before and the existing cloud
+        # fallback takes over unchanged.
+        retry_max_tokens = min(
+            max(max_tokens * 2, _LOCAL_EMPTY_RETRY_FLOOR), _LOCAL_EMPTY_RETRY_CEILING
+        )
+        if retry_max_tokens > max_tokens:
+            logger.warning(
+                "Local LLM returned empty content (thinking trace consumed all %d tokens) — "
+                "retrying once locally with %d.",
+                max_tokens, retry_max_tokens,
+            )
+            content = await _post_local(
+                system_prompt, user_message, temperature, retry_max_tokens, role
+            )
+        if not content or not content.strip():
+            raise ValueError("Local LLM returned empty content")
     return content
 
 
@@ -364,7 +411,7 @@ async def call_gemini_with_search(user_message: str, max_tokens: int = 1500) -> 
         try:
             client = _get_gemini_client()
             response = await client.aio.models.generate_content(
-                model="gemini-2.5-flash",
+                model=config.GEMINI_MODEL,
                 contents=user_message,
                 config=types.GenerateContentConfig(
                     tools=[{'google_search': {}}],
