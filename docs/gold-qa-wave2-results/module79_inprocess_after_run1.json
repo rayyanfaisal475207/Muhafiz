@@ -1,0 +1,30 @@
+[
+ {
+  "id": "LIVE",
+  "run": 1,
+  "arm": "after",
+  "question": "How is the most frequently cited offence pattern distributed across districts?",
+  "status": "ok",
+  "served_answer": "The most frequently cited offence pattern is **PPC §34**, mentioned in **40 FIR(s)** [Document 1]. Across districts, these cases are distributed as follows:  \n- **فیصل آباد**: 12 case(s)  \n- **لاہور**: 10 case(s)  \n- **راولپنڈی**: 4 case(s)  \n- **کراچی ایسٹ**: 4 case(s)  \n- **چنیوٹ**: 3 case(s)  \n- **حیدر آباد**: 3 case(s)  \n- **اسلام آباد**: 2 case(s)  \n- **کراچی وسطی**: 2 case(s)  \n\nThese figures are derived directly from the FIR data cited in [Document 1].",
+  "caveats": [],
+  "tools_used": [
+   "XAGG"
+  ],
+  "error": null,
+  "elapsed_s": 39.1,
+  "llm_hosts": [
+   "https://undrafted-remodeler-gravel.ngrok-free.dev"
+  ],
+  "fallback_lines": [],
+  "chain_seconds": [
+   0.54
+  ],
+  "xagg_kinds": [
+   "fir_section_case_count",
+   "district_breakdown"
+  ],
+  "timeouts": [],
+  "plan_line": "Meta-Analysis: deterministic decomposition plan 'most_cited_section_by_district' matched.",
+  "model": "local"
+ }
+]
