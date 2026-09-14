@@ -1,0 +1,1767 @@
+[
+ {
+  "id": "M143",
+  "run": 1,
+  "arm": "before",
+  "question": "How often is the officer who registers an FIR also the officer who investigates the case?",
+  "status": "abstained",
+  "served_answer": null,
+  "caveats": [
+   "No sufficiently relevant documents were found for this question after retrying with query refinements."
+  ],
+  "error": null,
+  "elapsed_s": 173.7,
+  "evaluator_rounds": 3,
+  "verdicts": [
+   {
+    "relevant": false,
+    "reason": "The retrieved documents discuss procedures for FIR registration, investigation oversight, and transfer of cases between officers, but none explicitly address whether the same officer typically registers and investigates FIRs, or the frequency of such overlap. The documents do not contain specific policy language, statistical data, or procedural rules governing the relationship between FIR registration and investigation roles."
+   },
+   {
+    "relevant": false,
+    "reason": "The retrieved documents contain specific FIR case details (e.g., FIR numbers, sections of PPC cited, incident dates) but do not mention procedural guidelines, roles, or frequency of officers handling both FIR registration and investigation. The question requires information about standard practices or policies governing officer responsibilities, which is absent in the documents."
+   },
+   {
+    "relevant": false,
+    "reason": "The retrieved documents contain FIR case details (e.g., sections applied, dates, suspects) but do not mention officer roles, assignments, or procedural information about whether the same officer handles both FIR registration and investigation. The question requires data on standard practice/guidelines for officer roles, which is entirely absent from the documents."
+   }
+  ],
+  "cloud_fallbacks": [],
+  "generation": "local",
+  "events": [
+   {
+    "t": 23.02,
+    "kind": "retrieval",
+    "secs": 23.02,
+    "query": "How often is the officer who registers an FIR also the officer who investigates the case?",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.884,
+     0.8824,
+     0.8792,
+     0.8788,
+     0.8774,
+     0.8764,
+     0.8727,
+     0.8725,
+     0.8719,
+     0.8699
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 24.25,
+    "kind": "rerank",
+    "secs": 1.23,
+    "n_in": 12,
+    "window": [
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c145",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.124488964676857,
+      "rrf_score": 0.8787663578987122
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c146",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.0893559604883194,
+      "rrf_score": 0.016893
+     },
+     {
+      "id": "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c206",
+      "source": "3_1527157863PoliceOrder2002.pdf",
+      "rerank_score": 0.03460603579878807,
+      "rrf_score": 0.016393
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c299",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.018238022923469543,
+      "rrf_score": 0.016129
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c137",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.017427340149879456,
+      "rrf_score": 0.872694194316864
+     }
+    ]
+   },
+   {
+    "t": 33.61,
+    "kind": "evaluate",
+    "secs": 9.36,
+    "n_chunks": 5,
+    "window_ids": [
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c145",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c146",
+     "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c206",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c299",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c137"
+    ],
+    "relevant": false,
+    "reason": "The retrieved documents discuss procedures for FIR registration, investigation oversight, and transfer of cases between officers, but none explicitly address whether the same officer typically registers and investigates FIRs, or the frequency of such overlap. The documents do not contain specific policy language, statistical data, or procedural rules governing the relationship between FIR registration and investigation roles."
+   },
+   {
+    "t": 44.8,
+    "kind": "rewrite",
+    "secs": 11.19,
+    "feedback": "The retrieved documents discuss procedures for FIR registration, investigation oversight, and transfer of cases between officers, but none explicitly address whether the same officer typically registers and investigates FIRs, or the frequency of such overlap. The documents do not contain specific po",
+    "new_query": "Procedural guidelines for FIR registration and investigation oversight under PPC."
+   },
+   {
+    "t": 79.72,
+    "kind": "retrieval",
+    "secs": 34.92,
+    "query": "Procedural guidelines for FIR registration and investigation oversight under PPC.",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.9027,
+     0.9009,
+     0.8974,
+     0.895,
+     0.8942,
+     0.8927,
+     0.8925,
+     0.892,
+     0.8919,
+     0.8913
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 80.97,
+    "kind": "rerank",
+    "secs": 1.25,
+    "n_in": 11,
+    "window": [
+     {
+      "id": "psrms_fir_fir-233-26#zimni_FZ-C6-1_49d6009b_c0",
+      "source": "psrms/fir/fir-233-26#zimni_FZ-C6-1",
+      "rerank_score": 0.2735309898853302,
+      "rrf_score": 0.017706
+     },
+     {
+      "id": "psrms_fir_fir-205-26#zimni_FZ-C3-1_fe336d49_c0",
+      "source": "psrms/fir/fir-205-26#zimni_FZ-C3-1",
+      "rerank_score": 0.2641199231147766,
+      "rrf_score": 0.892745316028595
+     },
+     {
+      "id": "psrms_fir_fir-416-26#zimni_FZ-C316-2_e453561b_c0",
+      "source": "psrms/fir/fir-416-26#zimni_FZ-C316-2",
+      "rerank_score": 0.19483095407485962,
+      "rrf_score": 0.017286
+     },
+     {
+      "id": "psrms_fir_fir-460-26#zimni_FZ-C360-2_8860ca32_c0",
+      "source": "psrms/fir/fir-460-26#zimni_FZ-C360-2",
+      "rerank_score": 0.18729549646377563,
+      "rrf_score": 0.017493
+     },
+     {
+      "id": "psrms_fir_fir-460-26#zimni_FZ-C360-1_94e32d96_c1",
+      "source": "psrms/fir/fir-460-26#zimni_FZ-C360-1",
+      "rerank_score": 0.17158865928649902,
+      "rrf_score": 0.019129
+     }
+    ]
+   },
+   {
+    "t": 92.78,
+    "kind": "evaluate",
+    "secs": 11.8,
+    "n_chunks": 5,
+    "window_ids": [
+     "psrms_fir_fir-233-26#zimni_FZ-C6-1_49d6009b_c0",
+     "psrms_fir_fir-205-26#zimni_FZ-C3-1_fe336d49_c0",
+     "psrms_fir_fir-416-26#zimni_FZ-C316-2_e453561b_c0",
+     "psrms_fir_fir-460-26#zimni_FZ-C360-2_8860ca32_c0",
+     "psrms_fir_fir-460-26#zimni_FZ-C360-1_94e32d96_c1"
+    ],
+    "relevant": false,
+    "reason": "The retrieved documents contain specific FIR case details (e.g., FIR numbers, sections of PPC cited, incident dates) but do not mention procedural guidelines, roles, or frequency of officers handling both FIR registration and investigation. The question requires information about standard practices or policies governing officer responsibilities, which is absent in the documents."
+   },
+   {
+    "t": 102.78,
+    "kind": "rewrite",
+    "secs": 10.01,
+    "feedback": "The retrieved documents contain specific FIR case details (e.g., FIR numbers, sections of PPC cited, incident dates) but do not mention procedural guidelines, roles, or frequency of officers handling both FIR registration and investigation. The question requires information about standard practices ",
+    "new_query": "Standard practice for officer roles in FIR registration and investigation under PPC: frequency of same officer handling both tasks."
+   },
+   {
+    "t": 164.34,
+    "kind": "retrieval",
+    "secs": 61.56,
+    "query": "Standard practice for officer roles in FIR registration and investigation under PPC: frequency of same officer handling both tasks.",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.8852,
+     0.8838,
+     0.8807,
+     0.8806,
+     0.8803,
+     0.8792,
+     0.8792,
+     0.878,
+     0.8779,
+     0.8775
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 165.26,
+    "kind": "rerank",
+    "secs": 0.92,
+    "n_in": 11,
+    "window": [
+     {
+      "id": "psrms_fir_fir-216-26#zimni_FZ-C116-5_9e7c1f32_c1",
+      "source": "psrms/fir/fir-216-26#zimni_FZ-C116-5",
+      "rerank_score": 0.02762143313884735,
+      "rrf_score": 0.017493
+     },
+     {
+      "id": "psrms_fir_fir-435-26#zimni_FZ-C335-2_6b0daada_c0",
+      "source": "psrms/fir/fir-435-26#zimni_FZ-C335-2",
+      "rerank_score": 0.018954573199152946,
+      "rrf_score": 0.017925
+     },
+     {
+      "id": "psrms_fir_fir-216-26#zimni_FZ-C116-2_d36ce3b5_c0",
+      "source": "psrms/fir/fir-216-26#zimni_FZ-C116-2",
+      "rerank_score": 0.017909443005919456,
+      "rrf_score": 0.018625
+     },
+     {
+      "id": "psrms_fir_fir-216-26#zimni_FZ-C116-4_fa3f3441_c0",
+      "source": "psrms/fir/fir-216-26#zimni_FZ-C116-4",
+      "rerank_score": 0.01731720007956028,
+      "rrf_score": 0.018385
+     },
+     {
+      "id": "psrms_fir_fir-408-26#zimni_FZ-C308-4_18641efb_c1",
+      "source": "psrms/fir/fir-408-26#zimni_FZ-C308-4",
+      "rerank_score": 0.014381058514118195,
+      "rrf_score": 0.017152
+     }
+    ]
+   },
+   {
+    "t": 173.73,
+    "kind": "evaluate",
+    "secs": 8.47,
+    "n_chunks": 5,
+    "window_ids": [
+     "psrms_fir_fir-216-26#zimni_FZ-C116-5_9e7c1f32_c1",
+     "psrms_fir_fir-435-26#zimni_FZ-C335-2_6b0daada_c0",
+     "psrms_fir_fir-216-26#zimni_FZ-C116-2_d36ce3b5_c0",
+     "psrms_fir_fir-216-26#zimni_FZ-C116-4_fa3f3441_c0",
+     "psrms_fir_fir-408-26#zimni_FZ-C308-4_18641efb_c1"
+    ],
+    "relevant": false,
+    "reason": "The retrieved documents contain FIR case details (e.g., sections applied, dates, suspects) but do not mention officer roles, assignments, or procedural information about whether the same officer handles both FIR registration and investigation. The question requires data on standard practice/guidelines for officer roles, which is entirely absent from the documents."
+   }
+  ]
+ },
+ {
+  "id": "KB3",
+  "run": 1,
+  "arm": "before",
+  "question": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+  "status": "abstained",
+  "served_answer": null,
+  "caveats": [
+   "No sufficiently relevant documents were found for this question after retrying with query refinements."
+  ],
+  "error": null,
+  "elapsed_s": 349.3,
+  "evaluator_rounds": 6,
+  "verdicts": [
+   {
+    "relevant": false,
+    "reason": "The retrieved documents do not explicitly address whether the law expects the same officer to register and investigate a case, or if they should be separate roles. While they describe investigative procedures and hierarchies, they lack a direct legal provision or rule that clarifies this specific role distinction. The case data portion answers the 'what actually happens' part, but the norm clause (legal expectation) remains unaddressed."
+   },
+   {
+    "relevant": false,
+    "reason": "The retrieved documents do not explicitly address whether the law requires the same officer to register and investigate a case or if they must be separate roles. While they discuss hierarchy and supervision of investigations, they do not clarify the specific procedural expectation regarding role separation in case registration vs. investigation."
+   },
+   {
+    "relevant": false,
+    "reason": "The retrieved documents discuss the hierarchy and responsibilities of investigation heads and staff but do not explicitly address whether the officer who registers a case is expected to be the same as the investigating officer. They also do not clarify if these roles are meant to be separate under the law."
+   },
+   {
+    "relevant": false,
+    "reason": "The retrieved documents do not explicitly address whether the law expects the same officer to register and investigate a case or if those are separate roles. While they describe investigative procedures and hierarchies, they do not clarify the legal expectation regarding role separation. The data portion (case records) is addressed, but the norm clause (legal expectation) remains unanswered."
+   },
+   {
+    "relevant": false,
+    "reason": "The retrieved documents do not explicitly address whether the law requires separation of case registration and investigation roles. While they describe investigation procedures and case diary requirements, none state whether the same officer must register and investigate a case or if roles must be distinct. The data analysis in document 6 answers the 'what actually happens' part, but the norm clause (legal expectation) remains unaddressed."
+   },
+   {
+    "relevant": false,
+    "reason": "The retrieved documents do not explicitly address whether the law expects the same officer to register and investigate a case or if they must be separate roles. While they describe investigative procedures and hierarchy, they lack a direct legal provision or rule that clarifies role separation expectations. The case data (document 6) answers the 'what actually happens' part, but the norm clause (legal expectation) remains unaddressed."
+   }
+  ],
+  "cloud_fallbacks": [],
+  "generation": "local",
+  "events": [
+   {
+    "t": 62.62,
+    "kind": "retrieval",
+    "secs": 30.52,
+    "query": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+    "n_semantic": 30,
+    "n_lexical": 30,
+    "top_semantic": [
+     0.9131,
+     0.9098,
+     0.8932,
+     0.8929,
+     0.8907,
+     0.8874,
+     0.8862,
+     0.8857,
+     0.8856,
+     0.8846
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 67.25,
+    "kind": "rerank_multi",
+    "secs": 4.63,
+    "n_in": 32,
+    "n_queries": 3,
+    "window": [
+     {
+      "id": "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+      "source": "3_1527157863PoliceOrder2002.pdf",
+      "rerank_score": 0.938798189163208,
+      "rrf_score": 0.032522
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1410",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.7613633871078491,
+      "rrf_score": 0.014925
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1431",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.6611713767051697,
+      "rrf_score": 0.015385
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.5779387354850769,
+      "rrf_score": 0.016129
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2285",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.31329452991485596,
+      "rrf_score": 0.013699
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.08186663687229156,
+      "rrf_score": 0.014286
+     }
+    ]
+   },
+   {
+    "t": 77.5,
+    "kind": "evaluate",
+    "secs": 10.22,
+    "n_chunks": 7,
+    "window_ids": [
+     "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1410",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1431",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2285",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240",
+     "kb-data-half:officer_role_pair"
+    ],
+    "relevant": false,
+    "reason": "The retrieved documents do not explicitly address whether the law expects the same officer to register and investigate a case, or if they should be separate roles. While they describe investigative procedures and hierarchies, they lack a direct legal provision or rule that clarifies this specific role distinction. The case data portion answers the 'what actually happens' part, but the norm clause (legal expectation) remains unaddressed."
+   },
+   {
+    "t": 88.97,
+    "kind": "rewrite",
+    "secs": 11.48,
+    "feedback": "The retrieved documents do not explicitly address whether the law expects the same officer to register and investigate a case, or if they should be separate roles. While they describe investigative procedures and hierarchies, they lack a direct legal provision or rule that clarifies this specific ro",
+    "new_query": "Legal provision specifying if case registration and investigation must be performed by same officer or separate roles under PPC/PECA."
+   },
+   {
+    "t": 142.29,
+    "kind": "retrieval",
+    "secs": 53.32,
+    "query": "Legal provision specifying if case registration and investigation must be performed by same officer or separate roles under PPC/PECA.",
+    "n_semantic": 30,
+    "n_lexical": 30,
+    "top_semantic": [
+     0.9131,
+     0.9098,
+     0.8932,
+     0.8929,
+     0.8907,
+     0.8874,
+     0.8862,
+     0.8857,
+     0.8856,
+     0.8846
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 146.46,
+    "kind": "rerank_multi",
+    "secs": 4.17,
+    "n_in": 32,
+    "n_queries": 3,
+    "window": [
+     {
+      "id": "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+      "source": "3_1527157863PoliceOrder2002.pdf",
+      "rerank_score": 0.938798189163208,
+      "rrf_score": 0.032018
+     },
+     {
+      "id": "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c121",
+      "source": "3_1527157863PoliceOrder2002.pdf",
+      "rerank_score": 0.5783135890960693,
+      "rrf_score": 0.015873
+     },
+     {
+      "id": "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c120",
+      "source": "3_1527157863PoliceOrder2002.pdf",
+      "rerank_score": 0.1968756467103958,
+      "rrf_score": 0.014925
+     },
+     {
+      "id": "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c117",
+      "source": "3_1527157863PoliceOrder2002.pdf",
+      "rerank_score": 0.805006206035614,
+      "rrf_score": 0.014493
+     },
+     {
+      "id": "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c113",
+      "source": "3_1527157863PoliceOrder2002.pdf",
+      "rerank_score": 0.8932234644889832,
+      "rrf_score": 0.013333
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1431",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.6611713767051697,
+      "rrf_score": 0.015385
+     }
+    ]
+   },
+   {
+    "t": 162.85,
+    "kind": "evaluate",
+    "secs": 16.37,
+    "n_chunks": 7,
+    "window_ids": [
+     "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+     "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c121",
+     "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c120",
+     "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c117",
+     "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c113",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1431",
+     "kb-data-half:officer_role_pair"
+    ],
+    "relevant": false,
+    "reason": "The retrieved documents do not explicitly address whether the law requires the same officer to register and investigate a case or if they must be separate roles. While they discuss hierarchy and supervision of investigations, they do not clarify the specific procedural expectation regarding role separation in case registration vs. investigation."
+   },
+   {
+    "t": 172.74,
+    "kind": "rewrite",
+    "secs": 9.89,
+    "feedback": "The retrieved documents do not explicitly address whether the law requires the same officer to register and investigate a case or if they must be separate roles. While they discuss hierarchy and supervision of investigations, they do not clarify the specific procedural expectation regarding role sep",
+    "new_query": "Legal provisions governing separation of duties between case registration and investigation under PPC/PECA, including officer role allocation and procedural requirements."
+   },
+   {
+    "t": 200.98,
+    "kind": "retrieval",
+    "secs": 28.24,
+    "query": "Legal provisions governing separation of duties between case registration and investigation under PPC/PECA, including officer role allocation and procedural requirements.",
+    "n_semantic": 30,
+    "n_lexical": 30,
+    "top_semantic": [
+     0.9131,
+     0.9098,
+     0.8932,
+     0.8929,
+     0.8907,
+     0.8874,
+     0.8862,
+     0.8857,
+     0.8856,
+     0.8846
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 205.63,
+    "kind": "rerank_multi",
+    "secs": 4.65,
+    "n_in": 32,
+    "n_queries": 3,
+    "window": [
+     {
+      "id": "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+      "source": "3_1527157863PoliceOrder2002.pdf",
+      "rerank_score": 0.938798189163208,
+      "rrf_score": 0.032266
+     },
+     {
+      "id": "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c117",
+      "source": "3_1527157863PoliceOrder2002.pdf",
+      "rerank_score": 0.805006206035614,
+      "rrf_score": 0.014493
+     },
+     {
+      "id": "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c113",
+      "source": "3_1527157863PoliceOrder2002.pdf",
+      "rerank_score": 0.8932234644889832,
+      "rrf_score": 0.013333
+     },
+     {
+      "id": "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c121",
+      "source": "3_1527157863PoliceOrder2002.pdf",
+      "rerank_score": 0.5783135890960693,
+      "rrf_score": 0.016129
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c137",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.8283102512359619,
+      "rrf_score": 0.02904
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1431",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.6611713767051697,
+      "rrf_score": 0.015385
+     }
+    ]
+   },
+   {
+    "t": 215.67,
+    "kind": "evaluate",
+    "secs": 10.03,
+    "n_chunks": 7,
+    "window_ids": [
+     "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+     "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c117",
+     "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c113",
+     "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c121",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c137",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1431",
+     "kb-data-half:officer_role_pair"
+    ],
+    "relevant": false,
+    "reason": "The retrieved documents discuss the hierarchy and responsibilities of investigation heads and staff but do not explicitly address whether the officer who registers a case is expected to be the same as the investigating officer. They also do not clarify if these roles are meant to be separate under the law."
+   },
+   {
+    "t": 243.55,
+    "kind": "retrieval",
+    "secs": 27.87,
+    "query": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.9131,
+     0.9098,
+     0.8932,
+     0.8929,
+     0.8907,
+     0.8707,
+     0.8699,
+     0.8696,
+     0.8687,
+     0.8687
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 246.81,
+    "kind": "rerank_multi",
+    "secs": 3.26,
+    "n_in": 12,
+    "n_queries": 3,
+    "window": [
+     {
+      "id": "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+      "source": "3_1527157863PoliceOrder2002.pdf",
+      "rerank_score": 0.9387981295585632,
+      "rrf_score": 0.032522
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1431",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.6611709594726562,
+      "rrf_score": 0.8907190561294556
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.5779387950897217,
+      "rrf_score": 0.016129
+     },
+     {
+      "id": "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c121",
+      "source": "3_1527157863PoliceOrder2002.pdf",
+      "rerank_score": 0.5783132910728455,
+      "rrf_score": 0.015873
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1643",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.42068910598754883,
+      "rrf_score": 0.015625
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c193",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.0640731230378151,
+      "rrf_score": 0.016393
+     }
+    ]
+   },
+   {
+    "t": 255.09,
+    "kind": "evaluate",
+    "secs": 8.28,
+    "n_chunks": 7,
+    "window_ids": [
+     "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1431",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+     "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c121",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1643",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c193",
+     "kb-data-half:officer_role_pair"
+    ],
+    "relevant": false,
+    "reason": "The retrieved documents do not explicitly address whether the law expects the same officer to register and investigate a case or if those are separate roles. While they describe investigative procedures and hierarchies, they do not clarify the legal expectation regarding role separation. The data portion (case records) is addressed, but the norm clause (legal expectation) remains unanswered."
+   },
+   {
+    "t": 261.98,
+    "kind": "rewrite",
+    "secs": 6.89,
+    "feedback": "The retrieved documents do not explicitly address whether the law expects the same officer to register and investigate a case or if those are separate roles. While they describe investigative procedures and hierarchies, they do not clarify the legal expectation regarding role separation. The data po",
+    "new_query": "Statutory provisions requiring separation of case registration and investigation roles — data analysis on role adherence in case records."
+   },
+   {
+    "t": 293.0,
+    "kind": "retrieval",
+    "secs": 31.02,
+    "query": "Statutory provisions requiring separation of case registration and investigation roles — data analysis on role adherence in case records.",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.9131,
+     0.9098,
+     0.8932,
+     0.8929,
+     0.8907,
+     0.8813,
+     0.8805,
+     0.8791,
+     0.8773,
+     0.8773
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 295.9,
+    "kind": "rerank_multi",
+    "secs": 2.91,
+    "n_in": 12,
+    "n_queries": 3,
+    "window": [
+     {
+      "id": "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+      "source": "3_1527157863PoliceOrder2002.pdf",
+      "rerank_score": 0.9387981295585632,
+      "rrf_score": 0.032266
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.5779387950897217,
+      "rrf_score": 0.016129
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1431",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.6611709594726562,
+      "rrf_score": 0.8907190561294556
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c146",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.3542990982532501,
+      "rrf_score": 0.016629
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1643",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.42068910598754883,
+      "rrf_score": 0.015625
+     }
+    ]
+   },
+   {
+    "t": 304.12,
+    "kind": "evaluate",
+    "secs": 8.21,
+    "n_chunks": 6,
+    "window_ids": [
+     "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1431",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c146",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1643",
+     "kb-data-half:officer_role_pair"
+    ],
+    "relevant": false,
+    "reason": "The retrieved documents do not explicitly address whether the law requires separation of case registration and investigation roles. While they describe investigation procedures and case diary requirements, none state whether the same officer must register and investigate a case or if roles must be distinct. The data analysis in document 6 answers the 'what actually happens' part, but the norm clause (legal expectation) remains unaddressed."
+   },
+   {
+    "t": 310.58,
+    "kind": "rewrite",
+    "secs": 6.47,
+    "feedback": "The retrieved documents do not explicitly address whether the law requires separation of case registration and investigation roles. While they describe investigation procedures and case diary requirements, none state whether the same officer must register and investigate a case or if roles must be d",
+    "new_query": "Legal responsibilities of case registration and investigation officers under PPC — statutory requirements for role separation in criminal proceedings."
+   },
+   {
+    "t": 335.86,
+    "kind": "retrieval",
+    "secs": 25.28,
+    "query": "Legal responsibilities of case registration and investigation officers under PPC — statutory requirements for role separation in criminal proceedings.",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.9131,
+     0.9098,
+     0.9074,
+     0.8932,
+     0.8929,
+     0.8927,
+     0.8907,
+     0.8892,
+     0.8891,
+     0.8866
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 338.74,
+    "kind": "rerank_multi",
+    "secs": 2.88,
+    "n_in": 12,
+    "n_queries": 3,
+    "window": [
+     {
+      "id": "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+      "source": "3_1527157863PoliceOrder2002.pdf",
+      "rerank_score": 0.9387981295585632,
+      "rrf_score": 0.032522
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1431",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.661171019077301,
+      "rrf_score": 0.8907190561294556
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c137",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.8283097743988037,
+      "rrf_score": 0.016393
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.5779392719268799,
+      "rrf_score": 0.016129
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1643",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.4206889271736145,
+      "rrf_score": 0.8929417133331299
+     }
+    ]
+   },
+   {
+    "t": 349.28,
+    "kind": "evaluate",
+    "secs": 10.54,
+    "n_chunks": 6,
+    "window_ids": [
+     "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1431",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c137",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1643",
+     "kb-data-half:officer_role_pair"
+    ],
+    "relevant": false,
+    "reason": "The retrieved documents do not explicitly address whether the law expects the same officer to register and investigate a case or if they must be separate roles. While they describe investigative procedures and hierarchy, they lack a direct legal provision or rule that clarifies role separation expectations. The case data (document 6) answers the 'what actually happens' part, but the norm clause (legal expectation) remains unaddressed."
+   }
+  ]
+ },
+ {
+  "id": "KB5",
+  "run": 1,
+  "arm": "before",
+  "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+  "status": "ok",
+  "served_answer": "**Part 1: Legal Requirements**  \nUnder the **Anti-Rape (Investigation and Trial) Act, 2021**, specific procedures apply when a case involves violence against a woman:  \n- A **lady police officer must be involved immediately** during FIR registration or at the ARCC (Document 1, section 4(1)).  \n- The **victim’s statement must be recorded in private**, with prior consent, and in the presence of a person of the victim’s choice (Document 1, section 4(2)).  \n- The **officer-in-charge must ensure a female police officer is present** during the victim’s statements, medico-legal examinations, and DNA sample submissions (Document 3, section 3(d)).  \n- **Victim protection measures** include special security, identity concealment, and video-conferencing for testimonies (Document 4, section 8).  \n\n**Part 2: Case Records Analysis**  \nOur case records (Document 7) show:  \n- **4 out of 8 domestic-violence reports** have a **forwarded FIR number** matching an active FIR (e.g., `pkm_application:pkm-app-c9-02 → fir-97-26`).  \n- The **remaining 4 reports** **do not record any forwarded FIR number**.  \n- The data **does not explicitly mention** whether female officers were present, victim protection measures (e.g., confidentiality, video-conferencing), or chain-of-custody documentation.  \n\n**Conclusion**: The law mandates additional safeguards for cases involving women, but the case records only confirm FIR linkage in half the cases. No information is provided on whether the specific procedural requirements (e.g., female officer involvement, victim privacy) were implemented.",
+  "caveats": [],
+  "error": null,
+  "elapsed_s": 215.7,
+  "evaluator_rounds": 3,
+  "verdicts": [
+   {
+    "relevant": false,
+    "reason": "The retrieved documents discuss procedures under the Anti-Rape Act (rape/sexual abuse cases) and general police equipment rules, but do not explicitly address legal procedures or data tracking for domestic violence cases. The case records mention FIR numbers but do not indicate any special measures specific to domestic violence against women."
+   },
+   {
+    "relevant": false,
+    "reason": "The retrieved documents specifically address procedures under the Anti-Rape Act, not domestic violence cases. They mention legal measures for rape victims (e.g., lady police officers, private statement recording) but do not explicitly cover domestic violence against women. Additionally, while case records show some domestic violence reports with FIR numbers, they do not confirm whether the specific legal measures (e.g., special security, victim support) were implemented in those cases."
+   },
+   {
+    "relevant": true,
+    "reason": "Documents specify legal procedures for domestic violence cases under the Anti-Rape Act (e.g., female officer involvement, private statement recording), directly answering the norm clause. However, they do not address whether case data shows implementation of these measures (data clause). For compound questions, answering the norm clause is sufficient."
+   }
+  ],
+  "cloud_fallbacks": [],
+  "generation": "local",
+  "events": [
+   {
+    "t": 41.29,
+    "kind": "retrieval",
+    "secs": 24.12,
+    "query": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+    "n_semantic": 30,
+    "n_lexical": 30,
+    "top_semantic": [
+     0.8993,
+     0.8971,
+     0.8971,
+     0.8954,
+     0.8936,
+     0.8911,
+     0.8856,
+     0.8781,
+     0.8779,
+     0.8765
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 47.05,
+    "kind": "rerank_multi",
+    "secs": 5.76,
+    "n_in": 32,
+    "n_queries": 3,
+    "window": [
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c21",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.990672767162323,
+      "rrf_score": 0.015652
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c118",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.36954793334007263,
+      "rrf_score": 0.026414
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c47",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.6468532681465149,
+      "rrf_score": 0.014199
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c111",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.9536210894584656,
+      "rrf_score": 0.016629
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c110",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.9622892141342163,
+      "rrf_score": 0.033287
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1669",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.44868218898773193,
+      "rrf_score": 0.014286
+     }
+    ]
+   },
+   {
+    "t": 55.0,
+    "kind": "evaluate",
+    "secs": 7.93,
+    "n_chunks": 7,
+    "window_ids": [
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c21",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c118",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c47",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c111",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c110",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1669",
+     "kb-data-half:violence_against_women"
+    ],
+    "relevant": false,
+    "reason": "The retrieved documents discuss procedures under the Anti-Rape Act (rape/sexual abuse cases) and general police equipment rules, but do not explicitly address legal procedures or data tracking for domestic violence cases. The case records mention FIR numbers but do not indicate any special measures specific to domestic violence against women."
+   },
+   {
+    "t": 62.13,
+    "kind": "rewrite",
+    "secs": 7.12,
+    "feedback": "The retrieved documents discuss procedures under the Anti-Rape Act (rape/sexual abuse cases) and general police equipment rules, but do not explicitly address legal procedures or data tracking for domestic violence cases. The case records mention FIR numbers but do not indicate any special measures ",
+    "new_query": "کیا گھریلو تشدد کے مقدمات میں قانونی طریقۂ کار عام مقدمات سے مختلف ہے — اور اگر ہاں، تو کیا ڈیٹا میں ایسے مقدمات کے لیے خاص اقدامات کی توثیق ہے؟ POWAVA کے تحت طریقۂ کار اور FIR نمبرز کے ساتھ ریکارڈ کردہ اقدامات کا تفصیلی تحلیل کریں۔"
+   },
+   {
+    "t": 86.58,
+    "kind": "retrieval",
+    "secs": 24.46,
+    "query": "کیا گھریلو تشدد کے مقدمات میں قانونی طریقۂ کار عام مقدمات سے مختلف ہے — اور اگر ہاں، تو کیا ڈیٹا میں ایسے مقدمات کے لیے خاص اقدامات کی توثیق ہے؟ POWAVA کے تحت طریقۂ کار اور FIR نمبرز کے ساتھ ریکارڈ کردہ اقدامات کا تفصیلی تحلیل کریں۔",
+    "n_semantic": 30,
+    "n_lexical": 30,
+    "top_semantic": [
+     0.8993,
+     0.8971,
+     0.8971,
+     0.8954,
+     0.8936,
+     0.8911,
+     0.8856,
+     0.8781,
+     0.8779,
+     0.8765
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 92.02,
+    "kind": "rerank_multi",
+    "secs": 5.44,
+    "n_in": 32,
+    "n_queries": 3,
+    "window": [
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c118",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.36954793334007263,
+      "rrf_score": 0.024209
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c47",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.6468532681465149,
+      "rrf_score": 0.014199
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c150",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.45842573046684265,
+      "rrf_score": 0.016125
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c146",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.5911877751350403,
+      "rrf_score": 0.015885
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c143",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.8645815849304199,
+      "rrf_score": 0.016125
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c21",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.990672767162323,
+      "rrf_score": 0.015652
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1669",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.44868218898773193,
+      "rrf_score": 0.014286
+     }
+    ]
+   },
+   {
+    "t": 101.6,
+    "kind": "evaluate",
+    "secs": 9.53,
+    "n_chunks": 8,
+    "window_ids": [
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c118",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c47",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c150",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c146",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c143",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c21",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1669",
+     "kb-data-half:violence_against_women"
+    ],
+    "relevant": false,
+    "reason": "The retrieved documents specifically address procedures under the Anti-Rape Act, not domestic violence cases. They mention legal measures for rape victims (e.g., lady police officers, private statement recording) but do not explicitly cover domestic violence against women. Additionally, while case records show some domestic violence reports with FIR numbers, they do not confirm whether the specific legal measures (e.g., special security, victim support) were implemented in those cases."
+   },
+   {
+    "t": 119.32,
+    "kind": "rewrite",
+    "secs": 17.72,
+    "feedback": "The retrieved documents specifically address procedures under the Anti-Rape Act, not domestic violence cases. They mention legal measures for rape victims (e.g., lady police officers, private statement recording) but do not explicitly cover domestic violence against women. Additionally, while case r",
+    "new_query": "کیا قانون عورت پر تشدد کے مقدمات میں خصوصی قانونی طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ڈیٹا میں ایسے مقدمات کے لیے خصوصی اقدامات کی توثیق ہے؟ FIR نمبرز کے ساتھ ریکارڈ کردہ اقدامات کا تفصیلی تحلیل کریں۔"
+   },
+   {
+    "t": 153.67,
+    "kind": "retrieval",
+    "secs": 34.35,
+    "query": "کیا قانون عورت پر تشدد کے مقدمات میں خصوصی قانونی طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ڈیٹا میں ایسے مقدمات کے لیے خصوصی اقدامات کی توثیق ہے؟ FIR نمبرز کے ساتھ ریکارڈ کردہ اقدامات کا تفصیلی تحلیل کریں۔",
+    "n_semantic": 30,
+    "n_lexical": 30,
+    "top_semantic": [
+     0.8993,
+     0.8971,
+     0.8971,
+     0.8954,
+     0.8936,
+     0.8911,
+     0.8856,
+     0.8781,
+     0.8779,
+     0.8765
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 157.88,
+    "kind": "rerank_multi",
+    "secs": 4.21,
+    "n_in": 32,
+    "n_queries": 3,
+    "window": [
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c150",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.45842573046684265,
+      "rrf_score": 0.016125
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c21",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.990672767162323,
+      "rrf_score": 0.015652
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c146",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.5911877751350403,
+      "rrf_score": 0.014786
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c47",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.6468532681465149,
+      "rrf_score": 0.014199
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c118",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.36954793334007263,
+      "rrf_score": 0.023641
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1669",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.44868218898773193,
+      "rrf_score": 0.014286
+     }
+    ]
+   },
+   {
+    "t": 174.88,
+    "kind": "evaluate",
+    "secs": 16.98,
+    "n_chunks": 7,
+    "window_ids": [
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c150",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c21",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c146",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c47",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c118",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1669",
+     "kb-data-half:violence_against_women"
+    ],
+    "relevant": true,
+    "reason": "Documents specify legal procedures for domestic violence cases under the Anti-Rape Act (e.g., female officer involvement, private statement recording), directly answering the norm clause. However, they do not address whether case data shows implementation of these measures (data clause). For compound questions, answering the norm clause is sufficient."
+   },
+   {
+    "t": 195.05,
+    "kind": "generation",
+    "secs": 20.18,
+    "chars": 1581
+   },
+   {
+    "t": 215.71,
+    "kind": "verify",
+    "secs": 20.66,
+    "grounded": true,
+    "off_topic": false
+   }
+  ]
+ },
+ {
+  "id": "KB6",
+  "run": 1,
+  "arm": "before",
+  "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+  "status": "abstained",
+  "served_answer": null,
+  "caveats": [
+   "The generated answer could not be verified as grounded in the retrieved documents."
+  ],
+  "error": null,
+  "elapsed_s": 107.2,
+  "evaluator_rounds": 1,
+  "verdicts": [
+   {
+    "relevant": true,
+    "reason": "Documents 5 and 6 from the forensics guidelines specify handling procedures for recovered weapons (e.g., packaging in hard boxes, preserving trajectory evidence, submitting firearms with recovery liquid). Document 7 confirms the weapon register lacks fields to record whether proper handling actions (packaging, sealing, photography, chain of custody) were completed, directly addressing both parts of the question."
+   }
+  ],
+  "cloud_fallbacks": [],
+  "generation": "local",
+  "events": [
+   {
+    "t": 44.82,
+    "kind": "retrieval",
+    "secs": 24.16,
+    "query": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+    "n_semantic": 30,
+    "n_lexical": 30,
+    "top_semantic": [
+     0.8913,
+     0.8848,
+     0.8821,
+     0.8816,
+     0.8796,
+     0.8782,
+     0.875,
+     0.8748,
+     0.8739,
+     0.8724
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 50.47,
+    "kind": "rerank_multi",
+    "secs": 5.65,
+    "n_in": 32,
+    "n_queries": 3,
+    "window": [
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c537",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.13779206573963165,
+      "rrf_score": 0.8681037425994873
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c792",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.3086879849433899,
+      "rrf_score": 0.015625
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c793",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.29939478635787964,
+      "rrf_score": 0.016393
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c550",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.06851980835199356,
+      "rrf_score": 0.014493
+     },
+     {
+      "id": "5_Forensics_guidelines_pdf_62ee00b3_c21",
+      "source": "5_Forensics_guidelines.pdf",
+      "rerank_score": 0.03266293182969093,
+      "rrf_score": 0.014286
+     },
+     {
+      "id": "5_Forensics_guidelines_pdf_62ee00b3_c0",
+      "source": "5_Forensics_guidelines.pdf",
+      "rerank_score": 0.6043816208839417,
+      "rrf_score": 0.013514
+     }
+    ]
+   },
+   {
+    "t": 58.83,
+    "kind": "evaluate",
+    "secs": 8.35,
+    "n_chunks": 7,
+    "window_ids": [
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c537",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c792",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c793",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c550",
+     "5_Forensics_guidelines_pdf_62ee00b3_c21",
+     "5_Forensics_guidelines_pdf_62ee00b3_c0",
+     "kb-data-half:weapon_register"
+    ],
+    "relevant": true,
+    "reason": "Documents 5 and 6 from the forensics guidelines specify handling procedures for recovered weapons (e.g., packaging in hard boxes, preserving trajectory evidence, submitting firearms with recovery liquid). Document 7 confirms the weapon register lacks fields to record whether proper handling actions (packaging, sealing, photography, chain of custody) were completed, directly addressing both parts of the question."
+   },
+   {
+    "t": 69.43,
+    "kind": "generation",
+    "secs": 10.6,
+    "chars": 1285
+   },
+   {
+    "t": 107.18,
+    "kind": "verify",
+    "secs": 37.74,
+    "grounded": false,
+    "off_topic": false
+   }
+  ]
+ },
+ {
+  "id": "KB8",
+  "run": 1,
+  "arm": "before",
+  "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+  "status": "ok",
+  "served_answer": "**Part 1: Legal Requirement**  \nYes, the law requires police to report to the court if an investigation is delayed. Under **Section 173** of the Code of Criminal Procedure (Pakistan), investigations must be completed without unnecessary delay. If they are not completed within **14 days** of the first information report (FIR), an **interim report** must be forwarded to the Magistrate within **three days** of the expiration of this period, as specified in **Document 4**. This interim report is to inform the court of the investigation’s progress and allow the trial to commence based on it, unless the court decides otherwise.  \n\n**Part 2: Case-Tracking Data**  \nOur case-tracking data **does not show** whether interim reports were submitted. **Document 8** explicitly states that the schema for case records includes **no \"interim-report\" record type** and **no field linking a challan back to the start of its investigation**. While the data confirms that 26 challans were sent to court, it cannot verify whether the legal duty of interim reporting was fulfilled during prolonged investigations. The absence of such fields means the data is silent on this matter.",
+  "caveats": [],
+  "error": null,
+  "elapsed_s": 104.4,
+  "evaluator_rounds": 1,
+  "verdicts": [
+   {
+    "relevant": true,
+    "reason": "The retrieved documents address both parts of the compound question: (1) Legal requirements for reporting prolonged investigations are covered in Code of Criminal Procedure sections 154 (interim reports after 14 days) and 173 (investigation completion timelines), and (2) Case-tracking data limitations are explicitly described in the 'our own case records' document, which explains the absence of interim-report tracking in the schema."
+   }
+  ],
+  "cloud_fallbacks": [],
+  "generation": "local",
+  "events": [
+   {
+    "t": 57.36,
+    "kind": "retrieval",
+    "secs": 24.77,
+    "query": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+    "n_semantic": 30,
+    "n_lexical": 30,
+    "top_semantic": [
+     0.9063,
+     0.8976,
+     0.8962,
+     0.8942,
+     0.8928,
+     0.8923,
+     0.8922,
+     0.8906,
+     0.8902,
+     0.8849
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 62.01,
+    "kind": "rerank_multi",
+    "secs": 4.65,
+    "n_in": 32,
+    "n_queries": 3,
+    "window": [
+     {
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c752",
+      "source": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+      "rerank_score": 0.8582650423049927,
+      "rrf_score": 0.015625
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c137",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.4907333552837372,
+      "rrf_score": 0.016393
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1431",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.48314517736434937,
+      "rrf_score": 0.014286
+     },
+     {
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c757",
+      "source": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+      "rerank_score": 0.90571528673172,
+      "rrf_score": 0.016393
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1297",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.26455411314964294,
+      "rrf_score": 0.015385
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1662",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.21464061737060547,
+      "rrf_score": 0.015385
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1643",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.8091009855270386,
+      "rrf_score": 0.014706
+     }
+    ]
+   },
+   {
+    "t": 71.22,
+    "kind": "evaluate",
+    "secs": 9.18,
+    "n_chunks": 8,
+    "window_ids": [
+     "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c752",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c137",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1431",
+     "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c757",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1297",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1662",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1643",
+     "kb-data-half:chalaan_dispatch"
+    ],
+    "relevant": true,
+    "reason": "The retrieved documents address both parts of the compound question: (1) Legal requirements for reporting prolonged investigations are covered in Code of Criminal Procedure sections 154 (interim reports after 14 days) and 173 (investigation completion timelines), and (2) Case-tracking data limitations are explicitly described in the 'our own case records' document, which explains the absence of interim-report tracking in the schema."
+   },
+   {
+    "t": 81.07,
+    "kind": "generation",
+    "secs": 9.85,
+    "chars": 1169
+   },
+   {
+    "t": 104.37,
+    "kind": "verify",
+    "secs": 23.3,
+    "grounded": true,
+    "off_topic": false
+   }
+  ]
+ },
+ {
+  "id": "KB9",
+  "run": 1,
+  "arm": "before",
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "status": "abstained",
+  "served_answer": null,
+  "caveats": [
+   "The generated answer could not be verified as grounded in the retrieved documents."
+  ],
+  "error": null,
+  "elapsed_s": 211.8,
+  "evaluator_rounds": 2,
+  "verdicts": [
+   {
+    "relevant": false,
+    "reason": "The retrieved documents describe legal procedures for conducting inquests and investigations under Sections 174/176 of the Code of Criminal Procedure, but they do not address whether the system (e.g., case records, databases, or administrative logs) actually records these investigations. The user specifically asked about system-level documentation of such cases, which is not covered in the retrieved materials."
+   },
+   {
+    "relevant": true,
+    "reason": "The retrieved documents directly address the legal procedures under Sections 174/176 of the Code of Criminal Procedure, which govern the requirement for police to conduct investigations into suspicious deaths. While they do not explicitly mention system-wide record-keeping mechanisms, the norm clause (legal requirement) is sufficiently answered, fulfilling the compound question's primary component."
+   }
+  ],
+  "cloud_fallbacks": [],
+  "generation": "local",
+  "events": [
+   {
+    "t": 58.87,
+    "kind": "retrieval",
+    "secs": 25.27,
+    "query": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+    "n_semantic": 30,
+    "n_lexical": 30,
+    "top_semantic": [
+     0.9229,
+     0.9165,
+     0.9159,
+     0.9143,
+     0.91,
+     0.9083,
+     0.9072,
+     0.907,
+     0.9045,
+     0.9035
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 64.86,
+    "kind": "rerank_multi",
+    "secs": 5.99,
+    "n_in": 32,
+    "n_queries": 3,
+    "window": [
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.8116701245307922,
+      "rrf_score": 0.016129
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.7767027020454407,
+      "rrf_score": 0.015385
+     },
+     {
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c779",
+      "source": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+      "rerank_score": 0.923671305179596,
+      "rrf_score": 0.016393
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1548",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.9347289204597473,
+      "rrf_score": 0.015152
+     },
+     {
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c35",
+      "source": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+      "rerank_score": 0.7837211489677429,
+      "rrf_score": 0.028577
+     }
+    ]
+   },
+   {
+    "t": 76.9,
+    "kind": "evaluate",
+    "secs": 12.01,
+    "n_chunks": 6,
+    "window_ids": [
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+     "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c779",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1548",
+     "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c35",
+     "kb-data-half:death_investigation_charging"
+    ],
+    "relevant": false,
+    "reason": "The retrieved documents describe legal procedures for conducting inquests and investigations under Sections 174/176 of the Code of Criminal Procedure, but they do not address whether the system (e.g., case records, databases, or administrative logs) actually records these investigations. The user specifically asked about system-level documentation of such cases, which is not covered in the retrieved materials."
+   },
+   {
+    "t": 81.71,
+    "kind": "rewrite",
+    "secs": 4.81,
+    "feedback": "The retrieved documents describe legal procedures for conducting inquests and investigations under Sections 174/176 of the Code of Criminal Procedure, but they do not address whether the system (e.g., case records, databases, or administrative logs) actually records these investigations. The user sp",
+    "new_query": "Does the police system maintain case records or administrative logs documenting inquests and investigations under Code of Criminal Procedure Sections 174/176 for suspicious deaths?"
+   },
+   {
+    "t": 129.53,
+    "kind": "retrieval",
+    "secs": 47.82,
+    "query": "Does the police system maintain case records or administrative logs documenting inquests and investigations under Code of Criminal Procedure Sections 174/176 for suspicious deaths?",
+    "n_semantic": 30,
+    "n_lexical": 30,
+    "top_semantic": [
+     0.9229,
+     0.9165,
+     0.9159,
+     0.9143,
+     0.91,
+     0.9083,
+     0.9072,
+     0.907,
+     0.9045,
+     0.9035
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 135.87,
+    "kind": "rerank_multi",
+    "secs": 6.35,
+    "n_in": 32,
+    "n_queries": 3,
+    "window": [
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1548",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.9347289204597473,
+      "rrf_score": 0.015152
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.7767027020454407,
+      "rrf_score": 0.015385
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.8116701245307922,
+      "rrf_score": 0.016129
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1978",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.5807230472564697,
+      "rrf_score": 0.013514
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1547",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.7707789540290833,
+      "rrf_score": 0.015873
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1544",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.6771970391273499,
+      "rrf_score": 0.013699
+     }
+    ]
+   },
+   {
+    "t": 168.74,
+    "kind": "evaluate",
+    "secs": 32.84,
+    "n_chunks": 7,
+    "window_ids": [
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1548",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1978",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1547",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1544",
+     "kb-data-half:death_investigation_charging"
+    ],
+    "relevant": true,
+    "reason": "The retrieved documents directly address the legal procedures under Sections 174/176 of the Code of Criminal Procedure, which govern the requirement for police to conduct investigations into suspicious deaths. While they do not explicitly mention system-wide record-keeping mechanisms, the norm clause (legal requirement) is sufficiently answered, fulfilling the compound question's primary component."
+   },
+   {
+    "t": 191.96,
+    "kind": "generation",
+    "secs": 23.23,
+    "chars": 1509
+   },
+   {
+    "t": 211.83,
+    "kind": "verify",
+    "secs": 19.87,
+    "grounded": false,
+    "off_topic": false
+   }
+  ]
+ }
+]

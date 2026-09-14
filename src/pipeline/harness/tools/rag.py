@@ -80,6 +80,7 @@ from src.pipeline.harness.types import (
 )
 from src.pipeline.query_expander import expand_query
 from src.pipeline.query_rewriter import rewrite_for_retry
+from src.pipeline.retry_gate import retry_could_help
 from src.pipeline.statute_hypothesis import (
     generate_statute_queries,
     render_question_in_english,
@@ -191,6 +192,21 @@ class RagToolResult(ToolResult):
             "retry found zero candidates from both semantic and lexical "
             "search, suggesting the underlying corpus is empty rather than "
             "merely irrelevant to this question."
+        ),
+    )
+    # [Gold-QA fix — Module 143] True when the loop stopped after the
+    # FIRST rejected pass because `retry_gate.retry_could_help()` read the
+    # evaluator's reason as "the missing thing is a cross-case aggregate no
+    # document holds" — see `_run_retrieval_loop`. Observability only: the
+    # status/verdict pair is exactly what retry exhaustion produces, so no
+    # caller has to branch on it. Never True on the legal-KB path.
+    zero_signal_abstention: bool = Field(
+        default=False,
+        description=(
+            "True when the retry loop abstained after attempt 1 without "
+            "retrying, because the evaluator's stated reason named a kind "
+            "of information (a count, rate, average, frequency or other "
+            "cross-case figure) that no document in the corpus holds."
         ),
     )
 
@@ -1536,10 +1552,8 @@ async def _run_retrieval_loop(
             logger.error("RAG tool: evaluator failed: %s", exc)
             evaluation = {"relevant": True, "reason": "Evaluator failed, proceeding"}
             evaluator_unavailable = True
-        _emit("evaluator", "done",
-              "Relevant" if evaluation.get("relevant", False) else "Not relevant — retrying")
-
         if evaluation.get("relevant", False):
+            _emit("evaluator", "done", "Relevant")
             return RagToolResult(
                 status=ToolStatus.OK,
                 chunks=[_to_evidence_chunk(c) for c in reranked],
@@ -1552,6 +1566,59 @@ async def _run_retrieval_loop(
             )
 
         evaluator_feedback = evaluation.get("reason")
+
+        # [Gold-QA fix — Module 143] Zero-signal first pass: stop here
+        # instead of paying for `config.MAX_RETRIES` more rewrite→retrieve→
+        # evaluate cycles (measured at 108–273 s per unanswerable question,
+        # every cycle re-running two query-expansion LLM calls, the
+        # evaluator and the rewriter) against a corpus that cannot hold the
+        # answer at any wording.
+        #
+        # WHAT THE SIGNAL IS, AND WHY IT IS THIS ONE (MODULE143_RESULT.md
+        # §1.2): the evaluator's verdict is a bare bool; its `reason` is
+        # the only thing that says WHY. No retrieval-side number separates
+        # the two cases — the filed query's attempt-1 top cross-encoder
+        # score was 0.12, and a plain-path near-miss the loop rescued on
+        # attempt 3 scored 0.06. `retry_could_help()` reads the reason and
+        # answers False only for "the missing thing is a cross-case
+        # aggregate"; it fails open (True) on any error, so the loop can
+        # only lose retries here, never gain or change one.
+        #
+        # PLAIN PATH ONLY (`not statute_queries`): every committed retry
+        # rescue in docs/gold-qa-wave2-results/ is a legal-KB question
+        # (62 of 62 — KB3/KB5/KB6/KB8/KB9), whose retries carry Module
+        # 30/39/52's statute-hypothesis and English-rendering machinery.
+        # That path — every gold KB question — is byte-for-byte unchanged.
+        # FIRST PASS ONLY (`retry_count == 0`): the brief is a zero-signal
+        # first pass; a later pass has already spent the money. A window
+        # that is empty keeps the old behaviour too — Module 5's
+        # `global_corpus_appears_empty` needs every attempt to come back
+        # empty, and one attempt is not "every".
+        if (
+            config.RETRY_GATE_ENABLED
+            and retry_count == 0
+            and not statute_queries
+            and reranked
+        ):
+            _emit("evaluator", "active", "Checking whether a reworded search could help…")
+            if not await retry_could_help(tool_input.query_text, evaluator_feedback or ""):
+                logger.info(
+                    "RAG tool: zero-signal first pass — the evaluator's reason names "
+                    "information this corpus does not hold; abstaining without retries."
+                )
+                _emit("evaluator", "done",
+                      "Not relevant — this corpus holds no such information; not retrying")
+                return RagToolResult(
+                    status=ToolStatus.EMPTY,
+                    retries_used=0,
+                    evaluator_verdict="not_relevant",
+                    zero_signal_abstention=True,
+                    # Candidates were found (`reranked` is non-empty), so
+                    # this can never be the Module 5 empty-corpus case.
+                    global_corpus_appears_empty=False,
+                )
+
+        _emit("evaluator", "done", "Not relevant — retrying")
         retry_count += 1
 
     # Retry budget exhausted without a "relevant" verdict — abstain, not an

@@ -1,0 +1,1047 @@
+[
+  {
+    "id": "M143",
+    "run": 1,
+    "arm": "before",
+    "question": "How often is the officer who registers an FIR also the officer who investigates the case?",
+    "actual_answer": "No sufficiently relevant documents were found for this question after retrying with query refinements.",
+    "last_dispatch_route": "RAG",
+    "status": "error",
+    "evaluator_events": [
+      "active:Checking relevance…",
+      "done:Not relevant — retrying",
+      "active:Checking relevance…",
+      "done:Not relevant — retrying",
+      "active:Checking relevance…",
+      "done:Not relevant — retrying"
+    ],
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 190.3,
+    "evaluator_rounds": 3,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c145",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c146",
+          "2022 (Amendments upto date).pdf]",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c299",
+          "psrms_fir_fir-212-26#zimni_FZ-C112-5_30e4a9a6_c0",
+          "psrms_fir_fir-1001-26#zimni_FZ-C901-5_2dec54bc_c1"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "psrms_fir_fir-460-26#zimni_FZ-C360-2_8860ca32_c0",
+          "psrms_fir_fir-460-26#zimni_FZ-C360-1_94e32d96_c1",
+          "psrms_fir_fir-233-26#zimni_FZ-C6-1_49d6009b_c0",
+          "psrms_fir_fir-416-26#zimni_FZ-C316-2_e453561b_c0",
+          "psrms_fir_fir-216-26#zimni_FZ-C116-4_fa3f3441_c0"
+        ]
+      },
+      {
+        "attempt": 3,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c18",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c146",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c40",
+          "2022 (Amendments upto date).pdf]",
+          "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1240",
+          "psrms_fir_fir-216-26#zimni_FZ-C116-1_16d67066_c0"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents do not explicitly address the relationship between the o"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents describe specific FIR case details (incident dates, invo"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents discuss FIR registration procedures, investigation offic"
+      }
+    ],
+    "retry_gate": [],
+    "zero_signal_abstention": false,
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": []
+  },
+  {
+    "id": "N1",
+    "run": 1,
+    "arm": "before",
+    "question": "Tell me about the armed robbery reported from Iqbal Town where a pistol was seized.",
+    "actual_answer": "No sufficiently relevant documents were found for this question after retrying with query refinements.",
+    "last_dispatch_route": "RAG",
+    "status": "error",
+    "evaluator_events": [
+      "active:Checking relevance…",
+      "done:Not relevant — retrying",
+      "active:Checking relevance…",
+      "done:Not relevant — retrying",
+      "active:Checking relevance…",
+      "done:Not relevant — retrying"
+    ],
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 233.5,
+    "evaluator_rounds": 3,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "psrms_fir_fir-212-26#narrative_d8abc19f_c1",
+          "psrms_fir_fir-421-26#narrative_f2071daa_c1",
+          "psrms_fir_fir-423-26#narrative_ecd0d856_c1",
+          "psrms_fir_fir-204-26#narrative_4ca370b1_c1",
+          "psrms_fir_fir-407-26#narrative_7e79e00f_c1"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "psrms_fir_fir-212-26#zimni_FZ-C112-2_85d70b31_c0",
+          "psrms_fir_fir-210-26#narrative_ff534793_c1",
+          "psrms_fir_fir-407-26#narrative_7e79e00f_c1",
+          "psrms_fir_fir-212-26#chalaan_property_CD-C112-1_b8aa1d72_c0",
+          "psrms_fir_fir-465-26#chalaan_property_CD-C365-1_6d06c766_c0"
+        ]
+      },
+      {
+        "attempt": 3,
+        "chunk_ids": [
+          "psrms_fir_fir-212-26#zimni_FZ-C112-2_85d70b31_c0",
+          "psrms_fir_fir-212-26#chalaan_property_CD-C112-1_b8aa1d72_c0",
+          "psrms_fir_fir-212-26#zimni_FZ-C112-3_41fb0063_c0",
+          "psrms_fir_fir-407-26#narrative_7e79e00f_c1",
+          "psrms_fir_fir-465-26#chalaan_property_CD-C365-1_6d06c766_c0"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "None of the retrieved documents mention Iqbal Town as the location of the armed "
+      },
+      {
+        "relevant": false,
+        "reason": "Retrieved documents mention armed robberies with seized pistols but are from Mod"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents reference FIR 212/26 in Model Town, Lahore, not Iqbal To"
+      }
+    ],
+    "retry_gate": [],
+    "zero_signal_abstention": false,
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": []
+  },
+  {
+    "id": "M143",
+    "run": 2,
+    "arm": "before",
+    "question": "How often is the officer who registers an FIR also the officer who investigates the case?",
+    "actual_answer": "No sufficiently relevant documents were found for this question after retrying with query refinements.",
+    "last_dispatch_route": "RAG",
+    "status": "error",
+    "evaluator_events": [
+      "active:Checking relevance…",
+      "done:Not relevant — retrying",
+      "active:Checking relevance…",
+      "done:Not relevant — retrying",
+      "active:Checking relevance…",
+      "done:Not relevant — retrying"
+    ],
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 210.6,
+    "evaluator_rounds": 3,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c146",
+          "2022 (Amendments upto date).pdf]",
+          "psrms_fir_fir-212-26#zimni_FZ-C112-5_30e4a9a6_c0",
+          "psrms_fir_fir-1001-26#zimni_FZ-C901-5_2dec54bc_c1",
+          "psrms_fir_fir-216-26#zimni_FZ-C116-5_9e7c1f32_c1",
+          "psrms_fir_fir-401-26#zimni_FZ-C301-5_1a9178e5_c0"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "psrms_fir_fir-435-26#zimni_FZ-C335-2_6b0daada_c0",
+          "psrms_fir_fir-216-26#zimni_FZ-C116-4_fa3f3441_c0",
+          "psrms_fir_fir-216-26#zimni_FZ-C116-2_d36ce3b5_c0",
+          "psrms_fir_fir-425-26#zimni_FZ-C325-1_03b74e4d_c1",
+          "psrms_fir_fir-426-26#narrative_a2b14a9a_c3"
+        ]
+      },
+      {
+        "attempt": 3,
+        "chunk_ids": [
+          "psrms_fir_fir-216-26#zimni_FZ-C116-1_16d67066_c0",
+          "psrms_fir_fir-460-26#zimni_FZ-C360-2_8860ca32_c0",
+          "psrms_fir_fir-233-26#zimni_FZ-C6-1_49d6009b_c0",
+          "psrms_fir_fir-212-26#zimni_FZ-C112-5_30e4a9a6_c0",
+          "psrms_fir_fir-142-26#narrative_8c7235e0_c1"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents do not mention any procedural guidelines, statistical da"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents mention PPC sections and investigation details for speci"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents are specific FIR case files that mention the investigati"
+      }
+    ],
+    "retry_gate": [],
+    "zero_signal_abstention": false,
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": []
+  },
+  {
+    "id": "N2",
+    "run": 1,
+    "arm": "before",
+    "question": "Kashif naam ke mulzim ke qabze se kya baramad hua tha?",
+    "actual_answer": "ملزم کاشف کے قبضے سے مختلف واقعات میں مختلف اشیاء برآمد ہوئیں:  \n1. **30 بور پستول** [Document 1][Document 2][Document 3].  \n2. **6 گولیاں** [Document 3].  \n3. **چرس کے پانچ پیکٹ** [Document 2].  \n\nتفصیل:  \n- [Document 1] میں کاشف (شناختی کارڈ: 00000-9000051-1) سے 30 بور پستول برآمد ہوئی۔  \n- [Document 2] میں کاشف (شناختی کارڈ: 00000-9000035-1) سے 30 بور پستول اور چرس کے پانچ پیکٹ برآمد ہوئیں۔  \n- [Document 3] میں کاشف (شناختی کارڈ: 00000-9000035-1) سے 30 بور پستول اور 6 گولیاں برآمد ہوئیں۔\n\n_A cited claim ([Document 3]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 00000, 1, 9000035._",
+    "last_dispatch_route": "RAG",
+    "status": "done",
+    "evaluator_events": [
+      "active:Checking relevance…",
+      "done:Relevant"
+    ],
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 255.2,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "psrms_fir_fir-217-26#narrative_9b3a00dd_c1",
+          "psrms_fir_fir-213-26#narrative_70666a63_c1",
+          "psrms_fir_fir-204-26#narrative_4ca370b1_c1",
+          "psrms_fir_fir-213-26#zimni_FZ-C113-1_a007d143_c1",
+          "psrms_fir_fir-449-26#narrative_7a46d42c_c1"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents explicitly mention that a 30-bore pistol was seized from"
+      }
+    ],
+    "retry_gate": [],
+    "zero_signal_abstention": false,
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": []
+  },
+  {
+    "id": "Z2",
+    "run": 1,
+    "arm": "before",
+    "question": "What is the average number of days between an FIR's registration and its first zimni entry?",
+    "actual_answer": "The provided document does not include any data related to FIR registration dates, zimni entries, or time intervals between events. It only aggregates case counts by statute and legal code. To calculate the average number of days between FIR registration and first zimni entry, temporal data from individual case records would be required, which is not available here [Document 1].",
+    "last_dispatch_route": "XAGG",
+    "status": "done",
+    "evaluator_events": [],
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 94.4,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "retry_gate": [],
+    "zero_signal_abstention": false,
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": []
+  },
+  {
+    "id": "M143",
+    "run": 3,
+    "arm": "before",
+    "question": "How often is the officer who registers an FIR also the officer who investigates the case?",
+    "actual_answer": "Document search was still retrying after 360 seconds and was stopped, so this question could not be answered from the documents. It may be better answered as a cross-case question (e.g. \"...across cases\", \"...in total\").",
+    "last_dispatch_route": "RAG",
+    "status": "error",
+    "evaluator_events": [
+      "active:Checking relevance…",
+      "done:Not relevant — retrying",
+      "active:Checking relevance…",
+      "done:Not relevant — retrying",
+      "active:Checking relevance…"
+    ],
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 441.4,
+    "evaluator_rounds": 3,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c145",
+          "2022 (Amendments upto date).pdf]",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c146",
+          "2022 (Amendments upto date).pdf]",
+          "psrms_fir_fir-212-26#zimni_FZ-C112-5_30e4a9a6_c0",
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c377",
+          "psrms_fir_fir-1001-26#zimni_FZ-C901-5_2dec54bc_c1"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "psrms_fir_fir-426-26#narrative_a2b14a9a_c3",
+          "psrms_fir_fir-460-26#zimni_FZ-C360-1_94e32d96_c1",
+          "psrms_fir_fir-435-26#zimni_FZ-C335-2_6b0daada_c0",
+          "psrms_fir_fir-425-26#zimni_FZ-C325-1_03b74e4d_c1",
+          "psrms_fir_fir-216-26#zimni_FZ-C116-4_fa3f3441_c0"
+        ]
+      },
+      {
+        "attempt": 3,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c146",
+          "2022 (Amendments upto date).pdf]",
+          "psrms_fir_fir-460-26#zimni_FZ-C360-2_8860ca32_c0",
+          "psrms_fir_fir-435-26#zimni_FZ-C335-2_6b0daada_c0",
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c144",
+          "2022 (Amendments upto date).pdf]",
+          "psrms_fir_fir-418-26#zimni_FZ-C318-2_48d6f242_c0"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents discuss FIR registration procedures, officer duties, and"
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents mention PPC sections related to FIR registration and ini"
+      }
+    ],
+    "retry_gate": [],
+    "zero_signal_abstention": false,
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": []
+  },
+  {
+    "id": "Z3",
+    "run": 1,
+    "arm": "before",
+    "question": "Which police station has the highest conviction rate this year?",
+    "actual_answer": "The provided document [Document 1] only lists the number of cases associated with each police station and does not include any data on conviction rates. Therefore, it is not possible to determine which police station has the highest conviction rate this year based on the information provided.",
+    "last_dispatch_route": "XAGG",
+    "status": "done",
+    "evaluator_events": [],
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 64.5,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "retry_gate": [],
+    "zero_signal_abstention": false,
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": []
+  },
+  {
+    "id": "Z4",
+    "run": 1,
+    "arm": "before",
+    "question": "Kitni baar FIR darj karne wala afsar hi us case ki tafteesh bhi karta hai?",
+    "actual_answer": "The provided data does not include information about which officers registered FIRs or conducted investigations, nor does it track overlaps between these roles. Document 1 only aggregates case counts by legal statute (e.g., PPC, CNSA 1997) and does not mention personnel, investigative assignments, or connections between FIR registration and investigation. Therefore, this question cannot be answered using the given data.",
+    "last_dispatch_route": "XAGG",
+    "status": "done",
+    "evaluator_events": [],
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 9.3,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "retry_gate": [],
+    "zero_signal_abstention": false,
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": []
+  },
+  {
+    "id": "M143-P1",
+    "run": 1,
+    "arm": "before",
+    "question": "In what proportion of our cases does the same officer both register the FIR and carry out the investigation?",
+    "actual_answer": "(no matching cases found)\n\n_The natural-language summary could not be verified as an accurate paraphrase; showing the raw computed aggregate instead._",
+    "last_dispatch_route": "XAGG",
+    "status": "done",
+    "evaluator_events": [],
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 45.1,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "retry_gate": [],
+    "zero_signal_abstention": false,
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": []
+  },
+  {
+    "id": "M143-P2",
+    "run": 1,
+    "arm": "before",
+    "question": "Hamare cases mein kitni dafa aisa hota hai ke FIR likhne wala afsar hi tafteesh bhi karta hai?",
+    "actual_answer": "The provided data does not include information about the relationship between FIR authors and investigators, such as whether the same officer handled both tasks. The document only aggregates cases by the legal statutes they were registered under (e.g., PPC, CNSA 1997) and does not track procedural details like officer roles or overlaps in responsibilities. To answer this question, additional data specifically tracking FIR-writing and investigation assignments would be required.",
+    "last_dispatch_route": "XAGG",
+    "status": "done",
+    "evaluator_events": [],
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 5.7,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "retry_gate": [],
+    "zero_signal_abstention": false,
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": []
+  },
+  {
+    "id": "P1",
+    "run": 1,
+    "arm": "before",
+    "question": "What weapon was recovered from the accused in FIR 1001/26, and who was the complainant?",
+    "actual_answer": "No case was selected, so this answers about fir-1001-26, as named in your question.; The generated case summary could not be verified as grounded in the retrieved case material.",
+    "last_dispatch_route": "GRAPH",
+    "status": "error",
+    "evaluator_events": [],
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 172.8,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "psrms_fir_fir-1001-26#zimni_FZ-C901-3_cb00a914_c0",
+          "psrms_fir_fir-1001-26#zimni_FZ-C901-4_c07cf450_c0",
+          "psrms_fir_fir-1001-26#zimni_FZ-C901-5_2dec54bc_c1",
+          "psrms_fir_fir-1001-26#zimni_FZ-C901-1_005a05dc_c0",
+          "psrms_fir_fir-1001-26#zimni_FZ-C901-2_8e533a08_c0"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "Documents [1] and [2] explicitly state the recovered weapon (30-bore pistol with"
+      },
+      {
+        "relevant": true,
+        "reason": "Documents explicitly name the recovered weapon as '30-bore pistol with 6 bullets"
+      }
+    ],
+    "retry_gate": [],
+    "zero_signal_abstention": false,
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": []
+  },
+  {
+    "id": "N1",
+    "run": 2,
+    "arm": "before",
+    "question": "Tell me about the armed robbery reported from Iqbal Town where a pistol was seized.",
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "last_dispatch_route": "RAG",
+    "status": "error",
+    "evaluator_events": [
+      "active:Checking relevance…",
+      "done:Not relevant — retrying",
+      "active:Checking relevance…",
+      "done:Relevant"
+    ],
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 132.7,
+    "evaluator_rounds": 2,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "psrms_fir_fir-212-26#narrative_d8abc19f_c1",
+          "psrms_fir_fir-421-26#narrative_f2071daa_c1",
+          "psrms_fir_fir-423-26#narrative_ecd0d856_c1",
+          "psrms_fir_fir-204-26#narrative_4ca370b1_c1",
+          "psrms_fir_fir-407-26#narrative_7e79e00f_c1"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "psrms_fir_fir-212-26#narrative_d8abc19f_c1",
+          "psrms_fir_fir-421-26#narrative_f2071daa_c1",
+          "psrms_fir_fir-409-26#narrative_c430890d_c1",
+          "psrms_fir_fir-466-26#narrative_97aa8e17_c1",
+          "psrms_fir_fir-407-26#narrative_7e79e00f_c1"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "None of the retrieved documents mention Iqbal Town as the location of the armed "
+      },
+      {
+        "relevant": true,
+        "reason": "Document 1 explicitly describes an armed robbery in Iqbal Town involving a pisto"
+      }
+    ],
+    "retry_gate": [],
+    "zero_signal_abstention": false,
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": []
+  },
+  {
+    "id": "M143",
+    "run": 1,
+    "arm": "after",
+    "question": "How often is the officer who registers an FIR also the officer who investigates the case?",
+    "expected_answer": null,
+    "actual_answer": "No sufficiently relevant documents were found for this question after retrying with query refinements.",
+    "last_dispatch_route": "RAG",
+    "status": "error",
+    "evaluator_events": [
+      "active:Checking relevance…",
+      "active:Checking whether a reworded search could help…",
+      "done:Not relevant — this corpus holds no such information; not retrying"
+    ],
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 63.6,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c146",
+          "2022 (Amendments upto date).pdf]",
+          "psrms_fir_fir-212-26#zimni_FZ-C112-5_30e4a9a6_c0",
+          "psrms_fir_fir-1001-26#zimni_FZ-C901-5_2dec54bc_c1",
+          "psrms_fir_fir-216-26#zimni_FZ-C116-5_9e7c1f32_c1",
+          "psrms_fir_fir-401-26#zimni_FZ-C301-5_1a9178e5_c0"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents do not mention any procedural guidelines, statistical da"
+      }
+    ],
+    "retry_gate": [
+      {
+        "retry_could_help": false,
+        "reason": "The question asks for a frequency across cases (how often), which is a statistical aggregate not present in any document"
+      }
+    ],
+    "zero_signal_abstention": true,
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": []
+  },
+  {
+    "id": "N1",
+    "run": 1,
+    "arm": "after",
+    "question": "Tell me about the armed robbery reported from Iqbal Town where a pistol was seized.",
+    "expected_answer": null,
+    "actual_answer": "The armed robbery reported from Iqbal Town, Faisalabad, is detailed in [Document 1]. On 14-02-2026, a raid conducted based on a tip-off led to the seizure of **30-bore pistols with 3 bullets**, **opium in five packets**, and **a mobile phone** from the suspects Nadeem (CNIC: 00000-9000014-1) and Salman (CNIC: 00000-9000015-1). The FIR number for this case is **403/26**. While the document does not explicitly mention an \"armed robbery,\" it describes the seizure of firearms during a police operation. Other documents mention armed robberies in different locations (e.g., Nishtr Colony, Samnaabad), but none specifically reference Iqbal Town.",
+    "last_dispatch_route": "RAG",
+    "status": "done",
+    "evaluator_events": [
+      "active:Checking relevance…",
+      "active:Checking whether a reworded search could help…",
+      "done:Not relevant — retrying",
+      "active:Checking relevance…",
+      "done:Not relevant — retrying",
+      "active:Checking relevance…",
+      "done:Relevant"
+    ],
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 195.0,
+    "evaluator_rounds": 3,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "psrms_fir_fir-212-26#narrative_d8abc19f_c1",
+          "psrms_fir_fir-421-26#narrative_f2071daa_c1",
+          "psrms_fir_fir-423-26#narrative_ecd0d856_c1",
+          "psrms_fir_fir-204-26#narrative_4ca370b1_c1",
+          "psrms_fir_fir-407-26#narrative_7e79e00f_c1"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "psrms_fir_fir-212-26#zimni_FZ-C112-2_85d70b31_c0",
+          "psrms_fir_fir-210-26#narrative_ff534793_c1",
+          "psrms_fir_fir-407-26#zimni_FZ-C307-3_5cfbd490_c0",
+          "psrms_fir_fir-212-26#zimni_FZ-C112-3_41fb0063_c0",
+          "psrms_fir_fir-212-26#chalaan_property_CD-C112-1_b8aa1d72_c0"
+        ]
+      },
+      {
+        "attempt": 3,
+        "chunk_ids": [
+          "psrms_fir_fir-403-26#narrative_4a3025e8_c1",
+          "psrms_fir_fir-401-26#narrative_97ee14d4_c1",
+          "psrms_fir_fir-212-26#narrative_d8abc19f_c1",
+          "psrms_fir_fir-421-26#narrative_f2071daa_c1",
+          "psrms_fir_fir-423-26#narrative_ecd0d856_c1"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "None of the retrieved documents mention Iqbal Town as the location of the armed "
+      },
+      {
+        "relevant": false,
+        "reason": "Retrieved documents reference Model Town and Burki, Lahore, not Iqbal Town as sp"
+      },
+      {
+        "relevant": true,
+        "reason": "Document 1 directly addresses the armed robbery in Iqbal Town (FIR-403-26) and e"
+      }
+    ],
+    "retry_gate": [
+      {
+        "retry_could_help": true,
+        "reason": "A specific place (Iqbal Town) is missing; a reworded search may find the case file that names it."
+      }
+    ],
+    "zero_signal_abstention": false,
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": []
+  },
+  {
+    "id": "M143",
+    "run": 2,
+    "arm": "after",
+    "question": "How often is the officer who registers an FIR also the officer who investigates the case?",
+    "expected_answer": null,
+    "actual_answer": "No sufficiently relevant documents were found for this question after retrying with query refinements.",
+    "last_dispatch_route": "RAG",
+    "status": "error",
+    "evaluator_events": [
+      "active:Checking relevance…",
+      "active:Checking whether a reworded search could help…",
+      "done:Not relevant — this corpus holds no such information; not retrying"
+    ],
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 64.0,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c146",
+          "2022 (Amendments upto date).pdf]",
+          "psrms_fir_fir-212-26#zimni_FZ-C112-5_30e4a9a6_c0",
+          "psrms_fir_fir-1001-26#zimni_FZ-C901-5_2dec54bc_c1",
+          "psrms_fir_fir-216-26#zimni_FZ-C116-5_9e7c1f32_c1",
+          "psrms_fir_fir-401-26#zimni_FZ-C301-5_1a9178e5_c0"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "The retrieved documents do not mention any procedural guidelines, statistical da"
+      }
+    ],
+    "retry_gate": [
+      {
+        "retry_could_help": false,
+        "reason": "The question asks for a frequency across cases (how often), which is a statistical aggregate not present in any document"
+      }
+    ],
+    "zero_signal_abstention": true,
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": []
+  },
+  {
+    "id": "N2",
+    "run": 1,
+    "arm": "after",
+    "question": "Kashif naam ke mulzim ke qabze se kya baramad hua tha?",
+    "expected_answer": null,
+    "actual_answer": "In the documents provided, three different individuals named **Kashif** (with distinct CNIC numbers) are mentioned, and the items seized from them are as follows:  \n\n1. **Kashif (CNIC: 00000-9000051-1)**: A **30-bore pistol** was seized during a robbery case (FIR 217/26) [Document 2].  \n2. **Kashif (CNIC: 00000-9000027-1)**: A **30-bore pistol and 3 bullets** were seized during an armed trespass case (FIR 210/26) [Document 3].  \n3. **Kashif (CNIC: 00000-9000058-1)**: A **30-bore pistol and 6 bullets** were seized during a robbery case (FIR 1001/26) [Document 5].  \n\nEach case involves a different individual named Kashif.\n\n_A cited claim ([Document 2]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 217, 26._",
+    "last_dispatch_route": "RAG",
+    "status": "done",
+    "evaluator_events": [
+      "active:Checking relevance…",
+      "done:Relevant"
+    ],
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 109.9,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "psrms_fir_fir-216-26#narrative_d849b364_c1",
+          "psrms_fir_fir-217-26#narrative_9b3a00dd_c1",
+          "psrms_fir_fir-210-26#narrative_ff534793_c1",
+          "psrms_fir_fir-216-26#zimni_FZ-C116-5_9e7c1f32_c1",
+          "psrms_fir_fir-1001-26#narrative_c8bf2613_c1"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": true,
+        "reason": "The retrieved documents mention that a 30-bore pistol and bullets were seized fr"
+      }
+    ],
+    "retry_gate": [],
+    "zero_signal_abstention": false,
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": []
+  },
+  {
+    "id": "M143",
+    "run": 3,
+    "arm": "after",
+    "question": "How often is the officer who registers an FIR also the officer who investigates the case?",
+    "expected_answer": null,
+    "actual_answer": "No sufficiently relevant documents were found for this question after retrying with query refinements.",
+    "last_dispatch_route": "RAG",
+    "status": "error",
+    "evaluator_events": [
+      "active:Checking relevance…",
+      "active:Checking whether a reworded search could help…",
+      "done:Not relevant — this corpus holds no such information; not retrying"
+    ],
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 60.4,
+    "evaluator_rounds": 1,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules",
+          "2022 (Amendments upto date)_pdf_d10a4de5_c146",
+          "2022 (Amendments upto date).pdf]",
+          "psrms_fir_fir-212-26#zimni_FZ-C112-5_30e4a9a6_c0",
+          "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c377",
+          "psrms_fir_fir-1001-26#zimni_FZ-C901-5_2dec54bc_c1",
+          "psrms_fir_fir-216-26#zimni_FZ-C116-5_9e7c1f32_c1"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "None of the retrieved documents address the procedural relationship between FIR "
+      }
+    ],
+    "retry_gate": [
+      {
+        "retry_could_help": false,
+        "reason": "The explanation refers to a frequency across cases, which no document in the collection holds."
+      }
+    ],
+    "zero_signal_abstention": true,
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": []
+  },
+  {
+    "id": "N1",
+    "run": 2,
+    "arm": "after",
+    "question": "Tell me about the armed robbery reported from Iqbal Town where a pistol was seized.",
+    "expected_answer": null,
+    "actual_answer": "The generated answer could not be verified as grounded in the retrieved documents.",
+    "last_dispatch_route": "RAG",
+    "status": "error",
+    "evaluator_events": [
+      "active:Checking relevance…",
+      "active:Checking whether a reworded search could help…",
+      "done:Not relevant — retrying",
+      "active:Checking relevance…",
+      "done:Not relevant — retrying",
+      "active:Checking relevance…",
+      "done:Relevant"
+    ],
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 187.0,
+    "evaluator_rounds": 3,
+    "attempts": [
+      {
+        "attempt": 1,
+        "chunk_ids": [
+          "psrms_fir_fir-212-26#narrative_d8abc19f_c1",
+          "psrms_fir_fir-421-26#narrative_f2071daa_c1",
+          "psrms_fir_fir-423-26#narrative_ecd0d856_c1",
+          "psrms_fir_fir-204-26#narrative_4ca370b1_c1",
+          "psrms_fir_fir-407-26#narrative_7e79e00f_c1"
+        ]
+      },
+      {
+        "attempt": 2,
+        "chunk_ids": [
+          "psrms_fir_fir-409-26#narrative_c430890d_c2",
+          "psrms_fir_fir-420-26#zimni_FZ-C320-4_c12247f8_c0",
+          "psrms_fir_fir-202-26#zimni_FZ-C102-2_26049ccf_c1",
+          "psrms_fir_fir-431-26#zimni_FZ-C331-1_e00f65fe_c1",
+          "psrms_fir_fir-430-26#zimni_FZ-C330-1_cfa6e4f7_c1"
+        ]
+      },
+      {
+        "attempt": 3,
+        "chunk_ids": [
+          "psrms_fir_fir-1001-26#crime_scene_91448b6e_c0",
+          "psrms_fir_fir-1001-26#chalaan_property_CD-C901-1_8968f362_c0",
+          "psrms_fir_fir-409-26#narrative_c430890d_c2",
+          "psrms_fir_fir-212-26#zimni_FZ-C112-2_85d70b31_c0",
+          "psrms_fir_fir-1001-26#zimni_FZ-C901-3_cb00a914_c0"
+        ]
+      }
+    ],
+    "evaluator_verdicts": [
+      {
+        "relevant": false,
+        "reason": "None of the retrieved documents mention Iqbal Town as the location of the armed "
+      },
+      {
+        "relevant": false,
+        "reason": "The retrieved documents mention armed robberies and pistol seizures under PPC 39"
+      },
+      {
+        "relevant": true,
+        "reason": "Documents 1, 2, and 5 directly reference FIR 1001/26 in Iqbal Town with sections"
+      }
+    ],
+    "retry_gate": [
+      {
+        "retry_could_help": true,
+        "reason": "A specific place (Iqbal Town) is missing; a reworded search may find the case file that names it."
+      }
+    ],
+    "zero_signal_abstention": false,
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": []
+  },
+  {
+    "id": "Z3",
+    "run": 1,
+    "arm": "after",
+    "question": "Which police station has the highest conviction rate this year?",
+    "expected_answer": null,
+    "actual_answer": "The provided document [Document 1] only lists the number of cases per police station and does not include data on conviction rates or outcomes (e.g., convictions, acquittals, pending cases). Therefore, it is not possible to determine which police station has the highest conviction rate based on this information alone.",
+    "last_dispatch_route": "XAGG",
+    "status": "done",
+    "evaluator_events": [],
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 28.0,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "retry_gate": [],
+    "zero_signal_abstention": false,
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": []
+  },
+  {
+    "id": "Z4",
+    "run": 1,
+    "arm": "after",
+    "question": "Kitni baar FIR darj karne wala afsar hi us case ki tafteesh bhi karta hai?",
+    "expected_answer": null,
+    "actual_answer": "The provided data does not include information about which officers registered FIRs or conducted investigations, so it is not possible to determine how many times an officer who registered an FIR also investigated the same case. This would require access to case files or internal police records tracking individual officer involvement, which are not included in [Document 1].",
+    "last_dispatch_route": "XAGG",
+    "status": "done",
+    "evaluator_events": [],
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 6.6,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "retry_gate": [],
+    "zero_signal_abstention": false,
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": []
+  },
+  {
+    "id": "M143-P1",
+    "run": 1,
+    "arm": "after",
+    "question": "In what proportion of our cases does the same officer both register the FIR and carry out the investigation?",
+    "expected_answer": null,
+    "actual_answer": "(no matching cases found)\n\n_The natural-language summary could not be verified as an accurate paraphrase; showing the raw computed aggregate instead._",
+    "last_dispatch_route": "XAGG",
+    "status": "done",
+    "evaluator_events": [],
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 23.8,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "retry_gate": [],
+    "zero_signal_abstention": false,
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": []
+  },
+  {
+    "id": "M143-P2",
+    "run": 1,
+    "arm": "after",
+    "question": "Hamare cases mein kitni dafa aisa hota hai ke FIR likhne wala afsar hi tafteesh bhi karta hai?",
+    "expected_answer": null,
+    "actual_answer": "The provided data does not include information about the relationship between FIR authors and investigators, such as whether the same officer handled both tasks. [Document 1] only aggregates case counts by the legal statutes involved (e.g., PPC, CNSA 1997) and does not mention procedural details like officer roles or overlaps in responsibilities. To answer this question, additional data tracking FIR-writing and investigation assignments would be required.",
+    "last_dispatch_route": "XAGG",
+    "status": "done",
+    "evaluator_events": [],
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 5.5,
+    "evaluator_rounds": 0,
+    "attempts": [],
+    "evaluator_verdicts": [],
+    "retry_gate": [],
+    "zero_signal_abstention": false,
+    "generation": [
+      "local"
+    ],
+    "local_llm_fallbacks": 0,
+    "cutover_fallbacks": 0,
+    "quota_lines": []
+  }
+]

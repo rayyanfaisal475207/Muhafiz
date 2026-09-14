@@ -174,6 +174,13 @@ META_ANALYSIS_SUBQUERY_TIMEOUT: float = float(os.getenv("META_ANALYSIS_SUBQUERY_
 
 # ── Pipeline Settings ─────────────────────────────────────────────────────────
 MAX_RETRIES: int = int(os.getenv("MAX_RETRIES", "1"))
+# [Gold-QA fix — Module 143] Whether the RAG retry loop consults
+# `src/pipeline/retry_gate.py` after a rejected FIRST pass on the plain
+# (non-legal-KB) path, and abstains at once when the evaluator's own reason
+# says the missing thing is a cross-case aggregate no document holds.
+# MAX_RETRIES itself is untouched: a near-miss still gets every retry.
+# Off switch only — for bisecting a regression back to this gate.
+RETRY_GATE_ENABLED: bool = os.getenv("RETRY_GATE_ENABLED", "true").lower() in ("1", "true", "yes")
 TOP_K_RETRIEVAL: int = int(os.getenv("TOP_K_RETRIEVAL", "10"))
 TOP_K_RERANK: int = int(os.getenv("TOP_K_RERANK", "5"))
 

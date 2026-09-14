@@ -1,0 +1,2238 @@
+[
+ {
+  "set": "MUST_RETRY",
+  "source": "module37_gold32.json",
+  "id": "KB9",
+  "arm": "before",
+  "run": 3,
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "reason": "The retrieved documents discuss legal procedures related to inquests, police inq",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.3,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.0,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module39_paraphrase.json",
+  "id": "KB4P",
+  "arm": "paraphrase",
+  "run": 3,
+  "question": "Kya koi qanooni zabta maujood hai ke police jo maal apni tehveel mein le, usay kaise register kiya jaye aur baad mein kaise tehleel kiya jaye — aur kya hamara maal khana record us par amal karta hai?",
+  "reason": "The documents identify legal provisions governing property seizure and disposal ",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 7.4,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 5.0,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module39_runs.json",
+  "id": "KB3",
+  "arm": "gate",
+  "run": 1,
+  "question": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+  "reason": "The retrieved documents discuss police procedural roles and hierarchies (e.g., o",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 6.0,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 5.9,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module39_runs.json",
+  "id": "KB6",
+  "arm": "gate",
+  "run": 1,
+  "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+  "reason": "The retrieved documents address the handling of seized weapons per forensics gui",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.9,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.7,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module39_runs.json",
+  "id": "KB8",
+  "arm": "gate",
+  "run": 1,
+  "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+  "reason": "The retrieved documents discuss procedural requirements for completing investiga",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.5,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.2,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module39_runs.json",
+  "id": "KB9",
+  "arm": "gate",
+  "run": 1,
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "reason": "The retrieved documents describe legal procedures for investigating suspicious d",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 3.9,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 3.9,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module39_runs.json",
+  "id": "KB5",
+  "arm": "gate",
+  "run": 2,
+  "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+  "reason": "The retrieved documents mention legal procedures for rape cases (e.g., Anti-Rape",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 5.6,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.8,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module39_runs.json",
+  "id": "KB6",
+  "arm": "gate",
+  "run": 2,
+  "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+  "reason": "The retrieved documents address the handling of seized weapons (e.g., packaging,",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.6,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.7,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module39_runs.json",
+  "id": "KB8",
+  "arm": "gate",
+  "run": 2,
+  "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+  "reason": "The retrieved documents do not mention any legal requirement for police to repor",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 5.0,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 5.4,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module39_runs.json",
+  "id": "KB3",
+  "arm": "gate",
+  "run": 3,
+  "question": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+  "reason": "The retrieved documents do not explicitly address whether the law requires the s",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.9,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.5,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module39_runs.json",
+  "id": "KB5",
+  "arm": "gate",
+  "run": 3,
+  "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+  "reason": "The retrieved documents mention legal procedures for rape cases (e.g., Anti-Rape",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 5.6,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.8,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module39_runs.json",
+  "id": "KB6",
+  "arm": "gate",
+  "run": 3,
+  "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+  "reason": "The retrieved documents address the handling of recovered weapons (packaging, do",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.3,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.1,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module39_runs.json",
+  "id": "KB8",
+  "arm": "gate",
+  "run": 3,
+  "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+  "reason": "The retrieved documents do not mention any legal requirement for police to repor",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.7,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.8,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module39_runs_arm1.json",
+  "id": "KB2",
+  "arm": "after",
+  "run": 1,
+  "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+  "reason": "The retrieved documents discuss legal procedures for recording statements (e.g.,",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 5.1,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.0,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module39_runs_arm1.json",
+  "id": "KB3",
+  "arm": "after",
+  "run": 1,
+  "question": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+  "reason": "The retrieved documents do not explicitly address whether the law expects the sa",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 5.8,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.6,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module39_runs_arm1.json",
+  "id": "KB8",
+  "arm": "after",
+  "run": 1,
+  "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+  "reason": "The retrieved documents do not mention any legal requirement for police to repor",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.9,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.9,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module39_runs_arm1.json",
+  "id": "KB5",
+  "arm": "after",
+  "run": 2,
+  "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+  "reason": "The retrieved documents address legal procedures for rape cases (e.g., Anti-Rape",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 5.0,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.1,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module39_runs_arm1.json",
+  "id": "KB8",
+  "arm": "after",
+  "run": 2,
+  "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+  "reason": "The retrieved documents do not explicitly address whether the law requires polic",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.1,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 5.3,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module39_runs_arm1.json",
+  "id": "KB5",
+  "arm": "after",
+  "run": 3,
+  "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+  "reason": "The documents specify legal procedures for rape cases (e.g., Anti-Rape Act 2021 ",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 7.8,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 5.7,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module39_runs_arm1.json",
+  "id": "KB6",
+  "arm": "after",
+  "run": 3,
+  "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+  "reason": "The retrieved documents address the first part of the question (handling recover",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.4,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.6,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module39_runs_arm1.json",
+  "id": "KB8",
+  "arm": "after",
+  "run": 3,
+  "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+  "reason": "The retrieved documents do not mention any legal requirement for police to repor",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.8,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.9,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB6",
+  "arm": "before",
+  "run": 1,
+  "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+  "reason": "The retrieved documents discuss forensic guidelines for handling seized weapons ",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.9,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 9.5,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB8",
+  "arm": "before",
+  "run": 1,
+  "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+  "reason": "The retrieved documents discuss police procedures for submitting final reports a",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.5,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.7,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB3",
+  "arm": "before",
+  "run": 2,
+  "question": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+  "reason": "The retrieved documents discuss police procedural roles and hierarchies (e.g., o",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 6.0,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 5.9,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB6",
+  "arm": "before",
+  "run": 2,
+  "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+  "reason": "The retrieved documents discuss forensic guidelines for packaging and handling s",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 6.2,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.5,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB8",
+  "arm": "before",
+  "run": 2,
+  "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+  "reason": "Documents do not explicitly state whether the law requires police to report to t",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.7,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 5.1,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB9",
+  "arm": "before",
+  "run": 2,
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "reason": "The retrieved documents describe legal procedures and police obligations to inve",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.0,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.0,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB5",
+  "arm": "before",
+  "run": 3,
+  "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+  "reason": "The retrieved documents specifically address procedures for rape and sexual abus",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.0,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 3.6,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB8",
+  "arm": "before",
+  "run": 3,
+  "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+  "reason": "Documents do not explicitly state whether the law requires police to report to t",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.9,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 5.0,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB6Q",
+  "arm": "before",
+  "run": 1,
+  "question": "Kya qanoon ya guidelines yeh kehti hain ke baramad shuda hathyar ko record mein laane se pehle kis tarah sambhala jaye, aur kya hamara register yeh darj karta hai ke aisa kiya gaya?",
+  "reason": "The retrieved documents do not mention any laws, guidelines, or procedures speci",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 5.5,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 5.6,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB6Q",
+  "arm": "before",
+  "run": 3,
+  "question": "Kya qanoon ya guidelines yeh kehti hain ke baramad shuda hathyar ko record mein laane se pehle kis tarah sambhala jaye, aur kya hamara register yeh darj karta hai ke aisa kiya gaya?",
+  "reason": "The retrieved documents discuss general evidence handling procedures, register f",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.4,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.8,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB5",
+  "arm": "after",
+  "run": 1,
+  "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+  "reason": "The retrieved documents address legal procedures for rape cases (e.g., Anti-Rape",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.9,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.1,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB8",
+  "arm": "after",
+  "run": 1,
+  "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+  "reason": "The retrieved documents do not explicitly address whether the law requires polic",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.1,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 5.2,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB9",
+  "arm": "after",
+  "run": 1,
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "reason": "The retrieved documents describe legal procedures for police investigations into",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.0,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 3.9,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB3",
+  "arm": "after",
+  "run": 2,
+  "question": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+  "reason": "The retrieved documents discuss police procedural roles and hierarchies (e.g., o",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 6.0,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 5.9,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB5",
+  "arm": "after",
+  "run": 2,
+  "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+  "reason": "The retrieved documents address legal procedures for rape cases (e.g., Anti-Rape",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.9,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.1,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB8",
+  "arm": "after",
+  "run": 2,
+  "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+  "reason": "The retrieved documents do not explicitly address whether the law requires polic",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 3.9,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 5.5,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB9",
+  "arm": "after",
+  "run": 2,
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "reason": "The retrieved documents describe legal procedures for police investigations into",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.1,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.1,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB3",
+  "arm": "after",
+  "run": 3,
+  "question": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+  "reason": "The retrieved documents discuss police procedural roles and hierarchies (e.g., o",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 6.2,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 6.1,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB5",
+  "arm": "after",
+  "run": 3,
+  "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+  "reason": "The retrieved documents address legal procedures for rape cases (e.g., Anti-Rape",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.9,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.1,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB8",
+  "arm": "after",
+  "run": 3,
+  "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+  "reason": "The retrieved documents do not explicitly address whether the law requires polic",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.1,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 5.5,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB9",
+  "arm": "after",
+  "run": 3,
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "reason": "The retrieved documents describe legal procedures for police investigations into",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.2,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.2,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB6P",
+  "arm": "after",
+  "run": 3,
+  "question": "Kya forensics ke usoolon mein yeh wazeh kiya gaya hai ke baramad shuda hathyar ko record mein laane se pehle kis tarah sambhala aur band kiya jaye, aur kya hamare hathyar wale register se pata chalta hai ke aisa kiya gaya ya nahi?",
+  "reason": "The retrieved documents mention the seizure of weapons and associated legal sect",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.1,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.1,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB6Q",
+  "arm": "after",
+  "run": 1,
+  "question": "Kya qanoon ya guidelines yeh kehti hain ke baramad shuda hathyar ko record mein laane se pehle kis tarah sambhala jaye, aur kya hamara register yeh darj karta hai ke aisa kiya gaya?",
+  "reason": "Documents do not mention any legal provisions or guidelines specifically address",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 5.4,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.5,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB6Q",
+  "arm": "after",
+  "run": 2,
+  "question": "Kya qanoon ya guidelines yeh kehti hain ke baramad shuda hathyar ko record mein laane se pehle kis tarah sambhala jaye, aur kya hamara register yeh darj karta hai ke aisa kiya gaya?",
+  "reason": "Documents do not specifically address handling seized weapons before recording t",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.3,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.2,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB6Q",
+  "arm": "after",
+  "run": 3,
+  "question": "Kya qanoon ya guidelines yeh kehti hain ke baramad shuda hathyar ko record mein laane se pehle kis tarah sambhala jaye, aur kya hamara register yeh darj karta hai ke aisa kiya gaya?",
+  "reason": "The retrieved documents discuss general evidence handling procedures and registe",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 3.7,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.0,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module52_runs.json",
+  "id": "KB6",
+  "arm": "gate_only",
+  "run": 2,
+  "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+  "reason": "The retrieved documents address the handling of recovered weapons (e.g., packagi",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.6,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.5,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module64_gold32.json",
+  "id": "KB5",
+  "arm": "after",
+  "run": 1,
+  "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+  "reason": "The retrieved documents do not specifically address the legal procedures require",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.0,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 3.6,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module64_gold32.json",
+  "id": "KB9",
+  "arm": "after",
+  "run": 1,
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "reason": "The retrieved documents discuss legal procedures related to inquests, police inv",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.0,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.1,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module64_gold32.json",
+  "id": "KB9",
+  "arm": "after",
+  "run": 2,
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "reason": "The retrieved documents discuss legal procedures related to inquests, police inq",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.3,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 5.0,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module64_gold32.json",
+  "id": "KB9",
+  "arm": "after",
+  "run": 3,
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "reason": "The retrieved documents discuss legal procedures related to inquests, police inq",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 5.1,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 5.1,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module64_gold32.json",
+  "id": "KB9",
+  "arm": "after",
+  "run": 4,
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "reason": "The retrieved documents discuss legal procedures related to inquests, police inv",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.1,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 3.9,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module64_runs.json",
+  "id": "KB6-P1",
+  "arm": "before",
+  "run": 1,
+  "question": "Before a seized pistol is logged into our records, do the forensic guidelines lay down anything about the state it has to be in, and would our weapons register even show whether that was followed?",
+  "reason": "The retrieved documents do not mention anything about the state a seized pistol ",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 3.5,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 3.5,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module64_runs.json",
+  "id": "KB6-P2",
+  "arm": "before",
+  "run": 1,
+  "question": "Jab police koi pistol qabza mein leti hai, to kya forensic guidelines mein koi hidayat hai ke usay record mein laane se pehle kis halat mein rakha jaye, aur kya hamara weapon register yeh dikhata hai ke aisa hua ya nahi?",
+  "reason": "The retrieved documents do not contain specific instructions from forensic guide",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 3.7,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 3.5,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module64_runs.json",
+  "id": "KB6-P1",
+  "arm": "before",
+  "run": 2,
+  "question": "Before a seized pistol is logged into our records, do the forensic guidelines lay down anything about the state it has to be in, and would our weapons register even show whether that was followed?",
+  "reason": "The retrieved documents do not contain specific instructions from forensic guide",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 3.6,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 3.4,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module64_runs.json",
+  "id": "KB6",
+  "arm": "before",
+  "run": 4,
+  "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+  "reason": "The retrieved documents do not contain specific instructions from forensic guide",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 3.9,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 3.9,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module64_runs.json",
+  "id": "KB6-P2",
+  "arm": "before",
+  "run": 4,
+  "question": "Jab police koi pistol qabza mein leti hai, to kya forensic guidelines mein koi hidayat hai ke usay record mein laane se pehle kis halat mein rakha jaye, aur kya hamara weapon register yeh dikhata hai ke aisa hua ya nahi?",
+  "reason": "The retrieved documents do not contain specific instructions from forensic guide",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 3.7,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 3.6,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module64_runs.json",
+  "id": "KB6-P2",
+  "arm": "before",
+  "run": 5,
+  "question": "Jab police koi pistol qabza mein leti hai, to kya forensic guidelines mein koi hidayat hai ke usay record mein laane se pehle kis halat mein rakha jaye, aur kya hamara weapon register yeh dikhata hai ke aisa hua ya nahi?",
+  "reason": "The retrieved documents do not contain specific instructions from forensic guide",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 3.6,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 3.6,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module65_runs.json",
+  "id": "KB5",
+  "arm": "after-v1",
+  "run": 1,
+  "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+  "reason": "The retrieved documents do not mention any specific legal procedures or addition",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 3.8,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 3.7,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module65_runs.json",
+  "id": "KB8",
+  "arm": "after-v1",
+  "run": 1,
+  "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+  "reason": "The retrieved documents do not mention any legal requirement for the police to r",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 5.1,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.7,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module65_runs.json",
+  "id": "KB5",
+  "arm": "after-v1",
+  "run": 2,
+  "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+  "reason": "The retrieved documents do not mention any specific legal procedures or addition",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 3.6,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 3.5,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module65_runs.json",
+  "id": "KB8",
+  "arm": "after-v1",
+  "run": 2,
+  "question": "Agar kisi case ki tafteesh lambi ho jaye, to kya qanoon police ko iske mukammal hone se pehle adaalat ko kuch report karna zaroori karta hai — aur kya hamara case-tracking data batayega ke aisa hua ya nahi?",
+  "reason": "The retrieved documents do not mention any legal requirement for the police to r",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.9,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.7,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module65_runs.json",
+  "id": "KB5",
+  "arm": "after-v1",
+  "run": 3,
+  "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+  "reason": "The retrieved documents do not mention any specific legal procedures or addition",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 3.5,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 3.5,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "module78_runs.json",
+  "id": "P2-KB3",
+  "arm": "after",
+  "run": 2,
+  "question": "Is the officer who writes up an FIR meant to be a different person from the one who investigates the case, and do our own case records bear that out across the whole caseload?",
+  "reason": "The retrieved documents do not address whether the officer who writes up an FIR ",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 5.6,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.2,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "m143_before.json",
+  "id": "KB5",
+  "arm": "before",
+  "run": 1,
+  "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+  "reason": "The retrieved documents discuss procedures under the Anti-Rape Act (rape/sexual abuse cases) and general police equipment rules, but do not explicitly address legal procedures or data tracking for domestic violence cases. The case records mention FIR numbers but do not indicate any special measures specific to domestic violence against women.",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 7.8,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 5.6,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "m143_before.json",
+  "id": "KB9",
+  "arm": "before",
+  "run": 1,
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "reason": "The retrieved documents describe legal procedures for conducting inquests and investigations under Sections 174/176 of the Code of Criminal Procedure, but they do not address whether the system (e.g., case records, databases, or administrative logs) actually records these investigations. The user specifically asked about system-level documentation of such cases, which is not covered in the retrieved materials.",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 5.2,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 9.6,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "MUST_RETRY",
+  "source": "m143_plain_before.json",
+  "id": "N1",
+  "arm": "before",
+  "run": 1,
+  "question": "Tell me about the armed robbery reported from Iqbal Town where a pistol was seized.",
+  "reason": "None of the retrieved documents mention Iqbal Town as the location of the armed robbery. The documents reference other areas (e.g., سمن آباد، اسلام آباد, حیدر آباد, لاہور) but not Iqbal Town, making them insufficient to answer the question about that specific incident.",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 5.5,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.5,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "SHOULD_STOP",
+  "source": "m143_before.json",
+  "id": "M143",
+  "arm": "before",
+  "run": 1,
+  "question": "How often is the officer who registers an FIR also the officer who investigates the case?",
+  "reason": "The retrieved documents discuss procedures for FIR registration, investigation oversight, and transfer of cases between officers, but none explicitly address whether the same officer typically registers and investigates FIRs, or the frequency of such overlap. The documents do not contain specific policy language, statistical data, or procedural rules governing the relationship between FIR registration and investigation roles.",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": false,
+    "secs": 5.2,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": false,
+    "secs": 4.8,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "SHOULD_STOP",
+  "source": "m143_plain_before.json",
+  "id": "Z2",
+  "arm": "before",
+  "run": 1,
+  "question": "What is the average number of days between an FIR's registration and its first zimni entry?",
+  "reason": "The retrieved documents only provide specific instances of FIR registration and zimni entry dates for individual cases, but do not contain enough data points or statistical information to calculate an average number of days between registration and first zimni entry.",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": false,
+    "secs": 4.0,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": false,
+    "secs": 4.1,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "SHOULD_STOP",
+  "source": "m143_plain_before.json",
+  "id": "Z3",
+  "arm": "before",
+  "run": 1,
+  "question": "Which police station has the highest conviction rate this year?",
+  "reason": "The retrieved documents contain FIR records and procedural rules but do not include any statistical data on conviction rates for police stations. They mention specific cases and sections of law but lack aggregated performance metrics required to answer the question.",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": false,
+    "secs": 3.9,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": false,
+    "secs": 3.7,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "SHOULD_STOP",
+  "source": "m143_plain_before.json",
+  "id": "Z4",
+  "arm": "before",
+  "run": 1,
+  "question": "Kitni baar FIR darj karne wala afsar hi us case ki tafteesh bhi karta hai?",
+  "reason": "The retrieved documents contain case-specific FIR records with details about individual incidents, sections involved, and investigative actions taken in specific cases. However, none of the documents address the procedural policy, frequency, or general practice regarding whether the officer who registers an FIR also conducts the investigation. The question requires information about a formal standard or procedure, which is not present in the retrieved chunks.",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.4,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.4,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": true
+ },
+ {
+  "set": "NEVER",
+  "source": "module39_runs.json",
+  "id": "KB3",
+  "arm": "gate",
+  "run": 2,
+  "question": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+  "reason": "The retrieved documents do not explicitly address whether the law requires the s",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 5.2,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.8,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "NEVER",
+  "source": "module39_runs_arm1.json",
+  "id": "KB9",
+  "arm": "after",
+  "run": 1,
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "reason": "The retrieved documents describe procedural requirements for conducting inquests",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 5.6,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 5.1,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "NEVER",
+  "source": "module39_runs_arm1.json",
+  "id": "KB9",
+  "arm": "after",
+  "run": 2,
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "reason": "The retrieved documents describe legal procedures for police investigations into",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.4,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.3,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "NEVER",
+  "source": "module39_runs_arm1.json",
+  "id": "KB3",
+  "arm": "after",
+  "run": 3,
+  "question": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+  "reason": "The retrieved documents do not explicitly address whether the law requires the s",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 5.3,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.8,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "NEVER",
+  "source": "module39_runs_arm1.json",
+  "id": "KB9",
+  "arm": "after",
+  "run": 3,
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "reason": "The retrieved documents describe legal procedures for police inquests and report",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.4,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.6,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "NEVER",
+  "source": "module52_runs.json",
+  "id": "KB9",
+  "arm": "before",
+  "run": 1,
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "reason": "The retrieved documents describe legal procedures for conducting inquests and in",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.2,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.1,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "NEVER",
+  "source": "module52_runs.json",
+  "id": "KB3",
+  "arm": "before",
+  "run": 3,
+  "question": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+  "reason": "The retrieved documents discuss police procedural roles and hierarchies (e.g., o",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 6.6,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 6.3,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "NEVER",
+  "source": "module52_runs.json",
+  "id": "KB9",
+  "arm": "before",
+  "run": 3,
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "reason": "The retrieved documents describe legal procedures and police obligations to inve",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.4,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.4,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "NEVER",
+  "source": "module52_runs.json",
+  "id": "KB6P",
+  "arm": "before",
+  "run": 1,
+  "question": "Kya forensics ke usoolon mein yeh wazeh kiya gaya hai ke baramad shuda hathyar ko record mein laane se pehle kis tarah sambhala aur band kiya jaye, aur kya hamare hathyar wale register se pata chalta hai ke aisa kiya gaya ya nahi?",
+  "reason": "The retrieved documents mention the seizure of weapons and associated legal sect",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.6,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.3,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "NEVER",
+  "source": "module52_runs.json",
+  "id": "KB6P",
+  "arm": "before",
+  "run": 2,
+  "question": "Kya forensics ke usoolon mein yeh wazeh kiya gaya hai ke baramad shuda hathyar ko record mein laane se pehle kis tarah sambhala aur band kiya jaye, aur kya hamare hathyar wale register se pata chalta hai ke aisa kiya gaya ya nahi?",
+  "reason": "The retrieved documents mention the seizure of weapons and associated legal sect",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.2,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.3,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "NEVER",
+  "source": "module52_runs.json",
+  "id": "KB6P",
+  "arm": "before",
+  "run": 3,
+  "question": "Kya forensics ke usoolon mein yeh wazeh kiya gaya hai ke baramad shuda hathyar ko record mein laane se pehle kis tarah sambhala aur band kiya jaye, aur kya hamare hathyar wale register se pata chalta hai ke aisa kiya gaya ya nahi?",
+  "reason": "The retrieved documents mention the seizure of weapons and associated legal sect",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.2,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.2,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "NEVER",
+  "source": "module52_runs.json",
+  "id": "KB6Q",
+  "arm": "before",
+  "run": 2,
+  "question": "Kya qanoon ya guidelines yeh kehti hain ke baramad shuda hathyar ko record mein laane se pehle kis tarah sambhala jaye, aur kya hamara register yeh darj karta hai ke aisa kiya gaya?",
+  "reason": "The retrieved documents do not explicitly address the handling of seized weapons",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.2,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 4.2,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "NEVER",
+  "source": "module52_runs.json",
+  "id": "KB3",
+  "arm": "after",
+  "run": 1,
+  "question": "Does the law expect the officer who first registers a case to be the same one who investigates it, or are those meant to be separate roles — and does that match what actually happens in our data?",
+  "reason": "The retrieved documents discuss police procedural roles and hierarchies (e.g., o",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 6.3,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 6.3,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "NEVER",
+  "source": "module52_runs.json",
+  "id": "KB6P",
+  "arm": "after",
+  "run": 1,
+  "question": "Kya forensics ke usoolon mein yeh wazeh kiya gaya hai ke baramad shuda hathyar ko record mein laane se pehle kis tarah sambhala aur band kiya jaye, aur kya hamare hathyar wale register se pata chalta hai ke aisa kiya gaya ya nahi?",
+  "reason": "The retrieved documents mention the seizure of weapons and associated legal sect",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 4.2,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 24.6,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ },
+ {
+  "set": "NEVER",
+  "source": "module52_runs.json",
+  "id": "KB6P",
+  "arm": "after",
+  "run": 2,
+  "question": "Kya forensics ke usoolon mein yeh wazeh kiya gaya hai ke baramad shuda hathyar ko record mein laane se pehle kis tarah sambhala aur band kiya jaye, aur kya hamare hathyar wale register se pata chalta hai ke aisa kiya gaya ya nahi?",
+  "reason": "The retrieved documents mention the seizure of weapons and associated legal sect",
+  "outcomes": [
+   {
+    "pass": 1,
+    "retry_could_help": true,
+    "secs": 24.7,
+    "model": "local",
+    "fallbacks": []
+   },
+   {
+    "pass": 2,
+    "retry_could_help": true,
+    "secs": 8.7,
+    "model": "local",
+    "fallbacks": []
+   }
+  ],
+  "wrong": false
+ }
+]

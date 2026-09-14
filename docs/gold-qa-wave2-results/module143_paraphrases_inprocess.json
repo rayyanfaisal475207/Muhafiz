@@ -1,0 +1,686 @@
+[
+ {
+  "id": "M143-P1",
+  "run": 1,
+  "arm": "after",
+  "question": "In what proportion of our cases does the same officer both register the FIR and carry out the investigation?",
+  "status": "abstained",
+  "served_answer": null,
+  "caveats": [
+   "No sufficiently relevant documents were found for this question after retrying with query refinements."
+  ],
+  "error": null,
+  "elapsed_s": 76.2,
+  "evaluator_rounds": 1,
+  "verdicts": [
+   {
+    "relevant": false,
+    "reason": "The retrieved documents do not contain any data or statistics regarding the proportion of cases where the same officer both registers the FIR and carries out the investigation. They describe procedural guidelines, specific case details, and roles but do not address the overlap between FIR registration and investigation responsibilities in quantitative terms."
+   }
+  ],
+  "cloud_fallbacks": [],
+  "generation": "local",
+  "events": [
+   {
+    "t": 19.47,
+    "kind": "expand_query",
+    "secs": 19.47
+   },
+   {
+    "t": 37.82,
+    "kind": "cross_script",
+    "secs": 18.35
+   },
+   {
+    "t": 39.73,
+    "kind": "embed",
+    "secs": 1.91
+   },
+   {
+    "t": 41.78,
+    "kind": "embed",
+    "secs": 2.05
+   },
+   {
+    "t": 43.54,
+    "kind": "embed",
+    "secs": 1.76
+   },
+   {
+    "t": 45.41,
+    "kind": "embed",
+    "secs": 1.87
+   },
+   {
+    "t": 46.01,
+    "kind": "query_similar",
+    "secs": 0.59
+   },
+   {
+    "t": 46.13,
+    "kind": "query_similar",
+    "secs": 0.12
+   },
+   {
+    "t": 46.24,
+    "kind": "query_similar",
+    "secs": 0.11
+   },
+   {
+    "t": 46.37,
+    "kind": "query_similar",
+    "secs": 0.13
+   },
+   {
+    "t": 46.5,
+    "kind": "bm25_pool",
+    "secs": 0.14
+   },
+   {
+    "t": 47.05,
+    "kind": "retrieval",
+    "secs": 47.04,
+    "query": "In what proportion of our cases does the same officer both register the FIR and carry out the investigation?",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.8778,
+     0.8769,
+     0.8759,
+     0.8758,
+     0.8753,
+     0.8748,
+     0.8741,
+     0.8732,
+     0.873,
+     0.8727
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 48.69,
+    "kind": "rerank",
+    "secs": 1.64,
+    "n_in": 11,
+    "window": [
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c146",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.03414301201701164,
+      "rrf_score": 0.8729626536369324
+     },
+     {
+      "id": "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c116",
+      "source": "3_1527157863PoliceOrder2002.pdf",
+      "rerank_score": 0.004086538217961788,
+      "rrf_score": 0.016393
+     },
+     {
+      "id": "psrms_fir_fir-203-26#zimni_FZ-C103-3_af3450af_c0",
+      "source": "psrms/fir/fir-203-26#zimni_FZ-C103-3",
+      "rerank_score": 0.002300920197740197,
+      "rrf_score": 0.017706
+     },
+     {
+      "id": "psrms_fir_fir-216-26#zimni_FZ-C116-5_9e7c1f32_c1",
+      "source": "psrms/fir/fir-216-26#zimni_FZ-C116-5",
+      "rerank_score": 0.0015944207552820444,
+      "rrf_score": 0.018385
+     },
+     {
+      "id": "psrms_fir_fir-1001-26#zimni_FZ-C901-5_2dec54bc_c1",
+      "source": "psrms/fir/fir-1001-26#zimni_FZ-C901-5",
+      "rerank_score": 0.0014679128071293235,
+      "rrf_score": 0.018393
+     }
+    ]
+   },
+   {
+    "t": 64.54,
+    "kind": "evaluate",
+    "secs": 15.85,
+    "n_chunks": 5,
+    "window_ids": [
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c146",
+     "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c116",
+     "psrms_fir_fir-203-26#zimni_FZ-C103-3_af3450af_c0",
+     "psrms_fir_fir-216-26#zimni_FZ-C116-5_9e7c1f32_c1",
+     "psrms_fir_fir-1001-26#zimni_FZ-C901-5_2dec54bc_c1"
+    ],
+    "relevant": false,
+    "reason": "The retrieved documents do not contain any data or statistics regarding the proportion of cases where the same officer both registers the FIR and carries out the investigation. They describe procedural guidelines, specific case details, and roles but do not address the overlap between FIR registration and investigation responsibilities in quantitative terms."
+   },
+   {
+    "t": 76.16,
+    "kind": "gate",
+    "secs": 11.62,
+    "verdict": false,
+    "reason": "The retrieved documents do not contain any data or statistics regarding the proportion of cases where the same officer both registers the FIR and carries out the investigation. They describe procedural guidelines, specific case details, and roles but do not address the overlap between FIR registrati"
+   }
+  ]
+ },
+ {
+  "id": "M143-P2",
+  "run": 1,
+  "arm": "after",
+  "question": "Hamare cases mein kitni dafa aisa hota hai ke FIR likhne wala afsar hi tafteesh bhi karta hai?",
+  "status": "abstained",
+  "served_answer": null,
+  "caveats": [
+   "No sufficiently relevant documents were found for this question after retrying with query refinements."
+  ],
+  "error": null,
+  "elapsed_s": 54.2,
+  "evaluator_rounds": 1,
+  "verdicts": [
+   {
+    "relevant": false,
+    "reason": "None of the retrieved documents mention whether the FIR-registered officer also conducts the investigation or provide any statistical/qualitative data about the frequency of this occurrence in cases."
+   }
+  ],
+  "cloud_fallbacks": [],
+  "generation": "local",
+  "events": [
+   {
+    "t": 11.1,
+    "kind": "expand_query",
+    "secs": 11.1
+   },
+   {
+    "t": 22.74,
+    "kind": "cross_script",
+    "secs": 11.63
+   },
+   {
+    "t": 24.51,
+    "kind": "embed",
+    "secs": 1.78
+   },
+   {
+    "t": 26.21,
+    "kind": "embed",
+    "secs": 1.7
+   },
+   {
+    "t": 27.97,
+    "kind": "embed",
+    "secs": 1.76
+   },
+   {
+    "t": 29.56,
+    "kind": "embed",
+    "secs": 1.59
+   },
+   {
+    "t": 29.65,
+    "kind": "query_similar",
+    "secs": 0.09
+   },
+   {
+    "t": 29.74,
+    "kind": "query_similar",
+    "secs": 0.08
+   },
+   {
+    "t": 29.82,
+    "kind": "query_similar",
+    "secs": 0.08
+   },
+   {
+    "t": 29.89,
+    "kind": "query_similar",
+    "secs": 0.08
+   },
+   {
+    "t": 29.99,
+    "kind": "bm25_pool",
+    "secs": 0.1
+   },
+   {
+    "t": 30.49,
+    "kind": "retrieval",
+    "secs": 30.49,
+    "query": "Hamare cases mein kitni dafa aisa hota hai ke FIR likhne wala afsar hi tafteesh bhi karta hai?",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.8815,
+     0.8807,
+     0.8798,
+     0.8792,
+     0.8792,
+     0.879,
+     0.8783,
+     0.878,
+     0.8777,
+     0.8777
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 32.07,
+    "kind": "rerank",
+    "secs": 1.58,
+    "n_in": 12,
+    "window": [
+     {
+      "id": "psrms_fir_fir-203-26#zimni_FZ-C103-3_af3450af_c0",
+      "source": "psrms/fir/fir-203-26#zimni_FZ-C103-3",
+      "rerank_score": 0.001033375272527337,
+      "rrf_score": 0.018152
+     },
+     {
+      "id": "psrms_fir_fir-212-26#zimni_FZ-C112-5_30e4a9a6_c0",
+      "source": "psrms/fir/fir-212-26#zimni_FZ-C112-5",
+      "rerank_score": 0.0008483651909045875,
+      "rrf_score": 0.8791974782943726
+     },
+     {
+      "id": "psrms_fir_fir-424-26#narrative_46040473_c2",
+      "source": "psrms/fir/fir-424-26#narrative",
+      "rerank_score": 0.0008269854006357491,
+      "rrf_score": 0.034099
+     },
+     {
+      "id": "psrms_fir_fir-88-26#zimni_FZ-C88-1_23786021_c0",
+      "source": "psrms/fir/fir-88-26#zimni_FZ-C88-1",
+      "rerank_score": 0.0007148303557187319,
+      "rrf_score": 0.018625
+     },
+     {
+      "id": "psrms_fir_fir-420-26#zimni_FZ-C320-5_3f1f98ea_c0",
+      "source": "psrms/fir/fir-420-26#zimni_FZ-C320-5",
+      "rerank_score": 0.0006565905641764402,
+      "rrf_score": 0.018129
+     }
+    ]
+   },
+   {
+    "t": 41.9,
+    "kind": "evaluate",
+    "secs": 9.84,
+    "n_chunks": 5,
+    "window_ids": [
+     "psrms_fir_fir-203-26#zimni_FZ-C103-3_af3450af_c0",
+     "psrms_fir_fir-212-26#zimni_FZ-C112-5_30e4a9a6_c0",
+     "psrms_fir_fir-424-26#narrative_46040473_c2",
+     "psrms_fir_fir-88-26#zimni_FZ-C88-1_23786021_c0",
+     "psrms_fir_fir-420-26#zimni_FZ-C320-5_3f1f98ea_c0"
+    ],
+    "relevant": false,
+    "reason": "None of the retrieved documents mention whether the FIR-registered officer also conducts the investigation or provide any statistical/qualitative data about the frequency of this occurrence in cases."
+   },
+   {
+    "t": 54.2,
+    "kind": "gate",
+    "secs": 12.3,
+    "verdict": false,
+    "reason": "None of the retrieved documents mention whether the FIR-registered officer also conducts the investigation or provide any statistical/qualitative data about the frequency of this occurrence in cases."
+   }
+  ]
+ },
+ {
+  "id": "M143-P1",
+  "run": 1,
+  "arm": "after",
+  "question": "In what proportion of our cases does the same officer both register the FIR and carry out the investigation?",
+  "status": "abstained",
+  "served_answer": null,
+  "caveats": [
+   "No sufficiently relevant documents were found for this question after retrying with query refinements."
+  ],
+  "error": null,
+  "elapsed_s": 50.9,
+  "evaluator_rounds": 1,
+  "verdicts": [
+   {
+    "relevant": false,
+    "reason": "The retrieved documents do not contain any information about officer assignments in specific cases, nor do they mention procedures governing whether the same officer registers FIRs and conducts investigations. The documents focus on legal requirements, general organizational structures, and case-specific details (e.g., suspects, charges) but omit data on officer roles in FIR registration vs. investigation."
+   }
+  ],
+  "cloud_fallbacks": [],
+  "generation": "local",
+  "events": [
+   {
+    "t": 12.78,
+    "kind": "expand_query",
+    "secs": 12.78
+   },
+   {
+    "t": 23.66,
+    "kind": "cross_script",
+    "secs": 10.88
+   },
+   {
+    "t": 25.52,
+    "kind": "embed",
+    "secs": 1.86
+   },
+   {
+    "t": 27.25,
+    "kind": "embed",
+    "secs": 1.73
+   },
+   {
+    "t": 29.11,
+    "kind": "embed",
+    "secs": 1.86
+   },
+   {
+    "t": 30.92,
+    "kind": "embed",
+    "secs": 1.81
+   },
+   {
+    "t": 31.04,
+    "kind": "query_similar",
+    "secs": 0.12
+   },
+   {
+    "t": 31.15,
+    "kind": "query_similar",
+    "secs": 0.11
+   },
+   {
+    "t": 31.26,
+    "kind": "query_similar",
+    "secs": 0.11
+   },
+   {
+    "t": 31.37,
+    "kind": "query_similar",
+    "secs": 0.11
+   },
+   {
+    "t": 31.47,
+    "kind": "bm25_pool",
+    "secs": 0.1
+   },
+   {
+    "t": 32.12,
+    "kind": "retrieval",
+    "secs": 32.12,
+    "query": "In what proportion of our cases does the same officer both register the FIR and carry out the investigation?",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.8778,
+     0.8769,
+     0.8759,
+     0.8758,
+     0.8753,
+     0.8748,
+     0.8741,
+     0.8732,
+     0.873,
+     0.8727
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 33.97,
+    "kind": "rerank",
+    "secs": 1.85,
+    "n_in": 11,
+    "window": [
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c146",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.03414301201701164,
+      "rrf_score": 0.8729626536369324
+     },
+     {
+      "id": "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+      "source": "3_1527157863PoliceOrder2002.pdf",
+      "rerank_score": 0.015208497643470764,
+      "rrf_score": 0.016393
+     },
+     {
+      "id": "psrms_fir_fir-203-26#zimni_FZ-C103-3_af3450af_c0",
+      "source": "psrms/fir/fir-203-26#zimni_FZ-C103-3",
+      "rerank_score": 0.002300920197740197,
+      "rrf_score": 0.017706
+     },
+     {
+      "id": "psrms_fir_fir-216-26#zimni_FZ-C116-5_9e7c1f32_c1",
+      "source": "psrms/fir/fir-216-26#zimni_FZ-C116-5",
+      "rerank_score": 0.0015944207552820444,
+      "rrf_score": 0.018385
+     },
+     {
+      "id": "psrms_fir_fir-1001-26#zimni_FZ-C901-5_2dec54bc_c1",
+      "source": "psrms/fir/fir-1001-26#zimni_FZ-C901-5",
+      "rerank_score": 0.0014679128071293235,
+      "rrf_score": 0.018393
+     }
+    ]
+   },
+   {
+    "t": 44.02,
+    "kind": "evaluate",
+    "secs": 10.05,
+    "n_chunks": 5,
+    "window_ids": [
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c146",
+     "3_1527157863PoliceOrder2002_pdf_bdaa97d4_c114",
+     "psrms_fir_fir-203-26#zimni_FZ-C103-3_af3450af_c0",
+     "psrms_fir_fir-216-26#zimni_FZ-C116-5_9e7c1f32_c1",
+     "psrms_fir_fir-1001-26#zimni_FZ-C901-5_2dec54bc_c1"
+    ],
+    "relevant": false,
+    "reason": "The retrieved documents do not contain any information about officer assignments in specific cases, nor do they mention procedures governing whether the same officer registers FIRs and conducts investigations. The documents focus on legal requirements, general organizational structures, and case-specific details (e.g., suspects, charges) but omit data on officer roles in FIR registration vs. investigation."
+   },
+   {
+    "t": 50.86,
+    "kind": "gate",
+    "secs": 6.84,
+    "verdict": false,
+    "reason": "The retrieved documents do not contain any information about officer assignments in specific cases, nor do they mention procedures governing whether the same officer registers FIRs and conducts investigations. The documents focus on legal requirements, general organizational structures, and case-spe"
+   }
+  ]
+ },
+ {
+  "id": "M143-P2",
+  "run": 1,
+  "arm": "after",
+  "question": "Hamare cases mein kitni dafa aisa hota hai ke FIR likhne wala afsar hi tafteesh bhi karta hai?",
+  "status": "abstained",
+  "served_answer": null,
+  "caveats": [
+   "No sufficiently relevant documents were found for this question after retrying with query refinements."
+  ],
+  "error": null,
+  "elapsed_s": 65.9,
+  "evaluator_rounds": 1,
+  "verdicts": [
+   {
+    "relevant": false,
+    "reason": "None of the retrieved documents mention whether the FIR-registered officer also conducts the investigation or provide any statistical/qualitative data about the frequency of this occurrence in cases."
+   }
+  ],
+  "cloud_fallbacks": [],
+  "generation": "local",
+  "events": [
+   {
+    "t": 9.33,
+    "kind": "expand_query",
+    "secs": 9.33
+   },
+   {
+    "t": 24.76,
+    "kind": "cross_script",
+    "secs": 15.43
+   },
+   {
+    "t": 26.57,
+    "kind": "embed",
+    "secs": 1.8
+   },
+   {
+    "t": 28.47,
+    "kind": "embed",
+    "secs": 1.9
+   },
+   {
+    "t": 30.48,
+    "kind": "embed",
+    "secs": 2.01
+   },
+   {
+    "t": 32.46,
+    "kind": "embed",
+    "secs": 1.98
+   },
+   {
+    "t": 32.56,
+    "kind": "query_similar",
+    "secs": 0.11
+   },
+   {
+    "t": 32.66,
+    "kind": "query_similar",
+    "secs": 0.09
+   },
+   {
+    "t": 32.75,
+    "kind": "query_similar",
+    "secs": 0.09
+   },
+   {
+    "t": 32.86,
+    "kind": "query_similar",
+    "secs": 0.12
+   },
+   {
+    "t": 32.97,
+    "kind": "bm25_pool",
+    "secs": 0.1
+   },
+   {
+    "t": 33.45,
+    "kind": "retrieval",
+    "secs": 33.45,
+    "query": "Hamare cases mein kitni dafa aisa hota hai ke FIR likhne wala afsar hi tafteesh bhi karta hai?",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.8815,
+     0.8809,
+     0.8798,
+     0.8793,
+     0.8791,
+     0.8788,
+     0.8782,
+     0.8778,
+     0.8777,
+     0.8775
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 35.14,
+    "kind": "rerank",
+    "secs": 1.69,
+    "n_in": 12,
+    "window": [
+     {
+      "id": "psrms_fir_fir-203-26#zimni_FZ-C103-3_af3450af_c0",
+      "source": "psrms/fir/fir-203-26#zimni_FZ-C103-3",
+      "rerank_score": 0.001033375272527337,
+      "rrf_score": 0.018152
+     },
+     {
+      "id": "psrms_fir_fir-212-26#zimni_FZ-C112-5_30e4a9a6_c0",
+      "source": "psrms/fir/fir-212-26#zimni_FZ-C112-5",
+      "rerank_score": 0.0008483651909045875,
+      "rrf_score": 0.8790878057479858
+     },
+     {
+      "id": "psrms_fir_fir-424-26#narrative_46040473_c2",
+      "source": "psrms/fir/fir-424-26#narrative",
+      "rerank_score": 0.0008269854006357491,
+      "rrf_score": 0.034778
+     },
+     {
+      "id": "psrms_fir_fir-88-26#zimni_FZ-C88-1_23786021_c0",
+      "source": "psrms/fir/fir-88-26#zimni_FZ-C88-1",
+      "rerank_score": 0.0007148303557187319,
+      "rrf_score": 0.018625
+     },
+     {
+      "id": "psrms_fir_fir-420-26#zimni_FZ-C320-5_3f1f98ea_c0",
+      "source": "psrms/fir/fir-420-26#zimni_FZ-C320-5",
+      "rerank_score": 0.0006565905641764402,
+      "rrf_score": 0.018129
+     }
+    ]
+   },
+   {
+    "t": 49.99,
+    "kind": "evaluate",
+    "secs": 14.85,
+    "n_chunks": 5,
+    "window_ids": [
+     "psrms_fir_fir-203-26#zimni_FZ-C103-3_af3450af_c0",
+     "psrms_fir_fir-212-26#zimni_FZ-C112-5_30e4a9a6_c0",
+     "psrms_fir_fir-424-26#narrative_46040473_c2",
+     "psrms_fir_fir-88-26#zimni_FZ-C88-1_23786021_c0",
+     "psrms_fir_fir-420-26#zimni_FZ-C320-5_3f1f98ea_c0"
+    ],
+    "relevant": false,
+    "reason": "None of the retrieved documents mention whether the FIR-registered officer also conducts the investigation or provide any statistical/qualitative data about the frequency of this occurrence in cases."
+   },
+   {
+    "t": 65.86,
+    "kind": "gate",
+    "secs": 15.88,
+    "verdict": false,
+    "reason": "None of the retrieved documents mention whether the FIR-registered officer also conducts the investigation or provide any statistical/qualitative data about the frequency of this occurrence in cases."
+   }
+  ]
+ }
+]
