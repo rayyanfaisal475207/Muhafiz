@@ -823,3 +823,165 @@ def test_module89_all_32_gold_questions_keep_their_plan():
         # The only entry Module 89 adds.
         "KB1": "fir_register_completeness",
     }
+
+
+
+# ---------------------------------------------------------------------------
+# [Gold-QA fix — Module 143] Zero-signal first pass abstains without retries;
+# a near-miss keeps every retry; the legal-KB path never consults the gate.
+# ---------------------------------------------------------------------------
+
+def _module143_stubs(monkeypatch, *, gate_verdicts, statute_queries=None):
+    """Wire a scored window, a not-relevant evaluator, a counting rewriter and
+    a scripted retry gate. Returns the call log."""
+    calls = {"rewrite": 0, "gate": 0, "eval": 0}
+
+    async def _scored_rerank(query, candidates, top_k=None):
+        out = []
+        for c in candidates[: (top_k or len(candidates))]:
+            c = dict(c)
+            c["rerank_score"] = 0.12
+            out.append(c)
+        return out
+
+    async def _scored_rerank_multi(queries, candidates, top_k=None):
+        return await _scored_rerank(queries[0], candidates, top_k=top_k)
+
+    async def _not_relevant(orig, rewritten, chunks):
+        calls["eval"] += 1
+        return {"relevant": False, "reason": "no statistical data on how often this happens"}
+
+    async def _rewrite_for_retry(original_message, previous_query, evaluator_feedback):
+        calls["rewrite"] += 1
+        return previous_query + " refined"
+
+    async def _gate(question, reason):
+        calls["gate"] += 1
+        return gate_verdicts[min(calls["gate"] - 1, len(gate_verdicts) - 1)]
+
+    async def _statute(question, n=2):
+        return list(statute_queries or [])
+
+    async def _no_english(question):
+        return None
+
+    monkeypatch.setattr(rag_mod, "cross_rerank", _scored_rerank)
+    monkeypatch.setattr(rag_mod, "cross_rerank_multi", _scored_rerank_multi)
+    monkeypatch.setattr(rag_mod, "evaluate_relevance", _not_relevant)
+    monkeypatch.setattr(rag_mod, "rewrite_for_retry", _rewrite_for_retry)
+    # raising=False on the two names this module introduces, so that on a
+    # checkout without the fix these tests fail on their BEHAVIOURAL
+    # assertions (retries ran, no `zero_signal_abstention`), not on the
+    # fixture — the fail-before direction has to mean something.
+    monkeypatch.setattr(rag_mod, "retry_could_help", _gate, raising=False)
+    monkeypatch.setattr(rag_mod, "generate_statute_queries", _statute)
+    monkeypatch.setattr(rag_mod, "render_question_in_english", _no_english)
+    monkeypatch.setattr(rag_mod.config, "MAX_RETRIES", 2)
+    monkeypatch.setattr(rag_mod.config, "RETRY_GATE_ENABLED", True, raising=False)
+    return calls
+
+
+@pytest.mark.asyncio
+async def test_module143_zero_signal_first_pass_abstains_without_a_single_retry(monkeypatch):
+    calls = _module143_stubs(monkeypatch, gate_verdicts=[False])
+
+    result = await rag_tool(RagToolInput(
+        query_text="How often is the officer who registers an FIR also the officer who investigates?",
+        execution=_execution(),
+    ))
+
+    assert result.status == ToolStatus.EMPTY
+    assert result.evaluator_verdict == "not_relevant"
+    assert result.chunks == []
+    assert result.retries_used == 0
+    assert result.zero_signal_abstention is True
+    assert result.global_corpus_appears_empty is False
+    # One evaluation, one gate call, and NO rewrite -- the whole saving.
+    assert calls == {"rewrite": 0, "gate": 1, "eval": 1}
+    # Exhaustion's contract is untouched: still EMPTY/not_relevant, never WEB.
+    assert result.fallback_to_rag is False
+
+
+@pytest.mark.asyncio
+async def test_module143_near_miss_keeps_every_retry(monkeypatch):
+    calls = _module143_stubs(monkeypatch, gate_verdicts=[True])
+
+    result = await rag_tool(RagToolInput(
+        query_text="Tell me about the armed robbery reported from Iqbal Town",
+        execution=_execution(),
+    ))
+
+    assert result.status == ToolStatus.EMPTY
+    assert result.zero_signal_abstention is False
+    # MAX_RETRIES=2 -> three evaluations and two rewrites, exactly as before
+    # this module; the gate was consulted once, after the first pass only.
+    assert calls == {"rewrite": 2, "gate": 1, "eval": 3}
+    assert result.retries_used == 3
+
+
+@pytest.mark.asyncio
+async def test_module143_gate_is_consulted_after_the_first_pass_only(monkeypatch):
+    # A gate that would say "stop" on a later pass is never asked.
+    calls = _module143_stubs(monkeypatch, gate_verdicts=[True, False, False])
+
+    result = await rag_tool(RagToolInput(query_text="q", execution=_execution()))
+
+    assert calls["gate"] == 1
+    assert calls["rewrite"] == 2
+    assert result.zero_signal_abstention is False
+
+
+@pytest.mark.asyncio
+async def test_module143_legal_kb_path_never_consults_the_gate(monkeypatch):
+    # Statute hypotheses present => cross_rerank_multi path => every gold KB
+    # question. The gate would say "stop"; it must not even be asked.
+    calls = _module143_stubs(monkeypatch, gate_verdicts=[False], statute_queries=["s.154 CrPC"])
+
+    result = await rag_tool(RagToolInput(
+        query_text="What law governs how a report becomes an FIR?",
+        execution=_execution(),
+    ))
+
+    assert calls["gate"] == 0
+    assert calls["rewrite"] == 2
+    assert result.zero_signal_abstention is False
+
+
+@pytest.mark.asyncio
+async def test_module143_off_switch_restores_the_old_loop_exactly(monkeypatch):
+    calls = _module143_stubs(monkeypatch, gate_verdicts=[False])
+    monkeypatch.setattr(rag_mod.config, "RETRY_GATE_ENABLED", False, raising=False)
+
+    result = await rag_tool(RagToolInput(query_text="q", execution=_execution()))
+
+    assert calls == {"rewrite": 2, "gate": 0, "eval": 3}
+    assert result.zero_signal_abstention is False
+
+
+@pytest.mark.asyncio
+async def test_module143_empty_window_keeps_module5_empty_corpus_signal(monkeypatch):
+    # Zero candidates on every attempt in the global-only scope must still
+    # reach Module 5's `global_corpus_appears_empty` -- the gate must not
+    # short-circuit an EMPTY window after one attempt.
+    calls = _module143_stubs(monkeypatch, gate_verdicts=[False])
+
+    async def _empty_query_similar(q, emb, top_k=10, where=None, **kwargs):
+        return []
+
+    async def _empty_bm25_pool(query_text, where=None):
+        return []
+
+    monkeypatch.setattr(rag_mod, "query_similar", _empty_query_similar)
+    monkeypatch.setattr(rag_mod, "bm25_candidate_pool", _empty_bm25_pool)
+
+    result = await rag_tool(RagToolInput(
+        query_text="q",
+        execution=ExecutionContext(
+            caller=CallerContext(user_id="u1", role="investigator", active_case_id=None)
+        ),
+    ))
+
+    assert calls["gate"] == 0
+    assert result.status == ToolStatus.EMPTY
+    assert result.global_corpus_appears_empty is True
+    assert result.zero_signal_abstention is False

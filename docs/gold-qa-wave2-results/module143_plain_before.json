@@ -1,0 +1,2560 @@
+[
+ {
+  "id": "P1",
+  "run": 1,
+  "arm": "before",
+  "question": "What weapon was recovered from the accused in FIR 1001/26, and who was the complainant?",
+  "status": "ok",
+  "served_answer": "The weapon recovered from the accused in FIR 1001/26 was a **30-bore pistol along with 6 bullets** [Document 1][Document 2][Document 3][Document 4]. The complainant was **Faizal son of Muhammad Ramadan** (شناختی کارڈ 00000-9000057-1) [Document 1][Document 2][Document 3][Document 4].",
+  "caveats": [
+   "A cited claim ([Document 1]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 9000057.",
+   "A cited claim ([Document 4]) could not be confirmed against its source: Claim cites figure(s)/identifier(s) not found in its source text: 9000057."
+  ],
+  "error": null,
+  "elapsed_s": 82.0,
+  "evaluator_rounds": 1,
+  "verdicts": [
+   {
+    "relevant": true,
+    "reason": "Documents 1, 2, 3, and 4 explicitly name the recovered weapon (30-bore pistol with 6 bullets) and identify the complainant (Feisal, son of Muhammad Ramadan) in FIR 1001/26. Document 5 refers to a different FIR (445/26) and is irrelevant to the question."
+   }
+  ],
+  "cloud_fallbacks": [],
+  "generation": "local",
+  "events": [
+   {
+    "t": 16.03,
+    "kind": "expand_query",
+    "secs": 16.03
+   },
+   {
+    "t": 25.39,
+    "kind": "cross_script",
+    "secs": 9.36
+   },
+   {
+    "t": 26.59,
+    "kind": "embed",
+    "secs": 1.2
+   },
+   {
+    "t": 27.71,
+    "kind": "embed",
+    "secs": 1.12
+   },
+   {
+    "t": 29.0,
+    "kind": "embed",
+    "secs": 1.29
+   },
+   {
+    "t": 30.24,
+    "kind": "embed",
+    "secs": 1.24
+   },
+   {
+    "t": 30.63,
+    "kind": "query_similar",
+    "secs": 0.39
+   },
+   {
+    "t": 30.72,
+    "kind": "query_similar",
+    "secs": 0.09
+   },
+   {
+    "t": 30.81,
+    "kind": "query_similar",
+    "secs": 0.09
+   },
+   {
+    "t": 30.91,
+    "kind": "query_similar",
+    "secs": 0.1
+   },
+   {
+    "t": 31.1,
+    "kind": "bm25_pool",
+    "secs": 0.19
+   },
+   {
+    "t": 31.49,
+    "kind": "retrieval",
+    "secs": 31.49,
+    "query": "What weapon was recovered from the accused in FIR 1001/26, and who was the complainant?",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.9355,
+     0.9298,
+     0.9287,
+     0.9283,
+     0.9276,
+     0.9253,
+     0.9253,
+     0.9247,
+     0.9242,
+     0.9229
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 32.64,
+    "kind": "rerank",
+    "secs": 1.15,
+    "n_in": 10,
+    "window": [
+     {
+      "id": "psrms_fir_fir-1001-26#zimni_FZ-C901-3_cb00a914_c0",
+      "source": "psrms/fir/fir-1001-26#zimni_FZ-C901-3",
+      "rerank_score": 0.9908803701400757,
+      "rrf_score": 0.034522
+     },
+     {
+      "id": "psrms_fir_fir-1001-26#zimni_FZ-C901-4_c07cf450_c0",
+      "source": "psrms/fir/fir-1001-26#zimni_FZ-C901-4",
+      "rerank_score": 0.9808134436607361,
+      "rrf_score": 0.033514
+     },
+     {
+      "id": "psrms_fir_fir-1001-26#zimni_FZ-C901-1_005a05dc_c0",
+      "source": "psrms/fir/fir-1001-26#zimni_FZ-C901-1",
+      "rerank_score": 0.951196551322937,
+      "rrf_score": 0.032798
+     },
+     {
+      "id": "psrms_fir_fir-1001-26#zimni_FZ-C901-2_8e533a08_c0",
+      "source": "psrms/fir/fir-1001-26#zimni_FZ-C901-2",
+      "rerank_score": 0.9437932372093201,
+      "rrf_score": 0.017873
+     },
+     {
+      "id": "psrms_fir_fir-445-26#narrative_ba9efe27_c2",
+      "source": "psrms/fir/fir-445-26#narrative",
+      "rerank_score": 0.16695070266723633,
+      "rrf_score": 0.017625
+     }
+    ]
+   },
+   {
+    "t": 42.46,
+    "kind": "evaluate",
+    "secs": 9.82,
+    "n_chunks": 5,
+    "window_ids": [
+     "psrms_fir_fir-1001-26#zimni_FZ-C901-3_cb00a914_c0",
+     "psrms_fir_fir-1001-26#zimni_FZ-C901-4_c07cf450_c0",
+     "psrms_fir_fir-1001-26#zimni_FZ-C901-1_005a05dc_c0",
+     "psrms_fir_fir-1001-26#zimni_FZ-C901-2_8e533a08_c0",
+     "psrms_fir_fir-445-26#narrative_ba9efe27_c2"
+    ],
+    "relevant": true,
+    "reason": "Documents 1, 2, 3, and 4 explicitly name the recovered weapon (30-bore pistol with 6 bullets) and identify the complainant (Feisal, son of Muhammad Ramadan) in FIR 1001/26. Document 5 refers to a different FIR (445/26) and is irrelevant to the question."
+   },
+   {
+    "t": 62.32,
+    "kind": "generation",
+    "secs": 19.86,
+    "chars": 283
+   },
+   {
+    "t": 82.0,
+    "kind": "verify",
+    "secs": 19.68,
+    "grounded": true,
+    "off_topic": false
+   }
+  ]
+ },
+ {
+  "id": "P2",
+  "run": 1,
+  "arm": "before",
+  "question": "Which sections of law were applied in FIR 1001/26?",
+  "status": "ok",
+  "served_answer": "The sections of law applied in FIR 1001/26 are:  \n- **392 PPC** [Document 1], [Document 2], [Document 3]  \n- **34 PPC** [Document 1], [Document 2], [Document 3]  \n- **13 Arms Ordinance 1965** [Document 1], [Document 2], [Document 3]  \n\nThese sections are explicitly mentioned in multiple documents related to the case.",
+  "caveats": [],
+  "error": null,
+  "elapsed_s": 99.0,
+  "evaluator_rounds": 1,
+  "verdicts": [
+   {
+    "relevant": true,
+    "reason": "The retrieved documents explicitly list the applicable sections (392 PPC, 34 PPC, 13 Arms Ordinance 1965) in multiple chunks, directly answering the question about which legal sections were applied in FIR 1001/26."
+   }
+  ],
+  "cloud_fallbacks": [],
+  "generation": "local",
+  "events": [
+   {
+    "t": 7.74,
+    "kind": "expand_query",
+    "secs": 7.74
+   },
+   {
+    "t": 14.32,
+    "kind": "cross_script",
+    "secs": 6.58
+   },
+   {
+    "t": 15.67,
+    "kind": "embed",
+    "secs": 1.35
+   },
+   {
+    "t": 17.11,
+    "kind": "embed",
+    "secs": 1.44
+   },
+   {
+    "t": 18.5,
+    "kind": "embed",
+    "secs": 1.39
+   },
+   {
+    "t": 19.69,
+    "kind": "embed",
+    "secs": 1.19
+   },
+   {
+    "t": 19.77,
+    "kind": "query_similar",
+    "secs": 0.08
+   },
+   {
+    "t": 19.84,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 19.91,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 19.98,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 20.05,
+    "kind": "bm25_pool",
+    "secs": 0.07
+   },
+   {
+    "t": 20.33,
+    "kind": "retrieval",
+    "secs": 20.33,
+    "query": "Which sections of law were applied in FIR 1001/26?",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.9232,
+     0.918,
+     0.9163,
+     0.9161,
+     0.915,
+     0.9118,
+     0.9081,
+     0.9068,
+     0.905,
+     0.9049
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 21.58,
+    "kind": "rerank",
+    "secs": 1.25,
+    "n_in": 12,
+    "window": [
+     {
+      "id": "psrms_fir_fir-1001-26#zimni_FZ-C901-3_cb00a914_c0",
+      "source": "psrms/fir/fir-1001-26#zimni_FZ-C901-3",
+      "rerank_score": 0.9885063171386719,
+      "rrf_score": 0.034787
+     },
+     {
+      "id": "psrms_fir_fir-1001-26#zimni_FZ-C901-1_005a05dc_c0",
+      "source": "psrms/fir/fir-1001-26#zimni_FZ-C901-1",
+      "rerank_score": 0.988436222076416,
+      "rrf_score": 0.018129
+     },
+     {
+      "id": "psrms_fir_fir-1001-26#zimni_FZ-C901-2_8e533a08_c0",
+      "source": "psrms/fir/fir-1001-26#zimni_FZ-C901-2",
+      "rerank_score": 0.9821552038192749,
+      "rrf_score": 0.032835
+     },
+     {
+      "id": "psrms_fir_fir-1001-26#narrative_c8bf2613_c0",
+      "source": "psrms/fir/fir-1001-26#narrative",
+      "rerank_score": 0.9697144627571106,
+      "rrf_score": 0.032118
+     },
+     {
+      "id": "psrms_fir_fir-1001-26#zimni_FZ-C901-5_2dec54bc_c0",
+      "source": "psrms/fir/fir-1001-26#zimni_FZ-C901-5",
+      "rerank_score": 0.9612765908241272,
+      "rrf_score": 0.033025
+     }
+    ]
+   },
+   {
+    "t": 54.21,
+    "kind": "evaluate",
+    "secs": 32.62,
+    "n_chunks": 5,
+    "window_ids": [
+     "psrms_fir_fir-1001-26#zimni_FZ-C901-3_cb00a914_c0",
+     "psrms_fir_fir-1001-26#zimni_FZ-C901-1_005a05dc_c0",
+     "psrms_fir_fir-1001-26#zimni_FZ-C901-2_8e533a08_c0",
+     "psrms_fir_fir-1001-26#narrative_c8bf2613_c0",
+     "psrms_fir_fir-1001-26#zimni_FZ-C901-5_2dec54bc_c0"
+    ],
+    "relevant": true,
+    "reason": "The retrieved documents explicitly list the applicable sections (392 PPC, 34 PPC, 13 Arms Ordinance 1965) in multiple chunks, directly answering the question about which legal sections were applied in FIR 1001/26."
+   },
+   {
+    "t": 75.32,
+    "kind": "generation",
+    "secs": 21.11,
+    "chars": 318
+   },
+   {
+    "t": 98.96,
+    "kind": "verify",
+    "secs": 23.64,
+    "grounded": true,
+    "off_topic": false
+   }
+  ]
+ },
+ {
+  "id": "P3",
+  "run": 1,
+  "arm": "before",
+  "question": "ایف آئی آر 1001/26 میں ملزم کے قبضے سے کون سا ہتھیار برآمد ہوا؟",
+  "status": "ok",
+  "served_answer": "ایف آئی آر 1001/26 میں ملزم کے قبضے سے **30 بور پستول** بمعہ **6 گولیاں** برآمد ہوئیں [Document 1][Document 2][Document 3][Document 4][Document 5]۔",
+  "caveats": [],
+  "error": null,
+  "elapsed_s": 74.3,
+  "evaluator_rounds": 1,
+  "verdicts": [
+   {
+    "relevant": true,
+    "reason": "All retrieved documents explicitly mention that a 30-bore pistol along with 6 bullets were seized from the accused in FIR 1001/26. The information is directly and consistently provided in multiple chunks."
+   }
+  ],
+  "cloud_fallbacks": [],
+  "generation": "local",
+  "events": [
+   {
+    "t": 20.42,
+    "kind": "expand_query",
+    "secs": 20.41
+   },
+   {
+    "t": 33.62,
+    "kind": "cross_script",
+    "secs": 13.21
+   },
+   {
+    "t": 34.76,
+    "kind": "embed",
+    "secs": 1.14
+   },
+   {
+    "t": 35.88,
+    "kind": "embed",
+    "secs": 1.12
+   },
+   {
+    "t": 37.0,
+    "kind": "embed",
+    "secs": 1.11
+   },
+   {
+    "t": 38.25,
+    "kind": "embed",
+    "secs": 1.25
+   },
+   {
+    "t": 38.31,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 38.37,
+    "kind": "query_similar",
+    "secs": 0.06
+   },
+   {
+    "t": 38.44,
+    "kind": "query_similar",
+    "secs": 0.06
+   },
+   {
+    "t": 38.5,
+    "kind": "query_similar",
+    "secs": 0.06
+   },
+   {
+    "t": 38.56,
+    "kind": "bm25_pool",
+    "secs": 0.06
+   },
+   {
+    "t": 38.85,
+    "kind": "retrieval",
+    "secs": 38.85,
+    "query": "ایف آئی آر 1001/26 میں ملزم کے قبضے سے کون سا ہتھیار برآمد ہوا؟",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.9349,
+     0.9289,
+     0.9278,
+     0.9264,
+     0.9253,
+     0.9246,
+     0.9217,
+     0.9207,
+     0.9199,
+     0.9182
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 40.03,
+    "kind": "rerank",
+    "secs": 1.18,
+    "n_in": 12,
+    "window": [
+     {
+      "id": "psrms_fir_fir-1001-26#zimni_FZ-C901-3_cb00a914_c0",
+      "source": "psrms/fir/fir-1001-26#zimni_FZ-C901-3",
+      "rerank_score": 0.997621476650238,
+      "rrf_score": 0.034787
+     },
+     {
+      "id": "psrms_fir_fir-1001-26#narrative_c8bf2613_c1",
+      "source": "psrms/fir/fir-1001-26#narrative",
+      "rerank_score": 0.9973449110984802,
+      "rrf_score": 0.03255
+     },
+     {
+      "id": "psrms_fir_fir-1001-26#zimni_FZ-C901-1_005a05dc_c0",
+      "source": "psrms/fir/fir-1001-26#zimni_FZ-C901-1",
+      "rerank_score": 0.9973415732383728,
+      "rrf_score": 0.033025
+     },
+     {
+      "id": "psrms_fir_fir-1001-26#zimni_FZ-C901-2_8e533a08_c0",
+      "source": "psrms/fir/fir-1001-26#zimni_FZ-C901-2",
+      "rerank_score": 0.9962635636329651,
+      "rrf_score": 0.033054
+     },
+     {
+      "id": "psrms_fir_fir-1001-26#zimni_FZ-C901-4_c07cf450_c0",
+      "source": "psrms/fir/fir-1001-26#zimni_FZ-C901-4",
+      "rerank_score": 0.9918332099914551,
+      "rrf_score": 0.033498
+     }
+    ]
+   },
+   {
+    "t": 48.62,
+    "kind": "evaluate",
+    "secs": 8.59,
+    "n_chunks": 5,
+    "window_ids": [
+     "psrms_fir_fir-1001-26#zimni_FZ-C901-3_cb00a914_c0",
+     "psrms_fir_fir-1001-26#narrative_c8bf2613_c1",
+     "psrms_fir_fir-1001-26#zimni_FZ-C901-1_005a05dc_c0",
+     "psrms_fir_fir-1001-26#zimni_FZ-C901-2_8e533a08_c0",
+     "psrms_fir_fir-1001-26#zimni_FZ-C901-4_c07cf450_c0"
+    ],
+    "relevant": true,
+    "reason": "All retrieved documents explicitly mention that a 30-bore pistol along with 6 bullets were seized from the accused in FIR 1001/26. The information is directly and consistently provided in multiple chunks."
+   },
+   {
+    "t": 64.08,
+    "kind": "generation",
+    "secs": 15.46,
+    "chars": 147
+   },
+   {
+    "t": 74.29,
+    "kind": "verify",
+    "secs": 10.21,
+    "grounded": true,
+    "off_topic": false
+   }
+  ]
+ },
+ {
+  "id": "N1",
+  "run": 1,
+  "arm": "before",
+  "question": "Tell me about the armed robbery reported from Iqbal Town where a pistol was seized.",
+  "status": "ok",
+  "served_answer": "The armed robbery reported from Iqbal Town, Faisalabad, is documented in FIR 403/26, dated 14-02-2026. According to the narrative [Document 1], a raid conducted on suspects **Nadeem** (CNIC: 00000‐9000014‐1) and **Salman** (CNIC: 00000‐9000015‐1) led to the seizure of:  \n- **30-bore pistols with 3 bullets**  \n- **Opium in five packets**  \n- **A mobile phone belonging to the victim**  \n\nThe incident involved a covert operation, and the suspects were arrested following the seizure. No other details about the robbery itself (e.g., injuries or specific circumstances) are provided in the document.",
+  "caveats": [],
+  "error": null,
+  "elapsed_s": 191.8,
+  "evaluator_rounds": 3,
+  "verdicts": [
+   {
+    "relevant": false,
+    "reason": "None of the retrieved documents mention Iqbal Town as the location of the armed robbery. The documents reference other areas (e.g., سمن آباد، اسلام آباد, حیدر آباد, لاہور) but not Iqbal Town, making them insufficient to answer the question about that specific incident."
+   },
+   {
+    "relevant": false,
+    "reason": "Retrieved documents mention armed robberies with pistol seizures but all reference locations other than Iqbal Town (Model Town, Burki, Gulshan Ravi). The user specifically asked about Iqbal Town, which is not mentioned in any retrieved document."
+   },
+   {
+    "relevant": true,
+    "reason": "Document [1] directly addresses the armed robbery in Iqbal Town (محلہ اقبال ٹاؤن) and explicitly mentions the seizure of a 30-bore pistol (30 بور پستولیں مع 3 گولیاں). The other documents either reference different locations (e.g., Johar Town, Faisalabad) or do not mention Iqbal Town specifically."
+   }
+  ],
+  "cloud_fallbacks": [],
+  "generation": "local",
+  "events": [
+   {
+    "t": 7.04,
+    "kind": "expand_query",
+    "secs": 7.04
+   },
+   {
+    "t": 19.48,
+    "kind": "cross_script",
+    "secs": 12.45
+   },
+   {
+    "t": 20.66,
+    "kind": "embed",
+    "secs": 1.18
+   },
+   {
+    "t": 21.68,
+    "kind": "embed",
+    "secs": 1.02
+   },
+   {
+    "t": 22.7,
+    "kind": "embed",
+    "secs": 1.02
+   },
+   {
+    "t": 23.75,
+    "kind": "embed",
+    "secs": 1.05
+   },
+   {
+    "t": 23.82,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 23.88,
+    "kind": "query_similar",
+    "secs": 0.06
+   },
+   {
+    "t": 23.95,
+    "kind": "query_similar",
+    "secs": 0.06
+   },
+   {
+    "t": 24.01,
+    "kind": "query_similar",
+    "secs": 0.06
+   },
+   {
+    "t": 24.08,
+    "kind": "bm25_pool",
+    "secs": 0.07
+   },
+   {
+    "t": 24.39,
+    "kind": "retrieval",
+    "secs": 24.39,
+    "query": "Tell me about the armed robbery reported from Iqbal Town where a pistol was seized.",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.8975,
+     0.8973,
+     0.8965,
+     0.8957,
+     0.8922,
+     0.8914,
+     0.8914,
+     0.8912,
+     0.8894,
+     0.889
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 25.28,
+    "kind": "rerank",
+    "secs": 0.89,
+    "n_in": 11,
+    "window": [
+     {
+      "id": "psrms_fir_fir-212-26#narrative_d8abc19f_c1",
+      "source": "psrms/fir/fir-212-26#narrative",
+      "rerank_score": 0.06026370823383331,
+      "rrf_score": 0.018393
+     },
+     {
+      "id": "psrms_fir_fir-421-26#narrative_f2071daa_c1",
+      "source": "psrms/fir/fir-421-26#narrative",
+      "rerank_score": 0.031932003796100616,
+      "rrf_score": 0.017925
+     },
+     {
+      "id": "psrms_fir_fir-423-26#narrative_ecd0d856_c1",
+      "source": "psrms/fir/fir-423-26#narrative",
+      "rerank_score": 0.027913160622119904,
+      "rrf_score": 0.017286
+     },
+     {
+      "id": "psrms_fir_fir-204-26#narrative_4ca370b1_c1",
+      "source": "psrms/fir/fir-204-26#narrative",
+      "rerank_score": 0.02388135902583599,
+      "rrf_score": 0.891200065612793
+     },
+     {
+      "id": "psrms_fir_fir-407-26#narrative_7e79e00f_c1",
+      "source": "psrms/fir/fir-407-26#narrative",
+      "rerank_score": 0.01670117862522602,
+      "rrf_score": 0.018385
+     }
+    ]
+   },
+   {
+    "t": 35.52,
+    "kind": "evaluate",
+    "secs": 10.24,
+    "n_chunks": 5,
+    "window_ids": [
+     "psrms_fir_fir-212-26#narrative_d8abc19f_c1",
+     "psrms_fir_fir-421-26#narrative_f2071daa_c1",
+     "psrms_fir_fir-423-26#narrative_ecd0d856_c1",
+     "psrms_fir_fir-204-26#narrative_4ca370b1_c1",
+     "psrms_fir_fir-407-26#narrative_7e79e00f_c1"
+    ],
+    "relevant": false,
+    "reason": "None of the retrieved documents mention Iqbal Town as the location of the armed robbery. The documents reference other areas (e.g., سمن آباد، اسلام آباد, حیدر آباد, لاہور) but not Iqbal Town, making them insufficient to answer the question about that specific incident."
+   },
+   {
+    "t": 44.47,
+    "kind": "rewrite",
+    "secs": 8.95,
+    "feedback": "None of the retrieved documents mention Iqbal Town as the location of the armed robbery. The documents reference other areas (e.g., سمن آباد، اسلام آباد, حیدر آباد, لاہور) but not Iqbal Town, making them insufficient to answer the question about that specific incident.",
+    "new_query": "Armed robbery incident in Iqbal Town, Lahore with pistol seizure"
+   },
+   {
+    "t": 69.53,
+    "kind": "expand_query",
+    "secs": 25.06
+   },
+   {
+    "t": 88.65,
+    "kind": "cross_script",
+    "secs": 19.12
+   },
+   {
+    "t": 89.86,
+    "kind": "embed",
+    "secs": 1.21
+   },
+   {
+    "t": 91.29,
+    "kind": "embed",
+    "secs": 1.43
+   },
+   {
+    "t": 92.36,
+    "kind": "embed",
+    "secs": 1.07
+   },
+   {
+    "t": 93.54,
+    "kind": "embed",
+    "secs": 1.18
+   },
+   {
+    "t": 93.61,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 93.67,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 93.74,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 93.81,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 93.88,
+    "kind": "bm25_pool",
+    "secs": 0.07
+   },
+   {
+    "t": 94.19,
+    "kind": "retrieval",
+    "secs": 49.72,
+    "query": "Armed robbery incident in Iqbal Town, Lahore with pistol seizure",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.9154,
+     0.9119,
+     0.9055,
+     0.905,
+     0.9039,
+     0.9033,
+     0.903,
+     0.9019,
+     0.9018,
+     0.9018
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 95.28,
+    "kind": "rerank",
+    "secs": 1.08,
+    "n_in": 11,
+    "window": [
+     {
+      "id": "psrms_fir_fir-212-26#chalaan_property_CD-C112-1_b8aa1d72_c0",
+      "source": "psrms/fir/fir-212-26#chalaan_property_CD-C112-1",
+      "rerank_score": 0.1610528528690338,
+      "rrf_score": 0.016493
+     },
+     {
+      "id": "psrms_fir_fir-212-26#zimni_FZ-C112-2_85d70b31_c0",
+      "source": "psrms/fir/fir-212-26#zimni_FZ-C112-2",
+      "rerank_score": 0.1524278074502945,
+      "rrf_score": 0.016925
+     },
+     {
+      "id": "psrms_fir_fir-465-26#chalaan_property_CD-C365-1_6d06c766_c0",
+      "source": "psrms/fir/fir-465-26#chalaan_property_CD-C365-1",
+      "rerank_score": 0.12140129506587982,
+      "rrf_score": 0.016706
+     },
+     {
+      "id": "psrms_fir_fir-210-26#narrative_ff534793_c1",
+      "source": "psrms/fir/fir-210-26#narrative",
+      "rerank_score": 0.06646085530519485,
+      "rrf_score": 0.018152
+     },
+     {
+      "id": "psrms_fir_fir-407-26#narrative_7e79e00f_c1",
+      "source": "psrms/fir/fir-407-26#narrative",
+      "rerank_score": 0.06439154595136642,
+      "rrf_score": 0.019393
+     }
+    ]
+   },
+   {
+    "t": 108.47,
+    "kind": "evaluate",
+    "secs": 13.19,
+    "n_chunks": 5,
+    "window_ids": [
+     "psrms_fir_fir-212-26#chalaan_property_CD-C112-1_b8aa1d72_c0",
+     "psrms_fir_fir-212-26#zimni_FZ-C112-2_85d70b31_c0",
+     "psrms_fir_fir-465-26#chalaan_property_CD-C365-1_6d06c766_c0",
+     "psrms_fir_fir-210-26#narrative_ff534793_c1",
+     "psrms_fir_fir-407-26#narrative_7e79e00f_c1"
+    ],
+    "relevant": false,
+    "reason": "Retrieved documents mention armed robberies with pistol seizures but all reference locations other than Iqbal Town (Model Town, Burki, Gulshan Ravi). The user specifically asked about Iqbal Town, which is not mentioned in any retrieved document."
+   },
+   {
+    "t": 119.53,
+    "kind": "rewrite",
+    "secs": 11.06,
+    "feedback": "Retrieved documents mention armed robberies with pistol seizures but all reference locations other than Iqbal Town (Model Town, Burki, Gulshan Ravi). The user specifically asked about Iqbal Town, which is not mentioned in any retrieved document.",
+    "new_query": "Incident report of armed robbery with pistol seizure in Iqbal Town"
+   },
+   {
+    "t": 131.05,
+    "kind": "expand_query",
+    "secs": 11.52
+   },
+   {
+    "t": 148.36,
+    "kind": "cross_script",
+    "secs": 17.31
+   },
+   {
+    "t": 149.5,
+    "kind": "embed",
+    "secs": 1.14
+   },
+   {
+    "t": 150.58,
+    "kind": "embed",
+    "secs": 1.08
+   },
+   {
+    "t": 151.74,
+    "kind": "embed",
+    "secs": 1.16
+   },
+   {
+    "t": 152.83,
+    "kind": "embed",
+    "secs": 1.08
+   },
+   {
+    "t": 152.89,
+    "kind": "query_similar",
+    "secs": 0.06
+   },
+   {
+    "t": 152.95,
+    "kind": "query_similar",
+    "secs": 0.06
+   },
+   {
+    "t": 153.01,
+    "kind": "query_similar",
+    "secs": 0.06
+   },
+   {
+    "t": 153.1,
+    "kind": "query_similar",
+    "secs": 0.09
+   },
+   {
+    "t": 153.17,
+    "kind": "bm25_pool",
+    "secs": 0.07
+   },
+   {
+    "t": 153.47,
+    "kind": "retrieval",
+    "secs": 33.94,
+    "query": "Incident report of armed robbery with pistol seizure in Iqbal Town",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.9176,
+     0.9108,
+     0.9101,
+     0.9089,
+     0.9072,
+     0.9059,
+     0.9057,
+     0.9038,
+     0.9021,
+     0.9016
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 154.4,
+    "kind": "rerank",
+    "secs": 0.93,
+    "n_in": 11,
+    "window": [
+     {
+      "id": "psrms_fir_fir-403-26#narrative_4a3025e8_c1",
+      "source": "psrms/fir/fir-403-26#narrative",
+      "rerank_score": 0.5431369543075562,
+      "rrf_score": 0.017925
+     },
+     {
+      "id": "psrms_fir_fir-212-26#narrative_d8abc19f_c1",
+      "source": "psrms/fir/fir-212-26#narrative",
+      "rerank_score": 0.10269511491060257,
+      "rrf_score": 0.017385
+     },
+     {
+      "id": "psrms_fir_fir-203-26#narrative_1f26ae88_c2",
+      "source": "psrms/fir/fir-203-26#narrative",
+      "rerank_score": 0.03689945861697197,
+      "rrf_score": 0.018152
+     },
+     {
+      "id": "psrms_fir_fir-466-26#narrative_97aa8e17_c1",
+      "source": "psrms/fir/fir-466-26#narrative",
+      "rerank_score": 0.035083092749118805,
+      "rrf_score": 0.018873
+     },
+     {
+      "id": "psrms_fir_fir-409-26#narrative_c430890d_c1",
+      "source": "psrms/fir/fir-409-26#narrative",
+      "rerank_score": 0.02620374597609043,
+      "rrf_score": 0.017706
+     }
+    ]
+   },
+   {
+    "t": 163.92,
+    "kind": "evaluate",
+    "secs": 9.52,
+    "n_chunks": 5,
+    "window_ids": [
+     "psrms_fir_fir-403-26#narrative_4a3025e8_c1",
+     "psrms_fir_fir-212-26#narrative_d8abc19f_c1",
+     "psrms_fir_fir-203-26#narrative_1f26ae88_c2",
+     "psrms_fir_fir-466-26#narrative_97aa8e17_c1",
+     "psrms_fir_fir-409-26#narrative_c430890d_c1"
+    ],
+    "relevant": true,
+    "reason": "Document [1] directly addresses the armed robbery in Iqbal Town (محلہ اقبال ٹاؤن) and explicitly mentions the seizure of a 30-bore pistol (30 بور پستولیں مع 3 گولیاں). The other documents either reference different locations (e.g., Johar Town, Faisalabad) or do not mention Iqbal Town specifically."
+   },
+   {
+    "t": 173.11,
+    "kind": "generation",
+    "secs": 9.19,
+    "chars": 599
+   },
+   {
+    "t": 191.76,
+    "kind": "verify",
+    "secs": 18.65,
+    "grounded": true,
+    "off_topic": false
+   }
+  ]
+ },
+ {
+  "id": "N2",
+  "run": 1,
+  "arm": "before",
+  "question": "Kashif naam ke mulzim ke qabze se kya baramad hua tha?",
+  "status": "ok",
+  "served_answer": "[Document 2] میں لکھا گیا ہے کہ ملزم کاشف (شناختی کارڈ: 00000-9000051-1) کے قبضے سے **30 بور پستول** برآمد ہوا۔  \n[Document 5] میں لکھا گیا ہے کہ ملزم کاشف (شناختی کارڈ: 00000-9000058-1) کے قبضے سے **30 بور پستول** اور **6 گولیاں** برآمد ہوئیں۔  \n\nنوٹ: دو الگ شناختی کارڈ نمبروں کے ساتھ \"کاشف\" کے نام پر مبنی دو الگ واقعات ہیں۔",
+  "caveats": [],
+  "error": null,
+  "elapsed_s": 77.9,
+  "evaluator_rounds": 1,
+  "verdicts": [
+   {
+    "relevant": true,
+    "reason": "The retrieved documents mention that a 30-bore pistol and bullets were seized from the accused named Kashif in both FIR-217-26 and FIR-1001-26."
+   }
+  ],
+  "cloud_fallbacks": [],
+  "generation": "local",
+  "events": [
+   {
+    "t": 12.27,
+    "kind": "expand_query",
+    "secs": 12.27
+   },
+   {
+    "t": 25.82,
+    "kind": "cross_script",
+    "secs": 13.55
+   },
+   {
+    "t": 27.13,
+    "kind": "embed",
+    "secs": 1.31
+   },
+   {
+    "t": 28.67,
+    "kind": "embed",
+    "secs": 1.54
+   },
+   {
+    "t": 29.98,
+    "kind": "embed",
+    "secs": 1.31
+   },
+   {
+    "t": 31.11,
+    "kind": "embed",
+    "secs": 1.13
+   },
+   {
+    "t": 31.2,
+    "kind": "query_similar",
+    "secs": 0.09
+   },
+   {
+    "t": 31.28,
+    "kind": "query_similar",
+    "secs": 0.08
+   },
+   {
+    "t": 31.35,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 31.42,
+    "kind": "query_similar",
+    "secs": 0.08
+   },
+   {
+    "t": 31.47,
+    "kind": "bm25_pool",
+    "secs": 0.05
+   },
+   {
+    "t": 31.6,
+    "kind": "retrieval",
+    "secs": 31.6,
+    "query": "Kashif naam ke mulzim ke qabze se kya baramad hua tha?",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.8924,
+     0.8837,
+     0.8834,
+     0.8814,
+     0.8811,
+     0.8809,
+     0.8793,
+     0.8785,
+     0.8785,
+     0.8779
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 32.85,
+    "kind": "rerank",
+    "secs": 1.25,
+    "n_in": 12,
+    "window": [
+     {
+      "id": "psrms_fir_fir-216-26#narrative_d849b364_c1",
+      "source": "psrms/fir/fir-216-26#narrative",
+      "rerank_score": 0.0005791335133835673,
+      "rrf_score": 0.8784869909286499
+     },
+     {
+      "id": "psrms_fir_fir-217-26#narrative_9b3a00dd_c1",
+      "source": "psrms/fir/fir-217-26#narrative",
+      "rerank_score": 0.0005665451171807945,
+      "rrf_score": 0.032679
+     },
+     {
+      "id": "psrms_fir_fir-210-26#narrative_ff534793_c1",
+      "source": "psrms/fir/fir-210-26#narrative",
+      "rerank_score": 0.0004697039839811623,
+      "rrf_score": 0.018625
+     },
+     {
+      "id": "psrms_fir_fir-216-26#zimni_FZ-C116-5_9e7c1f32_c1",
+      "source": "psrms/fir/fir-216-26#zimni_FZ-C116-5",
+      "rerank_score": 0.00036449413164518774,
+      "rrf_score": 0.018385
+     },
+     {
+      "id": "psrms_fir_fir-1001-26#narrative_c8bf2613_c1",
+      "source": "psrms/fir/fir-1001-26#narrative",
+      "rerank_score": 0.0003533196577336639,
+      "rrf_score": 0.8785409927368164
+     }
+    ]
+   },
+   {
+    "t": 44.75,
+    "kind": "evaluate",
+    "secs": 11.9,
+    "n_chunks": 5,
+    "window_ids": [
+     "psrms_fir_fir-216-26#narrative_d849b364_c1",
+     "psrms_fir_fir-217-26#narrative_9b3a00dd_c1",
+     "psrms_fir_fir-210-26#narrative_ff534793_c1",
+     "psrms_fir_fir-216-26#zimni_FZ-C116-5_9e7c1f32_c1",
+     "psrms_fir_fir-1001-26#narrative_c8bf2613_c1"
+    ],
+    "relevant": true,
+    "reason": "The retrieved documents mention that a 30-bore pistol and bullets were seized from the accused named Kashif in both FIR-217-26 and FIR-1001-26."
+   },
+   {
+    "t": 62.01,
+    "kind": "generation",
+    "secs": 17.26,
+    "chars": 327
+   },
+   {
+    "t": 77.87,
+    "kind": "verify",
+    "secs": 15.86,
+    "grounded": true,
+    "off_topic": false
+   }
+  ]
+ },
+ {
+  "id": "Z2",
+  "run": 1,
+  "arm": "before",
+  "question": "What is the average number of days between an FIR's registration and its first zimni entry?",
+  "status": "abstained",
+  "served_answer": null,
+  "caveats": [
+   "No sufficiently relevant documents were found for this question after retrying with query refinements."
+  ],
+  "error": null,
+  "elapsed_s": 273.4,
+  "evaluator_rounds": 3,
+  "verdicts": [
+   {
+    "relevant": false,
+    "reason": "The retrieved documents only provide specific instances of FIR registration and zimni entry dates for individual cases, but do not contain enough data points or statistical information to calculate an average number of days between registration and first zimni entry."
+   },
+   {
+    "relevant": false,
+    "reason": "The retrieved documents mention FIR registration dates and some zimni entries, but none provide the specific dates of the first zimni entries. Without the dates of the first zimni entries, it is impossible to calculate the average number of days between registration and the first zimni entry."
+   },
+   {
+    "relevant": false,
+    "reason": "None of the retrieved documents contain zimni entry dates for any FIRs, making it impossible to calculate the average number of days between FIR registration and first zimni entry."
+   }
+  ],
+  "cloud_fallbacks": [],
+  "generation": "local",
+  "events": [
+   {
+    "t": 15.27,
+    "kind": "expand_query",
+    "secs": 15.27
+   },
+   {
+    "t": 37.76,
+    "kind": "cross_script",
+    "secs": 22.49
+   },
+   {
+    "t": 39.33,
+    "kind": "embed",
+    "secs": 1.57
+   },
+   {
+    "t": 40.97,
+    "kind": "embed",
+    "secs": 1.64
+   },
+   {
+    "t": 42.62,
+    "kind": "embed",
+    "secs": 1.65
+   },
+   {
+    "t": 44.24,
+    "kind": "embed",
+    "secs": 1.62
+   },
+   {
+    "t": 44.37,
+    "kind": "query_similar",
+    "secs": 0.13
+   },
+   {
+    "t": 44.49,
+    "kind": "query_similar",
+    "secs": 0.12
+   },
+   {
+    "t": 44.62,
+    "kind": "query_similar",
+    "secs": 0.13
+   },
+   {
+    "t": 44.72,
+    "kind": "query_similar",
+    "secs": 0.1
+   },
+   {
+    "t": 44.83,
+    "kind": "bm25_pool",
+    "secs": 0.11
+   },
+   {
+    "t": 45.36,
+    "kind": "retrieval",
+    "secs": 45.35,
+    "query": "What is the average number of days between an FIR's registration and its first zimni entry?",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.8712,
+     0.867,
+     0.8654,
+     0.8633,
+     0.8629,
+     0.8626,
+     0.862,
+     0.8619,
+     0.8617,
+     0.8614
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 46.75,
+    "kind": "rerank",
+    "secs": 1.39,
+    "n_in": 11,
+    "window": [
+     {
+      "id": "psrms_fir_fir-216-26#zimni_FZ-C116-1_16d67066_c0",
+      "source": "psrms/fir/fir-216-26#zimni_FZ-C116-1",
+      "rerank_score": 0.12464748322963715,
+      "rrf_score": 0.018873
+     },
+     {
+      "id": "psrms_fir_fir-418-26#zimni_FZ-C318-1_0ec02099_c0",
+      "source": "psrms/fir/fir-418-26#zimni_FZ-C318-1",
+      "rerank_score": 0.0883173868060112,
+      "rrf_score": 0.018385
+     },
+     {
+      "id": "psrms_fir_fir-428-26#zimni_FZ-C328-1_e0f8bc0c_c0",
+      "source": "psrms/fir/fir-428-26#zimni_FZ-C328-1",
+      "rerank_score": 0.04413217306137085,
+      "rrf_score": 0.017286
+     },
+     {
+      "id": "psrms_fir_fir-891-24#zimni_FZ-C1-1_c843724e_c0",
+      "source": "psrms/fir/fir-891-24#zimni_FZ-C1-1",
+      "rerank_score": 0.02798992022871971,
+      "rrf_score": 0.016925
+     },
+     {
+      "id": "psrms_fir_fir-216-26#zimni_FZ-C116-3_a7e89199_c0",
+      "source": "psrms/fir/fir-216-26#zimni_FZ-C116-3",
+      "rerank_score": 0.0248859915882349,
+      "rrf_score": 0.019129
+     }
+    ]
+   },
+   {
+    "t": 60.4,
+    "kind": "evaluate",
+    "secs": 13.65,
+    "n_chunks": 5,
+    "window_ids": [
+     "psrms_fir_fir-216-26#zimni_FZ-C116-1_16d67066_c0",
+     "psrms_fir_fir-418-26#zimni_FZ-C318-1_0ec02099_c0",
+     "psrms_fir_fir-428-26#zimni_FZ-C328-1_e0f8bc0c_c0",
+     "psrms_fir_fir-891-24#zimni_FZ-C1-1_c843724e_c0",
+     "psrms_fir_fir-216-26#zimni_FZ-C116-3_a7e89199_c0"
+    ],
+    "relevant": false,
+    "reason": "The retrieved documents only provide specific instances of FIR registration and zimni entry dates for individual cases, but do not contain enough data points or statistical information to calculate an average number of days between registration and first zimni entry."
+   },
+   {
+    "t": 91.22,
+    "kind": "rewrite",
+    "secs": 30.82,
+    "feedback": "The retrieved documents only provide specific instances of FIR registration and zimni entry dates for individual cases, but do not contain enough data points or statistical information to calculate an average number of days between registration and first zimni entry.",
+    "new_query": "What is the typical duration between FIR registration and first zimni entry in police procedural timelines?"
+   },
+   {
+    "t": 113.98,
+    "kind": "expand_query",
+    "secs": 22.76
+   },
+   {
+    "t": 137.18,
+    "kind": "cross_script",
+    "secs": 23.2
+   },
+   {
+    "t": 138.65,
+    "kind": "embed",
+    "secs": 1.47
+   },
+   {
+    "t": 140.16,
+    "kind": "embed",
+    "secs": 1.51
+   },
+   {
+    "t": 141.83,
+    "kind": "embed",
+    "secs": 1.67
+   },
+   {
+    "t": 143.44,
+    "kind": "embed",
+    "secs": 1.6
+   },
+   {
+    "t": 143.54,
+    "kind": "query_similar",
+    "secs": 0.1
+   },
+   {
+    "t": 143.64,
+    "kind": "query_similar",
+    "secs": 0.1
+   },
+   {
+    "t": 143.73,
+    "kind": "query_similar",
+    "secs": 0.09
+   },
+   {
+    "t": 143.84,
+    "kind": "query_similar",
+    "secs": 0.11
+   },
+   {
+    "t": 143.96,
+    "kind": "bm25_pool",
+    "secs": 0.12
+   },
+   {
+    "t": 144.55,
+    "kind": "retrieval",
+    "secs": 53.33,
+    "query": "What is the typical duration between FIR registration and first zimni entry in police procedural timelines?",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.8779,
+     0.8763,
+     0.8756,
+     0.8745,
+     0.8734,
+     0.8733,
+     0.873,
+     0.8724,
+     0.8723,
+     0.8723
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 145.87,
+    "kind": "rerank",
+    "secs": 1.32,
+    "n_in": 10,
+    "window": [
+     {
+      "id": "psrms_fir_fir-216-26#zimni_FZ-C116-1_16d67066_c0",
+      "source": "psrms/fir/fir-216-26#zimni_FZ-C116-1",
+      "rerank_score": 0.20647838711738586,
+      "rrf_score": 0.018873
+     },
+     {
+      "id": "psrms_fir_fir-233-26#zimni_FZ-C6-1_49d6009b_c0",
+      "source": "psrms/fir/fir-233-26#zimni_FZ-C6-1",
+      "rerank_score": 0.19450344145298004,
+      "rrf_score": 0.018152
+     },
+     {
+      "id": "psrms_fir_fir-408-26#zimni_FZ-C308-5_377e4a90_c0",
+      "source": "psrms/fir/fir-408-26#zimni_FZ-C308-5",
+      "rerank_score": 0.0550348125398159,
+      "rrf_score": 0.016706
+     },
+     {
+      "id": "psrms_fir_fir-214-26#zimni_FZ-C2-1_ffdc3c84_c0",
+      "source": "psrms/fir/fir-214-26#zimni_FZ-C2-1",
+      "rerank_score": 0.05350509285926819,
+      "rrf_score": 0.019393
+     },
+     {
+      "id": "psrms_fir_fir-202-26#zimni_FZ-C102-3_16774547_c0",
+      "source": "psrms/fir/fir-202-26#zimni_FZ-C102-3",
+      "rerank_score": 0.04165267571806908,
+      "rrf_score": 0.017493
+     }
+    ]
+   },
+   {
+    "t": 171.12,
+    "kind": "evaluate",
+    "secs": 25.25,
+    "n_chunks": 5,
+    "window_ids": [
+     "psrms_fir_fir-216-26#zimni_FZ-C116-1_16d67066_c0",
+     "psrms_fir_fir-233-26#zimni_FZ-C6-1_49d6009b_c0",
+     "psrms_fir_fir-408-26#zimni_FZ-C308-5_377e4a90_c0",
+     "psrms_fir_fir-214-26#zimni_FZ-C2-1_ffdc3c84_c0",
+     "psrms_fir_fir-202-26#zimni_FZ-C102-3_16774547_c0"
+    ],
+    "relevant": false,
+    "reason": "The retrieved documents mention FIR registration dates and some zimni entries, but none provide the specific dates of the first zimni entries. Without the dates of the first zimni entries, it is impossible to calculate the average number of days between registration and the first zimni entry."
+   },
+   {
+    "t": 201.74,
+    "kind": "rewrite",
+    "secs": 30.61,
+    "feedback": "The retrieved documents mention FIR registration dates and some zimni entries, but none provide the specific dates of the first zimni entries. Without the dates of the first zimni entries, it is impossible to calculate the average number of days between registration and the first zimni entry.",
+    "new_query": "What is the average number of days between FIR registration and first zimni entry date in police records?"
+   },
+   {
+    "t": 219.07,
+    "kind": "expand_query",
+    "secs": 17.33
+   },
+   {
+    "t": 241.13,
+    "kind": "cross_script",
+    "secs": 22.06
+   },
+   {
+    "t": 242.26,
+    "kind": "embed",
+    "secs": 1.13
+   },
+   {
+    "t": 243.37,
+    "kind": "embed",
+    "secs": 1.12
+   },
+   {
+    "t": 244.62,
+    "kind": "embed",
+    "secs": 1.24
+   },
+   {
+    "t": 245.9,
+    "kind": "embed",
+    "secs": 1.28
+   },
+   {
+    "t": 245.98,
+    "kind": "query_similar",
+    "secs": 0.08
+   },
+   {
+    "t": 246.06,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 246.12,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 246.19,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 246.27,
+    "kind": "bm25_pool",
+    "secs": 0.07
+   },
+   {
+    "t": 246.59,
+    "kind": "retrieval",
+    "secs": 44.86,
+    "query": "What is the average number of days between FIR registration and first zimni entry date in police records?",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.8905,
+     0.8871,
+     0.8861,
+     0.8859,
+     0.8856,
+     0.8841,
+     0.8831,
+     0.883,
+     0.8829,
+     0.8829
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 247.65,
+    "kind": "rerank",
+    "secs": 1.06,
+    "n_in": 11,
+    "window": [
+     {
+      "id": "psrms_fir_fir-216-26#zimni_FZ-C116-1_16d67066_c0",
+      "source": "psrms/fir/fir-216-26#zimni_FZ-C116-1",
+      "rerank_score": 0.19809459149837494,
+      "rrf_score": 0.019393
+     },
+     {
+      "id": "psrms_fir_fir-418-26#zimni_FZ-C318-1_0ec02099_c0",
+      "source": "psrms/fir/fir-418-26#zimni_FZ-C318-1",
+      "rerank_score": 0.190837100148201,
+      "rrf_score": 0.018873
+     },
+     {
+      "id": "psrms_fir_fir-460-26#zimni_FZ-C360-2_8860ca32_c0",
+      "source": "psrms/fir/fir-460-26#zimni_FZ-C360-2",
+      "rerank_score": 0.12501810491085052,
+      "rrf_score": 0.018385
+     },
+     {
+      "id": "psrms_fir_fir-420-26#zimni_FZ-C320-1_e94a773f_c0",
+      "source": "psrms/fir/fir-420-26#zimni_FZ-C320-1",
+      "rerank_score": 0.10821066796779633,
+      "rrf_score": 0.8829153776168823
+     },
+     {
+      "id": "psrms_fir_fir-453-26#zimni_FZ-C353-1_5cbc8f06_c0",
+      "source": "psrms/fir/fir-453-26#zimni_FZ-C353-1",
+      "rerank_score": 0.07073629647493362,
+      "rrf_score": 0.017493
+     }
+    ]
+   },
+   {
+    "t": 273.42,
+    "kind": "evaluate",
+    "secs": 25.77,
+    "n_chunks": 5,
+    "window_ids": [
+     "psrms_fir_fir-216-26#zimni_FZ-C116-1_16d67066_c0",
+     "psrms_fir_fir-418-26#zimni_FZ-C318-1_0ec02099_c0",
+     "psrms_fir_fir-460-26#zimni_FZ-C360-2_8860ca32_c0",
+     "psrms_fir_fir-420-26#zimni_FZ-C320-1_e94a773f_c0",
+     "psrms_fir_fir-453-26#zimni_FZ-C353-1_5cbc8f06_c0"
+    ],
+    "relevant": false,
+    "reason": "None of the retrieved documents contain zimni entry dates for any FIRs, making it impossible to calculate the average number of days between FIR registration and first zimni entry."
+   }
+  ]
+ },
+ {
+  "id": "Z3",
+  "run": 1,
+  "arm": "before",
+  "question": "Which police station has the highest conviction rate this year?",
+  "status": "abstained",
+  "served_answer": null,
+  "caveats": [
+   "No sufficiently relevant documents were found for this question after retrying with query refinements."
+  ],
+  "error": null,
+  "elapsed_s": 254.4,
+  "evaluator_rounds": 3,
+  "verdicts": [
+   {
+    "relevant": false,
+    "reason": "The retrieved documents contain FIR records and procedural rules but do not include any statistical data on conviction rates for police stations. They mention specific cases and sections of law but lack aggregated performance metrics required to answer the question."
+   },
+   {
+    "relevant": false,
+    "reason": "The retrieved documents only contain individual FIR records with case details, sections involved, and procedural notes, but none mention conviction rates, performance statistics, or resolution rates for any police station this year."
+   },
+   {
+    "relevant": false,
+    "reason": "The retrieved documents mention FIR records and police station names (e.g., 'موٹروے پولیس اسٹیشن ایم ٹو، لاہور') but do not include any data on conviction rates, case closure statuses, or statistical comparisons between police stations. The documents focus on FIR details, sections involved, and procedural notes, not performance metrics like conviction rates."
+   }
+  ],
+  "cloud_fallbacks": [],
+  "generation": "local",
+  "events": [
+   {
+    "t": 11.63,
+    "kind": "expand_query",
+    "secs": 11.63
+   },
+   {
+    "t": 73.31,
+    "kind": "cross_script",
+    "secs": 61.69
+   },
+   {
+    "t": 74.76,
+    "kind": "embed",
+    "secs": 1.45
+   },
+   {
+    "t": 75.99,
+    "kind": "embed",
+    "secs": 1.23
+   },
+   {
+    "t": 77.18,
+    "kind": "embed",
+    "secs": 1.19
+   },
+   {
+    "t": 78.39,
+    "kind": "embed",
+    "secs": 1.2
+   },
+   {
+    "t": 78.46,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 78.54,
+    "kind": "query_similar",
+    "secs": 0.08
+   },
+   {
+    "t": 78.62,
+    "kind": "query_similar",
+    "secs": 0.08
+   },
+   {
+    "t": 78.69,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 78.77,
+    "kind": "bm25_pool",
+    "secs": 0.08
+   },
+   {
+    "t": 79.12,
+    "kind": "retrieval",
+    "secs": 79.12,
+    "query": "Which police station has the highest conviction rate this year?",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.8696,
+     0.8692,
+     0.8656,
+     0.8654,
+     0.8642,
+     0.8642,
+     0.8637,
+     0.8628,
+     0.8617,
+     0.8615
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 80.28,
+    "kind": "rerank",
+    "secs": 1.16,
+    "n_in": 11,
+    "window": [
+     {
+      "id": "psrms_fir_fir-201-26#crime_scene_cf982a5d_c0",
+      "source": "psrms/fir/fir-201-26#crime_scene",
+      "rerank_score": 0.00617965729907155,
+      "rrf_score": 0.017873
+     },
+     {
+      "id": "psrms_fir_fir-201-26#zimni_FZ-C101-3_ae9b4551_c0",
+      "source": "psrms/fir/fir-201-26#zimni_FZ-C101-3",
+      "rerank_score": 0.004642707761377096,
+      "rrf_score": 0.017385
+     },
+     {
+      "id": "psrms_fir_fir-620-26#narrative_f7d50de6_c0",
+      "source": "psrms/fir/fir-620-26#narrative",
+      "rerank_score": 0.004570339806377888,
+      "rrf_score": 0.019393
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c516",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.004303256049752235,
+      "rrf_score": 0.016393
+     },
+     {
+      "id": "psrms_fir_fir-620-26#crime_scene_78735af8_c0",
+      "source": "psrms/fir/fir-620-26#crime_scene",
+      "rerank_score": 0.00422023655846715,
+      "rrf_score": 0.019129
+     }
+    ]
+   },
+   {
+    "t": 89.09,
+    "kind": "evaluate",
+    "secs": 8.81,
+    "n_chunks": 5,
+    "window_ids": [
+     "psrms_fir_fir-201-26#crime_scene_cf982a5d_c0",
+     "psrms_fir_fir-201-26#zimni_FZ-C101-3_ae9b4551_c0",
+     "psrms_fir_fir-620-26#narrative_f7d50de6_c0",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c516",
+     "psrms_fir_fir-620-26#crime_scene_78735af8_c0"
+    ],
+    "relevant": false,
+    "reason": "The retrieved documents contain FIR records and procedural rules but do not include any statistical data on conviction rates for police stations. They mention specific cases and sections of law but lack aggregated performance metrics required to answer the question."
+   },
+   {
+    "t": 116.2,
+    "kind": "rewrite",
+    "secs": 27.11,
+    "feedback": "The retrieved documents contain FIR records and procedural rules but do not include any statistical data on conviction rates for police stations. They mention specific cases and sections of law but lack aggregated performance metrics required to answer the question.",
+    "new_query": "Police station performance statistics on case resolution rates this year under PECA section 12."
+   },
+   {
+    "t": 136.06,
+    "kind": "expand_query",
+    "secs": 19.85
+   },
+   {
+    "t": 158.15,
+    "kind": "cross_script",
+    "secs": 22.1
+   },
+   {
+    "t": 159.49,
+    "kind": "embed",
+    "secs": 1.33
+   },
+   {
+    "t": 160.7,
+    "kind": "embed",
+    "secs": 1.21
+   },
+   {
+    "t": 161.81,
+    "kind": "embed",
+    "secs": 1.11
+   },
+   {
+    "t": 162.99,
+    "kind": "embed",
+    "secs": 1.18
+   },
+   {
+    "t": 163.06,
+    "kind": "query_similar",
+    "secs": 0.08
+   },
+   {
+    "t": 163.14,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 163.2,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 163.27,
+    "kind": "query_similar",
+    "secs": 0.06
+   },
+   {
+    "t": 163.35,
+    "kind": "bm25_pool",
+    "secs": 0.08
+   },
+   {
+    "t": 163.67,
+    "kind": "retrieval",
+    "secs": 47.47,
+    "query": "Police station performance statistics on case resolution rates this year under PECA section 12.",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.879,
+     0.8776,
+     0.8769,
+     0.8766,
+     0.8764,
+     0.8763,
+     0.8763,
+     0.8749,
+     0.8748,
+     0.8746
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 164.6,
+    "kind": "rerank",
+    "secs": 0.93,
+    "n_in": 12,
+    "window": [
+     {
+      "id": "psrms_fir_fir-427-26#narrative_fd2d991c_c0",
+      "source": "psrms/fir/fir-427-26#narrative",
+      "rerank_score": 0.025663135573267937,
+      "rrf_score": 0.018385
+     },
+     {
+      "id": "psrms_fir_fir-427-26#delay_reason_74bf8301_c0",
+      "source": "psrms/fir/fir-427-26#delay_reason",
+      "rerank_score": 0.023541240021586418,
+      "rrf_score": 0.019129
+     },
+     {
+      "id": "psrms_fir_fir-427-26#zimni_FZ-C327-3_d9e4a4ea_c0",
+      "source": "psrms/fir/fir-427-26#zimni_FZ-C327-3",
+      "rerank_score": 0.013705439865589142,
+      "rrf_score": 0.018625
+     },
+     {
+      "id": "psrms_fir_fir-65-26#zimni_FZ-C11-1_79ee9366_c0",
+      "source": "psrms/fir/fir-65-26#zimni_FZ-C11-1",
+      "rerank_score": 0.013513663783669472,
+      "rrf_score": 0.019393
+     },
+     {
+      "id": "psrms_fir_fir-427-26#zimni_FZ-C327-2_59bb5212_c0",
+      "source": "psrms/fir/fir-427-26#zimni_FZ-C327-2",
+      "rerank_score": 0.012301417998969555,
+      "rrf_score": 0.033622
+     }
+    ]
+   },
+   {
+    "t": 174.71,
+    "kind": "evaluate",
+    "secs": 10.11,
+    "n_chunks": 5,
+    "window_ids": [
+     "psrms_fir_fir-427-26#narrative_fd2d991c_c0",
+     "psrms_fir_fir-427-26#delay_reason_74bf8301_c0",
+     "psrms_fir_fir-427-26#zimni_FZ-C327-3_d9e4a4ea_c0",
+     "psrms_fir_fir-65-26#zimni_FZ-C11-1_79ee9366_c0",
+     "psrms_fir_fir-427-26#zimni_FZ-C327-2_59bb5212_c0"
+    ],
+    "relevant": false,
+    "reason": "The retrieved documents only contain individual FIR records with case details, sections involved, and procedural notes, but none mention conviction rates, performance statistics, or resolution rates for any police station this year."
+   },
+   {
+    "t": 188.62,
+    "kind": "rewrite",
+    "secs": 13.91,
+    "feedback": "The retrieved documents only contain individual FIR records with case details, sections involved, and procedural notes, but none mention conviction rates, performance statistics, or resolution rates for any police station this year.",
+    "new_query": "Police station names in FIR records with case closure status and sections involved this year."
+   },
+   {
+    "t": 206.49,
+    "kind": "expand_query",
+    "secs": 17.87
+   },
+   {
+    "t": 226.3,
+    "kind": "cross_script",
+    "secs": 19.81
+   },
+   {
+    "t": 227.49,
+    "kind": "embed",
+    "secs": 1.19
+   },
+   {
+    "t": 228.83,
+    "kind": "embed",
+    "secs": 1.33
+   },
+   {
+    "t": 229.92,
+    "kind": "embed",
+    "secs": 1.1
+   },
+   {
+    "t": 231.08,
+    "kind": "embed",
+    "secs": 1.15
+   },
+   {
+    "t": 231.15,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 231.22,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 231.28,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 231.35,
+    "kind": "query_similar",
+    "secs": 0.06
+   },
+   {
+    "t": 231.54,
+    "kind": "bm25_pool",
+    "secs": 0.19
+   },
+   {
+    "t": 231.89,
+    "kind": "retrieval",
+    "secs": 43.26,
+    "query": "Police station names in FIR records with case closure status and sections involved this year.",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.8948,
+     0.891,
+     0.8906,
+     0.8892,
+     0.8883,
+     0.8882,
+     0.8882,
+     0.8879,
+     0.8873,
+     0.8873
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 233.52,
+    "kind": "rerank",
+    "secs": 1.63,
+    "n_in": 12,
+    "window": [
+     {
+      "id": "psrms_fir_fir-427-26#zimni_FZ-C327-1_61985dd6_c0",
+      "source": "psrms/fir/fir-427-26#zimni_FZ-C327-1",
+      "rerank_score": 0.2438519299030304,
+      "rrf_score": 0.018385
+     },
+     {
+      "id": "psrms_fir_fir-427-26#delay_reason_74bf8301_c0",
+      "source": "psrms/fir/fir-427-26#delay_reason",
+      "rerank_score": 0.20675663650035858,
+      "rrf_score": 0.018873
+     },
+     {
+      "id": "psrms_fir_fir-427-26#zimni_FZ-C327-2_59bb5212_c0",
+      "source": "psrms/fir/fir-427-26#zimni_FZ-C327-2",
+      "rerank_score": 0.20576803386211395,
+      "rrf_score": 0.019393
+     },
+     {
+      "id": "psrms_fir_fir-427-26#narrative_fd2d991c_c0",
+      "source": "psrms/fir/fir-427-26#narrative",
+      "rerank_score": 0.18491430580615997,
+      "rrf_score": 0.018152
+     },
+     {
+      "id": "psrms_fir_fir-201-26#crime_scene_cf982a5d_c0",
+      "source": "psrms/fir/fir-201-26#crime_scene",
+      "rerank_score": 0.1720406711101532,
+      "rrf_score": 0.8882108330726624
+     }
+    ]
+   },
+   {
+    "t": 254.37,
+    "kind": "evaluate",
+    "secs": 20.85,
+    "n_chunks": 5,
+    "window_ids": [
+     "psrms_fir_fir-427-26#zimni_FZ-C327-1_61985dd6_c0",
+     "psrms_fir_fir-427-26#delay_reason_74bf8301_c0",
+     "psrms_fir_fir-427-26#zimni_FZ-C327-2_59bb5212_c0",
+     "psrms_fir_fir-427-26#narrative_fd2d991c_c0",
+     "psrms_fir_fir-201-26#crime_scene_cf982a5d_c0"
+    ],
+    "relevant": false,
+    "reason": "The retrieved documents mention FIR records and police station names (e.g., 'موٹروے پولیس اسٹیشن ایم ٹو، لاہور') but do not include any data on conviction rates, case closure statuses, or statistical comparisons between police stations. The documents focus on FIR details, sections involved, and procedural notes, not performance metrics like conviction rates."
+   }
+  ]
+ },
+ {
+  "id": "Z4",
+  "run": 1,
+  "arm": "before",
+  "question": "Kitni baar FIR darj karne wala afsar hi us case ki tafteesh bhi karta hai?",
+  "status": "abstained",
+  "served_answer": null,
+  "caveats": [
+   "No sufficiently relevant documents were found for this question after retrying with query refinements."
+  ],
+  "error": null,
+  "elapsed_s": 168.9,
+  "evaluator_rounds": 3,
+  "verdicts": [
+   {
+    "relevant": false,
+    "reason": "The retrieved documents contain case-specific FIR records with details about individual incidents, sections involved, and investigative actions taken in specific cases. However, none of the documents address the procedural policy, frequency, or general practice regarding whether the officer who registers an FIR also conducts the investigation. The question requires information about a formal standard or procedure, which is not present in the retrieved chunks."
+   },
+   {
+    "relevant": false,
+    "reason": "The retrieved documents describe the duties of investigation officers and officer-in-charge roles but do not explicitly state whether the officer who registers an FIR also conducts the investigation. They mention procedural responsibilities without directly addressing the relationship between FIR registration and investigation assignment."
+   },
+   {
+    "relevant": false,
+    "reason": "The retrieved documents discuss duties of the officer-in-charge and investigation officer under the Anti-Rape Act, but none explicitly state whether the officer who registers an FIR is also responsible for conducting the investigation. The documents outline procedural requirements (e.g., immediate FIR registration, liaison between departments) but do not address the relationship between FIR registration and investigation roles."
+   }
+  ],
+  "cloud_fallbacks": [],
+  "generation": "local",
+  "events": [
+   {
+    "t": 27.69,
+    "kind": "expand_query",
+    "secs": 27.69
+   },
+   {
+    "t": 38.69,
+    "kind": "cross_script",
+    "secs": 11.0
+   },
+   {
+    "t": 39.94,
+    "kind": "embed",
+    "secs": 1.24
+   },
+   {
+    "t": 41.11,
+    "kind": "embed",
+    "secs": 1.17
+   },
+   {
+    "t": 41.19,
+    "kind": "query_similar",
+    "secs": 0.08
+   },
+   {
+    "t": 41.25,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 41.5,
+    "kind": "bm25_pool",
+    "secs": 0.24
+   },
+   {
+    "t": 41.77,
+    "kind": "retrieval",
+    "secs": 41.77,
+    "query": "Kitni baar FIR darj karne wala afsar hi us case ki tafteesh bhi karta hai?",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.8864,
+     0.8853,
+     0.8836,
+     0.8834,
+     0.8827,
+     0.8824,
+     0.8823,
+     0.882,
+     0.8819,
+     0.8819
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 43.13,
+    "kind": "rerank",
+    "secs": 1.36,
+    "n_in": 12,
+    "window": [
+     {
+      "id": "psrms_fir_fir-216-26#zimni_FZ-C116-1_16d67066_c0",
+      "source": "psrms/fir/fir-216-26#zimni_FZ-C116-1",
+      "rerank_score": 0.001629516715183854,
+      "rrf_score": 0.018625
+     },
+     {
+      "id": "psrms_fir_fir-420-26#zimni_FZ-C320-1_e94a773f_c0",
+      "source": "psrms/fir/fir-420-26#zimni_FZ-C320-1",
+      "rerank_score": 0.0011630633380264044,
+      "rrf_score": 0.8835896849632263
+     },
+     {
+      "id": "psrms_fir_fir-420-26#zimni_FZ-C320-5_3f1f98ea_c0",
+      "source": "psrms/fir/fir-420-26#zimni_FZ-C320-5",
+      "rerank_score": 0.0009483709582127631,
+      "rrf_score": 0.018129
+     },
+     {
+      "id": "psrms_fir_fir-65-26#zimni_FZ-C11-2_1a41a4c1_c0",
+      "source": "psrms/fir/fir-65-26#zimni_FZ-C11-2",
+      "rerank_score": 0.0009439788991585374,
+      "rrf_score": 0.019129
+     },
+     {
+      "id": "psrms_fir_fir-418-26#zimni_FZ-C318-1_0ec02099_c1",
+      "source": "psrms/fir/fir-418-26#zimni_FZ-C318-1",
+      "rerank_score": 0.0007746613118797541,
+      "rrf_score": 0.018152
+     }
+    ]
+   },
+   {
+    "t": 58.46,
+    "kind": "evaluate",
+    "secs": 15.33,
+    "n_chunks": 5,
+    "window_ids": [
+     "psrms_fir_fir-216-26#zimni_FZ-C116-1_16d67066_c0",
+     "psrms_fir_fir-420-26#zimni_FZ-C320-1_e94a773f_c0",
+     "psrms_fir_fir-420-26#zimni_FZ-C320-5_3f1f98ea_c0",
+     "psrms_fir_fir-65-26#zimni_FZ-C11-2_1a41a4c1_c0",
+     "psrms_fir_fir-418-26#zimni_FZ-C318-1_0ec02099_c1"
+    ],
+    "relevant": false,
+    "reason": "The retrieved documents contain case-specific FIR records with details about individual incidents, sections involved, and investigative actions taken in specific cases. However, none of the documents address the procedural policy, frequency, or general practice regarding whether the officer who registers an FIR also conducts the investigation. The question requires information about a formal standard or procedure, which is not present in the retrieved chunks."
+   },
+   {
+    "t": 84.17,
+    "kind": "rewrite",
+    "secs": 25.71,
+    "feedback": "The retrieved documents contain case-specific FIR records with details about individual incidents, sections involved, and investigative actions taken in specific cases. However, none of the documents address the procedural policy, frequency, or general practice regarding whether the officer who regi",
+    "new_query": "Procedural policy on whether the officer registering an FIR also conducts the investigation."
+   },
+   {
+    "t": 96.63,
+    "kind": "expand_query",
+    "secs": 12.46
+   },
+   {
+    "t": 107.78,
+    "kind": "cross_script",
+    "secs": 11.14
+   },
+   {
+    "t": 109.1,
+    "kind": "embed",
+    "secs": 1.33
+   },
+   {
+    "t": 110.39,
+    "kind": "embed",
+    "secs": 1.29
+   },
+   {
+    "t": 111.87,
+    "kind": "embed",
+    "secs": 1.48
+   },
+   {
+    "t": 113.24,
+    "kind": "embed",
+    "secs": 1.37
+   },
+   {
+    "t": 113.32,
+    "kind": "query_similar",
+    "secs": 0.08
+   },
+   {
+    "t": 113.39,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 113.46,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 113.53,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 113.6,
+    "kind": "bm25_pool",
+    "secs": 0.07
+   },
+   {
+    "t": 113.91,
+    "kind": "retrieval",
+    "secs": 29.74,
+    "query": "Procedural policy on whether the officer registering an FIR also conducts the investigation.",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.8931,
+     0.8871,
+     0.8868,
+     0.8854,
+     0.8848,
+     0.879,
+     0.8772,
+     0.8765,
+     0.8758,
+     0.8754
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 115.01,
+    "kind": "rerank",
+    "secs": 1.1,
+    "n_in": 12,
+    "window": [
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c152",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.7010891437530518,
+      "rrf_score": 0.016373
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c145",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.46270498633384705,
+      "rrf_score": 0.016629
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c146",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.46121519804000854,
+      "rrf_score": 0.016893
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c18",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.3974953293800354,
+      "rrf_score": 0.8854015469551086
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c135",
+      "source": "4_Punjab-Police-Rules-III.pdf",
+      "rerank_score": 0.04313843697309494,
+      "rrf_score": 0.016393
+     }
+    ]
+   },
+   {
+    "t": 121.82,
+    "kind": "evaluate",
+    "secs": 6.8,
+    "n_chunks": 5,
+    "window_ids": [
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c152",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c145",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c146",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c18",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c135"
+    ],
+    "relevant": false,
+    "reason": "The retrieved documents describe the duties of investigation officers and officer-in-charge roles but do not explicitly state whether the officer who registers an FIR also conducts the investigation. They mention procedural responsibilities without directly addressing the relationship between FIR registration and investigation assignment."
+   },
+   {
+    "t": 133.2,
+    "kind": "rewrite",
+    "secs": 11.39,
+    "feedback": "The retrieved documents describe the duties of investigation officers and officer-in-charge roles but do not explicitly state whether the officer who registers an FIR also conducts the investigation. They mention procedural responsibilities without directly addressing the relationship between FIR re",
+    "new_query": "Statutory provisions regarding the role of the officer registering an FIR in conducting the investigation."
+   },
+   {
+    "t": 142.22,
+    "kind": "expand_query",
+    "secs": 9.02
+   },
+   {
+    "t": 154.12,
+    "kind": "cross_script",
+    "secs": 11.9
+   },
+   {
+    "t": 155.51,
+    "kind": "embed",
+    "secs": 1.4
+   },
+   {
+    "t": 156.86,
+    "kind": "embed",
+    "secs": 1.34
+   },
+   {
+    "t": 158.07,
+    "kind": "embed",
+    "secs": 1.21
+   },
+   {
+    "t": 159.44,
+    "kind": "embed",
+    "secs": 1.37
+   },
+   {
+    "t": 159.52,
+    "kind": "query_similar",
+    "secs": 0.08
+   },
+   {
+    "t": 159.59,
+    "kind": "query_similar",
+    "secs": 0.08
+   },
+   {
+    "t": 159.67,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 159.73,
+    "kind": "query_similar",
+    "secs": 0.07
+   },
+   {
+    "t": 159.81,
+    "kind": "bm25_pool",
+    "secs": 0.08
+   },
+   {
+    "t": 160.12,
+    "kind": "retrieval",
+    "secs": 26.91,
+    "query": "Statutory provisions regarding the role of the officer registering an FIR in conducting the investigation.",
+    "n_semantic": 10,
+    "n_lexical": 10,
+    "top_semantic": [
+     0.8948,
+     0.8928,
+     0.8918,
+     0.8909,
+     0.8889,
+     0.8887,
+     0.8829,
+     0.8826,
+     0.8822,
+     0.8797
+    ],
+    "top_lexical": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   {
+    "t": 161.43,
+    "kind": "rerank",
+    "secs": 1.31,
+    "n_in": 11,
+    "window": [
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c145",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.9230091571807861,
+      "rrf_score": 0.016125
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c18",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.7369529604911804,
+      "rrf_score": 0.016893
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c146",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.6769016981124878,
+      "rrf_score": 0.016373
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c144",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.5367119312286377,
+      "rrf_score": 0.033022
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c40",
+      "source": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+      "rerank_score": 0.2669615149497986,
+      "rrf_score": 0.8887205123901367
+     }
+    ]
+   },
+   {
+    "t": 168.89,
+    "kind": "evaluate",
+    "secs": 7.46,
+    "n_chunks": 5,
+    "window_ids": [
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c145",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c18",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c146",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c144",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c40"
+    ],
+    "relevant": false,
+    "reason": "The retrieved documents discuss duties of the officer-in-charge and investigation officer under the Anti-Rape Act, but none explicitly state whether the officer who registers an FIR is also responsible for conducting the investigation. The documents outline procedural requirements (e.g., immediate FIR registration, liaison between departments) but do not address the relationship between FIR registration and investigation roles."
+   }
+  ]
+ }
+]

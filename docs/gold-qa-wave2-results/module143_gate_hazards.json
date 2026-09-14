@@ -1,0 +1,12 @@
+[
+ {"id":"H1","expect":true,"q":"How many bullets were recovered from Kashif in FIR 1001/26?","reason":"The retrieved documents describe other FIRs (212/26, 233/26) and do not mention Kashif or FIR 1001/26 at all."},
+ {"id":"H2","expect":true,"q":"How often must an investigating officer submit the case diary to the supervising officer?","reason":"The retrieved documents describe the format and contents of the case diary but do not state how often it must be submitted or to whom."},
+ {"id":"H3","expect":true,"q":"What proportion of the property seized in FIR 233/26 was later returned to the owner?","reason":"The documents record the seizure of property in FIR 233/26 but contain nothing about its return."},
+ {"id":"H4","expect":true,"q":"How many days does the law give the police to complete an investigation before reporting to the magistrate?","reason":"The retrieved documents discuss the submission of the final report but do not state the number of days allowed for completing the investigation."},
+ {"id":"H5","expect":true,"q":"Within how many hours must an arrested person be produced before a magistrate?","reason":"The documents cover arrest procedures generally but the specific time limit for production before a magistrate is not mentioned."},
+ {"id":"H6","expect":false,"q":"What percentage of FIRs registered this year resulted in an arrest?","reason":"The retrieved documents are individual FIR records; none contain arrest statistics or percentages across cases."},
+ {"id":"H7","expect":false,"q":"Which district registers the most weapons-related FIRs?","reason":"The documents are single FIRs from various districts and do not contain any count or ranking of FIRs by district."},
+ {"id":"H8","expect":true,"q":"Which section of the Police Order bars the DPO from interfering in an investigation?","reason":"The documents discuss the hierarchy of investigation staff but do not identify the specific article prohibiting interference by the District Police Officer."},
+ {"id":"H9","expect":true,"q":"Tafteesh mukammal hone se pehle police ko kitni baar adaalat ko report deni hoti hai?","reason":"The retrieved documents describe investigation procedures but do not specify how many times or at what intervals the police must report to the court before completion."},
+ {"id":"H10","expect":false,"q":"On average, how many accused are named per FIR in our records?","reason":"The documents are individual FIR narratives; no document states an average number of accused per FIR."}
+]
