@@ -1,0 +1,29 @@
+{
+  "_note": "Module 145 hazard set. WRITTEN BEFORE ANY SCORE WAS SEEN and not edited afterwards. Every question here must NOT be pulled into a purpose-built aggregate by the semantic layer: it is either generic (the trailing catch-all IS its answer), unrelated to any aggregate, within-case, a legal-text lookup, or a Module 144 filtered count that the count kinds already own. The three live queries and the Module 100 rewordings are the TARGET set and live in module145_targets.json, not here.",
+  "hazards": [
+    {"id": "H01", "language": "en", "text": "How many cases in total?", "why": "the grand total; must stay total_count"},
+    {"id": "H02", "language": "en", "text": "List all the cases.", "why": "plain listing; must stay case_listing"},
+    {"id": "H03", "language": "en", "text": "Which police station has the most cases?", "why": "S2's shape; station_or_category_counts is the answer"},
+    {"id": "H04", "language": "en", "text": "Give me a summary of the caseload.", "why": "open-ended, no aggregate answers it"},
+    {"id": "H05", "language": "en", "text": "What is the weather like in Lahore today?", "why": "unrelated"},
+    {"id": "H06", "language": "en", "text": "Hello, what can you do?", "why": "greeting / DIRECT"},
+    {"id": "H07", "language": "en", "text": "What does section 302 of the PPC say?", "why": "legal-text lookup, SQL/RAG"},
+    {"id": "H08", "language": "en", "text": "How many theft cases are open?", "why": "status/category count; the generic group-by is correct"},
+    {"id": "H09", "language": "en", "text": "Show me the cases registered last month.", "why": "date-filtered listing/count (Module 144)"},
+    {"id": "H10", "language": "en", "text": "Draft a letter to the SHO about staffing.", "why": "unrelated drafting"},
+    {"id": "H11", "language": "roman_ur", "text": "Kul kitne muqadmat darj hain?", "why": "Roman-Urdu grand total"},
+    {"id": "H12", "language": "ur", "text": "تمام مقدمات کی فہرست دکھائیں", "why": "Urdu plain listing"},
+    {"id": "H13", "language": "en", "text": "How many cases were registered in 2025?", "why": "Module 144 date-filtered total"},
+    {"id": "H14", "language": "en", "text": "Who is the complainant in FIR 460/26?", "why": "within-case"},
+    {"id": "H15", "language": "en", "text": "Which officer investigated the most cases?", "why": "officer identity; the honest refusal is the answer"},
+    {"id": "H16", "language": "en", "text": "Is crime going up month over month?", "why": "trend; the honest refusal is the answer"},
+    {"id": "H17", "language": "en", "text": "What is the procedure for registering an FIR?", "why": "legal KB, no data half"},
+    {"id": "H18", "language": "en", "text": "Tell me about the cybercrime wing.", "why": "unrelated / DIRECT"},
+    {"id": "H19", "language": "en", "text": "How many FIRs were registered in Lahore?", "why": "Module 144 district-filtered total"},
+    {"id": "H20", "language": "en", "text": "How many accused persons in total are under 30 years old?", "why": "Module 144 age-filtered total_accused_count; phrase lists own it"},
+    {"id": "H21", "language": "ur", "text": "پچھلے سال کتنے مقدمات درج ہوئے؟", "why": "Urdu date-filtered total"},
+    {"id": "H22", "language": "roman_ur", "text": "Mujhe sab se naye case ke baare mein batao", "why": "Roman-Urdu, vague single-case ask"},
+    {"id": "H23", "language": "en", "text": "What happened in the bank fraud case?", "why": "single-case narrative"},
+    {"id": "H24", "language": "en", "text": "Thanks, that's all for now.", "why": "conversational"}
+  ]
+}

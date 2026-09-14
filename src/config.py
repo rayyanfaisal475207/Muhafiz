@@ -104,6 +104,12 @@ EXPECTED_EMBEDDING_DIM: int = int(
 EMBEDDINGS_URL: str = os.getenv("EMBEDDINGS_URL", "")
 RERANKER_URL: str = os.getenv("RERANKER_URL", "")
 
+# [Gold-QA fix — Module 145] Semantic dispatch — the cross-encoder fallback
+# under XAGG's phrase lists (src/pipeline/semantic_dispatch.py). On by
+# default; tests/conftest.py turns it off so the unit suite stays offline,
+# and an operator can turn it off to prove a live route was phrase-driven.
+SEMANTIC_DISPATCH_ENABLED: bool = os.getenv("SEMANTIC_DISPATCH_ENABLED", "true").strip().lower() not in ("0", "false", "no", "off")
+
 # Graph Scale & Schema Expansion, Milestone A3: the model server's /embed
 # route takes one text per request (no batch parameter — a {"texts": [...]}
 # payload 422s, per src/retrieval/embedder.py's own comment), so "batched"

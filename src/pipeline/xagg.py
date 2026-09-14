@@ -28,6 +28,7 @@ from src.graph import age_client
 from src.database.postgres import current_cross_case, current_rls_active
 from src.graph.community_detection import build_canonical_map, canon, fetch_confirmed_same_as
 from src.ingestion.muhafiz_cases import split_crime_category
+from src.pipeline import semantic_dispatch
 from src.pipeline.aggregate_filters import (
     EMPTY_FILTERS,
     AggregateFilters,
@@ -7465,7 +7466,51 @@ def resolve_aggregate_kind(query_text: str) -> str:
 
     Total — every query resolves to some key. See `_GENERIC_AGGREGATE_KINDS`
     for the three that mean "nothing specific matched".
+
+    [Gold-QA fix — Module 145] Two layers, in a fixed order. The phrase
+    chain (`phrase_aggregate_kind()`, unchanged) runs first and is the FAST
+    PATH: whatever it resolves to that is not a trailing catch-all is the
+    answer, byte-for-byte as before — every one of the 32 gold questions
+    stops here (the all-32 equality control in tests/test_xagg.py pins it).
+    ONLY when every list misses and the chain lands on one of
+    `_GENERIC_AGGREGATE_KINDS` is the semantic layer consulted, and it is
+    consulted through a synchronous cache read: the scoring happened in
+    `prepare_semantic_dispatch()` at the one async chokepoint upstream,
+    `router.route_query()`. A question that was never
+    prepared, scored below threshold, or landed on an absorbing class gets
+    the phrase result — this function is still pure and still total.
     """
+    kind = phrase_aggregate_kind(query_text)
+    if kind in _GENERIC_AGGREGATE_KINDS:
+        match = semantic_dispatch.lookup(query_text)
+        if match is not None:
+            return match.kind
+    return kind
+
+
+async def prepare_semantic_dispatch(query_text: str) -> Optional["semantic_dispatch.SemanticMatch"]:
+    """The async half of Module 145's semantic layer. Called from ONE place:
+    `router.route_query()`, after every deterministic override has declined
+    the question and before the LLM classifier — see
+    `router._semantic_xagg_override()` for why nowhere else.
+
+    Costs nothing unless the phrase chain lands on a generic catch-all: a
+    question the phrase lists resolve is never scored. Returns the match
+    that will now back `resolve_aggregate_kind()` for this exact text, or
+    `None` when the phrase result stands (not generic, below threshold,
+    absorbing class, or scorer unavailable — the last is logged and never
+    raises).
+    """
+    if phrase_aggregate_kind(query_text) not in _GENERIC_AGGREGATE_KINDS:
+        return None
+    return await semantic_dispatch.prepare(query_text)
+
+
+def phrase_aggregate_kind(query_text: str) -> str:
+    """The phrase-list chain on its own — `resolve_aggregate_kind()` as it
+    was before Module 145, byte-identical in order, body and rationale.
+    Exposed so the semantic layer's measurement can compare the two, and
+    so the fast-path guarantee is testable directly."""
     query_lower = query_text.lower()
 
     if _matches_any(query_lower, _AGE_KEYWORDS):
@@ -7681,6 +7726,16 @@ async def run_aggregate(
     # answer a question WITHOUT paying for the aggregate. Every branch
     # below is unchanged in order, body and rationale — only its test
     # moved. Add a new family in BOTH places, or nowhere.
+    #
+    # [Gold-QA fix — Module 145] Deliberately NO `prepare_semantic_dispatch()`
+    # here. The router is the semantic layer's only chokepoint, and it
+    # prepares a question only after every deterministic override has
+    # declined it. A question that arrives here because the router's XAGG
+    # PHRASE override claimed it ("how many cases are there in total?") was
+    # answered by that override — and measured, the cross-encoder scores
+    # that exact text 0.941 against the ACCUSED-count description. Preparing
+    # it here would turn a grand total into a people count. So this function
+    # reads whatever decision the router cached, and nothing else.
     kind = resolve_aggregate_kind(query_text)
 
     # [Gold-QA fix — Module 144] The filter set the question carries, applied
