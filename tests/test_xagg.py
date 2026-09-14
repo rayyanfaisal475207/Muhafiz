@@ -6680,3 +6680,510 @@ class TestModule89Dispatch:
         assert xagg._is_fir_register_completeness(
             "how many fir register entries name a complainant?"
         )
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 144] Filters on the count aggregates.
+#
+# Measured live 2026-09-14: "How many FIRs were registered in 2019 or
+# earlier?" -> `Total cases: 73`. The dispatch was right (`total_count`);
+# the aggregate had no way to take a date bound, so the bound was dropped.
+# True answer: 0 — the corpus's FIRs were reported in 2024 (13), 2025 (3)
+# and 2026 (57), verified against `Incident.report_datetime`.
+#
+# Every test below FAILS on the pre-module tree (the extractor module does
+# not exist, and `total_cases` comes back 73) and passes on this one — run
+# them against the main checkout's `src` to see the before arm.
+# ══════════════════════════════════════════════════════════════════════════
+
+from datetime import date as _date  # noqa: E402
+
+from src.pipeline.aggregate_filters import (  # noqa: E402
+    AggregateFilters,
+    extract_aggregate_filters,
+)
+
+# The dispatch snapshot for all 32 gold questions, taken on origin/main
+# (4f09e38) BEFORE this module touched anything. `resolve_aggregate_kind()`
+# is asserted byte-identical to it — the filter is a PARAMETER on existing
+# kinds, never a kind, and this is what proves the chain was left alone.
+_M144_DISPATCH_BASELINE = {
+    "D1": "total_count",
+    "S2": "station_or_category_counts",
+    "S3": "graph_recurrence_person",
+    "A1": "gender_breakdown",
+    "A7": "reporting_delay_count",
+    "CP6": "placeholder_officer_count",
+    "CR2": "graph_recurrence_person",
+    "CR3": "station_or_category_counts",
+    "CR4": "weapon_evidence_chain",
+    "CR6": "cms_fir_linkage",
+    "CR7": "criminal_record_court_crosscheck",
+    "CR8": "dv_report_fir_match",
+    "CS4": "criminal_record_local_match_gap",
+    "CP1": "weapon_recovery_rate_by_district",
+    "M1": "statute_mix_by_year",
+    "M2": "station_caseload_by_specialisation",
+    "M4": "statute_court_stage_join",
+    "M5": "weapon_statute_cooccurrence_by_year",
+    "M7": "incident_to_report_minutes_by_year",
+    "G1": "case_completeness_scan",
+    "G2": "case_completeness_scan",
+    "G3": "court_readiness_scan",
+    "G5": "weapon_compliance_scan",
+    "G6": "station_or_category_counts",
+    "KB1": "station_or_category_counts",
+    "KB2": "graph_recurrence_person",
+    "KB3": "officer_role_pair_overlap",
+    "KB4": "station_or_category_counts",
+    "KB5": "gender_breakdown",
+    "KB6": "graph_recurrence_weapon",
+    "KB8": "station_or_category_counts",
+    "KB9": "graph_recurrence_person",
+}
+
+
+# A miniature of the live corpus, shaped like the real graph rows:
+#   - 5 cases: three reported in 2024, one in 2025, one in 2026
+#   - two districts (stored Urdu names, as the graph holds them)
+#   - fir_section rows for PPC 302 / PPC 34 / CNSA 9(c)
+#   - accused Person nodes with and without an age
+_M144_CASES = ["fir-1-24", "fir-2-24", "fir-3-24", "fir-4-25", "fir-5-26"]
+_M144_DATES = {
+    "fir-1-24": "2024-09-14T22:15:00Z",
+    "fir-2-24": "2024-09-25T17:25:00Z",
+    "fir-3-24": "2024-12-31T23:59:00Z",
+    "fir-4-25": "2025-11-12T00:00:00Z",
+    "fir-5-26": "2026-02-09T02:10:00Z",
+}
+_M144_DISTRICTS = {
+    "fir-1-24": "لاہور", "fir-2-24": "لاہور", "fir-3-24": "فیصل آباد",
+    "fir-4-25": "کراچی وسطی", "fir-5-26": "کراچی ایسٹ",
+}
+_M144_SECTIONS = [
+    ("302", "fir-1-24"), ("34", "fir-1-24"), ("302", "fir-4-25"),
+    ("9(c)", "fir-2-24"), ("34", "fir-5-26"),
+]
+# (entity_id, age, case_id) — P-3 has no age; P-1 is accused in two cases.
+_M144_ACCUSED = [
+    ("P-1", 25, "fir-1-24"), ("P-1", 25, "fir-5-26"), ("P-2", 40, "fir-2-24"),
+    ("P-3", None, "fir-3-24"), ("P-4", 49, "fir-4-25"), ("P-5", 24, "fir-4-25"),
+]
+
+
+class _M144AgeClient:
+    """Routes each of `resolve_filter_case_ids()`'s reads (and the accused
+    read `_total_accused_count()` / `_offender_age_profile()` issue) off the
+    Cypher text, and records every query so a test can assert that a
+    NON-filterable kind never touched the graph for a filter."""
+
+    def __init__(self):
+        self.queries: list[str] = []
+
+    async def execute_cypher(self, cypher_query, params=None, columns=("result",), graph=None):
+        self.queries.append(cypher_query)
+        params = params or {}
+        if "i.report_datetime AS report_datetime" in cypher_query and "c.case_id AS case_id" in cypher_query:
+            return [{"case_id": c, "report_datetime": _M144_DATES[c]} for c in _M144_CASES]
+        if "PART_OF" in cypher_query:
+            names = set(params.get("names") or [])
+            return [{"case_id": c} for c in _M144_CASES if _M144_DISTRICTS[c] in names]
+        if "fir_section" in cypher_query:
+            allowed = params.get("case_ids")
+            return [
+                {"section_code": s, "case_id": c, "act": "PPC"} for s, c in _M144_SECTIONS
+                if allowed is None or c in allowed
+            ]
+        if "p.age AS age" in cypher_query:
+            return [{"age": a, "case_id": c} for _, a, c in _M144_ACCUSED if a is not None]
+        if "INVOLVED_IN" in cypher_query:
+            allowed = params.get("case_ids")
+            return [
+                {"p": _node(pid, "Person", age=age), "c": _case(cid), "case_id": cid}
+                for pid, age, cid in _M144_ACCUSED
+                if allowed is None or cid in allowed
+            ]
+        return []
+
+
+def _m144_gateway():
+    return FakeGateway([{"case_id": c, "fir_number": c, "crime_category": "PPC",
+                         "investigation_status": "", "police_station": "PS"} for c in _M144_CASES])
+
+
+async def _m144_run(query, monkeypatch, client=None):
+    client = client or _M144AgeClient()
+    monkeypatch.setattr(xagg, "age_client", client)
+    result = await xagg.run_aggregate(query, None, gateway=_m144_gateway(), user_role="supervisor")
+    return result, client
+
+
+class TestModule144Extractor:
+    """The extractor's output on each phrasing, in all three languages.
+    Deterministic, so each row is an exact equality."""
+
+    @pytest.mark.parametrize("query,expected", [
+        # ── date: the live defect, and its rewordings ──
+        ("How many FIRs were registered in 2019 or earlier?",
+         dict(date_to=_date(2019, 12, 31))),
+        ("How many FIRs were registered before 2020?",
+         dict(date_to=_date(2019, 12, 31))),
+        # sentence-final punctuation after the year is still a year
+        ("Count the FIRs whose registration falls before 2020.",
+         dict(date_to=_date(2019, 12, 31))),
+        # ...but a dotted/dashed compound is not a bare year
+        ("How many FIRs on 14.09.2024?", dict()),
+        ("How many FIRs were registered up to 2025?",
+         dict(date_to=_date(2025, 12, 31))),
+        ("2019 ya us se pehle kitni FIRs darj hui thi?",
+         dict(date_to=_date(2019, 12, 31))),
+        ("2019 یا اس سے پہلے کتنی ایف آئی آر درج ہوئیں؟",
+         dict(date_to=_date(2019, 12, 31))),
+        ("۲۰۱۹ یا اس سے پہلے کتنی ایف آئی آر درج ہوئیں؟",   # Urdu digits
+         dict(date_to=_date(2019, 12, 31))),
+        ("How many FIRs were registered between 2024 and 2025?",
+         dict(date_from=_date(2024, 1, 1), date_to=_date(2025, 12, 31))),
+        ("2024 aur 2025 ke darmiyan kitni FIRs darj hui?",
+         dict(date_from=_date(2024, 1, 1), date_to=_date(2025, 12, 31))),
+        ("2024 اور 2025 کے درمیان کتنی ایف آئی آر درج ہوئیں؟",
+         dict(date_from=_date(2024, 1, 1), date_to=_date(2025, 12, 31))),
+        ("How many FIRs in 2024?",
+         dict(date_from=_date(2024, 1, 1), date_to=_date(2024, 12, 31))),
+        ("Kitni FIRs 2024 mein darj hui?",
+         dict(date_from=_date(2024, 1, 1), date_to=_date(2024, 12, 31))),
+        ("2024 میں کتنی ایف آئی آر درج ہوئیں؟",
+         dict(date_from=_date(2024, 1, 1), date_to=_date(2024, 12, 31))),
+        ("How many FIRs since 2025?", dict(date_from=_date(2025, 1, 1))),
+        ("How many FIRs after 2024?", dict(date_from=_date(2025, 1, 1))),
+        ("2024 ke baad kitni FIRs darj hui?", dict(date_from=_date(2025, 1, 1))),
+        ("2024 کے بعد کتنی ایف آئی آر درج ہوئیں؟", dict(date_from=_date(2025, 1, 1))),
+        # ── district (city == district in this data) ──
+        ("How many FIRs were registered in Lahore?",
+         dict(district="lahore", districts=("لاہور",))),
+        ("Lahore mein kitni FIRs darj hui?",
+         dict(district="lahore", districts=("لاہور",))),
+        ("لاہور میں کتنی ایف آئی آر درج ہوئیں؟",
+         dict(district="لاہور", districts=("لاہور",))),
+        ("How many cases in Karachi?",
+         dict(district="karachi", districts=("کراچی وسطی", "کراچی ایسٹ"))),
+        ("How many cases in Karachi East?",
+         dict(district="karachi east", districts=("کراچی ایسٹ",))),
+        # ── section ──
+        ("How many cases were registered under PPC 302?", dict(section="302")),
+        ("How many cases cite section 302 of the PPC?", dict(section="302")),
+        ("How many cases cite CNSA 9(c)?", dict(section="9(c)")),
+        ("Dafa 302 ke tehat kitne cases darj hain?", dict(section="302")),
+        ("دفعہ 302 کے تحت کتنے مقدمات درج ہیں؟", dict(section="302")),
+        # ── age ──
+        ("How many accused persons are aged between 25 and 40?",
+         dict(age_min=25, age_max=40)),
+        ("How many accused are aged 25 to 40?", dict(age_min=25, age_max=40)),
+        ("How many accused are under 30 years old?", dict(age_max=29)),
+        ("How many accused are aged 40 or older?", dict(age_min=40)),
+        ("Kitne mulzim 25 se 40 saal ki umar ke hain?", dict(age_min=25, age_max=40)),
+        ("کتنے ملزمان کی عمر 25 سے 40 سال ہے؟", dict(age_min=25, age_max=40)),
+        # ── combined ──
+        ("How many FIRs in Faisalabad in 2024?",
+         dict(date_from=_date(2024, 1, 1), date_to=_date(2024, 12, 31),
+              district="faisalabad", districts=("فیصل آباد",))),
+        ("How many FIRs cite PPC 302 in 2026?",
+         dict(date_from=_date(2026, 1, 1), date_to=_date(2026, 12, 31), section="302")),
+    ])
+    def test_extracts_each_phrasing(self, query, expected):
+        assert extract_aggregate_filters(query) == AggregateFilters(**expected)
+
+    @pytest.mark.parametrize("query", [
+        # No constraint at all — the common case, and what D1 is.
+        "How many cases in total?",
+        "How many FIRs are currently registered?",
+        # A year that is not a bound: "the 2023 audit" is not "in 2023".
+        "how many cases in total? the 2023 audit said 50",
+        # Two bounded years with no range connector are a COMPARISON —
+        # gold M7's exact shape — not a filter.
+        "How many FIRs were registered in 2024 and how many in 2025?",
+        _M7_GOLD,
+        # A four-digit "section" is an act's year, not a section.
+        "How many cases under PECA 2016?",
+        # A bare number with no age cue is not an age.
+        "How many cases have more than 30 documents?",
+        # A district the corpus does not store is not guessed at.
+        "How many FIRs in Peshawar?",
+    ])
+    def test_does_not_fire_without_a_bound(self, query):
+        assert extract_aggregate_filters(query).is_empty(), extract_aggregate_filters(query)
+
+    def test_fires_on_none_of_the_32_gold_questions(self):
+        """The predictable failure mode the brief names: an extractor that
+        fires on a gold question that carries no filter. M5 and M7 both
+        carry year literals in comparison clauses; A1/CP6/D1/M1 carry
+        counts. None may acquire a bound. A missing dataset is a failure."""
+        fired = {
+            (it.get("id") or "").upper(): extract_aggregate_filters(it["question"]).to_log()
+            for it in _gold32_items()
+            if not extract_aggregate_filters(it["question"]).is_empty()
+        }
+        assert fired == {}, fired
+
+    def test_describe_says_the_constraint(self):
+        f = extract_aggregate_filters("How many FIRs were registered in 2019 or earlier?")
+        assert f.describe() == "in 2019 or earlier"
+        assert f.to_log() == "date_to=2019-12-31"
+        f = extract_aggregate_filters("How many FIRs in Faisalabad between 2024 and 2025?")
+        assert f.describe() == "between 2024 and 2025 in Faisalabad district"
+        f = extract_aggregate_filters("How many accused aged 25 to 40 under PPC 302?")
+        assert f.describe() == "under section 302 aged 25–40"
+
+
+class TestModule144DispatchControl:
+    def test_resolve_aggregate_kind_is_byte_identical_to_the_pre_module_snapshot(self):
+        """The all-32 dispatch equality control. `resolve_aggregate_kind()`
+        was not edited; this proves it."""
+        actual = {
+            (it.get("id") or "").upper(): xagg.resolve_aggregate_kind(it["question"])
+            for it in _gold32_items()
+        }
+        assert actual == _M144_DISPATCH_BASELINE
+
+    def test_no_filtered_count_kind_was_added(self):
+        """The trap the brief names: a "filtered count" KIND. The filter is a
+        parameter on the five existing kinds, and every one of them predates
+        this module."""
+        assert xagg.FILTERABLE_AGGREGATE_KINDS == frozenset({
+            "total_count", "station_or_category_counts", "fir_section_case_count",
+            "total_accused_count", "offender_age_profile",
+        })
+        for q in ("How many FIRs were registered in 2019 or earlier?",
+                  "How many FIRs in Lahore?", "How many cases under PPC 302?"):
+            assert xagg.resolve_aggregate_kind(q) == "total_count"
+
+
+class TestModule144DateFilter:
+    async def test_live_defect_2019_or_earlier_is_zero_and_says_so(self, monkeypatch, caplog):
+        caplog.set_level(logging.INFO, logger="src.pipeline.xagg")
+        result, client = await _m144_run(
+            "How many FIRs were registered in 2019 or earlier?", monkeypatch,
+        )
+        assert result["kind"] == "total_count"
+        assert result["total_cases"] == 0
+        assert result["unfiltered_total"] == 5
+        assert result["date_span"] == (2024, 2026)
+        assert result["filters_applied"] == "date_to=2019-12-31"
+        # The rendered text names the constraint AND the span — a bare "0"
+        # reads as a failure to the reader and the verifier alike.
+        assert xagg.render_total_count(result) == [
+            "0 FIR(s) registered in 2019 or earlier (records span 2024–2026; out of 5 FIRs considered)."
+        ]
+        # The log line — the only evidence of what a live run computed —
+        # carries the applied filter.
+        line = next(r.getMessage() for r in caplog.records if "XAGG total_count" in r.getMessage())
+        assert "filters=date_to=2019-12-31" in line
+        assert "0 case(s)" in line
+
+    async def test_between_two_years(self, monkeypatch):
+        result, _ = await _m144_run(
+            "How many FIRs were registered between 2024 and 2025?", monkeypatch,
+        )
+        assert result["total_cases"] == 4
+        assert xagg.render_total_count(result)[0].startswith(
+            "4 FIR(s) registered between 2024 and 2025 (records span 2024–2026"
+        )
+
+    async def test_single_year_in_roman_urdu(self, monkeypatch):
+        result, _ = await _m144_run("Kitni FIRs 2024 mein darj hui?", monkeypatch)
+        assert result["total_cases"] == 3
+
+    async def test_a_year_end_report_is_inside_that_year(self, monkeypatch):
+        """`date_to` is inclusive to the last second of the year: a report
+        stamped 2024-12-31T23:59 is a 2024 FIR."""
+        result, _ = await _m144_run("How many FIRs up to 2024?", monkeypatch)
+        assert result["total_cases"] == 3
+
+    async def test_unfiltered_total_is_unchanged_and_renders_byte_identically(self, monkeypatch):
+        """D1's shape. No bound in the question -> no graph read for a
+        filter, the same number as before, and the exact pre-module text."""
+        result, client = await _m144_run("How many FIRs are currently registered?", monkeypatch)
+        assert result["total_cases"] == 5
+        assert "unfiltered_total" not in result
+        assert result["filters_applied"] == "none"
+        assert client.queries == []
+        assert xagg.render_total_count(result) == ["Total cases: 5"]
+
+    async def test_incidental_year_does_not_bound_a_grand_total(self, monkeypatch):
+        result, client = await _m144_run(
+            "how many cases in total? the 2023 audit said 50", monkeypatch,
+        )
+        assert result["total_cases"] == 5
+        assert client.queries == []
+
+
+class TestModule144DistrictFilter:
+    async def test_district_by_english_name(self, monkeypatch):
+        result, _ = await _m144_run("How many FIRs were registered in Lahore?", monkeypatch)
+        assert result["kind"] == "total_count"
+        assert result["total_cases"] == 2
+        assert xagg.render_total_count(result) == [
+            "2 FIR(s) registered in Lahore district (out of 5 FIRs considered)."
+        ]
+
+    async def test_city_alias_karachi_is_the_union_of_both_districts(self, monkeypatch):
+        result, _ = await _m144_run("How many FIRs in Karachi?", monkeypatch)
+        assert result["total_cases"] == 2
+        assert "in Karachi Central / Karachi East districts" in xagg.render_total_count(result)[0]
+
+    async def test_district_in_urdu_script(self, monkeypatch):
+        result, _ = await _m144_run("لاہور میں کتنی ایف آئی آر درج ہوئیں؟", monkeypatch)
+        assert result["total_cases"] == 2
+
+    async def test_district_composes_with_date(self, monkeypatch):
+        result, _ = await _m144_run("How many FIRs in Lahore in 2024?", monkeypatch)
+        assert result["total_cases"] == 2
+        result, _ = await _m144_run("How many FIRs in Faisalabad in 2025?", monkeypatch)
+        assert result["total_cases"] == 0
+        assert result["filters_applied"] == (
+            "date_from=2025-01-01, date_to=2025-12-31, district=فیصل آباد"
+        )
+
+    async def test_district_composes_with_jurisdiction_allow_list(self, monkeypatch):
+        """Milestone E1's allow-list narrows FIRST; the filter only ever
+        removes cases from it."""
+        client = _M144AgeClient()
+        monkeypatch.setattr(xagg, "age_client", client)
+        result = await xagg.run_aggregate(
+            "How many FIRs in Lahore?", None, gateway=_m144_gateway(),
+            user_role="supervisor", jurisdiction_case_ids=["fir-1-24"],
+        )
+        assert result["total_cases"] == 1
+        assert result["unfiltered_total"] == 1
+
+
+class TestModule144SectionFilter:
+    async def test_section_on_the_grand_total(self, monkeypatch):
+        """"How many CASES under PPC 302" is `total_count`'s ("how many
+        cases" is not in KB9's count vocabulary), so the section has to be a
+        filter here, not only inside `fir_section_case_count`."""
+        result, _ = await _m144_run("How many cases were registered under PPC 302?", monkeypatch)
+        assert result["kind"] == "total_count"
+        assert result["total_cases"] == 2
+        assert xagg.render_total_count(result) == [
+            "2 FIR(s) registered under section 302 (out of 5 FIRs considered)."
+        ]
+
+    async def test_section_code_matches_case_insensitively(self, monkeypatch):
+        result, _ = await _m144_run("How many cases cite CNSA 9(C)?", monkeypatch)
+        assert result["total_cases"] == 1
+
+    async def test_section_family_takes_a_date_bound(self, monkeypatch):
+        """KB9's own family with a year on it: the section table is
+        computed over the bounded case set, and the renderer leads with the
+        bound."""
+        result, _ = await _m144_run("How many FIRs cite PPC 302 in 2024?", monkeypatch)
+        assert result["kind"] == "fir_section_case_count"
+        assert result["focus"]["fir_count"] == 1          # fir-1-24 only; fir-4-25 is out
+        assert result["charged_fir_count"] == 2           # fir-1-24, fir-2-24 (fir-3-24 has no section)
+        # The section itself stays that family's own parameter (it reads it
+        # from the query and needs the full denominator); only the date is
+        # a filter here.
+        assert result["filters_applied"] == "date_from=2024-01-01, date_to=2024-12-31"
+        lines = xagg.render_fir_section_case_count(result)
+        assert lines[0] == "Filtered to records in 2024 (records span 2024–2026)."
+
+    async def test_section_family_without_a_bound_is_unchanged(self, monkeypatch):
+        result, client = await _m144_run("How many FIRs cite PPC 302?", monkeypatch)
+        assert result["kind"] == "fir_section_case_count"
+        assert result["focus"]["fir_count"] == 2
+        assert result["charged_fir_count"] == 4           # fir-3-24 carries no section
+        assert result["filters_applied"] == "none"
+        assert not xagg.render_fir_section_case_count(result)[0].startswith("Filtered")
+        # and no filter read was issued — only the family's own section read
+        assert all("fir_section" in q for q in client.queries)
+
+
+class TestModule144AgeFilter:
+    async def test_age_is_per_person_on_the_accused_count(self, monkeypatch, caplog):
+        caplog.set_level(logging.INFO, logger="src.pipeline.xagg")
+        result, _ = await _m144_run(
+            "How many accused persons are aged between 25 and 40?", monkeypatch,
+        )
+        assert result["kind"] == "total_accused_count"
+        # P-1 (25) and P-2 (40) are in range; P-4 (49) and P-5 (24) are not;
+        # P-3 has no age and cannot be placed.
+        assert result["total_accused"] == 2
+        assert result["with_age_count"] == 4
+        assert result["without_age_count"] == 1
+        assert xagg.render_total_accused_count(result) == [
+            "2 distinct accused person(s) aged 25–40 (of 4 distinct accused who "
+            "carry a recorded age; 1 record no age and cannot be placed)."
+        ]
+        line = next(r.getMessage() for r in caplog.records if "XAGG total_accused_count" in r.getMessage())
+        assert "filters=age_min=25, age_max=40" in line
+
+    async def test_accused_count_without_a_bound_renders_byte_identically(self, monkeypatch):
+        result, _ = await _m144_run("How many accused persons in total?", monkeypatch)
+        assert result["total_accused"] == 5
+        assert xagg.render_total_accused_count(result) == ["Total distinct accused persons: 5"]
+
+    async def test_age_is_per_case_on_the_fir_count(self, monkeypatch):
+        """A FIR-grain question keeps the case grain: a case with at least
+        one accused in range counts once."""
+        # NOT "how many FIRs involve an ACCUSED aged 25 to 40": that phrasing
+        # lands on `graph_recurrence_person` today ("accused" is a
+        # `_PERSON_KEYWORDS` entry and "how many firs" is not in
+        # `_ACCUSED_TOTAL_KEYWORDS`) — a pre-existing dispatch gap this
+        # module does not touch, filed as Module 146.
+        result, _ = await _m144_run(
+            "How many FIRs were registered against anyone aged 25 to 40?", monkeypatch,
+        )
+        assert result["kind"] == "total_count"
+        assert result["total_cases"] == 3                 # fir-1-24, fir-2-24, fir-5-26
+        assert xagg.render_total_count(result) == [
+            "3 FIR(s) registered aged 25–40 (out of 5 FIRs considered)."
+        ]
+
+    async def test_age_bound_on_the_age_profile_family(self, monkeypatch):
+        """Roman-Urdu "umar" sends an age-bounded count to
+        `offender_age_profile` (its `_AGE_KEYWORDS` precedence is untouched).
+        That family now leads with the bounded count instead of answering
+        with a range that does not address the question."""
+        result, _ = await _m144_run("Kitne mulzim 25 se 40 saal ki umar ke hain?", monkeypatch)
+        assert result["kind"] == "offender_age_profile"
+        assert result["in_range_count"] == 2
+        lines = xagg.render_offender_age_profile(result)
+        assert lines[0] == (
+            "2 distinct accused aged 25–40 (of the 4 accused who carry a recorded "
+            "age; 1 record no age and cannot be placed)."
+        )
+        assert lines[1] == "Age profile of the accused across the caseload:"
+
+    async def test_age_profile_without_a_bound_is_unchanged(self, monkeypatch):
+        result, _ = await _m144_run("What is the age range of the accused?", monkeypatch)
+        assert result["in_range_count"] is None
+        assert xagg.render_offender_age_profile(result)[0] == (
+            "Age profile of the accused across the caseload:"
+        )
+
+
+class TestModule144NonFilterableKindsAreUntouched:
+    async def test_m7_year_comparison_never_consults_the_filter(self, monkeypatch):
+        """M7 carries two year literals. Its family is not filterable, and
+        the extractor would return nothing for it anyway — but the stronger
+        claim is that the filter path is never entered: no filter Cypher is
+        issued at all."""
+        client = _M144AgeClient()
+        monkeypatch.setattr(xagg, "age_client", client)
+        assert xagg.resolve_aggregate_kind(_M7_GOLD) == "incident_to_report_minutes_by_year"
+        await xagg.run_aggregate(_M7_GOLD, None, gateway=_m144_gateway(), user_role="supervisor")
+        assert not any(
+            "RETURN c.case_id AS case_id, i.report_datetime AS report_datetime" in q
+            for q in client.queries
+        )
+
+    async def test_group_by_takes_the_filter_and_says_so(self, monkeypatch):
+        result, _ = await _m144_run("How many cases per station in 2024?", monkeypatch)
+        assert result["kind"] == "relational_aggregate"
+        assert result["total_cases_considered"] == 3
+        assert xagg.render_filter_line(result) == ["Filtered to records in 2024 (records span 2024–2026)."]
+
+    async def test_group_by_without_a_bound_has_no_filter_line(self, monkeypatch):
+        result, _ = await _m144_run("How many cases per station?", monkeypatch)
+        assert result["total_cases_considered"] == 5
+        assert xagg.render_filter_line(result) == []

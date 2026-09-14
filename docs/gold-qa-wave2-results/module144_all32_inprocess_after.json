@@ -1,0 +1,302 @@
+{
+ "D1": {
+  "dispatch": "total_count",
+  "kind": "total_count",
+  "filters": "none",
+  "text": "Total cases: 73"
+ },
+ "S2": {
+  "dispatch": "station_or_category_counts",
+  "kind": "relational_aggregate",
+  "filters": "none",
+  "text": "- تھانہ ماڈل ٹاؤن، لاہور: 7 cases\n- سائبر کرائم سرکل، اسلام آباد: 5 cases\n- تھانہ لطیف آباد، حیدر آباد: 5 cases\n- تھانہ شاہ فیصل کالونی، کراچی: 5 cases\n- موٹروے پولیس اسٹیشن ایم ٹو، لاہور: 5 cases\n- خواتین تھانہ، فیصل آباد: 5 cases\n- تھانہ صدر، ضلع چنیوٹ: 5 cases\n- تھانہ نیو کراچی، کراچی: 5 cases\n- تھانہ جھنگ روڈ، فیصل آباد: 5 cases\n- تھانہ برکی، لاہور: 5 cases\n- سائبر کرائم سرکل، راولپنڈی: 4 cases\n- تھانہ کوتوالی، فیصل آباد: 4 cases\n- تھانہ راجہ بازار، راولپنڈی: 4 cases\n- تھانہ سول لائنز، فیصل آباد: 4 cases\n- تھانہ مدینہ ٹاؤن، فیصل آباد: 1 cases"
+ },
+ "S3": {
+  "dispatch": "graph_recurrence_person",
+  "kind": "graph_recurrence",
+  "filters": null,
+  "text": "**4 matching Person(s) found.**\n\nOf the 4 recurring Person(s) below, 3 appear in cases from more than one calendar year, and 1 carries a decided criminal-record outcome on an EARLIER case than one they are also named in later.\n\n- فیصل (Person): appears in 2 cases — fir-202-26, fir-401-26. Sequence: earliest case FIR 401/26 (2024-09-25), then FIR 202/26 (2026-03-06) — the two are 2 calendar year(s) apart\n    - FIR 401/26, incident dated 2024-09-25 [case 1 of 2 in time order]; role on that case: accused; recorded status: زیر تفتیش.\n    - FIR 202/26, incident dated 2026-03-06 [case 2 of 2 in time order]; role on that case: witness.\n- طارق (Person): appears in 2 cases — fir-202-26, fir-401-26. Sequence: earliest case FIR 401/26 (2024-09-25), then FIR 202/26 (2026-03-06) — the two are 2 calendar year(s) apart\n    - FIR 401/26, incident dated 2024-09-25 [case 1 of 2 in time order]; role on that case: complainant.\n    - FIR 202/26, incident dated 2026-03-06 [case 2 of 2 in time order]; role on that case: witness.\n- شہزیب عرف شابی (Person): appears in 2 cases — fir-214-26, fir-891-24. Sequence: earliest case FIR 891/24 (2024-09-14), then FIR 214/26 (2026-03-03) — the two are 2 calendar year(s) apart\n    - FIR 891/24, incident dated 2024-09-14 [case 1 of 2 in time order]; role on that case: accused; recorded status: گرفتار، بعد ازاں سزا یافتہ; the criminal-record system records \"Convicted, on bail pending appeal\" for this person on that FIR.\n    - FIR 214/26, incident dated 2026-03-03 [case 2 of 2 in time order]; role on that case: accused; recorded status: گرفتار; the criminal-record system records \"Under trial\" for this person on that FIR.\n- عاصم رشید (Person): appears in 2 cases — fir-64-26, fir-65-26. Sequence: earliest case FIR 64/26 (2026-03-19), then FIR 65/26 (2026-03-23) — both fall in the same calendar year\n    - FIR 64/26, incident dated 2026-03-19 [case 1 of 2 in time order]; role on that case: accused; recorded status: گرفتار; the criminal-record system records \"Under trial\" for this person on that FIR.\n    - FIR 65/26, incident dated 2026-03-23 [case 2 of 2 in time order]; role on that case: accused; recorded status: پہلے سے کیس 10 میں گرفتار، اس مقدمے میں بھی نامزد."
+ },
+ "A1": {
+  "dispatch": "gender_breakdown",
+  "kind": "gender_breakdown",
+  "filters": null,
+  "text": "- مرد: 67\n- عورت: 24\n- unknown: 3\nTotal accused: 94"
+ },
+ "A7": {
+  "dispatch": "reporting_delay_count",
+  "kind": "reporting_delay_count",
+  "filters": null,
+  "text": "8 of 73 FIRs recorded a reporting-delay reason (~11%); the remaining 65 were reported with no stated delay."
+ },
+ "CP6": {
+  "dispatch": "placeholder_officer_count",
+  "kind": "placeholder_officer_count",
+  "filters": null,
+  "text": "10 FIRs currently carry only a placeholder investigating officer — 7 marked \"(نامزد ASI)\", 3 marked \"(نامزد SI)\". 1 additional case(s) originally had a placeholder officer too but have since been assigned a real one."
+ },
+ "CR2": {
+  "dispatch": "graph_recurrence_person",
+  "kind": "graph_recurrence",
+  "filters": null,
+  "text": "**4 matching Person(s) found.**\n\nOf the 4 recurring Person(s) below, 3 appear in cases from more than one calendar year, and 1 carries a decided criminal-record outcome on an EARLIER case than one they are also named in later.\n\n- فیصل (Person): appears in 2 cases — fir-202-26, fir-401-26. Sequence: earliest case FIR 401/26 (2024-09-25), then FIR 202/26 (2026-03-06) — the two are 2 calendar year(s) apart\n    - FIR 401/26, incident dated 2024-09-25 [case 1 of 2 in time order]; role on that case: accused; recorded status: زیر تفتیش.\n    - FIR 202/26, incident dated 2026-03-06 [case 2 of 2 in time order]; role on that case: witness.\n- طارق (Person): appears in 2 cases — fir-202-26, fir-401-26. Sequence: earliest case FIR 401/26 (2024-09-25), then FIR 202/26 (2026-03-06) — the two are 2 calendar year(s) apart\n    - FIR 401/26, incident dated 2024-09-25 [case 1 of 2 in time order]; role on that case: complainant.\n    - FIR 202/26, incident dated 2026-03-06 [case 2 of 2 in time order]; role on that case: witness.\n- شہزیب عرف شابی (Person): appears in 2 cases — fir-214-26, fir-891-24. Sequence: earliest case FIR 891/24 (2024-09-14), then FIR 214/26 (2026-03-03) — the two are 2 calendar year(s) apart\n    - FIR 891/24, incident dated 2024-09-14 [case 1 of 2 in time order]; role on that case: accused; recorded status: گرفتار، بعد ازاں سزا یافتہ; the criminal-record system records \"Convicted, on bail pending appeal\" for this person on that FIR.\n    - FIR 214/26, incident dated 2026-03-03 [case 2 of 2 in time order]; role on that case: accused; recorded status: گرفتار; the criminal-record system records \"Under trial\" for this person on that FIR.\n- عاصم رشید (Person): appears in 2 cases — fir-64-26, fir-65-26. Sequence: earliest case FIR 64/26 (2026-03-19), then FIR 65/26 (2026-03-23) — both fall in the same calendar year\n    - FIR 64/26, incident dated 2026-03-19 [case 1 of 2 in time order]; role on that case: accused; recorded status: گرفتار; the criminal-record system records \"Under trial\" for this person on that FIR.\n    - FIR 65/26, incident dated 2026-03-23 [case 2 of 2 in time order]; role on that case: accused; recorded status: پہلے سے کیس 10 میں گرفتار، اس مقدمے میں بھی نامزد."
+ },
+ "CR3": {
+  "dispatch": "station_or_category_counts",
+  "kind": "relational_aggregate",
+  "filters": "none",
+  "text": "NOTE: Cases could not be filtered by crime type: these records classify offences by statute (e.g. PPC, CNSA 1997, Arms Ordinance 1965) rather than by crime category, so the figures below are not narrowed to the requested type.\nNOTE: Grouped by the statute(s) each case was registered under (e.g. PPC, CNSA 1997), not by crime type — these records carry no crime-type classification.\n\n- PPC: 25 cases\n- PPC, Arms Ordinance 1965: 21 cases\n- PECA 2016, PPC: 9 cases\n- CNSA 1997, Arms Ordinance 1965: 8 cases\n- CNSA 1997: 4 cases\n- PPC, Punjab Domestic Violence Act: 4 cases\n- PPC, Illegal Dispossession Act 2005: 2 cases\n\nBreakdown by individual legal code (a case can involve more than one):\n- PPC: 61 cases\n- Arms Ordinance 1965: 29 cases\n- CNSA 1997: 12 cases\n- PECA 2016: 9 cases\n- Punjab Domestic Violence Act: 4 cases\n- Illegal Dispossession Act 2005: 2 cases"
+ },
+ "CR4": {
+  "dispatch": "weapon_evidence_chain",
+  "kind": "weapon_evidence_chain",
+  "filters": null,
+  "text": "Yes — for 30 of the 32 weapons logged as evidence, the register records who the weapon was recovered from, and that person's status on the same case can be read straight off the record.\n\nWorked example:\n  - 30 بور پستول, بغیر لائسنس — logged in FIR 891/24; recovered from شہزیب عرف شابی; recorded status on that case: گرفتار، بعد ازاں سزا یافتہ. The criminal-record system additionally records \"Convicted, on bail pending appeal\" for that person on the same FIR.\n\nThe same chain holds for the other traceable weapons — 11 more of the 29 shown here:\n  - 30 بور پستول بمعہ 3 گولیاں, بغیر لائسنس — logged in FIR 214/26; recovered from شہزیب عرف شابی; recorded status on that case: گرفتار. The criminal-record system additionally records \"Under trial\" for that person on the same FIR.\n  - 30 بور پستول بمعہ 6 گولیاں, بغیر لائسنس — logged in FIR 1001/26; recovered from کاشف; recorded status on that case: زیر تفتیش.\n  - 30 بور پستول بمعہ 6 گولیاں, بغیر لائسنس — logged in FIR 201/26; recovered from فیصل; recorded status on that case: زیر تفتیش.\n  - 30 بور پستول بمعہ 6 گولیاں, بغیر لائسنس — logged in FIR 202/26; recovered from طارق; recorded status on that case: زیر تفتیش.\n  - 30 بور پستول, بغیر لائسنس — logged in FIR 203/26; recovered from ندیم; recorded status on that case: زیر تفتیش.\n  - 30 بور پستول بمعہ 6 گولیاں, بغیر لائسنس — logged in FIR 204/26; recovered from کاشف; recorded status on that case: زیر تفتیش.\n  - 30 بور پستول بمعہ 3 گولیاں, بغیر لائسنس — logged in FIR 210/26; recovered from ذیشان; recorded status on that case: زیر تفتیش.\n  - 30 بور پستول بمعہ 3 گولیاں, بغیر لائسنس — logged in FIR 212/26; recovered from عمران; recorded status on that case: زیر تفتیش.\n  - 30 بور پستول, بغیر لائسنس — logged in FIR 213/26; recovered from کاشف; recorded status on that case: زیر تفتیش.\n  - 30 بور پستول, بغیر لائسنس — logged in FIR 217/26; recovered from کاشف; recorded status on that case: زیر تفتیش.\n  - 30 بور پستول بمعہ 3 گولیاں, بغیر لائسنس — logged in FIR 218/26; recovered from عدنان; recorded status on that case: زیر تفتیش.\n\n2 of the 32 record no person at all — they are crime-scene recoveries rather than items taken off an accused: عام لکڑی کی چھڑی، ایک عدد (fir-117-26); خالی خول (فائرنگ کا شاہد)، جائے وقوعہ سے برآمد (fir-266-26).\n\nCaveat on how solid this trail is: the weapon -> person link is NOT an enforced database key. The weapon register stores `recovered_from` as a bare name, so it is matched to the accused named in the SAME FIR — i.e. the trail runs weapon -> FIR number -> accused. The criminal-record outcome above is joined the same way, on the FIR number parsed out of a free-text case reference. It holds for this data, but a name repeated across two FIRs would not be distinguished by it."
+ },
+ "CR6": {
+  "dispatch": "cms_fir_linkage",
+  "kind": "cms_fir_linkage",
+  "filters": null,
+  "text": "Walk-in CMS complaints and FIRs are separate systems, but they are linked in practice: all 4 current CMS complaint(s) connect to a real FIR via a shared case tag (CMS.case_tag_number = FIR.e_tag_number).\n  - CMS-KHI-2026-0417 → fir-417-26\n  - CMS-LHR-2026-0427 → fir-427-26\n  - CMS-KHI-2026-0462 → fir-462-26\n  - CMS-ISB-2026-0341 → fir-64-26"
+ },
+ "CR7": {
+  "dispatch": "criminal_record_court_crosscheck",
+  "kind": "criminal_record_court_crosscheck",
+  "filters": null,
+  "text": "Of 33 criminal records, 32 are still in progress and 1 has reached a verdict. Breakdown by recorded status:\n  - Under trial: 30\n  - Convicted, on bail pending appeal: 1\n  - Sub judice, external prior case: 1\n  - Under trial, priority hearing requested: 1\n\nWhere a case also has an independent court-outcome record, comparing the two:\n  - FIR 891-24 (شہزیب عرف شابی): criminal record says \"Convicted, on bail pending appeal\"; court outcome says \"5 سال قید بامشقت زیر دفعہ 392 ت.پ سزایاب\" — consistent."
+ },
+ "CR8": {
+  "dispatch": "dv_report_fir_match",
+  "kind": "dv_report_fir_match",
+  "filters": null,
+  "text": "Yes — confirmed by the case records. Of 8 domestic-violence report(s), 4 carry a forwarded FIR number that matches a real, active FIR; the remaining 4 record no forwarded number.\n  - pkm_application:pkm-app-c9-02 → fir-97-26\n  - pkm_application:PKMAPP-C316-2 → fir-416-26\n  - pkm_application:PKMAPP-C326-1 → fir-426-26\n  - pkm_application:PKMAPP-C336-2 → fir-436-26"
+ },
+ "CS4": {
+  "dispatch": "criminal_record_local_match_gap",
+  "kind": "criminal_record_local_match_gap",
+  "filters": null,
+  "text": "Yes — exactly one person in the criminal-records system has no matching accused record in any FIR we registered:\n  - وقاص (CNIC 00000-9000020-1) — criminal record(s) criminal_record:CR-C106-1; the same NAME does appear among our accused, but on a different CNIC, so this is not a spelling mismatch.\n\nBasis: 33 criminal records covering 32 distinct people, compared against 94 accused entries across our FIRs (92 distinct CNICs). Matched on CNIC, not on name.\n\nThis is expected rather than a data-quality defect. The criminal-records system is an external/federal record source, not a mirror of our FIRs, so it can legitimately hold someone we have never charged. 31 of 32 subjects DO match a local accused record, so this is a single outlier, not a systematic linkage failure."
+ },
+ "CP1": {
+  "dispatch": "weapon_recovery_rate_by_district",
+  "kind": "rate_breakdown",
+  "filters": null,
+  "text": "- حیدر آباد: 3 of 5 cases recovered a weapon (~60%)\n- فیصل آباد: 10 of 19 cases recovered a weapon (~53%)\n- لاہور: 8 of 18 cases recovered a weapon (~44%)\n- اسلام آباد: 2 of 5 cases recovered a weapon (~40%)\n- چنیوٹ: 2 of 5 cases recovered a weapon (~40%)\n- کراچی ایسٹ: 2 of 5 cases recovered a weapon (~40%)\n- کراچی وسطی: 2 of 5 cases recovered a weapon (~40%)\n- راولپنڈی: 3 of 10 cases recovered a weapon (~30%)\n- ملتان: 0 of 1 cases recovered a weapon (~0%)"
+ },
+ "M1": {
+  "dispatch": "statute_mix_by_year",
+  "kind": "time_bucketed_breakdown",
+  "filters": null,
+  "text": "**2024** — 13 FIR(s):\n  Legal acts charged (a case can carry more than one):\n    - PPC (Pakistan Penal Code): 13\n    - Arms Ordinance 1965: 13\n  Specific sections charged, by number of FIRs citing each:\n    - Arms Ordinance 1965 §13: 13\n    - PPC §34: 13\n    - PPC §392: 13\n**2026** — 51 FIR(s):\n  Legal acts charged (a case can carry more than one):\n    - PPC (Pakistan Penal Code): 39\n    - Arms Ordinance 1965: 16\n    - CNSA 1997 (Control of Narcotic Substances Act 1997): 12\n    - PECA 2016 (Prevention of Electronic Crimes Act 2016): 9\n    - Punjab Domestic Violence Act: 4\n    - Illegal Dispossession Act 2005: 2\n  Specific sections charged, by number of FIRs citing each:\n    - PPC §34: 23\n    - Arms Ordinance 1965 §13: 16\n    - CNSA 1997 §9(c): 12\n    - PECA 2016 §14: 9\n    - PECA 2016 §21: 9\n    - PPC §337-A(i): 9\n    - PPC §419: 9\n    - PPC §420: 9\n    - PPC §302: 8\n    - PPC §392: 8\n    - PPC §506: 6\n    - PPC §365-A: 5\n    - PPC §384: 4\n    - Provincial Act §Punjab Domestic Violence Act: 4\n    - Illegal Dispossession Act 2005 §3: 2"
+ },
+ "M2": {
+  "dispatch": "station_caseload_by_specialisation",
+  "kind": "station_caseload_by_specialisation",
+  "filters": null,
+  "text": "Growth: caseload is rising fastest at the 15 general-purpose station(s) — 7 FIRs in 2024 to 39 in 2026, against 3 to 5 at the 2 single-crime-type station(s) — though even so, 9 of 73 FIRs (~12.3%) are carried by just 2 of 19 stations, the ones set up for a single type of crime.\n\n9 of 73 FIRs (~12.3%) are filed at the 2 of 19 stations set up for one specific type of crime:\n  - سائبر کرائم سرکل، اسلام آباد (PS-ISB-CYBER): 5 FIRs\n  - سائبر کرائم سرکل، راولپنڈی (PS-RWP-CYBER): 4 FIRs\nThose 2 stations are 11% of the stations and carry ~12.3% of the caseload.\n\n2 further station(s) are specialised, but by complainant class or jurisdiction rather than by crime type, so they are NOT counted above (10 FIRs): خواتین تھانہ، فیصل آباد (5); موٹروے پولیس اسٹیشن ایم ٹو، لاہور (5).\nThe remaining 15 are general-purpose stations, carrying 54 FIRs.\n\nCaseload by incident year (2024 vs 2026):\n  - set up for one specific type of crime: 3 in 2024, 5 in 2026\n  - specialised, but by complainant class or jurisdiction rather than by crime type: 3 in 2024, 7 in 2026\n  - general-purpose: 7 in 2024, 39 in 2026\nThe 2024 baseline is 13 FIRs across all 19 stations, so a per-station growth RATE is not a responsible figure to quote on this corpus — the counts behind each rate are single digits. The share of caseload above is the claim the data supports.\n\nBasis: this system has no station-type field. The grouping is derived from each station's own recorded name, and every station is listed above so the classification can be checked. A name carrying no specialisation marker is counted as general-purpose.\n9 FIR(s) carry no resolvable incident year and are counted in the caseload totals but not in the year split."
+ },
+ "M4": {
+  "dispatch": "statute_court_stage_join",
+  "kind": "statute_court_stage_join",
+  "filters": null,
+  "text": "Two views of the same caseload, side by side: what people are being charged under, and how far those cases have got in court.\n\n**1. What people are being charged under (FIR sections).**\n  73 case(s) carry at least one FIR section - 218 section entries across 36 distinct statutes. Cases charged under each, most-charged first:\n  - PPC §34: 40 case(s)\n  - Arms Ordinance 1965 §13: 29 case(s)\n  - PPC §392: 21 case(s)\n  - CNSA 1997 §9(c): 12 case(s)\n  - PPC §420: 11 case(s)\n  - PPC §302: 10 case(s)\n  - PPC §337-A(i): 10 case(s)\n  - PECA 2016 §14: 9 case(s)\n  - PECA 2016 §21: 9 case(s)\n  - PPC §419: 9 case(s)\n  - PPC §365-A: 6 case(s)\n  - PPC §506: 6 case(s)\n  - PPC §379: 5 case(s)\n  - PPC §384: 4 case(s)\n  - Provincial Act §Punjab Domestic Violence Act: 4 case(s)\n  ... and 21 further section(s), each charged in 2 case(s) or fewer.\n\n**2. How far those cases have got in court.**\n  Of 33 criminal records, 32 are still in progress and 1 has reached a verdict. Breakdown by recorded status:\n    - Under trial: 30\n    - Convicted, on bail pending appeal: 1\n    - Sub judice, external prior case: 1\n    - Under trial, priority hearing requested: 1\n\n  Where a case also has an independent court-outcome record, comparing the two:\n    - FIR 891-24 (شہزیب عرف شابی): criminal record says \"Convicted, on bail pending appeal\"; court outcome says \"5 سال قید بامشقت زیر دفعہ 392 ت.پ سزایاب\" — consistent.\n\n**3. The overlap between the two.**\n  4 of 33 criminal records name an FIR that is also a case in this corpus, so only those can be read on both sides at once:\n  - FIR 214-26 (شہزیب عرف شابی) - charged under Arms Ordinance 1965 §13, PPC §302, PPC §34, PPC §392; court stage: \"Under trial\".\n  - FIR 64-26 (عاصم رشید) - charged under PECA 2016 §14, PECA 2016 §21, PPC §419, PPC §420; court stage: \"Under trial\".\n  - FIR 77-26 (زاہد پرویز) - charged under PPC §302, PPC §34, PPC §364-A, PPC §376; court stage: \"Under trial, priority hearing requested\".\n  - FIR 891-24 (شہزیب عرف شابی) - charged under Arms Ordinance 1965 §13, PPC §34, PPC §392; court stage: \"Convicted, on bail pending appeal\".\n\n**Do the two agree? No.** Every one of the 73 charged case(s) is counted on the charging side, but only 1 of 33 criminal records (3%) has reached a verdict - the rest are still in progress. A conviction count therefore describes 3% of the recorded court caseload while the section counts describe all of it, so the two do NOT give the same impression of severity. Current caseload severity should be read off the FIR/section counts; the conviction counts lag behind them."
+ },
+ "M5": {
+  "dispatch": "weapon_statute_cooccurrence_by_year",
+  "kind": "weapon_statute_cooccurrence",
+  "filters": null,
+  "text": "32 case(s) recorded a recovered weapon. What those cases were charged under, by incident year:\n\n**2024** — 13 case(s) with a recovered weapon:\n  - Arms Ordinance 1965 §13: 13\n  - PPC §34: 13\n  - PPC §392: 13\n  Weapon types recovered: 30 بور پستول (13).\n  Of these, 13 carry a weapons-law charge; the sections it appears alongside: PPC §34 (13), PPC §392 (13).\n\n**2026** — 19 case(s) with a recovered weapon:\n  - Arms Ordinance 1965 §13: 16\n  - PPC §34: 10\n  - CNSA 1997 §9(c): 8\n  - PPC §302: 8\n  - PPC §392: 8\n  - Illegal Dispossession Act 2005 §3: 2\n  - PPC §148: 2\n  - PPC §149: 2\n  - PPC §342: 2\n  - PPC §506: 2\n  - PPC §328A: 1\n  Weapon types recovered: 30 بور پستول (17), خالی خول (فائرنگ کا شاہد)، جائے وقوعہ سے برآمد (1), عام لکڑی کی چھڑی، ایک عدد (1).\n  Of these, 16 carry a weapons-law charge; the sections it appears alongside: CNSA 1997 §9(c) (8), PPC §302 (8), PPC §34 (8), PPC §392 (8).\n\nChange 2024 to 2026: the weapons charge now also appears with CNSA 1997 §9(c), PPC §302, which it did not in 2024."
+ },
+ "M7": {
+  "dispatch": "incident_to_report_minutes_by_year",
+  "kind": "time_bucketed_mean",
+  "filters": null,
+  "text": "Mean time from incident to report, by incident year:\n  - 2024: 15.0 minutes across 13 FIRs\n  - 2026: 1401.3 minutes (~23.4 hours) across 51 FIRs\nReporting is slower in 2026 than in 2024."
+ },
+ "G1": {
+  "dispatch": "case_completeness_scan",
+  "kind": "case_completeness_scan",
+  "filters": null,
+  "text": "Cases whose own records are too incomplete to fully rely on — worth a closer look so they don't quietly stall:\n  - 9 of 73 FIRs record no incident date (fir-205-26, fir-211-26, fir-340-25, fir-406-26, fir-410-25, fir-422-26, fir-457-26, fir-467-26, fir-77-26), so any timeline built on them is unanchored.\n  - 52 of 73 FIRs carry no recorded investigation status, so they can't be tracked through their lifecycle and may silently stall.\n  - 188 of 259 roznamcha/zimni diary entries (~73%) record no entry TYPE, so within a case there is no reliable way to order what happened when — the investigation steps are there, but not what each one was.\n  - 13 of 73 FIRs record the officer's departure from the station for the scene as EARLIER than the report time itself (fir-118-26, fir-203-26, fir-301-26, fir-403-26, fir-407-26, fir-413-26, fir-423-26, fir-424-26, fir-434-26, fir-449-26, fir-458-26, fir-468-26…) — a chronology contradiction on the face of the record that will not survive scrutiny in court. (44 of 73 record a departure time at all.)\n  - Walk-in complaints and FIRs live in SEPARATE systems, joined only by an OPTIONAL shared tag (CMS.case_tag_number = FIR.e_tag_number) that no database key enforces — 4 of 4 complaints resolve to a real FIR today, but a mistyped or missing tag makes a complaint look unactioned even when the FIR exists, and nothing flags that."
+ },
+ "G2": {
+  "dispatch": "case_completeness_scan",
+  "kind": "case_completeness_scan",
+  "filters": null,
+  "text": "Cases whose own records are too incomplete to fully rely on — worth a closer look so they don't quietly stall:\n  - 9 of 73 FIRs record no incident date (fir-205-26, fir-211-26, fir-340-25, fir-406-26, fir-410-25, fir-422-26, fir-457-26, fir-467-26, fir-77-26), so any timeline built on them is unanchored.\n  - 52 of 73 FIRs carry no recorded investigation status, so they can't be tracked through their lifecycle and may silently stall.\n  - 188 of 259 roznamcha/zimni diary entries (~73%) record no entry TYPE, so within a case there is no reliable way to order what happened when — the investigation steps are there, but not what each one was.\n  - 13 of 73 FIRs record the officer's departure from the station for the scene as EARLIER than the report time itself (fir-118-26, fir-203-26, fir-301-26, fir-403-26, fir-407-26, fir-413-26, fir-423-26, fir-424-26, fir-434-26, fir-449-26, fir-458-26, fir-468-26…) — a chronology contradiction on the face of the record that will not survive scrutiny in court. (44 of 73 record a departure time at all.)\n  - Walk-in complaints and FIRs live in SEPARATE systems, joined only by an OPTIONAL shared tag (CMS.case_tag_number = FIR.e_tag_number) that no database key enforces — 4 of 4 complaints resolve to a real FIR today, but a mistyped or missing tag makes a complaint look unactioned even when the FIR exists, and nothing flags that."
+ },
+ "G3": {
+  "dispatch": "court_readiness_scan",
+  "kind": "court_readiness_scan",
+  "filters": null,
+  "text": "Preparing a case file for court — the fields a prosecutor or court most often wants filled in before accepting a file, and where this data is most likely to fall short:\n  - The accused↔complainant relationship is blank in 82 of 94 accused entries — courts almost always ask how the parties relate.\n  - 2 of 32 recovered weapons record no licence status — decisive in any Arms Ordinance charge.\n  - 9 FIRs record no incident date, so the file's timeline effectively starts at the report, not the event.\nEach is a likely round-trip to fix, not a hard blocker."
+ },
+ "G5": {
+  "dispatch": "weapon_compliance_scan",
+  "kind": "weapon_compliance_scan",
+  "filters": null,
+  "text": "Reviewing the 32 weapon-register entries for compliance:\n  - 30 of 32 recovered weapons (~94%) are recorded WITHOUT a licence — a pattern too broad to treat case-by-case; it warrants a standing compliance check.\n  - 2 carry no licence status at all, so their compliance can't be confirmed either way.\n  - The register records WHAT was recovered and its condition, but has no field for packaging or sealing, photographs, chain of custody / handover — so for any entry, whether the item was handled to procedure cannot be verified from the record at all. This is a gap in the form, not in one officer's paperwork.\n  - Weapons attach to a case only by a SOFT match on the FIR code written into the register — plain text, no enforced key. All 32 resolve to a real case today, but a single mistyped code would silently orphan an item with nothing raising an error."
+ },
+ "G6": {
+  "dispatch": "station_or_category_counts",
+  "kind": "relational_aggregate",
+  "filters": "none",
+  "text": "NOTE: Grouped by the statute(s) each case was registered under (e.g. PPC, CNSA 1997), not by crime type — these records carry no crime-type classification.\n\n- PPC: 25 cases\n- PPC, Arms Ordinance 1965: 21 cases\n- PECA 2016, PPC: 9 cases\n- CNSA 1997, Arms Ordinance 1965: 8 cases\n- CNSA 1997: 4 cases\n- PPC, Punjab Domestic Violence Act: 4 cases\n- PPC, Illegal Dispossession Act 2005: 2 cases\n\nBreakdown by individual legal code (a case can involve more than one):\n- PPC: 61 cases\n- Arms Ordinance 1965: 29 cases\n- CNSA 1997: 12 cases\n- PECA 2016: 9 cases\n- Punjab Domestic Violence Act: 4 cases\n- Illegal Dispossession Act 2005: 2 cases"
+ },
+ "KB1": {
+  "dispatch": "station_or_category_counts",
+  "kind": "relational_aggregate",
+  "filters": "none",
+  "text": "NOTE: Grouped by the statute(s) each case was registered under (e.g. PPC, CNSA 1997), not by crime type — these records carry no crime-type classification.\n\n- PPC: 25 cases\n- PPC, Arms Ordinance 1965: 21 cases\n- PECA 2016, PPC: 9 cases\n- CNSA 1997, Arms Ordinance 1965: 8 cases\n- CNSA 1997: 4 cases\n- PPC, Punjab Domestic Violence Act: 4 cases\n- PPC, Illegal Dispossession Act 2005: 2 cases\n\nBreakdown by individual legal code (a case can involve more than one):\n- PPC: 61 cases\n- Arms Ordinance 1965: 29 cases\n- CNSA 1997: 12 cases\n- PECA 2016: 9 cases\n- Punjab Domestic Violence Act: 4 cases\n- Illegal Dispossession Act 2005: 2 cases"
+ },
+ "KB2": {
+  "dispatch": "graph_recurrence_person",
+  "kind": "graph_recurrence",
+  "filters": null,
+  "text": "**4 matching Person(s) found.**\n\nOf the 4 recurring Person(s) below, 3 appear in cases from more than one calendar year, and 1 carries a decided criminal-record outcome on an EARLIER case than one they are also named in later.\n\n- فیصل (Person): appears in 2 cases — fir-202-26, fir-401-26. Sequence: earliest case FIR 401/26 (2024-09-25), then FIR 202/26 (2026-03-06) — the two are 2 calendar year(s) apart\n    - FIR 401/26, incident dated 2024-09-25 [case 1 of 2 in time order]; role on that case: accused; recorded status: زیر تفتیش.\n    - FIR 202/26, incident dated 2026-03-06 [case 2 of 2 in time order]; role on that case: witness.\n- طارق (Person): appears in 2 cases — fir-202-26, fir-401-26. Sequence: earliest case FIR 401/26 (2024-09-25), then FIR 202/26 (2026-03-06) — the two are 2 calendar year(s) apart\n    - FIR 401/26, incident dated 2024-09-25 [case 1 of 2 in time order]; role on that case: complainant.\n    - FIR 202/26, incident dated 2026-03-06 [case 2 of 2 in time order]; role on that case: witness.\n- شہزیب عرف شابی (Person): appears in 2 cases — fir-214-26, fir-891-24. Sequence: earliest case FIR 891/24 (2024-09-14), then FIR 214/26 (2026-03-03) — the two are 2 calendar year(s) apart\n    - FIR 891/24, incident dated 2024-09-14 [case 1 of 2 in time order]; role on that case: accused; recorded status: گرفتار، بعد ازاں سزا یافتہ; the criminal-record system records \"Convicted, on bail pending appeal\" for this person on that FIR.\n    - FIR 214/26, incident dated 2026-03-03 [case 2 of 2 in time order]; role on that case: accused; recorded status: گرفتار; the criminal-record system records \"Under trial\" for this person on that FIR.\n- عاصم رشید (Person): appears in 2 cases — fir-64-26, fir-65-26. Sequence: earliest case FIR 64/26 (2026-03-19), then FIR 65/26 (2026-03-23) — both fall in the same calendar year\n    - FIR 64/26, incident dated 2026-03-19 [case 1 of 2 in time order]; role on that case: accused; recorded status: گرفتار; the criminal-record system records \"Under trial\" for this person on that FIR.\n    - FIR 65/26, incident dated 2026-03-23 [case 2 of 2 in time order]; role on that case: accused; recorded status: پہلے سے کیس 10 میں گرفتار، اس مقدمے میں بھی نامزد."
+ },
+ "KB3": {
+  "dispatch": "officer_role_pair_overlap",
+  "kind": "officer_role_pair_overlap",
+  "filters": null,
+  "text": "In this corpus the two roles are mostly NOT separated: the officer who recorded the FIR and the officer who investigated it are the same person in 68 of 74 recorded assignment pairs (92%). Roles are split in only 6 pair(s), across 6 case(s).\n  - 3 of those 6 carry an investigating officer with no recording officer on the same case at all, so the pair is unresolvable rather than genuinely split.\n  - fir-117-26: investigated by سب انسپکٹر ارسلان محمود, recorded by no recording officer\n  - fir-245-26: investigated by راحیل شہزاد, recorded by شہزاد احمد\n  - fir-205-26: investigated by سلمان, recorded by (نامزد ASI)\n  - fir-88-26: investigated by عائشہ ملک, recorded by فرحان الطاف\n  - fir-954-26: investigated by انسپکٹر مریم طاہر, recorded by no recording officer\n  - fir-955-26: investigated by سب انسپکٹر وقاص علی, recorded by no recording officer\nBasis: 144 officer-to-case assignment records, 74 of them investigating and 70 recording."
+ },
+ "KB4": {
+  "dispatch": "station_or_category_counts",
+  "kind": "relational_aggregate",
+  "filters": "none",
+  "text": "NOTE: Grouped by the statute(s) each case was registered under (e.g. PPC, CNSA 1997), not by crime type — these records carry no crime-type classification.\n\n- PPC: 25 cases\n- PPC, Arms Ordinance 1965: 21 cases\n- PECA 2016, PPC: 9 cases\n- CNSA 1997, Arms Ordinance 1965: 8 cases\n- CNSA 1997: 4 cases\n- PPC, Punjab Domestic Violence Act: 4 cases\n- PPC, Illegal Dispossession Act 2005: 2 cases\n\nBreakdown by individual legal code (a case can involve more than one):\n- PPC: 61 cases\n- Arms Ordinance 1965: 29 cases\n- CNSA 1997: 12 cases\n- PECA 2016: 9 cases\n- Punjab Domestic Violence Act: 4 cases\n- Illegal Dispossession Act 2005: 2 cases"
+ },
+ "KB5": {
+  "dispatch": "gender_breakdown",
+  "kind": "gender_breakdown",
+  "filters": null,
+  "text": "- مرد: 67\n- عورت: 24\n- unknown: 3\nTotal accused: 94"
+ },
+ "KB6": {
+  "dispatch": "graph_recurrence_weapon",
+  "kind": "graph_recurrence",
+  "filters": null,
+  "text": "**1 matching Weapon(s) found.**\n\n- 30 بور پستول (Weapon): appears in 30 cases — fir-1001-26, fir-201-26, fir-202-26, fir-203-26, fir-204-26, fir-210-26, fir-212-26, fir-213-26, fir-214-26, fir-217-26, fir-218-26, fir-301-26, fir-401-26, fir-403-26, fir-407-26, fir-408-26, fir-409-26, fir-410-26, fir-413-26, fir-420-26, fir-421-26, fir-423-26, fir-430-26, fir-431-26, fir-445-26, fir-458-26, fir-465-26, fir-466-26, fir-468-26, fir-891-24"
+ },
+ "KB8": {
+  "dispatch": "station_or_category_counts",
+  "kind": "relational_aggregate",
+  "filters": "none",
+  "text": "NOTE: Grouped by the statute(s) each case was registered under (e.g. PPC, CNSA 1997), not by crime type — these records carry no crime-type classification.\n\n- PPC: 25 cases\n- PPC, Arms Ordinance 1965: 21 cases\n- PECA 2016, PPC: 9 cases\n- CNSA 1997, Arms Ordinance 1965: 8 cases\n- CNSA 1997: 4 cases\n- PPC, Punjab Domestic Violence Act: 4 cases\n- PPC, Illegal Dispossession Act 2005: 2 cases\n\nBreakdown by individual legal code (a case can involve more than one):\n- PPC: 61 cases\n- Arms Ordinance 1965: 29 cases\n- CNSA 1997: 12 cases\n- PECA 2016: 9 cases\n- Punjab Domestic Violence Act: 4 cases\n- Illegal Dispossession Act 2005: 2 cases"
+ },
+ "KB9": {
+  "dispatch": "graph_recurrence_person",
+  "kind": "graph_recurrence",
+  "filters": null,
+  "text": "**4 matching Person(s) found.**\n\nOf the 4 recurring Person(s) below, 3 appear in cases from more than one calendar year, and 1 carries a decided criminal-record outcome on an EARLIER case than one they are also named in later.\n\n- فیصل (Person): appears in 2 cases — fir-202-26, fir-401-26. Sequence: earliest case FIR 401/26 (2024-09-25), then FIR 202/26 (2026-03-06) — the two are 2 calendar year(s) apart\n    - FIR 401/26, incident dated 2024-09-25 [case 1 of 2 in time order]; role on that case: accused; recorded status: زیر تفتیش.\n    - FIR 202/26, incident dated 2026-03-06 [case 2 of 2 in time order]; role on that case: witness.\n- طارق (Person): appears in 2 cases — fir-202-26, fir-401-26. Sequence: earliest case FIR 401/26 (2024-09-25), then FIR 202/26 (2026-03-06) — the two are 2 calendar year(s) apart\n    - FIR 401/26, incident dated 2024-09-25 [case 1 of 2 in time order]; role on that case: complainant.\n    - FIR 202/26, incident dated 2026-03-06 [case 2 of 2 in time order]; role on that case: witness.\n- شہزیب عرف شابی (Person): appears in 2 cases — fir-214-26, fir-891-24. Sequence: earliest case FIR 891/24 (2024-09-14), then FIR 214/26 (2026-03-03) — the two are 2 calendar year(s) apart\n    - FIR 891/24, incident dated 2024-09-14 [case 1 of 2 in time order]; role on that case: accused; recorded status: گرفتار، بعد ازاں سزا یافتہ; the criminal-record system records \"Convicted, on bail pending appeal\" for this person on that FIR.\n    - FIR 214/26, incident dated 2026-03-03 [case 2 of 2 in time order]; role on that case: accused; recorded status: گرفتار; the criminal-record system records \"Under trial\" for this person on that FIR.\n- عاصم رشید (Person): appears in 2 cases — fir-64-26, fir-65-26. Sequence: earliest case FIR 64/26 (2026-03-19), then FIR 65/26 (2026-03-23) — both fall in the same calendar year\n    - FIR 64/26, incident dated 2026-03-19 [case 1 of 2 in time order]; role on that case: accused; recorded status: گرفتار; the criminal-record system records \"Under trial\" for this person on that FIR.\n    - FIR 65/26, incident dated 2026-03-23 [case 2 of 2 in time order]; role on that case: accused; recorded status: پہلے سے کیس 10 میں گرفتار، اس مقدمے میں بھی نامزد."
+ },
+ "LIVE": {
+  "dispatch": "total_count",
+  "kind": "total_count",
+  "filters": "date_to=2019-12-31",
+  "text": "0 FIR(s) registered in 2019 or earlier (records span 2024–2026; out of 73 FIRs considered)."
+ },
+ "F_RANGE": {
+  "dispatch": "total_count",
+  "kind": "total_count",
+  "filters": "date_from=2024-01-01, date_to=2025-12-31",
+  "text": "16 FIR(s) registered between 2024 and 2025 (records span 2024–2026; out of 73 FIRs considered)."
+ },
+ "F_DIST": {
+  "dispatch": "total_count",
+  "kind": "total_count",
+  "filters": "district=لاہور",
+  "text": "18 FIR(s) registered in Lahore district (out of 73 FIRs considered)."
+ },
+ "F_SECT": {
+  "dispatch": "total_count",
+  "kind": "total_count",
+  "filters": "section=302",
+  "text": "10 FIR(s) registered under section 302 (out of 73 FIRs considered)."
+ },
+ "F_AGE": {
+  "dispatch": "total_accused_count",
+  "kind": "total_accused_count",
+  "filters": "age_min=25, age_max=40",
+  "text": "15 distinct accused person(s) aged 25–40 (of 17 distinct accused who carry a recorded age; 75 record no age and cannot be placed)."
+ },
+ "P_DATE_1": {
+  "dispatch": "station_or_category_counts",
+  "kind": "relational_aggregate",
+  "filters": "date_to=2019-12-31",
+  "text": "NOTE: Grouped by the statute(s) each case was registered under (e.g. PPC, CNSA 1997), not by crime type — these records carry no crime-type classification.\n\nFiltered to records in 2019 or earlier (records span 2024–2026)."
+ },
+ "P_DATE_2": {
+  "dispatch": "total_count",
+  "kind": "total_count",
+  "filters": "date_from=2024-01-01, date_to=2024-12-31",
+  "text": "13 FIR(s) registered in 2024 (records span 2024–2026; out of 73 FIRs considered)."
+ },
+ "P_DIST_1": {
+  "dispatch": "total_count",
+  "kind": "total_count",
+  "filters": "district=فیصل آباد",
+  "text": "19 FIR(s) registered in Faisalabad district (out of 73 FIRs considered)."
+ },
+ "P_DIST_2": {
+  "dispatch": "total_count",
+  "kind": "total_count",
+  "filters": "district=کراچی وسطی|کراچی ایسٹ",
+  "text": "10 FIR(s) registered in Karachi Central / Karachi East districts (out of 73 FIRs considered)."
+ },
+ "P_SECT_1": {
+  "dispatch": "total_count",
+  "kind": "total_count",
+  "filters": "section=13",
+  "text": "29 FIR(s) registered under section 13 (out of 29 FIRs considered)."
+ },
+ "P_SECT_2": {
+  "dispatch": "total_count",
+  "kind": "total_count",
+  "filters": "section=420",
+  "text": "11 FIR(s) registered under section 420 (out of 73 FIRs considered)."
+ },
+ "P_AGE_1": {
+  "dispatch": "total_accused_count",
+  "kind": "total_accused_count",
+  "filters": "age_max=29",
+  "text": "8 distinct accused person(s) aged 29 or younger (of 17 distinct accused who carry a recorded age; 75 record no age and cannot be placed)."
+ },
+ "P_AGE_2": {
+  "dispatch": "offender_age_profile",
+  "kind": "offender_age_profile",
+  "filters": "age_min=30, age_max=40",
+  "text": "8 distinct accused aged 30–40 (of the 17 accused who carry a recorded age; 75 record no age and cannot be placed).\nAge profile of the accused across the caseload:\n  - Recorded ages run from 24 to 49, mean 31.5.\n  - That is derived from the 17 of 92 distinct accused who carry a recorded age (19 of 94 accused entries).\n  - 75 of 92 accused record no age at all, so this range describes only the minority that do — it is not evidence that no accused is younger or older.\n  - Nationality is not recorded anywhere in this data model, so no claim about the accused's nationality can be made from this data."
+ },
+ "G_M1": {
+  "dispatch": "statute_mix_by_year",
+  "kind": "time_bucketed_breakdown",
+  "filters": null,
+  "text": "**2024** — 13 FIR(s):\n  Legal acts charged (a case can carry more than one):\n    - PPC (Pakistan Penal Code): 13\n    - Arms Ordinance 1965: 13\n  Specific sections charged, by number of FIRs citing each:\n    - Arms Ordinance 1965 §13: 13\n    - PPC §34: 13\n    - PPC §392: 13\n**2026** — 51 FIR(s):\n  Legal acts charged (a case can carry more than one):\n    - PPC (Pakistan Penal Code): 39\n    - Arms Ordinance 1965: 16\n    - CNSA 1997 (Control of Narcotic Substances Act 1997): 12\n    - PECA 2016 (Prevention of Electronic Crimes Act 2016): 9\n    - Punjab Domestic Violence Act: 4\n    - Illegal Dispossession Act 2005: 2\n  Specific sections charged, by number of FIRs citing each:\n    - PPC §34: 23\n    - Arms Ordinance 1965 §13: 16\n    - CNSA 1997 §9(c): 12\n    - PECA 2016 §14: 9\n    - PECA 2016 §21: 9\n    - PPC §337-A(i): 9\n    - PPC §419: 9\n    - PPC §420: 9\n    - PPC §302: 8\n    - PPC §392: 8\n    - PPC §506: 6\n    - PPC §365-A: 5\n    - PPC §384: 4\n    - Provincial Act §Punjab Domestic Violence Act: 4\n    - Illegal Dispossession Act 2005 §3: 2"
+ },
+ "G_M7": {
+  "dispatch": "incident_to_report_minutes_by_year",
+  "kind": "time_bucketed_mean",
+  "filters": null,
+  "text": "Mean time from incident to report, by incident year:\n  - 2024: 15.0 minutes across 13 FIRs\n  - 2026: 1401.3 minutes (~23.4 hours) across 51 FIRs\nReporting is slower in 2026 than in 2024."
+ },
+ "G_CP6": {
+  "dispatch": "placeholder_officer_count",
+  "kind": "placeholder_officer_count",
+  "filters": null,
+  "text": "10 FIRs currently carry only a placeholder investigating officer — 7 marked \"(نامزد ASI)\", 3 marked \"(نامزد SI)\". 1 additional case(s) originally had a placeholder officer too but have since been assigned a real one."
+ },
+ "G_A1": {
+  "dispatch": "gender_breakdown",
+  "kind": "gender_breakdown",
+  "filters": null,
+  "text": "- مرد: 67\n- عورت: 24\n- unknown: 3\nTotal accused: 94"
+ },
+ "G_D1": {
+  "dispatch": "total_count",
+  "kind": "total_count",
+  "filters": "none",
+  "text": "Total cases: 73"
+ }
+}

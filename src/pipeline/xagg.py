@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 import re
 from collections import Counter
@@ -27,6 +28,11 @@ from src.graph import age_client
 from src.database.postgres import current_cross_case, current_rls_active
 from src.graph.community_detection import build_canonical_map, canon, fetch_confirmed_same_as
 from src.ingestion.muhafiz_cases import split_crime_category
+from src.pipeline.aggregate_filters import (
+    EMPTY_FILTERS,
+    AggregateFilters,
+    extract_aggregate_filters,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1903,7 +1909,16 @@ async def _top_recurring_nodes(
 # (build_canonical_map/canon) so a person who is the same real individual
 # across cases is still counted once, but a person appearing in only ONE
 # case is counted too (unlike the recurrence path above).
-async def _total_accused_count(jurisdiction_case_ids: Optional[list[str]] = None) -> dict:
+async def _total_accused_count(
+    jurisdiction_case_ids: Optional[list[str]] = None,
+    filters: AggregateFilters = EMPTY_FILTERS,
+    filter_meta: Optional[dict] = None,
+) -> dict:
+    """[Gold-QA fix — Module 144] `filters`: the age bound is applied HERE,
+    per person, because this family counts people — a case-level "has an
+    accused in range" allow-list would count every accused in such a case.
+    The case-level filters (date / district / section) arrive already folded
+    into `jurisdiction_case_ids` by `run_aggregate()`."""
     if jurisdiction_case_ids is not None:
         rows = await age_client.execute_cypher(
             "MATCH (p:Person)-[r:INVOLVED_IN]->(i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
@@ -1920,6 +1935,8 @@ async def _total_accused_count(jurisdiction_case_ids: Optional[list[str]] = None
         )
     canonical_map = build_canonical_map(await fetch_confirmed_same_as())
     per_entity_cases: dict[str, set[str]] = {}
+    age_by_entity: dict[str, int] = {}
+    all_entities: set[str] = set()
     for row in rows:
         p_props = (row.get("p") or {}).get("properties", {}) or {}
         c_props = (row.get("c") or {}).get("properties", {}) or {}
@@ -1928,20 +1945,38 @@ async def _total_accused_count(jurisdiction_case_ids: Optional[list[str]] = None
         if not entity_id or not case_id:
             continue
         entity_id = canon(canonical_map, entity_id)
+        all_entities.add(entity_id)
+        age = _coerce_age(p_props.get("age"))
+        if age is not None:
+            age_by_entity.setdefault(entity_id, age)
+        if filters.has_age and not _age_in_range(age_by_entity.get(entity_id), filters):
+            continue
         per_entity_cases.setdefault(entity_id, set()).add(case_id)
     # Observability (Module 55) — see `_offender_age_profile()`'s note:
     # XAGG's SSE reports only `route='XAGG'`, so this line is the only
-    # evidence of WHICH aggregate answered a live question.
+    # evidence of WHICH aggregate answered a live question — and, since
+    # Module 144, of which filters it applied.
     logger.info(
         "XAGG total_accused_count: %d distinct accused person(s) across "
-        "%d case-scoped entr(ies)",
+        "%d case-scoped entr(ies); filters=%s%s",
         len(per_entity_cases), sum(len(v) for v in per_entity_cases.values()),
+        filters.to_log(),
+        (
+            f" ({len(age_by_entity)} of {len(all_entities)} distinct accused "
+            f"carry an age)" if filters.has_age else ""
+        ),
     )
-    return {
+    result = {
         "kind": "total_accused_count",
         "total_accused": len(per_entity_cases),
         "total_case_scoped_entries": sum(len(v) for v in per_entity_cases.values()),
+        **_filter_context(filters, filter_meta or {}),
     }
+    if filters.has_age:
+        result["age_filter_applied"] = True
+        result["with_age_count"] = len(age_by_entity)
+        result["without_age_count"] = max(0, len(all_entities) - len(age_by_entity))
+    return result
 
 
 # [Gold-QA fix — Module 1d] Gender breakdown of accused Person nodes.
@@ -2036,7 +2071,11 @@ def _coerce_age(value) -> Optional[int]:
     return age if 1 <= age <= 120 else None
 
 
-async def _offender_age_profile(jurisdiction_case_ids: Optional[list[str]] = None) -> dict:
+async def _offender_age_profile(
+    jurisdiction_case_ids: Optional[list[str]] = None,
+    filters: AggregateFilters = EMPTY_FILTERS,
+    filter_meta: Optional[dict] = None,
+) -> dict:
     """
     [Gold-QA fix — Module 31, question G1] The accused age profile: range,
     mean, and — the part that decides whether the answer is honest — how
@@ -2092,6 +2131,14 @@ async def _offender_age_profile(jurisdiction_case_ids: Optional[list[str]] = Non
             age_by_entity.setdefault(entity_id, age)
 
     ages = sorted(age_by_entity.values())
+    # [Gold-QA fix — Module 144] An age BOUND in the question ("kitne mulzim
+    # 25 se 40 saal ki umar ke hain?" lands here via `_AGE_KEYWORDS`) —
+    # count how many of the accused with a recorded age fall inside it. The
+    # profile below is still computed over everyone with an age, so the
+    # coverage caveat stays honest about the denominator.
+    in_range_count: Optional[int] = None
+    if filters.has_age:
+        in_range_count = sum(1 for a in ages if _age_in_range(a, filters))
     if not ages:
         # Observability (Module 55) — the refusal path, same reasoning as the
         # populated one just below.
@@ -2109,13 +2156,16 @@ async def _offender_age_profile(jurisdiction_case_ids: Optional[list[str]] = Non
     # inferred one, the convention Modules 23 and 24 established here.
     logger.info(
         "XAGG offender_age_profile: %d of %d distinct accused carry an age "
-        "(%d of %d accused entries); range %d-%d, mean %.1f",
+        "(%d of %d accused entries); range %d-%d, mean %.1f; filters=%s%s",
         len(ages), len(all_entities), len(entry_ages), entry_count,
-        ages[0], ages[-1], mean_age,
+        ages[0], ages[-1], mean_age, filters.to_log(),
+        f"; in_range={in_range_count}" if in_range_count is not None else "",
     )
     return {
         "kind": "offender_age_profile",
         "unsupported": False,
+        **_filter_context(filters, filter_meta or {}),
+        "in_range_count": in_range_count,
         "min_age": ages[0],
         "max_age": ages[-1],
         "mean_age": mean_age,
@@ -2136,7 +2186,17 @@ def render_offender_age_profile(agg_result: dict) -> list[str]:
     with_age = agg_result["with_age_count"]
     distinct = agg_result["distinct_accused_count"]
     missing = max(0, distinct - with_age)
-    lines = [
+    lines: list[str] = []
+    # [Gold-QA fix — Module 144] The bounded count, when the question asked
+    # for one, leads — and says its denominator.
+    if agg_result.get("in_range_count") is not None:
+        description = agg_result.get("filter_description") or ""
+        lines.append(
+            f"{agg_result['in_range_count']} distinct accused {description} "
+            f"(of the {with_age} accused who carry a recorded age; {missing} "
+            f"record no age and cannot be placed)."
+        )
+    lines += [
         "Age profile of the accused across the caseload:",
         f"  - Recorded ages run from {agg_result['min_age']} to "
         f"{agg_result['max_age']}, mean {agg_result['mean_age']:.1f}.",
@@ -5541,6 +5601,8 @@ _FIR_SECTION_RENDER_LIMIT = 20
 async def _fir_section_case_count(
     query_text: str,
     jurisdiction_case_ids: Optional[list[str]] = None,
+    filters: AggregateFilters = EMPTY_FILTERS,
+    filter_meta: Optional[dict] = None,
 ) -> dict:
     """
     [Gold-QA fix — Module 76, question KB9] How many FIRs cite each section,
@@ -5629,16 +5691,18 @@ async def _fir_section_case_count(
     # the grain, so the focused figure has to be in the line.
     logger.info(
         "XAGG fir_section_case_count: %d section entr(ies) over %d FIR(s) "
-        "and %d distinct section(s); focus=%s -> %s FIR(s); top=%s",
+        "and %d distinct section(s); focus=%s -> %s FIR(s); top=%s; filters=%s",
         len(rows), len(all_cases), len(sections),
         focus_code or "none",
         focus["fir_count"] if focus else "n/a",
         ", ".join(
             f"{s['key']}={s['fir_count']}" for s in sections[:5]
         ) or "none",
+        filters.to_log(),
     )
     return {
         "kind": "fir_section_case_count",
+        **_filter_context(filters, filter_meta or {}),
         "section_entry_count": len(rows),
         "charged_fir_count": len(all_cases),
         "distinct_section_count": len(sections),
@@ -5653,10 +5717,13 @@ def render_fir_section_case_count(agg_result: dict) -> list[str]:
     XAGG rendering sites - same reason as `render_statute_court_stage_join()`.
     """
     total_firs = agg_result.get("charged_fir_count") or 0
+    # [Gold-QA fix — Module 144] Say which filter narrowed the figures.
+    lines: list[str] = render_filter_line(agg_result)
     if not total_firs:
+        if lines:
+            return lines + ["No FIR in that scope carries a recorded section."]
         return ["No FIR in this corpus carries a recorded section."]
 
-    lines: list[str] = []
     focus = agg_result.get("focus")
     if focus:
         label = focus.get("key") or focus.get("section_code")
@@ -6942,10 +7009,270 @@ async def _filtered_cases(
     return cases, unsupported
 
 
+# ══════════════════════════════════════════════════════════════════════
+# [Gold-QA fix — Module 144] Filters for the count aggregates.
+#
+# Measured live 2026-09-14: "How many FIRs were registered in 2019 or
+# earlier?" returned `Total cases: 73`. `resolve_aggregate_kind()` was right
+# (the grand-total FIR count IS the family for that question) — the defect
+# was that no count aggregate could accept a bound of any kind, so the year
+# constraint was dropped on the floor and the grand total was served. The
+# paraphrase verifier rejected the summary and served the raw aggregate,
+# which was the right safety behaviour, and it also hid that the number
+# answered a different question. The true answer is 0: the corpus's FIRs
+# were reported in 2024 (13), 2025 (3) and 2026 (57).
+#
+# The filter is a PARAMETER on the existing kinds, not a new kind — the
+# dispatch chain is untouched, and the all-32 equality control in
+# tests/test_xagg.py is what proves that. Extraction (question text ->
+# `AggregateFilters`) lives in `src/pipeline/aggregate_filters.py`; this
+# block turns the extracted filters into a case-id allow-list off the graph,
+# which composes with Milestone E1's `jurisdiction_case_ids` exactly the way
+# that allow-list already composes with every aggregate.
+#
+# What each filter reads — every one re-verified against the live graph on
+# 2026-09-14 (MODULE144_RESULT.md §1):
+#   - date     -> Incident.report_datetime (73/73 populated; "YYYY-MM-DD..."),
+#                 via (i:Incident)-[:BELONGS_TO_CASE]->(c:Case)
+#   - district -> (c:Case)-[:FILED_AT]->(:PoliceStation)-[:PART_OF]->(d:District),
+#                 matched on the stored Urdu `d.name` (9 districts, 73 cases)
+#   - section  -> (s:StructuredRecord {record_type:'fir_section'})
+#                 -[:BELONGS_TO_CASE]->(c:Case), on `s.section_code` (218 rows,
+#                 36 sections), act ignored exactly as KB9's family does
+#   - age      -> Person.age on (p)-[:INVOLVED_IN {role:'accused'}]->(:Incident)
+#                 -[:BELONGS_TO_CASE]->(c:Case); INVOLVED_IN runs Person ->
+#                 Incident, NOT Person -> Case. 19 of 430 Person nodes carry
+#                 an age. Case-level for the FIR counts (a case with at least
+#                 one accused in range), person-level for the accused counts.
+#   - city     -> no field anywhere; in this data the city IS the district,
+#                 so a city name is a district filter and is rendered as one.
+#   - province -> exists nowhere in the graph. Out of scope (needs ingestion).
+# ══════════════════════════════════════════════════════════════════════
+
+# The kinds that accept the filter set. Everything else ignores it — a
+# filter must never silently change a family it was not built for.
+FILTERABLE_AGGREGATE_KINDS = frozenset({
+    "total_count",
+    "station_or_category_counts",
+    "fir_section_case_count",
+    "total_accused_count",
+    "offender_age_profile",
+})
+
+# The two person-grain kinds: for these, age is applied per PERSON inside the
+# aggregate, and only the case-level filters (date/district/section) go into
+# the allow-list. For the FIR-grain kinds age is a case-level filter too.
+_PERSON_GRAIN_KINDS = frozenset({"total_accused_count", "offender_age_profile"})
+
+
+def _report_date(value) -> Optional[str]:
+    """'2024-09-14T22:15:00Z' -> '2024-09-14'; None for anything unparseable."""
+    text = str(value or "").strip()
+    if len(text) < 10:
+        return None
+    head = text[:10]
+    if head[4] != "-" or head[7] != "-" or not (head[:4] + head[5:7] + head[8:10]).isdigit():
+        return None
+    return head
+
+
+async def resolve_filter_case_ids(
+    filters: AggregateFilters, *, include_age: bool = True,
+) -> tuple[Optional[set[str]], dict]:
+    """The case-id allow-list the case-level filters select, plus the
+    metadata the rendered text needs to say what was honoured.
+
+    Returns `(None, meta)` when no case-level filter is set — `None` means
+    "do not narrow", the same contract `jurisdiction_case_ids` uses, so an
+    empty SET is a real answer of zero and never gets confused with it.
+    """
+    meta: dict = {"applied": filters.to_log()}
+    allow: Optional[set[str]] = None
+
+    def _narrow(ids: set[str]) -> None:
+        nonlocal allow
+        allow = ids if allow is None else (allow & ids)
+
+    if filters.has_date:
+        rows = await age_client.execute_cypher(
+            "MATCH (i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+            "RETURN c.case_id AS case_id, i.report_datetime AS report_datetime",
+            columns=["case_id", "report_datetime"],
+        )
+        lo = filters.date_from.isoformat() if filters.date_from else None
+        hi = filters.date_to.isoformat() if filters.date_to else None
+        matched: set[str] = set()
+        years: list[int] = []
+        dated = 0
+        for row in rows:
+            case_id = row.get("case_id")
+            day = _report_date(row.get("report_datetime"))
+            if not case_id or not day:
+                continue
+            dated += 1
+            years.append(int(day[:4]))
+            if (lo is None or day >= lo) and (hi is None or day <= hi):
+                matched.add(case_id)
+        meta["dated_case_count"] = dated
+        if years:
+            meta["date_span"] = (min(years), max(years))
+        _narrow(matched)
+
+    if filters.districts:
+        rows = await age_client.execute_cypher(
+            "MATCH (c:Case)-[:FILED_AT]->(:PoliceStation)-[:PART_OF]->(d:District) "
+            "WHERE d.name IN $names RETURN DISTINCT c.case_id AS case_id",
+            params={"names": list(filters.districts)}, columns=["case_id"],
+        )
+        _narrow({r.get("case_id") for r in rows if r.get("case_id")})
+
+    if filters.section:
+        rows = await age_client.execute_cypher(
+            "MATCH (s:StructuredRecord)-[:BELONGS_TO_CASE]->(c:Case) "
+            "WHERE s.record_type = 'fir_section' "
+            "RETURN s.section_code AS section_code, c.case_id AS case_id",
+            columns=["section_code", "case_id"],
+        )
+        want = filters.section.strip().upper()
+        _narrow({
+            r.get("case_id") for r in rows
+            if r.get("case_id") and str(r.get("section_code") or "").strip().upper() == want
+        })
+
+    if include_age and filters.has_age:
+        rows = await age_client.execute_cypher(
+            "MATCH (p:Person)-[r:INVOLVED_IN]->(i:Incident)-[:BELONGS_TO_CASE]->(c:Case) "
+            "WHERE r.role = 'accused' AND p.age IS NOT NULL "
+            "RETURN p.age AS age, c.case_id AS case_id",
+            columns=["age", "case_id"],
+        )
+        _narrow({
+            r.get("case_id") for r in rows
+            if r.get("case_id") and _age_in_range(_coerce_age(r.get("age")), filters)
+        })
+
+    return allow, meta
+
+
+def _age_in_range(age: Optional[int], filters: AggregateFilters) -> bool:
+    if age is None:
+        return False
+    if filters.age_min is not None and age < filters.age_min:
+        return False
+    if filters.age_max is not None and age > filters.age_max:
+        return False
+    return True
+
+
+def _intersect_allow_lists(
+    jurisdiction_case_ids: Optional[list[str]], filter_case_ids: Optional[set[str]],
+) -> Optional[list[str]]:
+    """Compose Milestone E1's jurisdiction allow-list with the filter's.
+    `None` on both sides means "do not narrow"; anything else narrows."""
+    if filter_case_ids is None:
+        return jurisdiction_case_ids
+    if jurisdiction_case_ids is None:
+        return sorted(filter_case_ids)
+    return sorted(set(jurisdiction_case_ids) & filter_case_ids)
+
+
+def _filter_context(filters: AggregateFilters, meta: dict) -> dict:
+    """The part of the result every filtered kind carries, for the renderers."""
+    return {
+        "filters_applied": filters.to_log(),
+        "filter_description": filters.describe(),
+        "date_span": meta.get("date_span"),
+    }
+
+
+def _span_note(agg_result: dict) -> str:
+    span = agg_result.get("date_span")
+    if not span:
+        return ""
+    lo, hi = span
+    return f"records span {lo}–{hi}" if lo != hi else f"all records are from {lo}"
+
+
+def render_total_count(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — Module 144] Shared renderer for the grand total, for
+    all three XAGG rendering sites. UNFILTERED output is byte-identical to
+    the inline f-string it replaces ("Total cases: 73"). With a filter the
+    text SAYS what was honoured — "0 FIR(s) registered in 2019 or earlier
+    (records span 2024–2026; 73 FIRs in total)" — because a bare "0" reads
+    as a failure to both the verifier and the reader."""
+    total = agg_result["total_cases"]
+    description = agg_result.get("filter_description")
+    if not description:
+        return [f"Total cases: {total}"]
+    context = [p for p in (_span_note(agg_result),) if p]
+    unfiltered = agg_result.get("unfiltered_total")
+    if unfiltered is not None:
+        # "considered", not "in total": `_filtered_cases()` may already have
+        # narrowed the rows by a status/act keyword in the question ("under
+        # the Arms Ordinance" -> 29), and this number is what THIS filter
+        # was applied to, which is the honest denominator.
+        context.append(f"out of {unfiltered} FIRs considered")
+    line = f"{total} FIR(s) registered {description}"
+    if context:
+        line += " (" + "; ".join(context) + ")"
+    return [line + "."]
+
+
+def render_total_accused_count(agg_result: dict) -> list[str]:
+    """[Gold-QA fix — Module 144] Shared renderer; unfiltered output is
+    byte-identical to the inline f-string it replaces."""
+    total = agg_result["total_accused"]
+    description = agg_result.get("filter_description")
+    if not description:
+        return [f"Total distinct accused persons: {total}"]
+    context = []
+    if agg_result.get("age_filter_applied"):
+        context.append(
+            f"of {agg_result.get('with_age_count', 0)} distinct accused who carry a "
+            f"recorded age; {agg_result.get('without_age_count', 0)} record no age "
+            f"and cannot be placed"
+        )
+    span = _span_note(agg_result)
+    if span:
+        context.append(span)
+    line = f"{total} distinct accused person(s) {description}"
+    if context:
+        line += " (" + "; ".join(context) + ")"
+    return [line + "."]
+
+
+def render_filter_line(agg_result: dict) -> list[str]:
+    """One leading line for the kinds that keep their own renderer
+    (fir_section_case_count, offender_age_profile, the station/category
+    group-by): says which filter narrowed the figures below it."""
+    description = agg_result.get("filter_description")
+    if not description:
+        return []
+    span = _span_note(agg_result)
+    line = f"Filtered to records {description}"
+    if span:
+        line += f" ({span})"
+    lines = [line + "."]
+    # A group-by with no rows left would otherwise render as the filter
+    # line and nothing else — say the zero out loud.
+    if "counts" in agg_result and not agg_result.get("counts"):
+        lines.append("0 case(s) match this filter.")
+    return lines
+
+
 async def _station_or_category_counts(
     gateway, query_text: str, jurisdiction_case_ids: Optional[list[str]] = None,
+    filters: AggregateFilters = EMPTY_FILTERS,
+    filter_case_ids: Optional[set[str]] = None,
+    filter_meta: Optional[dict] = None,
 ) -> dict:
     cases, unsupported = await _filtered_cases(gateway, query_text, jurisdiction_case_ids)
+    # [Gold-QA fix — Module 144] The extracted date/district/section/age
+    # filter, as a case-id allow-list. Applied AFTER the jurisdiction
+    # narrowing and the status/category keyword filtering above, so it only
+    # ever removes cases. `None` means no filter was asked for.
+    if filter_case_ids is not None:
+        cases = [c for c in cases if c.get("case_id") in filter_case_ids]
     group_field = "police_station" if _matches_any(query_text, _STATION_KEYWORDS) else "crime_category"
     counts = Counter(c.get(group_field) or "unknown" for c in cases)
 
@@ -6959,6 +7286,7 @@ async def _station_or_category_counts(
         "counts": [{"key": k, "count": v} for k, v in counts.most_common(15)],
         "total_cases_considered": len(cases),
         "unsupported_filters": unsupported,
+        **_filter_context(filters, filter_meta or {}),
     }
     # [Legal-code semantic layer] crime_category is a comma-joined,
     # potentially multi-act free-text field (a real FIR can carry several
@@ -6984,19 +7312,49 @@ async def _station_or_category_counts(
 
 async def _total_count(
     gateway, query_text: str, jurisdiction_case_ids: Optional[list[str]] = None,
+    filters: AggregateFilters = EMPTY_FILTERS,
+    filter_case_ids: Optional[set[str]] = None,
+    filter_meta: Optional[dict] = None,
 ) -> dict:
     """A bare "how many total" answer — no grouping, one number. Still
     honors any status/category filter present (e.g. "how many closed
-    cases in total"), it just skips the group-by breakdown entirely."""
+    cases in total"), it just skips the group-by breakdown entirely.
+
+    [Gold-QA fix — Module 144] `filters` / `filter_case_ids` / `filter_meta`:
+    the date / district / section / age bound the question carried, already
+    resolved to a case-id allow-list by `resolve_filter_case_ids()`. This is
+    THE live defect's fix: "How many FIRs were registered in 2019 or
+    earlier?" used to return 73 here because nothing below could accept a
+    bound. With no filter every line of this function behaves exactly as
+    before, and the result dict gains only empty context keys.
+    """
     cases, unsupported = await _filtered_cases(gateway, query_text, jurisdiction_case_ids)
+    unfiltered_total = len(cases)
+    if filter_case_ids is not None:
+        cases = [c for c in cases if c.get("case_id") in filter_case_ids]
     # Observability (Module 55) — see `_offender_age_profile()`'s note:
     # XAGG's SSE reports only `route='XAGG'`, so this line is the only
-    # evidence of WHICH aggregate answered a live question.
+    # evidence of WHICH aggregate answered a live question — and, since
+    # Module 144, of which filters it applied.
     logger.info(
-        "XAGG total_count: %d case(s) after filtering; unsupported_filters=%s",
+        "XAGG total_count: %d case(s) after filtering; unsupported_filters=%s; "
+        "filters=%s%s",
         len(cases), "; ".join(unsupported) if unsupported else "none",
+        filters.to_log(),
+        (
+            f" (of {unfiltered_total} unfiltered; span "
+            f"{(filter_meta or {}).get('date_span')})"
+            if filter_case_ids is not None else ""
+        ),
     )
-    return {"kind": "total_count", "total_cases": len(cases), "unsupported_filters": unsupported}
+    result = {
+        "kind": "total_count", "total_cases": len(cases),
+        "unsupported_filters": unsupported,
+        **_filter_context(filters, filter_meta or {}),
+    }
+    if filter_case_ids is not None:
+        result["unfiltered_total"] = unfiltered_total
+    return result
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -7325,6 +7683,41 @@ async def run_aggregate(
     # moved. Add a new family in BOTH places, or nowhere.
     kind = resolve_aggregate_kind(query_text)
 
+    # [Gold-QA fix — Module 144] The filter set the question carries, applied
+    # ONLY to the count kinds in `FILTERABLE_AGGREGATE_KINDS`. Resolved to a
+    # case-id allow-list here, once, and folded into the jurisdiction
+    # allow-list every one of those kinds already accepts — so the filter is
+    # a parameter on the existing families, not a family of its own, and the
+    # dispatch above is untouched. For every other kind, and for a question
+    # with no bound in it, nothing here runs.
+    filters = EMPTY_FILTERS
+    filter_case_ids: Optional[set[str]] = None
+    filter_meta: dict = {}
+    if kind in FILTERABLE_AGGREGATE_KINDS:
+        filters = extract_aggregate_filters(query_text)
+        if kind == "fir_section_case_count" and filters.section:
+            # KB9's family already reads the named section out of the query
+            # itself (`_section_code_in_query()`) and leads with that
+            # section's count against the FULL charged-FIR denominator.
+            # Narrowing its case set to that same section would collapse
+            # the denominator to the numerator. The section stays that
+            # family's own parameter; only date/district/age narrow it.
+            filters = dataclasses.replace(filters, section=None)
+        if not filters.is_empty():
+            filter_case_ids, filter_meta = await resolve_filter_case_ids(
+                filters, include_age=kind not in _PERSON_GRAIN_KINDS,
+            )
+            # The graph-reading kinds take the composed allow-list through
+            # the `jurisdiction_case_ids` parameter they already have. The
+            # two gateway-reading kinds (`total_count`, the station/category
+            # group-by) take `filter_case_ids` directly, because they apply
+            # it AFTER the status/category keyword filtering they already do
+            # on the gateway rows.
+            if kind not in ("total_count", "station_or_category_counts"):
+                jurisdiction_case_ids = _intersect_allow_lists(
+                    jurisdiction_case_ids, filter_case_ids,
+                )
+
     # [Gold-QA fix — Module 1b] Topics with genuinely no data path yet,
     # checked FIRST — before any entity-recurrence keyword family below —
     # so a query naming one of these gets an honest refusal instead of
@@ -7345,7 +7738,10 @@ async def run_aggregate(
     # data model. The refusal survives INSIDE the aggregate, fired only
     # when the corpus actually carries no age.
     if kind == "offender_age_profile":
-        return await _offender_age_profile(jurisdiction_case_ids=jurisdiction_case_ids)
+        return await _offender_age_profile(
+            jurisdiction_case_ids=jurisdiction_case_ids,
+            filters=filters, filter_meta=filter_meta,
+        )
     # [Gold-QA fix — Module 13, question M2] Checked early, same precedence
     # as AGE just above, so this wins before _STATION_KEYWORDS' plain
     # per-station group-by further down silently answers a different, easier
@@ -7636,7 +8032,8 @@ async def run_aggregate(
     #     list of repeat accused, which answers nothing it asked.
     if kind == "fir_section_case_count":
         return await _fir_section_case_count(
-            query_text, jurisdiction_case_ids=jurisdiction_case_ids
+            query_text, jurisdiction_case_ids=jurisdiction_case_ids,
+            filters=filters, filter_meta=filter_meta,
         )
     # [Gold-QA fix — Module 34, question G1] "At what time of day do
     # incidents happen, across all cases?" — G1's timing sub-question.
@@ -7738,7 +8135,10 @@ async def run_aggregate(
     # deliberately AND NOT, matching _TOTAL_KEYWORDS/_LIST_ALL_KEYWORDS's
     # own precedence pattern elsewhere in this function.
     if kind == "total_accused_count":
-        return await _total_accused_count(jurisdiction_case_ids=jurisdiction_case_ids)
+        return await _total_accused_count(
+            jurisdiction_case_ids=jurisdiction_case_ids,
+            filters=filters, filter_meta=filter_meta,
+        )
 
     if kind == "graph_recurrence_person":
         top = await _top_recurring_nodes("Person", jurisdiction_case_ids=jurisdiction_case_ids)
@@ -7807,17 +8207,24 @@ async def run_aggregate(
     # grouping keyword is also present, the same precedence _LIST_ALL_KEYWORDS
     # already uses above.
     if kind == "total_count":
-        return await _total_count(gateway, query_text, jurisdiction_case_ids)
+        return await _total_count(
+            gateway, query_text, jurisdiction_case_ids,
+            filters=filters, filter_case_ids=filter_case_ids, filter_meta=filter_meta,
+        )
 
-    result = await _station_or_category_counts(gateway, query_text, jurisdiction_case_ids)
+    result = await _station_or_category_counts(
+        gateway, query_text, jurisdiction_case_ids,
+        filters=filters, filter_case_ids=filter_case_ids, filter_meta=filter_meta,
+    )
     # Observability (Module 55) — the catch-all. Module 44 measured M2 landing
     # here instead of its own family; without this line that only showed up as
     # a shape mismatch in the rendered prose.
     logger.info(
         "XAGG relational_aggregate: group_by=%s, %d case(s) considered, "
-        "%d bucket(s); %s",
+        "%d bucket(s); filters=%s; %s",
         result.get("group_by"), result.get("total_cases_considered"),
         len(result.get("counts") or []),
+        filters.to_log(),
         # Urdu station names, passed as a `%s` argument: PR #30 reconfigured
         # the log stream to utf-8/backslashreplace, so these now survive
         # legibly. The format string above stays ASCII regardless.

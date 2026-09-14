@@ -75,6 +75,9 @@ from src.pipeline.xagg import (
     render_fir_section_case_count,
     render_fir_register_completeness,
     render_offender_age_profile,
+    render_filter_line,
+    render_total_accused_count,
+    render_total_count,
     render_accused_relationship_breakdown,
     render_seized_property_disposition,
     render_incident_time_of_day,
@@ -279,7 +282,10 @@ def _render_aggregate_text(agg_result: dict) -> str:
             for c in cases
         ]
     elif kind == "total_count":
-        lines = [f"Total cases: {agg_result['total_cases']}"]
+        # [Gold-QA fix — Module 144] shared renderer; unfiltered output is
+        # byte-identical to the f-string it replaces. With a filter it says
+        # what was honoured, so a "0" is legible as an answer.
+        lines = render_total_count(agg_result)
     # [Gold-QA fix — Module 1] Kept in sync with orchestrator.py's own
     # identical branches for these five kinds — see this function's own
     # docstring and AggregateKind's comment above for why this file needs
@@ -287,7 +293,7 @@ def _render_aggregate_text(agg_result: dict) -> str:
     elif kind == "unsupported_aggregate":
         lines = [agg_result["message"]]
     elif kind == "total_accused_count":
-        lines = [f"Total distinct accused persons: {agg_result['total_accused']}"]
+        lines = render_total_accused_count(agg_result)
     elif kind == "gender_breakdown":
         if agg_result["unsupported"]:
             lines = [agg_result["message"]]
@@ -419,7 +425,9 @@ def _render_aggregate_text(agg_result: dict) -> str:
     elif kind == "filtered_fir_listing":
         lines = render_filtered_fir_listing(agg_result)
     else:
-        lines = [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
+        # [Gold-QA fix — Module 144] a leading line naming the filter.
+        lines = render_filter_line(agg_result)
+        lines += [f"- {c['key']}: {c['count']} cases" for c in agg_result["counts"]]
         # [Legal-code semantic layer] Kept in sync with orchestrator.py's
         # own identical XAGG-route rendering — see this function's own
         # docstring ("verbatim port... not new logic"). crime_category can

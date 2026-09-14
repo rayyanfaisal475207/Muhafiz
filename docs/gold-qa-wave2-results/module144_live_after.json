@@ -1,0 +1,533 @@
+[
+  {
+    "id": "LIVE",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "How many FIRs were registered in 2019 or earlier?",
+    "expected_answer": "0 (records span 2024-2026; 73 in total)",
+    "actual_answer": "According to [Document 1], **0 FIR(s)** were registered in 2019 or earlier. The records considered span from 2024–2026, and none of the 73 FIRs analyzed date back to 2019 or earlier.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 18.9,
+    "xagg_log_lines": [
+      "XAGG total_count: 0 case(s) after filtering; unsupported_filters=none; filters=date_to=2019-12-31 (of 73 unfiltered; span (2024, 2026))"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm"
+    ],
+    "model": "local model server (local:llm)",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "LIVE",
+    "run": 2,
+    "arm": "after",
+    "language": "en",
+    "question": "How many FIRs were registered in 2019 or earlier?",
+    "expected_answer": "0 (records span 2024-2026; 73 in total)",
+    "actual_answer": "According to [Document 1], **0 FIR(s)** were registered in 2019 or earlier. The records considered span from 2024–2026, and none of the 73 FIRs analyzed date back to 2019 or earlier.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 10.7,
+    "xagg_log_lines": [
+      "XAGG total_count: 0 case(s) after filtering; unsupported_filters=none; filters=date_to=2019-12-31 (of 73 unfiltered; span (2024, 2026))"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm"
+    ],
+    "model": "local model server (local:llm)",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "LIVE",
+    "run": 3,
+    "arm": "after",
+    "language": "en",
+    "question": "How many FIRs were registered in 2019 or earlier?",
+    "expected_answer": "0 (records span 2024-2026; 73 in total)",
+    "actual_answer": "According to [Document 1], **0 FIR(s)** were registered in 2019 or earlier. The records considered span from 2024 to 2026, and 73 FIRs were analyzed in total.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 8.8,
+    "xagg_log_lines": [
+      "XAGG total_count: 0 case(s) after filtering; unsupported_filters=none; filters=date_to=2019-12-31 (of 73 unfiltered; span (2024, 2026))"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm"
+    ],
+    "model": "local model server (local:llm)",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "F_RANGE",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "How many FIRs were registered between 2024 and 2025?",
+    "expected_answer": "16 (13 in 2024 + 3 in 2025)",
+    "actual_answer": "Between 2024 and 2025, **16 FIRs** were registered [Document 1].",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 17.6,
+    "xagg_log_lines": [
+      "XAGG total_count: 16 case(s) after filtering; unsupported_filters=none; filters=date_from=2024-01-01, date_to=2025-12-31 (of 73 unfiltered; span (2024, 2026))"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm"
+    ],
+    "model": "local model server (local:llm)",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "F_DIST",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "How many FIRs were registered in Lahore?",
+    "expected_answer": "18",
+    "actual_answer": "According to [Document 1], 18 FIRs were registered in Lahore district.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 28.1,
+    "xagg_log_lines": [
+      "XAGG total_count: 18 case(s) after filtering; unsupported_filters=none; filters=district=لاہور (of 73 unfiltered; span None)"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm"
+    ],
+    "model": "local model server (local:llm)",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "F_SECT",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "How many cases were registered under PPC 302?",
+    "expected_answer": "10",
+    "actual_answer": "According to [Document 1], 10 FIRs were registered under section 302 of the PPC (Pakistan Penal Code) out of 73 FIRs considered in the aggregate analysis.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 20.3,
+    "xagg_log_lines": [
+      "XAGG total_count: 10 case(s) after filtering; unsupported_filters=none; filters=section=302 (of 73 unfiltered; span None)"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm"
+    ],
+    "model": "local model server (local:llm)",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "F_AGE",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "How many accused persons are aged between 25 and 40?",
+    "expected_answer": "15 distinct accused (of 17 with a recorded age; 75 without)",
+    "actual_answer": "According to [Document 1], there are **15 distinct accused persons aged 25–40**. This count is derived from a total of 17 distinct accused who have a recorded age (with 75 records lacking age data).",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 78.1,
+    "xagg_log_lines": [
+      "XAGG total_accused_count: 15 distinct accused person(s) across 17 case-scoped entr(ies); filters=age_min=25, age_max=40 (17 of 92 distinct accused carry an age)"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm",
+      "local:llm",
+      "local:llm"
+    ],
+    "model": "local model server (local:llm)",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "G_D1",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "How many FIRs are currently registered?",
+    "expected_answer": "gold D1 - 73, unchanged; no filter must fire",
+    "actual_answer": "According to [Document 1], there are **73** total cases registered. Since each case corresponds to one FIR, the number of currently registered FIRs is **73**.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 14.5,
+    "xagg_log_lines": [
+      "XAGG total_count: 73 case(s) after filtering; unsupported_filters=none; filters=none"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm"
+    ],
+    "model": "local model server (local:llm)",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "G_M1",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "What kinds of cases are we dealing with now compared to a couple of years back?",
+    "expected_answer": "gold M1 - statute mix by year, unchanged; no filter must fire",
+    "actual_answer": "Compared to 2024, the types of cases in 2026 show greater diversity and complexity.  \n\n**In 2024** ([Document 1]):  \n- **13 FIRs** were filed, all under **Pakistan Penal Code (PPC)** and **Arms Ordinance 1965**, with charges limited to:  \n  - **PPC §§34** (conspiracy), **392** (robbery), and **Arms Ordinance 1965 §13** (unlawful possession of firearms).  \n\n**In 2026**:  \n- **51 FIRs** were filed, involving **multiple legal acts** across broader statutes:  \n  - **PPC** (39 cases), **Arms Ordinance 1965** (16 cases), **CNSA 1997** (12 cases), **PECA 2016** (9 cases), **Punjab Domestic Violence Act** (4 cases), and **Illegal Dispossession Act 2005** (2 cases).  \n  - **Specific sections** included:  \n    - **PPC §§34** (23 FIRs), **337-A(i)** (9 FIRs), **302** (8 FIRs), **419** (9 FIRs), **420** (9 FIRs), **506** (6 FIRs), and **365-A** (5 FIRs).  \n    - **CNSA 1997 §9(c)** (12 FIRs), **PECA 2016 §§14** (9 FIRs) and **21** (9 FIRs).  \n\n**Key differences**:  \n- **2026** includes **new legal frameworks** (e.g., PECA 2016 for cybercrimes, CNSA 1997 for narcotics, Punjab Domestic Violence Act) and **more severe charges** (e.g., PPC §302: murder).  \n- **Arms-related offenses** (Arms Ordinance 1965 §13) decreased from 13 to 16 FIRs, but **PPC §34** (conspiracy) remained prominent.  \n- **2026** reflects a shift toward **broader criminality** (e.g., cybercrime, domestic violence, illegal dispossession) and **more detailed section-specific charges** compared to 2024.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 32.3,
+    "xagg_log_lines": [
+      "XAGG time_bucketed_breakdown: dimension=statute_by_year, 2 year bucket(s) [2024:cases=13,acts=26,sections=3, 2026:cases=51,acts=82,sections=31]"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm"
+    ],
+    "model": "local model server (local:llm)",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "G_M7",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "Kya log 2026 mein waqiaat ki police ko itni hi jaldi ittila de rahe hain jitni 2024 mein dete the?",
+    "expected_answer": "gold M7 - incident-to-report minutes by year, unchanged; no filter must fire",
+    "actual_answer": "No, reporting is slower in 2026 compared to 2024. The mean time from incident to report was **15.0 minutes** across 13 FIRs in 2024, whereas in 2026, it was **1401.3 minutes (~23.4 hours)** across 51 FIRs [Document 1].",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 19.5,
+    "xagg_log_lines": [
+      "XAGG incident_to_report_minutes_by_year: 2 year bucket(s) [2024=15.0min/n=13, 2026=1401.3min/n=51], 0 row(s) excluded for a missing/unparseable/out-of-order timestamp"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm"
+    ],
+    "model": "local model server (local:llm)",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "G_CP6",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "Kitne cases abhi tak bina kisi tafteeshi afsar ke asal tor par muqarrar kiye pade hue hain?",
+    "expected_answer": "gold CP6 - placeholder officer count, unchanged",
+    "actual_answer": "According to [Document 1], there are currently 10 FIRs that carry only a placeholder investigating officer. Of these, 7 are marked \"(نامزد ASI)\" and 3 are marked \"(نامزد SI)\". Additionally, 1 case that previously had a placeholder officer has since been assigned a real one. Therefore, the number of cases still without an actual investigating officer assigned is **10**.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 16.2,
+    "xagg_log_lines": [
+      "XAGG placeholder_officer_count: 10 case(s) still carry a placeholder investigating officer (11 ever); ASI=7 SI=3"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm"
+    ],
+    "model": "local model server (local:llm)",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "G_A1",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "نامزد ملزمان میں مرد اور عورت کا تناسب کیا ہے؟",
+    "expected_answer": "gold A1 - gender breakdown, unchanged",
+    "actual_answer": "According to [Document 1], among the 94 total accused, there are 67 males (مرد), 24 females (عورت), and 3 unknown. This results in a male-to-female ratio of **67:24**.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 75.9,
+    "xagg_log_lines": [
+      "XAGG gender_breakdown: 94 accused edge(s), 3 distinct value(s); مرد=67, عورت=24, unknown=3"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm",
+      "local:llm",
+      "local:llm"
+    ],
+    "model": "local model server (local:llm)",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P_DATE_1",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "Count the FIRs whose registration falls before 2020.",
+    "expected_answer": "0 (records span 2024-2026)",
+    "actual_answer": "NOTE: Grouped by the statute(s) each case was registered under (e.g. PPC, CNSA 1997), not by crime type — these records carry no crime-type classification.\n\nFiltered to records in 2019 or earlier (records span 2024–2026).\n0 case(s) match this filter.\n\n_The natural-language summary could not be verified as an accurate paraphrase; showing the raw computed aggregate instead._",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 60.0,
+    "xagg_log_lines": [
+      "XAGG relational_aggregate: group_by=crime_category, 0 case(s) considered, 0 bucket(s); filters=date_to=2019-12-31; none"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm",
+      "local:llm",
+      "local:llm"
+    ],
+    "model": "local model server (local:llm)",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=False leaked=None unsupported_numbers=['2020'] omitted_headline_proportions=[] — Paraphrase states number(s) not present in the computed result: 2020.",
+      "verifier rejected paraphrase, serving raw aggregate: Paraphrase states number(s) not present in the computed result: 2020."
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P_DATE_2",
+    "run": 1,
+    "arm": "after",
+    "language": "roman-urdu",
+    "question": "2024 mein kul kitni FIRs darj hui thin?",
+    "expected_answer": "13",
+    "actual_answer": "According to [Document 1], 13 FIRs were registered in 2024. The records considered span from 2024 to 2026, but the specific count for 2024 is 13 out of the total 73 FIRs analyzed.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 4.9,
+    "xagg_log_lines": [
+      "XAGG total_count: 13 case(s) after filtering; unsupported_filters=none; filters=date_from=2024-01-01, date_to=2024-12-31 (of 73 unfiltered; span (2024, 2026))"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm"
+    ],
+    "model": "local model server (local:llm)",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P_DIST_1",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "How many FIRs does Faisalabad have on the books?",
+    "expected_answer": "19",
+    "actual_answer": "According to [Document 1], 19 FIRs were registered in Faisalabad district (out of 73 FIRs considered in total). The exact count specific to Faisalabad is 19.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 6.7,
+    "xagg_log_lines": [
+      "XAGG total_count: 19 case(s) after filtering; unsupported_filters=none; filters=district=فیصل آباد (of 73 unfiltered; span None)"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm"
+    ],
+    "model": "local model server (local:llm)",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P_DIST_2",
+    "run": 1,
+    "arm": "after",
+    "language": "roman-urdu",
+    "question": "Karachi mein kitni FIRs darj hain?",
+    "expected_answer": "10 (Karachi Central 5 + Karachi East 5)",
+    "actual_answer": "According to [Document 1], 10 FIR(s) were registered in Karachi Central / Karachi East districts (out of 73 FIRs considered). The document does not specify the total number of FIRs registered across all areas of Karachi.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 15.0,
+    "xagg_log_lines": [
+      "XAGG total_count: 10 case(s) after filtering; unsupported_filters=none; filters=district=کراچی وسطی|کراچی ایسٹ (of 73 unfiltered; span None)"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm"
+    ],
+    "model": "local model server (local:llm)",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P_SECT_1",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "How many cases in total cite section 13 of the Arms Ordinance?",
+    "expected_answer": "29",
+    "actual_answer": "According to [Document 1], **29 FIRs** were registered under **section 13** of the Arms Ordinance (out of 29 FIRs considered in total). This indicates that all 29 cases cited section 13.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 12.6,
+    "xagg_log_lines": [
+      "XAGG total_count: 29 case(s) after filtering; unsupported_filters=none; filters=section=13 (of 29 unfiltered; span None)"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm"
+    ],
+    "model": "local model server (local:llm)",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P_SECT_2",
+    "run": 1,
+    "arm": "after",
+    "language": "roman-urdu",
+    "question": "Dafa 420 ke tehat kul kitne cases darj hain?",
+    "expected_answer": "11",
+    "actual_answer": "According to [Document 1], 11 FIRs were registered under section 420 (out of 73 FIRs considered in total).",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 18.3,
+    "xagg_log_lines": [
+      "XAGG total_count: 11 case(s) after filtering; unsupported_filters=none; filters=section=420 (of 73 unfiltered; span None)"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm"
+    ],
+    "model": "local model server (local:llm)",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P_AGE_1",
+    "run": 1,
+    "arm": "after",
+    "language": "en",
+    "question": "How many accused persons in total are under 30 years old?",
+    "expected_answer": "8 (ages 24,25,25,26,28,29,29,29 among the 17 with an age; canonicalised)",
+    "actual_answer": "According to [Document 1], there are **8 distinct accused persons aged 29 or younger** (of 17 distinct accused who carry a recorded age; 75 record no age and cannot be placed).",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 53.7,
+    "xagg_log_lines": [
+      "XAGG total_accused_count: 8 distinct accused person(s) across 10 case-scoped entr(ies); filters=age_max=29 (17 of 92 distinct accused carry an age)"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm",
+      "local:llm",
+      "local:llm"
+    ],
+    "model": "local model server (local:llm)",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": []
+  },
+  {
+    "id": "P_AGE_2",
+    "run": 1,
+    "arm": "after",
+    "language": "roman-urdu",
+    "question": "Kitne mulzim 30 se 40 saal ki umar ke hain?",
+    "expected_answer": "offender_age_profile family: in_range 6 of 17 (31,33,38,34,32,31,34,38 minus canon folds) - re-derive",
+    "actual_answer": "According to [Document 1], there are **8 distinct accused** aged 30–40. This figure is derived from the 17 accused (out of 92 total) who have a recorded age in the database.",
+    "route": "XAGG",
+    "status": "done",
+    "transport_ok": true,
+    "error": null,
+    "elapsed_s": 54.5,
+    "xagg_log_lines": [
+      "XAGG offender_age_profile: 17 of 92 distinct accused carry an age (19 of 94 accused entries); range 24-49, mean 31.5; filters=age_min=30, age_max=40; in_range=8"
+    ],
+    "fallback_lines": [],
+    "llm_hosts": [
+      "local:llm",
+      "local:llm",
+      "local:llm"
+    ],
+    "model": "local model server (local:llm)",
+    "verifier_lines": [
+      "Structured-aggregate verifier: grounded=True leaked=None unsupported_numbers=[] omitted_headline_proportions=[] — Paraphrase numbers match the computed source; deterministic check passed."
+    ],
+    "quota_lines": []
+  }
+]
