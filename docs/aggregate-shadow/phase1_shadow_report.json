@@ -1,0 +1,1331 @@
+{
+  "registry_as_of": "2026-09-15T14:12:56.575793+00:00",
+  "registry_build_ms": 11397.2,
+  "comparisons": [
+    {
+      "aggregate_kind": "total_count",
+      "question": "How many cases are there in total?",
+      "old_result": 73,
+      "new_result": 73,
+      "old_receipt": {
+        "kind": "total_count",
+        "total_cases": 73,
+        "unsupported_filters": [],
+        "filters_applied": "none",
+        "filter_description": "",
+        "date_span": null
+      },
+      "new_receipt": {
+        "question_text": "How many cases are there in total?",
+        "spec_hash": "46b205187d298bf7",
+        "spec": {
+          "question_text": "How many cases are there in total?",
+          "measure": "count",
+          "population": {
+            "entity": "Case",
+            "traversals": [],
+            "predicates": []
+          },
+          "grain": "ENTITY",
+          "scope": {
+            "kind": "cross_case",
+            "case_ids": null,
+            "user_role": "supervisor",
+            "user_id": "shadow-harness"
+          },
+          "distinct_key": "case_id",
+          "value_field": null,
+          "group_by": [],
+          "ratio": null,
+          "compare": null,
+          "time_window": null,
+          "threshold": null,
+          "top_n": null,
+          "null_policy": "EXCLUDE_AND_REPORT",
+          "canonicalization": "BOTH_AND_COMPARE"
+        },
+        "grain": "ENTITY",
+        "distinct_key": "case_id",
+        "population_definition": "Case",
+        "measure": "count",
+        "value": 73,
+        "numerator_n": null,
+        "denominator_n": null,
+        "group_keys": [],
+        "filters_applied": [],
+        "filters_dropped": [],
+        "injected_predicates": [],
+        "excluded_merged_n": 0,
+        "excluded_superseded_n": 0,
+        "excluded_null_n": 0,
+        "canonicalization_policy": "BOTH_AND_COMPARE",
+        "canonicalization_applied": false,
+        "canonicalization_collapsed_n": 0,
+        "canonicalization_max_component": null,
+        "queries": [
+          {
+            "backend": "age",
+            "text": "MATCH (n:Case) RETURN count(DISTINCT n.case_id) AS value",
+            "params": {},
+            "row_count": 1,
+            "duration_ms": 51.64119999972172,
+            "status": "ok",
+            "error": null
+          }
+        ],
+        "cross_checks": [],
+        "invariants_checked": [
+          "null_result",
+          "negative_count"
+        ],
+        "invariants_skipped": [],
+        "coverage": {
+          "expected_population_n": 73,
+          "observed_population_n": 73,
+          "field_present_n": null,
+          "field_absent_n": null,
+          "field_name": null,
+          "excluded_by_filter_n": 0,
+          "excluded_null_n": 0,
+          "excluded_superseded_n": 0,
+          "excluded_merged_n": 0,
+          "canonicalization_collapsed_n": 0,
+          "source": "graph",
+          "source_exhaustive": true,
+          "effective_denominator_n": 73,
+          "effective_denominator_definition": null
+        },
+        "coverage_verdict": "COMPLETE",
+        "caveat": null,
+        "calculation_steps": [
+          "count over Case"
+        ],
+        "compiler_notes": [
+          "counted DISTINCT n.case_id at ENTITY grain"
+        ],
+        "source": "graph",
+        "truncated": false,
+        "truncation_note": null,
+        "registry_as_of": "2026-09-15T14:12:56.575793+00:00",
+        "execution_status": "ok",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "as_of": "2026-09-15T14:12:57.340170+00:00"
+      },
+      "same_result": true,
+      "same_grain": null,
+      "same_population": null,
+      "same_filters": null,
+      "same_source_authority": true,
+      "same_canonicalization": null,
+      "same_superseded_policy": true,
+      "same_tombstone_policy": true,
+      "coverage_comparison": "COMPLETE: expected=73 observed=73",
+      "classification": "AGREE",
+      "explanation": "Both engines computed 73.",
+      "old_ms": 89.5924000069499,
+      "new_compile_ms": 0.49539998872205615,
+      "new_exec_ms": 51.64119999972172,
+      "new_total_ms": 52.13659998844378
+    },
+    {
+      "aggregate_kind": "total_accused_count",
+      "question": "How many accused persons are there in total across all cases?",
+      "old_result": 4,
+      "new_result": 92,
+      "old_receipt": {
+        "kind": "graph_recurrence",
+        "entity_type": "Person",
+        "results": [
+          {
+            "entity_id": "PERSON-f2a8ec2561",
+            "name": "فیصل",
+            "case_count": 2,
+            "case_ids": [
+              "fir-202-26",
+              "fir-401-26"
+            ],
+            "cases": [
+              {
+                "case_id": "fir-401-26",
+                "fir": "401-26",
+                "date": "2024-09-25",
+                "year": 2024,
+                "sequence": 1,
+                "roles": [
+                  "accused"
+                ],
+                "arrest_status": "زیر تفتیش",
+                "conviction_status": null
+              },
+              {
+                "case_id": "fir-202-26",
+                "fir": "202-26",
+                "date": "2026-03-06",
+                "year": 2026,
+                "sequence": 2,
+                "roles": [
+                  "witness"
+                ],
+                "arrest_status": null,
+                "conviction_status": null
+              }
+            ]
+          },
+          {
+            "entity_id": "PERSON-4447594024",
+            "name": "طارق",
+            "case_count": 2,
+            "case_ids": [
+              "fir-202-26",
+              "fir-401-26"
+            ],
+            "cases": [
+              {
+                "case_id": "fir-401-26",
+                "fir": "401-26",
+                "date": "2024-09-25",
+                "year": 2024,
+                "sequence": 1,
+                "roles": [
+                  "complainant"
+                ],
+                "arrest_status": null,
+                "conviction_status": null
+              },
+              {
+                "case_id": "fir-202-26",
+                "fir": "202-26",
+                "date": "2026-03-06",
+                "year": 2026,
+                "sequence": 2,
+                "roles": [
+                  "witness"
+                ],
+                "arrest_status": null,
+                "conviction_status": null
+              }
+            ]
+          },
+          {
+            "entity_id": "PERSON-685fc54914",
+            "name": "شہزیب عرف شابی",
+            "case_count": 2,
+            "case_ids": [
+              "fir-214-26",
+              "fir-891-24"
+            ],
+            "cases": [
+              {
+                "case_id": "fir-891-24",
+                "fir": "891-24",
+                "date": "2024-09-14",
+                "year": 2024,
+                "sequence": 1,
+                "roles": [
+                  "accused"
+                ],
+                "arrest_status": "گرفتار، بعد ازاں سزا یافتہ",
+                "conviction_status": "Convicted, on bail pending appeal"
+              },
+              {
+                "case_id": "fir-214-26",
+                "fir": "214-26",
+                "date": "2026-03-03",
+                "year": 2026,
+                "sequence": 2,
+                "roles": [
+                  "accused"
+                ],
+                "arrest_status": "گرفتار",
+                "conviction_status": "Under trial"
+              }
+            ]
+          },
+          {
+            "entity_id": "PERSON-90ce376334",
+            "name": "عاصم رشید",
+            "case_count": 2,
+            "case_ids": [
+              "fir-64-26",
+              "fir-65-26"
+            ],
+            "cases": [
+              {
+                "case_id": "fir-64-26",
+                "fir": "64-26",
+                "date": "2026-03-19",
+                "year": 2026,
+                "sequence": 1,
+                "roles": [
+                  "accused"
+                ],
+                "arrest_status": "گرفتار",
+                "conviction_status": "Under trial"
+              },
+              {
+                "case_id": "fir-65-26",
+                "fir": "65-26",
+                "date": "2026-03-23",
+                "year": 2026,
+                "sequence": 2,
+                "roles": [
+                  "accused"
+                ],
+                "arrest_status": "پہلے سے کیس 10 میں گرفتار، اس مقدمے میں بھی نامزد",
+                "conviction_status": null
+              }
+            ]
+          }
+        ]
+      },
+      "new_receipt": {
+        "question_text": "How many accused persons are there in total across all cases?",
+        "spec_hash": "113779d151948836",
+        "spec": {
+          "question_text": "How many accused persons are there in total across all cases?",
+          "measure": "count_distinct",
+          "population": {
+            "entity": "Person",
+            "traversals": [
+              {
+                "rel": "INVOLVED_IN",
+                "target": "Incident",
+                "direction": "out",
+                "role_field": "role",
+                "role_value": "accused"
+              }
+            ],
+            "predicates": []
+          },
+          "grain": "ENTITY",
+          "scope": {
+            "kind": "cross_case",
+            "case_ids": null,
+            "user_role": "supervisor",
+            "user_id": "shadow-harness"
+          },
+          "distinct_key": "entity_id",
+          "value_field": null,
+          "group_by": [],
+          "ratio": null,
+          "compare": null,
+          "time_window": null,
+          "threshold": null,
+          "top_n": null,
+          "null_policy": "EXCLUDE_AND_REPORT",
+          "canonicalization": "BOTH_AND_COMPARE"
+        },
+        "grain": "ENTITY",
+        "distinct_key": "entity_id",
+        "population_definition": "Person ->INVOLVED_IN[role=accused]Incident",
+        "measure": "count_distinct",
+        "value": 92,
+        "numerator_n": null,
+        "denominator_n": null,
+        "group_keys": [],
+        "filters_applied": [],
+        "filters_dropped": [],
+        "injected_predicates": [
+          "n.merged_into IS NULL"
+        ],
+        "excluded_merged_n": 222,
+        "excluded_superseded_n": 0,
+        "excluded_null_n": 0,
+        "canonicalization_policy": "BOTH_AND_COMPARE",
+        "canonicalization_applied": false,
+        "canonicalization_collapsed_n": 0,
+        "canonicalization_max_component": null,
+        "queries": [
+          {
+            "backend": "age",
+            "text": "MATCH (n:Person)-[e0:INVOLVED_IN]->(m0:Incident) WHERE n.merged_into IS NULL AND e0.role = $p0 RETURN count(DISTINCT n.entity_id) AS value",
+            "params": {
+              "p0": "accused"
+            },
+            "row_count": 1,
+            "duration_ms": 92.02149999327958,
+            "status": "ok",
+            "error": null
+          }
+        ],
+        "cross_checks": [],
+        "invariants_checked": [
+          "null_result",
+          "negative_count"
+        ],
+        "invariants_skipped": [],
+        "coverage": {
+          "expected_population_n": 73,
+          "observed_population_n": 92,
+          "field_present_n": null,
+          "field_absent_n": null,
+          "field_name": null,
+          "excluded_by_filter_n": 0,
+          "excluded_null_n": 0,
+          "excluded_superseded_n": 0,
+          "excluded_merged_n": 222,
+          "canonicalization_collapsed_n": 0,
+          "source": "graph",
+          "source_exhaustive": true,
+          "effective_denominator_n": 92,
+          "effective_denominator_definition": null
+        },
+        "coverage_verdict": "COMPLETE",
+        "caveat": null,
+        "calculation_steps": [
+          "count_distinct over Person ->INVOLVED_IN[role=accused]Incident"
+        ],
+        "compiler_notes": [
+          "traversal Person-[INVOLVED_IN]->Incident (direction=out) multiplies rows, up to 3 per Person; DISTINCT is required for identity-grain counts",
+          "counted DISTINCT n.entity_id at ENTITY grain (required: population contains a fanning traversal)"
+        ],
+        "source": "graph",
+        "truncated": false,
+        "truncation_note": null,
+        "registry_as_of": "2026-09-15T14:12:56.575793+00:00",
+        "execution_status": "ok",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "as_of": "2026-09-15T14:12:57.840545+00:00"
+      },
+      "same_result": false,
+      "same_grain": null,
+      "same_population": null,
+      "same_filters": null,
+      "same_source_authority": true,
+      "same_canonicalization": null,
+      "same_superseded_policy": true,
+      "same_tombstone_policy": false,
+      "coverage_comparison": "COMPLETE: expected=73 observed=92",
+      "classification": "SEMANTICALLY_DIFFERENT",
+      "explanation": "Legacy dispatch sent this question to 'graph_recurrence', not to 'total_accused_count': the phrase chain is first-match-wins and a match ends dispatch (Module 173). OLD computed 4 for a DIFFERENT question; NEW computed 92 for the one asked. Not a numeric disagreement — a routing one.",
+      "old_ms": 412.29459998430684,
+      "new_compile_ms": 0.4135000053793192,
+      "new_exec_ms": 92.02149999327958,
+      "new_total_ms": 92.4349999986589
+    },
+    {
+      "aggregate_kind": "station_total_count",
+      "question": "How many police stations are there in total?",
+      "old_result": 19,
+      "new_result": 19,
+      "old_receipt": {
+        "kind": "station_total_count",
+        "total_stations": 19
+      },
+      "new_receipt": {
+        "question_text": "How many police stations are there in total?",
+        "spec_hash": "47186b088996df6b",
+        "spec": {
+          "question_text": "How many police stations are there in total?",
+          "measure": "count_distinct",
+          "population": {
+            "entity": "PoliceStation",
+            "traversals": [],
+            "predicates": []
+          },
+          "grain": "ENTITY",
+          "scope": {
+            "kind": "cross_case",
+            "case_ids": null,
+            "user_role": "supervisor",
+            "user_id": "shadow-harness"
+          },
+          "distinct_key": "station_id",
+          "value_field": null,
+          "group_by": [],
+          "ratio": null,
+          "compare": null,
+          "time_window": null,
+          "threshold": null,
+          "top_n": null,
+          "null_policy": "EXCLUDE_AND_REPORT",
+          "canonicalization": "BOTH_AND_COMPARE"
+        },
+        "grain": "ENTITY",
+        "distinct_key": "station_id",
+        "population_definition": "PoliceStation",
+        "measure": "count_distinct",
+        "value": 19,
+        "numerator_n": null,
+        "denominator_n": null,
+        "group_keys": [],
+        "filters_applied": [],
+        "filters_dropped": [],
+        "injected_predicates": [],
+        "excluded_merged_n": 0,
+        "excluded_superseded_n": 0,
+        "excluded_null_n": 0,
+        "canonicalization_policy": "BOTH_AND_COMPARE",
+        "canonicalization_applied": false,
+        "canonicalization_collapsed_n": 0,
+        "canonicalization_max_component": null,
+        "queries": [
+          {
+            "backend": "age",
+            "text": "MATCH (n:PoliceStation) RETURN count(DISTINCT n.station_id) AS value",
+            "params": {},
+            "row_count": 1,
+            "duration_ms": 52.60739999357611,
+            "status": "ok",
+            "error": null
+          }
+        ],
+        "cross_checks": [],
+        "invariants_checked": [
+          "null_result",
+          "negative_count"
+        ],
+        "invariants_skipped": [],
+        "coverage": {
+          "expected_population_n": 19,
+          "observed_population_n": 19,
+          "field_present_n": null,
+          "field_absent_n": null,
+          "field_name": null,
+          "excluded_by_filter_n": 0,
+          "excluded_null_n": 0,
+          "excluded_superseded_n": 0,
+          "excluded_merged_n": 0,
+          "canonicalization_collapsed_n": 0,
+          "source": "graph",
+          "source_exhaustive": true,
+          "effective_denominator_n": 19,
+          "effective_denominator_definition": null
+        },
+        "coverage_verdict": "COMPLETE",
+        "caveat": null,
+        "calculation_steps": [
+          "count_distinct over PoliceStation"
+        ],
+        "compiler_notes": [
+          "counted DISTINCT n.station_id at ENTITY grain"
+        ],
+        "source": "graph",
+        "truncated": false,
+        "truncation_note": null,
+        "registry_as_of": "2026-09-15T14:12:56.575793+00:00",
+        "execution_status": "ok",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "as_of": "2026-09-15T14:12:57.958353+00:00"
+      },
+      "same_result": true,
+      "same_grain": null,
+      "same_population": null,
+      "same_filters": null,
+      "same_source_authority": true,
+      "same_canonicalization": null,
+      "same_superseded_policy": true,
+      "same_tombstone_policy": true,
+      "coverage_comparison": "COMPLETE: expected=19 observed=19",
+      "classification": "AGREE",
+      "explanation": "Both engines computed 19.",
+      "old_ms": 67.7062000031583,
+      "new_compile_ms": 0.3470000228844583,
+      "new_exec_ms": 52.60739999357611,
+      "new_total_ms": 52.95440001646057
+    },
+    {
+      "aggregate_kind": "graph_recurrence_person",
+      "question": "Which people appear in more than one case?",
+      "old_result": 4,
+      "new_result": 4,
+      "old_receipt": {
+        "kind": "graph_recurrence",
+        "entity_type": "Person",
+        "results": [
+          {
+            "entity_id": "PERSON-f2a8ec2561",
+            "name": "فیصل",
+            "case_count": 2,
+            "case_ids": [
+              "fir-202-26",
+              "fir-401-26"
+            ],
+            "cases": [
+              {
+                "case_id": "fir-401-26",
+                "fir": "401-26",
+                "date": "2024-09-25",
+                "year": 2024,
+                "sequence": 1,
+                "roles": [
+                  "accused"
+                ],
+                "arrest_status": "زیر تفتیش",
+                "conviction_status": null
+              },
+              {
+                "case_id": "fir-202-26",
+                "fir": "202-26",
+                "date": "2026-03-06",
+                "year": 2026,
+                "sequence": 2,
+                "roles": [
+                  "witness"
+                ],
+                "arrest_status": null,
+                "conviction_status": null
+              }
+            ]
+          },
+          {
+            "entity_id": "PERSON-4447594024",
+            "name": "طارق",
+            "case_count": 2,
+            "case_ids": [
+              "fir-202-26",
+              "fir-401-26"
+            ],
+            "cases": [
+              {
+                "case_id": "fir-401-26",
+                "fir": "401-26",
+                "date": "2024-09-25",
+                "year": 2024,
+                "sequence": 1,
+                "roles": [
+                  "complainant"
+                ],
+                "arrest_status": null,
+                "conviction_status": null
+              },
+              {
+                "case_id": "fir-202-26",
+                "fir": "202-26",
+                "date": "2026-03-06",
+                "year": 2026,
+                "sequence": 2,
+                "roles": [
+                  "witness"
+                ],
+                "arrest_status": null,
+                "conviction_status": null
+              }
+            ]
+          },
+          {
+            "entity_id": "PERSON-685fc54914",
+            "name": "شہزیب عرف شابی",
+            "case_count": 2,
+            "case_ids": [
+              "fir-214-26",
+              "fir-891-24"
+            ],
+            "cases": [
+              {
+                "case_id": "fir-891-24",
+                "fir": "891-24",
+                "date": "2024-09-14",
+                "year": 2024,
+                "sequence": 1,
+                "roles": [
+                  "accused"
+                ],
+                "arrest_status": "گرفتار، بعد ازاں سزا یافتہ",
+                "conviction_status": "Convicted, on bail pending appeal"
+              },
+              {
+                "case_id": "fir-214-26",
+                "fir": "214-26",
+                "date": "2026-03-03",
+                "year": 2026,
+                "sequence": 2,
+                "roles": [
+                  "accused"
+                ],
+                "arrest_status": "گرفتار",
+                "conviction_status": "Under trial"
+              }
+            ]
+          },
+          {
+            "entity_id": "PERSON-90ce376334",
+            "name": "عاصم رشید",
+            "case_count": 2,
+            "case_ids": [
+              "fir-64-26",
+              "fir-65-26"
+            ],
+            "cases": [
+              {
+                "case_id": "fir-64-26",
+                "fir": "64-26",
+                "date": "2026-03-19",
+                "year": 2026,
+                "sequence": 1,
+                "roles": [
+                  "accused"
+                ],
+                "arrest_status": "گرفتار",
+                "conviction_status": "Under trial"
+              },
+              {
+                "case_id": "fir-65-26",
+                "fir": "65-26",
+                "date": "2026-03-23",
+                "year": 2026,
+                "sequence": 2,
+                "roles": [
+                  "accused"
+                ],
+                "arrest_status": "پہلے سے کیس 10 میں گرفتار، اس مقدمے میں بھی نامزد",
+                "conviction_status": null
+              }
+            ]
+          }
+        ]
+      },
+      "new_receipt": {
+        "question_text": "Which people appear in more than one case?",
+        "spec_hash": "1517255958dcd546",
+        "spec": {
+          "question_text": "Which people appear in more than one case?",
+          "measure": "count_distinct",
+          "population": {
+            "entity": "Person",
+            "traversals": [],
+            "predicates": [
+              {
+                "rel": "BELONGS_TO_CASE",
+                "target": "Case",
+                "op": "gt",
+                "value": 1,
+                "count_grain": "ENTITY",
+                "direction": "out",
+                "role_field": null,
+                "role_value": null
+              }
+            ]
+          },
+          "grain": "ENTITY",
+          "scope": {
+            "kind": "cross_case",
+            "case_ids": null,
+            "user_role": "supervisor",
+            "user_id": "shadow-harness"
+          },
+          "distinct_key": "entity_id",
+          "value_field": null,
+          "group_by": [],
+          "ratio": null,
+          "compare": null,
+          "time_window": null,
+          "threshold": null,
+          "top_n": null,
+          "null_policy": "EXCLUDE_AND_REPORT",
+          "canonicalization": "BOTH_AND_COMPARE"
+        },
+        "grain": "ENTITY",
+        "distinct_key": "entity_id",
+        "population_definition": "Person where having gt 1 related Case (counted at ENTITY grain)",
+        "measure": "count_distinct",
+        "value": 4,
+        "numerator_n": null,
+        "denominator_n": null,
+        "group_keys": [],
+        "filters_applied": [],
+        "filters_dropped": [],
+        "injected_predicates": [
+          "n.merged_into IS NULL",
+          "rc0.superseded_by IS NULL"
+        ],
+        "excluded_merged_n": 222,
+        "excluded_superseded_n": 0,
+        "excluded_null_n": 0,
+        "canonicalization_policy": "BOTH_AND_COMPARE",
+        "canonicalization_applied": false,
+        "canonicalization_collapsed_n": 0,
+        "canonicalization_max_component": null,
+        "queries": [
+          {
+            "backend": "age",
+            "text": "MATCH (n:Person) WHERE n.merged_into IS NULL MATCH (n)-[rc0:BELONGS_TO_CASE]->(rt0:Case) WHERE rc0.superseded_by IS NULL WITH n, count(DISTINCT rt0.case_id) AS relcnt WHERE relcnt > $p0 RETURN count(DISTINCT n.entity_id) AS value",
+            "params": {
+              "p0": 1
+            },
+            "row_count": 1,
+            "duration_ms": 1091.089399997145,
+            "status": "ok",
+            "error": null
+          }
+        ],
+        "cross_checks": [],
+        "invariants_checked": [
+          "null_result",
+          "negative_count"
+        ],
+        "invariants_skipped": [],
+        "coverage": {
+          "expected_population_n": 208,
+          "observed_population_n": 4,
+          "field_present_n": null,
+          "field_absent_n": null,
+          "field_name": null,
+          "excluded_by_filter_n": 0,
+          "excluded_null_n": 0,
+          "excluded_superseded_n": 0,
+          "excluded_merged_n": 222,
+          "canonicalization_collapsed_n": 0,
+          "source": "graph",
+          "source_exhaustive": true,
+          "effective_denominator_n": 4,
+          "effective_denominator_definition": null
+        },
+        "coverage_verdict": "INSUFFICIENT",
+        "caveat": "Only 4 record(s) qualify — too few to report a meaningful figure.",
+        "calculation_steps": [
+          "count_distinct over Person where having gt 1 related Case (counted at ENTITY grain)"
+        ],
+        "compiler_notes": [
+          "relation-count predicate on BELONGS_TO_CASE->Case evaluated at ENTITY grain",
+          "counted DISTINCT n.entity_id at ENTITY grain"
+        ],
+        "source": "graph",
+        "truncated": false,
+        "truncation_note": null,
+        "registry_as_of": "2026-09-15T14:12:56.575793+00:00",
+        "execution_status": "ok",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "as_of": "2026-09-15T14:12:59.475816+00:00"
+      },
+      "same_result": true,
+      "same_grain": null,
+      "same_population": null,
+      "same_filters": null,
+      "same_source_authority": true,
+      "same_canonicalization": null,
+      "same_superseded_policy": false,
+      "same_tombstone_policy": false,
+      "coverage_comparison": "INSUFFICIENT: expected=208 observed=4",
+      "classification": "AGREE",
+      "explanation": "Both engines computed 4.",
+      "old_ms": 421.7489000002388,
+      "new_compile_ms": 0.47270001959986985,
+      "new_exec_ms": 1091.089399997145,
+      "new_total_ms": 1091.5621000167448
+    },
+    {
+      "aggregate_kind": "graph_recurrence_weapon",
+      "question": "Which weapons appear in more than one case?",
+      "old_result": 1,
+      "new_result": 0,
+      "old_receipt": {
+        "kind": "graph_recurrence",
+        "entity_type": "Weapon",
+        "results": [
+          {
+            "name": "30 بور پستول",
+            "case_count": 30,
+            "case_ids": [
+              "fir-1001-26",
+              "fir-201-26",
+              "fir-202-26",
+              "fir-203-26",
+              "fir-204-26",
+              "fir-210-26",
+              "fir-212-26",
+              "fir-213-26",
+              "fir-214-26",
+              "fir-217-26",
+              "fir-218-26",
+              "fir-301-26",
+              "fir-401-26",
+              "fir-403-26",
+              "fir-407-26",
+              "fir-408-26",
+              "fir-409-26",
+              "fir-410-26",
+              "fir-413-26",
+              "fir-420-26",
+              "fir-421-26",
+              "fir-423-26",
+              "fir-430-26",
+              "fir-431-26",
+              "fir-445-26",
+              "fir-458-26",
+              "fir-465-26",
+              "fir-466-26",
+              "fir-468-26",
+              "fir-891-24"
+            ]
+          }
+        ]
+      },
+      "new_receipt": {
+        "question_text": "Which weapons appear in more than one case?",
+        "spec_hash": "f4ae03c0e763dbd0",
+        "spec": {
+          "question_text": "Which weapons appear in more than one case?",
+          "measure": "count_distinct",
+          "population": {
+            "entity": "Weapon",
+            "traversals": [],
+            "predicates": [
+              {
+                "rel": "BELONGS_TO_CASE",
+                "target": "Case",
+                "op": "gt",
+                "value": 1,
+                "count_grain": "ENTITY",
+                "direction": "out",
+                "role_field": null,
+                "role_value": null
+              }
+            ]
+          },
+          "grain": "ENTITY",
+          "scope": {
+            "kind": "cross_case",
+            "case_ids": null,
+            "user_role": "supervisor",
+            "user_id": "shadow-harness"
+          },
+          "distinct_key": "entity_id",
+          "value_field": null,
+          "group_by": [],
+          "ratio": null,
+          "compare": null,
+          "time_window": null,
+          "threshold": null,
+          "top_n": null,
+          "null_policy": "EXCLUDE_AND_REPORT",
+          "canonicalization": "BOTH_AND_COMPARE"
+        },
+        "grain": "ENTITY",
+        "distinct_key": "entity_id",
+        "population_definition": "Weapon where having gt 1 related Case (counted at ENTITY grain)",
+        "measure": "count_distinct",
+        "value": 0,
+        "numerator_n": null,
+        "denominator_n": null,
+        "group_keys": [],
+        "filters_applied": [],
+        "filters_dropped": [],
+        "injected_predicates": [],
+        "excluded_merged_n": 0,
+        "excluded_superseded_n": 0,
+        "excluded_null_n": 0,
+        "canonicalization_policy": "BOTH_AND_COMPARE",
+        "canonicalization_applied": false,
+        "canonicalization_collapsed_n": 0,
+        "canonicalization_max_component": null,
+        "queries": [
+          {
+            "backend": "age",
+            "text": "MATCH (n:Weapon) MATCH (n)-[rc0:BELONGS_TO_CASE]->(rt0:Case) WITH n, count(DISTINCT rt0.case_id) AS relcnt WHERE relcnt > $p0 RETURN count(DISTINCT n.entity_id) AS value",
+            "params": {
+              "p0": 1
+            },
+            "row_count": 1,
+            "duration_ms": 51.258099992992356,
+            "status": "ok",
+            "error": null
+          }
+        ],
+        "cross_checks": [],
+        "invariants_checked": [
+          "null_result",
+          "negative_count"
+        ],
+        "invariants_skipped": [],
+        "coverage": {
+          "expected_population_n": 32,
+          "observed_population_n": 0,
+          "field_present_n": null,
+          "field_absent_n": null,
+          "field_name": null,
+          "excluded_by_filter_n": 0,
+          "excluded_null_n": 0,
+          "excluded_superseded_n": 0,
+          "excluded_merged_n": 0,
+          "canonicalization_collapsed_n": 0,
+          "source": "graph",
+          "source_exhaustive": true,
+          "effective_denominator_n": 0,
+          "effective_denominator_definition": null
+        },
+        "coverage_verdict": "INSUFFICIENT",
+        "caveat": "Only 0 record(s) qualify — too few to report a meaningful figure.",
+        "calculation_steps": [
+          "count_distinct over Weapon where having gt 1 related Case (counted at ENTITY grain)"
+        ],
+        "compiler_notes": [
+          "relation-count predicate on BELONGS_TO_CASE->Case evaluated at ENTITY grain",
+          "counted DISTINCT n.entity_id at ENTITY grain"
+        ],
+        "source": "graph",
+        "truncated": false,
+        "truncation_note": null,
+        "registry_as_of": "2026-09-15T14:12:56.575793+00:00",
+        "execution_status": "ok",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "as_of": "2026-09-15T14:12:59.599916+00:00"
+      },
+      "same_result": false,
+      "same_grain": null,
+      "same_population": null,
+      "same_filters": null,
+      "same_source_authority": true,
+      "same_canonicalization": null,
+      "same_superseded_policy": true,
+      "same_tombstone_policy": true,
+      "coverage_comparison": "INSUFFICIENT: expected=32 observed=0",
+      "classification": "SEMANTICALLY_DIFFERENT",
+      "explanation": "OLD=1, NEW=0. The two count different things and both are right for their own question. `xagg._top_recurring_weapon_types()`'s docstring states the reason: weapon entity_ids are FIR-scoped by construction (`WEAPON-{id}-{fir_id}`), weapons never go through the cross-case merge tier Person/Vehicle use, so 'every real Weapon node belongs to exactly one case, permanently' and per-entity_id grouping 'would always return an empty list — confirmed against the live graph'. Verified here: 32 nodes, 32 distinct entity_ids, 0 in more than one case. OLD therefore groups by normalised weapon TYPE (5 distinct canonical_names; 3 types span >1 case, 1 after the 'بمعہ N گولیاں' suffix is normalised away). NEW's 0 is the correct answer to 'which weapon OBJECT recurs'; OLD's 1 is the correct answer to 'which weapon TYPE recurs'. A spec asking the latter needs a group_by on weapon type, not a recurrence predicate.",
+      "old_ms": 69.49369999347255,
+      "new_compile_ms": 0.34070000401698053,
+      "new_exec_ms": 51.258099992992356,
+      "new_total_ms": 51.59879999700934
+    },
+    {
+      "aggregate_kind": "placeholder_officer_count",
+      "question": "How many officers are recorded?",
+      "old_result": null,
+      "new_result": 1155,
+      "old_receipt": {
+        "kind": "unsupported_aggregate",
+        "message": "Officer-assignment aggregates are not available: investigating-officer identity is not currently modeled as a queryable field in this system."
+      },
+      "new_receipt": {
+        "question_text": "How many officers are recorded?",
+        "spec_hash": "90f32b705ad878fe",
+        "spec": {
+          "question_text": "How many officers are recorded?",
+          "measure": "count_distinct",
+          "population": {
+            "entity": "Officer",
+            "traversals": [],
+            "predicates": []
+          },
+          "grain": "ENTITY",
+          "scope": {
+            "kind": "cross_case",
+            "case_ids": null,
+            "user_role": "supervisor",
+            "user_id": "shadow-harness"
+          },
+          "distinct_key": "entity_id",
+          "value_field": null,
+          "group_by": [],
+          "ratio": null,
+          "compare": null,
+          "time_window": null,
+          "threshold": null,
+          "top_n": null,
+          "null_policy": "EXCLUDE_AND_REPORT",
+          "canonicalization": "BOTH_AND_COMPARE"
+        },
+        "grain": "ENTITY",
+        "distinct_key": "entity_id",
+        "population_definition": "Officer",
+        "measure": "count_distinct",
+        "value": 1155,
+        "numerator_n": null,
+        "denominator_n": null,
+        "group_keys": [],
+        "filters_applied": [],
+        "filters_dropped": [],
+        "injected_predicates": [],
+        "excluded_merged_n": 0,
+        "excluded_superseded_n": 0,
+        "excluded_null_n": 0,
+        "canonicalization_policy": "BOTH_AND_COMPARE",
+        "canonicalization_applied": false,
+        "canonicalization_collapsed_n": 0,
+        "canonicalization_max_component": null,
+        "queries": [
+          {
+            "backend": "age",
+            "text": "MATCH (n:Officer) RETURN count(DISTINCT n.entity_id) AS value",
+            "params": {},
+            "row_count": 1,
+            "duration_ms": 57.8805000113789,
+            "status": "ok",
+            "error": null
+          }
+        ],
+        "cross_checks": [],
+        "invariants_checked": [
+          "null_result",
+          "negative_count"
+        ],
+        "invariants_skipped": [],
+        "coverage": {
+          "expected_population_n": 1155,
+          "observed_population_n": 1155,
+          "field_present_n": null,
+          "field_absent_n": null,
+          "field_name": null,
+          "excluded_by_filter_n": 0,
+          "excluded_null_n": 0,
+          "excluded_superseded_n": 0,
+          "excluded_merged_n": 0,
+          "canonicalization_collapsed_n": 0,
+          "source": "graph",
+          "source_exhaustive": true,
+          "effective_denominator_n": 1155,
+          "effective_denominator_definition": null
+        },
+        "coverage_verdict": "COMPLETE",
+        "caveat": null,
+        "calculation_steps": [
+          "count_distinct over Officer"
+        ],
+        "compiler_notes": [
+          "counted DISTINCT n.entity_id at ENTITY grain"
+        ],
+        "source": "graph",
+        "truncated": false,
+        "truncation_note": null,
+        "registry_as_of": "2026-09-15T14:12:56.575793+00:00",
+        "execution_status": "ok",
+        "refusal_code": null,
+        "refusal_reason": null,
+        "as_of": "2026-09-15T14:12:59.663745+00:00"
+      },
+      "same_result": false,
+      "same_grain": null,
+      "same_population": null,
+      "same_filters": null,
+      "same_source_authority": true,
+      "same_canonicalization": null,
+      "same_superseded_policy": true,
+      "same_tombstone_policy": true,
+      "coverage_comparison": "COMPLETE: expected=1155 observed=1155",
+      "classification": "SEMANTICALLY_DIFFERENT",
+      "explanation": "Legacy dispatch sent this question to 'unsupported_aggregate', not to 'placeholder_officer_count': the phrase chain is first-match-wins and a match ends dispatch (Module 173). OLD computed None for a DIFFERENT question; NEW computed 1155 for the one asked. Not a numeric disagreement — a routing one.",
+      "old_ms": 8.367100002942607,
+      "new_compile_ms": 0.2822999667841941,
+      "new_exec_ms": 57.8805000113789,
+      "new_total_ms": 58.16279997816309
+    }
+  ],
+  "adversarial": [
+    {
+      "name": "officer_multi_entity",
+      "question": "What percentage of incidents involved more than one officer?",
+      "status": "ok",
+      "value": 5.47945205479452,
+      "refusal_code": null,
+      "refusal_reason": null,
+      "grain": "ENTITY",
+      "injected": [
+        "rc0.superseded_by IS NULL"
+      ],
+      "coverage_verdict": "COMPLETE",
+      "caveat": null,
+      "ms": 114.5
+    },
+    {
+      "name": "officer_multi_relationship",
+      "question": "What percentage of incidents involved more than one officer?",
+      "status": "ok",
+      "value": 95.89041095890411,
+      "refusal_code": null,
+      "refusal_reason": null,
+      "grain": "ENTITY",
+      "injected": [
+        "rc0.superseded_by IS NULL"
+      ],
+      "coverage_verdict": "COMPLETE",
+      "caveat": null,
+      "ms": 116.0
+    },
+    {
+      "name": "person_via_belongs_to_case",
+      "question": "How many distinct persons are linked to cases?",
+      "status": "ok",
+      "value": 208,
+      "refusal_code": null,
+      "refusal_reason": null,
+      "grain": "ENTITY",
+      "injected": [
+        "n.merged_into IS NULL",
+        "e0.superseded_by IS NULL"
+      ],
+      "coverage_verdict": "COMPLETE",
+      "caveat": null,
+      "ms": 97.8
+    },
+    {
+      "name": "fanout_case_person_nokey",
+      "question": "How many cases involve a person?",
+      "status": "refused",
+      "value": null,
+      "refusal_code": "missing_distinct_key",
+      "refusal_reason": "ENTITY grain requires distinct_key: what identifies one Case? Without it a fanning traversal would count links, not things.; Traversal Case-[BELONGS_TO_CASE]->Person (direction=in) multiplies rows: up to 230 per Case. An ENTITY-grain count across it without a distinct key would count relationships, not entities.",
+      "grain": "ENTITY",
+      "injected": [],
+      "coverage_verdict": null,
+      "caveat": null,
+      "ms": 0.2
+    },
+    {
+      "name": "fanout_case_address_nokey",
+      "question": "How many cases have an address?",
+      "status": "refused",
+      "value": null,
+      "refusal_code": "missing_distinct_key",
+      "refusal_reason": "ENTITY grain requires distinct_key: what identifies one Case? Without it a fanning traversal would count links, not things.; Traversal Case-[BELONGS_TO_CASE]->Address (direction=in) multiplies rows: up to 2100 per Case. An ENTITY-grain count across it without a distinct key would count relationships, not entities.",
+      "grain": "ENTITY",
+      "injected": [],
+      "coverage_verdict": null,
+      "caveat": null,
+      "ms": 0.1
+    },
+    {
+      "name": "fanout_case_person_keyed",
+      "question": "How many cases involve a person?",
+      "status": "ok",
+      "value": 73,
+      "refusal_code": null,
+      "refusal_reason": null,
+      "grain": "ENTITY",
+      "injected": [
+        "e0.superseded_by IS NULL",
+        "m0.merged_into IS NULL"
+      ],
+      "coverage_verdict": "COMPLETE",
+      "caveat": null,
+      "ms": 78.1
+    },
+    {
+      "name": "fanout_case_person_weapon",
+      "question": "How many cases involve both a person and a weapon?",
+      "status": "refused",
+      "value": null,
+      "refusal_code": "unknown_relationship",
+      "refusal_reason": "population: no BELONGS_TO_CASE relationship observed between Person and Weapon (direction=in).",
+      "grain": "ENTITY",
+      "injected": [],
+      "coverage_verdict": null,
+      "caveat": null,
+      "ms": 0.2
+    },
+    {
+      "name": "null_grouping",
+      "question": "Which police station handles the most cases?",
+      "status": "ok",
+      "value": [
+        {
+          "key": "تھانہ ماڈل ٹاؤن، لاہور",
+          "count": 7
+        },
+        {
+          "key": "خواتین تھانہ، فیصل آباد",
+          "count": 5
+        },
+        {
+          "key": "سائبر کرائم سرکل، اسلام آباد",
+          "count": 5
+        },
+        {
+          "key": "موٹروے پولیس اسٹیشن ایم ٹو، لاہور",
+          "count": 5
+        },
+        {
+          "key": "تھانہ شاہ فیصل کالونی، کراچی",
+          "count": 5
+        },
+        {
+          "key": "تھانہ برکی، لاہور",
+          "count": 5
+        },
+        {
+          "key": "تھانہ صدر، ضلع چنیوٹ",
+          "count": 5
+        },
+        {
+          "key": "تھانہ نیو کراچی، کراچی",
+          "count": 5
+        },
+        {
+          "key": "تھانہ جھنگ روڈ، فیصل آباد",
+          "count": 5
+        },
+        {
+          "key": "تھانہ لطیف آباد، حیدر آباد",
+          "count": 5
+        },
+        {
+          "key": "تھانہ سول لائنز، فیصل آباد",
+          "count": 4
+        },
+        {
+          "key": "سائبر کرائم سرکل، راولپنڈی",
+          "count": 4
+        },
+        {
+          "key": "تھانہ کوتوالی، فیصل آباد",
+          "count": 4
+        },
+        {
+          "key": "تھانہ راجہ بازار، راولپنڈی",
+          "count": 4
+        },
+        {
+          "key": "تھانہ کینٹ، ملتان",
+          "count": 1
+        },
+        {
+          "key": "تھانہ صدر، راولپنڈی",
+          "count": 1
+        },
+        {
+          "key": "تھانہ اقبال ٹاؤن، لاہور",
+          "count": 1
+        },
+        {
+          "key": "تھانہ مدینہ ٹاؤن، فیصل آباد",
+          "count": 1
+        },
+        {
+          "key": "تھانہ وارث خان، راولپنڈی",
+          "count": 1
+        }
+      ],
+      "refusal_code": null,
+      "refusal_reason": null,
+      "grain": "ENTITY",
+      "injected": [],
+      "coverage_verdict": "COMPLETE",
+      "caveat": null,
+      "ms": 55.7
+    },
+    {
+      "name": "sparse_age_avg",
+      "question": "What is the average age of accused persons?",
+      "status": "refused",
+      "value": null,
+      "refusal_code": "compile_failed",
+      "refusal_reason": "avg over a population containing a fanning traversal would weight each value by its edge count; narrow the population or aggregate at RELATIONSHIP grain explicitly",
+      "grain": "ENTITY",
+      "injected": [],
+      "coverage_verdict": null,
+      "caveat": null,
+      "ms": 0.2
+    },
+    {
+      "name": "scope_denied",
+      "question": "How many cases are there?",
+      "status": "refused",
+      "value": null,
+      "refusal_code": "scope_denied",
+      "refusal_reason": "Cross-case aggregates require supervisor role or higher; caller role is 'investigator'.",
+      "grain": "ENTITY",
+      "injected": [],
+      "coverage_verdict": null,
+      "caveat": null,
+      "ms": 0.2
+    }
+  ],
+  "summary": {
+    "AGREE": 3,
+    "SEMANTICALLY_DIFFERENT": 3
+  }
+}

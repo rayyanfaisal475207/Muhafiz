@@ -96,10 +96,19 @@ class CoverageReport:
 
     @property
     def absent_share(self) -> float:
-        """Share of the expected population with no value for the field."""
-        if self.field_absent_n is None or not self.expected_population_n:
+        """Share of THIS QUERY's population with no value for the field.
+
+        Divides by the observed population, not the label-wide expected
+        one: `field_absent_n` is scaled to the query's population by
+        `build_coverage()`, so using `expected_population_n` here would mix
+        the two denominators again in the other direction.
+        """
+        if self.field_absent_n is None:
             return 0.0
-        return self.field_absent_n / self.expected_population_n
+        denom = self.observed_population_n or self.expected_population_n
+        if not denom:
+            return 0.0
+        return min(1.0, self.field_absent_n / denom)
 
     @property
     def verdict(self) -> CoverageVerdict:
@@ -184,8 +193,28 @@ def build_coverage(
             f"{owner}.{field_name}"
         )
         if lf is not None:
-            present_n = lf.present_n
-            absent_n = max(0, lf.total_n - lf.present_n)
+            # SCALE THE FIELD'S PRESENCE TO *THIS QUERY'S* POPULATION.
+            #
+            # The registry measures presence over the whole label — age is
+            # on 19 of 430 Person nodes — but a query is almost always
+            # narrower: "accused persons" is 68 of them, not 430. Reporting
+            # the label-wide absence against the query's population mixes
+            # two denominators and produces nonsense: the first shadow run
+            # printed "411 of 73 record(s) carry no age (563%)".
+            #
+            # Absence is therefore expressed as a RATE measured on the label
+            # and applied to the observed population. That is an estimate,
+            # not a count, and it is labelled as such in `field_absent_n`'s
+            # use below — the exact per-query figure would need a second
+            # query, which belongs in the executor when a caller asks for
+            # it, not in every aggregate by default.
+            rate_present = lf.presence_rate
+            if observed_n and lf.total_n and lf.total_n != observed_n:
+                present_n = int(round(rate_present * observed_n))
+                absent_n = max(0, observed_n - present_n)
+            else:
+                present_n = lf.present_n
+                absent_n = max(0, lf.total_n - lf.present_n)
 
     return CoverageReport(
         expected_population_n=expected,

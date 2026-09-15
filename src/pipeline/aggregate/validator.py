@@ -353,13 +353,24 @@ def _validate_grain(
     if entity is None:
         return issues  # already reported by population validation
 
-    # The terminal entity is what gets counted, after any traversal.
-    terminal_label = (
-        spec.population.traversals[-1].target
-        if spec.population.traversals
-        else spec.population.entity
-    )
-    terminal = snapshot.entity(terminal_label)
+    # WHAT GETS COUNTED IS THE POPULATION'S OWN ENTITY, NOT THE TERMINAL
+    # OF ITS TRAVERSALS.
+    #
+    # A traversal in a PopulationNode is a FILTER on the subject, not a
+    # change of subject: `Person -INVOLVED_IN-> Incident (role=accused)`
+    # reads "persons who are accused in an incident", and the thing being
+    # counted is still the Person. Checking `distinct_key` against the
+    # terminal (Incident) instead would demand the wrong key and refuse
+    # every correct spec of this shape — which is exactly what the first
+    # shadow run did, refusing `count_distinct(Person)` because `entity_id`
+    # "does not identify a Case".
+    #
+    # `compiler._counted_expression()` counts the alias the population's
+    # own MATCH established, so this must agree with it. When the two
+    # disagree the validator is the one that is wrong, because the compiler
+    # is what actually produces the number.
+    counted_label = spec.population.entity
+    terminal = snapshot.entity(counted_label)
 
     if spec.grain in IDENTITY_GRAINS:
         if not spec.distinct_key:
@@ -367,7 +378,7 @@ def _validate_grain(
                 _issue(
                     "missing_distinct_key",
                     f"{spec.grain} grain requires distinct_key: what identifies "
-                    f"one {terminal_label}? Without it a fanning traversal would "
+                    f"one {counted_label}? Without it a fanning traversal would "
                     f"count links, not things.",
                     "distinct_key",
                 )
@@ -377,10 +388,10 @@ def _validate_grain(
                 issues.append(
                     _issue(
                         "no_distinct_key",
-                        f"{terminal_label} has no property present on every node "
+                        f"{counted_label} has no property present on every node "
                         f"and unique across them, so it cannot be counted at "
                         f"{spec.grain} grain.",
-                        terminal_label,
+                        counted_label,
                     )
                 )
             elif spec.distinct_key != terminal.distinct_key:
@@ -390,7 +401,7 @@ def _validate_grain(
                     _issue(
                         "wrong_distinct_key",
                         f"distinct_key {spec.distinct_key!r} does not identify a "
-                        f"{terminal_label}; the registry measured "
+                        f"{counted_label}; the registry measured "
                         f"{terminal.distinct_key!r} as its key.",
                         "distinct_key",
                     )

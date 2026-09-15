@@ -383,14 +383,56 @@ def _counted_expression(
 ) -> tuple[str, str]:
     """The measure expression, and a note explaining the grain choice.
 
-    THE STRUCTURAL FANOUT DEFENCE. If any traversal in the population fans,
-    an identity-grain count MUST be DISTINCT. Reaching the `raise` below
-    means a spec got past the validator that should not have, so it fails
-    loudly rather than emitting `count(*)` over a multiplied row set —
-    which is how 73 cases becomes 449.
+    THE ALIAS IS THE POPULATION'S OWN ENTITY, NOT THE TERMINAL OF ITS
+    TRAVERSALS. A traversal filters the subject; it does not change it.
+    "Persons who belong to a case" counts Persons, so the expression must
+    read `n.entity_id` (the base alias), never `m0.<key>` (the Case the hop
+    landed on). Emitting the terminal was a real bug caught by the first
+    shadow run: `count(DISTINCT m0.entity_id)` over Case nodes returned 0,
+    because Case is keyed by `case_id` and carries no `entity_id` at all —
+    a confident, well-formed zero. `compile_spec()` therefore passes the
+    BASE alias here, and `validator._validate_grain()` checks
+    `distinct_key` against the same entity for the same reason.
+
+    MEASURE FIRST, THEN GRAIN. `avg`/`sum`/`min`/`max` are value measures:
+    they aggregate a PROPERTY, and the grain governs which rows are in
+    scope, not what is computed. Checking grain first (as the first version
+    did) emitted `count(DISTINCT ...)` for an `avg` spec — the right rows,
+    the wrong arithmetic, and a number that looks like a plausible answer.
+
+    THE STRUCTURAL FANOUT DEFENCE. If any traversal fans, an identity-grain
+    count MUST be DISTINCT. Reaching the `raise` below means a spec got
+    past the validator that should not have, so it fails loudly rather than
+    emitting `count(*)` over a multiplied row set — which is how 73 cases
+    becomes 449.
     """
     fanning = _population_fans(snapshot, spec.population)
 
+    # ── Value measures: aggregate a property, whatever the grain ───────
+    if spec.measure in ("sum", "avg", "min", "max"):
+        prop = (spec.value_field or "").split(".")[-1]
+        if not prop:
+            raise CompilerError(f"measure {spec.measure} requires value_field")
+        note = f"{spec.measure} over {alias}.{prop}"
+        if fanning:
+            # A fanning traversal repeats the same node's value once per
+            # matched edge, which silently weights the average by degree.
+            # Refuse rather than emit a plausible, wrong mean.
+            raise CompilerError(
+                f"{spec.measure} over a population containing a fanning "
+                f"traversal would weight each value by its edge count; "
+                f"narrow the population or aggregate at RELATIONSHIP grain "
+                f"explicitly"
+            )
+        return f"{spec.measure}({alias}.{prop})", note
+
+    if spec.measure == "median":
+        raise CompilerError(
+            "median is computed in Python over fetched values, not in Cypher; "
+            "use compile_median_fetch()"
+        )
+
+    # ── Count measures ────────────────────────────────────────────────
     if spec.grain in IDENTITY_GRAINS or spec.measure == "count_distinct":
         if not spec.distinct_key:
             raise CompilerError(
@@ -413,18 +455,7 @@ def _counted_expression(
 
     # RELATIONSHIP grain: counting links is the intent, so a fanning
     # traversal is not a hazard here — it is the thing being measured.
-    if spec.measure == "count":
-        return f"count({alias})", f"counted rows at {spec.grain} grain (links, not entities)"
-
-    prop = (spec.value_field or "").split(".")[-1]
-    if not prop:
-        raise CompilerError(f"measure {spec.measure} requires value_field")
-    if spec.measure == "median":
-        raise CompilerError(
-            "median is computed in Python over fetched values, not in Cypher; "
-            "use compile_median_fetch()"
-        )
-    return f"{spec.measure}({alias}.{prop})", f"{spec.measure} over {alias}.{prop}"
+    return f"count({alias})", f"counted rows at {spec.grain} grain (links, not entities)"
 
 
 def _population_fans(snapshot: reg.RegistrySnapshot, pop: PopulationNode) -> bool:
@@ -452,24 +483,32 @@ def compile_spec(
     overlap, it raises rather than degrading.
     """
     bag = _ParamBag()
-    clause, alias, injected, notes = _compile_population(snapshot, spec.population, bag)
+    # `base_alias` is the population's own entity — what gets measured.
+    # `terminal_alias` is where the traversals landed, used only for
+    # grouping dimensions reached `via` a hop.
+    clause, terminal_alias, injected, notes = _compile_population(
+        snapshot, spec.population, bag
+    )
+    base_alias = "n"
 
     # Jurisdiction scope narrows to a caller-supplied allow-list. It is a
     # bound parameter like any other value, so a case id from a question
     # cannot widen it.
     if spec.scope.kind == "jurisdiction" and spec.scope.case_ids:
-        scope_alias = alias if spec.population.entity == "Case" else None
+        scope_alias = base_alias if spec.population.entity == "Case" else None
         if scope_alias:
             connector = " AND " if " WHERE " in clause else " WHERE "
             clause += f"{connector}{scope_alias}.case_id IN {bag.add(list(spec.scope.case_ids))}"
 
-    expr, grain_note = _counted_expression(snapshot, spec, alias)
+    expr, grain_note = _counted_expression(snapshot, spec, base_alias)
     notes.append(grain_note)
 
     if spec.group_by:
         gb = spec.group_by[0]
         prop = gb.field.split(".")[-1]
-        group_alias = alias
+        # A dimension declared `via` a traversal lives on the terminal
+        # node; one named bare is a property of the measured entity.
+        group_alias = terminal_alias if gb.via else base_alias
         # WITH ... RETURN ... ORDER BY, never ORDER BY <alias>: AGE rejects
         # the alias form with UndefinedColumnError.
         text = (
