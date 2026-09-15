@@ -215,6 +215,13 @@ MAX_RETRIES: int = int(os.getenv("MAX_RETRIES", "1"))
 # MAX_RETRIES itself is untouched: a near-miss still gets every retry.
 # Off switch only — for bisecting a regression back to this gate.
 RETRY_GATE_ENABLED: bool = os.getenv("RETRY_GATE_ENABLED", "true").lower() in ("1", "true", "yes")
+# [Gold-QA fix — Module 151] Off switch for the verifier's schema-absence
+# grounding (verifier.py's "GROUNDING AN ABSENCE AGAINST THE RECORD
+# INVENTORY" block). Off = the pre-Module-151 verifier, byte for byte: a
+# correct "our records have no field for X" is rejected as unsupported.
+SCHEMA_ABSENCE_GROUNDING_ENABLED: bool = (
+    os.getenv("SCHEMA_ABSENCE_GROUNDING_ENABLED", "true").lower() in ("1", "true", "yes")
+)
 TOP_K_RETRIEVAL: int = int(os.getenv("TOP_K_RETRIEVAL", "10"))
 TOP_K_RERANK: int = int(os.getenv("TOP_K_RERANK", "5"))
 

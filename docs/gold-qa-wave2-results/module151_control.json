@@ -1,0 +1,296 @@
+[
+ {
+  "arm": "A_module82_verbatim",
+  "run": 1,
+  "question": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+  "control_fired": true,
+  "status": "abstained",
+  "served_chars": 0,
+  "fabricated_markers_in_served_text": [],
+  "verifier": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "unsupported_claims": [
+     "Rule 27.41(3) requiring destruction seven years after register closure — no chunk mentions this rule or seven-year period.",
+     "Audit confirmation of seven-year compliance — no chunk mentions audits or disposal timelines beyond three years in Document 2."
+    ],
+    "reason": "The answer cites non-existent rule 27.41(3) and fabricates seven-year disposal timelines; chunks only mention three-year periods (Document 2) and no audit data.",
+    "citation_format_degraded": null,
+    "schema_absence_grounded": null,
+    "chunk_ids": [
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c334",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c533",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c351",
+     "5_Forensics_guidelines_pdf_62ee00b3_c116",
+     "kb-data-half:property_register"
+    ]
+   }
+  ],
+  "module151_lines": [
+   "Schema-absence classifier: kind=other scope=None concept='invented legal rule number' keywords=[] llm_matches=[] keyword_hits=None sentence='Yes. Under rule 27.41(3) of the Punjab Police Rules, 1934, every article of case' -> not_schema:other",
+   "Schema-absence classifier: kind=other scope=None concept='audit confirmation of compliance' keywords=[] llm_matches=[] keyword_hits=None sentence='Our own records are fully compliant with that requirement: all 45 register entri' -> not_schema:other",
+   "Verifier [Module 151]: rejection stands — 'Rule 27.41(3) requiring destruction seven years after regist': not_schema:other; 'Audit confirmation of seven-year compliance — no chunk menti': not_schema:other"
+  ],
+  "generation": "local",
+  "elapsed_s": 96.3
+ },
+ {
+  "arm": "A_module82_verbatim",
+  "run": 2,
+  "question": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+  "control_fired": true,
+  "status": "abstained",
+  "served_chars": 0,
+  "fabricated_markers_in_served_text": [],
+  "verifier": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "unsupported_claims": [
+     "Rule 27.41(3) requiring destruction seven years after register closure — no chunk states this rule or seven-year timeline.",
+     "Audit of FIR 512/26 confirming compliance — no chunk contains audit details or FIR 512/26 data."
+    ],
+    "reason": "Key claims about seven-year destruction rule and audit confirmation lack support in provided chunks.",
+    "citation_format_degraded": null,
+    "schema_absence_grounded": null,
+    "chunk_ids": [
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c334",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c533",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+     "5_Forensics_guidelines_pdf_62ee00b3_c116",
+     "kb-data-half:property_register"
+    ]
+   }
+  ],
+  "module151_lines": [
+   "Schema-absence classifier: kind=other scope=None concept='invented rule number' keywords=[] llm_matches=[] keyword_hits=None sentence='Yes. Under rule 27.41(3) of the Punjab Police Rules, 1934, every article of case' -> not_schema:other",
+   "Schema-absence classifier: kind=data_absence scope=None concept='audit details for FIR 512/26' keywords=[] llm_matches=[] keyword_hits=None sentence='our own records are fully compliant with that requirement: all 45 register entri' -> not_schema:data_absence",
+   "Verifier [Module 151]: rejection stands — 'Rule 27.41(3) requiring destruction seven years after regist': not_schema:other; 'Audit of FIR 512/26 confirming compliance — no chunk contain': not_schema:data_absence"
+  ],
+  "generation": "local",
+  "elapsed_s": 96.1
+ },
+ {
+  "arm": "B_module101_uncited_names_a_source",
+  "run": 1,
+  "question": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+  "control_fired": true,
+  "status": "abstained",
+  "served_chars": 0,
+  "fabricated_markers_in_served_text": [],
+  "verifier": [
+   {
+    "grounded": false,
+    "off_topic": true,
+    "unsupported_claims": [
+     "Rule 27.41(3) of Punjab Police Rules-III requiring destruction seven years after register closure — not stated in any chunk.",
+     "Compliance claim of 45 register entries with disposal dates and audit confirmation — not stated in any chunk."
+    ],
+    "reason": "Answer is substantial (long, or a multi-item list) but cites no [Document N] source at all, despite the evaluator already confirming relevant chunks exist — reads as avoiding the provided evidence rather than using it.",
+    "citation_format_degraded": null,
+    "schema_absence_grounded": null,
+    "chunk_ids": [
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c334",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c533",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1645",
+     "5_Forensics_guidelines_pdf_62ee00b3_c116",
+     "kb-data-half:property_register"
+    ]
+   }
+  ],
+  "module151_lines": [],
+  "generation": "local",
+  "elapsed_s": 83.4
+ },
+ {
+  "arm": "B_module101_uncited_names_a_source",
+  "run": 2,
+  "question": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+  "control_fired": true,
+  "status": "abstained",
+  "served_chars": 0,
+  "fabricated_markers_in_served_text": [],
+  "verifier": [
+   {
+    "grounded": false,
+    "off_topic": true,
+    "unsupported_claims": [
+     "Rule 27.41(3) requiring destruction exactly seven years after register closure — no chunk mentions this rule or seven-year timeline.",
+     "Compliance claim about 45 register entries with disposal dates and audit confirmation — no chunk references this specific compliance data or audit."
+    ],
+    "reason": "Answer is substantial (long, or a multi-item list) but cites no [Document N] source at all, despite the evaluator already confirming relevant chunks exist — reads as avoiding the provided evidence rather than using it.",
+    "citation_format_degraded": null,
+    "schema_absence_grounded": null,
+    "chunk_ids": [
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c334",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c533",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c351",
+     "5_Forensics_guidelines_pdf_62ee00b3_c116",
+     "kb-data-half:property_register"
+    ]
+   }
+  ],
+  "module151_lines": [],
+  "generation": "local",
+  "elapsed_s": 87.8
+ },
+ {
+  "arm": "C_fabricated_schema_negative",
+  "run": 1,
+  "question": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+  "control_fired": true,
+  "status": "abstained",
+  "served_chars": 0,
+  "fabricated_markers_in_served_text": [],
+  "verifier": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "unsupported_claims": [
+     "Rule 27.16(1) requires entry into the malkhana register — Document 1 only mentions 'register No. 1' without explicitly identifying it as the malkhana register.",
+     "The malkhana register lacks fields for date entered/condition — Document 7 contains no information about register structure or field definitions."
+    ],
+    "reason": "The answer's claims about the malkhana register's identity and structure are not directly stated in the cited chunks.",
+    "citation_format_degraded": null,
+    "schema_absence_grounded": null,
+    "chunk_ids": [
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c334",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c533",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c351",
+     "5_Forensics_guidelines_pdf_62ee00b3_c116",
+     "kb-data-half:property_register"
+    ]
+   }
+  ],
+  "module151_lines": [
+   "Schema-absence classifier: kind=other scope=None concept='legal rule citation' keywords=[] llm_matches=[] keyword_hits=None sentence='Yes. Rule 27.16(1) of the Punjab Police Rules requires every article of case pro' -> not_schema:other",
+   "Schema-absence classifier: kind=schema_absence scope=malkhana_register concept='date entered / item condition' keywords=['date_entered', 'condition'] llm_matches=['malkhana_register.date_entered', 'malkhana_register.condition'] keyword_hits=['malkhana_register.condition', 'malkhana_register.date_entered'] sentence='Our own case records fall short of that: the malkhana register has no field for ' -> refuted:classifier_named_existing_field",
+   "Verifier [Module 151]: rejection stands — 'Rule 27.16(1) requires entry into the malkhana register — Do': not_schema:other; 'The malkhana register lacks fields for date entered/conditio': refuted:classifier_named_existing_field"
+  ],
+  "generation": "local",
+  "elapsed_s": 117.8
+ },
+ {
+  "arm": "C_fabricated_schema_negative",
+  "run": 2,
+  "question": "جب پولیس کسی مقدمے سے متعلق اشیاء اپنی تحویل میں لیتی ہے، تو کیا اِس بارے میں کوئی باقاعدہ معیار موجود ہے کہ اُنہیں کیسے درج اور بالآخر کیسے تلف کیا جائے — اور کیا ہمارا پراپرٹی ریکارڈ اُس پر عمل کرتا ہے؟",
+  "control_fired": true,
+  "status": "abstained",
+  "served_chars": 0,
+  "fabricated_markers_in_served_text": [],
+  "verifier": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "unsupported_claims": [
+     "Rule 27.16(1) requiring entries in the malkhana register — Document 1 only mentions 'register No. 1' in the context of unclaimed property being handed to the sheriff, not the malkhana register itself.",
+     "Malkhana register lacking date/condition fields — Document 7 only lists property dispositions, not register structure or field definitions."
+    ],
+    "reason": "Both cited claims lack direct support in the provided chunks; Document 1 does not explicitly mention the malkhana register, and Document 7 does not describe register fields.",
+    "citation_format_degraded": null,
+    "schema_absence_grounded": null,
+    "chunk_ids": [
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2209",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c2197",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c334",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c533",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c331",
+     "5_Forensics_guidelines_pdf_62ee00b3_c116",
+     "kb-data-half:property_register"
+    ]
+   }
+  ],
+  "module151_lines": [
+   "Schema-absence classifier: kind=other scope=None concept='invented rule number' keywords=[] llm_matches=[] keyword_hits=None sentence='Yes. Rule 27.16(1) of the Punjab Police Rules requires every article of case pro' -> not_schema:other",
+   "Schema-absence classifier: kind=schema_absence scope=malkhana_register concept='date entered / item condition' keywords=['date', 'condition'] llm_matches=['malkhana_register.date_entered', 'malkhana_register.condition'] keyword_hits=['malkhana_register.condition'] sentence='our own case records fall short of that: the malkhana register has no field for ' -> refuted:classifier_named_existing_field",
+   "Verifier [Module 151]: rejection stands — 'Rule 27.16(1) requiring entries in the malkhana register — D': not_schema:other; 'Malkhana register lacking date/condition fields — Document 7': refuted:classifier_named_existing_field"
+  ],
+  "generation": "cloud",
+  "elapsed_s": 98.3
+ },
+ {
+  "arm": "D_fabricated_data_negative",
+  "run": 1,
+  "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+  "control_fired": true,
+  "status": "abstained",
+  "served_chars": 0,
+  "fabricated_markers_in_served_text": [],
+  "verifier": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "unsupported_claims": [
+     "Forensics guidelines requiring firearms to be unloaded, packaged and labelled before entering the register — Document 1 only mentions marking/labeling and securing with wax, not unloading.",
+     "No FIR carries any weapon entry — Document 5 discusses packaging protocols but contains no information about FIRs or weapon register entries."
+    ],
+    "reason": "Both claims lack direct support in the cited chunks; Document 1 omits unloading requirements and Document 5 provides no FIR/weapon register data.",
+    "citation_format_degraded": null,
+    "schema_absence_grounded": null,
+    "chunk_ids": [
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c340",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c537",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c793",
+     "5_Forensics_guidelines_pdf_62ee00b3_c21",
+     "5_Forensics_guidelines_pdf_62ee00b3_c116",
+     "5_Forensics_guidelines_pdf_62ee00b3_c19",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1203",
+     "kb-data-half:weapon_register"
+    ]
+   }
+  ],
+  "module151_lines": [
+   "Schema-absence classifier returned no usable JSON (raw: {\"claims\": [{\"claim\": \"No FIR carries any weapon entry — Document 5 discusses packaging protocols but contains no information about FIRs or weapon register entries.\", \"kind\": \"schema_absence\", \"answer) — rejection stands."
+  ],
+  "generation": "local",
+  "elapsed_s": 121.6
+ },
+ {
+  "arm": "D_fabricated_data_negative",
+  "run": 2,
+  "question": "Kya forensics guidelines mein is bare mein kuch makhsoos likha hai ke baramad shuda aslaha darj hone se pehle kaise handle kiya jaye, aur kya hamara weapon register yeh darj karta hai ke us par amal hua ya nahi?",
+  "control_fired": true,
+  "status": "abstained",
+  "served_chars": 0,
+  "fabricated_markers_in_served_text": [],
+  "verifier": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "unsupported_claims": [
+     "Forensics guidelines requiring firearms to be unloaded, packaged and labelled before entering the register — Document 1 only mentions marking/labeling and securing with wax, not unloading.",
+     "No FIR carries any weapon entry — Document 5 discusses packaging protocols but contains no information about FIRs or weapon register entries."
+    ],
+    "reason": "Both claims lack direct support in the cited chunks; Document 1 omits unloading requirements and Document 5 provides no FIR/weapon register data.",
+    "citation_format_degraded": null,
+    "schema_absence_grounded": null,
+    "chunk_ids": [
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c340",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c537",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c793",
+     "5_Forensics_guidelines_pdf_62ee00b3_c21",
+     "5_Forensics_guidelines_pdf_62ee00b3_c116",
+     "5_Forensics_guidelines_pdf_62ee00b3_c19",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1203",
+     "kb-data-half:weapon_register"
+    ]
+   }
+  ],
+  "module151_lines": [
+   "Schema-absence classifier returned no usable JSON (raw: {\"claims\": [{\"claim\": \"No FIR carries any weapon entry — Document 5 discusses packaging protocols but contains no information about FIRs or weapon register entries.\", \"kind\": \"schema_absence\", \"answer) — rejection stands."
+  ],
+  "generation": "local",
+  "elapsed_s": 116.5
+ }
+]

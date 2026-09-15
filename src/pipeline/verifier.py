@@ -41,8 +41,11 @@ import re
 from pathlib import Path
 from typing import Optional
 
+from src import config
 from src.llm.client import call_llm
 from src.pipeline.json_extract import call_llm_json
+from src.pipeline import schema_claims as _schema_claims
+from src.pipeline import schema_inventory as _schema_inventory
 
 logger = logging.getLogger(__name__)
 
@@ -1000,6 +1003,86 @@ def _answer_names_a_cited_source(answer: str, chunks: list[dict]) -> Optional[st
     return None
 
 
+# ============================================================
+# [Gold-QA fix — Module 151] GROUNDING AN ABSENCE AGAINST THE RECORD INVENTORY
+#
+# THE DEFECT (MODULE151_RESULT.md §1). In the 2026-09-14 all-32 run KB9
+# (3/3 the week before) and KB5 (2/3) both came back `status=error` with
+# the served text "The generated answer could not be verified as grounded
+# in the retrieved documents." The judge's own reasons:
+#
+#   KB9: "The claim about case records lacking data on inquest report
+#         compliance is unsupported — chunks only provide legal rules and
+#         FIR statistics…"
+#   KB5: "Claims about missing data fields in case records are not
+#         supported by any cited chunk…"
+#
+# Both answers were CORRECT. Gold for both says our records do not hold
+# that data — KB9: "schema mein kahin koi inquest, post-mortem ya
+# cause-of-death record nahi"; KB5: "تقاضے کے اُس حصے کے لیے کوئی متعلقہ
+# خانہ موجود نہیں". The judge is behaving exactly as prompts/verifier.txt
+# rule 5 tells it to: a claim is unsupported unless a chunk states it, and
+# NO chunk in a document corpus can state that a field does not exist.
+# The generator drew a true conclusion from the SCHEMA and the judge
+# demanded a DOCUMENT for it. KB2 is the same mechanism from the other
+# side (MODULE37_RESULT.md §4.2): its true answer is a schema fact — "no
+# field for interview-statement text, by design" — which is ungroundable
+# in the corpus, so the generator drifts to something it CAN cite and
+# asserts the opposite.
+#
+# THE MECHANISM. A claim of the form "our records have no field for X" is
+# a claim about the database's SHAPE, and the shape is a fact this
+# process can check directly. Two steps, and BOTH are required:
+#
+#   1. CLASSIFY each judge-flagged claim (schema_claims.py — an LLM
+#      reading of the claim, shown the answer for scope and the inventory
+#      for existing fields). Only a claim that is PURELY about shape is a
+#      candidate. A claim about CONTENTS — "no FIR mentions weapons",
+#      "fir-64-26 does not appear in the linkage list" — is a data
+#      negative, and this block never touches it: only a document or a
+#      complete listing (Module 61) can support that, and Module 82 §4c
+#      recorded the verifier catching exactly such a fabricated negative
+#      on CR3. A POSITIVE claim ("the system does maintain such records")
+#      is never grounded here either: the inventory can confirm a field
+#      exists, never that it holds data for any case.
+#   2. GROUND the candidate against the live record inventory
+#      (schema_inventory.py — the declared API row shapes unioned with the
+#      graph's own property keys, Module 95's `_missing_custody_controls()`
+#      generalised). The claim is CONFIRMED only if neither the keyword
+#      scan over its scope nor the classifier's own reading finds an
+#      existing field that serves the concept. If either finds one, the
+#      claim is a fabricated schema negative and the rejection stands.
+#
+# WHY THIS IS NOT A LOOSENING. Same gate as Module 61's override, and it
+# composes with it rather than replacing it: it runs only when the judge
+# rejected, was not off-topic, found no leakage and no deterministic
+# pre-check has a finding (`_check_no_citation()` included — an answer
+# with no [Document N] marker is NOT rescued here); it overturns only when
+# EVERY flagged claim is a confirmed schema absence, so a rejection that
+# mixes a schema absence with an invented rule number, a misattributed
+# figure or a data negative stands in full. Every degraded path —
+# classifier failure, malformed output, unknown scope, no usable keyword,
+# graph unreachable — is a failure to confirm, never a confirmation. No
+# threshold anywhere else in this file changes, the judge prompt is
+# untouched (it has no inventory and must stay strict), and nothing here
+# is keyed on any gold question's wording.
+#
+# The overturn is never silent: `SCHEMA_ABSENCE_GROUNDED_KEY` is returned
+# with the claims that were grounded this way, and the caller caveats the
+# answer with `SCHEMA_ABSENCE_GROUNDED_CAVEAT`.
+#
+# `config.SCHEMA_ABSENCE_GROUNDING_ENABLED` is the off switch.
+# ============================================================
+SCHEMA_ABSENCE_GROUNDED_KEY = "schema_absence_grounded"
+
+SCHEMA_ABSENCE_GROUNDED_CAVEAT = (
+    "This answer states that our records hold no field for something; that "
+    "statement was checked against the platform's record inventory (the fields "
+    "our records actually carry) rather than against a document, and the "
+    "inventory confirms it."
+)
+
+
 async def verify_grounding(
     answer: str,
     cited_chunks: list[dict],
@@ -1191,6 +1274,64 @@ async def verify_grounding(
                 "Supported: the only claims flagged were negative inferences over a "
                 "complete listing, and each named record is confirmed absent from "
                 "that listing."
+            )
+
+    # ── [Module 151] Grounding an ABSENCE against the record inventory ───
+    # See the "GROUNDING AN ABSENCE AGAINST THE RECORD INVENTORY" block
+    # above `verify_grounding()`. Same gate as Module 61's override, and
+    # the two compose: this runs only if the judge's rejection still stands
+    # after Module 61, and it overturns only when EVERY flagged claim is a
+    # schema absence the inventory confirms.
+    if (
+        config.SCHEMA_ABSENCE_GROUNDING_ENABLED
+        and not llm_result.get("grounded", False)
+        and not llm_result.get("off_topic", False)
+        and not llm_result.get("leaked_case_id")
+        and not pre_check_failed
+    ):
+        flagged = [str(c) for c in (llm_result.get("unsupported_claims") or []) if str(c).strip()]
+        candidates = flagged or [str(llm_result.get("reason") or "")]
+        candidates = [c for c in candidates if c.strip()]
+        classified = None
+        inventory = None
+        if candidates:
+            inventory = await _schema_inventory.live_inventory()
+            classified = await _schema_claims.classify_flagged_claims(
+                answer, candidates, inventory
+            )
+            if classified is not None:
+                _schema_claims.ground_against_inventory(classified, inventory, answer)
+                for c in classified:
+                    logger.info("Schema-absence classifier: %s", c.as_log())
+        if classified and inventory is not None and all(c.confirmed_absent for c in classified):
+            concepts = "; ".join(
+                f"{c.concept or c.claim[:60]} (scope: {c.scope or 'any'})" for c in classified
+            )
+            logger.info(
+                "Verifier [Module 151]: overturning rejection — every flagged claim "
+                "states that our records have no field for something, and the record "
+                "inventory (%s: %d families, %d fields) confirms no such field exists. "
+                "Claims: %s",
+                inventory.source, len(inventory.families), inventory.field_count, concepts,
+            )
+            llm_result["grounded"] = True
+            llm_result["unsupported_claims"] = []
+            llm_result[SCHEMA_ABSENCE_GROUNDED_KEY] = True
+            llm_result["schema_absence_claims"] = [
+                {"claim": c.claim, "scope": c.scope, "concept": c.concept,
+                 "field_keywords": c.field_keywords}
+                for c in classified
+            ]
+            llm_result["reason"] = (
+                "Supported: the only claims flagged state that our records hold no field "
+                f"for {concepts}; the platform's record inventory ({inventory.source}, "
+                f"{len(inventory.families)} record families, {inventory.field_count} "
+                "fields) confirms no such field exists."
+            )
+        elif classified:
+            logger.info(
+                "Verifier [Module 151]: rejection stands — %s",
+                "; ".join(f"{c.claim[:60]!r}: {c.verdict}" for c in classified),
             )
 
     # ── Merge deterministic findings into LLM result ──────────────────────
