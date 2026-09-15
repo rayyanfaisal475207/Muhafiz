@@ -1,0 +1,3543 @@
+[
+ {
+  "source_file": "module151_before.json",
+  "id": "KB5",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 11.2,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about legal provisions (Documents 1-2) and data limitations (Document 8) are directly supported by cited chunks. The absence of implementation details in Document 8 is accurately noted without hallucination."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": true,
+   "unsupported_claims": [],
+   "reason": "Answer is substantial (long, or a multi-item list) but cites no [Document N] source at all, despite the evaluator already confirming relevant chunks exist — reads as avoiding the provided evidence rather than using it.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_before.json",
+  "id": "KB5",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 10.0,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about legal requirements (identity concealment, video conferencing, safe-houses) are directly supported by Document 1 and Document 2. The data analysis in Document 8 confirms FIR matching but explicitly states no evidence of procedural compliance, aligning with the answer's conclusion."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": true,
+   "unsupported_claims": [],
+   "reason": "Answer is substantial (long, or a multi-item list) but cites no [Document N] source at all, despite the evaluator already confirming relevant chunks exist — reads as avoiding the provided evidence rather than using it.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_before.json",
+  "id": "KB5",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 10.1,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about legal requirements (identity concealment, video conferencing, safe-houses) are directly supported by Document 1 and Document 2. The data analysis in Document 8 confirms FIR matching but explicitly states no evidence of procedural compliance, aligning with the answer's conclusion."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": true,
+   "unsupported_claims": [],
+   "reason": "Answer is substantial (long, or a multi-item list) but cites no [Document N] source at all, despite the evaluator already confirming relevant chunks exist — reads as avoiding the provided evidence rather than using it.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_before.json",
+  "id": "KB5",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 10.1,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about legal requirements (identity concealment, video conferencing, safe-houses) are directly supported by Document 1 and Document 2. The data analysis in Document 8 confirms FIR matching but explicitly states no evidence of procedural compliance, aligning with the answer's conclusion."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": true,
+   "unsupported_claims": [],
+   "reason": "Answer is substantial (long, or a multi-item list) but cites no [Document N] source at all, despite the evaluator already confirming relevant chunks exist — reads as avoiding the provided evidence rather than using it.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_before.json",
+  "id": "KB2",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 15.9,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Sections 161, 164, and admissibility rules are explicitly referenced in the chunks."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Sections 161, 164, and admissibility rules are explicitly referenced in the chunks.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_before.json",
+  "id": "KB2",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 15.1,
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "Statements cannot be used directly as evidence without magistrate involvement — cited as [Document 1], but Chunk 1 does not mention magistrate involvement; this claim is supported in Chunk 3, not Chunk 1."
+    ],
+    "reason": "A specific claim is attributed to Document 1, but the corresponding chunk does not contain the cited information. The magistrate involvement detail is supported in Chunk 3, not Chunk 1 as cited."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": false,
+   "unsupported_claims": [
+    "Statements cannot be used directly as evidence without magistrate involvement — cited as [Document 1], but Chunk 1 does not mention magistrate involvement; this claim is supported in Chunk 3, not Chunk 1."
+   ],
+   "reason": "A specific claim is attributed to Document 1, but the corresponding chunk does not contain the cited information. The magistrate involvement detail is supported in Chunk 3, not Chunk 1 as cited.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_before.json",
+  "id": "KB2",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 26.8,
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "Statements cannot be used directly as evidence without magistrate involvement — cited as [Document 1], but Chunk 1 does not mention magistrate involvement; this claim is supported in Chunk 3, not Chunk 1."
+    ],
+    "reason": "A specific claim is attributed to Document 1, but the corresponding chunk does not contain the cited information. The magistrate involvement detail is supported in Chunk 3, not Chunk 1 as cited."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": false,
+   "unsupported_claims": [
+    "Statements cannot be used directly as evidence without magistrate involvement — cited as [Document 1], but Chunk 1 does not mention magistrate involvement; this claim is supported in Chunk 3, not Chunk 1."
+   ],
+   "reason": "A specific claim is attributed to Document 1, but the corresponding chunk does not contain the cited information. The magistrate involvement detail is supported in Chunk 3, not Chunk 1 as cited.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [
+   "Schema-absence classifier: kind=other scope=None concept='legal rule about magistrate involvement in evidence admissibility' keywords=[] llm_matches=[] keyword_hits=None -> not_schema:other",
+   "Verifier [Module 151]: rejection stands — 'Statements cannot be used directly as evidence without magis': not_schema:other"
+  ],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_before.json",
+  "id": "KB2",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 27.2,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about Sections 161, 164, and admissibility of evidence are directly supported by cited chunks. The procedural safeguard explanation aligns with legal requirements stated in the chunks."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims about Sections 161, 164, and admissibility of evidence are directly supported by cited chunks. The procedural safeguard explanation aligns with legal requirements stated in the chunks.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB9",
+  "run": 1,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 9.3,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Rule 26.31(1) and Section 174/176 references are explicitly stated in Documents 2/3, and Document 7 confirms case records lack metrics on deaths in custody."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Rule 26.31(1) and Section 174/176 references are explicitly stated in Documents 2/3, and Document 7 confirms case records lack metrics on deaths in custody.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB9",
+  "run": 1,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 8.2,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks: Rule 26.31(1) and Section 174/176 references are explicitly stated in Documents 2/3, and Document 7 confirms case records lack metrics on deaths in custody."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks: Rule 26.31(1) and Section 174/176 references are explicitly stated in Documents 2/3, and Document 7 confirms case records lack metrics on deaths in custody.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB9",
+  "run": 1,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 8.0,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks: Rule 26.31(1) and Section 174/176 references are explicitly stated in Documents 2/3, and Document 7 confirms case records lack metrics on deaths in custody."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks: Rule 26.31(1) and Section 174/176 references are explicitly stated in Documents 2/3, and Document 7 confirms case records lack metrics on deaths in custody.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB9",
+  "run": 1,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 8.1,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks: Rule 26.31(1) and Section 174/176 references are explicitly stated in Documents 2/3, and Document 7 confirms case records lack metrics on deaths in custody."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks: Rule 26.31(1) and Section 174/176 references are explicitly stated in Documents 2/3, and Document 7 confirms case records lack metrics on deaths in custody.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB5",
+  "run": 1,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 10.4,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are confirmed in Documents 2 and 3, respectively. Case records analysis (FIR linkage data) is explicitly stated in Document 7."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are confirmed in Documents 2 and 3, respectively. Case records analysis (FIR linkage data) is explicitly stated in Document 7.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB5",
+  "run": 1,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 9.0,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are confirmed in Documents 2 and 3, respectively. Case records analysis (FIR linkage data) is explicitly stated in Document 7."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are confirmed in Documents 2 and 3, respectively. Case records analysis (FIR linkage data) is explicitly stated in Document 7.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB5",
+  "run": 1,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 8.9,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are confirmed in Documents 2 and 3, respectively. Case records analysis (FIR linkage data) is explicitly stated in Document 7."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are confirmed in Documents 2 and 3, respectively. Case records analysis (FIR linkage data) is explicitly stated in Document 7.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB5",
+  "run": 1,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 9.0,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are confirmed in Documents 2 and 3, respectively. Case records analysis (FIR linkage data) is explicitly stated in Document 7."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are confirmed in Documents 2 and 3, respectively. Case records analysis (FIR linkage data) is explicitly stated in Document 7.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB2",
+  "run": 1,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 10.0,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Rule 25.28 (Document 1) and Section 164 (Document 4) are explicitly stated in chunks. Section 38 of Qanun-e-Shahadat Order (Document 3) is directly quoted. The 'data gap' inference logically follows from the rules' emphasis on magistrate-recorded statements for admissibility, which is consistent with the chunks."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Rule 25.28 (Document 1) and Section 164 (Document 4) are explicitly stated in chunks. Section 38 of Qanun-e-Shahadat Order (Document 3) is directly quoted. The 'data gap' inference logically follows from the rules' emphasis on magistrate-recorded statements for admissibility, which is consistent with the chunks.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB2",
+  "run": 1,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 9.4,
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "'data gap' if interviews are not systematically recorded through magistrates — not stated in any chunk.",
+     "Failure to follow procedures could result in gaps in documentation — not explicitly stated in any chunk."
+    ],
+    "reason": "The claims about 'data gap' and potential documentation gaps are not directly stated in any cited chunk, though the rules imply consequences of non-compliance."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": false,
+   "unsupported_claims": [
+    "'data gap' if interviews are not systematically recorded through magistrates — not stated in any chunk.",
+    "Failure to follow procedures could result in gaps in documentation — not explicitly stated in any chunk."
+   ],
+   "reason": "The claims about 'data gap' and potential documentation gaps are not directly stated in any cited chunk, though the rules imply consequences of non-compliance.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB2",
+  "run": 1,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 21.8,
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "'data gap' if interviews are not systematically recorded through magistrates — not stated in any chunk.",
+     "Failure to follow procedures could result in gaps in documentation — not explicitly stated in any chunk."
+    ],
+    "reason": "The claims about 'data gap' and potential documentation gaps are not directly stated in any cited chunk, though the rules imply consequences of non-compliance."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": false,
+   "unsupported_claims": [
+    "'data gap' if interviews are not systematically recorded through magistrates — not stated in any chunk.",
+    "Failure to follow procedures could result in gaps in documentation — not explicitly stated in any chunk."
+   ],
+   "reason": "The claims about 'data gap' and potential documentation gaps are not directly stated in any cited chunk, though the rules imply consequences of non-compliance.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [
+   "Schema-absence classifier: kind=other scope=None concept='legal compliance with magistrate-recorded interviews' keywords=[] llm_matches=[] keyword_hits=None -> not_schema:other",
+   "Schema-absence classifier: kind=other scope=None concept='procedural compliance affecting documentation completeness' keywords=[] llm_matches=[] keyword_hits=None -> not_schema:other",
+   "Verifier [Module 151]: rejection stands — \"'data gap' if interviews are not systematically recorded thr\": not_schema:other; 'Failure to follow procedures could result in gaps in documen': not_schema:other"
+  ],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB2",
+  "run": 1,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 24.2,
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "The term 'data gap' is not explicitly stated in any cited chunk."
+    ],
+    "reason": "The claim about a 'data gap' resulting from failure to follow procedures is not directly supported by any chunk, as the chunks do not mention this term or explicitly frame the absence of magistrate-recorded statements as a 'data gap'."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": false,
+   "unsupported_claims": [
+    "The term 'data gap' is not explicitly stated in any cited chunk."
+   ],
+   "reason": "The claim about a 'data gap' resulting from failure to follow procedures is not directly supported by any chunk, as the chunks do not mention this term or explicitly frame the absence of magistrate-recorded statements as a 'data gap'.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [
+   "Schema-absence classifier: kind=other scope=None concept='invented term or concept' keywords=[] llm_matches=[] keyword_hits=None -> not_schema:other",
+   "Verifier [Module 151]: rejection stands — \"The term 'data gap' is not explicitly stated in any cited ch\": not_schema:other"
+  ],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB9",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 11.1,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Rule 26.31(1) and Section 174 references align with Chunk 1 and 2. The 10 FIRs citing PPC §302 are explicitly listed in Chunk 6. The absence of cause-of-death investigation data is accurately reflected in Chunk 6's case records. Forensic process details match Chunk 6's property disposition records."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Rule 26.31(1) and Section 174 references align with Chunk 1 and 2. The 10 FIRs citing PPC §302 are explicitly listed in Chunk 6. The absence of cause-of-death investigation data is accurately reflected in Chunk 6's case records. Forensic process details match Chunk 6's property disposition records.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB9",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 8.5,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Rule 26.31(1) and Section 174 are explicitly stated in Documents 2 and 1, respectively. The 10 FIRs citing PPC §302 are confirmed in Document 6. The absence of explicit data on cause-of-death investigations is accurately reflected in Document 6's content."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Rule 26.31(1) and Section 174 are explicitly stated in Documents 2 and 1, respectively. The 10 FIRs citing PPC §302 are confirmed in Document 6. The absence of explicit data on cause-of-death investigations is accurately reflected in Document 6's content.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB9",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 8.7,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Rule 26.31(1) and Section 174 are explicitly stated in Documents 2 and 1, respectively. The 10 FIRs citing PPC §302 are confirmed in Document 6. The absence of explicit data on cause-of-death investigations is accurately reflected in Document 6's content."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Rule 26.31(1) and Section 174 are explicitly stated in Documents 2 and 1, respectively. The 10 FIRs citing PPC §302 are confirmed in Document 6. The absence of explicit data on cause-of-death investigations is accurately reflected in Document 6's content.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB9",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 9.0,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Rule 26.31(1) and Section 174 are explicitly stated in Documents 2 and 1, respectively. The 10 FIRs citing PPC §302 are confirmed in Document 6. The absence of explicit data on cause-of-death investigations is accurately reflected in Document 6's content."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Rule 26.31(1) and Section 174 are explicitly stated in Documents 2 and 1, respectively. The 10 FIRs citing PPC §302 are confirmed in Document 6. The absence of explicit data on cause-of-death investigations is accurately reflected in Document 6's content.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB5",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 10.2,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are explicitly stated in Documents 2 and 3, respectively. Case records analysis (forwarded FIR numbers and absence of victim protection measures) is confirmed by Document 7."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are explicitly stated in Documents 2 and 3, respectively. Case records analysis (forwarded FIR numbers and absence of victim protection measures) is confirmed by Document 7.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB5",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 9.0,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are explicitly stated in Documents 2 and 3, respectively. Case records analysis (FIR linkage data) is confirmed by Document 7. No unsupported claims or leaks are present."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are explicitly stated in Documents 2 and 3, respectively. Case records analysis (FIR linkage data) is confirmed by Document 7. No unsupported claims or leaks are present.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB5",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 8.8,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are explicitly stated in Documents 2 and 3, respectively. Case records analysis (FIR linkage data) is confirmed by Document 7. No unsupported claims or leaks are present."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are explicitly stated in Documents 2 and 3, respectively. Case records analysis (FIR linkage data) is confirmed by Document 7. No unsupported claims or leaks are present.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB5",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 8.9,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are explicitly stated in Documents 2 and 3, respectively. Case records analysis (FIR linkage data) is confirmed by Document 7. No unsupported claims or leaks are present."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are explicitly stated in Documents 2 and 3, respectively. Case records analysis (FIR linkage data) is confirmed by Document 7. No unsupported claims or leaks are present.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB2",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 8.6,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about Section 164, Rule 25.28, and Section 80 are directly supported by Document 1 and Document 4 respectively."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims about Section 164, Rule 25.28, and Section 80 are directly supported by Document 1 and Document 4 respectively.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB2",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 7.8,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about Section 164, Rule 25.28, and Section 80 are directly supported by Document 1 and Document 4 respectively."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims about Section 164, Rule 25.28, and Section 80 are directly supported by Document 1 and Document 4 respectively.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB2",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 8.2,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about Section 164, Rule 25.28, and Section 80 are directly supported by Document 1 and Document 4 respectively."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims about Section 164, Rule 25.28, and Section 80 are directly supported by Document 1 and Document 4 respectively.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB2",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 8.0,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about Section 164, Rule 25.28, and Section 80 are directly supported by Document 1 and Document 4 respectively."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims about Section 164, Rule 25.28, and Section 80 are directly supported by Document 1 and Document 4 respectively.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB9",
+  "run": 3,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 10.0,
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "Case records 'do not contain specific data' on whether investigations were conducted — no chunk explicitly states this absence.",
+     "The system 'lacks a field to track compliance' — no chunk mentions record-keeping fields or their absence."
+    ],
+    "reason": "Claims about data absence and record-keeping fields are not directly stated in any chunk."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": false,
+   "unsupported_claims": [
+    "Case records 'do not contain specific data' on whether investigations were conducted — no chunk explicitly states this absence.",
+    "The system 'lacks a field to track compliance' — no chunk mentions record-keeping fields or their absence."
+   ],
+   "reason": "Claims about data absence and record-keeping fields are not directly stated in any chunk.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB9",
+  "run": 3,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 9.1,
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "Case records 'do not contain specific data' on whether investigations were conducted — no chunk explicitly states this absence.",
+     "The system 'lacks a field to track compliance' — no chunk mentions record-keeping fields or their absence."
+    ],
+    "reason": "Claims about data absence and record-keeping fields are not directly stated in any chunk."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": false,
+   "unsupported_claims": [
+    "Case records 'do not contain specific data' on whether investigations were conducted — no chunk explicitly states this absence.",
+    "The system 'lacks a field to track compliance' — no chunk mentions record-keeping fields or their absence."
+   ],
+   "reason": "Claims about data absence and record-keeping fields are not directly stated in any chunk.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB9",
+  "run": 3,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 24.8,
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "Case records 'do not contain specific data' on whether investigations were conducted — no chunk explicitly states this absence.",
+     "The system 'lacks a field to track compliance' — no chunk mentions record-keeping fields or their absence."
+    ],
+    "reason": "Claims about data absence and record-keeping fields are not directly stated in any chunk."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": false,
+   "unsupported_claims": [
+    "Case records 'do not contain specific data' on whether investigations were conducted — no chunk explicitly states this absence.",
+    "The system 'lacks a field to track compliance' — no chunk mentions record-keeping fields or their absence."
+   ],
+   "reason": "Claims about data absence and record-keeping fields are not directly stated in any chunk.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [
+   "Schema-absence classifier: kind=schema_absence scope=fir concept='investigation conducted tracking' keywords=['investigation', 'inquest', 'cause_of_death', 'reporting', 'compliance'] llm_matches=[] keyword_hits=['fir.reporting_delay_reason'] -> refuted:field_exists",
+   "Schema-absence classifier: kind=schema_absence scope=any concept='compliance tracking field' keywords=['compliance', 'tracking', 'record', 'audit', 'monitor'] llm_matches=[] keyword_hits=[] -> confirmed_absent",
+   "Verifier [Module 151]: rejection stands — \"Case records 'do not contain specific data' on whether inves\": refuted:field_exists; \"The system 'lacks a field to track compliance' — no chunk me\": confirmed_absent"
+  ],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB9",
+  "run": 3,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 11.4,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Rule 26.31(1) and Section 174 references align with Chunk 1 and 2. The 10 FIRs citing PPC §302 are explicitly listed in Chunk 6. The absence of cause-of-death investigation data is accurately reflected in Chunk 6's case records. Forensic process details match Chunk 6's property disposition records."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Rule 26.31(1) and Section 174 references align with Chunk 1 and 2. The 10 FIRs citing PPC §302 are explicitly listed in Chunk 6. The absence of cause-of-death investigation data is accurately reflected in Chunk 6's case records. Forensic process details match Chunk 6's property disposition records.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB5",
+  "run": 3,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 10.6,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are explicitly stated in Documents 2 and 3, respectively. Case records analysis (forwarded FIR numbers and absence of victim protection measures) is confirmed by Document 7."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are explicitly stated in Documents 2 and 3, respectively. Case records analysis (forwarded FIR numbers and absence of victim protection measures) is confirmed by Document 7.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB5",
+  "run": 3,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 9.0,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are explicitly stated in Documents 2 and 3, respectively. Case records analysis (FIR linkage data) is confirmed by Document 7. No unsupported claims or leaks are present."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are explicitly stated in Documents 2 and 3, respectively. Case records analysis (FIR linkage data) is confirmed by Document 7. No unsupported claims or leaks are present.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB5",
+  "run": 3,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 9.0,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are explicitly stated in Documents 2 and 3, respectively. Case records analysis (FIR linkage data) is confirmed by Document 7. No unsupported claims or leaks are present."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are explicitly stated in Documents 2 and 3, respectively. Case records analysis (FIR linkage data) is confirmed by Document 7. No unsupported claims or leaks are present.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB5",
+  "run": 3,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 9.1,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are explicitly stated in Documents 2 and 3, respectively. Case records analysis (FIR linkage data) is confirmed by Document 7. No unsupported claims or leaks are present."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are explicitly stated in Documents 2 and 3, respectively. Case records analysis (FIR linkage data) is confirmed by Document 7. No unsupported claims or leaks are present.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB2",
+  "run": 3,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 7.4,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Rule 25.28 (Document 1) and Section 80 (Document 4) are explicitly referenced and align with the text in the chunks."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Rule 25.28 (Document 1) and Section 80 (Document 4) are explicitly referenced and align with the text in the chunks.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB2",
+  "run": 3,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 7.1,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about Rule 25.28 (Document 1) and Section 80 (Document 4) are directly supported by the cited chunks. The general statement about procedural adherence does not introduce unsupported claims."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims about Rule 25.28 (Document 1) and Section 80 (Document 4) are directly supported by the cited chunks. The general statement about procedural adherence does not introduce unsupported claims.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB2",
+  "run": 3,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 33.2,
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "If such procedures are not followed (e.g., confessions are not recorded by magistrates or are improperly documented), this could create gaps in evidentiary records — not stated in any cited chunk."
+    ],
+    "reason": "The claim about gaps in evidentiary records due to non-compliance is not directly supported by any chunk."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": false,
+   "unsupported_claims": [
+    "If such procedures are not followed (e.g., confessions are not recorded by magistrates or are improperly documented), this could create gaps in evidentiary records — not stated in any cited chunk."
+   ],
+   "reason": "The claim about gaps in evidentiary records due to non-compliance is not directly supported by any chunk.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [
+   "Schema-absence classifier: kind=other scope=None concept='legal procedural compliance' keywords=[] llm_matches=[] keyword_hits=None -> not_schema:other",
+   "Verifier [Module 151]: rejection stands — 'If such procedures are not followed (e.g., confessions are n': not_schema:other"
+  ],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_before.json",
+  "id": "KB2",
+  "run": 3,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 37.8,
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "If such procedures are not followed (e.g., confessions are not recorded by magistrates or are improperly documented), this could create gaps in evidentiary records — not stated in any cited chunk."
+    ],
+    "reason": "The claim about gaps in evidentiary records due to non-compliance is not directly supported by any chunk."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": false,
+   "unsupported_claims": [
+    "If such procedures are not followed (e.g., confessions are not recorded by magistrates or are improperly documented), this could create gaps in evidentiary records — not stated in any cited chunk."
+   ],
+   "reason": "The claim about gaps in evidentiary records due to non-compliance is not directly supported by any chunk.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [
+   "Schema-absence classifier: kind=other scope=None concept='legal procedural compliance' keywords=[] llm_matches=[] keyword_hits=None -> not_schema:other",
+   "Verifier [Module 151]: rejection stands — 'If such procedures are not followed (e.g., confessions are n': not_schema:other"
+  ],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB9",
+  "run": 1,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 37.9,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All legal requirements (Rules 25.31, 25.35, Section 174) are directly cited in Documents 1, 3, 5. Case records summary (10 FIRs citing PPC §302, absence of inquest tracking) is directly supported by Document 6."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All legal requirements (Rules 25.31, 25.35, Section 174) are directly cited in Documents 1, 3, 5. Case records summary (10 FIRs citing PPC §302, absence of inquest tracking) is directly supported by Document 6.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB9",
+  "run": 1,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 14.4,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All legal requirements (Rules 25.31, 25.35, Section 174) are directly cited in Documents 1, 3, 5. Case records summary (10 FIRs citing PPC §302, absence of inquest tracking) is directly supported by Document 6."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All legal requirements (Rules 25.31, 25.35, Section 174) are directly cited in Documents 1, 3, 5. Case records summary (10 FIRs citing PPC §302, absence of inquest tracking) is directly supported by Document 6.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB9",
+  "run": 1,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 21.1,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All legal requirements (Rules 25.31, 25.35, Section 174) are directly cited in Documents 1, 3, 5. Case records summary (10 FIRs citing PPC §302, absence of inquest tracking) is directly supported by Document 6."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All legal requirements (Rules 25.31, 25.35, Section 174) are directly cited in Documents 1, 3, 5. Case records summary (10 FIRs citing PPC §302, absence of inquest tracking) is directly supported by Document 6.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB9",
+  "run": 1,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 15.8,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All legal requirements (Rules 25.31, 25.35, Section 174) are directly cited in Documents 1, 3, 5. Case records summary (10 FIRs citing PPC §302, absence of inquest tracking) is directly supported by Document 6."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All legal requirements (Rules 25.31, 25.35, Section 174) are directly cited in Documents 1, 3, 5. Case records summary (10 FIRs citing PPC §302, absence of inquest tracking) is directly supported by Document 6.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB5",
+  "run": 1,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 22.1,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims in Part 1 are directly supported by Document 1 and Document 3. The case records analysis in Part 2 is fully corroborated by Document 7, which explicitly confirms the 4/8 FIR linkage statistic and the absence of implementation details in the records."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims in Part 1 are directly supported by Document 1 and Document 3. The case records analysis in Part 2 is fully corroborated by Document 7, which explicitly confirms the 4/8 FIR linkage statistic and the absence of implementation details in the records.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB5",
+  "run": 1,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 17.7,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims in Part 1 are directly supported by Document 1 and Document 3. The case records analysis in Part 2 is fully corroborated by Document 7, which explicitly confirms the 4/8 FIR linkage statistic and the absence of implementation details in the records."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims in Part 1 are directly supported by Document 1 and Document 3. The case records analysis in Part 2 is fully corroborated by Document 7, which explicitly confirms the 4/8 FIR linkage statistic and the absence of implementation details in the records.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB5",
+  "run": 1,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 21.2,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims in Part 1 are directly supported by Document 1 and Document 3. The case records analysis in Part 2 is fully corroborated by Document 7, which explicitly confirms the 4/8 FIR linkage statistic and the absence of implementation details in the records."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims in Part 1 are directly supported by Document 1 and Document 3. The case records analysis in Part 2 is fully corroborated by Document 7, which explicitly confirms the 4/8 FIR linkage statistic and the absence of implementation details in the records.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB5",
+  "run": 1,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 14.3,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims in Part 1 are directly supported by Document 1 and Document 3. The case records analysis in Part 2 is fully corroborated by Document 7, which explicitly confirms the 4/8 FIR linkage statistic and the absence of implementation details in the records."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims in Part 1 are directly supported by Document 1 and Document 3. The case records analysis in Part 2 is fully corroborated by Document 7, which explicitly confirms the 4/8 FIR linkage statistic and the absence of implementation details in the records.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB2",
+  "run": 1,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 18.5,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about Section 164, magistrate-recorded statements, and inadmissibility of police-recorded confessions are directly supported by Document 3 (Rule 25.28) and Document 4 (Section 164 and Evidence Act references)."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims about Section 164, magistrate-recorded statements, and inadmissibility of police-recorded confessions are directly supported by Document 3 (Rule 25.28) and Document 4 (Section 164 and Evidence Act references).",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB2",
+  "run": 1,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 16.7,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about Section 164, magistrate-recorded statements, and inadmissibility of police-recorded confessions are directly supported by Document 3 (Rule 25.28) and Document 4 (Section 164 and Evidence Act references)."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims about Section 164, magistrate-recorded statements, and inadmissibility of police-recorded confessions are directly supported by Document 3 (Rule 25.28) and Document 4 (Section 164 and Evidence Act references).",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB2",
+  "run": 1,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 18.0,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about Section 164, magistrate-recorded statements, and inadmissibility of police-recorded confessions are directly supported by Document 3 (Rule 25.28) and Document 4 (Section 164 and Evidence Act references)."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims about Section 164, magistrate-recorded statements, and inadmissibility of police-recorded confessions are directly supported by Document 3 (Rule 25.28) and Document 4 (Section 164 and Evidence Act references).",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB2",
+  "run": 1,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 13.0,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about Section 164, magistrate recordings, and inadmissibility of police statements are directly supported by Chunk 3 (Rule 25.28) and Chunk 4 (Section 164 requirements and Evidence Act references)."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims about Section 164, magistrate recordings, and inadmissibility of police statements are directly supported by Chunk 3 (Rule 25.28) and Chunk 4 (Section 164 requirements and Evidence Act references).",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB9",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 16.7,
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "The summary does not explicitly track whether inquest reports were completed for these cases — not stated in any chunk.",
+     "No field in the summary directly quantifies compliance with Rule 25.35’s requirements — not stated in any chunk."
+    ],
+    "reason": "Claims about the absence of compliance tracking fields and inquest report completion are not explicitly stated in any cited chunk."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": false,
+   "unsupported_claims": [
+    "The summary does not explicitly track whether inquest reports were completed for these cases — not stated in any chunk.",
+    "No field in the summary directly quantifies compliance with Rule 25.35’s requirements — not stated in any chunk."
+   ],
+   "reason": "Claims about the absence of compliance tracking fields and inquest report completion are not explicitly stated in any cited chunk.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB9",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 7.8,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Rule 25.35(2) requirements are explicitly stated in Document 1 and 3. Document 7 confirms 10 FIRs cite PPC §302 and lacks inquest report tracking data."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Rule 25.35(2) requirements are explicitly stated in Document 1 and 3. Document 7 confirms 10 FIRs cite PPC §302 and lacks inquest report tracking data.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB9",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 7.6,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Rule 25.35(2) requirements are explicitly stated in Document 1 and 3. Document 7 confirms 10 FIRs cite PPC §302 and lacks inquest report tracking data."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Rule 25.35(2) requirements are explicitly stated in Document 1 and 3. Document 7 confirms 10 FIRs cite PPC §302 and lacks inquest report tracking data.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB9",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 7.8,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Rule 25.35(2) requirements are explicitly stated in Document 1 and 3. Document 7 confirms 10 FIRs cite PPC §302 and lacks inquest report tracking data."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Rule 25.35(2) requirements are explicitly stated in Document 1 and 3. Document 7 confirms 10 FIRs cite PPC §302 and lacks inquest report tracking data.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB5",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 9.2,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about legal requirements (victim protections, trial procedures) are directly supported by chunks [2][3][4], and case records data (FIR linkage statistics) is explicitly stated in chunk [7]. The answer accurately notes absence of implementation data in case records."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims about legal requirements (victim protections, trial procedures) are directly supported by chunks [2][3][4], and case records data (FIR linkage statistics) is explicitly stated in chunk [7]. The answer accurately notes absence of implementation data in case records.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB5",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 8.4,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about legal requirements (victim protections, trial procedures) are directly supported by sections 5 and 8 in Documents 2 and 3. Case records data (FIR linkage statistics) is explicitly confirmed in Document 7. No unsupported claims or off-topic content detected."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims about legal requirements (victim protections, trial procedures) are directly supported by sections 5 and 8 in Documents 2 and 3. Case records data (FIR linkage statistics) is explicitly confirmed in Document 7. No unsupported claims or off-topic content detected.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB5",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 8.2,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about legal requirements (victim protections, trial procedures) are directly supported by sections 5 and 8 in Documents 2 and 3. Case records data (FIR linkage statistics) is explicitly confirmed in Document 7. No unsupported claims or off-topic content detected."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims about legal requirements (victim protections, trial procedures) are directly supported by sections 5 and 8 in Documents 2 and 3. Case records data (FIR linkage statistics) is explicitly confirmed in Document 7. No unsupported claims or off-topic content detected.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB5",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 8.4,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about legal requirements (victim protections, trial procedures) are directly supported by sections 5 and 8 in Documents 2 and 3. Case records data (FIR linkage statistics) is explicitly confirmed in Document 7. No unsupported claims or off-topic content detected."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims about legal requirements (victim protections, trial procedures) are directly supported by sections 5 and 8 in Documents 2 and 3. Case records data (FIR linkage statistics) is explicitly confirmed in Document 7. No unsupported claims or off-topic content detected.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB2",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 15.6,
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "Statements cannot be used directly as evidence without magistrate involvement — Document 1 does not mention magistrate involvement; its text only discusses unsigned statements and their limited use in evidence."
+    ],
+    "reason": "A claim citing Document 1 for magistrate involvement is unsupported, as Document 1's text does not address magistrate requirements."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": false,
+   "unsupported_claims": [
+    "Statements cannot be used directly as evidence without magistrate involvement — Document 1 does not mention magistrate involvement; its text only discusses unsigned statements and their limited use in evidence."
+   ],
+   "reason": "A claim citing Document 1 for magistrate involvement is unsupported, as Document 1's text does not address magistrate requirements.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB2",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 12.9,
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "Statements cannot be used directly as evidence without magistrate involvement — Document 1 does not mention magistrate involvement; this claim is supported in Documents 3 and 5, not 1."
+    ],
+    "reason": "One claim cites Document 1 for magistrate involvement, but Document 1 does not address this; the claim is supported in other chunks but incorrectly attributed."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": false,
+   "unsupported_claims": [
+    "Statements cannot be used directly as evidence without magistrate involvement — Document 1 does not mention magistrate involvement; this claim is supported in Documents 3 and 5, not 1."
+   ],
+   "reason": "One claim cites Document 1 for magistrate involvement, but Document 1 does not address this; the claim is supported in other chunks but incorrectly attributed.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB2",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 23.1,
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "Statements cannot be used directly as evidence without magistrate involvement — Document 1 does not mention magistrate involvement; this claim is supported in Documents 3 and 5, not 1."
+    ],
+    "reason": "One claim cites Document 1 for magistrate involvement, but Document 1 does not address this; the claim is supported in other chunks but incorrectly attributed."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": false,
+   "unsupported_claims": [
+    "Statements cannot be used directly as evidence without magistrate involvement — Document 1 does not mention magistrate involvement; this claim is supported in Documents 3 and 5, not 1."
+   ],
+   "reason": "One claim cites Document 1 for magistrate involvement, but Document 1 does not address this; the claim is supported in other chunks but incorrectly attributed.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [
+   "Schema-absence classifier: kind=other scope=None concept='legal rule about evidence admissibility' keywords=[] llm_matches=[] keyword_hits=None -> not_schema:other",
+   "Verifier [Module 151]: rejection stands — 'Statements cannot be used directly as evidence without magis': not_schema:other"
+  ],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB2",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 27.0,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about Sections 161, 164, and admissibility of evidence are directly supported by cited chunks. The procedural safeguard explanation aligns with legal requirements stated in the chunks."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims about Sections 161, 164, and admissibility of evidence are directly supported by cited chunks. The procedural safeguard explanation aligns with legal requirements stated in the chunks.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB9",
+  "run": 3,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 10.1,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All legal provisions in Part 1 are directly cited from chunks 1, 3, 4. Part 2's claims about FIRs citing PPC §302 and seized property data are explicitly stated in Document 6 (chunk 6). The answer accurately notes gaps in case records without overstating the evidence."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All legal provisions in Part 1 are directly cited from chunks 1, 3, 4. Part 2's claims about FIRs citing PPC §302 and seized property data are explicitly stated in Document 6 (chunk 6). The answer accurately notes gaps in case records without overstating the evidence.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB9",
+  "run": 3,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 10.4,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All legal citations (Rules 25.31, 25.35, Sections 174, 176(2)) are directly stated in the chunks. Case records summary (10 FIRs citing PPC §302, 13 items sent to forensic lab) is explicitly confirmed by Document 6. The absence of death investigation tracking in case records is validly inferred from Document 6's silence on the matter."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All legal citations (Rules 25.31, 25.35, Sections 174, 176(2)) are directly stated in the chunks. Case records summary (10 FIRs citing PPC §302, 13 items sent to forensic lab) is explicitly confirmed by Document 6. The absence of death investigation tracking in case records is validly inferred from Document 6's silence on the matter.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB9",
+  "run": 3,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 10.5,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All legal citations (Rules 25.31, 25.35, Sections 174, 176(2)) are directly stated in the chunks. Case records summary (10 FIRs citing PPC §302, 13 items sent to forensic lab) is explicitly confirmed by Document 6. The absence of death investigation tracking in case records is validly inferred from Document 6's silence on the matter."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All legal citations (Rules 25.31, 25.35, Sections 174, 176(2)) are directly stated in the chunks. Case records summary (10 FIRs citing PPC §302, 13 items sent to forensic lab) is explicitly confirmed by Document 6. The absence of death investigation tracking in case records is validly inferred from Document 6's silence on the matter.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB9",
+  "run": 3,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 10.8,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All legal citations (Rules 25.31, 25.35, Sections 174, 176(2)) are directly stated in the chunks. Case records summary (10 FIRs citing PPC §302, 13 items sent to forensic lab) is explicitly confirmed by Document 6. The absence of death investigation tracking in case records is validly inferred from Document 6's silence on the matter."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All legal citations (Rules 25.31, 25.35, Sections 174, 176(2)) are directly stated in the chunks. Case records summary (10 FIRs citing PPC §302, 13 items sent to forensic lab) is explicitly confirmed by Document 6. The absence of death investigation tracking in case records is validly inferred from Document 6's silence on the matter.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB5",
+  "run": 3,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 8.0,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal requirements are explicitly stated in Document 2, and case records data (Document 7) confirms FIR registration statistics without overstating implementation details."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal requirements are explicitly stated in Document 2, and case records data (Document 7) confirms FIR registration statistics without overstating implementation details.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB5",
+  "run": 3,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 7.3,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. The legal requirements are explicitly stated in Document 2, and the case records data in Document 7 confirms the FIR number statistics. The answer accurately notes the absence of implementation details in the data."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. The legal requirements are explicitly stated in Document 2, and the case records data in Document 7 confirms the FIR number statistics. The answer accurately notes the absence of implementation details in the data.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB5",
+  "run": 3,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 7.3,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. The legal requirements are explicitly stated in Document 2, and the case records data in Document 7 confirms the FIR number statistics. The answer accurately notes the absence of implementation details in the data."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. The legal requirements are explicitly stated in Document 2, and the case records data in Document 7 confirms the FIR number statistics. The answer accurately notes the absence of implementation details in the data.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB5",
+  "run": 3,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 7.5,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. The legal requirements are explicitly stated in Document 2, and the case records data in Document 7 confirms the FIR number statistics. The answer accurately notes the absence of implementation details in the data."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. The legal requirements are explicitly stated in Document 2, and the case records data in Document 7 confirms the FIR number statistics. The answer accurately notes the absence of implementation details in the data.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB2",
+  "run": 3,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 9.4,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. The answer accurately reflects that the documents do not explicitly mandate recording of police interviews, and each cited provision is correctly interpreted based on the chunks provided."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. The answer accurately reflects that the documents do not explicitly mandate recording of police interviews, and each cited provision is correctly interpreted based on the chunks provided.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB2",
+  "run": 3,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 8.8,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. The answer accurately reflects that the documents do not explicitly mandate recording of police interviews, and each cited provision (Sections 154, 3(3), Rule 22.50) is correctly interpreted as applying to formal reports/diaries rather than interviews."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. The answer accurately reflects that the documents do not explicitly mandate recording of police interviews, and each cited provision (Sections 154, 3(3), Rule 22.50) is correctly interpreted as applying to formal reports/diaries rather than interviews.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB2",
+  "run": 3,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 8.6,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. The answer accurately reflects that the documents do not explicitly mandate recording of police interviews, and each cited provision (Sections 154, 3(3), Rule 22.50) is correctly interpreted as applying to formal reports/diaries rather than interviews."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. The answer accurately reflects that the documents do not explicitly mandate recording of police interviews, and each cited provision (Sections 154, 3(3), Rule 22.50) is correctly interpreted as applying to formal reports/diaries rather than interviews.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_after.json",
+  "id": "KB2",
+  "run": 3,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 8.6,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. The answer accurately reflects that the documents do not explicitly mandate recording of police interviews, and each cited provision (Sections 154, 3(3), Rule 22.50) is correctly interpreted as applying to formal reports/diaries rather than interviews."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. The answer accurately reflects that the documents do not explicitly mandate recording of police interviews, and each cited provision (Sections 154, 3(3), Rule 22.50) is correctly interpreted as applying to formal reports/diaries rather than interviews.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB9-P1",
+  "run": 1,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 12.9,
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "Our records do not show a specific field or process for documenting such investigations — not stated in any cited chunk.",
+     "The records detail seized property but do not specify whether cause-of-death investigations were conducted — not stated in any cited chunk."
+    ],
+    "reason": "Claims about the absence of documentation fields and lack of cause-of-death investigations in case records are not supported by any chunk, as chunks only list FIRs and seized property disposition, not record structure or investigation completeness."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": false,
+   "unsupported_claims": [
+    "Our records do not show a specific field or process for documenting such investigations — not stated in any cited chunk.",
+    "The records detail seized property but do not specify whether cause-of-death investigations were conducted — not stated in any cited chunk."
+   ],
+   "reason": "Claims about the absence of documentation fields and lack of cause-of-death investigations in case records are not supported by any chunk, as chunks only list FIRs and seized property disposition, not record structure or investigation completeness.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB9-P1",
+  "run": 1,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 11.5,
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "Section 551 of the Code of Criminal Procedure is cited as mandating investigations into sudden/unnatural deaths — no mention of Section 551 appears in any chunk.",
+     "Our records do not show a specific field or process for documenting cause-of-death investigations — no chunk discusses the structure or absence of such fields in case records."
+    ],
+    "reason": "Two claims lack direct support in the provided chunks: (1) Section 551's role is not mentioned in any cited text, and (2) the absence of a dedicated field for cause-of-death documentation is not stated in any chunk."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": false,
+   "unsupported_claims": [
+    "Section 551 of the Code of Criminal Procedure is cited as mandating investigations into sudden/unnatural deaths — no mention of Section 551 appears in any chunk.",
+    "Our records do not show a specific field or process for documenting cause-of-death investigations — no chunk discusses the structure or absence of such fields in case records."
+   ],
+   "reason": "Two claims lack direct support in the provided chunks: (1) Section 551's role is not mentioned in any cited text, and (2) the absence of a dedicated field for cause-of-death documentation is not stated in any chunk.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB9-P1",
+  "run": 1,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 24.3,
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "Section 551 of the Code of Criminal Procedure is cited as mandating investigations into sudden/unnatural deaths — no mention of Section 551 appears in any chunk.",
+     "Our records do not show a specific field or process for documenting cause-of-death investigations — no chunk discusses the structure or absence of such fields in case records."
+    ],
+    "reason": "Two claims lack direct support in the provided chunks: (1) Section 551's role is not mentioned in any cited text, and (2) the absence of a dedicated field for cause-of-death documentation is not stated in any chunk."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": false,
+   "unsupported_claims": [
+    "Section 551 of the Code of Criminal Procedure is cited as mandating investigations into sudden/unnatural deaths — no mention of Section 551 appears in any chunk.",
+    "Our records do not show a specific field or process for documenting cause-of-death investigations — no chunk discusses the structure or absence of such fields in case records."
+   ],
+   "reason": "Two claims lack direct support in the provided chunks: (1) Section 551's role is not mentioned in any cited text, and (2) the absence of a dedicated field for cause-of-death documentation is not stated in any chunk.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [
+   "Schema-absence classifier: kind=other scope=None concept='invented legal section number' keywords=[] llm_matches=[] keyword_hits=None -> not_schema:other",
+   "Schema-absence classifier: kind=schema_absence scope=any concept='cause-of-death investigation documentation' keywords=['cause_of_death', 'inquest', 'autopsy', 'postmortem', 'death'] llm_matches=[] keyword_hits=[] -> confirmed_absent",
+   "Verifier [Module 151]: rejection stands — 'Section 551 of the Code of Criminal Procedure is cited as ma': not_schema:other; 'Our records do not show a specific field or process for docu': confirmed_absent"
+  ],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB9-P1",
+  "run": 1,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 10.4,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Sections 174, 176, and 551 are referenced in Documents 1, 3, and 7. Document 8 confirms 10 FIRs citing PPC §302. The absence of dedicated cause-of-death documentation fields is consistent with the lack of such entries in the cited chunks."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Sections 174, 176, and 551 are referenced in Documents 1, 3, and 7. Document 8 confirms 10 FIRs citing PPC §302. The absence of dedicated cause-of-death documentation fields is consistent with the lack of such entries in the cited chunks.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB5-P1",
+  "run": 1,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 13.6,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal requirements (e.g., FIR registration, female officer presence, evidence handling) are stated in Document 3. Case records analysis (e.g., forwarded FIR numbers, absence of female officer data, missing evidence details) are confirmed by Document 8."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal requirements (e.g., FIR registration, female officer presence, evidence handling) are stated in Document 3. Case records analysis (e.g., forwarded FIR numbers, absence of female officer data, missing evidence details) are confirmed by Document 8.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB5-P1",
+  "run": 1,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 102.6,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. The legal requirements (Part 1) are sourced from Document 3 (duties of officer-in-charge) and Document 5 (Act definition). Case records analysis (Part 2) is validated by Document 8 (FIR registration data) and Document 7 (forensic tools list). The absence of documentation for female officers, evidence protocols, and ARCC liaison is explicitly confirmed by the chunks' silence on these matters."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. The legal requirements (Part 1) are sourced from Document 3 (duties of officer-in-charge) and Document 5 (Act definition). Case records analysis (Part 2) is validated by Document 8 (FIR registration data) and Document 7 (forensic tools list). The absence of documentation for female officers, evidence protocols, and ARCC liaison is explicitly confirmed by the chunks' silence on these matters.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "cloud"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB5-P1",
+  "run": 1,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 8.8,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal requirements (Documents 3 and 5) and case records analysis (Document 8) align with chunk content."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal requirements (Documents 3 and 5) and case records analysis (Document 8) align with chunk content.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB5-P1",
+  "run": 1,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 11.9,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal requirements (e.g., FIR registration, female officer presence, evidence handling) are stated in Document 3. Case records analysis (e.g., forwarded FIR numbers, absence of female officer data, missing evidence details) are confirmed by Document 8."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal requirements (e.g., FIR registration, female officer presence, evidence handling) are stated in Document 3. Case records analysis (e.g., forwarded FIR numbers, absence of female officer data, missing evidence details) are confirmed by Document 8.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB2-P1",
+  "run": 1,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 7.3,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks: Document 2 covers victim statement requirements, Document 3 confirms witness statements are recorded, and Document 5 provides an example of a documented witness statement."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks: Document 2 covers victim statement requirements, Document 3 confirms witness statements are recorded, and Document 5 provides an example of a documented witness statement.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB2-P1",
+  "run": 1,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 6.9,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks: Document 2 covers victim statement requirements, Document 3 confirms witness statements are recorded, and Document 5 provides an example of a documented witness statement."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks: Document 2 covers victim statement requirements, Document 3 confirms witness statements are recorded, and Document 5 provides an example of a documented witness statement.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB2-P1",
+  "run": 1,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 7.2,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks: Document 2 covers victim statement requirements, Document 3 confirms witness statements are recorded, and Document 5 provides an example of a documented witness statement."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks: Document 2 covers victim statement requirements, Document 3 confirms witness statements are recorded, and Document 5 provides an example of a documented witness statement.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB2-P1",
+  "run": 1,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 6.9,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks: Document 2 covers victim statement requirements, Document 3 confirms witness statements are recorded, and Document 5 provides an example of a documented witness statement."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks: Document 2 covers victim statement requirements, Document 3 confirms witness statements are recorded, and Document 5 provides an example of a documented witness statement.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB2-RU",
+  "run": 1,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 6.8,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal restrictions (Document 1), magistrate-recorded statements (Document 3), non-signature requirements (Document 1), and police diary purpose (Document 4) are explicitly stated in the chunks."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal restrictions (Document 1), magistrate-recorded statements (Document 3), non-signature requirements (Document 1), and police diary purpose (Document 4) are explicitly stated in the chunks.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB2-RU",
+  "run": 1,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 6.6,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal restrictions (Document 1), magistrate-recorded statements (Document 3), non-signature requirements (Document 1), and police diary purpose (Document 4) are explicitly stated in the chunks."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal restrictions (Document 1), magistrate-recorded statements (Document 3), non-signature requirements (Document 1), and police diary purpose (Document 4) are explicitly stated in the chunks.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB2-RU",
+  "run": 1,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 6.4,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal restrictions (Document 1), magistrate-recorded statements (Document 3), non-signature requirements (Document 1), and police diary purpose (Document 4) are explicitly stated in the chunks."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal restrictions (Document 1), magistrate-recorded statements (Document 3), non-signature requirements (Document 1), and police diary purpose (Document 4) are explicitly stated in the chunks.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB2-RU",
+  "run": 1,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 6.3,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal restrictions (Document 1), magistrate-recorded statements (Document 3), non-signature requirements (Document 1), and police diary purpose (Document 4) are explicitly stated in the chunks."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal restrictions (Document 1), magistrate-recorded statements (Document 3), non-signature requirements (Document 1), and police diary purpose (Document 4) are explicitly stated in the chunks.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB9-P1",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 9.7,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about Sections 174/176 (Documents 1, 3) and the absence of death-investigation tracking (Document 8) are directly supported by cited chunks."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims about Sections 174/176 (Documents 1, 3) and the absence of death-investigation tracking (Document 8) are directly supported by cited chunks.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB9-P1",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 12.7,
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "Existence of Death-Related Cases: Yes, our records include FIRs involving death (e.g., 10 FIRs cite PPC §302 for murder, and others involve deaths under Section 174/176 contexts implicitly, such as 'sudden or unnatural death' in FIRs like fir-202-26 etc. (Document 8))"
+    ],
+    "reason": "The claim about FIRs involving deaths under Section 174/176 contexts is not explicitly supported by Document 8, which only lists sections cited in FIRs (e.g., PPC §302) without confirming they fall under Sections 174/176."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": false,
+   "unsupported_claims": [
+    "Existence of Death-Related Cases: Yes, our records include FIRs involving death (e.g., 10 FIRs cite PPC §302 for murder, and others involve deaths under Section 174/176 contexts implicitly, such as 'sudden or unnatural death' in FIRs like fir-202-26 etc. (Document 8))"
+   ],
+   "reason": "The claim about FIRs involving deaths under Section 174/176 contexts is not explicitly supported by Document 8, which only lists sections cited in FIRs (e.g., PPC §302) without confirming they fall under Sections 174/176.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB9-P1",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 100.5,
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "Existence of Death-Related Cases: Yes, our records include FIRs involving death (e.g., 10 FIRs cite PPC §302 for murder, and others involve deaths under Section 174/176 contexts implicitly, such as 'sudden or unnatural death' in FIRs like fir-202-26 etc. (Document 8))"
+    ],
+    "reason": "The claim about FIRs involving deaths under Section 174/176 contexts is not explicitly supported by Document 8, which only lists sections cited in FIRs (e.g., PPC §302) without confirming they fall under Sections 174/176."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": false,
+   "unsupported_claims": [
+    "Existence of Death-Related Cases: Yes, our records include FIRs involving death (e.g., 10 FIRs cite PPC §302 for murder, and others involve deaths under Section 174/176 contexts implicitly, such as 'sudden or unnatural death' in FIRs like fir-202-26 etc. (Document 8))"
+   ],
+   "reason": "The claim about FIRs involving deaths under Section 174/176 contexts is not explicitly supported by Document 8, which only lists sections cited in FIRs (e.g., PPC §302) without confirming they fall under Sections 174/176.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [
+   "Schema-absence classifier: kind=data_absence scope=None concept='no specific fields for death investigations under Sections 174/176' keywords=[] llm_matches=[] keyword_hits=None -> not_schema:data_absence",
+   "Verifier [Module 151]: rejection stands — 'Existence of Death-Related Cases: Yes, our records include F': not_schema:data_absence"
+  ],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB9-P1",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 36.2,
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "Our records do not explicitly track whether investigations under Section 174 or 176 were conducted — not stated in any chunk.",
+     "The data focuses on charges (e.g., PPC §302) and seized property disposition, not investigative processes — not stated in any chunk.",
+     "Our records lack a dedicated field to document compliance with these procedures — not stated in any chunk."
+    ],
+    "reason": "Claims about the absence of specific data fields in case records and the lack of tracking for Sections 174/176 investigations are not supported by any cited chunk."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "Supported: the only claims flagged state that our records hold no field for investigation under Section 174/176 (scope: any); investigative processes (scope: any); compliance with procedures (scope: any); the platform's record inventory (declared+graph, 27 record families, 400 fields) confirms no such field exists.",
+   "schema_absence_grounded": true,
+   "schema_absence_claims": [
+    {
+     "claim": "Our records do not explicitly track whether investigations under Section 174 or 176 were conducted — not stated in any chunk.",
+     "scope": "any",
+     "concept": "investigation under Section 174/176",
+     "field_keywords": [
+      "section174",
+      "section176",
+      "investigation",
+      "inquest",
+      "magistrate"
+     ]
+    },
+    {
+     "claim": "The data focuses on charges (e.g., PPC §302) and seized property disposition, not investigative processes — not stated in any chunk.",
+     "scope": "any",
+     "concept": "investigative processes",
+     "field_keywords": [
+      "investigation",
+      "process",
+      "procedure",
+      "inquest",
+      "magistrate"
+     ]
+    },
+    {
+     "claim": "Our records lack a dedicated field to document compliance with these procedures — not stated in any chunk.",
+     "scope": "any",
+     "concept": "compliance with procedures",
+     "field_keywords": [
+      "compliance",
+      "procedure",
+      "adherence",
+      "magistrate",
+      "inquest"
+     ]
+    }
+   ],
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [
+   "Schema-absence classifier: kind=schema_absence scope=any concept='investigation under Section 174/176' keywords=['section174', 'section176', 'investigation', 'inquest', 'magistrate'] llm_matches=[] keyword_hits=[] -> confirmed_absent",
+   "Schema-absence classifier: kind=schema_absence scope=any concept='investigative processes' keywords=['investigation', 'process', 'procedure', 'inquest', 'magistrate'] llm_matches=[] keyword_hits=[] -> confirmed_absent",
+   "Schema-absence classifier: kind=schema_absence scope=any concept='compliance with procedures' keywords=['compliance', 'procedure', 'adherence', 'magistrate', 'inquest'] llm_matches=[] keyword_hits=[] -> confirmed_absent",
+   "Verifier [Module 151]: overturning rejection — every flagged claim states that our records have no field for something, and the record inventory (declared+graph: 27 families, 400 fields) confirms no such field exists. Claims: investigation under Section 174/176 (scope: any); investigative processes (scope: any); compliance with procedures (scope: any)"
+  ],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB5-P1",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 16.3,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal requirements (e.g., SSOIU, FIRs, confidentiality) are stated in Documents 2, 3, 4, 5. Case records analysis (e.g., 4/8 reports with FIR linkage) is confirmed in Document 7. Absences (e.g., no surveillance records, no special teams mentioned) are valid negative claims based on Document 7's limited content."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal requirements (e.g., SSOIU, FIRs, confidentiality) are stated in Documents 2, 3, 4, 5. Case records analysis (e.g., 4/8 reports with FIR linkage) is confirmed in Document 7. Absences (e.g., no surveillance records, no special teams mentioned) are valid negative claims based on Document 7's limited content.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB5-P1",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 9.5,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal requirements (e.g., SSOIU, FIRs, confidentiality) are stated in Documents 2, 3, 4, 5. Case records analysis (FIR linkage, missing registers) is confirmed by Document 7 and aligned with Document 2/5 requirements."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal requirements (e.g., SSOIU, FIRs, confidentiality) are stated in Documents 2, 3, 4, 5. Case records analysis (FIR linkage, missing registers) is confirmed by Document 7 and aligned with Document 2/5 requirements.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB5-P1",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 10.0,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal requirements (e.g., SSOIU, FIRs, confidentiality) are stated in Documents 2, 3, 4, 5. Case records analysis (FIR linkage, missing registers) is confirmed by Document 7 and aligned with Document 2/5 requirements."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal requirements (e.g., SSOIU, FIRs, confidentiality) are stated in Documents 2, 3, 4, 5. Case records analysis (FIR linkage, missing registers) is confirmed by Document 7 and aligned with Document 2/5 requirements.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB5-P1",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 9.7,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal requirements (e.g., SSOIU, FIRs, confidentiality) are stated in Documents 2, 3, 4, 5. Case records analysis (FIR linkage, missing registers) is confirmed by Document 7 and aligned with Document 2/5 requirements."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal requirements (e.g., SSOIU, FIRs, confidentiality) are stated in Documents 2, 3, 4, 5. Case records analysis (FIR linkage, missing registers) is confirmed by Document 7 and aligned with Document 2/5 requirements.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB2-P1",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 10.6,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about witness statements being captured in FIR narratives are directly supported by Document 1 (explicit mention of written witness statements), Document 4 (detailed witness narrative), and Document 5 (another witness account). The recommendation to capture statements in FIR narratives is a logical inference from the evidence, not a factual claim."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims about witness statements being captured in FIR narratives are directly supported by Document 1 (explicit mention of written witness statements), Document 4 (detailed witness narrative), and Document 5 (another witness account). The recommendation to capture statements in FIR narratives is a logical inference from the evidence, not a factual claim.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB2-P1",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 9.8,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about witness statements being captured in FIR narratives are directly supported by Document 1 (explicit mention of written witness statements), Document 4 (detailed witness narrative), and Document 5 (another witness account). The recommendation to capture statements in FIR narratives is implied by the examples, not contradicted by any chunk."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims about witness statements being captured in FIR narratives are directly supported by Document 1 (explicit mention of written witness statements), Document 4 (detailed witness narrative), and Document 5 (another witness account). The recommendation to capture statements in FIR narratives is implied by the examples, not contradicted by any chunk.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB2-P1",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 10.5,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about witness statements being captured in FIR narratives are directly supported by Document 1 (explicit mention of written witness statements), Document 4 (detailed witness narrative), and Document 5 (another witness account). The recommendation to capture statements in FIR narratives is implied by the examples, not contradicted by any chunk."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims about witness statements being captured in FIR narratives are directly supported by Document 1 (explicit mention of written witness statements), Document 4 (detailed witness narrative), and Document 5 (another witness account). The recommendation to capture statements in FIR narratives is implied by the examples, not contradicted by any chunk.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB2-P1",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 10.7,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims about witness statements being captured in FIR narratives are directly supported by Document 1 (explicit mention of written witness statements), Document 4 (detailed witness narrative), and Document 5 (another witness account). The recommendation to capture statements in FIR narratives is implied by the examples, not contradicted by any chunk."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims about witness statements being captured in FIR narratives are directly supported by Document 1 (explicit mention of written witness statements), Document 4 (detailed witness narrative), and Document 5 (another witness account). The recommendation to capture statements in FIR narratives is implied by the examples, not contradicted by any chunk.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB2-RU",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 1,
+  "secs": 11.0,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal restrictions on admissibility (Document 1), magistrate recording requirements (Document 3, Rule 25.28), and police diary inaccessibility (Document 4) are explicitly stated in the chunks. The conclusion about legal design over technical infrastructure is validly inferred from the absence of data storage discussions in the evidence."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal restrictions on admissibility (Document 1), magistrate recording requirements (Document 3, Rule 25.28), and police diary inaccessibility (Document 4) are explicitly stated in the chunks. The conclusion about legal design over technical infrastructure is validly inferred from the absence of data storage discussions in the evidence.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB2-RU",
+  "run": 2,
+  "call_index": 0,
+  "flag": false,
+  "replay": 2,
+  "secs": 13.7,
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "Reference to 'Document 3, Rule 25.28' — Rule 25.28 is in Document 5 (chunk 5), not Document 3 (chunk 3)."
+    ],
+    "reason": "The answer incorrectly cites Rule 25.28 as being in Document 3, but it is actually located in chunk 5 (Document 5). This misattribution creates an unsupported claim."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": false,
+   "unsupported_claims": [
+    "Reference to 'Document 3, Rule 25.28' — Rule 25.28 is in Document 5 (chunk 5), not Document 3 (chunk 3)."
+   ],
+   "reason": "The answer incorrectly cites Rule 25.28 as being in Document 3, but it is actually located in chunk 5 (Document 5). This misattribution creates an unsupported claim.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB2-RU",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 1,
+  "secs": 22.1,
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "Reference to 'Document 3, Rule 25.28' — Rule 25.28 is in Document 5 (chunk 5), not Document 3 (chunk 3)."
+    ],
+    "reason": "The answer incorrectly cites Rule 25.28 as being in Document 3, but it is actually located in chunk 5 (Document 5). This misattribution creates an unsupported claim."
+   }
+  ],
+  "final": {
+   "grounded": false,
+   "off_topic": false,
+   "unsupported_claims": [
+    "Reference to 'Document 3, Rule 25.28' — Rule 25.28 is in Document 5 (chunk 5), not Document 3 (chunk 3)."
+   ],
+   "reason": "The answer incorrectly cites Rule 25.28 as being in Document 3, but it is actually located in chunk 5 (Document 5). This misattribution creates an unsupported claim.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [
+   "Schema-absence classifier: kind=other scope=None concept='misattributed legal rule reference' keywords=[] llm_matches=[] keyword_hits=None -> not_schema:other",
+   "Verifier [Module 151]: rejection stands — \"Reference to 'Document 3, Rule 25.28' — Rule 25.28 is in Doc\": not_schema:other"
+  ],
+  "generation": "local"
+ },
+ {
+  "source_file": "module151_varm_para_after.json",
+  "id": "KB2-RU",
+  "run": 2,
+  "call_index": 0,
+  "flag": true,
+  "replay": 2,
+  "secs": 12.9,
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal restrictions on admissibility (Document 1), magistrate recording requirements (Document 3, Rule 25.28), and police diary confidentiality (Document 4) are explicitly stated in the chunks. The conclusion about legal design vs. technical infrastructure is valid as no technical storage details appear in the chunks."
+   }
+  ],
+  "final": {
+   "grounded": true,
+   "off_topic": false,
+   "unsupported_claims": [],
+   "reason": "All claims are directly supported by cited chunks. Legal restrictions on admissibility (Document 1), magistrate recording requirements (Document 3, Rule 25.28), and police diary confidentiality (Document 4) are explicitly stated in the chunks. The conclusion about legal design vs. technical infrastructure is valid as no technical storage details appear in the chunks.",
+   "schema_absence_grounded": null,
+   "schema_absence_claims": null,
+   "exhaustive_negative_override": null,
+   "citation_format_degraded": null
+  },
+  "module151_lines": [],
+  "generation": "local"
+ }
+]

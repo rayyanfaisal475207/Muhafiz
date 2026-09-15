@@ -1962,3 +1962,375 @@ def test_module70_only_the_headline_line_is_covered_not_every_rendered_row():
 def test_module70_headline_line_skips_leading_blank_lines():
     assert _headline_line("\n\n  9 of 73 FIRs.\n- row\n") == "9 of 73 FIRs."
     assert _headline_line("") == ""
+
+
+# ============================================================
+# [Gold-QA fix — Module 151] GROUNDING AN ABSENCE AGAINST THE RECORD INVENTORY
+#
+# The judge is stubbed to REJECT with the flagged claims each test names;
+# the schema-claim classifier is stubbed with the classification a test
+# needs (its real behaviour is measured separately, on a held-out set, by
+# scripts/module151_classifier_offline.py); the inventory is the declared
+# one (no graph). What is under test is the verifier's own logic: which
+# rejections it overturns, which it must never overturn.
+# ============================================================
+
+from src.pipeline import schema_claims as _m151_sc
+from src.pipeline import schema_inventory as _m151_si
+from src.pipeline.verifier import SCHEMA_ABSENCE_GROUNDED_KEY
+
+
+def _m151_chunks():
+    return [
+        {"id": "cr-pc-35", "text": "174. Police to inquire and report on suicide, etc.",
+         "metadata": {"source": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf"}},
+        {"id": "kb-data-half:death_investigation_charging",
+         "text": "10 of 73 FIRs cite PPC §302.",
+         "metadata": {"source": "our own case records (cross-case aggregate)", "source_tool": "XAGG"}},
+    ]
+
+
+_M151_KB9_ANSWER = (
+    "CrPC s.174 requires the officer in charge to inquire into a suspicious death "
+    "[Document 1]. Our data shows 10 FIRs cite PPC 302 [Document 2]. However, the "
+    "schema holds no inquest, post-mortem or cause-of-death record anywhere."
+)
+
+_M151_KB9_FLAGGED = (
+    "The claim that the schema holds no inquest or post-mortem record is "
+    "unsupported — chunks only provide legal rules and FIR statistics."
+)
+
+
+def _m151_setup(monkeypatch, judge_claims, classification, *, enabled=True):
+    """Stub judge, inventory and classifier; return a call recorder."""
+    import src.pipeline.verifier as vmod
+    from src import config
+
+    monkeypatch.setattr(config, "SCHEMA_ABSENCE_GROUNDING_ENABLED", enabled)
+    monkeypatch.setattr(vmod, "call_llm", _rejecting_llm(judge_claims))
+
+    async def fake_inventory(**kwargs):
+        return _m151_si.declared_inventory()
+
+    calls = {"classifier": 0}
+
+    async def fake_classify(answer, flagged, inventory):
+        calls["classifier"] += 1
+        if classification is None:
+            return None
+        return [
+            _m151_sc.ClassifiedClaim(
+                claim=c, kind=spec["kind"], scope=spec.get("scope"),
+                concept=spec.get("concept", ""),
+                field_keywords=list(spec.get("keywords", [])),
+                matching_fields=list(spec.get("matching", [])),
+                answer_sentence=spec.get("sentence", ""),
+            )
+            for c, spec in zip(flagged, classification)
+        ]
+
+    monkeypatch.setattr(vmod._schema_inventory, "live_inventory", fake_inventory)
+    monkeypatch.setattr(vmod._schema_claims, "classify_flagged_claims", fake_classify)
+    return calls
+
+
+# ── (a) a CONFIRMED schema absence is grounded ─────────────────────────────
+
+@pytest.mark.asyncio
+async def test_module151_a_confirmed_schema_absence_is_grounded(monkeypatch):
+    """KB9's live rejection: the judge flags 'case records lacking data on
+    inquest report compliance'; the inventory holds no inquest / post-mortem
+    field or family; the answer is served, and never silently."""
+    calls = _m151_setup(
+        monkeypatch, [_M151_KB9_FLAGGED],
+        [{"kind": "schema_absence", "scope": "any", "concept": "inquest / post-mortem record",
+          "keywords": ["inquest", "postmortem", "autopsy", "cause_of_death"],
+          "sentence": "the schema holds no inquest, post-mortem or cause-of-death record anywhere."}],
+    )
+    result = await verify_grounding(_M151_KB9_ANSWER, _m151_chunks(), case_id=None)
+    assert result["grounded"] is True
+    assert result["unsupported_claims"] == []
+    assert result[SCHEMA_ABSENCE_GROUNDED_KEY] is True
+    assert result["schema_absence_claims"][0]["scope"] == "any"
+    assert "record inventory" in result["reason"]
+    assert calls["classifier"] == 1
+
+
+@pytest.mark.asyncio
+async def test_module151_a_scoped_schema_absence_is_grounded(monkeypatch):
+    """KB5's shape: 'no field for chain of custody' scoped to the
+    women-violence report family. custody_classification exists on the
+    challan and custody_position on the accused — neither is in scope."""
+    _m151_setup(
+        monkeypatch,
+        ["Claims about missing data fields in the women-violence report records are not supported."],
+        [{"kind": "schema_absence", "scope": "women_violence_report",
+          "concept": "chain of custody maintained", "keywords": ["custody", "chain", "handover"],
+          "sentence": "there is no field for whether chain of custody was maintained."}],
+    )
+    result = await verify_grounding(
+        "Rule 3(2) requires a woman officer and chain of custody [Document 1]. Our "
+        "women-violence reports record the assigned IO [Document 2], but there is no "
+        "field for whether chain of custody was maintained.",
+        _m151_chunks(), case_id=None,
+    )
+    assert result["grounded"] is True
+    assert result[SCHEMA_ABSENCE_GROUNDED_KEY] is True
+
+
+# ── (b) a REFUTED schema absence stays rejected ────────────────────────────
+
+@pytest.mark.asyncio
+async def test_module151_a_refuted_schema_absence_is_still_rejected(monkeypatch):
+    """'The accused records do not capture age' — fir_accused.age exists."""
+    _m151_setup(
+        monkeypatch, ["The claim that accused records do not capture the accused's age is unsupported."],
+        [{"kind": "schema_absence", "scope": "fir_accused", "concept": "age", "keywords": ["age", "dob"]}],
+    )
+    result = await verify_grounding(
+        "Our accused records hold no field for the accused's age [Document 2].",
+        _m151_chunks(), case_id=None,
+    )
+    assert result["grounded"] is False
+    assert SCHEMA_ABSENCE_GROUNDED_KEY not in result
+    assert result["unsupported_claims"]
+
+
+@pytest.mark.asyncio
+async def test_module151_the_same_custody_claim_unscoped_is_refuted(monkeypatch):
+    """The scope is load-bearing: 'nowhere in the system is custody
+    recorded' is FALSE (custody_classification, custody_position) and is
+    rejected even though the scoped KB5 claim above is grounded."""
+    _m151_setup(
+        monkeypatch, ["The claim that nowhere in the system is custody recorded is unsupported."],
+        [{"kind": "schema_absence", "scope": "any", "concept": "custody", "keywords": ["custody"]}],
+    )
+    result = await verify_grounding(
+        "Nowhere in our system is custody recorded at all [Document 2].",
+        _m151_chunks(), case_id=None,
+    )
+    assert result["grounded"] is False
+    assert SCHEMA_ABSENCE_GROUNDED_KEY not in result
+
+
+@pytest.mark.asyncio
+async def test_module151_the_classifier_naming_an_existing_field_refutes(monkeypatch):
+    """Second reader: even with keywords that miss, a classifier that names
+    an existing field (fir_accused.age) refutes the claim."""
+    _m151_setup(
+        monkeypatch, ["The claim that accused records do not capture how old the accused is is unsupported."],
+        [{"kind": "schema_absence", "scope": "fir_accused", "concept": "age",
+          "keywords": ["birthyear"], "matching": ["fir_accused.age"]}],
+    )
+    result = await verify_grounding(
+        "Our accused records hold no field for how old the accused is [Document 2].",
+        _m151_chunks(), case_id=None,
+    )
+    assert result["grounded"] is False
+
+
+# ── (c) a fabricated DATA negative stays rejected ──────────────────────────
+
+_M151_CR3_FABRICATED_NEGATIVE = (
+    "The claim that fir-64-26 does not appear in the walk-in-complaint linkage list "
+    "is unsupported, as Document 3 does not mention fir-64-26."
+)
+
+
+@pytest.mark.asyncio
+async def test_module151_a_fabricated_data_negative_is_still_rejected(monkeypatch):
+    """Module 82 §4c's live catch, verbatim: CR3 run 2's fabricated negative.
+    A data negative is never this block's business."""
+    _m151_setup(
+        monkeypatch, [_M151_CR3_FABRICATED_NEGATIVE],
+        [{"kind": "data_absence", "concept": "fir-64-26 absent from the CMS linkage listing"}],
+    )
+    result = await verify_grounding(
+        "FIR 64/26 has no linked walk-in complaint — it does not appear in the CMS "
+        "linkage list [Document 1].",
+        _m151_chunks(), case_id="cross_case",
+    )
+    assert result["grounded"] is False
+    assert SCHEMA_ABSENCE_GROUNDED_KEY not in result
+    assert result.get("exhaustive_negative_override") is not True
+
+
+@pytest.mark.asyncio
+async def test_module151_a_misclassified_data_negative_is_caught_by_the_inventory(monkeypatch):
+    """Defence in depth: if the classifier ever mislabels 'no FIR mentions
+    weapons' as a schema absence, the inventory's own weapon_register family
+    refutes it. 30 FIRs do carry a weapon entry; the claim is false either way."""
+    _m151_setup(
+        monkeypatch, ["The claim that no FIR mentions a weapon is unsupported."],
+        [{"kind": "schema_absence", "scope": "any", "concept": "weapons", "keywords": ["weapon", "firearm"]}],
+    )
+    result = await verify_grounding(
+        "No FIR in our records mentions a weapon at all [Document 2].",
+        _m151_chunks(), case_id=None,
+    )
+    assert result["grounded"] is False
+    assert SCHEMA_ABSENCE_GROUNDED_KEY not in result
+
+
+@pytest.mark.asyncio
+async def test_module151_an_event_negative_mislabelled_schema_is_still_rejected(monkeypatch):
+    """The sentence guard: 'the chain of custody was not maintained' has no
+    field to refute it, so a classifier that calls it a schema absence is the
+    only thing that could wave it through — and the guard stops it."""
+    sent = "In none of the 8 women-violence cases was the chain of custody maintained [Document 2]."
+    _m151_setup(
+        monkeypatch, ["The claim that the chain of custody was not maintained in any of the 8 cases is unsupported."],
+        [{"kind": "schema_absence", "scope": "women_violence_report", "keywords": ["custody", "chain"],
+          "sentence": sent}],
+    )
+    result = await verify_grounding("Rule 3(2) requires it [Document 1]. " + sent, _m151_chunks(), case_id=None)
+    assert result["grounded"] is False
+    assert SCHEMA_ABSENCE_GROUNDED_KEY not in result
+
+
+@pytest.mark.asyncio
+async def test_module151_a_positive_claim_mislabelled_schema_is_still_rejected(monkeypatch):
+    sent = "Our weapon register records the packaging and photographs of each weapon [Document 2]."
+    _m151_setup(
+        monkeypatch, ["The assertion that our weapon register records packaging and photographs is unsupported."],
+        [{"kind": "schema_absence", "scope": "weapon_register", "keywords": ["packaging", "photograph"],
+          "sentence": sent}],
+    )
+    result = await verify_grounding(sent, _m151_chunks(), case_id=None)
+    assert result["grounded"] is False
+    assert SCHEMA_ABSENCE_GROUNDED_KEY not in result
+
+
+# ── (d) a POSITIVE schema claim is never auto-grounded ────────────────────
+
+@pytest.mark.asyncio
+async def test_module151_a_positive_schema_claim_is_not_grounded_by_the_inventory(monkeypatch):
+    """KB2's drift: 'the system does maintain records of interview
+    statements'. The inventory could only ever say a field exists, never
+    that it holds data — so a positive is left to the judge, who rejected."""
+    _m151_setup(
+        monkeypatch,
+        ["The claim that the system does maintain records of statements made during police interviews is not in any chunk."],
+        [{"kind": "schema_presence", "concept": "interview statements are recorded"}],
+    )
+    result = await verify_grounding(
+        "The system does maintain records of statements made during police interviews "
+        "[Document 1].",
+        _m151_chunks(), case_id=None,
+    )
+    assert result["grounded"] is False
+    assert SCHEMA_ABSENCE_GROUNDED_KEY not in result
+
+
+# ── (e) mixed, failed, disabled, pre-check and off-topic cases ────────────
+
+@pytest.mark.asyncio
+async def test_module151_a_mixed_rejection_is_not_overturned(monkeypatch):
+    """One confirmed schema absence plus one invented rule number: the
+    rejection stands in full."""
+    _m151_setup(
+        monkeypatch,
+        [_M151_KB9_FLAGGED, "Rule 27.41(3) appears in no cited chunk."],
+        [{"kind": "schema_absence", "scope": "any", "keywords": ["inquest", "postmortem"]},
+         {"kind": "other", "concept": "invented rule number"}],
+    )
+    result = await verify_grounding(
+        _M151_KB9_ANSWER + " Rule 27.41(3) requires it [Document 1].",
+        _m151_chunks(), case_id=None,
+    )
+    assert result["grounded"] is False
+    assert SCHEMA_ABSENCE_GROUNDED_KEY not in result
+    assert len(result["unsupported_claims"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_module151_module82_forced_hallucination_shape_is_still_rejected(monkeypatch):
+    """Module 82 §4c's control, all four fabrications, classified as the
+    classifier would: none is a schema absence, so nothing is overturned."""
+    _m151_setup(
+        monkeypatch,
+        ["Rule 27.41(3) appears in no cited chunk.",
+         "The seven-year destruction period is not stated in any chunk.",
+         "FIR 512/26 is not in any cited chunk.",
+         "The 'fully compliant' conclusion is not supported."],
+        [{"kind": "other"}, {"kind": "other"}, {"kind": "other"}, {"kind": "other"}],
+    )
+    result = await verify_grounding(
+        "Under rule 27.41(3) of the Punjab Police Rules-III [Document 1], every article "
+        "of case property must be destroyed exactly seven years after the register is "
+        "closed. Our own case records (cross-case aggregate) [Document 2] are fully "
+        "compliant: the audit of FIR 512/26 confirmed it.",
+        _m151_chunks(), case_id=None,
+    )
+    assert result["grounded"] is False
+    assert SCHEMA_ABSENCE_GROUNDED_KEY not in result
+    assert len(result["unsupported_claims"]) == 4
+
+
+@pytest.mark.asyncio
+async def test_module151_a_classifier_failure_leaves_the_rejection_standing(monkeypatch):
+    """Fail-closed: no classification, no overturn."""
+    _m151_setup(monkeypatch, [_M151_KB9_FLAGGED], None)
+    result = await verify_grounding(_M151_KB9_ANSWER, _m151_chunks(), case_id=None)
+    assert result["grounded"] is False
+    assert SCHEMA_ABSENCE_GROUNDED_KEY not in result
+
+
+@pytest.mark.asyncio
+async def test_module151_the_off_switch_restores_the_old_verifier(monkeypatch):
+    calls = _m151_setup(
+        monkeypatch, [_M151_KB9_FLAGGED],
+        [{"kind": "schema_absence", "scope": "any", "keywords": ["inquest"]}],
+        enabled=False,
+    )
+    result = await verify_grounding(_M151_KB9_ANSWER, _m151_chunks(), case_id=None)
+    assert result["grounded"] is False
+    assert calls["classifier"] == 0
+
+
+@pytest.mark.asyncio
+async def test_module151_a_deterministic_pre_check_still_overrules(monkeypatch):
+    """An answer with no [Document N] marker at all is a `_check_no_citation()`
+    finding; the block does not run, exactly as Module 61's does not."""
+    calls = _m151_setup(
+        monkeypatch, [_M151_KB9_FLAGGED],
+        [{"kind": "schema_absence", "scope": "any", "keywords": ["inquest"]}],
+    )
+    uncited = (_M151_KB9_ANSWER.replace("[Document 1]", "").replace("[Document 2]", "")
+               + " " + "Further detail. " * 40)
+    result = await verify_grounding(uncited, _m151_chunks(), case_id=None)
+    assert result["grounded"] is False
+    assert calls["classifier"] == 0
+
+
+@pytest.mark.asyncio
+async def test_module151_an_off_topic_answer_is_never_overturned(monkeypatch):
+    import src.pipeline.verifier as vmod
+
+    calls = _m151_setup(
+        monkeypatch, [_M151_KB9_FLAGGED],
+        [{"kind": "schema_absence", "scope": "any", "keywords": ["inquest"]}],
+    )
+
+    async def off_topic(system_prompt, user_message, **kwargs):
+        return json.dumps({"grounded": False, "off_topic": True, "leaked_case_id": None,
+                           "unsupported_claims": [_M151_KB9_FLAGGED], "reason": "off topic"})
+
+    monkeypatch.setattr(vmod, "call_llm", off_topic)
+    result = await verify_grounding(_M151_KB9_ANSWER, _m151_chunks(), case_id=None)
+    assert result["grounded"] is False and result["off_topic"] is True
+    assert calls["classifier"] == 0
+
+
+@pytest.mark.asyncio
+async def test_module151_a_grounded_verdict_never_calls_the_classifier(monkeypatch):
+    """Cost and scope: the classifier is consulted only on a rejection."""
+    import src.pipeline.verifier as vmod
+
+    calls = _m151_setup(monkeypatch, [], [])
+    monkeypatch.setattr(vmod, "call_llm", _m101_passing_llm())
+    result = await verify_grounding(_M151_KB9_ANSWER, _m151_chunks(), case_id=None)
+    assert result["grounded"] is True
+    assert SCHEMA_ABSENCE_GROUNDED_KEY not in result
+    assert calls["classifier"] == 0

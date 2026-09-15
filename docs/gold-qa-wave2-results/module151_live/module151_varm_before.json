@@ -1,0 +1,1711 @@
+[
+ {
+  "id": "KB9",
+  "run": 1,
+  "arm": "varm_before",
+  "language": "roman_ur",
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "expected_answer": "Code of Criminal Procedure, 1898 ki dafa 174 officer in charge ko paband karti hai ke jab use maloom ho ke koi shakhs khudkushi se, qatl se, ya aise halaat mein mara gaya jo shak paida karte hain, to woh tehqeeqaat kare aur maut ki zaahiri wajah par ek report tayyar kare — jism par mojood zakhmon ya nishaanaat ki tafseel ke saath — aur ise qareeb tareen magistrate ko bheje. Hamara data zahir karta hai ke aise cases mojood hain: 10 FIRs qatl ki dafa (PPC 302) ka hawala dete hain, aur kai zabt shuda property entries meyyat ke warisaan ko wapas karne ke liye nishaanzad hain. Magar schema mein kahin koi inquest, post-mortem ya cause-of-death record nahi. FIR aur uski dafaat yeh darj karti hain ke maut ka daawa kiya gaya hai; woh alag qanooni maut ki tehqeeqaat ko darj nahi kartin.",
+  "route": "RAG",
+  "status": null,
+  "elapsed_s": 130.7,
+  "answer": "Writing the answer…**Governing Provision and Substance:**  \nUnder Rule 26.31(1) [Document 2], when a person dies in police custody, the officer-in-charge must **immediately report** the death to the nearest magistrate authorized to hold inquests (Section 176, Code of Criminal Procedure). This aligns with Section 174 of the Code of Criminal Procedure, which mandates police inquiry into sudden or unnatural deaths [Document 3, Section 174]. The law explicitly requires **investigation and reporting** for deaths in custody.  \n\n**Case Records Summary:**  \nOur case records (Document 7) do **not explicitly track** the number of deaths in custody or the completion of inquest reports. The summary focuses on FIRs citing specific sections (e.g., PPC §302 for murder) and the disposition of seized property. While 10 FIRs reference PPC §302 (murder), there is **no field or data point** in the summary that records whether inquests were conducted, magistrate reports filed, or deaths in custody investigated per Rule 26.31. The system’s case records lack **specific metrics** on deaths in custody or compliance with inquest procedures.  \n\n**Conclusion:**  \nThe law mandates investigation and reporting for deaths in custody, but our case records do not capture this data explicitly.Response generated (1260 chars)",
+  "generation": "local",
+  "local_llm_fallbacks": 0,
+  "fallback_lines": [],
+  "verifier_calls": [
+   {
+    "answer": "**Governing Provision and Substance:**  \nUnder Rule 26.31(1) [Document 2], when a person dies in police custody, the officer-in-charge must **immediately report** the death to the nearest magistrate authorized to hold inquests (Section 176, Code of Criminal Procedure). This aligns with Section 174 of the Code of Criminal Procedure, which mandates police inquiry into sudden or unnatural deaths [Document 3, Section 174]. The law explicitly requires **investigation and reporting** for deaths in custody.  \n\n**Case Records Summary:**  \nOur case records (Document 7) do **not explicitly track** the number of deaths in custody or the completion of inquest reports. The summary focuses on FIRs citing specific sections (e.g., PPC §302 for murder) and the disposition of seized property. While 10 FIRs reference PPC §302 (murder), there is **no field or data point** in the summary that records whether inquests were conducted, magistrate reports filed, or deaths in custody investigated per Rule 26.31. The system’s case records lack **specific metrics** on deaths in custody or compliance with inquest procedures.  \n\n**Conclusion:**  \nThe law mandates investigation and reporting for deaths in custody, but our case records do not capture this data explicitly.",
+    "chunk_ids": [
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1978",
+     "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c35",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1548",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1550",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559",
+     "kb-data-half:death_investigation_charging"
+    ],
+    "cited_chunks": [
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+      "text": "r should not be undertaken.\n\nRule 25.30\n\n25.30.  Place of trial. - With regard to the place of trial of cases falling under Sections 179-183, Code of Criminal Procedure, police officers shall act solely with reference to the public convenience.\n\nOrdinarily such cases shall be sent up for trial in the district in which the witnesses can attend with the least inconvenience to themselves.\n\nRule 25.31\n\n25.31.  Inquests. east inconvenience to themselves.\n\nRule 25.31\n\n25.31.  Inquests. - (1) An officer in charge of police station shall, upon receipt of information of the sudden or unnatural death of any person, when the body of such person is within the local jurisdiction of his police station, immediately send information to the nearest magistrate authorized to hold inquests and shall proceed to the place where the body is and hold an investigation in the manner prescribed by Section 174, Code of Criminal Procedure. he manner prescribed by Section 174, Code of Criminal Procedure.  When the Sub-Inpector-in-charge of the Police Station through illness or absence from the station house, is himself unable to carry out the investigation, he shall at the first convenient opportunity proceed to the place where the body of the deceased person was found, and shall personally verify the results of the investigation.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d",
+       "is_global": true,
+       "is_roman_urdu": false,
+       "doc_type": "pdf",
+       "has_case": false,
+       "category": "legal_procedural_reference",
+       "page": 155,
+       "chunk_index": 1542
+      }
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1978",
+      "text": ").\n\nRule 26.29\n\n- 26.29.  Orders to be hung up outside lock-ups. - A printed copy, in English and Urdu, of Rules 26.3, 26.27 and 26.28 shall be hung up outside every police lock-up as a standing order for sentries and for the information of the public.\n\nRule 26.30\n\n- 26.30.  Diet and expenses of witnesses. - The instructions regarding the advancing of diet money and travelling expenses to witnesses contained in rule 27.28 shall be strictly followed in all police stations.\n\nRule 26.31\n\n- 26.31. strictly followed in all police stations.\n\nRule 26.31\n\n- 26.31.  Death in police custody. - (1) When any person dies while in the custody of the\n\npolice, the officer-in-charge of the guard, escort or police station, as the case may be, shall make an immediate report of the fact to the nearest magistrate empowered to hold inquests (Section 176, Code of Criminal Procedure). ered to hold inquests (Section 176, Code of Criminal Procedure).\n\n(2) For the purposes of this rule, a prisoner in a magisterial lock-up is considered to be in the custody of the turn key and a prisoner in prison or prison camp in the custody of the jailer.\n\nRule 26.32\n\n26.32.  Identification of suspects. - (1) The following rules shall be strictly observed in confronting arrested suspects with the witnesses who claim to be able to identify them.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "is_roman_urdu": false,
+       "has_case": false,
+       "is_global": true,
+       "chunk_index": 1978,
+       "category": "legal_procedural_reference",
+       "doc_type": "pdf",
+       "page": 203,
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d"
+      }
+     },
+     {
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c35",
+      "text": "|\n| | such statements in No inducement to be offered. |\n| 164A. | Medical examination of victim of rape, |\n| 164B. | etc. DNA test. |\n| | Search by police­officer. |\n| 165. 166. | When officer incharge of police station may require another to issue search warrant. |\n| 167. | Procedure when investigation cannot be completed in twenty­four hours. |\n| 168. 169. | Release of accused when evidence deficient. |\n| 170. | Case to be sent to magistrate when evidence is sufficient. | . | Case to be sent to magistrate when evidence is sufficient. |\n| 171. | Complaints and witnesses not to be required to accompany police­officer. Complainants and witnesses not to be subjected to restraint. Recusant complainant or witness may be forwarded in custody. |\n| 172. 173. | Report of police­officer. |\n| 174. | Police to inquire and report on suicide, etc. |\n| 175. | Power to summon persons. |\n| 176. | Inquiry by magistrate into |\n| | cause of death. Power to disinter corpses. magistrate into |\n| | cause of death. Power to disinter corpses. PART VI PROCEEDINGS IN |\n| | PROSECUTIONS CHAPTER XV THE JURISDICTION OF THE CRIMINAL COURTS IN |\n| | OF INQUIRIES AND TRIALS. A.­Place of Inquiry or Trial. |\n| 177. | |\n| | and trial. |\n| | Ordinary place of inquiry |\n\n| 178. | Power to order cases to be tried in different sessions divisions. |",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "page": 7,
+       "doc_id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363",
+       "has_case": false,
+       "is_global": true,
+       "category": "legal_procedural_reference",
+       "doc_type": "pdf",
+       "chunk_index": 35,
+       "is_roman_urdu": false
+      }
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1548",
+      "text": "inquests or if the scene of death is outside cantonment limits.\n- If the magistrate invited to hold the inquest fails to do so, the Superintendent or other gazetted officer shall make an investigation under the combined provisions of Sections 174 and 551, Code of Criminal Procedure, and if no gazetted officer is available such investigation shall be made by the officer in charge of the police station concerned. e made by the officer in charge of the police station concerned.\n- Such inquest or investigation under the Code of Criminal Procedure shall be held in addition to any military court of inquest which may be held.\n- (b) In the case of the sudden or unnatural death of a European soldier, non-commissioned officer, or officer the inquest shall be held under Section 176, Code of Criminal Procedure, by the nearest magistrate duly authorized to hold inquests. ure, by the nearest magistrate duly authorized to hold inquests.\n- (c) In the case of a death by violence occurring within the walls of a military prison or civil jail the police shall not make an investigation into the cause of death when an inquest has been held by a competent magistrate.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "has_case": false,
+       "is_roman_urdu": false,
+       "doc_type": "pdf",
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d",
+       "chunk_index": 1548,
+       "is_global": true,
+       "category": "legal_procedural_reference",
+       "page": 155
+      }
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1550",
+      "text": "ure, by the nearest magistrate duly authorized to hold inquests.\n- (c) In the case of a death by violence occurring within the walls of a military prison or civil jail the police shall not make an investigation into the cause of death when an inquest has been held by a competent magistrate. f death when an inquest has been held by a competent magistrate.\n- (e) Upon receipt of information of a sudden or unnatural death within the walls of a prison the officer-in-charge of the police station concerned shall send immediate intimation to the senior magistrate present at headquarters and shall proceed to the prison and place a guard over the body and shall allow neither the body nor anything which may have caused the death of the deceased to be moved until the arrival of a magistrate.\n\nRule 25.32 eased to be moved until the arrival of a magistrate.\n\nRule 25.32\n\n25.32.  Investigations under Section 174, Code of Criminal Procedure. - The respectable inhabitants who are required under Section 174, Code of Criminal Procedure, to take part in any investigation into a sudden or unnatural death shall be selected with reference to any special attainments they may possess with are likely to be of use in such investigation.\n\nRule 25.33\n\n25.33.  Investigating Officer - action of at scene of death.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "chunk_index": 1550,
+       "is_global": true,
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d",
+       "page": 155,
+       "has_case": false,
+       "doc_type": "pdf",
+       "is_roman_urdu": false,
+       "category": "legal_procedural_reference"
+      }
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559",
+      "text": "h he considers it necessary that the body should be disinterred.\n- (2) He shall forward the information so recorded to the nearest magistrate empowered to hold inquests and ask for an order under Section 176(2), Code of Criminal Procedure, and in the meantime shall guard the grave.\n- (3) On receipt of such order, if the magistrate himself does not attend the disinterment, such police officer shall, in the presence of two or more respectable inhabitants of the neighbourhood, cause the body to be disinterred. abitants of the neighbourhood, cause the body to be disinterred.  Such police officer shall then comply with the provisions of Section 174, Code of Criminal Procedure.\n\nRule 25.35\n\n- 25.35.  The Inquest Report. - (1) When the investigation has been completed the investigating officer shall draw up a report, in duplicate by the carbon copying process, in Forms 25.35(1) A, B or C, according as the deceased appears to have died :-\n- A. from natural causes.\n- B. by violence.\n- C. by poisoning. -\n- A. from natural causes.\n- B. by violence.\n- C. by poisoning.\n- (2) Such report shall state the apparent cause of death, give a description of any mark or marks of violence which may be found on the body and describe the manner in which and the weapon or instrument with which such marks appear to have been inflicted.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "page": 156,
+       "chunk_index": 1559,
+       "doc_type": "pdf",
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d",
+       "is_global": true,
+       "is_roman_urdu": false,
+       "category": "legal_procedural_reference",
+       "has_case": false
+      }
+     },
+     {
+      "id": "kb-data-half:death_investigation_charging",
+      "text": "10 of the 73 FIR(s) that carry a recorded section cite PPC §302.\n  - fir-202-26, fir-213-26, fir-214-26, fir-218-26, fir-340-25, fir-409-26, fir-421-26, fir-431-26, fir-466-26, fir-77-26\nFor context, the sections most often cited:\n  - PPC §34: 40 FIR(s)\n  - Arms Ordinance 1965 §13: 29 FIR(s)\n  - PPC §392: 21 FIR(s)\n  - CNSA 1997 §9(c): 12 FIR(s)\n  - PPC §420: 11 FIR(s)\n  - PPC §302: 10 FIR(s)\n  - PPC §337-A(i): 10 FIR(s)\n  - PECA 2016 §14: 9 FIR(s)\n  - PECA 2016 §21: 9 FIR(s)\n  - PPC §419: 9 FIR(s)\n  - PPC §365-A: 6 FIR(s)\n  - PPC §506: 6 FIR(s)\n  - PPC §379: 5 FIR(s)\n  - PPC §384: 4 FIR(s)\n  - Provincial Act §Punjab Domestic Violence Act: 4 FIR(s)\n  - Illegal Dispossession Act 2005 §3: 2 FIR(s)\n  - PPC §148: 2 FIR(s)\n  - PPC §149: 2 FIR(s)\n  - PPC §328A: 2 FIR(s)\n  - PPC §342: 2 FIR(s)\n  - ... and 16 more section(s).\n\nWhat happens to seized property — 45 property-register entr(ies) across 28 FIR(s), grouped by the disposition recorded against each item:\n  - ضبط شدہ (confiscated): 14 item(s), in 13 FIR(s)\n  - سیل بند، نمونہ فرانزک لیبارٹری بھجوایا گیا (sealed, sample sent to the forensic laboratory): 13 item(s), in 11 FIR(s)\n  - ورثاء کے حوالے کیا جائے گا (to be handed over to the heirs): 7 item(s), in 7 FIR(s)\n  - مدعی کے حوالے کے لیے محفوظ (held for return to the complainant): 6 item(s), in 6 FIR(s)\n  - ضبط شدہ، فرانزک جانچ کے بعد محفوظ (confiscated, held after forensic testing): 1 item(s), in 1 FIR(s)\n  - فرانزک شواہد کے طور پر محفوظ (held as forensic evidence): 1 item(s), in 1 FIR(s)\n  - مالخانہ میں مہر بند (sealed in the property store): 1 item(s), in 1 FIR(s)\n  - مالخانہ میں مہر بند، فرانزک معائنہ مطلوب (sealed in the property store, forensic examination required): 1 item(s), in 1 FIR(s)\n  - محفوظ (held): 1 item(s), in 1 FIR(s)\nOf those, 13 item(s) in 11 FIR(s) were literally DISPATCHED to a forensic laboratory, and 7 item(s) in 7 FIR(s) are held for return to a deceased person's heirs.\nCounting rule: 16 entries mention a forensic process in some wording (held as forensic evidence, examination required, tested and returned to store), but only 13 record the item as actually sent to the laboratory. The figure above uses the literal 'sent to the lab' reading.",
+      "metadata": {
+       "source_tool": "XAGG",
+       "case_id": null,
+       "source_file": "our own case records (cross-case aggregate)",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "is_global": true
+      }
+     }
+    ],
+    "case_id": null,
+    "result": {
+     "grounded": true,
+     "off_topic": false,
+     "leaked_case_id": null,
+     "unsupported_claims": [],
+     "reason": "All claims are directly supported by cited chunks. Rule 26.31(1) and Section 174 references are explicitly stated in Documents 2/3/4, and Document 7's absence of death-in-custody tracking is confirmed by its content.",
+     "refusal_detected": false
+    }
+   }
+  ],
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Rule 26.31(1) and Section 174 references are explicitly stated in Documents 2/3/4, and Document 7's absence of death-in-custody tracking is confirmed by its content.",
+    "refusal_detected": false
+   }
+  ],
+  "module151_lines": [],
+  "verifier_log_lines": [
+   "Verifier: grounded=True off_topic=False leaked=None unsupported=0 — All claims are directly supported by cited chunks. Rule 26.31(1) and Section 174"
+  ],
+  "evaluator_lines": [
+   "RAG tool: 7 chunk(s) to evaluator (attempt 1): 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1978[4_Punjab-Police-Rules-III.pdf], 1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c35[1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1548[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1550[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559[4_Punjab-Police-Rules-III.pdf], kb-data-half:death_investigation_charging[our own case records (cross-case aggregate)]"
+  ],
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='RAG' -> sub-agent='Semantic Search'",
+   "retrieval/active: Checking our own case records alongside the legal corpus…",
+   "retrieval/active: Searching documents…",
+   "retrieval/done: 30 semantic + 30 lexical candidates",
+   "reranker/active: Re-ranking candidates…",
+   "reranker/done: Top 6 selected",
+   "evaluator/active: Checking relevance…",
+   "evaluator/done: Relevant",
+   "citation_validator/active: Verifying grounding…",
+   "citation_validator/done: Grounded",
+   "supervisor:dispatch/done: Semantic Search completed with status=ok",
+   "supervisor/done: Harness routing complete",
+   "citations/done: 7 citation(s)",
+   "memory/done: Saved to session"
+  ]
+ },
+ {
+  "id": "KB5",
+  "run": 1,
+  "arm": "varm_before",
+  "language": "ur",
+  "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+  "expected_answer": "جی ہاں۔ اینٹی ریپ (انویسٹی گیشن) رولز، 2022 کا رول 3(2) تفتیشی افسر کو پابند کرتا ہے کہ وہ یقینی بنائے کہ ایک خاتون پولیس افسر شامل ہو، متاثرہ کا بیان اینٹی ریپ کرائسز سیل (اے آر سی سی) میں تنہائی میں ریکارڈ کیا جائے، اور شواہد کی چین آف کسٹڈی پورے عمل کے دوران برقرار رکھی جائے — یہ واضح فرائض ہیں، تھانے کی صوابدید پر نہیں چھوڑے گئے۔ ہماری خواتین سے تشدد کی رپورٹوں کے ریکارڈ اس کا کچھ حصہ ظاہر کرتے ہیں: ریکارڈ میں موجود 8 میں سے ہر رپورٹ میں مقررہ خواتین پولیس اسٹیشن اور بیج نمبر کے ساتھ نامزد تفتیشی افسر کا خانہ موجود ہے، جو کیس کے باقاعدہ ایف آئی آر میں تبدیل ہونے سے پہلے ہی درج کیا جاتا ہے۔ جو چیز درج نہیں ہوتی وہ یہ ہے کہ چین آف کسٹڈی واقعی برقرار رکھی گئی یا نہیں — تقاضے کے اُس حصے کے لیے کوئی متعلقہ خانہ موجود نہیں۔",
+  "route": "RAG",
+  "status": null,
+  "elapsed_s": 137.5,
+  "answer": "Writing the answer…**Part 1: Legal Requirements**  \nUnder the **Anti-Rape (Investigation and Trial) Act, 2021** [Document 1], cases involving violence against women (including domestic violence) require **special procedures** distinct from general criminal cases. Specifically:  \n- **Section 8** mandates victim and witness protection measures, including **special security arrangements**, **identity concealment**, **video-conferencing for testimonies**, and **safe-houses** (among others).  \n- **Section 3** of the **Anti-Rape (Trial Procedure) Rules, 2022** [Document 3] requires a **scheduling hearing** with all parties’ counsel to issue a trial schedule, ensuring expedited proceedings.  \n\nThese provisions explicitly differ from standard procedures under the **Code of Criminal Procedure, 1898** [Document 1, Section 2(c)].  \n\n---\n\n**Part 2: Case Records Analysis**  \nOur case records [Document 7] show:  \n- **4 out of 8 domestic-violence reports** carry a **forwarded FIR number** matching a real, active FIR (e.g., `fir-97-26`, `fir-416-26`). This suggests **partial compliance** with procedural requirements (e.g., FIR documentation).  \n- **4 reports** lack a forwarded FIR number, indicating **no evidence of FIR linkage** or proper case initiation.  \n- **No explicit mention** of victim protection measures (e.g., security arrangements, video-conferencing) in the records.  \n\nThe data does **not confirm** whether the additional legal requirements (e.g., witness protection, expedited scheduling) were implemented beyond FIR documentation.Response generated (1532 chars)",
+  "generation": "local",
+  "local_llm_fallbacks": 0,
+  "fallback_lines": [],
+  "verifier_calls": [
+   {
+    "answer": "**Part 1: Legal Requirements**  \nUnder the **Anti-Rape (Investigation and Trial) Act, 2021** [Document 1], cases involving violence against women (including domestic violence) require **special procedures** distinct from general criminal cases. Specifically:  \n- **Section 8** mandates victim and witness protection measures, including **special security arrangements**, **identity concealment**, **video-conferencing for testimonies**, and **safe-houses** (among others).  \n- **Section 3** of the **Anti-Rape (Trial Procedure) Rules, 2022** [Document 3] requires a **scheduling hearing** with all parties’ counsel to issue a trial schedule, ensuring expedited proceedings.  \n\nThese provisions explicitly differ from standard procedures under the **Code of Criminal Procedure, 1898** [Document 1, Section 2(c)].  \n\n---\n\n**Part 2: Case Records Analysis**  \nOur case records [Document 7] show:  \n- **4 out of 8 domestic-violence reports** carry a **forwarded FIR number** matching a real, active FIR (e.g., `fir-97-26`, `fir-416-26`). This suggests **partial compliance** with procedural requirements (e.g., FIR documentation).  \n- **4 reports** lack a forwarded FIR number, indicating **no evidence of FIR linkage** or proper case initiation.  \n- **No explicit mention** of victim protection measures (e.g., security arrangements, video-conferencing) in the records.  \n\nThe data does **not confirm** whether the additional legal requirements (e.g., witness protection, expedited scheduling) were implemented beyond FIR documentation.",
+    "chunk_ids": [
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c21",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c47",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c111",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c143",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c110",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1669",
+     "kb-data-half:violence_against_women"
+    ],
+    "cited_chunks": [
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c21",
+      "text": "RY\nPUBLISHED BY AUTHORITY\n\nISLAMABAD, SATURDAY, DECEMBER 4, 2021\n\nPART I\n\nActs, Ordinances, President’s Orders and Regulations\n\nNATIONAL ASSEMBLY SECRETARIAT\n\nIslamabad, the 3rd December, 2021\n\nNo. F. 22(3)/2021-Legis.—The following Act of Majlis-e-Shoora\n(Parliament) received the assent of the President on the 1st December, 2021 is\nhereby published for general information:—\n\nACT No. XXX OF 2021\n\nAN\n\nACT\n\nto ensure expeditious redressal of rape and sexual abuse crimes in respect of editious redressal of rape and sexual abuse crimes in respect of\nwomen and children through special investigation teams and special Courts\nproviding for efficacious procedures, speedy trial, evidence and matters\nconnected therewith or incidental thereto;\n\nIt is hereby enacted as follows:—\n\n(931)\n\nPrice: Rs. 20.00\n\n[11724(2021)/Ex. Gaz.]\n\n1. Short title, extent, and commencement. (1) This Act may be called the Anti-Rape (Investigation and Trial) Act, 2021.\n- (2) It extends to the whole of Pakistan. and Trial) Act, 2021.\n- (2) It extends to the whole of Pakistan.\n- (3) It  shall come into force on such date as the Federal Government may appoint.\n2. Definitions.(1)  In  this  Act,  unless  there  is  anything  repugnant  in  the subject or context,-\n5. (a) 'anti-rape crisis cell'' is a cell appointed under section 4 of this Act;\n6. (b) 'child'  means  any  male  or  female,  who  has  not  attained  the  age  of eighteen years;\n7. (c) 'Code' means the Code of Criminal Procedure, 1898 (Act V of 1898);",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "doc_type": "pdf",
+       "page": 6,
+       "category": "legal_procedural_reference",
+       "is_global": true,
+       "chunk_index": 21,
+       "has_case": false,
+       "is_roman_urdu": false,
+       "doc_id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5"
+      }
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c47",
+      "text": "Justice Authority Act, 2020 (Act XVI of 2020) shall be utilized.\n7. Prosecutor general and special prosecutors.(1) The ministry of  law  and  justice  may  designate  or  appoint  a  prosecutor  general  and  special prosecutors in a manner as may be prescribed by rules notified by the ministry of law and justice.\n- (2) The  prosecutor  general  and  special  prosecutors  shall  prosecute  the scheduled offences. special  prosecutors  shall  prosecute  the scheduled offences.\n8. Victim  and  witness  protection.(1)  In  addition  to  the  existing laws, a victim and witness protection system may be established as prescribed in the rules notified by the ministry of law and justice and shall, with a view to carrying out the purposes of this Act and without generality of the aforesaid, include the following, namely: -\n6. (i) special security arrangements for witnesses and victims;\n7. (ii) concealment of identity; ents for witnesses and victims;\n7. (ii) concealment of identity;\n8. (iii) distance  recording  of  testimonies  through  video-conferencing,  audiovideo links and by the use of modem devices;\n9. (iv) re-location of victims and witnesses;\n10. (v) provision of reasonable financial assistance;\n11. (vi) compensation to legal heirs of protected victims and witnesses;\n12. (vii) safe-houses, dar-ul-amans, etc.;\n13. (viii) such other measures as may be necessary and ancillary.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "is_roman_urdu": false,
+       "doc_id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5",
+       "doc_type": "pdf",
+       "is_global": true,
+       "chunk_index": 47,
+       "section": "table_of_contents",
+       "category": "legal_procedural_reference",
+       "has_case": false,
+       "page": 10
+      }
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c111",
+      "text": "AND JUSTICE\n\n## NOTIFICATION\n\nIslamabad, the I4th February, 2023\n\n- S. R. 0. 186(1)/2023.-In exercise of powers conferred by sub-section (1) of section 19 of the Anti-Rape (Trial and Investigation) Act, 2021 (XXX of 2021), the  Ministry  of  Law  and  Justice,  upon  the  recommendations of  the  Special Committee, is pleased to make the following rules, namely:-\n\n## CHAPTER-I Preliminary\n\n1. Short title and commencement .-(1) These rules shall be called the Anti-Rape (Trial Procedure) Rules, 2022. les shall be called the Anti-Rape (Trial Procedure) Rules, 2022.\n- (2) These rules shall come into force at once.\n3. 2 Definitions. (1) I n these rules, unless there is anything repugnant in tire subject or  context.--\n4. (a) 'Act' shall mean the Anti-Rape. (Investigation and Trial) Act,  2021 (No. XXX of 2021).\n3. Scheduling of trial.(1) After framing the charge, on the first day when a case is received for trial. a scheduling hearing shall be held with all parties' counsel. l. a scheduling hearing shall be held with all parties' counsel. A trial schedule shall be issued, which shall specify the dates for each state of the trial. The counsel of victim and accused and the special prosecutor shall be taken on board while scheduling the trial.\n- (2) For convenience, days may be earmarked for lawyers when scheduling a trial. I he judge exercising jurisdiction of the concerned Special Court shall issue a trial scheduling  certificate.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "doc_id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5",
+       "has_case": false,
+       "chunk_index": 111,
+       "category": "legal_procedural_reference",
+       "is_global": true,
+       "is_roman_urdu": false,
+       "page": 19,
+       "doc_type": "pdf",
+       "section": "table_of_contents"
+      }
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c143",
+      "text": "T II\n\nStatutory Notifications (S. R. O.)\n\nGOVERNMENT OF PAKISTAN\n\n## MINISTRY OF LAW AND JUSTICE\n\n## NOTIFICATION\n\nIslamabad, the 14th February, 2023\n\n- S. R. O. I85(I)/2023.-In exercise of the powers conferred by subsection (1) of section 19 of the Anti-Rape (Investigation and Trial) Act, 2021 (XXX of 2021), the Ministry of Law and Justice, upon the recommendations of the Special Committee, is pleased to make the following rules, namely:-\n\n## CHAPTER-I Preliminary\n\n1. Short title and commencement. ly:-\n\n## CHAPTER-I Preliminary\n\n1. Short title and commencement. -(1) These rules shall be called the Anti-Rape (Investigation) Rules 2022.\n- (2) These rules shall come into force at once.\n2. Definitions. -In these rules, unless there is anything repugnant in the subject or context,--\n4. (a) 'Act' means the Anti-Rape (Investigation and Trial) Act, 2021 (No. XXX of 2021);\n5. (b) 'first information report (FIR)' means information recorded under section 154 of the Code; (FIR)' means information recorded under section 154 of the Code;\n6. (c) 'investigation officer' means an officer of a law enforcement agency empowered to investigate scheduled offences; and\n7. (d) 'SSOIU'  means  the  special  sexual  offences  investigation  unit established under section 9 of the Act.\n\n## CHAPTER-II\n\n## Duties of Officer-in-Charge and Investigation Officer",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "chunk_index": 143,
+       "doc_type": "pdf",
+       "has_case": false,
+       "is_roman_urdu": false,
+       "page": 26,
+       "doc_id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5",
+       "is_global": true,
+       "category": "legal_procedural_reference"
+      }
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c110",
+      "text": "ected with offences under sections 336A, 336B, 354A, 365B, 366A. 366B, 367A, 371A, 37IB, 375, 375A, 376, 377, 377A and 377B of the Pakistan Penal Code, 1860 (Act XLV of 1860).\n\n'\n\n## EXTRAORDINARY PUBLISHED BY AUTHORITY\n\n## ISLAMABAD, MONDAY, FEBRUARY 20, 2023\n\nStatutory Notifications (S. R 0.)\n\n## GONRNMENT OF PAKISTAN\n\n## MINISTRY OF LAW AND JUSTICE\n\n## NOTIFICATION\n\nIslamabad, the I4th February, 2023 AND JUSTICE\n\n## NOTIFICATION\n\nIslamabad, the I4th February, 2023\n\n- S. R. 0. 186(1)/2023.-In exercise of powers conferred by sub-section (1) of section 19 of the Anti-Rape (Trial and Investigation) Act, 2021 (XXX of 2021), the  Ministry  of  Law  and  Justice,  upon  the  recommendations of  the  Special Committee, is pleased to make the following rules, namely:-\n\n## CHAPTER-I Preliminary\n\n1. Short title and commencement .-(1) These rules shall be called the Anti-Rape (Trial Procedure) Rules, 2022. les shall be called the Anti-Rape (Trial Procedure) Rules, 2022.\n- (2) These rules shall come into force at once.\n3. 2 Definitions. (1) I n these rules, unless there is anything repugnant in tire subject or  context.--\n4. (a) 'Act' shall mean the Anti-Rape. (Investigation and Trial) Act,  2021 (No. XXX of 2021).\n3. Scheduling of trial.(1) After framing the charge, on the first day when a case is received for trial. a scheduling hearing shall be held with all parties' counsel.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "section": "table_of_contents",
+       "doc_id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5",
+       "page": 19,
+       "category": "legal_procedural_reference",
+       "chunk_index": 110,
+       "doc_type": "pdf",
+       "is_roman_urdu": false,
+       "is_global": true,
+       "has_case": false
+      }
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1669",
+      "text": "finger printing dead bodies.\n\n\n\n- (8) One magnifying glass.\n\n\n\n- (9) One finger print impression pad and roller.\n\n\n\n- (10) One electric torch.\n\n- (11) One knife.\n\n- (12) One pair of scissors.\n\n- (13) One measuring tape 60' long.\n\n- (14) One foot-rule 2 feet long.\n\n- (15) Sealing wax and candles.\n\n- (16) Formalin diluted to 10 per cent together with chloride of lime to counteract decomposition of corpses.\n\n- (17) Cotton wool and 1 1 2 yards cloth for packing exhibits. - (17) Cotton wool and 1 1 2 yards cloth for packing exhibits.\n\n- (18) Case diary book with plate, pencil or pen, carbon paper and the usual forms required in investigation.\n\n## APPENDIX 25.18-A\n\n## RULES FOR THE PROTECTION OF SOURCES OF INFORMATION\n\nIn exercise of the powers conferred in him by section 58 of the Government of India Act, 1935, the Governor of the Punjab acting in his discretion is pleased to make the following rules :- ting in his discretion is pleased to make the following rules :-",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d",
+       "section": "table_of_contents",
+       "page": 167,
+       "is_global": true,
+       "has_case": false,
+       "doc_type": "pdf",
+       "category": "legal_procedural_reference",
+       "is_roman_urdu": false,
+       "chunk_index": 1669
+      }
+     },
+     {
+      "id": "kb-data-half:violence_against_women",
+      "text": "Yes — confirmed by the case records. Of 8 domestic-violence report(s), 4 carry a forwarded FIR number that matches a real, active FIR; the remaining 4 record no forwarded number.\n  - pkm_application:pkm-app-c9-02 → fir-97-26\n  - pkm_application:PKMAPP-C316-2 → fir-416-26\n  - pkm_application:PKMAPP-C326-1 → fir-426-26\n  - pkm_application:PKMAPP-C336-2 → fir-436-26",
+      "metadata": {
+       "source_tool": "XAGG",
+       "case_id": null,
+       "source_file": "our own case records (cross-case aggregate)",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "is_global": true
+      }
+     }
+    ],
+    "case_id": null,
+    "result": {
+     "grounded": true,
+     "off_topic": false,
+     "leaked_case_id": null,
+     "unsupported_claims": [],
+     "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are explicitly stated in Documents 2 and 3, respectively. Case records analysis (forwarded FIR numbers and absence of victim protection measures) is confirmed by Document 7.",
+     "refusal_detected": false
+    }
+   }
+  ],
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are explicitly stated in Documents 2 and 3, respectively. Case records analysis (forwarded FIR numbers and absence of victim protection measures) is confirmed by Document 7.",
+    "refusal_detected": false
+   }
+  ],
+  "module151_lines": [],
+  "verifier_log_lines": [
+   "Verifier: grounded=True off_topic=False leaked=None unsupported=0 — All claims are directly supported by cited chunks. Legal requirements (Sections "
+  ],
+  "evaluator_lines": [
+   "RAG tool: 7 chunk(s) to evaluator (attempt 1): 7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c21[7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf], 7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c47[7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf], 7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c111[7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf], 7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments"
+  ],
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='RAG' -> sub-agent='Semantic Search'",
+   "retrieval/active: Checking our own case records alongside the legal corpus…",
+   "retrieval/active: Searching documents…",
+   "retrieval/done: 30 semantic + 30 lexical candidates",
+   "reranker/active: Re-ranking candidates…",
+   "reranker/done: Top 6 selected",
+   "evaluator/active: Checking relevance…",
+   "evaluator/done: Relevant",
+   "citation_validator/active: Verifying grounding…",
+   "citation_validator/done: Grounded",
+   "supervisor:dispatch/done: Semantic Search completed with status=ok",
+   "supervisor/done: Harness routing complete",
+   "citations/done: 7 citation(s)",
+   "memory/done: Saved to session"
+  ]
+ },
+ {
+  "id": "KB2",
+  "run": 1,
+  "arm": "varm_before",
+  "language": "en",
+  "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+  "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+  "route": "RAG",
+  "status": "error",
+  "elapsed_s": 146.0,
+  "answer": "Writing the answer…The generated answer could not be verified as grounded in the retrieved documents.",
+  "generation": "local",
+  "local_llm_fallbacks": 0,
+  "fallback_lines": [],
+  "verifier_calls": [
+   {
+    "answer": "The system does have mechanisms to record statements made by witnesses or accused persons during police investigations. Under **Rule 25.28** of the Punjab Police Rules (Document 1), police officers may require a magistrate to record statements under **Section 164 of the Criminal Procedure Code**, ensuring they are available as evidence later. This process is explicitly outlined to secure a \"reliable record\" of statements or confessions (Document 4). \n\nHowever, **Section 38 of the Qanun-e-Shahadat Order (Document 3)** explicitly states that confessions made directly to police officers are **inadmissible in evidence**, which implies that **unrecorded or improperly documented police interviews** (without magistrate involvement) may not be legally usable. This could be considered a **data gap** if interviews are not systematically recorded through magistrates, as the rules emphasize the necessity of magistrate-recorded statements for admissibility. \n\nThus, while the system **does** have procedures to record statements (via magistrates), the **failure to follow these procedures** (e.g., not involving magistrates) could result in gaps in documentation.",
+    "chunk_ids": [
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1521",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c48",
+     "2_qanun-e-shahadat-order-1984_pdf_3e604153_c176",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1696",
+     "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c272"
+    ],
+    "cited_chunks": [
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1521",
+      "text": "hey may also be used to check the reliability of local trackers.\n\nRule 25.27\n\n25.27.  Confessions. - The orders of the High Court by which magistrates are bound in respect of the record of statements or confessions are contained in Appendix No. 25.27. All supervising and investigating police officers must familiarise themselves with these instructions and conform strictly to them in producing accused persons for the record of their statements.\n\nRule 25.28\n\n25.28.  Statements recorded by magistrates. ements.\n\nRule 25.28\n\n25.28.  Statements recorded by magistrates. - (1) The circumstances under which police officers may require a statement to be recorded by a magistrate are as follows :-\n\n- (a) The statement, made in the course of an investigation by a witness or an accused person, and not amounting to a confession, may be recorded by a magistrate under Section 164, Code of Criminal Procedure, in order that it may be available as evidence at a later stage. in order that it may be available as evidence at a later stage.  Such statements may be recorded in any of the manners prescribed for recording evidence.\n- (b) A confession may be recorded under Section 164, Criminal Procedure Code, irrespective of the tender of a pardon, and of whether it involves more persons than the individual accused making it.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "chunk_index": 1521,
+       "has_case": false,
+       "is_roman_urdu": false,
+       "is_global": true,
+       "category": "legal_procedural_reference",
+       "doc_type": "pdf",
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d",
+       "page": 153
+      }
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c48",
+      "text": "istance to an absconder.\n\nRule 21.6\n\n21.6.  Reports and records. - In order that continuity in the method of administration outlined in rule 21.1 may not be lost owing to changes of personnel, the proper maintenance  of  those  reports,  records  and  notes  which  review  the  history  of  the  criminal administration of a district, or from which information  regarding individuals  and past events may be  obtained, is essential. ing individuals  and past events may be  obtained, is essential.  Apart from  personal records of police officers, police station records  and inspection notes, referred to in other chapters  of these rules, such records comprise:-\n\n- (i)  Transfer of charge memoranda (rule 21.7).\n- (ii)  Confidential note books (rule 21.8).\n- (iii)  Weekly diaries I and II (rule 21.9 et. seq. ).\n- (iv)  Monthly crime reports (rule 21.15).\n- (v)  Annual Police Administration reports (rule 21.16). 1.15).\n- (v)  Annual Police Administration reports (rule 21.16).\n- (vi)  Annual reports on the administration of the Criminal Tribes Act (rule 21.18).\n- (vii)  Reports on political events or meetings (rule 21.19).\n- (viii) Reports on important  fares and festivals (rule  21.20).\n\nRule 21.7\n\n21.7.  Transfer of charge memoranda.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "has_case": false,
+       "doc_type": "pdf",
+       "category": "legal_procedural_reference",
+       "is_roman_urdu": false,
+       "is_global": true,
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d",
+       "section": "table_of_contents",
+       "chunk_index": 48,
+       "page": 4
+      }
+     },
+     {
+      "id": "2_qanun-e-shahadat-order-1984_pdf_3e604153_c176",
+      "text": "37.  Confession  caused  by  inducement,  threat  or  promise,  when  irrelevant  in criminal proceeding: A confession made by an accused person is irrelevant in a criminal proceeding, if the making of the confession appears to the Court to have been caused by any inducement, threat or promise having reference to the charge against the accused person, proceeding from a person in authority and sufficient, in the opinion of the Court, to give the accused person grounds which would appear to him reasonable, the accused person grounds which would appear to him reasonable, for supposing that by making it he would gain any advantage or avoid any evil of a temporal nature in reference to the proceedings against him.\n\n38.  Confession  to  police  officer  not  to  be  proved: No  confession  made  to  a  police officer shall be proved as against a person accused of any offence. icer shall be proved as against a person accused of any offence.\n\n39. Confession by accused while in custody of police not to be proved against him: Subject to Article 10, no confession made by any person whilst he is in the custody of a police  officer,  unless  it  be  made  in  the  immediate  presence  of  a  Magistrate,  shall  be proved as against person.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "2_qanun-e-shahadat-order-1984.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "has_case": false,
+       "chunk_index": 176,
+       "doc_type": "pdf",
+       "is_roman_urdu": false,
+       "page": 29,
+       "is_global": true,
+       "category": "legal_procedural_reference",
+       "doc_id": "2_qanun-e-shahadat-order-1984_pdf_3e604153"
+      }
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1696",
+      "text": "on of accused persons during the course of the enquiry or trial.  Section 364 prescribes the manner in which the examination of accused persons is to be recorded.\n\n2.  The object of section 164, Criminal Procedure Code, is to provide a method of securing a reliable record of statements or confessions made during the course of the police investigation, which could be used, if necessary, during the enquiry or trial. which could be used, if necessary, during the enquiry or trial.  Under Section 25 of the Indiana Evidence Act, a confession to a police officer is inadmissible in evidence, and hence when an accused person confesses during police investigation the police frequently get it recorded by a Magistrate under Section 164, Criminal Procedure Code, and it can then be used to the extent to which it may be admissible under the Indian Evidence Act. ent to which it may be admissible under the Indian Evidence Act.\n\n3.  Under section 80 of the Indian Evidence Act, a Court is bound to presume that a statement of confession of an accused person taken in accordance with law and purporting to be signed by any judge or Magistrate is genuine, and that the certificate or note as to the circumstances under which it was taken, purporting to be made by the persons signing it, are true, and that such statement or confession was duly taken.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "category": "legal_procedural_reference",
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d",
+       "is_global": true,
+       "page": 170,
+       "chunk_index": 1696,
+       "is_roman_urdu": false,
+       "doc_type": "pdf",
+       "has_case": false
+      }
+     },
+     {
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c272",
+      "text": "d the offence or other cause for which the arrest is to be made.  2 [The officer so required shall, before making the arrest, notify to the person to be arrested the substance of the order and, if so required by such person, shall show him the order.]\n\n- 1 * * * * * * * ed by such person, shall show him the order.]\n\n- 1 * * * * * * *\n57.  Refusal  to  give  name  and  residence.­(1)  When  any  person  who  in  the  presence  of  a police­officer has committed or has been accused of committing a non­cognizable offence refuses, on demand of such officer, to give his name and residence or gives a name or residence which such officer has reason to believe to be false, he may be arrested by such officer in order that his name or residence may be ascertained. officer in order that his name or residence may be ascertained.\n- (2)  When  the  true  name  and  residence  of  such  person  have  been  ascertained,  he  shall  be released on his executing a bond, with or without sureties, to appear before a Magistrate  3 [having jurisdiction,] if so required:\n\nProvided that, if such person is not resident in  4 [Pakistan], the bond shall be secured by a surety or sureties resident in  4 [Pakistan].",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "page": 38,
+       "doc_id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363",
+       "section": null,
+       "category": "legal_procedural_reference",
+       "district": null,
+       "doc_type": "pdf",
+       "has_case": false,
+       "is_global": true,
+       "project_id": null,
+       "chunk_index": 272,
+       "external_id": null,
+       "record_date": null,
+       "record_type": null,
+       "source_type": null,
+       "station_code": null,
+       "is_roman_urdu": false,
+       "source_system": null,
+       "fir_display_code": null,
+       "content_provenance": null
+      }
+     }
+    ],
+    "case_id": null,
+    "result": {
+     "grounded": false,
+     "off_topic": false,
+     "leaked_case_id": null,
+     "unsupported_claims": [
+      "'data gap' if interviews are not systematically recorded through magistrates — not stated in any chunk.",
+      "Failure to follow procedures could result in gaps in documentation — not explicitly stated in any chunk."
+     ],
+     "reason": "The answer introduces the concept of a 'data gap' and its implications, which are not directly mentioned or implied in any of the provided chunks.",
+     "refusal_detected": false
+    }
+   }
+  ],
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "'data gap' if interviews are not systematically recorded through magistrates — not stated in any chunk.",
+     "Failure to follow procedures could result in gaps in documentation — not explicitly stated in any chunk."
+    ],
+    "reason": "The answer introduces the concept of a 'data gap' and its implications, which are not directly mentioned or implied in any of the provided chunks.",
+    "refusal_detected": false
+   }
+  ],
+  "module151_lines": [],
+  "verifier_log_lines": [
+   "Verifier: grounded=False off_topic=False leaked=None unsupported=2 — The answer introduces the concept of a 'data gap' and its implications, which ar",
+   "Semantic Search: verifier rejected answer: The answer introduces the concept of a 'data gap' and its implications, which are not directly mentioned or implied in any of the provided chunks."
+  ],
+  "evaluator_lines": [
+   "RAG tool: 5 chunk(s) to evaluator (attempt 1): 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1521[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c48[4_Punjab-Police-Rules-III.pdf], 2_qanun-e-shahadat-order-1984_pdf_3e604153_c176[2_qanun-e-shahadat-order-1984.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1696[4_Punjab-Police-Rules-III.pdf], 1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c272[1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf]"
+  ],
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='RAG' -> sub-agent='Semantic Search'",
+   "retrieval/active: Searching documents…",
+   "retrieval/done: 30 semantic + 30 lexical candidates",
+   "reranker/active: Re-ranking candidates…",
+   "reranker/done: Top 5 selected",
+   "evaluator/active: Checking relevance…",
+   "evaluator/done: Relevant",
+   "citation_validator/active: Verifying grounding…",
+   "citation_validator/error: Not grounded — answer rejected",
+   "supervisor:dispatch/done: Semantic Search completed with status=abstained",
+   "supervisor/done: Harness routing complete"
+  ]
+ },
+ {
+  "id": "KB9",
+  "run": 2,
+  "arm": "varm_before",
+  "language": "roman_ur",
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "expected_answer": "Code of Criminal Procedure, 1898 ki dafa 174 officer in charge ko paband karti hai ke jab use maloom ho ke koi shakhs khudkushi se, qatl se, ya aise halaat mein mara gaya jo shak paida karte hain, to woh tehqeeqaat kare aur maut ki zaahiri wajah par ek report tayyar kare — jism par mojood zakhmon ya nishaanaat ki tafseel ke saath — aur ise qareeb tareen magistrate ko bheje. Hamara data zahir karta hai ke aise cases mojood hain: 10 FIRs qatl ki dafa (PPC 302) ka hawala dete hain, aur kai zabt shuda property entries meyyat ke warisaan ko wapas karne ke liye nishaanzad hain. Magar schema mein kahin koi inquest, post-mortem ya cause-of-death record nahi. FIR aur uski dafaat yeh darj karti hain ke maut ka daawa kiya gaya hai; woh alag qanooni maut ki tehqeeqaat ko darj nahi kartin.",
+  "route": "RAG",
+  "status": "error",
+  "elapsed_s": 146.3,
+  "answer": "Writing the answer…The generated answer could not be verified as grounded in the retrieved documents.",
+  "generation": "local",
+  "local_llm_fallbacks": 0,
+  "fallback_lines": [],
+  "verifier_calls": [
+   {
+    "answer": "**Governing Provision and Substance:**  \nUnder Rule 26.31(1) [Document 2], when a person dies in police custody, the officer-in-charge must **immediately report** the death to the nearest magistrate authorized to hold inquests (Section 176, Code of Criminal Procedure). This aligns with Section 174 of the Code of Criminal Procedure, which mandates police inquiry into sudden or unnatural deaths [Document 1, Rule 25.31]. The law explicitly requires **investigation into the cause of death** and **reporting to magistrates**.  \n\n**Case Records and Findings:**  \nOur case records (Document 6) show:  \n- **10 FIRs** cite PPC §302 (murder), indicating deaths that may involve police custody or investigation.  \n- **No explicit data** is recorded on whether investigations into the cause of death (as required by Rules 25.31 and 26.31) were conducted, documented, or linked to these FIRs.  \n- The case records detail **seized property** and **forensic processes** (e.g., 13 items sent to forensic labs), but **no field** explicitly tracks whether inquests or cause-of-death investigations were completed per legal requirements.  \n\n**Conclusion:**  \nWhile the law mandates detailed investigations into deaths in custody [Rule 26.31(1)], our case records **do not contain specific data** on whether such investigations were conducted or recorded in the 10 §302 cases or elsewhere. The system lacks a field to track compliance with this requirement.",
+    "chunk_ids": [
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1978",
+     "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c35",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1548",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559",
+     "kb-data-half:death_investigation_charging"
+    ],
+    "cited_chunks": [
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+      "text": "r should not be undertaken.\n\nRule 25.30\n\n25.30.  Place of trial. - With regard to the place of trial of cases falling under Sections 179-183, Code of Criminal Procedure, police officers shall act solely with reference to the public convenience.\n\nOrdinarily such cases shall be sent up for trial in the district in which the witnesses can attend with the least inconvenience to themselves.\n\nRule 25.31\n\n25.31.  Inquests. east inconvenience to themselves.\n\nRule 25.31\n\n25.31.  Inquests. - (1) An officer in charge of police station shall, upon receipt of information of the sudden or unnatural death of any person, when the body of such person is within the local jurisdiction of his police station, immediately send information to the nearest magistrate authorized to hold inquests and shall proceed to the place where the body is and hold an investigation in the manner prescribed by Section 174, Code of Criminal Procedure. he manner prescribed by Section 174, Code of Criminal Procedure.  When the Sub-Inpector-in-charge of the Police Station through illness or absence from the station house, is himself unable to carry out the investigation, he shall at the first convenient opportunity proceed to the place where the body of the deceased person was found, and shall personally verify the results of the investigation.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "doc_type": "pdf",
+       "has_case": false,
+       "category": "legal_procedural_reference",
+       "page": 155,
+       "is_global": true,
+       "chunk_index": 1542,
+       "is_roman_urdu": false,
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d"
+      }
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1978",
+      "text": ").\n\nRule 26.29\n\n- 26.29.  Orders to be hung up outside lock-ups. - A printed copy, in English and Urdu, of Rules 26.3, 26.27 and 26.28 shall be hung up outside every police lock-up as a standing order for sentries and for the information of the public.\n\nRule 26.30\n\n- 26.30.  Diet and expenses of witnesses. - The instructions regarding the advancing of diet money and travelling expenses to witnesses contained in rule 27.28 shall be strictly followed in all police stations.\n\nRule 26.31\n\n- 26.31. strictly followed in all police stations.\n\nRule 26.31\n\n- 26.31.  Death in police custody. - (1) When any person dies while in the custody of the\n\npolice, the officer-in-charge of the guard, escort or police station, as the case may be, shall make an immediate report of the fact to the nearest magistrate empowered to hold inquests (Section 176, Code of Criminal Procedure). ered to hold inquests (Section 176, Code of Criminal Procedure).\n\n(2) For the purposes of this rule, a prisoner in a magisterial lock-up is considered to be in the custody of the turn key and a prisoner in prison or prison camp in the custody of the jailer.\n\nRule 26.32\n\n26.32.  Identification of suspects. - (1) The following rules shall be strictly observed in confronting arrested suspects with the witnesses who claim to be able to identify them.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "page": 203,
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d",
+       "is_global": true,
+       "has_case": false,
+       "is_roman_urdu": false,
+       "category": "legal_procedural_reference",
+       "chunk_index": 1978,
+       "doc_type": "pdf"
+      }
+     },
+     {
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c35",
+      "text": "|\n| | such statements in No inducement to be offered. |\n| 164A. | Medical examination of victim of rape, |\n| 164B. | etc. DNA test. |\n| | Search by police­officer. |\n| 165. 166. | When officer incharge of police station may require another to issue search warrant. |\n| 167. | Procedure when investigation cannot be completed in twenty­four hours. |\n| 168. 169. | Release of accused when evidence deficient. |\n| 170. | Case to be sent to magistrate when evidence is sufficient. | . | Case to be sent to magistrate when evidence is sufficient. |\n| 171. | Complaints and witnesses not to be required to accompany police­officer. Complainants and witnesses not to be subjected to restraint. Recusant complainant or witness may be forwarded in custody. |\n| 172. 173. | Report of police­officer. |\n| 174. | Police to inquire and report on suicide, etc. |\n| 175. | Power to summon persons. |\n| 176. | Inquiry by magistrate into |\n| | cause of death. Power to disinter corpses. magistrate into |\n| | cause of death. Power to disinter corpses. PART VI PROCEEDINGS IN |\n| | PROSECUTIONS CHAPTER XV THE JURISDICTION OF THE CRIMINAL COURTS IN |\n| | OF INQUIRIES AND TRIALS. A.­Place of Inquiry or Trial. |\n| 177. | |\n| | and trial. |\n| | Ordinary place of inquiry |\n\n| 178. | Power to order cases to be tried in different sessions divisions. |",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "page": 7,
+       "is_roman_urdu": false,
+       "is_global": true,
+       "doc_type": "pdf",
+       "doc_id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363",
+       "category": "legal_procedural_reference",
+       "has_case": false,
+       "chunk_index": 35
+      }
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1548",
+      "text": "inquests or if the scene of death is outside cantonment limits.\n- If the magistrate invited to hold the inquest fails to do so, the Superintendent or other gazetted officer shall make an investigation under the combined provisions of Sections 174 and 551, Code of Criminal Procedure, and if no gazetted officer is available such investigation shall be made by the officer in charge of the police station concerned. e made by the officer in charge of the police station concerned.\n- Such inquest or investigation under the Code of Criminal Procedure shall be held in addition to any military court of inquest which may be held.\n- (b) In the case of the sudden or unnatural death of a European soldier, non-commissioned officer, or officer the inquest shall be held under Section 176, Code of Criminal Procedure, by the nearest magistrate duly authorized to hold inquests. ure, by the nearest magistrate duly authorized to hold inquests.\n- (c) In the case of a death by violence occurring within the walls of a military prison or civil jail the police shall not make an investigation into the cause of death when an inquest has been held by a competent magistrate.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "page": 155,
+       "is_global": true,
+       "has_case": false,
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d",
+       "is_roman_urdu": false,
+       "category": "legal_procedural_reference",
+       "doc_type": "pdf",
+       "chunk_index": 1548
+      }
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559",
+      "text": "h he considers it necessary that the body should be disinterred.\n- (2) He shall forward the information so recorded to the nearest magistrate empowered to hold inquests and ask for an order under Section 176(2), Code of Criminal Procedure, and in the meantime shall guard the grave.\n- (3) On receipt of such order, if the magistrate himself does not attend the disinterment, such police officer shall, in the presence of two or more respectable inhabitants of the neighbourhood, cause the body to be disinterred. abitants of the neighbourhood, cause the body to be disinterred.  Such police officer shall then comply with the provisions of Section 174, Code of Criminal Procedure.\n\nRule 25.35\n\n- 25.35.  The Inquest Report. - (1) When the investigation has been completed the investigating officer shall draw up a report, in duplicate by the carbon copying process, in Forms 25.35(1) A, B or C, according as the deceased appears to have died :-\n- A. from natural causes.\n- B. by violence.\n- C. by poisoning. -\n- A. from natural causes.\n- B. by violence.\n- C. by poisoning.\n- (2) Such report shall state the apparent cause of death, give a description of any mark or marks of violence which may be found on the body and describe the manner in which and the weapon or instrument with which such marks appear to have been inflicted.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "page": 156,
+       "doc_type": "pdf",
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d",
+       "has_case": false,
+       "is_global": true,
+       "category": "legal_procedural_reference",
+       "is_roman_urdu": false,
+       "chunk_index": 1559
+      }
+     },
+     {
+      "id": "kb-data-half:death_investigation_charging",
+      "text": "10 of the 73 FIR(s) that carry a recorded section cite PPC §302.\n  - fir-202-26, fir-213-26, fir-214-26, fir-218-26, fir-340-25, fir-409-26, fir-421-26, fir-431-26, fir-466-26, fir-77-26\nFor context, the sections most often cited:\n  - PPC §34: 40 FIR(s)\n  - Arms Ordinance 1965 §13: 29 FIR(s)\n  - PPC §392: 21 FIR(s)\n  - CNSA 1997 §9(c): 12 FIR(s)\n  - PPC §420: 11 FIR(s)\n  - PPC §302: 10 FIR(s)\n  - PPC §337-A(i): 10 FIR(s)\n  - PECA 2016 §14: 9 FIR(s)\n  - PECA 2016 §21: 9 FIR(s)\n  - PPC §419: 9 FIR(s)\n  - PPC §365-A: 6 FIR(s)\n  - PPC §506: 6 FIR(s)\n  - PPC §379: 5 FIR(s)\n  - PPC §384: 4 FIR(s)\n  - Provincial Act §Punjab Domestic Violence Act: 4 FIR(s)\n  - Illegal Dispossession Act 2005 §3: 2 FIR(s)\n  - PPC §148: 2 FIR(s)\n  - PPC §149: 2 FIR(s)\n  - PPC §328A: 2 FIR(s)\n  - PPC §342: 2 FIR(s)\n  - ... and 16 more section(s).\n\nWhat happens to seized property — 45 property-register entr(ies) across 28 FIR(s), grouped by the disposition recorded against each item:\n  - ضبط شدہ (confiscated): 14 item(s), in 13 FIR(s)\n  - سیل بند، نمونہ فرانزک لیبارٹری بھجوایا گیا (sealed, sample sent to the forensic laboratory): 13 item(s), in 11 FIR(s)\n  - ورثاء کے حوالے کیا جائے گا (to be handed over to the heirs): 7 item(s), in 7 FIR(s)\n  - مدعی کے حوالے کے لیے محفوظ (held for return to the complainant): 6 item(s), in 6 FIR(s)\n  - ضبط شدہ، فرانزک جانچ کے بعد محفوظ (confiscated, held after forensic testing): 1 item(s), in 1 FIR(s)\n  - فرانزک شواہد کے طور پر محفوظ (held as forensic evidence): 1 item(s), in 1 FIR(s)\n  - مالخانہ میں مہر بند (sealed in the property store): 1 item(s), in 1 FIR(s)\n  - مالخانہ میں مہر بند، فرانزک معائنہ مطلوب (sealed in the property store, forensic examination required): 1 item(s), in 1 FIR(s)\n  - محفوظ (held): 1 item(s), in 1 FIR(s)\nOf those, 13 item(s) in 11 FIR(s) were literally DISPATCHED to a forensic laboratory, and 7 item(s) in 7 FIR(s) are held for return to a deceased person's heirs.\nCounting rule: 16 entries mention a forensic process in some wording (held as forensic evidence, examination required, tested and returned to store), but only 13 record the item as actually sent to the laboratory. The figure above uses the literal 'sent to the lab' reading.",
+      "metadata": {
+       "source_tool": "XAGG",
+       "case_id": null,
+       "source_file": "our own case records (cross-case aggregate)",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "is_global": true
+      }
+     }
+    ],
+    "case_id": null,
+    "result": {
+     "grounded": false,
+     "off_topic": false,
+     "leaked_case_id": null,
+     "unsupported_claims": [
+      "The system lacks a field to track compliance with this requirement — no chunk discusses the structure of case records or the presence/absence of specific data fields."
+     ],
+     "reason": "The conclusion about the system lacking a field to track compliance is not supported by any chunk, as the chunks do not address data field design or record-keeping structure.",
+     "refusal_detected": false
+    }
+   }
+  ],
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "The system lacks a field to track compliance with this requirement — no chunk discusses the structure of case records or the presence/absence of specific data fields."
+    ],
+    "reason": "The conclusion about the system lacking a field to track compliance is not supported by any chunk, as the chunks do not address data field design or record-keeping structure.",
+    "refusal_detected": false
+   }
+  ],
+  "module151_lines": [],
+  "verifier_log_lines": [
+   "Verifier: grounded=False off_topic=False leaked=None unsupported=1 — The conclusion about the system lacking a field to track compliance is not suppo",
+   "Semantic Search: verifier rejected answer: The conclusion about the system lacking a field to track compliance is not supported by any chunk, as the chunks do not address data field design or r"
+  ],
+  "evaluator_lines": [
+   "RAG tool: 6 chunk(s) to evaluator (attempt 1): 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1978[4_Punjab-Police-Rules-III.pdf], 1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c35[1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1548[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559[4_Punjab-Police-Rules-III.pdf], kb-data-half:death_investigation_charging[our own case records (cross-case aggregate)]"
+  ],
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='RAG' -> sub-agent='Semantic Search'",
+   "retrieval/active: Checking our own case records alongside the legal corpus…",
+   "retrieval/active: Searching documents…",
+   "retrieval/done: 30 semantic + 30 lexical candidates",
+   "reranker/active: Re-ranking candidates…",
+   "reranker/done: Top 5 selected",
+   "evaluator/active: Checking relevance…",
+   "evaluator/done: Relevant",
+   "citation_validator/active: Verifying grounding…",
+   "citation_validator/error: Not grounded — answer rejected",
+   "supervisor:dispatch/done: Semantic Search completed with status=abstained",
+   "supervisor/done: Harness routing complete"
+  ]
+ },
+ {
+  "id": "KB5",
+  "run": 2,
+  "arm": "varm_before",
+  "language": "ur",
+  "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+  "expected_answer": "جی ہاں۔ اینٹی ریپ (انویسٹی گیشن) رولز، 2022 کا رول 3(2) تفتیشی افسر کو پابند کرتا ہے کہ وہ یقینی بنائے کہ ایک خاتون پولیس افسر شامل ہو، متاثرہ کا بیان اینٹی ریپ کرائسز سیل (اے آر سی سی) میں تنہائی میں ریکارڈ کیا جائے، اور شواہد کی چین آف کسٹڈی پورے عمل کے دوران برقرار رکھی جائے — یہ واضح فرائض ہیں، تھانے کی صوابدید پر نہیں چھوڑے گئے۔ ہماری خواتین سے تشدد کی رپورٹوں کے ریکارڈ اس کا کچھ حصہ ظاہر کرتے ہیں: ریکارڈ میں موجود 8 میں سے ہر رپورٹ میں مقررہ خواتین پولیس اسٹیشن اور بیج نمبر کے ساتھ نامزد تفتیشی افسر کا خانہ موجود ہے، جو کیس کے باقاعدہ ایف آئی آر میں تبدیل ہونے سے پہلے ہی درج کیا جاتا ہے۔ جو چیز درج نہیں ہوتی وہ یہ ہے کہ چین آف کسٹڈی واقعی برقرار رکھی گئی یا نہیں — تقاضے کے اُس حصے کے لیے کوئی متعلقہ خانہ موجود نہیں۔",
+  "route": "RAG",
+  "status": null,
+  "elapsed_s": 134.2,
+  "answer": "Writing the answer…**Part 1: Legal Requirements**  \nUnder the **Anti-Rape (Investigation and Trial) Act, 2021** [Document 1], cases involving violence against women (including domestic violence) require **special procedures** distinct from general criminal cases. Specifically:  \n- **Section 8** mandates victim and witness protection measures, including **special security arrangements**, **identity concealment**, **video-conferencing for testimonies**, and **safe-houses** (among others).  \n- **Section 3** of the **Anti-Rape (Trial Procedure) Rules, 2022** [Document 3] requires a **scheduling hearing** with all parties’ counsel to issue a trial schedule, ensuring expedited proceedings.  \n\nThese provisions explicitly differ from standard procedures under the **Code of Criminal Procedure, 1898** [Document 1, Section 2(c)].  \n\n---\n\n**Part 2: Case Records Analysis**  \nOur case records [Document 7] show:  \n- **4 out of 8 domestic-violence reports** carry a **forwarded FIR number** matching a real, active FIR (e.g., `fir-97-26`, `fir-416-26`). This suggests **partial compliance** with procedural requirements (e.g., FIR documentation).  \n- **4 reports** lack a forwarded FIR number, indicating **no evidence of FIR linkage** or proper case initiation.  \n- **No explicit mention** of victim protection measures (e.g., security arrangements, video-conferencing) in the records.  \n\nThe data does **not confirm** whether the additional legal requirements (e.g., witness protection, expedited scheduling) were implemented beyond FIR documentation.Response generated (1532 chars)",
+  "generation": "local",
+  "local_llm_fallbacks": 0,
+  "fallback_lines": [],
+  "verifier_calls": [
+   {
+    "answer": "**Part 1: Legal Requirements**  \nUnder the **Anti-Rape (Investigation and Trial) Act, 2021** [Document 1], cases involving violence against women (including domestic violence) require **special procedures** distinct from general criminal cases. Specifically:  \n- **Section 8** mandates victim and witness protection measures, including **special security arrangements**, **identity concealment**, **video-conferencing for testimonies**, and **safe-houses** (among others).  \n- **Section 3** of the **Anti-Rape (Trial Procedure) Rules, 2022** [Document 3] requires a **scheduling hearing** with all parties’ counsel to issue a trial schedule, ensuring expedited proceedings.  \n\nThese provisions explicitly differ from standard procedures under the **Code of Criminal Procedure, 1898** [Document 1, Section 2(c)].  \n\n---\n\n**Part 2: Case Records Analysis**  \nOur case records [Document 7] show:  \n- **4 out of 8 domestic-violence reports** carry a **forwarded FIR number** matching a real, active FIR (e.g., `fir-97-26`, `fir-416-26`). This suggests **partial compliance** with procedural requirements (e.g., FIR documentation).  \n- **4 reports** lack a forwarded FIR number, indicating **no evidence of FIR linkage** or proper case initiation.  \n- **No explicit mention** of victim protection measures (e.g., security arrangements, video-conferencing) in the records.  \n\nThe data does **not confirm** whether the additional legal requirements (e.g., witness protection, expedited scheduling) were implemented beyond FIR documentation.",
+    "chunk_ids": [
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c21",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c47",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c111",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c143",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c110",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1669",
+     "kb-data-half:violence_against_women"
+    ],
+    "cited_chunks": [
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c21",
+      "text": "RY\nPUBLISHED BY AUTHORITY\n\nISLAMABAD, SATURDAY, DECEMBER 4, 2021\n\nPART I\n\nActs, Ordinances, President’s Orders and Regulations\n\nNATIONAL ASSEMBLY SECRETARIAT\n\nIslamabad, the 3rd December, 2021\n\nNo. F. 22(3)/2021-Legis.—The following Act of Majlis-e-Shoora\n(Parliament) received the assent of the President on the 1st December, 2021 is\nhereby published for general information:—\n\nACT No. XXX OF 2021\n\nAN\n\nACT\n\nto ensure expeditious redressal of rape and sexual abuse crimes in respect of editious redressal of rape and sexual abuse crimes in respect of\nwomen and children through special investigation teams and special Courts\nproviding for efficacious procedures, speedy trial, evidence and matters\nconnected therewith or incidental thereto;\n\nIt is hereby enacted as follows:—\n\n(931)\n\nPrice: Rs. 20.00\n\n[11724(2021)/Ex. Gaz.]\n\n1. Short title, extent, and commencement. (1) This Act may be called the Anti-Rape (Investigation and Trial) Act, 2021.\n- (2) It extends to the whole of Pakistan. and Trial) Act, 2021.\n- (2) It extends to the whole of Pakistan.\n- (3) It  shall come into force on such date as the Federal Government may appoint.\n2. Definitions.(1)  In  this  Act,  unless  there  is  anything  repugnant  in  the subject or context,-\n5. (a) 'anti-rape crisis cell'' is a cell appointed under section 4 of this Act;\n6. (b) 'child'  means  any  male  or  female,  who  has  not  attained  the  age  of eighteen years;\n7. (c) 'Code' means the Code of Criminal Procedure, 1898 (Act V of 1898);",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "has_case": false,
+       "is_global": true,
+       "page": 6,
+       "doc_id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5",
+       "is_roman_urdu": false,
+       "chunk_index": 21,
+       "category": "legal_procedural_reference",
+       "doc_type": "pdf"
+      }
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c47",
+      "text": "Justice Authority Act, 2020 (Act XVI of 2020) shall be utilized.\n7. Prosecutor general and special prosecutors.(1) The ministry of  law  and  justice  may  designate  or  appoint  a  prosecutor  general  and  special prosecutors in a manner as may be prescribed by rules notified by the ministry of law and justice.\n- (2) The  prosecutor  general  and  special  prosecutors  shall  prosecute  the scheduled offences. special  prosecutors  shall  prosecute  the scheduled offences.\n8. Victim  and  witness  protection.(1)  In  addition  to  the  existing laws, a victim and witness protection system may be established as prescribed in the rules notified by the ministry of law and justice and shall, with a view to carrying out the purposes of this Act and without generality of the aforesaid, include the following, namely: -\n6. (i) special security arrangements for witnesses and victims;\n7. (ii) concealment of identity; ents for witnesses and victims;\n7. (ii) concealment of identity;\n8. (iii) distance  recording  of  testimonies  through  video-conferencing,  audiovideo links and by the use of modem devices;\n9. (iv) re-location of victims and witnesses;\n10. (v) provision of reasonable financial assistance;\n11. (vi) compensation to legal heirs of protected victims and witnesses;\n12. (vii) safe-houses, dar-ul-amans, etc.;\n13. (viii) such other measures as may be necessary and ancillary.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "is_roman_urdu": false,
+       "category": "legal_procedural_reference",
+       "doc_id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5",
+       "page": 10,
+       "section": "table_of_contents",
+       "has_case": false,
+       "doc_type": "pdf",
+       "chunk_index": 47,
+       "is_global": true
+      }
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c111",
+      "text": "AND JUSTICE\n\n## NOTIFICATION\n\nIslamabad, the I4th February, 2023\n\n- S. R. 0. 186(1)/2023.-In exercise of powers conferred by sub-section (1) of section 19 of the Anti-Rape (Trial and Investigation) Act, 2021 (XXX of 2021), the  Ministry  of  Law  and  Justice,  upon  the  recommendations of  the  Special Committee, is pleased to make the following rules, namely:-\n\n## CHAPTER-I Preliminary\n\n1. Short title and commencement .-(1) These rules shall be called the Anti-Rape (Trial Procedure) Rules, 2022. les shall be called the Anti-Rape (Trial Procedure) Rules, 2022.\n- (2) These rules shall come into force at once.\n3. 2 Definitions. (1) I n these rules, unless there is anything repugnant in tire subject or  context.--\n4. (a) 'Act' shall mean the Anti-Rape. (Investigation and Trial) Act,  2021 (No. XXX of 2021).\n3. Scheduling of trial.(1) After framing the charge, on the first day when a case is received for trial. a scheduling hearing shall be held with all parties' counsel. l. a scheduling hearing shall be held with all parties' counsel. A trial schedule shall be issued, which shall specify the dates for each state of the trial. The counsel of victim and accused and the special prosecutor shall be taken on board while scheduling the trial.\n- (2) For convenience, days may be earmarked for lawyers when scheduling a trial. I he judge exercising jurisdiction of the concerned Special Court shall issue a trial scheduling  certificate.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "page": 19,
+       "doc_id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5",
+       "is_roman_urdu": false,
+       "chunk_index": 111,
+       "section": "table_of_contents",
+       "category": "legal_procedural_reference",
+       "doc_type": "pdf",
+       "has_case": false,
+       "is_global": true
+      }
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c143",
+      "text": "T II\n\nStatutory Notifications (S. R. O.)\n\nGOVERNMENT OF PAKISTAN\n\n## MINISTRY OF LAW AND JUSTICE\n\n## NOTIFICATION\n\nIslamabad, the 14th February, 2023\n\n- S. R. O. I85(I)/2023.-In exercise of the powers conferred by subsection (1) of section 19 of the Anti-Rape (Investigation and Trial) Act, 2021 (XXX of 2021), the Ministry of Law and Justice, upon the recommendations of the Special Committee, is pleased to make the following rules, namely:-\n\n## CHAPTER-I Preliminary\n\n1. Short title and commencement. ly:-\n\n## CHAPTER-I Preliminary\n\n1. Short title and commencement. -(1) These rules shall be called the Anti-Rape (Investigation) Rules 2022.\n- (2) These rules shall come into force at once.\n2. Definitions. -In these rules, unless there is anything repugnant in the subject or context,--\n4. (a) 'Act' means the Anti-Rape (Investigation and Trial) Act, 2021 (No. XXX of 2021);\n5. (b) 'first information report (FIR)' means information recorded under section 154 of the Code; (FIR)' means information recorded under section 154 of the Code;\n6. (c) 'investigation officer' means an officer of a law enforcement agency empowered to investigate scheduled offences; and\n7. (d) 'SSOIU'  means  the  special  sexual  offences  investigation  unit established under section 9 of the Act.\n\n## CHAPTER-II\n\n## Duties of Officer-in-Charge and Investigation Officer",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "page": 26,
+       "chunk_index": 143,
+       "doc_type": "pdf",
+       "is_global": true,
+       "is_roman_urdu": false,
+       "category": "legal_procedural_reference",
+       "has_case": false,
+       "doc_id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5"
+      }
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c110",
+      "text": "ected with offences under sections 336A, 336B, 354A, 365B, 366A. 366B, 367A, 371A, 37IB, 375, 375A, 376, 377, 377A and 377B of the Pakistan Penal Code, 1860 (Act XLV of 1860).\n\n'\n\n## EXTRAORDINARY PUBLISHED BY AUTHORITY\n\n## ISLAMABAD, MONDAY, FEBRUARY 20, 2023\n\nStatutory Notifications (S. R 0.)\n\n## GONRNMENT OF PAKISTAN\n\n## MINISTRY OF LAW AND JUSTICE\n\n## NOTIFICATION\n\nIslamabad, the I4th February, 2023 AND JUSTICE\n\n## NOTIFICATION\n\nIslamabad, the I4th February, 2023\n\n- S. R. 0. 186(1)/2023.-In exercise of powers conferred by sub-section (1) of section 19 of the Anti-Rape (Trial and Investigation) Act, 2021 (XXX of 2021), the  Ministry  of  Law  and  Justice,  upon  the  recommendations of  the  Special Committee, is pleased to make the following rules, namely:-\n\n## CHAPTER-I Preliminary\n\n1. Short title and commencement .-(1) These rules shall be called the Anti-Rape (Trial Procedure) Rules, 2022. les shall be called the Anti-Rape (Trial Procedure) Rules, 2022.\n- (2) These rules shall come into force at once.\n3. 2 Definitions. (1) I n these rules, unless there is anything repugnant in tire subject or  context.--\n4. (a) 'Act' shall mean the Anti-Rape. (Investigation and Trial) Act,  2021 (No. XXX of 2021).\n3. Scheduling of trial.(1) After framing the charge, on the first day when a case is received for trial. a scheduling hearing shall be held with all parties' counsel.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "chunk_index": 110,
+       "doc_id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5",
+       "section": "table_of_contents",
+       "page": 19,
+       "category": "legal_procedural_reference",
+       "doc_type": "pdf",
+       "is_global": true,
+       "is_roman_urdu": false,
+       "has_case": false
+      }
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1669",
+      "text": "finger printing dead bodies.\n\n\n\n- (8) One magnifying glass.\n\n\n\n- (9) One finger print impression pad and roller.\n\n\n\n- (10) One electric torch.\n\n- (11) One knife.\n\n- (12) One pair of scissors.\n\n- (13) One measuring tape 60' long.\n\n- (14) One foot-rule 2 feet long.\n\n- (15) Sealing wax and candles.\n\n- (16) Formalin diluted to 10 per cent together with chloride of lime to counteract decomposition of corpses.\n\n- (17) Cotton wool and 1 1 2 yards cloth for packing exhibits. - (17) Cotton wool and 1 1 2 yards cloth for packing exhibits.\n\n- (18) Case diary book with plate, pencil or pen, carbon paper and the usual forms required in investigation.\n\n## APPENDIX 25.18-A\n\n## RULES FOR THE PROTECTION OF SOURCES OF INFORMATION\n\nIn exercise of the powers conferred in him by section 58 of the Government of India Act, 1935, the Governor of the Punjab acting in his discretion is pleased to make the following rules :- ting in his discretion is pleased to make the following rules :-",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "is_global": true,
+       "doc_type": "pdf",
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d",
+       "category": "legal_procedural_reference",
+       "has_case": false,
+       "chunk_index": 1669,
+       "page": 167,
+       "is_roman_urdu": false,
+       "section": "table_of_contents"
+      }
+     },
+     {
+      "id": "kb-data-half:violence_against_women",
+      "text": "Yes — confirmed by the case records. Of 8 domestic-violence report(s), 4 carry a forwarded FIR number that matches a real, active FIR; the remaining 4 record no forwarded number.\n  - pkm_application:pkm-app-c9-02 → fir-97-26\n  - pkm_application:PKMAPP-C316-2 → fir-416-26\n  - pkm_application:PKMAPP-C326-1 → fir-426-26\n  - pkm_application:PKMAPP-C336-2 → fir-436-26",
+      "metadata": {
+       "source_tool": "XAGG",
+       "case_id": null,
+       "source_file": "our own case records (cross-case aggregate)",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "is_global": true
+      }
+     }
+    ],
+    "case_id": null,
+    "result": {
+     "grounded": true,
+     "off_topic": false,
+     "leaked_case_id": null,
+     "unsupported_claims": [],
+     "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are explicitly stated in Documents 2 and 3, respectively. Case records analysis (forwarded FIR numbers and absence of victim protection measures) is confirmed by Document 7.",
+     "refusal_detected": false
+    }
+   }
+  ],
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are explicitly stated in Documents 2 and 3, respectively. Case records analysis (forwarded FIR numbers and absence of victim protection measures) is confirmed by Document 7.",
+    "refusal_detected": false
+   }
+  ],
+  "module151_lines": [],
+  "verifier_log_lines": [
+   "Verifier: grounded=True off_topic=False leaked=None unsupported=0 — All claims are directly supported by cited chunks. Legal requirements (Sections "
+  ],
+  "evaluator_lines": [
+   "RAG tool: 7 chunk(s) to evaluator (attempt 1): 7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c21[7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf], 7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c47[7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf], 7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c111[7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf], 7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments"
+  ],
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='RAG' -> sub-agent='Semantic Search'",
+   "retrieval/active: Checking our own case records alongside the legal corpus…",
+   "retrieval/active: Searching documents…",
+   "retrieval/done: 30 semantic + 30 lexical candidates",
+   "reranker/active: Re-ranking candidates…",
+   "reranker/done: Top 6 selected",
+   "evaluator/active: Checking relevance…",
+   "evaluator/done: Relevant",
+   "citation_validator/active: Verifying grounding…",
+   "citation_validator/done: Grounded",
+   "supervisor:dispatch/done: Semantic Search completed with status=ok",
+   "supervisor/done: Harness routing complete",
+   "citations/done: 7 citation(s)",
+   "memory/done: Saved to session"
+  ]
+ },
+ {
+  "id": "KB2",
+  "run": 2,
+  "arm": "varm_before",
+  "language": "en",
+  "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+  "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+  "route": "RAG",
+  "status": null,
+  "elapsed_s": 154.5,
+  "answer": "Writing the answer…The system does keep records of statements made by witnesses or accused persons during police interviews, but these records are typically formalized through magistrates rather than directly by police officers. Under **Section 164 of the Criminal Procedure Code**, statements or confessions made during police investigations can be recorded by magistrates to ensure their admissibility as evidence later. This process is explicitly outlined in **Rule 25.28** of the Punjab Police Rules, which states that police officers may require a magistrate to record statements if they are not confessions or need to be preserved for legal proceedings [Document 1]. \n\nAdditionally, **Section 80 of the Indian Evidence Act** mandates that courts presume the authenticity of statements recorded by magistrates under Section 164, ensuring reliability [Document 4]. Thus, the system does not have a data gap in this regard; records are maintained through judicial oversight, not directly by police during interviews.Response generated (1000 chars)",
+  "generation": "local",
+  "local_llm_fallbacks": 0,
+  "fallback_lines": [],
+  "verifier_calls": [
+   {
+    "answer": "The system does keep records of statements made by witnesses or accused persons during police interviews, but these records are typically formalized through magistrates rather than directly by police officers. Under **Section 164 of the Criminal Procedure Code**, statements or confessions made during police investigations can be recorded by magistrates to ensure their admissibility as evidence later. This process is explicitly outlined in **Rule 25.28** of the Punjab Police Rules, which states that police officers may require a magistrate to record statements if they are not confessions or need to be preserved for legal proceedings [Document 1]. \n\nAdditionally, **Section 80 of the Indian Evidence Act** mandates that courts presume the authenticity of statements recorded by magistrates under Section 164, ensuring reliability [Document 4]. Thus, the system does not have a data gap in this regard; records are maintained through judicial oversight, not directly by police during interviews.",
+    "chunk_ids": [
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1521",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c48",
+     "2_qanun-e-shahadat-order-1984_pdf_3e604153_c176",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1696",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c442"
+    ],
+    "cited_chunks": [
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1521",
+      "text": "hey may also be used to check the reliability of local trackers.\n\nRule 25.27\n\n25.27.  Confessions. - The orders of the High Court by which magistrates are bound in respect of the record of statements or confessions are contained in Appendix No. 25.27. All supervising and investigating police officers must familiarise themselves with these instructions and conform strictly to them in producing accused persons for the record of their statements.\n\nRule 25.28\n\n25.28.  Statements recorded by magistrates. ements.\n\nRule 25.28\n\n25.28.  Statements recorded by magistrates. - (1) The circumstances under which police officers may require a statement to be recorded by a magistrate are as follows :-\n\n- (a) The statement, made in the course of an investigation by a witness or an accused person, and not amounting to a confession, may be recorded by a magistrate under Section 164, Code of Criminal Procedure, in order that it may be available as evidence at a later stage. in order that it may be available as evidence at a later stage.  Such statements may be recorded in any of the manners prescribed for recording evidence.\n- (b) A confession may be recorded under Section 164, Criminal Procedure Code, irrespective of the tender of a pardon, and of whether it involves more persons than the individual accused making it.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "has_case": false,
+       "is_global": true,
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d",
+       "page": 153,
+       "doc_type": "pdf",
+       "is_roman_urdu": false,
+       "chunk_index": 1521,
+       "category": "legal_procedural_reference"
+      }
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c48",
+      "text": "istance to an absconder.\n\nRule 21.6\n\n21.6.  Reports and records. - In order that continuity in the method of administration outlined in rule 21.1 may not be lost owing to changes of personnel, the proper maintenance  of  those  reports,  records  and  notes  which  review  the  history  of  the  criminal administration of a district, or from which information  regarding individuals  and past events may be  obtained, is essential. ing individuals  and past events may be  obtained, is essential.  Apart from  personal records of police officers, police station records  and inspection notes, referred to in other chapters  of these rules, such records comprise:-\n\n- (i)  Transfer of charge memoranda (rule 21.7).\n- (ii)  Confidential note books (rule 21.8).\n- (iii)  Weekly diaries I and II (rule 21.9 et. seq. ).\n- (iv)  Monthly crime reports (rule 21.15).\n- (v)  Annual Police Administration reports (rule 21.16). 1.15).\n- (v)  Annual Police Administration reports (rule 21.16).\n- (vi)  Annual reports on the administration of the Criminal Tribes Act (rule 21.18).\n- (vii)  Reports on political events or meetings (rule 21.19).\n- (viii) Reports on important  fares and festivals (rule  21.20).\n\nRule 21.7\n\n21.7.  Transfer of charge memoranda.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "page": 4,
+       "chunk_index": 48,
+       "has_case": false,
+       "doc_type": "pdf",
+       "is_roman_urdu": false,
+       "category": "legal_procedural_reference",
+       "is_global": true,
+       "section": "table_of_contents",
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d"
+      }
+     },
+     {
+      "id": "2_qanun-e-shahadat-order-1984_pdf_3e604153_c176",
+      "text": "37.  Confession  caused  by  inducement,  threat  or  promise,  when  irrelevant  in criminal proceeding: A confession made by an accused person is irrelevant in a criminal proceeding, if the making of the confession appears to the Court to have been caused by any inducement, threat or promise having reference to the charge against the accused person, proceeding from a person in authority and sufficient, in the opinion of the Court, to give the accused person grounds which would appear to him reasonable, the accused person grounds which would appear to him reasonable, for supposing that by making it he would gain any advantage or avoid any evil of a temporal nature in reference to the proceedings against him.\n\n38.  Confession  to  police  officer  not  to  be  proved: No  confession  made  to  a  police officer shall be proved as against a person accused of any offence. icer shall be proved as against a person accused of any offence.\n\n39. Confession by accused while in custody of police not to be proved against him: Subject to Article 10, no confession made by any person whilst he is in the custody of a police  officer,  unless  it  be  made  in  the  immediate  presence  of  a  Magistrate,  shall  be proved as against person.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "2_qanun-e-shahadat-order-1984.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "category": "legal_procedural_reference",
+       "page": 29,
+       "doc_type": "pdf",
+       "doc_id": "2_qanun-e-shahadat-order-1984_pdf_3e604153",
+       "has_case": false,
+       "chunk_index": 176,
+       "is_global": true,
+       "is_roman_urdu": false
+      }
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1696",
+      "text": "on of accused persons during the course of the enquiry or trial.  Section 364 prescribes the manner in which the examination of accused persons is to be recorded.\n\n2.  The object of section 164, Criminal Procedure Code, is to provide a method of securing a reliable record of statements or confessions made during the course of the police investigation, which could be used, if necessary, during the enquiry or trial. which could be used, if necessary, during the enquiry or trial.  Under Section 25 of the Indiana Evidence Act, a confession to a police officer is inadmissible in evidence, and hence when an accused person confesses during police investigation the police frequently get it recorded by a Magistrate under Section 164, Criminal Procedure Code, and it can then be used to the extent to which it may be admissible under the Indian Evidence Act. ent to which it may be admissible under the Indian Evidence Act.\n\n3.  Under section 80 of the Indian Evidence Act, a Court is bound to presume that a statement of confession of an accused person taken in accordance with law and purporting to be signed by any judge or Magistrate is genuine, and that the certificate or note as to the circumstances under which it was taken, purporting to be made by the persons signing it, are true, and that such statement or confession was duly taken.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d",
+       "doc_type": "pdf",
+       "category": "legal_procedural_reference",
+       "is_global": true,
+       "chunk_index": 1696,
+       "page": 170,
+       "has_case": false,
+       "is_roman_urdu": false
+      }
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c442",
+      "text": "of Police to be hung at police stations are to be so displayed.\n\n(2)  Notice-boards at police stations shall be used solely for the display of police and other official notices.  Public notices by local bodies  may displayed on such boards with the permission of the officer in charge of the police station, but their  use for private  or trade announcements and advertisements is strictly prohibited.\n\nRule 22.45\n\n22.45. Registers. tisements is strictly prohibited.\n\nRule 22.45\n\n22.45. Registers. - The following books shall be maintained at each police station in accordance with the rules hereinafter prescribed or referred to :-\n\n- (1)  The first Information Report Register and, in certain stations the Register of Petty Offences.\n- (2)  The Station Diary.\n- (3)  Part I. Standing Order Book Part II. Circular and others orders.\n- (4)  Register of Absconders and Deserters.\n- (5)  Register of Correspondence.\n- (6)  Miscellaneous Register. (5)  Register of Correspondence.\n- (6)  Miscellaneous Register.\n- (7)  Cattle Pound Register.\n- (8)  Criminal Tribes Register.\n- (9)  The Village Crime Register.\n- (10)  The Surveillance Register.\n- (10) (A) Bad Character Rolls despatched.\n- (10) (B) Bad Character Rolls received.\n- (11)  Index to History Sheets and Personal Files.\n- (12)  Register of information sheets despatched. (A)  Copies of Information sheets received.\n- (13)  Minute Book for Gazetted Officers.\n- (14)  File Book of Inspection Reports.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "has_case": false,
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d",
+       "page": 46,
+       "is_roman_urdu": false,
+       "category": "legal_procedural_reference",
+       "chunk_index": 442,
+       "is_global": true,
+       "doc_type": "pdf"
+      }
+     }
+    ],
+    "case_id": null,
+    "result": {
+     "grounded": true,
+     "off_topic": false,
+     "leaked_case_id": null,
+     "unsupported_claims": [],
+     "reason": "All claims are directly supported by cited chunks. Section 164 and Rule 25.28 are explicitly mentioned in Document 1, and Section 80 of the Indian Evidence Act is referenced in Document 4.",
+     "refusal_detected": false
+    }
+   }
+  ],
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Section 164 and Rule 25.28 are explicitly mentioned in Document 1, and Section 80 of the Indian Evidence Act is referenced in Document 4.",
+    "refusal_detected": false
+   }
+  ],
+  "module151_lines": [],
+  "verifier_log_lines": [
+   "Verifier: grounded=True off_topic=False leaked=None unsupported=0 — All claims are directly supported by cited chunks. Section 164 and Rule 25.28 ar"
+  ],
+  "evaluator_lines": [
+   "RAG tool: 5 chunk(s) to evaluator (attempt 1): 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1521[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c48[4_Punjab-Police-Rules-III.pdf], 2_qanun-e-shahadat-order-1984_pdf_3e604153_c176[2_qanun-e-shahadat-order-1984.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1696[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c442[4_Punjab-Police-Rules-III.pdf]"
+  ],
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='RAG' -> sub-agent='Semantic Search'",
+   "retrieval/active: Searching documents…",
+   "retrieval/done: 30 semantic + 30 lexical candidates",
+   "reranker/active: Re-ranking candidates…",
+   "reranker/done: Top 5 selected",
+   "evaluator/active: Checking relevance…",
+   "evaluator/done: Relevant",
+   "citation_validator/active: Verifying grounding…",
+   "citation_validator/done: Grounded",
+   "supervisor:dispatch/done: Semantic Search completed with status=ok",
+   "supervisor/done: Harness routing complete",
+   "citations/done: 5 citation(s)",
+   "memory/done: Saved to session"
+  ]
+ },
+ {
+  "id": "KB9",
+  "run": 3,
+  "arm": "varm_before",
+  "language": "roman_ur",
+  "question": "Jab koi shakhs mashkook halaat mein foat ho jaye, to police ko maut ki wajah ki baaqaida tehqeeqaat karni hoti hai — kya hamara system yeh kahin darj karta hai, khaas tor par jab hamare itne cases mein maut shamil hai?",
+  "expected_answer": "Code of Criminal Procedure, 1898 ki dafa 174 officer in charge ko paband karti hai ke jab use maloom ho ke koi shakhs khudkushi se, qatl se, ya aise halaat mein mara gaya jo shak paida karte hain, to woh tehqeeqaat kare aur maut ki zaahiri wajah par ek report tayyar kare — jism par mojood zakhmon ya nishaanaat ki tafseel ke saath — aur ise qareeb tareen magistrate ko bheje. Hamara data zahir karta hai ke aise cases mojood hain: 10 FIRs qatl ki dafa (PPC 302) ka hawala dete hain, aur kai zabt shuda property entries meyyat ke warisaan ko wapas karne ke liye nishaanzad hain. Magar schema mein kahin koi inquest, post-mortem ya cause-of-death record nahi. FIR aur uski dafaat yeh darj karti hain ke maut ka daawa kiya gaya hai; woh alag qanooni maut ki tehqeeqaat ko darj nahi kartin.",
+  "route": "RAG",
+  "status": "error",
+  "elapsed_s": 142.9,
+  "answer": "Writing the answer…The generated answer could not be verified as grounded in the retrieved documents.",
+  "generation": "local",
+  "local_llm_fallbacks": 0,
+  "fallback_lines": [],
+  "verifier_calls": [
+   {
+    "answer": "**Governing Provision and Substance:**  \nUnder Rule 26.31(1) [Document 2], when a person dies in police custody, the officer-in-charge must **immediately report** the death to the nearest magistrate authorized to hold inquests (Section 176, Code of Criminal Procedure). This aligns with Section 174 of the Code of Criminal Procedure, which mandates police inquiry into sudden or unnatural deaths [Document 1, Rule 25.31]. The law explicitly requires **investigation into the cause of death** and **reporting to magistrates**.  \n\n**Case Records and Findings:**  \nOur case records (Document 6) show:  \n- **10 FIRs** cite PPC §302 (murder), indicating deaths that may involve police custody or investigation.  \n- **No explicit data** is recorded on whether investigations into the cause of death (as required by Rules 25.31 and 26.31) were conducted, documented, or linked to these FIRs.  \n- The case records detail **seized property** and **forensic processes** (e.g., 13 items sent to forensic labs), but **no field** explicitly tracks whether inquests or cause-of-death investigations were completed per legal requirements.  \n\n**Conclusion:**  \nWhile the law mandates detailed investigations into deaths in custody [Rule 26.31(1)], our case records **do not contain specific data** on whether such investigations were conducted or recorded in the 10 §302 cases or elsewhere. The system lacks a field to track compliance with this requirement.",
+    "chunk_ids": [
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1978",
+     "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c35",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1548",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559",
+     "kb-data-half:death_investigation_charging"
+    ],
+    "cited_chunks": [
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542",
+      "text": "r should not be undertaken.\n\nRule 25.30\n\n25.30.  Place of trial. - With regard to the place of trial of cases falling under Sections 179-183, Code of Criminal Procedure, police officers shall act solely with reference to the public convenience.\n\nOrdinarily such cases shall be sent up for trial in the district in which the witnesses can attend with the least inconvenience to themselves.\n\nRule 25.31\n\n25.31.  Inquests. east inconvenience to themselves.\n\nRule 25.31\n\n25.31.  Inquests. - (1) An officer in charge of police station shall, upon receipt of information of the sudden or unnatural death of any person, when the body of such person is within the local jurisdiction of his police station, immediately send information to the nearest magistrate authorized to hold inquests and shall proceed to the place where the body is and hold an investigation in the manner prescribed by Section 174, Code of Criminal Procedure. he manner prescribed by Section 174, Code of Criminal Procedure.  When the Sub-Inpector-in-charge of the Police Station through illness or absence from the station house, is himself unable to carry out the investigation, he shall at the first convenient opportunity proceed to the place where the body of the deceased person was found, and shall personally verify the results of the investigation.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "is_global": true,
+       "chunk_index": 1542,
+       "category": "legal_procedural_reference",
+       "is_roman_urdu": false,
+       "page": 155,
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d",
+       "doc_type": "pdf",
+       "has_case": false
+      }
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1978",
+      "text": ").\n\nRule 26.29\n\n- 26.29.  Orders to be hung up outside lock-ups. - A printed copy, in English and Urdu, of Rules 26.3, 26.27 and 26.28 shall be hung up outside every police lock-up as a standing order for sentries and for the information of the public.\n\nRule 26.30\n\n- 26.30.  Diet and expenses of witnesses. - The instructions regarding the advancing of diet money and travelling expenses to witnesses contained in rule 27.28 shall be strictly followed in all police stations.\n\nRule 26.31\n\n- 26.31. strictly followed in all police stations.\n\nRule 26.31\n\n- 26.31.  Death in police custody. - (1) When any person dies while in the custody of the\n\npolice, the officer-in-charge of the guard, escort or police station, as the case may be, shall make an immediate report of the fact to the nearest magistrate empowered to hold inquests (Section 176, Code of Criminal Procedure). ered to hold inquests (Section 176, Code of Criminal Procedure).\n\n(2) For the purposes of this rule, a prisoner in a magisterial lock-up is considered to be in the custody of the turn key and a prisoner in prison or prison camp in the custody of the jailer.\n\nRule 26.32\n\n26.32.  Identification of suspects. - (1) The following rules shall be strictly observed in confronting arrested suspects with the witnesses who claim to be able to identify them.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "category": "legal_procedural_reference",
+       "page": 203,
+       "chunk_index": 1978,
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d",
+       "is_global": true,
+       "doc_type": "pdf",
+       "has_case": false,
+       "is_roman_urdu": false
+      }
+     },
+     {
+      "id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c35",
+      "text": "|\n| | such statements in No inducement to be offered. |\n| 164A. | Medical examination of victim of rape, |\n| 164B. | etc. DNA test. |\n| | Search by police­officer. |\n| 165. 166. | When officer incharge of police station may require another to issue search warrant. |\n| 167. | Procedure when investigation cannot be completed in twenty­four hours. |\n| 168. 169. | Release of accused when evidence deficient. |\n| 170. | Case to be sent to magistrate when evidence is sufficient. | . | Case to be sent to magistrate when evidence is sufficient. |\n| 171. | Complaints and witnesses not to be required to accompany police­officer. Complainants and witnesses not to be subjected to restraint. Recusant complainant or witness may be forwarded in custody. |\n| 172. 173. | Report of police­officer. |\n| 174. | Police to inquire and report on suicide, etc. |\n| 175. | Power to summon persons. |\n| 176. | Inquiry by magistrate into |\n| | cause of death. Power to disinter corpses. magistrate into |\n| | cause of death. Power to disinter corpses. PART VI PROCEEDINGS IN |\n| | PROSECUTIONS CHAPTER XV THE JURISDICTION OF THE CRIMINAL COURTS IN |\n| | OF INQUIRIES AND TRIALS. A.­Place of Inquiry or Trial. |\n| 177. | |\n| | and trial. |\n| | Ordinary place of inquiry |\n\n| 178. | Power to order cases to be tried in different sessions divisions. |",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "chunk_index": 35,
+       "is_global": true,
+       "has_case": false,
+       "doc_type": "pdf",
+       "doc_id": "1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363",
+       "is_roman_urdu": false,
+       "category": "legal_procedural_reference",
+       "page": 7
+      }
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1548",
+      "text": "inquests or if the scene of death is outside cantonment limits.\n- If the magistrate invited to hold the inquest fails to do so, the Superintendent or other gazetted officer shall make an investigation under the combined provisions of Sections 174 and 551, Code of Criminal Procedure, and if no gazetted officer is available such investigation shall be made by the officer in charge of the police station concerned. e made by the officer in charge of the police station concerned.\n- Such inquest or investigation under the Code of Criminal Procedure shall be held in addition to any military court of inquest which may be held.\n- (b) In the case of the sudden or unnatural death of a European soldier, non-commissioned officer, or officer the inquest shall be held under Section 176, Code of Criminal Procedure, by the nearest magistrate duly authorized to hold inquests. ure, by the nearest magistrate duly authorized to hold inquests.\n- (c) In the case of a death by violence occurring within the walls of a military prison or civil jail the police shall not make an investigation into the cause of death when an inquest has been held by a competent magistrate.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "page": 155,
+       "category": "legal_procedural_reference",
+       "is_global": true,
+       "doc_type": "pdf",
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d",
+       "is_roman_urdu": false,
+       "chunk_index": 1548,
+       "has_case": false
+      }
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559",
+      "text": "h he considers it necessary that the body should be disinterred.\n- (2) He shall forward the information so recorded to the nearest magistrate empowered to hold inquests and ask for an order under Section 176(2), Code of Criminal Procedure, and in the meantime shall guard the grave.\n- (3) On receipt of such order, if the magistrate himself does not attend the disinterment, such police officer shall, in the presence of two or more respectable inhabitants of the neighbourhood, cause the body to be disinterred. abitants of the neighbourhood, cause the body to be disinterred.  Such police officer shall then comply with the provisions of Section 174, Code of Criminal Procedure.\n\nRule 25.35\n\n- 25.35.  The Inquest Report. - (1) When the investigation has been completed the investigating officer shall draw up a report, in duplicate by the carbon copying process, in Forms 25.35(1) A, B or C, according as the deceased appears to have died :-\n- A. from natural causes.\n- B. by violence.\n- C. by poisoning. -\n- A. from natural causes.\n- B. by violence.\n- C. by poisoning.\n- (2) Such report shall state the apparent cause of death, give a description of any mark or marks of violence which may be found on the body and describe the manner in which and the weapon or instrument with which such marks appear to have been inflicted.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "has_case": false,
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d",
+       "is_roman_urdu": false,
+       "page": 156,
+       "category": "legal_procedural_reference",
+       "chunk_index": 1559,
+       "is_global": true,
+       "doc_type": "pdf"
+      }
+     },
+     {
+      "id": "kb-data-half:death_investigation_charging",
+      "text": "10 of the 73 FIR(s) that carry a recorded section cite PPC §302.\n  - fir-202-26, fir-213-26, fir-214-26, fir-218-26, fir-340-25, fir-409-26, fir-421-26, fir-431-26, fir-466-26, fir-77-26\nFor context, the sections most often cited:\n  - PPC §34: 40 FIR(s)\n  - Arms Ordinance 1965 §13: 29 FIR(s)\n  - PPC §392: 21 FIR(s)\n  - CNSA 1997 §9(c): 12 FIR(s)\n  - PPC §420: 11 FIR(s)\n  - PPC §302: 10 FIR(s)\n  - PPC §337-A(i): 10 FIR(s)\n  - PECA 2016 §14: 9 FIR(s)\n  - PECA 2016 §21: 9 FIR(s)\n  - PPC §419: 9 FIR(s)\n  - PPC §365-A: 6 FIR(s)\n  - PPC §506: 6 FIR(s)\n  - PPC §379: 5 FIR(s)\n  - PPC §384: 4 FIR(s)\n  - Provincial Act §Punjab Domestic Violence Act: 4 FIR(s)\n  - Illegal Dispossession Act 2005 §3: 2 FIR(s)\n  - PPC §148: 2 FIR(s)\n  - PPC §149: 2 FIR(s)\n  - PPC §328A: 2 FIR(s)\n  - PPC §342: 2 FIR(s)\n  - ... and 16 more section(s).\n\nWhat happens to seized property — 45 property-register entr(ies) across 28 FIR(s), grouped by the disposition recorded against each item:\n  - ضبط شدہ (confiscated): 14 item(s), in 13 FIR(s)\n  - سیل بند، نمونہ فرانزک لیبارٹری بھجوایا گیا (sealed, sample sent to the forensic laboratory): 13 item(s), in 11 FIR(s)\n  - ورثاء کے حوالے کیا جائے گا (to be handed over to the heirs): 7 item(s), in 7 FIR(s)\n  - مدعی کے حوالے کے لیے محفوظ (held for return to the complainant): 6 item(s), in 6 FIR(s)\n  - ضبط شدہ، فرانزک جانچ کے بعد محفوظ (confiscated, held after forensic testing): 1 item(s), in 1 FIR(s)\n  - فرانزک شواہد کے طور پر محفوظ (held as forensic evidence): 1 item(s), in 1 FIR(s)\n  - مالخانہ میں مہر بند (sealed in the property store): 1 item(s), in 1 FIR(s)\n  - مالخانہ میں مہر بند، فرانزک معائنہ مطلوب (sealed in the property store, forensic examination required): 1 item(s), in 1 FIR(s)\n  - محفوظ (held): 1 item(s), in 1 FIR(s)\nOf those, 13 item(s) in 11 FIR(s) were literally DISPATCHED to a forensic laboratory, and 7 item(s) in 7 FIR(s) are held for return to a deceased person's heirs.\nCounting rule: 16 entries mention a forensic process in some wording (held as forensic evidence, examination required, tested and returned to store), but only 13 record the item as actually sent to the laboratory. The figure above uses the literal 'sent to the lab' reading.",
+      "metadata": {
+       "source_tool": "XAGG",
+       "case_id": null,
+       "source_file": "our own case records (cross-case aggregate)",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "is_global": true
+      }
+     }
+    ],
+    "case_id": null,
+    "result": {
+     "grounded": false,
+     "off_topic": false,
+     "leaked_case_id": null,
+     "unsupported_claims": [
+      "The system lacks a field to track compliance with this requirement — no chunk discusses the structure of case records or the presence/absence of specific data fields."
+     ],
+     "reason": "The conclusion about the system lacking a field to track compliance is not supported by any chunk, as the chunks do not address data field design or record-keeping structure.",
+     "refusal_detected": false
+    }
+   }
+  ],
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "The system lacks a field to track compliance with this requirement — no chunk discusses the structure of case records or the presence/absence of specific data fields."
+    ],
+    "reason": "The conclusion about the system lacking a field to track compliance is not supported by any chunk, as the chunks do not address data field design or record-keeping structure.",
+    "refusal_detected": false
+   }
+  ],
+  "module151_lines": [],
+  "verifier_log_lines": [
+   "Verifier: grounded=False off_topic=False leaked=None unsupported=1 — The conclusion about the system lacking a field to track compliance is not suppo",
+   "Semantic Search: verifier rejected answer: The conclusion about the system lacking a field to track compliance is not supported by any chunk, as the chunks do not address data field design or r"
+  ],
+  "evaluator_lines": [
+   "RAG tool: 6 chunk(s) to evaluator (attempt 1): 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1542[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1978[4_Punjab-Police-Rules-III.pdf], 1_1898_Code_of_Criminal_Procedure_(Pakistan)_pdf_f9908363_c35[1_1898_Code_of_Criminal_Procedure_(Pakistan).pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1548[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1559[4_Punjab-Police-Rules-III.pdf], kb-data-half:death_investigation_charging[our own case records (cross-case aggregate)]"
+  ],
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='RAG' -> sub-agent='Semantic Search'",
+   "retrieval/active: Checking our own case records alongside the legal corpus…",
+   "retrieval/active: Searching documents…",
+   "retrieval/done: 30 semantic + 30 lexical candidates",
+   "reranker/active: Re-ranking candidates…",
+   "reranker/done: Top 5 selected",
+   "evaluator/active: Checking relevance…",
+   "evaluator/done: Relevant",
+   "citation_validator/active: Verifying grounding…",
+   "citation_validator/error: Not grounded — answer rejected",
+   "supervisor:dispatch/done: Semantic Search completed with status=abstained",
+   "supervisor/done: Harness routing complete"
+  ]
+ },
+ {
+  "id": "KB5",
+  "run": 3,
+  "arm": "varm_before",
+  "language": "ur",
+  "question": "جب کسی مقدمے میں کسی عورت پر تشدد شامل ہو، تو کیا قانون عام مقدمے سے مختلف طریقۂ کار کا تقاضا کرتا ہے — اور اگر ہاں، تو کیا ہمارا ڈیٹا ظاہر کرتا ہے کہ وہ اضافی اقدامات واقعی کیے گئے؟",
+  "expected_answer": "جی ہاں۔ اینٹی ریپ (انویسٹی گیشن) رولز، 2022 کا رول 3(2) تفتیشی افسر کو پابند کرتا ہے کہ وہ یقینی بنائے کہ ایک خاتون پولیس افسر شامل ہو، متاثرہ کا بیان اینٹی ریپ کرائسز سیل (اے آر سی سی) میں تنہائی میں ریکارڈ کیا جائے، اور شواہد کی چین آف کسٹڈی پورے عمل کے دوران برقرار رکھی جائے — یہ واضح فرائض ہیں، تھانے کی صوابدید پر نہیں چھوڑے گئے۔ ہماری خواتین سے تشدد کی رپورٹوں کے ریکارڈ اس کا کچھ حصہ ظاہر کرتے ہیں: ریکارڈ میں موجود 8 میں سے ہر رپورٹ میں مقررہ خواتین پولیس اسٹیشن اور بیج نمبر کے ساتھ نامزد تفتیشی افسر کا خانہ موجود ہے، جو کیس کے باقاعدہ ایف آئی آر میں تبدیل ہونے سے پہلے ہی درج کیا جاتا ہے۔ جو چیز درج نہیں ہوتی وہ یہ ہے کہ چین آف کسٹڈی واقعی برقرار رکھی گئی یا نہیں — تقاضے کے اُس حصے کے لیے کوئی متعلقہ خانہ موجود نہیں۔",
+  "route": "RAG",
+  "status": null,
+  "elapsed_s": 137.1,
+  "answer": "Writing the answer…**Part 1: Legal Requirements**  \nUnder the **Anti-Rape (Investigation and Trial) Act, 2021** [Document 1], cases involving violence against women (including domestic violence) require **special procedures** distinct from general criminal cases. Specifically:  \n- **Section 8** mandates victim and witness protection measures, including **special security arrangements**, **identity concealment**, **video-conferencing for testimonies**, and **safe-houses** (among others).  \n- **Section 3** of the **Anti-Rape (Trial Procedure) Rules, 2022** [Document 3] requires a **scheduling hearing** with all parties’ counsel to issue a trial schedule, ensuring expedited proceedings.  \n\nThese provisions explicitly differ from standard procedures under the **Code of Criminal Procedure, 1898** [Document 1, Section 2(c)].  \n\n---\n\n**Part 2: Case Records Analysis**  \nOur case records [Document 7] show:  \n- **4 out of 8 domestic-violence reports** carry a **forwarded FIR number** matching a real, active FIR (e.g., `fir-97-26`, `fir-416-26`). This suggests **partial compliance** with procedural requirements (e.g., FIR documentation).  \n- **4 reports** lack a forwarded FIR number, indicating **no evidence of FIR linkage** or proper case initiation.  \n- **No explicit mention** of victim protection measures (e.g., security arrangements, video-conferencing) in the records.  \n\nThe data does **not confirm** whether the additional legal requirements (e.g., witness protection, expedited scheduling) were implemented beyond FIR documentation.Response generated (1532 chars)",
+  "generation": "local",
+  "local_llm_fallbacks": 0,
+  "fallback_lines": [],
+  "verifier_calls": [
+   {
+    "answer": "**Part 1: Legal Requirements**  \nUnder the **Anti-Rape (Investigation and Trial) Act, 2021** [Document 1], cases involving violence against women (including domestic violence) require **special procedures** distinct from general criminal cases. Specifically:  \n- **Section 8** mandates victim and witness protection measures, including **special security arrangements**, **identity concealment**, **video-conferencing for testimonies**, and **safe-houses** (among others).  \n- **Section 3** of the **Anti-Rape (Trial Procedure) Rules, 2022** [Document 3] requires a **scheduling hearing** with all parties’ counsel to issue a trial schedule, ensuring expedited proceedings.  \n\nThese provisions explicitly differ from standard procedures under the **Code of Criminal Procedure, 1898** [Document 1, Section 2(c)].  \n\n---\n\n**Part 2: Case Records Analysis**  \nOur case records [Document 7] show:  \n- **4 out of 8 domestic-violence reports** carry a **forwarded FIR number** matching a real, active FIR (e.g., `fir-97-26`, `fir-416-26`). This suggests **partial compliance** with procedural requirements (e.g., FIR documentation).  \n- **4 reports** lack a forwarded FIR number, indicating **no evidence of FIR linkage** or proper case initiation.  \n- **No explicit mention** of victim protection measures (e.g., security arrangements, video-conferencing) in the records.  \n\nThe data does **not confirm** whether the additional legal requirements (e.g., witness protection, expedited scheduling) were implemented beyond FIR documentation.",
+    "chunk_ids": [
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c21",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c47",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c111",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c143",
+     "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c110",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1669",
+     "kb-data-half:violence_against_women"
+    ],
+    "cited_chunks": [
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c21",
+      "text": "RY\nPUBLISHED BY AUTHORITY\n\nISLAMABAD, SATURDAY, DECEMBER 4, 2021\n\nPART I\n\nActs, Ordinances, President’s Orders and Regulations\n\nNATIONAL ASSEMBLY SECRETARIAT\n\nIslamabad, the 3rd December, 2021\n\nNo. F. 22(3)/2021-Legis.—The following Act of Majlis-e-Shoora\n(Parliament) received the assent of the President on the 1st December, 2021 is\nhereby published for general information:—\n\nACT No. XXX OF 2021\n\nAN\n\nACT\n\nto ensure expeditious redressal of rape and sexual abuse crimes in respect of editious redressal of rape and sexual abuse crimes in respect of\nwomen and children through special investigation teams and special Courts\nproviding for efficacious procedures, speedy trial, evidence and matters\nconnected therewith or incidental thereto;\n\nIt is hereby enacted as follows:—\n\n(931)\n\nPrice: Rs. 20.00\n\n[11724(2021)/Ex. Gaz.]\n\n1. Short title, extent, and commencement. (1) This Act may be called the Anti-Rape (Investigation and Trial) Act, 2021.\n- (2) It extends to the whole of Pakistan. and Trial) Act, 2021.\n- (2) It extends to the whole of Pakistan.\n- (3) It  shall come into force on such date as the Federal Government may appoint.\n2. Definitions.(1)  In  this  Act,  unless  there  is  anything  repugnant  in  the subject or context,-\n5. (a) 'anti-rape crisis cell'' is a cell appointed under section 4 of this Act;\n6. (b) 'child'  means  any  male  or  female,  who  has  not  attained  the  age  of eighteen years;\n7. (c) 'Code' means the Code of Criminal Procedure, 1898 (Act V of 1898);",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "has_case": false,
+       "doc_id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5",
+       "category": "legal_procedural_reference",
+       "is_roman_urdu": false,
+       "page": 6,
+       "chunk_index": 21,
+       "is_global": true,
+       "doc_type": "pdf"
+      }
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c47",
+      "text": "Justice Authority Act, 2020 (Act XVI of 2020) shall be utilized.\n7. Prosecutor general and special prosecutors.(1) The ministry of  law  and  justice  may  designate  or  appoint  a  prosecutor  general  and  special prosecutors in a manner as may be prescribed by rules notified by the ministry of law and justice.\n- (2) The  prosecutor  general  and  special  prosecutors  shall  prosecute  the scheduled offences. special  prosecutors  shall  prosecute  the scheduled offences.\n8. Victim  and  witness  protection.(1)  In  addition  to  the  existing laws, a victim and witness protection system may be established as prescribed in the rules notified by the ministry of law and justice and shall, with a view to carrying out the purposes of this Act and without generality of the aforesaid, include the following, namely: -\n6. (i) special security arrangements for witnesses and victims;\n7. (ii) concealment of identity; ents for witnesses and victims;\n7. (ii) concealment of identity;\n8. (iii) distance  recording  of  testimonies  through  video-conferencing,  audiovideo links and by the use of modem devices;\n9. (iv) re-location of victims and witnesses;\n10. (v) provision of reasonable financial assistance;\n11. (vi) compensation to legal heirs of protected victims and witnesses;\n12. (vii) safe-houses, dar-ul-amans, etc.;\n13. (viii) such other measures as may be necessary and ancillary.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "section": "table_of_contents",
+       "has_case": false,
+       "category": "legal_procedural_reference",
+       "doc_id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5",
+       "chunk_index": 47,
+       "is_roman_urdu": false,
+       "page": 10,
+       "doc_type": "pdf",
+       "is_global": true
+      }
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c111",
+      "text": "AND JUSTICE\n\n## NOTIFICATION\n\nIslamabad, the I4th February, 2023\n\n- S. R. 0. 186(1)/2023.-In exercise of powers conferred by sub-section (1) of section 19 of the Anti-Rape (Trial and Investigation) Act, 2021 (XXX of 2021), the  Ministry  of  Law  and  Justice,  upon  the  recommendations of  the  Special Committee, is pleased to make the following rules, namely:-\n\n## CHAPTER-I Preliminary\n\n1. Short title and commencement .-(1) These rules shall be called the Anti-Rape (Trial Procedure) Rules, 2022. les shall be called the Anti-Rape (Trial Procedure) Rules, 2022.\n- (2) These rules shall come into force at once.\n3. 2 Definitions. (1) I n these rules, unless there is anything repugnant in tire subject or  context.--\n4. (a) 'Act' shall mean the Anti-Rape. (Investigation and Trial) Act,  2021 (No. XXX of 2021).\n3. Scheduling of trial.(1) After framing the charge, on the first day when a case is received for trial. a scheduling hearing shall be held with all parties' counsel. l. a scheduling hearing shall be held with all parties' counsel. A trial schedule shall be issued, which shall specify the dates for each state of the trial. The counsel of victim and accused and the special prosecutor shall be taken on board while scheduling the trial.\n- (2) For convenience, days may be earmarked for lawyers when scheduling a trial. I he judge exercising jurisdiction of the concerned Special Court shall issue a trial scheduling  certificate.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "has_case": false,
+       "section": "table_of_contents",
+       "doc_id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5",
+       "doc_type": "pdf",
+       "chunk_index": 111,
+       "is_global": true,
+       "is_roman_urdu": false,
+       "category": "legal_procedural_reference",
+       "page": 19
+      }
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c143",
+      "text": "T II\n\nStatutory Notifications (S. R. O.)\n\nGOVERNMENT OF PAKISTAN\n\n## MINISTRY OF LAW AND JUSTICE\n\n## NOTIFICATION\n\nIslamabad, the 14th February, 2023\n\n- S. R. O. I85(I)/2023.-In exercise of the powers conferred by subsection (1) of section 19 of the Anti-Rape (Investigation and Trial) Act, 2021 (XXX of 2021), the Ministry of Law and Justice, upon the recommendations of the Special Committee, is pleased to make the following rules, namely:-\n\n## CHAPTER-I Preliminary\n\n1. Short title and commencement. ly:-\n\n## CHAPTER-I Preliminary\n\n1. Short title and commencement. -(1) These rules shall be called the Anti-Rape (Investigation) Rules 2022.\n- (2) These rules shall come into force at once.\n2. Definitions. -In these rules, unless there is anything repugnant in the subject or context,--\n4. (a) 'Act' means the Anti-Rape (Investigation and Trial) Act, 2021 (No. XXX of 2021);\n5. (b) 'first information report (FIR)' means information recorded under section 154 of the Code; (FIR)' means information recorded under section 154 of the Code;\n6. (c) 'investigation officer' means an officer of a law enforcement agency empowered to investigate scheduled offences; and\n7. (d) 'SSOIU'  means  the  special  sexual  offences  investigation  unit established under section 9 of the Act.\n\n## CHAPTER-II\n\n## Duties of Officer-in-Charge and Investigation Officer",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "has_case": false,
+       "page": 26,
+       "doc_id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5",
+       "doc_type": "pdf",
+       "is_roman_urdu": false,
+       "category": "legal_procedural_reference",
+       "chunk_index": 143,
+       "is_global": true
+      }
+     },
+     {
+      "id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c110",
+      "text": "ected with offences under sections 336A, 336B, 354A, 365B, 366A. 366B, 367A, 371A, 37IB, 375, 375A, 376, 377, 377A and 377B of the Pakistan Penal Code, 1860 (Act XLV of 1860).\n\n'\n\n## EXTRAORDINARY PUBLISHED BY AUTHORITY\n\n## ISLAMABAD, MONDAY, FEBRUARY 20, 2023\n\nStatutory Notifications (S. R 0.)\n\n## GONRNMENT OF PAKISTAN\n\n## MINISTRY OF LAW AND JUSTICE\n\n## NOTIFICATION\n\nIslamabad, the I4th February, 2023 AND JUSTICE\n\n## NOTIFICATION\n\nIslamabad, the I4th February, 2023\n\n- S. R. 0. 186(1)/2023.-In exercise of powers conferred by sub-section (1) of section 19 of the Anti-Rape (Trial and Investigation) Act, 2021 (XXX of 2021), the  Ministry  of  Law  and  Justice,  upon  the  recommendations of  the  Special Committee, is pleased to make the following rules, namely:-\n\n## CHAPTER-I Preliminary\n\n1. Short title and commencement .-(1) These rules shall be called the Anti-Rape (Trial Procedure) Rules, 2022. les shall be called the Anti-Rape (Trial Procedure) Rules, 2022.\n- (2) These rules shall come into force at once.\n3. 2 Definitions. (1) I n these rules, unless there is anything repugnant in tire subject or  context.--\n4. (a) 'Act' shall mean the Anti-Rape. (Investigation and Trial) Act,  2021 (No. XXX of 2021).\n3. Scheduling of trial.(1) After framing the charge, on the first day when a case is received for trial. a scheduling hearing shall be held with all parties' counsel.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "doc_type": "pdf",
+       "page": 19,
+       "category": "legal_procedural_reference",
+       "section": "table_of_contents",
+       "is_roman_urdu": false,
+       "is_global": true,
+       "has_case": false,
+       "chunk_index": 110,
+       "doc_id": "7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5"
+      }
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1669",
+      "text": "finger printing dead bodies.\n\n\n\n- (8) One magnifying glass.\n\n\n\n- (9) One finger print impression pad and roller.\n\n\n\n- (10) One electric torch.\n\n- (11) One knife.\n\n- (12) One pair of scissors.\n\n- (13) One measuring tape 60' long.\n\n- (14) One foot-rule 2 feet long.\n\n- (15) Sealing wax and candles.\n\n- (16) Formalin diluted to 10 per cent together with chloride of lime to counteract decomposition of corpses.\n\n- (17) Cotton wool and 1 1 2 yards cloth for packing exhibits. - (17) Cotton wool and 1 1 2 yards cloth for packing exhibits.\n\n- (18) Case diary book with plate, pencil or pen, carbon paper and the usual forms required in investigation.\n\n## APPENDIX 25.18-A\n\n## RULES FOR THE PROTECTION OF SOURCES OF INFORMATION\n\nIn exercise of the powers conferred in him by section 58 of the Government of India Act, 1935, the Governor of the Punjab acting in his discretion is pleased to make the following rules :- ting in his discretion is pleased to make the following rules :-",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "has_case": false,
+       "page": 167,
+       "is_roman_urdu": false,
+       "section": "table_of_contents",
+       "category": "legal_procedural_reference",
+       "is_global": true,
+       "chunk_index": 1669,
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d",
+       "doc_type": "pdf"
+      }
+     },
+     {
+      "id": "kb-data-half:violence_against_women",
+      "text": "Yes — confirmed by the case records. Of 8 domestic-violence report(s), 4 carry a forwarded FIR number that matches a real, active FIR; the remaining 4 record no forwarded number.\n  - pkm_application:pkm-app-c9-02 → fir-97-26\n  - pkm_application:PKMAPP-C316-2 → fir-416-26\n  - pkm_application:PKMAPP-C326-1 → fir-426-26\n  - pkm_application:PKMAPP-C336-2 → fir-436-26",
+      "metadata": {
+       "source_tool": "XAGG",
+       "case_id": null,
+       "source_file": "our own case records (cross-case aggregate)",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "is_global": true
+      }
+     }
+    ],
+    "case_id": null,
+    "result": {
+     "grounded": true,
+     "off_topic": false,
+     "leaked_case_id": null,
+     "unsupported_claims": [],
+     "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are explicitly stated in Documents 2 and 3, respectively. Case records analysis (forwarded FIR numbers and absence of victim protection measures) is confirmed by Document 7.",
+     "refusal_detected": false
+    }
+   }
+  ],
+  "judge_raw": [
+   {
+    "grounded": true,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [],
+    "reason": "All claims are directly supported by cited chunks. Legal requirements (Sections 8 and 3) are explicitly stated in Documents 2 and 3, respectively. Case records analysis (forwarded FIR numbers and absence of victim protection measures) is confirmed by Document 7.",
+    "refusal_detected": false
+   }
+  ],
+  "module151_lines": [],
+  "verifier_log_lines": [
+   "Verifier: grounded=True off_topic=False leaked=None unsupported=0 — All claims are directly supported by cited chunks. Legal requirements (Sections "
+  ],
+  "evaluator_lines": [
+   "RAG tool: 7 chunk(s) to evaluator (attempt 1): 7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c21[7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf], 7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c47[7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf], 7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments upto date)_pdf_d10a4de5_c111[7_Anti-Rape (lnvestigation and Trial) Act. 2021 & Rules, 2022 (Amendments upto date).pdf], 7_Anti-Rape (lnvestigation and Trial) Act_ 2021 & Rules, 2022 (Amendments"
+  ],
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='RAG' -> sub-agent='Semantic Search'",
+   "retrieval/active: Checking our own case records alongside the legal corpus…",
+   "retrieval/active: Searching documents…",
+   "retrieval/done: 30 semantic + 30 lexical candidates",
+   "reranker/active: Re-ranking candidates…",
+   "reranker/done: Top 6 selected",
+   "evaluator/active: Checking relevance…",
+   "evaluator/done: Relevant",
+   "citation_validator/active: Verifying grounding…",
+   "citation_validator/done: Grounded",
+   "supervisor:dispatch/done: Semantic Search completed with status=ok",
+   "supervisor/done: Harness routing complete",
+   "citations/done: 7 citation(s)",
+   "memory/done: Saved to session"
+  ]
+ },
+ {
+  "id": "KB2",
+  "run": 3,
+  "arm": "varm_before",
+  "language": "en",
+  "question": "Why doesn't our system keep a record of what a witness or an accused person actually said in a police interview — is that a data gap?",
+  "expected_answer": "No, that's by design, not a gap. Under the Qanun-e-Shahadat Order, 1984, Article 38, a confession made to a police officer cannot be used as evidence against the accused, and Article 39 extends that to confessions made while in police custody unless made in the immediate presence of a magistrate. Separately, Section 162 of the Code of Criminal Procedure, 1898 bars a police-recorded statement from being used at trial except for narrow, court-controlled purposes. Because none of that content is legally usable evidence while it's in police hands, our witness records only store identity and contact details of each witness — name, CNIC, address, relationship to the complainant — and there is no field anywhere in the system for confession or interview-statement text. That's consistent with how the law scopes what a police record is meant to hold.",
+  "route": "RAG",
+  "status": "error",
+  "elapsed_s": 148.2,
+  "answer": "Writing the answer…The generated answer could not be verified as grounded in the retrieved documents.",
+  "generation": "local",
+  "local_llm_fallbacks": 0,
+  "fallback_lines": [],
+  "verifier_calls": [
+   {
+    "answer": "The system does have mechanisms to record statements made by witnesses or accused persons during police interviews. Under **Rule 25.28** of the Punjab Police Rules (Document 1), police officers may require a magistrate to record statements under **Section 164** of the Criminal Procedure Code. This ensures a reliable record of statements or confessions, which can be used as evidence in subsequent proceedings. Additionally, **Section 80** of the Indian Evidence Act (referenced in Document 4) mandates that courts presume the authenticity of statements recorded by magistrates in accordance with the law. \n\nHowever, if such procedures are not followed (e.g., confessions are not recorded by magistrates or are improperly documented), this could create gaps in evidentiary records. The system itself is not inherently lacking in this regard, but adherence to procedural requirements is critical to maintaining completeness.",
+    "chunk_ids": [
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1521",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c48",
+     "2_qanun-e-shahadat-order-1984_pdf_3e604153_c176",
+     "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1696",
+     "2_qanun-e-shahadat-order-1984_pdf_3e604153_c90"
+    ],
+    "cited_chunks": [
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1521",
+      "text": "hey may also be used to check the reliability of local trackers.\n\nRule 25.27\n\n25.27.  Confessions. - The orders of the High Court by which magistrates are bound in respect of the record of statements or confessions are contained in Appendix No. 25.27. All supervising and investigating police officers must familiarise themselves with these instructions and conform strictly to them in producing accused persons for the record of their statements.\n\nRule 25.28\n\n25.28.  Statements recorded by magistrates. ements.\n\nRule 25.28\n\n25.28.  Statements recorded by magistrates. - (1) The circumstances under which police officers may require a statement to be recorded by a magistrate are as follows :-\n\n- (a) The statement, made in the course of an investigation by a witness or an accused person, and not amounting to a confession, may be recorded by a magistrate under Section 164, Code of Criminal Procedure, in order that it may be available as evidence at a later stage. in order that it may be available as evidence at a later stage.  Such statements may be recorded in any of the manners prescribed for recording evidence.\n- (b) A confession may be recorded under Section 164, Criminal Procedure Code, irrespective of the tender of a pardon, and of whether it involves more persons than the individual accused making it.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "is_global": true,
+       "doc_type": "pdf",
+       "chunk_index": 1521,
+       "has_case": false,
+       "category": "legal_procedural_reference",
+       "is_roman_urdu": false,
+       "page": 153,
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d"
+      }
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c48",
+      "text": "istance to an absconder.\n\nRule 21.6\n\n21.6.  Reports and records. - In order that continuity in the method of administration outlined in rule 21.1 may not be lost owing to changes of personnel, the proper maintenance  of  those  reports,  records  and  notes  which  review  the  history  of  the  criminal administration of a district, or from which information  regarding individuals  and past events may be  obtained, is essential. ing individuals  and past events may be  obtained, is essential.  Apart from  personal records of police officers, police station records  and inspection notes, referred to in other chapters  of these rules, such records comprise:-\n\n- (i)  Transfer of charge memoranda (rule 21.7).\n- (ii)  Confidential note books (rule 21.8).\n- (iii)  Weekly diaries I and II (rule 21.9 et. seq. ).\n- (iv)  Monthly crime reports (rule 21.15).\n- (v)  Annual Police Administration reports (rule 21.16). 1.15).\n- (v)  Annual Police Administration reports (rule 21.16).\n- (vi)  Annual reports on the administration of the Criminal Tribes Act (rule 21.18).\n- (vii)  Reports on political events or meetings (rule 21.19).\n- (viii) Reports on important  fares and festivals (rule  21.20).\n\nRule 21.7\n\n21.7.  Transfer of charge memoranda.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "category": "legal_procedural_reference",
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d",
+       "chunk_index": 48,
+       "section": "table_of_contents",
+       "has_case": false,
+       "doc_type": "pdf",
+       "is_global": true,
+       "is_roman_urdu": false,
+       "page": 4
+      }
+     },
+     {
+      "id": "2_qanun-e-shahadat-order-1984_pdf_3e604153_c176",
+      "text": "37.  Confession  caused  by  inducement,  threat  or  promise,  when  irrelevant  in criminal proceeding: A confession made by an accused person is irrelevant in a criminal proceeding, if the making of the confession appears to the Court to have been caused by any inducement, threat or promise having reference to the charge against the accused person, proceeding from a person in authority and sufficient, in the opinion of the Court, to give the accused person grounds which would appear to him reasonable, the accused person grounds which would appear to him reasonable, for supposing that by making it he would gain any advantage or avoid any evil of a temporal nature in reference to the proceedings against him.\n\n38.  Confession  to  police  officer  not  to  be  proved: No  confession  made  to  a  police officer shall be proved as against a person accused of any offence. icer shall be proved as against a person accused of any offence.\n\n39. Confession by accused while in custody of police not to be proved against him: Subject to Article 10, no confession made by any person whilst he is in the custody of a police  officer,  unless  it  be  made  in  the  immediate  presence  of  a  Magistrate,  shall  be proved as against person.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "2_qanun-e-shahadat-order-1984.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "doc_id": "2_qanun-e-shahadat-order-1984_pdf_3e604153",
+       "is_global": true,
+       "page": 29,
+       "category": "legal_procedural_reference",
+       "has_case": false,
+       "doc_type": "pdf",
+       "is_roman_urdu": false,
+       "chunk_index": 176
+      }
+     },
+     {
+      "id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1696",
+      "text": "on of accused persons during the course of the enquiry or trial.  Section 364 prescribes the manner in which the examination of accused persons is to be recorded.\n\n2.  The object of section 164, Criminal Procedure Code, is to provide a method of securing a reliable record of statements or confessions made during the course of the police investigation, which could be used, if necessary, during the enquiry or trial. which could be used, if necessary, during the enquiry or trial.  Under Section 25 of the Indiana Evidence Act, a confession to a police officer is inadmissible in evidence, and hence when an accused person confesses during police investigation the police frequently get it recorded by a Magistrate under Section 164, Criminal Procedure Code, and it can then be used to the extent to which it may be admissible under the Indian Evidence Act. ent to which it may be admissible under the Indian Evidence Act.\n\n3.  Under section 80 of the Indian Evidence Act, a Court is bound to presume that a statement of confession of an accused person taken in accordance with law and purporting to be signed by any judge or Magistrate is genuine, and that the certificate or note as to the circumstances under which it was taken, purporting to be made by the persons signing it, are true, and that such statement or confession was duly taken.",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "4_Punjab-Police-Rules-III.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "is_global": true,
+       "is_roman_urdu": false,
+       "doc_id": "4_Punjab-Police-Rules-III_pdf_68bb5d0d",
+       "doc_type": "pdf",
+       "category": "legal_procedural_reference",
+       "has_case": false,
+       "page": 170,
+       "chunk_index": 1696
+      }
+     },
+     {
+      "id": "2_qanun-e-shahadat-order-1984_pdf_3e604153_c90",
+      "text": "to expose, such witness to a penalty or forfeiture of any kind:\n\nProvided that no such answer, which a witness shall be compelled to give shall subject him  to  any  arrest  or  prosecution,  or  be  proved  against  him  in  any  criminal  proceeding, except a prosecution for giving false evidence by such answer. , except a prosecution for giving false evidence by such answer.\n\n16.  Accomplice; An  accomplice  shall  be  a  competent  witness  against  an  accused person,  except  in  the  case  of  an  offence  punishable  with  hadd  and  a  conviction  is  not illegal merely because it proceeds upon the uncorroborated testimony of an accomplice. it proceeds upon the uncorroborated testimony of an accomplice.\n\n17. Competence and number of witnesses: (1) The competence of a person to testify, and the number of witnesses required in any case shall be determined in accordance With the injunctions of Islam as laid down in the Holy Qur'an and Sunnah:\"\n\n(2)  Unless  otherwise  provided  in  any  law  relating  to  the  enforcement  of  Hudood  or  any other special law: -",
+      "metadata": {
+       "source_tool": "RAG",
+       "case_id": null,
+       "source_file": "2_qanun-e-shahadat-order-1984.pdf",
+       "confidence": null,
+       "confidence_status": "not_computed",
+       "page": 16,
+       "doc_id": "2_qanun-e-shahadat-order-1984_pdf_3e604153",
+       "section": null,
+       "category": "legal_procedural_reference",
+       "district": null,
+       "doc_type": "pdf",
+       "has_case": false,
+       "is_global": true,
+       "project_id": null,
+       "chunk_index": 90,
+       "external_id": null,
+       "record_date": null,
+       "record_type": null,
+       "source_type": null,
+       "station_code": null,
+       "is_roman_urdu": false,
+       "source_system": null,
+       "fir_display_code": null,
+       "content_provenance": null
+      }
+     }
+    ],
+    "case_id": null,
+    "result": {
+     "grounded": false,
+     "off_topic": false,
+     "leaked_case_id": null,
+     "unsupported_claims": [
+      "If such procedures are not followed (e.g., confessions are not recorded by magistrates or are improperly documented), this could create gaps in evidentiary records — not stated in any cited chunk."
+     ],
+     "reason": "The claim about gaps in evidentiary records due to non-compliance is not supported by any chunk, which only describe procedural requirements without addressing consequences of non-adherence.",
+     "refusal_detected": false
+    }
+   }
+  ],
+  "judge_raw": [
+   {
+    "grounded": false,
+    "off_topic": false,
+    "leaked_case_id": null,
+    "unsupported_claims": [
+     "If such procedures are not followed (e.g., confessions are not recorded by magistrates or are improperly documented), this could create gaps in evidentiary records — not stated in any cited chunk."
+    ],
+    "reason": "The claim about gaps in evidentiary records due to non-compliance is not supported by any chunk, which only describe procedural requirements without addressing consequences of non-adherence.",
+    "refusal_detected": false
+   }
+  ],
+  "module151_lines": [],
+  "verifier_log_lines": [
+   "Verifier: grounded=False off_topic=False leaked=None unsupported=1 — The claim about gaps in evidentiary records due to non-compliance is not support",
+   "Semantic Search: verifier rejected answer: The claim about gaps in evidentiary records due to non-compliance is not supported by any chunk, which only describe procedural requirements without a"
+  ],
+  "evaluator_lines": [
+   "RAG tool: 5 chunk(s) to evaluator (attempt 1): 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1521[4_Punjab-Police-Rules-III.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c48[4_Punjab-Police-Rules-III.pdf], 2_qanun-e-shahadat-order-1984_pdf_3e604153_c176[2_qanun-e-shahadat-order-1984.pdf], 4_Punjab-Police-Rules-III_pdf_68bb5d0d_c1696[4_Punjab-Police-Rules-III.pdf], 2_qanun-e-shahadat-order-1984_pdf_3e604153_c90[2_qanun-e-shahadat-order-1984.pdf]"
+  ],
+  "steps": [
+   "supervisor/active: Routing through the agent harness...",
+   "supervisor:dispatch/active: Classified query as route='RAG' -> sub-agent='Semantic Search'",
+   "retrieval/active: Searching documents…",
+   "retrieval/done: 30 semantic + 30 lexical candidates",
+   "reranker/active: Re-ranking candidates…",
+   "reranker/done: Top 5 selected",
+   "evaluator/active: Checking relevance…",
+   "evaluator/done: Relevant",
+   "citation_validator/active: Verifying grounding…",
+   "citation_validator/error: Not grounded — answer rejected",
+   "supervisor:dispatch/done: Semantic Search completed with status=abstained",
+   "supervisor/done: Harness routing complete"
+  ]
+ }
+]
