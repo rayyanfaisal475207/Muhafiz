@@ -329,7 +329,7 @@ returns `output_format="file_docx"` for it today (checked in-process:
 "chat"`) sends it to the legacy orchestrator, whose XNETWORK gate refuses
 (nearest cluster 0.186 vs 0.145). Module 116 got `chat` for the same text
 on 2026-09-14. No `supervisor` line is emitted at all, so no selection
-clause — trigger or semantic — is consulted. Filed as **179**.
+clause — trigger or semantic — is consulted. Filed as **180**.
 
 Raw: `module158_live/module158_m116_after.json`, `module158_m116_g6ur_rerun.json`.
 
@@ -378,7 +378,7 @@ the layer read it correctly and never got to say so, because a phrase kind
 that is *not* one of `_GENERIC_AGGREGATE_KINDS` counts as "XAGG answers this
 in one call" (`_xagg_answers_in_one_call()`), and `top_districts_by` is
 purpose-built. Module 145 met the same wall one tier over (row 165, the
-refusal tier). Filed as **180**; not special-cased.
+refusal tier). Filed as **181**; not special-cased.
 
 Module 79's four pre-written paraphrases (`module79_paraphrases.json`) all
 select Meta-Analysis through the plan clause (unit-pinned, 4/4); they were
@@ -594,7 +594,7 @@ run sits on it, not over it. No other question fell back. **Total wall
 Highest number in use on `origin/main` at filing: **177** (Module 161's
 174–177 merged as PR #99 while this module ran; it was 173 when these were
 numbered, and 178 was chosen to stay clear of 161's open PR). These start at
-**178**. All four are rows on the tracker as well as here.
+**179**. All four are rows on the tracker as well as here.
 
 **178 — Semantic selection selects the sub-agent, not its plan.**
 `meta_analysis._match_decomposition_plan()` is still pattern-only, so a
